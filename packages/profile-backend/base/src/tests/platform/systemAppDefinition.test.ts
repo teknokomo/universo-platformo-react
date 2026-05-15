@@ -36,29 +36,29 @@ describe('profile system app definition contract', () => {
         expect(profileSystemAppDefinition.targetStorageModel).toBe('application_like')
         expect(profileSystemAppDefinition.currentStructureCapabilities).toEqual({
             appCoreTables: true,
-            catalogTables: true,
+            objectTables: true,
             documentTables: false,
             relationTables: false,
             settingsTables: true,
             layoutTables: false,
             widgetTables: false,
-            attributeValueTables: false
+            componentValueTables: false
         })
         expect(profileSystemAppDefinition.targetStructureCapabilities).toEqual({
             appCoreTables: true,
-            catalogTables: true,
+            objectTables: true,
             documentTables: false,
             relationTables: false,
             settingsTables: true,
             layoutTables: false,
             widgetTables: false,
-            attributeValueTables: false
+            componentValueTables: false
         })
         expect(profileSystemAppDefinition.currentBusinessTables).toEqual([
             expect.objectContaining({
-                kind: 'catalog',
+                kind: 'object',
                 codename: 'profiles',
-                tableName: 'cat_profiles',
+                tableName: 'obj_profiles',
                 presentation: expect.objectContaining({
                     name: expect.objectContaining({
                         locales: expect.objectContaining({
@@ -74,7 +74,7 @@ describe('profile system app definition contract', () => {
                         physicalColumnName: 'nickname',
                         dataType: 'STRING',
                         isRequired: true,
-                        isDisplayAttribute: true,
+                        isDisplayComponent: true,
                         presentation: expect.objectContaining({
                             name: expect.objectContaining({
                                 locales: expect.objectContaining({
@@ -136,9 +136,9 @@ describe('profile system app definition contract', () => {
         const upSql = normalizeSql(addProfileMigrationDefinition.up.map((statement) => statement.sql).join('\n'))
 
         for (const fragment of [
-            expectedSafePolicyDrop('Allow users to view own profile', 'profiles', 'cat_profiles'),
-            expectedSafePolicyDrop('Allow users to update own profile', 'profiles', 'cat_profiles'),
-            expectedSafePolicyDrop('Allow profile creation for existing users', 'profiles', 'cat_profiles')
+            expectedSafePolicyDrop('Allow users to view own profile', 'profiles', 'obj_profiles'),
+            expectedSafePolicyDrop('Allow users to update own profile', 'profiles', 'obj_profiles'),
+            expectedSafePolicyDrop('Allow profile creation for existing users', 'profiles', 'obj_profiles')
         ]) {
             expect(upSql).toContain(fragment)
         }

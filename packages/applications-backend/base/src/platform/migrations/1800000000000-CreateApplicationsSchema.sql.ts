@@ -38,7 +38,7 @@ const buildActiveApplicationExistsSql = (applicationIdSql: string, extraPredicat
     `
 EXISTS (
     SELECT 1
-    FROM applications.cat_applications a
+    FROM applications.obj_applications a
     WHERE a.id = ${applicationIdSql}
       AND a._upl_deleted = false
       AND a._app_deleted = false
@@ -108,7 +108,7 @@ export const createApplicationsSchemaMigrationDefinition: SqlMigrationDefinition
         },
         {
             sql: `
-                CREATE TABLE IF NOT EXISTS applications.cat_applications (
+                CREATE TABLE IF NOT EXISTS applications.obj_applications (
                     id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                     name JSONB NOT NULL DEFAULT '{}',
                     description JSONB DEFAULT '{}',
@@ -157,34 +157,34 @@ export const createApplicationsSchemaMigrationDefinition: SqlMigrationDefinition
         {
             sql: `
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_applications_slug_active
-                ON applications.cat_applications (slug)
+                ON applications.obj_applications (slug)
                 WHERE _upl_deleted = false AND _app_deleted = false AND slug IS NOT NULL
             `
         },
         {
             sql: `
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_applications_schema_name_active
-                ON applications.cat_applications (schema_name)
+                ON applications.obj_applications (schema_name)
                 WHERE _upl_deleted = false AND _app_deleted = false AND schema_name IS NOT NULL
             `
         },
         {
             sql: `
                 CREATE INDEX IF NOT EXISTS idx_applications_deleted
-                ON applications.cat_applications (_upl_deleted_at)
+                ON applications.obj_applications (_upl_deleted_at)
                 WHERE _upl_deleted = true
             `
         },
         {
             sql: `
                 CREATE INDEX IF NOT EXISTS idx_applications_archived
-                ON applications.cat_applications (_upl_archived)
+                ON applications.obj_applications (_upl_archived)
                 WHERE _upl_archived = true
             `
         },
         {
             sql: `
-                CREATE TABLE IF NOT EXISTS applications.cat_connectors (
+                CREATE TABLE IF NOT EXISTS applications.obj_connectors (
                     id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                     application_id UUID NOT NULL,
                     name JSONB NOT NULL DEFAULT '{}',
@@ -219,7 +219,7 @@ export const createApplicationsSchemaMigrationDefinition: SqlMigrationDefinition
                     _app_deleted_by UUID,
                     _app_owner_id UUID,
                     _app_access_level VARCHAR(20) NOT NULL DEFAULT 'private',
-                    FOREIGN KEY (application_id) REFERENCES applications.cat_applications(id) ON DELETE CASCADE
+                    FOREIGN KEY (application_id) REFERENCES applications.obj_applications(id) ON DELETE CASCADE
                 )
             `
         },
@@ -258,7 +258,7 @@ export const createApplicationsSchemaMigrationDefinition: SqlMigrationDefinition
                     _app_deleted_by UUID,
                     _app_owner_id UUID,
                     _app_access_level VARCHAR(20) NOT NULL DEFAULT 'private',
-                    FOREIGN KEY (connector_id) REFERENCES applications.cat_connectors(id) ON DELETE CASCADE
+                    FOREIGN KEY (connector_id) REFERENCES applications.obj_connectors(id) ON DELETE CASCADE
                 )
             `
         },
@@ -320,7 +320,7 @@ export const createApplicationsSchemaMigrationDefinition: SqlMigrationDefinition
                     _app_deleted_by UUID,
                     _app_owner_id UUID,
                     _app_access_level VARCHAR(20) NOT NULL DEFAULT 'private',
-                    FOREIGN KEY (application_id) REFERENCES applications.cat_applications(id) ON DELETE CASCADE
+                    FOREIGN KEY (application_id) REFERENCES applications.obj_applications(id) ON DELETE CASCADE
                 )
             `
         },
@@ -353,16 +353,16 @@ export const createApplicationsSchemaMigrationDefinition: SqlMigrationDefinition
             sql: `CREATE INDEX IF NOT EXISTS idx_au_user ON applications.rel_application_users(user_id)`
         },
         {
-            sql: `CREATE INDEX IF NOT EXISTS idx_connectors_application ON applications.cat_connectors(application_id)`
+            sql: `CREATE INDEX IF NOT EXISTS idx_connectors_application ON applications.obj_connectors(application_id)`
         },
         {
-            sql: `CREATE INDEX IF NOT EXISTS idx_application_slug ON applications.cat_applications(slug)`
+            sql: `CREATE INDEX IF NOT EXISTS idx_application_slug ON applications.obj_applications(slug)`
         },
         {
-            sql: `CREATE INDEX IF NOT EXISTS idx_application_schema_name ON applications.cat_applications(schema_name)`
+            sql: `CREATE INDEX IF NOT EXISTS idx_application_schema_name ON applications.obj_applications(schema_name)`
         },
         {
-            sql: `CREATE INDEX IF NOT EXISTS idx_application_schema_status ON applications.cat_applications(schema_status)`
+            sql: `CREATE INDEX IF NOT EXISTS idx_application_schema_status ON applications.obj_applications(schema_status)`
         },
         {
             sql: `CREATE INDEX IF NOT EXISTS idx_cp_connector ON applications.rel_connector_publications(connector_id)`
@@ -371,19 +371,19 @@ export const createApplicationsSchemaMigrationDefinition: SqlMigrationDefinition
             sql: `CREATE INDEX IF NOT EXISTS idx_cp_publication ON applications.rel_connector_publications(publication_id)`
         },
         {
-            sql: `CREATE INDEX IF NOT EXISTS idx_application_name_gin ON applications.cat_applications USING GIN (name)`
+            sql: `CREATE INDEX IF NOT EXISTS idx_application_name_gin ON applications.obj_applications USING GIN (name)`
         },
         {
-            sql: `CREATE INDEX IF NOT EXISTS idx_connector_name_gin ON applications.cat_connectors USING GIN (name)`
+            sql: `CREATE INDEX IF NOT EXISTS idx_connector_name_gin ON applications.obj_connectors USING GIN (name)`
         },
         {
-            sql: `ALTER TABLE applications.cat_applications ENABLE ROW LEVEL SECURITY;`
+            sql: `ALTER TABLE applications.obj_applications ENABLE ROW LEVEL SECURITY;`
         },
         {
             sql: `ALTER TABLE applications.rel_application_users ENABLE ROW LEVEL SECURITY;`
         },
         {
-            sql: `ALTER TABLE applications.cat_connectors ENABLE ROW LEVEL SECURITY;`
+            sql: `ALTER TABLE applications.obj_connectors ENABLE ROW LEVEL SECURITY;`
         },
         {
             sql: `ALTER TABLE applications.rel_connector_publications ENABLE ROW LEVEL SECURITY;`
@@ -394,12 +394,12 @@ export const createApplicationsSchemaMigrationDefinition: SqlMigrationDefinition
         createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.insertMemberships, 'applications', 'rel_application_users'),
         createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.updateMemberships, 'applications', 'rel_application_users'),
         createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.leaveApplications, 'applications', 'rel_application_users'),
-        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.readVisibleApps, 'applications', 'cat_applications'),
-        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.createApps, 'applications', 'cat_applications'),
-        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.updateApps, 'applications', 'cat_applications'),
-        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.readConnectors, 'applications', 'cat_connectors'),
-        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.insertConnectors, 'applications', 'cat_connectors'),
-        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.updateConnectors, 'applications', 'cat_connectors'),
+        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.readVisibleApps, 'applications', 'obj_applications'),
+        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.createApps, 'applications', 'obj_applications'),
+        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.updateApps, 'applications', 'obj_applications'),
+        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.readConnectors, 'applications', 'obj_connectors'),
+        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.insertConnectors, 'applications', 'obj_connectors'),
+        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.updateConnectors, 'applications', 'obj_connectors'),
         createDropPolicyIfTableExistsStatement(
             APPLICATION_POLICY_NAMES.readConnectorPublications,
             'applications',
@@ -504,18 +504,18 @@ export const createApplicationsSchemaMigrationDefinition: SqlMigrationDefinition
         },
         {
             sql: `
-                CREATE POLICY "${APPLICATION_POLICY_NAMES.readVisibleApps}" ON applications.cat_applications
+                CREATE POLICY "${APPLICATION_POLICY_NAMES.readVisibleApps}" ON applications.obj_applications
                 FOR SELECT
                 USING (
                     is_public = true
-                    OR ${buildActiveMembershipExistsSql('applications.cat_applications.id')}
+                    OR ${buildActiveMembershipExistsSql('applications.obj_applications.id')}
                     OR ${IS_SUPERUSER_SQL}
                 )
             `
         },
         {
             sql: `
-                CREATE POLICY "${APPLICATION_POLICY_NAMES.createApps}" ON applications.cat_applications
+                CREATE POLICY "${APPLICATION_POLICY_NAMES.createApps}" ON applications.obj_applications
                 FOR INSERT
                 WITH CHECK (
                     _upl_created_by = ${AUTH_UID_SQL}
@@ -525,48 +525,48 @@ export const createApplicationsSchemaMigrationDefinition: SqlMigrationDefinition
         },
         {
             sql: `
-                CREATE POLICY "${APPLICATION_POLICY_NAMES.updateApps}" ON applications.cat_applications
+                CREATE POLICY "${APPLICATION_POLICY_NAMES.updateApps}" ON applications.obj_applications
                 FOR UPDATE
                 USING (
-                    ${buildActiveMembershipExistsSql('applications.cat_applications.id', ['owner', 'admin'])}
+                    ${buildActiveMembershipExistsSql('applications.obj_applications.id', ['owner', 'admin'])}
                     OR ${IS_SUPERUSER_SQL}
                 )
                 WITH CHECK (
-                    ${buildActiveMembershipExistsSql('applications.cat_applications.id', ['owner', 'admin'])}
+                    ${buildActiveMembershipExistsSql('applications.obj_applications.id', ['owner', 'admin'])}
                     OR ${IS_SUPERUSER_SQL}
                 )
             `
         },
         {
             sql: `
-                CREATE POLICY "${APPLICATION_POLICY_NAMES.readConnectors}" ON applications.cat_connectors
+                CREATE POLICY "${APPLICATION_POLICY_NAMES.readConnectors}" ON applications.obj_connectors
                 FOR SELECT
                 USING (
-                    ${buildActiveMembershipExistsSql('applications.cat_connectors.application_id')}
+                    ${buildActiveMembershipExistsSql('applications.obj_connectors.application_id')}
                     OR ${IS_SUPERUSER_SQL}
                 )
             `
         },
         {
             sql: `
-                CREATE POLICY "${APPLICATION_POLICY_NAMES.insertConnectors}" ON applications.cat_connectors
+                CREATE POLICY "${APPLICATION_POLICY_NAMES.insertConnectors}" ON applications.obj_connectors
                 FOR INSERT
                 WITH CHECK (
-                    ${buildActiveMembershipExistsSql('applications.cat_connectors.application_id', ['owner', 'admin', 'editor'])}
+                    ${buildActiveMembershipExistsSql('applications.obj_connectors.application_id', ['owner', 'admin', 'editor'])}
                     OR ${IS_SUPERUSER_SQL}
                 )
             `
         },
         {
             sql: `
-                CREATE POLICY "${APPLICATION_POLICY_NAMES.updateConnectors}" ON applications.cat_connectors
+                CREATE POLICY "${APPLICATION_POLICY_NAMES.updateConnectors}" ON applications.obj_connectors
                 FOR UPDATE
                 USING (
-                    ${buildActiveMembershipExistsSql('applications.cat_connectors.application_id', ['owner', 'admin', 'editor'])}
+                    ${buildActiveMembershipExistsSql('applications.obj_connectors.application_id', ['owner', 'admin', 'editor'])}
                     OR ${IS_SUPERUSER_SQL}
                 )
                 WITH CHECK (
-                    ${buildActiveMembershipExistsSql('applications.cat_connectors.application_id', ['owner', 'admin', 'editor'])}
+                    ${buildActiveMembershipExistsSql('applications.obj_connectors.application_id', ['owner', 'admin', 'editor'])}
                     OR ${IS_SUPERUSER_SQL}
                 )
             `
@@ -577,7 +577,7 @@ export const createApplicationsSchemaMigrationDefinition: SqlMigrationDefinition
                 FOR SELECT
                 USING (
                     ${buildActiveMembershipExistsSql(
-                        '(SELECT c.application_id FROM applications.cat_connectors c WHERE c.id = applications.rel_connector_publications.connector_id)'
+                        '(SELECT c.application_id FROM applications.obj_connectors c WHERE c.id = applications.rel_connector_publications.connector_id)'
                     )}
                     OR ${IS_SUPERUSER_SQL}
                 )
@@ -589,7 +589,7 @@ export const createApplicationsSchemaMigrationDefinition: SqlMigrationDefinition
                 FOR INSERT
                 WITH CHECK (
                     ${buildActiveMembershipExistsSql(
-                        '(SELECT c.application_id FROM applications.cat_connectors c WHERE c.id = applications.rel_connector_publications.connector_id)',
+                        '(SELECT c.application_id FROM applications.obj_connectors c WHERE c.id = applications.rel_connector_publications.connector_id)',
                         ['owner', 'admin', 'editor']
                     )}
                     OR ${IS_SUPERUSER_SQL}
@@ -602,14 +602,14 @@ export const createApplicationsSchemaMigrationDefinition: SqlMigrationDefinition
                 FOR UPDATE
                 USING (
                     ${buildActiveMembershipExistsSql(
-                        '(SELECT c.application_id FROM applications.cat_connectors c WHERE c.id = applications.rel_connector_publications.connector_id)',
+                        '(SELECT c.application_id FROM applications.obj_connectors c WHERE c.id = applications.rel_connector_publications.connector_id)',
                         ['owner', 'admin', 'editor']
                     )}
                     OR ${IS_SUPERUSER_SQL}
                 )
                 WITH CHECK (
                     ${buildActiveMembershipExistsSql(
-                        '(SELECT c.application_id FROM applications.cat_connectors c WHERE c.id = applications.rel_connector_publications.connector_id)',
+                        '(SELECT c.application_id FROM applications.obj_connectors c WHERE c.id = applications.rel_connector_publications.connector_id)',
                         ['owner', 'admin', 'editor']
                     )}
                     OR ${IS_SUPERUSER_SQL}
@@ -633,12 +633,12 @@ export const createApplicationsSchemaMigrationDefinition: SqlMigrationDefinition
             'applications',
             'rel_connector_publications'
         ),
-        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.updateConnectors, 'applications', 'cat_connectors'),
-        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.insertConnectors, 'applications', 'cat_connectors'),
-        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.readConnectors, 'applications', 'cat_connectors'),
-        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.updateApps, 'applications', 'cat_applications'),
-        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.createApps, 'applications', 'cat_applications'),
-        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.readVisibleApps, 'applications', 'cat_applications'),
+        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.updateConnectors, 'applications', 'obj_connectors'),
+        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.insertConnectors, 'applications', 'obj_connectors'),
+        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.readConnectors, 'applications', 'obj_connectors'),
+        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.updateApps, 'applications', 'obj_applications'),
+        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.createApps, 'applications', 'obj_applications'),
+        createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.readVisibleApps, 'applications', 'obj_applications'),
         createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.leaveApplications, 'applications', 'rel_application_users'),
         createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.updateMemberships, 'applications', 'rel_application_users'),
         createDropPolicyIfTableExistsStatement(APPLICATION_POLICY_NAMES.insertMemberships, 'applications', 'rel_application_users'),
@@ -649,10 +649,10 @@ export const createApplicationsSchemaMigrationDefinition: SqlMigrationDefinition
             sql: `ALTER TABLE applications.rel_connector_publications DISABLE ROW LEVEL SECURITY;`
         },
         {
-            sql: `ALTER TABLE applications.cat_connectors DISABLE ROW LEVEL SECURITY;`
+            sql: `ALTER TABLE applications.obj_connectors DISABLE ROW LEVEL SECURITY;`
         },
         {
-            sql: `ALTER TABLE applications.cat_applications DISABLE ROW LEVEL SECURITY;`
+            sql: `ALTER TABLE applications.obj_applications DISABLE ROW LEVEL SECURITY;`
         },
         {
             sql: `ALTER TABLE applications.rel_application_users DISABLE ROW LEVEL SECURITY;`
@@ -706,13 +706,13 @@ export const createApplicationsSchemaMigrationDefinition: SqlMigrationDefinition
             sql: `DROP TABLE IF EXISTS applications.rel_connector_publications`
         },
         {
-            sql: `DROP TABLE IF EXISTS applications.cat_connectors`
+            sql: `DROP TABLE IF EXISTS applications.obj_connectors`
         },
         {
             sql: `DROP TABLE IF EXISTS applications.rel_application_users`
         },
         {
-            sql: `DROP TABLE IF EXISTS applications.cat_applications`
+            sql: `DROP TABLE IF EXISTS applications.obj_applications`
         },
         {
             sql: `DROP TYPE IF EXISTS applications.application_schema_status`
@@ -758,13 +758,13 @@ export const addApplicationSettingsMigrationDefinition: SqlMigrationDefinition =
     up: [
         {
             sql: `
-ALTER TABLE applications.cat_applications
+ALTER TABLE applications.obj_applications
 ADD COLUMN IF NOT EXISTS settings JSONB NOT NULL DEFAULT '{}'::jsonb;
             `
         },
         {
             sql: `
-UPDATE applications.cat_applications
+UPDATE applications.obj_applications
 SET settings = '{}'::jsonb
 WHERE settings IS NULL;
             `
@@ -773,7 +773,7 @@ WHERE settings IS NULL;
     down: [
         {
             sql: `
-ALTER TABLE applications.cat_applications
+ALTER TABLE applications.obj_applications
 DROP COLUMN IF EXISTS settings;
             `
         }

@@ -714,7 +714,7 @@ export function createFixedValuesController(createHandler: ReturnType<typeof cre
             }
 
             const compatibleValueGroupKinds = await resolveEntityMetadataKinds(entityTypeService, metahubId, 'set', userId)
-            const blocked = await fixedValuesService.findAttributeReferenceBlockersByConstant(
+            const blocked = await fixedValuesService.findComponentReferenceBlockersByConstant(
                 metahubId,
                 valueGroupId,
                 fixedValueId,
@@ -723,7 +723,7 @@ export function createFixedValuesController(createHandler: ReturnType<typeof cre
             )
             if (blocked) {
                 return res.status(409).json({
-                    error: 'Cannot delete fixed value because it is referenced by REF field definitions',
+                    error: 'Cannot delete fixed value because it is referenced by REF components',
                     code: 'CONSTANT_DELETE_BLOCKED_BY_REFERENCES'
                 })
             }

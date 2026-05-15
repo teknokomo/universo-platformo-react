@@ -1,4 +1,9 @@
 {
+    "table": {
+        "type": "Type",
+        "name": "Name",
+        "codename": "Codename"
+    },
     "metahubs": {
         "title": "Metahubs",
         "searchPlaceholder": "Search metahubs...",
@@ -101,10 +106,10 @@
                     "interval": "All time",
                     "description": "Total hubs in this metahub"
                 },
-                "catalogs": {
-                    "title": "Catalogs",
+                "objects": {
+                    "title": "Objects",
                     "interval": "All time",
-                    "description": "Total catalogs in this metahub"
+                    "description": "Total objects in this metahub"
                 }
             },
             "documentation": {
@@ -288,12 +293,12 @@
             "description": "Configure dashboard zones and widgets.",
             "dragHint": "Drag widgets between zones to change runtime composition.",
             "addWidget": "Add widget",
-            "widgetCatalogTitle": "Available widgets",
+            "widgetObjectTitle": "Available widgets",
             "inheritedBadge": "Inherited",
-            "catalogBehaviorTitleGlobal": "Default entity runtime behavior",
-            "catalogBehaviorTitleCatalog": "Entity runtime behavior",
-            "catalogBehaviorDescriptionGlobal": "These settings define the default create/search behavior for entities that use this global layout until an entity-specific layout overrides it.",
-            "catalogBehaviorDescriptionCatalog": "This scoped layout overrides the create/search behavior inherited from its global base layout.",
+            "objectBehaviorTitleGlobal": "Default entity runtime behavior",
+            "objectBehaviorTitleObject": "Entity runtime behavior",
+            "objectBehaviorDescriptionGlobal": "These settings define the default create/search behavior for entities that use this global layout until an entity-specific layout overrides it.",
+            "objectBehaviorDescriptionObject": "This scoped layout overrides the create/search behavior inherited from its global base layout.",
             "viewSettings": "Application View Settings",
             "showViewToggle": "Card/table view toggle",
             "defaultViewMode": "Default view mode",
@@ -395,6 +400,22 @@
             "languageSwitcher": "Language switcher",
             "footer": "Footer"
         },
+        "widgetBehaviorEditor": {
+            "title": "Widget behavior",
+            "description": "Configure how inherited entity layouts can override this inherited widget."
+        },
+        "widgetScopeVisibility": {
+            "title": "Visibility by entity",
+            "description": "Disable this global widget for selected entities. A scoped layout is created automatically when a visibility override is saved.",
+            "loadError": "Failed to load entity visibility overrides.",
+            "empty": "No entity types with custom layouts are available in this metahub yet.",
+            "unnamedEntity": "Unnamed entity",
+            "entityMeta": "{{kind}}{{codename}}",
+            "overridden": "Overridden",
+            "inherited": "Inherited",
+            "scopedLayout": "Scoped layout",
+            "toggleAria": "Toggle widget visibility for {{name}}"
+        },
         "columnsEditor": {
             "title": "Columns Container",
             "description": "Configure columns for this container. Each column can render one or more widgets stacked vertically. Widths use a 12-column grid.",
@@ -407,16 +428,16 @@
         },
         "quizEditor": {
             "title": "Quiz widget",
-            "description": "Bind the quiz widget to a published widget script. The runtime resolves metahub-wide or current-catalog scripts by codename.",
+            "description": "Bind the quiz widget to a published widget script. The runtime resolves metahub-wide or current-object scripts by codename.",
             "loadError": "Failed to load available quiz scripts for this metahub.",
             "noScripts": "No active widget scripts with client methods are available for the selected attachment kind yet.",
             "widgetTitle": "Widget title override",
             "widgetDescription": "Widget description override",
             "attachmentKind": "Script attachment kind",
-            "attachmentKindHelp": "Catalog-scoped scripts resolve against the current catalog at runtime, while metahub scripts stay global.",
+            "attachmentKindHelp": "Object-scoped scripts resolve against the current object at runtime, while metahub scripts stay global.",
             "attachmentKinds": {
                 "metahub": "Metahub",
-                "catalog": "Current catalog"
+                "object": "Current object"
             },
             "scriptCodename": "Script codename",
             "scriptCodenameHelp": "Leave this empty only if the selected attachment kind has a single obvious quiz widget script.",
@@ -428,6 +449,7 @@
             "emptyStateTitle": "Empty state title",
             "emptyStateDescription": "Empty state description"
         },
+        "moveWidget": "Move widget",
         "zoneErrors": {
             "load": "Failed to load layout zones",
             "save": "Failed to save layout zones"
@@ -534,7 +556,7 @@
                 "fullCopy": "Full copy",
                 "copyLayouts": "Layouts",
                 "copyTreeEntities": "Hubs",
-                "copyLinkedCollections": "Catalogs",
+                "copyObjectCollections": "Objects",
                 "copyValueGroups": "Sets",
                 "copyOptionLists": "Enumerations"
             }
@@ -560,7 +582,7 @@
         },
         "tabs": {
             "general": "General",
-            "components": "Components",
+            "capabilities": "Capabilities",
             "advanced": "Advanced"
         },
         "fields": {
@@ -583,8 +605,8 @@
             "published": "Publish to dynamic menu",
             "publishedHelper": "Only published custom entity types appear in the dynamic metahub menu zone.",
             "components": "Components JSON",
-            "componentsHelper": "Full ComponentManifest JSON. Dependency rules are validated before save.",
-            "componentsHelperStructured": "Use guided toggles for the current Zerocode scope. Dependency-sensitive components are enabled and pruned automatically.",
+            "componentsHelper": "Full EntityTypeCapabilities JSON. Dependency rules are validated before save.",
+            "componentsHelperStructured": "Use guided toggles for the current Zerocode scope. Dependency-sensitive capabilities are enabled and pruned automatically.",
             "resourceTabs": "Resources section tabs",
             "resourceTabsHelper": "These titles are used by the shared Resources workspace for compatible entity capabilities.",
             "resourceSurfaceKey": "Resource tab key",
@@ -605,7 +627,7 @@
             "sidebarOrder": "Order",
             "sidebarOrderAuto": "Auto",
             "published": "Menu",
-            "components": "Components",
+            "capabilities": "Capabilities",
             "updatedAt": "Updated"
         },
         "badges": {
@@ -624,19 +646,19 @@
             "scripts": "Scripts"
         },
         "resourceSurfaces": {
-            "fieldDefinitions": "Attributes",
+            "components": "Components",
             "fixedValues": "Constants",
             "optionValues": "Values"
         },
-        "components": {
+        "capabilities": {
             "dataSchema": "Data schema",
-            "dataSchemaHelper": "Enables attribute-driven modeling and generated value editors for the entity type.",
-            "maxAttributes": "Maximum attributes",
+            "dataSchemaHelper": "Enables component-driven modeling and generated value editors for the entity type.",
+            "maxComponents": "Maximum components",
             "records": "Predefined elements",
-            "recordsHelper": "Reuses the existing predefined-element flows for catalog presets and other seeded entity types.",
+            "recordsHelper": "Reuses the existing predefined-element flows for object presets and other seeded entity types.",
             "maxElements": "Maximum predefined elements",
             "treeAssignment": "Hub assignment",
-            "treeAssignmentHelper": "Allows the entity instances page to reuse the shared hub-assignment controls and catalog-style tabs.",
+            "treeAssignmentHelper": "Allows the entity instances page to reuse the shared hub-assignment controls and object-style tabs.",
             "singleHub": "Single hub only",
             "requiredHub": "Require at least one hub",
             "hierarchy": "Hierarchy",
@@ -646,7 +668,7 @@
             "nestedCollectionsHelper": "Allows the entity schema to define repeating child collections inside the same type.",
             "maxCollections": "Maximum nested collections",
             "relations": "Relations",
-            "relationsHelper": "Enables reference attributes and relation-aware runtime behaviors for the entity type.",
+            "relationsHelper": "Enables reference components and relation-aware runtime behaviors for the entity type.",
             "allowedRelationTypes": "Allowed relation types",
             "allowedRelationTypesHelper": "Comma-separated relation kinds, for example manyToOne.",
             "actions": "Actions",
@@ -656,7 +678,7 @@
             "scripting": "Scripting",
             "scriptingHelper": "Exposes the existing EntityScriptsTab for script attachments and reuse.",
             "layoutConfig": "Layout config",
-            "layoutConfigHelper": "Enables Catalog-compatible layout configuration and the dedicated layout authoring tab.",
+            "layoutConfigHelper": "Enables Object-compatible layout configuration and the dedicated layout authoring tab.",
             "runtimeBehavior": "Runtime behavior",
             "runtimeBehaviorHelper": "Publishes layout-aware runtime behavior so the generic application surfaces can render this entity type.",
             "physicalTable": "Physical table",
@@ -726,7 +748,7 @@
                 "field": "Date field",
                 "defaultToNow": "Default to current time"
             },
-            "fieldOptionsCreateHint": "Field-bound options can be selected after attributes are created.",
+            "fieldOptionsCreateHint": "Field-bound options can be selected after components are created.",
             "lifecycle": {
                 "title": "Lifecycle",
                 "enabled": "Enable lifecycle states",
@@ -831,7 +853,7 @@
         "instances": {
             "title": "{{name}} instances",
             "description": "Manage {{name}} instances on the unified entity-owned route for kind {{kindKey}}.",
-            "linkedCollectionBanner": "This page reuses the shared catalog authoring contract on the unified entity-owned route, including catalog copy options, layouts, and scripts.",
+            "objectCollectionBanner": "This page reuses the shared object authoring contract on the unified entity-owned route, including object copy options, layouts, and scripts.",
             "searchPlaceholder": "Search entity instances...",
             "banner": "This page authors design-time instances for the selected entity kind on the unified entity-owned route surface.",
             "noManagePermission": "You do not have permission to manage entity instances for this metahub.",
@@ -855,7 +877,7 @@
             },
             "copy": {
                 "options": {
-                    "copyFieldDefinitions": "Copy field definitions",
+                    "copyComponents": "Copy components",
                     "copyRecords": "Copy records"
                 }
             },
@@ -863,7 +885,7 @@
                 "containers": "Containers",
                 "behavior": "Behavior",
                 "ledgerSchema": "Ledger schema",
-                "fieldDefinitions": "Attributes",
+                "components": "Components",
                 "content": "Content",
                 "actions": "Actions",
                 "events": "Events"
@@ -889,9 +911,9 @@
                 "emptyTitle": "No layouts",
                 "createHint": "Individual layouts can be configured after this entity is created."
             },
-            "fieldDefinitions": {
-                "emptyTitle": "No attributes yet",
-                "emptyDescription": "Create the first attribute to define the data shape for this entity."
+            "components": {
+                "emptyTitle": "No components yet",
+                "emptyDescription": "Create the first component to define the data shape for this entity."
             },
             "automation": {
                 "actions": {
@@ -984,17 +1006,17 @@
                 "title": "Delete Entity",
                 "description": "Delete entity \"{{name}}\"? You can restore it later while deleted items are visible."
             },
-            "linkedCollectionDeleteDialog": {
-                "description": "Delete catalog \"{{name}}\"? You can restore it later while deleted items are visible."
+            "objectCollectionDeleteDialog": {
+                "description": "Delete object \"{{name}}\"? You can restore it later while deleted items are visible."
             },
             "deletePermanentDialog": {
                 "title": "Delete Entity Permanently",
                 "description": "Permanently delete entity \"{{name}}\"? This action cannot be undone.",
                 "deleting": "Deleting permanently..."
             },
-            "linkedCollectionDeletePermanentDialog": {
-                "title": "Delete Catalog Permanently",
-                "description": "Permanently delete catalog \"{{name}}\"? This action cannot be undone.",
+            "objectCollectionDeletePermanentDialog": {
+                "title": "Delete Object Permanently",
+                "description": "Permanently delete object \"{{name}}\"? This action cannot be undone.",
                 "deleting": "Deleting permanently..."
             },
             "validation": {
@@ -1080,7 +1102,7 @@
                 "roleOptions": {
                     "dimension": "Dimension",
                     "resource": "Resource",
-                    "attribute": "Attribute"
+                    "component": "Component"
                 },
                 "aggregateOptions": {
                     "sum": "Sum",
@@ -1111,7 +1133,7 @@
             },
             "validation": {
                 "invalid": "Ledger schema settings are invalid.",
-                "referencesInvalid": "Ledger schema references unknown or incompatible field definitions.",
+                "referencesInvalid": "Ledger schema references unknown or incompatible components.",
                 "fieldRolesUnique": "Field roles must be unique.",
                 "fieldRolesInvalid": "Field roles must reference existing fields, and aggregated resources must use numeric fields.",
                 "projectionsUnique": "Projection codenames must be unique.",
@@ -1138,12 +1160,12 @@
         },
         "deleteDialog": {
             "title": "Delete Hub",
-            "message": "Are you sure you want to delete this hub? Nested catalogs, field definitions, and records may become unavailable.",
+            "message": "Are you sure you want to delete this hub? Nested objects, components, and records may become unavailable.",
             "confirmMessage": "Are you sure you want to delete this hub? This action cannot be undone.",
             "fetchError": "Failed to check for blocking entities",
-            "hasBlockingCatalogs": "Cannot delete hub. The following catalogs require at least one hub and are only linked to this one:",
+            "hasBlockingObjects": "Cannot delete hub. The following objects require at least one hub and are only linked to this one:",
             "hasBlockingObjects": "Cannot delete hub. The following entities require at least one hub and are only linked to this one:",
-            "resolutionHint": "To delete this hub, first re-link child hubs and add another hub to these catalogs, sets, and enumerations, or disable the required hub option.",
+            "resolutionHint": "To delete this hub, first re-link child hubs and add another hub to these objects, sets, and enumerations, or disable the required hub option.",
             "sections": {}
         },
         "codename": "Codename",
@@ -1157,9 +1179,9 @@
         "itemsCount": "items",
         "itemsCount_one": "{{count}} item",
         "itemsCount_other": "{{count}} items",
-        "catalogsCount": "catalogs",
-        "catalogsCount_one": "{{count}} catalog",
-        "catalogsCount_other": "{{count}} catalogs",
+        "objectsCount": "objects",
+        "objectsCount_one": "{{count}} object",
+        "objectsCount_other": "{{count}} objects",
         "createError": "Failed to create hub",
         "updateError": "Failed to update hub",
         "deleteError": "Failed to delete hub",
@@ -1194,7 +1216,7 @@
             "actionLoading": "Copying...",
             "options": {
                 "copyAllRelations": "Copy all relations",
-                "copyLinkedCollectionRelations": "Catalog relations",
+                "copyObjectCollectionRelations": "Object relations",
                 "copyValueGroupRelations": "Set relations",
                 "copyOptionListRelations": "Enumeration relations",
                 "singleHubNotice": "Relations to entities with the \"Single hub\" restriction will not be copied."
@@ -1218,7 +1240,7 @@
             "layouts": "Layouts",
             "fixedValues": "Constants",
             "values": "Values",
-            "fieldDefinitions": "Attributes",
+            "components": "Components",
             "optionValues": "Values",
             "scripts": "Scripts"
         },
@@ -1279,41 +1301,41 @@
             }
         }
     },
-    "catalogs": {
-        "title": "Catalogs",
-        "allTitle": "Catalogs",
-        "allDescription": "All catalogs across all hubs in this metahub",
-        "description": "Entity collections that organize attributes and records within a hub",
-        "searchPlaceholder": "Search catalogs...",
-        "empty": "No catalogs yet",
-        "emptyDescription": "Create your first catalog to organize attributes and records",
-        "emptyHint": "Create catalogs in specific hubs",
-        "noSearchResults": "No catalogs found",
+    "objects": {
+        "title": "Objects",
+        "allTitle": "Objects",
+        "allDescription": "All objects across all hubs in this metahub",
+        "description": "Entity collections that organize components and records within a hub",
+        "searchPlaceholder": "Search objects...",
+        "empty": "No objects yet",
+        "emptyDescription": "Create your first object to organize components and records",
+        "emptyHint": "Create objects in specific hubs",
+        "noSearchResults": "No objects found",
         "noSearchResultsHint": "Try different search terms",
-        "create": "Create Catalog",
-        "editTitle": "Edit Catalog",
-        "copyTitle": "Copying Catalog",
+        "create": "Create Object",
+        "editTitle": "Edit Object",
+        "copyTitle": "Copying Object",
         "createDialog": {
-            "title": "Create Catalog"
+            "title": "Create Object"
         },
         "editDialog": {
-            "title": "Edit Catalog"
+            "title": "Edit Object"
         },
         "deleteDialog": {
-            "title": "Delete catalog",
-            "message": "Are you sure you want to delete this catalog? All attributes and records will be permanently removed.",
-            "confirmMessage": "Are you sure you want to delete this catalog? This action cannot be undone.",
+            "title": "Delete object",
+            "message": "Are you sure you want to delete this object? All components and records will be permanently removed.",
+            "confirmMessage": "Are you sure you want to delete this object? This action cannot be undone.",
             "fetchBlockingError": "Failed to check for blocking references",
-            "hasBlockingReferences": "Cannot delete catalog. The following references from other catalogs must be removed first:",
-            "resolutionHint": "Open the source catalogs from the table and remove or reconfigure reference attributes.",
+            "hasBlockingReferences": "Cannot delete object. The following references from other objects must be removed first:",
+            "resolutionHint": "Open the source objects from the table and remove or reconfigure reference components.",
             "blockingTable": {
-                "catalog": "Catalog",
-                "attribute": "Attribute"
+                "object": "Object",
+                "component": "Component"
             }
         },
-        "deleted": "Catalog deleted",
-        "deleteTitle": "Delete Catalog",
-        "deleteMessage": "Are you sure you want to delete this catalog? This action cannot be undone.",
+        "deleted": "Object deleted",
+        "deleteTitle": "Delete Object",
+        "deleteMessage": "Are you sure you want to delete this object? This action cannot be undone.",
         "codename": "Codename",
         "codenameHelper": "Unique identifier for URLs (lowercase Latin letters, numbers, hyphens). Auto-generated from the name with transliteration. You can edit it manually.",
         "codenameHelperPascal": "Unique identifier (PascalCase: uppercase start, letters, digits, underscores). Auto-generated from the name. You can edit it manually.",
@@ -1321,18 +1343,18 @@
         "nameEn": "Name (English)",
         "nameRu": "Name (Russian)",
         "descriptionEn": "Description (English)",
-        "attributesHeader": "Attributes",
-        "attributesCount_one": "{{count}} attribute",
-        "attributesCount_other": "{{count}} attributes",
+        "componentsHeader": "Components",
+        "componentsCount_one": "{{count}} component",
+        "componentsCount_other": "{{count}} components",
         "elementsHeader": "Elements",
         "elementsCount_one": "{{count}} elem",
         "elementsCount_other": "{{count}} elem",
         "countsHeader": "Items",
-        "createError": "Failed to create catalog",
-        "updateError": "Failed to update catalog",
-        "deleteError": "Failed to delete catalog",
-        "copySuccess": "Catalog copied",
-        "copyError": "Failed to copy catalog",
+        "createError": "Failed to create object",
+        "updateError": "Failed to update object",
+        "deleteError": "Failed to delete object",
+        "copySuccess": "Object copied",
+        "copyError": "Failed to copy object",
         "validation": {
             "codenameRequired": "Codename is required",
             "codenameInvalid": "Use lowercase letters, numbers, and hyphens only",
@@ -1363,7 +1385,7 @@
             "reorderPersistenceField": "Reorder persistence field",
             "reorderPersistenceFieldHelper": "Enter the numeric field codename or column key that stores the persisted row order, for example sort_order.",
             "useLayoutOverrides": "Override application layout settings",
-            "useLayoutOverridesHelper": "When disabled, this catalog inherits search, view, card, and row layout settings from the application layout.",
+            "useLayoutOverridesHelper": "When disabled, this object inherits search, view, card, and row layout settings from the application layout.",
             "defaultViewMode": "Default view mode",
             "viewModeTable": "Table",
             "viewModeCard": "Card",
@@ -1382,7 +1404,7 @@
             "action": "Copy",
             "actionLoading": "Copying...",
             "options": {
-                "copyFieldDefinitions": "Copy field definitions",
+                "copyComponents": "Copy components",
                 "copyRecords": "Copy records"
             }
         },
@@ -1394,14 +1416,14 @@
         "noHubsAvailable": "No available hubs",
         "addSelected": "Add",
         "isRequiredHub": "Hub required",
-        "isRequiredHubEnabled": "Catalog must have at least one hub",
-        "isRequiredHubDisabled": "Catalog can exist without hubs",
+        "isRequiredHubEnabled": "Object must have at least one hub",
+        "isRequiredHubDisabled": "Object can exist without hubs",
         "isSingleHub": "Single hub only",
-        "isSingleHubEnabled": "Catalog can only be in one hub",
-        "isSingleHubDisabled": "Catalog can be visible in multiple hubs",
+        "isSingleHubEnabled": "Object can only be in one hub",
+        "isSingleHubDisabled": "Object can be visible in multiple hubs",
         "isSingleHubWarning": "Cannot enable while multiple hubs are selected",
-        "reorderSuccess": "Catalog order updated",
-        "reorderError": "Failed to reorder catalog",
+        "reorderSuccess": "Object order updated",
+        "reorderError": "Failed to reorder object",
         "dnd": {
             "dragHandle": "Drag to reorder"
         },
@@ -1465,9 +1487,9 @@
         "copyTitle": "Copy Ledger",
         "copySuccess": "Ledger copied",
         "copyError": "Failed to copy ledger",
-        "fieldDefinitions": {
-            "emptyTitle": "This ledger has no attributes yet",
-            "emptyDescription": "Create ledger dimensions, resources, or properties through the shared attribute list."
+        "components": {
+            "emptyTitle": "This ledger has no components yet",
+            "emptyDescription": "Create ledger dimensions, resources, or properties through the shared component list."
         }
     },
     "sets": {
@@ -1524,12 +1546,12 @@
             "title": "Delete set",
             "message": "Are you sure you want to delete this set?",
             "confirmMessage": "Are you sure you want to delete this set? This action cannot be undone.",
-            "hasBlockingReferences": "Cannot delete set. Remove these references from catalog attributes first:",
-            "resolutionHint": "Open source catalogs from the table and adjust the listed attributes.",
+            "hasBlockingReferences": "Cannot delete set. Remove these references from object components first:",
+            "resolutionHint": "Open source objects from the table and adjust the listed components.",
             "fetchBlockingError": "Failed to check for blocking references",
             "blockingTable": {
-                "catalog": "Catalog",
-                "attribute": "Attribute"
+                "object": "Object",
+                "component": "Component"
             }
         },
         "reorderSuccess": "Set order updated",
@@ -1671,12 +1693,12 @@
             "title": "Delete enumeration",
             "message": "Are you sure you want to delete this enumeration? This action cannot be undone.",
             "confirmMessage": "Are you sure you want to delete this enumeration? This action cannot be undone.",
-            "hasBlockingReferences": "Cannot delete enumeration. Remove these references from attributes first:",
-            "resolutionHint": "Open the source catalogs and update or remove the reference attributes.",
+            "hasBlockingReferences": "Cannot delete enumeration. Remove these references from components first:",
+            "resolutionHint": "Open the source objects and update or remove the reference components.",
             "fetchBlockingError": "Failed to check for blocking references",
             "blockingTable": {
-                "catalog": "Catalog",
-                "attribute": "Attribute"
+                "object": "Object",
+                "component": "Component"
             }
         },
         "codename": "Codename",
@@ -1774,21 +1796,21 @@
     "ref": {
         "targetEntityKind": "Target Entity Type",
         "notSelected": "Not selected",
-        "targetCatalog": "Target Catalog",
+        "targetObject": "Target Object",
         "targetEnumeration": "Target Enumeration",
         "targetSet": "Target Set",
         "targetConstant": "Target Fixed Value",
-        "selectCatalog": "Select catalog...",
+        "selectObject": "Select object...",
         "selectEnumeration": "Select enumeration...",
         "selectSet": "Select set...",
         "selectConstant": "Select fixed value...",
         "selectEnumerationValue": "Select value...",
         "selectElement": "Select record...",
-        "catalogRequired": "Please select a catalog",
+        "objectRequired": "Please select a object",
         "enumerationRequired": "Please select an enumeration",
         "setRequired": "Please select a set",
         "targetConstantHint": "Select fixed value from the selected set",
-        "noCatalogsAvailable": "No catalogs available",
+        "noObjectsAvailable": "No objects available",
         "noEnumerationsAvailable": "No enumerations available",
         "noSetsAvailable": "No sets available",
         "noConstantsAvailable": "No fixed values available",
@@ -1800,7 +1822,7 @@
         "unknownEnumerationValue": "Value {{id}}",
         "entityKindNotSupported": "This entity type is not yet supported for references.",
         "entityKind": {
-            "catalog": "Catalog",
+            "object": "Object",
             "enumeration": "Enumeration",
             "set": "Set",
             "hub": "Hub",
@@ -1910,6 +1932,7 @@
             "emptyHint": "Applications are linked to publications via connectors.",
             "count": "Linked applications",
             "noDescription": "No description",
+            "actions": "Application actions",
             "openApp": "Open application",
             "appDashboard": "Application dashboard",
             "searchPlaceholder": "Search applications...",
@@ -2065,8 +2088,8 @@
             "seed.current_unavailable": "Current template seed is unavailable. Cleanup cannot be analyzed safely.",
             "seed.target_unavailable": "Target template seed is unavailable. Cleanup cannot be analyzed safely.",
             "entity.audit_provenance": "Entity \"{{entityKey}}\" has been modified by a user and cannot be cleaned up automatically.",
-            "entity.attribute_extra": "Attribute \"{{attribute}}\" of entity \"{{entityKey}}\" was added outside the template seed.",
-            "entity.attribute_audit": "Attribute \"{{attribute}}\" of entity \"{{entityKey}}\" has been modified by a user.",
+            "entity.component_extra": "Component \"{{component}}\" of entity \"{{entityKey}}\" was added outside the template seed.",
+            "entity.component_audit": "Component \"{{component}}\" of entity \"{{entityKey}}\" has been modified by a user.",
             "entity.element_mismatch": "Element at position {{sortOrder}} of entity \"{{entityKey}}\" does not match the template seed.",
             "entity.element_audit": "Element at position {{sortOrder}} of entity \"{{entityKey}}\" has been modified by a user.",
             "setting.audit_provenance": "Setting \"{{settingKey}}\" has been modified by a user and cannot be cleaned up.",
@@ -2127,7 +2150,7 @@
         "noOptionalPresets": "This template does not define optional presets.",
         "hub": "Hub",
         "page": "Page",
-        "catalog": "Catalog",
+        "object": "Object",
         "set": "Set",
         "enumeration": "Enumeration"
     },
@@ -2137,7 +2160,7 @@
             "general": "General",
             "common": "Common",
             "hub": "Hubs",
-            "catalog": "Catalogs",
+            "object": "Objects",
             "set": "Sets",
             "enumeration": "Enumerations",
             "page": "Pages"
@@ -2187,28 +2210,28 @@
             "entity.hub.resetNestingOnce.description": "One-time action: after saving, removes all parent-child relations between hubs and resets back to Off.",
             "entity.hub.allowAttachExistingEntities": "Allow Adding Existing Entities",
             "entity.hub.allowAttachExistingEntities.description": "Allow using the Add action in hub-scoped tabs to link already created entities to the current hub.",
-            "entity.catalog.allowCopy": "Allow Copy",
-            "entity.catalog.allowCopy.description": "Allow copying catalogs within this metahub",
-            "entity.catalog.allowDelete": "Allow Delete",
-            "entity.catalog.allowDelete.description": "Allow deleting catalogs from this metahub",
-            "entity.catalog.attributeCodenameScope": "Attribute Codename Scope",
-            "entity.catalog.attributeCodenameScope.description": "Whether attribute codenames must be unique per nesting level or globally within a catalog",
-            "entity.catalog.allowedAttributeTypes": "Allowed Attribute Types",
-            "entity.catalog.allowedAttributeTypes.description": "Which attribute data types can be used when creating attributes in catalogs",
-            "entity.catalog.allowAttributeCopy": "Allow Attribute Copy",
-            "entity.catalog.allowAttributeCopy.description": "Allow copying attributes in catalogs",
-            "entity.catalog.allowAttributeDelete": "Allow Attribute Delete",
-            "entity.catalog.allowAttributeDelete.description": "Allow deleting attributes in catalogs",
-            "entity.catalog.allowDeleteLastDisplayAttribute": "Allow Delete Last Display Attribute",
-            "entity.catalog.allowDeleteLastDisplayAttribute.description": "Allow deleting the last display attribute in a scope (root attributes or table children)",
-            "entity.catalog.allowAttributeMoveBetweenRootAndChildren": "Allow Attribute Move Between Root and Children",
-            "entity.catalog.allowAttributeMoveBetweenRootAndChildren.description": "Allow moving attributes between root list and child lists of TABLE attributes",
-            "entity.catalog.allowAttributeMoveBetweenChildLists": "Allow Attribute Move Between Child Lists",
-            "entity.catalog.allowAttributeMoveBetweenChildLists.description": "Allow moving attributes between child lists of different TABLE attributes",
-            "entity.catalog.allowElementCopy": "Allow Element Copy",
-            "entity.catalog.allowElementCopy.description": "Allow copying predefined elements in catalogs",
-            "entity.catalog.allowElementDelete": "Allow Element Delete",
-            "entity.catalog.allowElementDelete.description": "Allow deleting predefined elements in catalogs",
+            "entity.object.allowCopy": "Allow Copy",
+            "entity.object.allowCopy.description": "Allow copying objects within this metahub",
+            "entity.object.allowDelete": "Allow Delete",
+            "entity.object.allowDelete.description": "Allow deleting objects from this metahub",
+            "entity.object.componentCodenameScope": "Component Codename Scope",
+            "entity.object.componentCodenameScope.description": "Whether component codenames must be unique per nesting level or globally within a object",
+            "entity.object.allowedComponentTypes": "Allowed Component Types",
+            "entity.object.allowedComponentTypes.description": "Which component data types can be used when creating components in objects",
+            "entity.object.allowComponentCopy": "Allow Component Copy",
+            "entity.object.allowComponentCopy.description": "Allow copying components in objects",
+            "entity.object.allowComponentDelete": "Allow Component Delete",
+            "entity.object.allowComponentDelete.description": "Allow deleting components in objects",
+            "entity.object.allowDeleteLastDisplayComponent": "Allow Delete Last Display Component",
+            "entity.object.allowDeleteLastDisplayComponent.description": "Allow deleting the last display component in a scope (root components or table children)",
+            "entity.object.allowComponentMoveBetweenRootAndChildren": "Allow Component Move Between Root and Children",
+            "entity.object.allowComponentMoveBetweenRootAndChildren.description": "Allow moving components between root list and child lists of TABLE components",
+            "entity.object.allowComponentMoveBetweenChildLists": "Allow Component Move Between Child Lists",
+            "entity.object.allowComponentMoveBetweenChildLists.description": "Allow moving components between child lists of different TABLE components",
+            "entity.object.allowElementCopy": "Allow Element Copy",
+            "entity.object.allowElementCopy.description": "Allow copying predefined elements in objects",
+            "entity.object.allowElementDelete": "Allow Element Delete",
+            "entity.object.allowElementDelete.description": "Allow deleting predefined elements in objects",
             "entity.set.allowCopy": "Allow Copy",
             "entity.set.allowCopy.description": "Allow copying sets within this metahub",
             "entity.set.allowDelete": "Allow Delete",
@@ -2249,20 +2272,20 @@
             "resizeHandle": "Resize dialog"
         },
         "codenameStyles": {
-            "kebab-case": "kebab-case (my-catalog-name)",
-            "pascal-case": "PascalCase (MyCatalogName)"
+            "kebab-case": "kebab-case (my-object-name)",
+            "pascal-case": "PascalCase (MyObjectName)"
         },
         "codenamePreview": {
             "title": "Preview",
             "kebab-case": {
-                "en": "my-catalog-name",
-                "ru": "мой-каталог-имя",
-                "mixed": "мой-catalog-имя"
+                "en": "my-object-name",
+                "ru": "мой-объект-имя",
+                "mixed": "мой-object-имя"
             },
             "pascal-case": {
-                "en": "MyCatalogName",
-                "ru": "МойКаталогИмя",
-                "mixed": "МойCatalogИмя"
+                "en": "MyObjectName",
+                "ru": "МойОбъектИмя",
+                "mixed": "МойObjectИмя"
             }
         },
         "codenameAlphabets": {
@@ -2270,9 +2293,9 @@
             "ru": "Russian only",
             "en-ru": "English + Russian"
         },
-        "attributeCodenameScopes": {
-            "per-level": "Per nesting level (separate for root and each table attribute)",
-            "global": "Global (unique across all attributes in catalog)"
+        "componentCodenameScopes": {
+            "per-level": "Per nesting level (separate for root and each table component)",
+            "global": "Global (unique across all components in object)"
         },
         "common": {
             "placeholder": "Settings for this section will be available in future versions."
@@ -2295,34 +2318,37 @@
         "importError": "Failed to import configuration",
         "exportError": "Failed to export snapshot"
     },
-    "fieldDefinitions": {
-        "title": "Attributes",
-        "resourceTabTitle": "Attributes",
-        "description": "Define the fields for this catalog",
-        "searchPlaceholder": "Search attributes...",
-        "empty": "No attributes yet",
-        "emptyDescription": "Add attributes to define the structure of your catalog data",
-        "limitReached": "Limit reached: maximum {{limit}} attributes per catalog. Remove an attribute to add a new one.",
-        "create": "Add Attribute",
-        "createDialog": {
-            "title": "Add Attribute"
-        },
-        "editDialog": {
-            "title": "Edit Attribute"
-        },
+        "components": {
+            "title": "Components",
+            "resourceTabTitle": "Components",
+            "description": "Define the fields for this object",
+            "searchPlaceholder": "Search components...",
+            "empty": "No components yet",
+            "emptyDescription": "Add components to define the structure of your object data",
+            "limitReached": "Limit reached: maximum {{limit}} components per object. Remove an component to add a new one.",
+            "create": "Create Component",
+            "createDialog": {
+                "title": "Create Component"
+            },
+            "createChildDialog": {
+                "title": "Create Child Component"
+            },
+            "editDialog": {
+                "title": "Edit Component"
+            },
         "actions": {
             "moveUp": "Move up",
             "moveDown": "Move down",
             "setRequired": "Mark as required",
             "setOptional": "Mark as optional",
-            "setDisplayAttribute": "Set as display attribute",
-            "clearDisplayAttribute": "Clear display attribute",
+            "setDisplayComponent": "Set as display component",
+            "clearDisplayComponent": "Clear display component",
             "enableSystemField": "Enable",
             "disableSystemField": "Disable"
         },
         "deleteDialog": {
-            "title": "Delete Attribute",
-            "message": "Are you sure you want to delete this attribute? All data in this field will be lost."
+            "title": "Delete Component",
+            "message": "Are you sure you want to delete this component? All data in this field will be lost."
         },
         "table": {
             "order": "#"
@@ -2371,7 +2397,7 @@
             },
             "table": {
                 "showTitle": "Show table title",
-                "hint": "TABLE attributes store rows in a separate child table. Each row can have its own set of fields.",
+                "hint": "TABLE components store rows in a separate child table. Each row can have its own set of fields.",
                 "minRows": "Min rows",
                 "minRowsHelper": "Leave empty for no limit",
                 "maxRows": "Max rows",
@@ -2381,9 +2407,9 @@
                 "noRows": "No rows yet",
                 "rowCount_one": "{{count}} row",
                 "rowCount_other": "{{count}} rows",
-                "maxChildAttributes": "Max child attributes",
-                "maxChildAttributesHelper": "Limit for child attributes in this TABLE. Leave empty for no limit",
-                "maxChildAttributesReached": "Maximum {{max}} child attributes reached"
+                "maxChildComponents": "Max child components",
+                "maxChildComponentsHelper": "Limit for child components in this TABLE. Leave empty for no limit",
+                "maxChildComponentsReached": "Maximum {{max}} child components reached"
             }
         },
         "physicalType": {
@@ -2397,18 +2423,18 @@
             "system": "System"
         },
         "system": {
-            "title": "System Attributes",
-            "description": "Lifecycle and runtime infrastructure attributes for this catalog",
-            "empty": "No system attributes",
-            "emptyDescription": "This catalog has no configurable system attributes.",
-            "hint": "System attributes are provided by the platform. You can only enable or disable supported attributes.",
+            "title": "System Components",
+            "description": "Lifecycle and runtime infrastructure components for this object",
+            "empty": "No system components",
+            "emptyDescription": "This object has no configurable system components.",
+            "hint": "System components are provided by the platform. You can only enable or disable supported components.",
             "status": "Status",
             "enabled": "Enabled",
             "disabled": "Disabled",
             "keyLabel": "System key",
             "managed": "Platform",
-            "enableSuccess": "System attribute enabled",
-            "disableSuccess": "System attribute disabled"
+            "enableSuccess": "System component enabled",
+            "disableSuccess": "System component disabled"
         },
         "presentation": {
             "headerAsCheckbox": "Display header as checkbox",
@@ -2437,16 +2463,16 @@
             "labelEmptyDisplayHelper": "Used in label mode when default value is not selected.",
             "enumTargetRequired": "Select a target enumeration on the General tab to configure presentation settings.",
             "labelModeRequiresDefault": "Label mode renders selected text only. Set a default value to avoid an empty label.",
-            "requiredWithoutDefault": "This attribute is required. Users must select a value before saving if default is empty."
+            "requiredWithoutDefault": "This component is required. Users must select a value before saving if default is empty."
         },
         "edit": {
             "typeChangeDisabled": "Data type cannot be changed after creation",
             "settingsReadOnly": "Type settings cannot be modified after creation"
         },
         "isRequiredLabel": "Required",
-        "isDisplayAttributeLabel": "Display attribute",
-        "isDisplayAttributeHelper": "Use this attribute as representation when referencing records of this catalog",
-        "isDisplayAttributeTooltip": "This attribute is the display representation for this catalog",
+        "isDisplayComponentLabel": "Display component",
+        "isDisplayComponentHelper": "Use this component as representation when referencing records of this object",
+        "isDisplayComponentTooltip": "This component is the display representation for this object",
         "required": "Required",
         "nameEn": "Name (English)",
         "nameRu": "Name (Russian)",
@@ -2468,61 +2494,61 @@
             "targetConstantIdRequired": "Target fixed value is required for references to set",
             "targetConstantOnlyForSet": "Target fixed value can be selected only for references to set"
         },
-        "createError": "Failed to create attribute",
-        "updateError": "Failed to update attribute",
-        "deleteError": "Failed to delete attribute",
-        "deleteDisplayAttributeBlocked": "Display attribute cannot be deleted. Set another attribute as display first.",
-        "deleteBlockedBySettings": "Attribute deletion is disabled in metahub settings.",
-        "deleteLastDisplayAttributeBlocked": "Cannot delete the last display attribute while this setting is disabled.",
-        "moveSuccess": "Attribute order updated",
-        "moveError": "Failed to update attribute order",
-        "setRequiredSuccess": "Attribute marked as required",
-        "setOptionalSuccess": "Attribute marked as optional",
-        "toggleRequiredError": "Failed to update attribute",
-        "setDisplaySuccess": "Attribute set as display attribute",
-        "setDisplayError": "Failed to set display attribute",
-        "clearDisplaySuccess": "Display attribute flag cleared",
-        "clearDisplayError": "Failed to clear display attribute",
-        "childAttributes": "Child Attributes",
-        "noChildAttributes": "No child attributes yet",
+        "createError": "Failed to create component",
+        "updateError": "Failed to update component",
+        "deleteError": "Failed to delete component",
+        "deleteDisplayComponentBlocked": "Display component cannot be deleted. Set another component as display first.",
+        "deleteBlockedBySettings": "Component deletion is disabled in metahub settings.",
+        "deleteLastDisplayComponentBlocked": "Cannot delete the last display component while this setting is disabled.",
+        "moveSuccess": "Component order updated",
+        "moveError": "Failed to update component order",
+        "setRequiredSuccess": "Component marked as required",
+        "setOptionalSuccess": "Component marked as optional",
+        "toggleRequiredError": "Failed to update component",
+        "setDisplaySuccess": "Component set as display component",
+        "setDisplayError": "Failed to set display component",
+        "clearDisplaySuccess": "Display component flag cleared",
+        "clearDisplayError": "Failed to clear display component",
+        "childComponents": "Child Components",
+        "noChildComponents": "No child components yet",
         "createChildDialog": {
-            "title": "Add Child Attribute"
+            "title": "Create Child Component"
         },
         "editChildDialog": {
-            "title": "Edit Child Attribute"
+            "title": "Edit Child Component"
         },
         "deleteChildDialog": {
-            "message": "Are you sure you want to delete this child attribute?"
+            "message": "Are you sure you want to delete this child component?"
         },
         "tableValidation": {
-            "maxTableAttributes": "Maximum {{max}} TABLE attributes per catalog",
-            "maxChildAttributes": "Maximum {{max}} child attributes per TABLE",
-            "nestedTableNotAllowed": "Nested TABLE attributes are not allowed",
-            "tableCannotBeDisplay": "TABLE attributes cannot be set as the display attribute"
+            "maxTableComponents": "Maximum {{max}} TABLE components per object",
+            "maxChildComponents": "Maximum {{max}} child components per TABLE",
+            "nestedTableNotAllowed": "Nested TABLE components are not allowed",
+            "tableCannotBeDisplay": "TABLE components cannot be set as the display component"
         },
-        "reorderSuccess": "Attribute order updated",
-        "reorderError": "Failed to reorder attribute",
+        "reorderSuccess": "Component order updated",
+        "reorderError": "Failed to reorder component",
         "dnd": {
             "dragHandle": "Drag to reorder",
             "codenameConflictTitle": "Codename conflict",
-            "codenameConflictDescription": "An attribute with codename \"{{codename}}\" already exists in the target list. Move with automatic codename rename?",
+            "codenameConflictDescription": "An component with codename \"{{codename}}\" already exists in the target list. Move with automatic codename rename?",
             "confirmMove": "Move",
-            "displayAttributeBlockedTitle": "Cannot move display attribute",
-            "displayAttributeBlockedDescription": "This attribute is the display attribute for its list. Assign another attribute as the display first, then try again.",
-            "tableCannotMoveTitle": "Cannot move TABLE attribute",
-            "tableCannotMoveDescription": "TABLE attributes can only exist at the root level.",
-            "firstChildAttributeTitle": "First child attribute",
-            "firstChildAttributeDescription": "This will be the first attribute in the table. It will automatically become the display attribute and required. After that, it cannot be moved out until another attribute is set as the display.",
-            "tableChildLimitTitle": "Cannot move attribute"
+            "displayComponentBlockedTitle": "Cannot move display component",
+            "displayComponentBlockedDescription": "This component is the display component for its list. Assign another component as the display first, then try again.",
+            "tableCannotMoveTitle": "Cannot move TABLE component",
+            "tableCannotMoveDescription": "TABLE components can only exist at the root level.",
+            "firstChildComponentTitle": "First child component",
+            "firstChildComponentDescription": "This will be the first component in the table. It will automatically become the display component and required. After that, it cannot be moved out until another component is set as the display.",
+            "tableChildLimitTitle": "Cannot move component"
         }
     },
     "records": {
         "title": "Records",
         "searchPlaceholder": "Search records...",
         "empty": "No records yet",
-        "emptyDescription": "Add records to store data in this catalog",
-        "addAttributesFirst": "Add attributes first to start creating records",
-        "noAttributes": "No attributes configured. Add attributes to enable record creation.",
+        "emptyDescription": "Add records to store data in this object",
+        "addComponentsFirst": "Add components first to start creating records",
+        "noComponents": "No components configured. Add components to enable record creation.",
         "createDialog": {
             "title": "Add Record"
         },
@@ -2567,11 +2593,11 @@
             "cancel": "Cancel",
             "actions": "Actions"
         },
-        "parentCollectionTabsLabel": "Catalog tabs",
-        "parentCollectionMissingTitle": "No catalog selected",
-        "parentCollectionMissingDescription": "Select a catalog to manage records.",
-        "parentCollectionLoadError": "Error loading catalog",
-        "parentCollectionEditTitle": "Edit catalog",
+        "parentCollectionTabsLabel": "Object tabs",
+        "parentCollectionMissingTitle": "No object selected",
+        "parentCollectionMissingDescription": "Select a object to manage records.",
+        "parentCollectionLoadError": "Error loading object",
+        "parentCollectionEditTitle": "Edit object",
         "actions": {
             "moveUp": "Move up",
             "moveDown": "Move down"

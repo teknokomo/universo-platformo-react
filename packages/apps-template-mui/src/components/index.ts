@@ -3,8 +3,8 @@ export type { FieldConfig, FieldType, FieldValidationRules, FormDialogProps } fr
 export { ConfirmDeleteDialog } from './dialogs/ConfirmDeleteDialog'
 export type { ConfirmDeleteDialogProps } from './dialogs/ConfirmDeleteDialog'
 export { LocalizedInlineField } from './forms/LocalizedInlineField'
-export { default as CatalogTable } from './tables/CatalogTable'
-export type { CatalogTableProps, CatalogTableRow } from './tables/CatalogTable'
+export { default as ObjectTable } from './tables/ObjectTable'
+export type { ObjectTableProps, ObjectTableRow } from './tables/ObjectTable'
 export {
     RuntimeRecordStateChip,
     getRuntimeRecordState,

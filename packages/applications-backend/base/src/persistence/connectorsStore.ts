@@ -127,7 +127,7 @@ export async function listConnectors(
         SELECT
             ${CONNECTOR_SELECT},
             COUNT(*) OVER() AS "windowTotal"
-        FROM applications.cat_connectors
+        FROM applications.obj_connectors
         ${whereSql}
         ORDER BY ${orderColumn} ${direction}
         LIMIT $${parameters.length - 1}
@@ -146,7 +146,7 @@ export async function findConnector(executor: SqlQueryable, applicationId: strin
     const rows = await executor.query<ConnectorRecord>(
         `
         SELECT ${CONNECTOR_SELECT}
-        FROM applications.cat_connectors
+        FROM applications.obj_connectors
         WHERE id = $1
           AND application_id = $2
                     AND ${activeRowPredicate()}
@@ -162,7 +162,7 @@ export async function findFirstConnectorByApplicationId(executor: SqlQueryable, 
     const rows = await executor.query<ConnectorRecord>(
         `
         SELECT ${CONNECTOR_SELECT}
-        FROM applications.cat_connectors
+        FROM applications.obj_connectors
         WHERE application_id = $1
           AND ${activeRowPredicate()}
         ORDER BY sort_order ASC, _upl_created_at ASC, id ASC
@@ -180,7 +180,7 @@ export async function findApplicationStatus(executor: SqlQueryable, applicationI
         SELECT
             id,
             schema_status AS "schemaStatus"
-        FROM applications.cat_applications
+        FROM applications.obj_applications
         WHERE id = $1
                     AND ${activeRowPredicate()}
         LIMIT 1
@@ -203,7 +203,7 @@ export async function insertConnector(
 ): Promise<ConnectorRecord> {
     const rows = await executor.query<ConnectorRecord>(
         `
-        INSERT INTO applications.cat_connectors (
+        INSERT INTO applications.obj_connectors (
             application_id,
             name,
             description,
@@ -265,7 +265,7 @@ export async function updateConnector(
 
     const rows = await executor.query<ConnectorRecord>(
         `
-        UPDATE applications.cat_connectors
+        UPDATE applications.obj_connectors
         SET ${assignments.join(', ')}
         WHERE id = $${parameters.length - 1}
           AND application_id = $${parameters.length}
@@ -286,7 +286,7 @@ export async function deleteConnector(
 ): Promise<boolean> {
     const rows = await executor.query<{ id: string }>(
         `
-        UPDATE applications.cat_connectors
+        UPDATE applications.obj_connectors
                 SET ${softDeleteSetClause('$3')},
             _upl_version = COALESCE(_upl_version, 1) + 1
         WHERE id = $1
@@ -307,7 +307,7 @@ export async function touchApplicationSchemaSyncedIfUpdateAvailable(
 ): Promise<boolean> {
     const rows = await executor.query<{ id: string }>(
         `
-        UPDATE applications.cat_applications
+        UPDATE applications.obj_applications
         SET schema_status = 'synced',
             _upl_updated_at = now(),
             _upl_updated_by = $2,
@@ -555,7 +555,7 @@ export async function listConnectorPublicationLinks(executor: SqlQueryable, conn
         FROM applications.rel_connector_publications cp
                 LEFT JOIN metahubs.doc_publications p ON p.id = cp.publication_id
                     AND ${metahubActiveRowPredicate('p')}
-                LEFT JOIN metahubs.cat_metahubs m ON m.id = p.metahub_id
+                LEFT JOIN metahubs.obj_metahubs m ON m.id = p.metahub_id
                     AND ${metahubActiveRowPredicate('m')}
         WHERE cp.connector_id = $1
                     AND ${activeRowPredicate('cp')}

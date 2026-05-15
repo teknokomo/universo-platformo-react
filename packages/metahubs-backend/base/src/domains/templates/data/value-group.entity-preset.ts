@@ -1,7 +1,7 @@
 import type { EntityTypePresetManifest } from '@universo/types'
 import {
     SET_DEFAULT_INSTANCES,
-    SET_TYPE_COMPONENTS,
+    SET_TYPE_CAPABILITIES,
     SET_TYPE_UI,
     STANDARD_SET_DESCRIPTION,
     STANDARD_SET_NAME
@@ -23,7 +23,7 @@ export const setEntityPreset: EntityTypePresetManifest = {
     entityType: {
         kindKey: 'set',
         codename: vlc('Set', 'Set'),
-        components: SET_TYPE_COMPONENTS,
+        capabilities: SET_TYPE_CAPABILITIES,
         ui: SET_TYPE_UI,
         presentation: {
             name: STANDARD_SET_NAME,

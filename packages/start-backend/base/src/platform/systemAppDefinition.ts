@@ -1,5 +1,5 @@
 import { createSystemAppManifestPresentation, type SystemAppDefinition } from '@universo/migrations-core'
-import { FieldDefinitionDataType } from '@universo/types'
+import { ComponentDefinitionDataType } from '@universo/types'
 import {
     applyStartSchemaPoliciesMigrationDefinition,
     finalizeStartSchemaSupportMigrationDefinition,
@@ -8,11 +8,11 @@ import {
 
 const p = createSystemAppManifestPresentation
 
-const createCatalogFields = (maxNameLength: number, maxDescLength: number) => [
+const createObjectFields = (maxNameLength: number, maxDescLength: number) => [
     {
         codename: 'codename',
         physicalColumnName: 'codename',
-        dataType: FieldDefinitionDataType.STRING,
+        dataType: ComponentDefinitionDataType.STRING,
         physicalDataType: 'VARCHAR(50)',
         isRequired: true,
         presentation: p('Codename', 'Stable internal identifier'),
@@ -21,16 +21,16 @@ const createCatalogFields = (maxNameLength: number, maxDescLength: number) => [
     {
         codename: 'name',
         physicalColumnName: 'name',
-        dataType: FieldDefinitionDataType.JSON,
+        dataType: ComponentDefinitionDataType.JSON,
         defaultSqlExpression: `'{}'::jsonb`,
-        isDisplayAttribute: true,
+        isDisplayComponent: true,
         presentation: p('Name', 'Localized display name'),
         validationRules: { maxLength: maxNameLength }
     },
     {
         codename: 'description',
         physicalColumnName: 'description',
-        dataType: FieldDefinitionDataType.JSON,
+        dataType: ComponentDefinitionDataType.JSON,
         defaultSqlExpression: `'{}'::jsonb`,
         presentation: p('Description', 'Localized description text'),
         validationRules: { maxLength: maxDescLength }
@@ -38,7 +38,7 @@ const createCatalogFields = (maxNameLength: number, maxDescLength: number) => [
     {
         codename: 'sort_order',
         physicalColumnName: 'sort_order',
-        dataType: FieldDefinitionDataType.NUMBER,
+        dataType: ComponentDefinitionDataType.NUMBER,
         physicalDataType: 'INTEGER',
         defaultSqlExpression: '0',
         isRequired: true
@@ -46,7 +46,7 @@ const createCatalogFields = (maxNameLength: number, maxDescLength: number) => [
     {
         codename: 'is_active',
         physicalColumnName: 'is_active',
-        dataType: FieldDefinitionDataType.BOOLEAN,
+        dataType: ComponentDefinitionDataType.BOOLEAN,
         defaultSqlExpression: 'true',
         isRequired: true
     }
@@ -54,25 +54,25 @@ const createCatalogFields = (maxNameLength: number, maxDescLength: number) => [
 
 const startBusinessTables = [
     {
-        kind: 'catalog' as const,
+        kind: 'object' as const,
         codename: 'goals',
-        tableName: 'cat_goals',
+        tableName: 'obj_goals',
         presentation: p('Goals', 'Predefined global goals for onboarding'),
-        fields: createCatalogFields(100, 500)
+        fields: createObjectFields(100, 500)
     },
     {
-        kind: 'catalog' as const,
+        kind: 'object' as const,
         codename: 'topics',
-        tableName: 'cat_topics',
+        tableName: 'obj_topics',
         presentation: p('Topics', 'Predefined interesting topics for onboarding'),
-        fields: createCatalogFields(100, 500)
+        fields: createObjectFields(100, 500)
     },
     {
-        kind: 'catalog' as const,
+        kind: 'object' as const,
         codename: 'features',
-        tableName: 'cat_features',
+        tableName: 'obj_features',
         presentation: p('Features', 'Predefined platform features for onboarding'),
-        fields: createCatalogFields(100, 500)
+        fields: createObjectFields(100, 500)
     },
     {
         kind: 'relation' as const,
@@ -83,26 +83,26 @@ const startBusinessTables = [
             {
                 codename: 'user_id',
                 physicalColumnName: 'user_id',
-                dataType: FieldDefinitionDataType.REF,
+                dataType: ComponentDefinitionDataType.REF,
                 physicalDataType: 'UUID',
                 isRequired: true,
                 presentation: p('User', 'Authenticated user who made the selection')
             },
             {
-                codename: 'catalog_kind',
-                physicalColumnName: 'catalog_kind',
-                dataType: FieldDefinitionDataType.STRING,
+                codename: 'object_kind',
+                physicalColumnName: 'object_kind',
+                dataType: ComponentDefinitionDataType.STRING,
                 physicalDataType: 'VARCHAR(20)',
                 isRequired: true,
-                presentation: p('Catalog Kind', 'Type of catalog: goals, topics, or features')
+                presentation: p('Object Kind', 'Type of object: goals, topics, or features')
             },
             {
                 codename: 'item_id',
                 physicalColumnName: 'item_id',
-                dataType: FieldDefinitionDataType.REF,
+                dataType: ComponentDefinitionDataType.REF,
                 physicalDataType: 'UUID',
                 isRequired: true,
-                presentation: p('Item', 'Reference to the selected catalog item')
+                presentation: p('Item', 'Reference to the selected object item')
             }
         ]
     }
@@ -129,23 +129,23 @@ export const startSystemAppDefinition: SystemAppDefinition = {
     targetStorageModel: 'application_like',
     currentStructureCapabilities: {
         appCoreTables: true,
-        catalogTables: true,
+        objectTables: true,
         documentTables: false,
         relationTables: true,
         settingsTables: false,
         layoutTables: false,
         widgetTables: false,
-        attributeValueTables: false
+        componentValueTables: false
     },
     targetStructureCapabilities: {
         appCoreTables: true,
-        catalogTables: true,
+        objectTables: true,
         documentTables: false,
         relationTables: true,
         settingsTables: false,
         layoutTables: false,
         widgetTables: false,
-        attributeValueTables: false
+        componentValueTables: false
     },
     currentBusinessTables: startBusinessTables,
     targetBusinessTables: startBusinessTables,

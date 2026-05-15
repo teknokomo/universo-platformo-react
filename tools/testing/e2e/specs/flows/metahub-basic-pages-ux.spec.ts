@@ -212,7 +212,7 @@ test('@flow basic metahub exposes clean Pages UX and Sets-backed shared constant
             )
             .map((item: { kindKey?: string }) => item.kindKey)
 
-        expect(orderedObjectKinds.slice(0, 5)).toEqual(['hub', 'page', 'catalog', 'set', 'enumeration'])
+        expect(orderedObjectKinds.slice(0, 5)).toEqual(['hub', 'page', 'object', 'set', 'enumeration'])
 
         const sets = await listValueGroups(api, metahub.id, { limit: 100, offset: 0 })
         const mainSet = (sets.items ?? []).find(
@@ -249,7 +249,7 @@ test('@flow basic metahub exposes clean Pages UX and Sets-backed shared constant
         await expect(createButton).toContainText('Создать')
         await expect(createButton).not.toContainText('Создать сущность')
 
-        await expectMenuItemOrder(page, metahub.id, ['hub', 'page', 'catalog', 'set', 'enumeration'])
+        await expectMenuItemOrder(page, metahub.id, ['hub', 'page', 'object', 'set', 'enumeration'])
         await captureProofScreenshot(page, testInfo, 'basic-pages-list-ru.png')
 
         const pageContentText = `Intro text from browser lifecycle coverage ${runManifest.runId}`
@@ -475,17 +475,17 @@ test('@flow basic metahub exposes clean Pages UX and Sets-backed shared constant
         await expect(page.getByRole('menuitem', { name: /Редактировать свойства|Edit properties/i })).toHaveCount(0)
         await page.keyboard.press('Escape')
 
-        await page.goto(`/metahub/${metahub.id}/entities/catalog/instances`)
-        await expect(page.getByRole('heading', { name: 'Каталоги' })).toBeVisible()
-        await expect(page.getByText('Основной каталог для хранения записей')).toBeVisible()
+        await page.goto(`/metahub/${metahub.id}/entities/object/instances`)
+        await expect(page.getByRole('heading', { name: 'Объекты' })).toBeVisible()
+        await expect(page.getByText('Основной объект для хранения записей')).toBeVisible()
         const catalogMenuButton = page.getByRole('button', { name: /menu\.button|Опции|Другие действия|More actions/i }).first()
         await catalogMenuButton.click()
         const catalogActionIconSignatures = await readOpenMenuIconSignatures(page)
         expect(pageActionIconSignatures).toEqual(catalogActionIconSignatures)
         await page.keyboard.press('Escape')
-        await page.getByText('Основной каталог для хранения записей').click()
-        await expect(page.getByRole('heading', { name: 'Атрибуты' })).toBeVisible()
-        expect(await readTabTypography(page.getByRole('tab', { name: 'Атрибуты' }))).toEqual(pageActiveTabTypography)
+        await page.getByText('Основной объект для хранения записей').click()
+        await expect(page.getByRole('heading', { name: 'Компоненты' })).toBeVisible()
+        expect(await readTabTypography(page.getByRole('tab', { name: 'Компоненты' }))).toEqual(pageActiveTabTypography)
         expect(await readTabTypography(page.getByRole('tab', { name: 'Системные' }))).toEqual(pageInactiveTabTypography)
 
         await page.goto(`/metahub/${metahub.id}/entities/page/instances`)

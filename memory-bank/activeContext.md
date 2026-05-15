@@ -4,6 +4,18 @@
 
 ---
 
+## Current Implementation: Object Collections And Components Rename (2026-05-14)
+
+-   Draft plan updated after repeated QA at `memory-bank/plan/object-collections-and-components-rename-plan-2026-05-14.md`.
+-   Recommended vocabulary: user-facing `Objects` / `Объекты`, persisted kind key `object`, internal surface/helper name `objectCollection`.
+-   Product decision: replace Components with user-facing and persisted `Components` / `Компоненты`; resolve naming conflict by renaming Entity type `components` capability infrastructure to `capabilities` / `EntityCapability*`.
+-   Implementation has replaced design-time and runtime persistence contracts with `_mhb_components`, `_app_components`, `parent_component_id`, `is_display_component`, Object entity kind metadata, and `obj_*` generated table prefixes without bumping schema or template versions.
+-   Runtime physical table names now come from Entity constructor capabilities and published snapshots: the standard Object preset uses `capabilities.physicalTable.prefix = 'obj'`, while custom Object-like Entity types may choose another safe prefix.
+-   Platform system apps now use fixed Object tables such as `applications.obj_applications`, `metahubs.obj_metahubs`, `profiles.obj_profiles`, `admin.obj_roles`, and `start.obj_goals/topics/features`.
+-   `@universo/migrations-core`, `@universo/migrations-platform`, schema-ddl, Metahubs backend/frontend, Applications backend/frontend, published app template, fixture contracts, OpenAPI, package READMEs, and GitBook docs were updated to Object/Component terminology.
+-   Final QA remediation closed the stale Playwright `createLinkedCollection` usage, shared UI Object breadcrumb/menu tests, and the legacy `LayoutAuthoringWidgetCatalogItem` public type.
+-   Latest validation passes: `@universo/template-mui` focused tests/lint/build, stale-term grep for the remediated areas, `git diff --check`, `pnpm run build:e2e:local-supabase`, and local Supabase Playwright coverage for `metahub-entities-publication-runtime` plus `metahub-global-entity-layouts`.
+
 ## Current Implementation: Local Supabase Env Profile Generation Improvement (2026-05-13)
 
 -   Local Supabase env generation now derives backend profiles from the normal env source order instead of maintaining separate `*.local-supabase.example` files.
@@ -30,7 +42,7 @@
 ## Previous Implementation: Scoped Menu Contract Closure (2026-05-13)
 
 -   The final scoped menu contract cleanup is complete.
--   Menu widget authoring now uses neutral `section`, `hub`, and `link` item kinds; the editor no longer exposes Catalog/Page/Ledger-specific menu branches.
+-   Menu widget authoring now uses neutral `section`, `hub`, and `link` item kinds; the editor no longer exposes Object/Page/Ledger-specific menu branches.
 -   Entity section targets are discovered from layout-capable Entity type metadata, so future Entity types can participate without menu-editor hardcoding.
 -   Published app runtime section selection and standalone section-link generation now accept only `section` menu items for Entity destinations.
 -   Shared schemas, active templates, LMS/self-hosted/quiz fixtures, and fixture contracts now use `autoShowAllSections`.
@@ -49,8 +61,8 @@
 ## Previous Implementation: Scoped Layout QA Closure (2026-05-13)
 
 -   The final scoped-layout QA closure is complete.
--   Global-menu startup token resolution no longer restricts candidate object lookup to Catalog/Page kinds; the resolver now stays Entity-agnostic at the lookup boundary.
--   A focused backend regression covers generic startup token resolution with a non-Catalog/non-Page object token.
+-   Global-menu startup token resolution no longer restricts candidate object lookup to Object/Page kinds; the resolver now stays Entity-agnostic at the lookup boundary.
+-   A focused backend regression covers generic startup token resolution with a non-Object/non-Page object token.
 -   The imported LMS browser flow now asserts that Home-only dashboard labels are absent on Knowledge, Development, and Reports, directly covering the previously reported leakage regression.
 -   The same Playwright flow records a non-Home Knowledge screenshot after those absence checks.
 -   Latest validation: `git diff --check` passes; targeted runtime controller tests pass; `@universo/applications-backend` lint passes; `node tools/testing/e2e/run-playwright-suite.mjs specs/flows/snapshot-import-lms-runtime.spec.ts` passes.
@@ -73,8 +85,8 @@
 
 -   The connector schema diff metric QA closure is complete.
 -   Backend sync diff details now include generic `metrics` for created Entity previews.
--   Catalog previews still show field and element counts, while Hubs show linked Entity counts, Pages show block counts, Sets show constant counts, and Enumerations show value counts.
--   The connector diff dialog renders those Entity-specific summaries instead of forcing non-Catalog Entity types to display misleading `0 fields, 0 elements` text.
+-   Object previews still show field and element counts, while Hubs show linked Entity counts, Pages show block counts, Sets show constant counts, and Enumerations show value counts.
+-   The connector diff dialog renders those Entity-specific summaries instead of forcing non-Object Entity types to display misleading `0 fields, 0 elements` text.
 -   Unknown/custom Entity types fall back to non-zero field/element metrics only, avoiding empty filler summaries.
 -   EN/RU metric labels are localized with pluralization.
 -   The imported LMS runtime Playwright flow now includes low-overhead browser assertions that the schema diff does not contain `0 fields, 0 elements` and does contain linked-entity, block, constant, and value metrics, plus a screenshot artifact.
@@ -115,45 +127,45 @@
 ## Previous Implementation: iSpring-like LMS Platform Roadmap QA Remediation (2026-05-12)
 
 -   Latest QA remediation closes the remaining report security, aggregation, metadata filtering, application access settings UI, docs, and regression coverage gaps found after the initial roadmap implementation.
--   Runtime report execution now accepts only saved `Reports` Catalog references (`reportId` or `reportCodename`) and loads the JSON `Definition` from published runtime data.
+-   Runtime report execution now accepts only saved `Reports` Object references (`reportId` or `reportCodename`) and loads the JSON `Definition` from published runtime data.
 -   Inline report definitions are rejected before runtime metadata lookup.
 -   Report aggregations are executed server-side through the same safe field map, with public aliases preserved in the response.
--   Report target discovery and ordinary runtime row discovery now share the same filter, excluding registrar-only ledger Catalogs.
+-   Report target discovery and ordinary runtime row discovery now share the same filter, excluding registrar-only ledger Objects.
 -   Application settings now include a generic Access tab for role/capability policy editing, reusing the existing settings page and MUI controls instead of adding an LMS-only UI.
 -   The LMS import runtime Playwright flow now includes saved report execution against the generated fixture.
 -   Latest validation: targeted backend/frontend/apps-template tests pass, focused lint/build checks pass for changed packages, `git diff --check` passes, and `node tools/testing/e2e/run-playwright-suite.mjs flows/snapshot-import-lms-runtime.spec.ts` passes.
 -   `resolveEffectiveRolePermissions` now derives effective app/runtime permissions from generic application `rolePolicies` settings and exposes `readReports` for owner/admin/editor by default while fail-closing reports for unauthorized roles.
 -   `RuntimeReportsService` requires an explicit `readReports` permission before executing validated report datasources.
--   `RuntimeReportsService` is reachable through `POST /applications/:applicationId/runtime/reports/run`; the controller resolves report definitions and target metadata from published runtime `_app_objects` and `_app_attributes`, applies workspace/lifecycle row conditions, and refuses unauthorized report access before touching runtime metadata.
+-   `RuntimeReportsService` is reachable through `POST /applications/:applicationId/runtime/reports/run`; the controller resolves report definitions and target metadata from published runtime `_app_objects` and `_app_components`, applies workspace/lifecycle row conditions, and refuses unauthorized report access before touching runtime metadata.
 -   `apps-template-mui` exposes a typed `runRuntimeReport` helper with Zod response validation, CSRF handling, saved report references, and aggregation output.
 -   Application layout behavior editing now reuses the existing shared widget editor for details tables, title widgets, charts, and overview cards, with section options sourced from runtime layout metadata.
 -   Latest validation: targeted `@universo/types`, `@universo/applications-backend`, `@universo/applications-frontend`, and `@universo/apps-template-mui` tests pass; focused lint/build checks pass for `@universo/types`, `@universo/applications-backend`, `@universo/applications-frontend`, and `@universo/apps-template-mui`; LMS generator and imported runtime Playwright flows pass.
--   Phase 0 baseline audit confirmed the LMS fixture already uses generic Metahub entities, Catalog-backed Ledgers, `recordBehavior`, Page blocks, generic runtime datasources, and required Workspace policy.
+-   Phase 0 baseline audit confirmed the LMS fixture already uses generic Metahub entities, Object-backed Ledgers, `recordBehavior`, Page blocks, generic runtime datasources, and required Workspace policy.
 -   Main implementation gap is product breadth and contract depth: resources/courses/sections/track steps/knowledge base/development plans/report definitions need to exist as ordinary metadata and seeded runtime records.
 -   Core runtime record commands must remain `post` / `unpost` / `void`; LMS actions are modeled as lifecycle/workflow configuration and scripts.
--   Report definitions stay in the existing `Reports` Catalog for V1; `ReportDefinitions` remains optional only if implementation proves separation is necessary.
+-   Report definitions stay in the existing `Reports` Object for V1; `ReportDefinitions` remains optional only if implementation proves separation is necessary.
 -   `@universo/types` now contains strict generic LMS platform primitive schemas for resources, sequences, lifecycle statuses, workflow actions, role policies, report definitions, and acceptance matrix data.
--   The LMS template has been expanded with generic Catalogs for learning resources, courses, course sections, track steps, knowledge spaces/folders/bookmarks, development plans/stages/tasks, notification rules/outbox, and richer report definitions.
+-   The LMS template has been expanded with generic Objects for learning resources, courses, course sections, track steps, knowledge spaces/folders/bookmarks, development plans/stages/tasks, notification rules/outbox, and richer report definitions.
 -   Imported LMS snapshot runtime flow now passes after workspace seed remapping hardening: table-child reference dependencies, retry on unresolved references, unique global `_seed_source_key` fallback, and legacy table-name object-id lookup cover restored publication snapshots.
 -   Latest validation: `@universo/applications-backend` focused tests/build/lint pass, and `node tools/testing/e2e/run-playwright-suite.mjs flows/snapshot-import-lms-runtime.spec.ts` passes.
 
-## Previous Focus: Catalog-Backed Ledger Schema Templates (2026-05-10)
+## Previous Focus: Object-Backed Ledger Schema Templates (2026-05-10)
 
 -   Ledger schemas support catalog-backed fact attributes with typed fact columns, auto-generated index tables, idempotent DDL, and E2E posting proof
--   Catalog entity type templates expose generic `ledgerSchema` capability in Entity constructor contract
--   LMS template models progress, score, enrollment, attendance, certificate, points, activity, and notification registers as Catalog instances with `config.ledger`
--   Registrar-only Catalog-backed ledger objects excluded from ordinary runtime CRUD and workspace seed flows
+-   Object entity type templates expose generic `ledgerSchema` capability in Entity constructor contract
+-   LMS template models progress, score, enrollment, attendance, certificate, points, activity, and notification registers as Object instances with `config.ledger`
+-   Registrar-only Object-backed ledger objects excluded from ordinary runtime CRUD and workspace seed flows
 -   Details: progress.md#2026-05-10
 
-## Previous Focus: Entity-Driven Catalog Record Behavior UI (2026-05-09)
+## Previous Focus: Entity-Driven Object Record Behavior UI (2026-05-09)
 
--   Catalog record behavior exposed through generic Entity authoring surface — `behavior` tab from entity type `components` + `ui.tabs`, not Catalog-only branching
+-   Object record behavior exposed through generic Entity authoring surface — `behavior` tab from entity type `components` + `ui.tabs`, not Object-only branching
 -   `TemplateManifestValidator` now preserves `identityFields`, `recordLifecycle`, `posting`, and `ledgerSchema` during Zod parsing
 -   Runtime Datasource QA: dashboard widgets receive active locale, sections, linked collections; chart widgets localize empty-data overlay
 -   Runtime UX QA: Ledger collections use `ledgers` i18n namespace; field-definition tabs/empty-states have shared localized keys
 -   Details: progress.md#2026-05-09
 
-## Previous Focus: LMS Catalog/Ledger Platform Implementation (2026-05-08)
+## Previous Focus: LMS Object/Ledger Platform Implementation (2026-05-08)
 
 -   20+ LMS QA/feature closures: public guest runtime neutral aliases, SHA-256 guest session secrets, application settings preservation
 -   Ledger projection errors return controlled `UpdateFailure` responses; manual-editable facts observable through guarded `PATCH`/`DELETE` routes
@@ -189,7 +201,7 @@
 
 ## Previous Focus: Page Entity UX Parity Closures (2026-05-05)
 
--   Page card/table menus now share same centralized CRUD icon factories as Catalogs via shared `BaseEntityMenu`
+-   Page card/table menus now share same centralized CRUD icon factories as Objects via shared `BaseEntityMenu`
 -   Table tree-assignment column renders `Hubs` when Entity type uses `hubs` tab alias; generic `Containers` for custom types
 -   Container selection panels resolve VLC codenames through `getVLCString` before rendering (fixed React error #31)
 -   Generic Entity form accepts standard `hubs` tab alias and exposes Page `Hubs`/`Layouts` from template capability metadata
@@ -206,6 +218,15 @@
 -   Application `member` is read-only: create/edit/copy/delete fail closed
 -   Details: progress.md#2026-05-02
 
+## Current Focus: Object Collections And Components Rename (2026-05-14)
+
+-   Built-in Object terminology has been replaced by Object terminology for fresh schemas and fixtures.
+-   Component / Field Definition terminology has been replaced by Component terminology for design-time metadata and runtime materialization.
+-   Fresh database targets intentionally do not preserve compatibility for old `catalog` / `attribute` names unless a remaining third-party-facing package explicitly owns that vocabulary.
+-   Runtime generated application tables use entity-defined physical prefixes; the standard Object prefix is `obj`, and the prefix is transported through publication/export snapshots into application sync.
+-   System metadata tables now use `_mhb_components` and `_app_components`; app object metadata uses `_app_objects`.
+-   Product fixtures must continue to be generated only through Playwright generator specs and validated through import/runtime flows.
+
 ## Current Guardrails
 
 -   Browser E2E must use the dedicated E2E boundary: hosted dedicated `.env.e2e.local` / `.env.e2e` by default, or the dedicated local Supabase profile on ports `55321/55322/55323` when local mode is explicitly requested.
@@ -221,23 +242,19 @@
 
 ## Constraints to Preserve
 
-1. Legacy Catalogs/Sets/Enumerations must remain user-visible until entity-based replacements pass acceptance
-2. `_mhb_objects.kind` accepts both built-in and custom kind values
-3. Snapshot format version bumps preserve backward compatibility for v2 imports
-4. All existing E2E tests must remain green at every phase boundary
-5. ComponentManifest JSON remains stable contract for advanced Zerocode tooling
+1. Fresh Object/Component terminology is canonical: standard built-in kind key `object`, standard component resource route segment `components`, and standard capability manifest key `capabilities`.
+2. `_mhb_objects.kind` accepts built-in and custom kind values; custom entity kinds may define their own table prefixes through the entity constructor metadata.
+3. Snapshot schema/template version numbers were intentionally not bumped for this fresh-database migration.
+4. Existing old test databases are disposable; do not add compatibility shims for old Object/Component fixtures unless a future migration request explicitly requires them.
+5. All existing E2E tests must remain green at every phase boundary.
 
-## Stored Data Access Preserved (Do NOT rename)
+## Stored Data Access Notes
 
-These stored JSONB/DB column names remain unchanged despite neutralization of local variable names:
+These names are still allowed when they are domain concepts rather than the renamed entity type:
 
--   `typed.hubId`, `typed.catalogId`, `typed.sectionId` -- stored JSONB field names
--   `config.parentHubId`, `config.boundHubId`, `config.hubs` -- stored config JSONB
--   Kind key strings: 'hub', 'catalog', 'set', 'enumeration' -- database values
--   DB columns: `parent_attribute_id`, `target_constant_id`, `is_display_attribute`, `attribute_id`
--   Settings namespace keys: `catalogs.allowCopy`, `hubs.resetNestingOnce` etc.
--   URL tab segments: `attributes`, `system`, `elements`, `constants`, `values`
--   i18n keys (~758 refs): `t('hubs.*')`, `t('catalogs.*')`, `t('sets.*')`, `t('enumerations.*')`
+-   `config.parentHubId`, `config.boundHubId`, `config.hubs` -- hub/tree configuration JSONB.
+-   `set`, `enumeration`, `page`, `ledger` -- separate standard entity kind keys.
+-   `catalog` in optional global migration catalog docs/package names may remain only where it refers to the migration registry package, not the Object entity type.
 
 ## References
 

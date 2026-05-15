@@ -43,7 +43,7 @@ const mockBootstrapRegisteredSystemAppStructureMetadata = jest.fn().mockResolved
             storageModel: 'application_like',
             metadataObjectCount: 1,
             metadataAttributeCount: 12,
-            systemTables: ['_app_migrations', '_app_settings', '_app_objects', '_app_attributes']
+            systemTables: ['_app_migrations', '_app_settings', '_app_objects', '_app_components']
         }
     ]
 })
@@ -61,7 +61,7 @@ const mockRunRegisteredPlatformPostSchemaMigrations = jest.fn().mockResolvedValu
     skipped: [],
     drifted: []
 })
-const mockSyncRegisteredPlatformDefinitionsToCatalog = jest.fn().mockResolvedValue({
+const mockSyncRegisteredPlatformDefinitionsToObject = jest.fn().mockResolvedValue({
     created: 1,
     updated: 0,
     unchanged: 0,
@@ -71,7 +71,7 @@ const mockSyncRegisteredPlatformDefinitionsToCatalog = jest.fn().mockResolvedVal
         orderedKeys: ['platform_migration.platform_schema.metahubs.PrepareMetahubsSchemaSupport1766351182000::custom']
     }
 })
-const mockIsGlobalMigrationCatalogEnabled = jest.fn(() => true)
+const mockIsGlobalMigrationObjectEnabled = jest.fn(() => true)
 const mockBootstrapStartupSuperuser = jest.fn().mockResolvedValue({
     enabled: false,
     status: 'disabled'
@@ -189,7 +189,7 @@ jest.mock(
         bootstrapRegisteredSystemAppStructureMetadata: mockBootstrapRegisteredSystemAppStructureMetadata,
         runRegisteredPlatformPreludeMigrations: mockRunRegisteredPlatformPreludeMigrations,
         runRegisteredPlatformPostSchemaMigrations: mockRunRegisteredPlatformPostSchemaMigrations,
-        syncRegisteredPlatformDefinitionsToCatalog: mockSyncRegisteredPlatformDefinitionsToCatalog
+        syncRegisteredPlatformDefinitionsToObject: mockSyncRegisteredPlatformDefinitionsToObject
     }),
     { virtual: true }
 )
@@ -198,7 +198,7 @@ jest.mock(
     '@universo/utils',
     () => ({
         API_WHITELIST_URLS: [],
-        isGlobalMigrationCatalogEnabled: (...args: unknown[]) => mockIsGlobalMigrationCatalogEnabled(...args)
+        isGlobalMigrationObjectEnabled: (...args: unknown[]) => mockIsGlobalMigrationObjectEnabled(...args)
     }),
     { virtual: true }
 )
@@ -209,7 +209,7 @@ describe('App.initDatabase', () => {
     beforeEach(() => {
         jest.clearAllMocks()
         mockAssertIsolatedVmRuntimeAvailable.mockResolvedValue(undefined)
-        mockIsGlobalMigrationCatalogEnabled.mockReturnValue(true)
+        mockIsGlobalMigrationObjectEnabled.mockReturnValue(true)
         mockValidateRegisteredPlatformMigrations.mockReturnValue({
             ok: true,
             issues: []
@@ -247,7 +247,7 @@ describe('App.initDatabase', () => {
                     storageModel: 'application_like',
                     metadataObjectCount: 1,
                     metadataAttributeCount: 12,
-                    systemTables: ['_app_migrations', '_app_settings', '_app_objects', '_app_attributes']
+                    systemTables: ['_app_migrations', '_app_settings', '_app_objects', '_app_components']
                 }
             ]
         })
@@ -265,7 +265,7 @@ describe('App.initDatabase', () => {
             skipped: [],
             drifted: []
         })
-        mockSyncRegisteredPlatformDefinitionsToCatalog.mockResolvedValue({
+        mockSyncRegisteredPlatformDefinitionsToObject.mockResolvedValue({
             created: 1,
             updated: 0,
             unchanged: 0,
@@ -327,7 +327,7 @@ describe('App.initDatabase', () => {
         })
         expect(mockInspectLegacyFixedSchemaTables).toHaveBeenCalledWith(mockKnex)
         expect(mockInspectRegisteredSystemAppStructureMetadata).toHaveBeenCalledWith(mockKnex)
-        expect(mockSyncRegisteredPlatformDefinitionsToCatalog).toHaveBeenCalledWith(
+        expect(mockSyncRegisteredPlatformDefinitionsToObject).toHaveBeenCalledWith(
             mockKnex,
             expect.objectContaining({
                 source: 'core-backend-initDatabase'
@@ -335,7 +335,7 @@ describe('App.initDatabase', () => {
         )
         expect(mockBootstrapStartupSuperuser).toHaveBeenCalledTimes(1)
         expect(mockBootstrapStartupSuperuser.mock.invocationCallOrder[0]).toBeGreaterThan(
-            mockSyncRegisteredPlatformDefinitionsToCatalog.mock.invocationCallOrder[0]
+            mockSyncRegisteredPlatformDefinitionsToObject.mock.invocationCallOrder[0]
         )
         expect(mockDestroyKnex).not.toHaveBeenCalled()
     })
@@ -365,7 +365,7 @@ describe('App.initDatabase', () => {
         expect(mockRunRegisteredPlatformPreludeMigrations).not.toHaveBeenCalled()
         expect(mockEnsureRegisteredSystemAppSchemaGenerationPlans).not.toHaveBeenCalled()
         expect(mockRunRegisteredPlatformPostSchemaMigrations).not.toHaveBeenCalled()
-        expect(mockSyncRegisteredPlatformDefinitionsToCatalog).not.toHaveBeenCalled()
+        expect(mockSyncRegisteredPlatformDefinitionsToObject).not.toHaveBeenCalled()
         expect(mockBootstrapStartupSuperuser).not.toHaveBeenCalled()
         expect(mockDestroyKnex).toHaveBeenCalledTimes(1)
         expect(mockLogger.error).toHaveBeenCalledWith('❌ [server]: Error during database initialization:', expect.any(Error))
@@ -383,7 +383,7 @@ describe('App.initDatabase', () => {
         expect(mockRunRegisteredPlatformPreludeMigrations).not.toHaveBeenCalled()
         expect(mockEnsureRegisteredSystemAppSchemaGenerationPlans).not.toHaveBeenCalled()
         expect(mockRunRegisteredPlatformPostSchemaMigrations).not.toHaveBeenCalled()
-        expect(mockSyncRegisteredPlatformDefinitionsToCatalog).not.toHaveBeenCalled()
+        expect(mockSyncRegisteredPlatformDefinitionsToObject).not.toHaveBeenCalled()
         expect(mockDestroyKnex).toHaveBeenCalledTimes(1)
         expect(mockLogger.error).toHaveBeenCalledWith('❌ [server]: Error during database initialization:', expect.any(Error))
     })
@@ -401,7 +401,7 @@ describe('App.initDatabase', () => {
         expect(mockRunRegisteredPlatformPreludeMigrations).not.toHaveBeenCalled()
         expect(mockEnsureRegisteredSystemAppSchemaGenerationPlans).not.toHaveBeenCalled()
         expect(mockRunRegisteredPlatformPostSchemaMigrations).not.toHaveBeenCalled()
-        expect(mockSyncRegisteredPlatformDefinitionsToCatalog).not.toHaveBeenCalled()
+        expect(mockSyncRegisteredPlatformDefinitionsToObject).not.toHaveBeenCalled()
         expect(mockDestroyKnex).toHaveBeenCalledTimes(1)
         expect(mockLogger.error).toHaveBeenCalledWith('❌ [server]: Error during database initialization:', expect.any(Error))
     })
@@ -419,7 +419,7 @@ describe('App.initDatabase', () => {
         expect(mockRunRegisteredPlatformPreludeMigrations).not.toHaveBeenCalled()
         expect(mockEnsureRegisteredSystemAppSchemaGenerationPlans).not.toHaveBeenCalled()
         expect(mockRunRegisteredPlatformPostSchemaMigrations).not.toHaveBeenCalled()
-        expect(mockSyncRegisteredPlatformDefinitionsToCatalog).not.toHaveBeenCalled()
+        expect(mockSyncRegisteredPlatformDefinitionsToObject).not.toHaveBeenCalled()
         expect(mockDestroyKnex).toHaveBeenCalledTimes(1)
         expect(mockLogger.error).toHaveBeenCalledWith('❌ [server]: Error during database initialization:', expect.any(Error))
     })
@@ -433,7 +433,7 @@ describe('App.initDatabase', () => {
         expect(mockEnsureRegisteredSystemAppSchemaGenerationPlans).not.toHaveBeenCalled()
         expect(mockRunRegisteredPlatformPostSchemaMigrations).not.toHaveBeenCalled()
         expect(mockBootstrapRegisteredSystemAppStructureMetadata).not.toHaveBeenCalled()
-        expect(mockSyncRegisteredPlatformDefinitionsToCatalog).not.toHaveBeenCalled()
+        expect(mockSyncRegisteredPlatformDefinitionsToObject).not.toHaveBeenCalled()
         expect(mockDestroyKnex).toHaveBeenCalledTimes(1)
         expect(mockLogger.error).toHaveBeenCalledWith('❌ [server]: Error during database initialization:', expect.any(Error))
     })
@@ -448,7 +448,7 @@ describe('App.initDatabase', () => {
         expect(mockEnsureRegisteredSystemAppSchemaGenerationPlans).toHaveBeenCalledTimes(1)
         expect(mockRunRegisteredPlatformPostSchemaMigrations).toHaveBeenCalledTimes(1)
         expect(mockBootstrapRegisteredSystemAppStructureMetadata).toHaveBeenCalledTimes(1)
-        expect(mockSyncRegisteredPlatformDefinitionsToCatalog).not.toHaveBeenCalled()
+        expect(mockSyncRegisteredPlatformDefinitionsToObject).not.toHaveBeenCalled()
         expect(mockDestroyKnex).toHaveBeenCalledTimes(1)
         expect(mockLogger.error).toHaveBeenCalledWith('❌ [server]: Error during database initialization:', expect.any(Error))
     })
@@ -462,12 +462,12 @@ describe('App.initDatabase', () => {
                     schemaName: 'admin',
                     legacyTableName: 'roles',
                     targetSchemaName: 'admin',
-                    targetTableName: 'cat_roles',
+                    targetTableName: 'obj_roles',
                     legacyQualifiedName: 'admin.roles',
-                    targetQualifiedName: 'admin.cat_roles'
+                    targetQualifiedName: 'admin.obj_roles'
                 }
             ],
-            issues: ['admin.roles must be reconciled to admin.cat_roles']
+            issues: ['admin.roles must be reconciled to admin.obj_roles']
         })
         const app = new App()
 
@@ -478,7 +478,7 @@ describe('App.initDatabase', () => {
         expect(mockRunRegisteredPlatformPostSchemaMigrations).toHaveBeenCalledTimes(1)
         expect(mockBootstrapRegisteredSystemAppStructureMetadata).toHaveBeenCalledTimes(1)
         expect(mockInspectLegacyFixedSchemaTables).toHaveBeenCalledTimes(1)
-        expect(mockSyncRegisteredPlatformDefinitionsToCatalog).not.toHaveBeenCalled()
+        expect(mockSyncRegisteredPlatformDefinitionsToObject).not.toHaveBeenCalled()
         expect(mockDestroyKnex).toHaveBeenCalledTimes(1)
         expect(mockLogger.error).toHaveBeenCalledWith('❌ [server]: Error during database initialization:', expect.any(Error))
     })
@@ -486,7 +486,7 @@ describe('App.initDatabase', () => {
     it('fails fast when fixed system app structure metadata inspection is not ok', async () => {
         mockInspectRegisteredSystemAppStructureMetadata.mockResolvedValue({
             ok: false,
-            issues: ['profiles: missing _app_attributes metadata for profiles.nickname'],
+            issues: ['profiles: missing _app_components metadata for profiles.nickname'],
             entries: []
         })
         const app = new App()
@@ -499,13 +499,13 @@ describe('App.initDatabase', () => {
         expect(mockBootstrapRegisteredSystemAppStructureMetadata).toHaveBeenCalledTimes(1)
         expect(mockInspectLegacyFixedSchemaTables).toHaveBeenCalledTimes(1)
         expect(mockInspectRegisteredSystemAppStructureMetadata).toHaveBeenCalledTimes(1)
-        expect(mockSyncRegisteredPlatformDefinitionsToCatalog).not.toHaveBeenCalled()
+        expect(mockSyncRegisteredPlatformDefinitionsToObject).not.toHaveBeenCalled()
         expect(mockDestroyKnex).toHaveBeenCalledTimes(1)
         expect(mockLogger.error).toHaveBeenCalledWith('❌ [server]: Error during database initialization:', expect.any(Error))
     })
 
     it('fails fast when platform definition synchronization throws after migrations succeed', async () => {
-        mockSyncRegisteredPlatformDefinitionsToCatalog.mockRejectedValue(new Error('definition sync failed'))
+        mockSyncRegisteredPlatformDefinitionsToObject.mockRejectedValue(new Error('definition sync failed'))
         const app = new App()
 
         await expect(app.initDatabase()).rejects.toThrow('definition sync failed')
@@ -514,13 +514,13 @@ describe('App.initDatabase', () => {
         expect(mockEnsureRegisteredSystemAppSchemaGenerationPlans).toHaveBeenCalledTimes(1)
         expect(mockRunRegisteredPlatformPostSchemaMigrations).toHaveBeenCalledTimes(1)
         expect(mockBootstrapRegisteredSystemAppStructureMetadata).toHaveBeenCalledTimes(1)
-        expect(mockSyncRegisteredPlatformDefinitionsToCatalog).toHaveBeenCalledTimes(1)
+        expect(mockSyncRegisteredPlatformDefinitionsToObject).toHaveBeenCalledTimes(1)
         expect(mockDestroyKnex).toHaveBeenCalledTimes(1)
         expect(mockLogger.error).toHaveBeenCalledWith('❌ [server]: Error during database initialization:', expect.any(Error))
     })
 
-    it('skips catalog definition synchronization when the global catalog is disabled by config', async () => {
-        mockIsGlobalMigrationCatalogEnabled.mockReturnValue(false)
+    it('skips object definition synchronization when the global object is disabled by config', async () => {
+        mockIsGlobalMigrationObjectEnabled.mockReturnValue(false)
         const app = new App()
 
         await app.initDatabase()
@@ -529,8 +529,8 @@ describe('App.initDatabase', () => {
         expect(mockEnsureRegisteredSystemAppSchemaGenerationPlans).toHaveBeenCalledTimes(1)
         expect(mockRunRegisteredPlatformPostSchemaMigrations).toHaveBeenCalledTimes(1)
         expect(mockBootstrapRegisteredSystemAppStructureMetadata).toHaveBeenCalledTimes(1)
-        expect(mockSyncRegisteredPlatformDefinitionsToCatalog).not.toHaveBeenCalled()
-        expect(mockLogger.info).toHaveBeenCalledWith('[server]: Global migration catalog is disabled; skipping catalog definition sync')
+        expect(mockSyncRegisteredPlatformDefinitionsToObject).not.toHaveBeenCalled()
+        expect(mockLogger.info).toHaveBeenCalledWith('[server]: Global migration object is disabled; skipping object definition sync')
         expect(mockDestroyKnex).not.toHaveBeenCalled()
     })
 

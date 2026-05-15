@@ -25,16 +25,16 @@ export const buildSchemaSnapshot = (entities: EntityDefinition[]): SchemaSnapsho
 
         for (const field of entity.fields) {
             // Skip child fields at top level — they are nested inside TABLE parent
-            if (field.parentAttributeId) continue
+            if (field.parentComponentId) continue
 
             const isTable = field.dataType === 'TABLE'
             const columnName = isTable ? generateChildTableName(field.id) : resolveFieldColumnName(field)
 
-            // Collect child fields for TABLE attributes
+            // Collect child fields for TABLE components
             const childFields = isTable
                 ? Object.fromEntries(
                       entity.fields
-                          .filter((f) => f.parentAttributeId === field.id)
+                          .filter((f) => f.parentComponentId === field.id)
                           .map((child) => [
                               child.id,
                               {
@@ -42,7 +42,7 @@ export const buildSchemaSnapshot = (entities: EntityDefinition[]): SchemaSnapsho
                                   columnName: resolveFieldColumnName(child),
                                   dataType: child.dataType,
                                   isRequired: child.isRequired,
-                                  isDisplayAttribute: child.isDisplayAttribute ?? false,
+                                  isDisplayComponent: child.isDisplayComponent ?? false,
                                   targetEntityId: child.targetEntityId ?? null,
                                   targetEntityKind: child.targetEntityKind ?? null
                               }
@@ -55,7 +55,7 @@ export const buildSchemaSnapshot = (entities: EntityDefinition[]): SchemaSnapsho
                 columnName,
                 dataType: field.dataType,
                 isRequired: field.isRequired,
-                isDisplayAttribute: field.isDisplayAttribute ?? false,
+                isDisplayComponent: field.isDisplayComponent ?? false,
                 targetEntityId: field.targetEntityId ?? null,
                 targetEntityKind: field.targetEntityKind ?? null,
                 ...(childFields && Object.keys(childFields).length > 0 ? { childFields } : {})

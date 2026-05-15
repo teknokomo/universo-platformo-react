@@ -24,7 +24,7 @@
 1. Prelude migrations платформы запускают `pre_schema_generation` support SQL для схемы.
 2. `ensureRegisteredSystemAppSchemaGenerationPlans()` строит fixed application-like entities из manifest и обеспечивает нужную форму схемы `applications`.
 3. Post-schema migrations платформы запускают `post_schema_generation` support SQL для индексов, политик и других зависимых объектов.
-4. `bootstrapRegisteredSystemAppStructureMetadata()` синхронизирует метаданные `_app_objects` и `_app_attributes` для fixed schema.
+4. `bootstrapRegisteredSystemAppStructureMetadata()` синхронизирует метаданные `_app_objects` и `_app_components` для fixed schema.
 5. В `applications._app_migrations` записывается детерминированная baseline-строка вроде `baseline_applications_structure_0_1_0`.
 
 ## Поверхность фиксированной схемы
@@ -32,8 +32,8 @@
 Фиксированная схема `applications` является платформенным каталогом метаданных приложений, а не runtime schema конкретного приложения.
 Текущий manifest определяет следующие business tables:
 
-- `cat_applications`
-- `cat_connectors`
+- `obj_applications`
+- `obj_connectors`
 - `rel_connector_publications`
 - `rel_application_users`
 
@@ -42,7 +42,7 @@
 - `_app_migrations`
 - `_app_settings`
 - `_app_objects`
-- `_app_attributes`
+- `_app_components`
 
 ## Рантайм-схемы приложений
 
@@ -53,7 +53,7 @@
 - `_app_migrations`
 - `_app_settings`
 - `_app_objects`
-- `_app_attributes`
+- `_app_components`
 - `_app_values`
 - `_app_layouts`
 - `_app_widgets`
@@ -69,7 +69,7 @@
 - `POST /application/:applicationId/release-bundle/apply`
 - `GET /application/:applicationId/diff`
 
-Эти маршруты создают или обновляют управляемую runtime schema, сохраняют `schema_status`, `schema_snapshot` и `installed_release_metadata` в `applications.cat_applications`, а также используют один и тот же sync engine для publication-backed и file-bundle installs.
+Эти маршруты создают или обновляют управляемую runtime schema, сохраняют `schema_status`, `schema_snapshot` и `installed_release_metadata` в `applications.obj_applications`, а также используют один и тот же sync engine для publication-backed и file-bundle installs.
 
 ## Связанные migration-control маршруты
 

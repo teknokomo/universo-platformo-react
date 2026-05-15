@@ -23,7 +23,7 @@ type SharedEntityMetadataRow = {
 }
 
 type SharedEntityDefinition = {
-    tableName: '_mhb_attributes' | '_mhb_constants' | '_mhb_values'
+    tableName: '_mhb_components' | '_mhb_constants' | '_mhb_values'
     sharedBehaviorSql: string
 }
 
@@ -39,8 +39,8 @@ export interface SharedEntityOverrideRow {
 }
 
 const SHARED_ENTITY_DEFINITIONS: Record<SharedEntityKind, SharedEntityDefinition> = {
-    attribute: {
-        tableName: '_mhb_attributes',
+    component: {
+        tableName: '_mhb_components',
         sharedBehaviorSql: "COALESCE(ui_config->'sharedBehavior', '{}'::jsonb)"
     },
     constant: {

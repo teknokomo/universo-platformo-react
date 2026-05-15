@@ -43,9 +43,9 @@ describe('templatesRoutes', () => {
         mockListActiveTemplatesForCatalog.mockResolvedValue([
             {
                 id: 'template-1',
-                codename: 'catalog',
+                codename: 'object',
                 definitionType: 'entity_type_preset',
-                name: { _schema: '1', _primary: 'en', locales: { en: { content: 'Catalogs', version: 1, isActive: true } } },
+                name: { _schema: '1', _primary: 'en', locales: { en: { content: 'Objects', version: 1, isActive: true } } },
                 description: null,
                 icon: 'IconDatabase',
                 isSystem: true,
@@ -62,9 +62,9 @@ describe('templatesRoutes', () => {
         ])
         mockFindTemplateByIdNotDeleted.mockResolvedValue({
             id: 'template-1',
-            codename: 'catalog',
+            codename: 'object',
             definitionType: 'entity_type_preset',
-            name: { _schema: '1', _primary: 'en', locales: { en: { content: 'Catalogs', version: 1, isActive: true } } },
+            name: { _schema: '1', _primary: 'en', locales: { en: { content: 'Objects', version: 1, isActive: true } } },
             description: null,
             icon: 'IconDatabase',
             isSystem: true,
@@ -81,13 +81,13 @@ describe('templatesRoutes', () => {
                 minStructureVersion: '0.4.0',
                 manifestJson: {
                     $schema: 'entity-type-preset/v1',
-                    codename: 'catalog',
+                    codename: 'object',
                     version: '0.1.0',
                     minStructureVersion: '0.4.0',
-                    name: { _schema: '1', _primary: 'en', locales: { en: { content: 'Catalogs', version: 1, isActive: true } } },
+                    name: { _schema: '1', _primary: 'en', locales: { en: { content: 'Objects', version: 1, isActive: true } } },
                     entityType: {
-                        kindKey: 'catalog',
-                        components: {
+                        kindKey: 'object',
+                        capabilities: {
                             dataSchema: { enabled: true },
                             records: { enabled: true },
                             treeAssignment: { enabled: true },
@@ -107,7 +107,7 @@ describe('templatesRoutes', () => {
                             iconName: 'IconDatabase',
                             tabs: ['general', 'hubs', 'layout', 'scripts'],
                             sidebarSection: 'objects',
-                            nameKey: 'Catalogs'
+                            nameKey: 'Objects'
                         }
                     }
                 },
@@ -146,7 +146,7 @@ describe('templatesRoutes', () => {
         expect(response.body.definitionType).toBe('entity_type_preset')
         expect(response.body.activeVersionManifest).toMatchObject({
             $schema: 'entity-type-preset/v1',
-            codename: 'catalog'
+            codename: 'object'
         })
     })
 })

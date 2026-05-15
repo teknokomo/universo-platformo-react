@@ -1,7 +1,7 @@
 import type { DbExecutor, SqlQueryable } from '@universo/utils/database'
 import { queryMany, queryOne, queryOneOrThrow } from '@universo/utils/database'
 import { qSchemaTable } from '@universo/database'
-import { SHARED_OBJECT_KINDS, SHARED_POOL_TO_TARGET_KIND, isEnabledComponentConfig, type ComponentManifest } from '@universo/types'
+import { SHARED_OBJECT_KINDS, SHARED_POOL_TO_TARGET_KIND, isEnabledCapabilityConfig, type EntityTypeCapabilities } from '@universo/types'
 import { generateTableName } from '../../ddl'
 import { MetahubSchemaService } from './MetahubSchemaService'
 import { updateWithVersionCheck, incrementVersion, type EntityType } from '../../../utils/optimisticLock'
@@ -22,7 +22,7 @@ interface QueryOptions {
     includeVirtualContainers?: boolean
 }
 
-type SharedMetahubObjectKind = 'catalog' | 'set' | 'enumeration' | 'hub'
+type SharedMetahubObjectKind = 'object' | 'set' | 'enumeration' | 'hub'
 export type MetahubObjectKind = SharedMetahubObjectKind | (string & {})
 
 const resolveOptimisticLockEntityType = (kind: string): EntityType => getEntityBehaviorService(kind)?.aclEntityType ?? 'entity'
@@ -69,7 +69,7 @@ export type MetahubObjectRow = {
 const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 
 /**
- * Service to manage Metahub Objects (Catalogs) stored in isolated schemas (_mhb_objects).
+ * Service to manage Metahub Objects (Objects) stored in isolated schemas (_mhb_objects).
  */
 export class MetahubObjectsService {
     constructor(private exec: DbExecutor, private schemaService: MetahubSchemaService) {}
@@ -147,21 +147,21 @@ export class MetahubObjectsService {
         }
 
         const qt = qSchemaTable(schemaName, '_mhb_entity_type_definitions')
-        const row = await queryOne<{ components: unknown }>(
+        const row = await queryOne<{ capabilities: unknown }>(
             db,
-            `SELECT components FROM ${qt} WHERE kind_key = $1 AND _upl_deleted = false AND _mhb_deleted = false LIMIT 1`,
+            `SELECT capabilities FROM ${qt} WHERE kind_key = $1 AND _upl_deleted = false AND _mhb_deleted = false LIMIT 1`,
             [kind]
         )
-        const components = row?.components as ComponentManifest | undefined
-        if (!components || !isEnabledComponentConfig(components.physicalTable)) {
+        const capabilities = row?.capabilities as EntityTypeCapabilities | undefined
+        if (!capabilities || !isEnabledCapabilityConfig(capabilities.physicalTable)) {
             return null
         }
 
-        return generateTableName(objectId, kind, components.physicalTable.prefix)
+        return generateTableName(objectId, kind, capabilities.physicalTable.prefix)
     }
 
     async findAll(metahubId: string, userId?: string, options: QueryOptions = {}): Promise<MetahubObjectRow[]> {
-        return this.findAllByKind(metahubId, 'catalog', userId, options)
+        return this.findAllByKind(metahubId, 'object', userId, options)
     }
 
     async findAllByKinds(
@@ -250,7 +250,7 @@ export class MetahubObjectsService {
         userId?: string,
         options: QueryOptions = {}
     ): Promise<MetahubObjectRow | null> {
-        return this.findByCodenameAndKind(metahubId, codename, 'catalog', userId, options)
+        return this.findByCodenameAndKind(metahubId, codename, 'object', userId, options)
     }
 
     async findByCodenameInKinds(
@@ -456,7 +456,7 @@ export class MetahubObjectsService {
     }
 
     /**
-     * Soft deletes a catalog object at the metahub level.
+     * Soft deletes a object object at the metahub level.
      * Sets _mhb_deleted=true, _mhb_deleted_at=now(), _mhb_deleted_by=userId
      */
     async delete(metahubId: string, id: string, userId?: string, db?: SqlQueryable) {
@@ -490,7 +490,7 @@ export class MetahubObjectsService {
     }
 
     /**
-     * Restores a soft-deleted catalog object (metahub level).
+     * Restores a soft-deleted object object (metahub level).
      */
     async restore(metahubId: string, id: string, userId?: string, db?: SqlQueryable) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
@@ -515,7 +515,7 @@ export class MetahubObjectsService {
     }
 
     /**
-     * Permanently deletes a catalog object (use with caution).
+     * Permanently deletes a object object (use with caution).
      */
     async permanentDelete(metahubId: string, id: string, userId?: string, db?: SqlQueryable) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)

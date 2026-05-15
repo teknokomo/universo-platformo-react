@@ -97,7 +97,7 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, op
         if (getDbExecutor) {
             try {
                 await getDbExecutor().query(
-                    `UPDATE profiles.cat_profiles
+                    `UPDATE profiles.obj_profiles
                      SET ${softDeleteSetClause('$2')}
                      WHERE user_id = $1 AND ${activeAppRowCondition()}`,
                     [userId, null]
@@ -237,7 +237,7 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, op
                     try {
                         // First, check if profile exists
                         const existingProfile = await rawQuery(
-                            `SELECT user_id, nickname, terms_accepted FROM profiles.cat_profiles WHERE user_id = $1 AND ${activeAppRowCondition()}`,
+                            `SELECT user_id, nickname, terms_accepted FROM profiles.obj_profiles WHERE user_id = $1 AND ${activeAppRowCondition()}`,
                             [userId]
                         )
                         console.info('[auth:profile] Profile check result', {
@@ -248,10 +248,10 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, op
 
                         // Use RETURNING to reliably check if UPDATE affected any rows
                         const returnedRows = await rawQuery<{ user_id: string }>(
-                            `UPDATE profiles.cat_profiles 
-                             SET terms_accepted = $1, 
-                                 terms_accepted_at = $2, 
-                                 privacy_accepted = $3, 
+                            `UPDATE profiles.obj_profiles
+                             SET terms_accepted = $1,
+                                 terms_accepted_at = $2,
+                                 privacy_accepted = $3,
                                  privacy_accepted_at = $4,
                                  terms_version = $5,
                                  privacy_version = $6
@@ -303,7 +303,7 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, op
                     try {
                         const nickname = `user_${userId.substring(0, 8)}`
                         const upsertResult = await rawQuery(
-                            `INSERT INTO profiles.cat_profiles (user_id, nickname, settings, terms_accepted, terms_accepted_at, privacy_accepted, privacy_accepted_at, terms_version, privacy_version)
+                            `INSERT INTO profiles.obj_profiles (user_id, nickname, settings, terms_accepted, terms_accepted_at, privacy_accepted, privacy_accepted_at, terms_version, privacy_version)
                              VALUES ($1, $2, '{}', $3, $4, $5, $6, $7, $8)
                              ON CONFLICT (user_id) WHERE ${activeAppRowCondition()} DO UPDATE
                              SET terms_accepted = EXCLUDED.terms_accepted,
@@ -322,7 +322,7 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, op
 
                         // Verify profile was created
                         const verifyProfile = await rawQuery(
-                            `SELECT user_id, nickname, terms_accepted, _upl_created_at FROM profiles.cat_profiles WHERE user_id = $1 AND ${activeAppRowCondition()}`,
+                            `SELECT user_id, nickname, terms_accepted, _upl_created_at FROM profiles.obj_profiles WHERE user_id = $1 AND ${activeAppRowCondition()}`,
                             [userId]
                         )
                         console.info('[auth:profile] Verification after UPSERT', {

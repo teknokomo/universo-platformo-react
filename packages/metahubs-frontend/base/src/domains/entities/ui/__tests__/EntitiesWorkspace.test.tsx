@@ -306,7 +306,7 @@ describe('EntitiesWorkspace', () => {
                             name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Hubs' } } },
                             description: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Manage treeEntities' } } }
                         },
-                        components: {
+                        capabilities: {
                             dataSchema: { enabled: true },
                             hierarchy: { enabled: true }
                         },
@@ -323,7 +323,7 @@ describe('EntitiesWorkspace', () => {
                             nameKey: 'Invoices',
                             descriptionKey: 'Manage invoices'
                         },
-                        components: {
+                        capabilities: {
                             dataSchema: { enabled: true },
                             records: true,
                             treeAssignment: { enabled: true }
@@ -341,7 +341,7 @@ describe('EntitiesWorkspace', () => {
                             nameKey: 'Products',
                             descriptionKey: 'Manage products'
                         },
-                        components: {
+                        capabilities: {
                             dataSchema: { enabled: true },
                             treeAssignment: { enabled: true },
                             layoutConfig: { enabled: true },
@@ -463,7 +463,7 @@ describe('EntitiesWorkspace', () => {
                 data: expect.objectContaining({
                     kindKey: 'hub',
                     codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'TreeEntity' } } },
-                    components: {
+                    capabilities: {
                         dataSchema: { enabled: true },
                         hierarchy: { enabled: true }
                     },
@@ -478,8 +478,8 @@ describe('EntitiesWorkspace', () => {
                         resourceSurfaces: [
                             expect.objectContaining({
                                 capability: 'dataSchema',
-                                key: 'fieldDefinitions',
-                                routeSegment: 'field-definitions',
+                                key: 'components',
+                                routeSegment: 'components',
                                 fallbackTitle: 'Properties'
                             })
                         ]
@@ -524,7 +524,7 @@ describe('EntitiesWorkspace', () => {
                             sidebarSection: 'objects',
                             nameKey: 'Products'
                         },
-                        components: { dataSchema: { enabled: true } },
+                        capabilities: { dataSchema: { enabled: true } },
                         updatedAt: ''
                     },
                     {
@@ -537,7 +537,7 @@ describe('EntitiesWorkspace', () => {
                             sidebarSection: 'objects',
                             nameKey: 'Products Copy'
                         },
-                        components: { dataSchema: { enabled: true } },
+                        capabilities: { dataSchema: { enabled: true } },
                         updatedAt: ''
                     }
                 ]
@@ -630,7 +630,7 @@ describe('EntitiesWorkspace', () => {
         )
     })
 
-    it('renders structured builder controls and prunes dependent components in create mode', async () => {
+    it('renders structured builder controls and prunes dependent capabilities in create mode', async () => {
         const user = userEvent.setup()
         const { default: EntitiesWorkspace } = await import('../EntitiesWorkspace')
 

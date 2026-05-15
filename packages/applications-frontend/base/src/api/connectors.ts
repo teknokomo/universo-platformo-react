@@ -110,7 +110,7 @@ export interface SchemaDiffResponse {
                         codename: string
                         dataType: string
                         isRequired: boolean
-                        parentAttributeId?: string | null
+                        parentComponentId?: string | null
                     }>
                     recordsCount: number
                     recordsPreview: Array<{
@@ -135,7 +135,7 @@ export interface SchemaDiffResponse {
                             name?: unknown
                             dataType: string
                             isRequired: boolean
-                            parentAttributeId?: string | null
+                            parentComponentId?: string | null
                         }>
                         recordsCount?: number
                         recordsPreview?: Array<{

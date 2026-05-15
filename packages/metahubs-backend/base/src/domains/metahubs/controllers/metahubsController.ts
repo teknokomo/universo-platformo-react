@@ -66,7 +66,7 @@ import { escapeLikeWildcards, getRequestDbExecutor, getRequestDbSession, type Db
 import { MetahubSchemaService } from '../services/MetahubSchemaService'
 import { MetahubObjectsService } from '../services/MetahubObjectsService'
 import { MetahubTreeEntitiesService } from '../services/MetahubTreeEntitiesService'
-import { MetahubFieldDefinitionsService } from '../services/MetahubFieldDefinitionsService'
+import { MetahubComponentsService } from '../services/MetahubComponentsService'
 import { MetahubRecordsService } from '../services/MetahubRecordsService'
 import { MetahubOptionValuesService } from '../services/MetahubOptionValuesService'
 import { MetahubFixedValuesService } from '../services/MetahubFixedValuesService'
@@ -212,9 +212,9 @@ const getEntityCount = (entityCounts: Record<string, number>, kind: string): num
     return typeof entityCounts[kind] === 'number' ? entityCounts[kind] : 0
 }
 
-const toMetahubCountsSummary = (entityCounts: Record<string, number>): { treeEntitiesCount: number; linkedCollectionsCount: number } => ({
+const toMetahubCountsSummary = (entityCounts: Record<string, number>): { treeEntitiesCount: number; objectCollectionsCount: number } => ({
     treeEntitiesCount: getEntityCount(entityCounts, 'hub'),
-    linkedCollectionsCount: getEntityCount(entityCounts, 'catalog')
+    objectCollectionsCount: getEntityCount(entityCounts, 'object')
 })
 
 const safeErrorMessage = (error: unknown): string => {
@@ -293,7 +293,7 @@ const cleanupImportedMetahubInTx = async (tx: DbExecutor, metahubId: string, use
 
     const lockedBranches = await tx.query<{ schemaName: string | null }>(
         `SELECT schema_name AS "schemaName"
-     FROM metahubs.cat_metahub_branches
+     FROM metahubs.obj_metahub_branches
      WHERE metahub_id = $1
      FOR UPDATE`,
         [metahubId]
@@ -357,7 +357,7 @@ const cleanupImportedMetahubInTx = async (tx: DbExecutor, metahubId: string, use
     )
 
     await tx.query(
-        `UPDATE metahubs.cat_metahub_branches
+        `UPDATE metahubs.obj_metahub_branches
      SET _upl_deleted = true,
          _upl_deleted_at = NOW(),
          _upl_deleted_by = $2,
@@ -370,7 +370,7 @@ const cleanupImportedMetahubInTx = async (tx: DbExecutor, metahubId: string, use
         [metahubId, userId]
     )
 
-    await softDelete(tx, 'metahubs', 'cat_metahubs', metahubId, userId)
+    await softDelete(tx, 'metahubs', 'obj_metahubs', metahubId, userId)
 }
 
 interface UniqueViolationErrorLike {
@@ -713,7 +713,7 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                 createdAt: m._uplCreatedAt,
                 updatedAt: m._uplUpdatedAt,
                 treeEntitiesCount: counts.treeEntitiesCount,
-                linkedCollectionsCount: counts.linkedCollectionsCount,
+                objectCollectionsCount: counts.objectCollectionsCount,
                 membersCount: m.membersCount,
                 role,
                 accessType,
@@ -747,9 +747,9 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
             // Ignore errors (e.g. schema not found yet)
         }
 
-        let linkedCollectionsCount = 0
+        let objectCollectionsCount = 0
         try {
-            linkedCollectionsCount = await objectsService.countByKind(metahubId, 'catalog', userId)
+            objectCollectionsCount = await objectsService.countByKind(metahubId, 'object', userId)
         } catch {
             // Ignore error (e.g. schema not found)
         }
@@ -772,7 +772,7 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
             createdAt: metahub._uplCreatedAt,
             updatedAt: metahub._uplUpdatedAt,
             treeEntitiesCount,
-            linkedCollectionsCount,
+            objectCollectionsCount,
             membersCount,
             role,
             accessType: ctx.isSynthetic ? ctx.globalRole : 'member',
@@ -830,8 +830,8 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
 
         const applicationsResult = await exec.query<{ count: number }>(
             `SELECT COUNT(DISTINCT a.id)::int as count
-       FROM applications.cat_applications a
-       JOIN applications.cat_connectors c ON c.application_id = a.id
+       FROM applications.obj_applications a
+       JOIN applications.obj_connectors c ON c.application_id = a.id
        JOIN applications.rel_connector_publications cp ON cp.connector_id = c.id
        JOIN metahubs.doc_publications p ON p.id = cp.publication_id
        WHERE p.metahub_id = $1
@@ -1301,7 +1301,7 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                     const branchId = branchIdMap.get(planItem.sourceBranch.id)
                     const mappedSourceId = branchIdMap.get(planItem.sourceBranch.sourceBranchId)
                     if (!branchId || !mappedSourceId) continue
-                    await tx.query(`UPDATE metahubs.cat_metahub_branches SET source_branch_id = $1, _upl_updated_by = $2 WHERE id = $3`, [
+                    await tx.query(`UPDATE metahubs.obj_metahub_branches SET source_branch_id = $1, _upl_updated_by = $2 WHERE id = $3`, [
                         mappedSourceId,
                         userId,
                         branchId
@@ -1591,7 +1591,7 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
 
                 const lockedBranches = await tx.query<{ schemaName: string | null }>(
                     `SELECT schema_name AS "schemaName"
-           FROM metahubs.cat_metahub_branches
+           FROM metahubs.obj_metahub_branches
            WHERE metahub_id = $1
            FOR UPDATE`,
                     [metahubId]
@@ -1611,7 +1611,7 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                 }
 
                 await tx.query(
-                    `UPDATE metahubs.cat_metahub_branches
+                    `UPDATE metahubs.obj_metahub_branches
            SET _upl_deleted = true,
                _upl_deleted_at = NOW(),
                _upl_deleted_by = $2,
@@ -1668,7 +1668,7 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                     [metahubId, userId]
                 )
 
-                await softDelete(tx, 'metahubs', 'cat_metahubs', metahubId, userId)
+                await softDelete(tx, 'metahubs', 'obj_metahubs', metahubId, userId)
             })
         } finally {
             await releasePoolAdvisoryLock(lockKey)
@@ -1964,7 +1964,7 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                     presetToggles: {
                         hub: false,
                         page: false,
-                        catalog: false,
+                        object: false,
                         set: false,
                         enumeration: false,
                         ledger: false
@@ -2015,8 +2015,8 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
             await schemaService.rewriteBaselineMigrationVersion(branch.schemaName, importedVersionEnvelope?.structureVersion)
 
             const objectsService = new MetahubObjectsService(exec, schemaService)
-            const fieldDefinitionsService = new MetahubFieldDefinitionsService(exec, schemaService)
-            const recordsService = new MetahubRecordsService(exec, schemaService, objectsService, fieldDefinitionsService)
+            const componentsService = new MetahubComponentsService(exec, schemaService)
+            const recordsService = new MetahubRecordsService(exec, schemaService, objectsService, componentsService)
             const treeEntitiesService = new MetahubTreeEntitiesService(exec, schemaService)
             const optionValuesService = new MetahubOptionValuesService(exec, schemaService)
             const fixedValuesService = new MetahubFixedValuesService(exec, schemaService)
@@ -2026,7 +2026,7 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
             const eventBindingService = new EventBindingService(exec, schemaService, entityTypeService)
             const serializer = new SnapshotSerializer(
                 objectsService,
-                fieldDefinitionsService,
+                componentsService,
                 recordsService,
                 treeEntitiesService,
                 optionValuesService,
@@ -2166,8 +2166,8 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
 
         const schemaService = new MetahubSchemaService(exec, activeBranchId)
         const objectsService = new MetahubObjectsService(exec, schemaService)
-        const fieldDefinitionsService = new MetahubFieldDefinitionsService(exec, schemaService)
-        const recordsService = new MetahubRecordsService(exec, schemaService, objectsService, fieldDefinitionsService)
+        const componentsService = new MetahubComponentsService(exec, schemaService)
+        const recordsService = new MetahubRecordsService(exec, schemaService, objectsService, componentsService)
         const treeEntitiesService = new MetahubTreeEntitiesService(exec, schemaService)
         const optionValuesService = new MetahubOptionValuesService(exec, schemaService)
         const fixedValuesService = new MetahubFixedValuesService(exec, schemaService)
@@ -2178,7 +2178,7 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
         const eventBindingService = new EventBindingService(exec, schemaService, entityTypeService)
         const serializer = new SnapshotSerializer(
             objectsService,
-            fieldDefinitionsService,
+            componentsService,
             recordsService,
             treeEntitiesService,
             optionValuesService,

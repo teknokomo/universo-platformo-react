@@ -83,7 +83,7 @@ describe('system-app-schema command', () => {
                     storageModel: 'application_like',
                     metadataObjectCount: 1,
                     metadataAttributeCount: 12,
-                    systemTables: ['_app_migrations', '_app_settings', '_app_objects', '_app_attributes']
+                    systemTables: ['_app_migrations', '_app_settings', '_app_objects', '_app_components']
                 }
             ]
         })
@@ -176,7 +176,7 @@ describe('system-app-schema command', () => {
                             storageModel: 'application_like',
                             metadataObjectCount: 1,
                             metadataAttributeCount: 12,
-                            systemTables: ['_app_migrations', '_app_settings', '_app_objects', '_app_attributes']
+                            systemTables: ['_app_migrations', '_app_settings', '_app_objects', '_app_components']
                         }
                     ]
                 },

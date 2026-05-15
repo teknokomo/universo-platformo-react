@@ -48,23 +48,23 @@ describe('publicRuntimeAccess helpers', () => {
         await expect(listActivePublicWorkspaceIds(executor, schemaName)).resolves.toEqual([mainWorkspaceId, sharedWorkspaceId])
     })
 
-    it('loads a public runtime object definition and exposes top-level attributes', async () => {
+    it('loads a public runtime object definition and exposes top-level components', async () => {
         const { executor } = createMockDbExecutor()
         executor.query.mockImplementation(async (sql: string) => {
             if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
                 return [
-                    { id: 'object-1', codename: { locales: { en: { content: 'Modules' } } }, kind: 'catalog', table_name: 'modules_table' }
+                    { id: 'object-1', codename: { locales: { en: { content: 'Modules' } } }, kind: 'object', table_name: 'modules_table' }
                 ]
             }
 
-            if (sql.includes(`FROM "${schemaName}"."_app_attributes"`)) {
+            if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
                 return [
                     {
                         id: 'attr-title',
                         codename: { locales: { en: { content: 'Title' } } },
                         column_name: 'title',
                         data_type: 'STRING',
-                        parent_attribute_id: null,
+                        parent_component_id: null,
                         target_object_id: null,
                         target_object_kind: null
                     },
@@ -73,7 +73,7 @@ describe('publicRuntimeAccess helpers', () => {
                         codename: { locales: { en: { content: 'ContentItems' } } },
                         column_name: 'content_items',
                         data_type: 'TABLE',
-                        parent_attribute_id: null,
+                        parent_component_id: null,
                         target_object_id: null,
                         target_object_kind: null
                     }
@@ -87,7 +87,7 @@ describe('publicRuntimeAccess helpers', () => {
 
         expect(binding).toMatchObject({
             id: 'object-1',
-            kind: 'catalog',
+            kind: 'object',
             tableName: 'modules_table'
         })
         expect(binding?.attrs).toHaveLength(2)
@@ -132,16 +132,16 @@ describe('publicRuntimeAccess helpers', () => {
             {
                 id: 'object-1',
                 codename: 'Modules',
-                kind: 'catalog',
+                kind: 'object',
                 tableName: 'modules_table',
                 attrs: [
-                    { id: 'attr-title', codename: 'Title', column_name: 'title', data_type: 'STRING', parent_attribute_id: null },
+                    { id: 'attr-title', codename: 'Title', column_name: 'title', data_type: 'STRING', parent_component_id: null },
                     {
                         id: 'attr-description',
                         codename: 'Description',
                         column_name: 'description',
                         data_type: 'STRING',
-                        parent_attribute_id: null
+                        parent_component_id: null
                     }
                 ]
             },
@@ -156,7 +156,7 @@ describe('publicRuntimeAccess helpers', () => {
                 codename: 'ContentItems',
                 column_name: 'content_items',
                 data_type: 'TABLE',
-                parent_attribute_id: null
+                parent_component_id: null
             },
             [
                 {
@@ -164,21 +164,21 @@ describe('publicRuntimeAccess helpers', () => {
                     codename: 'ItemType',
                     column_name: 'item_type',
                     data_type: 'STRING',
-                    parent_attribute_id: 'attr-content'
+                    parent_component_id: 'attr-content'
                 },
                 {
                     id: 'child-title',
                     codename: 'ItemTitle',
                     column_name: 'item_title',
                     data_type: 'STRING',
-                    parent_attribute_id: 'attr-content'
+                    parent_component_id: 'attr-content'
                 },
                 {
                     id: 'child-content',
                     codename: 'ItemContent',
                     column_name: 'item_content',
                     data_type: 'STRING',
-                    parent_attribute_id: 'attr-content'
+                    parent_component_id: 'attr-content'
                 }
             ],
             '8f1c1880-2b67-4d79-b02b-a53db0a85453'
@@ -228,7 +228,7 @@ describe('publicRuntimeAccess helpers', () => {
                 codename: 'ContentItems',
                 column_name: 'content_items',
                 data_type: 'TABLE',
-                parent_attribute_id: null
+                parent_component_id: null
             },
             [
                 {
@@ -236,14 +236,14 @@ describe('publicRuntimeAccess helpers', () => {
                     codename: 'ItemType',
                     column_name: 'item_type',
                     data_type: 'STRING',
-                    parent_attribute_id: 'attr-content'
+                    parent_component_id: 'attr-content'
                 },
                 {
                     id: 'child-title',
                     codename: 'ItemTitle',
                     column_name: 'item_title',
                     data_type: 'STRING',
-                    parent_attribute_id: 'attr-content'
+                    parent_component_id: 'attr-content'
                 }
             ],
             '8f1c1880-2b67-4d79-b02b-a53db0a85453'
@@ -258,7 +258,7 @@ describe('publicRuntimeAccess helpers', () => {
         ])
     })
 
-    it('does not select TABLE attributes as parent-table columns when loading a public runtime record', async () => {
+    it('does not select TABLE components as parent-table columns when loading a public runtime record', async () => {
         const { executor } = createMockDbExecutor()
 
         executor.query.mockImplementation(async (sql: string) => {
@@ -284,23 +284,23 @@ describe('publicRuntimeAccess helpers', () => {
             {
                 id: 'object-1',
                 codename: 'Modules',
-                kind: 'catalog',
+                kind: 'object',
                 tableName: 'modules_table',
                 attrs: [
-                    { id: 'attr-title', codename: 'Title', column_name: 'title', data_type: 'STRING', parent_attribute_id: null },
+                    { id: 'attr-title', codename: 'Title', column_name: 'title', data_type: 'STRING', parent_component_id: null },
                     {
                         id: 'attr-description',
                         codename: 'Description',
                         column_name: 'description',
                         data_type: 'STRING',
-                        parent_attribute_id: null
+                        parent_component_id: null
                     },
                     {
                         id: 'attr-content',
                         codename: 'ContentItems',
                         column_name: 'content_items',
                         data_type: 'TABLE',
-                        parent_attribute_id: null
+                        parent_component_id: null
                     }
                 ]
             },

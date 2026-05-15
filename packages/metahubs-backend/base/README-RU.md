@@ -17,7 +17,7 @@ Backend-пакет для design-time ресурсов metahub, metadata publica
 
 ## Direct Standard Kind Contract
 
-- Standard metadata entity types используют прямые kind keys: `hub`, `page`, `catalog`, `set`, `enumeration` и `ledger`.
+- Standard metadata entity types используют прямые kind keys: `hub`, `page`, `object`, `set`, `enumeration` и `ledger`.
 - Platform-provided standard metadata requests входят через entity-owned top-level routes и при необходимости переиспользуют entity-owned child controllers under `domains/entities/**`.
 - Template presets и default instances остаются на прямых standard kind keys вместо алиасов `custom.*-v2`.
 - Publication, runtime и schema seams классифицируют standard metadata по сохранённым entity definitions вместо V2-specific compatibility aliases.
@@ -25,7 +25,7 @@ Backend-пакет для design-time ресурсов metahub, metadata publica
 ## LMS Template Contract
 
 - Встроенный `lms` template остаётся entity-first: classes, students, modules, quizzes, access links, progress, enrollments, supporting enumerations и progress/score ledgers являются обычными metadata entities.
-- LMS ledgers экспортируются как metadata с `config.ledger`; operational ledger facts не экспортируются как обычные Catalog runtime rows.
+- LMS ledgers экспортируются как metadata с `config.ledger`; operational ledger facts не экспортируются как обычные Object runtime rows.
 - Default LMS layout использует shared dashboard shell (`menuWidget`, `appNavbar`, `header`, `detailsTitle`, `detailsTable`) вместо глобальных LMS-only widgets.
 
 ## Main Responsibilities

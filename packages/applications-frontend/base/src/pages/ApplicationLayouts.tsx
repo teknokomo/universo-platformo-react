@@ -45,14 +45,14 @@ import type {
     ApplicationLayoutWidgetMutation,
     ColumnsContainerConfig,
     DashboardLayoutZone,
-    LinkedCollectionRuntimeViewConfig,
+    ObjectCollectionRuntimeViewConfig,
     MenuWidgetConfig
 } from '@universo/types'
 import { DASHBOARD_LAYOUT_ZONES } from '@universo/types'
 import {
-    extractLinkedCollectionLayoutBehaviorConfig,
-    normalizeLinkedCollectionRuntimeViewConfig,
-    setLinkedCollectionLayoutBehaviorConfig
+    extractObjectCollectionLayoutBehaviorConfig,
+    normalizeObjectCollectionRuntimeViewConfig,
+    setObjectCollectionLayoutBehaviorConfig
 } from '@universo/utils'
 import { generateUuidV7 } from '@universo/utils'
 import {
@@ -62,7 +62,7 @@ import {
     deleteApplicationLayoutWidget,
     getApplicationLayout,
     listApplicationLayoutScopes,
-    listApplicationLayoutWidgetCatalog,
+    listApplicationLayoutWidgetObject,
     listApplicationLayouts,
     moveApplicationLayoutWidget,
     toggleApplicationLayoutWidget,
@@ -174,12 +174,12 @@ const ApplicationLayouts = () => {
         enabled: Boolean(applicationId && layoutId)
     })
 
-    const widgetCatalogQuery = useQuery({
+    const widgetObjectQuery = useQuery({
         queryKey:
             applicationId && layoutId
-                ? [...applicationsQueryKeys.layoutZoneWidgets(applicationId, layoutId), 'catalog']
-                : ['layout-widget-catalog-empty'],
-        queryFn: () => listApplicationLayoutWidgetCatalog(String(applicationId), String(layoutId)),
+                ? [...applicationsQueryKeys.layoutZoneWidgets(applicationId, layoutId), 'object']
+                : ['layout-widget-object-empty'],
+        queryFn: () => listApplicationLayoutWidgetObject(String(applicationId), String(layoutId)),
         enabled: Boolean(applicationId && layoutId)
     })
 
@@ -416,9 +416,9 @@ const ApplicationLayouts = () => {
         const layout = detailQuery.data.item
         const title = resolveLocalizedText(layout.name, i18n.language, layout.id)
         const widgets = detailQuery.data.widgets
-        const widgetCatalog = widgetCatalogQuery.data ?? []
+        const widgetObject = widgetObjectQuery.data ?? []
         const widgetLabelByKey = Object.fromEntries(
-            widgetCatalog.map((item) => [item.key, t(`layouts.widgets.${item.key}`, item.key)])
+            widgetObject.map((item) => [item.key, t(`layouts.widgets.${item.key}`, item.key)])
         ) as Record<string, string>
         const sectionOptions = (scopesQuery.data ?? [])
             .filter((scope) => scope.scopeEntityId)
@@ -438,7 +438,7 @@ const ApplicationLayouts = () => {
             return accumulator
         }, {} as Record<DashboardLayoutZone, ApplicationLayoutWidget[]>)
 
-        const catalogBehaviorConfig = normalizeLinkedCollectionRuntimeViewConfig(extractLinkedCollectionLayoutBehaviorConfig(layout.config))
+        const objectBehaviorConfig = normalizeObjectCollectionRuntimeViewConfig(extractObjectCollectionLayoutBehaviorConfig(layout.config))
         const allAssignedWidgetKeys = new Set(widgets.map((item) => item.widgetKey))
         const zoneLabels: Record<DashboardLayoutZone, string> = {
             top: t('layouts.zones.top', 'Top'),
@@ -459,10 +459,10 @@ const ApplicationLayouts = () => {
             await handleLayoutConfigUpdate({ ...(layout.config ?? {}), [key]: value })
         }
 
-        const handleCatalogBehaviorChange = async (patch: Partial<LinkedCollectionRuntimeViewConfig>) => {
-            const currentBehaviorConfig = extractLinkedCollectionLayoutBehaviorConfig(layout.config) ?? {}
+        const handleObjectBehaviorChange = async (patch: Partial<ObjectCollectionRuntimeViewConfig>) => {
+            const currentBehaviorConfig = extractObjectCollectionLayoutBehaviorConfig(layout.config) ?? {}
             await handleLayoutConfigUpdate(
-                setLinkedCollectionLayoutBehaviorConfig(layout.config ?? {}, { ...currentBehaviorConfig, ...patch })
+                setObjectCollectionLayoutBehaviorConfig(layout.config ?? {}, { ...currentBehaviorConfig, ...patch })
             )
         }
 
@@ -506,7 +506,7 @@ const ApplicationLayouts = () => {
         }
 
         const getAvailableWidgetsForZone = (zone: DashboardLayoutZone) =>
-            widgetCatalog.filter((item) => item.allowedZones.includes(zone) && (item.multiInstance || !allAssignedWidgetKeys.has(item.key)))
+            widgetObject.filter((item) => item.allowedZones.includes(zone) && (item.multiInstance || !allAssignedWidgetKeys.has(item.key)))
 
         const getWidgetChipLabel = (widget: ApplicationLayoutWidget): string => {
             const base = widgetLabelByKey[widget.widgetKey] ?? t(`layouts.widgets.${widget.widgetKey}`, widget.widgetKey)
@@ -630,17 +630,17 @@ const ApplicationLayouts = () => {
                                 <PaperSection
                                     title={
                                         layout.scopeEntityId
-                                            ? t('layouts.catalogBehaviorTitleCatalog', 'Entity runtime behavior')
-                                            : t('layouts.catalogBehaviorTitleGlobal', 'Default entity runtime behavior')
+                                            ? t('layouts.objectBehaviorTitleObject', 'Entity runtime behavior')
+                                            : t('layouts.objectBehaviorTitleGlobal', 'Default entity runtime behavior')
                                     }
                                     description={
                                         layout.scopeEntityId
                                             ? t(
-                                                  'layouts.catalogBehaviorDescriptionCatalog',
+                                                  'layouts.objectBehaviorDescriptionObject',
                                                   'This scoped layout overrides the create/search behavior inherited from its global base layout.'
                                               )
                                             : t(
-                                                  'layouts.catalogBehaviorDescriptionGlobal',
+                                                  'layouts.objectBehaviorDescriptionGlobal',
                                                   'These settings define the default create/search behavior for entities that use this global layout until an entity-specific layout overrides it.'
                                               )
                                     }
@@ -649,9 +649,9 @@ const ApplicationLayouts = () => {
                                         <FormControlLabel
                                             control={
                                                 <Switch
-                                                    checked={catalogBehaviorConfig.showCreateButton}
+                                                    checked={objectBehaviorConfig.showCreateButton}
                                                     onChange={(_, checked) =>
-                                                        void handleCatalogBehaviorChange({ showCreateButton: checked })
+                                                        void handleObjectBehaviorChange({ showCreateButton: checked })
                                                     }
                                                 />
                                             }
@@ -660,11 +660,11 @@ const ApplicationLayouts = () => {
                                         <FormControl size='small' sx={{ minWidth: 220 }}>
                                             <InputLabel>{t('layouts.searchMode', 'Search mode')}</InputLabel>
                                             <Select
-                                                value={catalogBehaviorConfig.searchMode}
+                                                value={objectBehaviorConfig.searchMode}
                                                 label={t('layouts.searchMode', 'Search mode')}
                                                 onChange={(event) =>
-                                                    void handleCatalogBehaviorChange({
-                                                        searchMode: event.target.value as LinkedCollectionRuntimeViewConfig['searchMode']
+                                                    void handleObjectBehaviorChange({
+                                                        searchMode: event.target.value as ObjectCollectionRuntimeViewConfig['searchMode']
                                                     })
                                                 }
                                             >
@@ -675,12 +675,12 @@ const ApplicationLayouts = () => {
                                         <FormControl size='small' sx={{ minWidth: 220 }}>
                                             <InputLabel>{t('layouts.createSurface', 'Create form type')}</InputLabel>
                                             <Select
-                                                value={catalogBehaviorConfig.createSurface}
+                                                value={objectBehaviorConfig.createSurface}
                                                 label={t('layouts.createSurface', 'Create form type')}
                                                 onChange={(event) =>
-                                                    void handleCatalogBehaviorChange({
+                                                    void handleObjectBehaviorChange({
                                                         createSurface: event.target
-                                                            .value as LinkedCollectionRuntimeViewConfig['createSurface']
+                                                            .value as ObjectCollectionRuntimeViewConfig['createSurface']
                                                     })
                                                 }
                                             >
@@ -691,11 +691,11 @@ const ApplicationLayouts = () => {
                                         <FormControl size='small' sx={{ minWidth: 220 }}>
                                             <InputLabel>{t('layouts.editSurface', 'Edit form type')}</InputLabel>
                                             <Select
-                                                value={catalogBehaviorConfig.editSurface}
+                                                value={objectBehaviorConfig.editSurface}
                                                 label={t('layouts.editSurface', 'Edit form type')}
                                                 onChange={(event) =>
-                                                    void handleCatalogBehaviorChange({
-                                                        editSurface: event.target.value as LinkedCollectionRuntimeViewConfig['editSurface']
+                                                    void handleObjectBehaviorChange({
+                                                        editSurface: event.target.value as ObjectCollectionRuntimeViewConfig['editSurface']
                                                     })
                                                 }
                                             >
@@ -706,11 +706,11 @@ const ApplicationLayouts = () => {
                                         <FormControl size='small' sx={{ minWidth: 220 }}>
                                             <InputLabel>{t('layouts.copySurface', 'Copy form type')}</InputLabel>
                                             <Select
-                                                value={catalogBehaviorConfig.copySurface}
+                                                value={objectBehaviorConfig.copySurface}
                                                 label={t('layouts.copySurface', 'Copy form type')}
                                                 onChange={(event) =>
-                                                    void handleCatalogBehaviorChange({
-                                                        copySurface: event.target.value as LinkedCollectionRuntimeViewConfig['copySurface']
+                                                    void handleObjectBehaviorChange({
+                                                        copySurface: event.target.value as ObjectCollectionRuntimeViewConfig['copySurface']
                                                     })
                                                 }
                                             >
@@ -721,9 +721,9 @@ const ApplicationLayouts = () => {
                                         <FormControlLabel
                                             control={
                                                 <Switch
-                                                    checked={catalogBehaviorConfig.enableRowReordering}
+                                                    checked={objectBehaviorConfig.enableRowReordering}
                                                     onChange={(_, checked) =>
-                                                        void handleCatalogBehaviorChange({
+                                                        void handleObjectBehaviorChange({
                                                             enableRowReordering: checked
                                                         })
                                                     }

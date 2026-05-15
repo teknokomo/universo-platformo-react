@@ -42,9 +42,9 @@ describe('metahubs fixed-schema parity contract', () => {
         expect(metahubsSystemAppDefinition.targetBusinessTables).toEqual(
             expect.arrayContaining([
                 expect.objectContaining({
-                    kind: 'catalog',
+                    kind: 'object',
                     codename: 'metahubs',
-                    tableName: 'cat_metahubs',
+                    tableName: 'obj_metahubs',
                     presentation: expect.objectContaining({
                         name: expect.objectContaining({
                             locales: expect.objectContaining({
@@ -128,37 +128,37 @@ describe('metahubs fixed-schema parity contract', () => {
         const upSql = normalizeSql(createMetahubsSchemaMigrationDefinition.up.map((statement) => statement.sql).join('\n'))
 
         const requiredTypes = [
-            'CREATE TYPE metahubs.attribute_data_type AS ENUM',
+            'CREATE TYPE metahubs.component_data_type AS ENUM',
             'CREATE TYPE metahubs.publication_access_mode AS ENUM',
             'CREATE TYPE metahubs.publication_schema_status AS ENUM'
         ]
         const requiredTables = [
-            'CREATE TABLE metahubs.cat_metahubs (',
-            'CREATE TABLE metahubs.cat_metahub_branches (',
-            'CREATE TABLE metahubs.cat_templates (',
+            'CREATE TABLE metahubs.obj_metahubs (',
+            'CREATE TABLE metahubs.obj_metahub_branches (',
+            'CREATE TABLE metahubs.obj_templates (',
             'CREATE TABLE metahubs.doc_template_versions (',
             'CREATE TABLE metahubs.rel_metahub_users (',
             'CREATE TABLE IF NOT EXISTS metahubs.doc_publications (',
             'CREATE TABLE metahubs.doc_publication_versions ('
         ]
         const requiredPolicies = [
-            'CREATE POLICY "templates_read_all" ON metahubs.cat_templates',
-            'CREATE POLICY "templates_write_superuser" ON metahubs.cat_templates',
+            'CREATE POLICY "templates_read_all" ON metahubs.obj_templates',
+            'CREATE POLICY "templates_write_superuser" ON metahubs.obj_templates',
             'CREATE POLICY "template_versions_read_all" ON metahubs.doc_template_versions',
             'CREATE POLICY "template_versions_write_superuser" ON metahubs.doc_template_versions',
             'CREATE POLICY "Allow users to manage their metahub memberships" ON metahubs.rel_metahub_users',
-            'CREATE POLICY "Allow users to manage their own metahubs" ON metahubs.cat_metahubs',
+            'CREATE POLICY "Allow users to manage their own metahubs" ON metahubs.obj_metahubs',
             'CREATE POLICY "pub_access_via_metahub" ON metahubs.doc_publications',
             'CREATE POLICY "publications_versions_policy" ON metahubs.doc_publication_versions'
         ]
         const requiredPolicyDrops = [
-            expectedSafePolicyDrop('templates_read_all', 'metahubs', 'cat_templates'),
-            expectedSafePolicyDrop('templates_write_superuser', 'metahubs', 'cat_templates'),
+            expectedSafePolicyDrop('templates_read_all', 'metahubs', 'obj_templates'),
+            expectedSafePolicyDrop('templates_write_superuser', 'metahubs', 'obj_templates'),
             expectedSafePolicyDrop('template_versions_read_all', 'metahubs', 'doc_template_versions'),
             expectedSafePolicyDrop('template_versions_write_superuser', 'metahubs', 'doc_template_versions'),
             expectedSafePolicyDrop('Allow users to manage their metahub memberships', 'metahubs', 'rel_metahub_users'),
-            expectedSafePolicyDrop('Allow users to manage their own metahubs', 'metahubs', 'cat_metahubs'),
-            expectedSafePolicyDrop('branches_access_via_metahub', 'metahubs', 'cat_metahub_branches'),
+            expectedSafePolicyDrop('Allow users to manage their own metahubs', 'metahubs', 'obj_metahubs'),
+            expectedSafePolicyDrop('branches_access_via_metahub', 'metahubs', 'obj_metahub_branches'),
             expectedSafePolicyDrop('pub_access_via_metahub', 'metahubs', 'doc_publications'),
             expectedSafePolicyDrop('publications_versions_policy', 'metahubs', 'doc_publication_versions')
         ]
@@ -172,12 +172,12 @@ describe('metahubs fixed-schema parity contract', () => {
             'CREATE INDEX IF NOT EXISTS idx_pub_schema_name ON metahubs.doc_publications(schema_name)'
         ]
         const requiredRlsEnables = [
-            'ALTER TABLE metahubs.cat_metahubs ENABLE ROW LEVEL SECURITY',
-            'ALTER TABLE metahubs.cat_metahub_branches ENABLE ROW LEVEL SECURITY',
+            'ALTER TABLE metahubs.obj_metahubs ENABLE ROW LEVEL SECURITY',
+            'ALTER TABLE metahubs.obj_metahub_branches ENABLE ROW LEVEL SECURITY',
             'ALTER TABLE metahubs.rel_metahub_users ENABLE ROW LEVEL SECURITY',
             'ALTER TABLE metahubs.doc_publications ENABLE ROW LEVEL SECURITY',
             'ALTER TABLE metahubs.doc_publication_versions ENABLE ROW LEVEL SECURITY',
-            'ALTER TABLE metahubs.cat_templates ENABLE ROW LEVEL SECURITY',
+            'ALTER TABLE metahubs.obj_templates ENABLE ROW LEVEL SECURITY',
             'ALTER TABLE metahubs.doc_template_versions ENABLE ROW LEVEL SECURITY'
         ]
 
@@ -222,10 +222,10 @@ END $$;
             'DROP TABLE IF EXISTS metahubs.doc_publications',
             'DROP TABLE IF EXISTS metahubs.rel_metahub_users',
             'DROP TABLE IF EXISTS metahubs.doc_template_versions',
-            'DROP TABLE IF EXISTS metahubs.cat_templates',
-            'DROP TABLE IF EXISTS metahubs.cat_metahub_branches',
-            'DROP TABLE IF EXISTS metahubs.cat_metahubs',
-            'DROP TYPE IF EXISTS metahubs.attribute_data_type',
+            'DROP TABLE IF EXISTS metahubs.obj_templates',
+            'DROP TABLE IF EXISTS metahubs.obj_metahub_branches',
+            'DROP TABLE IF EXISTS metahubs.obj_metahubs',
+            'DROP TYPE IF EXISTS metahubs.component_data_type',
             'DROP TYPE IF EXISTS metahubs.publication_access_mode',
             'DROP TYPE IF EXISTS metahubs.publication_schema_status',
             'DROP SCHEMA IF EXISTS metahubs CASCADE'

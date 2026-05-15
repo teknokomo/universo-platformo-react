@@ -2,7 +2,7 @@ import type { ResolvedEntityType } from '@universo/types'
 import type { DbExecutor } from '@universo/utils'
 
 import type { EntityType } from '../../../utils/optimisticLock'
-import type { MetahubFieldDefinitionsService } from '../../metahubs/services/MetahubFieldDefinitionsService'
+import type { MetahubComponentsService } from '../../metahubs/services/MetahubComponentsService'
 import type { MetahubFixedValuesService } from '../../metahubs/services/MetahubFixedValuesService'
 import type { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import type { MetahubSettingsService } from '../../settings/services/MetahubSettingsService'
@@ -29,7 +29,7 @@ export interface EntityBehaviorDeleteContext {
     userId?: string
     exec: DbExecutor
     schemaService: MetahubSchemaService
-    fieldDefinitionsService: MetahubFieldDefinitionsService
+    componentsService: MetahubComponentsService
     fixedValuesService: MetahubFixedValuesService
     settingsService: MetahubSettingsService
     entityTypeService: EntityTypeService

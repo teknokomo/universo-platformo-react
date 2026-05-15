@@ -112,7 +112,7 @@ if (hasAccess) {
 
 ## Database Schema
 
-### admin.cat_roles
+### admin.obj_roles
 
 | Column | Type | Description |
 |--------|------|-------------|
@@ -130,7 +130,7 @@ if (hasAccess) {
 |--------|------|-------------|
 | id | UUID | Primary key |
 | user_id | UUID | Reference to auth.users |
-| role_id | UUID | Reference to admin.cat_roles |
+| role_id | UUID | Reference to admin.obj_roles |
 | granted_by | UUID | Admin who assigned the role |
 | comment | TEXT | Assignment notes |
 

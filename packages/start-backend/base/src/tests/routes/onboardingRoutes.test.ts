@@ -66,20 +66,20 @@ describe('createOnboardingRoutes', () => {
     })
 
     describe('GET /items', () => {
-        it('returns catalog items grouped by kind with selection status', async () => {
+        it('returns object items grouped by kind with selection status', async () => {
             mockGetUserProfile.mockResolvedValueOnce({ onboarding_completed: false })
 
             const query = jest
                 .fn()
-                // fetchCatalogItems goals
+                // fetchObjectItems goals
                 .mockResolvedValueOnce([goalRow])
-                // fetchCatalogItems topics
+                // fetchObjectItems topics
                 .mockResolvedValueOnce([])
-                // fetchCatalogItems features
+                // fetchObjectItems features
                 .mockResolvedValueOnce([])
                 // fetchAllUserSelections
                 .mockResolvedValueOnce([
-                    { id: 's-1', user_id: 'user-1', catalog_kind: 'goals', item_id: '00000000-0000-4000-a000-000000000001' }
+                    { id: 's-1', user_id: 'user-1', object_kind: 'goals', item_id: '00000000-0000-4000-a000-000000000001' }
                 ])
 
             const app = createApp(query)
@@ -106,7 +106,7 @@ describe('createOnboardingRoutes', () => {
     })
 
     describe('POST /selections', () => {
-        it('validates and syncs selections across all catalog kinds', async () => {
+        it('validates and syncs selections across all object kinds', async () => {
             const query = jest
                 .fn()
                 // validateItemExists for goal UUID
@@ -115,7 +115,7 @@ describe('createOnboardingRoutes', () => {
                 .mockResolvedValueOnce([])
                 // syncUserSelections: INSERT for goal
                 .mockResolvedValueOnce([
-                    { id: 's-1', user_id: 'user-1', catalog_kind: 'goals', item_id: '00000000-0000-4000-a000-000000000001' }
+                    { id: 's-1', user_id: 'user-1', object_kind: 'goals', item_id: '00000000-0000-4000-a000-000000000001' }
                 ])
                 // syncUserSelections: fetchUserSelections(topics) – no existing
                 .mockResolvedValueOnce([])
@@ -179,7 +179,7 @@ describe('createOnboardingRoutes', () => {
                 .mockResolvedValueOnce([{ id: '00000000-0000-4000-a000-000000000001' }])
                 .mockResolvedValueOnce([])
                 .mockResolvedValueOnce([
-                    { id: 's-1', user_id: 'user-1', catalog_kind: 'goals', item_id: '00000000-0000-4000-a000-000000000001' }
+                    { id: 's-1', user_id: 'user-1', object_kind: 'goals', item_id: '00000000-0000-4000-a000-000000000001' }
                 ])
                 .mockResolvedValueOnce([])
                 .mockResolvedValueOnce([])
@@ -264,7 +264,7 @@ describe('createOnboardingRoutes', () => {
                 roleCodename: 'User',
                 reason: 'auto-assigned on onboarding completion'
             })
-            expect(query).toHaveBeenCalledWith(expect.stringContaining('UPDATE profiles.cat_profiles'), [false, 'user-1'])
+            expect(query).toHaveBeenCalledWith(expect.stringContaining('UPDATE profiles.obj_profiles'), [false, 'user-1'])
         })
 
         it('returns 401 when unauthenticated', async () => {

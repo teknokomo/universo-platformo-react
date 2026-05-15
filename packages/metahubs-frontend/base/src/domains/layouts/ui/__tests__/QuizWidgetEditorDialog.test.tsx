@@ -153,7 +153,7 @@ describe('QuizWidgetEditorDialog', () => {
                     _schema: 'v1',
                     _primary: 'en',
                     locales: {
-                        en: { content: 'catalog-quiz-widget' }
+                        en: { content: 'object-quiz-widget' }
                     }
                 },
                 presentation: {
@@ -161,12 +161,12 @@ describe('QuizWidgetEditorDialog', () => {
                         _schema: 'v1',
                         _primary: 'en',
                         locales: {
-                            en: { content: 'LinkedCollectionEntity Quiz Widget' }
+                            en: { content: 'ObjectCollectionEntity Quiz Widget' }
                         }
                     }
                 },
-                attachedToKind: 'catalog',
-                attachedToId: 'catalog-1'
+                attachedToKind: 'object',
+                attachedToId: 'object-1'
             })
         ])
 
@@ -177,13 +177,13 @@ describe('QuizWidgetEditorDialog', () => {
         })
 
         await user.click(screen.getAllByRole('combobox')[0])
-        await user.click(screen.getByRole('option', { name: 'Current catalog' }))
+        await user.click(screen.getByRole('option', { name: 'Current object' }))
 
         await waitFor(() => {
-            expect(mocks.list).toHaveBeenCalledWith('metahub-1', { attachedToKind: 'catalog' })
+            expect(mocks.list).toHaveBeenCalledWith('metahub-1', { attachedToKind: 'object' })
         })
 
         await user.click(screen.getAllByRole('combobox')[1])
-        expect(screen.getByRole('option', { name: 'LinkedCollectionEntity Quiz Widget (catalog-quiz-widget)' })).toBeInTheDocument()
+        expect(screen.getByRole('option', { name: 'ObjectCollectionEntity Quiz Widget (object-quiz-widget)' })).toBeInTheDocument()
     })
 })

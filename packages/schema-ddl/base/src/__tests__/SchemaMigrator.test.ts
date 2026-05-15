@@ -1,8 +1,8 @@
-import { FieldDefinitionDataType } from '@universo/types'
+import { ComponentDefinitionDataType } from '@universo/types'
 import { SchemaMigrator } from '../SchemaMigrator'
 import { ChangeType } from '../diff'
 import type { SchemaChange } from '../diff'
-import type { EntityDefinition, FieldDefinition } from '../types'
+import type { EntityDefinition, Component } from '../types'
 
 const mockAcquireAdvisoryLock = jest.fn().mockResolvedValue(true)
 const mockReleaseAdvisoryLock = jest.fn().mockResolvedValue(undefined)
@@ -31,19 +31,19 @@ describe('SchemaMigrator', () => {
 
         const migrator = new SchemaMigrator({} as import('knex').Knex, generator, {} as import('../MigrationManager').MigrationManager)
 
-        const field: FieldDefinition = {
+        const field: Component = {
             id: 'field-ref-0000-0000-0000-000000000001',
             codename: 'status',
-            dataType: FieldDefinitionDataType.REF,
+            dataType: ComponentDefinitionDataType.REF,
             isRequired: false,
             targetEntityId: 'enum-0000-0000-0000-000000000001',
             targetEntityKind: 'enumeration' as import('../types').RuntimeEntityKind
         }
         const entities: EntityDefinition[] = [
             {
-                id: 'catalog-0000-0000-0000-000000000001',
+                id: 'object-0000-0000-0000-000000000001',
                 codename: 'orders',
-                kind: 'catalog',
+                kind: 'object',
                 fields: [field]
             }
         ]
@@ -52,8 +52,8 @@ describe('SchemaMigrator', () => {
             type: ChangeType.ADD_FK,
             entityId: entities[0].id,
             fieldId: field.id,
-            tableName: 'cat_orders',
-            columnName: 'attr_status',
+            tableName: 'obj_orders',
+            columnName: 'cmp_status',
             newValue: field.targetEntityId,
             isDestructive: false,
             description: 'Add FK on "status"'
@@ -69,7 +69,7 @@ describe('SchemaMigrator', () => {
 
         await applyChange.call(migrator, 'app_test_schema', change, entities, trx, {
             systemTableCapabilities: {
-                includeAttributes: false,
+                includeComponents: false,
                 includeValues: true,
                 includeLayouts: false,
                 includeWidgets: false
@@ -77,14 +77,14 @@ describe('SchemaMigrator', () => {
         })
 
         expect(generator.ensureSystemTables).toHaveBeenCalledWith('app_test_schema', trx, {
-            includeAttributes: false,
+            includeComponents: false,
             includeValues: true,
             includeLayouts: false,
             includeWidgets: false
         })
         expect(trx.raw).toHaveBeenCalledWith(
             'ALTER TABLE ??.?? ADD CONSTRAINT ?? FOREIGN KEY (??) REFERENCES ??.??(id) ON DELETE SET NULL',
-            ['app_test_schema', 'cat_orders', 'fk_cat_orders_attr_status', 'attr_status', 'app_test_schema', '_app_values']
+            ['app_test_schema', 'obj_orders', 'fk_obj_orders_cmp_status', 'cmp_status', 'app_test_schema', '_app_values']
         )
     })
 
@@ -99,19 +99,19 @@ describe('SchemaMigrator', () => {
 
         const migrator = new SchemaMigrator({} as import('knex').Knex, generator, {} as import('../MigrationManager').MigrationManager)
 
-        const field: FieldDefinition = {
+        const field: Component = {
             id: 'field-ref-0000-0000-0000-000000000002',
             codename: 'version',
-            dataType: FieldDefinitionDataType.REF,
+            dataType: ComponentDefinitionDataType.REF,
             isRequired: false,
             targetEntityId: 'set-0000-0000-0000-000000000001',
             targetEntityKind: 'set' as import('../types').RuntimeEntityKind
         }
         const entities: EntityDefinition[] = [
             {
-                id: 'catalog-0000-0000-0000-000000000001',
+                id: 'object-0000-0000-0000-000000000001',
                 codename: 'orders',
-                kind: 'catalog',
+                kind: 'object',
                 fields: [field]
             }
         ]
@@ -120,8 +120,8 @@ describe('SchemaMigrator', () => {
             type: ChangeType.ADD_FK,
             entityId: entities[0].id,
             fieldId: field.id,
-            tableName: 'cat_orders',
-            columnName: 'attr_version',
+            tableName: 'obj_orders',
+            columnName: 'cmp_version',
             newValue: field.targetEntityId,
             isDestructive: false,
             description: 'Add FK on "version"'
@@ -181,7 +181,7 @@ describe('SchemaMigrator', () => {
                     {
                         type: ChangeType.ADD_TABLE,
                         entityCodename: 'products',
-                        tableName: 'cat_products',
+                        tableName: 'obj_products',
                         isDestructive: false,
                         description: 'Create table "products"'
                     }
@@ -245,10 +245,10 @@ describe('SchemaMigrator', () => {
             {} as import('../MigrationManager').MigrationManager
         )
 
-        const field: FieldDefinition = {
+        const field: Component = {
             id: 'field-string-0000-0000-0000-000000000010',
             codename: 'timezone',
-            dataType: FieldDefinitionDataType.STRING,
+            dataType: ComponentDefinitionDataType.STRING,
             isRequired: false,
             physicalColumnName: 'profile_timezone',
             physicalDataType: 'citext',
@@ -256,10 +256,10 @@ describe('SchemaMigrator', () => {
         }
         const entities: EntityDefinition[] = [
             {
-                id: 'catalog-0000-0000-0000-000000000010',
+                id: 'object-0000-0000-0000-000000000010',
                 codename: 'profiles',
-                kind: 'catalog',
-                physicalTableName: 'cat_profiles',
+                kind: 'object',
+                physicalTableName: 'obj_profiles',
                 fields: [field]
             }
         ]
@@ -268,7 +268,7 @@ describe('SchemaMigrator', () => {
             type: ChangeType.ADD_COLUMN,
             entityId: entities[0].id,
             fieldId: field.id,
-            tableName: 'cat_profiles',
+            tableName: 'obj_profiles',
             isDestructive: false,
             description: 'Add column "timezone"'
         }
@@ -283,7 +283,7 @@ describe('SchemaMigrator', () => {
         await applyChange.call(migrator, 'app_test_schema', change, entities, trx)
 
         expect(trx.schema.withSchema).toHaveBeenCalledWith('app_test_schema')
-        expect(alterTable).toHaveBeenCalledWith('cat_profiles', expect.any(Function))
+        expect(alterTable).toHaveBeenCalledWith('obj_profiles', expect.any(Function))
         expect(specificType).toHaveBeenCalledWith('profile_timezone', 'citext')
         expect(columnBuilder.nullable).toHaveBeenCalledTimes(1)
         expect(trx.raw).toHaveBeenCalledWith(`'UTC'::citext`)

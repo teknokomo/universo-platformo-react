@@ -81,7 +81,15 @@ vi.mock('../../hooks/useCrudDashboard', () => ({
             activeMenuId: null,
             settings: { sectionLinksEnabled: true },
             workspacesEnabled: true,
-            linkedCollection: {
+            permissions: {
+                manageMembers: false,
+                manageApplication: false,
+                createContent: true,
+                editContent: true,
+                deleteContent: true,
+                readReports: false
+            },
+            objectCollection: {
                 name: 'Standalone details'
             }
         },
@@ -121,11 +129,11 @@ vi.mock('../../hooks/useCrudDashboard', () => ({
         menuSlot: {
             title: null,
             showTitle: false,
-            items: [{ id: 'modules', label: 'Modules', kind: 'section', linkedCollectionId: 'catalog-1', selected: true }]
+            items: [{ id: 'modules', label: 'Modules', kind: 'section', objectCollectionId: 'object-1', selected: true }]
         },
         menusMap: {},
-        activeLinkedCollectionId: 'catalog-1',
-        selectedLinkedCollectionId: 'catalog-1',
+        activeObjectCollectionId: 'object-1',
+        selectedObjectCollectionId: 'object-1',
         handleOpenCreate: dashboardMocks.handleOpenCreate,
         handleOpenEdit: dashboardMocks.handleOpenEdit,
         handleOpenCopy: dashboardMocks.handleOpenCopy,
@@ -153,7 +161,7 @@ describe('DashboardApp', () => {
                 zoneWidgets: { left: [], right: [], center: [] },
                 menus: [],
                 activeMenuId: null,
-                linkedCollection: {
+                objectCollection: {
                     name: 'Standalone details',
                     runtimeConfig: { createSurface: 'page' }
                 }
@@ -176,7 +184,7 @@ describe('DashboardApp', () => {
                 zoneWidgets: { left: [], right: [], center: [] },
                 menus: [],
                 activeMenuId: null,
-                linkedCollection: {
+                objectCollection: {
                     name: 'Standalone details',
                     runtimeConfig: { editSurface: 'page', copySurface: 'page' }
                 }
@@ -197,7 +205,7 @@ describe('DashboardApp', () => {
                 zoneWidgets: { left: [], right: [], center: [] },
                 menus: [],
                 activeMenuId: null,
-                linkedCollection: {
+                objectCollection: {
                     name: 'Standalone details',
                     runtimeConfig: { editSurface: 'dialog', copySurface: 'page' }
                 }
@@ -223,13 +231,13 @@ describe('DashboardApp', () => {
         expect(dashboardMocks.handleOpenCreate).toHaveBeenCalledTimes(1)
     })
 
-    it('hides the create action when the catalog runtime config disables it', () => {
+    it('hides the create action when the object runtime config disables it', () => {
         dashboardMocks.dashboardStateOverrides = {
             appData: {
                 zoneWidgets: { left: [], right: [], center: [] },
                 menus: [],
                 activeMenuId: null,
-                linkedCollection: {
+                objectCollection: {
                     name: 'Standalone details',
                     runtimeConfig: { showCreateButton: false }
                 }
@@ -247,7 +255,7 @@ describe('DashboardApp', () => {
                 zoneWidgets: { left: [], right: [], center: [] },
                 menus: [],
                 activeMenuId: null,
-                linkedCollection: {
+                objectCollection: {
                     name: 'Standalone details'
                 },
                 permissions: {
@@ -275,7 +283,7 @@ describe('DashboardApp', () => {
         expect(screen.getByTestId('dashboard-title')).toHaveTextContent('Workspaces')
         expect(screen.getByTestId('dashboard-content')).toHaveTextContent(`workspaces:${applicationId}`)
         expect(screen.getByTestId('dashboard-menu')).toHaveTextContent(
-            `Modules:false:/a/${applicationId}/catalog-1|Workspaces:true:/a/${applicationId}/workspaces`
+            `Modules:false:/a/${applicationId}/object-1|Workspaces:true:/a/${applicationId}/workspaces`
         )
         expect(screen.getByTestId('dashboard-layout')).toHaveTextContent('"showOverviewTitle":false')
         expect(screen.getByTestId('dashboard-layout')).toHaveTextContent('"showOverviewCards":false')
@@ -293,7 +301,7 @@ describe('DashboardApp', () => {
 
         expect(screen.getByTestId('dashboard-content')).toHaveTextContent(`workspaces:${applicationId}:${workspaceId}:access`)
         expect(screen.getByTestId('dashboard-menu')).toHaveTextContent(
-            `Modules:false:/a/${applicationId}/catalog-1|Workspaces:true:/a/${applicationId}/workspaces|Dashboard:false:/a/${applicationId}/workspaces/${workspaceId}|Access:true:/a/${applicationId}/workspaces/${workspaceId}/access`
+            `Modules:false:/a/${applicationId}/object-1|Workspaces:true:/a/${applicationId}/workspaces|Dashboard:false:/a/${applicationId}/workspaces/${workspaceId}|Access:true:/a/${applicationId}/workspaces/${workspaceId}/access`
         )
     })
 
@@ -305,7 +313,7 @@ describe('DashboardApp', () => {
                 title: null,
                 showTitle: false,
                 items: [
-                    { id: 'modules', label: 'Modules', kind: 'section', linkedCollectionId: 'catalog-1', selected: true },
+                    { id: 'modules', label: 'Modules', kind: 'section', objectCollectionId: 'object-1', selected: true },
                     {
                         id: 'runtime-workspaces',
                         label: 'Workspaces',
@@ -321,7 +329,7 @@ describe('DashboardApp', () => {
         render(<DashboardApp applicationId={applicationId} locale='en' apiBaseUrl='http://localhost:3000' />)
 
         expect(screen.getByTestId('dashboard-menu')).toHaveTextContent(
-            `Modules:false:/a/${applicationId}/catalog-1|Workspaces:true:/a/${applicationId}/workspaces`
+            `Modules:false:/a/${applicationId}/object-1|Workspaces:true:/a/${applicationId}/workspaces`
         )
     })
 })

@@ -13,7 +13,7 @@ This package provides pure functions and classes for managing PostgreSQL schemas
 - **Migration History**: Record, list, and analyze migrations for rollback safety
 - **Pure Functions**: Naming utilities that work without database connection
 - **Dependency Injection**: All classes receive Knex instance via constructor
-- **Transactional Catalog Support**: Materialize `recordBehavior` system columns for numbering, lifecycle, posting, and stored posting movements
+- **Transactional Object Support**: Materialize `recordBehavior` system columns for numbering, lifecycle, posting, and stored posting movements
 - **Ledger Support**: Generate standard `ledger` tables for append-only facts and keep Ledgers separate from generic row CRUD
 
 ## Installation
@@ -62,8 +62,8 @@ const schemaName = generateSchemaName('a1b2c3d4-e5f6-7890-abcd-ef1234567890')
 // -> 'app_a1b2c3d4e5f67890abcdef1234567890'
 
 // Generate table name based on entity kind
-const tableName = generateTableName('entity-uuid', 'catalog')
-// -> 'cat_entityuuid'
+const tableName = generateTableName('entity-uuid', 'object', 'obj')
+// -> 'obj_entityuuid'
 
 // Validate schema name format
 isValidSchemaName('app_abc123') // true
@@ -83,14 +83,14 @@ console.log(diff.additive) // Non-destructive changes
 console.log(diff.destructive) // Destructive changes requiring confirmation
 ```
 
-### Transactional Catalogs And Ledgers
+### Transactional Objects And Ledgers
 
 `SchemaGenerator` reads entity configuration, including `config.recordBehavior` and `config.ledger`, when it materializes runtime schemas.
-Catalogs with active record behavior receive system columns for record number, effective date, lifecycle state, posting metadata, and optimistic runtime safety.
+Objects with active record behavior receive system columns for record number, effective date, lifecycle state, posting metadata, and optimistic runtime safety.
 Ledgers use the `led_` table prefix and are intended for append-only facts, posting movements, and projection queries.
 
 Operational Ledger facts are runtime data.
-Publication snapshots export Ledger metadata and configuration, but application release bundles must avoid exporting operational facts as ordinary seeded Catalog rows.
+Publication snapshots export Ledger metadata and configuration, but application release bundles must avoid exporting operational facts as ordinary seeded Object rows.
 
 ## API Reference
 
@@ -99,7 +99,7 @@ Publication snapshots export Ledger metadata and configuration, but application 
 | Function | Description |
 |----------|-------------|
 | `generateSchemaName(applicationId)` | Generates PostgreSQL schema name from application UUID |
-| `generateTableName(entityId, kind)` | Generates table name with kind prefix (cat_, hub_, doc_) |
+| `generateTableName(entityId, kind, options)` | Generates table name with the entity-type prefix from metadata, for example `obj_` |
 | `generateColumnName(fieldId)` | Generates column name with attr_ prefix |
 | `buildFkConstraintName(table, column)` | Generates FK constraint name |
 | `isValidSchemaName(name)` | Validates schema name format |

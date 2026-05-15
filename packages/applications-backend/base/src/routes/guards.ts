@@ -269,7 +269,7 @@ export async function ensureConnectorAccess(
         executor,
         `
         SELECT *
-        FROM applications.cat_connectors
+        FROM applications.obj_connectors
         WHERE id = $1
                     AND ${activeAppRowCondition()}
         LIMIT 1

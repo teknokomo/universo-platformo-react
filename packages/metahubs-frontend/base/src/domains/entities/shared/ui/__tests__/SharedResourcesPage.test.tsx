@@ -8,7 +8,7 @@ import { getInstance as getI18nInstance } from '@universo/i18n/instance'
 import { SHARED_OBJECT_KINDS } from '@universo/types'
 
 const mockLayoutListContent = vi.fn()
-const mockFieldDefinitionListContent = vi.fn()
+const mockComponentListContent = vi.fn()
 const mockFixedValueListContent = vi.fn()
 const mockSelectableOptionListContent = vi.fn()
 const mockEntityScriptsTab = vi.fn()
@@ -32,10 +32,10 @@ vi.mock('../../../../layouts/ui/LayoutList', () => ({
     default: () => <div data-testid='standalone-layout-list'>standalone-layout-list</div>
 }))
 
-vi.mock('../../../metadata/fieldDefinition/ui/FieldDefinitionList', () => ({
-    FieldDefinitionListContent: (props: Record<string, unknown>) => {
-        mockFieldDefinitionListContent(props)
-        return <div data-testid='shared-resources-field-definitions-content'>field-definitions-content</div>
+vi.mock('../../../metadata/component/ui/ComponentList', () => ({
+    ComponentListContent: (props: Record<string, unknown>) => {
+        mockComponentListContent(props)
+        return <div data-testid='shared-resources-components-content'>components-content</div>
     }
 }))
 
@@ -75,10 +75,10 @@ const i18n = getI18nInstance()
 
 const STANDARD_ENTITY_TYPES = {
     items: [
-        { kindKey: 'hub', components: { dataSchema: false, fixedValues: false, optionValues: false } },
-        { kindKey: 'catalog', components: { dataSchema: { enabled: true }, fixedValues: false, optionValues: false } },
-        { kindKey: 'set', components: { dataSchema: { enabled: true }, fixedValues: { enabled: true }, optionValues: false } },
-        { kindKey: 'enumeration', components: { dataSchema: false, fixedValues: false, optionValues: { enabled: true } } }
+        { kindKey: 'hub', capabilities: { dataSchema: false, fixedValues: false, optionValues: false } },
+        { kindKey: 'object', capabilities: { dataSchema: { enabled: true }, fixedValues: false, optionValues: false } },
+        { kindKey: 'set', capabilities: { dataSchema: { enabled: true }, fixedValues: { enabled: true }, optionValues: false } },
+        { kindKey: 'enumeration', capabilities: { dataSchema: false, fixedValues: false, optionValues: { enabled: true } } }
     ],
     pagination: { limit: 100, offset: 0, count: 4, total: 4, hasMore: false }
 }
@@ -88,7 +88,7 @@ describe('SharedResourcesPage', () => {
         vi.clearAllMocks()
         mockUseSharedContainerIds.mockReturnValue({
             data: {
-                [SHARED_OBJECT_KINDS.SHARED_CATALOG_POOL]: 'shared-catalog-pool-1',
+                [SHARED_OBJECT_KINDS.SHARED_OBJECT_POOL]: 'shared-object-pool-1',
                 [SHARED_OBJECT_KINDS.SHARED_SET_POOL]: 'shared-set-pool-1',
                 [SHARED_OBJECT_KINDS.SHARED_ENUM_POOL]: 'shared-enum-pool-1'
             },
@@ -119,7 +119,7 @@ describe('SharedResourcesPage', () => {
         expect(screen.getByTestId('shared-resources-main-card')).toBeInTheDocument()
         expect(screen.getByRole('heading', { name: 'Ресурсы' })).toBeInTheDocument()
         expect(screen.getByRole('tab', { name: 'Макеты' })).toHaveAttribute('aria-selected', 'true')
-        expect(screen.getByRole('tab', { name: 'Атрибуты' })).toBeInTheDocument()
+        expect(screen.getByRole('tab', { name: 'Компоненты' })).toBeInTheDocument()
         expect(screen.getByRole('tab', { name: 'Константы' })).toBeInTheDocument()
         expect(screen.getByRole('tab', { name: 'Значения' })).toBeInTheDocument()
         expect(screen.getByRole('tab', { name: 'Скрипты' })).toBeInTheDocument()
@@ -142,17 +142,17 @@ describe('SharedResourcesPage', () => {
         expect(mockUseSharedContainerIds).toHaveBeenCalledWith('metahub-1')
         expect(mockUseAllEntityTypesQuery).toHaveBeenCalledWith('metahub-1')
 
-        await user.click(screen.getByRole('tab', { name: 'Атрибуты' }))
+        await user.click(screen.getByRole('tab', { name: 'Компоненты' }))
 
-        expect(screen.getByTestId('shared-resources-field-definitions-content')).toBeInTheDocument()
-        expect(mockFieldDefinitionListContent).toHaveBeenCalledWith(
+        expect(screen.getByTestId('shared-resources-components-content')).toBeInTheDocument()
+        expect(mockComponentListContent).toHaveBeenCalledWith(
             expect.objectContaining({
                 metahubId: 'metahub-1',
-                linkedCollectionId: 'shared-catalog-pool-1',
+                objectCollectionId: 'shared-object-pool-1',
                 sharedEntityMode: true,
                 title: null,
                 renderPageShell: false,
-                showCatalogTabs: false,
+                showObjectTabs: false,
                 showSettingsTab: false,
                 allowSystemTab: false
             })
@@ -204,7 +204,7 @@ describe('SharedResourcesPage', () => {
     it('hides shared tabs when no entity types have the corresponding component enabled', async () => {
         mockUseAllEntityTypesQuery.mockReturnValue({
             data: {
-                items: [{ kindKey: 'hub', components: { dataSchema: false, fixedValues: false, optionValues: false } }],
+                items: [{ kindKey: 'hub', capabilities: { dataSchema: false, fixedValues: false, optionValues: false } }],
                 pagination: { limit: 100, offset: 0, count: 1, total: 1, hasMore: false }
             },
             isLoading: false,
@@ -223,7 +223,7 @@ describe('SharedResourcesPage', () => {
 
         expect(screen.getByRole('tab', { name: 'Макеты' })).toBeInTheDocument()
         expect(screen.getByRole('tab', { name: 'Скрипты' })).toBeInTheDocument()
-        expect(screen.queryByRole('tab', { name: 'Атрибуты' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('tab', { name: 'Компоненты' })).not.toBeInTheDocument()
         expect(screen.queryByRole('tab', { name: 'Константы' })).not.toBeInTheDocument()
         expect(screen.queryByRole('tab', { name: 'Значения' })).not.toBeInTheDocument()
     })
@@ -234,13 +234,13 @@ describe('SharedResourcesPage', () => {
                 items: [
                     {
                         kindKey: 'custom-knowledge',
-                        components: { dataSchema: { enabled: true }, fixedValues: false, optionValues: false },
+                        capabilities: { dataSchema: { enabled: true }, fixedValues: false, optionValues: false },
                         ui: {
                             resourceSurfaces: [
                                 {
-                                    key: 'attributes',
+                                    key: 'components',
                                     capability: 'dataSchema',
-                                    routeSegment: 'attributes',
+                                    routeSegment: 'components',
                                     fallbackTitle: 'Свойства'
                                 }
                             ]
@@ -272,13 +272,13 @@ describe('SharedResourcesPage', () => {
                 items: [
                     {
                         kindKey: 'custom-alpha',
-                        components: { dataSchema: { enabled: true }, fixedValues: false, optionValues: false },
+                        capabilities: { dataSchema: { enabled: true }, fixedValues: false, optionValues: false },
                         ui: {
                             resourceSurfaces: [
                                 {
-                                    key: 'alpha-attributes',
+                                    key: 'alpha-components',
                                     capability: 'dataSchema',
-                                    routeSegment: 'alpha-attributes',
+                                    routeSegment: 'alpha-components',
                                     fallbackTitle: 'Свойства'
                                 }
                             ]
@@ -286,13 +286,13 @@ describe('SharedResourcesPage', () => {
                     },
                     {
                         kindKey: 'custom-beta',
-                        components: { dataSchema: { enabled: true }, fixedValues: false, optionValues: false },
+                        capabilities: { dataSchema: { enabled: true }, fixedValues: false, optionValues: false },
                         ui: {
                             resourceSurfaces: [
                                 {
-                                    key: 'beta-attributes',
+                                    key: 'beta-components',
                                     capability: 'dataSchema',
-                                    routeSegment: 'beta-attributes',
+                                    routeSegment: 'beta-components',
                                     fallbackTitle: 'Поля'
                                 }
                             ]
@@ -315,10 +315,10 @@ describe('SharedResourcesPage', () => {
             </I18nextProvider>
         )
 
-        expect(screen.getByRole('tab', { name: 'Атрибуты' })).toBeInTheDocument()
+        expect(screen.getByRole('tab', { name: 'Компоненты' })).toBeInTheDocument()
         expect(
             screen.getByText(
-                'Некоторые типы сущностей задают разные названия для одной общей вкладки ресурсов. Используются платформенные названия: Атрибуты.'
+                'Некоторые типы сущностей задают разные названия для одной общей вкладки ресурсов. Используются платформенные названия: Компоненты.'
             )
         ).toBeInTheDocument()
         expect(screen.queryByRole('tab', { name: 'Свойства' })).not.toBeInTheDocument()

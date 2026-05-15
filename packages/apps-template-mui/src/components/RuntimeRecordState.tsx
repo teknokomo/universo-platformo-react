@@ -1,5 +1,5 @@
 import Chip from '@mui/material/Chip'
-import type { CatalogRecordBehavior } from '@universo/types'
+import type { ObjectRecordBehavior } from '@universo/types'
 import type { RuntimeRecordCommand } from '../api/types'
 
 export type RuntimeRecordState = 'draft' | 'posted' | 'voided' | string
@@ -14,11 +14,11 @@ export interface RuntimeRecordStateLabels {
 export const getRuntimeRecordState = (row: Record<string, unknown> | null | undefined): RuntimeRecordState =>
     typeof row?._app_record_state === 'string' && row._app_record_state.trim() ? row._app_record_state : 'draft'
 
-export const isRuntimeRecordBehaviorCommandable = (behavior: CatalogRecordBehavior | null | undefined): boolean =>
+export const isRuntimeRecordBehaviorCommandable = (behavior: ObjectRecordBehavior | null | undefined): boolean =>
     Boolean(behavior && behavior.posting.mode !== 'disabled')
 
 export const canRunRuntimeRecordCommand = (params: {
-    behavior: CatalogRecordBehavior | null | undefined
+    behavior: ObjectRecordBehavior | null | undefined
     row: Record<string, unknown> | null | undefined
     command: RuntimeRecordCommand
     canEdit: boolean

@@ -3,7 +3,7 @@ import { copyDesignTimeObjectChildren } from '../../domains/entities/services/de
 describe('copyDesignTimeObjectChildren', () => {
     const schemaName = 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1'
 
-    it('copies attributes, elements, constants, and enumeration values through the shared helper', async () => {
+    it('copies components, elements, constants, and enumeration values through the shared helper', async () => {
         const tx = {
             query: jest
                 .fn()
@@ -17,11 +17,11 @@ describe('copyDesignTimeObjectChildren', () => {
                         ui_config: {},
                         sort_order: 1,
                         is_required: false,
-                        is_display_attribute: true,
+                        is_display_component: true,
                         target_object_id: 'source-1',
                         target_object_kind: 'custom-order',
                         target_constant_id: null,
-                        parent_attribute_id: null,
+                        parent_component_id: null,
                         is_system: false,
                         system_key: null,
                         is_system_managed: false,
@@ -64,7 +64,7 @@ describe('copyDesignTimeObjectChildren', () => {
             tx: tx as any,
             userId: 'user-1',
             schemaName,
-            copyFieldDefinitions: true,
+            copyComponents: true,
             copyRecords: true,
             copyFixedValues: true,
             copyOptionValues: true,
@@ -74,7 +74,7 @@ describe('copyDesignTimeObjectChildren', () => {
         })
 
         expect(result).toEqual({
-            fieldDefinitionsCopied: 1,
+            componentsCopied: 1,
             recordsCopied: 1,
             fixedValuesCopied: 1,
             optionValuesCopied: 1
@@ -99,24 +99,24 @@ describe('copyDesignTimeObjectChildren', () => {
         )
     })
 
-    it('replays source system states when system rows must be reseeded without attribute copy', async () => {
+    it('replays source system states when system rows must be reseeded without component copy', async () => {
         const tx = {
             query: jest.fn().mockResolvedValue([
                 { system_key: 'app.deleted', is_system_enabled: false },
                 { system_key: 'app.deleted_at', is_system_enabled: false }
             ])
         }
-        const ensureObjectSystemFieldDefinitions = jest.fn().mockResolvedValue([])
+        const ensureObjectSystemComponents = jest.fn().mockResolvedValue([])
 
         const result = await copyDesignTimeObjectChildren({
             metahubId: 'metahub-1',
-            sourceObjectId: 'source-catalog',
-            targetObjectId: 'target-catalog',
+            sourceObjectId: 'source-object',
+            targetObjectId: 'target-object',
             tx: tx as any,
             userId: 'user-1',
             schemaName,
-            ensureObjectSystemFieldDefinitions,
-            platformSystemFieldDefinitionsPolicy: {
+            ensureObjectSystemComponents,
+            platformSystemComponentsPolicy: {
                 allowConfiguration: false,
                 forceCreate: true,
                 ignoreMetahubSettings: true
@@ -124,12 +124,12 @@ describe('copyDesignTimeObjectChildren', () => {
         })
 
         expect(result).toEqual({
-            fieldDefinitionsCopied: 0,
+            componentsCopied: 0,
             recordsCopied: 0,
             fixedValuesCopied: 0,
             optionValuesCopied: 0
         })
-        expect(ensureObjectSystemFieldDefinitions).toHaveBeenCalledWith('metahub-1', 'target-catalog', 'user-1', tx, {
+        expect(ensureObjectSystemComponents).toHaveBeenCalledWith('metahub-1', 'target-object', 'user-1', tx, {
             states: [
                 { key: 'app.deleted', enabled: false },
                 { key: 'app.deleted_at', enabled: false }

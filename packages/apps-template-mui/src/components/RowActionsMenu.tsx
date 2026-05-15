@@ -17,7 +17,7 @@ export interface RowActionsMenuProps {
     state: CrudDashboardState
     /** i18n-resolved labels. */
     labels: RowActionsMenuLabels
-    /** Permission flags from the runtime API. Missing flags keep backwards-compatible enabled actions. */
+    /** Permission flags from the runtime API. Missing flags disable row mutations. */
     permissions?: {
         canEdit?: boolean
         canCopy?: boolean
@@ -45,11 +45,11 @@ export interface RowActionsMenuLabels {
  * and `ApplicationRuntime`.
  */
 export function RowActionsMenu({ state, labels, permissions }: RowActionsMenuProps) {
-    const canEdit = permissions?.canEdit !== false
-    const canCopy = permissions?.canCopy !== false
-    const canDelete = permissions?.canDelete !== false
+    const canEdit = permissions?.canEdit === true
+    const canCopy = permissions?.canCopy === true
+    const canDelete = permissions?.canDelete === true
     const selectedRow = state.menuRowId ? state.rows.find((row) => row.id === state.menuRowId) ?? null : null
-    const recordBehavior = state.appData?.linkedCollection.recordBehavior
+    const recordBehavior = state.appData?.objectCollection.recordBehavior
     const canShowRecordCommands = Boolean(state.handleRecordCommand && isRuntimeRecordBehaviorCommandable(recordBehavior) && selectedRow)
     const isRecordCommandPending = Boolean(state.isRecordCommandPending)
 

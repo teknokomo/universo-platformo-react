@@ -26,7 +26,7 @@ type RuntimeLedgerObjectRow = {
     config?: Record<string, unknown> | null
 }
 
-type RuntimeLedgerAttributeRow = {
+type RuntimeLedgerComponentRow = {
     id: string
     codename: unknown
     column_name: string
@@ -72,7 +72,7 @@ export type RuntimeLedgerRegistrarKind = string
 type RuntimeLedgerBinding = {
     object: RuntimeLedgerObjectRow
     config: LedgerConfig | null
-    attrs: RuntimeLedgerAttributeRow[]
+    attrs: RuntimeLedgerComponentRow[]
     tableIdent: string
     activeCondition: string
     hasWorkspaceColumn: boolean
@@ -83,9 +83,9 @@ const MAX_LEDGER_LIMIT = 1000
 const REVERSAL_IDEMPOTENCY_MARKER = ':reversal:'
 const LEDGER_CAPABILITY_CONDITION = `
 (
-  COALESCE((config->'components'->'ledgerSchema'->>'enabled')::boolean, false) = true
-  AND COALESCE((config->'components'->'dataSchema'->>'enabled')::boolean, false) = true
-  AND COALESCE((config->'components'->'physicalTable'->>'enabled')::boolean, false) = true
+  COALESCE((config->'capabilities'->'ledgerSchema'->>'enabled')::boolean, false) = true
+  AND COALESCE((config->'capabilities'->'dataSchema'->>'enabled')::boolean, false) = true
+  AND COALESCE((config->'capabilities'->'physicalTable'->>'enabled')::boolean, false) = true
   AND jsonb_typeof(config->'ledger') = 'object'
 )`
 
@@ -148,24 +148,24 @@ const assertLedgerManualEditAllowed = (config: LedgerConfig | null): void => {
     }
 }
 
-const resolveFieldKey = (attr: RuntimeLedgerAttributeRow): string => {
-    const codename = resolveRuntimeCodenameText(attr.codename).trim()
-    return codename.length > 0 ? codename : attr.column_name
+const resolveFieldKey = (cmp: RuntimeLedgerComponentRow): string => {
+    const codename = resolveRuntimeCodenameText(cmp.codename).trim()
+    return codename.length > 0 ? codename : cmp.column_name
 }
 
 const normalizeFieldKey = (value: string): string => value.trim().toLowerCase()
 const normalizeFieldIdentity = (value: string): string => value.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
 
-const findAttrByFieldKey = (attrs: RuntimeLedgerAttributeRow[], fieldKey: string): RuntimeLedgerAttributeRow | null => {
+const findAttrByFieldKey = (attrs: RuntimeLedgerComponentRow[], fieldKey: string): RuntimeLedgerComponentRow | null => {
     const normalized = normalizeFieldKey(fieldKey)
     const normalizedIdentity = normalizeFieldIdentity(fieldKey)
     return (
         attrs.find(
-            (attr) =>
-                normalizeFieldKey(resolveFieldKey(attr)) === normalized ||
-                normalizeFieldKey(attr.column_name) === normalized ||
-                normalizeFieldIdentity(resolveFieldKey(attr)) === normalizedIdentity ||
-                normalizeFieldIdentity(attr.column_name) === normalizedIdentity
+            (cmp) =>
+                normalizeFieldKey(resolveFieldKey(cmp)) === normalized ||
+                normalizeFieldKey(cmp.column_name) === normalized ||
+                normalizeFieldIdentity(resolveFieldKey(cmp)) === normalizedIdentity ||
+                normalizeFieldIdentity(cmp.column_name) === normalizedIdentity
         ) ?? null
     )
 }
@@ -173,13 +173,13 @@ const findAttrByFieldKey = (attrs: RuntimeLedgerAttributeRow[], fieldKey: string
 const applyReversalIdempotencyKey = (binding: RuntimeLedgerBinding, data: Record<string, unknown>, sourceFactId: string): boolean => {
     const keyAttrs = resolveLedgerConfig(binding.config)
         .idempotency.keyFields.map((fieldKey) => findAttrByFieldKey(binding.attrs, fieldKey))
-        .filter((attr): attr is RuntimeLedgerAttributeRow => Boolean(attr))
+        .filter((cmp): cmp is RuntimeLedgerComponentRow => Boolean(cmp))
 
     if (keyAttrs.length === 0) {
         return false
     }
 
-    const targetAttr = [...keyAttrs].reverse().find((attr) => attr.data_type === 'STRING')
+    const targetAttr = [...keyAttrs].reverse().find((cmp) => cmp.data_type === 'STRING')
     if (!targetAttr) {
         return false
     }
@@ -191,29 +191,29 @@ const applyReversalIdempotencyKey = (binding: RuntimeLedgerBinding, data: Record
     return true
 }
 
-const getFieldRole = (config: LedgerConfig | null, attr: RuntimeLedgerAttributeRow) => {
+const getFieldRole = (config: LedgerConfig | null, cmp: RuntimeLedgerComponentRow) => {
     if (!config) return null
-    const fieldKey = normalizeFieldKey(resolveFieldKey(attr))
+    const fieldKey = normalizeFieldKey(resolveFieldKey(cmp))
     return (
         config.fieldRoles.find(
-            (role) => normalizeFieldKey(role.fieldCodename) === fieldKey || normalizeFieldKey(role.fieldCodename) === attr.column_name
+            (role) => normalizeFieldKey(role.fieldCodename) === fieldKey || normalizeFieldKey(role.fieldCodename) === cmp.column_name
         ) ?? null
     )
 }
 
-const buildResponseRow = (row: Record<string, unknown>, attrs: RuntimeLedgerAttributeRow[], aliases: string[]) => {
+const buildResponseRow = (row: Record<string, unknown>, attrs: RuntimeLedgerComponentRow[], aliases: string[]) => {
     const result: Record<string, unknown> = {}
     for (let index = 0; index < aliases.length; index += 1) {
-        const attr = attrs[index]
-        if (!attr) continue
+        const cmp = attrs[index]
+        if (!cmp) continue
         const value = row[aliases[index]]
-        result[resolveFieldKey(attr)] = attr.data_type === 'NUMBER' ? pgNumericToNumber(value) : value
+        result[resolveFieldKey(cmp)] = cmp.data_type === 'NUMBER' ? pgNumericToNumber(value) : value
     }
     return result
 }
 
-const normalizeLedgerSourceValue = (attr: RuntimeLedgerAttributeRow, value: unknown): unknown => {
-    if (attr.data_type === 'DATE' && value instanceof Date) {
+const normalizeLedgerSourceValue = (cmp: RuntimeLedgerComponentRow, value: unknown): unknown => {
+    if (cmp.data_type === 'DATE' && value instanceof Date) {
         return value.toISOString()
     }
     return value
@@ -276,34 +276,34 @@ export class RuntimeLedgerService {
         const attrs = (await params.executor.query(
             `
         SELECT id, object_id, codename, column_name, data_type, is_required, validation_rules
-        FROM ${schemaIdent}._app_attributes
+        FROM ${schemaIdent}._app_components
         WHERE object_id = ANY($1::uuid[])
-          AND parent_attribute_id IS NULL
+          AND parent_component_id IS NULL
           AND _upl_deleted = false
           AND _app_deleted = false
         ORDER BY object_id ASC, sort_order ASC, _upl_created_at ASC NULLS LAST, id ASC
       `,
             [ledgers.map((ledger) => ledger.id)]
-        )) as Array<RuntimeLedgerAttributeRow & { object_id: string }>
+        )) as Array<RuntimeLedgerComponentRow & { object_id: string }>
 
         return ledgers.map((ledger) => {
             const config = readLedgerConfig(ledger.config)
-            const ledgerAttrs = attrs.filter((attr) => attr.object_id === ledger.id)
+            const ledgerAttrs = attrs.filter((cmp) => cmp.object_id === ledger.id)
             return {
                 id: ledger.id,
                 codename: resolveRuntimeCodenameText(ledger.codename),
                 presentation: ledger.presentation,
                 config,
-                fields: ledgerAttrs.map((attr) => {
-                    const role = getFieldRole(config, attr)
+                fields: ledgerAttrs.map((cmp) => {
+                    const role = getFieldRole(config, cmp)
                     return {
-                        id: attr.id,
-                        codename: resolveFieldKey(attr),
-                        columnName: attr.column_name,
-                        dataType: attr.data_type,
+                        id: cmp.id,
+                        codename: resolveFieldKey(cmp),
+                        columnName: cmp.column_name,
+                        dataType: cmp.data_type,
                         role: role?.role ?? null,
                         aggregate: role?.aggregate ?? null,
-                        required: Boolean(attr.is_required || role?.required)
+                        required: Boolean(cmp.is_required || role?.required)
                     }
                 })
             }
@@ -319,12 +319,12 @@ export class RuntimeLedgerService {
         offset?: number
     }): Promise<{ rows: Array<Record<string, unknown>>; limit: number; offset: number }> {
         const binding = await this.resolveLedgerBinding(params)
-        const fields = binding.attrs.filter((attr) => IDENTIFIER_REGEX.test(attr.column_name) && attr.data_type !== 'TABLE')
+        const fields = binding.attrs.filter((cmp) => IDENTIFIER_REGEX.test(cmp.column_name) && cmp.data_type !== 'TABLE')
         const aliases = fields.map((_, index) => `f${index}`)
         const selectColumns = [
             'id',
             '_upl_created_at',
-            ...fields.map((attr, index) => `${quoteIdentifier(attr.column_name)} AS ${quoteIdentifier(aliases[index])}`)
+            ...fields.map((cmp, index) => `${quoteIdentifier(cmp.column_name)} AS ${quoteIdentifier(aliases[index])}`)
         ]
         const values: unknown[] = []
         let activeCondition = binding.activeCondition
@@ -382,15 +382,15 @@ export class RuntimeLedgerService {
 
         const dimensions = projection.dimensions.map((field) => findAttrByFieldKey(binding.attrs, field))
         const resources = projection.resources.map((field) => findAttrByFieldKey(binding.attrs, field))
-        if (dimensions.some((attr) => !attr) || resources.some((attr) => !attr)) {
+        if (dimensions.some((cmp) => !cmp) || resources.some((cmp) => !cmp)) {
             throw new UpdateFailure(409, {
                 error: 'Ledger projection references unknown fields',
                 code: 'LEDGER_PROJECTION_INVALID'
             })
         }
 
-        const dimensionAttrs = dimensions as RuntimeLedgerAttributeRow[]
-        const resourceAttrs = resources as RuntimeLedgerAttributeRow[]
+        const dimensionAttrs = dimensions as RuntimeLedgerComponentRow[]
+        const resourceAttrs = resources as RuntimeLedgerComponentRow[]
         const values: unknown[] = []
         const whereClauses = [binding.activeCondition]
 
@@ -400,8 +400,8 @@ export class RuntimeLedgerService {
         }
 
         for (const [key, rawValue] of Object.entries(params.filters ?? {})) {
-            const attr = findAttrByFieldKey(binding.attrs, key)
-            if (!attr || !IDENTIFIER_REGEX.test(attr.column_name) || attr.data_type === 'TABLE') {
+            const cmp = findAttrByFieldKey(binding.attrs, key)
+            if (!cmp || !IDENTIFIER_REGEX.test(cmp.column_name) || cmp.data_type === 'TABLE') {
                 throw new UpdateFailure(400, {
                     error: `Ledger filter references an unknown or unsupported field: ${key}`,
                     code: 'LEDGER_FILTER_INVALID',
@@ -409,7 +409,7 @@ export class RuntimeLedgerService {
                 })
             }
             try {
-                values.push(coerceRuntimeValue(rawValue, attr.data_type as RuntimeDataType, attr.validation_rules))
+                values.push(coerceRuntimeValue(rawValue, cmp.data_type as RuntimeDataType, cmp.validation_rules))
             } catch (error) {
                 throw ledgerValidationFailure(error, {
                     error: `Ledger filter contains an invalid value for field: ${key}`,
@@ -417,17 +417,17 @@ export class RuntimeLedgerService {
                     field: key
                 })
             }
-            whereClauses.push(`${quoteIdentifier(attr.column_name)} = $${values.length}`)
+            whereClauses.push(`${quoteIdentifier(cmp.column_name)} = $${values.length}`)
         }
 
         const dimensionAliases = dimensionAttrs.map((_, index) => `d${index}`)
         const resourceAliases = resourceAttrs.map((_, index) => `r${index}`)
         const dimensionSelects = dimensionAttrs.map(
-            (attr, index) => `${quoteIdentifier(attr.column_name)} AS ${quoteIdentifier(dimensionAliases[index])}`
+            (cmp, index) => `${quoteIdentifier(cmp.column_name)} AS ${quoteIdentifier(dimensionAliases[index])}`
         )
-        const resourceSelects = resourceAttrs.map((attr, index) => {
-            const role = getFieldRole(binding.config, attr)
-            return `${aggregateSql(role?.aggregate, quoteIdentifier(attr.column_name), projection.kind)} AS ${quoteIdentifier(
+        const resourceSelects = resourceAttrs.map((cmp, index) => {
+            const role = getFieldRole(binding.config, cmp)
+            return `${aggregateSql(role?.aggregate, quoteIdentifier(cmp.column_name), projection.kind)} AS ${quoteIdentifier(
                 resourceAliases[index]
             )}`
         })
@@ -579,7 +579,7 @@ export class RuntimeLedgerService {
         return params.executor.transaction(async (tx) => {
             const binding = await this.resolveLedgerBinding({ ...params, executor: tx, ledgerId: params.ledgerId ?? null })
             assertLedgerWriteAllowed(binding.config, params.writeOrigin ?? 'manual', params.registrarKind)
-            const fields = binding.attrs.filter((attr) => IDENTIFIER_REGEX.test(attr.column_name) && attr.data_type !== 'TABLE')
+            const fields = binding.attrs.filter((cmp) => IDENTIFIER_REGEX.test(cmp.column_name) && cmp.data_type !== 'TABLE')
             const values: unknown[] = [params.factIds]
             let activeCondition = binding.activeCondition
             if (binding.hasWorkspaceColumn && params.currentWorkspaceId) {
@@ -606,8 +606,8 @@ export class RuntimeLedgerService {
 
             const resourceColumns = new Set(
                 fields
-                    .filter((attr) => getFieldRole(binding.config, attr)?.role === 'resource' && attr.data_type === 'NUMBER')
-                    .map((attr) => attr.column_name)
+                    .filter((cmp) => getFieldRole(binding.config, cmp)?.role === 'resource' && cmp.data_type === 'NUMBER')
+                    .map((cmp) => cmp.column_name)
             )
             const reversedFacts = sourceRows.map((sourceRow) => {
                 const sourceFactId = typeof sourceRow.id === 'string' ? sourceRow.id : ''
@@ -619,9 +619,9 @@ export class RuntimeLedgerService {
                 }
 
                 const data: Record<string, unknown> = {}
-                for (const attr of fields) {
-                    const value = normalizeLedgerSourceValue(attr, sourceRow[attr.column_name])
-                    data[resolveFieldKey(attr)] = resourceColumns.has(attr.column_name) ? -Number(pgNumericToNumber(value) ?? 0) : value
+                for (const cmp of fields) {
+                    const value = normalizeLedgerSourceValue(cmp, sourceRow[cmp.column_name])
+                    data[resolveFieldKey(cmp)] = resourceColumns.has(cmp.column_name) ? -Number(pgNumericToNumber(value) ?? 0) : value
                 }
                 const hasBusinessReversalKey = applyReversalIdempotencyKey(binding, data, sourceFactId)
                 return { data, sourceFactId, hasBusinessReversalKey }
@@ -722,7 +722,7 @@ export class RuntimeLedgerService {
         return params.executor.transaction(async (tx) => {
             const binding = await this.resolveLedgerBinding({ ...params, executor: tx, ledgerId: params.ledgerId, includeAttrs: false })
             assertLedgerManualEditAllowed(binding.config)
-            const attrs = await this.loadLedgerAttributes(tx, params.schemaName, binding.object.id)
+            const attrs = await this.loadLedgerComponents(tx, params.schemaName, binding.object.id)
             const columnValues = this.buildFactPatchColumnValues({ ...binding, attrs }, params.data)
             if (columnValues.length === 0) {
                 throw new UpdateFailure(400, {
@@ -819,11 +819,11 @@ export class RuntimeLedgerService {
     }
 
     private buildFactColumnValues(binding: RuntimeLedgerBinding, data: Record<string, unknown>) {
-        const writableAttrs = binding.attrs.filter((attr) => IDENTIFIER_REGEX.test(attr.column_name) && attr.data_type !== 'TABLE')
+        const writableAttrs = binding.attrs.filter((cmp) => IDENTIFIER_REGEX.test(cmp.column_name) && cmp.data_type !== 'TABLE')
         const allowedKeys = new Set<string>()
-        for (const attr of writableAttrs) {
-            allowedKeys.add(normalizeFieldKey(resolveFieldKey(attr)))
-            allowedKeys.add(normalizeFieldKey(attr.column_name))
+        for (const cmp of writableAttrs) {
+            allowedKeys.add(normalizeFieldKey(resolveFieldKey(cmp)))
+            allowedKeys.add(normalizeFieldKey(cmp.column_name))
         }
 
         for (const key of Object.keys(data)) {
@@ -837,15 +837,15 @@ export class RuntimeLedgerService {
         }
 
         const values: Array<{ column: string; value: unknown }> = []
-        for (const attr of writableAttrs) {
-            const role = getFieldRole(binding.config, attr)
-            const fieldKey = resolveFieldKey(attr)
+        for (const cmp of writableAttrs) {
+            const role = getFieldRole(binding.config, cmp)
+            const fieldKey = resolveFieldKey(cmp)
             const hasValue =
-                Object.prototype.hasOwnProperty.call(data, fieldKey) || Object.prototype.hasOwnProperty.call(data, attr.column_name)
-            const rawValue = data[fieldKey] ?? data[attr.column_name]
+                Object.prototype.hasOwnProperty.call(data, fieldKey) || Object.prototype.hasOwnProperty.call(data, cmp.column_name)
+            const rawValue = data[fieldKey] ?? data[cmp.column_name]
 
             if (!hasValue) {
-                if (attr.is_required || role?.required) {
+                if (cmp.is_required || role?.required) {
                     throw new UpdateFailure(400, {
                         error: `Ledger fact is missing required field: ${fieldKey}`,
                         code: 'LEDGER_FACT_FIELD_REQUIRED',
@@ -857,7 +857,7 @@ export class RuntimeLedgerService {
 
             let coerced: unknown
             try {
-                coerced = coerceRuntimeValue(rawValue, attr.data_type as RuntimeDataType, attr.validation_rules)
+                coerced = coerceRuntimeValue(rawValue, cmp.data_type as RuntimeDataType, cmp.validation_rules)
             } catch (error) {
                 throw ledgerValidationFailure(error, {
                     error: `Ledger fact contains an invalid value for field: ${fieldKey}`,
@@ -865,42 +865,42 @@ export class RuntimeLedgerService {
                     field: fieldKey
                 })
             }
-            if ((attr.is_required || role?.required) && coerced === null) {
+            if ((cmp.is_required || role?.required) && coerced === null) {
                 throw new UpdateFailure(400, {
                     error: `Ledger fact required field cannot be null: ${fieldKey}`,
                     code: 'LEDGER_FACT_FIELD_REQUIRED',
                     field: fieldKey
                 })
             }
-            values.push({ column: attr.column_name, value: coerced })
+            values.push({ column: cmp.column_name, value: coerced })
         }
 
         return values
     }
 
     private buildFactPatchColumnValues(binding: RuntimeLedgerBinding, data: Record<string, unknown>) {
-        const writableAttrs = binding.attrs.filter((attr) => IDENTIFIER_REGEX.test(attr.column_name) && attr.data_type !== 'TABLE')
+        const writableAttrs = binding.attrs.filter((cmp) => IDENTIFIER_REGEX.test(cmp.column_name) && cmp.data_type !== 'TABLE')
         const values: Array<{ column: string; value: unknown }> = []
         const seenColumns = new Set<string>()
 
         for (const [key, rawValue] of Object.entries(data)) {
-            const attr = findAttrByFieldKey(writableAttrs, key)
-            if (!attr || !IDENTIFIER_REGEX.test(attr.column_name) || attr.data_type === 'TABLE') {
+            const cmp = findAttrByFieldKey(writableAttrs, key)
+            if (!cmp || !IDENTIFIER_REGEX.test(cmp.column_name) || cmp.data_type === 'TABLE') {
                 throw new UpdateFailure(400, {
                     error: `Ledger fact contains an unknown field: ${key}`,
                     code: 'LEDGER_FACT_FIELD_INVALID',
                     field: key
                 })
             }
-            if (seenColumns.has(attr.column_name)) {
+            if (seenColumns.has(cmp.column_name)) {
                 continue
             }
 
-            const role = getFieldRole(binding.config, attr)
-            const fieldKey = resolveFieldKey(attr)
+            const role = getFieldRole(binding.config, cmp)
+            const fieldKey = resolveFieldKey(cmp)
             let coerced: unknown
             try {
-                coerced = coerceRuntimeValue(rawValue, attr.data_type as RuntimeDataType, attr.validation_rules)
+                coerced = coerceRuntimeValue(rawValue, cmp.data_type as RuntimeDataType, cmp.validation_rules)
             } catch (error) {
                 throw ledgerValidationFailure(error, {
                     error: `Ledger fact contains an invalid value for field: ${fieldKey}`,
@@ -908,15 +908,15 @@ export class RuntimeLedgerService {
                     field: fieldKey
                 })
             }
-            if ((attr.is_required || role?.required) && coerced === null) {
+            if ((cmp.is_required || role?.required) && coerced === null) {
                 throw new UpdateFailure(400, {
                     error: `Ledger fact required field cannot be null: ${fieldKey}`,
                     code: 'LEDGER_FACT_FIELD_REQUIRED',
                     field: fieldKey
                 })
             }
-            seenColumns.add(attr.column_name)
-            values.push({ column: attr.column_name, value: coerced })
+            seenColumns.add(cmp.column_name)
+            values.push({ column: cmp.column_name, value: coerced })
         }
 
         return values
@@ -938,16 +938,16 @@ export class RuntimeLedgerService {
         const values: unknown[] = []
 
         for (const keyField of keyFields) {
-            const attr = findAttrByFieldKey(binding.attrs, keyField)
-            if (!attr || !IDENTIFIER_REGEX.test(attr.column_name)) {
+            const cmp = findAttrByFieldKey(binding.attrs, keyField)
+            if (!cmp || !IDENTIFIER_REGEX.test(cmp.column_name)) {
                 return null
             }
-            const value = valueByColumn.get(normalizeFieldKey(attr.column_name))
+            const value = valueByColumn.get(normalizeFieldKey(cmp.column_name))
             if (value === undefined || value === null) {
                 return null
             }
             values.push(value)
-            whereClauses.push(`${quoteIdentifier(attr.column_name)} = $${values.length}`)
+            whereClauses.push(`${quoteIdentifier(cmp.column_name)} = $${values.length}`)
         }
 
         if (whereClauses.length === 0) {
@@ -1066,7 +1066,7 @@ export class RuntimeLedgerService {
             [params.schemaName, tableName]
         )) as Array<Record<string, unknown>>
 
-        const attrs = params.includeAttrs === false ? [] : await this.loadLedgerAttributes(params.executor, params.schemaName, object.id)
+        const attrs = params.includeAttrs === false ? [] : await this.loadLedgerComponents(params.executor, params.schemaName, object.id)
 
         const hasWorkspaceColumn = systemColumnRows.some((row) => row.column_name === 'workspace_id')
         const hasReversalOfFactColumn = systemColumnRows.some((row) => row.column_name === '_app_reversal_of_fact_id')
@@ -1081,20 +1081,20 @@ export class RuntimeLedgerService {
         }
     }
 
-    private async loadLedgerAttributes(executor: DbExecutor, schemaName: string, objectId: string): Promise<RuntimeLedgerAttributeRow[]> {
+    private async loadLedgerComponents(executor: DbExecutor, schemaName: string, objectId: string): Promise<RuntimeLedgerComponentRow[]> {
         const schemaIdent = quoteIdentifier(schemaName)
         return (await executor.query(
             `
         SELECT id, codename, column_name, data_type, is_required, validation_rules
-        FROM ${schemaIdent}._app_attributes
+        FROM ${schemaIdent}._app_components
         WHERE object_id = $1
-          AND parent_attribute_id IS NULL
+          AND parent_component_id IS NULL
           AND _upl_deleted = false
           AND _app_deleted = false
         ORDER BY sort_order ASC, _upl_created_at ASC NULLS LAST, id ASC
       `,
             [objectId]
-        )) as RuntimeLedgerAttributeRow[]
+        )) as RuntimeLedgerComponentRow[]
     }
 }
 

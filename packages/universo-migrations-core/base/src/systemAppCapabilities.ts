@@ -7,23 +7,23 @@ const resolveBoolean = (value: boolean): true | false => (value ? true : false)
 export const resolveSystemTableCapabilityOptions = (
     capabilities: SystemAppStructureCapabilities
 ): Required<SystemTableCapabilityOptions> => {
-    const includeAttributes =
+    const includeComponents =
         capabilities.appCoreTables &&
         [
-            capabilities.catalogTables,
+            capabilities.objectTables,
             capabilities.documentTables,
             capabilities.relationTables,
             capabilities.layoutTables,
             capabilities.widgetTables,
-            capabilities.attributeValueTables
+            capabilities.componentValueTables
         ].some(Boolean)
 
-    const includeValues = capabilities.appCoreTables && capabilities.attributeValueTables
+    const includeValues = capabilities.appCoreTables && capabilities.componentValueTables
     const includeLayouts = capabilities.appCoreTables && capabilities.layoutTables
     const includeWidgets = capabilities.appCoreTables && capabilities.layoutTables && capabilities.widgetTables
 
     return {
-        includeAttributes: resolveBoolean(includeAttributes),
+        includeComponents: resolveBoolean(includeComponents),
         includeValues: resolveBoolean(includeValues),
         includeLayouts: resolveBoolean(includeLayouts),
         includeWidgets: resolveBoolean(includeWidgets)

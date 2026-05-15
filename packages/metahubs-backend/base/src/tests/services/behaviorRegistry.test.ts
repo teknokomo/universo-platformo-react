@@ -10,14 +10,14 @@ describe('behaviorRegistry', () => {
     })
 
     it('registers standard-kind behaviors on demand', () => {
-        expect(getBehaviorService('catalog')).toBeNull()
+        expect(getBehaviorService('object')).toBeNull()
 
         ensureStandardKindBehaviorsRegistered()
 
-        expect(getEntityBehaviorService('catalog')).toMatchObject({
-            kindKey: 'catalog',
-            entityLabel: 'Catalog',
-            aclEntityType: 'catalog'
+        expect(getEntityBehaviorService('object')).toMatchObject({
+            kindKey: 'object',
+            entityLabel: 'Object',
+            aclEntityType: 'object'
         })
         expect(getEntityBehaviorService('hub')).toMatchObject({
             kindKey: 'hub',

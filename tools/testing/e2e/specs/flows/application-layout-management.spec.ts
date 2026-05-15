@@ -14,7 +14,7 @@ import {
     getApplicationLayout,
     listConnectors,
     listLayouts,
-    listApplicationLayoutWidgetCatalog,
+    listApplicationLayoutWidgetObject,
     listApplicationLayouts,
     syncApplicationSchema,
     syncPublication,
@@ -48,7 +48,7 @@ type ApplicationLayoutDetailResponse = {
     }>
 }
 
-type ApplicationLayoutWidgetCatalogResponse = {
+type ApplicationLayoutWidgetObjectResponse = {
     items?: Array<{
         key?: string
         allowedZones?: string[]
@@ -187,8 +187,8 @@ test('@flow @combined application layout management exposes sourced layouts and 
         expect(detail.item?.sourceKind).toBe('metahub')
         expect(detail.item?.syncState).toBe('clean')
 
-        const catalog = (await listApplicationLayoutWidgetCatalog(api, applicationId, layoutId)) as ApplicationLayoutWidgetCatalogResponse
-        expect(catalog.items?.some((item) => item.key === 'divider' && item.allowedZones?.includes('top'))).toBe(true)
+        const widgetObject = (await listApplicationLayoutWidgetObject(api, applicationId, layoutId)) as ApplicationLayoutWidgetObjectResponse
+        expect(widgetObject.items?.some((item) => item.key === 'divider' && item.allowedZones?.includes('top'))).toBe(true)
 
         const centerWidget = detail.widgets?.find((widget) => widget.zone === 'center' && typeof widget.id === 'string')
         if (!centerWidget?.id || !centerWidget.widgetKey) {

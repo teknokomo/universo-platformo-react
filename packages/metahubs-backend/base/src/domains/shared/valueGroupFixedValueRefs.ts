@@ -1,6 +1,6 @@
 import { getCodenamePrimary } from '@universo/utils'
-import { FieldDefinitionDataType } from '@universo/types'
-import type { EntityDefinition, FieldDefinition } from '../ddl'
+import { ComponentDefinitionDataType } from '@universo/types'
+import type { EntityDefinition, Component } from '../ddl'
 import type { MetaFixedValueSnapshot, MetahubSnapshot } from '../publications/services/SnapshotSerializer'
 
 type SetFixedValueRefPayload = {
@@ -69,21 +69,21 @@ const toSetFixedValueRefPayload = (
 }
 
 const enrichFieldWithSetConstantRef = (
-    field: FieldDefinition,
+    field: Component,
     lookups: {
         byValueGroupId: Map<string, Map<string, MetaFixedValueSnapshot>>
         byFixedValueId: Map<string, MetaFixedValueSnapshot>
     }
-): FieldDefinition => {
-    const nextField: FieldDefinition = {
+): Component => {
+    const nextField: Component = {
         ...field,
         ...(field.childFields
-            ? { childFields: field.childFields.map((child: FieldDefinition) => enrichFieldWithSetConstantRef(child, lookups)) }
+            ? { childFields: field.childFields.map((child: Component) => enrichFieldWithSetConstantRef(child, lookups)) }
             : {})
     }
 
     if (
-        nextField.dataType !== FieldDefinitionDataType.REF ||
+        nextField.dataType !== ComponentDefinitionDataType.REF ||
         nextField.targetEntityKind !== 'set' ||
         typeof nextField.targetConstantId !== 'string' ||
         nextField.targetConstantId.length === 0
@@ -115,6 +115,6 @@ export const enrichDefinitionsWithValueGroupFixedValues = (entities: EntityDefin
 
     return entities.map((entity) => ({
         ...entity,
-        fields: (entity.fields ?? []).map((field: FieldDefinition) => enrichFieldWithSetConstantRef(field, lookups))
+        fields: (entity.fields ?? []).map((field: Component) => enrichFieldWithSetConstantRef(field, lookups))
     }))
 }

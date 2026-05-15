@@ -131,18 +131,18 @@ export const runtimeCodenameTextSql = (columnRef: string): string =>
 export const runtimeStandardKindSql = (kindColumn = 'kind'): string => `COALESCE(${kindColumn}, '')`
 
 export const runtimeRegistrarLedgerSql = (configColumn = 'config'): string => `(
-    COALESCE((${configColumn}->'components'->'ledgerSchema'->>'enabled')::boolean, false) = true
+    COALESCE((${configColumn}->'capabilities'->'ledgerSchema'->>'enabled')::boolean, false) = true
     AND jsonb_typeof(${configColumn}->'ledger') = 'object'
     AND COALESCE(${configColumn}->'ledger'->>'sourcePolicy', '') = 'registrar'
 )`
 
-export const runtimeCatalogFilterSql = (kindColumn = 'kind', configColumn = 'config'): string => `(${runtimeStandardKindSql(
+export const runtimeObjectFilterSql = (kindColumn = 'kind', configColumn = 'config'): string => `(${runtimeStandardKindSql(
     kindColumn
 )} NOT IN ('hub', 'set', 'enumeration', 'page', 'ledger')
     AND NOT ${runtimeRegistrarLedgerSql(configColumn)})`
 
 export const runtimeLayoutCapableFilterSql = (configColumn = 'config'): string =>
-    `COALESCE((${configColumn}->'components'->'layoutConfig'->>'enabled')::boolean, false) = true`
+    `COALESCE((${configColumn}->'capabilities'->'layoutConfig'->>'enabled')::boolean, false) = true`
 
 export const resolveRuntimeCodenameText = (codename: unknown): string => {
     if (typeof codename === 'string') {
@@ -408,7 +408,7 @@ export const coerceRuntimeValue = (value: unknown, dataType: string, validationR
     }
 }
 
-export type RuntimeTableChildAttributeMeta = {
+export type RuntimeTableChildComponentMeta = {
     column_name: string
     data_type?: string | null
     validation_rules?: Record<string, unknown>
@@ -440,7 +440,7 @@ export const normalizeRuntimeTableChildInsertValue = (
 
 export const normalizeRuntimeTableChildInsertValueByMeta = (
     value: unknown,
-    childAttrMeta?: RuntimeTableChildAttributeMeta | null
+    childAttrMeta?: RuntimeTableChildComponentMeta | null
 ): unknown => {
     return normalizeRuntimeTableChildInsertValue(value, childAttrMeta?.data_type, childAttrMeta?.validation_rules)
 }
@@ -685,7 +685,7 @@ export const buildCopiedApplicationSlugCandidate = (sourceSlug: string, attempt:
 
 export interface TabularContext {
     error: null
-    catalog: {
+    object: {
         id: string
         codename: string
         table_name: string
@@ -718,27 +718,27 @@ export interface TabularContext {
 export type TabularContextResult = TabularContext | { error: string }
 
 /**
- * Resolve a TABLE attribute and its child table for tabular CRUD operations.
+ * Resolve a TABLE component and its child table for tabular CRUD operations.
  */
 export const resolveTabularContext = async (
     manager: DbExecutor,
     schemaIdent: string,
-    linkedCollectionId: string,
-    attributeId: string
+    objectCollectionId: string,
+    componentId: string
 ): Promise<TabularContextResult> => {
-    if (!UUID_REGEX.test(linkedCollectionId) || !UUID_REGEX.test(attributeId)) {
-        return { error: 'Invalid catalog or attribute ID format' }
+    if (!UUID_REGEX.test(objectCollectionId) || !UUID_REGEX.test(componentId)) {
+        return { error: 'Invalid object or component ID format' }
     }
 
-    const catalogs = (await manager.query(
+    const objects = (await manager.query(
         `
         SELECT id, codename, table_name, config
         FROM ${schemaIdent}._app_objects
-        WHERE id = $1 AND kind = 'catalog'
+        WHERE id = $1 AND kind = 'object'
           AND _upl_deleted = false
           AND _app_deleted = false
     `,
-        [linkedCollectionId]
+        [objectCollectionId]
     )) as Array<{
         id: string
         codename: string
@@ -746,22 +746,22 @@ export const resolveTabularContext = async (
         config?: Record<string, unknown> | null
     }>
 
-    if (catalogs.length === 0) return { error: 'Catalog not found' }
+    if (objects.length === 0) return { error: 'Object not found' }
 
-    const catalog = catalogs[0]
-    if (!IDENTIFIER_REGEX.test(catalog.table_name)) return { error: 'Invalid table name' }
-    const lifecycleContract = resolveApplicationLifecycleContractFromConfig(catalog.config)
+    const object = objects[0]
+    if (!IDENTIFIER_REGEX.test(object.table_name)) return { error: 'Invalid table name' }
+    const lifecycleContract = resolveApplicationLifecycleContractFromConfig(object.config)
 
     const tableAttrs = (await manager.query(
         `
         SELECT id, codename, column_name, data_type, validation_rules
-        FROM ${schemaIdent}._app_attributes
+        FROM ${schemaIdent}._app_components
         WHERE id = $1 AND object_id = $2 AND data_type = 'TABLE'
-          AND parent_attribute_id IS NULL
+          AND parent_component_id IS NULL
           AND _upl_deleted = false
           AND _app_deleted = false
     `,
-        [attributeId, linkedCollectionId]
+        [componentId, objectCollectionId]
     )) as Array<{
         id: string
         codename: string
@@ -770,7 +770,7 @@ export const resolveTabularContext = async (
         validation_rules?: Record<string, unknown>
     }>
 
-    if (tableAttrs.length === 0) return { error: 'TABLE attribute not found' }
+    if (tableAttrs.length === 0) return { error: 'TABLE component not found' }
 
     const tableAttr = tableAttrs[0]
     const { generateChildTableName } = await import('@universo/schema-ddl')
@@ -785,13 +785,13 @@ export const resolveTabularContext = async (
         `
         SELECT id, codename, column_name, data_type, is_required, validation_rules,
                target_object_id, target_object_kind, ui_config
-        FROM ${schemaIdent}._app_attributes
-        WHERE parent_attribute_id = $1
+        FROM ${schemaIdent}._app_components
+        WHERE parent_component_id = $1
           AND _upl_deleted = false
           AND _app_deleted = false
         ORDER BY sort_order ASC, _upl_created_at ASC NULLS LAST
     `,
-        [attributeId]
+        [componentId]
     )) as Array<{
         id: string
         codename: string
@@ -806,12 +806,12 @@ export const resolveTabularContext = async (
 
     return {
         error: null,
-        catalog,
+        object,
         lifecycleContract,
         tableAttr,
         tabTableName,
         tabTableIdent: `${schemaIdent}.${quoteIdentifier(tabTableName)}`,
-        parentTableIdent: `${schemaIdent}.${quoteIdentifier(catalog.table_name)}`,
+        parentTableIdent: `${schemaIdent}.${quoteIdentifier(object.table_name)}`,
         childAttrs
     }
 }

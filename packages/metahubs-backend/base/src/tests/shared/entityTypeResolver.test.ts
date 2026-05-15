@@ -5,7 +5,7 @@ import { EntityTypeResolver } from '../../domains/shared/entityTypeResolver'
 describe('EntityTypeResolver', () => {
     it('returns null for standard kinds without metahub DB context', async () => {
         const resolver = new EntityTypeResolver()
-        const resolved = await resolver.resolve(MetaEntityKind.CATALOG)
+        const resolved = await resolver.resolve(MetaEntityKind.OBJECT)
 
         expect(resolved).toBeNull()
     })
@@ -14,7 +14,7 @@ describe('EntityTypeResolver', () => {
         const mockEntityTypeService = {
             resolveType: jest.fn(async () => ({
                 kindKey: 'custom_registry',
-                components: { dataSchema: { enabled: true } },
+                capabilities: { dataSchema: { enabled: true } },
                 ui: { iconName: 'IconBolt', tabs: ['general'], sidebarSection: 'objects', nameKey: 'Custom Registry' }
             }))
         }
@@ -30,7 +30,7 @@ describe('EntityTypeResolver', () => {
         const mockEntityTypeService = {
             resolveType: jest.fn(async () => ({
                 kindKey: 'custom_registry',
-                components: { actions: { enabled: true } },
+                capabilities: { actions: { enabled: true } },
                 ui: { iconName: 'IconBolt', tabs: ['general'], sidebarSection: 'objects', nameKey: 'Custom Registry' }
             }))
         }
@@ -55,7 +55,7 @@ describe('EntityTypeResolver', () => {
                 kindKey === 'custom_registry'
                     ? {
                           kindKey: 'custom_registry',
-                          components: { dataSchema: { enabled: true } },
+                          capabilities: { dataSchema: { enabled: true } },
                           ui: { iconName: 'IconBolt', tabs: ['general'], sidebarSection: 'objects', nameKey: 'Custom Registry' }
                       }
                     : null

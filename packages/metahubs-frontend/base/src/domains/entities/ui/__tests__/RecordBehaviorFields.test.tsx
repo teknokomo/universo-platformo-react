@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { DEFAULT_CATALOG_RECORD_BEHAVIOR, type CatalogRecordBehavior, type ComponentManifest } from '@universo/types'
+import { DEFAULT_OBJECT_RECORD_BEHAVIOR, type ObjectRecordBehavior, type EntityTypeCapabilities } from '@universo/types'
 
 import RecordBehaviorFields from '../RecordBehaviorFields'
 
@@ -17,7 +17,7 @@ vi.mock('react-i18next', () => ({
     })
 }))
 
-const components: ComponentManifest = {
+const capabilities: EntityTypeCapabilities = {
     records: { enabled: true },
     identityFields: { enabled: true, allowNumber: true, allowEffectiveDate: true },
     recordLifecycle: { enabled: true, allowCustomStates: true },
@@ -39,19 +39,19 @@ const components: ComponentManifest = {
     ledgerSchema: false
 }
 
-const createValue = (overrides: Partial<CatalogRecordBehavior> = {}): CatalogRecordBehavior => ({
-    ...DEFAULT_CATALOG_RECORD_BEHAVIOR,
+const createValue = (overrides: Partial<ObjectRecordBehavior> = {}): ObjectRecordBehavior => ({
+    ...DEFAULT_OBJECT_RECORD_BEHAVIOR,
     ...overrides
 })
 
 describe('RecordBehaviorFields', () => {
-    it('renders entity-component driven behavior sections for transactional catalogs', () => {
+    it('renders entity-component driven behavior sections for transactional objects', () => {
         render(
             <RecordBehaviorFields
                 value={createValue({
                     mode: 'transactional',
-                    numbering: { ...DEFAULT_CATALOG_RECORD_BEHAVIOR.numbering, enabled: true, prefix: 'ENR-' },
-                    effectiveDate: { ...DEFAULT_CATALOG_RECORD_BEHAVIOR.effectiveDate, enabled: true },
+                    numbering: { ...DEFAULT_OBJECT_RECORD_BEHAVIOR.numbering, enabled: true, prefix: 'ENR-' },
+                    effectiveDate: { ...DEFAULT_OBJECT_RECORD_BEHAVIOR.effectiveDate, enabled: true },
                     lifecycle: {
                         enabled: true,
                         states: [{ codename: 'Draft', title: 'Draft', isInitial: true }]
@@ -59,7 +59,7 @@ describe('RecordBehaviorFields', () => {
                     posting: { mode: 'manual', targetLedgers: ['ProgressLedger'], scriptCodename: 'EnrollmentPostingScript' }
                 })}
                 onChange={vi.fn()}
-                components={components}
+                capabilities={capabilities}
                 fieldOptions={[{ codename: 'StartedAt', label: 'Started at' }]}
                 ledgerOptions={[{ codename: 'ProgressLedger', label: 'Progress Ledger' }]}
                 scriptOptions={[{ codename: 'EnrollmentPostingScript', label: 'Enrollment posting' }]}
@@ -78,7 +78,7 @@ describe('RecordBehaviorFields', () => {
     it('updates nested behavior values without replacing unrelated settings', () => {
         const onChange = vi.fn()
         const value = createValue({
-            numbering: { ...DEFAULT_CATALOG_RECORD_BEHAVIOR.numbering, enabled: true, prefix: 'OLD-' },
+            numbering: { ...DEFAULT_OBJECT_RECORD_BEHAVIOR.numbering, enabled: true, prefix: 'OLD-' },
             lifecycle: {
                 enabled: true,
                 states: [{ codename: 'Draft', title: 'Draft', isInitial: true }]
@@ -89,7 +89,7 @@ describe('RecordBehaviorFields', () => {
             <RecordBehaviorFields
                 value={value}
                 onChange={onChange}
-                components={components}
+                capabilities={capabilities}
                 fieldOptions={[]}
                 ledgerOptions={[]}
                 scriptOptions={[]}
@@ -112,7 +112,7 @@ describe('RecordBehaviorFields', () => {
                 value={createValue({
                     mode: 'transactional',
                     effectiveDate: {
-                        ...DEFAULT_CATALOG_RECORD_BEHAVIOR.effectiveDate,
+                        ...DEFAULT_OBJECT_RECORD_BEHAVIOR.effectiveDate,
                         enabled: true,
                         fieldCodename: 'StartedAt'
                     },
@@ -128,7 +128,7 @@ describe('RecordBehaviorFields', () => {
                     }
                 })}
                 onChange={vi.fn()}
-                components={components}
+                capabilities={capabilities}
                 fieldOptions={[]}
                 ledgerOptions={[]}
                 scriptOptions={[]}

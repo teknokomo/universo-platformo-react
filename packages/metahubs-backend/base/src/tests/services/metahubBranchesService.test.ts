@@ -281,7 +281,7 @@ describe('MetahubBranchesService', () => {
         mockFindBranchBySchemaName.mockResolvedValue(null)
 
         // assertCopyCompatibility query returns dangling refs
-        const queryMock = jest.fn(async () => [{ target_kind: 'catalog' }])
+        const queryMock = jest.fn(async () => [{ target_kind: 'object' }])
         const exec = createMockExecutor(queryMock)
         const service = new MetahubBranchesService(exec)
 
@@ -294,7 +294,7 @@ describe('MetahubBranchesService', () => {
                 copyOptions: {
                     fullCopy: false,
                     copyTreeEntities: true,
-                    copyLinkedCollections: false,
+                    copyObjectCollections: false,
                     copyOptionLists: true,
                     copyLayouts: true
                 }
@@ -328,8 +328,8 @@ describe('MetahubBranchesService', () => {
         mockDropSchema.mockRejectedValueOnce(new Error('drop failed'))
 
         const queryMock = jest.fn(async (sql: string) => {
-            if (sql.includes('SELECT DISTINCT COALESCE(target.kind, attr.target_object_kind)::text AS target_kind')) {
-                return [{ target_kind: 'catalog' }]
+            if (sql.includes('SELECT DISTINCT COALESCE(target.kind, cmp.target_object_kind)::text AS target_kind')) {
+                return [{ target_kind: 'object' }]
             }
             return []
         })
@@ -346,7 +346,7 @@ describe('MetahubBranchesService', () => {
                 copyOptions: {
                     fullCopy: false,
                     copyTreeEntities: true,
-                    copyLinkedCollections: false,
+                    copyObjectCollections: false,
                     copyOptionLists: true,
                     copyLayouts: true
                 }
@@ -383,7 +383,7 @@ describe('MetahubBranchesService', () => {
         mockUpdateMetahubFieldsRaw.mockResolvedValue(undefined)
 
         const queryMock = jest.fn(async (sql: string) => {
-            if (sql.includes('SELECT DISTINCT COALESCE(target.kind, attr.target_object_kind)::text AS target_kind')) {
+            if (sql.includes('SELECT DISTINCT COALESCE(target.kind, cmp.target_object_kind)::text AS target_kind')) {
                 return []
             }
             return undefined
@@ -400,14 +400,14 @@ describe('MetahubBranchesService', () => {
             copyOptions: {
                 fullCopy: false,
                 copyTreeEntities: false,
-                copyLinkedCollections: true,
+                copyObjectCollections: true,
                 copyOptionLists: false,
                 copyLayouts: true
             }
         })
 
         expect(queryMock).toHaveBeenCalledWith(expect.stringContaining(`UPDATE "${TEST_METAHUB_BRANCH_SCHEMA_2}"._mhb_objects`), [
-            ['catalog', 'set']
+            ['object', 'set']
         ])
         expect(queryMock).toHaveBeenCalledWith(
             expect.stringContaining(`DELETE FROM "${TEST_METAHUB_BRANCH_SCHEMA_2}"._mhb_objects WHERE kind = ANY($1::text[])`),
@@ -424,7 +424,7 @@ describe('MetahubBranchesService', () => {
 
         mockEntityTypeService.listEditableTypesInSchema.mockResolvedValue([
             { kindKey: 'custom.workspace-hub', config: { compatibility: { legacyObjectKind: 'hub' } } },
-            { kindKey: 'custom.product-registry', config: { compatibility: { legacyObjectKind: 'catalog' } } },
+            { kindKey: 'custom.product-registry', config: { compatibility: { legacyObjectKind: 'object' } } },
             { kindKey: 'custom.value-group', config: { compatibility: { legacyObjectKind: 'set' } } },
             { kindKey: 'custom.option-list', config: { compatibility: { legacyObjectKind: 'enumeration' } } }
         ])
@@ -453,7 +453,7 @@ describe('MetahubBranchesService', () => {
         mockUpdateMetahubFieldsRaw.mockResolvedValue(undefined)
 
         const queryMock = jest.fn(async (sql: string) => {
-            if (sql.includes('SELECT DISTINCT COALESCE(target.kind, attr.target_object_kind)::text AS target_kind')) {
+            if (sql.includes('SELECT DISTINCT COALESCE(target.kind, cmp.target_object_kind)::text AS target_kind')) {
                 return []
             }
             return undefined
@@ -470,7 +470,7 @@ describe('MetahubBranchesService', () => {
             copyOptions: {
                 fullCopy: false,
                 copyTreeEntities: false,
-                copyLinkedCollections: true,
+                copyObjectCollections: true,
                 copyValueGroups: true,
                 copyOptionLists: false,
                 copyLayouts: true
@@ -478,14 +478,14 @@ describe('MetahubBranchesService', () => {
         })
 
         expect(queryMock).toHaveBeenCalledWith(
-            expect.stringContaining('SELECT DISTINCT COALESCE(target.kind, attr.target_object_kind)::text AS target_kind'),
+            expect.stringContaining('SELECT DISTINCT COALESCE(target.kind, cmp.target_object_kind)::text AS target_kind'),
             [
-                ['catalog', 'set'],
+                ['object', 'set'],
                 ['hub', 'enumeration']
             ]
         )
         expect(queryMock).toHaveBeenCalledWith(expect.stringContaining(`UPDATE "${TEST_METAHUB_BRANCH_SCHEMA_2}"._mhb_objects`), [
-            ['catalog', 'set']
+            ['object', 'set']
         ])
         expect(queryMock).toHaveBeenCalledWith(
             expect.stringContaining(`DELETE FROM "${TEST_METAHUB_BRANCH_SCHEMA_2}"._mhb_objects WHERE kind = ANY($1::text[])`),

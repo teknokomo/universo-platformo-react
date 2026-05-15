@@ -8,7 +8,7 @@ const apiMocks = vi.hoisted(() => ({
     listApplicationLayoutScopes: vi.fn(),
     listApplicationLayouts: vi.fn(),
     getApplicationLayout: vi.fn(),
-    listApplicationLayoutWidgetCatalog: vi.fn(),
+    listApplicationLayoutWidgetObject: vi.fn(),
     moveApplicationLayoutWidget: vi.fn(),
     toggleApplicationLayoutWidget: vi.fn(),
     upsertApplicationLayoutWidget: vi.fn(),
@@ -130,7 +130,7 @@ vi.mock('../../api/applications', () => ({
     listApplicationLayoutScopes: apiMocks.listApplicationLayoutScopes,
     listApplicationLayouts: apiMocks.listApplicationLayouts,
     getApplicationLayout: apiMocks.getApplicationLayout,
-    listApplicationLayoutWidgetCatalog: apiMocks.listApplicationLayoutWidgetCatalog,
+    listApplicationLayoutWidgetObject: apiMocks.listApplicationLayoutWidgetObject,
     moveApplicationLayoutWidget: apiMocks.moveApplicationLayoutWidget,
     toggleApplicationLayoutWidget: apiMocks.toggleApplicationLayoutWidget,
     upsertApplicationLayoutWidget: apiMocks.upsertApplicationLayoutWidget,
@@ -263,7 +263,7 @@ describe('ApplicationLayouts', () => {
                 }
             ]
         })
-        apiMocks.listApplicationLayoutWidgetCatalog.mockResolvedValue([
+        apiMocks.listApplicationLayoutWidgetObject.mockResolvedValue([
             { key: 'menuWidget', allowedZones: ['left', 'center'], multiInstance: true },
             { key: 'overviewCards', allowedZones: ['top', 'right'], multiInstance: false }
         ])

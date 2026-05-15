@@ -7,8 +7,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 const navigateMock = vi.fn()
 const invalidateQueriesMock = vi.fn()
 
-const currentCatalog = {
-    id: 'catalog-1',
+const currentObject = {
+    id: 'object-1',
     metahubId: 'metahub-1',
     codename: 'products',
     name: null,
@@ -52,8 +52,8 @@ vi.mock('@tanstack/react-query', async () => {
             isMutating: () => 0
         }),
         useQuery: ({ queryKey }: { queryKey: unknown[] }) => {
-            if (Array.isArray(queryKey) && queryKey.includes('allLinkedCollections') && queryKey.includes('detail')) {
-                return { data: currentCatalog, isLoading: false, error: null }
+            if (Array.isArray(queryKey) && queryKey.includes('allObjectCollections') && queryKey.includes('detail')) {
+                return { data: currentObject, isLoading: false, error: null }
             }
             if (Array.isArray(queryKey) && queryKey.includes('treeEntities') && queryKey.includes('list')) {
                 return {
@@ -62,14 +62,14 @@ vi.mock('@tanstack/react-query', async () => {
                     error: null
                 }
             }
-            if (Array.isArray(queryKey) && queryKey.includes('fieldDefinitions') && queryKey.includes('list')) {
+            if (Array.isArray(queryKey) && queryKey.includes('components') && queryKey.includes('list')) {
                 return {
                     data: { items: [], pagination: { limit: 100, offset: 0, count: 0, total: 0, hasMore: false } },
                     isLoading: false,
                     error: null
                 }
             }
-            if (Array.isArray(queryKey) && queryKey.includes('childAttributesForElements')) {
+            if (Array.isArray(queryKey) && queryKey.includes('childComponentsForElements')) {
                 return { data: {}, isLoading: false, error: null }
             }
             return { data: undefined, isLoading: false, error: null }
@@ -129,13 +129,13 @@ vi.mock('../hooks/mutations', () => ({
     useReorderElement: () => ({ mutateAsync: vi.fn(), isPending: false })
 }))
 
-vi.mock('../../../presets/api/linkedCollections', () => ({
-    getLinkedCollectionById: vi.fn(async () => currentCatalog)
+vi.mock('../../../presets/api/objectCollections', () => ({
+    getObjectCollectionById: vi.fn(async () => currentObject)
 }))
 
-vi.mock('../../entities/metadata/fieldDefinition/api', () => ({
-    listAttributes: vi.fn(async () => ({ items: [], pagination: { limit: 100, offset: 0, count: 0, total: 0, hasMore: false } })),
-    listFieldDefinitionsDirect: vi.fn(async () => ({
+vi.mock('../../entities/metadata/component/api', () => ({
+    listComponents: vi.fn(async () => ({ items: [], pagination: { limit: 100, offset: 0, count: 0, total: 0, hasMore: false } })),
+    listComponentsDirect: vi.fn(async () => ({
         items: [],
         pagination: { limit: 100, offset: 0, count: 0, total: 0, hasMore: false }
     }))
@@ -182,16 +182,16 @@ vi.mock('../InlineTableEditor', () => ({
     default: () => null
 }))
 
-vi.mock('../../../presets/ui/LinkedCollectionActions', () => ({
+vi.mock('../../../presets/ui/ObjectCollectionActions', () => ({
     buildInitialValues: () => ({}),
     buildFormTabs: () => [],
-    validateLinkedCollectionForm: () => null,
-    canSaveLinkedCollectionForm: () => true,
+    validateObjectCollectionForm: () => null,
+    canSaveObjectCollectionForm: () => true,
     toPayload: (value: unknown) => value
 }))
 
-vi.mock('../../../presets/hooks/linkedCollectionMutations', () => ({
-    useUpdateLinkedCollectionAtMetahub: () => ({ mutate: vi.fn(), isPending: false })
+vi.mock('../../../presets/hooks/objectCollectionMutations', () => ({
+    useUpdateObjectCollectionAtMetahub: () => ({ mutate: vi.fn(), isPending: false })
 }))
 
 vi.mock('../../../presets/api/trees', () => ({
@@ -226,32 +226,32 @@ describe('RecordList settings continuity', () => {
         const user = userEvent.setup()
 
         render(
-            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/catalog/instance/catalog-1/records']}>
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/object/instance/object-1/records']}>
                 <Routes>
-                    <Route path='/metahub/:metahubId/entities/:kindKey/instance/:linkedCollectionId/records' element={<RecordList />} />
+                    <Route path='/metahub/:metahubId/entities/:kindKey/instance/:objectCollectionId/records' element={<RecordList />} />
                 </Routes>
             </MemoryRouter>
         )
 
         await user.click(await screen.findByRole('tab', { name: /^(Settings|settings\.title)$/ }))
-        expect(screen.getByRole('dialog')).toHaveTextContent('Edit catalog')
+        expect(screen.getByRole('dialog')).toHaveTextContent('Edit object')
 
         await user.click(screen.getByRole('tab', { name: 'System' }))
-        expect(navigateMock).toHaveBeenCalledWith('/metahub/metahub-1/entities/catalog/instance/catalog-1/system')
+        expect(navigateMock).toHaveBeenCalledWith('/metahub/metahub-1/entities/object/instance/object-1/system')
     })
 
-    it('routes the System tab within the standard catalog entity route tree', async () => {
+    it('routes the System tab within the standard object entity route tree', async () => {
         const user = userEvent.setup()
 
         render(
-            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/catalog/instance/catalog-1/records']}>
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/object/instance/object-1/records']}>
                 <Routes>
-                    <Route path='/metahub/:metahubId/entities/:kindKey/instance/:linkedCollectionId/records' element={<RecordList />} />
+                    <Route path='/metahub/:metahubId/entities/:kindKey/instance/:objectCollectionId/records' element={<RecordList />} />
                 </Routes>
             </MemoryRouter>
         )
 
         await user.click(await screen.findByRole('tab', { name: 'System' }))
-        expect(navigateMock).toHaveBeenCalledWith('/metahub/metahub-1/entities/catalog/instance/catalog-1/system')
+        expect(navigateMock).toHaveBeenCalledWith('/metahub/metahub-1/entities/object/instance/object-1/system')
     })
 })

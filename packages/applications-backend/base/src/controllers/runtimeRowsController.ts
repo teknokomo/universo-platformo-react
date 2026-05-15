@@ -12,13 +12,13 @@ import {
     type RuntimeDatasourceSort
 } from '@universo/types'
 import {
-    normalizeLinkedCollectionRuntimeViewConfig,
-    resolveLinkedCollectionLayoutBehaviorConfig,
-    resolveLinkedCollectionRuntimeDashboardLayoutConfig,
+    normalizeObjectCollectionRuntimeViewConfig,
+    resolveObjectCollectionLayoutBehaviorConfig,
+    resolveObjectCollectionRuntimeDashboardLayoutConfig,
     resolveApplicationLifecycleContractFromConfig
 } from '@universo/utils'
 import { generateChildTableName } from '@universo/schema-ddl'
-import { getCatalogWorkspaceLimit, getCatalogWorkspaceUsage, enforceCatalogWorkspaceLimit } from '../services/applicationWorkspaces'
+import { getObjectWorkspaceLimit, getObjectWorkspaceUsage, enforceObjectWorkspaceLimit } from '../services/applicationWorkspaces'
 import {
     assertRuntimeRecordMutable,
     isRuntimeRecordBehaviorEnabled,
@@ -35,7 +35,7 @@ import {
     quoteIdentifier,
     normalizeLocale,
     runtimeCodenameTextSql,
-    runtimeCatalogFilterSql,
+    runtimeObjectFilterSql,
     runtimeStandardKindSql,
     runtimeLayoutCapableFilterSql,
     resolveRuntimeCodenameText,
@@ -66,7 +66,7 @@ import {
     ensureRuntimePermission,
     type RuntimeDataType,
     type RuntimeRefOption,
-    type RuntimeTableChildAttributeMeta,
+    type RuntimeTableChildComponentMeta,
     type SetConstantUiConfig
 } from '../shared/runtimeHelpers'
 
@@ -90,7 +90,7 @@ const runtimeQuerySchema = z.object({
     limit: z.coerce.number().int().positive().max(10000).default(100),
     offset: z.coerce.number().int().min(0).default(0),
     locale: z.string().optional(),
-    linkedCollectionId: z.string().uuid().optional(),
+    objectCollectionId: z.string().uuid().optional(),
     search: z.string().trim().max(200).optional(),
     sort: z.preprocess(parseJsonQueryValue, z.array(runtimeDatasourceSortSchema).max(5).optional()),
     filters: z.preprocess(parseJsonQueryValue, z.array(runtimeDatasourceFilterSchema).max(20).optional())
@@ -99,33 +99,33 @@ const runtimeQuerySchema = z.object({
 const runtimeUpdateBodySchema = z.object({
     field: z.string().min(1),
     value: z.unknown(),
-    linkedCollectionId: z.string().uuid().optional(),
+    objectCollectionId: z.string().uuid().optional(),
     expectedVersion: z.number().int().positive().optional()
 })
 
 const runtimeBulkUpdateBodySchema = z.object({
-    linkedCollectionId: z.string().uuid().optional(),
+    objectCollectionId: z.string().uuid().optional(),
     data: z.record(z.unknown()),
     expectedVersion: z.number().int().positive().optional()
 })
 
 const runtimeCreateBodySchema = z.object({
-    linkedCollectionId: z.string().uuid().optional(),
+    objectCollectionId: z.string().uuid().optional(),
     data: z.record(z.unknown())
 })
 
 const runtimeCopyBodySchema = z.object({
-    linkedCollectionId: z.string().uuid().optional(),
+    objectCollectionId: z.string().uuid().optional(),
     copyChildTables: z.boolean().optional()
 })
 
 const runtimeReorderBodySchema = z.object({
-    linkedCollectionId: z.string().uuid().optional(),
+    objectCollectionId: z.string().uuid().optional(),
     orderedRowIds: z.array(z.string().uuid()).min(1).max(1000)
 })
 
 const runtimeRecordCommandBodySchema = z.object({
-    linkedCollectionId: z.string().uuid().optional(),
+    objectCollectionId: z.string().uuid().optional(),
     expectedVersion: z.number().int().positive().optional()
 })
 
@@ -141,13 +141,13 @@ const RUNTIME_RECORD_SYSTEM_FIELDS = [
     '_app_voided_by'
 ] as const
 
-const RUNTIME_CATALOG_FILTER_SQL = runtimeCatalogFilterSql()
+const RUNTIME_OBJECT_FILTER_SQL = runtimeObjectFilterSql()
 const RUNTIME_LAYOUT_CAPABLE_FILTER_SQL = runtimeLayoutCapableFilterSql()
 
 const resolveRuntimeStandardKind = (kind: unknown): BuiltinEntityKind | null =>
     typeof kind === 'string' && isBuiltinEntityKind(kind) ? kind : null
 
-const isRuntimeCatalogTargetKind = (kind: unknown): kind is string =>
+const isRuntimeObjectTargetKind = (kind: unknown): kind is string =>
     typeof kind === 'string' && !['hub', 'set', 'enumeration', 'page', 'ledger'].includes(resolveRuntimeStandardKind(kind) ?? '')
 
 const isRuntimeEnumerationKind = (kind: unknown): kind is string =>
@@ -187,14 +187,14 @@ export const partitionRuntimeMenuItems = <T>(
 // ---------------------------------------------------------------------------
 
 /**
- * Resolve a runtime row section and load its attributes from a runtime schema.
+ * Resolve a runtime row section and load its components from a runtime schema.
  */
-const resolveRuntimeLinkedCollection = async (manager: DbExecutor, schemaIdent: string, requestedLinkedCollectionId?: string) => {
-    const linkedCollections = (await manager.query(
+const resolveRuntimeObjectCollection = async (manager: DbExecutor, schemaIdent: string, requestedObjectCollectionId?: string) => {
+    const objectCollections = (await manager.query(
         `
       SELECT id, kind, codename, table_name, config
       FROM ${schemaIdent}._app_objects
-    WHERE ${RUNTIME_CATALOG_FILTER_SQL}
+    WHERE ${RUNTIME_OBJECT_FILTER_SQL}
         AND _upl_deleted = false
         AND _app_deleted = false
       ORDER BY ${runtimeCodenameTextSql('codename')} ASC, id ASC
@@ -207,32 +207,32 @@ const resolveRuntimeLinkedCollection = async (manager: DbExecutor, schemaIdent: 
         config?: Record<string, unknown> | null
     }>
 
-    if (linkedCollections.length === 0) return { linkedCollection: null, attrs: [], error: 'No record collections available' } as const
+    if (objectCollections.length === 0) return { objectCollection: null, attrs: [], error: 'No record collections available' } as const
 
-    const selectedLinkedCollection =
-        (requestedLinkedCollectionId ? linkedCollections.find((c) => c.id === requestedLinkedCollectionId) : undefined) ??
-        linkedCollections[0]
-    const linkedCollection = selectedLinkedCollection
+    const selectedObjectCollection =
+        (requestedObjectCollectionId ? objectCollections.find((c) => c.id === requestedObjectCollectionId) : undefined) ??
+        objectCollections[0]
+    const objectCollection = selectedObjectCollection
         ? {
-              ...selectedLinkedCollection,
-              lifecycleContract: resolveApplicationLifecycleContractFromConfig(selectedLinkedCollection.config)
+              ...selectedObjectCollection,
+              lifecycleContract: resolveApplicationLifecycleContractFromConfig(selectedObjectCollection.config)
           }
         : null
-    if (!linkedCollection) return { linkedCollection: null, attrs: [], error: 'Record collection not found' } as const
-    if (!IDENTIFIER_REGEX.test(linkedCollection.table_name))
-        return { linkedCollection: null, attrs: [], error: 'Invalid table name' } as const
+    if (!objectCollection) return { objectCollection: null, attrs: [], error: 'Record collection not found' } as const
+    if (!IDENTIFIER_REGEX.test(objectCollection.table_name))
+        return { objectCollection: null, attrs: [], error: 'Invalid table name' } as const
 
     const attrs = (await manager.query(
         `
       SELECT id, codename, column_name, data_type, is_required, validation_rules
              , target_object_id, target_object_kind, ui_config
-      FROM ${schemaIdent}._app_attributes
+      FROM ${schemaIdent}._app_components
       WHERE object_id = $1
-        AND parent_attribute_id IS NULL
+        AND parent_component_id IS NULL
         AND _upl_deleted = false
         AND _app_deleted = false
     `,
-        [linkedCollection.id]
+        [objectCollection.id]
     )) as Array<{
         id: string
         codename: unknown
@@ -245,7 +245,7 @@ const resolveRuntimeLinkedCollection = async (manager: DbExecutor, schemaIdent: 
         ui_config?: Record<string, unknown>
     }>
 
-    return { linkedCollection, attrs, error: null } as const
+    return { objectCollection, attrs, error: null } as const
 }
 
 const resolveRuntimeReorderField = (
@@ -259,11 +259,11 @@ const resolveRuntimeReorderField = (
 
     return (
         attrs.find(
-            (attr) =>
-                attr.data_type === 'NUMBER' &&
-                IDENTIFIER_REGEX.test(attr.column_name) &&
-                (attr.column_name.toLowerCase() === target ||
-                    String(attr.codename ?? '')
+            (cmp) =>
+                cmp.data_type === 'NUMBER' &&
+                IDENTIFIER_REGEX.test(cmp.column_name) &&
+                (cmp.column_name.toLowerCase() === target ||
+                    String(cmp.codename ?? '')
                         .trim()
                         .toLowerCase() === target)
         ) ?? null
@@ -281,11 +281,11 @@ const buildRuntimeRowsOrderBy = (reorderColumnName: string | null) => {
 const normalizeRuntimeListFieldKey = (value: unknown) =>
     (typeof value === 'string' ? value : resolveRuntimeCodenameText(value)).trim().toLowerCase()
 
-const findRuntimeListAttribute = (attrs: Array<{ codename: unknown; column_name: string; data_type: RuntimeDataType }>, field: string) => {
+const findRuntimeListComponent = (attrs: Array<{ codename: unknown; column_name: string; data_type: RuntimeDataType }>, field: string) => {
     const target = normalizeRuntimeListFieldKey(field)
     if (!target) return null
 
-    return attrs.find((attr) => attr.column_name.toLowerCase() === target || normalizeRuntimeListFieldKey(attr.codename) === target) ?? null
+    return attrs.find((cmp) => cmp.column_name.toLowerCase() === target || normalizeRuntimeListFieldKey(cmp.codename) === target) ?? null
 }
 
 const buildRuntimeListSearchClause = (
@@ -296,23 +296,23 @@ const buildRuntimeListSearchClause = (
     const query = search?.trim()
     if (!query) return null
 
-    const searchableAttrs = attrs.filter((attr) => attr.data_type !== 'TABLE' && attr.data_type !== 'JSON')
+    const searchableAttrs = attrs.filter((cmp) => cmp.data_type !== 'TABLE' && cmp.data_type !== 'JSON')
     if (searchableAttrs.length === 0) return null
 
     values.push(`%${escapeLikeWildcards(query)}%`)
     const placeholder = `$${values.length}`
-    return `(${searchableAttrs.map((attr) => `${quoteIdentifier(attr.column_name)}::text ILIKE ${placeholder} ESCAPE '\\'`).join(' OR ')})`
+    return `(${searchableAttrs.map((cmp) => `${quoteIdentifier(cmp.column_name)}::text ILIKE ${placeholder} ESCAPE '\\'`).join(' OR ')})`
 }
 
-const normalizeRuntimeFilterValue = (attr: { data_type: RuntimeDataType }, rawValue: unknown): unknown => {
+const normalizeRuntimeFilterValue = (cmp: { data_type: RuntimeDataType }, rawValue: unknown): unknown => {
     if (rawValue === null || rawValue === undefined) return rawValue
 
-    if (attr.data_type === 'NUMBER') {
+    if (cmp.data_type === 'NUMBER') {
         const numeric = typeof rawValue === 'number' ? rawValue : Number(rawValue)
         return Number.isFinite(numeric) ? numeric : undefined
     }
 
-    if (attr.data_type === 'BOOLEAN') {
+    if (cmp.data_type === 'BOOLEAN') {
         if (typeof rawValue === 'boolean') return rawValue
         if (typeof rawValue === 'string') {
             const normalized = rawValue.trim().toLowerCase()
@@ -326,11 +326,11 @@ const normalizeRuntimeFilterValue = (attr: { data_type: RuntimeDataType }, rawVa
 }
 
 const buildRuntimeListFilterClause = (
-    attr: { column_name: string; data_type: RuntimeDataType },
+    cmp: { column_name: string; data_type: RuntimeDataType },
     filter: RuntimeDatasourceFilter,
     values: unknown[]
 ) => {
-    const columnSql = quoteIdentifier(attr.column_name)
+    const columnSql = quoteIdentifier(cmp.column_name)
 
     if (filter.operator === 'isEmpty') {
         return `(${columnSql} IS NULL OR ${columnSql}::text = '')`
@@ -339,7 +339,7 @@ const buildRuntimeListFilterClause = (
         return `(${columnSql} IS NOT NULL AND ${columnSql}::text <> '')`
     }
 
-    const normalizedValue = normalizeRuntimeFilterValue(attr, filter.value)
+    const normalizedValue = normalizeRuntimeFilterValue(cmp, filter.value)
     if (normalizedValue === undefined || normalizedValue === null || normalizedValue === '') {
         return null
     }
@@ -394,11 +394,11 @@ const buildRuntimeListClauses = (params: {
     }
 
     for (const filter of params.filters ?? []) {
-        const attr = findRuntimeListAttribute(params.attrs, filter.field)
-        if (!attr || attr.data_type === 'TABLE' || attr.data_type === 'JSON') {
+        const cmp = findRuntimeListComponent(params.attrs, filter.field)
+        if (!cmp || cmp.data_type === 'TABLE' || cmp.data_type === 'JSON') {
             continue
         }
-        const filterClause = buildRuntimeListFilterClause(attr, filter, values)
+        const filterClause = buildRuntimeListFilterClause(cmp, filter, values)
         if (filterClause) {
             whereClauses.push(filterClause)
         }
@@ -406,11 +406,11 @@ const buildRuntimeListClauses = (params: {
 
     const orderClauses: string[] = []
     for (const sort of params.sort ?? []) {
-        const attr = findRuntimeListAttribute(params.attrs, sort.field)
-        if (!attr || attr.data_type === 'TABLE' || attr.data_type === 'JSON') {
+        const cmp = findRuntimeListComponent(params.attrs, sort.field)
+        if (!cmp || cmp.data_type === 'TABLE' || cmp.data_type === 'JSON') {
             continue
         }
-        orderClauses.push(`${quoteIdentifier(attr.column_name)} ${sort.direction.toUpperCase()} NULLS LAST`)
+        orderClauses.push(`${quoteIdentifier(cmp.column_name)} ${sort.direction.toUpperCase()} NULLS LAST`)
     }
     orderClauses.push(params.fallbackOrderBy)
 
@@ -428,8 +428,8 @@ const findUnsupportedRuntimeListFields = (
 ) => {
     const unsupported = new Set<string>()
     const isSupported = (field: string) => {
-        const attr = findRuntimeListAttribute(attrs, field)
-        return Boolean(attr && attr.data_type !== 'TABLE' && attr.data_type !== 'JSON')
+        const cmp = findRuntimeListComponent(attrs, field)
+        return Boolean(cmp && cmp.data_type !== 'TABLE' && cmp.data_type !== 'JSON')
     }
 
     for (const sortItem of sort ?? []) {
@@ -540,7 +540,7 @@ export const resolvePreferredScopeEntityIdFromGlobalMenu = async (params: {
             .find((item) => item?.id === startPage)
 
         if (matchedItem) {
-            for (const key of ['sectionId', 'linkedCollectionId']) {
+            for (const key of ['sectionId', 'objectCollectionId']) {
                 const value = matchedItem[key]
                 if (typeof value === 'string' && value.trim()) {
                     return value.trim()
@@ -628,11 +628,11 @@ export const resolvePreferredScopeEntityIdFromGlobalMenu = async (params: {
             return null
         }
 
-        const preferredLinkedCollectionRows = (await manager.query(
+        const preferredObjectCollectionRows = (await manager.query(
             `
         SELECT id
         FROM ${schemaIdent}._app_objects
-        WHERE ${RUNTIME_CATALOG_FILTER_SQL}
+        WHERE ${RUNTIME_OBJECT_FILTER_SQL}
           AND _upl_deleted = false
           AND _app_deleted = false
           AND config->'hubs' @> $1::jsonb
@@ -642,7 +642,7 @@ export const resolvePreferredScopeEntityIdFromGlobalMenu = async (params: {
             [JSON.stringify([boundTreeEntityId])]
         )) as Array<{ id: string }>
 
-        return preferredLinkedCollectionRows[0]?.id ?? null
+        return preferredObjectCollectionRows[0]?.id ?? null
     } catch (e) {
         // eslint-disable-next-line no-console
         console.warn('[ApplicationsRuntime] Failed to resolve preferred startup section from menu binding (ignored)', e)
@@ -650,22 +650,22 @@ export const resolvePreferredScopeEntityIdFromGlobalMenu = async (params: {
     }
 }
 
-const resolveEffectiveLinkedCollectionRuntimeConfig = async (params: {
+const resolveEffectiveObjectCollectionRuntimeConfig = async (params: {
     manager: DbExecutor
     schemaName: string
     schemaIdent: string
-    linkedCollectionId: string
+    objectCollectionId: string
 }) => {
     const selectedLayout = await loadRuntimeSelectedLayout({
         manager: params.manager,
         schemaName: params.schemaName,
         schemaIdent: params.schemaIdent,
-        scopeEntityId: params.linkedCollectionId
+        scopeEntityId: params.objectCollectionId
     })
 
     return {
         selectedLayout,
-        runtimeConfig: resolveLinkedCollectionLayoutBehaviorConfig({
+        runtimeConfig: resolveObjectCollectionLayoutBehaviorConfig({
             layoutConfig: selectedLayout.layoutConfig
         })
     }
@@ -705,16 +705,16 @@ const loadRuntimeRowById = async (manager: DbExecutor, dataTableIdent: string, r
     return rows[0] ?? null
 }
 
-const collectTouchedAttributeIds = (
+const collectTouchedComponentIds = (
     attrs: Array<{ id: string; codename: unknown; column_name: string }>,
     payload: Record<string, unknown>
 ) => {
     const touched = new Set<string>()
 
-    for (const attr of attrs) {
-        const { hasUserValue } = getRuntimeInputValue(payload, attr.column_name, attr.codename)
+    for (const cmp of attrs) {
+        const { hasUserValue } = getRuntimeInputValue(payload, cmp.column_name, cmp.codename)
         if (hasUserValue) {
-            touched.add(attr.id)
+            touched.add(cmp.id)
         }
     }
 
@@ -725,11 +725,11 @@ const dispatchRuntimeLifecycle = async (params: {
     manager: DbExecutor
     applicationId: string
     schemaName: string
-    linkedCollection: { id: string; codename: unknown }
+    objectCollection: { id: string; codename: unknown }
     currentWorkspaceId?: string | null
     currentUserId?: string | null
     permissions?: Record<RolePermission, boolean>
-    attributeIds?: string[]
+    componentIds?: string[]
     payload: {
         eventName:
             | 'beforeCreate'
@@ -758,13 +758,13 @@ const dispatchRuntimeLifecycle = async (params: {
         executor: params.manager,
         applicationId: params.applicationId,
         schemaName: params.schemaName,
-        attachmentKind: 'catalog',
-        attachmentId: params.linkedCollection.id,
-        entityCodename: resolveRuntimeCodenameText(params.linkedCollection.codename),
+        attachmentKind: 'object',
+        attachmentId: params.objectCollection.id,
+        entityCodename: resolveRuntimeCodenameText(params.objectCollection.codename),
         currentWorkspaceId: params.currentWorkspaceId ?? null,
         currentUserId: params.currentUserId ?? null,
         permissions: params.permissions ?? null,
-        attributeIds: params.attributeIds,
+        componentIds: params.componentIds,
         payload: params.payload
     })
 }
@@ -866,7 +866,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
         const { limit, offset, locale, search, sort, filters } = parsedQuery.data
         const requestedLocale = normalizeLocale(locale)
-        const requestedLinkedCollectionId = parsedQuery.data.linkedCollectionId ?? null
+        const requestedObjectCollectionId = parsedQuery.data.objectCollectionId ?? null
         const runtimeContext = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
         if (!runtimeContext) return
 
@@ -874,22 +874,22 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         const manager = runtimeContext.manager
         const currentWorkspaceId = runtimeContext.currentWorkspaceId
 
-        const linkedCollections = await manager.query(
+        const objectCollections = await manager.query(
             `
         SELECT id, kind, codename, table_name, presentation, config
         FROM ${schemaIdent}._app_objects
-        WHERE (${RUNTIME_CATALOG_FILTER_SQL} OR ${runtimeStandardKindSql('kind')} = 'page')
+        WHERE (${RUNTIME_OBJECT_FILTER_SQL} OR ${runtimeStandardKindSql('kind')} = 'page')
           AND _upl_deleted = false
           AND _app_deleted = false
         ORDER BY ${runtimeCodenameTextSql('codename')} ASC, id ASC
       `
         )
 
-        if (linkedCollections.length === 0) {
-            return res.status(404).json({ error: 'No linkedCollections available in application runtime schema' })
+        if (objectCollections.length === 0) {
+            return res.status(404).json({ error: 'No objectCollections available in application runtime schema' })
         }
 
-        const typedCatalogs = linkedCollections as Array<{
+        const typedObjects = objectCollections as Array<{
             id: string
             kind: string
             codename: unknown
@@ -898,12 +898,12 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             config?: Record<string, unknown> | null
         }>
 
-        const runtimeCatalogs = typedCatalogs.map((catalogRow) => ({
-            ...catalogRow,
-            lifecycleContract: resolveApplicationLifecycleContractFromConfig(catalogRow.config)
+        const runtimeObjects = typedObjects.map((objectRow) => ({
+            ...objectRow,
+            lifecycleContract: resolveApplicationLifecycleContractFromConfig(objectRow.config)
         }))
 
-        const preferredLinkedCollectionIdFromMenu = requestedLinkedCollectionId
+        const preferredObjectCollectionIdFromMenu = requestedObjectCollectionId
             ? null
             : await resolvePreferredScopeEntityIdFromGlobalMenu({
                   manager,
@@ -911,52 +911,52 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                   schemaIdent
               })
 
-        const activeLinkedCollection =
-            (requestedLinkedCollectionId
-                ? runtimeCatalogs.find((catalogRow) => catalogRow.id === requestedLinkedCollectionId)
+        const activeObjectCollection =
+            (requestedObjectCollectionId
+                ? runtimeObjects.find((objectRow) => objectRow.id === requestedObjectCollectionId)
                 : undefined) ??
-            (preferredLinkedCollectionIdFromMenu
-                ? runtimeCatalogs.find((catalogRow) => catalogRow.id === preferredLinkedCollectionIdFromMenu)
+            (preferredObjectCollectionIdFromMenu
+                ? runtimeObjects.find((objectRow) => objectRow.id === preferredObjectCollectionIdFromMenu)
                 : undefined) ??
-            runtimeCatalogs[0]
-        if (!activeLinkedCollection) {
+            runtimeObjects[0]
+        if (!activeObjectCollection) {
             return res.status(404).json({
-                error: 'Requested catalog not found in runtime schema',
-                details: { linkedCollectionId: requestedLinkedCollectionId }
+                error: 'Requested object not found in runtime schema',
+                details: { objectCollectionId: requestedObjectCollectionId }
             })
         }
 
-        const activeLinkedCollectionKind = resolveRuntimeStandardKind(activeLinkedCollection.kind)
-        const isActivePage = activeLinkedCollectionKind === 'page'
-        if (!isActivePage && !IDENTIFIER_REGEX.test(activeLinkedCollection.table_name ?? '')) {
+        const activeObjectCollectionKind = resolveRuntimeStandardKind(activeObjectCollection.kind)
+        const isActivePage = activeObjectCollectionKind === 'page'
+        if (!isActivePage && !IDENTIFIER_REGEX.test(activeObjectCollection.table_name ?? '')) {
             return res.status(400).json({ error: 'Invalid runtime table name' })
         }
-        const activeRecordBehavior = normalizeRuntimeRecordBehavior(activeLinkedCollection.config)
+        const activeRecordBehavior = normalizeRuntimeRecordBehavior(activeObjectCollection.config)
         const activeRecordBehaviorEnabled = !isActivePage && isRuntimeRecordBehaviorEnabled(activeRecordBehavior)
 
-        const attributes = isActivePage
+        const components = isActivePage
             ? []
             : ((await manager.query(
                   `
-        SELECT id, codename, column_name, data_type, is_required, is_display_attribute,
+        SELECT id, codename, column_name, data_type, is_required, is_display_component,
                presentation, validation_rules, sort_order, ui_config,
                target_object_id, target_object_kind
-        FROM ${schemaIdent}._app_attributes
+        FROM ${schemaIdent}._app_components
         WHERE object_id = $1
           AND data_type IN ('BOOLEAN', 'STRING', 'NUMBER', 'DATE', 'REF', 'JSON', 'TABLE')
-          AND parent_attribute_id IS NULL
+          AND parent_component_id IS NULL
           AND _upl_deleted = false
           AND _app_deleted = false
         ORDER BY sort_order ASC, _upl_created_at ASC NULLS LAST, codename ASC
       `,
-                  [activeLinkedCollection.id]
+                  [activeObjectCollection.id]
               )) as Array<{
                   id: string
                   codename: string
                   column_name: string
                   data_type: RuntimeDataType
                   is_required: boolean
-                  is_display_attribute?: boolean
+                  is_display_component?: boolean
                   presentation?: unknown
                   validation_rules?: Record<string, unknown>
                   sort_order?: number
@@ -965,52 +965,52 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                   target_object_kind?: string | null
               }>)
 
-        const safeAttributes = attributes.filter((attr) => IDENTIFIER_REGEX.test(attr.column_name))
+        const safeComponents = components.filter((cmp) => IDENTIFIER_REGEX.test(cmp.column_name))
 
-        // Separate physical (non-TABLE) attributes from virtual TABLE attributes
-        const physicalAttributes = safeAttributes.filter((a) => a.data_type !== 'TABLE')
+        // Separate physical (non-TABLE) components from virtual TABLE components
+        const physicalComponents = safeComponents.filter((a) => a.data_type !== 'TABLE')
 
-        // Fetch child attributes for TABLE-type attributes
-        const tableAttrs = safeAttributes.filter((a) => a.data_type === 'TABLE')
-        const childAttrsByTableId = new Map<string, typeof attributes>()
+        // Fetch child components for TABLE-type components
+        const tableAttrs = safeComponents.filter((a) => a.data_type === 'TABLE')
+        const childAttrsByTableId = new Map<string, typeof components>()
         if (tableAttrs.length > 0) {
             const tableAttrIds = tableAttrs.map((a) => a.id)
             const childAttrs = (await manager.query(
                 `
-          SELECT id, codename, column_name, data_type, is_required, is_display_attribute,
+          SELECT id, codename, column_name, data_type, is_required, is_display_component,
                  presentation, validation_rules, sort_order, ui_config,
-                 target_object_id, target_object_kind, parent_attribute_id
-          FROM ${schemaIdent}._app_attributes
-          WHERE parent_attribute_id = ANY($1::uuid[])
+                 target_object_id, target_object_kind, parent_component_id
+          FROM ${schemaIdent}._app_components
+          WHERE parent_component_id = ANY($1::uuid[])
             AND _upl_deleted = false
             AND _app_deleted = false
           ORDER BY sort_order ASC, _upl_created_at ASC NULLS LAST, codename ASC
         `,
                 [tableAttrIds]
-            )) as Array<(typeof attributes)[number] & { parent_attribute_id: string }>
+            )) as Array<(typeof components)[number] & { parent_component_id: string }>
 
             for (const child of childAttrs) {
-                const list = childAttrsByTableId.get(child.parent_attribute_id) ?? []
+                const list = childAttrsByTableId.get(child.parent_component_id) ?? []
                 list.push(child)
-                childAttrsByTableId.set(child.parent_attribute_id, list)
+                childAttrsByTableId.set(child.parent_component_id, list)
             }
         }
 
-        // Collect all child attributes (across all TABLE attributes) for REF target resolution
-        const allChildAttributes = Array.from(childAttrsByTableId.values()).flat()
+        // Collect all child components (across all TABLE components) for REF target resolution
+        const allChildComponents = Array.from(childAttrsByTableId.values()).flat()
 
         const enumTargetObjectIds = Array.from(
             new Set([
-                ...safeAttributes
+                ...safeComponents
                     .filter(
-                        (attr) => attr.data_type === 'REF' && isRuntimeEnumerationKind(attr.target_object_kind) && attr.target_object_id
+                        (cmp) => cmp.data_type === 'REF' && isRuntimeEnumerationKind(cmp.target_object_kind) && cmp.target_object_id
                     )
-                    .map((attr) => String(attr.target_object_id)),
-                ...allChildAttributes
+                    .map((cmp) => String(cmp.target_object_id)),
+                ...allChildComponents
                     .filter(
-                        (attr) => attr.data_type === 'REF' && isRuntimeEnumerationKind(attr.target_object_kind) && attr.target_object_id
+                        (cmp) => cmp.data_type === 'REF' && isRuntimeEnumerationKind(cmp.target_object_kind) && cmp.target_object_id
                     )
-                    .map((attr) => String(attr.target_object_id))
+                    .map((cmp) => String(cmp.target_object_id))
             ])
         )
 
@@ -1057,33 +1057,33 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             }
         }
 
-        const catalogTargetObjectIds = Array.from(
+        const objectTargetObjectIds = Array.from(
             new Set([
-                ...safeAttributes
+                ...safeComponents
                     .filter(
-                        (attr) => attr.data_type === 'REF' && isRuntimeCatalogTargetKind(attr.target_object_kind) && attr.target_object_id
+                        (cmp) => cmp.data_type === 'REF' && isRuntimeObjectTargetKind(cmp.target_object_kind) && cmp.target_object_id
                     )
-                    .map((attr) => String(attr.target_object_id)),
-                ...allChildAttributes
+                    .map((cmp) => String(cmp.target_object_id)),
+                ...allChildComponents
                     .filter(
-                        (attr) => attr.data_type === 'REF' && isRuntimeCatalogTargetKind(attr.target_object_kind) && attr.target_object_id
+                        (cmp) => cmp.data_type === 'REF' && isRuntimeObjectTargetKind(cmp.target_object_kind) && cmp.target_object_id
                     )
-                    .map((attr) => String(attr.target_object_id))
+                    .map((cmp) => String(cmp.target_object_id))
             ])
         )
 
-        const catalogRefOptionsMap = new Map<string, RuntimeRefOption[]>()
-        if (catalogTargetObjectIds.length > 0) {
-            const targetCatalogs = (await manager.query(
+        const objectRefOptionsMap = new Map<string, RuntimeRefOption[]>()
+        if (objectTargetObjectIds.length > 0) {
+            const targetObjects = (await manager.query(
                 `
           SELECT id, codename, table_name, config
           FROM ${schemaIdent}._app_objects
           WHERE id = ANY($1::uuid[])
-            AND ${RUNTIME_CATALOG_FILTER_SQL}
+            AND ${RUNTIME_OBJECT_FILTER_SQL}
             AND _upl_deleted = false
             AND _app_deleted = false
         `,
-                [catalogTargetObjectIds]
+                [objectTargetObjectIds]
             )) as Array<{
                 id: string
                 codename: unknown
@@ -1091,49 +1091,49 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 config?: Record<string, unknown> | null
             }>
 
-            const targetCatalogAttrs = (await manager.query(
+            const targetObjectAttrs = (await manager.query(
                 `
-          SELECT object_id, column_name, codename, data_type, is_display_attribute, sort_order
-          FROM ${schemaIdent}._app_attributes
+          SELECT object_id, column_name, codename, data_type, is_display_component, sort_order
+          FROM ${schemaIdent}._app_components
           WHERE object_id = ANY($1::uuid[])
-            AND parent_attribute_id IS NULL
+            AND parent_component_id IS NULL
             AND _upl_deleted = false
             AND _app_deleted = false
-          ORDER BY object_id ASC, is_display_attribute DESC, sort_order ASC, codename ASC
+          ORDER BY object_id ASC, is_display_component DESC, sort_order ASC, codename ASC
         `,
-                [catalogTargetObjectIds]
+                [objectTargetObjectIds]
             )) as Array<{
                 object_id: string
                 column_name: string
                 codename: unknown
                 data_type: RuntimeDataType
-                is_display_attribute: boolean
+                is_display_component: boolean
                 sort_order?: number
             }>
 
-            const attrsByLinkedCollectionId = new Map<string, typeof targetCatalogAttrs>()
-            for (const row of targetCatalogAttrs) {
-                const list = attrsByLinkedCollectionId.get(row.object_id) ?? []
+            const attrsByObjectCollectionId = new Map<string, typeof targetObjectAttrs>()
+            for (const row of targetObjectAttrs) {
+                const list = attrsByObjectCollectionId.get(row.object_id) ?? []
                 list.push(row)
-                attrsByLinkedCollectionId.set(row.object_id, list)
+                attrsByObjectCollectionId.set(row.object_id, list)
             }
 
-            for (const targetCatalog of targetCatalogs) {
-                if (!IDENTIFIER_REGEX.test(targetCatalog.table_name)) {
+            for (const targetObject of targetObjects) {
+                if (!IDENTIFIER_REGEX.test(targetObject.table_name)) {
                     continue
                 }
 
-                const targetCatalogActiveRowCondition = buildRuntimeActiveRowCondition(
-                    resolveApplicationLifecycleContractFromConfig(targetCatalog.config),
-                    targetCatalog.config,
+                const targetObjectActiveRowCondition = buildRuntimeActiveRowCondition(
+                    resolveApplicationLifecycleContractFromConfig(targetObject.config),
+                    targetObject.config,
                     undefined,
                     currentWorkspaceId
                 )
 
-                const targetAttrs = attrsByLinkedCollectionId.get(targetCatalog.id) ?? []
+                const targetAttrs = attrsByObjectCollectionId.get(targetObject.id) ?? []
                 const preferredDisplayAttr =
-                    targetAttrs.find((attr) => attr.is_display_attribute) ??
-                    targetAttrs.find((attr) => attr.data_type === 'STRING') ??
+                    targetAttrs.find((cmp) => cmp.is_display_component) ??
+                    targetAttrs.find((cmp) => cmp.data_type === 'STRING') ??
                     targetAttrs[0]
 
                 const selectLabelSql =
@@ -1144,8 +1144,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 const targetRows = (await manager.query(
                     `
             SELECT id, ${selectLabelSql}
-            FROM ${schemaIdent}.${quoteIdentifier(targetCatalog.table_name)}
-            WHERE ${targetCatalogActiveRowCondition}
+            FROM ${schemaIdent}.${quoteIdentifier(targetObject.table_name)}
+            WHERE ${targetObjectActiveRowCondition}
             ORDER BY _upl_created_at ASC NULLS LAST, id ASC
             LIMIT 1000
           `
@@ -1163,25 +1163,25 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     return {
                         id: row.id,
                         label,
-                        codename: targetCatalog.codename,
+                        codename: targetObject.codename,
                         isDefault: false,
                         sortOrder: index
                     }
                 })
 
-                catalogRefOptionsMap.set(targetCatalog.id, options)
+                objectRefOptionsMap.set(targetObject.id, options)
             }
         }
 
-        const { selectedLayout, runtimeConfig: activeLinkedCollectionRuntimeConfig } = await resolveEffectiveLinkedCollectionRuntimeConfig({
+        const { selectedLayout, runtimeConfig: activeObjectCollectionRuntimeConfig } = await resolveEffectiveObjectCollectionRuntimeConfig({
             manager,
             schemaName,
             schemaIdent,
-            linkedCollectionId: activeLinkedCollection.id
+            objectCollectionId: activeObjectCollection.id
         })
         const reorderFieldAttr = resolveRuntimeReorderField(
-            safeAttributes,
-            activeLinkedCollectionRuntimeConfig.enableRowReordering ? activeLinkedCollectionRuntimeConfig.reorderPersistenceField : null
+            safeComponents,
+            activeObjectCollectionRuntimeConfig.enableRowReordering ? activeObjectCollectionRuntimeConfig.reorderPersistenceField : null
         )
 
         let total = 0
@@ -1189,15 +1189,15 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         let canPersistRowReordering = false
 
         if (!isActivePage) {
-            const tableName = activeLinkedCollection.table_name as string
+            const tableName = activeObjectCollection.table_name as string
             const dataTableIdent = `${schemaIdent}.${quoteIdentifier(tableName)}`
-            const activeCatalogRowCondition = buildRuntimeActiveRowCondition(
-                activeLinkedCollection.lifecycleContract,
-                activeLinkedCollection.config,
+            const activeObjectRowCondition = buildRuntimeActiveRowCondition(
+                activeObjectCollection.lifecycleContract,
+                activeObjectCollection.config,
                 undefined,
                 currentWorkspaceId
             )
-            const unsupportedListFields = findUnsupportedRuntimeListFields(physicalAttributes, sort, filters)
+            const unsupportedListFields = findUnsupportedRuntimeListFields(physicalComponents, sort, filters)
             if (unsupportedListFields.length > 0) {
                 return res.status(400).json({
                     error: 'Runtime list query references unknown or unsupported fields',
@@ -1205,18 +1205,18 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 })
             }
             const runtimeListClauses = buildRuntimeListClauses({
-                activeCondition: activeCatalogRowCondition,
-                attrs: physicalAttributes,
+                activeCondition: activeObjectRowCondition,
+                attrs: physicalComponents,
                 search,
                 sort,
                 filters,
                 fallbackOrderBy: buildRuntimeRowsOrderBy(reorderFieldAttr?.column_name ?? null)
             })
-            // Use physicalAttributes for SQL because TABLE attrs have no physical column in the parent table.
+            // Use physicalComponents for SQL because TABLE attrs have no physical column in the parent table.
             const selectColumns = [
                 'id',
                 ...(activeRecordBehaviorEnabled ? RUNTIME_RECORD_SYSTEM_FIELDS.map((field) => quoteIdentifier(field)) : []),
-                ...physicalAttributes.map((attr) => quoteIdentifier(attr.column_name))
+                ...physicalComponents.map((cmp) => quoteIdentifier(cmp.column_name))
             ]
 
             for (const tAttr of tableAttrs) {
@@ -1228,7 +1228,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 if (!IDENTIFIER_REGEX.test(tabTableName)) continue
                 const tabTableIdent = `${schemaIdent}.${quoteIdentifier(tabTableName)}`
                 selectColumns.push(
-                    `(SELECT COUNT(*)::int FROM ${tabTableIdent} WHERE _tp_parent_id = ${dataTableIdent}.id AND ${activeCatalogRowCondition}) AS ${quoteIdentifier(
+                    `(SELECT COUNT(*)::int FROM ${tabTableIdent} WHERE _tp_parent_id = ${dataTableIdent}.id AND ${activeObjectRowCondition}) AS ${quoteIdentifier(
                         tAttr.column_name
                     )}`
                 )
@@ -1258,7 +1258,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
             const hasRuntimeListModifiers = Boolean(search?.trim() || sort?.length || filters?.length)
             canPersistRowReordering =
-                activeLinkedCollectionRuntimeConfig.enableRowReordering &&
+                activeObjectCollectionRuntimeConfig.enableRowReordering &&
                 Boolean(reorderFieldAttr) &&
                 offset === 0 &&
                 total <= limit &&
@@ -1275,12 +1275,12 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     }
                 }
 
-                for (const attribute of safeAttributes) {
-                    if (attribute.data_type === 'TABLE') {
-                        mappedRow[attribute.column_name] = typeof row[attribute.column_name] === 'number' ? row[attribute.column_name] : 0
+                for (const component of safeComponents) {
+                    if (component.data_type === 'TABLE') {
+                        mappedRow[component.column_name] = typeof row[component.column_name] === 'number' ? row[component.column_name] : 0
                         continue
                     }
-                    mappedRow[attribute.column_name] = resolveRuntimeValue(row[attribute.column_name], attribute.data_type, requestedLocale)
+                    mappedRow[component.column_name] = resolveRuntimeValue(row[component.column_name], component.data_type, requestedLocale)
                 }
 
                 return mappedRow
@@ -1289,17 +1289,17 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
         let workspaceLimit: { maxRows: number | null; currentRows: number; canCreate: boolean } | undefined
         if (!isActivePage && runtimeContext.workspacesEnabled && currentWorkspaceId) {
-            const maxRows = await getCatalogWorkspaceLimit(manager, {
+            const maxRows = await getObjectWorkspaceLimit(manager, {
                 schemaName,
-                objectId: activeLinkedCollection.id
+                objectId: activeObjectCollection.id
             })
-            const currentRows = await getCatalogWorkspaceUsage(manager, {
+            const currentRows = await getObjectWorkspaceUsage(manager, {
                 schemaName,
-                tableName: activeLinkedCollection.table_name as string,
+                tableName: activeObjectCollection.table_name as string,
                 workspaceId: currentWorkspaceId,
                 runtimeRowCondition: buildRuntimeActiveRowCondition(
-                    activeLinkedCollection.lifecycleContract,
-                    activeLinkedCollection.config,
+                    activeObjectCollection.lifecycleContract,
+                    activeObjectCollection.config,
                     undefined,
                     currentWorkspaceId
                 )
@@ -1352,24 +1352,24 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             console.warn('[ApplicationsRuntime] Failed to load layout config (ignored)', e)
         }
 
-        layoutConfig = resolveLinkedCollectionRuntimeDashboardLayoutConfig({ layoutConfig })
+        layoutConfig = resolveObjectCollectionRuntimeDashboardLayoutConfig({ layoutConfig })
         layoutConfig = {
             ...layoutConfig,
             enableRowReordering: canPersistRowReordering
         }
 
-        const linkedCollectionsForRuntime = runtimeCatalogs.map((catalogRow) => ({
-            id: catalogRow.id,
-            kind: resolveRuntimeStandardKind(catalogRow.kind) ?? 'catalog',
-            codename: resolveRuntimeCodenameText(catalogRow.codename),
-            tableName: catalogRow.table_name,
+        const objectCollectionsForRuntime = runtimeObjects.map((objectRow) => ({
+            id: objectRow.id,
+            kind: resolveRuntimeStandardKind(objectRow.kind) ?? 'object',
+            codename: resolveRuntimeCodenameText(objectRow.codename),
+            tableName: objectRow.table_name,
             runtimeConfig:
-                catalogRow.id === activeLinkedCollection.id
-                    ? activeLinkedCollectionRuntimeConfig
-                    : normalizeLinkedCollectionRuntimeViewConfig(undefined),
+                objectRow.id === activeObjectCollection.id
+                    ? activeObjectCollectionRuntimeConfig
+                    : normalizeObjectCollectionRuntimeViewConfig(undefined),
             recordBehavior:
-                resolveRuntimeStandardKind(catalogRow.kind) === 'page' ? undefined : normalizeRuntimeRecordBehavior(catalogRow.config),
-            name: resolvePresentationName(catalogRow.presentation, requestedLocale, resolveRuntimeCodenameText(catalogRow.codename))
+                resolveRuntimeStandardKind(objectRow.kind) === 'page' ? undefined : normalizeRuntimeRecordBehavior(objectRow.config),
+            name: resolvePresentationName(objectRow.presentation, requestedLocale, resolveRuntimeCodenameText(objectRow.codename))
         }))
 
         // Zone widgets for runtime UI (sidebar + center composition).
@@ -1446,7 +1446,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             title: string
             icon: string | null
             href: string | null
-            linkedCollectionId: string | null
+            objectCollectionId: string | null
             sectionId: string | null
             treeEntityId: string | null
             sortOrder: number
@@ -1478,7 +1478,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             sortOrder: number
         }
 
-        type RuntimeLinkedCollectionMeta = {
+        type RuntimeObjectCollectionMeta = {
             id: string
             codename: unknown
             title: string
@@ -1488,16 +1488,16 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
         let treeEntityMetaById = new Map<string, RuntimeTreeEntityMeta>()
         let treeEntityMetaByCodename = new Map<string, RuntimeTreeEntityMeta>()
-        let linkedCollectionMetaByCodename = new Map<string, RuntimeLinkedCollectionMeta>()
+        let objectCollectionMetaByCodename = new Map<string, RuntimeObjectCollectionMeta>()
         let childTreeEntityIdsByParent = new Map<string, string[]>()
-        let linkedCollectionsByTreeEntity = new Map<string, RuntimeLinkedCollectionMeta[]>()
+        let objectCollectionsByTreeEntity = new Map<string, RuntimeObjectCollectionMeta[]>()
 
         try {
             const objectRows = (await manager.query(
                 `
           SELECT id, kind, codename, presentation, config
           FROM ${schemaIdent}._app_objects
-                    WHERE (${runtimeStandardKindSql('kind')} = 'hub' OR ${RUNTIME_CATALOG_FILTER_SQL} OR ${runtimeStandardKindSql(
+                    WHERE (${runtimeStandardKindSql('kind')} = 'hub' OR ${RUNTIME_OBJECT_FILTER_SQL} OR ${runtimeStandardKindSql(
                     'kind'
                 )} = 'page')
             AND _upl_deleted = false
@@ -1534,18 +1534,18 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 const treeEntityIds = Array.isArray(config.hubs)
                     ? config.hubs.filter((value): value is string => typeof value === 'string')
                     : []
-                const linkedCollectionMeta: RuntimeLinkedCollectionMeta = {
+                const objectCollectionMeta: RuntimeObjectCollectionMeta = {
                     id: row.id,
                     codename: row.codename,
                     title,
                     sortOrder,
                     treeEntityIds
                 }
-                linkedCollectionMetaByCodename.set(resolveRuntimeCodenameText(row.codename), linkedCollectionMeta)
+                objectCollectionMetaByCodename.set(resolveRuntimeCodenameText(row.codename), objectCollectionMeta)
                 for (const treeEntityId of treeEntityIds) {
-                    const list = linkedCollectionsByTreeEntity.get(treeEntityId) ?? []
-                    list.push(linkedCollectionMeta)
-                    linkedCollectionsByTreeEntity.set(treeEntityId, list)
+                    const list = objectCollectionsByTreeEntity.get(treeEntityId) ?? []
+                    list.push(objectCollectionMeta)
+                    objectCollectionsByTreeEntity.set(treeEntityId, list)
                 }
             }
 
@@ -1553,7 +1553,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
                 return resolveRuntimeCodenameText(a.codename).localeCompare(resolveRuntimeCodenameText(b.codename))
             }
-            const linkedCollectionSortComparator = (a: RuntimeLinkedCollectionMeta, b: RuntimeLinkedCollectionMeta) => {
+            const objectCollectionSortComparator = (a: RuntimeObjectCollectionMeta, b: RuntimeObjectCollectionMeta) => {
                 if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder
                 return resolveRuntimeCodenameText(a.codename).localeCompare(resolveRuntimeCodenameText(b.codename))
             }
@@ -1567,24 +1567,24 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 childTreeEntityIdsByParent.set(treeEntity.parentTreeEntityId, childIds)
             }
 
-            for (const [treeEntityId, treeEntityLinkedCollections] of linkedCollectionsByTreeEntity.entries()) {
-                linkedCollectionsByTreeEntity.set(treeEntityId, [...treeEntityLinkedCollections].sort(linkedCollectionSortComparator))
+            for (const [treeEntityId, treeEntityObjectCollections] of objectCollectionsByTreeEntity.entries()) {
+                objectCollectionsByTreeEntity.set(treeEntityId, [...treeEntityObjectCollections].sort(objectCollectionSortComparator))
             }
         } catch (e) {
             // eslint-disable-next-line no-console
-            console.warn('[ApplicationsRuntime] Failed to build hub/catalog runtime map for menuWidget (ignored)', e)
+            console.warn('[ApplicationsRuntime] Failed to build hub/object runtime map for menuWidget (ignored)', e)
             treeEntityMetaById = new Map()
             treeEntityMetaByCodename = new Map()
-            linkedCollectionMetaByCodename = new Map()
+            objectCollectionMetaByCodename = new Map()
             childTreeEntityIdsByParent = new Map()
-            linkedCollectionsByTreeEntity = new Map()
+            objectCollectionsByTreeEntity = new Map()
         }
 
-        const resolveLinkedCollectionId = (value: unknown): string | null => {
+        const resolveObjectCollectionId = (value: unknown): string | null => {
             if (typeof value !== 'string' || value.trim().length === 0) return null
             const normalized = value.trim()
-            if (linkedCollectionsForRuntime.some((section) => section.id === normalized)) return normalized
-            return linkedCollectionMetaByCodename.get(normalized)?.id ?? null
+            if (objectCollectionsForRuntime.some((section) => section.id === normalized)) return normalized
+            return objectCollectionMetaByCodename.get(normalized)?.id ?? null
         }
 
         const resolveTreeEntityId = (value: unknown): string | null => {
@@ -1598,17 +1598,17 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             if (typeof value !== 'string' || value.trim().length === 0) return null
             const normalized = value.trim()
             const explicitItem = items.find((item) => item.id === normalized)
-            if (explicitItem?.sectionId || explicitItem?.linkedCollectionId) {
-                return explicitItem.sectionId ?? explicitItem.linkedCollectionId
+            if (explicitItem?.sectionId || explicitItem?.objectCollectionId) {
+                return explicitItem.sectionId ?? explicitItem.objectCollectionId
             }
             const treeEntityId = resolveTreeEntityId(normalized)
             if (treeEntityId) {
                 return (
-                    items.find((item) => item.treeEntityId === treeEntityId && (item.sectionId || item.linkedCollectionId))?.sectionId ??
+                    items.find((item) => item.treeEntityId === treeEntityId && (item.sectionId || item.objectCollectionId))?.sectionId ??
                     null
                 )
             }
-            return resolveLinkedCollectionId(normalized)
+            return resolveObjectCollectionId(normalized)
         }
 
         const normalizeMenuItem = (item: unknown): RuntimeMenuItem | null => {
@@ -1617,7 +1617,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             if (typed.isActive === false) return null
 
             const kind = typeof typed.kind === 'string' && typed.kind.trim().length > 0 ? typed.kind : 'link'
-            const linkedCollectionId = resolveLinkedCollectionId(typed.sectionId ?? typed.linkedCollectionId)
+            const objectCollectionId = resolveObjectCollectionId(typed.sectionId ?? typed.objectCollectionId)
             const treeEntityId = resolveTreeEntityId(typed.hubId ?? typed.treeEntityId)
             return {
                 id: String(typed.id ?? ''),
@@ -1625,8 +1625,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 title: resolveLocalizedContent(typed.title, requestedLocale, kind),
                 icon: typeof typed.icon === 'string' ? typed.icon : null,
                 href: typeof typed.href === 'string' ? typed.href : null,
-                linkedCollectionId,
-                sectionId: linkedCollectionId,
+                objectCollectionId,
+                sectionId: objectCollectionId,
                 treeEntityId,
                 sortOrder: typeof typed.sortOrder === 'number' ? typed.sortOrder : 0,
                 isActive: true
@@ -1661,22 +1661,22 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     title: `${indent}${treeEntityMeta.title}`,
                     icon: baseItem.icon,
                     href: null,
-                    linkedCollectionId: null,
+                    objectCollectionId: null,
                     sectionId: null,
                     treeEntityId: treeEntityMeta.id,
                     sortOrder: baseItem.sortOrder,
                     isActive: true
                 })
 
-                const treeEntityLinkedCollections = linkedCollectionsByTreeEntity.get(treeEntityMeta.id) ?? []
-                for (const lc of treeEntityLinkedCollections) {
+                const treeEntityObjectCollections = objectCollectionsByTreeEntity.get(treeEntityMeta.id) ?? []
+                for (const lc of treeEntityObjectCollections) {
                     items.push({
                         id: `${baseItem.id}:hub:${treeEntityMeta.id}:section:${lc.id}`,
                         kind: 'section',
                         title: `${'\u00A0\u00A0'.repeat(depth + 1)}${lc.title}`,
                         icon: baseItem.icon,
                         href: null,
-                        linkedCollectionId: lc.id,
+                        objectCollectionId: lc.id,
                         sectionId: lc.id,
                         treeEntityId: treeEntityMeta.id,
                         sortOrder: baseItem.sortOrder,
@@ -1694,16 +1694,16 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             return items
         }
 
-        const buildBoundTreeEntityLinkedCollectionItems = (widgetId: string, boundTreeEntityId: string): RuntimeMenuItem[] => {
+        const buildBoundTreeEntityObjectCollectionItems = (widgetId: string, boundTreeEntityId: string): RuntimeMenuItem[] => {
             if (!treeEntityMetaById.has(boundTreeEntityId)) return []
-            const directLinkedCollections = linkedCollectionsByTreeEntity.get(boundTreeEntityId) ?? []
-            return directLinkedCollections.map((lc, index) => ({
+            const directObjectCollections = objectCollectionsByTreeEntity.get(boundTreeEntityId) ?? []
+            return directObjectCollections.map((lc, index) => ({
                 id: `${widgetId}:bound-hub:${boundTreeEntityId}:section:${lc.id}`,
                 kind: 'section',
                 title: lc.title,
                 icon: 'database',
                 href: null,
-                linkedCollectionId: lc.id,
+                objectCollectionId: lc.id,
                 sectionId: lc.id,
                 treeEntityId: boundTreeEntityId,
                 sortOrder: index + 1,
@@ -1711,14 +1711,14 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             }))
         }
 
-        const buildAllLinkedCollectionMenuItems = (widgetId: string): RuntimeMenuItem[] => {
-            return linkedCollectionsForRuntime.map((lc, index) => ({
+        const buildAllObjectCollectionMenuItems = (widgetId: string): RuntimeMenuItem[] => {
+            return objectCollectionsForRuntime.map((lc, index) => ({
                 id: `${widgetId}:all-sections:${lc.id}`,
                 kind: 'section',
                 title: lc.name,
                 icon: 'database',
                 href: null,
-                linkedCollectionId: lc.id,
+                objectCollectionId: lc.id,
                 sectionId: lc.id,
                 treeEntityId: null,
                 sortOrder: index + 1,
@@ -1732,7 +1732,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             title: requestedLocale === 'ru' ? 'Рабочие пространства' : 'Workspaces',
             icon: 'apps',
             href: `/a/${applicationId}/workspaces`,
-            linkedCollectionId: null,
+            objectCollectionId: null,
             sectionId: null,
             treeEntityId: null,
             sortOrder,
@@ -1752,9 +1752,9 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
                 let resolvedItems: RuntimeMenuItem[] = []
                 if (bindToTreeEntity && boundTreeEntityId) {
-                    resolvedItems = buildBoundTreeEntityLinkedCollectionItems(widget.id, boundTreeEntityId)
+                    resolvedItems = buildBoundTreeEntityObjectCollectionItems(widget.id, boundTreeEntityId)
                 } else if (autoShowAllSections) {
-                    resolvedItems = buildAllLinkedCollectionMenuItems(widget.id)
+                    resolvedItems = buildAllObjectCollectionMenuItems(widget.id)
                 } else {
                     const rawItems = Array.isArray(cfg.items) ? cfg.items : []
                     const normalizedItems = rawItems
@@ -1821,7 +1821,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             field: string
             dataType: RuntimeDataType
             isRequired: boolean
-            isDisplayAttribute: boolean
+            isDisplayComponent: boolean
             headerName: string
             validationRules: Record<string, unknown>
             uiConfig: Record<string, unknown>
@@ -1847,74 +1847,74 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         }
 
         const resolveRefOptions = (
-            attribute: (typeof safeAttributes)[number],
+            component: (typeof safeComponents)[number],
             setConstantOption: RuntimeRefOption[] | undefined
         ): RuntimeRefOption[] | undefined => {
-            const targetObjectKind = attribute.target_object_kind ?? null
+            const targetObjectKind = component.target_object_kind ?? null
 
             if (
-                attribute.data_type !== 'REF' ||
-                typeof attribute.target_object_id !== 'string' ||
+                component.data_type !== 'REF' ||
+                typeof component.target_object_id !== 'string' ||
                 (!isRuntimeEnumerationKind(targetObjectKind) &&
                     !isRuntimeSetKind(targetObjectKind) &&
-                    !isRuntimeCatalogTargetKind(targetObjectKind))
+                    !isRuntimeObjectTargetKind(targetObjectKind))
             ) {
                 return undefined
             }
 
             if (isRuntimeEnumerationKind(targetObjectKind)) {
-                return enumOptionsMap.get(attribute.target_object_id) ?? []
+                return enumOptionsMap.get(component.target_object_id) ?? []
             }
-            if (isRuntimeCatalogTargetKind(targetObjectKind)) {
-                return catalogRefOptionsMap.get(attribute.target_object_id) ?? []
+            if (isRuntimeObjectTargetKind(targetObjectKind)) {
+                return objectRefOptionsMap.get(component.target_object_id) ?? []
             }
             return setConstantOption ?? []
         }
 
-        const mapAttributeToColumnDefinition = (
-            attribute: (typeof safeAttributes)[number],
+        const mapComponentToColumnDefinition = (
+            component: (typeof safeComponents)[number],
             includeChildColumns: boolean
         ): RuntimeColumnDefinition => {
             const valueGroupFixedValueConfig =
-                attribute.data_type === 'REF' && isRuntimeSetKind(attribute.target_object_kind)
-                    ? getSetConstantConfig(attribute.ui_config)
+                component.data_type === 'REF' && isRuntimeSetKind(component.target_object_kind)
+                    ? getSetConstantConfig(component.ui_config)
                     : null
             const setConstantOption = buildSetConstantOption(valueGroupFixedValueConfig)
-            const refOptions = resolveRefOptions(attribute, setConstantOption)
+            const refOptions = resolveRefOptions(component, setConstantOption)
             const enumOptions =
-                attribute.data_type === 'REF' &&
-                isRuntimeEnumerationKind(attribute.target_object_kind) &&
-                attribute.target_object_id &&
-                enumOptionsMap.has(attribute.target_object_id)
-                    ? enumOptionsMap.get(attribute.target_object_id)
+                component.data_type === 'REF' &&
+                isRuntimeEnumerationKind(component.target_object_kind) &&
+                component.target_object_id &&
+                enumOptionsMap.has(component.target_object_id)
+                    ? enumOptionsMap.get(component.target_object_id)
                     : undefined
 
             return {
-                id: attribute.id,
-                codename: attribute.codename,
-                field: attribute.column_name,
-                dataType: attribute.data_type,
-                isRequired: attribute.is_required ?? false,
-                isDisplayAttribute: attribute.is_display_attribute === true,
+                id: component.id,
+                codename: component.codename,
+                field: component.column_name,
+                dataType: component.data_type,
+                isRequired: component.is_required ?? false,
+                isDisplayComponent: component.is_display_component === true,
                 headerName: resolvePresentationName(
-                    attribute.presentation,
+                    component.presentation,
                     requestedLocale,
-                    resolveRuntimeCodenameText(attribute.codename)
+                    resolveRuntimeCodenameText(component.codename)
                 ),
-                validationRules: attribute.validation_rules ?? {},
+                validationRules: component.validation_rules ?? {},
                 uiConfig: {
-                    ...(attribute.ui_config ?? {}),
+                    ...(component.ui_config ?? {}),
                     ...(valueGroupFixedValueConfig?.dataType ? { setConstantDataType: valueGroupFixedValueConfig.dataType } : {})
                 },
-                refTargetEntityId: attribute.target_object_id ?? null,
-                refTargetEntityKind: attribute.target_object_kind ?? null,
+                refTargetEntityId: component.target_object_id ?? null,
+                refTargetEntityKind: component.target_object_kind ?? null,
                 refTargetConstantId: valueGroupFixedValueConfig?.id ?? null,
                 refOptions,
                 enumOptions,
-                ...(includeChildColumns && attribute.data_type === 'TABLE'
+                ...(includeChildColumns && component.data_type === 'TABLE'
                     ? {
-                          childColumns: (childAttrsByTableId.get(attribute.id) ?? []).map((child) =>
-                              mapAttributeToColumnDefinition(child, false)
+                          childColumns: (childAttrsByTableId.get(component.id) ?? []).map((child) =>
+                              mapComponentToColumnDefinition(child, false)
                           )
                       }
                     : {})
@@ -1922,33 +1922,33 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         }
 
         const activeSectionPayload = {
-            id: activeLinkedCollection.id,
-            kind: activeLinkedCollectionKind ?? 'catalog',
-            codename: resolveRuntimeCodenameText(activeLinkedCollection.codename),
-            tableName: activeLinkedCollection.table_name,
-            pageBlocks: isActivePage ? normalizeRuntimePageBlocks(activeLinkedCollection.config?.blockContent) : undefined,
+            id: activeObjectCollection.id,
+            kind: activeObjectCollectionKind ?? 'object',
+            codename: resolveRuntimeCodenameText(activeObjectCollection.codename),
+            tableName: activeObjectCollection.table_name,
+            pageBlocks: isActivePage ? normalizeRuntimePageBlocks(activeObjectCollection.config?.blockContent) : undefined,
             runtimeConfig: {
-                ...activeLinkedCollectionRuntimeConfig,
+                ...activeObjectCollectionRuntimeConfig,
                 enableRowReordering: canPersistRowReordering
             },
             recordBehavior: isActivePage ? undefined : activeRecordBehavior,
             name: resolvePresentationName(
-                activeLinkedCollection.presentation,
+                activeObjectCollection.presentation,
                 requestedLocale,
-                resolveRuntimeCodenameText(activeLinkedCollection.codename)
+                resolveRuntimeCodenameText(activeObjectCollection.codename)
             )
         }
 
         return res.json({
             section: activeSectionPayload,
-            sections: linkedCollectionsForRuntime,
-            activeSectionId: activeLinkedCollection.id,
-            linkedCollection: {
+            sections: objectCollectionsForRuntime,
+            activeSectionId: activeObjectCollection.id,
+            objectCollection: {
                 ...activeSectionPayload
             },
-            linkedCollections: linkedCollectionsForRuntime,
-            activeLinkedCollectionId: activeLinkedCollection.id,
-            columns: safeAttributes.map((attribute) => mapAttributeToColumnDefinition(attribute, true)),
+            objectCollections: objectCollectionsForRuntime,
+            activeObjectCollectionId: activeObjectCollection.id,
+            columns: safeComponents.map((component) => mapComponentToColumnDefinition(component, true)),
             rows,
             pagination: {
                 total: typeof total === 'number' ? total : Number(total) || 0,
@@ -1981,50 +1981,50 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             return res.status(400).json({ error: 'Invalid body', details: parsedBody.error.flatten() })
         }
 
-        const { field, value, linkedCollectionId: requestedLinkedCollectionId, expectedVersion } = parsedBody.data
+        const { field, value, objectCollectionId: requestedObjectCollectionId, expectedVersion } = parsedBody.data
         if (!IDENTIFIER_REGEX.test(field)) {
             return res.status(400).json({ error: 'Invalid field name' })
         }
 
         const {
-            linkedCollection,
+            objectCollection,
             attrs,
-            error: linkedCollectionError
-        } = await resolveRuntimeLinkedCollection(ctx.manager, ctx.schemaIdent, requestedLinkedCollectionId)
-        if (!linkedCollection) return res.status(404).json({ error: linkedCollectionError })
+            error: objectCollectionError
+        } = await resolveRuntimeObjectCollection(ctx.manager, ctx.schemaIdent, requestedObjectCollectionId)
+        if (!objectCollection) return res.status(404).json({ error: objectCollectionError })
         const runtimeRowCondition = buildRuntimeActiveRowCondition(
-            linkedCollection.lifecycleContract,
-            linkedCollection.config,
+            objectCollection.lifecycleContract,
+            objectCollection.config,
             undefined,
             ctx.currentWorkspaceId
         )
 
-        const attr = attrs.find((a) => a.column_name === field)
-        if (!attr) return res.status(404).json({ error: 'Attribute not found' })
-        if (!RUNTIME_WRITABLE_TYPES.has(attr.data_type)) {
+        const cmp = attrs.find((a) => a.column_name === field)
+        if (!cmp) return res.status(404).json({ error: 'Component not found' })
+        if (!RUNTIME_WRITABLE_TYPES.has(cmp.data_type)) {
             return res.status(400).json({
-                error: `Field type ${attr.data_type} is not editable`
+                error: `Field type ${cmp.data_type} is not editable`
             })
         }
 
-        if (attr.data_type === 'TABLE') {
+        if (cmp.data_type === 'TABLE') {
             return res.status(400).json({
-                error: `Field type ${attr.data_type} must be edited via tabular endpoints`
+                error: `Field type ${cmp.data_type} must be edited via tabular endpoints`
             })
         }
 
         if (
-            attr.data_type === 'REF' &&
-            isRuntimeEnumerationKind(attr.target_object_kind) &&
-            getEnumPresentationMode(attr.ui_config) === 'label'
+            cmp.data_type === 'REF' &&
+            isRuntimeEnumerationKind(cmp.target_object_kind) &&
+            getEnumPresentationMode(cmp.ui_config) === 'label'
         ) {
             return res.status(400).json({
-                error: `Field is read-only: ${attr.codename}`
+                error: `Field is read-only: ${cmp.codename}`
             })
         }
 
         const valueGroupFixedValueConfig =
-            attr.data_type === 'REF' && isRuntimeSetKind(attr.target_object_kind) ? getSetConstantConfig(attr.ui_config) : null
+            cmp.data_type === 'REF' && isRuntimeSetKind(cmp.target_object_kind) ? getSetConstantConfig(cmp.ui_config) : null
         let rawValue = value
         if (valueGroupFixedValueConfig) {
             const providedRefId = resolveRefId(rawValue)
@@ -2032,7 +2032,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 rawValue = valueGroupFixedValueConfig.id
             } else if (providedRefId !== valueGroupFixedValueConfig.id) {
                 return res.status(400).json({
-                    error: `Field is read-only: ${attr.codename}`
+                    error: `Field is read-only: ${cmp.codename}`
                 })
             } else {
                 rawValue = valueGroupFixedValueConfig.id
@@ -2041,31 +2041,31 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
         let coerced: unknown
         try {
-            coerced = coerceRuntimeValue(rawValue, attr.data_type, attr.validation_rules)
+            coerced = coerceRuntimeValue(rawValue, cmp.data_type, cmp.validation_rules)
         } catch (e) {
             return res.status(400).json({ error: (e as Error).message })
         }
 
-        if (attr.is_required && attr.data_type !== 'BOOLEAN' && coerced === null) {
+        if (cmp.is_required && cmp.data_type !== 'BOOLEAN' && coerced === null) {
             return res.status(400).json({
-                error: `Required field cannot be set to null: ${attr.codename}`
+                error: `Required field cannot be set to null: ${cmp.codename}`
             })
         }
 
         if (
-            attr.data_type === 'REF' &&
-            isRuntimeEnumerationKind(attr.target_object_kind) &&
-            typeof attr.target_object_id === 'string' &&
+            cmp.data_type === 'REF' &&
+            isRuntimeEnumerationKind(cmp.target_object_kind) &&
+            typeof cmp.target_object_id === 'string' &&
             coerced
         ) {
             try {
-                await ensureEnumerationValueBelongsToTarget(ctx.manager, ctx.schemaIdent, String(coerced), attr.target_object_id)
+                await ensureEnumerationValueBelongsToTarget(ctx.manager, ctx.schemaIdent, String(coerced), cmp.target_object_id)
             } catch (error) {
                 return res.status(400).json({ error: (error as Error).message })
             }
         }
 
-        const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(linkedCollection.table_name)}`
+        const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(objectCollection.table_name)}`
         const versionCheckClause = expectedVersion !== undefined ? 'AND COALESCE(_upl_version, 1) = $4' : ''
 
         let afterUpdateLifecycleRequest: RuntimeLifecycleDispatchRequest | null = null
@@ -2079,17 +2079,17 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 if (previousRow._upl_locked) {
                     throw new UpdateFailure(423, { error: 'Record is locked' })
                 }
-                assertRuntimeRecordMutable(linkedCollection.config, previousRow)
+                assertRuntimeRecordMutable(objectCollection.config, previousRow)
 
                 await dispatchRuntimeLifecycle({
                     manager: txManager,
                     applicationId,
                     schemaName: ctx.schemaName,
-                    linkedCollection,
+                    objectCollection,
                     currentWorkspaceId: ctx.currentWorkspaceId,
                     currentUserId: ctx.userId,
                     permissions: ctx.permissions,
-                    attributeIds: [attr.id],
+                    componentIds: [cmp.id],
                     payload: {
                         eventName: 'beforeUpdate',
                         previousRow,
@@ -2145,11 +2145,11 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 afterUpdateLifecycleRequest = {
                     applicationId,
                     schemaName: ctx.schemaName,
-                    linkedCollection,
+                    objectCollection,
                     currentWorkspaceId: ctx.currentWorkspaceId,
                     currentUserId: ctx.userId,
                     permissions: ctx.permissions,
-                    attributeIds: [attr.id],
+                    componentIds: [cmp.id],
                     payload: {
                         eventName: 'afterUpdate',
                         row: nextRow,
@@ -2183,50 +2183,50 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             return res.status(400).json({ error: 'Invalid body', details: parsedBody.error.flatten() })
         }
 
-        const { linkedCollectionId: requestedLinkedCollectionId, data, expectedVersion } = parsedBody.data
+        const { objectCollectionId: requestedObjectCollectionId, data, expectedVersion } = parsedBody.data
 
         const {
-            linkedCollection,
+            objectCollection,
             attrs,
-            error: linkedCollectionError
-        } = await resolveRuntimeLinkedCollection(ctx.manager, ctx.schemaIdent, requestedLinkedCollectionId)
-        if (!linkedCollection) return res.status(404).json({ error: linkedCollectionError })
+            error: objectCollectionError
+        } = await resolveRuntimeObjectCollection(ctx.manager, ctx.schemaIdent, requestedObjectCollectionId)
+        if (!objectCollection) return res.status(404).json({ error: objectCollectionError })
         const runtimeRowCondition = buildRuntimeActiveRowCondition(
-            linkedCollection.lifecycleContract,
-            linkedCollection.config,
+            objectCollection.lifecycleContract,
+            objectCollection.config,
             undefined,
             ctx.currentWorkspaceId
         )
-        const runtimeDeleteSetClause = isSoftDeleteLifecycle(linkedCollection.lifecycleContract)
-            ? buildRuntimeSoftDeleteSetClause('$1', linkedCollection.lifecycleContract, linkedCollection.config)
+        const runtimeDeleteSetClause = isSoftDeleteLifecycle(objectCollection.lifecycleContract)
+            ? buildRuntimeSoftDeleteSetClause('$1', objectCollection.lifecycleContract, objectCollection.config)
             : null
 
         const setClauses: string[] = []
         const values: unknown[] = []
         let paramIndex = 1
-        const touchedAttributeIds = collectTouchedAttributeIds(attrs, data)
+        const touchedComponentIds = collectTouchedComponentIds(attrs, data)
 
         const safeAttrs = attrs.filter((a) => IDENTIFIER_REGEX.test(a.column_name) && RUNTIME_WRITABLE_TYPES.has(a.data_type))
         const nonTableAttrs = safeAttrs.filter((a) => a.data_type !== 'TABLE')
         const tableAttrsForUpdate = safeAttrs.filter((a) => a.data_type === 'TABLE')
 
-        for (const attr of nonTableAttrs) {
-            const attrLabel = formatRuntimeFieldLabel(attr.codename)
-            const { value: raw } = getRuntimeInputValue(data, attr.column_name, attr.codename)
+        for (const cmp of nonTableAttrs) {
+            const attrLabel = formatRuntimeFieldLabel(cmp.codename)
+            const { value: raw } = getRuntimeInputValue(data, cmp.column_name, cmp.codename)
             if (raw === undefined) continue
             let normalizedRaw = raw
 
             if (
-                attr.data_type === 'REF' &&
-                isRuntimeEnumerationKind(attr.target_object_kind) &&
-                getEnumPresentationMode(attr.ui_config) === 'label'
+                cmp.data_type === 'REF' &&
+                isRuntimeEnumerationKind(cmp.target_object_kind) &&
+                getEnumPresentationMode(cmp.ui_config) === 'label'
             ) {
                 return res.status(400).json({
                     error: `Field is read-only: ${attrLabel}`
                 })
             }
             const valueGroupFixedValueConfig =
-                attr.data_type === 'REF' && isRuntimeSetKind(attr.target_object_kind) ? getSetConstantConfig(attr.ui_config) : null
+                cmp.data_type === 'REF' && isRuntimeSetKind(cmp.target_object_kind) ? getSetConstantConfig(cmp.ui_config) : null
             if (valueGroupFixedValueConfig) {
                 const providedRefId = resolveRefId(raw)
                 if (!providedRefId) {
@@ -2241,23 +2241,23 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             }
 
             try {
-                const coerced = coerceRuntimeValue(normalizedRaw, attr.data_type, attr.validation_rules)
-                if (attr.is_required && attr.data_type !== 'BOOLEAN' && coerced === null) {
+                const coerced = coerceRuntimeValue(normalizedRaw, cmp.data_type, cmp.validation_rules)
+                if (cmp.is_required && cmp.data_type !== 'BOOLEAN' && coerced === null) {
                     return res.status(400).json({
                         error: `Required field cannot be set to null: ${attrLabel}`
                     })
                 }
 
                 if (
-                    attr.data_type === 'REF' &&
-                    isRuntimeEnumerationKind(attr.target_object_kind) &&
-                    typeof attr.target_object_id === 'string' &&
+                    cmp.data_type === 'REF' &&
+                    isRuntimeEnumerationKind(cmp.target_object_kind) &&
+                    typeof cmp.target_object_id === 'string' &&
                     coerced
                 ) {
-                    await ensureEnumerationValueBelongsToTarget(ctx.manager, ctx.schemaIdent, String(coerced), attr.target_object_id)
+                    await ensureEnumerationValueBelongsToTarget(ctx.manager, ctx.schemaIdent, String(coerced), cmp.target_object_id)
                 }
 
-                setClauses.push(`${quoteIdentifier(attr.column_name)} = $${paramIndex}`)
+                setClauses.push(`${quoteIdentifier(cmp.column_name)} = $${paramIndex}`)
                 values.push(coerced)
                 paramIndex++
             } catch (e) {
@@ -2270,7 +2270,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         const tableDataEntries: Array<{
             tabTableName: string
             rows: Array<Record<string, unknown>>
-            childAttrsByColumn: Map<string, RuntimeTableChildAttributeMeta>
+            childAttrsByColumn: Map<string, RuntimeTableChildComponentMeta>
         }> = []
 
         for (const tAttr of tableAttrsForUpdate) {
@@ -2302,8 +2302,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 `
           SELECT id, codename, column_name, data_type, is_required, validation_rules,
                  target_object_id, target_object_kind, ui_config
-          FROM ${ctx.schemaIdent}._app_attributes
-          WHERE parent_attribute_id = $1
+          FROM ${ctx.schemaIdent}._app_components
+          WHERE parent_component_id = $1
             AND _upl_deleted = false
             AND _app_deleted = false
           ORDER BY sort_order ASC
@@ -2460,7 +2460,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         paramIndex++
         setClauses.push(`_upl_version = COALESCE(_upl_version, 1) + 1`)
 
-        const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(linkedCollection.table_name)}`
+        const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(objectCollection.table_name)}`
         values.push(rowId)
         const rowIdParamIndex = paramIndex
         let versionCheckClause = ''
@@ -2516,7 +2516,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 })
             }
 
-            // Replace child rows for each TABLE attribute using batch INSERT
+            // Replace child rows for each TABLE component using batch INSERT
             for (const { tabTableName, rows: childRows, childAttrsByColumn } of tableDataEntries) {
                 const tabTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(tabTableName)}`
 
@@ -2602,17 +2602,17 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                         error: 'Record is locked'
                     })
                 }
-                assertRuntimeRecordMutable(linkedCollection.config, previousRow)
+                assertRuntimeRecordMutable(objectCollection.config, previousRow)
 
                 await dispatchRuntimeLifecycle({
                     manager: txManager,
                     applicationId,
                     schemaName: ctx.schemaName,
-                    linkedCollection,
+                    objectCollection,
                     currentWorkspaceId: ctx.currentWorkspaceId,
                     currentUserId: ctx.userId,
                     permissions: ctx.permissions,
-                    attributeIds: touchedAttributeIds,
+                    componentIds: touchedComponentIds,
                     payload: {
                         eventName: 'beforeUpdate',
                         previousRow,
@@ -2626,11 +2626,11 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 afterUpdateLifecycleRequest = {
                     applicationId,
                     schemaName: ctx.schemaName,
-                    linkedCollection,
+                    objectCollection,
                     currentWorkspaceId: ctx.currentWorkspaceId,
                     currentUserId: ctx.userId,
                     permissions: ctx.permissions,
-                    attributeIds: touchedAttributeIds,
+                    componentIds: touchedComponentIds,
                     payload: {
                         eventName: 'afterUpdate',
                         row: nextRow,
@@ -2663,34 +2663,34 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             return res.status(400).json({ error: 'Invalid body', details: parsedBody.error.flatten() })
         }
 
-        const { linkedCollectionId: requestedLinkedCollectionId, data } = parsedBody.data
+        const { objectCollectionId: requestedObjectCollectionId, data } = parsedBody.data
 
         const {
-            linkedCollection,
+            objectCollection,
             attrs,
-            error: linkedCollectionError
-        } = await resolveRuntimeLinkedCollection(ctx.manager, ctx.schemaIdent, requestedLinkedCollectionId)
-        if (!linkedCollection) return res.status(404).json({ error: linkedCollectionError })
+            error: objectCollectionError
+        } = await resolveRuntimeObjectCollection(ctx.manager, ctx.schemaIdent, requestedObjectCollectionId)
+        if (!objectCollection) return res.status(404).json({ error: objectCollectionError })
         const runtimeRowCondition = buildRuntimeActiveRowCondition(
-            linkedCollection.lifecycleContract,
-            linkedCollection.config,
+            objectCollection.lifecycleContract,
+            objectCollection.config,
             undefined,
             ctx.currentWorkspaceId
         )
-        const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(linkedCollection.table_name)}`
+        const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(objectCollection.table_name)}`
         // Build column→value pairs from input data
         const columnValues: Array<{ column: string; value: unknown }> = []
         const safeAttrs = attrs.filter(
             (a) => IDENTIFIER_REGEX.test(a.column_name) && RUNTIME_WRITABLE_TYPES.has(a.data_type) && a.data_type !== 'TABLE'
         )
 
-        for (const attr of safeAttrs) {
-            const attrLabel = formatRuntimeFieldLabel(attr.codename)
-            const { hasUserValue, value: inputValue } = getRuntimeInputValue(data, attr.column_name, attr.codename)
+        for (const cmp of safeAttrs) {
+            const attrLabel = formatRuntimeFieldLabel(cmp.codename)
+            const { hasUserValue, value: inputValue } = getRuntimeInputValue(data, cmp.column_name, cmp.codename)
             let raw = inputValue
 
-            const isEnumRef = attr.data_type === 'REF' && isRuntimeEnumerationKind(attr.target_object_kind)
-            const enumMode = getEnumPresentationMode(attr.ui_config)
+            const isEnumRef = cmp.data_type === 'REF' && isRuntimeEnumerationKind(cmp.target_object_kind)
+            const enumMode = getEnumPresentationMode(cmp.ui_config)
 
             if (isEnumRef && enumMode === 'label' && hasUserValue) {
                 return res.status(400).json({
@@ -2698,11 +2698,11 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 })
             }
 
-            if (raw === undefined && isEnumRef && typeof attr.target_object_id === 'string') {
-                const defaultEnumValueId = getDefaultEnumValueId(attr.ui_config)
+            if (raw === undefined && isEnumRef && typeof cmp.target_object_id === 'string') {
+                const defaultEnumValueId = getDefaultEnumValueId(cmp.ui_config)
                 if (defaultEnumValueId) {
                     try {
-                        await ensureEnumerationValueBelongsToTarget(ctx.manager, ctx.schemaIdent, defaultEnumValueId, attr.target_object_id)
+                        await ensureEnumerationValueBelongsToTarget(ctx.manager, ctx.schemaIdent, defaultEnumValueId, cmp.target_object_id)
                         raw = defaultEnumValueId
                     } catch (error) {
                         if (error instanceof Error && error.message === 'Enumeration value does not belong to target enumeration') {
@@ -2715,7 +2715,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             }
 
             const valueGroupFixedValueConfig =
-                attr.data_type === 'REF' && isRuntimeSetKind(attr.target_object_kind) ? getSetConstantConfig(attr.ui_config) : null
+                cmp.data_type === 'REF' && isRuntimeSetKind(cmp.target_object_kind) ? getSetConstantConfig(cmp.ui_config) : null
             if (valueGroupFixedValueConfig) {
                 const providedRefId = resolveRefId(raw)
                 if (!providedRefId) {
@@ -2730,7 +2730,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             }
 
             if (raw === undefined) {
-                if (attr.is_required && attr.data_type !== 'BOOLEAN') {
+                if (cmp.is_required && cmp.data_type !== 'BOOLEAN') {
                     return res.status(400).json({
                         error: `Required field missing: ${attrLabel}`
                     })
@@ -2738,19 +2738,19 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 continue
             }
             try {
-                const coerced = coerceRuntimeValue(raw, attr.data_type, attr.validation_rules)
-                if (attr.is_required && attr.data_type !== 'BOOLEAN' && coerced === null) {
+                const coerced = coerceRuntimeValue(raw, cmp.data_type, cmp.validation_rules)
+                if (cmp.is_required && cmp.data_type !== 'BOOLEAN' && coerced === null) {
                     return res.status(400).json({
                         error: `Required field cannot be set to null: ${attrLabel}`
                     })
                 }
 
-                if (isEnumRef && typeof attr.target_object_id === 'string' && coerced) {
-                    await ensureEnumerationValueBelongsToTarget(ctx.manager, ctx.schemaIdent, String(coerced), attr.target_object_id)
+                if (isEnumRef && typeof cmp.target_object_id === 'string' && coerced) {
+                    await ensureEnumerationValueBelongsToTarget(ctx.manager, ctx.schemaIdent, String(coerced), cmp.target_object_id)
                 }
 
                 columnValues.push({
-                    column: attr.column_name,
+                    column: cmp.column_name,
                     value: coerced
                 })
             } catch (e) {
@@ -2760,11 +2760,11 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             }
         }
 
-        const { runtimeConfig } = await resolveEffectiveLinkedCollectionRuntimeConfig({
+        const { runtimeConfig } = await resolveEffectiveObjectCollectionRuntimeConfig({
             manager: ctx.manager,
             schemaName: ctx.schemaName,
             schemaIdent: ctx.schemaIdent,
-            linkedCollectionId: linkedCollection.id
+            objectCollectionId: objectCollection.id
         })
         const reorderFieldAttr = resolveRuntimeReorderField(
             safeAttrs,
@@ -2783,16 +2783,16 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             })
         }
 
-        const touchedAttributeIds = collectTouchedAttributeIds(attrs, data)
-        const recordBehavior = normalizeRuntimeRecordBehavior(linkedCollection.config)
+        const touchedComponentIds = collectTouchedComponentIds(attrs, data)
+        const recordBehavior = normalizeRuntimeRecordBehavior(objectCollection.config)
 
         // Collect TABLE-type data from request body for child row insertion
         const tableAttrsForCreate = attrs.filter((a) => a.data_type === 'TABLE')
         const tableDataEntries: Array<{
-            attr: (typeof attrs)[number]
+            cmp: (typeof attrs)[number]
             rows: Array<Record<string, unknown>>
             tabTableName: string
-            childAttrsByColumn: Map<string, RuntimeTableChildAttributeMeta>
+            childAttrsByColumn: Map<string, RuntimeTableChildComponentMeta>
         }> = []
         for (const tAttr of tableAttrsForCreate) {
             const tableFieldPath = formatRuntimeFieldPath(tAttr.codename)
@@ -2825,8 +2825,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     `
             SELECT id, codename, column_name, data_type, is_required, validation_rules,
                    target_object_id, target_object_kind, ui_config
-            FROM ${ctx.schemaIdent}._app_attributes
-            WHERE parent_attribute_id = $1
+            FROM ${ctx.schemaIdent}._app_components
+            WHERE parent_component_id = $1
               AND _upl_deleted = false
               AND _app_deleted = false
             ORDER BY sort_order ASC
@@ -2944,7 +2944,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 }
 
                 tableDataEntries.push({
-                    attr: tAttr,
+                    cmp: tAttr,
                     rows: preparedRows,
                     tabTableName,
                     childAttrsByColumn: new Map(
@@ -2965,17 +2965,17 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
         const performCreate = async (mgr: DbExecutor): Promise<string> => {
             if (ctx.workspacesEnabled && ctx.currentWorkspaceId) {
-                const limitState = await enforceCatalogWorkspaceLimit(mgr, {
+                const limitState = await enforceObjectWorkspaceLimit(mgr, {
                     schemaName: ctx.schemaName,
-                    objectId: linkedCollection.id,
-                    tableName: linkedCollection.table_name,
+                    objectId: objectCollection.id,
+                    tableName: objectCollection.table_name,
                     workspaceId: ctx.currentWorkspaceId,
                     runtimeRowCondition
                 })
 
                 if (!limitState.canCreate) {
                     throw new UpdateFailure(409, {
-                        error: 'Workspace catalog row limit reached',
+                        error: 'Workspace object row limit reached',
                         code: 'WORKSPACE_LIMIT_REACHED',
                         details: limitState
                     })
@@ -2986,11 +2986,11 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 manager: mgr,
                 applicationId,
                 schemaName: ctx.schemaName,
-                linkedCollection,
+                objectCollection,
                 currentWorkspaceId: ctx.currentWorkspaceId,
                 currentUserId: ctx.userId,
                 permissions: ctx.permissions,
-                attributeIds: touchedAttributeIds,
+                componentIds: touchedComponentIds,
                 payload: {
                     eventName: 'beforeCreate',
                     patch: data
@@ -3002,7 +3002,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 behavior: recordBehavior,
                 manager: mgr,
                 schemaIdent: ctx.schemaIdent,
-                objectId: linkedCollection.id,
+                objectId: objectCollection.id,
                 currentWorkspaceId: ctx.currentWorkspaceId,
                 currentUserId: ctx.userId
             })
@@ -3080,11 +3080,11 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             afterCreateLifecycleRequest = {
                 applicationId,
                 schemaName: ctx.schemaName,
-                linkedCollection,
+                objectCollection,
                 currentWorkspaceId: ctx.currentWorkspaceId,
                 currentUserId: ctx.userId,
                 permissions: ctx.permissions,
-                attributeIds: touchedAttributeIds,
+                componentIds: touchedComponentIds,
                 payload: {
                     eventName: 'afterCreate',
                     row: nextRow,
@@ -3125,39 +3125,39 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         if (!ensureRuntimePermission(res, ctx, 'createContent')) return
 
         const {
-            linkedCollection,
+            objectCollection,
             attrs,
-            error: linkedCollectionError
-        } = await resolveRuntimeLinkedCollection(ctx.manager, ctx.schemaIdent, parsedBody.data.linkedCollectionId)
-        if (!linkedCollection) return res.status(404).json({ error: linkedCollectionError })
+            error: objectCollectionError
+        } = await resolveRuntimeObjectCollection(ctx.manager, ctx.schemaIdent, parsedBody.data.objectCollectionId)
+        if (!objectCollection) return res.status(404).json({ error: objectCollectionError })
 
         const safeAttrs = attrs.filter((a) => IDENTIFIER_REGEX.test(a.column_name))
         const nonTableAttrs = safeAttrs.filter((a) => a.data_type !== 'TABLE')
         const tableAttrsForCopy = safeAttrs.filter((a) => a.data_type === 'TABLE')
 
-        const hasRequiredChildTables = tableAttrsForCopy.some((attr) => {
-            const { minRows } = getTableRowLimits(attr.validation_rules)
-            return Boolean(attr.is_required) || (minRows !== null && minRows > 0)
+        const hasRequiredChildTables = tableAttrsForCopy.some((cmp) => {
+            const { minRows } = getTableRowLimits(cmp.validation_rules)
+            return Boolean(cmp.is_required) || (minRows !== null && minRows > 0)
         })
         const copyChildTables = hasRequiredChildTables ? true : parsedBody.data.copyChildTables !== false
         const runtimeRowCondition = buildRuntimeActiveRowCondition(
-            linkedCollection.lifecycleContract,
-            linkedCollection.config,
+            objectCollection.lifecycleContract,
+            objectCollection.config,
             undefined,
             ctx.currentWorkspaceId
         )
-        const { runtimeConfig } = await resolveEffectiveLinkedCollectionRuntimeConfig({
+        const { runtimeConfig } = await resolveEffectiveObjectCollectionRuntimeConfig({
             manager: ctx.manager,
             schemaName: ctx.schemaName,
             schemaIdent: ctx.schemaIdent,
-            linkedCollectionId: linkedCollection.id
+            objectCollectionId: objectCollection.id
         })
         const reorderFieldAttr = resolveRuntimeReorderField(
             nonTableAttrs,
             runtimeConfig.enableRowReordering ? runtimeConfig.reorderPersistenceField : null
         )
 
-        const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(linkedCollection.table_name)}`
+        const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(objectCollection.table_name)}`
         const sourceRows = (await ctx.manager.query(
             `
         SELECT *
@@ -3172,7 +3172,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         if (sourceRows[0]._upl_locked) return res.status(423).json({ error: 'Record is locked' })
         const sourceRow = sourceRows[0]
         try {
-            assertRuntimeRecordMutable(linkedCollection.config, sourceRow)
+            assertRuntimeRecordMutable(objectCollection.config, sourceRow)
         } catch (error) {
             if (error instanceof UpdateFailure) {
                 return res.status(error.statusCode).json(error.body)
@@ -3180,9 +3180,9 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             throw error
         }
 
-        const insertColumns = nonTableAttrs.map((attr) => quoteIdentifier(attr.column_name))
-        const insertValuesArr = nonTableAttrs.map((attr) =>
-            reorderFieldAttr?.column_name === attr.column_name ? null : sourceRow[attr.column_name] ?? null
+        const insertColumns = nonTableAttrs.map((cmp) => quoteIdentifier(cmp.column_name))
+        const insertValuesArr = nonTableAttrs.map((cmp) =>
+            reorderFieldAttr?.column_name === cmp.column_name ? null : sourceRow[cmp.column_name] ?? null
         )
         const placeholders = insertValuesArr.map((_, index) => `$${index + 1}`)
         if (ctx.workspacesEnabled && ctx.currentWorkspaceId) {
@@ -3200,17 +3200,17 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
         const performCopy = async (mgr: DbExecutor) => {
             if (ctx.workspacesEnabled && ctx.currentWorkspaceId) {
-                const limitState = await enforceCatalogWorkspaceLimit(mgr, {
+                const limitState = await enforceObjectWorkspaceLimit(mgr, {
                     schemaName: ctx.schemaName,
-                    objectId: linkedCollection.id,
-                    tableName: linkedCollection.table_name,
+                    objectId: objectCollection.id,
+                    tableName: objectCollection.table_name,
                     workspaceId: ctx.currentWorkspaceId,
                     runtimeRowCondition
                 })
 
                 if (!limitState.canCreate) {
                     throw new UpdateFailure(409, {
-                        error: 'Workspace catalog row limit reached',
+                        error: 'Workspace object row limit reached',
                         code: 'WORKSPACE_LIMIT_REACHED',
                         details: limitState
                     })
@@ -3221,7 +3221,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 manager: mgr,
                 applicationId,
                 schemaName: ctx.schemaName,
-                linkedCollection,
+                objectCollection,
                 currentWorkspaceId: ctx.currentWorkspaceId,
                 currentUserId: ctx.userId,
                 permissions: ctx.permissions,
@@ -3235,7 +3235,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             })
 
             if (reorderFieldAttr) {
-                const reorderFieldIndex = nonTableAttrs.findIndex((attr) => attr.column_name === reorderFieldAttr.column_name)
+                const reorderFieldIndex = nonTableAttrs.findIndex((cmp) => cmp.column_name === reorderFieldAttr.column_name)
                 if (reorderFieldIndex >= 0) {
                     insertValuesArr[reorderFieldIndex] = await getNextRuntimeSortValue({
                         manager: mgr,
@@ -3265,8 +3265,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     const childAttrs = (await mgr.query(
                         `
               SELECT codename, column_name, data_type, validation_rules
-              FROM ${ctx.schemaIdent}._app_attributes
-              WHERE parent_attribute_id = $1
+              FROM ${ctx.schemaIdent}._app_components
+              WHERE parent_component_id = $1
                 AND _upl_deleted = false
                 AND _app_deleted = false
               ORDER BY sort_order ASC, _upl_created_at ASC NULLS LAST
@@ -3279,8 +3279,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                         validation_rules?: Record<string, unknown>
                     }>
 
-                    const validChildColumns = childAttrs.map((attr) => attr.column_name).filter((column) => IDENTIFIER_REGEX.test(column))
-                    const childAttrsByColumn = new Map(childAttrs.map((attr) => [attr.column_name, attr]))
+                    const validChildColumns = childAttrs.map((cmp) => cmp.column_name).filter((column) => IDENTIFIER_REGEX.test(column))
+                    const childAttrsByColumn = new Map(childAttrs.map((cmp) => [cmp.column_name, cmp]))
                     const sourceChildRows = (await mgr.query(
                         `
               SELECT ${validChildColumns.length > 0 ? validChildColumns.map((column) => quoteIdentifier(column)).join(', ') + ',' : ''}
@@ -3342,7 +3342,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             afterCopyLifecycleRequest = {
                 applicationId,
                 schemaName: ctx.schemaName,
-                linkedCollection,
+                objectCollection,
                 currentWorkspaceId: ctx.currentWorkspaceId,
                 currentUserId: ctx.userId,
                 permissions: ctx.permissions,
@@ -3390,19 +3390,19 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         if (!ensureRuntimePermission(res, ctx, 'editContent')) return
         if (!ctx.userId) return res.status(401).json({ error: 'Current user is required' })
 
-        const { linkedCollection, error: linkedCollectionError } = await resolveRuntimeLinkedCollection(
+        const { objectCollection, error: objectCollectionError } = await resolveRuntimeObjectCollection(
             ctx.manager,
             ctx.schemaIdent,
-            parsedBody.data.linkedCollectionId
+            parsedBody.data.objectCollectionId
         )
-        if (!linkedCollection) return res.status(404).json({ error: linkedCollectionError })
+        if (!objectCollection) return res.status(404).json({ error: objectCollectionError })
 
-        const behavior = normalizeRuntimeRecordBehavior(linkedCollection.config)
+        const behavior = normalizeRuntimeRecordBehavior(objectCollection.config)
         if (!isRuntimeRecordBehaviorEnabled(behavior) || behavior.posting.mode === 'disabled') {
             return res.status(409).json({ error: 'Record posting is disabled for this record collection', code: 'POSTING_DISABLED' })
         }
 
-        const registrarKind = typeof linkedCollection.kind === 'string' ? linkedCollection.kind.trim() : ''
+        const registrarKind = typeof objectCollection.kind === 'string' ? objectCollection.kind.trim() : ''
         if (!registrarKind) {
             return res.status(409).json({
                 error: 'Record posting registrar kind is not available',
@@ -3410,10 +3410,10 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             })
         }
 
-        const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(linkedCollection.table_name)}`
+        const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(objectCollection.table_name)}`
         const runtimeRowCondition = buildRuntimeActiveRowCondition(
-            linkedCollection.lifecycleContract,
-            linkedCollection.config,
+            objectCollection.lifecycleContract,
+            objectCollection.config,
             undefined,
             ctx.currentWorkspaceId
         )
@@ -3460,7 +3460,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                         manager: txManager,
                         applicationId,
                         schemaName: ctx.schemaName,
-                        linkedCollection,
+                        objectCollection,
                         currentWorkspaceId: ctx.currentWorkspaceId,
                         currentUserId: ctx.userId,
                         permissions: ctx.permissions,
@@ -3489,7 +3489,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     behavior,
                     manager: txManager,
                     schemaIdent: ctx.schemaIdent,
-                    objectId: linkedCollection.id,
+                    objectId: objectCollection.id,
                     rowId,
                     currentWorkspaceId: ctx.currentWorkspaceId,
                     currentUserId: ctx.userId
@@ -3525,7 +3525,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 afterLifecycleRequest = {
                     applicationId,
                     schemaName: ctx.schemaName,
-                    linkedCollection,
+                    objectCollection,
                     currentWorkspaceId: ctx.currentWorkspaceId,
                     currentUserId: ctx.userId,
                     permissions: ctx.permissions,
@@ -3557,28 +3557,28 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
     const getRow = async (req: Request, res: Response) => {
         const { applicationId, rowId } = req.params
         if (!UUID_REGEX.test(rowId)) return res.status(400).json({ error: 'Invalid row ID format' })
-        const linkedCollectionId = typeof req.query.linkedCollectionId === 'string' ? req.query.linkedCollectionId : undefined
-        if (linkedCollectionId && !UUID_REGEX.test(linkedCollectionId)) return res.status(400).json({ error: 'Invalid catalog ID format' })
+        const objectCollectionId = typeof req.query.objectCollectionId === 'string' ? req.query.objectCollectionId : undefined
+        if (objectCollectionId && !UUID_REGEX.test(objectCollectionId)) return res.status(400).json({ error: 'Invalid object ID format' })
 
         const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
         if (!ctx) return
 
         const {
-            linkedCollection,
+            objectCollection,
             attrs,
-            error: linkedCollectionError
-        } = await resolveRuntimeLinkedCollection(ctx.manager, ctx.schemaIdent, linkedCollectionId)
-        if (!linkedCollection) return res.status(404).json({ error: linkedCollectionError })
+            error: objectCollectionError
+        } = await resolveRuntimeObjectCollection(ctx.manager, ctx.schemaIdent, objectCollectionId)
+        if (!objectCollection) return res.status(404).json({ error: objectCollectionError })
         const runtimeRowCondition = buildRuntimeActiveRowCondition(
-            linkedCollection.lifecycleContract,
-            linkedCollection.config,
+            objectCollection.lifecycleContract,
+            objectCollection.config,
             undefined,
             ctx.currentWorkspaceId
         )
 
         const safeAttrs = attrs.filter((a) => IDENTIFIER_REGEX.test(a.column_name) && a.data_type !== 'TABLE')
         const selectColumns = ['id', ...safeAttrs.map((a) => quoteIdentifier(a.column_name))]
-        const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(linkedCollection.table_name)}`
+        const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(objectCollection.table_name)}`
 
         const rows = (await ctx.manager.query(
             `
@@ -3594,9 +3594,9 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
         const row = rows[0]
         const rawData: Record<string, unknown> = {}
-        for (const attr of safeAttrs) {
-            const raw = row[attr.column_name] ?? null
-            rawData[attr.column_name] = attr.data_type === 'NUMBER' && raw !== null ? pgNumericToNumber(raw) : raw
+        for (const cmp of safeAttrs) {
+            const raw = row[cmp.column_name] ?? null
+            rawData[cmp.column_name] = cmp.data_type === 'NUMBER' && raw !== null ? pgNumericToNumber(raw) : raw
         }
 
         return res.json({ id: String(row.id), data: rawData })
@@ -3606,29 +3606,29 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
     const deleteRow = async (req: Request, res: Response) => {
         const { applicationId, rowId } = req.params
         if (!UUID_REGEX.test(rowId)) return res.status(400).json({ error: 'Invalid row ID format' })
-        const linkedCollectionId = typeof req.query.linkedCollectionId === 'string' ? req.query.linkedCollectionId : undefined
-        if (linkedCollectionId && !UUID_REGEX.test(linkedCollectionId)) return res.status(400).json({ error: 'Invalid catalog ID format' })
+        const objectCollectionId = typeof req.query.objectCollectionId === 'string' ? req.query.objectCollectionId : undefined
+        if (objectCollectionId && !UUID_REGEX.test(objectCollectionId)) return res.status(400).json({ error: 'Invalid object ID format' })
 
         const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
         if (!ctx) return
         if (!ensureRuntimePermission(res, ctx, 'deleteContent')) return
 
         const {
-            linkedCollection,
+            objectCollection,
             attrs,
-            error: linkedCollectionError
-        } = await resolveRuntimeLinkedCollection(ctx.manager, ctx.schemaIdent, linkedCollectionId)
-        if (!linkedCollection) return res.status(404).json({ error: linkedCollectionError })
+            error: objectCollectionError
+        } = await resolveRuntimeObjectCollection(ctx.manager, ctx.schemaIdent, objectCollectionId)
+        if (!objectCollection) return res.status(404).json({ error: objectCollectionError })
 
-        const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(linkedCollection.table_name)}`
+        const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(objectCollection.table_name)}`
         const runtimeRowCondition = buildRuntimeActiveRowCondition(
-            linkedCollection.lifecycleContract,
-            linkedCollection.config,
+            objectCollection.lifecycleContract,
+            objectCollection.config,
             undefined,
             ctx.currentWorkspaceId
         )
-        const runtimeDeleteSetClause = isSoftDeleteLifecycle(linkedCollection.lifecycleContract)
-            ? buildRuntimeSoftDeleteSetClause('$1', linkedCollection.lifecycleContract, linkedCollection.config)
+        const runtimeDeleteSetClause = isSoftDeleteLifecycle(objectCollection.lifecycleContract)
+            ? buildRuntimeSoftDeleteSetClause('$1', objectCollection.lifecycleContract, objectCollection.config)
             : null
 
         const tableAttrsForDelete = attrs.filter((a) => a.data_type === 'TABLE')
@@ -3647,13 +3647,13 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     error: 'Record is locked'
                 })
             }
-            assertRuntimeRecordMutable(linkedCollection.config, sourceRow)
+            assertRuntimeRecordMutable(objectCollection.config, sourceRow)
 
             await dispatchRuntimeLifecycle({
                 manager: mgr,
                 applicationId,
                 schemaName: ctx.schemaName,
-                linkedCollection,
+                objectCollection,
                 currentWorkspaceId: ctx.currentWorkspaceId,
                 currentUserId: ctx.userId,
                 permissions: ctx.permissions,
@@ -3720,7 +3720,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             afterDeleteLifecycleRequest = {
                 applicationId,
                 schemaName: ctx.schemaName,
-                linkedCollection,
+                objectCollection,
                 currentWorkspaceId: ctx.currentWorkspaceId,
                 currentUserId: ctx.userId,
                 permissions: ctx.permissions,
@@ -3758,32 +3758,32 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         if (!ctx) return
         if (!ensureRuntimePermission(res, ctx, 'editContent')) return
 
-        const { orderedRowIds, linkedCollectionId: requestedLinkedCollectionId } = parsedBody.data
+        const { orderedRowIds, objectCollectionId: requestedObjectCollectionId } = parsedBody.data
         const {
-            linkedCollection,
+            objectCollection,
             attrs,
-            error: linkedCollectionError
-        } = await resolveRuntimeLinkedCollection(ctx.manager, ctx.schemaIdent, requestedLinkedCollectionId)
-        if (!linkedCollection) {
-            return res.status(404).json({ error: linkedCollectionError })
+            error: objectCollectionError
+        } = await resolveRuntimeObjectCollection(ctx.manager, ctx.schemaIdent, requestedObjectCollectionId)
+        if (!objectCollection) {
+            return res.status(404).json({ error: objectCollectionError })
         }
 
-        const { runtimeConfig } = await resolveEffectiveLinkedCollectionRuntimeConfig({
+        const { runtimeConfig } = await resolveEffectiveObjectCollectionRuntimeConfig({
             manager: ctx.manager,
             schemaName: ctx.schemaName,
             schemaIdent: ctx.schemaIdent,
-            linkedCollectionId: linkedCollection.id
+            objectCollectionId: objectCollection.id
         })
         const reorderFieldAttr = resolveRuntimeReorderField(attrs, runtimeConfig.reorderPersistenceField)
 
         if (!runtimeConfig.enableRowReordering || !reorderFieldAttr) {
-            return res.status(409).json({ error: 'Persisted row reordering is not enabled for this catalog' })
+            return res.status(409).json({ error: 'Persisted row reordering is not enabled for this object' })
         }
 
-        const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(linkedCollection.table_name)}`
+        const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(objectCollection.table_name)}`
         const runtimeRowCondition = buildRuntimeActiveRowCondition(
-            linkedCollection.lifecycleContract,
-            linkedCollection.config,
+            objectCollection.lifecycleContract,
+            objectCollection.config,
             undefined,
             ctx.currentWorkspaceId
         )

@@ -4,7 +4,7 @@ description: Architecture overview of the entity-first metahub system.
 
 # Entity Systems Architecture
 
-Metahubs now use one entity-first constructor for both platform presets and user-defined metadata types. Hubs, Catalogs, Sets, and Enumerations are not hardcoded product modules anymore. They are built-in entity-type presets shipped by metahub templates and materialized into the same entity-type registry as custom types.
+Metahubs now use one entity-first constructor for both platform presets and user-defined metadata types. Hubs, Objects, Sets, and Enumerations are not hardcoded product modules anymore. They are built-in entity-type presets shipped by metahub templates and materialized into the same entity-type registry as custom types.
 
 ![Entity types workspace](../.gitbook/assets/entities/entities-workspace.png)
 
@@ -29,7 +29,7 @@ Every design-time object inside a metahub is an entity instance linked to one en
 
 The Resources workspace no longer hardcodes the visible metadata tab titles. Entity types describe resource surfaces through `ui.resourceSurfaces`, which binds a stable key and route segment to one compatible capability:
 
-- `dataSchema` for attributes
+- `dataSchema` for components
 - `fixedValues` for constants
 - `optionValues` for values
 
@@ -67,7 +67,7 @@ Important design-time routes include:
 - `/metahub/{metahubId}/shared-containers`
 - `/metahub/{metahubId}/shared-entity-overrides`
 
-The Resources workspace uses shared containers for layouts, attributes, constants, values, and shared scripts. Entity-instance pages use the same capability model but operate on one concrete object.
+The Resources workspace uses shared containers for layouts, components, constants, values, and shared scripts. Entity-instance pages use the same capability model but operate on one concrete object.
 
 ## Safety Rules
 

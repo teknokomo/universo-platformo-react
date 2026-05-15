@@ -1,4 +1,4 @@
-import { DEFAULT_LEDGER_CONFIG, type ComponentManifest, type EntityTypeUIConfig, type PresetDefaultInstance } from '@universo/types'
+import { DEFAULT_LEDGER_CONFIG, type EntityTypeCapabilities, type EntityTypeUIConfig, type PresetDefaultInstance } from '@universo/types'
 import { vlc } from './basic.template'
 
 export const STANDARD_HUB_NAME = vlc('Hubs', 'Хабы')
@@ -7,10 +7,10 @@ export const STANDARD_HUB_DESCRIPTION = vlc(
     'Стандартный тип хаба для организации контента метахаба и design-time автоматизации.'
 )
 
-export const STANDARD_CATALOG_NAME = vlc('Catalogs', 'Каталоги')
-export const STANDARD_CATALOG_DESCRIPTION = vlc(
-    'Standard catalog entity type with schema, hierarchy, references, scripts, and runtime layout support.',
-    'Стандартный тип каталога со схемой, иерархией, связями, скриптами и поддержкой runtime layout.'
+export const STANDARD_OBJECT_NAME = vlc('Objects', 'Объекты')
+export const STANDARD_OBJECT_DESCRIPTION = vlc(
+    'Standard object entity type with schema, hierarchy, references, scripts, and runtime layout support.',
+    'Стандартный тип объекта со схемой, иерархией, связями, скриптами и поддержкой runtime layout.'
 )
 
 export const STANDARD_SET_NAME = vlc('Sets', 'Наборы')
@@ -37,7 +37,7 @@ export const STANDARD_LEDGER_DESCRIPTION = vlc(
     'Стандартный тип регистра для неизменяемых фактов, измерений, ресурсов и отчетов на основе проекций.'
 )
 
-export const HUB_TYPE_COMPONENTS: ComponentManifest = {
+export const HUB_TYPE_CAPABILITIES: EntityTypeCapabilities = {
     dataSchema: false,
     records: false,
     treeAssignment: false,
@@ -67,16 +67,33 @@ export const HUB_TYPE_UI: EntityTypeUIConfig = {
     nameKey: 'metahubs:hubs.title'
 }
 
-const FIELD_DEFINITIONS_RESOURCE_SURFACE: NonNullable<EntityTypeUIConfig['resourceSurfaces']>[number] = {
-    key: 'fieldDefinitions',
-    capability: 'dataSchema',
-    routeSegment: 'field-definitions',
-    title: vlc('Attributes', 'Атрибуты'),
-    titleKey: 'metahubs:fieldDefinitions.resourceTabTitle',
-    fallbackTitle: 'Attributes'
+const HUB_TREE_ASSIGNMENT_LABELS: NonNullable<EntityTypeUIConfig['treeAssignmentLabels']> = {
+    title: vlc('Hubs', 'Хабы'),
+    addButton: vlc('Add', 'Добавить'),
+    dialogTitle: vlc('Select hubs', 'Выберите хабы'),
+    emptyMessage: vlc('No hubs selected', 'Хабы не выбраны'),
+    requiredWarningMessage: vlc('Select at least one hub', 'Выберите хотя бы один хаб'),
+    noAvailableMessage: vlc('No hubs available', 'Доступных хабов нет'),
+    requiredLabel: vlc('Hub required', 'Хаб обязателен'),
+    requiredEnabledHelp: vlc('At least one hub must stay linked', 'Хотя бы один хаб должен оставаться привязанным'),
+    requiredDisabledHelp: vlc('The entity can exist without linked hubs', 'Сущность может существовать без привязанных хабов'),
+    singleLabel: vlc('Single hub only', 'Только один хаб'),
+    singleEnabledHelp: vlc('The entity can only be linked to one hub', 'Сущность может быть привязана только к одному хабу'),
+    singleDisabledHelp: vlc('The entity can be linked to multiple hubs', 'Сущность может быть привязана к нескольким хабам'),
+    singleWarning: vlc('Cannot enable while multiple hubs are selected', 'Нельзя включить, пока выбрано несколько хабов'),
+    currentContainerShort: vlc('Current hub', 'Текущий хаб')
 }
 
-export const CATALOG_TYPE_COMPONENTS: ComponentManifest = {
+const COMPONENTS_RESOURCE_SURFACE: NonNullable<EntityTypeUIConfig['resourceSurfaces']>[number] = {
+    key: 'components',
+    capability: 'dataSchema',
+    routeSegment: 'components',
+    title: vlc('Components', 'Компоненты'),
+    titleKey: 'metahubs:components.resourceTabTitle',
+    fallbackTitle: 'Components'
+}
+
+export const OBJECT_TYPE_CAPABILITIES: EntityTypeCapabilities = {
     dataSchema: { enabled: true },
     records: { enabled: true },
     treeAssignment: { enabled: true },
@@ -91,23 +108,24 @@ export const CATALOG_TYPE_COMPONENTS: ComponentManifest = {
     blockContent: false,
     layoutConfig: { enabled: true },
     runtimeBehavior: { enabled: true },
-    physicalTable: { enabled: true, prefix: 'cat' },
+    physicalTable: { enabled: true, prefix: 'obj' },
     identityFields: { enabled: true, allowNumber: true, allowEffectiveDate: true },
     recordLifecycle: { enabled: true, allowCustomStates: true },
     posting: { enabled: true, allowManualPosting: true, allowAutomaticPosting: true },
     ledgerSchema: { enabled: true, allowProjections: true, allowRegistrarPolicy: true, allowManualFacts: true }
 }
 
-export const CATALOG_TYPE_UI: EntityTypeUIConfig = {
+export const OBJECT_TYPE_UI: EntityTypeUIConfig = {
     iconName: 'IconDatabase',
     tabs: ['general', 'behavior', 'ledgerSchema', 'hubs', 'layout', 'scripts'],
     sidebarSection: 'objects',
     sidebarOrder: 30,
-    nameKey: 'metahubs:catalogs.title',
-    resourceSurfaces: [FIELD_DEFINITIONS_RESOURCE_SURFACE]
+    nameKey: 'metahubs:objects.title',
+    resourceSurfaces: [COMPONENTS_RESOURCE_SURFACE],
+    treeAssignmentLabels: HUB_TREE_ASSIGNMENT_LABELS
 }
 
-export const SET_TYPE_COMPONENTS: ComponentManifest = {
+export const SET_TYPE_CAPABILITIES: EntityTypeCapabilities = {
     dataSchema: { enabled: true },
     records: false,
     treeAssignment: { enabled: true },
@@ -135,6 +153,7 @@ export const SET_TYPE_UI: EntityTypeUIConfig = {
     sidebarSection: 'objects',
     sidebarOrder: 40,
     nameKey: 'metahubs:sets.title',
+    treeAssignmentLabels: HUB_TREE_ASSIGNMENT_LABELS,
     resourceSurfaces: [
         {
             key: 'fixedValues',
@@ -147,7 +166,7 @@ export const SET_TYPE_UI: EntityTypeUIConfig = {
     ]
 }
 
-export const ENUMERATION_TYPE_COMPONENTS: ComponentManifest = {
+export const ENUMERATION_TYPE_CAPABILITIES: EntityTypeCapabilities = {
     dataSchema: false,
     records: false,
     treeAssignment: { enabled: true },
@@ -175,6 +194,7 @@ export const ENUMERATION_TYPE_UI: EntityTypeUIConfig = {
     sidebarSection: 'objects',
     sidebarOrder: 50,
     nameKey: 'metahubs:enumerations.title',
+    treeAssignmentLabels: HUB_TREE_ASSIGNMENT_LABELS,
     resourceSurfaces: [
         {
             key: 'optionValues',
@@ -187,7 +207,7 @@ export const ENUMERATION_TYPE_UI: EntityTypeUIConfig = {
     ]
 }
 
-export const PAGE_TYPE_COMPONENTS: ComponentManifest = {
+export const PAGE_TYPE_CAPABILITIES: EntityTypeCapabilities = {
     dataSchema: false,
     records: false,
     treeAssignment: { enabled: true, isSingleHub: false, isRequiredHub: false },
@@ -221,10 +241,11 @@ export const PAGE_TYPE_UI: EntityTypeUIConfig = {
     tabs: ['general', 'hubs', 'content', 'layout', 'scripts'],
     sidebarSection: 'objects',
     sidebarOrder: 20,
-    nameKey: 'metahubs:pages.title'
+    nameKey: 'metahubs:pages.title',
+    treeAssignmentLabels: HUB_TREE_ASSIGNMENT_LABELS
 }
 
-export const LEDGER_TYPE_COMPONENTS: ComponentManifest = {
+export const LEDGER_TYPE_CAPABILITIES: EntityTypeCapabilities = {
     dataSchema: { enabled: true },
     records: false,
     treeAssignment: { enabled: true },
@@ -252,7 +273,8 @@ export const LEDGER_TYPE_UI: EntityTypeUIConfig = {
     sidebarSection: 'objects',
     sidebarOrder: 60,
     nameKey: 'metahubs:ledgers.title',
-    resourceSurfaces: [FIELD_DEFINITIONS_RESOURCE_SURFACE]
+    resourceSurfaces: [COMPONENTS_RESOURCE_SURFACE],
+    treeAssignmentLabels: HUB_TREE_ASSIGNMENT_LABELS
 }
 
 export const LEDGER_TYPE_CONFIG = {
@@ -261,7 +283,7 @@ export const LEDGER_TYPE_CONFIG = {
 
 export const HUB_DEFAULT_INSTANCES: PresetDefaultInstance[] = [
     {
-        codename: 'MainHub',
+        codename: 'Main',
         name: vlc('Main', 'Основной'),
         description: vlc('Main hub for organizing metahub content', 'Основной хаб для организации контента метахаба')
     }
@@ -308,18 +330,18 @@ export const PAGE_DEFAULT_INSTANCES: PresetDefaultInstance[] = [
     }
 ]
 
-export const CATALOG_DEFAULT_INSTANCES: PresetDefaultInstance[] = [
+export const OBJECT_DEFAULT_INSTANCES: PresetDefaultInstance[] = [
     {
-        codename: 'MainCatalog',
+        codename: 'Main',
         name: vlc('Main', 'Основной'),
-        description: vlc('Main catalog for storing records', 'Основной каталог для хранения записей'),
-        attributes: [
+        description: vlc('Main object for storing records', 'Основной объект для хранения записей'),
+        components: [
             {
                 codename: 'Title',
                 dataType: 'STRING',
                 name: vlc('Title', 'Название'),
                 sortOrder: 1,
-                isDisplayAttribute: true,
+                isDisplayComponent: true,
                 validationRules: { maxLength: 255 },
                 uiConfig: { isDisplay: true }
             },
@@ -335,7 +357,7 @@ export const CATALOG_DEFAULT_INSTANCES: PresetDefaultInstance[] = [
 
 export const SET_DEFAULT_INSTANCES: PresetDefaultInstance[] = [
     {
-        codename: 'MainSet',
+        codename: 'Main',
         name: vlc('Main', 'Основной'),
         description: vlc(
             'Main set for storing constants and typed values',
@@ -355,7 +377,7 @@ export const SET_DEFAULT_INSTANCES: PresetDefaultInstance[] = [
 
 export const ENUMERATION_DEFAULT_INSTANCES: PresetDefaultInstance[] = [
     {
-        codename: 'MainEnumeration',
+        codename: 'Main',
         name: vlc('Main', 'Основное'),
         description: vlc('Main enumeration for fixed values', 'Основное перечисление для фиксированных значений'),
         optionValues: [
@@ -376,11 +398,11 @@ export const ENUMERATION_DEFAULT_INSTANCES: PresetDefaultInstance[] = [
 
 export const LEDGER_DEFAULT_INSTANCES: PresetDefaultInstance[] = [
     {
-        codename: 'MainLedger',
+        codename: 'Main',
         name: vlc('Main', 'Основной'),
         description: vlc('Main ledger for append-only facts and reporting', 'Основной регистр для неизменяемых фактов и отчетности'),
         config: LEDGER_TYPE_CONFIG,
-        attributes: [
+        components: [
             {
                 codename: 'Subject',
                 dataType: 'STRING',

@@ -4,20 +4,20 @@ import type { DbExecutor } from '@universo/utils'
 import {
     localizedContent,
     resolveLocalizedContent,
-    normalizeLinkedCollectionCopyOptions,
+    normalizeObjectCollectionCopyOptions,
     normalizeOptionListCopyOptions,
     normalizeTreeEntityCopyOptions,
     normalizeValueGroupCopyOptions
 } from '@universo/utils'
 import { isValidCodenameForStyle, normalizeCodenameForStyle } from '@universo/utils/validation/codename'
 import {
-    isEnabledComponentConfig,
+    isEnabledCapabilityConfig,
     isBuiltinEntityKind,
     normalizePageBlockContentForStorage,
     normalizeLedgerConfigFromConfig,
     supportsLedgerSchema,
     validateLedgerConfigReferences,
-    type BlockContentComponentConfig,
+    type BlockContentCapabilityConfig,
     type PageBlockContentValidationOptions,
     type ResolvedEntityType,
     type BuiltinEntityKind
@@ -39,7 +39,7 @@ import {
     syncCodenamePayloadText
 } from '../../shared/codenamePayload'
 import { MetahubFixedValuesService } from '../../metahubs/services/MetahubFixedValuesService'
-import { MetahubFieldDefinitionsService } from '../../metahubs/services/MetahubFieldDefinitionsService'
+import { MetahubComponentsService } from '../../metahubs/services/MetahubComponentsService'
 import { MetahubObjectsService, type MetahubObjectRow } from '../../metahubs/services/MetahubObjectsService'
 import { MetahubOptionValuesService } from '../../metahubs/services/MetahubOptionValuesService'
 import { MetahubSettingsService } from '../../settings/services/MetahubSettingsService'
@@ -60,14 +60,14 @@ import type { EntityBehaviorDeleteContext, EntityBehaviorService } from '../serv
 
 export const { buildLocalizedContent, sanitizeLocalizedInput } = localizedContent
 
-export type BuiltinEntityRouteKind = 'hub' | 'catalog' | 'set' | 'enumeration' | 'page'
+export type BuiltinEntityRouteKind = 'hub' | 'object' | 'set' | 'enumeration' | 'page'
 
 export const STANDARD_ENTITY_PARAM_BY_KIND: Record<
     BuiltinEntityRouteKind,
-    'treeEntityId' | 'linkedCollectionId' | 'valueGroupId' | 'optionListId' | 'pageId'
+    'treeEntityId' | 'objectCollectionId' | 'valueGroupId' | 'optionListId' | 'pageId'
 > = {
     hub: 'treeEntityId',
-    catalog: 'linkedCollectionId',
+    object: 'objectCollectionId',
     set: 'valueGroupId',
     enumeration: 'optionListId',
     page: 'pageId'
@@ -76,7 +76,7 @@ export const STANDARD_ENTITY_PARAM_BY_KIND: Record<
 export const normalizeLocaleCode = (locale?: string): string => locale?.split('-')[0].split('_')[0].toLowerCase() || 'en'
 export const normalizeRouteKindKey = (value?: string | null): string => (typeof value === 'string' ? value.trim() : '')
 export const isBuiltinEntityRouteKind = (value: string | null | undefined): value is BuiltinEntityRouteKind =>
-    value === 'hub' || value === 'catalog' || value === 'set' || value === 'enumeration' || value === 'page'
+    value === 'hub' || value === 'object' || value === 'set' || value === 'enumeration' || value === 'page'
 
 export const ensureStandardRouteKindQuery = (req: Request): void => {
     const routeKindKey = normalizeRouteKindKey(req.params.kindKey)
@@ -179,23 +179,23 @@ export const copyEntitySchema = z
         config: z.record(z.unknown()).optional(),
         parentTreeEntityId: z.string().trim().uuid().nullable().optional(),
         copyAllRelations: z.boolean().optional(),
-        copyLinkedCollectionRelations: z.boolean().optional(),
+        copyObjectCollectionRelations: z.boolean().optional(),
         copyValueGroupRelations: z.boolean().optional(),
         copyOptionListRelations: z.boolean().optional(),
-        copyFieldDefinitions: z.boolean().optional(),
+        copyComponents: z.boolean().optional(),
         copyRecords: z.boolean().optional(),
         copyFixedValues: z.boolean().optional(),
         copyOptionValues: z.boolean().optional()
     })
     .strict()
     .superRefine((value, ctx) => {
-        const copyFieldDefinitions = value.copyFieldDefinitions
+        const copyComponents = value.copyComponents
         const copyRecords = value.copyRecords
-        if (copyFieldDefinitions === false && copyRecords === true) {
+        if (copyComponents === false && copyRecords === true) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 path: ['copyRecords'],
-                message: 'copyRecords requires copyFieldDefinitions=true'
+                message: 'copyRecords requires copyComponents=true'
             })
         }
     })
@@ -212,8 +212,8 @@ export const validateEntityConfigForComponents = (
         return config
     }
 
-    const blockContentComponent = resolvedType.components.blockContent
-    if (!isEnabledComponentConfig(blockContentComponent)) {
+    const blockContentComponent = resolvedType.capabilities.blockContent
+    if (!isEnabledCapabilityConfig(blockContentComponent)) {
         throw new MetahubValidationError('Block content is not enabled for this entity type', {
             kind: resolvedType.kindKey,
             field: 'config.blockContent'
@@ -242,11 +242,11 @@ export const validateLedgerConfigReferencesForEntity = async (params: {
     metahubId: string
     objectId: string | null
     userId?: string
-    fieldDefinitionsService: MetahubFieldDefinitionsService
+    componentsService: MetahubComponentsService
 }): Promise<void> => {
     if (
         !params.config ||
-        !supportsLedgerSchema(params.resolvedType.components) ||
+        !supportsLedgerSchema(params.resolvedType.capabilities) ||
         !Object.prototype.hasOwnProperty.call(params.config, 'ledger')
     ) {
         return
@@ -254,7 +254,7 @@ export const validateLedgerConfigReferencesForEntity = async (params: {
 
     const config = normalizeLedgerConfigFromConfig(params.config)
     const fields = params.objectId
-        ? (await params.fieldDefinitionsService.findAllFlat(params.metahubId, params.objectId, params.userId, 'business')).map((field) => ({
+        ? (await params.componentsService.findAllFlat(params.metahubId, params.objectId, params.userId, 'business')).map((field) => ({
               codename: field.codename,
               dataType: field.dataType
           }))
@@ -273,7 +273,7 @@ export const validateLedgerConfigReferencesForEntity = async (params: {
 }
 
 export const buildPageBlockContentValidationOptions = (
-    component: Partial<BlockContentComponentConfig>
+    component: Partial<BlockContentCapabilityConfig>
 ): PageBlockContentValidationOptions => ({
     allowedBlockTypes: component.allowedBlockTypes,
     maxBlocks: component.maxBlocks
@@ -292,7 +292,7 @@ export const createEntityServices = (
     schemaService: ConstructorParameters<typeof MetahubObjectsService>[1]
 ) => {
     const objectsService = new MetahubObjectsService(exec, schemaService)
-    const fieldDefinitionsService = new MetahubFieldDefinitionsService(exec, schemaService)
+    const componentsService = new MetahubComponentsService(exec, schemaService)
     const settingsService = new MetahubSettingsService(exec, schemaService)
     const fixedValuesService = new MetahubFixedValuesService(exec, schemaService)
     const entityTypeService = new EntityTypeService(exec, schemaService)
@@ -306,7 +306,7 @@ export const createEntityServices = (
 
     return {
         objectsService,
-        fieldDefinitionsService,
+        componentsService,
         settingsService,
         fixedValuesService,
         entityTypeService,
@@ -334,7 +334,7 @@ export type PolicyOutcome = {
 }
 
 export const ENTITY_METADATA_LABEL_PLURAL_MAP = {
-    catalog: 'catalogs',
+    object: 'objects',
     hub: 'hubs',
     set: 'sets',
     enumeration: 'enumerations',
@@ -417,20 +417,20 @@ export const checkEntityMetadataCopyPolicy = async ({
 }
 
 export const buildDesignTimeCopyPlan = (resolvedType: ResolvedEntityType) => ({
-    copyFieldDefinitions: isEnabledComponentConfig(resolvedType.components.dataSchema),
-    copyRecords: isEnabledComponentConfig(resolvedType.components.records),
-    copyFixedValues: isEnabledComponentConfig(resolvedType.components.fixedValues),
-    copyOptionValues: isEnabledComponentConfig(resolvedType.components.optionValues)
+    copyComponents: isEnabledCapabilityConfig(resolvedType.capabilities.dataSchema),
+    copyRecords: isEnabledCapabilityConfig(resolvedType.capabilities.records),
+    copyFixedValues: isEnabledCapabilityConfig(resolvedType.capabilities.fixedValues),
+    copyOptionValues: isEnabledCapabilityConfig(resolvedType.capabilities.optionValues)
 })
 
 export const applyDesignTimeCopyOverrides = (
     plan: ReturnType<typeof buildDesignTimeCopyPlan>,
     input: {
         copyAllRelations?: boolean
-        copyLinkedCollectionRelations?: boolean
+        copyObjectCollectionRelations?: boolean
         copyValueGroupRelations?: boolean
         copyOptionListRelations?: boolean
-        copyFieldDefinitions?: boolean
+        copyComponents?: boolean
         copyRecords?: boolean
         copyFixedValues?: boolean
         copyOptionValues?: boolean
@@ -438,12 +438,12 @@ export const applyDesignTimeCopyOverrides = (
 ) => {
     const treeCopyOptions = normalizeTreeEntityCopyOptions({
         copyAllRelations: input.copyAllRelations,
-        copyLinkedCollectionRelations: input.copyLinkedCollectionRelations,
+        copyObjectCollectionRelations: input.copyObjectCollectionRelations,
         copyValueGroupRelations: input.copyValueGroupRelations,
         copyOptionListRelations: input.copyOptionListRelations
     })
-    const copyOptions = normalizeLinkedCollectionCopyOptions({
-        copyFieldDefinitions: input.copyFieldDefinitions,
+    const copyOptions = normalizeObjectCollectionCopyOptions({
+        copyComponents: input.copyComponents,
         copyRecords: input.copyRecords
     })
     const valueGroupCopyOptions = normalizeValueGroupCopyOptions({
@@ -455,8 +455,7 @@ export const applyDesignTimeCopyOverrides = (
 
     return {
         ...plan,
-        copyFieldDefinitions:
-            plan.copyFieldDefinitions && copyOptions.copyFieldDefinitions && treeCopyOptions.copyLinkedCollectionRelations,
+        copyComponents: plan.copyComponents && copyOptions.copyComponents && treeCopyOptions.copyObjectCollectionRelations,
         copyRecords: plan.copyRecords && copyOptions.copyRecords,
         copyFixedValues: plan.copyFixedValues && valueGroupCopyOptions.copyFixedValues && treeCopyOptions.copyValueGroupRelations,
         copyOptionValues: plan.copyOptionValues && optionListCopyOptions.copyOptionValues && treeCopyOptions.copyOptionListRelations
@@ -464,7 +463,7 @@ export const applyDesignTimeCopyOverrides = (
 }
 
 export const hasDesignTimeChildrenToCopy = (plan: ReturnType<typeof buildDesignTimeCopyPlan>) =>
-    plan.copyFieldDefinitions || plan.copyRecords || plan.copyFixedValues || plan.copyOptionValues
+    plan.copyComponents || plan.copyRecords || plan.copyFixedValues || plan.copyOptionValues
 
 export const executeBehaviorDelete = async ({
     behavior,
@@ -939,7 +938,7 @@ export const buildCopyCodename = async (
 export const createOptionListRouteServices = (exec: DbExecutor, schemaService: ConstructorParameters<typeof MetahubObjectsService>[1]) => ({
     objectsService: new MetahubObjectsService(exec, schemaService),
     treeEntitiesService: new MetahubTreeEntitiesService(exec, schemaService),
-    fieldDefinitionsService: new MetahubFieldDefinitionsService(exec, schemaService),
+    componentsService: new MetahubComponentsService(exec, schemaService),
     valuesService: new MetahubOptionValuesService(exec, schemaService),
     settingsService: new MetahubSettingsService(exec, schemaService),
     entityTypeService: new EntityTypeService(exec, schemaService)

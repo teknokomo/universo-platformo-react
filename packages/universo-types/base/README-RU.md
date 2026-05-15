@@ -20,7 +20,7 @@
 - 📦 **Версионирование протоколов** - Контроль версий протоколов
 - 📋 **Строгая типизация** - Полная поддержка TypeScript
 - 🔄 **Обратная совместимость** - Сохранение совместимости версий
-- 🧾 **Record Behavior Types** - Общие контракты нумерации, lifecycle и posting для Catalog
+- 🧾 **Record Behavior Types** - Общие контракты нумерации, lifecycle и posting для Object
 - 📊 **Ledger Types** - Общие контракты append-only Ledger configuration, field roles, source policies и projections
 
 ## Описание
@@ -33,7 +33,7 @@
 - Коды ошибок
 - Версия протокола
 - Metahub entity component manifests
-- Контракты Catalog `recordBehavior` и Ledger configuration
+- Контракты Object `recordBehavior` и Ledger configuration
 
 ### Вне области применения:
 - Типы UPDL для этапа проектирования
@@ -45,9 +45,9 @@
 - **Добавляйте новые поля** только как опциональные, чтобы сохранять обратную совместимость
 - **Расширяйте** объединения компонентов и событий добавлением новых ключей
 
-## Catalog и Ledger Contracts
+## Object и Ledger Contracts
 
-`common/recordBehavior` определяет общий metadata contract, который превращает стандартный Catalog в reference, transactional или hybrid collection.
+`common/recordBehavior` определяет общий metadata contract, который превращает стандартный Object в reference, transactional или hybrid collection.
 Он описывает identity fields, atomic numbering, effective dates, lifecycle states, posting target ledgers и immutability проведённых строк.
 
 `common/ledgers` определяет стандартную Ledger configuration.

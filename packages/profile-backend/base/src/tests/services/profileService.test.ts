@@ -19,7 +19,7 @@ describe('ProfileService', () => {
         const result = await service.getUserProfile('user-1')
 
         expect(exec.query).toHaveBeenCalledWith(
-            'SELECT * FROM profiles.cat_profiles WHERE user_id = $1 AND _upl_deleted = false AND _app_deleted = false LIMIT 1',
+            'SELECT * FROM profiles.obj_profiles WHERE user_id = $1 AND _upl_deleted = false AND _app_deleted = false LIMIT 1',
             ['user-1']
         )
         expect(result).toBe(profile)
@@ -32,7 +32,7 @@ describe('ProfileService', () => {
         const available = await service.checkNicknameAvailable('nickname', 'user-2')
 
         expect(exec.query).toHaveBeenCalledWith(
-            'SELECT 1 FROM profiles.cat_profiles WHERE nickname = $1 AND _upl_deleted = false AND _app_deleted = false AND user_id != $2 LIMIT 1',
+            'SELECT 1 FROM profiles.obj_profiles WHERE nickname = $1 AND _upl_deleted = false AND _app_deleted = false AND user_id != $2 LIMIT 1',
             ['nickname', 'user-2']
         )
         expect(available).toBe(true)
@@ -64,7 +64,7 @@ describe('ProfileService', () => {
 
         expect(result).toEqual(updated)
         expect(exec.query).toHaveBeenCalledWith(
-            'UPDATE profiles.cat_profiles SET nickname = $1, _upl_updated_at = NOW() WHERE user_id = $2 AND _upl_deleted = false AND _app_deleted = false RETURNING id, user_id, nickname, first_name, last_name, settings, onboarding_completed, terms_accepted, terms_accepted_at, privacy_accepted, privacy_accepted_at, terms_version, privacy_version, _upl_created_at, _upl_updated_at',
+            'UPDATE profiles.obj_profiles SET nickname = $1, _upl_updated_at = NOW() WHERE user_id = $2 AND _upl_deleted = false AND _app_deleted = false RETURNING id, user_id, nickname, first_name, last_name, settings, onboarding_completed, terms_accepted, terms_accepted_at, privacy_accepted, privacy_accepted_at, terms_version, privacy_version, _upl_created_at, _upl_updated_at',
             ['new', 'user-1']
         )
     })
@@ -105,14 +105,14 @@ describe('ProfileService', () => {
         const result = await service.getOrCreateProfile('12345678-1234-1234-1234-123456789abc', 'john.doe+1@example.com')
 
         expect(result).toEqual(created)
-        expect(exec.query).toHaveBeenNthCalledWith(2, expect.stringContaining('INSERT INTO profiles.cat_profiles'), [
+        expect(exec.query).toHaveBeenNthCalledWith(2, expect.stringContaining('INSERT INTO profiles.obj_profiles'), [
             '12345678-1234-1234-1234-123456789abc',
             'john_doe_1_12345678',
             null,
             null,
             '{}'
         ])
-        expect(exec.query).toHaveBeenNthCalledWith(4, expect.stringContaining('INSERT INTO profiles.cat_profiles'), [
+        expect(exec.query).toHaveBeenNthCalledWith(4, expect.stringContaining('INSERT INTO profiles.obj_profiles'), [
             '12345678-1234-1234-1234-123456789abc',
             'john_doe_1_12345678_1235',
             null,
@@ -133,7 +133,7 @@ describe('ProfileService', () => {
         const result = await service.getOrCreateProfile('user-3', 'race@example.com')
 
         expect(result).toEqual(existing)
-        expect(exec.query).toHaveBeenNthCalledWith(2, expect.stringContaining('INSERT INTO profiles.cat_profiles'), [
+        expect(exec.query).toHaveBeenNthCalledWith(2, expect.stringContaining('INSERT INTO profiles.obj_profiles'), [
             'user-3',
             'race_user-3',
             null,
@@ -142,7 +142,7 @@ describe('ProfileService', () => {
         ])
         expect(exec.query).toHaveBeenNthCalledWith(
             3,
-            'SELECT * FROM profiles.cat_profiles WHERE user_id = $1 AND _upl_deleted = false AND _app_deleted = false LIMIT 1',
+            'SELECT * FROM profiles.obj_profiles WHERE user_id = $1 AND _upl_deleted = false AND _app_deleted = false LIMIT 1',
             ['user-3']
         )
     })
@@ -183,7 +183,7 @@ describe('ProfileService', () => {
         })
         expect(exec.query).toHaveBeenNthCalledWith(
             2,
-            'UPDATE profiles.cat_profiles SET settings = $1, _upl_updated_at = NOW() WHERE user_id = $2 AND _upl_deleted = false AND _app_deleted = false RETURNING id, user_id, nickname, first_name, last_name, settings, onboarding_completed, terms_accepted, terms_accepted_at, privacy_accepted, privacy_accepted_at, terms_version, privacy_version, _upl_created_at, _upl_updated_at',
+            'UPDATE profiles.obj_profiles SET settings = $1, _upl_updated_at = NOW() WHERE user_id = $2 AND _upl_deleted = false AND _app_deleted = false RETURNING id, user_id, nickname, first_name, last_name, settings, onboarding_completed, terms_accepted, terms_accepted_at, privacy_accepted, privacy_accepted_at, terms_version, privacy_version, _upl_created_at, _upl_updated_at',
             [JSON.stringify(result), 'user-1']
         )
     })
@@ -209,10 +209,10 @@ describe('ProfileService', () => {
         expect(result).toEqual(completed)
         expect(exec.query).toHaveBeenNthCalledWith(
             1,
-            'SELECT * FROM profiles.cat_profiles WHERE user_id = $1 AND _upl_deleted = false AND _app_deleted = false LIMIT 1',
+            'SELECT * FROM profiles.obj_profiles WHERE user_id = $1 AND _upl_deleted = false AND _app_deleted = false LIMIT 1',
             ['user-4']
         )
-        expect(exec.query).toHaveBeenNthCalledWith(2, expect.stringContaining('INSERT INTO profiles.cat_profiles'), [
+        expect(exec.query).toHaveBeenNthCalledWith(2, expect.stringContaining('INSERT INTO profiles.obj_profiles'), [
             'user-4',
             'user_user4',
             null,
@@ -221,7 +221,7 @@ describe('ProfileService', () => {
         ])
         expect(exec.query).toHaveBeenNthCalledWith(
             3,
-            'UPDATE profiles.cat_profiles SET onboarding_completed = $1, _upl_updated_at = NOW() WHERE user_id = $2 AND _upl_deleted = false AND _app_deleted = false RETURNING id, user_id, nickname, first_name, last_name, settings, onboarding_completed, terms_accepted, terms_accepted_at, privacy_accepted, privacy_accepted_at, terms_version, privacy_version, _upl_created_at, _upl_updated_at',
+            'UPDATE profiles.obj_profiles SET onboarding_completed = $1, _upl_updated_at = NOW() WHERE user_id = $2 AND _upl_deleted = false AND _app_deleted = false RETURNING id, user_id, nickname, first_name, last_name, settings, onboarding_completed, terms_accepted, terms_accepted_at, privacy_accepted, privacy_accepted_at, terms_version, privacy_version, _upl_created_at, _upl_updated_at',
             [true, 'user-4']
         )
     })
@@ -232,7 +232,7 @@ describe('ProfileService', () => {
 
         const removed = await service.deleteProfile('user-1', 'user-1')
 
-        expect(exec.query).toHaveBeenCalledWith(expect.stringContaining('UPDATE profiles.cat_profiles'), ['user-1', 'user-1'])
+        expect(exec.query).toHaveBeenCalledWith(expect.stringContaining('UPDATE profiles.obj_profiles'), ['user-1', 'user-1'])
         expect(removed).toBe(true)
     })
 })

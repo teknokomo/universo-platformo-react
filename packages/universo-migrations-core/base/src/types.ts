@@ -1,5 +1,5 @@
 import type { Knex } from 'knex'
-import type { FieldDefinitionDataType, MetaPresentation } from '@universo/types'
+import type { ComponentDefinitionDataType, MetaPresentation } from '@universo/types'
 
 export type MigrationTransactionMode = 'single' | 'per_migration' | 'none'
 export type MigrationLockMode = 'transaction_advisory' | 'session_advisory' | 'none'
@@ -98,30 +98,30 @@ export type SystemAppStorageModel = 'legacy_fixed' | 'application_like'
 
 export interface SystemAppStructureCapabilities {
     appCoreTables: boolean
-    catalogTables: boolean
+    objectTables: boolean
     documentTables: boolean
     relationTables: boolean
     settingsTables: boolean
     layoutTables: boolean
     widgetTables: boolean
-    attributeValueTables: boolean
+    componentValueTables: boolean
 }
 
 export interface SystemTableCapabilityOptions {
-    includeAttributes?: boolean
+    includeComponents?: boolean
     includeValues?: boolean
     includeLayouts?: boolean
     includeWidgets?: boolean
 }
 
-export type SystemAppBusinessTableKind = 'catalog' | 'document' | 'relation' | 'settings'
+export type SystemAppBusinessTableKind = 'object' | 'document' | 'relation' | 'settings'
 
-export interface SystemAppBusinessFieldDefinition {
+export interface SystemAppBusinessComponent {
     codename: string
     physicalColumnName: string
-    dataType: FieldDefinitionDataType
+    dataType: ComponentDefinitionDataType
     isRequired?: boolean
-    isDisplayAttribute?: boolean
+    isDisplayComponent?: boolean
     targetTableCodename?: string
     physicalDataType?: string
     defaultSqlExpression?: string
@@ -135,7 +135,7 @@ export interface SystemAppBusinessTableDefinition {
     codename: string
     tableName: string
     presentation?: MetaPresentation
-    fields?: readonly SystemAppBusinessFieldDefinition[]
+    fields?: readonly SystemAppBusinessComponent[]
 }
 
 export interface SystemAppDefinition {
@@ -187,7 +187,7 @@ export interface PlatformMigrationFile {
     down?: (ctx: MigrationExecutionContext) => Promise<void>
 }
 
-export interface MigrationCatalogRecord {
+export interface MigrationObjectRecord {
     id: string
     scopeKind: MigrationScopeKind
     scopeKey: string
@@ -208,17 +208,17 @@ export interface MigrationCatalogRecord {
     updatedAt: string
 }
 
-export interface MigrationCatalogRepository {
+export interface MigrationObjectRepository {
     ensureStorage(): Promise<void>
     isStorageReady?(): Promise<boolean>
-    findLatest(scope: MigrationScope, migration: PlatformMigrationFile): Promise<MigrationCatalogRecord | null>
+    findLatest(scope: MigrationScope, migration: PlatformMigrationFile): Promise<MigrationObjectRecord | null>
     beginRun(input: {
         migration: PlatformMigrationFile
         checksum: string
         summary?: string | null
         meta?: Record<string, unknown> | null
         status?: MigrationRunStatus
-    }): Promise<MigrationCatalogRecord>
+    }): Promise<MigrationObjectRecord>
     completeRun(
         runId: string,
         patch: {
@@ -246,12 +246,12 @@ export interface MigrationValidationResult {
 export interface RunPlatformMigrationsOptions {
     knex: Knex
     migrations: PlatformMigrationFile[]
-    catalog: MigrationCatalogRepository
+    object: MigrationObjectRepository
     logger?: MigrationLogger
     allowDestructive?: boolean
     allowReviewRequired?: boolean
     dryRun?: boolean
-    prepareCatalogStorage?: boolean
+    prepareObjectStorage?: boolean
 }
 
 export type PlannedPlatformMigrationAction = 'apply' | 'skip' | 'drift' | 'blocked'
@@ -313,7 +313,7 @@ export interface RuntimeMigrationHistoryRecord {
 
 /**
  * Input for the `mirrorToGlobalCatalog()` helper that records a runtime
- * migration event in the central `upl_migrations` catalog.
+ * migration event in the central `upl_migrations` object.
  */
 export interface MirrorToGlobalCatalogInput {
     knex: Knex | Knex.Transaction

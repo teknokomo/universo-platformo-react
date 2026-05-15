@@ -101,7 +101,7 @@ describe('applications-frontend api wrappers', () => {
                 limit: 25,
                 offset: 50,
                 locale: 'ru',
-                linkedCollectionId: 'section-1',
+                objectCollectionId: 'section-1',
                 search: 'course',
                 sort: JSON.stringify([{ field: 'name', direction: 'asc' }]),
                 filters: JSON.stringify([{ field: 'status', operator: 'equals', value: 'active' }])
@@ -120,11 +120,11 @@ describe('applications-frontend api wrappers', () => {
             applicationId: 'app-1',
             rowId: 'row-1',
             command: 'post',
-            linkedCollectionId: 'catalog-1',
+            objectCollectionId: 'object-1',
             expectedVersion: 7
         })
         expect(post).toHaveBeenCalledWith('/applications/app-1/runtime/rows/row-1/post', {
-            linkedCollectionId: 'catalog-1',
+            objectCollectionId: 'object-1',
             expectedVersion: 7
         })
         expect(postedRow).toEqual({ id: 'row-1', _app_record_state: 'posted' })

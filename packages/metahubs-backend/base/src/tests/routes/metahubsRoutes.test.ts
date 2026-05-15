@@ -404,7 +404,7 @@ describe('Metahubs Routes', () => {
                 if (sql.includes(`FROM "mhb_019c4c15185c78f5a2e4f3c9a6aa3d40_b1"._mhb_objects`) && sql.includes('GROUP BY kind')) {
                     return [
                         { kind: 'hub', count: 2 },
-                        { kind: 'catalog', count: 5 }
+                        { kind: 'object', count: 5 }
                     ]
                 }
 
@@ -421,7 +421,7 @@ describe('Metahubs Routes', () => {
                 name: 'Test Metahub',
                 description: 'Test Description',
                 treeEntitiesCount: 2,
-                linkedCollectionsCount: 5,
+                objectCollectionsCount: 5,
                 membersCount: 0
             })
             expect(response.body.items[0]).toHaveProperty('createdAt')
@@ -765,7 +765,7 @@ describe('Metahubs Routes', () => {
             })
 
             const txQuery = jest.fn(async (sql: string) => {
-                if (sql.includes('cat_metahub_branches')) {
+                if (sql.includes('obj_metahub_branches')) {
                     return [
                         { schemaName: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1' },
                         { schemaName: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b2' }
@@ -790,7 +790,7 @@ describe('Metahubs Routes', () => {
             )
             // Cascade soft-delete children — must set both _upl_deleted and _app_deleted
             expect(txQuery).toHaveBeenCalledWith(
-                expect.stringContaining('UPDATE metahubs.cat_metahub_branches'),
+                expect.stringContaining('UPDATE metahubs.obj_metahub_branches'),
                 expect.arrayContaining(['metahub-1'])
             )
             expect(txQuery).toHaveBeenCalledWith(
@@ -810,7 +810,7 @@ describe('Metahubs Routes', () => {
             const cascadeCalls = txQuery.mock.calls.filter(
                 ([sql]: [string]) =>
                     typeof sql === 'string' &&
-                    (sql.includes('UPDATE metahubs.cat_metahub_branches') ||
+                    (sql.includes('UPDATE metahubs.obj_metahub_branches') ||
                         sql.includes('UPDATE metahubs.rel_metahub_users') ||
                         sql.includes('UPDATE metahubs.doc_publication_versions') ||
                         sql.includes('UPDATE metahubs.doc_publications')) &&
@@ -835,7 +835,7 @@ describe('Metahubs Routes', () => {
             })
 
             const txQuery = jest.fn(async (sql: string) => {
-                if (sql.includes('cat_metahub_branches')) {
+                if (sql.includes('obj_metahub_branches')) {
                     return [{ schemaName: 'public' }]
                 }
                 return []
@@ -1368,7 +1368,7 @@ describe('Metahubs Routes', () => {
                     createOptions: {
                         presetToggles: {
                             'preset-hub': false,
-                            'preset-catalog': true,
+                            'preset-object': true,
                             'preset-set': false,
                             'preset-enumeration': true
                         }
@@ -1383,7 +1383,7 @@ describe('Metahubs Routes', () => {
                     createOptions: {
                         presetToggles: {
                             'preset-hub': false,
-                            'preset-catalog': true,
+                            'preset-object': true,
                             'preset-set': false,
                             'preset-enumeration': true
                         }
@@ -1670,8 +1670,8 @@ describe('Metahubs Routes', () => {
                 metahubId,
                 entities: {
                     '00000000-0000-0000-0000-000000000010': {
-                        kind: 'catalog',
-                        codename: 'test-catalog',
+                        kind: 'object',
+                        codename: 'test-object',
                         presentation: { name: {}, description: {} },
                         config: {},
                         fields: []
@@ -1823,7 +1823,7 @@ describe('Metahubs Routes', () => {
                         presetToggles: {
                             hub: false,
                             page: false,
-                            catalog: false,
+                            object: false,
                             set: false,
                             enumeration: false,
                             ledger: false
@@ -2031,7 +2031,7 @@ describe('Metahubs Routes', () => {
             expect(mockSoftDelete).toHaveBeenCalledWith(
                 transactionExecutors[1],
                 'metahubs',
-                'cat_metahubs',
+                'obj_metahubs',
                 'new-metahub-id',
                 'test-user-id'
             )
@@ -2128,7 +2128,7 @@ describe('Metahubs Routes', () => {
             expect(mockSoftDelete).toHaveBeenCalledWith(
                 transactionExecutors[1],
                 'metahubs',
-                'cat_metahubs',
+                'obj_metahubs',
                 'new-metahub-id',
                 'test-user-id'
             )
@@ -2185,7 +2185,7 @@ describe('Metahubs Routes', () => {
             expect(mockSoftDelete).toHaveBeenCalledWith(
                 transactionExecutors[1],
                 'metahubs',
-                'cat_metahubs',
+                'obj_metahubs',
                 'new-metahub-id',
                 'test-user-id'
             )

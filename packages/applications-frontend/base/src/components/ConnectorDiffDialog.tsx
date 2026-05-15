@@ -128,7 +128,7 @@ type PreviewTableField = {
     displayCodename?: string
     dataType: string
     isRequired: boolean
-    parentAttributeId?: string | null
+    parentComponentId?: string | null
 }
 
 type PreviewEntityField = {
@@ -137,7 +137,7 @@ type PreviewEntityField = {
     name?: unknown
     dataType: string
     isRequired: boolean
-    parentAttributeId?: string | null
+    parentComponentId?: string | null
 }
 
 type PreviewEntity = {
@@ -179,11 +179,11 @@ function resolvePreviewChildFieldValue(
         return formatPreviewCellValue(directValue, uiLocale, useLocalizedLabels, t)
     }
 
-    if (!field.parentAttributeId) {
+    if (!field.parentComponentId) {
         return ''
     }
 
-    const parentField = fieldsById.get(field.parentAttributeId)
+    const parentField = fieldsById.get(field.parentComponentId)
     if (!parentField) {
         return ''
     }

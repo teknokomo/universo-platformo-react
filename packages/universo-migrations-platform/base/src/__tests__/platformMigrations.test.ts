@@ -2,23 +2,23 @@ import { createHash } from 'node:crypto'
 import { mkdtemp, rm, writeFile } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import * as catalog from '@universo/migrations-catalog'
+import * as object from '@universo/migrations-catalog'
 import { resolveSystemTableNames } from '@universo/schema-ddl'
 import {
     diffRegisteredSystemAppCompiledDefinitions,
     diffRegisteredPlatformDefinitions,
     diffRegisteredSystemAppManifestDefinitions,
     diffRegisteredSystemAppSchemaPlanDefinitions,
-    exportCatalogSystemAppCompiledDefinitionBundle,
-    exportCatalogPlatformDefinitions,
-    exportCatalogSystemAppManifestDefinitions,
-    exportCatalogSystemAppManifestDefinitionBundle,
-    exportCatalogSystemAppSchemaPlanDefinitionBundle,
-    exportCatalogSystemAppCompiledDefinitions,
+    exportObjectSystemAppCompiledDefinitionBundle,
+    exportObjectPlatformDefinitions,
+    exportObjectSystemAppManifestDefinitions,
+    exportObjectSystemAppManifestDefinitionBundle,
+    exportObjectSystemAppSchemaPlanDefinitionBundle,
+    exportObjectSystemAppCompiledDefinitions,
     exportRegisteredSystemAppCompiledDefinitionBundle,
     exportRegisteredSystemAppCompiledDefinitions,
     doctorRegisteredPlatformState,
-    exportCatalogPlatformDefinitionBundle,
+    exportObjectPlatformDefinitionBundle,
     exportRegisteredPlatformDefinitionBundle,
     exportRegisteredPlatformDefinitions,
     exportRegisteredSystemAppManifestDefinitionBundle,
@@ -33,12 +33,12 @@ import {
     lintRegisteredSystemAppSchemaPlanDefinitions,
     registeredSystemAppDefinitions,
     platformMigrations,
-    syncRegisteredPlatformDefinitionsToCatalog
+    syncRegisteredPlatformDefinitionsToObject
 } from '../platformMigrations'
 import { optimizeRlsPoliciesMigration } from '../rlsPolicyOptimization'
 import { loadPlatformMigrationsFromSystemApps } from '../systemAppDefinitions'
 
-const ORIGINAL_GLOBAL_MIGRATION_CATALOG_ENABLED = process.env.UPL_GLOBAL_MIGRATION_CATALOG_ENABLED
+const ORIGINAL_GLOBAL_MIGRATION_OBJECT_ENABLED = process.env.UPL_GLOBAL_MIGRATION_OBJECT_ENABLED
 
 const TEST_SYSTEM_APP_SYNTHETIC_ENTITY_NAMESPACE = 'universo-system-app-compiler'
 
@@ -71,8 +71,8 @@ const normalizeSql = (value: string): string => value.replace(/\s+/g, ' ').trim(
 
 const mapBusinessTableKindToRuntimeEntityKind = (kind: string): string => {
     switch (kind) {
-        case 'catalog':
-            return 'catalog'
+        case 'object':
+            return 'object'
         case 'document':
             return 'document'
         case 'relation':
@@ -121,7 +121,7 @@ const buildPlanStructureRows = (plan: ReturnType<typeof exportRegisteredTargetSy
                     column_name: field.physicalColumnName,
                     data_type: field.dataType,
                     is_required: field.isRequired ?? false,
-                    is_display_attribute: field.isDisplayAttribute ?? false,
+                    is_display_component: field.isDisplayComponent ?? false,
                     target_object_id: targetEntity?.id ?? null,
                     target_object_kind: targetEntity?.kind ?? null,
                     presentation_json: JSON.stringify(field.presentation ?? createSyntheticPresentation(field.codename)),
@@ -137,7 +137,7 @@ const createStructureAwareKnex = (
     options: {
         legacyRows?: Array<{ table_schema: string; table_name: string }>
         missingAttribute?: { definitionKey: string; objectCodename: string; attributeCodename: string }
-        catalogRows?: Array<Record<string, unknown>>
+        objectRows?: Array<Record<string, unknown>>
     } = {}
 ) => {
     const plans = exportRegisteredTargetSystemAppSchemaGenerationPlans().filter((plan) => plan.structureCapabilities.appCoreTables)
@@ -192,7 +192,7 @@ const createStructureAwareKnex = (
                 }
             }
 
-            const attributeMatch = sql.match(/from\s+"([^"]+)"\._app_attributes/i)
+            const attributeMatch = sql.match(/from\s+"([^"]+)"\._app_components/i)
             if (attributeMatch) {
                 const schemaName = attributeMatch[1]!
                 const plan = plans.find((entry) => entry.schemaName === schemaName)
@@ -246,7 +246,7 @@ const createStructureAwareKnex = (
 
                 return {
                     rows:
-                        options.catalogRows?.filter((row) => {
+                        options.objectRows?.filter((row) => {
                             if (!requestedLogicalKeys) {
                                 return true
                             }
@@ -261,7 +261,7 @@ const createStructureAwareKnex = (
     } as never
 }
 
-const createCatalogStateRows = (
+const createObjectStateRows = (
     artifacts: Array<{ schemaQualifiedName: string; kind: string; checksum: string }>,
     definitionFamily: string,
     options: {
@@ -293,16 +293,16 @@ const createCatalogStateRows = (
 
 describe('platformMigrations', () => {
     beforeEach(() => {
-        process.env.UPL_GLOBAL_MIGRATION_CATALOG_ENABLED = 'true'
+        process.env.UPL_GLOBAL_MIGRATION_OBJECT_ENABLED = 'true'
     })
 
     afterAll(() => {
-        if (ORIGINAL_GLOBAL_MIGRATION_CATALOG_ENABLED === undefined) {
-            delete process.env.UPL_GLOBAL_MIGRATION_CATALOG_ENABLED
+        if (ORIGINAL_GLOBAL_MIGRATION_OBJECT_ENABLED === undefined) {
+            delete process.env.UPL_GLOBAL_MIGRATION_OBJECT_ENABLED
             return
         }
 
-        process.env.UPL_GLOBAL_MIGRATION_CATALOG_ENABLED = ORIGINAL_GLOBAL_MIGRATION_CATALOG_ENABLED
+        process.env.UPL_GLOBAL_MIGRATION_OBJECT_ENABLED = ORIGINAL_GLOBAL_MIGRATION_OBJECT_ENABLED
     })
 
     it('loads package-owned system app definitions before flattening them into platform migrations', () => {
@@ -433,6 +433,7 @@ describe('platformMigrations', () => {
             'FinalizeMetahubsSchemaSupport1766351182001',
             'PrepareApplicationsSchemaSupport1800000000000',
             'FinalizeApplicationsSchemaSupport1800000000001',
+            'AddApplicationSettings1800000000100',
             'OptimizeRlsPolicies1800000000200',
             'SeedBuiltinMetahubTemplates1800000000250'
         ])
@@ -469,7 +470,7 @@ describe('platformMigrations', () => {
         expect(dropStatements.length).toBeGreaterThan(0)
         expect(dropStatements).toEqual(
             expect.arrayContaining([
-                expect.stringContaining(`to_regclass('admin.cat_roles')`),
+                expect.stringContaining(`to_regclass('admin.obj_roles')`),
                 expect.stringContaining('WHEN undefined_table THEN NULL')
             ])
         )
@@ -525,13 +526,13 @@ describe('platformMigrations', () => {
         expect(Array.isArray(payload.migrationRefs)).toBe(true)
         expect(payload.migrationRefs.length).toBeGreaterThan(0)
         expect(payload.currentSystemTableCapabilities).toEqual({
-            includeAttributes: false,
+            includeComponents: false,
             includeValues: false,
             includeLayouts: false,
             includeWidgets: false
         })
         expect(payload.targetSystemTableCapabilities).toEqual({
-            includeAttributes: false,
+            includeComponents: false,
             includeValues: false,
             includeLayouts: false,
             includeWidgets: false
@@ -609,12 +610,12 @@ describe('platformMigrations', () => {
         expect(bundle.artifacts).toHaveLength(exportRegisteredSystemAppCompiledDefinitions().length)
     })
 
-    it('records catalog exports idempotently for repeated targets', async () => {
+    it('records object exports idempotently for repeated targets', async () => {
         const artifacts = exportRegisteredPlatformDefinitions().slice(0, 2)
-        const storageReadyMock = jest.spyOn(catalog.PlatformMigrationCatalog.prototype, 'isStorageReady').mockResolvedValue(true)
-        const exportDefinitionsMock = jest.spyOn(catalog, 'exportDefinitions').mockResolvedValue(artifacts)
+        const storageReadyMock = jest.spyOn(object.PlatformMigrationCatalog.prototype, 'isStorageReady').mockResolvedValue(true)
+        const exportDefinitionsMock = jest.spyOn(object, 'exportDefinitions').mockResolvedValue(artifacts)
         const getDefinitionByLogicalKeyMock = jest
-            .spyOn(catalog, 'getDefinitionByLogicalKey')
+            .spyOn(object, 'getDefinitionByLogicalKey')
             .mockImplementation(async (_knex, logicalKey) => ({
                 id: `registry:${logicalKey}`,
                 logicalKey,
@@ -625,7 +626,7 @@ describe('platformMigrations', () => {
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             }))
-        const getActiveRevisionMock = jest.spyOn(catalog, 'getActiveRevision').mockImplementation(async (_knex, registryId) => ({
+        const getActiveRevisionMock = jest.spyOn(object, 'getActiveRevision').mockImplementation(async (_knex, registryId) => ({
             id: `active:${registryId}`,
             registryId,
             revisionStatus: 'published',
@@ -635,7 +636,7 @@ describe('platformMigrations', () => {
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         }))
-        const ensureExportMock = jest.spyOn(catalog, 'ensureDefinitionExportRecorded').mockResolvedValue({
+        const ensureExportMock = jest.spyOn(object, 'ensureDefinitionExportRecorded').mockResolvedValue({
             id: 'exp-1',
             registryId: 'reg-1',
             revisionId: 'rev-1',
@@ -645,10 +646,10 @@ describe('platformMigrations', () => {
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         })
-        const recordExportMock = jest.spyOn(catalog, 'recordDefinitionExport')
+        const recordExportMock = jest.spyOn(object, 'recordDefinitionExport')
 
-        await exportCatalogPlatformDefinitions({} as never, 'stdout')
-        await exportCatalogPlatformDefinitions({} as never, 'stdout')
+        await exportObjectPlatformDefinitions({} as never, 'stdout')
+        await exportObjectPlatformDefinitions({} as never, 'stdout')
 
         expect(ensureExportMock).toHaveBeenCalledTimes(artifacts.length * 2)
         expect(recordExportMock).not.toHaveBeenCalled()
@@ -661,11 +662,11 @@ describe('platformMigrations', () => {
         recordExportMock.mockRestore()
     })
 
-    it('diffs registered definitions against the catalog export', async () => {
+    it('diffs registered definitions against the object export', async () => {
         const desiredArtifacts = exportRegisteredPlatformDefinitions()
-        const storageReadyMock = jest.spyOn(catalog.PlatformMigrationCatalog.prototype, 'isStorageReady').mockResolvedValue(true)
+        const storageReadyMock = jest.spyOn(object.PlatformMigrationCatalog.prototype, 'isStorageReady').mockResolvedValue(true)
         const exportDefinitionsMock = jest
-            .spyOn(catalog, 'exportDefinitions')
+            .spyOn(object, 'exportDefinitions')
             .mockResolvedValue([{ ...desiredArtifacts[0], checksum: 'changed' }, desiredArtifacts[1]])
 
         const result = await diffRegisteredPlatformDefinitions({} as never)
@@ -718,25 +719,25 @@ describe('platformMigrations', () => {
         expect(lint.orderedKeys.length).toBe(exportRegisteredSystemAppCompiledDefinitions().length)
     })
 
-    it('synchronizes registered platform definitions into the catalog registry', async () => {
+    it('synchronizes registered platform definitions into the object registry', async () => {
         const artifacts = exportRegisteredPlatformDefinitions()
         const manifestArtifacts = exportRegisteredSystemAppManifestDefinitions()
         const schemaPlanArtifacts = exportRegisteredSystemAppSchemaPlanDefinitions()
         const compiledArtifacts = exportRegisteredSystemAppCompiledDefinitions()
         const knex = createStructureAwareKnex({
-            catalogRows: [
-                ...createCatalogStateRows([artifacts[0]!], 'registered_platform_definitions'),
-                ...createCatalogStateRows([manifestArtifacts[0]!], 'registered_system_app_manifest_definitions'),
-                ...createCatalogStateRows([schemaPlanArtifacts[0]!], 'registered_system_app_schema_plan_definitions'),
-                ...createCatalogStateRows([compiledArtifacts[0]!], 'registered_system_app_compiled_definitions')
+            objectRows: [
+                ...createObjectStateRows([artifacts[0]!], 'registered_platform_definitions'),
+                ...createObjectStateRows([manifestArtifacts[0]!], 'registered_system_app_manifest_definitions'),
+                ...createObjectStateRows([schemaPlanArtifacts[0]!], 'registered_system_app_schema_plan_definitions'),
+                ...createObjectStateRows([compiledArtifacts[0]!], 'registered_system_app_compiled_definitions')
             ]
         })
-        const importDefinitionsMock = jest.spyOn(catalog, 'importDefinitions').mockResolvedValue({
+        const importDefinitionsMock = jest.spyOn(object, 'importDefinitions').mockResolvedValue({
             created: 2,
             updated: 1,
             unchanged: 3
         })
-        const ensureExportMock = jest.spyOn(catalog, 'ensureDefinitionExportRecorded').mockResolvedValue({
+        const ensureExportMock = jest.spyOn(object, 'ensureDefinitionExportRecorded').mockResolvedValue({
             id: 'exp-1',
             registryId: 'reg-1',
             revisionId: 'rev-1',
@@ -747,7 +748,7 @@ describe('platformMigrations', () => {
             updatedAt: new Date().toISOString()
         })
 
-        const result = await syncRegisteredPlatformDefinitionsToCatalog(knex, {
+        const result = await syncRegisteredPlatformDefinitionsToObject(knex, {
             source: 'jest',
             syncCommand: 'jest-sync'
         })
@@ -773,25 +774,25 @@ describe('platformMigrations', () => {
         ensureExportMock.mockRestore()
     })
 
-    it('records exports for every synchronized artifact using the bulk catalog-state lookup', async () => {
+    it('records exports for every synchronized artifact using the bulk object-state lookup', async () => {
         const artifacts = exportRegisteredPlatformDefinitions()
         const manifestArtifacts = exportRegisteredSystemAppManifestDefinitions()
         const schemaPlanArtifacts = exportRegisteredSystemAppSchemaPlanDefinitions()
         const compiledArtifacts = exportRegisteredSystemAppCompiledDefinitions()
         const knex = createStructureAwareKnex({
-            catalogRows: [
-                ...createCatalogStateRows(artifacts, 'registered_platform_definitions', { includeExport: false }),
-                ...createCatalogStateRows(manifestArtifacts, 'registered_system_app_manifest_definitions', { includeExport: false }),
-                ...createCatalogStateRows(schemaPlanArtifacts, 'registered_system_app_schema_plan_definitions', { includeExport: false }),
-                ...createCatalogStateRows(compiledArtifacts, 'registered_system_app_compiled_definitions', { includeExport: false })
+            objectRows: [
+                ...createObjectStateRows(artifacts, 'registered_platform_definitions', { includeExport: false }),
+                ...createObjectStateRows(manifestArtifacts, 'registered_system_app_manifest_definitions', { includeExport: false }),
+                ...createObjectStateRows(schemaPlanArtifacts, 'registered_system_app_schema_plan_definitions', { includeExport: false }),
+                ...createObjectStateRows(compiledArtifacts, 'registered_system_app_compiled_definitions', { includeExport: false })
             ]
         })
-        const importDefinitionsMock = jest.spyOn(catalog, 'importDefinitions').mockResolvedValue({
+        const importDefinitionsMock = jest.spyOn(object, 'importDefinitions').mockResolvedValue({
             created: 0,
             updated: 0,
             unchanged: artifacts.length
         })
-        const ensureExportMock = jest.spyOn(catalog, 'ensureDefinitionExportRecorded').mockResolvedValue({
+        const ensureExportMock = jest.spyOn(object, 'ensureDefinitionExportRecorded').mockResolvedValue({
             id: 'exp-1',
             registryId: 'reg-1',
             revisionId: 'rev-1',
@@ -802,7 +803,7 @@ describe('platformMigrations', () => {
             updatedAt: new Date().toISOString()
         })
 
-        await syncRegisteredPlatformDefinitionsToCatalog(knex, {
+        await syncRegisteredPlatformDefinitionsToObject(knex, {
             source: 'jest',
             syncCommand: 'jest-sync'
         })
@@ -815,23 +816,23 @@ describe('platformMigrations', () => {
         ensureExportMock.mockRestore()
     })
 
-    it('skips repeated catalog sync when every artifact checksum and export row already matches the registry state', async () => {
+    it('skips repeated object sync when every artifact checksum and export row already matches the registry state', async () => {
         const artifacts = exportRegisteredPlatformDefinitions()
         const manifestArtifacts = exportRegisteredSystemAppManifestDefinitions()
         const schemaPlanArtifacts = exportRegisteredSystemAppSchemaPlanDefinitions()
         const compiledArtifacts = exportRegisteredSystemAppCompiledDefinitions()
         const knex = createStructureAwareKnex({
-            catalogRows: [
-                ...createCatalogStateRows(artifacts, 'registered_platform_definitions'),
-                ...createCatalogStateRows(manifestArtifacts, 'registered_system_app_manifest_definitions'),
-                ...createCatalogStateRows(schemaPlanArtifacts, 'registered_system_app_schema_plan_definitions'),
-                ...createCatalogStateRows(compiledArtifacts, 'registered_system_app_compiled_definitions')
+            objectRows: [
+                ...createObjectStateRows(artifacts, 'registered_platform_definitions'),
+                ...createObjectStateRows(manifestArtifacts, 'registered_system_app_manifest_definitions'),
+                ...createObjectStateRows(schemaPlanArtifacts, 'registered_system_app_schema_plan_definitions'),
+                ...createObjectStateRows(compiledArtifacts, 'registered_system_app_compiled_definitions')
             ]
         })
-        const importDefinitionsMock = jest.spyOn(catalog, 'importDefinitions')
-        const ensureExportMock = jest.spyOn(catalog, 'ensureDefinitionExportRecorded')
+        const importDefinitionsMock = jest.spyOn(object, 'importDefinitions')
+        const ensureExportMock = jest.spyOn(object, 'ensureDefinitionExportRecorded')
 
-        const result = await syncRegisteredPlatformDefinitionsToCatalog(knex, {
+        const result = await syncRegisteredPlatformDefinitionsToObject(knex, {
             source: 'jest',
             syncCommand: 'jest-sync'
         })
@@ -856,21 +857,21 @@ describe('platformMigrations', () => {
             dependencies: ['platform_migration.platform_schema.admin.PrepareAdminSchemaSupport1733400000000::custom']
         }
         const knex = createStructureAwareKnex({
-            catalogRows: [
-                ...createCatalogStateRows(artifacts, 'registered_platform_definitions', {
+            objectRows: [
+                ...createObjectStateRows(artifacts, 'registered_platform_definitions', {
                     activePayloadArtifacts: [driftedPlatformArtifact, ...artifacts.slice(1)]
                 }),
-                ...createCatalogStateRows(manifestArtifacts, 'registered_system_app_manifest_definitions'),
-                ...createCatalogStateRows(schemaPlanArtifacts, 'registered_system_app_schema_plan_definitions'),
-                ...createCatalogStateRows(compiledArtifacts, 'registered_system_app_compiled_definitions')
+                ...createObjectStateRows(manifestArtifacts, 'registered_system_app_manifest_definitions'),
+                ...createObjectStateRows(schemaPlanArtifacts, 'registered_system_app_schema_plan_definitions'),
+                ...createObjectStateRows(compiledArtifacts, 'registered_system_app_compiled_definitions')
             ]
         })
-        const importDefinitionsMock = jest.spyOn(catalog, 'importDefinitions').mockResolvedValue({
+        const importDefinitionsMock = jest.spyOn(object, 'importDefinitions').mockResolvedValue({
             created: 0,
             updated: 1,
             unchanged: 0
         })
-        const ensureExportMock = jest.spyOn(catalog, 'ensureDefinitionExportRecorded').mockResolvedValue({
+        const ensureExportMock = jest.spyOn(object, 'ensureDefinitionExportRecorded').mockResolvedValue({
             id: 'exp-drift-fix',
             registryId: 'reg-drift-fix',
             revisionId: 'rev-drift-fix',
@@ -881,7 +882,7 @@ describe('platformMigrations', () => {
             updatedAt: new Date().toISOString()
         })
 
-        await syncRegisteredPlatformDefinitionsToCatalog(knex, {
+        await syncRegisteredPlatformDefinitionsToObject(knex, {
             source: 'jest',
             syncCommand: 'jest-sync'
         })
@@ -898,25 +899,25 @@ describe('platformMigrations', () => {
         const schemaPlanArtifacts = exportRegisteredSystemAppSchemaPlanDefinitions()
         const compiledArtifacts = exportRegisteredSystemAppCompiledDefinitions()
         const knex = createStructureAwareKnex({
-            catalogRows: [
-                ...createCatalogStateRows(artifacts, 'registered_platform_definitions', { includePublishedLifecycle: false }),
-                ...createCatalogStateRows(manifestArtifacts, 'registered_system_app_manifest_definitions', {
+            objectRows: [
+                ...createObjectStateRows(artifacts, 'registered_platform_definitions', { includePublishedLifecycle: false }),
+                ...createObjectStateRows(manifestArtifacts, 'registered_system_app_manifest_definitions', {
                     includePublishedLifecycle: false
                 }),
-                ...createCatalogStateRows(schemaPlanArtifacts, 'registered_system_app_schema_plan_definitions', {
+                ...createObjectStateRows(schemaPlanArtifacts, 'registered_system_app_schema_plan_definitions', {
                     includePublishedLifecycle: false
                 }),
-                ...createCatalogStateRows(compiledArtifacts, 'registered_system_app_compiled_definitions', {
+                ...createObjectStateRows(compiledArtifacts, 'registered_system_app_compiled_definitions', {
                     includePublishedLifecycle: false
                 })
             ]
         })
-        const importDefinitionsMock = jest.spyOn(catalog, 'importDefinitions').mockResolvedValue({
+        const importDefinitionsMock = jest.spyOn(object, 'importDefinitions').mockResolvedValue({
             created: 0,
             updated: 0,
             unchanged: 0
         })
-        const ensureExportMock = jest.spyOn(catalog, 'ensureDefinitionExportRecorded').mockResolvedValue({
+        const ensureExportMock = jest.spyOn(object, 'ensureDefinitionExportRecorded').mockResolvedValue({
             id: 'exp-lifecycle-fix',
             registryId: 'reg-lifecycle-fix',
             revisionId: 'rev-lifecycle-fix',
@@ -927,7 +928,7 @@ describe('platformMigrations', () => {
             updatedAt: new Date().toISOString()
         })
 
-        await syncRegisteredPlatformDefinitionsToCatalog(knex, {
+        await syncRegisteredPlatformDefinitionsToObject(knex, {
             source: 'jest',
             syncCommand: 'jest-sync'
         })
@@ -939,14 +940,14 @@ describe('platformMigrations', () => {
 
     it('fails sync when legacy fixed schema tables still exist', async () => {
         const knex = createStructureAwareKnex({ legacyRows: [{ table_schema: 'admin', table_name: 'roles' }] })
-        const importDefinitionsMock = jest.spyOn(catalog, 'importDefinitions')
+        const importDefinitionsMock = jest.spyOn(object, 'importDefinitions')
 
         await expect(
-            syncRegisteredPlatformDefinitionsToCatalog(knex, {
+            syncRegisteredPlatformDefinitionsToObject(knex, {
                 source: 'jest',
                 syncCommand: 'jest-sync'
             })
-        ).rejects.toThrow('Legacy fixed schema tables remain after reconciliation: admin.roles must be reconciled to admin.cat_roles')
+        ).rejects.toThrow('Legacy fixed schema tables remain after reconciliation: admin.roles must be reconciled to admin.obj_roles')
 
         expect(importDefinitionsMock).not.toHaveBeenCalled()
         importDefinitionsMock.mockRestore()
@@ -960,10 +961,10 @@ describe('platformMigrations', () => {
                 attributeCodename: 'nickname'
             }
         })
-        const importDefinitionsMock = jest.spyOn(catalog, 'importDefinitions')
+        const importDefinitionsMock = jest.spyOn(object, 'importDefinitions')
 
         await expect(
-            syncRegisteredPlatformDefinitionsToCatalog(knex, {
+            syncRegisteredPlatformDefinitionsToObject(knex, {
                 source: 'jest',
                 syncCommand: 'jest-sync'
             })
@@ -973,11 +974,11 @@ describe('platformMigrations', () => {
         importDefinitionsMock.mockRestore()
     })
 
-    it('rejects imported bundles with checksum mismatches before catalog import', async () => {
+    it('rejects imported bundles with checksum mismatches before object import', async () => {
         const tempDir = await mkdtemp(join(tmpdir(), 'platform-import-'))
         const tempFile = join(tempDir, 'definitions.json')
         const artifact = exportRegisteredPlatformDefinitions()[0]
-        const importDefinitionsMock = jest.spyOn(catalog, 'importDefinitions')
+        const importDefinitionsMock = jest.spyOn(object, 'importDefinitions')
 
         await writeFile(
             tempFile,
@@ -1001,7 +1002,7 @@ describe('platformMigrations', () => {
         const tempDir = await mkdtemp(join(tmpdir(), 'platform-import-bundle-'))
         const tempFile = join(tempDir, 'definitions.json')
         const bundle = exportRegisteredPlatformDefinitionBundle()
-        const importDefinitionBundleMock = jest.spyOn(catalog, 'importDefinitionBundle').mockResolvedValue({
+        const importDefinitionBundleMock = jest.spyOn(object, 'importDefinitionBundle').mockResolvedValue({
             created: bundle.artifacts.length,
             updated: 0,
             unchanged: 0
@@ -1037,7 +1038,7 @@ describe('platformMigrations', () => {
         const tempDir = await mkdtemp(join(tmpdir(), 'system-app-manifest-import-bundle-'))
         const tempFile = join(tempDir, 'definitions.json')
         const bundle = exportRegisteredSystemAppManifestDefinitionBundle()
-        const importDefinitionBundleMock = jest.spyOn(catalog, 'importDefinitionBundle').mockResolvedValue({
+        const importDefinitionBundleMock = jest.spyOn(object, 'importDefinitionBundle').mockResolvedValue({
             created: bundle.artifacts.length,
             updated: 0,
             unchanged: 0
@@ -1073,7 +1074,7 @@ describe('platformMigrations', () => {
         const tempDir = await mkdtemp(join(tmpdir(), 'system-app-schema-plan-import-bundle-'))
         const tempFile = join(tempDir, 'definitions.json')
         const bundle = exportRegisteredSystemAppSchemaPlanDefinitionBundle()
-        const importDefinitionBundleMock = jest.spyOn(catalog, 'importDefinitionBundle').mockResolvedValue({
+        const importDefinitionBundleMock = jest.spyOn(object, 'importDefinitionBundle').mockResolvedValue({
             created: bundle.artifacts.length,
             updated: 0,
             unchanged: 0
@@ -1109,7 +1110,7 @@ describe('platformMigrations', () => {
         const tempDir = await mkdtemp(join(tmpdir(), 'system-app-compiled-import-bundle-'))
         const tempFile = join(tempDir, 'definitions.json')
         const bundle = exportRegisteredSystemAppCompiledDefinitionBundle()
-        const importDefinitionBundleMock = jest.spyOn(catalog, 'importDefinitionBundle').mockResolvedValue({
+        const importDefinitionBundleMock = jest.spyOn(object, 'importDefinitionBundle').mockResolvedValue({
             created: bundle.artifacts.length,
             updated: 0,
             unchanged: 0
@@ -1160,11 +1161,11 @@ describe('platformMigrations', () => {
         await rm(tempDir, { recursive: true, force: true })
     })
 
-    it('exports catalog definitions through the canonical bundle contract', async () => {
-        const storageReadyMock = jest.spyOn(catalog.PlatformMigrationCatalog.prototype, 'isStorageReady').mockResolvedValue(true)
-        const exportBundleMock = jest.spyOn(catalog, 'exportDefinitionBundle').mockResolvedValue(exportRegisteredPlatformDefinitionBundle())
+    it('exports object definitions through the canonical bundle contract', async () => {
+        const storageReadyMock = jest.spyOn(object.PlatformMigrationCatalog.prototype, 'isStorageReady').mockResolvedValue(true)
+        const exportBundleMock = jest.spyOn(object, 'exportDefinitionBundle').mockResolvedValue(exportRegisteredPlatformDefinitionBundle())
         const getDefinitionByLogicalKeyMock = jest
-            .spyOn(catalog, 'getDefinitionByLogicalKey')
+            .spyOn(object, 'getDefinitionByLogicalKey')
             .mockImplementation(async (_knex, logicalKey) => ({
                 id: `registry:${logicalKey}`,
                 logicalKey,
@@ -1175,7 +1176,7 @@ describe('platformMigrations', () => {
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             }))
-        const getActiveRevisionMock = jest.spyOn(catalog, 'getActiveRevision').mockImplementation(async (_knex, registryId) => ({
+        const getActiveRevisionMock = jest.spyOn(object, 'getActiveRevision').mockImplementation(async (_knex, registryId) => ({
             id: `active:${registryId}`,
             registryId,
             revisionStatus: 'published',
@@ -1185,7 +1186,7 @@ describe('platformMigrations', () => {
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         }))
-        const ensureExportMock = jest.spyOn(catalog, 'ensureDefinitionExportRecorded').mockResolvedValue({
+        const ensureExportMock = jest.spyOn(object, 'ensureDefinitionExportRecorded').mockResolvedValue({
             id: 'exp-bundle',
             registryId: 'reg-bundle',
             revisionId: 'rev-bundle',
@@ -1196,7 +1197,7 @@ describe('platformMigrations', () => {
             updatedAt: new Date().toISOString()
         })
 
-        const bundle = await exportCatalogPlatformDefinitionBundle({} as never, 'stdout')
+        const bundle = await exportObjectPlatformDefinitionBundle({} as never, 'stdout')
 
         expect(bundle.kind).toBe('definition_bundle')
         expect(exportBundleMock).toHaveBeenCalledTimes(1)
@@ -1209,13 +1210,13 @@ describe('platformMigrations', () => {
         ensureExportMock.mockRestore()
     })
 
-    it('exports catalog system app manifests through the canonical bundle contract', async () => {
-        const storageReadyMock = jest.spyOn(catalog.PlatformMigrationCatalog.prototype, 'isStorageReady').mockResolvedValue(true)
+    it('exports object system app manifests through the canonical bundle contract', async () => {
+        const storageReadyMock = jest.spyOn(object.PlatformMigrationCatalog.prototype, 'isStorageReady').mockResolvedValue(true)
         const exportBundleMock = jest
-            .spyOn(catalog, 'exportDefinitionBundle')
+            .spyOn(object, 'exportDefinitionBundle')
             .mockResolvedValue(exportRegisteredSystemAppManifestDefinitionBundle())
         const getDefinitionByLogicalKeyMock = jest
-            .spyOn(catalog, 'getDefinitionByLogicalKey')
+            .spyOn(object, 'getDefinitionByLogicalKey')
             .mockImplementation(async (_knex, logicalKey) => ({
                 id: `registry:${logicalKey}`,
                 logicalKey,
@@ -1226,7 +1227,7 @@ describe('platformMigrations', () => {
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             }))
-        const getActiveRevisionMock = jest.spyOn(catalog, 'getActiveRevision').mockImplementation(async (_knex, registryId) => ({
+        const getActiveRevisionMock = jest.spyOn(object, 'getActiveRevision').mockImplementation(async (_knex, registryId) => ({
             id: `active:${registryId}`,
             registryId,
             revisionStatus: 'published',
@@ -1236,7 +1237,7 @@ describe('platformMigrations', () => {
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         }))
-        const ensureExportMock = jest.spyOn(catalog, 'ensureDefinitionExportRecorded').mockResolvedValue({
+        const ensureExportMock = jest.spyOn(object, 'ensureDefinitionExportRecorded').mockResolvedValue({
             id: 'exp-manifest-bundle',
             registryId: 'reg-manifest-bundle',
             revisionId: 'rev-manifest-bundle',
@@ -1247,7 +1248,7 @@ describe('platformMigrations', () => {
             updatedAt: new Date().toISOString()
         })
 
-        const bundle = await exportCatalogSystemAppManifestDefinitionBundle({} as never, 'stdout')
+        const bundle = await exportObjectSystemAppManifestDefinitionBundle({} as never, 'stdout')
 
         expect(bundle.kind).toBe('definition_bundle')
         expect(exportBundleMock).toHaveBeenCalledTimes(1)
@@ -1260,13 +1261,13 @@ describe('platformMigrations', () => {
         ensureExportMock.mockRestore()
     })
 
-    it('exports catalog system app schema plans through the canonical bundle contract', async () => {
-        const storageReadyMock = jest.spyOn(catalog.PlatformMigrationCatalog.prototype, 'isStorageReady').mockResolvedValue(true)
+    it('exports object system app schema plans through the canonical bundle contract', async () => {
+        const storageReadyMock = jest.spyOn(object.PlatformMigrationCatalog.prototype, 'isStorageReady').mockResolvedValue(true)
         const exportBundleMock = jest
-            .spyOn(catalog, 'exportDefinitionBundle')
+            .spyOn(object, 'exportDefinitionBundle')
             .mockResolvedValue(exportRegisteredSystemAppSchemaPlanDefinitionBundle())
         const getDefinitionByLogicalKeyMock = jest
-            .spyOn(catalog, 'getDefinitionByLogicalKey')
+            .spyOn(object, 'getDefinitionByLogicalKey')
             .mockImplementation(async (_knex, logicalKey) => ({
                 id: `registry:${logicalKey}`,
                 logicalKey,
@@ -1277,7 +1278,7 @@ describe('platformMigrations', () => {
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             }))
-        const getActiveRevisionMock = jest.spyOn(catalog, 'getActiveRevision').mockImplementation(async (_knex, registryId) => ({
+        const getActiveRevisionMock = jest.spyOn(object, 'getActiveRevision').mockImplementation(async (_knex, registryId) => ({
             id: `active:${registryId}`,
             registryId,
             revisionStatus: 'published',
@@ -1287,7 +1288,7 @@ describe('platformMigrations', () => {
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         }))
-        const ensureExportMock = jest.spyOn(catalog, 'ensureDefinitionExportRecorded').mockResolvedValue({
+        const ensureExportMock = jest.spyOn(object, 'ensureDefinitionExportRecorded').mockResolvedValue({
             id: 'exp-schema-plan-bundle',
             registryId: 'reg-schema-plan-bundle',
             revisionId: 'rev-schema-plan-bundle',
@@ -1298,7 +1299,7 @@ describe('platformMigrations', () => {
             updatedAt: new Date().toISOString()
         })
 
-        const bundle = await exportCatalogSystemAppSchemaPlanDefinitionBundle({} as never, 'stdout')
+        const bundle = await exportObjectSystemAppSchemaPlanDefinitionBundle({} as never, 'stdout')
 
         expect(bundle.kind).toBe('definition_bundle')
         expect(exportBundleMock).toHaveBeenCalledTimes(1)
@@ -1311,13 +1312,13 @@ describe('platformMigrations', () => {
         ensureExportMock.mockRestore()
     })
 
-    it('exports catalog compiled system app artifacts through the canonical bundle contract', async () => {
-        const storageReadyMock = jest.spyOn(catalog.PlatformMigrationCatalog.prototype, 'isStorageReady').mockResolvedValue(true)
+    it('exports object compiled system app artifacts through the canonical bundle contract', async () => {
+        const storageReadyMock = jest.spyOn(object.PlatformMigrationCatalog.prototype, 'isStorageReady').mockResolvedValue(true)
         const exportBundleMock = jest
-            .spyOn(catalog, 'exportDefinitionBundle')
+            .spyOn(object, 'exportDefinitionBundle')
             .mockResolvedValue(exportRegisteredSystemAppCompiledDefinitionBundle())
         const getDefinitionByLogicalKeyMock = jest
-            .spyOn(catalog, 'getDefinitionByLogicalKey')
+            .spyOn(object, 'getDefinitionByLogicalKey')
             .mockImplementation(async (_knex, logicalKey) => ({
                 id: `registry:${logicalKey}`,
                 logicalKey,
@@ -1328,7 +1329,7 @@ describe('platformMigrations', () => {
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             }))
-        const getActiveRevisionMock = jest.spyOn(catalog, 'getActiveRevision').mockImplementation(async (_knex, registryId) => ({
+        const getActiveRevisionMock = jest.spyOn(object, 'getActiveRevision').mockImplementation(async (_knex, registryId) => ({
             id: `active:${registryId}`,
             registryId,
             revisionStatus: 'published',
@@ -1338,7 +1339,7 @@ describe('platformMigrations', () => {
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         }))
-        const ensureExportMock = jest.spyOn(catalog, 'ensureDefinitionExportRecorded').mockResolvedValue({
+        const ensureExportMock = jest.spyOn(object, 'ensureDefinitionExportRecorded').mockResolvedValue({
             id: 'exp-compiled-bundle',
             registryId: 'reg-compiled-bundle',
             revisionId: 'rev-compiled-bundle',
@@ -1349,7 +1350,7 @@ describe('platformMigrations', () => {
             updatedAt: new Date().toISOString()
         })
 
-        const bundle = await exportCatalogSystemAppCompiledDefinitionBundle({} as never, 'stdout')
+        const bundle = await exportObjectSystemAppCompiledDefinitionBundle({} as never, 'stdout')
 
         expect(bundle.kind).toBe('definition_bundle')
         expect(exportBundleMock).toHaveBeenCalledTimes(1)
@@ -1362,11 +1363,11 @@ describe('platformMigrations', () => {
         ensureExportMock.mockRestore()
     })
 
-    it('diffs registered system app manifests against the catalog export', async () => {
+    it('diffs registered system app manifests against the object export', async () => {
         const desiredArtifacts = exportRegisteredSystemAppManifestDefinitions()
-        const storageReadyMock = jest.spyOn(catalog.PlatformMigrationCatalog.prototype, 'isStorageReady').mockResolvedValue(true)
+        const storageReadyMock = jest.spyOn(object.PlatformMigrationCatalog.prototype, 'isStorageReady').mockResolvedValue(true)
         const exportDefinitionsMock = jest
-            .spyOn(catalog, 'exportDefinitions')
+            .spyOn(object, 'exportDefinitions')
             .mockResolvedValue([{ ...desiredArtifacts[0], checksum: 'changed' }, desiredArtifacts[1]])
 
         const result = await diffRegisteredSystemAppManifestDefinitions({} as never)
@@ -1387,11 +1388,11 @@ describe('platformMigrations', () => {
         exportDefinitionsMock.mockRestore()
     })
 
-    it('diffs registered system app schema plans against the catalog export', async () => {
+    it('diffs registered system app schema plans against the object export', async () => {
         const desiredArtifacts = exportRegisteredSystemAppSchemaPlanDefinitions()
-        const storageReadyMock = jest.spyOn(catalog.PlatformMigrationCatalog.prototype, 'isStorageReady').mockResolvedValue(true)
+        const storageReadyMock = jest.spyOn(object.PlatformMigrationCatalog.prototype, 'isStorageReady').mockResolvedValue(true)
         const exportDefinitionsMock = jest
-            .spyOn(catalog, 'exportDefinitions')
+            .spyOn(object, 'exportDefinitions')
             .mockResolvedValue([{ ...desiredArtifacts[0], checksum: 'changed' }, desiredArtifacts[1]])
 
         const result = await diffRegisteredSystemAppSchemaPlanDefinitions({} as never)
@@ -1412,11 +1413,11 @@ describe('platformMigrations', () => {
         exportDefinitionsMock.mockRestore()
     })
 
-    it('diffs registered compiled system app artifacts against the catalog export', async () => {
+    it('diffs registered compiled system app artifacts against the object export', async () => {
         const desiredArtifacts = exportRegisteredSystemAppCompiledDefinitions()
-        const storageReadyMock = jest.spyOn(catalog.PlatformMigrationCatalog.prototype, 'isStorageReady').mockResolvedValue(true)
+        const storageReadyMock = jest.spyOn(object.PlatformMigrationCatalog.prototype, 'isStorageReady').mockResolvedValue(true)
         const exportDefinitionsMock = jest
-            .spyOn(catalog, 'exportDefinitions')
+            .spyOn(object, 'exportDefinitions')
             .mockResolvedValue([{ ...desiredArtifacts[0], checksum: 'changed' }, desiredArtifacts[1]])
 
         const result = await diffRegisteredSystemAppCompiledDefinitions({} as never)
@@ -1437,12 +1438,12 @@ describe('platformMigrations', () => {
         exportDefinitionsMock.mockRestore()
     })
 
-    it('records catalog exports idempotently for repeated compiled system app artifact targets', async () => {
+    it('records object exports idempotently for repeated compiled system app artifact targets', async () => {
         const artifacts = exportRegisteredSystemAppCompiledDefinitions().slice(0, 2)
-        const storageReadyMock = jest.spyOn(catalog.PlatformMigrationCatalog.prototype, 'isStorageReady').mockResolvedValue(true)
-        const exportDefinitionsMock = jest.spyOn(catalog, 'exportDefinitions').mockResolvedValue(artifacts)
+        const storageReadyMock = jest.spyOn(object.PlatformMigrationCatalog.prototype, 'isStorageReady').mockResolvedValue(true)
+        const exportDefinitionsMock = jest.spyOn(object, 'exportDefinitions').mockResolvedValue(artifacts)
         const getDefinitionByLogicalKeyMock = jest
-            .spyOn(catalog, 'getDefinitionByLogicalKey')
+            .spyOn(object, 'getDefinitionByLogicalKey')
             .mockImplementation(async (_knex, logicalKey) => ({
                 id: `registry:${logicalKey}`,
                 logicalKey,
@@ -1453,7 +1454,7 @@ describe('platformMigrations', () => {
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             }))
-        const getActiveRevisionMock = jest.spyOn(catalog, 'getActiveRevision').mockImplementation(async (_knex, registryId) => ({
+        const getActiveRevisionMock = jest.spyOn(object, 'getActiveRevision').mockImplementation(async (_knex, registryId) => ({
             id: `active:${registryId}`,
             registryId,
             revisionStatus: 'published',
@@ -1463,7 +1464,7 @@ describe('platformMigrations', () => {
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         }))
-        const ensureExportMock = jest.spyOn(catalog, 'ensureDefinitionExportRecorded').mockResolvedValue({
+        const ensureExportMock = jest.spyOn(object, 'ensureDefinitionExportRecorded').mockResolvedValue({
             id: 'exp-1',
             registryId: 'reg-1',
             revisionId: 'rev-1',
@@ -1473,10 +1474,10 @@ describe('platformMigrations', () => {
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         })
-        const recordExportMock = jest.spyOn(catalog, 'recordDefinitionExport')
+        const recordExportMock = jest.spyOn(object, 'recordDefinitionExport')
 
-        await exportCatalogSystemAppCompiledDefinitions({} as never, 'stdout')
-        await exportCatalogSystemAppCompiledDefinitions({} as never, 'stdout')
+        await exportObjectSystemAppCompiledDefinitions({} as never, 'stdout')
+        await exportObjectSystemAppCompiledDefinitions({} as never, 'stdout')
 
         expect(ensureExportMock).toHaveBeenCalledTimes(artifacts.length * 2)
         expect(recordExportMock).not.toHaveBeenCalled()
@@ -1489,12 +1490,12 @@ describe('platformMigrations', () => {
         recordExportMock.mockRestore()
     })
 
-    it('records catalog exports idempotently for repeated system app manifest targets', async () => {
+    it('records object exports idempotently for repeated system app manifest targets', async () => {
         const artifacts = exportRegisteredSystemAppManifestDefinitions().slice(0, 2)
-        const storageReadyMock = jest.spyOn(catalog.PlatformMigrationCatalog.prototype, 'isStorageReady').mockResolvedValue(true)
-        const exportDefinitionsMock = jest.spyOn(catalog, 'exportDefinitions').mockResolvedValue(artifacts)
+        const storageReadyMock = jest.spyOn(object.PlatformMigrationCatalog.prototype, 'isStorageReady').mockResolvedValue(true)
+        const exportDefinitionsMock = jest.spyOn(object, 'exportDefinitions').mockResolvedValue(artifacts)
         const getDefinitionByLogicalKeyMock = jest
-            .spyOn(catalog, 'getDefinitionByLogicalKey')
+            .spyOn(object, 'getDefinitionByLogicalKey')
             .mockImplementation(async (_knex, logicalKey) => ({
                 id: `registry:${logicalKey}`,
                 logicalKey,
@@ -1505,7 +1506,7 @@ describe('platformMigrations', () => {
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             }))
-        const getActiveRevisionMock = jest.spyOn(catalog, 'getActiveRevision').mockImplementation(async (_knex, registryId) => ({
+        const getActiveRevisionMock = jest.spyOn(object, 'getActiveRevision').mockImplementation(async (_knex, registryId) => ({
             id: `active:${registryId}`,
             registryId,
             revisionStatus: 'published',
@@ -1515,7 +1516,7 @@ describe('platformMigrations', () => {
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         }))
-        const ensureExportMock = jest.spyOn(catalog, 'ensureDefinitionExportRecorded').mockResolvedValue({
+        const ensureExportMock = jest.spyOn(object, 'ensureDefinitionExportRecorded').mockResolvedValue({
             id: 'exp-1',
             registryId: 'reg-1',
             revisionId: 'rev-1',
@@ -1525,10 +1526,10 @@ describe('platformMigrations', () => {
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         })
-        const recordExportMock = jest.spyOn(catalog, 'recordDefinitionExport')
+        const recordExportMock = jest.spyOn(object, 'recordDefinitionExport')
 
-        await exportCatalogSystemAppManifestDefinitions({} as never, 'stdout')
-        await exportCatalogSystemAppManifestDefinitions({} as never, 'stdout')
+        await exportObjectSystemAppManifestDefinitions({} as never, 'stdout')
+        await exportObjectSystemAppManifestDefinitions({} as never, 'stdout')
 
         expect(ensureExportMock).toHaveBeenCalledTimes(artifacts.length * 2)
         expect(recordExportMock).not.toHaveBeenCalled()
@@ -1545,7 +1546,7 @@ describe('platformMigrations', () => {
         const tempDir = await mkdtemp(join(tmpdir(), 'platform-import-'))
         const tempFile = join(tempDir, 'definitions.json')
         const artifact = exportRegisteredPlatformDefinitions()[0]
-        const importDefinitionsMock = jest.spyOn(catalog, 'importDefinitions')
+        const importDefinitionsMock = jest.spyOn(object, 'importDefinitions')
 
         await writeFile(
             tempFile,
@@ -1568,11 +1569,11 @@ describe('platformMigrations', () => {
     })
 
     it('combines validation, lint, and diff in doctor output', async () => {
-        const storageReadyMock = jest.spyOn(catalog.PlatformMigrationCatalog.prototype, 'isStorageReady').mockResolvedValue(true)
-        const exportDefinitionsMock = jest.spyOn(catalog, 'exportDefinitions').mockResolvedValue([])
-        const getDefinitionByLogicalKeyMock = jest.spyOn(catalog, 'getDefinitionByLogicalKey').mockResolvedValue(null)
-        const listExportsMock = jest.spyOn(catalog, 'listDefinitionExports').mockResolvedValue([])
-        const getActiveRevisionMock = jest.spyOn(catalog, 'getActiveRevision').mockResolvedValue(null)
+        const storageReadyMock = jest.spyOn(object.PlatformMigrationCatalog.prototype, 'isStorageReady').mockResolvedValue(true)
+        const exportDefinitionsMock = jest.spyOn(object, 'exportDefinitions').mockResolvedValue([])
+        const getDefinitionByLogicalKeyMock = jest.spyOn(object, 'getDefinitionByLogicalKey').mockResolvedValue(null)
+        const listExportsMock = jest.spyOn(object, 'listDefinitionExports').mockResolvedValue([])
+        const getActiveRevisionMock = jest.spyOn(object, 'getActiveRevision').mockResolvedValue(null)
         const qb: Record<string, jest.Mock> = {
             where: jest.fn(() => qb),
             orderBy: jest.fn(() => qb),
@@ -1606,18 +1607,18 @@ describe('platformMigrations', () => {
         expect(Array.isArray(doctor.systemAppSchemaPlanDiff)).toBe(true)
         expect(Array.isArray(doctor.systemAppCompiledDiff)).toBe(true)
         expect(doctor.migrationPlan.dryRun).toBe(true)
-        expect(doctor.catalogLifecycle.ok).toBe(false)
-        expect(doctor.systemAppManifestCatalogLifecycle.ok).toBe(false)
-        expect(doctor.systemAppSchemaPlanCatalogLifecycle.ok).toBe(false)
-        expect(doctor.systemAppCompiledCatalogLifecycle.ok).toBe(false)
-        expect(Array.isArray(doctor.catalogLifecycle.missingRegistryKeys)).toBe(true)
-        expect(Array.isArray(doctor.catalogLifecycle.missingPublishedLifecycleKeys)).toBe(true)
-        expect(Array.isArray(doctor.systemAppManifestCatalogLifecycle.missingRegistryKeys)).toBe(true)
-        expect(Array.isArray(doctor.systemAppManifestCatalogLifecycle.missingPublishedLifecycleKeys)).toBe(true)
-        expect(Array.isArray(doctor.systemAppSchemaPlanCatalogLifecycle.missingRegistryKeys)).toBe(true)
-        expect(Array.isArray(doctor.systemAppSchemaPlanCatalogLifecycle.missingPublishedLifecycleKeys)).toBe(true)
-        expect(Array.isArray(doctor.systemAppCompiledCatalogLifecycle.missingRegistryKeys)).toBe(true)
-        expect(Array.isArray(doctor.systemAppCompiledCatalogLifecycle.missingPublishedLifecycleKeys)).toBe(true)
+        expect(doctor.objectLifecycle.ok).toBe(false)
+        expect(doctor.systemAppManifestObjectLifecycle.ok).toBe(false)
+        expect(doctor.systemAppSchemaPlanObjectLifecycle.ok).toBe(false)
+        expect(doctor.systemAppCompiledObjectLifecycle.ok).toBe(false)
+        expect(Array.isArray(doctor.objectLifecycle.missingRegistryKeys)).toBe(true)
+        expect(Array.isArray(doctor.objectLifecycle.missingPublishedLifecycleKeys)).toBe(true)
+        expect(Array.isArray(doctor.systemAppManifestObjectLifecycle.missingRegistryKeys)).toBe(true)
+        expect(Array.isArray(doctor.systemAppManifestObjectLifecycle.missingPublishedLifecycleKeys)).toBe(true)
+        expect(Array.isArray(doctor.systemAppSchemaPlanObjectLifecycle.missingRegistryKeys)).toBe(true)
+        expect(Array.isArray(doctor.systemAppSchemaPlanObjectLifecycle.missingPublishedLifecycleKeys)).toBe(true)
+        expect(Array.isArray(doctor.systemAppCompiledObjectLifecycle.missingRegistryKeys)).toBe(true)
+        expect(Array.isArray(doctor.systemAppCompiledObjectLifecycle.missingPublishedLifecycleKeys)).toBe(true)
 
         storageReadyMock.mockRestore()
         exportDefinitionsMock.mockRestore()
@@ -1627,10 +1628,10 @@ describe('platformMigrations', () => {
     })
 
     it('treats any active-revision export record as healthy in doctor lifecycle checks', async () => {
-        const storageReadyMock = jest.spyOn(catalog.PlatformMigrationCatalog.prototype, 'isStorageReady').mockResolvedValue(true)
-        const exportDefinitionsMock = jest.spyOn(catalog, 'exportDefinitions').mockResolvedValue([])
+        const storageReadyMock = jest.spyOn(object.PlatformMigrationCatalog.prototype, 'isStorageReady').mockResolvedValue(true)
+        const exportDefinitionsMock = jest.spyOn(object, 'exportDefinitions').mockResolvedValue([])
         const getDefinitionByLogicalKeyMock = jest
-            .spyOn(catalog, 'getDefinitionByLogicalKey')
+            .spyOn(object, 'getDefinitionByLogicalKey')
             .mockImplementation(async (_knex, logicalKey) => ({
                 id: `registry:${logicalKey}`,
                 logicalKey,
@@ -1641,7 +1642,7 @@ describe('platformMigrations', () => {
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             }))
-        const getActiveRevisionMock = jest.spyOn(catalog, 'getActiveRevision').mockImplementation(async (_knex, registryId) => ({
+        const getActiveRevisionMock = jest.spyOn(object, 'getActiveRevision').mockImplementation(async (_knex, registryId) => ({
             id: `active:${registryId}`,
             registryId,
             revisionStatus: 'published',
@@ -1655,7 +1656,7 @@ describe('platformMigrations', () => {
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         }))
-        const listExportsMock = jest.spyOn(catalog, 'listDefinitionExports').mockResolvedValue([
+        const listExportsMock = jest.spyOn(object, 'listDefinitionExports').mockResolvedValue([
             {
                 id: 'exp-1',
                 registryId: 'registry-1',
@@ -1682,11 +1683,11 @@ describe('platformMigrations', () => {
 
         const doctor = await doctorRegisteredPlatformState(knex as never)
 
-        expect(doctor.catalogLifecycle.ok).toBe(true)
-        expect(doctor.systemAppManifestCatalogLifecycle.ok).toBe(true)
-        expect(doctor.systemAppSchemaPlanCatalogLifecycle.ok).toBe(true)
-        expect(doctor.systemAppCompiledCatalogLifecycle.ok).toBe(true)
-        expect(doctor.catalogLifecycle.exportTarget).toBe('any-active-revision-export')
+        expect(doctor.objectLifecycle.ok).toBe(true)
+        expect(doctor.systemAppManifestObjectLifecycle.ok).toBe(true)
+        expect(doctor.systemAppSchemaPlanObjectLifecycle.ok).toBe(true)
+        expect(doctor.systemAppCompiledObjectLifecycle.ok).toBe(true)
+        expect(doctor.objectLifecycle.exportTarget).toBe('any-active-revision-export')
         expect(listExportsMock).toHaveBeenCalled()
 
         storageReadyMock.mockRestore()

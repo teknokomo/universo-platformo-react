@@ -225,10 +225,10 @@ const normalizeOverviewCardsConfig = (config: Record<string, unknown>): Record<s
             const params = readOverviewCardDatasourceParams(card)
             const sectionId = normalizeDatasourceText(params.sectionId).trim()
             const sectionCodename = normalizeDatasourceText(params.sectionCodename).trim()
-            const linkedCollectionId = normalizeDatasourceText(params.linkedCollectionId).trim()
-            const linkedCollectionCodename = normalizeDatasourceText(params.linkedCollectionCodename).trim()
+            const objectCollectionId = normalizeDatasourceText(params.objectCollectionId).trim()
+            const objectCollectionCodename = normalizeDatasourceText(params.objectCollectionCodename).trim()
             const search = normalizeDatasourceText(params.search).trim()
-            const hasDatasource = Boolean(sectionId || sectionCodename || linkedCollectionId || linkedCollectionCodename || search)
+            const hasDatasource = Boolean(sectionId || sectionCodename || objectCollectionId || objectCollectionCodename || search)
             const next: Record<string, unknown> = {
                 ...(title ? { title } : {}),
                 ...(value ? { value } : {}),
@@ -246,8 +246,8 @@ const normalizeOverviewCardsConfig = (config: Record<string, unknown>): Record<s
                     params: {
                         ...(sectionId ? { sectionId } : {}),
                         ...(sectionCodename ? { sectionCodename } : {}),
-                        ...(linkedCollectionId ? { linkedCollectionId } : {}),
-                        ...(linkedCollectionCodename ? { linkedCollectionCodename } : {}),
+                        ...(objectCollectionId ? { objectCollectionId } : {}),
+                        ...(objectCollectionCodename ? { objectCollectionCodename } : {}),
                         ...(search ? { search } : {})
                     }
                 }

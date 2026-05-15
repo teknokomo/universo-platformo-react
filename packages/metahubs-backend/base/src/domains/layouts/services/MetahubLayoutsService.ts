@@ -5,7 +5,7 @@ import { qSchemaTable } from '@universo/database'
 import {
     DASHBOARD_LAYOUT_WIDGETS,
     DASHBOARD_LAYOUT_ZONES,
-    isEnabledComponentConfig,
+    isEnabledCapabilityConfig,
     type DashboardLayoutWidgetKey,
     type DashboardLayoutZone,
     resolveSharedBehavior,
@@ -106,7 +106,7 @@ type LayoutWidgetOverrideDbRow = {
 type ScopeEntityComponentRow = {
     id: string
     kind: string
-    components?: unknown
+    capabilities?: unknown
 }
 
 type LayoutCapableScopeEntityRow = ScopeEntityComponentRow & {
@@ -353,7 +353,7 @@ export class MetahubLayoutsService {
         const tt = qSchemaTable(schemaName, '_mhb_entity_type_definitions')
         const entityRow = await queryOne<ScopeEntityComponentRow>(
             db,
-            `SELECT o.id, o.kind, t.components
+            `SELECT o.id, o.kind, t.capabilities
                FROM ${ot} o
                JOIN ${tt} t
                  ON t.kind_key = o.kind
@@ -370,9 +370,9 @@ export class MetahubLayoutsService {
             throw new MetahubNotFoundError('Entity', scopeEntityId)
         }
 
-        const components =
-            entityRow.components && typeof entityRow.components === 'object' ? (entityRow.components as Record<string, unknown>) : {}
-        if (!isEnabledComponentConfig(components.layoutConfig as Parameters<typeof isEnabledComponentConfig>[0])) {
+        const capabilities =
+            entityRow.capabilities && typeof entityRow.capabilities === 'object' ? (entityRow.capabilities as Record<string, unknown>) : {}
+        if (!isEnabledCapabilityConfig(capabilities.layoutConfig as Parameters<typeof isEnabledCapabilityConfig>[0])) {
             throw new MetahubValidationError(`Entity "${entityRow.kind}" does not support custom layouts`)
         }
     }
@@ -940,7 +940,7 @@ export class MetahubLayoutsService {
 
         const scopeRows = await queryMany<LayoutCapableScopeEntityRow>(
             this.exec,
-            `SELECT o.id, o.kind, o.codename, o.presentation, o.config, t.components
+            `SELECT o.id, o.kind, o.codename, o.presentation, o.config, t.capabilities
                FROM ${ot} o
                JOIN ${tt} t
                  ON t.kind_key = o.kind
@@ -952,8 +952,9 @@ export class MetahubLayoutsService {
             []
         )
         const layoutCapableScopes = scopeRows.filter((row) => {
-            const components = row.components && typeof row.components === 'object' ? (row.components as Record<string, unknown>) : {}
-            return isEnabledComponentConfig(components.layoutConfig as Parameters<typeof isEnabledComponentConfig>[0])
+            const capabilities =
+                row.capabilities && typeof row.capabilities === 'object' ? (row.capabilities as Record<string, unknown>) : {}
+            return isEnabledCapabilityConfig(capabilities.layoutConfig as Parameters<typeof isEnabledCapabilityConfig>[0])
         })
 
         if (layoutCapableScopes.length === 0) {

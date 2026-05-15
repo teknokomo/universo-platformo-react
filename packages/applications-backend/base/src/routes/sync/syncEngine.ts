@@ -15,7 +15,7 @@ import {
     type SchemaSnapshot,
     type EntityDefinition
 } from '@universo/schema-ddl'
-import { ApplicationSchemaStatus, FieldDefinitionDataType, type ApplicationLayoutSyncResolution } from '@universo/types'
+import { ApplicationSchemaStatus, ComponentDefinitionDataType, type ApplicationLayoutSyncResolution } from '@universo/types'
 import type { DbExecutor } from '@universo/utils'
 import { updateApplicationSyncFields } from '../../persistence/applicationsStore'
 import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
@@ -651,16 +651,16 @@ export function buildPreviewLabelMaps(
     entities: EntityDefinition[],
     snapshot: PublishedApplicationSnapshot
 ): {
-    catalogElementLabels: Map<string, Map<string, string>>
+    objectElementLabels: Map<string, Map<string, string>>
     enumerationValueLabels: Map<string, Map<string, string>>
 } {
     const entityMap = new Map(entities.map((entity) => [entity.id, entity]))
-    const catalogElementLabels = new Map<string, Map<string, string>>()
+    const objectElementLabels = new Map<string, Map<string, string>>()
     const enumerationValueLabels = new Map<string, Map<string, string>>()
 
     for (const [objectId, rawElements] of Object.entries(snapshot.elements ?? {})) {
         const entity = entityMap.get(objectId)
-        if (!entity || entity.kind !== 'catalog') continue
+        if (!entity || entity.kind !== 'object') continue
 
         const labels = new Map<string, string>()
         for (const rawElement of rawElements ?? []) {
@@ -673,7 +673,7 @@ export function buildPreviewLabelMaps(
             }
         }
         if (labels.size > 0) {
-            catalogElementLabels.set(objectId, labels)
+            objectElementLabels.set(objectId, labels)
         }
     }
 
@@ -694,7 +694,7 @@ export function buildPreviewLabelMaps(
         }
     }
 
-    return { catalogElementLabels, enumerationValueLabels }
+    return { objectElementLabels, enumerationValueLabels }
 }
 
 // --- Diff builders ---
@@ -705,8 +705,8 @@ export function buildCreateTableDetails(options: {
     includeEntityIds?: Set<string>
 }): DiffTableDetails[] {
     const { entities, snapshot, includeEntityIds } = options
-    const catalogEntities = entities.filter((entity) => entity.kind === 'catalog')
-    const { catalogElementLabels, enumerationValueLabels } = buildPreviewLabelMaps(entities, snapshot)
+    const objectEntities = entities.filter((entity) => entity.kind === 'object')
+    const { objectElementLabels, enumerationValueLabels } = buildPreviewLabelMaps(entities, snapshot)
     const flattenFieldDetails = (fields: EntityField[] = []): DiffTableDetails['fields'] =>
         fields.flatMap((field) => {
             const current = {
@@ -714,13 +714,13 @@ export function buildCreateTableDetails(options: {
                 codename: field.codename,
                 dataType: field.dataType,
                 isRequired: Boolean(field.isRequired),
-                parentAttributeId: field.parentAttributeId ?? null
+                parentComponentId: field.parentComponentId ?? null
             }
             const childFields = Array.isArray(field.childFields) ? flattenFieldDetails(field.childFields as EntityField[]) : []
             return [current, ...childFields]
         })
 
-    return catalogEntities
+    return objectEntities
         .filter((entity) => (includeEntityIds ? includeEntityIds.has(entity.id) : true))
         .map((entity) => {
             const fields = flattenFieldDetails(entity.fields ?? [])
@@ -739,7 +739,7 @@ export function buildCreateTableDetails(options: {
                               continue
                           }
 
-                          if (field.dataType !== FieldDefinitionDataType.REF) {
+                          if (field.dataType !== ComponentDefinitionDataType.REF) {
                               previewData[field.codename] = rawValue
                               continue
                           }
@@ -761,8 +761,8 @@ export function buildCreateTableDetails(options: {
                               continue
                           }
 
-                          if (field.targetEntityKind === 'catalog' && field.targetEntityId) {
-                              const label = catalogElementLabels.get(field.targetEntityId)?.get(refId)
+                          if (field.targetEntityKind === 'object' && field.targetEntityId) {
+                              const label = objectElementLabels.get(field.targetEntityId)?.get(refId)
                               previewData[field.codename] = label ?? refId
                               continue
                           }
@@ -817,7 +817,7 @@ export function buildCreateEntityGroupDetails(options: {
                 name: presentation.name,
                 dataType: typeof field.dataType === 'string' ? field.dataType : '',
                 isRequired: Boolean(field.isRequired),
-                parentAttributeId: typeof field.parentAttributeId === 'string' ? field.parentAttributeId : null
+                parentComponentId: typeof field.parentComponentId === 'string' ? field.parentComponentId : null
             }
             const childFields = Array.isArray(field.childFields) ? flattenFieldDetails(field.childFields) : []
             return [current, ...childFields]
@@ -857,7 +857,7 @@ export function buildCreateEntityGroupDetails(options: {
         fieldsCount: number,
         recordsCount: number
     ): DiffEntityGroupDetails['entities'][number]['metrics'] => {
-        if (kind === 'catalog') {
+        if (kind === 'object') {
             return [
                 { key: 'fields', count: fieldsCount },
                 { key: 'elements', count: recordsCount }

@@ -10,7 +10,7 @@ export const CODENAME_CONCURRENT_RETRIES_PER_ATTEMPT = 5
 
 /**
  * Human-readable error message for codename validation failures.
- * Used by all entity route handlers (catalogs, hubs, enumerations, attributes).
+ * Used by all entity route handlers (objects, hubs, enumerations, components).
  */
 export const codenameErrorMessage = (style: CodenameStyle, alphabet: CodenameAlphabet = 'en-ru', allowMixed = true): string => {
     const alphabetDesc: Record<CodenameAlphabet, string> = {
@@ -119,16 +119,16 @@ export async function getCodenameSettings(
 }
 
 /**
- * Read attribute codename uniqueness scope setting.
+ * Read component codename uniqueness scope setting.
  * Returns 'per-level' if not set (current default behavior).
  */
-export async function getAttributeCodenameScope(
+export async function getComponentCodenameScope(
     settingsService: MetahubSettingsService,
     metahubId: string,
     userId?: string
 ): Promise<'per-level' | 'global'> {
     try {
-        const row = await settingsService.findByKey(metahubId, 'entity.catalog.attributeCodenameScope', userId)
+        const row = await settingsService.findByKey(metahubId, 'entity.object.componentCodenameScope', userId)
         const scope = row?.value?._value
         if (scope === 'per-level' || scope === 'global') return scope
     } catch {
@@ -138,16 +138,16 @@ export async function getAttributeCodenameScope(
 }
 
 /**
- * Read allowed field definition types setting.
+ * Read allowed component types setting.
  * Returns all types if not set.
  */
-export async function getAllowedFieldDefinitionTypes(
+export async function getAllowedComponentTypes(
     settingsService: MetahubSettingsService,
     metahubId: string,
     userId?: string
 ): Promise<string[]> {
     try {
-        const row = await settingsService.findByKey(metahubId, 'entity.catalog.allowedAttributeTypes', userId)
+        const row = await settingsService.findByKey(metahubId, 'entity.object.allowedComponentTypes', userId)
         const types = row?.value?._value
         if (Array.isArray(types) && types.length > 0) return types
     } catch {
@@ -157,16 +157,12 @@ export async function getAllowedFieldDefinitionTypes(
 }
 
 /**
- * Read allow-field-definition-copy setting.
+ * Read allow-component-copy setting.
  * Returns true if not set.
  */
-export async function getAllowFieldDefinitionCopy(
-    settingsService: MetahubSettingsService,
-    metahubId: string,
-    userId?: string
-): Promise<boolean> {
+export async function getAllowComponentCopy(settingsService: MetahubSettingsService, metahubId: string, userId?: string): Promise<boolean> {
     try {
-        const row = await settingsService.findByKey(metahubId, 'entity.catalog.allowAttributeCopy', userId)
+        const row = await settingsService.findByKey(metahubId, 'entity.object.allowComponentCopy', userId)
         const value = row?.value?._value
         return value !== false
     } catch {
@@ -175,16 +171,16 @@ export async function getAllowFieldDefinitionCopy(
 }
 
 /**
- * Read allow-field-definition-delete setting.
+ * Read allow-component-delete setting.
  * Returns true if not set.
  */
-export async function getAllowFieldDefinitionDelete(
+export async function getAllowComponentDelete(
     settingsService: MetahubSettingsService,
     metahubId: string,
     userId?: string
 ): Promise<boolean> {
     try {
-        const row = await settingsService.findByKey(metahubId, 'entity.catalog.allowAttributeDelete', userId)
+        const row = await settingsService.findByKey(metahubId, 'entity.object.allowComponentDelete', userId)
         const value = row?.value?._value
         return value !== false
     } catch {
@@ -193,16 +189,16 @@ export async function getAllowFieldDefinitionDelete(
 }
 
 /**
- * Read allow-delete-last-display-attribute setting.
+ * Read allow-delete-last-display-component setting.
  * Returns true if not set.
  */
-export async function getAllowDeleteLastDisplayAttribute(
+export async function getAllowDeleteLastDisplayComponent(
     settingsService: MetahubSettingsService,
     metahubId: string,
     userId?: string
 ): Promise<boolean> {
     try {
-        const row = await settingsService.findByKey(metahubId, 'entity.catalog.allowDeleteLastDisplayAttribute', userId)
+        const row = await settingsService.findByKey(metahubId, 'entity.object.allowDeleteLastDisplayComponent', userId)
         const value = row?.value?._value
         return value !== false
     } catch {
@@ -214,13 +210,13 @@ export async function getAllowDeleteLastDisplayAttribute(
  * Read allow-move-between-root-and-children setting.
  * Returns true if not set.
  */
-export async function getAllowAttributeMoveBetweenRootAndChildren(
+export async function getAllowComponentMoveBetweenRootAndChildren(
     settingsService: MetahubSettingsService,
     metahubId: string,
     userId?: string
 ): Promise<boolean> {
     try {
-        const row = await settingsService.findByKey(metahubId, 'entity.catalog.allowAttributeMoveBetweenRootAndChildren', userId)
+        const row = await settingsService.findByKey(metahubId, 'entity.object.allowComponentMoveBetweenRootAndChildren', userId)
         const value = row?.value?._value
         return value !== false
     } catch {
@@ -232,13 +228,13 @@ export async function getAllowAttributeMoveBetweenRootAndChildren(
  * Read allow-move-between-child-lists setting.
  * Returns true if not set.
  */
-export async function getAllowAttributeMoveBetweenChildLists(
+export async function getAllowComponentMoveBetweenChildLists(
     settingsService: MetahubSettingsService,
     metahubId: string,
     userId?: string
 ): Promise<boolean> {
     try {
-        const row = await settingsService.findByKey(metahubId, 'entity.catalog.allowAttributeMoveBetweenChildLists', userId)
+        const row = await settingsService.findByKey(metahubId, 'entity.object.allowComponentMoveBetweenChildLists', userId)
         const value = row?.value?._value
         return value !== false
     } catch {
@@ -313,7 +309,7 @@ export async function getAllowFixedValueDelete(
 }
 
 /**
- * Constants do not have display-attribute semantics; always allow.
+ * Constants do not have display-component semantics; always allow.
  */
 export async function getAllowDeleteLastDisplayConstant(): Promise<boolean> {
     return true
@@ -390,16 +386,16 @@ export function extractAllowMixedAlphabets(settings: SettingsRow[]): boolean {
     return val === true
 }
 
-/** Extract attribute codename scope from pre-loaded settings. */
-export function extractAttributeCodenameScope(settings: SettingsRow[]): 'per-level' | 'global' {
-    const scope = extractValue(settings, 'entity.catalog.attributeCodenameScope')
+/** Extract component codename scope from pre-loaded settings. */
+export function extractComponentCodenameScope(settings: SettingsRow[]): 'per-level' | 'global' {
+    const scope = extractValue(settings, 'entity.object.componentCodenameScope')
     if (scope === 'per-level' || scope === 'global') return scope
     return 'per-level'
 }
 
-/** Extract allowed attribute types from pre-loaded settings. */
-export function extractAllowedAttributeTypes(settings: SettingsRow[]): string[] {
-    const types = extractValue(settings, 'entity.catalog.allowedAttributeTypes')
+/** Extract allowed component types from pre-loaded settings. */
+export function extractAllowedComponentTypes(settings: SettingsRow[]): string[] {
+    const types = extractValue(settings, 'entity.object.allowedComponentTypes')
     if (Array.isArray(types) && types.length > 0) return types
     return ['STRING', 'NUMBER', 'BOOLEAN', 'DATE', 'REF', 'JSON', 'TABLE']
 }

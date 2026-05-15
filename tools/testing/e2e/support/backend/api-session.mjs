@@ -583,7 +583,7 @@ export async function getTemplate(api, templateId) {
     return response.json()
 }
 
-export async function listLinkedCollections(api, metahubId, params = {}) {
+export async function listObjectCollections(api, metahubId, params = {}) {
     const { kindKey, ...queryParams } = params
     const query = new URLSearchParams()
 
@@ -596,25 +596,25 @@ export async function listLinkedCollections(api, metahubId, params = {}) {
     }
 
     const suffix = query.size > 0 ? `?${query.toString()}` : ''
-    const response = await fetchFromApi(api, `${buildManagedEntityInstancesApiPath(metahubId, 'catalog', kindKey)}${suffix}`, {
+    const response = await fetchFromApi(api, `${buildManagedEntityInstancesApiPath(metahubId, 'object', kindKey)}${suffix}`, {
         method: 'GET'
     })
     if (!response.ok) {
-        throw await buildError(response, `Listing catalogs for metahub ${metahubId}`)
+        throw await buildError(response, `Listing objects for metahub ${metahubId}`)
     }
 
     return response.json()
 }
 
-export async function createLinkedCollection(api, metahubId, payload) {
+export async function createObjectCollection(api, metahubId, payload) {
     const response = await sendWithCsrf(
         api,
         'POST',
-        buildManagedEntityInstancesApiPath(metahubId, 'catalog', payload?.kindKey),
+        buildManagedEntityInstancesApiPath(metahubId, 'object', payload?.kindKey),
         payload
     )
     if (!response.ok) {
-        throw await buildError(response, `Creating catalog in metahub ${metahubId}`)
+        throw await buildError(response, `Creating object in metahub ${metahubId}`)
     }
 
     return response.json()
@@ -928,21 +928,21 @@ export async function deleteMetahub(api, metahubId) {
     throw await buildError(response, `Deleting metahub ${metahubId}`)
 }
 
-export async function createFieldDefinition(api, metahubId, catalogId, payload) {
+export async function createComponent(api, metahubId, objectId, payload) {
     const response = await sendWithCsrf(
         api,
         'POST',
-        buildManagedEntityChildCollectionApiPath(metahubId, catalogId, 'catalog', 'field-definitions'),
+        buildManagedEntityChildCollectionApiPath(metahubId, objectId, 'object', 'components'),
         payload
     )
     if (!response.ok) {
-        throw await buildError(response, `Creating attribute in metahub ${metahubId} catalog ${catalogId}`)
+        throw await buildError(response, `Creating component in metahub ${metahubId} object ${objectId}`)
     }
 
     return response.json()
 }
 
-export async function listFieldDefinitions(api, metahubId, catalogId, params = {}) {
+export async function listComponents(api, metahubId, objectId, params = {}) {
     const query = new URLSearchParams()
 
     for (const [key, value] of Object.entries(params)) {
@@ -956,34 +956,34 @@ export async function listFieldDefinitions(api, metahubId, catalogId, params = {
     const suffix = query.size > 0 ? `?${query.toString()}` : ''
     const response = await fetchFromApi(
         api,
-        `${buildManagedEntityChildCollectionApiPath(metahubId, catalogId, 'catalog', 'field-definitions')}${suffix}`,
+        `${buildManagedEntityChildCollectionApiPath(metahubId, objectId, 'object', 'components')}${suffix}`,
         {
             method: 'GET'
         }
     )
     if (!response.ok) {
-        throw await buildError(response, `Listing attributes for catalog ${catalogId} in metahub ${metahubId}`)
+        throw await buildError(response, `Listing components for object ${objectId} in metahub ${metahubId}`)
     }
 
     return response.json()
 }
 
-export async function getFieldDefinition(api, metahubId, catalogId, attributeId) {
+export async function getComponent(api, metahubId, objectId, componentId) {
     const response = await fetchFromApi(
         api,
-        buildManagedEntityChildItemApiPath(metahubId, catalogId, 'catalog', 'field-definition', attributeId),
+        buildManagedEntityChildItemApiPath(metahubId, objectId, 'object', 'component', componentId),
         {
             method: 'GET'
         }
     )
     if (!response.ok) {
-        throw await buildError(response, `Fetching attribute ${attributeId} for catalog ${catalogId} in metahub ${metahubId}`)
+        throw await buildError(response, `Fetching component ${componentId} for object ${objectId} in metahub ${metahubId}`)
     }
 
     return response.json()
 }
 
-export async function listRecords(api, metahubId, catalogId, params = {}) {
+export async function listRecords(api, metahubId, objectId, params = {}) {
     const query = new URLSearchParams()
 
     for (const [key, value] of Object.entries(params)) {
@@ -995,35 +995,35 @@ export async function listRecords(api, metahubId, catalogId, params = {}) {
     }
 
     const suffix = query.size > 0 ? `?${query.toString()}` : ''
-    const response = await fetchFromApi(api, `${buildManagedEntityChildCollectionApiPath(metahubId, catalogId, 'catalog', 'records')}${suffix}`, {
+    const response = await fetchFromApi(api, `${buildManagedEntityChildCollectionApiPath(metahubId, objectId, 'object', 'records')}${suffix}`, {
         method: 'GET'
     })
     if (!response.ok) {
-        throw await buildError(response, `Listing elements for catalog ${catalogId} in metahub ${metahubId}`)
+        throw await buildError(response, `Listing elements for object ${objectId} in metahub ${metahubId}`)
     }
 
     return response.json()
 }
 
-export async function createRecord(api, metahubId, catalogId, payload) {
+export async function createRecord(api, metahubId, objectId, payload) {
     const response = await sendWithCsrf(
         api,
         'POST',
-        buildManagedEntityChildCollectionApiPath(metahubId, catalogId, 'catalog', 'records'),
+        buildManagedEntityChildCollectionApiPath(metahubId, objectId, 'object', 'records'),
         payload
     )
 
     if (!response.ok) {
-        throw await buildError(response, `Creating record for catalog ${catalogId} in metahub ${metahubId}`)
+        throw await buildError(response, `Creating record for object ${objectId} in metahub ${metahubId}`)
     }
 
     return response.json()
 }
 
-export async function getRecord(api, metahubId, catalogId, elementId) {
-    const response = await fetchFromApi(api, buildManagedEntityChildItemApiPath(metahubId, catalogId, 'catalog', 'record', elementId), { method: 'GET' })
+export async function getRecord(api, metahubId, objectId, elementId) {
+    const response = await fetchFromApi(api, buildManagedEntityChildItemApiPath(metahubId, objectId, 'object', 'record', elementId), { method: 'GET' })
     if (!response.ok) {
-        throw await buildError(response, `Fetching element ${elementId} for catalog ${catalogId} in metahub ${metahubId}`)
+        throw await buildError(response, `Fetching element ${elementId} for object ${objectId} in metahub ${metahubId}`)
     }
 
     return response.json()
@@ -1421,12 +1421,12 @@ export async function deleteApplicationLayout(api, applicationId, layoutId, expe
     }
 }
 
-export async function listApplicationLayoutWidgetCatalog(api, applicationId, layoutId) {
-    const response = await fetchFromApi(api, `/api/v1/applications/${applicationId}/layouts/${layoutId}/zone-widgets/catalog`, {
+export async function listApplicationLayoutWidgetObject(api, applicationId, layoutId) {
+    const response = await fetchFromApi(api, `/api/v1/applications/${applicationId}/layouts/${layoutId}/zone-widgets/object`, {
         method: 'GET'
     })
     if (!response.ok) {
-        throw await buildError(response, `Listing application layout widget catalog for layout ${layoutId}`)
+        throw await buildError(response, `Listing application layout widget object for layout ${layoutId}`)
     }
 
     return response.json()
@@ -1527,22 +1527,22 @@ export async function setApplicationDefaultWorkspace(api, applicationId, workspa
 
 export async function getApplicationRuntime(api, applicationId, params = {}) {
     const query = new URLSearchParams()
-    const resolvedLinkedCollectionId = params.linkedCollectionId ?? params.sectionId ?? params.catalogId ?? null
+    const resolvedObjectCollectionId = params.objectCollectionId ?? params.sectionId ?? params.objectId ?? null
 
     for (const [key, value] of Object.entries(params)) {
         if (value === undefined || value === null || value === '') {
             continue
         }
 
-        if (key === 'catalogId' || key === 'sectionId' || key === 'linkedCollectionId') {
+        if (key === 'objectId' || key === 'sectionId' || key === 'objectCollectionId') {
             continue
         }
 
         query.set(key, String(value))
     }
 
-    if (resolvedLinkedCollectionId) {
-        query.set('linkedCollectionId', String(resolvedLinkedCollectionId))
+    if (resolvedObjectCollectionId) {
+        query.set('objectCollectionId', String(resolvedObjectCollectionId))
     }
 
     const suffix = query.size > 0 ? `?${query.toString()}` : ''
@@ -1552,15 +1552,15 @@ export async function getApplicationRuntime(api, applicationId, params = {}) {
     }
 
     const body = await response.json()
-    const resolvedCatalog = body?.catalog ?? body?.section ?? body?.linkedCollection ?? null
-    const resolvedCatalogs = body?.catalogs ?? body?.sections ?? body?.linkedCollections ?? []
-    const resolvedActiveCatalogId = body?.activeCatalogId ?? body?.activeSectionId ?? body?.activeLinkedCollectionId ?? null
+    const resolvedObject = body?.objectCollection ?? body?.object ?? body?.section ?? null
+    const resolvedObjects = body?.objectCollections ?? body?.objects ?? body?.sections ?? []
+    const resolvedActiveObjectId = body?.activeObjectCollectionId ?? body?.activeObjectId ?? body?.activeSectionId ?? null
 
     return {
         ...body,
-        catalog: resolvedCatalog,
-        catalogs: resolvedCatalogs,
-        activeCatalogId: resolvedActiveCatalogId
+        object: resolvedObject,
+        objects: resolvedObjects,
+        activeObjectId: resolvedActiveObjectId
     }
 }
 

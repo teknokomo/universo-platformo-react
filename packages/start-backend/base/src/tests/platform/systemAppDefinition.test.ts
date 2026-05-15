@@ -13,9 +13,9 @@ describe('startSystemAppDefinition', () => {
         const tables = startSystemAppDefinition.currentBusinessTables
         expect(tables).toHaveLength(4)
 
-        const catalogTables = tables.filter((t) => t.kind === 'catalog')
+        const objectTables = tables.filter((t) => t.kind === 'object')
         const relationTables = tables.filter((t) => t.kind === 'relation')
-        expect(catalogTables).toHaveLength(3)
+        expect(objectTables).toHaveLength(3)
         expect(relationTables).toHaveLength(1)
 
         const codenames = tables.map((t) => t.codename)
@@ -39,9 +39,9 @@ describe('startSystemAppDefinition', () => {
         expect(startSystemAppDefinition.targetStorageModel).toBe('application_like')
     })
 
-    it('enables catalog and relation structure capabilities', () => {
+    it('enables object and relation structure capabilities', () => {
         const caps = startSystemAppDefinition.currentStructureCapabilities
-        expect(caps.catalogTables).toBe(true)
+        expect(caps.objectTables).toBe(true)
         expect(caps.relationTables).toBe(true)
         expect(caps.documentTables).toBe(false)
     })

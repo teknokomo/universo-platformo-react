@@ -25,7 +25,7 @@ describe('ActionService', () => {
         const service = new ActionService(
             createExecutor(queryMock) as any,
             { ensureSchema: mockEnsureSchema } as any,
-            { resolveTypeInSchema: jest.fn(async () => ({ components: { actions: false } })) } as any
+            { resolveTypeInSchema: jest.fn(async () => ({ capabilities: { actions: false } })) } as any
         )
 
         await expect(
@@ -40,7 +40,7 @@ describe('ActionService', () => {
     it('requires an existing script for script actions', async () => {
         const queryMock = jest.fn(async (sql: string) => {
             if (sql.includes(`FROM "${schemaName}"."_mhb_objects"`)) {
-                return [{ id: 'object-1', kind: 'catalog' }]
+                return [{ id: 'object-1', kind: 'object' }]
             }
             if (sql.includes(`FROM "${schemaName}"."_mhb_actions"`) && sql.includes('codename')) {
                 return []
@@ -54,7 +54,7 @@ describe('ActionService', () => {
         const service = new ActionService(
             createExecutor(queryMock) as any,
             { ensureSchema: mockEnsureSchema } as any,
-            { resolveTypeInSchema: jest.fn(async () => ({ components: { actions: { enabled: true } } })) } as any
+            { resolveTypeInSchema: jest.fn(async () => ({ capabilities: { actions: { enabled: true } } })) } as any
         )
 
         await expect(
@@ -70,7 +70,7 @@ describe('ActionService', () => {
     it('creates a builtin action for an action-enabled object', async () => {
         const queryMock = jest.fn(async (sql: string) => {
             if (sql.includes(`FROM "${schemaName}"."_mhb_objects"`)) {
-                return [{ id: 'object-1', kind: 'catalog' }]
+                return [{ id: 'object-1', kind: 'object' }]
             }
             if (sql.includes(`FROM "${schemaName}"."_mhb_actions"`) && sql.includes('codename')) {
                 return []
@@ -99,7 +99,7 @@ describe('ActionService', () => {
         const service = new ActionService(
             createExecutor(queryMock) as any,
             { ensureSchema: mockEnsureSchema } as any,
-            { resolveTypeInSchema: jest.fn(async () => ({ components: { actions: { enabled: true } } })) } as any
+            { resolveTypeInSchema: jest.fn(async () => ({ capabilities: { actions: { enabled: true } } })) } as any
         )
 
         const result = await service.create('metahub-1', {

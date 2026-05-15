@@ -32,8 +32,8 @@
 -   `specs/flows/codename-mode.spec.ts`: browser-покрытие переключения codename UI mode на platform-default и per-metahub уровнях при сохранении persisted codename в VLC shape.
 -   `specs/flows/metahub-create-options-codename.spec.ts`: browser-покрытие codename auto-fill UX, поведения после ручного override/reset и комбинаций metahub create-options при обязательных branch/layout defaults.
 -   `specs/flows/metahub-branches-migrations.spec.ts`: browser-покрытие create/copy/default/activate/delete для branches и branch-aware planning metahub migrations через существующий UI.
--   `specs/flows/metahub-domain-entities.spec.ts`: browser-покрытие create/copy/delete для hub, catalog, set, enumeration, attribute, element, value и constant routes через существующие metahub UI surfaces.
--   `specs/flows/metahub-entity-dialog-regressions.spec.ts`: browser-покрытие edit для constants, полноты полей edit/copy для enumeration values и генерации codename при localized attribute copy.
+-   `specs/flows/metahub-domain-entities.spec.ts`: browser-покрытие create/copy/delete для hub, object, set, enumeration, component, element, value и constant routes через существующие metahub UI surfaces.
+-   `specs/flows/metahub-entity-dialog-regressions.spec.ts`: browser-покрытие edit для constants, полноты полей edit/copy для enumeration values и генерации codename при localized component copy.
 -   `specs/flows/metahub-layouts.spec.ts`: browser-покрытие list/detail маршрутов layouts и сохранения widget-toggle состояния через существующий layout UI.
 -   `specs/flows/metahub-members-permissions.spec.ts`: browser-покрытие invite flow для участников metahub и отрицательных permission boundaries для ролей без manageMembers.
 -   `specs/flows/application-members-access.spec.ts`: browser-покрытие invite flow для application access, redirect-away поведения и проверок admin promotion.

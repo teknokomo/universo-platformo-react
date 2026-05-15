@@ -142,9 +142,9 @@ jest.mock('../../domains/metahubs/services/MetahubObjectsService', () => ({
     MetahubObjectsService: jest.fn().mockImplementation(() => ({}))
 }))
 
-jest.mock('../../domains/metahubs/services/MetahubFieldDefinitionsService', () => ({
+jest.mock('../../domains/metahubs/services/MetahubComponentsService', () => ({
     __esModule: true,
-    MetahubFieldDefinitionsService: jest.fn().mockImplementation(() => ({}))
+    MetahubComponentsService: jest.fn().mockImplementation(() => ({}))
 }))
 
 jest.mock('../../domains/metahubs/services/MetahubRecordsService', () => ({
@@ -506,7 +506,7 @@ describe('Publications Routes', () => {
 
         const tx = createMockTransaction()
         tx.query.mockImplementation(async (sql: string) => {
-            if (typeof sql === 'string' && sql.includes('FOR UPDATE') && sql.includes('cat_metahubs')) {
+            if (typeof sql === 'string' && sql.includes('FOR UPDATE') && sql.includes('obj_metahubs')) {
                 return [{ id: 'metahub-1' }]
             }
             if (typeof sql === 'string' && sql.includes('FOR UPDATE') && sql.includes('doc_publications')) {

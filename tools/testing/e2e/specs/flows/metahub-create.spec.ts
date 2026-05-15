@@ -138,11 +138,11 @@ test('@flow empty metahub template supports manual entity-type authoring from th
 
         const resourceSurfaceKeyInput = createTypeDialog.getByLabel('Resource tab key')
         if ((await resourceSurfaceKeyInput.count()) > 0) {
-            await resourceSurfaceKeyInput.fill('attributes')
-            await createTypeDialog.getByLabel('Resource tab route segment').fill('attributes')
-            await createTypeDialog.getByLabel('Resource tab title').fill('Attributes')
+            await resourceSurfaceKeyInput.fill('components')
+            await createTypeDialog.getByLabel('Resource tab route segment').fill('components')
+            await createTypeDialog.getByLabel('Resource tab title').fill('Components')
         } else {
-            await createTypeDialog.getByLabel('Attributes').fill('Attributes')
+            await createTypeDialog.getByLabel('Components').fill('Components')
         }
 
         await createTypeDialog.getByTestId(entityDialogSelectors.submitButton).click()
@@ -163,7 +163,7 @@ test('@flow empty metahub template supports manual entity-type authoring from th
                     ? `${resourceSurface.key}|${resourceSurface.capability}|${resourceSurface.routeSegment}|${resourceSurface.fallbackTitle}`
                     : null
             })
-            .toBe('attributes|dataSchema|attributes|Attributes')
+            .toBe('components|dataSchema|components|Components')
     } finally {
         await disposeApiContext(api)
     }

@@ -187,7 +187,7 @@ describe('Branches Options Routes', () => {
                 name: { en: 'Copy Test' },
                 sourceBranchId: '00000000-0000-0000-0000-000000000001',
                 fullCopy: false,
-                copyCatalogs: true,
+                copyObjects: true,
                 copyEnumerations: false
             })
             .expect(400)
@@ -213,7 +213,7 @@ describe('Branches Options Routes', () => {
                 sourceBranchId: '00000000-0000-0000-0000-000000000001',
                 fullCopy: false,
                 copyHubs: true,
-                copyCatalogs: false
+                copyObjects: false
             })
             .expect(400)
 
@@ -241,7 +241,7 @@ describe('Branches Options Routes', () => {
                 sourceBranchId: '00000000-0000-0000-0000-000000000001',
                 fullCopy: false,
                 copyTreeEntities: true,
-                copyLinkedCollections: false
+                copyObjectCollections: false
             })
             .expect(400)
 

@@ -21,14 +21,14 @@ It exposes authenticated CRUD routes, application membership guards, connector f
 - Allow owner/admin visibility changes after creation while keeping workspace mode structural.
 - Expose runtime sync, diff, and release-bundle routes for managed application schemas.
 - Manage application-side layouts, including metahub lineage, application-owned copies, defaults, activation, and widget activity.
-- Materialize curated runtime menu contracts from `menuWidget` config, including explicit section items, hub/catalog codename resolution, overflow items, start-page selection, and workspace entry placement.
-- Own transactional Catalog commands for `recordBehavior`: atomic record numbering, `post` / `unpost` / `void` transitions, lifecycle hooks, and posted-row immutability checks.
+- Materialize curated runtime menu contracts from `menuWidget` config, including explicit section items, hub/object codename resolution, overflow items, start-page selection, and workspace entry placement.
+- Own transactional Object commands for `recordBehavior`: atomic record numbering, `post` / `unpost` / `void` transitions, lifecycle hooks, and posted-row immutability checks.
 - Apply declarative `beforePost` script movements through the generic Ledger service inside the posting transaction.
 - Expose generic runtime Ledger metadata, fact append/reversal, fact listing, and projection query routes for standard `ledger` entities without making Ledgers normal row-CRUD sections.
-- Provide a generic runtime report runner for Catalog-backed report definitions. The runner validates shared report contracts, resolves table and column identifiers from published metadata, parameterizes SQL values, and fails closed for unavailable fields.
+- Provide a generic runtime report runner for Object-backed report definitions. The runner validates shared report contracts, resolves table and column identifiers from published metadata, parameterizes SQL values, and fails closed for unavailable fields.
 - Execute published runtime scripts through a fail-closed server bridge that only exposes non-lifecycle server methods from `rpc.client` scripts and reuses runtime row helpers, workspace context, and permission maps.
 - Expose `ctx.ledger` to runtime scripts only when `ledger.read` or `ledger.write` capabilities are declared.
-- Persist schema sync state in `applications.cat_applications` through SQL-first stores.
+- Persist schema sync state in `applications.obj_applications` through SQL-first stores.
 - Keep runtime release metadata in the same central sync-state surface.
 - Reuse shared guards, identifier helpers, and query helpers from the database standard packages.
 
@@ -43,7 +43,7 @@ It exposes authenticated CRUD routes, application membership guards, connector f
 - Adding a new member to an application with initialized workspace runtime support provisions a personal workspace automatically.
 - Leaving an application or removing a member archives the personal workspace instead of hard-deleting business rows.
 - Published runtime workspace endpoints expose paginated workspace/member lists, email-based shared-workspace member invitation for active application members, default workspace switching, and owner-only member removal.
-- Catalog tables and TABLE child tables become workspace-scoped in runtime schemas, and backend routes enforce per-workspace row limits before inserts and copies.
+- Object tables and TABLE child tables become workspace-scoped in runtime schemas, and backend routes enforce per-workspace row limits before inserts and copies.
 
 ## Database Access Rules
 
@@ -56,7 +56,7 @@ It exposes authenticated CRUD routes, application membership guards, connector f
 ## Runtime Sync Model
 
 - Publication-driven sync and file-bundle install share the same schema sync engine.
-- Successful sync writes `schema_status`, `schema_snapshot`, and `installed_release_metadata` into `applications.cat_applications`.
+- Successful sync writes `schema_status`, `schema_snapshot`, and `installed_release_metadata` into `applications.obj_applications`.
 - Workspace-enabled applications also persist a workspace contract marker inside the canonical runtime snapshot lineage so incremental sync keeps workspace DDL intact.
 - Layout sync preserves application-owned layouts, marks locally modified metahub layouts as conflicts instead of overwriting them, and keeps excluded metahub layouts excluded on later syncs.
 - Active runtime script codenames are unique per `(attached_to_kind, attached_to_id, module_role, codename)` scope, and sync repairs the scoped index for existing schemas.
@@ -66,8 +66,8 @@ It exposes authenticated CRUD routes, application membership guards, connector f
 ## Package Surface
 
 - `createApplicationsRoutes(...)` mounts CRUD, connector, membership, and runtime-sync routes.
-- The route surface now includes public join/leave flows and settings endpoints for per-workspace catalog limits.
-- Runtime Ledger endpoints are mounted under `/applications/:applicationId/runtime/ledgers` and keep append/reverse/query behavior separate from generic Catalog row CRUD.
+- The route surface now includes public join/leave flows and settings endpoints for per-workspace object limits.
+- Runtime Ledger endpoints are mounted under `/applications/:applicationId/runtime/ledgers` and keep append/reverse/query behavior separate from generic Object row CRUD.
 - Application layout endpoints are mounted under `/applications/:applicationId/layouts` and `/applications/:applicationId/layout-scopes`.
 - `initializeRateLimiters()` prepares package-level rate limiting before route creation.
 - Persistence helpers in `src/services/` and `src/persistence/` form the SQL-first write/read seams.

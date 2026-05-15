@@ -51,10 +51,10 @@ describe('SnapshotSerializer system field propagation', () => {
                 return []
             })
         }
-        const fieldDefinitionsService = {
+        const componentsService = {
             findAllFlatForSnapshot: jest.fn(async () => []),
             getObjectSystemFieldsSnapshot: jest.fn(async () => null),
-            listObjectSystemFieldDefinitions: jest.fn(async () => [])
+            listObjectSystemComponents: jest.fn(async () => [])
         }
         const entityTypeService = {
             listTypes: jest.fn(async () => [
@@ -63,7 +63,7 @@ describe('SnapshotSerializer system field propagation', () => {
                     kindKey: 'ledger',
                     codename: createCodenameVlc('ledger'),
                     presentation: { name: { en: 'Ledgers' }, description: {} },
-                    components: {
+                    capabilities: {
                         dataSchema: { enabled: true },
                         physicalTable: { enabled: true, prefix: 'led' },
                         ledgerSchema: { enabled: true }
@@ -82,7 +82,7 @@ describe('SnapshotSerializer system field propagation', () => {
 
         const serializer = new SnapshotSerializer(
             objectsService as never,
-            fieldDefinitionsService as never,
+            componentsService as never,
             undefined,
             undefined,
             undefined,
@@ -105,12 +105,12 @@ describe('SnapshotSerializer system field propagation', () => {
     it('serializes dedicated systemFields and keeps runtime business fields separate', async () => {
         const objectsService = {
             findAllByKind: jest.fn(async (_metahubId: string, kind: string) => {
-                if (kind === 'catalog') {
+                if (kind === 'object') {
                     return [
                         {
-                            id: 'catalog-1',
+                            id: 'object-1',
                             codename: createCodenameVlc('products', 'товары'),
-                            table_name: 'cat_products',
+                            table_name: 'obj_products',
                             presentation: { name: { en: 'Products' }, description: {} },
                             config: { hubs: [] }
                         }
@@ -119,14 +119,14 @@ describe('SnapshotSerializer system field propagation', () => {
                 return []
             })
         }
-        const fieldDefinitionsService = {
+        const componentsService = {
             findAllFlatForSnapshot: jest.fn(async () => [
                 {
                     id: 'field-1',
                     codename: createCodenameVlc('title', 'название'),
                     dataType: 'STRING',
                     isRequired: false,
-                    isDisplayAttribute: true,
+                    isDisplayComponent: true,
                     targetEntityId: null,
                     targetEntityKind: null,
                     targetConstantId: null,
@@ -135,7 +135,7 @@ describe('SnapshotSerializer system field propagation', () => {
                     validationRules: {},
                     uiConfig: {},
                     sortOrder: 1,
-                    parentAttributeId: null,
+                    parentComponentId: null,
                     system: { isSystem: false, systemKey: null, isManaged: false, isEnabled: true }
                 },
                 {
@@ -143,7 +143,7 @@ describe('SnapshotSerializer system field propagation', () => {
                     codename: '_app_deleted',
                     dataType: 'BOOLEAN',
                     isRequired: false,
-                    isDisplayAttribute: false,
+                    isDisplayComponent: false,
                     targetEntityId: null,
                     targetEntityKind: null,
                     targetConstantId: null,
@@ -152,11 +152,11 @@ describe('SnapshotSerializer system field propagation', () => {
                     validationRules: {},
                     uiConfig: {},
                     sortOrder: 2,
-                    parentAttributeId: null,
+                    parentComponentId: null,
                     system: { isSystem: true, systemKey: 'app.deleted', isManaged: true, isEnabled: false }
                 }
             ]),
-            getCatalogSystemFieldsSnapshot: jest.fn(async () => ({
+            getObjectSystemFieldsSnapshot: jest.fn(async () => ({
                 fields: [{ key: 'app.deleted', enabled: false }],
                 lifecycleContract: {
                     publish: { enabled: true, trackAt: true, trackBy: true },
@@ -169,16 +169,16 @@ describe('SnapshotSerializer system field propagation', () => {
         const entityTypeService = {
             listTypes: jest.fn(async () => [
                 {
-                    id: 'type-catalog',
-                    kindKey: 'catalog',
-                    codename: createCodenameVlc('catalog'),
-                    presentation: { name: { en: 'Catalogs' }, description: {} },
-                    components: createEntityTypeComponents(),
+                    id: 'type-object',
+                    kindKey: 'object',
+                    codename: createCodenameVlc('object'),
+                    presentation: { name: { en: 'Objects' }, description: {} },
+                    capabilities: createEntityTypeComponents(),
                     ui: {
                         iconName: 'IconDatabase',
                         tabs: ['general'],
                         sidebarSection: 'objects',
-                        nameKey: 'metahubs:catalogs.title'
+                        nameKey: 'metahubs:objects.title'
                     },
                     config: {},
                     published: true
@@ -188,7 +188,7 @@ describe('SnapshotSerializer system field propagation', () => {
 
         const serializer = new SnapshotSerializer(
             objectsService as never,
-            fieldDefinitionsService as never,
+            componentsService as never,
             undefined,
             undefined,
             undefined,
@@ -201,7 +201,7 @@ describe('SnapshotSerializer system field propagation', () => {
         const snapshot = await serializer.serializeMetahub('metahub-1')
         const runtimeEntities = serializer.deserializeSnapshot(snapshot)
 
-        expect(snapshot.systemFields?.['catalog-1']).toEqual({
+        expect(snapshot.systemFields?.['object-1']).toEqual({
             fields: [{ key: 'app.deleted', enabled: false }],
             lifecycleContract: {
                 publish: { enabled: true, trackAt: true, trackBy: true },
@@ -209,28 +209,28 @@ describe('SnapshotSerializer system field propagation', () => {
                 delete: { mode: 'hard', trackAt: false, trackBy: false }
             }
         })
-        expect(snapshot.entities['catalog-1'].fields).toHaveLength(1)
-        expect(snapshot.entities['catalog-1'].codename).toEqual(createCodenameVlc('products', 'товары'))
-        expect(snapshot.entities['catalog-1'].fields[0].codename).toEqual(createCodenameVlc('title', 'название'))
+        expect(snapshot.entities['object-1'].fields).toHaveLength(1)
+        expect(snapshot.entities['object-1'].codename).toEqual(createCodenameVlc('products', 'товары'))
+        expect(snapshot.entities['object-1'].fields[0].codename).toEqual(createCodenameVlc('title', 'название'))
         expect(runtimeEntities[0].codename).toBe('products')
         expect(runtimeEntities[0].fields[0].codename).toBe('title')
-        expect(runtimeEntities[0].config?.systemFields).toEqual(snapshot.systemFields?.['catalog-1'])
+        expect(runtimeEntities[0].config?.systemFields).toEqual(snapshot.systemFields?.['object-1'])
     })
 
     it('serializes shared sections and materializes them into runtime entities', async () => {
         const objectsService = {
             findAllByKind: jest.fn(async () => [])
         }
-        const fieldDefinitionsService = {
+        const componentsService = {
             findAllFlatForSnapshot: jest.fn(async (_metahubId: string, objectId: string) => {
-                if (objectId === 'shared-catalog-pool-id') {
+                if (objectId === 'shared-object-pool-id') {
                     return [
                         {
                             id: 'shared-field-1',
                             codename: createCodenameVlc('shared_title', 'общее_название'),
                             dataType: 'STRING',
                             isRequired: false,
-                            isDisplayAttribute: false,
+                            isDisplayComponent: false,
                             targetEntityId: null,
                             targetEntityKind: null,
                             targetConstantId: null,
@@ -239,7 +239,7 @@ describe('SnapshotSerializer system field propagation', () => {
                             validationRules: {},
                             uiConfig: {},
                             sortOrder: 0,
-                            parentAttributeId: null,
+                            parentComponentId: null,
                             system: { isSystem: false }
                         }
                     ]
@@ -247,7 +247,7 @@ describe('SnapshotSerializer system field propagation', () => {
 
                 return []
             }),
-            getCatalogSystemFieldsSnapshot: jest.fn(async () => ({ fields: [], lifecycleContract: null }))
+            getObjectSystemFieldsSnapshot: jest.fn(async () => ({ fields: [], lifecycleContract: null }))
         }
         const fixedValuesService = {
             findAll: jest.fn(async (_metahubId: string, objectId: string) => {
@@ -288,7 +288,7 @@ describe('SnapshotSerializer system field propagation', () => {
         }
         const sharedContainerService = {
             findContainerObjectId: jest.fn(async (_metahubId: string, kind: string) => {
-                if (kind === 'shared-catalog-pool') return 'shared-catalog-pool-id'
+                if (kind === 'shared-object-pool') return 'shared-object-pool-id'
                 if (kind === 'shared-set-pool') return 'shared-set-pool-id'
                 if (kind === 'shared-enumeration-pool') return 'shared-enum-pool-id'
                 return null
@@ -297,10 +297,10 @@ describe('SnapshotSerializer system field propagation', () => {
         const sharedEntityOverridesService = {
             findAll: jest.fn(async () => [
                 {
-                    id: 'override-attribute-1',
-                    entityKind: 'attribute',
+                    id: 'override-component-1',
+                    entityKind: 'component',
                     sharedEntityId: 'shared-field-1',
-                    targetObjectId: 'catalog-1',
+                    targetObjectId: 'object-1',
                     isExcluded: false,
                     isActive: true,
                     sortOrder: 0,
@@ -331,7 +331,7 @@ describe('SnapshotSerializer system field propagation', () => {
 
         const serializer = new SnapshotSerializer(
             objectsService as never,
-            fieldDefinitionsService as never,
+            componentsService as never,
             undefined,
             undefined,
             optionValuesService as never,
@@ -344,7 +344,7 @@ describe('SnapshotSerializer system field propagation', () => {
         const exportedSnapshot = await serializer.serializeMetahub('metahub-1')
 
         expect(exportedSnapshot.versionEnvelope.snapshotFormatVersion).toBe(3)
-        expect(exportedSnapshot.sharedFieldDefinitions).toHaveLength(1)
+        expect(exportedSnapshot.sharedComponents).toHaveLength(1)
         expect(exportedSnapshot.sharedFixedValues).toHaveLength(1)
         expect(exportedSnapshot.sharedOptionValues).toHaveLength(1)
         expect(exportedSnapshot.sharedEntityOverrides).toHaveLength(3)
@@ -352,9 +352,9 @@ describe('SnapshotSerializer system field propagation', () => {
         const runtimeSnapshot = SnapshotSerializer.materializeSharedEntitiesForRuntime({
             ...exportedSnapshot,
             entities: {
-                'catalog-1': {
-                    id: 'catalog-1',
-                    kind: 'catalog',
+                'object-1': {
+                    id: 'object-1',
+                    kind: 'object',
                     codename: createCodenameVlc('products'),
                     presentation: { name: { en: 'Products' }, description: {} },
                     config: {},
@@ -364,7 +364,7 @@ describe('SnapshotSerializer system field propagation', () => {
                             codename: createCodenameVlc('local_title'),
                             dataType: 'STRING',
                             isRequired: false,
-                            isDisplayAttribute: false,
+                            isDisplayComponent: false,
                             presentation: { name: { en: 'Local Title' }, description: {} },
                             validationRules: {},
                             uiConfig: {},
@@ -421,7 +421,7 @@ describe('SnapshotSerializer system field propagation', () => {
             }
         })
 
-        expect(runtimeSnapshot.entities['catalog-1'].fields.map((field) => field.id)).toEqual(['shared-field-1', 'local-field-1'])
+        expect(runtimeSnapshot.entities['object-1'].fields.map((field) => field.id)).toEqual(['shared-field-1', 'local-field-1'])
         expect(runtimeSnapshot.fixedValues?.['set-1']?.map((fixedValue) => fixedValue.id)).toEqual([
             'shared-constant-1',
             'local-constant-1'
@@ -433,9 +433,9 @@ describe('SnapshotSerializer system field propagation', () => {
         const objectsService = {
             findAllByKind: jest.fn(async () => [])
         }
-        const fieldDefinitionsService = {
+        const componentsService = {
             findAllFlatForSnapshot: jest.fn(async () => []),
-            getCatalogSystemFieldsSnapshot: jest.fn(async () => null)
+            getObjectSystemFieldsSnapshot: jest.fn(async () => null)
         }
         const treeEntitiesService = {
             findAll: jest.fn(async () => ({
@@ -460,7 +460,7 @@ describe('SnapshotSerializer system field propagation', () => {
                     kindKey: 'hub',
                     codename: createCodenameVlc('hub'),
                     presentation: { name: { en: 'Hub' }, description: {} },
-                    components: createEntityTypeComponents(),
+                    capabilities: createEntityTypeComponents(),
                     ui: {},
                     config: { hierarchyMode: 'tree' },
                     published: true
@@ -470,7 +470,7 @@ describe('SnapshotSerializer system field propagation', () => {
 
         const serializer = new SnapshotSerializer(
             objectsService as never,
-            fieldDefinitionsService as never,
+            componentsService as never,
             undefined,
             treeEntitiesService as never,
             undefined,
@@ -520,9 +520,9 @@ describe('SnapshotSerializer system field propagation', () => {
                 return []
             })
         }
-        const fieldDefinitionsService = {
+        const componentsService = {
             findAllFlatForSnapshot: jest.fn(async () => []),
-            getCatalogSystemFieldsSnapshot: jest.fn(async () => null)
+            getObjectSystemFieldsSnapshot: jest.fn(async () => null)
         }
         const entityTypeService = {
             listTypes: jest.fn(async () => [
@@ -531,7 +531,7 @@ describe('SnapshotSerializer system field propagation', () => {
                     kindKey: 'custom.value-group',
                     codename: createCodenameVlc('value_group'),
                     presentation: { name: { en: 'Set' }, description: {} },
-                    components: {
+                    capabilities: {
                         dataSchema: false,
                         records: false,
                         treeAssignment: false,
@@ -564,7 +564,7 @@ describe('SnapshotSerializer system field propagation', () => {
 
         const serializer = new SnapshotSerializer(
             objectsService as never,
-            fieldDefinitionsService as never,
+            componentsService as never,
             undefined,
             undefined,
             undefined,
@@ -588,7 +588,7 @@ describe('SnapshotSerializer system field propagation', () => {
                     lifecycleMode: 'legacy',
                     scope: 'workspace'
                 },
-                components: expect.objectContaining({
+                capabilities: expect.objectContaining({
                     fixedValues: {
                         enabled: true
                     }
@@ -616,14 +616,14 @@ describe('SnapshotSerializer system field propagation', () => {
                 return []
             })
         }
-        const fieldDefinitionsService = {
+        const componentsService = {
             findAllFlatForSnapshot: jest.fn(async () => [
                 {
                     id: 'custom-field-1',
                     codename: createCodenameVlc('display_name'),
                     dataType: 'STRING',
                     isRequired: true,
-                    isDisplayAttribute: true,
+                    isDisplayComponent: true,
                     targetEntityId: null,
                     targetEntityKind: null,
                     targetConstantId: null,
@@ -632,11 +632,11 @@ describe('SnapshotSerializer system field propagation', () => {
                     validationRules: {},
                     uiConfig: {},
                     sortOrder: 1,
-                    parentAttributeId: null,
+                    parentComponentId: null,
                     system: { isSystem: false }
                 }
             ]),
-            listObjectSystemFieldDefinitions: jest.fn(async () => []),
+            listObjectSystemComponents: jest.fn(async () => []),
             getObjectSystemFieldsSnapshot: jest.fn(async () => ({ fields: [], lifecycleContract: null }))
         }
         const recordsService = {
@@ -654,7 +654,7 @@ describe('SnapshotSerializer system field propagation', () => {
                 {
                     id: 'type-1',
                     kindKey: 'customer_registry',
-                    components: createEntityTypeComponents(),
+                    capabilities: createEntityTypeComponents(),
                     ui: {
                         iconName: 'IconUsers',
                         tabs: ['general'],
@@ -696,7 +696,7 @@ describe('SnapshotSerializer system field propagation', () => {
 
         const serializer = new SnapshotSerializer(
             objectsService as never,
-            fieldDefinitionsService as never,
+            componentsService as never,
             recordsService as never,
             undefined,
             undefined,
@@ -717,7 +717,7 @@ describe('SnapshotSerializer system field propagation', () => {
             id: 'type-1',
             kindKey: 'customer_registry',
             published: true,
-            components: expect.objectContaining({
+            capabilities: expect.objectContaining({
                 dataSchema: { enabled: true },
                 actions: { enabled: true },
                 events: { enabled: true }

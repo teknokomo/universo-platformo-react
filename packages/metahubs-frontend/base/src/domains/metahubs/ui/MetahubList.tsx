@@ -179,7 +179,7 @@ function MetahubCreateOptionsTab({ values, setValue, isLoading, t }: MetahubCrea
         [values.presetToggles]
     )
     const { data: templateDetail, isLoading: isTemplateLoading } = useTemplateDetail(selectedTemplateId)
-    const { data: presetCatalog = [], isLoading: isPresetCatalogLoading } = useTemplates('entity_type_preset')
+    const { data: presetItems = [], isLoading: isPresetItemsLoading } = useTemplates('entity_type_preset')
     const templateManifest =
         templateDetail?.activeVersionManifest && templateDetail.activeVersionManifest.$schema === 'metahub-template/v1'
             ? (templateDetail.activeVersionManifest as MetahubTemplateManifest)
@@ -187,8 +187,8 @@ function MetahubCreateOptionsTab({ values, setValue, isLoading, t }: MetahubCrea
     const presetReferences = useMemo(() => templateManifest?.presets ?? [], [templateManifest])
     const presetLabels = useMemo(() => {
         const locale = normalizeLocale(i18n.language)
-        return new Map(presetCatalog.map((preset) => [preset.codename, getVLCString(preset.name, locale) || preset.codename]))
-    }, [i18n.language, presetCatalog])
+        return new Map(presetItems.map((preset) => [preset.codename, getVLCString(preset.name, locale) || preset.codename]))
+    }, [i18n.language, presetItems])
 
     useEffect(() => {
         const referencedPresetCodenames = new Set(presetReferences.map((preset) => preset.presetCodename))
@@ -227,7 +227,7 @@ function MetahubCreateOptionsTab({ values, setValue, isLoading, t }: MetahubCrea
             <Typography variant='subtitle2' color='text.secondary'>
                 {t('createOptions.optionalEntities')}
             </Typography>
-            {isTemplateLoading || isPresetCatalogLoading ? (
+            {isTemplateLoading || isPresetItemsLoading ? (
                 <Stack spacing={1}>
                     <Skeleton variant='rounded' height={32} />
                     <Skeleton variant='rounded' height={32} />

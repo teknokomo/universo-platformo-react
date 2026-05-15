@@ -146,7 +146,7 @@ interface CompiledSystemAppAttributePayload extends CompiledSystemAppSchemaBaseP
     targetObjectCodename: string | null
     dataType: NonNullable<SystemAppSchemaGenerationPlan['businessTables'][number]['fields']>[number]['dataType']
     isRequired: boolean
-    isDisplayAttribute: boolean
+    isDisplayComponent: boolean
     presentation: NonNullable<SystemAppSchemaGenerationPlan['businessTables'][number]['fields']>[number]['presentation'] | null
     validationRules: NonNullable<SystemAppSchemaGenerationPlan['businessTables'][number]['fields']>[number]['validationRules'] | null
     uiConfig: NonNullable<SystemAppSchemaGenerationPlan['businessTables'][number]['fields']>[number]['uiConfig'] | null
@@ -277,7 +277,7 @@ interface SystemAppStructureMetadataAttributeSnapshot {
     columnName: string
     dataType: string
     isRequired: boolean
-    isDisplayAttribute: boolean
+    isDisplayComponent: boolean
     targetObjectId: string | null
     targetObjectKind: string | null
     presentation: unknown
@@ -287,7 +287,7 @@ interface SystemAppStructureMetadataAttributeSnapshot {
 
 interface SystemAppStructureMetadataFingerprintSnapshot {
     objects: SystemAppStructureMetadataObjectSnapshot[]
-    attributes: SystemAppStructureMetadataAttributeSnapshot[]
+    components: SystemAppStructureMetadataAttributeSnapshot[]
 }
 
 const sortStructureMetadataObjects = (
@@ -295,7 +295,7 @@ const sortStructureMetadataObjects = (
     right: SystemAppStructureMetadataObjectSnapshot
 ): number => left.id.localeCompare(right.id)
 
-const sortStructureMetadataAttributes = (
+const sortStructureMetadataComponents = (
     left: SystemAppStructureMetadataAttributeSnapshot,
     right: SystemAppStructureMetadataAttributeSnapshot
 ): number => left.id.localeCompare(right.id)
@@ -316,7 +316,7 @@ const buildExpectedSystemAppStructureMetadataSnapshot = (
                 config: normalizeDeterministicJson(entity.config ?? {})
             }))
             .sort(sortStructureMetadataObjects),
-        attributes: businessEntities
+        components: businessEntities
             .flatMap((entity) =>
                 entity.fields.map<SystemAppStructureMetadataAttributeSnapshot>((field) => ({
                     id: field.id,
@@ -325,7 +325,7 @@ const buildExpectedSystemAppStructureMetadataSnapshot = (
                     columnName: field.physicalColumnName ?? field.codename,
                     dataType: field.dataType,
                     isRequired: field.isRequired,
-                    isDisplayAttribute: field.isDisplayAttribute ?? false,
+                    isDisplayComponent: field.isDisplayComponent ?? false,
                     targetObjectId: field.targetEntityId ?? null,
                     targetObjectKind: field.targetEntityKind ?? null,
                     presentation: normalizeDeterministicJson(field.presentation),
@@ -333,7 +333,7 @@ const buildExpectedSystemAppStructureMetadataSnapshot = (
                     uiConfig: normalizeDeterministicJson(field.uiConfig ?? {})
                 }))
             )
-            .sort(sortStructureMetadataAttributes)
+            .sort(sortStructureMetadataComponents)
     }
 }
 
@@ -348,7 +348,7 @@ const loadActualSystemAppStructureMetadataSnapshot = async (
     presentSystemTables: string[]
 ): Promise<SystemAppStructureMetadataFingerprintSnapshot> => {
     let objects: SystemAppStructureMetadataObjectSnapshot[] = []
-    let attributes: SystemAppStructureMetadataAttributeSnapshot[] = []
+    let components: SystemAppStructureMetadataAttributeSnapshot[] = []
 
     if (presentSystemTables.includes('_app_objects')) {
         objects = normalizeRawRows(
@@ -384,8 +384,8 @@ const loadActualSystemAppStructureMetadataSnapshot = async (
             .sort(sortStructureMetadataObjects)
     }
 
-    if (presentSystemTables.includes('_app_attributes')) {
-        attributes = normalizeRawRows(
+    if (presentSystemTables.includes('_app_components')) {
+        components = normalizeRawRows(
             await knex.raw(
                 `
                     select
@@ -395,13 +395,13 @@ const loadActualSystemAppStructureMetadataSnapshot = async (
                         column_name,
                         data_type,
                         is_required,
-                        is_display_attribute,
+                        is_display_component,
                         target_object_id,
                         target_object_kind,
                         presentation::text as presentation_json,
                         validation_rules::text as validation_rules_json,
                         ui_config::text as ui_config_json
-                    from ${quoteIdentifier(plan.schemaName)}._app_attributes
+                    from ${quoteIdentifier(plan.schemaName)}._app_components
                     where _upl_deleted = false
                       and _app_deleted = false
                     order by id asc
@@ -425,7 +425,7 @@ const loadActualSystemAppStructureMetadataSnapshot = async (
                     columnName,
                     dataType,
                     isRequired: row.is_required === true,
-                    isDisplayAttribute: row.is_display_attribute === true,
+                    isDisplayComponent: row.is_display_component === true,
                     targetObjectId: typeof row.target_object_id === 'string' ? row.target_object_id : null,
                     targetObjectKind: typeof row.target_object_kind === 'string' ? row.target_object_kind : null,
                     presentation: normalizeJsonColumnValue(row.presentation_json),
@@ -434,12 +434,12 @@ const loadActualSystemAppStructureMetadataSnapshot = async (
                 }
             })
             .filter((entry): entry is SystemAppStructureMetadataAttributeSnapshot => entry !== null)
-            .sort(sortStructureMetadataAttributes)
+            .sort(sortStructureMetadataComponents)
     }
 
     return {
         objects,
-        attributes
+        components
     }
 }
 
@@ -638,8 +638,8 @@ const mapBusinessTableKindToRuntimeEntityKind = (
     kind: SystemAppSchemaGenerationPlan['businessTables'][number]['kind']
 ): RuntimeEntityKind => {
     switch (kind) {
-        case 'catalog':
-            return 'catalog'
+        case 'object':
+            return 'object'
         case 'document':
             return 'document'
         case 'relation':
@@ -682,7 +682,7 @@ const buildSystemAppBusinessEntities = (plan: SystemAppSchemaGenerationPlan): En
                 codename: field.codename,
                 dataType: field.dataType,
                 isRequired: field.isRequired ?? false,
-                isDisplayAttribute: field.isDisplayAttribute ?? false,
+                isDisplayComponent: field.isDisplayComponent ?? false,
                 physicalColumnName: field.physicalColumnName,
                 physicalDataType: field.physicalDataType,
                 defaultSqlExpression: field.defaultSqlExpression,
@@ -762,7 +762,7 @@ const buildCompiledSystemAppAttributePayload = (
     targetObjectCodename: field.targetTableCodename ?? null,
     dataType: field.dataType,
     isRequired: field.isRequired ?? false,
-    isDisplayAttribute: field.isDisplayAttribute ?? false,
+    isDisplayComponent: field.isDisplayComponent ?? false,
     presentation: field.presentation ?? createSyntheticPresentation(field.codename),
     validationRules: field.validationRules ?? null,
     uiConfig: field.uiConfig ?? null
@@ -792,7 +792,7 @@ export const compileSystemAppSchemaDefinitionArtifacts = (plan: SystemAppSchemaG
 
     const tableArtifacts = resolvedSystemTables.map((tableName) => {
         const dependencies = [schemaLogicalKey]
-        if (tableName === '_app_attributes' || tableName === '_app_values') {
+        if (tableName === '_app_components' || tableName === '_app_values') {
             dependencies.push(`system_app_compiled.table.${plan.stage}.${plan.definitionKey}.${plan.schemaName}._app_objects::custom`)
         }
 
@@ -839,7 +839,7 @@ export const compileSystemAppSchemaDefinitionArtifacts = (plan: SystemAppSchemaG
           )
         : []
 
-    const compiledAttributeArtifacts = resolvedSystemTables.includes('_app_attributes')
+    const compiledAttributeArtifacts = resolvedSystemTables.includes('_app_components')
         ? plan.businessTables.flatMap((table) =>
               (table.fields ?? []).map((field) =>
                   createDefinitionArtifact({
@@ -852,7 +852,7 @@ export const compileSystemAppSchemaDefinitionArtifacts = (plan: SystemAppSchemaG
                       ),
                       sql: JSON.stringify(buildCompiledSystemAppAttributePayload(plan, table, field)),
                       dependencies: [
-                          `system_app_compiled.table.${plan.stage}.${plan.definitionKey}.${plan.schemaName}._app_attributes::custom`,
+                          `system_app_compiled.table.${plan.stage}.${plan.definitionKey}.${plan.schemaName}._app_components::custom`,
                           `${buildCompiledObjectArtifactSchemaQualifiedName(plan, table.tableName)}::custom`
                       ]
                   })
@@ -886,7 +886,7 @@ export const validateSystemAppCompiledArtifactSet = (artifactSet: CompiledSystem
         ...(resolveSystemTableNames(plan.systemTableCapabilities).includes('_app_objects')
             ? plan.businessTables.map((table) => buildCompiledObjectArtifactSchemaQualifiedName(plan, table.tableName))
             : []),
-        ...(resolveSystemTableNames(plan.systemTableCapabilities).includes('_app_attributes')
+        ...(resolveSystemTableNames(plan.systemTableCapabilities).includes('_app_components')
             ? plan.businessTables.flatMap((table) =>
                   (table.fields ?? []).map((field) =>
                       buildCompiledAttributeArtifactSchemaQualifiedName(plan, table.tableName, field.physicalColumnName)
@@ -977,8 +977,8 @@ export const validateSystemAppCompiledArtifactSet = (artifactSet: CompiledSystem
         }
     }
 
-    const appAttributesDependency = `system_app_compiled.table.${plan.stage}.${plan.definitionKey}.${plan.schemaName}._app_attributes::custom`
-    if (resolveSystemTableNames(plan.systemTableCapabilities).includes('_app_attributes')) {
+    const appComponentsDependency = `system_app_compiled.table.${plan.stage}.${plan.definitionKey}.${plan.schemaName}._app_components::custom`
+    if (resolveSystemTableNames(plan.systemTableCapabilities).includes('_app_components')) {
         for (const table of plan.businessTables) {
             for (const field of table.fields ?? []) {
                 const attributeArtifact = artifacts.find(
@@ -986,9 +986,9 @@ export const validateSystemAppCompiledArtifactSet = (artifactSet: CompiledSystem
                         entry.schemaQualifiedName ===
                         buildCompiledAttributeArtifactSchemaQualifiedName(plan, table.tableName, field.physicalColumnName)
                 )
-                if (!attributeArtifact?.dependencies.includes(appAttributesDependency)) {
+                if (!attributeArtifact?.dependencies.includes(appComponentsDependency)) {
                     issues.push(
-                        `${plan.definitionKey}: compiled attribute artifact ${table.tableName}.${field.physicalColumnName} must depend on _app_attributes`
+                        `${plan.definitionKey}: compiled attribute artifact ${table.tableName}.${field.physicalColumnName} must depend on _app_components`
                     )
                 }
                 if (
@@ -1093,12 +1093,12 @@ export const inspectSystemAppStructureMetadata = async (
         )
     }
 
-    if (presentSystemTables.includes('_app_attributes')) {
+    if (presentSystemTables.includes('_app_components')) {
         attributeRows = normalizeRawRows(
             await knex.raw(
                 `
                     select o.codename as object_codename, a.codename, a.column_name
-                    from ${quoteIdentifier(plan.schemaName)}._app_attributes a
+                    from ${quoteIdentifier(plan.schemaName)}._app_components a
                     join ${quoteIdentifier(plan.schemaName)}._app_objects o on o.id = a.object_id
                     where a._upl_deleted = false
                       and a._app_deleted = false
@@ -1179,7 +1179,7 @@ export const inspectRegisteredSystemAppStructureMetadata = async (
     const issues = entries.flatMap((entry) => [
         ...entry.missingSystemTables.map((tableName) => `${entry.definitionKey}: missing system table ${entry.schemaName}.${tableName}`),
         ...entry.missingObjectCodenames.map((codename) => `${entry.definitionKey}: missing _app_objects metadata for ${codename}`),
-        ...entry.missingAttributeKeys.map((key) => `${entry.definitionKey}: missing _app_attributes metadata for ${key}`),
+        ...entry.missingAttributeKeys.map((key) => `${entry.definitionKey}: missing _app_components metadata for ${key}`),
         ...(entry.metadataFingerprintMatches
             ? []
             : [`${entry.definitionKey}: structure metadata fingerprint mismatch for ${entry.schemaName}`])

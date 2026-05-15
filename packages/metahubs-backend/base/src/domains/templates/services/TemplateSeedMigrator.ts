@@ -11,7 +11,7 @@ import { buildDashboardLayoutConfig } from '../../shared'
 import { toJsonbValue } from '../../shared/jsonb'
 import { codenamePrimaryTextSql, ensureCodenameValue } from '../../shared/codename'
 import { resolveWidgetTableName } from './widgetTableResolver'
-import { ensureCatalogSystemFieldDefinitionsSeed, readPlatformSystemFieldDefinitionsPolicyWithKnex } from './systemFieldDefinitionSeed'
+import { ensureObjectSystemComponentsSeed, readPlatformSystemComponentsPolicyWithKnex } from './systemComponentSeed'
 import { buildTemplateSeedEntityCodenameValue, resolveTemplateSeedCodenameConfig } from './TemplateSeedExecutor'
 
 const buildEntityMapKey = (kind: string, codename: string): string => `${kind}:${codename}`
@@ -47,7 +47,7 @@ export interface SeedMigrationResult {
     settingsAdded: number
     entitiesAdded: number
     fixedValuesAdded: number
-    attributesAdded: number
+    componentsAdded: number
     enumValuesAdded: number
     elementsAdded: number
     skipped: string[]
@@ -82,7 +82,7 @@ export class TemplateSeedMigrator {
             settingsAdded: 0,
             entitiesAdded: 0,
             fixedValuesAdded: 0,
-            attributesAdded: 0,
+            componentsAdded: 0,
             enumValuesAdded: 0,
             elementsAdded: 0,
             skipped: []
@@ -105,7 +105,7 @@ export class TemplateSeedMigrator {
                 result.settingsAdded = await this.migrateSettings(trx, newSeed.settings, dryRun)
             }
 
-            // 3. Migrate entities + attributes
+            // 3. Migrate entities + components
             if (newSeed.entities?.length) {
                 const entityIdMap = await this.migrateEntities(trx, newSeed.entities, codenameConfig, result, dryRun)
 
@@ -386,7 +386,7 @@ export class TemplateSeedMigrator {
         return added
     }
 
-    // ─── Entities + Attributes ────────────────────────────────────────────
+    // ─── Entities + Components ────────────────────────────────────────────
 
     private async migrateEntities(
         trx: Knex,
@@ -397,9 +397,9 @@ export class TemplateSeedMigrator {
     ): Promise<Map<string, string>> {
         const entityIdMap = new Map<string, string>()
         const now = new Date()
-        const platformSystemFieldDefinitionsPolicy =
-            !dryRun && entities.some((entity) => entity.kind === 'catalog')
-                ? await readPlatformSystemFieldDefinitionsPolicyWithKnex(trx)
+        const platformSystemComponentsPolicy =
+            !dryRun && entities.some((entity) => entity.kind === 'object')
+                ? await readPlatformSystemComponentsPolicyWithKnex(trx)
                 : undefined
 
         // ── Pass 1: Insert/resolve all entities, build complete codename→id map ──
@@ -414,9 +414,9 @@ export class TemplateSeedMigrator {
 
             if (existing) {
                 entityIdMap.set(buildEntityMapKey(entity.kind, entity.codename), existing.id)
-                if (!dryRun && entity.kind === 'catalog') {
-                    await ensureCatalogSystemFieldDefinitionsSeed(trx, this.schemaName, existing.id, null, {
-                        policy: platformSystemFieldDefinitionsPolicy
+                if (!dryRun && entity.kind === 'object') {
+                    await ensureObjectSystemComponentsSeed(trx, this.schemaName, existing.id, null, {
+                        policy: platformSystemComponentsPolicy
                     })
                 }
                 result.skipped.push(`entity:${entity.codename} (already exists)`)
@@ -455,11 +455,11 @@ export class TemplateSeedMigrator {
 
                 entityIdMap.set(buildEntityMapKey(entity.kind, entity.codename), inserted.id)
 
-                if (entity.kind === 'catalog') {
-                    const systemResult = await ensureCatalogSystemFieldDefinitionsSeed(trx, this.schemaName, inserted.id, null, {
-                        policy: platformSystemFieldDefinitionsPolicy
+                if (entity.kind === 'object') {
+                    const systemResult = await ensureObjectSystemComponentsSeed(trx, this.schemaName, inserted.id, null, {
+                        policy: platformSystemComponentsPolicy
                     })
-                    result.attributesAdded += systemResult.inserted
+                    result.componentsAdded += systemResult.inserted
                 }
             }
             result.entitiesAdded++
@@ -555,41 +555,41 @@ export class TemplateSeedMigrator {
             return fixedValueIdMap.get(buildFixedValueMapKey(targetEntityCodename, targetConstantCodename)) ?? null
         }
 
-        // ── Pass 3: Insert attributes using the complete entity+constants maps ──
+        // ── Pass 3: Insert components using the complete entity+constants maps ──
         for (const entity of entities) {
             const entityId = entityIdMap.get(buildEntityMapKey(entity.kind, entity.codename))
-            if (!entityId || !entity.attributes?.length) continue
+            if (!entityId || !entity.components?.length) continue
 
-            for (let i = 0; i < entity.attributes.length; i++) {
-                const attr = entity.attributes[i]
-                const childAttributes = (attr as unknown as Record<string, unknown>).childAttributes as
+            for (let i = 0; i < entity.components.length; i++) {
+                const cmp = entity.components[i]
+                const childComponents = (cmp as unknown as Record<string, unknown>).childComponents as
                     | Array<Record<string, unknown>>
                     | undefined
 
                 if (dryRun && entityId.startsWith('dry-run:')) {
-                    result.attributesAdded++
-                    if (attr.dataType === 'TABLE' && childAttributes?.length) {
-                        result.attributesAdded += childAttributes.length
+                    result.componentsAdded++
+                    if (cmp.dataType === 'TABLE' && childComponents?.length) {
+                        result.componentsAdded += childComponents.length
                     }
                     continue
                 }
 
                 const attrExists = await trx
                     .withSchema(this.schemaName)
-                    .from('_mhb_attributes')
+                    .from('_mhb_components')
                     .where({
                         object_id: entityId,
                         _upl_deleted: false,
                         _mhb_deleted: false
                     })
-                    .whereRaw(`${codenamePrimaryTextSql('codename')} = ?`, [attr.codename])
+                    .whereRaw(`${codenamePrimaryTextSql('codename')} = ?`, [cmp.codename])
                     .first()
 
-                let parentAttributeId: string | null = attrExists?.id ?? null
+                let parentComponentId: string | null = attrExists?.id ?? null
                 let parentInserted = false
                 if (attrExists) {
-                    result.skipped.push(`attribute:${entity.codename}.${attr.codename} (already exists)`)
-                    if (attr.dataType !== 'TABLE') {
+                    result.skipped.push(`component:${entity.codename}.${cmp.codename} (already exists)`)
+                    if (cmp.dataType !== 'TABLE') {
                         continue
                     }
                 }
@@ -599,25 +599,25 @@ export class TemplateSeedMigrator {
                     if (!dryRun) {
                         const [inserted] = await trx
                             .withSchema(this.schemaName)
-                            .into('_mhb_attributes')
+                            .into('_mhb_components')
                             .insert({
                                 object_id: entityId,
-                                codename: ensureCodenameValue(attr.codename),
-                                data_type: attr.dataType,
-                                presentation: { name: attr.name, description: attr.description },
-                                validation_rules: attr.validationRules ?? {},
-                                ui_config: attr.uiConfig ?? {},
-                                sort_order: attr.sortOrder ?? i,
-                                is_required: attr.isRequired ?? false,
-                                is_display_attribute: attr.isDisplayAttribute ?? false,
-                                target_object_id: attr.targetEntityCodename
-                                    ? resolveEntityIdByCodename(entityIdMap, attr.targetEntityCodename, attr.targetEntityKind)
+                                codename: ensureCodenameValue(cmp.codename),
+                                data_type: cmp.dataType,
+                                presentation: { name: cmp.name, description: cmp.description },
+                                validation_rules: cmp.validationRules ?? {},
+                                ui_config: cmp.uiConfig ?? {},
+                                sort_order: cmp.sortOrder ?? i,
+                                is_required: cmp.isRequired ?? false,
+                                is_display_component: cmp.isDisplayComponent ?? false,
+                                target_object_id: cmp.targetEntityCodename
+                                    ? resolveEntityIdByCodename(entityIdMap, cmp.targetEntityCodename, cmp.targetEntityKind)
                                     : null,
-                                target_object_kind: attr.targetEntityKind ?? null,
+                                target_object_kind: cmp.targetEntityKind ?? null,
                                 target_constant_id: resolveTargetFixedValueId(
-                                    attr.targetEntityKind,
-                                    attr.targetEntityCodename,
-                                    attr.targetConstantCodename
+                                    cmp.targetEntityKind,
+                                    cmp.targetEntityCodename,
+                                    cmp.targetConstantCodename
                                 ),
                                 _upl_created_at: now,
                                 _upl_created_by: null,
@@ -632,19 +632,19 @@ export class TemplateSeedMigrator {
                                 _mhb_deleted: false
                             })
                             .returning('id')
-                        parentAttributeId = inserted?.id ?? null
+                        parentComponentId = inserted?.id ?? null
                     }
                 }
 
                 if (!dryRun) {
-                    if (attr.dataType === 'TABLE' && childAttributes?.length && parentAttributeId) {
-                        for (let ci = 0; ci < childAttributes.length; ci++) {
-                            const child = childAttributes[ci]
+                    if (cmp.dataType === 'TABLE' && childComponents?.length && parentComponentId) {
+                        for (let ci = 0; ci < childComponents.length; ci++) {
+                            const child = childComponents[ci]
                             const childExists = await trx
                                 .withSchema(this.schemaName)
-                                .from('_mhb_attributes')
+                                .from('_mhb_components')
                                 .where({
-                                    parent_attribute_id: parentAttributeId,
+                                    parent_component_id: parentComponentId,
                                     _upl_deleted: false,
                                     _mhb_deleted: false
                                 })
@@ -653,17 +653,17 @@ export class TemplateSeedMigrator {
 
                             if (childExists) {
                                 result.skipped.push(
-                                    `child-attribute:${entity.codename}.${attr.codename}.${child.codename as string} (already exists)`
+                                    `child-component:${entity.codename}.${cmp.codename}.${child.codename as string} (already exists)`
                                 )
                                 continue
                             }
 
                             await trx
                                 .withSchema(this.schemaName)
-                                .into('_mhb_attributes')
+                                .into('_mhb_components')
                                 .insert({
                                     object_id: entityId,
-                                    parent_attribute_id: parentAttributeId,
+                                    parent_component_id: parentComponentId,
                                     codename: ensureCodenameValue(child.codename as string),
                                     data_type: child.dataType as string,
                                     presentation: {
@@ -674,7 +674,7 @@ export class TemplateSeedMigrator {
                                     ui_config: (child.uiConfig as Record<string, unknown>) ?? {},
                                     sort_order: (child.sortOrder as number) ?? ci,
                                     is_required: (child.isRequired as boolean) ?? false,
-                                    is_display_attribute: false,
+                                    is_display_component: false,
                                     target_object_id:
                                         typeof child.targetEntityCodename === 'string'
                                             ? resolveEntityIdByCodename(
@@ -701,12 +701,12 @@ export class TemplateSeedMigrator {
                                     _mhb_archived: false,
                                     _mhb_deleted: false
                                 })
-                            result.attributesAdded++
+                            result.componentsAdded++
                         }
                     }
                 }
                 if (parentInserted) {
-                    result.attributesAdded++
+                    result.componentsAdded++
                 }
             }
         }

@@ -53,6 +53,92 @@
 
 ---
 
+## Completed: Object/Component QA Warning Closure (2026-05-15)
+
+The remaining QA findings from the Object/Component rename review are closed.
+
+### Changes Made
+
+-   Renamed the last active stale shared policy test file to `platformSystemComponentsPolicy`.
+-   Hardened `TargetEntitySelector` so a preselected entity kind remains valid while entity type metadata is still loading, removing the MUI out-of-range Select warning without changing the unsupported-kind behavior after loading.
+-   Added an i18n-backed accessible label for publication application row actions and tightened the related test layout mock so the MUI menu anchor is valid in jsdom.
+-   Added localized EN/RU labels for the publication application row actions button.
+
+### Validation
+
+-   `pnpm --filter @universo/metahubs-backend test -- platformSystemComponentsPolicy`
+-   `pnpm exec vitest run --config vitest.config.ts src/components/__tests__/TargetEntitySelector.test.tsx src/domains/publications/ui/__tests__/PublicationApplicationList.test.tsx`
+-   `pnpm --filter @universo/metahubs-frontend lint`
+-   `git diff --check`
+-   Targeted `rg` audit for stale shared policy identifiers in the metahubs backend source.
+
+## Completed: Object/Component Final QA Remediation (2026-05-14)
+
+The final QA blockers for the Object/Component rename are closed.
+
+### Changes Made
+
+-   Replaced stale Playwright `createLinkedCollection` usage with `createObjectCollection` and removed remaining local `LinkedCollection` naming in the affected Object lifecycle/layout flows.
+-   Updated `@universo/template-mui` breadcrumb, menu, and optimistic CRUD tests from Catalog/LinkedCollection assumptions to Object/ObjectCollection hooks, routes, labels, and cache keys.
+-   Renamed the public shared layout authoring type from `LayoutAuthoringWidgetCatalogItem` to `LayoutAuthoringAvailableWidgetItem`.
+-   Cleaned stale Catalog/Attribute wording in touched shared UI comments without introducing new UI components.
+
+### Validation
+
+-   `pnpm --filter @universo/template-mui test -- useBreadcrumbName MenuContent menuConfigs NavbarBreadcrumbs LayoutAuthoringDetails optimisticCrud.integration`
+-   `pnpm --filter @universo/template-mui lint`
+-   `pnpm --filter @universo/template-mui build`
+-   `git diff --check`
+-   Targeted `rg` audit for stale `createLinkedCollection`, `LayoutAuthoringWidgetCatalogItem`, `useLinkedCollectionName`, `/entities/catalog`, `kindKey: 'catalog'`, `_mhb_attributes`, `_app_attributes`, and `cat_` markers in the remediated areas.
+-   `pnpm run build:e2e:local-supabase`
+-   `UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/base/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs --project=chromium flows/metahub-entities-publication-runtime.spec.ts flows/metahub-global-entity-layouts.spec.ts`
+-   `pnpm supabase:e2e:stop`
+
+## Completed: Object Collections QA Remediation Closure (2026-05-14)
+
+The Object/Component implementation review findings are closed.
+
+### Changes Made
+
+-   Aligned the layout widget frontend API, query keys, mocks, and tests with the backend `/zone-widgets/object` route.
+-   Replaced the stale `CatalogTable.tsx` file name with `ObjectTable.tsx` and expanded `@universo/apps-template-mui` build coverage to include component barrels.
+-   Updated remaining active user-facing Attribute wording, stale `cat_` system-app docs, Object/Component test fixtures, and renamed component route/service tests.
+-   Ran package-local ESLint auto-formatting for touched frontend packages and verified the remaining rename-term grep hits are allowed migration-catalog, ABAC, and DnD API terms.
+
+### Validation
+
+-   `pnpm --filter @universo/metahubs-frontend test -- --runInBand LayoutDetails.cacheInvalidation LayoutDetails.inheritedWidgets queryKeys TargetEntitySelector LayoutList.copyFlow QuizWidgetEditorDialog EntityScriptsTab MetahubBoard`
+-   `pnpm --filter @universo/metahubs-backend test -- componentRoutes MetahubComponentsService systemComponentSeed layoutsRoutes entityInstancesRoutes fixedValuesRoutes EntityDeletePatterns SnapshotRestoreService snapshotLayouts`
+-   `pnpm --filter @universo/applications-backend test -- applicationReleaseBundle syncLayoutPersistence syncLayoutMaterialization runtimeRowsController applicationWorkspaces publicRuntimeAccess applicationsRoutes`
+-   `pnpm --filter @universo/apps-template-mui build`
+-   `pnpm --filter @universo/metahubs-frontend build`
+-   `pnpm --filter @universo/apps-template-mui lint`
+-   `pnpm --filter @universo/metahubs-frontend lint`
+-   `git diff --check`
+
+## Completed: Object Collections QA Remediation (2026-05-14)
+
+The Object/Component rename QA gaps are closed after the implementation pass.
+
+### Changes Made
+
+-   Updated Playwright flow specs and API helpers to use the Object Collection contract, including `objectCollectionId`, `objectCollections`, and the `object` template/kind expectations.
+-   Fixed the shared component settings target mapping so component targets resolve through Objects rather than the removed Catalog contract.
+-   Hardened published app runtime permissions to fail closed when backend payloads omit CRUD flags, including dashboard create actions, row actions, and the deprecated tabular adapter/view.
+-   Removed remaining current documentation/context references to `_app_attributes`, `_mhb_attributes`, stale catalog screenshots, and `cat_publications` in active docs.
+-   Updated E2E selectors to match the current Object UI labels proven by Playwright screenshots.
+
+### Validation
+
+-   `pnpm --filter @universo/schema-ddl test -- --runInBand`
+-   `pnpm --filter @universo/metahubs-frontend test -- --runInBand SharedEntitySettingsFields`
+-   `pnpm --filter @universo/apps-template-mui build`
+-   `pnpm --filter @universo/apps-template-mui test -- --runInBand`
+-   `pnpm run build:e2e:local-supabase`
+-   `UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/base/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs --project=chromium flows/metahub-entities-publication-runtime.spec.ts`
+-   `git diff --check`
+-   Targeted `rg` audits for stale Catalog/Attribute runtime contract markers in E2E specs, active docs, and shared component settings code.
+
 ## Completed: Local Supabase Env Profile Generation Improvement (2026-05-13)
 
 Local Supabase profile generation now preserves the full backend environment contract from the normal env files.

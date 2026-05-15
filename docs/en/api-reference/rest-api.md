@@ -46,7 +46,7 @@ this section.
 
 ## Metahub Shared Authoring Endpoints
 
-- `GET /metahub/{metahubId}/shared-containers` resolves the virtual Resources containers used for shared attributes, constants, and values.
+- `GET /metahub/{metahubId}/shared-containers` resolves the virtual Resources containers used for shared components, constants, and values.
 - `GET /metahub/{metahubId}/shared-entity-overrides` lists sparse exclusion or ordering overrides for one shared entity or one target object.
 - `PATCH /metahub/{metahubId}/shared-entity-overrides` upserts fail-closed exclusion, active-state, or sort-order overrides for shared entities.
 - `GET /metahub/{metahubId}/scripts` plus `POST /metahub/{metahubId}/scripts` list and create design-time scripts; Common authoring must pair `attachedToKind=general` with `moduleRole=library`.

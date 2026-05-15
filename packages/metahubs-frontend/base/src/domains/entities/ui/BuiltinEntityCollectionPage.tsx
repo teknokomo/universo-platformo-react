@@ -1,14 +1,14 @@
 import { useParams } from 'react-router-dom'
 import { isBuiltinEntityKind, type BuiltinEntityKind } from '@universo/types'
 
-import { LinkedCollectionListContent } from '../presets/ui/LinkedCollectionList'
+import { ObjectCollectionListContent } from '../presets/ui/ObjectCollectionList'
 import { OptionListContent } from '../presets/ui/OptionListList'
 import { TreeEntityListContent } from '../presets/ui/TreeEntityList'
 import { ValueGroupListContent } from '../presets/ui/ValueGroupList'
 import EntityInstanceListContent from './EntityInstanceListContent'
 
 const standardEntityCollectionViews: Record<BuiltinEntityKind, () => JSX.Element> = {
-    catalog: LinkedCollectionListContent,
+    object: ObjectCollectionListContent,
     hub: TreeEntityListContent,
     set: ValueGroupListContent,
     enumeration: OptionListContent,

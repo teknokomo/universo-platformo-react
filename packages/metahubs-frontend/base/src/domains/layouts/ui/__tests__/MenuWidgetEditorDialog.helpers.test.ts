@@ -14,11 +14,11 @@ describe('MenuWidgetEditorDialog helpers', () => {
 
     it('resolves section targets from current section aliases', () => {
         expect(resolveMenuItemSectionTarget({ sectionId: 'section-1' } as MenuWidgetConfigItem)).toBe('section-1')
-        expect(resolveMenuItemSectionTarget({ linkedCollectionId: 'section-2' } as MenuWidgetConfigItem)).toBe('section-2')
+        expect(resolveMenuItemSectionTarget({ objectCollectionId: 'section-2' } as MenuWidgetConfigItem)).toBe('section-2')
     })
 
     it('uses the Entity constructor layout capability to discover menu section targets', () => {
-        expect(isLayoutMenuSectionEntityType({ components: { layoutConfig: { enabled: true } } })).toBe(true)
-        expect(isLayoutMenuSectionEntityType({ components: { layoutConfig: false } })).toBe(false)
+        expect(isLayoutMenuSectionEntityType({ capabilities: { layoutConfig: { enabled: true } } })).toBe(true)
+        expect(isLayoutMenuSectionEntityType({ capabilities: { layoutConfig: false } })).toBe(false)
     })
 })

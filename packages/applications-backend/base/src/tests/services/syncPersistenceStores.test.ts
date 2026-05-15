@@ -12,7 +12,7 @@ function createMockTransaction() {
 }
 
 describe('sync persistence helpers', () => {
-    it('persists application schema sync state into the converged cat_applications table', async () => {
+    it('persists application schema sync state into the converged obj_applications table', async () => {
         const mock = createMockTransaction()
         mock.query.mockResolvedValue([{ id: 'application-1' }])
 
@@ -29,7 +29,7 @@ describe('sync persistence helpers', () => {
 
         expect(mock.query).toHaveBeenCalledTimes(1)
         const [sql, params] = mock.query.mock.calls[0]
-        expect(sql).toContain('UPDATE applications.cat_applications')
+        expect(sql).toContain('UPDATE applications.obj_applications')
         expect(sql).toContain('RETURNING id')
         expect(sql).toContain('workspaces_enabled = COALESCE($8, workspaces_enabled)')
         expect(sql).toContain('WHERE id = $10 AND _upl_deleted = false AND _app_deleted = false')
@@ -65,7 +65,7 @@ describe('sync persistence helpers', () => {
         ).rejects.toThrow('Application missing-application not found while persisting schema sync state')
     })
 
-    it('touches connector sync audit fields in the converged cat_connectors table', async () => {
+    it('touches connector sync audit fields in the converged obj_connectors table', async () => {
         const mock = createMockTransaction()
         mock.query.mockResolvedValue([{ id: 'connector-1' }])
 
@@ -76,7 +76,7 @@ describe('sync persistence helpers', () => {
 
         expect(mock.query).toHaveBeenCalledTimes(1)
         const [sql, params] = mock.query.mock.calls[0]
-        expect(sql).toContain('UPDATE applications.cat_connectors')
+        expect(sql).toContain('UPDATE applications.obj_connectors')
         expect(sql).toContain('RETURNING id')
         expect(sql).toContain('WHERE id = $2 AND _upl_deleted = false AND _app_deleted = false')
         expect(params).toEqual(['user-1', 'connector-1'])

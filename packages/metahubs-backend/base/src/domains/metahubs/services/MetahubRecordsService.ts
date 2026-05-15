@@ -3,9 +3,9 @@ import { queryMany, queryOne, queryOneOrThrow } from '@universo/utils/database'
 import { qSchemaTable } from '@universo/database'
 import { MetahubSchemaService } from './MetahubSchemaService'
 import { MetahubObjectsService } from './MetahubObjectsService'
-import { MetahubFieldDefinitionsService } from './MetahubFieldDefinitionsService'
+import { MetahubComponentsService } from './MetahubComponentsService'
 import { isLocalizedContent, filterLocalizedContent, validateNumber } from '@universo/utils'
-import { FieldDefinitionDataType, VersionedLocalizedContent } from '@universo/types'
+import { ComponentDefinitionDataType, VersionedLocalizedContent } from '@universo/types'
 import { escapeLikeWildcards } from '../../../utils'
 import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
 import { MetahubNotFoundError, MetahubValidationError } from '../../shared/domainErrors'
@@ -13,18 +13,18 @@ import { mhbSoftDelete } from '../../../persistence/metahubsQueryHelpers'
 
 const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 
-type RecordAttribute = {
+type RecordComponent = {
     id: string
     codename: string
-    dataType: FieldDefinitionDataType
+    dataType: ComponentDefinitionDataType
     isRequired: boolean
-    parentAttributeId: string | null
+    parentComponentId: string | null
     validationRules?: Record<string, unknown>
 }
 
 type MetahubRecordDto = {
     id: string
-    linkedCollectionId: string
+    objectCollectionId: string
     data: Record<string, unknown>
     ownerId: string | null
     sortOrder: number
@@ -56,28 +56,28 @@ export class MetahubRecordsService {
         private exec: DbExecutor,
         private schemaService: MetahubSchemaService,
         private objectsService: MetahubObjectsService,
-        private fieldDefinitionsService: MetahubFieldDefinitionsService
+        private componentsService: MetahubComponentsService
     ) {}
 
-    private buildSortOrderLockKey(schemaName: string, linkedCollectionId: string): string {
-        return `mhb-elements-sort:${schemaName}:${linkedCollectionId}`
+    private buildSortOrderLockKey(schemaName: string, objectCollectionId: string): string {
+        return `mhb-elements-sort:${schemaName}:${objectCollectionId}`
     }
 
     /**
-     * Serialize sort-order mutations per catalog.
+     * Serialize sort-order mutations per object.
      * Uses transaction-scoped advisory lock, auto-released on commit/rollback.
      */
-    private async acquireSortOrderLockInTransaction(db: SqlQueryable, schemaName: string, linkedCollectionId: string): Promise<void> {
-        const lockKey = this.buildSortOrderLockKey(schemaName, linkedCollectionId)
+    private async acquireSortOrderLockInTransaction(db: SqlQueryable, schemaName: string, objectCollectionId: string): Promise<void> {
+        const lockKey = this.buildSortOrderLockKey(schemaName, objectCollectionId)
         await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', [lockKey])
     }
 
-    private async getNextSortOrder(schemaName: string, linkedCollectionId: string, db: SqlQueryable): Promise<number> {
+    private async getNextSortOrder(schemaName: string, objectCollectionId: string, db: SqlQueryable): Promise<number> {
         const qt = qSchemaTable(schemaName, '_mhb_elements')
         const result = await queryOne<{ max: number | string | null }>(
             db,
             `SELECT MAX(sort_order) AS max FROM ${qt} WHERE object_id = $1 AND ${ACTIVE}`,
-            [linkedCollectionId]
+            [objectCollectionId]
         )
 
         const max = result?.max
@@ -86,7 +86,7 @@ export class MetahubRecordsService {
         return Number.isFinite(parsed) ? parsed + 1 : 1
     }
 
-    private async ensureSequentialSortOrderInTransaction(schemaName: string, linkedCollectionId: string, db: SqlQueryable): Promise<void> {
+    private async ensureSequentialSortOrderInTransaction(schemaName: string, objectCollectionId: string, db: SqlQueryable): Promise<void> {
         const qt = qSchemaTable(schemaName, '_mhb_elements')
 
         const rows = await queryMany<{ id: string; sort_order: number | null }>(
@@ -94,7 +94,7 @@ export class MetahubRecordsService {
             `SELECT id, sort_order FROM ${qt}
              WHERE object_id = $1 AND ${ACTIVE}
              ORDER BY sort_order ASC, _upl_created_at ASC, id ASC`,
-            [linkedCollectionId]
+            [objectCollectionId]
         )
 
         let hasGaps = false
@@ -116,7 +116,7 @@ export class MetahubRecordsService {
     }
 
     /**
-     * Count elements for a specific catalog.
+     * Count elements for a specific object.
      */
     async countByObjectId(metahubId: string, objectId: string, userId?: string): Promise<number> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
@@ -131,7 +131,7 @@ export class MetahubRecordsService {
     }
 
     /**
-     * Count elements for multiple catalogs (batch operation).
+     * Count elements for multiple objects (batch operation).
      */
     async countByObjectIds(metahubId: string, objectIds: string[], userId?: string): Promise<Map<string, number>> {
         if (objectIds.length === 0) return new Map()
@@ -156,7 +156,7 @@ export class MetahubRecordsService {
     }
 
     /**
-     * Find all elements for multiple catalogs.
+     * Find all elements for multiple objects.
      * Elements in Metahubs are treated as predefined (design-time data).
      */
     async findAllByObjectIds(metahubId: string, objectIds: string[], userId?: string) {
@@ -182,11 +182,11 @@ export class MetahubRecordsService {
     }
 
     /**
-     * Find all elements for a catalog with pagination and search.
+     * Find all elements for a object with pagination and search.
      */
     async findAll(
         metahubId: string,
-        linkedCollectionId: string,
+        objectCollectionId: string,
         options: {
             limit?: number
             offset?: number
@@ -196,15 +196,15 @@ export class MetahubRecordsService {
         } = {},
         userId?: string
     ) {
-        // Verify catalog exists
-        const catalog = await this.objectsService.findById(metahubId, linkedCollectionId, userId)
-        if (!catalog) throw new MetahubNotFoundError('Catalog')
+        // Verify object exists
+        const object = await this.objectsService.findById(metahubId, objectCollectionId, userId)
+        if (!object) throw new MetahubNotFoundError('Object')
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_elements')
 
         const conditions: string[] = ['object_id = $1', ACTIVE]
-        const params: unknown[] = [linkedCollectionId]
+        const params: unknown[] = [objectCollectionId]
         let paramIdx = 2
 
         if (options.search) {
@@ -248,11 +248,11 @@ export class MetahubRecordsService {
     }
 
     /**
-     * Find all elements for a catalog with count (for pagination).
+     * Find all elements for a object with count (for pagination).
      */
     async findAllAndCount(
         metahubId: string,
-        linkedCollectionId: string,
+        objectCollectionId: string,
         options: {
             limit?: number
             offset?: number
@@ -262,15 +262,15 @@ export class MetahubRecordsService {
         } = {},
         userId?: string
     ) {
-        // Verify catalog exists
-        const catalog = await this.objectsService.findById(metahubId, linkedCollectionId, userId)
-        if (!catalog) throw new MetahubNotFoundError('Catalog')
+        // Verify object exists
+        const object = await this.objectsService.findById(metahubId, objectCollectionId, userId)
+        if (!object) throw new MetahubNotFoundError('Object')
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_elements')
 
         const conditions: string[] = ['object_id = $1', ACTIVE]
-        const baseParams: unknown[] = [linkedCollectionId]
+        const baseParams: unknown[] = [objectCollectionId]
         let paramIdx = 2
 
         if (options.search) {
@@ -322,10 +322,10 @@ export class MetahubRecordsService {
     /**
      * Find a single element by ID.
      */
-    async findById(metahubId: string, linkedCollectionId: string, id: string, userId?: string) {
-        // Verify catalog exists
-        const catalog = await this.objectsService.findById(metahubId, linkedCollectionId, userId)
-        if (!catalog) return null
+    async findById(metahubId: string, objectCollectionId: string, id: string, userId?: string) {
+        // Verify object exists
+        const object = await this.objectsService.findById(metahubId, objectCollectionId, userId)
+        if (!object) return null
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_elements')
@@ -333,18 +333,18 @@ export class MetahubRecordsService {
         const row = await queryOne<Record<string, unknown>>(
             this.exec,
             `SELECT * FROM ${qt} WHERE id = $1 AND object_id = $2 AND ${ACTIVE} LIMIT 1`,
-            [id, linkedCollectionId]
+            [id, objectCollectionId]
         )
 
         return row ? this.mapRowToRecord(row) : null
     }
 
     /**
-     * Create a new element in a catalog.
+     * Create a new element in a object.
      */
     async create(
         metahubId: string,
-        linkedCollectionId: string,
+        objectCollectionId: string,
         input: {
             data: Record<string, unknown>
             sortOrder?: number
@@ -352,13 +352,13 @@ export class MetahubRecordsService {
         },
         userId?: string
     ) {
-        // Verify catalog exists
-        const catalog = await this.objectsService.findById(metahubId, linkedCollectionId, userId)
-        if (!catalog) throw new MetahubNotFoundError('Catalog')
+        // Verify object exists
+        const object = await this.objectsService.findById(metahubId, objectCollectionId, userId)
+        if (!object) throw new MetahubNotFoundError('Object')
 
-        // Validate element data against catalog attributes (use findAllFlat to include child attrs for TABLE validation)
-        const attributes = await this.fieldDefinitionsService.findAllFlat(metahubId, linkedCollectionId, userId)
-        const validation = this.validateRecordData(input.data, attributes)
+        // Validate element data against object components (use findAllFlat to include child attrs for TABLE validation)
+        const components = await this.componentsService.findAllFlat(metahubId, objectCollectionId, userId)
+        const validation = this.validateRecordData(input.data, components)
         if (!validation.valid) {
             throw new MetahubValidationError(`Validation failed: ${validation.errors.join(', ')}`)
         }
@@ -367,12 +367,12 @@ export class MetahubRecordsService {
         const qt = qSchemaTable(schemaName, '_mhb_elements')
 
         return this.exec.transaction(async (tx: SqlQueryable) => {
-            await this.acquireSortOrderLockInTransaction(tx, schemaName, linkedCollectionId)
+            await this.acquireSortOrderLockInTransaction(tx, schemaName, objectCollectionId)
 
             const sortOrder =
                 typeof input.sortOrder === 'number' && Number.isFinite(input.sortOrder)
                     ? input.sortOrder
-                    : await this.getNextSortOrder(schemaName, linkedCollectionId, tx)
+                    : await this.getNextSortOrder(schemaName, objectCollectionId, tx)
 
             const now = new Date()
 
@@ -383,10 +383,10 @@ export class MetahubRecordsService {
                      _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by)
                  VALUES ($1, $2::jsonb, $3, NULL, $4, $5, $4, $5)
                  RETURNING *`,
-                [linkedCollectionId, JSON.stringify(input.data), sortOrder, now, input.createdBy ?? null]
+                [objectCollectionId, JSON.stringify(input.data), sortOrder, now, input.createdBy ?? null]
             )
 
-            await this.ensureSequentialSortOrderInTransaction(schemaName, linkedCollectionId, tx)
+            await this.ensureSequentialSortOrderInTransaction(schemaName, objectCollectionId, tx)
 
             const normalized = await queryOne<Record<string, unknown>>(tx, `SELECT * FROM ${qt} WHERE id = $1 LIMIT 1`, [created.id])
             return this.mapRowToRecord(normalized ?? created)
@@ -398,7 +398,7 @@ export class MetahubRecordsService {
      */
     async update(
         metahubId: string,
-        linkedCollectionId: string,
+        objectCollectionId: string,
         id: string,
         input: {
             data?: Record<string, unknown>
@@ -408,9 +408,9 @@ export class MetahubRecordsService {
         },
         userId?: string
     ) {
-        // Verify catalog exists
-        const catalog = await this.objectsService.findById(metahubId, linkedCollectionId, userId)
-        if (!catalog) throw new MetahubNotFoundError('Catalog')
+        // Verify object exists
+        const object = await this.objectsService.findById(metahubId, objectCollectionId, userId)
+        if (!object) throw new MetahubNotFoundError('Object')
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_elements')
@@ -419,7 +419,7 @@ export class MetahubRecordsService {
         const existing = await queryOne<Record<string, unknown>>(
             this.exec,
             `SELECT * FROM ${qt} WHERE id = $1 AND object_id = $2 AND ${ACTIVE} LIMIT 1`,
-            [id, linkedCollectionId]
+            [id, objectCollectionId]
         )
 
         if (!existing) throw new MetahubNotFoundError('Element')
@@ -432,8 +432,8 @@ export class MetahubRecordsService {
         if (input.data) {
             const mergedData = { ...(existing.data as Record<string, unknown>), ...input.data }
             // Use findAllFlat to include child attrs for TABLE validation
-            const attributes = await this.fieldDefinitionsService.findAllFlat(metahubId, linkedCollectionId, userId)
-            const validation = this.validateRecordData(mergedData, attributes)
+            const components = await this.componentsService.findAllFlat(metahubId, objectCollectionId, userId)
+            const validation = this.validateRecordData(mergedData, components)
             if (!validation.valid) {
                 throw new MetahubValidationError(`Validation failed: ${validation.errors.join(', ')}`)
             }
@@ -466,14 +466,14 @@ export class MetahubRecordsService {
     /**
      * Delete an element.
      */
-    async delete(metahubId: string, linkedCollectionId: string, id: string, userId?: string) {
-        // Verify catalog exists
-        const catalog = await this.objectsService.findById(metahubId, linkedCollectionId, userId)
-        if (!catalog) throw new MetahubNotFoundError('Catalog')
+    async delete(metahubId: string, objectCollectionId: string, id: string, userId?: string) {
+        // Verify object exists
+        const object = await this.objectsService.findById(metahubId, objectCollectionId, userId)
+        if (!object) throw new MetahubNotFoundError('Object')
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         await this.exec.transaction(async (tx: SqlQueryable) => {
-            await this.acquireSortOrderLockInTransaction(tx, schemaName, linkedCollectionId)
+            await this.acquireSortOrderLockInTransaction(tx, schemaName, objectCollectionId)
 
             const deleted = await mhbSoftDelete(tx, schemaName, '_mhb_elements', id, userId)
 
@@ -481,22 +481,22 @@ export class MetahubRecordsService {
                 throw new MetahubNotFoundError('Element')
             }
 
-            await this.ensureSequentialSortOrderInTransaction(schemaName, linkedCollectionId, tx)
+            await this.ensureSequentialSortOrderInTransaction(schemaName, objectCollectionId, tx)
         })
     }
 
-    async moveRecord(metahubId: string, linkedCollectionId: string, recordId: string, direction: 'up' | 'down', userId?: string) {
+    async moveRecord(metahubId: string, objectCollectionId: string, recordId: string, direction: 'up' | 'down', userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_elements')
 
         return this.exec.transaction(async (tx: SqlQueryable) => {
-            await this.acquireSortOrderLockInTransaction(tx, schemaName, linkedCollectionId)
-            await this.ensureSequentialSortOrderInTransaction(schemaName, linkedCollectionId, tx)
+            await this.acquireSortOrderLockInTransaction(tx, schemaName, objectCollectionId)
+            await this.ensureSequentialSortOrderInTransaction(schemaName, objectCollectionId, tx)
 
             const current = await queryOne<Record<string, unknown>>(
                 tx,
                 `SELECT * FROM ${qt} WHERE id = $1 AND object_id = $2 AND ${ACTIVE} LIMIT 1`,
-                [recordId, linkedCollectionId]
+                [recordId, objectCollectionId]
             )
             if (!current) throw new MetahubNotFoundError('Element')
 
@@ -508,14 +508,14 @@ export class MetahubRecordsService {
                           `SELECT * FROM ${qt}
                            WHERE object_id = $1 AND ${ACTIVE} AND sort_order < $2
                            ORDER BY sort_order DESC LIMIT 1`,
-                          [linkedCollectionId, currentOrder]
+                          [objectCollectionId, currentOrder]
                       )
                     : await queryOne<Record<string, unknown>>(
                           tx,
                           `SELECT * FROM ${qt}
                            WHERE object_id = $1 AND ${ACTIVE} AND sort_order > $2
                            ORDER BY sort_order ASC LIMIT 1`,
-                          [linkedCollectionId, currentOrder]
+                          [objectCollectionId, currentOrder]
                       )
 
             if (neighbor) {
@@ -526,44 +526,44 @@ export class MetahubRecordsService {
                 await tx.query(
                     `UPDATE ${qt} SET sort_order = $1, _upl_updated_at = $2, _upl_updated_by = $3
                      WHERE id = $4 AND object_id = $5`,
-                    [temporarySortOrder, now, userId ?? null, recordId, linkedCollectionId]
+                    [temporarySortOrder, now, userId ?? null, recordId, objectCollectionId]
                 )
                 await tx.query(
                     `UPDATE ${qt} SET sort_order = $1, _upl_updated_at = $2, _upl_updated_by = $3
                      WHERE id = $4 AND object_id = $5`,
-                    [currentOrder, now, userId ?? null, neighbor.id, linkedCollectionId]
+                    [currentOrder, now, userId ?? null, neighbor.id, objectCollectionId]
                 )
                 await tx.query(
                     `UPDATE ${qt} SET sort_order = $1, _upl_updated_at = $2, _upl_updated_by = $3
                      WHERE id = $4 AND object_id = $5`,
-                    [neighbor.sort_order, now, userId ?? null, recordId, linkedCollectionId]
+                    [neighbor.sort_order, now, userId ?? null, recordId, objectCollectionId]
                 )
             }
 
-            await this.ensureSequentialSortOrderInTransaction(schemaName, linkedCollectionId, tx)
+            await this.ensureSequentialSortOrderInTransaction(schemaName, objectCollectionId, tx)
 
             const updated = await queryOne<Record<string, unknown>>(
                 tx,
                 `SELECT * FROM ${qt} WHERE id = $1 AND object_id = $2 AND ${ACTIVE} LIMIT 1`,
-                [recordId, linkedCollectionId]
+                [recordId, objectCollectionId]
             )
             if (!updated) throw new MetahubNotFoundError('Element')
             return this.mapRowToRecord(updated)
         })
     }
 
-    async reorderRecord(metahubId: string, linkedCollectionId: string, recordId: string, newSortOrder: number, userId?: string) {
+    async reorderRecord(metahubId: string, objectCollectionId: string, recordId: string, newSortOrder: number, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_elements')
 
         return this.exec.transaction(async (tx: SqlQueryable) => {
-            await this.acquireSortOrderLockInTransaction(tx, schemaName, linkedCollectionId)
-            await this.ensureSequentialSortOrderInTransaction(schemaName, linkedCollectionId, tx)
+            await this.acquireSortOrderLockInTransaction(tx, schemaName, objectCollectionId)
+            await this.ensureSequentialSortOrderInTransaction(schemaName, objectCollectionId, tx)
 
             const current = await queryOne<Record<string, unknown>>(
                 tx,
                 `SELECT * FROM ${qt} WHERE id = $1 AND object_id = $2 AND ${ACTIVE} LIMIT 1`,
-                [recordId, linkedCollectionId]
+                [recordId, objectCollectionId]
             )
             if (!current) throw new MetahubNotFoundError('Element')
 
@@ -571,7 +571,7 @@ export class MetahubRecordsService {
             const totalResult = await queryOne<{ count: number | string }>(
                 tx,
                 `SELECT COUNT(id) AS count FROM ${qt} WHERE object_id = $1 AND ${ACTIVE}`,
-                [linkedCollectionId]
+                [objectCollectionId]
             )
             const totalRaw = totalResult?.count
             const totalCount = typeof totalRaw === 'number' ? totalRaw : totalRaw ? Number.parseInt(String(totalRaw), 10) : 0
@@ -586,7 +586,7 @@ export class MetahubRecordsService {
                 await tx.query(
                     `UPDATE ${qt} SET sort_order = $1, _upl_updated_at = $2, _upl_updated_by = $3
                      WHERE id = $4 AND object_id = $5`,
-                    [temporarySortOrder, now, userId ?? null, recordId, linkedCollectionId]
+                    [temporarySortOrder, now, userId ?? null, recordId, objectCollectionId]
                 )
 
                 if (clampedNew < oldOrder) {
@@ -596,7 +596,7 @@ export class MetahubRecordsService {
                          WHERE object_id = $3 AND ${ACTIVE}
                            AND sort_order >= $4 AND sort_order < $5
                            AND id != $6`,
-                        [now, userId ?? null, linkedCollectionId, clampedNew, oldOrder, recordId]
+                        [now, userId ?? null, objectCollectionId, clampedNew, oldOrder, recordId]
                     )
                 } else {
                     await tx.query(
@@ -605,23 +605,23 @@ export class MetahubRecordsService {
                          WHERE object_id = $3 AND ${ACTIVE}
                            AND sort_order > $4 AND sort_order <= $5
                            AND id != $6`,
-                        [now, userId ?? null, linkedCollectionId, oldOrder, clampedNew, recordId]
+                        [now, userId ?? null, objectCollectionId, oldOrder, clampedNew, recordId]
                     )
                 }
 
                 await tx.query(
                     `UPDATE ${qt} SET sort_order = $1, _upl_updated_at = $2, _upl_updated_by = $3
                      WHERE id = $4 AND object_id = $5`,
-                    [clampedNew, now, userId ?? null, recordId, linkedCollectionId]
+                    [clampedNew, now, userId ?? null, recordId, objectCollectionId]
                 )
             }
 
-            await this.ensureSequentialSortOrderInTransaction(schemaName, linkedCollectionId, tx)
+            await this.ensureSequentialSortOrderInTransaction(schemaName, objectCollectionId, tx)
 
             const updated = await queryOne<Record<string, unknown>>(
                 tx,
                 `SELECT * FROM ${qt} WHERE id = $1 AND object_id = $2 AND ${ACTIVE} LIMIT 1`,
-                [recordId, linkedCollectionId]
+                [recordId, objectCollectionId]
             )
             if (!updated) throw new MetahubNotFoundError('Element')
             return this.mapRowToRecord(updated)
@@ -629,32 +629,32 @@ export class MetahubRecordsService {
     }
 
     // Validation helpers
-    private validateRecordData(data: Record<string, unknown>, attributes: RecordAttribute[]): { valid: boolean; errors: string[] } {
+    private validateRecordData(data: Record<string, unknown>, components: RecordComponent[]): { valid: boolean; errors: string[] } {
         const errors: string[] = []
-        const rootAttributes = attributes.filter((a) => !a.parentAttributeId)
-        const attributeMap = new Map(rootAttributes.map((a) => [a.codename, a]))
+        const rootComponents = components.filter((a) => !a.parentComponentId)
+        const componentMap = new Map(rootComponents.map((a) => [a.codename, a]))
 
         // Check required fields (root-level only)
-        for (const attr of rootAttributes) {
-            if (attr.isRequired && !this.hasRequiredValue(attr, data[attr.codename])) {
-                errors.push(`Field "${attr.codename}" is required`)
+        for (const cmp of rootComponents) {
+            if (cmp.isRequired && !this.hasRequiredValue(cmp, data[cmp.codename])) {
+                errors.push(`Field "${cmp.codename}" is required`)
             }
         }
 
         // Validate each field
         for (const [key, value] of Object.entries(data)) {
-            const attr = attributeMap.get(key)
-            if (!attr) continue // Unknown field allowed
+            const cmp = componentMap.get(key)
+            if (!cmp) continue // Unknown field allowed
 
             if (value === null || value === undefined) continue
 
             // TABLE type: validate as array of child objects
-            if (attr.dataType === FieldDefinitionDataType.TABLE) {
+            if (cmp.dataType === ComponentDefinitionDataType.TABLE) {
                 if (!Array.isArray(value)) {
                     errors.push(`Field "${key}" (TABLE): expected array`)
                     continue
                 }
-                const childAttrs = attributes.filter((a) => a.parentAttributeId === attr.id)
+                const childAttrs = components.filter((a) => a.parentComponentId === cmp.id)
                 for (let i = 0; i < value.length; i++) {
                     const row = value[i]
                     if (typeof row !== 'object' || row === null) {
@@ -678,7 +678,7 @@ export class MetahubRecordsService {
                     }
                 }
                 // Validate minRows / maxRows constraints
-                const tableRules = attr.validationRules || {}
+                const tableRules = cmp.validationRules || {}
                 if (typeof tableRules.minRows === 'number' && value.length < tableRules.minRows) {
                     errors.push(`Field "${key}": minimum ${tableRules.minRows} row(s) required, got ${value.length}`)
                 }
@@ -688,34 +688,34 @@ export class MetahubRecordsService {
                 continue
             }
 
-            const typeError = this.validateType(value, attr)
+            const typeError = this.validateType(value, cmp)
             if (typeError) {
                 errors.push(`Field "${key}": ${typeError}`)
                 continue
             }
 
-            const ruleErrors = this.validateRules(value, attr.validationRules || {}, key)
+            const ruleErrors = this.validateRules(value, cmp.validationRules || {}, key)
             errors.push(...ruleErrors)
         }
 
         return { valid: errors.length === 0, errors }
     }
 
-    private hasRequiredValue(attr: RecordAttribute, value: unknown): boolean {
+    private hasRequiredValue(cmp: RecordComponent, value: unknown): boolean {
         if (value === undefined || value === null) return false
-        if (attr.dataType === FieldDefinitionDataType.TABLE) {
+        if (cmp.dataType === ComponentDefinitionDataType.TABLE) {
             if (!Array.isArray(value)) return false
-            const minRows = typeof attr.validationRules?.minRows === 'number' ? attr.validationRules.minRows : 1
+            const minRows = typeof cmp.validationRules?.minRows === 'number' ? cmp.validationRules.minRows : 1
             return value.length >= Math.max(1, minRows)
         }
-        if (attr.dataType === FieldDefinitionDataType.STRING) {
+        if (cmp.dataType === ComponentDefinitionDataType.STRING) {
             if (this.hasAnyLocalizedContent(value)) return true
             const text = this.extractLocalizedString(value)
             if (typeof text === 'string') return text.trim() !== ''
             if (typeof value === 'string') return value.trim() !== ''
             return false
         }
-        if (attr.dataType === FieldDefinitionDataType.NUMBER) {
+        if (cmp.dataType === ComponentDefinitionDataType.NUMBER) {
             return typeof value === 'number' && !isNaN(value)
         }
         return value !== ''
@@ -724,7 +724,7 @@ export class MetahubRecordsService {
     private mapRowToRecord(row: Record<string, unknown>): MetahubRecordDto {
         return {
             id: String(row.id),
-            linkedCollectionId: String(row.object_id),
+            objectCollectionId: String(row.object_id),
             data: coerceRecordData(row.data),
             ownerId: typeof row.owner_id === 'string' ? row.owner_id : null,
             sortOrder: coerceNumber(row.sort_order, 0),
@@ -734,23 +734,23 @@ export class MetahubRecordsService {
         }
     }
 
-    private validateType(value: unknown, attr: RecordAttribute): string | null {
-        const dataType = attr.dataType as FieldDefinitionDataType
-        const rules = attr.validationRules ?? {}
+    private validateType(value: unknown, cmp: RecordComponent): string | null {
+        const dataType = cmp.dataType as ComponentDefinitionDataType
+        const rules = cmp.validationRules ?? {}
 
         switch (dataType) {
-            case FieldDefinitionDataType.STRING:
+            case ComponentDefinitionDataType.STRING:
                 if (typeof value === 'string' || isLocalizedContent(value)) break
                 return 'Expected string'
-            case FieldDefinitionDataType.NUMBER:
+            case ComponentDefinitionDataType.NUMBER:
                 if (typeof value !== 'number' || isNaN(value)) return 'Expected number'
                 break
-            case FieldDefinitionDataType.BOOLEAN:
+            case ComponentDefinitionDataType.BOOLEAN:
                 if (typeof value !== 'boolean') return 'Expected boolean'
                 break
-            case FieldDefinitionDataType.DATE:
+            case ComponentDefinitionDataType.DATE:
                 return this.validateDateValue(value, rules)
-            case FieldDefinitionDataType.REF:
+            case ComponentDefinitionDataType.REF:
                 if (typeof value !== 'string') return 'Expected UUID string'
                 break
         }

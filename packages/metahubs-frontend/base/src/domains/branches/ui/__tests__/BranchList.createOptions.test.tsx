@@ -137,7 +137,7 @@ vi.mock('@universo/template-mui/components/dialogs', () => ({
             fullCopy: false,
             copyLayouts: true,
             copyTreeEntities: true,
-            copyLinkedCollections: false,
+            copyObjectCollections: false,
             copyValueGroups: true,
             copyOptionLists: true
         }
@@ -194,7 +194,7 @@ describe('BranchList create flow copy options', () => {
                         fullCopy: false,
                         copyLayouts: true,
                         copyTreeEntities: true,
-                        copyLinkedCollections: false,
+                        copyObjectCollections: false,
                         copyValueGroups: true,
                         copyOptionLists: true
                     })

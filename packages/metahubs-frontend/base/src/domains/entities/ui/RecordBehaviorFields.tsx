@@ -20,14 +20,14 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import { useTranslation } from 'react-i18next'
 import {
-    CATALOG_RECORD_MODES,
+    OBJECT_RECORD_MODES,
     RECORD_IMMUTABILITY_MODES,
     RECORD_NUMBERING_PERIODICITIES,
     RECORD_NUMBERING_SCOPES,
     RECORD_POSTING_MODES,
-    isEnabledComponentConfig,
-    type CatalogRecordBehavior,
-    type ComponentManifest,
+    isEnabledCapabilityConfig,
+    type ObjectRecordBehavior,
+    type EntityTypeCapabilities,
     type RecordLifecycleState
 } from '@universo/types'
 
@@ -37,10 +37,10 @@ export interface RecordBehaviorOption {
 }
 
 export interface RecordBehaviorFieldsProps {
-    value: CatalogRecordBehavior
-    onChange: (value: CatalogRecordBehavior) => void
+    value: ObjectRecordBehavior
+    onChange: (value: ObjectRecordBehavior) => void
     disabled?: boolean
-    components: ComponentManifest
+    capabilities: EntityTypeCapabilities
     fieldOptions: RecordBehaviorOption[]
     ledgerOptions: RecordBehaviorOption[]
     scriptOptions: RecordBehaviorOption[]
@@ -89,16 +89,16 @@ export const RecordBehaviorFields = ({
     value,
     onChange,
     disabled = false,
-    components,
+    capabilities,
     fieldOptions,
     ledgerOptions,
     scriptOptions,
     errors = {}
 }: RecordBehaviorFieldsProps) => {
     const { t } = useTranslation('metahubs')
-    const identityFields = isEnabledComponentConfig(components.identityFields) ? components.identityFields : null
-    const recordLifecycle = isEnabledComponentConfig(components.recordLifecycle) ? components.recordLifecycle : null
-    const posting = isEnabledComponentConfig(components.posting) ? components.posting : null
+    const identityFields = isEnabledCapabilityConfig(capabilities.identityFields) ? capabilities.identityFields : null
+    const recordLifecycle = isEnabledCapabilityConfig(capabilities.recordLifecycle) ? capabilities.recordLifecycle : null
+    const posting = isEnabledCapabilityConfig(capabilities.posting) ? capabilities.posting : null
     const canConfigureIdentity = Boolean(identityFields)
     const canConfigureLifecycle = Boolean(recordLifecycle)
     const canConfigurePosting = Boolean(posting)
@@ -110,14 +110,14 @@ export const RecordBehaviorFields = ({
     const postingLedgerOptions = appendConfiguredOptions(ledgerOptions, value.posting.targetLedgers, configuredOptionLabel)
     const postingScriptOptions = appendConfiguredOption(scriptOptions, value.posting.scriptCodename, configuredOptionLabel)
 
-    const patchBehavior = (patch: Partial<CatalogRecordBehavior>) => onChange({ ...value, ...patch })
-    const patchNumbering = (patch: Partial<CatalogRecordBehavior['numbering']>) =>
+    const patchBehavior = (patch: Partial<ObjectRecordBehavior>) => onChange({ ...value, ...patch })
+    const patchNumbering = (patch: Partial<ObjectRecordBehavior['numbering']>) =>
         patchBehavior({ numbering: { ...value.numbering, ...patch } })
-    const patchEffectiveDate = (patch: Partial<CatalogRecordBehavior['effectiveDate']>) =>
+    const patchEffectiveDate = (patch: Partial<ObjectRecordBehavior['effectiveDate']>) =>
         patchBehavior({ effectiveDate: { ...value.effectiveDate, ...patch } })
-    const patchLifecycle = (patch: Partial<CatalogRecordBehavior['lifecycle']>) =>
+    const patchLifecycle = (patch: Partial<ObjectRecordBehavior['lifecycle']>) =>
         patchBehavior({ lifecycle: { ...value.lifecycle, ...patch } })
-    const patchPosting = (patch: Partial<CatalogRecordBehavior['posting']>) => patchBehavior({ posting: { ...value.posting, ...patch } })
+    const patchPosting = (patch: Partial<ObjectRecordBehavior['posting']>) => patchBehavior({ posting: { ...value.posting, ...patch } })
 
     const updateState = (index: number, patch: Partial<RecordLifecycleState>) => {
         patchLifecycle({
@@ -162,9 +162,9 @@ export const RecordBehaviorFields = ({
                             labelId='record-behavior-mode-label'
                             label={t('entities.recordBehavior.mode.label', 'Record mode')}
                             value={value.mode}
-                            onChange={(event) => patchBehavior({ mode: event.target.value as CatalogRecordBehavior['mode'] })}
+                            onChange={(event) => patchBehavior({ mode: event.target.value as ObjectRecordBehavior['mode'] })}
                         >
-                            {CATALOG_RECORD_MODES.map((mode) => (
+                            {OBJECT_RECORD_MODES.map((mode) => (
                                 <MenuItem key={mode} value={mode}>
                                     {t(`entities.recordBehavior.mode.options.${mode}`, mode)}
                                 </MenuItem>
@@ -225,7 +225,7 @@ export const RecordBehaviorFields = ({
                                                 value={value.numbering.scope}
                                                 onChange={(event) =>
                                                     patchNumbering({
-                                                        scope: event.target.value as CatalogRecordBehavior['numbering']['scope']
+                                                        scope: event.target.value as ObjectRecordBehavior['numbering']['scope']
                                                     })
                                                 }
                                             >
@@ -246,7 +246,7 @@ export const RecordBehaviorFields = ({
                                                 value={value.numbering.periodicity}
                                                 onChange={(event) =>
                                                     patchNumbering({
-                                                        periodicity: event.target.value as CatalogRecordBehavior['numbering']['periodicity']
+                                                        periodicity: event.target.value as ObjectRecordBehavior['numbering']['periodicity']
                                                     })
                                                 }
                                             >
@@ -301,7 +301,7 @@ export const RecordBehaviorFields = ({
                                                 <FormHelperText>
                                                     {t(
                                                         'entities.recordBehavior.fieldOptionsCreateHint',
-                                                        'Field-bound options can be selected after attributes are created.'
+                                                        'Field-bound options can be selected after components are created.'
                                                     )}
                                                 </FormHelperText>
                                             ) : null}
@@ -436,7 +436,7 @@ export const RecordBehaviorFields = ({
                                 labelId='record-posting-mode-label'
                                 label={t('entities.recordBehavior.posting.mode', 'Posting mode')}
                                 value={value.posting.mode}
-                                onChange={(event) => patchPosting({ mode: event.target.value as CatalogRecordBehavior['posting']['mode'] })}
+                                onChange={(event) => patchPosting({ mode: event.target.value as ObjectRecordBehavior['posting']['mode'] })}
                             >
                                 {RECORD_POSTING_MODES.filter(
                                     (mode) =>
@@ -534,7 +534,7 @@ export const RecordBehaviorFields = ({
                             label={t('entities.recordBehavior.immutability.label', 'Immutability')}
                             value={value.immutability}
                             onChange={(event) =>
-                                patchBehavior({ immutability: event.target.value as CatalogRecordBehavior['immutability'] })
+                                patchBehavior({ immutability: event.target.value as ObjectRecordBehavior['immutability'] })
                             }
                         >
                             {RECORD_IMMUTABILITY_MODES.map((mode) => (

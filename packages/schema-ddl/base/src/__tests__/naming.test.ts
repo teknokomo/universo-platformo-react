@@ -52,9 +52,9 @@ describe('DDL Naming Utilities', () => {
     })
 
     describe('generateTableName', () => {
-        it('should generate table name with cat_ prefix for catalog entities', () => {
-            const result = generateTableName(testEntityId, 'catalog')
-            expect(result).toBe(`cat_${expectedCleanId}`)
+        it('should generate table name with obj_ prefix for object entities', () => {
+            const result = generateTableName(testEntityId, 'object')
+            expect(result).toBe(`obj_${expectedCleanId}`)
         })
 
         it('should prefer an explicit custom prefix when provided', () => {
@@ -73,7 +73,7 @@ describe('DDL Naming Utilities', () => {
         })
 
         it('should strip all hyphens from entity ID', () => {
-            const result = generateTableName(testEntityId, 'catalog')
+            const result = generateTableName(testEntityId, 'object')
             expect(result).not.toContain('-')
         })
 
@@ -93,19 +93,19 @@ describe('DDL Naming Utilities', () => {
             expect(
                 resolveEntityTableName({
                     id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-                    kind: 'catalog',
-                    physicalTableName: 'cat_profiles'
+                    kind: 'object',
+                    physicalTableName: 'obj_profiles'
                 })
-            ).toBe('cat_profiles')
+            ).toBe('obj_profiles')
         })
 
         it('should fallback to generated table name when physical override is absent', () => {
             expect(
                 resolveEntityTableName({
                     id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-                    kind: 'catalog'
+                    kind: 'object'
                 })
-            ).toBe(`cat_${expectedCleanId}`)
+            ).toBe(`obj_${expectedCleanId}`)
         })
 
         it('should fallback to physical table prefix when explicit table name is absent', () => {
@@ -120,17 +120,17 @@ describe('DDL Naming Utilities', () => {
     })
 
     describe('generateColumnName', () => {
-        it('should generate column name with attr_ prefix', () => {
+        it('should generate column name with cmp_ prefix', () => {
             const fieldId = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
             const result = generateColumnName(fieldId)
-            expect(result).toBe('attr_a1b2c3d4e5f67890abcdef1234567890')
+            expect(result).toBe('cmp_a1b2c3d4e5f67890abcdef1234567890')
         })
 
         it('should strip all hyphens from field ID', () => {
             const fieldId = '12345678-1234-1234-1234-123456789abc'
             const result = generateColumnName(fieldId)
             expect(result).not.toContain('-')
-            expect(result).toBe('attr_12345678123412341234123456789abc')
+            expect(result).toBe('cmp_12345678123412341234123456789abc')
         })
     })
 
@@ -144,12 +144,12 @@ describe('DDL Naming Utilities', () => {
             ).toBe('nickname')
         })
 
-        it('should fallback to generated attr_* names when override is absent', () => {
+        it('should fallback to generated cmp_* names when override is absent', () => {
             expect(
                 resolveFieldColumnName({
                     id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
                 })
-            ).toBe('attr_a1b2c3d4e5f67890abcdef1234567890')
+            ).toBe('cmp_a1b2c3d4e5f67890abcdef1234567890')
         })
     })
 
@@ -220,21 +220,21 @@ describe('DDL Naming Utilities', () => {
 
     describe('buildFkConstraintName', () => {
         it('should build FK constraint name with fk_ prefix', () => {
-            const result = buildFkConstraintName('cat_abc123', 'attr_def456')
-            expect(result).toBe('fk_cat_abc123_attr_def456')
+            const result = buildFkConstraintName('obj_abc123', 'cmp_def456')
+            expect(result).toBe('fk_obj_abc123_cmp_def456')
         })
 
         it('should truncate constraint name to 63 characters max', () => {
-            const longTableName = 'cat_' + 'a'.repeat(40)
-            const longColumnName = 'attr_' + 'b'.repeat(40)
+            const longTableName = 'obj_' + 'a'.repeat(40)
+            const longColumnName = 'cmp_' + 'b'.repeat(40)
             const result = buildFkConstraintName(longTableName, longColumnName)
             expect(result.length).toBeLessThanOrEqual(63)
             expect(result.startsWith('fk_')).toBe(true)
         })
 
         it('should not truncate short constraint names', () => {
-            const result = buildFkConstraintName('cat_short', 'attr_col')
-            expect(result).toBe('fk_cat_short_attr_col')
+            const result = buildFkConstraintName('obj_short', 'cmp_col')
+            expect(result).toBe('fk_obj_short_cmp_col')
             expect(result.length).toBeLessThan(63)
         })
     })
@@ -252,13 +252,13 @@ describe('DDL Naming Utilities', () => {
             expect(result).toBe('tbl_a1b2c3d4e5f67890abcdef1234567890')
         })
 
-        it('should strip hyphens from attribute ID', () => {
+        it('should strip hyphens from component ID', () => {
             const result = generateChildTableName('12345678-1234-1234-1234-123456789abc')
             expect(result).not.toContain('-')
             expect(result).toBe('tbl_12345678123412341234123456789abc')
         })
 
-        it('should handle already clean attribute ID', () => {
+        it('should handle already clean component ID', () => {
             const result = generateChildTableName('abcdef1234567890abcdef1234567890')
             expect(result).toBe('tbl_abcdef1234567890abcdef1234567890')
         })
@@ -276,7 +276,7 @@ describe('DDL Naming Utilities', () => {
         })
 
         it('should not depend on parent table name', () => {
-            // Same attribute ID should produce same table name regardless of parent
+            // Same component ID should produce same table name regardless of parent
             const attrId = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
             const result = generateChildTableName(attrId)
             expect(result).toBe('tbl_a1b2c3d4e5f67890abcdef1234567890')

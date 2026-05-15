@@ -36,7 +36,7 @@ export type DynamicFieldType = 'STRING' | 'NUMBER' | 'BOOLEAN' | 'DATE' | 'REF' 
 
 /**
  * Validation rules for dynamic fields.
- * Matches FieldDefinitionValidationRules from @universo/types.
+ * Matches component validation rules from @universo/types.
  */
 export interface DynamicFieldValidationRules {
     // STRING settings
@@ -96,7 +96,7 @@ export interface DynamicFieldConfig {
     enumAllowEmpty?: boolean
     /** Defines how empty label-mode value should be rendered. */
     enumLabelEmptyDisplay?: 'empty' | 'dash'
-    /** Child field definitions for TABLE type attributes */
+    /** Child components for TABLE type components */
     childFields?: DynamicFieldConfig[]
     /** Whether to show the TABLE title (default: true) */
     tableShowTitle?: boolean

@@ -105,7 +105,7 @@ describe('Applications Routes', () => {
                 return membership ? [membership] : []
             }
 
-            if (sql.includes('schema_name AS "schemaName"') && sql.includes('FROM applications.cat_applications')) {
+            if (sql.includes('schema_name AS "schemaName"') && sql.includes('FROM applications.obj_applications')) {
                 const application = await applicationRepo.findOne({
                     where: {
                         id: params?.[0]
@@ -311,7 +311,7 @@ describe('Applications Routes', () => {
                     ]
                 }
 
-                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                if (sql.includes('FROM "app_runtime_test"._app_components')) {
                     return []
                 }
 
@@ -354,7 +354,7 @@ describe('Applications Routes', () => {
             })
         })
 
-        it('applies runtime search, sort, and filters only through declared attributes', async () => {
+        it('applies runtime search, sort, and filters only through declared components', async () => {
             const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334472'
             const runtimeLinkedCollectionId = '018f8a78-7b8f-7c1d-a111-222233334473'
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
@@ -376,7 +376,7 @@ describe('Applications Routes', () => {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
-                            kind: 'catalog',
+                            kind: 'object',
                             codename: 'orders',
                             table_name: 'orders',
                             presentation: null,
@@ -385,7 +385,7 @@ describe('Applications Routes', () => {
                     ]
                 }
 
-                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                if (sql.includes('FROM "app_runtime_test"._app_components')) {
                     return [
                         {
                             id: '018f8a78-7b8f-7c1d-a111-222233334474',
@@ -393,7 +393,7 @@ describe('Applications Routes', () => {
                             column_name: 'name',
                             data_type: 'STRING',
                             is_required: false,
-                            is_display_attribute: true,
+                            is_display_component: true,
                             presentation: null,
                             validation_rules: null,
                             sort_order: 1,
@@ -407,7 +407,7 @@ describe('Applications Routes', () => {
                             column_name: 'score',
                             data_type: 'NUMBER',
                             is_required: false,
-                            is_display_attribute: false,
+                            is_display_component: false,
                             presentation: null,
                             validation_rules: null,
                             sort_order: 2,
@@ -427,7 +427,7 @@ describe('Applications Routes', () => {
                             column_name: 'completed_at',
                             data_type: 'DATETIME',
                             is_required: false,
-                            is_display_attribute: false,
+                            is_display_component: false,
                             presentation: null,
                             validation_rules: null,
                             sort_order: 3,
@@ -460,7 +460,7 @@ describe('Applications Routes', () => {
             const response = await request(app)
                 .get(`/applications/${runtimeApplicationId}/runtime`)
                 .query({
-                    linkedCollectionId: runtimeLinkedCollectionId,
+                    objectCollectionId: runtimeLinkedCollectionId,
                     search: 'Alice%',
                     sort: JSON.stringify([
                         { field: 'CompletedAt', direction: 'asc' },
@@ -480,7 +480,7 @@ describe('Applications Routes', () => {
             expect(dataQuery?.params).toEqual(expect.arrayContaining(['%Alice\\%%', 80, 100, 0]))
         })
 
-        it('rejects runtime list sort and filter fields that are not declared attributes', async () => {
+        it('rejects runtime list sort and filter fields that are not declared components', async () => {
             const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334476'
             const runtimeLinkedCollectionId = '018f8a78-7b8f-7c1d-a111-222233334477'
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
@@ -501,7 +501,7 @@ describe('Applications Routes', () => {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
-                            kind: 'catalog',
+                            kind: 'object',
                             codename: 'orders',
                             table_name: 'orders',
                             presentation: null,
@@ -510,7 +510,7 @@ describe('Applications Routes', () => {
                     ]
                 }
 
-                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                if (sql.includes('FROM "app_runtime_test"._app_components')) {
                     return [
                         {
                             id: '018f8a78-7b8f-7c1d-a111-222233334478',
@@ -518,7 +518,7 @@ describe('Applications Routes', () => {
                             column_name: 'name',
                             data_type: 'STRING',
                             is_required: false,
-                            is_display_attribute: true,
+                            is_display_component: true,
                             presentation: null,
                             validation_rules: null,
                             sort_order: 1,
@@ -537,7 +537,7 @@ describe('Applications Routes', () => {
             const response = await request(app)
                 .get(`/applications/${runtimeApplicationId}/runtime`)
                 .query({
-                    linkedCollectionId: runtimeLinkedCollectionId,
+                    objectCollectionId: runtimeLinkedCollectionId,
                     sort: JSON.stringify([{ field: 'bad;drop', direction: 'asc' }]),
                     filters: JSON.stringify([{ field: 'payload', operator: 'contains', value: 'ignored' }])
                 })
@@ -587,7 +587,7 @@ describe('Applications Routes', () => {
                                     locales: { en: { content: 'Quiz widget' } }
                                 }
                             },
-                            attached_to_kind: 'catalog',
+                            attached_to_kind: 'object',
                             attached_to_id: runtimeLinkedCollectionId,
                             module_role: 'widget',
                             source_kind: 'embedded',
@@ -602,7 +602,7 @@ describe('Applications Routes', () => {
                             },
                             server_bundle: 'module.exports = class ServerWidget {}',
                             client_bundle: 'module.exports = class ClientWidget {}',
-                            checksum: 'catalog-checksum',
+                            checksum: 'object-checksum',
                             is_active: true,
                             config: {}
                         },
@@ -643,7 +643,7 @@ describe('Applications Routes', () => {
                                     locales: { en: { content: 'Server only widget' } }
                                 }
                             },
-                            attached_to_kind: 'catalog',
+                            attached_to_kind: 'object',
                             attached_to_id: runtimeLinkedCollectionId,
                             module_role: 'widget',
                             source_kind: 'embedded',
@@ -664,14 +664,14 @@ describe('Applications Routes', () => {
                         },
                         {
                             id: 'script-4',
-                            codename: 'other-catalog-widget',
+                            codename: 'other-object-widget',
                             presentation: {
                                 name: {
                                     _primary: 'en',
-                                    locales: { en: { content: 'Other catalog widget' } }
+                                    locales: { en: { content: 'Other object widget' } }
                                 }
                             },
-                            attached_to_kind: 'catalog',
+                            attached_to_kind: 'object',
                             attached_to_id: otherLinkedCollectionId,
                             module_role: 'widget',
                             source_kind: 'embedded',
@@ -686,7 +686,7 @@ describe('Applications Routes', () => {
                             },
                             server_bundle: 'module.exports = class ServerWidget {}',
                             client_bundle: 'module.exports = class ClientWidget {}',
-                            checksum: 'other-catalog-checksum',
+                            checksum: 'other-object-checksum',
                             is_active: true,
                             config: {}
                         }
@@ -712,7 +712,7 @@ describe('Applications Routes', () => {
                                     locales: { en: { content: 'Server only widget' } }
                                 }
                             },
-                            attached_to_kind: 'catalog',
+                            attached_to_kind: 'object',
                             attached_to_id: runtimeLinkedCollectionId,
                             module_role: 'module',
                             source_kind: 'embedded',
@@ -743,14 +743,14 @@ describe('Applications Routes', () => {
             const app = buildApp(dataSource)
             const response = await request(app)
                 .get(`/applications/${runtimeApplicationId}/runtime/scripts`)
-                .query({ attachedToKind: 'catalog', attachedToId: runtimeLinkedCollectionId })
+                .query({ attachedToKind: 'object', attachedToId: runtimeLinkedCollectionId })
                 .expect(200)
 
             expect(response.body.items).toEqual([
                 expect.objectContaining({
                     id: 'script-1',
                     codename: 'quiz-widget',
-                    attachedToKind: 'catalog',
+                    attachedToKind: 'object',
                     attachedToId: runtimeLinkedCollectionId,
                     clientBundle: null,
                     serverBundle: null
@@ -857,7 +857,7 @@ describe('Applications Routes', () => {
                         ]
                     }
 
-                    if (sql.includes('schema_name AS "schemaName"') && sql.includes('FROM applications.cat_applications')) {
+                    if (sql.includes('schema_name AS "schemaName"') && sql.includes('FROM applications.obj_applications')) {
                         return [{ id: applicationId, schemaName: 'app_runtime_test' }]
                     }
 
@@ -916,7 +916,7 @@ describe('Applications Routes', () => {
                         locales: { en: { content: 'Server only widget' } }
                     }
                 },
-                attached_to_kind: 'catalog',
+                attached_to_kind: 'object',
                 attached_to_id: runtimeLinkedCollectionId,
                 module_role: 'module',
                 source_kind: 'embedded',
@@ -952,14 +952,14 @@ describe('Applications Routes', () => {
             const runtimeLinkedCollectionId = '018f8a78-7b8f-7c1d-a111-222233334484'
             const dataSource = buildRuntimeScriptsRouteDataSource(runtimeApplicationId, {
                 id: 'script-lifecycle',
-                codename: 'catalog-lifecycle',
+                codename: 'object-lifecycle',
                 presentation: {
                     name: {
                         _primary: 'en',
-                        locales: { en: { content: 'Catalog lifecycle' } }
+                        locales: { en: { content: 'Object lifecycle' } }
                     }
                 },
-                attached_to_kind: 'catalog',
+                attached_to_kind: 'object',
                 attached_to_id: runtimeLinkedCollectionId,
                 module_role: 'lifecycle',
                 source_kind: 'embedded',
@@ -1179,11 +1179,11 @@ describe('Applications Routes', () => {
                     ]
                 }
 
-                if (sql.includes('SELECT') && sql.includes('FROM applications.cat_applications a') && sql.includes('schema_snapshot')) {
+                if (sql.includes('SELECT') && sql.includes('FROM applications.obj_applications a') && sql.includes('schema_snapshot')) {
                     return [{ workspacesEnabled: false, ...options.sourceApplication }]
                 }
 
-                if (sql.includes('SELECT id, slug') && sql.includes('FROM applications.cat_applications')) {
+                if (sql.includes('SELECT id, slug') && sql.includes('FROM applications.obj_applications')) {
                     const slug = params?.[0] as string
                     const result = slugChecks[slug]
                     return result ? [result] : []
@@ -1196,7 +1196,7 @@ describe('Applications Routes', () => {
                 return []
             })
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
-                if (sql.includes('INSERT INTO applications.cat_applications (')) {
+                if (sql.includes('INSERT INTO applications.obj_applications (')) {
                     return [copiedApplication]
                 }
                 return []
@@ -1263,7 +1263,7 @@ describe('Applications Routes', () => {
             ).toBe(true)
             expect(
                 (dataSource.manager.query as jest.Mock).mock.calls.some(([sql]: [string]) =>
-                    sql.includes('INSERT INTO applications.cat_connectors (')
+                    sql.includes('INSERT INTO applications.obj_connectors (')
                 )
             ).toBe(true)
             expect(
@@ -1320,12 +1320,12 @@ describe('Applications Routes', () => {
 
             expect(response.body.id).toBe('018f8a78-7b8f-7c1d-a111-222233334445')
             const insertApplicationCall = (dataSource.manager.query as jest.Mock).mock.calls.find(([sql]: [string]) =>
-                sql.includes('INSERT INTO applications.cat_applications (')
+                sql.includes('INSERT INTO applications.obj_applications (')
             )
             expect(insertApplicationCall?.[1]).toContain('draft')
             expect(
                 (dataSource.manager.query as jest.Mock).mock.calls.some(([sql]: [string]) =>
-                    sql.includes('INSERT INTO applications.cat_connectors (')
+                    sql.includes('INSERT INTO applications.obj_connectors (')
                 )
             ).toBe(false)
         })
@@ -1373,7 +1373,7 @@ describe('Applications Routes', () => {
 
             expect(response.body.id).toBe('018f8a78-7b8f-7c1d-a111-222233334447')
             const insertApplicationCall = (dataSource.manager.query as jest.Mock).mock.calls.find(([sql]: [string]) =>
-                sql.includes('INSERT INTO applications.cat_applications (')
+                sql.includes('INSERT INTO applications.obj_applications (')
             )
             expect(insertApplicationCall?.[1]?.[4]).toBe('source-app-copy-2')
         })
@@ -1414,13 +1414,13 @@ describe('Applications Routes', () => {
             })
             ;(dataSource.manager.query as jest.Mock)
                 .mockImplementationOnce(async (sql: string) => {
-                    if (sql.includes('INSERT INTO applications.cat_applications (')) {
+                    if (sql.includes('INSERT INTO applications.obj_applications (')) {
                         throw slugRaceError
                     }
                     return []
                 })
                 .mockImplementation(async (sql: string) => {
-                    if (sql.includes('INSERT INTO applications.cat_applications (')) {
+                    if (sql.includes('INSERT INTO applications.obj_applications (')) {
                         return [
                             buildCopiedApplicationRow('018f8a78-7b8f-7c1d-a111-222233334448', {
                                 slug: 'source-app-copy-2'
@@ -1443,7 +1443,7 @@ describe('Applications Routes', () => {
 
             expect(response.body.id).toBe('018f8a78-7b8f-7c1d-a111-222233334448')
             const insertCalls = (dataSource.manager.query as jest.Mock).mock.calls.filter(([sql]: [string]) =>
-                sql.includes('INSERT INTO applications.cat_applications (')
+                sql.includes('INSERT INTO applications.obj_applications (')
             )
             expect(insertCalls).toHaveLength(2)
             expect(insertCalls[0][1][4]).toBe('source-app-copy')
@@ -1578,7 +1578,7 @@ describe('Applications Routes', () => {
                     ]
                 }
 
-                if (sql.includes('UPDATE applications.cat_applications')) {
+                if (sql.includes('UPDATE applications.obj_applications')) {
                     return [
                         {
                             id: 'application-1',
@@ -1682,7 +1682,7 @@ describe('Applications Routes', () => {
                     ]
                 }
 
-                if (sql.includes('UPDATE applications.cat_applications')) {
+                if (sql.includes('UPDATE applications.obj_applications')) {
                     savedSettings = JSON.parse(String(params?.[0] ?? '{}'))
 
                     return [
@@ -1793,7 +1793,7 @@ describe('Applications Routes', () => {
                     ]
                 }
 
-                if (sql.includes('UPDATE applications.cat_applications')) {
+                if (sql.includes('UPDATE applications.obj_applications')) {
                     expect(sql).toContain('is_public')
                     return [
                         {
@@ -2031,7 +2031,7 @@ describe('Applications Routes', () => {
                         return [{ id: 'new-user-id', email: 'newuser@example.com' }]
                     }
 
-                    if (sql.includes('schema_name AS "schemaName"') && sql.includes('FROM applications.cat_applications')) {
+                    if (sql.includes('schema_name AS "schemaName"') && sql.includes('FROM applications.obj_applications')) {
                         return [{ id: 'application-1', schemaName: null, workspacesEnabled: false }]
                     }
 
@@ -2202,7 +2202,7 @@ describe('Applications Routes', () => {
                         return [{ id: 'member-id' }]
                     }
 
-                    if (sql.includes('schema_name AS "schemaName"') && sql.includes('FROM applications.cat_applications')) {
+                    if (sql.includes('schema_name AS "schemaName"') && sql.includes('FROM applications.obj_applications')) {
                         return [{ id: 'application-1', schemaName: null, workspacesEnabled: false }]
                     }
 
@@ -2297,7 +2297,7 @@ describe('Applications Routes', () => {
 
             applicationUserRepo.findOne.mockResolvedValue(null)
             ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM applications.cat_applications a')) {
+                if (sql.includes('FROM applications.obj_applications a')) {
                     return [
                         {
                             id: publicApplicationId,
@@ -2392,7 +2392,7 @@ describe('Applications Routes', () => {
                     ]
                 }
 
-                if (sql.includes('schema_name AS "schemaName"') && sql.includes('FROM applications.cat_applications')) {
+                if (sql.includes('schema_name AS "schemaName"') && sql.includes('FROM applications.obj_applications')) {
                     return [{ id: 'application-1', schemaName: null, workspacesEnabled: false }]
                 }
 
@@ -2435,7 +2435,7 @@ describe('Applications Routes', () => {
                     return membership ? [membership] : []
                 }
 
-                if (sql.includes('schema_name AS "schemaName"') && sql.includes('FROM applications.cat_applications')) {
+                if (sql.includes('schema_name AS "schemaName"') && sql.includes('FROM applications.obj_applications')) {
                     return [{ id: 'application-1', schemaName: limitsSchemaName, workspacesEnabled: true }]
                 }
 
@@ -2497,7 +2497,7 @@ describe('Applications Routes', () => {
                     return membership ? [membership] : []
                 }
 
-                if (sql.includes('schema_name AS "schemaName"') && sql.includes('FROM applications.cat_applications')) {
+                if (sql.includes('schema_name AS "schemaName"') && sql.includes('FROM applications.obj_applications')) {
                     return [{ id: 'application-1', schemaName: limitsSchemaName, workspacesEnabled: true }]
                 }
 
@@ -2520,7 +2520,7 @@ describe('Applications Routes', () => {
                 })
                 .expect(400)
 
-            expect(response.body.error).toContain('Duplicate catalog limit rows')
+            expect(response.body.error).toContain('Duplicate object limit rows')
             expect(dataSource.transaction).not.toHaveBeenCalled()
         })
 
@@ -2558,7 +2558,7 @@ describe('Applications Routes', () => {
                 if (sql.includes('FROM "app_runtime_test"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders' }]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                if (sql.includes('FROM "app_runtime_test"._app_components')) {
                     return [
                         {
                             id: 'attr-1',
@@ -2580,7 +2580,7 @@ describe('Applications Routes', () => {
             const response = await request(app)
                 .post(`/applications/${runtimeApplicationId}/runtime/rows`)
                 .send({
-                    linkedCollectionId: runtimeLinkedCollectionId,
+                    objectCollectionId: runtimeLinkedCollectionId,
                     data: {
                         status_ref: '018f8a78-7b8f-7c1d-a111-222233334444'
                     }
@@ -2606,7 +2606,7 @@ describe('Applications Routes', () => {
                 if (sql.includes('FROM "app_runtime_test"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders' }]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                if (sql.includes('FROM "app_runtime_test"._app_components')) {
                     return [
                         {
                             id: 'attr-1',
@@ -2631,7 +2631,7 @@ describe('Applications Routes', () => {
             const response = await request(app)
                 .patch(`/applications/${runtimeApplicationId}/runtime/018f8a78-7b8f-7c1d-a111-222233334444`)
                 .send({
-                    linkedCollectionId: runtimeLinkedCollectionId,
+                    objectCollectionId: runtimeLinkedCollectionId,
                     field: 'status_ref',
                     value: '018f8a78-7b8f-7c1d-a111-222233334444'
                 })
@@ -2658,7 +2658,7 @@ describe('Applications Routes', () => {
                 if (sql.includes('FROM "app_runtime_test"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders' }]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                if (sql.includes('FROM "app_runtime_test"._app_components')) {
                     return [
                         {
                             id: 'attr-1',
@@ -2686,7 +2686,7 @@ describe('Applications Routes', () => {
             const response = await request(app)
                 .post(`/applications/${runtimeApplicationId}/runtime/rows`)
                 .send({
-                    linkedCollectionId: runtimeLinkedCollectionId,
+                    objectCollectionId: runtimeLinkedCollectionId,
                     data: {}
                 })
                 .expect(201)
@@ -2723,7 +2723,7 @@ describe('Applications Routes', () => {
             const app = buildApp(dataSource)
             const response = await request(app)
                 .delete(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}`)
-                .query({ linkedCollectionId: runtimeLinkedCollectionId })
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
                 .expect(403)
 
             expect(response.body).toEqual({ error: 'Insufficient permissions for this action' })
@@ -2759,7 +2759,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                if (sql.includes('FROM "app_runtime_test"._app_components')) {
                     return []
                 }
                 if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."orders"')) {
@@ -2774,7 +2774,7 @@ describe('Applications Routes', () => {
             const app = buildApp(dataSource)
             const response = await request(app)
                 .delete(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}`)
-                .query({ linkedCollectionId: runtimeLinkedCollectionId })
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
                 .expect(200)
 
             expect(response.body).toEqual({ status: 'deleted' })
@@ -2825,7 +2825,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                if (sql.includes('FROM "app_runtime_test"._app_components')) {
                     return []
                 }
                 if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."orders"')) {
@@ -2840,7 +2840,7 @@ describe('Applications Routes', () => {
             const app = buildApp(dataSource)
             await request(app)
                 .delete(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}`)
-                .query({ linkedCollectionId: runtimeLinkedCollectionId })
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
                 .expect(200)
 
             const updateCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
@@ -2852,7 +2852,7 @@ describe('Applications Routes', () => {
             expect(String(updateCall?.[0])).not.toContain('_app_deleted_by = $1')
         })
 
-        it('omits platform delete predicates and updates when upl delete fields are disabled in catalog config', async () => {
+        it('omits platform delete predicates and updates when upl delete fields are disabled in object config', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
 
             applicationUserRepo.findOne.mockResolvedValue({
@@ -2889,7 +2889,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                if (sql.includes('FROM "app_runtime_test"._app_components')) {
                     return []
                 }
                 if (sql.includes('SELECT *') && sql.includes('FROM "app_runtime_test"."orders"')) {
@@ -2904,7 +2904,7 @@ describe('Applications Routes', () => {
             const app = buildApp(dataSource)
             await request(app)
                 .delete(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}`)
-                .query({ linkedCollectionId: runtimeLinkedCollectionId })
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
                 .expect(200)
 
             const updateCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
@@ -2945,20 +2945,20 @@ describe('Applications Routes', () => {
             await request(app)
                 .post(`/applications/${runtimeApplicationId}/runtime/rows`)
                 .send({
-                    linkedCollectionId: runtimeLinkedCollectionId,
+                    objectCollectionId: runtimeLinkedCollectionId,
                     data: { title: 'Member-created row' }
                 })
                 .expect(403)
 
             await request(app)
                 .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}/copy`)
-                .send({ linkedCollectionId: runtimeLinkedCollectionId })
+                .send({ objectCollectionId: runtimeLinkedCollectionId })
                 .expect(403)
 
             await request(app)
                 .patch(`/applications/${runtimeApplicationId}/runtime/${runtimeRowId}`)
                 .send({
-                    linkedCollectionId: runtimeLinkedCollectionId,
+                    objectCollectionId: runtimeLinkedCollectionId,
                     field: 'title',
                     value: 'Member edit'
                 })
@@ -2966,7 +2966,7 @@ describe('Applications Routes', () => {
 
             await request(app)
                 .delete(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}`)
-                .query({ linkedCollectionId: runtimeLinkedCollectionId })
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
                 .expect(403)
 
             expect(dataSource.manager.query).not.toHaveBeenCalled()
@@ -2994,7 +2994,7 @@ describe('Applications Routes', () => {
                 const response = await request(app)
                     .patch(`/applications/${runtimeApplicationId}/runtime/${runtimeRowId}`)
                     .send({
-                        linkedCollectionId: runtimeLinkedCollectionId,
+                        objectCollectionId: runtimeLinkedCollectionId,
                         field: 'title',
                         value: 'Updated title'
                     })
@@ -3024,7 +3024,7 @@ describe('Applications Routes', () => {
                 if (sql.includes('FROM "app_runtime_test"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                if (sql.includes('FROM "app_runtime_test"._app_components')) {
                     return []
                 }
                 if (sql.includes('INSERT INTO "app_runtime_test"."orders"')) {
@@ -3037,7 +3037,7 @@ describe('Applications Routes', () => {
             const response = await request(app)
                 .post(`/applications/${runtimeApplicationId}/runtime/rows`)
                 .send({
-                    linkedCollectionId: runtimeLinkedCollectionId,
+                    objectCollectionId: runtimeLinkedCollectionId,
                     data: {}
                 })
                 .expect(201)
@@ -3062,7 +3062,7 @@ describe('Applications Routes', () => {
                 if (sql.includes('FROM "app_runtime_test"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                if (sql.includes('FROM "app_runtime_test"._app_components')) {
                     return []
                 }
                 if (sql.includes('FROM "app_runtime_test"."orders"')) {
@@ -3080,7 +3080,7 @@ describe('Applications Routes', () => {
             const app = buildApp(dataSource)
             const response = await request(app)
                 .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}/copy`)
-                .send({ linkedCollectionId: runtimeLinkedCollectionId })
+                .send({ objectCollectionId: runtimeLinkedCollectionId })
                 .expect(201)
 
             expect(response.body).toEqual({
@@ -3093,7 +3093,7 @@ describe('Applications Routes', () => {
 
         it('copies TABLE child rows with declared child data type and validation metadata', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
-            const tableAttributeId = '018f8a78-7b8f-7c1d-a111-222233334476'
+            const tableComponentId = '018f8a78-7b8f-7c1d-a111-222233334476'
 
             applicationUserRepo.findOne.mockResolvedValue({
                 userId: 'test-user-id',
@@ -3109,7 +3109,7 @@ describe('Applications Routes', () => {
                 if (sql.includes('FROM "app_runtime_test"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_attributes') && params?.[0] === tableAttributeId) {
+                if (sql.includes('FROM "app_runtime_test"._app_components') && params?.[0] === tableComponentId) {
                     expect(sql).toContain('data_type')
                     expect(sql).toContain('validation_rules')
                     return [
@@ -3127,7 +3127,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                if (sql.includes('FROM "app_runtime_test"._app_components')) {
                     return [
                         {
                             id: 'attr-title',
@@ -3138,7 +3138,7 @@ describe('Applications Routes', () => {
                             validation_rules: {}
                         },
                         {
-                            id: tableAttributeId,
+                            id: tableComponentId,
                             codename: 'ContentItems',
                             column_name: 'content_items',
                             data_type: 'TABLE',
@@ -3177,7 +3177,7 @@ describe('Applications Routes', () => {
             const app = buildApp(dataSource)
             await request(app)
                 .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}/copy`)
-                .send({ linkedCollectionId: runtimeLinkedCollectionId })
+                .send({ objectCollectionId: runtimeLinkedCollectionId })
                 .expect(201)
 
             const childInsertCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
@@ -3214,7 +3214,7 @@ describe('Applications Routes', () => {
                 if (sql.includes('FROM "app_runtime_test"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                if (sql.includes('FROM "app_runtime_test"._app_components')) {
                     return []
                 }
                 if (sql.includes('FROM "app_runtime_test"."orders"')) {
@@ -3235,7 +3235,7 @@ describe('Applications Routes', () => {
             const app = buildApp(dataSource)
             const response = await request(app)
                 .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}/copy`)
-                .send({ linkedCollectionId: runtimeLinkedCollectionId })
+                .send({ objectCollectionId: runtimeLinkedCollectionId })
                 .expect(201)
 
             expect(response.body).toEqual({
@@ -3270,7 +3270,7 @@ describe('Applications Routes', () => {
             )
         })
 
-        it('allows editor role to persist runtime row reorder when the catalog enables it', async () => {
+        it('allows editor role to persist runtime row reorder when the object enables it', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
 
             applicationUserRepo.findOne.mockResolvedValue({
@@ -3301,7 +3301,7 @@ describe('Applications Routes', () => {
                         {
                             id: 'layout-orders',
                             config: {
-                                catalogBehavior: {
+                                objectBehavior: {
                                     enableRowReordering: true,
                                     reorderPersistenceField: 'sort_order'
                                 }
@@ -3309,7 +3309,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                if (sql.includes('FROM "app_runtime_test"._app_components')) {
                     return [
                         {
                             id: 'attr-sort-order',
@@ -3338,7 +3338,7 @@ describe('Applications Routes', () => {
             const response = await request(app)
                 .post(`/applications/${runtimeApplicationId}/runtime/rows/reorder`)
                 .send({
-                    linkedCollectionId: runtimeLinkedCollectionId,
+                    objectCollectionId: runtimeLinkedCollectionId,
                     orderedRowIds: [reorderedRowIdA, reorderedRowIdB]
                 })
                 .expect(200)
@@ -3351,7 +3351,7 @@ describe('Applications Routes', () => {
         const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334570'
         const runtimeLinkedCollectionId = '018f8a78-7b8f-7c1d-a111-222233334571'
         const runtimeRowId = '018f8a78-7b8f-7c1d-a111-222233334572'
-        const runtimeAttributeId = '018f8a78-7b8f-7c1d-a111-222233334573'
+        const runtimeComponentId = '018f8a78-7b8f-7c1d-a111-222233334573'
         const runtimeChildRowId = '018f8a78-7b8f-7c1d-a111-222233334574'
 
         const recordBehaviorConfig = {
@@ -3417,7 +3417,7 @@ describe('Applications Routes', () => {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
-                            kind: 'catalog',
+                            kind: 'object',
                             codename: 'documents',
                             table_name: 'documents',
                             config: recordBehaviorConfig
@@ -3461,7 +3461,7 @@ describe('Applications Routes', () => {
             const app = buildApp(dataSource)
             const response = await request(app)
                 .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}/post`)
-                .send({ linkedCollectionId: runtimeLinkedCollectionId, expectedVersion: 1 })
+                .send({ objectCollectionId: runtimeLinkedCollectionId, expectedVersion: 1 })
                 .expect(200)
 
             expect(response.body).toMatchObject({
@@ -3522,7 +3522,7 @@ describe('Applications Routes', () => {
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
                 if (
                     sql.includes('FROM "app_runtime_test"._app_objects') &&
-                    sql.includes("config->'components'->'ledgerSchema'") &&
+                    sql.includes("config->'capabilities'->'ledgerSchema'") &&
                     !sql.includes('AND NOT')
                 ) {
                     return [
@@ -3532,7 +3532,7 @@ describe('Applications Routes', () => {
                             codename: { _primary: 'en', locales: { en: { content: 'ProgressLedger' } } },
                             table_name: 'led_progress',
                             config: {
-                                components: {
+                                capabilities: {
                                     dataSchema: { enabled: true },
                                     physicalTable: { enabled: true },
                                     ledgerSchema: { enabled: true }
@@ -3546,7 +3546,7 @@ describe('Applications Routes', () => {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
-                            kind: 'catalog',
+                            kind: 'object',
                             codename: 'documents',
                             table_name: 'documents',
                             config: recordBehaviorWithLedgerConfig
@@ -3556,7 +3556,7 @@ describe('Applications Routes', () => {
                 if (sql.includes('information_schema.columns')) {
                     return [{ column_name: '_app_reversal_of_fact_id' }]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                if (sql.includes('FROM "app_runtime_test"._app_components')) {
                     return [
                         {
                             id: 'ledger-learner',
@@ -3602,7 +3602,7 @@ describe('Applications Routes', () => {
             const app = buildApp(dataSource)
             const response = await request(app)
                 .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}/post`)
-                .send({ linkedCollectionId: runtimeLinkedCollectionId })
+                .send({ objectCollectionId: runtimeLinkedCollectionId })
                 .expect(200)
 
             expect(response.body.postingMovements).toEqual([
@@ -3635,7 +3635,7 @@ describe('Applications Routes', () => {
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
                 if (
                     sql.includes('FROM "app_runtime_test"._app_objects') &&
-                    sql.includes("config->'components'->'ledgerSchema'") &&
+                    sql.includes("config->'capabilities'->'ledgerSchema'") &&
                     !sql.includes('AND NOT')
                 ) {
                     return [
@@ -3645,14 +3645,14 @@ describe('Applications Routes', () => {
                             codename: { _primary: 'en', locales: { en: { content: 'ProgressLedger' } } },
                             table_name: 'led_progress',
                             config: {
-                                components: {
+                                capabilities: {
                                     dataSchema: { enabled: true },
                                     physicalTable: { enabled: true },
                                     ledgerSchema: { enabled: true }
                                 },
                                 ledger: {
                                     sourcePolicy: 'registrar',
-                                    registrarKinds: ['catalog'],
+                                    registrarKinds: ['object'],
                                     fieldRoles: [
                                         { fieldCodename: 'Learner', role: 'dimension' },
                                         { fieldCodename: 'ProgressDelta', role: 'resource', aggregate: 'sum' }
@@ -3668,7 +3668,7 @@ describe('Applications Routes', () => {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
-                            kind: 'catalog',
+                            kind: 'object',
                             codename: 'documents',
                             table_name: 'documents',
                             config: recordBehaviorWithLedgerConfig
@@ -3678,7 +3678,7 @@ describe('Applications Routes', () => {
                 if (sql.includes('information_schema.columns')) {
                     return [{ column_name: '_app_reversal_of_fact_id' }]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                if (sql.includes('FROM "app_runtime_test"._app_components')) {
                     return [
                         {
                             id: 'ledger-learner',
@@ -3738,7 +3738,7 @@ describe('Applications Routes', () => {
             const app = buildApp(dataSource)
             const response = await request(app)
                 .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}/unpost`)
-                .send({ linkedCollectionId: runtimeLinkedCollectionId, expectedVersion: 3 })
+                .send({ objectCollectionId: runtimeLinkedCollectionId, expectedVersion: 3 })
                 .expect(200)
 
             expect(response.body).toMatchObject({
@@ -3798,7 +3798,7 @@ describe('Applications Routes', () => {
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
                 if (
                     sql.includes('FROM "app_runtime_test"._app_objects') &&
-                    sql.includes("config->'components'->'ledgerSchema'") &&
+                    sql.includes("config->'capabilities'->'ledgerSchema'") &&
                     !sql.includes('AND NOT')
                 ) {
                     return [
@@ -3808,7 +3808,7 @@ describe('Applications Routes', () => {
                             codename: { _primary: 'en', locales: { en: { content: 'ProgressLedger' } } },
                             table_name: 'led_progress',
                             config: {
-                                components: {
+                                capabilities: {
                                     dataSchema: { enabled: true },
                                     physicalTable: { enabled: true },
                                     ledgerSchema: { enabled: true }
@@ -3822,7 +3822,7 @@ describe('Applications Routes', () => {
                     return [
                         {
                             id: runtimeLinkedCollectionId,
-                            kind: 'catalog',
+                            kind: 'object',
                             codename: 'documents',
                             table_name: 'documents',
                             config: recordBehaviorWithLedgerConfig
@@ -3832,7 +3832,7 @@ describe('Applications Routes', () => {
                 if (sql.includes('information_schema.columns')) {
                     return []
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                if (sql.includes('FROM "app_runtime_test"._app_components')) {
                     return [
                         {
                             id: 'ledger-learner',
@@ -3865,7 +3865,7 @@ describe('Applications Routes', () => {
             const app = buildApp(dataSource)
             const response = await request(app)
                 .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}/post`)
-                .send({ linkedCollectionId: runtimeLinkedCollectionId })
+                .send({ objectCollectionId: runtimeLinkedCollectionId })
                 .expect(409)
 
             expect(response.body).toMatchObject({
@@ -3900,7 +3900,7 @@ describe('Applications Routes', () => {
             const app = buildApp(dataSource)
             const response = await request(app)
                 .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}/${command}`)
-                .send({ linkedCollectionId: runtimeLinkedCollectionId })
+                .send({ objectCollectionId: runtimeLinkedCollectionId })
                 .expect(409)
 
             expect(response.body.code).toBe(code)
@@ -3918,7 +3918,7 @@ describe('Applications Routes', () => {
             const app = buildApp(dataSource)
             const response = await request(app)
                 .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}/post`)
-                .send({ linkedCollectionId: runtimeLinkedCollectionId })
+                .send({ objectCollectionId: runtimeLinkedCollectionId })
                 .expect(403)
 
             expect(response.body).toEqual({ error: 'Insufficient permissions for this action' })
@@ -3940,7 +3940,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                if (sql.includes('FROM "app_runtime_test"._app_components')) {
                     return [
                         {
                             id: 'title-attr',
@@ -3968,7 +3968,7 @@ describe('Applications Routes', () => {
             const updateResponse = await request(app)
                 .patch(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}`)
                 .send({
-                    linkedCollectionId: runtimeLinkedCollectionId,
+                    objectCollectionId: runtimeLinkedCollectionId,
                     data: { title: 'Blocked update' }
                 })
                 .expect(409)
@@ -3976,7 +3976,7 @@ describe('Applications Routes', () => {
 
             const deleteResponse = await request(app)
                 .delete(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}`)
-                .query({ linkedCollectionId: runtimeLinkedCollectionId })
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
                 .expect(409)
             expect(deleteResponse.body).toMatchObject({ code: 'RECORD_IMMUTABLE', state: 'posted' })
         })
@@ -3999,7 +3999,7 @@ describe('Applications Routes', () => {
                 if (sql.includes("data_type = 'TABLE'")) {
                     return [
                         {
-                            id: runtimeAttributeId,
+                            id: runtimeComponentId,
                             codename: 'items',
                             column_name: 'items',
                             data_type: 'TABLE',
@@ -4007,7 +4007,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('parent_attribute_id = $1')) {
+                if (sql.includes('parent_component_id = $1')) {
                     return [
                         {
                             id: 'child-title',
@@ -4031,9 +4031,9 @@ describe('Applications Routes', () => {
             const app = buildApp(dataSource)
             const response = await request(app)
                 .patch(
-                    `/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}/tabular/${runtimeAttributeId}/${runtimeChildRowId}`
+                    `/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}/tabular/${runtimeComponentId}/${runtimeChildRowId}`
                 )
-                .query({ linkedCollectionId: runtimeLinkedCollectionId })
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
                 .send({ data: { title: 'Blocked child edit' } })
                 .expect(409)
 
@@ -4122,7 +4122,7 @@ describe('Applications Routes', () => {
                             config: {
                                 ledger: {
                                     sourcePolicy: 'registrar',
-                                    registrarKinds: ['catalog'],
+                                    registrarKinds: ['object'],
                                     fieldRoles: [],
                                     projections: [],
                                     idempotency: { keyFields: [] }
@@ -4131,7 +4131,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('information_schema.columns') || sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                if (sql.includes('information_schema.columns') || sql.includes('FROM "app_runtime_test"._app_components')) {
                     return []
                 }
                 if (sql.includes('INSERT INTO "app_runtime_test"."led_progress"')) {
@@ -4184,7 +4184,7 @@ describe('Applications Routes', () => {
                 if (sql.includes('information_schema.columns')) {
                     return []
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                if (sql.includes('FROM "app_runtime_test"._app_components')) {
                     return [
                         {
                             id: 'ledger-learner',
@@ -4252,7 +4252,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_runtime_test"._app_attributes')) {
+                if (sql.includes('FROM "app_runtime_test"._app_components')) {
                     throw new Error('append-only ledger updates must not inspect writable columns')
                 }
                 if (sql.includes('UPDATE "app_runtime_test"."led_progress"')) {
@@ -4368,7 +4368,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes(`FROM "${runtimeSchemaName}"._app_attributes`)) {
+                if (sql.includes(`FROM "${runtimeSchemaName}"._app_components`)) {
                     if (params?.[0] === '018f8a78-7b8f-7c1d-a111-2222333346b1') {
                         return [
                             {
@@ -4422,7 +4422,7 @@ describe('Applications Routes', () => {
         const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334560'
         const runtimeLinkedCollectionId = '018f8a78-7b8f-7c1d-a111-222233334561'
         const runtimeRecordId = '018f8a78-7b8f-7c1d-a111-222233334562'
-        const runtimeAttributeId = '018f8a78-7b8f-7c1d-a111-222233334563'
+        const runtimeComponentId = '018f8a78-7b8f-7c1d-a111-222233334563'
         const runtimeChildRowId = '018f8a78-7b8f-7c1d-a111-222233334564'
         const copiedChildRowId = '018f8a78-7b8f-7c1d-a111-222233334565'
 
@@ -4451,10 +4451,10 @@ describe('Applications Routes', () => {
             const app = buildApp(dataSource)
             const response = await request(app)
                 .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/not-a-uuid/${runtimeChildRowId}/copy`)
-                .query({ linkedCollectionId: runtimeLinkedCollectionId })
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
                 .expect(400)
 
-            expect(response.body).toEqual({ error: 'Invalid catalog or attribute ID format' })
+            expect(response.body).toEqual({ error: 'Invalid object or component ID format' })
         })
 
         it('allows member role to read child rows without granting mutation permissions', async () => {
@@ -4468,7 +4468,7 @@ describe('Applications Routes', () => {
                 if (sql.includes("data_type = 'TABLE'")) {
                     return [
                         {
-                            id: runtimeAttributeId,
+                            id: runtimeComponentId,
                             codename: 'items',
                             column_name: 'items',
                             data_type: 'TABLE',
@@ -4476,7 +4476,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('parent_attribute_id = $1')) {
+                if (sql.includes('parent_component_id = $1')) {
                     return [
                         {
                             id: 'child-title',
@@ -4499,8 +4499,8 @@ describe('Applications Routes', () => {
 
             const app = buildApp(dataSource)
             const response = await request(app)
-                .get(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeAttributeId}`)
-                .query({ linkedCollectionId: runtimeLinkedCollectionId })
+                .get(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeComponentId}`)
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
                 .expect(200)
 
             expect(response.body).toEqual({
@@ -4517,28 +4517,28 @@ describe('Applications Routes', () => {
             const app = buildApp(dataSource)
 
             await request(app)
-                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeAttributeId}`)
-                .query({ linkedCollectionId: runtimeLinkedCollectionId })
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeComponentId}`)
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
                 .send({ data: { title: 'Blocked' } })
                 .expect(403)
             await request(app)
                 .patch(
-                    `/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeAttributeId}/${runtimeChildRowId}`
+                    `/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeComponentId}/${runtimeChildRowId}`
                 )
-                .query({ linkedCollectionId: runtimeLinkedCollectionId })
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
                 .send({ data: { title: 'Blocked' } })
                 .expect(403)
             await request(app)
                 .post(
-                    `/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeAttributeId}/${runtimeChildRowId}/copy`
+                    `/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeComponentId}/${runtimeChildRowId}/copy`
                 )
-                .query({ linkedCollectionId: runtimeLinkedCollectionId })
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
                 .expect(403)
             await request(app)
                 .delete(
-                    `/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeAttributeId}/${runtimeChildRowId}`
+                    `/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeComponentId}/${runtimeChildRowId}`
                 )
-                .query({ linkedCollectionId: runtimeLinkedCollectionId })
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
                 .expect(403)
 
             expect(dataSource.manager.query).not.toHaveBeenCalled()
@@ -4555,9 +4555,9 @@ describe('Applications Routes', () => {
                 const app = buildApp(dataSource)
                 const response = await request(app)
                     .patch(
-                        `/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeAttributeId}/${runtimeChildRowId}`
+                        `/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeComponentId}/${runtimeChildRowId}`
                     )
-                    .query({ linkedCollectionId: runtimeLinkedCollectionId })
+                    .query({ objectCollectionId: runtimeLinkedCollectionId })
                     .send({ data: { title: 'Blocked' } })
                     .expect(403)
 
@@ -4579,7 +4579,7 @@ describe('Applications Routes', () => {
                 if (sql.includes("data_type = 'TABLE'")) {
                     return [
                         {
-                            id: runtimeAttributeId,
+                            id: runtimeComponentId,
                             codename: 'items',
                             column_name: 'items',
                             data_type: 'TABLE',
@@ -4587,7 +4587,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('parent_attribute_id = $1')) {
+                if (sql.includes('parent_component_id = $1')) {
                     return [
                         {
                             id: 'child-title',
@@ -4645,9 +4645,9 @@ describe('Applications Routes', () => {
             const app = buildApp(dataSource)
             const response = await request(app)
                 .post(
-                    `/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeAttributeId}/${runtimeChildRowId}/copy`
+                    `/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeComponentId}/${runtimeChildRowId}/copy`
                 )
-                .query({ linkedCollectionId: runtimeLinkedCollectionId })
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
                 .expect(201)
 
             expect(response.body).toEqual({ id: copiedChildRowId, status: 'created' })

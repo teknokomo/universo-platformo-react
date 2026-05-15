@@ -11,7 +11,7 @@ import {
 } from '@universo/template-mui'
 import { metahubsQueryKeys } from './queryKeys'
 
-type HubScopedEntitySegment = 'valueGroups' | 'linkedCollections' | 'optionLists'
+type HubScopedEntitySegment = 'valueGroups' | 'objectCollections' | 'optionLists'
 
 type EntityWithOptionalHubs = {
     id: string

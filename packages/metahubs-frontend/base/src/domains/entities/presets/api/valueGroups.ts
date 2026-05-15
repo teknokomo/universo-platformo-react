@@ -40,12 +40,12 @@ export interface ValueGroupWithContainers extends ValueGroupEntity {
 }
 
 export interface BlockingValueGroupReference {
-    sourceLinkedCollectionId: string
-    sourceCatalogCodename: string
-    sourceCatalogName: VersionedLocalizedContent<string> | null
-    fieldDefinitionId: string
-    attributeCodename: string
-    attributeName: VersionedLocalizedContent<string> | null
+    sourceObjectCollectionId: string
+    sourceObjectCodename: string
+    sourceObjectName: VersionedLocalizedContent<string> | null
+    componentId: string
+    componentCodename: string
+    componentName: VersionedLocalizedContent<string> | null
 }
 
 export interface BlockingValueGroupReferencesResponse {
@@ -257,7 +257,7 @@ export const deleteValueGroupDirect = (metahubId: string, valueGroupId: string, 
     apiClient.delete<void>(buildValueGroupInstancePath(metahubId, valueGroupId, kindKey))
 
 /**
- * Get REF fieldDefinitions from linkedCollections that block deleting this set.
+ * Get REF components from objectCollections that block deleting this set.
  */
 export const getBlockingValueGroupReferences = async (
     metahubId: string,

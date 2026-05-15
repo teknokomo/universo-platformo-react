@@ -4,8 +4,8 @@ export { LayoutAuthoringList } from './LayoutAuthoringList'
 export type { LayoutAuthoringListProps, LayoutAuthoringListItem } from './LayoutAuthoringList'
 export { LayoutAuthoringDetails } from './LayoutAuthoringDetails'
 export type {
+    LayoutAuthoringAvailableWidgetItem,
     LayoutAuthoringDetailsProps,
     LayoutAuthoringZone,
-    LayoutAuthoringWidgetCatalogItem,
     LayoutAuthoringWidgetRow
 } from './LayoutAuthoringDetails'

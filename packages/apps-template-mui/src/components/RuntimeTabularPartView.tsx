@@ -10,6 +10,7 @@ import { createTabularPartAdapter } from '../api/TabularPartAdapter'
 import { useCrudDashboard } from '../hooks/useCrudDashboard'
 import { CrudDialogs } from './CrudDialogs'
 import { RowActionsMenu } from './RowActionsMenu'
+import type { AppDataResponse } from '../api/api'
 import type { FieldConfig } from './dialogs/FormDialog'
 
 export interface RuntimeTabularPartViewProps {
@@ -17,42 +18,44 @@ export interface RuntimeTabularPartViewProps {
     apiBaseUrl: string
     /** Application UUID. */
     applicationId: string
-    /** Catalog UUID that owns the parent record. */
-    linkedCollectionId: string
+    /** Object UUID that owns the parent record. */
+    objectCollectionId: string
     /** Parent record UUID. */
     parentRecordId: string
-    /** TABLE attribute UUID. */
-    attributeId: string
-    /** Child field definitions from the parent form's FieldConfig. */
+    /** TABLE component UUID. */
+    componentId: string
+    /** Child components from the parent form's FieldConfig. */
     childFields: FieldConfig[]
-    /** Whether to show the attribute label above the table. */
+    /** Whether to show the component label above the table. */
     showTitle?: boolean
     /** Label text for the table header. */
     label?: string
     /** BCP-47 locale string, e.g. `"en"`, `"ru"`. */
     locale: string
+    permissions?: Partial<AppDataResponse['permissions']>
 }
 
 /**
  * @deprecated Use `RuntimeInlineTabularEditor` instead. This component uses dialog-based
  * editing via `useCrudDashboard` and will be removed in a future version.
  *
- * Runtime view for TABLE attribute child rows.
+ * Runtime view for TABLE component child rows.
  *
  * Reuses `useCrudDashboard` with a `TabularPartAdapter` to provide
  * full CRUD (list, create, edit, delete) with the same DataGrid/dialog
- * components used by catalog tables.
+ * components used by object tables.
  */
 export function RuntimeTabularPartView({
     apiBaseUrl,
     applicationId,
-    linkedCollectionId,
+    objectCollectionId,
     parentRecordId,
-    attributeId,
+    componentId,
     childFields,
     showTitle = true,
     label,
-    locale
+    locale,
+    permissions
 }: RuntimeTabularPartViewProps) {
     const { t } = useTranslation('apps')
 
@@ -66,12 +69,13 @@ export function RuntimeTabularPartView({
             createTabularPartAdapter({
                 apiBaseUrl,
                 applicationId,
-                linkedCollectionId,
+                objectCollectionId,
                 parentRecordId,
-                attributeId,
-                childFields: stableChildFields
+                componentId,
+                childFields: stableChildFields,
+                permissions
             }),
-        [apiBaseUrl, applicationId, linkedCollectionId, parentRecordId, attributeId, stableChildFields]
+        [apiBaseUrl, applicationId, objectCollectionId, parentRecordId, componentId, stableChildFields, permissions]
     )
 
     const state = useCrudDashboard({
@@ -112,6 +116,10 @@ export function RuntimeTabularPartView({
         return map
     }, [state.rows])
 
+    const canCreate = state.appData?.permissions.createContent === true
+    const canEdit = state.appData?.permissions.editContent === true
+    const canDelete = state.appData?.permissions.deleteContent === true
+
     const columnsWithRowNumber = useMemo<GridColDef[]>(
         () => [
             {
@@ -137,13 +145,15 @@ export function RuntimeTabularPartView({
                     <Typography variant='subtitle2' color='text.secondary'>
                         {label}
                     </Typography>
-                    <Button size='small' startIcon={<AddIcon />} onClick={state.handleOpenCreate}>
-                        {labels.addText}
-                    </Button>
+                    {canCreate && (
+                        <Button size='small' startIcon={<AddIcon />} onClick={state.handleOpenCreate}>
+                            {labels.addText}
+                        </Button>
+                    )}
                 </Box>
             )}
 
-            {!showTitle && (
+            {!showTitle && canCreate && (
                 <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
                     <Button size='small' startIcon={<AddIcon />} onClick={state.handleOpenCreate}>
                         {labels.addText}
@@ -171,11 +181,12 @@ export function RuntimeTabularPartView({
                         disableColumnResize
                         localeText={state.localeText}
                         onRowClick={(params) => {
+                            if (!canEdit) return
                             state.handleOpenEdit(String(params.id))
                         }}
                         sx={{
                             flex: 1,
-                            '& .MuiDataGrid-row': { cursor: 'pointer' },
+                            '& .MuiDataGrid-row': { cursor: canEdit ? 'pointer' : 'default' },
                             [`& .MuiDataGrid-columnHeader`]: {
                                 backgroundColor: 'grey.100'
                             },
@@ -195,6 +206,7 @@ export function RuntimeTabularPartView({
             <RowActionsMenu
                 state={state}
                 labels={{ editText: labels.editText, copyText: labels.copyText, deleteText: labels.deleteText }}
+                permissions={{ canEdit, canCopy: canCreate, canDelete }}
             />
         </Box>
     )

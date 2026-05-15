@@ -13,7 +13,7 @@ The same scripting contract spans Resources workspace libraries, metahub-level l
 
 - The Scripts tab in the Resources workspace authors import-only `general/library` helpers.
 - Metahub-level scripts author reusable runtime logic that is not tied to one object.
-- Object-attached scripts keep behavior close to a hub, catalog, set, enumeration, or attribute.
+- Object-attached scripts keep behavior close to a hub, object, set, enumeration, or component.
 - Publications package active consumer scripts for application sync and runtime execution.
 
 ## Delivery Rules

@@ -58,7 +58,7 @@ export const persistApplicationSchemaSyncState = async (
     params.push(input.applicationId)
 
     const result = await trx.query<{ id: string }>(
-        `UPDATE applications.cat_applications
+        `UPDATE applications.obj_applications
          SET ${setClauses.join(',\n             ')}
          WHERE id = $${nextParam} AND _upl_deleted = false AND _app_deleted = false
          RETURNING id`,

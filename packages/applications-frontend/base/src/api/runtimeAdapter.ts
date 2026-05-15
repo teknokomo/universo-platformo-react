@@ -22,48 +22,48 @@ export function createRuntimeAdapter(applicationId: string): CrudDataAdapter {
     return {
         queryKeyPrefix: applicationsQueryKeys.runtimeAll(applicationId),
 
-        fetchList: ({ limit, offset, locale, linkedCollectionId, sectionId, search, sort, filters }) =>
+        fetchList: ({ limit, offset, locale, objectCollectionId, sectionId, search, sort, filters }) =>
             getApplicationRuntime(applicationId, {
                 limit,
                 offset,
                 locale,
-                linkedCollectionId,
+                objectCollectionId,
                 sectionId,
                 search,
                 sort,
                 filters
             }) as Promise<AppDataResponse>,
 
-        fetchRow: (rowId, linkedCollectionId) =>
-            getApplicationRuntimeRow({ applicationId, rowId, linkedCollectionId, sectionId: linkedCollectionId }),
+        fetchRow: (rowId, objectCollectionId) =>
+            getApplicationRuntimeRow({ applicationId, rowId, objectCollectionId, sectionId: objectCollectionId }),
 
-        fetchTabularRows: async ({ parentRowId, attributeId, linkedCollectionId, sectionId }) => {
-            const resolvedSectionId = sectionId ?? linkedCollectionId
+        fetchTabularRows: async ({ parentRowId, componentId, objectCollectionId, sectionId }) => {
+            const resolvedSectionId = sectionId ?? objectCollectionId
             if (!resolvedSectionId) return []
             return listApplicationRuntimeTabularRows({
                 applicationId,
                 rowId: parentRowId,
-                attributeId,
-                linkedCollectionId: resolvedSectionId,
+                componentId,
+                objectCollectionId: resolvedSectionId,
                 sectionId: resolvedSectionId
             })
         },
 
-        createRow: (data, linkedCollectionId) =>
-            createApplicationRuntimeRow({ applicationId, data, linkedCollectionId, sectionId: linkedCollectionId }),
+        createRow: (data, objectCollectionId) =>
+            createApplicationRuntimeRow({ applicationId, data, objectCollectionId, sectionId: objectCollectionId }),
 
-        updateRow: (rowId, data, linkedCollectionId) =>
-            updateApplicationRuntimeRow({ applicationId, rowId, data, linkedCollectionId, sectionId: linkedCollectionId }),
+        updateRow: (rowId, data, objectCollectionId) =>
+            updateApplicationRuntimeRow({ applicationId, rowId, data, objectCollectionId, sectionId: objectCollectionId }),
 
-        deleteRow: (rowId, linkedCollectionId) =>
-            deleteApplicationRuntimeRow({ applicationId, rowId, linkedCollectionId, sectionId: linkedCollectionId }),
+        deleteRow: (rowId, objectCollectionId) =>
+            deleteApplicationRuntimeRow({ applicationId, rowId, objectCollectionId, sectionId: objectCollectionId }),
 
         copyRow: (rowId, data) =>
             copyApplicationRuntimeRow({
                 applicationId,
                 rowId,
-                linkedCollectionId: data?.linkedCollectionId,
-                sectionId: data?.sectionId ?? data?.linkedCollectionId,
+                objectCollectionId: data?.objectCollectionId,
+                sectionId: data?.sectionId ?? data?.objectCollectionId,
                 copyChildTables: data?.copyChildTables
             }),
 
@@ -72,15 +72,15 @@ export function createRuntimeAdapter(applicationId: string): CrudDataAdapter {
                 applicationId,
                 rowId,
                 command,
-                linkedCollectionId: data?.linkedCollectionId,
-                sectionId: data?.sectionId ?? data?.linkedCollectionId,
+                objectCollectionId: data?.objectCollectionId,
+                sectionId: data?.sectionId ?? data?.objectCollectionId,
                 expectedVersion: data?.expectedVersion
             }),
 
-        reorderRows: ({ linkedCollectionId, sectionId, orderedRowIds }) =>
+        reorderRows: ({ objectCollectionId, sectionId, orderedRowIds }) =>
             reorderApplicationRuntimeRows({
                 applicationId,
-                linkedCollectionId,
+                objectCollectionId,
                 sectionId,
                 orderedRowIds
             })

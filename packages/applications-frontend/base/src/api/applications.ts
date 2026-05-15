@@ -111,20 +111,20 @@ export const getApplicationRuntime = async (
         limit?: number
         offset?: number
         locale?: string
-        linkedCollectionId?: string
+        objectCollectionId?: string
         sectionId?: string
         search?: string
         sort?: RuntimeDatasourceSort[]
         filters?: RuntimeDatasourceFilter[]
     }
 ): Promise<ApplicationRuntimeResponse> => {
-    const resolvedSectionId = params?.sectionId ?? params?.linkedCollectionId
+    const resolvedSectionId = params?.sectionId ?? params?.objectCollectionId
     const response = await apiClient.get<ApplicationRuntimeResponse>(`/applications/${applicationId}/runtime`, {
         params: {
             limit: params?.limit,
             offset: params?.offset,
             locale: params?.locale,
-            linkedCollectionId: resolvedSectionId,
+            objectCollectionId: resolvedSectionId,
             search: params?.search,
             sort: params?.sort ? JSON.stringify(params.sort) : undefined,
             filters: params?.filters ? JSON.stringify(params.filters) : undefined
@@ -138,14 +138,14 @@ export const updateApplicationRuntimeCell = async (params: {
     rowId: string
     field: string
     value: boolean | null
-    linkedCollectionId?: string
+    objectCollectionId?: string
     sectionId?: string
 }): Promise<void> => {
-    const { applicationId, rowId, field, value, linkedCollectionId, sectionId } = params
+    const { applicationId, rowId, field, value, objectCollectionId, sectionId } = params
     await apiClient.patch(`/applications/${applicationId}/runtime/${rowId}`, {
         field,
         value,
-        linkedCollectionId: sectionId ?? linkedCollectionId
+        objectCollectionId: sectionId ?? objectCollectionId
     })
 }
 
@@ -153,13 +153,13 @@ export const updateApplicationRuntimeCell = async (params: {
 export const getApplicationRuntimeRow = async (params: {
     applicationId: string
     rowId: string
-    linkedCollectionId?: string
+    objectCollectionId?: string
     sectionId?: string
 }): Promise<Record<string, unknown>> => {
-    const { applicationId, rowId, linkedCollectionId, sectionId } = params
-    const resolvedSectionId = sectionId ?? linkedCollectionId
+    const { applicationId, rowId, objectCollectionId, sectionId } = params
+    const resolvedSectionId = sectionId ?? objectCollectionId
     const response = await apiClient.get<Record<string, unknown>>(`/applications/${applicationId}/runtime/rows/${rowId}`, {
-        params: resolvedSectionId ? { linkedCollectionId: resolvedSectionId } : undefined
+        params: resolvedSectionId ? { objectCollectionId: resolvedSectionId } : undefined
     })
     return response.data
 }
@@ -168,48 +168,48 @@ export const getApplicationRuntimeRow = async (params: {
 export const listApplicationRuntimeTabularRows = async (params: {
     applicationId: string
     rowId: string
-    attributeId: string
-    linkedCollectionId: string
+    componentId: string
+    objectCollectionId: string
     sectionId?: string
 }): Promise<Array<Record<string, unknown>>> => {
-    const { applicationId, rowId, attributeId, linkedCollectionId, sectionId } = params
-    const resolvedSectionId = sectionId ?? linkedCollectionId
+    const { applicationId, rowId, componentId, objectCollectionId, sectionId } = params
+    const resolvedSectionId = sectionId ?? objectCollectionId
     const response = await apiClient.get<{ items?: Array<Record<string, unknown>> }>(
-        `/applications/${applicationId}/runtime/rows/${rowId}/tabular/${attributeId}`,
+        `/applications/${applicationId}/runtime/rows/${rowId}/tabular/${componentId}`,
         {
-            params: { linkedCollectionId: resolvedSectionId }
+            params: { objectCollectionId: resolvedSectionId }
         }
     )
     return Array.isArray(response.data?.items) ? response.data.items : []
 }
 
-/** Create a new runtime row. Backend expects { data: {...}, linkedCollectionId? }. */
+/** Create a new runtime row. Backend expects { data: {...}, objectCollectionId? }. */
 export const createApplicationRuntimeRow = async (params: {
     applicationId: string
     data: Record<string, unknown>
-    linkedCollectionId?: string
+    objectCollectionId?: string
     sectionId?: string
 }): Promise<Record<string, unknown>> => {
-    const { applicationId, data, linkedCollectionId, sectionId } = params
-    const resolvedSectionId = sectionId ?? linkedCollectionId
+    const { applicationId, data, objectCollectionId, sectionId } = params
+    const resolvedSectionId = sectionId ?? objectCollectionId
     const body: Record<string, unknown> = { data }
-    if (resolvedSectionId) body.linkedCollectionId = resolvedSectionId
+    if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
     const response = await apiClient.post<Record<string, unknown>>(`/applications/${applicationId}/runtime/rows`, body)
     return response.data
 }
 
-/** Bulk-update a runtime row. Backend expects { data: {...}, linkedCollectionId? }. */
+/** Bulk-update a runtime row. Backend expects { data: {...}, objectCollectionId? }. */
 export const updateApplicationRuntimeRow = async (params: {
     applicationId: string
     rowId: string
     data: Record<string, unknown>
-    linkedCollectionId?: string
+    objectCollectionId?: string
     sectionId?: string
 }): Promise<Record<string, unknown>> => {
-    const { applicationId, rowId, data, linkedCollectionId, sectionId } = params
-    const resolvedSectionId = sectionId ?? linkedCollectionId
+    const { applicationId, rowId, data, objectCollectionId, sectionId } = params
+    const resolvedSectionId = sectionId ?? objectCollectionId
     const body: Record<string, unknown> = { data }
-    if (resolvedSectionId) body.linkedCollectionId = resolvedSectionId
+    if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
     const response = await apiClient.patch<Record<string, unknown>>(`/applications/${applicationId}/runtime/rows/${rowId}`, body)
     return response.data
 }
@@ -218,13 +218,13 @@ export const updateApplicationRuntimeRow = async (params: {
 export const deleteApplicationRuntimeRow = async (params: {
     applicationId: string
     rowId: string
-    linkedCollectionId?: string
+    objectCollectionId?: string
     sectionId?: string
 }): Promise<void> => {
-    const { applicationId, rowId, linkedCollectionId, sectionId } = params
-    const resolvedSectionId = sectionId ?? linkedCollectionId
+    const { applicationId, rowId, objectCollectionId, sectionId } = params
+    const resolvedSectionId = sectionId ?? objectCollectionId
     await apiClient.delete(`/applications/${applicationId}/runtime/rows/${rowId}`, {
-        params: resolvedSectionId ? { linkedCollectionId: resolvedSectionId } : undefined
+        params: resolvedSectionId ? { objectCollectionId: resolvedSectionId } : undefined
     })
 }
 
@@ -232,14 +232,14 @@ export const deleteApplicationRuntimeRow = async (params: {
 export const copyApplicationRuntimeRow = async (params: {
     applicationId: string
     rowId: string
-    linkedCollectionId?: string
+    objectCollectionId?: string
     sectionId?: string
     copyChildTables?: boolean
 }): Promise<Record<string, unknown>> => {
-    const { applicationId, rowId, linkedCollectionId, sectionId, copyChildTables = true } = params
-    const resolvedSectionId = sectionId ?? linkedCollectionId
+    const { applicationId, rowId, objectCollectionId, sectionId, copyChildTables = true } = params
+    const resolvedSectionId = sectionId ?? objectCollectionId
     const body: Record<string, unknown> = { copyChildTables }
-    if (resolvedSectionId) body.linkedCollectionId = resolvedSectionId
+    if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
     const response = await apiClient.post<Record<string, unknown>>(`/applications/${applicationId}/runtime/rows/${rowId}/copy`, body)
     return response.data
 }
@@ -248,14 +248,14 @@ export const runApplicationRuntimeRecordCommand = async (params: {
     applicationId: string
     rowId: string
     command: RuntimeRecordCommand
-    linkedCollectionId?: string
+    objectCollectionId?: string
     sectionId?: string
     expectedVersion?: number
 }): Promise<Record<string, unknown>> => {
-    const { applicationId, rowId, command, linkedCollectionId, sectionId, expectedVersion } = params
-    const resolvedSectionId = sectionId ?? linkedCollectionId
+    const { applicationId, rowId, command, objectCollectionId, sectionId, expectedVersion } = params
+    const resolvedSectionId = sectionId ?? objectCollectionId
     const body: Record<string, unknown> = {}
-    if (resolvedSectionId) body.linkedCollectionId = resolvedSectionId
+    if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
     if (typeof expectedVersion === 'number') body.expectedVersion = expectedVersion
     const response = await apiClient.post<Record<string, unknown>>(`/applications/${applicationId}/runtime/rows/${rowId}/${command}`, body)
     return response.data
@@ -264,13 +264,13 @@ export const runApplicationRuntimeRecordCommand = async (params: {
 export const reorderApplicationRuntimeRows = async (params: {
     applicationId: string
     orderedRowIds: string[]
-    linkedCollectionId?: string
+    objectCollectionId?: string
     sectionId?: string
 }): Promise<void> => {
-    const { applicationId, orderedRowIds, linkedCollectionId, sectionId } = params
-    const resolvedSectionId = sectionId ?? linkedCollectionId
+    const { applicationId, orderedRowIds, objectCollectionId, sectionId } = params
+    const resolvedSectionId = sectionId ?? objectCollectionId
     const body: Record<string, unknown> = { orderedRowIds }
-    if (resolvedSectionId) body.linkedCollectionId = resolvedSectionId
+    if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
     await apiClient.post(`/applications/${applicationId}/runtime/rows/reorder`, body)
 }
 
@@ -348,12 +348,12 @@ export const listApplicationLayoutWidgets = async (applicationId: string, layout
     return response.data.items ?? []
 }
 
-export const listApplicationLayoutWidgetCatalog = async (
+export const listApplicationLayoutWidgetObject = async (
     applicationId: string,
     layoutId: string
 ): Promise<Array<{ key: string; allowedZones: readonly string[]; multiInstance: boolean }>> => {
     const response = await apiClient.get<{ items: Array<{ key: string; allowedZones: readonly string[]; multiInstance: boolean }> }>(
-        `/applications/${applicationId}/layouts/${layoutId}/zone-widgets/catalog`
+        `/applications/${applicationId}/layouts/${layoutId}/zone-widgets/object`
     )
     return response.data.items ?? []
 }

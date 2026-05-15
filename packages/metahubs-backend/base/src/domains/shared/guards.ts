@@ -90,7 +90,7 @@ const baseGuards = createAccessGuards<MetahubRole, MetahubUserRow, SqlQueryable>
             `
                         SELECT ${MEMBERSHIP_SELECT('mu')}
                         FROM metahubs.rel_metahub_users mu
-                        JOIN metahubs.cat_metahubs m ON m.id = mu.metahub_id
+                        JOIN metahubs.obj_metahubs m ON m.id = mu.metahub_id
                         WHERE mu.metahub_id = $1
                             AND mu.user_id = $2
                             AND ${activeMetahubRowCondition('mu')}
@@ -266,7 +266,7 @@ export async function ensureHubAccess(
     return { ...context, hub }
 }
 
-// REMOVED Catalog / Attribute guards as they depended on removed entities.
+// REMOVED Object / Component guards as they depended on removed entities.
 // Access control for dynamic schema objects is handled by MetahubObjectsService logic (using ensureMetahubAccess + manual checks if needed)
 // Or by route handlers using ensureMetahubAccess and then checking association.
 

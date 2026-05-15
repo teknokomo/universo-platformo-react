@@ -9,7 +9,7 @@ const mockGetApplicationRuntimeSchemaName = jest.fn()
 const mockListApplicationLayouts = jest.fn()
 const mockListApplicationLayoutScopes = jest.fn()
 const mockListApplicationLayoutWidgets = jest.fn()
-const mockListApplicationLayoutWidgetCatalog = jest.fn()
+const mockListApplicationLayoutWidgetObject = jest.fn()
 const mockGetApplicationLayoutDetail = jest.fn()
 const mockCreateApplicationLayout = jest.fn()
 
@@ -39,7 +39,7 @@ jest.mock('../../persistence/applicationLayoutsStore', () => ({
     getApplicationLayoutDetail: (...args: unknown[]) => mockGetApplicationLayoutDetail(...args),
     getApplicationRuntimeSchemaName: (...args: unknown[]) => mockGetApplicationRuntimeSchemaName(...args),
     listApplicationLayoutScopes: (...args: unknown[]) => mockListApplicationLayoutScopes(...args),
-    listApplicationLayoutWidgetCatalog: (...args: unknown[]) => mockListApplicationLayoutWidgetCatalog(...args),
+    listApplicationLayoutWidgetObject: (...args: unknown[]) => mockListApplicationLayoutWidgetObject(...args),
     listApplicationLayoutWidgets: (...args: unknown[]) => mockListApplicationLayoutWidgets(...args),
     listApplicationLayouts: (...args: unknown[]) => mockListApplicationLayouts(...args),
     moveApplicationLayoutWidget: jest.fn(),
@@ -144,7 +144,7 @@ describe('applicationLayoutsController', () => {
         const res = createResponse()
 
         executor.query.mockResolvedValueOnce([{ settings: null }])
-        mockListApplicationLayoutScopes.mockResolvedValue([{ id: 'global', scopeKind: 'global', linkedCollectionId: null, name: 'Global' }])
+        mockListApplicationLayoutScopes.mockResolvedValue([{ id: 'global', scopeKind: 'global', objectCollectionId: null, name: 'Global' }])
 
         await controller.listScopes(
             {
@@ -157,7 +157,7 @@ describe('applicationLayoutsController', () => {
         expect(mockEnsureApplicationAccess).toHaveBeenCalledWith(executor, 'user-1', 'app-1', ['owner', 'admin'])
         expect(mockNormalizeLocale).toHaveBeenCalledWith('ru')
         expect(res.json).toHaveBeenCalledWith({
-            items: [{ id: 'global', scopeKind: 'global', linkedCollectionId: null, name: 'Global' }]
+            items: [{ id: 'global', scopeKind: 'global', objectCollectionId: null, name: 'Global' }]
         })
     })
 })

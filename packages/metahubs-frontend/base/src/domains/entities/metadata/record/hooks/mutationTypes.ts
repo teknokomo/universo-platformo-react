@@ -3,7 +3,7 @@ import type { RecordCopyOptions } from '@universo/types'
 export interface BaseElementScope {
     metahubId: string
     treeEntityId?: string
-    linkedCollectionId: string
+    objectCollectionId: string
 }
 
 export interface CreateRecordParams extends BaseElementScope {

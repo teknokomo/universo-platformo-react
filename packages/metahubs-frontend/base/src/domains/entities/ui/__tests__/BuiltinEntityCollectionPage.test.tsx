@@ -13,8 +13,8 @@ vi.mock('../../presets/ui/TreeEntityList', () => ({
     TreeEntityListContent: () => <div data-testid='hub-entity-list'>Hub entity list</div>
 }))
 
-vi.mock('../../presets/ui/LinkedCollectionList', () => ({
-    LinkedCollectionListContent: () => <div data-testid='legacy-catalog-list'>Catalog list</div>
+vi.mock('../../presets/ui/ObjectCollectionList', () => ({
+    ObjectCollectionListContent: () => <div data-testid='legacy-object-list'>Object list</div>
 }))
 
 vi.mock('../../presets/ui/ValueGroupList', () => ({
@@ -51,21 +51,21 @@ describe('StandardEntityChildCollectionPage', () => {
         renderCollectionRoute('/metahub/metahub-1/entities/ledger/instances')
 
         expect(screen.getByTestId('generic-entity-instances')).toBeInTheDocument()
-        expect(screen.queryByTestId('legacy-catalog-list')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('legacy-object-list')).not.toBeInTheDocument()
     })
 
     it('uses the generic entity instance list for hub-scoped hub-assignable kinds', () => {
         renderRoute('/metahub/metahub-1/entities/page/instance/hub-1/instances')
 
         expect(screen.getByTestId('generic-entity-instances')).toBeInTheDocument()
-        expect(screen.queryByTestId('legacy-catalog-list')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('legacy-object-list')).not.toBeInTheDocument()
     })
 
     it('uses the generic entity instance list for hub-scoped ledgers', () => {
         renderRoute('/metahub/metahub-1/entities/ledger/instance/hub-1/instances')
 
         expect(screen.getByTestId('generic-entity-instances')).toBeInTheDocument()
-        expect(screen.queryByTestId('legacy-catalog-list')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('legacy-object-list')).not.toBeInTheDocument()
     })
 
     it('keeps the hub authoring view for hub child routes', () => {

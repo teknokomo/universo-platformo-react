@@ -15,6 +15,7 @@ export interface WidgetBehaviorEditorDialogProps {
     metahubId?: string | null
     layoutId?: string | null
     widgetId?: string | null
+    widgetLabel?: string | null
     showScopeVisibility?: boolean
     onSave: (config: Record<string, unknown>) => void
     onCancel: () => void
@@ -26,6 +27,7 @@ export default function WidgetBehaviorEditorDialog({
     metahubId,
     layoutId,
     widgetId,
+    widgetLabel,
     showScopeVisibility = false,
     onSave,
     onCancel
@@ -44,7 +46,11 @@ export default function WidgetBehaviorEditorDialog({
     return (
         <EntityFormDialog
             open={open}
-            title={t('layouts.widgetBehaviorEditor.title', 'Widget behavior')}
+            title={
+                widgetLabel?.trim()
+                    ? `${t('layouts.widgetBehaviorEditor.title', 'Widget behavior')}: ${widgetLabel.trim()}`
+                    : t('layouts.widgetBehaviorEditor.title', 'Widget behavior')
+            }
             mode={config ? 'edit' : 'create'}
             nameLabel={t('common:fields.name', 'Name')}
             descriptionLabel={t('common:fields.description', 'Description')}

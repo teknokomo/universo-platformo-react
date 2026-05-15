@@ -195,7 +195,7 @@ describe('MetahubSchemaService (read_only mode)', () => {
     it('returns MIGRATION_REQUIRED when required system tables are missing', async () => {
         seedExpectedTables([
             '_mhb_objects',
-            '_mhb_attributes',
+            '_mhb_components',
             '_mhb_elements',
             '_mhb_settings',
             '_mhb_layouts',
@@ -215,7 +215,7 @@ describe('MetahubSchemaService (read_only mode)', () => {
         seedExpectedTables([
             '_mhb_objects',
             '_mhb_constants',
-            '_mhb_attributes',
+            '_mhb_components',
             '_mhb_values',
             '_mhb_elements',
             '_mhb_settings',
@@ -290,7 +290,7 @@ describe('MetahubSchemaService create options', () => {
         const createOptions = {
             presetToggles: {
                 hub: false,
-                catalog: true,
+                object: true,
                 set: false,
                 enumeration: true
             }
@@ -315,14 +315,14 @@ describe('MetahubSchemaService create options', () => {
             {
                 presets: [
                     { presetCodename: 'hub', includedByDefault: true },
-                    { presetCodename: 'catalog', includedByDefault: false },
+                    { presetCodename: 'object', includedByDefault: false },
                     { presetCodename: 'set', includedByDefault: true }
                 ]
             },
             {
                 presetToggles: {
                     hub: false,
-                    catalog: true
+                    object: true
                 }
             },
             {
@@ -332,7 +332,7 @@ describe('MetahubSchemaService create options', () => {
 
         expect(toggles).toEqual({
             hub: false,
-            catalog: true,
+            object: true,
             set: false
         })
     })
@@ -344,23 +344,23 @@ describe('MetahubSchemaService create options', () => {
         const bundle = await (service as any).buildTemplateBootstrapBundle(lmsTemplate)
         const kindKeys = bundle.entityTypePresets.map((preset: { entityType: { kindKey: string } }) => preset.entityType.kindKey)
         const entityCodenames = bundle.seed.entities.map((entity: { codename: string }) => entity.codename)
-        const catalogPreset = bundle.entityTypePresets.find(
-            (preset: { entityType: { kindKey: string } }) => preset.entityType.kindKey === 'catalog'
+        const objectPreset = bundle.entityTypePresets.find(
+            (preset: { entityType: { kindKey: string } }) => preset.entityType.kindKey === 'object'
         )
 
-        expect(kindKeys).toEqual(expect.arrayContaining(['hub', 'page', 'catalog', 'set', 'enumeration']))
-        expect(catalogPreset?.entityType.ui.tabs).toContain('behavior')
-        expect(catalogPreset?.entityType.ui.tabs).toContain('ledgerSchema')
-        expect(catalogPreset?.entityType.components.identityFields).toEqual({
+        expect(kindKeys).toEqual(expect.arrayContaining(['hub', 'page', 'object', 'set', 'enumeration']))
+        expect(objectPreset?.entityType.ui.tabs).toContain('behavior')
+        expect(objectPreset?.entityType.ui.tabs).toContain('ledgerSchema')
+        expect(objectPreset?.entityType.capabilities.identityFields).toEqual({
             enabled: true,
             allowNumber: true,
             allowEffectiveDate: true
         })
-        expect(catalogPreset?.entityType.components.recordLifecycle).toEqual({
+        expect(objectPreset?.entityType.capabilities.recordLifecycle).toEqual({
             enabled: true,
             allowCustomStates: true
         })
-        expect(catalogPreset?.entityType.components.posting).toEqual({
+        expect(objectPreset?.entityType.capabilities.posting).toEqual({
             enabled: true,
             allowManualPosting: true,
             allowAutomaticPosting: true
@@ -369,7 +369,7 @@ describe('MetahubSchemaService create options', () => {
             expect.arrayContaining([
                 'MainHub',
                 'LearnerHome',
-                'MainCatalog',
+                'MainObject',
                 'MainSet',
                 'MainEnumeration',
                 'Learning',

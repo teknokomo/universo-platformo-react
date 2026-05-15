@@ -102,8 +102,10 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
             return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() })
         }
 
-        const { objectsService, fieldDefinitionsService, settingsService, resolver, mutationService, actionExecutor } =
-            createEntityServices(exec, schemaService)
+        const { objectsService, componentsService, settingsService, resolver, mutationService, actionExecutor } = createEntityServices(
+            exec,
+            schemaService
+        )
         const resolvedType = await assertSupportedEntityKind(resolver, parsed.data.kind, metahubId, userId)
         await ensureEntityMutationPermission({ req, exec, userId, metahubId, resolvedType, mode: 'create' })
 
@@ -121,7 +123,7 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
             metahubId,
             objectId: null,
             userId,
-            fieldDefinitionsService
+            componentsService
         })
 
         const pendingObjectId = generateUuidV7()
@@ -159,8 +161,10 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
             return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() })
         }
 
-        const { objectsService, fieldDefinitionsService, settingsService, resolver, mutationService, actionExecutor } =
-            createEntityServices(exec, schemaService)
+        const { objectsService, componentsService, settingsService, resolver, mutationService, actionExecutor } = createEntityServices(
+            exec,
+            schemaService
+        )
         const existing = (await objectsService.findById(metahubId, req.params.entityId, userId)) as EntityInstanceRow | null
         if (!existing) {
             throw new MetahubNotFoundError('Entity', req.params.entityId)
@@ -185,7 +189,7 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
             metahubId,
             objectId: existing.id,
             userId,
-            fieldDefinitionsService
+            componentsService
         })
 
         const updated = (await mutationService.run({
@@ -222,7 +226,7 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
             throw new MetahubNotFoundError('hub', req.params.entityId)
         }
 
-        const { objectsService, fieldDefinitionsService, fixedValuesService, settingsService, entityTypeService, resolver } =
+        const { objectsService, componentsService, fixedValuesService, settingsService, entityTypeService, resolver } =
             createEntityServices(exec, schemaService)
         const resolvedType = await assertSupportedEntityKind(resolver, routeKind, metahubId, userId)
         const behavior = getEntityBehaviorService(routeKind)
@@ -240,7 +244,7 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
             context: {
                 resolvedType,
                 settingsService,
-                fieldDefinitionsService,
+                componentsService,
                 fixedValuesService,
                 entityTypeService,
                 metahubId,
@@ -256,11 +260,11 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
 
     const getBlockingReferences = createHandler(async ({ req, res, metahubId, userId, exec, schemaService }) => {
         const routeKind = req.params.kindKey?.trim()
-        if (routeKind !== 'catalog' && routeKind !== 'set' && routeKind !== 'enumeration') {
+        if (routeKind !== 'object' && routeKind !== 'set' && routeKind !== 'enumeration') {
             throw new MetahubNotFoundError('Entity', req.params.entityId)
         }
 
-        const { objectsService, fieldDefinitionsService, fixedValuesService, settingsService, entityTypeService, resolver } =
+        const { objectsService, componentsService, fixedValuesService, settingsService, entityTypeService, resolver } =
             createEntityServices(exec, schemaService)
         const resolvedType = await assertSupportedEntityKind(resolver, routeKind, metahubId, userId)
         const behavior = getEntityBehaviorService(routeKind)
@@ -278,7 +282,7 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
             context: {
                 resolvedType,
                 settingsService,
-                fieldDefinitionsService,
+                componentsService,
                 fixedValuesService,
                 entityTypeService,
                 metahubId,
@@ -295,7 +299,7 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
     const remove = createHandler(async ({ req, res, metahubId, userId, exec, schemaService }) => {
         const {
             objectsService,
-            fieldDefinitionsService,
+            componentsService,
             fixedValuesService,
             settingsService,
             entityTypeService,
@@ -320,7 +324,7 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
                 context: {
                     resolvedType,
                     settingsService,
-                    fieldDefinitionsService,
+                    componentsService,
                     fixedValuesService,
                     entityTypeService,
                     metahubId,
@@ -394,7 +398,7 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
     })
 
     const permanentRemove = createHandler(async ({ req, res, metahubId, userId, exec, schemaService }) => {
-        const { objectsService, fieldDefinitionsService, fixedValuesService, settingsService, entityTypeService, resolver } =
+        const { objectsService, componentsService, fixedValuesService, settingsService, entityTypeService, resolver } =
             createEntityServices(exec, schemaService)
         const entity = await objectsService.findById(metahubId, req.params.entityId, userId, { includeDeleted: true })
         if (!entity) {
@@ -417,7 +421,7 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
                 context: {
                     resolvedType,
                     settingsService,
-                    fieldDefinitionsService,
+                    componentsService,
                     fixedValuesService,
                     entityTypeService,
                     metahubId,
@@ -448,7 +452,7 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
             return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() })
         }
 
-        const { objectsService, fieldDefinitionsService, settingsService, fixedValuesService, resolver, mutationService, actionExecutor } =
+        const { objectsService, componentsService, settingsService, fixedValuesService, resolver, mutationService, actionExecutor } =
             createEntityServices(exec, schemaService)
         const source = (await objectsService.findById(metahubId, req.params.entityId, userId)) as EntityInstanceRow | null
         if (!source) {
@@ -479,7 +483,7 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
         }
 
         const schemaName =
-            designTimeCopyPlan.copyFieldDefinitions || designTimeCopyPlan.copyRecords || designTimeCopyPlan.copyOptionValues
+            designTimeCopyPlan.copyComponents || designTimeCopyPlan.copyRecords || designTimeCopyPlan.copyOptionValues
                 ? await schemaService.ensureSchema(metahubId, userId)
                 : undefined
         const nextCopyConfig = {
@@ -498,9 +502,9 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
             resolvedType,
             config: validatedCopyConfig,
             metahubId,
-            objectId: designTimeCopyPlan.copyFieldDefinitions ? source.id : null,
+            objectId: designTimeCopyPlan.copyComponents ? source.id : null,
             userId,
-            fieldDefinitionsService
+            componentsService
         })
 
         const maxCopyAttempts = copyCodename ? 1 : CODENAME_RETRY_MAX_ATTEMPTS
@@ -554,7 +558,7 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
                                 tx,
                                 userId,
                                 schemaName,
-                                copyFieldDefinitions: designTimeCopyPlan.copyFieldDefinitions,
+                                copyComponents: designTimeCopyPlan.copyComponents,
                                 copyRecords: designTimeCopyPlan.copyRecords,
                                 copyFixedValues: designTimeCopyPlan.copyFixedValues,
                                 copyOptionValues: designTimeCopyPlan.copyOptionValues,

@@ -78,7 +78,7 @@ describe('Entity copy option payloads', () => {
             'hub-1',
             expect.objectContaining({
                 copyAllRelations: false,
-                copyLinkedCollectionRelations: false,
+                copyObjectCollectionRelations: false,
                 copyOptionListRelations: false
             })
         )
@@ -86,15 +86,15 @@ describe('Entity copy option payloads', () => {
         expect(helpers.refreshList).not.toHaveBeenCalled()
     })
 
-    it('normalizes catalog copy options before sending payload', async () => {
-        const mod = await import('../../../entities/presets/ui/LinkedCollectionActions')
+    it('normalizes object copy options before sending payload', async () => {
+        const mod = await import('../../../entities/presets/ui/ObjectCollectionActions')
         const copy = asCopyDescriptors(mod.default).find((descriptor) => descriptor.id === 'copy')
         expect(copy).toBeTruthy()
 
         const copyEntity = vi.fn().mockReturnValue(new Promise(() => {}))
         const helpers = baseHelpers()
         const props = copy?.dialog?.buildProps({
-            entity: { id: 'catalog-1', codename: 'products', name: 'Products', description: '' },
+            entity: { id: 'object-1', codename: 'products', name: 'Products', description: '' },
             uiLocale: 'en',
             t: (key: string, defaultValue?: string) => defaultValue ?? key,
             api: { copyEntity },
@@ -106,14 +106,14 @@ describe('Entity copy option payloads', () => {
             nameVlc: makeVlc('Products (copy)'),
             descriptionVlc: null,
             codename: makeVlc('products-copy'),
-            copyFieldDefinitions: false,
+            copyComponents: false,
             copyRecords: true
         })
 
         expect(copyEntity).toHaveBeenCalledWith(
-            'catalog-1',
+            'object-1',
             expect.objectContaining({
-                copyFieldDefinitions: false,
+                copyComponents: false,
                 copyRecords: false
             })
         )

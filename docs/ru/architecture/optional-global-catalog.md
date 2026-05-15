@@ -1,15 +1,15 @@
 ---
-description: Режимы опционального глобального каталога миграций и workflow application release bundle.
+description: Режимы опционального глобального объекта миграций и workflow application release bundle.
 ---
 
 # Optional Global Catalog
 
-Эта страница описывает модель глобального каталога миграций, отключённую по умолчанию,
+Эта страница описывает модель глобального объекта миграций, отключённую по умолчанию,
 и работу application release bundles, когда registry отключён.
 
 ## Режимы
 
-- Режим по умолчанию оставляет глобальный каталог миграций отключённым.
+- Режим по умолчанию оставляет глобальный объект миграций отключённым.
 - Включённый режим активирует lifecycle, audit и registry-потоки в upl_migrations.
 - Корректность рантайм-схемы всегда остаётся привязанной к локальным таблицам _app_migrations и _mhb_migrations.
 
@@ -27,7 +27,7 @@ UPL_GLOBAL_MIGRATION_CATALOG_ENABLED=false
 ## Release Bundles
 
 - Публикации теперь можно экспортировать как application_release_bundle artifacts из API синхронизации приложений.
-- Bundle apply переиспользует applications.cat_applications.installed_release_metadata вместо отдельного release state в рантайм-схеме.
+- Bundle apply переиспользует applications.obj_applications.installed_release_metadata вместо отдельного release state в рантайм-схеме.
 - Пустые targets используют baseline/bootstrap path; существующие targets используют incremental migration path с проверками release version.
 
 ## Operator Guidance
@@ -40,4 +40,4 @@ UPL_GLOBAL_MIGRATION_CATALOG_ENABLED=false
 
 - Отключённый режим не должен создавать полный definition registry в upl_migrations на cold start.
 - Включённый режим нужно восстанавливать исправлением catalog health issue, а не тихим downgrade к local-only writes.
-- Состояние синхронизации приложения и установки bundle всегда нужно сначала проверять в applications.cat_applications.
+- Состояние синхронизации приложения и установки bundle всегда нужно сначала проверять в applications.obj_applications.

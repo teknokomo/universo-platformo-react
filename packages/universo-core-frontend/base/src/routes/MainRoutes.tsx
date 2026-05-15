@@ -52,7 +52,7 @@ const StandardEntityChildCollectionPage = Loadable(
     lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.StandardEntityChildCollectionPage })))
 )
 const SelectableOptionList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.SelectableOptionList }))))
-const FieldDefinitionList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.FieldDefinitionList }))))
+const ComponentList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.ComponentList }))))
 const FixedValueList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m: any) => ({ default: m.FixedValueList }))))
 const RecordList = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.RecordList }))))
 const MetahubResources = Loadable(lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.MetahubResources }))))
@@ -263,17 +263,17 @@ const MainRoutes = {
                 { path: 'entities/:kindKey/instances', element: <EntityInstanceList /> },
                 { path: 'entities/:kindKey/instance/:entityId/content', element: <EntityBlockContentPage /> },
                 { path: 'resources/layouts/:layoutId', element: <MetahubLayoutDetails /> },
-                { path: 'entities/:kindKey/instance/:linkedCollectionId/layout/:layoutId', element: <MetahubLayoutDetails /> },
-                { path: 'entities/:kindKey/instance/:linkedCollectionId/field-definitions', element: <FieldDefinitionList /> },
-                { path: 'entities/:kindKey/instance/:linkedCollectionId/system', element: <FieldDefinitionList /> },
-                { path: 'entities/:kindKey/instance/:linkedCollectionId/records', element: <RecordList /> },
+                { path: 'entities/:kindKey/instance/:objectCollectionId/layout/:layoutId', element: <MetahubLayoutDetails /> },
+                { path: 'entities/:kindKey/instance/:objectCollectionId/components', element: <ComponentList /> },
+                { path: 'entities/:kindKey/instance/:objectCollectionId/system', element: <ComponentList /> },
+                { path: 'entities/:kindKey/instance/:objectCollectionId/records', element: <RecordList /> },
                 { path: 'entities/:kindKey/instance/:treeEntityId/instances', element: <StandardEntityChildCollectionPage /> },
                 {
-                    path: 'entities/:kindKey/instance/:treeEntityId/instance/:linkedCollectionId/field-definitions',
-                    element: <FieldDefinitionList />
+                    path: 'entities/:kindKey/instance/:treeEntityId/instance/:objectCollectionId/components',
+                    element: <ComponentList />
                 },
-                { path: 'entities/:kindKey/instance/:treeEntityId/instance/:linkedCollectionId/system', element: <FieldDefinitionList /> },
-                { path: 'entities/:kindKey/instance/:treeEntityId/instance/:linkedCollectionId/records', element: <RecordList /> },
+                { path: 'entities/:kindKey/instance/:treeEntityId/instance/:objectCollectionId/system', element: <ComponentList /> },
+                { path: 'entities/:kindKey/instance/:treeEntityId/instance/:objectCollectionId/records', element: <RecordList /> },
                 { path: 'entities/:kindKey/instance/:valueGroupId/fixed-values', element: <FixedValueList /> },
                 { path: 'entities/:kindKey/instance/:treeEntityId/instance/:valueGroupId/fixed-values', element: <FixedValueList /> },
                 { path: 'entities/:kindKey/instance/:optionListId/values', element: <SelectableOptionList /> },

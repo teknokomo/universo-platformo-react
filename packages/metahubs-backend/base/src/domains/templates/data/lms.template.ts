@@ -118,17 +118,17 @@ function buildLmsBaseSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                         isActive: true
                     },
                     {
-                        id: 'lms-nav-catalog',
+                        id: 'lms-nav-modules',
                         kind: 'section',
                         title: {
                             _schema: '1',
                             _primary: 'en',
                             locales: {
-                                en: { content: 'Catalog', version: 1, isActive: true },
-                                ru: { content: 'Каталог', version: 1, isActive: true }
+                                en: { content: 'Modules', version: 1, isActive: true },
+                                ru: { content: 'Модули', version: 1, isActive: true }
                             }
                         },
-                        icon: 'catalog',
+                        icon: 'object',
                         href: null,
                         sectionId: 'Modules',
                         sortOrder: 1,
@@ -217,7 +217,7 @@ function buildLmsHomeSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                     {
                         title: vlc('Modules', 'Модули'),
                         value: '0',
-                        interval: vlc('Published catalog', 'Опубликованный каталог'),
+                        interval: vlc('Published module', 'Опубликованный модуль'),
                         trend: 'neutral',
                         datasource: {
                             kind: 'metric',
@@ -378,7 +378,7 @@ const buildLmsBalanceLedger = ({
     aggregate: 'sum' | 'latest'
 }): LmsTemplateEntity => ({
     codename,
-    kind: 'catalog',
+    kind: 'object',
     name: vlc(nameEn, nameRu),
     description: vlc(descriptionEn, descriptionRu),
     hubs: ['Learning'],
@@ -388,16 +388,16 @@ const buildLmsBalanceLedger = ({
             mutationPolicy: 'appendOnly',
             periodicity: 'instant',
             sourcePolicy: 'registrar',
-            registrarKinds: ['catalog'],
+            registrarKinds: ['object'],
             fieldRoles: [
                 { fieldCodename: 'Learner', role: 'dimension', required: true },
                 { fieldCodename: 'Subject', role: 'dimension', required: true },
                 { fieldCodename: resourceCodename, role: 'resource', aggregate, required: true },
-                { fieldCodename: 'Status', role: 'attribute' },
-                { fieldCodename: 'OccurredAt', role: 'attribute' },
-                { fieldCodename: 'SourceObjectId', role: 'attribute' },
-                { fieldCodename: 'SourceRowId', role: 'attribute' },
-                { fieldCodename: 'SourceLineId', role: 'attribute' }
+                { fieldCodename: 'Status', role: 'component' },
+                { fieldCodename: 'OccurredAt', role: 'component' },
+                { fieldCodename: 'SourceObjectId', role: 'component' },
+                { fieldCodename: 'SourceRowId', role: 'component' },
+                { fieldCodename: 'SourceLineId', role: 'component' }
             ],
             projections: [
                 {
@@ -413,7 +413,7 @@ const buildLmsBalanceLedger = ({
             }
         }
     },
-    attributes: [
+    components: [
         { codename: 'Learner', dataType: 'STRING', name: vlc('Learner', 'Учащийся'), sortOrder: 1, isRequired: true },
         { codename: 'Subject', dataType: 'STRING', name: vlc(subjectEn, subjectRu), sortOrder: 2, isRequired: true },
         { codename: resourceCodename, dataType: 'NUMBER', name: vlc(resourceEn, resourceRu), sortOrder: 3, isRequired: true },
@@ -512,7 +512,7 @@ const LMS_ADDITIONAL_LEDGER_ENTITIES: LmsTemplateEntity[] = [
     })
 ]
 
-const buildTransactionalCatalogConfig = ({
+const buildTransactionalObjectConfig = ({
     prefix,
     effectiveDateField,
     stateField,
@@ -875,7 +875,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
     presets: [
         { presetCodename: 'hub', includedByDefault: true },
         { presetCodename: 'page', includedByDefault: false },
-        { presetCodename: 'catalog', includedByDefault: true },
+        { presetCodename: 'object', includedByDefault: true },
         { presetCodename: 'set', includedByDefault: true },
         { presetCodename: 'enumeration', includedByDefault: true }
     ],
@@ -997,13 +997,13 @@ export const lmsTemplate: MetahubTemplateManifest = {
                                         locales: {
                                             en: {
                                                 content:
-                                                    'This portal brings together the learning paths, modules, assignments, tests, and progress indicators that learners need every day. Start with your assigned modules, continue from the last opened activity, and use the catalog to find approved materials for independent study.',
+                                                    'This portal brings together the learning paths, modules, assignments, tests, and progress indicators that learners need every day. Start with your assigned modules, continue from the last opened activity, and use the module library to find approved materials for independent study.',
                                                 version: 1,
                                                 isActive: true
                                             },
                                             ru: {
                                                 content:
-                                                    'Этот портал объединяет учебные траектории, модули, задания, тесты и показатели прогресса, которые нужны учащимся каждый день. Начните с назначенных модулей, продолжите обучение с последнего открытого материала и используйте каталог для самостоятельного изучения утвержденных материалов.',
+                                                    'Этот портал объединяет учебные траектории, модули, задания, тесты и показатели прогресса, которые нужны учащимся каждый день. Начните с назначенных модулей, продолжите обучение с последнего открытого материала и используйте библиотеку модулей для самостоятельного изучения утвержденных материалов.',
                                                 version: 1,
                                                 isActive: true
                                             }
@@ -1038,13 +1038,13 @@ export const lmsTemplate: MetahubTemplateManifest = {
                                             locales: {
                                                 en: {
                                                     content:
-                                                        'Open the catalog to review available courses, modules, and knowledge-base materials.',
+                                                        'Open Modules to review available courses, modules, and knowledge-base materials.',
                                                     version: 1,
                                                     isActive: true
                                                 },
                                                 ru: {
                                                     content:
-                                                        'Откройте каталог, чтобы посмотреть доступные курсы, модули и материалы базы знаний.',
+                                                        'Откройте Модули, чтобы посмотреть доступные курсы, модули и материалы базы знаний.',
                                                     version: 1,
                                                     isActive: true
                                                 }
@@ -1162,8 +1162,8 @@ export const lmsTemplate: MetahubTemplateManifest = {
                     buildEditorHeaderBlock('course-overview-path-title', 3, 'Learning path', 'Учебная траектория'),
                     buildEditorParagraphBlock(
                         'course-overview-path',
-                        'Course structure should be driven by Modules, Learning Tracks, Assignments, Quizzes, and transactional progress records. The page stays informational while completion state is calculated from Catalog rows and Ledgers.',
-                        'Структура курса должна задаваться модулями, учебными треками, назначениями, тестами и транзакционными записями прогресса. Страница остается информационной, а состояние прохождения рассчитывается по строкам каталогов и регистрам.'
+                        'Course structure should be driven by Modules, Learning Tracks, Assignments, Quizzes, and transactional progress records. The page stays informational while completion state is calculated from module records and Ledgers.',
+                        'Структура курса должна задаваться модулями, учебными треками, назначениями, тестами и транзакционными записями прогресса. Страница остается информационной, а состояние прохождения рассчитывается по записям модулей и регистрам.'
                     )
                 ]
             }),
@@ -1178,8 +1178,8 @@ export const lmsTemplate: MetahubTemplateManifest = {
                     buildEditorHeaderBlock('knowledge-article-title', 2, 'Knowledge article', 'Статья базы знаний'),
                     buildEditorParagraphBlock(
                         'knowledge-article-summary',
-                        'Use this page for reference material that supports modules, assignments, and instructor-led events. Keep facts, examples, and source links in the article, and keep operational state in Catalogs and Ledgers.',
-                        'Используйте эту страницу для справочных материалов, которые поддерживают модули, задания и учебные мероприятия. Факты, примеры и ссылки на источники храните в статье, а операционное состояние — в каталогах и регистрах.'
+                        'Use this page for reference material that supports modules, assignments, and instructor-led events. Keep facts, examples, and source links in the article, and keep operational state in module records and Ledgers.',
+                        'Используйте эту страницу для справочных материалов, которые поддерживают модули, задания и учебные мероприятия. Факты, примеры и ссылки на источники храните в статье, а операционное состояние — в записях модулей и регистрах.'
                     ),
                     buildEditorHeaderBlock('knowledge-article-maintenance-title', 3, 'Maintenance', 'Сопровождение'),
                     buildEditorParagraphBlock(
@@ -1235,7 +1235,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
             }),
             {
                 codename: 'ProgressLedger',
-                kind: 'catalog',
+                kind: 'object',
                 name: vlc('Progress Ledger', 'Регистр прогресса'),
                 description: vlc(
                     'Append-only progress facts by learner and learning item.',
@@ -1248,16 +1248,16 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         mutationPolicy: 'appendOnly',
                         periodicity: 'instant',
                         sourcePolicy: 'registrar',
-                        registrarKinds: ['catalog'],
+                        registrarKinds: ['object'],
                         fieldRoles: [
                             { fieldCodename: 'Learner', role: 'dimension', required: true },
                             { fieldCodename: 'LearningItem', role: 'dimension', required: true },
                             { fieldCodename: 'ProgressDelta', role: 'resource', aggregate: 'sum', required: true },
-                            { fieldCodename: 'Status', role: 'attribute' },
-                            { fieldCodename: 'OccurredAt', role: 'attribute' },
-                            { fieldCodename: 'SourceObjectId', role: 'attribute' },
-                            { fieldCodename: 'SourceRowId', role: 'attribute' },
-                            { fieldCodename: 'SourceLineId', role: 'attribute' }
+                            { fieldCodename: 'Status', role: 'component' },
+                            { fieldCodename: 'OccurredAt', role: 'component' },
+                            { fieldCodename: 'SourceObjectId', role: 'component' },
+                            { fieldCodename: 'SourceRowId', role: 'component' },
+                            { fieldCodename: 'SourceLineId', role: 'component' }
                         ],
                         projections: [
                             {
@@ -1273,7 +1273,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         }
                     }
                 },
-                attributes: [
+                components: [
                     { codename: 'Learner', dataType: 'STRING', name: vlc('Learner', 'Учащийся'), sortOrder: 1, isRequired: true },
                     {
                         codename: 'LearningItem',
@@ -1309,7 +1309,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
             },
             {
                 codename: 'ScoreLedger',
-                kind: 'catalog',
+                kind: 'object',
                 name: vlc('Score Ledger', 'Регистр оценок'),
                 description: vlc('Append-only quiz and assignment score facts.', 'Неизменяемые факты оценок тестов и заданий.'),
                 hubs: ['Learning'],
@@ -1319,16 +1319,16 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         mutationPolicy: 'appendOnly',
                         periodicity: 'instant',
                         sourcePolicy: 'registrar',
-                        registrarKinds: ['catalog'],
+                        registrarKinds: ['object'],
                         fieldRoles: [
                             { fieldCodename: 'Learner', role: 'dimension', required: true },
                             { fieldCodename: 'Assessment', role: 'dimension', required: true },
                             { fieldCodename: 'Score', role: 'resource', aggregate: 'latest', required: true },
-                            { fieldCodename: 'Passed', role: 'attribute' },
-                            { fieldCodename: 'OccurredAt', role: 'attribute' },
-                            { fieldCodename: 'SourceObjectId', role: 'attribute' },
-                            { fieldCodename: 'SourceRowId', role: 'attribute' },
-                            { fieldCodename: 'SourceLineId', role: 'attribute' }
+                            { fieldCodename: 'Passed', role: 'component' },
+                            { fieldCodename: 'OccurredAt', role: 'component' },
+                            { fieldCodename: 'SourceObjectId', role: 'component' },
+                            { fieldCodename: 'SourceRowId', role: 'component' },
+                            { fieldCodename: 'SourceLineId', role: 'component' }
                         ],
                         projections: [
                             {
@@ -1344,7 +1344,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         }
                     }
                 },
-                attributes: [
+                components: [
                     { codename: 'Learner', dataType: 'STRING', name: vlc('Learner', 'Учащийся'), sortOrder: 1, isRequired: true },
                     { codename: 'Assessment', dataType: 'STRING', name: vlc('Assessment', 'Оценивание'), sortOrder: 2, isRequired: true },
                     { codename: 'Score', dataType: 'NUMBER', name: vlc('Score', 'Балл'), sortOrder: 3, isRequired: true },
@@ -1369,16 +1369,16 @@ export const lmsTemplate: MetahubTemplateManifest = {
             ...LMS_ADDITIONAL_LEDGER_ENTITIES,
             {
                 codename: 'Classes',
-                kind: 'catalog',
+                kind: 'object',
                 name: vlc('Classes', 'Классы'),
                 description: vlc('Student groups for learning management.', 'Группы студентов для управления обучением.'),
-                attributes: [
+                components: [
                     {
                         codename: 'Name',
                         dataType: 'STRING',
                         name: vlc('Name', 'Название'),
                         isRequired: true,
-                        isDisplayAttribute: true,
+                        isDisplayComponent: true,
                         sortOrder: 1,
                         validationRules: { maxLength: 255, localized: true, versioned: true }
                     },
@@ -1407,16 +1407,16 @@ export const lmsTemplate: MetahubTemplateManifest = {
             },
             {
                 codename: 'Students',
-                kind: 'catalog',
+                kind: 'object',
                 name: vlc('Students', 'Студенты'),
                 description: vlc('Registered and guest students.', 'Зарегистрированные и гостевые студенты.'),
-                attributes: [
+                components: [
                     {
                         codename: 'DisplayName',
                         dataType: 'STRING',
                         name: vlc('Display Name', 'Отображаемое имя'),
                         isRequired: true,
-                        isDisplayAttribute: true,
+                        isDisplayComponent: true,
                         sortOrder: 1,
                         validationRules: { maxLength: 255 }
                     },
@@ -1439,7 +1439,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         name: vlc('Department', 'Подразделение'),
                         sortOrder: 4,
                         targetEntityCodename: 'Departments',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'GuestSessionToken',
@@ -1451,19 +1451,19 @@ export const lmsTemplate: MetahubTemplateManifest = {
             },
             {
                 codename: 'Departments',
-                kind: 'catalog',
+                kind: 'object',
                 name: vlc('Departments', 'Подразделения'),
                 description: vlc(
                     'Organization units used for learner segmentation and reporting.',
                     'Подразделения для сегментации учащихся и отчетности.'
                 ),
-                attributes: [
+                components: [
                     {
                         codename: 'Name',
                         dataType: 'STRING',
                         name: vlc('Name', 'Название'),
                         isRequired: true,
-                        isDisplayAttribute: true,
+                        isDisplayComponent: true,
                         sortOrder: 1,
                         validationRules: { maxLength: 255, localized: true, versioned: true }
                     },
@@ -1480,7 +1480,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         name: vlc('Parent Department', 'Родительское подразделение'),
                         sortOrder: 3,
                         targetEntityCodename: 'Departments',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'ManagerEmail',
@@ -1493,19 +1493,19 @@ export const lmsTemplate: MetahubTemplateManifest = {
             },
             {
                 codename: 'LearningResources',
-                kind: 'catalog',
+                kind: 'object',
                 name: vlc('Learning Resources', 'Учебные ресурсы'),
                 description: vlc(
                     'Reusable content resources such as pages, links, videos, documents, embeds, and SCORM-like packages.',
                     'Переиспользуемые учебные ресурсы: страницы, ссылки, видео, документы, встраивания и SCORM-подобные пакеты.'
                 ),
-                attributes: [
+                components: [
                     {
                         codename: 'Title',
                         dataType: 'STRING',
                         name: vlc('Title', 'Заголовок'),
                         isRequired: true,
-                        isDisplayAttribute: true,
+                        isDisplayComponent: true,
                         sortOrder: 1,
                         validationRules: { maxLength: 500, localized: true, versioned: true }
                     },
@@ -1543,19 +1543,19 @@ export const lmsTemplate: MetahubTemplateManifest = {
             },
             {
                 codename: 'Courses',
-                kind: 'catalog',
+                kind: 'object',
                 name: vlc('Courses', 'Курсы'),
                 description: vlc(
                     'Course shells that group sections, resources, assignments, and quizzes.',
                     'Оболочки курсов, объединяющие разделы, ресурсы, задания и тесты.'
                 ),
-                attributes: [
+                components: [
                     {
                         codename: 'Title',
                         dataType: 'STRING',
                         name: vlc('Title', 'Заголовок'),
                         isRequired: true,
-                        isDisplayAttribute: true,
+                        isDisplayComponent: true,
                         sortOrder: 1,
                         validationRules: { maxLength: 500, localized: true, versioned: true }
                     },
@@ -1585,10 +1585,10 @@ export const lmsTemplate: MetahubTemplateManifest = {
             },
             {
                 codename: 'CourseSections',
-                kind: 'catalog',
+                kind: 'object',
                 name: vlc('Course Sections', 'Разделы курса'),
                 description: vlc('Ordered sections inside courses.', 'Упорядоченные разделы внутри курсов.'),
-                attributes: [
+                components: [
                     {
                         codename: 'CourseId',
                         dataType: 'REF',
@@ -1596,14 +1596,14 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         isRequired: true,
                         sortOrder: 1,
                         targetEntityCodename: 'Courses',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'Title',
                         dataType: 'STRING',
                         name: vlc('Title', 'Заголовок'),
                         isRequired: true,
-                        isDisplayAttribute: true,
+                        isDisplayComponent: true,
                         sortOrder: 2,
                         validationRules: { maxLength: 500, localized: true, versioned: true }
                     },
@@ -1613,7 +1613,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         name: vlc('Resource', 'Ресурс'),
                         sortOrder: 3,
                         targetEntityCodename: 'LearningResources',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'ModuleId',
@@ -1621,7 +1621,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         name: vlc('Module', 'Модуль'),
                         sortOrder: 4,
                         targetEntityCodename: 'Modules',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'SortOrder',
@@ -1634,19 +1634,19 @@ export const lmsTemplate: MetahubTemplateManifest = {
             },
             {
                 codename: 'LearningTracks',
-                kind: 'catalog',
+                kind: 'object',
                 name: vlc('Learning Tracks', 'Учебные треки'),
                 description: vlc(
                     'Ordered programs that combine modules, quizzes, and assignments.',
                     'Последовательные программы из модулей, тестов и назначений.'
                 ),
-                attributes: [
+                components: [
                     {
                         codename: 'Title',
                         dataType: 'STRING',
                         name: vlc('Title', 'Заголовок'),
                         isRequired: true,
-                        isDisplayAttribute: true,
+                        isDisplayComponent: true,
                         sortOrder: 1,
                         validationRules: { maxLength: 500, localized: true, versioned: true }
                     },
@@ -1662,14 +1662,14 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         dataType: 'TABLE',
                         name: vlc('Track Items', 'Элементы трека'),
                         sortOrder: 3,
-                        childAttributes: [
+                        childComponents: [
                             {
                                 codename: 'ModuleId',
                                 dataType: 'REF',
                                 name: vlc('Module', 'Модуль'),
                                 sortOrder: 1,
                                 targetEntityCodename: 'Modules',
-                                targetEntityKind: 'catalog'
+                                targetEntityKind: 'object'
                             },
                             {
                                 codename: 'Required',
@@ -1689,13 +1689,13 @@ export const lmsTemplate: MetahubTemplateManifest = {
             },
             {
                 codename: 'TrackSteps',
-                kind: 'catalog',
+                kind: 'object',
                 name: vlc('Track Steps', 'Шаги трека'),
                 description: vlc(
                     'Reusable ordered steps for learning track progression and prerequisite checks.',
                     'Переиспользуемые упорядоченные шаги учебных треков и проверок prerequisites.'
                 ),
-                attributes: [
+                components: [
                     {
                         codename: 'TrackId',
                         dataType: 'REF',
@@ -1703,14 +1703,14 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         isRequired: true,
                         sortOrder: 1,
                         targetEntityCodename: 'LearningTracks',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'Title',
                         dataType: 'STRING',
                         name: vlc('Title', 'Заголовок'),
                         isRequired: true,
-                        isDisplayAttribute: true,
+                        isDisplayComponent: true,
                         sortOrder: 2,
                         validationRules: { maxLength: 500, localized: true, versioned: true }
                     },
@@ -1720,7 +1720,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         name: vlc('Module', 'Модуль'),
                         sortOrder: 3,
                         targetEntityCodename: 'Modules',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'ResourceId',
@@ -1728,7 +1728,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         name: vlc('Resource', 'Ресурс'),
                         sortOrder: 4,
                         targetEntityCodename: 'LearningResources',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'SortOrder',
@@ -1748,19 +1748,19 @@ export const lmsTemplate: MetahubTemplateManifest = {
             },
             {
                 codename: 'Modules',
-                kind: 'catalog',
+                kind: 'object',
                 name: vlc('Modules', 'Модули'),
                 description: vlc(
                     'Learning content modules with structured content items.',
                     'Учебные модули со структурированными элементами контента.'
                 ),
-                attributes: [
+                components: [
                     {
                         codename: 'Title',
                         dataType: 'STRING',
                         name: vlc('Title', 'Заголовок'),
                         isRequired: true,
-                        isDisplayAttribute: true,
+                        isDisplayComponent: true,
                         sortOrder: 1,
                         validationRules: { maxLength: 500, localized: true, versioned: true }
                     },
@@ -1806,7 +1806,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         dataType: 'TABLE',
                         name: vlc('Content Items', 'Элементы контента'),
                         sortOrder: 7,
-                        childAttributes: [
+                        childComponents: [
                             {
                                 codename: 'ItemType',
                                 dataType: 'REF',
@@ -1848,16 +1848,16 @@ export const lmsTemplate: MetahubTemplateManifest = {
             },
             {
                 codename: 'Quizzes',
-                kind: 'catalog',
+                kind: 'object',
                 name: vlc('Quizzes', 'Тесты'),
                 description: vlc('Quiz assessments with questions stored as JSON.', 'Тестовые задания с вопросами, хранящимися как JSON.'),
-                attributes: [
+                components: [
                     {
                         codename: 'Title',
                         dataType: 'STRING',
                         name: vlc('Title', 'Заголовок'),
                         isRequired: true,
-                        isDisplayAttribute: true,
+                        isDisplayComponent: true,
                         sortOrder: 1,
                         validationRules: { maxLength: 500, localized: true, versioned: true }
                     },
@@ -1887,7 +1887,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         dataType: 'TABLE',
                         name: vlc('Questions', 'Вопросы'),
                         sortOrder: 5,
-                        childAttributes: [
+                        childComponents: [
                             {
                                 codename: 'Prompt',
                                 dataType: 'STRING',
@@ -1944,15 +1944,15 @@ export const lmsTemplate: MetahubTemplateManifest = {
             },
             {
                 codename: 'QuizResponses',
-                kind: 'catalog',
+                kind: 'object',
                 name: vlc('Quiz Responses', 'Ответы на тесты'),
                 description: vlc('Individual quiz answer records for scoring.', 'Записи ответов на тесты для подсчёта баллов.'),
-                config: buildTransactionalCatalogConfig({
+                config: buildTransactionalObjectConfig({
                     prefix: 'QAR-',
                     effectiveDateField: 'SubmittedAt',
                     targetLedgers: ['ScoreLedger']
                 }),
-                attributes: [
+                components: [
                     {
                         codename: 'StudentId',
                         dataType: 'REF',
@@ -1960,7 +1960,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         isRequired: true,
                         sortOrder: 1,
                         targetEntityCodename: 'Students',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'QuizId',
@@ -1969,7 +1969,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         isRequired: true,
                         sortOrder: 2,
                         targetEntityCodename: 'Quizzes',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'QuestionId',
@@ -2007,13 +2007,13 @@ export const lmsTemplate: MetahubTemplateManifest = {
             },
             {
                 codename: 'QuizAttempts',
-                kind: 'catalog',
+                kind: 'object',
                 name: vlc('Quiz Attempts', 'Попытки тестов'),
                 description: vlc(
                     'Submitted quiz attempts with score and pass/fail state.',
                     'Отправленные попытки тестов с баллом и состоянием прохождения.'
                 ),
-                config: buildTransactionalCatalogConfig({
+                config: buildTransactionalObjectConfig({
                     prefix: 'QAT-',
                     effectiveDateField: 'SubmittedAt',
                     stateField: 'Status',
@@ -2025,7 +2025,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                     ],
                     targetLedgers: ['ScoreLedger', 'LearningActivityLedger']
                 }),
-                attributes: [
+                components: [
                     {
                         codename: 'StudentId',
                         dataType: 'REF',
@@ -2033,7 +2033,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         isRequired: true,
                         sortOrder: 1,
                         targetEntityCodename: 'Students',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'QuizId',
@@ -2042,7 +2042,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         isRequired: true,
                         sortOrder: 2,
                         targetEntityCodename: 'Quizzes',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'AttemptNumber',
@@ -2090,10 +2090,10 @@ export const lmsTemplate: MetahubTemplateManifest = {
             },
             {
                 codename: 'ModuleProgress',
-                kind: 'catalog',
+                kind: 'object',
                 name: vlc('Module Progress', 'Прогресс по модулям'),
                 description: vlc('Per-student module completion tracking.', 'Отслеживание прохождения модулей по студентам.'),
-                config: buildTransactionalCatalogConfig({
+                config: buildTransactionalObjectConfig({
                     prefix: 'MPR-',
                     effectiveDateField: 'CompletedAt',
                     stateField: 'ProgressStatus',
@@ -2104,7 +2104,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                     ],
                     targetLedgers: ['ProgressLedger']
                 }),
-                attributes: [
+                components: [
                     {
                         codename: 'ProgressStudentId',
                         dataType: 'REF',
@@ -2112,7 +2112,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         isRequired: true,
                         sortOrder: 1,
                         targetEntityCodename: 'Students',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'ModuleId',
@@ -2121,7 +2121,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         isRequired: true,
                         sortOrder: 2,
                         targetEntityCodename: 'Modules',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'DepartmentId',
@@ -2129,7 +2129,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         name: vlc('Department', 'Подразделение'),
                         sortOrder: 3,
                         targetEntityCodename: 'Departments',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'ProgressStatus',
@@ -2168,19 +2168,19 @@ export const lmsTemplate: MetahubTemplateManifest = {
             },
             {
                 codename: 'AccessLinks',
-                kind: 'catalog',
+                kind: 'object',
                 name: vlc('Access Links', 'Ссылки доступа'),
                 description: vlc(
                     'Direct access links and QR codes for modules and quizzes.',
                     'Прямые ссылки и QR-коды для модулей и тестов.'
                 ),
-                attributes: [
+                components: [
                     {
                         codename: 'Slug',
                         dataType: 'STRING',
                         name: vlc('Slug', 'Слаг'),
                         isRequired: true,
-                        isDisplayAttribute: true,
+                        isDisplayComponent: true,
                         sortOrder: 1,
                         validationRules: { maxLength: 255 }
                     },
@@ -2205,7 +2205,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         name: vlc('Class', 'Класс'),
                         sortOrder: 4,
                         targetEntityCodename: 'Classes',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'IsActive',
@@ -2244,7 +2244,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
             },
             {
                 codename: 'Enrollments',
-                kind: 'catalog',
+                kind: 'object',
                 name: vlc('Enrollments', 'Записи'),
                 description: vlc('Class-student-module enrollment bridge.', 'Связь класс-студент-модуль.'),
                 config: {
@@ -2279,7 +2279,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         immutability: 'posted'
                     }
                 },
-                attributes: [
+                components: [
                     {
                         codename: 'EnrollmentStudentId',
                         dataType: 'REF',
@@ -2287,7 +2287,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         isRequired: true,
                         sortOrder: 1,
                         targetEntityCodename: 'Students',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'EnrollmentClassId',
@@ -2296,7 +2296,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         isRequired: true,
                         sortOrder: 2,
                         targetEntityCodename: 'Classes',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'ModuleIdRef',
@@ -2337,13 +2337,13 @@ export const lmsTemplate: MetahubTemplateManifest = {
             },
             {
                 codename: 'Assignments',
-                kind: 'catalog',
+                kind: 'object',
                 name: vlc('Assignments', 'Назначения'),
                 description: vlc(
                     'Learning assignments for students, classes, departments, and tracks.',
                     'Учебные назначения для студентов, классов, подразделений и треков.'
                 ),
-                config: buildTransactionalCatalogConfig({
+                config: buildTransactionalObjectConfig({
                     prefix: 'ASN-',
                     effectiveDateField: 'DueAt',
                     stateField: 'Status',
@@ -2355,13 +2355,13 @@ export const lmsTemplate: MetahubTemplateManifest = {
                     ],
                     targetLedgers: ['LearningActivityLedger']
                 }),
-                attributes: [
+                components: [
                     {
                         codename: 'Title',
                         dataType: 'STRING',
                         name: vlc('Title', 'Заголовок'),
                         isRequired: true,
-                        isDisplayAttribute: true,
+                        isDisplayComponent: true,
                         sortOrder: 1,
                         validationRules: { maxLength: 500, localized: true, versioned: true }
                     },
@@ -2385,7 +2385,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         name: vlc('Module', 'Модуль'),
                         sortOrder: 4,
                         targetEntityCodename: 'Modules',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'LearningTrackId',
@@ -2393,7 +2393,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         name: vlc('Learning Track', 'Учебный трек'),
                         sortOrder: 5,
                         targetEntityCodename: 'LearningTracks',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'Status',
@@ -2413,13 +2413,13 @@ export const lmsTemplate: MetahubTemplateManifest = {
             },
             {
                 codename: 'AssignmentSubmissions',
-                kind: 'catalog',
+                kind: 'object',
                 name: vlc('Assignment Submissions', 'Сдачи заданий'),
                 description: vlc(
                     'Student assignment submissions with review state and score.',
                     'Сдачи заданий студентами со статусом проверки и баллом.'
                 ),
-                config: buildTransactionalCatalogConfig({
+                config: buildTransactionalObjectConfig({
                     prefix: 'SUB-',
                     effectiveDateField: 'SubmittedAt',
                     stateField: 'Status',
@@ -2431,7 +2431,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                     ],
                     targetLedgers: ['ScoreLedger', 'LearningActivityLedger']
                 }),
-                attributes: [
+                components: [
                     {
                         codename: 'AssignmentId',
                         dataType: 'REF',
@@ -2439,7 +2439,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         isRequired: true,
                         sortOrder: 1,
                         targetEntityCodename: 'Assignments',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'StudentId',
@@ -2448,7 +2448,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         isRequired: true,
                         sortOrder: 2,
                         targetEntityCodename: 'Students',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'SubmittedAt',
@@ -2490,24 +2490,24 @@ export const lmsTemplate: MetahubTemplateManifest = {
             },
             {
                 codename: 'TrainingEvents',
-                kind: 'catalog',
+                kind: 'object',
                 name: vlc('Training Events', 'Учебные мероприятия'),
                 description: vlc(
                     'Instructor-led sessions, webinars, and blended learning events.',
                     'Очные занятия, вебинары и смешанные учебные мероприятия.'
                 ),
-                config: buildTransactionalCatalogConfig({
+                config: buildTransactionalObjectConfig({
                     prefix: 'TRN-',
                     effectiveDateField: 'StartsAt',
                     targetLedgers: ['AttendanceLedger']
                 }),
-                attributes: [
+                components: [
                     {
                         codename: 'Title',
                         dataType: 'STRING',
                         name: vlc('Title', 'Заголовок'),
                         isRequired: true,
-                        isDisplayAttribute: true,
+                        isDisplayComponent: true,
                         sortOrder: 1,
                         validationRules: { maxLength: 500, localized: true, versioned: true }
                     },
@@ -2542,13 +2542,13 @@ export const lmsTemplate: MetahubTemplateManifest = {
             },
             {
                 codename: 'TrainingAttendance',
-                kind: 'catalog',
+                kind: 'object',
                 name: vlc('Training Attendance', 'Посещаемость мероприятий'),
                 description: vlc(
                     'Attendance facts for instructor-led sessions and webinars.',
                     'Факты посещаемости очных занятий и вебинаров.'
                 ),
-                config: buildTransactionalCatalogConfig({
+                config: buildTransactionalObjectConfig({
                     prefix: 'ATT-',
                     effectiveDateField: 'CheckedInAt',
                     stateField: 'Status',
@@ -2560,7 +2560,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                     ],
                     targetLedgers: ['AttendanceLedger', 'LearningActivityLedger']
                 }),
-                attributes: [
+                components: [
                     {
                         codename: 'TrainingEventId',
                         dataType: 'REF',
@@ -2568,7 +2568,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         isRequired: true,
                         sortOrder: 1,
                         targetEntityCodename: 'TrainingEvents',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'StudentId',
@@ -2577,7 +2577,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         isRequired: true,
                         sortOrder: 2,
                         targetEntityCodename: 'Students',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'CheckedInAt',
@@ -2605,13 +2605,13 @@ export const lmsTemplate: MetahubTemplateManifest = {
             },
             {
                 codename: 'Certificates',
-                kind: 'catalog',
+                kind: 'object',
                 name: vlc('Certificates', 'Сертификаты'),
                 description: vlc(
                     'Issued completion certificates and their lifecycle state.',
                     'Выданные сертификаты о прохождении и их состояние.'
                 ),
-                config: buildTransactionalCatalogConfig({
+                config: buildTransactionalObjectConfig({
                     prefix: 'CRT-',
                     effectiveDateField: 'IssuedAt',
                     stateField: 'Status',
@@ -2623,13 +2623,13 @@ export const lmsTemplate: MetahubTemplateManifest = {
                     ],
                     targetLedgers: ['CertificateLedger']
                 }),
-                attributes: [
+                components: [
                     {
                         codename: 'CertificateNumber',
                         dataType: 'STRING',
                         name: vlc('Certificate Number', 'Номер сертификата'),
                         isRequired: true,
-                        isDisplayAttribute: true,
+                        isDisplayComponent: true,
                         sortOrder: 1,
                         validationRules: { maxLength: 100 }
                     },
@@ -2639,7 +2639,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         name: vlc('Student', 'Студент'),
                         sortOrder: 2,
                         targetEntityCodename: 'Students',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'ModuleId',
@@ -2647,7 +2647,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         name: vlc('Module', 'Модуль'),
                         sortOrder: 3,
                         targetEntityCodename: 'Modules',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'IssuedAt',
@@ -2667,13 +2667,13 @@ export const lmsTemplate: MetahubTemplateManifest = {
             },
             {
                 codename: 'CertificateIssues',
-                kind: 'catalog',
+                kind: 'object',
                 name: vlc('Certificate Issues', 'Выдачи сертификатов'),
                 description: vlc(
                     'Certificate issue and revocation events posted to the certificate ledger.',
                     'События выдачи и отзыва сертификатов, проводимые в регистр сертификатов.'
                 ),
-                config: buildTransactionalCatalogConfig({
+                config: buildTransactionalObjectConfig({
                     prefix: 'CIS-',
                     effectiveDateField: 'IssuedAt',
                     stateField: 'Status',
@@ -2685,7 +2685,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                     ],
                     targetLedgers: ['CertificateLedger', 'NotificationLedger']
                 }),
-                attributes: [
+                components: [
                     {
                         codename: 'CertificateId',
                         dataType: 'REF',
@@ -2693,14 +2693,14 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         isRequired: true,
                         sortOrder: 1,
                         targetEntityCodename: 'Certificates',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'CertificateNumber',
                         dataType: 'STRING',
                         name: vlc('Certificate Number', 'Номер сертификата'),
                         isRequired: true,
-                        isDisplayAttribute: true,
+                        isDisplayComponent: true,
                         sortOrder: 2,
                         validationRules: { maxLength: 100 }
                     },
@@ -2711,7 +2711,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         isRequired: true,
                         sortOrder: 3,
                         targetEntityCodename: 'Students',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'ModuleId',
@@ -2719,7 +2719,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         name: vlc('Module', 'Модуль'),
                         sortOrder: 4,
                         targetEntityCodename: 'Modules',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'IssuedAt',
@@ -2741,16 +2741,16 @@ export const lmsTemplate: MetahubTemplateManifest = {
             },
             {
                 codename: 'KnowledgeSpaces',
-                kind: 'catalog',
+                kind: 'object',
                 name: vlc('Knowledge Spaces', 'Пространства знаний'),
                 description: vlc('Knowledge base spaces with shared permissions.', 'Пространства базы знаний с общими правами доступа.'),
-                attributes: [
+                components: [
                     {
                         codename: 'Title',
                         dataType: 'STRING',
                         name: vlc('Title', 'Заголовок'),
                         isRequired: true,
-                        isDisplayAttribute: true,
+                        isDisplayComponent: true,
                         sortOrder: 1,
                         validationRules: { maxLength: 500, localized: true, versioned: true }
                     },
@@ -2772,13 +2772,13 @@ export const lmsTemplate: MetahubTemplateManifest = {
             },
             {
                 codename: 'KnowledgeFolders',
-                kind: 'catalog',
+                kind: 'object',
                 name: vlc('Knowledge Folders', 'Папки знаний'),
                 description: vlc(
                     'Folders and article bindings inside knowledge spaces.',
                     'Папки и привязки статей внутри пространств знаний.'
                 ),
-                attributes: [
+                components: [
                     {
                         codename: 'SpaceId',
                         dataType: 'REF',
@@ -2786,14 +2786,14 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         isRequired: true,
                         sortOrder: 1,
                         targetEntityCodename: 'KnowledgeSpaces',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'Title',
                         dataType: 'STRING',
                         name: vlc('Title', 'Заголовок'),
                         isRequired: true,
-                        isDisplayAttribute: true,
+                        isDisplayComponent: true,
                         sortOrder: 2,
                         validationRules: { maxLength: 500, localized: true, versioned: true }
                     },
@@ -2815,10 +2815,10 @@ export const lmsTemplate: MetahubTemplateManifest = {
             },
             {
                 codename: 'KnowledgeBookmarks',
-                kind: 'catalog',
+                kind: 'object',
                 name: vlc('Knowledge Bookmarks', 'Закладки знаний'),
                 description: vlc('Per-learner bookmarks for knowledge base articles.', 'Закладки учащихся для статей базы знаний.'),
-                attributes: [
+                components: [
                     {
                         codename: 'StudentId',
                         dataType: 'REF',
@@ -2826,7 +2826,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         isRequired: true,
                         sortOrder: 1,
                         targetEntityCodename: 'Students',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'FolderId',
@@ -2835,7 +2835,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         isRequired: true,
                         sortOrder: 2,
                         targetEntityCodename: 'KnowledgeFolders',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'CreatedAt',
@@ -2847,19 +2847,19 @@ export const lmsTemplate: MetahubTemplateManifest = {
             },
             {
                 codename: 'DevelopmentPlans',
-                kind: 'catalog',
+                kind: 'object',
                 name: vlc('Development Plans', 'Планы развития'),
                 description: vlc(
                     'Onboarding and growth plans for learners and teams.',
                     'Планы адаптации и развития для учащихся и команд.'
                 ),
-                attributes: [
+                components: [
                     {
                         codename: 'Title',
                         dataType: 'STRING',
                         name: vlc('Title', 'Заголовок'),
                         isRequired: true,
-                        isDisplayAttribute: true,
+                        isDisplayComponent: true,
                         sortOrder: 1,
                         validationRules: { maxLength: 500, localized: true, versioned: true }
                     },
@@ -2869,7 +2869,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         name: vlc('Student', 'Студент'),
                         sortOrder: 2,
                         targetEntityCodename: 'Students',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'SupervisorEmail',
@@ -2890,10 +2890,10 @@ export const lmsTemplate: MetahubTemplateManifest = {
             },
             {
                 codename: 'DevelopmentPlanStages',
-                kind: 'catalog',
+                kind: 'object',
                 name: vlc('Development Plan Stages', 'Этапы плана развития'),
                 description: vlc('Ordered stages inside development plans.', 'Упорядоченные этапы внутри планов развития.'),
-                attributes: [
+                components: [
                     {
                         codename: 'PlanId',
                         dataType: 'REF',
@@ -2901,14 +2901,14 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         isRequired: true,
                         sortOrder: 1,
                         targetEntityCodename: 'DevelopmentPlans',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'Title',
                         dataType: 'STRING',
                         name: vlc('Title', 'Заголовок'),
                         isRequired: true,
-                        isDisplayAttribute: true,
+                        isDisplayComponent: true,
                         sortOrder: 2,
                         validationRules: { maxLength: 500, localized: true, versioned: true }
                     },
@@ -2923,10 +2923,10 @@ export const lmsTemplate: MetahubTemplateManifest = {
             },
             {
                 codename: 'DevelopmentPlanTasks',
-                kind: 'catalog',
+                kind: 'object',
                 name: vlc('Development Plan Tasks', 'Задачи плана развития'),
                 description: vlc('Actionable tasks inside development plan stages.', 'Практические задачи внутри этапов плана развития.'),
-                attributes: [
+                components: [
                     {
                         codename: 'StageId',
                         dataType: 'REF',
@@ -2934,14 +2934,14 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         isRequired: true,
                         sortOrder: 1,
                         targetEntityCodename: 'DevelopmentPlanStages',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'Title',
                         dataType: 'STRING',
                         name: vlc('Title', 'Заголовок'),
                         isRequired: true,
-                        isDisplayAttribute: true,
+                        isDisplayComponent: true,
                         sortOrder: 2,
                         validationRules: { maxLength: 500, localized: true, versioned: true }
                     },
@@ -2951,7 +2951,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         name: vlc('Resource', 'Ресурс'),
                         sortOrder: 3,
                         targetEntityCodename: 'LearningResources',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'Status',
@@ -2965,19 +2965,19 @@ export const lmsTemplate: MetahubTemplateManifest = {
             },
             {
                 codename: 'NotificationRules',
-                kind: 'catalog',
+                kind: 'object',
                 name: vlc('Notification Rules', 'Правила уведомлений'),
                 description: vlc(
                     'Generic notification rules triggered by scripts and workflow events.',
                     'Универсальные правила уведомлений от скриптов и workflow-событий.'
                 ),
-                attributes: [
+                components: [
                     {
                         codename: 'Name',
                         dataType: 'STRING',
                         name: vlc('Name', 'Название'),
                         isRequired: true,
-                        isDisplayAttribute: true,
+                        isDisplayComponent: true,
                         sortOrder: 1,
                         validationRules: { maxLength: 255, localized: true, versioned: true }
                     },
@@ -2999,32 +2999,32 @@ export const lmsTemplate: MetahubTemplateManifest = {
             },
             {
                 codename: 'NotificationOutbox',
-                kind: 'catalog',
+                kind: 'object',
                 name: vlc('Notification Outbox', 'Очередь уведомлений'),
                 description: vlc(
                     'Script-generated notification events awaiting delivery.',
                     'События уведомлений от скриптов, ожидающие доставки.'
                 ),
-                config: buildTransactionalCatalogConfig({
+                config: buildTransactionalObjectConfig({
                     prefix: 'NTF-',
                     effectiveDateField: 'CreatedAt',
                     targetLedgers: ['NotificationLedger']
                 }),
-                attributes: [
+                components: [
                     {
                         codename: 'RuleId',
                         dataType: 'REF',
                         name: vlc('Notification Rule', 'Правило уведомления'),
                         sortOrder: 1,
                         targetEntityCodename: 'NotificationRules',
-                        targetEntityKind: 'catalog'
+                        targetEntityKind: 'object'
                     },
                     {
                         codename: 'Recipient',
                         dataType: 'STRING',
                         name: vlc('Recipient', 'Получатель'),
                         isRequired: true,
-                        isDisplayAttribute: true,
+                        isDisplayComponent: true,
                         sortOrder: 2,
                         validationRules: { maxLength: 320 }
                     },
@@ -3044,19 +3044,19 @@ export const lmsTemplate: MetahubTemplateManifest = {
             },
             {
                 codename: 'Reports',
-                kind: 'catalog',
+                kind: 'object',
                 name: vlc('Reports', 'Отчеты'),
                 description: vlc(
                     'Reusable LMS report definitions for administrators and instructors.',
                     'Переиспользуемые определения отчетов LMS для администраторов и преподавателей.'
                 ),
-                attributes: [
+                components: [
                     {
                         codename: 'Name',
                         dataType: 'STRING',
                         name: vlc('Name', 'Название'),
                         isRequired: true,
-                        isDisplayAttribute: true,
+                        isDisplayComponent: true,
                         sortOrder: 1,
                         validationRules: { maxLength: 255, localized: true, versioned: true }
                     },
@@ -3261,7 +3261,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                     'Creates an enrollment for a new student when the student record carries enough assignment context.',
                     'Создает запись на обучение для нового студента, если запись студента содержит достаточный контекст назначения.'
                 ),
-                attachedToKind: 'catalog',
+                attachedToKind: 'object',
                 attachedToEntityCodename: 'Students',
                 moduleRole: 'lifecycle',
                 sourceKind: 'embedded',
@@ -3276,7 +3276,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                     'Posts enrollment records into the generic Progress Ledger.',
                     'Проводит записи на обучение в универсальный регистр прогресса.'
                 ),
-                attachedToKind: 'catalog',
+                attachedToKind: 'object',
                 attachedToEntityCodename: 'Enrollments',
                 moduleRole: 'lifecycle',
                 sourceKind: 'embedded',
@@ -3291,7 +3291,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                     'Posts quiz attempt records into score and learning activity Ledgers.',
                     'Проводит попытки тестов в регистры оценок и учебной активности.'
                 ),
-                attachedToKind: 'catalog',
+                attachedToKind: 'object',
                 attachedToEntityCodename: 'QuizAttempts',
                 moduleRole: 'lifecycle',
                 sourceKind: 'embedded',
@@ -3306,7 +3306,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                     'Posts module completion progress records into the progress Ledger.',
                     'Проводит записи прогресса модулей в регистр прогресса.'
                 ),
-                attachedToKind: 'catalog',
+                attachedToKind: 'object',
                 attachedToEntityCodename: 'ModuleProgress',
                 moduleRole: 'lifecycle',
                 sourceKind: 'embedded',
@@ -3321,7 +3321,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                     'Posts certificate issue records into certificate and notification Ledgers.',
                     'Проводит выдачи сертификатов в регистры сертификатов и уведомлений.'
                 ),
-                attachedToKind: 'catalog',
+                attachedToKind: 'object',
                 attachedToEntityCodename: 'CertificateIssues',
                 moduleRole: 'lifecycle',
                 sourceKind: 'embedded',
@@ -3340,9 +3340,9 @@ export const lmsTemplate: MetahubTemplateManifest = {
             { key: 'general.codenameAutoReformat', value: { _value: true } },
             { key: 'general.codenameRequireReformat', value: { _value: true } },
             { key: 'application.publicRuntime.guest', value: { _value: LMS_PUBLIC_GUEST_RUNTIME_CONFIG } },
-            { key: 'entity.catalog.allowAttributeCopy', value: { _value: true } },
-            { key: 'entity.catalog.allowAttributeDelete', value: { _value: true } },
-            { key: 'entity.catalog.allowDeleteLastDisplayAttribute', value: { _value: true } }
+            { key: 'entity.object.allowComponentCopy', value: { _value: true } },
+            { key: 'entity.object.allowComponentDelete', value: { _value: true } },
+            { key: 'entity.object.allowDeleteLastDisplayComponent', value: { _value: true } }
         ]
     }
 }

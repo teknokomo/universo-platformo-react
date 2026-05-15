@@ -4,7 +4,7 @@ import {
     disposeApiContext,
     listLayouts,
     listMetahubBranches,
-    listLinkedCollections,
+    listObjectCollections,
     listOptionLists,
     listTreeEntities,
     listMetahubs,
@@ -107,7 +107,7 @@ async function createMetahubViaDialog(
         const branchCheckbox = dialog.getByLabel('Branch')
         const layoutCheckbox = dialog.getByLabel('Layout')
         const hubCheckbox = dialog.getByLabel('Hub')
-        const catalogCheckbox = dialog.getByLabel('Catalog')
+        const catalogCheckbox = dialog.getByLabel('Object')
         const setCheckbox = dialog.getByLabel('Set')
         const enumerationCheckbox = dialog.getByLabel('Enumeration')
 
@@ -161,7 +161,7 @@ test('@flow metahub create dialog preserves codename auto-fill UX and supports d
             listMetahubBranches(api, defaultsOnMetahub.id, { limit: 100, offset: 0 }),
             listLayouts(api, defaultsOnMetahub.id, { limit: 100, offset: 0 }),
             listTreeEntities(api, defaultsOnMetahub.id, { limit: 100, offset: 0 }),
-            listLinkedCollections(api, defaultsOnMetahub.id, { limit: 100, offset: 0 }),
+            listObjectCollections(api, defaultsOnMetahub.id, { limit: 100, offset: 0 }),
             listValueGroups(api, defaultsOnMetahub.id, { limit: 100, offset: 0 }),
             listOptionLists(api, defaultsOnMetahub.id, { limit: 100, offset: 0 })
         ])
@@ -190,7 +190,7 @@ test('@flow metahub create dialog preserves codename auto-fill UX and supports d
             listMetahubBranches(api, defaultsOffMetahub.id, { limit: 100, offset: 0 }),
             listLayouts(api, defaultsOffMetahub.id, { limit: 100, offset: 0 }),
             listTreeEntities(api, defaultsOffMetahub.id, { limit: 100, offset: 0 }),
-            listLinkedCollections(api, defaultsOffMetahub.id, { limit: 100, offset: 0 }),
+            listObjectCollections(api, defaultsOffMetahub.id, { limit: 100, offset: 0 }),
             listValueGroups(api, defaultsOffMetahub.id, { limit: 100, offset: 0 }),
             listOptionLists(api, defaultsOffMetahub.id, { limit: 100, offset: 0 })
         ])

@@ -70,14 +70,14 @@ describe('SharedEntitySettingsFields', () => {
         i18nState.language = 'en'
         useQueryMock.mockReturnValue({
             data: [
-                { id: 'catalog-1', label: 'LinkedCollectionEntity One', secondaryLabel: 'catalog_one' },
-                { id: 'catalog-2', label: 'LinkedCollectionEntity Two', secondaryLabel: 'catalog_two' }
+                { id: 'object-1', label: 'Object One', secondaryLabel: 'object_one' },
+                { id: 'object-2', label: 'Object Two', secondaryLabel: 'object_two' }
             ],
             isLoading: false,
             error: null
         })
         useSharedEntityOverridesByEntityMock.mockReturnValue({
-            data: [{ targetObjectId: 'catalog-2', isExcluded: true }],
+            data: [{ targetObjectId: 'object-2', isExcluded: true }],
             isLoading: false,
             error: null
         })
@@ -90,8 +90,8 @@ describe('SharedEntitySettingsFields', () => {
         render(
             <SharedEntitySettingsFields
                 metahubId='metahub-1'
-                entityKind='attribute'
-                sharedEntityId='attribute-1'
+                entityKind='component'
+                sharedEntityId='component-1'
                 storageField='uiConfig'
                 section='behavior'
                 values={{
@@ -122,8 +122,8 @@ describe('SharedEntitySettingsFields', () => {
         render(
             <SharedEntitySettingsFields
                 metahubId='metahub-1'
-                entityKind='attribute'
-                sharedEntityId='attribute-1'
+                entityKind='component'
+                sharedEntityId='component-1'
                 storageField='uiConfig'
                 section='all'
                 values={{
@@ -161,8 +161,8 @@ describe('SharedEntitySettingsFields', () => {
         render(
             <SharedEntitySettingsFields
                 metahubId='metahub-1'
-                entityKind='attribute'
-                sharedEntityId='attribute-1'
+                entityKind='component'
+                sharedEntityId='component-1'
                 storageField='uiConfig'
                 section='exclusions'
                 values={{ uiConfig: {} }}
@@ -170,13 +170,13 @@ describe('SharedEntitySettingsFields', () => {
             />
         )
 
-        expect(screen.getByText('LinkedCollectionEntity Two')).toBeInTheDocument()
+        expect(screen.getByText('Object Two')).toBeInTheDocument()
 
         await user.click(screen.getByTestId('entity-selection-add-button'))
-        await user.click(screen.getByTestId('entity-selection-option-catalog-1'))
+        await user.click(screen.getByTestId('entity-selection-option-object-1'))
         await user.click(screen.getByTestId('entity-selection-confirm'))
 
-        expect(setValue).toHaveBeenCalledWith('_sharedExcludedTargetIds', ['catalog-2', 'catalog-1'])
+        expect(setValue).toHaveBeenCalledWith('_sharedExcludedTargetIds', ['object-2', 'object-1'])
     })
 
     it('drops unsaved new exclusions when canExclude is turned off in the same dialog', async () => {
@@ -186,8 +186,8 @@ describe('SharedEntitySettingsFields', () => {
         render(
             <SharedEntitySettingsFields
                 metahubId='metahub-1'
-                entityKind='attribute'
-                sharedEntityId='attribute-1'
+                entityKind='component'
+                sharedEntityId='component-1'
                 storageField='uiConfig'
                 section='behavior'
                 values={{
@@ -198,7 +198,7 @@ describe('SharedEntitySettingsFields', () => {
                             positionLocked: false
                         }
                     },
-                    _sharedExcludedTargetIds: ['catalog-1', 'catalog-2']
+                    _sharedExcludedTargetIds: ['object-1', 'object-2']
                 }}
                 setValue={setValue}
             />
@@ -213,7 +213,7 @@ describe('SharedEntitySettingsFields', () => {
                 positionLocked: false
             }
         })
-        expect(setValue).toHaveBeenCalledWith('_sharedExcludedTargetIds', ['catalog-2'])
+        expect(setValue).toHaveBeenCalledWith('_sharedExcludedTargetIds', ['object-2'])
     })
 
     it('normalizes VLC target labels into strings before rendering exclusion options', () => {
@@ -223,20 +223,20 @@ describe('SharedEntitySettingsFields', () => {
                     _schema: '1',
                     _primary: 'en',
                     locales: {
-                        en: { content: 'LinkedCollectionEntity One' }
+                        en: { content: 'Object One' }
                     }
                 },
                 {
                     _schema: '1',
                     _primary: 'en',
                     locales: {
-                        en: { content: 'catalog_one' }
+                        en: { content: 'object_one' }
                     }
                 },
                 'en',
-                'catalog-1'
+                'object-1'
             )
-        ).toBe('LinkedCollectionEntity One')
+        ).toBe('Object One')
 
         expect(
             resolveSharedTargetSecondaryLabel(
@@ -244,7 +244,7 @@ describe('SharedEntitySettingsFields', () => {
                     _schema: '1',
                     _primary: 'en',
                     locales: {
-                        en: { content: 'catalog_one' }
+                        en: { content: 'object_one' }
                     }
                 },
                 [
@@ -259,9 +259,9 @@ describe('SharedEntitySettingsFields', () => {
                     }
                 ],
                 'en',
-                'catalog-1'
+                'object-1'
             )
-        ).toBe('catalog_one • main_hub')
+        ).toBe('object_one • main_hub')
     })
 
     it('refreshes localized helper copy and target query keys when the UI language changes', () => {
@@ -270,8 +270,8 @@ describe('SharedEntitySettingsFields', () => {
         const view = render(
             <SharedEntitySettingsFields
                 metahubId='metahub-1'
-                entityKind='attribute'
-                sharedEntityId='attribute-1'
+                entityKind='component'
+                sharedEntityId='component-1'
                 storageField='uiConfig'
                 section='all'
                 values={{ uiConfig: {} }}
@@ -287,8 +287,8 @@ describe('SharedEntitySettingsFields', () => {
         view.rerender(
             <SharedEntitySettingsFields
                 metahubId='metahub-1'
-                entityKind='attribute'
-                sharedEntityId='attribute-1'
+                entityKind='component'
+                sharedEntityId='component-1'
                 storageField='uiConfig'
                 section='all'
                 values={{ uiConfig: {} }}

@@ -77,7 +77,7 @@ END $$;
 const adminLifecycleRoleSeedStatements = [
     {
         sql: `
-INSERT INTO admin.cat_roles (codename, description, name, color, is_superuser, is_system)
+INSERT INTO admin.obj_roles (codename, description, name, color, is_superuser, is_system)
 SELECT *
 FROM (
     VALUES
@@ -176,7 +176,7 @@ FROM (
 ) AS seed(codename, description, name, color, is_superuser, is_system)
 WHERE NOT EXISTS (
     SELECT 1
-    FROM admin.cat_roles existing
+    FROM admin.obj_roles existing
     WHERE ${codenamePrimaryTextSql('existing.codename')} = ${codenamePrimaryTextSql('seed.codename')}
       AND existing._upl_deleted = false AND existing._app_deleted = false
 )
@@ -186,7 +186,7 @@ WHERE NOT EXISTS (
         sql: `
 INSERT INTO admin.rel_role_permissions (role_id, subject, action, conditions, fields)
 SELECT r.id, p.subject, p.action, p.conditions, p.fields
-FROM admin.cat_roles r
+FROM admin.obj_roles r
 CROSS JOIN (
     VALUES
         ('onboarding', 'read', '{}'::jsonb, ARRAY[]::text[]),
@@ -204,7 +204,7 @@ DO UPDATE SET
         sql: `
 INSERT INTO admin.rel_role_permissions (role_id, subject, action, conditions, fields)
 SELECT r.id, p.subject, p.action, p.conditions, p.fields
-FROM admin.cat_roles r
+FROM admin.obj_roles r
 CROSS JOIN (
     VALUES
         ('applications', 'read', '{}'::jsonb, ARRAY[]::text[]),
@@ -223,7 +223,7 @@ DO UPDATE SET
         sql: `
 UPDATE admin.rel_role_permissions rp
 SET action = '*'
-FROM admin.cat_roles r
+FROM admin.obj_roles r
 WHERE rp.role_id = r.id
     AND ${codenamePrimaryTextSql('r.codename')} = 'User'
     AND r._upl_deleted = false AND r._app_deleted = false
@@ -243,9 +243,9 @@ SELECT
     r.id,
     p.user_id,
     'migration: auto-assigned user role for onboarded users'
-FROM profiles.cat_profiles p
+FROM profiles.obj_profiles p
 JOIN auth.users u ON u.id = p.user_id
-CROSS JOIN admin.cat_roles r
+CROSS JOIN admin.obj_roles r
 WHERE p.onboarding_completed = true
   AND u.deleted_at IS NULL
     AND ${codenamePrimaryTextSql('r.codename')} = 'User'
@@ -253,7 +253,7 @@ WHERE p.onboarding_completed = true
   AND NOT EXISTS (
       SELECT 1
       FROM admin.rel_user_roles aur
-      JOIN admin.cat_roles sr ON sr.id = aur.role_id
+      JOIN admin.obj_roles sr ON sr.id = aur.role_id
       WHERE aur.user_id = p.user_id
         AND aur._upl_deleted = false AND aur._app_deleted = false
         AND sr._upl_deleted = false AND sr._app_deleted = false
@@ -275,9 +275,9 @@ SELECT
     r.id,
     p.user_id,
     'migration: auto-assigned registered role for pre-onboarding users'
-FROM profiles.cat_profiles p
+FROM profiles.obj_profiles p
 JOIN auth.users u ON u.id = p.user_id
-CROSS JOIN admin.cat_roles r
+CROSS JOIN admin.obj_roles r
 WHERE COALESCE(p.onboarding_completed, false) = false
   AND u.deleted_at IS NULL
     AND ${codenamePrimaryTextSql('r.codename')} = 'Registered'
@@ -285,7 +285,7 @@ WHERE COALESCE(p.onboarding_completed, false) = false
   AND NOT EXISTS (
       SELECT 1
       FROM admin.rel_user_roles aur
-      JOIN admin.cat_roles sr ON sr.id = aur.role_id
+      JOIN admin.obj_roles sr ON sr.id = aur.role_id
       WHERE aur.user_id = p.user_id
         AND aur._upl_deleted = false AND aur._app_deleted = false
         AND sr._upl_deleted = false AND sr._app_deleted = false
@@ -352,7 +352,7 @@ CREATE TABLE IF NOT EXISTS admin.cfg_instances (
         },
         {
             sql: `
-CREATE TABLE IF NOT EXISTS admin.cat_roles (
+CREATE TABLE IF NOT EXISTS admin.obj_roles (
     id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
     codename JSONB NOT NULL,
     name JSONB DEFAULT '{}',
@@ -394,7 +394,7 @@ CREATE TABLE IF NOT EXISTS admin.cat_roles (
             sql: `
 CREATE TABLE IF NOT EXISTS admin.rel_role_permissions (
     id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
-    role_id UUID NOT NULL REFERENCES admin.cat_roles(id) ON DELETE CASCADE,
+    role_id UUID NOT NULL REFERENCES admin.obj_roles(id) ON DELETE CASCADE,
     subject VARCHAR(100) NOT NULL,
     action VARCHAR(20) NOT NULL,
     conditions JSONB DEFAULT '{}',
@@ -434,7 +434,7 @@ CREATE TABLE IF NOT EXISTS admin.rel_role_permissions (
 CREATE TABLE IF NOT EXISTS admin.rel_user_roles (
     id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    role_id UUID NOT NULL REFERENCES admin.cat_roles(id) ON DELETE CASCADE,
+    role_id UUID NOT NULL REFERENCES admin.obj_roles(id) ON DELETE CASCADE,
     granted_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
     comment TEXT,
     _upl_created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -478,7 +478,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_cfg_instances_codename_active
         {
             sql: `
 CREATE UNIQUE INDEX IF NOT EXISTS idx_roles_codename_active
-    ON admin.cat_roles (${codenamePrimaryTextSql('codename')})
+    ON admin.obj_roles (${codenamePrimaryTextSql('codename')})
     WHERE _upl_deleted = false AND _app_deleted = false
         `
         },
@@ -504,7 +504,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_user_roles_unique_active
             sql: `CREATE INDEX IF NOT EXISTS idx_role_permissions_role_id ON admin.rel_role_permissions(role_id)`
         },
         {
-            sql: `CREATE INDEX IF NOT EXISTS idx_roles_is_superuser ON admin.cat_roles(is_superuser) WHERE is_superuser = true`
+            sql: `CREATE INDEX IF NOT EXISTS idx_roles_is_superuser ON admin.obj_roles(is_superuser) WHERE is_superuser = true`
         },
         {
             sql: `CREATE INDEX IF NOT EXISTS idx_instances_name_gin ON admin.cfg_instances USING GIN (name)`
@@ -512,7 +512,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_user_roles_unique_active
         {
             sql: `
 CREATE INDEX IF NOT EXISTS idx_roles_active
-    ON admin.cat_roles (id) WHERE _upl_deleted = false AND _app_deleted = false
+    ON admin.obj_roles (id) WHERE _upl_deleted = false AND _app_deleted = false
         `
         },
         {
@@ -536,7 +536,7 @@ CREATE INDEX IF NOT EXISTS idx_cfg_instances_app_deleted
         // ── Seed: superuser role ──────────────────────────────────────
         {
             sql: `
-INSERT INTO admin.cat_roles (codename, description, name, color, is_superuser, is_system)
+INSERT INTO admin.obj_roles (codename, description, name, color, is_superuser, is_system)
 SELECT *
 FROM (
     VALUES
@@ -589,7 +589,7 @@ FROM (
 ) AS seed(codename, description, name, color, is_superuser, is_system)
 WHERE NOT EXISTS (
     SELECT 1
-    FROM admin.cat_roles existing
+    FROM admin.obj_roles existing
     WHERE ${codenamePrimaryTextSql('existing.codename')} = ${codenamePrimaryTextSql('seed.codename')}
       AND existing._upl_deleted = false AND existing._app_deleted = false
 )
@@ -599,7 +599,7 @@ WHERE NOT EXISTS (
         {
             sql: `
 INSERT INTO admin.rel_role_permissions (role_id, subject, action)
-SELECT id, '*', '*' FROM admin.cat_roles
+SELECT id, '*', '*' FROM admin.obj_roles
 WHERE ${codenamePrimaryTextSql('codename')} = 'Superuser' AND _upl_deleted = false AND _app_deleted = false
 ON CONFLICT (role_id, subject, action) WHERE _upl_deleted = false AND _app_deleted = false
 DO NOTHING
@@ -628,7 +628,7 @@ BEGIN
     RETURN EXISTS (
         SELECT 1
         FROM admin.rel_user_roles ur
-        JOIN admin.cat_roles r ON ur.role_id = r.id
+        JOIN admin.obj_roles r ON ur.role_id = r.id
         JOIN admin.rel_role_permissions rp ON r.id = rp.role_id
         WHERE ur.user_id = v_user_id
           AND ur._upl_deleted = false AND ur._app_deleted = false
@@ -676,7 +676,7 @@ BEGIN
         rp.conditions,
         rp.fields
     FROM admin.rel_user_roles ur
-    JOIN admin.cat_roles r ON ur.role_id = r.id
+    JOIN admin.obj_roles r ON ur.role_id = r.id
     JOIN admin.rel_role_permissions rp ON r.id = rp.role_id
     WHERE ur.user_id = v_user_id
       AND ur._upl_deleted = false AND ur._app_deleted = false
@@ -704,7 +704,7 @@ BEGIN
     RETURN EXISTS (
         SELECT 1
         FROM admin.rel_user_roles ur
-        JOIN admin.cat_roles r ON ur.role_id = r.id
+        JOIN admin.obj_roles r ON ur.role_id = r.id
         WHERE ur.user_id = v_user_id
           AND r.is_superuser = true
           AND ur._upl_deleted = false AND ur._app_deleted = false
@@ -732,7 +732,7 @@ BEGIN
     RETURN EXISTS (
         SELECT 1
         FROM admin.rel_user_roles ur
-        JOIN admin.cat_roles r ON ur.role_id = r.id
+        JOIN admin.obj_roles r ON ur.role_id = r.id
         JOIN admin.rel_role_permissions rp ON r.id = rp.role_id
         WHERE ur.user_id = v_user_id
           AND ur._upl_deleted = false AND ur._app_deleted = false
@@ -770,7 +770,7 @@ BEGIN
         r.name,
         r.color::TEXT
     FROM admin.rel_user_roles ur
-    JOIN admin.cat_roles r ON ur.role_id = r.id
+    JOIN admin.obj_roles r ON ur.role_id = r.id
     WHERE ur.user_id = v_user_id
       AND ur._upl_deleted = false AND ur._app_deleted = false
             AND r._upl_deleted = false AND r._app_deleted = false
@@ -812,21 +812,21 @@ END $$;
         },
         // ── Enable RLS ────────────────────────────────────────────────
         { sql: `ALTER TABLE admin.cfg_instances ENABLE ROW LEVEL SECURITY` },
-        { sql: `ALTER TABLE admin.cat_roles ENABLE ROW LEVEL SECURITY` },
+        { sql: `ALTER TABLE admin.obj_roles ENABLE ROW LEVEL SECURITY` },
         { sql: `ALTER TABLE admin.rel_role_permissions ENABLE ROW LEVEL SECURITY` },
         { sql: `ALTER TABLE admin.rel_user_roles ENABLE ROW LEVEL SECURITY` },
         // ── RLS policies ──────────────────────────────────────────────
-        createDropPolicyIfTableExistsStatement('authenticated_read_roles', 'admin', 'cat_roles'),
+        createDropPolicyIfTableExistsStatement('authenticated_read_roles', 'admin', 'obj_roles'),
         {
             sql: `
-CREATE POLICY "authenticated_read_roles" ON admin.cat_roles
+CREATE POLICY "authenticated_read_roles" ON admin.obj_roles
     FOR SELECT USING (true)
         `
         },
-        createDropPolicyIfTableExistsStatement('admin_access_manage_roles', 'admin', 'cat_roles'),
+        createDropPolicyIfTableExistsStatement('admin_access_manage_roles', 'admin', 'obj_roles'),
         {
             sql: `
-CREATE POLICY "admin_access_manage_roles" ON admin.cat_roles
+CREATE POLICY "admin_access_manage_roles" ON admin.obj_roles
     FOR ALL USING (
         (select admin.has_admin_permission((select auth.uid())))
     )
@@ -1140,9 +1140,9 @@ VALUES
     ('metahubs', 'codenameAlphabet', '{"_value": "en-ru"}'::jsonb),
     ('metahubs', 'codenameAllowMixedAlphabets', '{"_value": false}'::jsonb),
     ('metahubs', 'codenameAutoConvertMixedAlphabets', '{"_value": true}'::jsonb),
-    ('metahubs', 'platformSystemFieldDefinitionsConfigurable', '{"_value": false}'::jsonb),
-    ('metahubs', 'platformSystemFieldDefinitionsRequired', '{"_value": true}'::jsonb),
-    ('metahubs', 'platformSystemFieldDefinitionsIgnoreMetahubSettings', '{"_value": true}'::jsonb)
+    ('metahubs', 'platformSystemComponentsConfigurable', '{"_value": false}'::jsonb),
+    ('metahubs', 'platformSystemComponentsRequired', '{"_value": true}'::jsonb),
+    ('metahubs', 'platformSystemComponentsIgnoreMetahubSettings', '{"_value": true}'::jsonb)
 ON CONFLICT (category, key) WHERE _upl_deleted = false AND _app_deleted = false
 DO NOTHING
         `
@@ -1158,8 +1158,8 @@ DO NOTHING
         createDropPolicyIfTableExistsStatement('users_read_own_roles', 'admin', 'rel_user_roles'),
         createDropPolicyIfTableExistsStatement('admin_access_manage_user_roles', 'admin', 'rel_user_roles'),
         createDropPolicyIfTableExistsStatement('admin_access_manage_role_permissions', 'admin', 'rel_role_permissions'),
-        createDropPolicyIfTableExistsStatement('authenticated_read_roles', 'admin', 'cat_roles'),
-        createDropPolicyIfTableExistsStatement('admin_access_manage_roles', 'admin', 'cat_roles'),
+        createDropPolicyIfTableExistsStatement('authenticated_read_roles', 'admin', 'obj_roles'),
+        createDropPolicyIfTableExistsStatement('admin_access_manage_roles', 'admin', 'obj_roles'),
         { sql: `DROP FUNCTION IF EXISTS admin.get_user_global_roles(UUID)` },
         { sql: `DROP FUNCTION IF EXISTS admin.has_admin_permission(UUID)` },
         { sql: `DROP FUNCTION IF EXISTS admin.is_superuser(UUID)` },
@@ -1168,7 +1168,7 @@ DO NOTHING
         { sql: `DROP TABLE IF EXISTS admin.cfg_locales CASCADE` },
         { sql: `DROP TABLE IF EXISTS admin.rel_user_roles CASCADE` },
         { sql: `DROP TABLE IF EXISTS admin.rel_role_permissions CASCADE` },
-        { sql: `DROP TABLE IF EXISTS admin.cat_roles CASCADE` },
+        { sql: `DROP TABLE IF EXISTS admin.obj_roles CASCADE` },
         { sql: `DROP TABLE IF EXISTS admin.cfg_instances CASCADE` },
         { sql: `DROP SCHEMA IF EXISTS admin CASCADE` }
     ] as const

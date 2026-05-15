@@ -10,7 +10,7 @@ import {
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
 import { repoRoot } from '../../support/env/load-e2e-env.mjs'
 import { buildSnapshotEnvelope, buildVLC, validateSnapshotEnvelope } from '@universo/utils'
-import { waitForMetahubCatalogId, waitForMetahubEnumerationId, waitForOptionValueId } from '../../support/lmsRuntime'
+import { waitForMetahubObjectId, waitForMetahubEnumerationId, waitForOptionValueId } from '../../support/lmsRuntime'
 import {
     assertLmsFixtureEnvelopeContract,
     buildLmsLiveMetahubCodename,
@@ -52,26 +52,26 @@ async function apiGet(api: ApiContext, urlPath: string) {
 
 async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
     const [
-        classesCatalogId,
-        studentsCatalogId,
-        learningResourcesCatalogId,
-        coursesCatalogId,
-        courseSectionsCatalogId,
-        learningTracksCatalogId,
-        trackStepsCatalogId,
-        modulesCatalogId,
-        quizzesCatalogId,
-        quizResponsesCatalogId,
-        moduleProgressCatalogId,
-        accessLinksCatalogId,
-        enrollmentsCatalogId,
-        knowledgeSpacesCatalogId,
-        knowledgeFoldersCatalogId,
-        knowledgeBookmarksCatalogId,
-        developmentPlansCatalogId,
-        developmentPlanStagesCatalogId,
-        developmentPlanTasksCatalogId,
-        reportsCatalogId,
+        classesObjectId,
+        studentsObjectId,
+        learningResourcesObjectId,
+        coursesObjectId,
+        courseSectionsObjectId,
+        learningTracksObjectId,
+        trackStepsObjectId,
+        modulesObjectId,
+        quizzesObjectId,
+        quizResponsesObjectId,
+        moduleProgressObjectId,
+        accessLinksObjectId,
+        enrollmentsObjectId,
+        knowledgeSpacesObjectId,
+        knowledgeFoldersObjectId,
+        knowledgeBookmarksObjectId,
+        developmentPlansObjectId,
+        developmentPlanStagesObjectId,
+        developmentPlanTasksObjectId,
+        reportsObjectId,
         contentTypeEnumerationId,
         resourceTypeEnumerationId,
         moduleStatusEnumerationId,
@@ -80,26 +80,26 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
         completionStatusEnumerationId,
         reportTypeEnumerationId
     ] = await Promise.all([
-        waitForMetahubCatalogId(api, metahubId, 'Classes'),
-        waitForMetahubCatalogId(api, metahubId, 'Students'),
-        waitForMetahubCatalogId(api, metahubId, 'Learning Resources'),
-        waitForMetahubCatalogId(api, metahubId, 'Courses'),
-        waitForMetahubCatalogId(api, metahubId, 'Course Sections'),
-        waitForMetahubCatalogId(api, metahubId, 'Learning Tracks'),
-        waitForMetahubCatalogId(api, metahubId, 'Track Steps'),
-        waitForMetahubCatalogId(api, metahubId, 'Modules'),
-        waitForMetahubCatalogId(api, metahubId, 'Quizzes'),
-        waitForMetahubCatalogId(api, metahubId, 'Quiz Responses'),
-        waitForMetahubCatalogId(api, metahubId, 'Module Progress'),
-        waitForMetahubCatalogId(api, metahubId, 'Access Links'),
-        waitForMetahubCatalogId(api, metahubId, 'Enrollments'),
-        waitForMetahubCatalogId(api, metahubId, 'Knowledge Spaces'),
-        waitForMetahubCatalogId(api, metahubId, 'Knowledge Folders'),
-        waitForMetahubCatalogId(api, metahubId, 'Knowledge Bookmarks'),
-        waitForMetahubCatalogId(api, metahubId, 'Development Plans'),
-        waitForMetahubCatalogId(api, metahubId, 'Development Plan Stages'),
-        waitForMetahubCatalogId(api, metahubId, 'Development Plan Tasks'),
-        waitForMetahubCatalogId(api, metahubId, 'Reports'),
+        waitForMetahubObjectId(api, metahubId, 'Classes'),
+        waitForMetahubObjectId(api, metahubId, 'Students'),
+        waitForMetahubObjectId(api, metahubId, 'Learning Resources'),
+        waitForMetahubObjectId(api, metahubId, 'Courses'),
+        waitForMetahubObjectId(api, metahubId, 'Course Sections'),
+        waitForMetahubObjectId(api, metahubId, 'Learning Tracks'),
+        waitForMetahubObjectId(api, metahubId, 'Track Steps'),
+        waitForMetahubObjectId(api, metahubId, 'Modules'),
+        waitForMetahubObjectId(api, metahubId, 'Quizzes'),
+        waitForMetahubObjectId(api, metahubId, 'Quiz Responses'),
+        waitForMetahubObjectId(api, metahubId, 'Module Progress'),
+        waitForMetahubObjectId(api, metahubId, 'Access Links'),
+        waitForMetahubObjectId(api, metahubId, 'Enrollments'),
+        waitForMetahubObjectId(api, metahubId, 'Knowledge Spaces'),
+        waitForMetahubObjectId(api, metahubId, 'Knowledge Folders'),
+        waitForMetahubObjectId(api, metahubId, 'Knowledge Bookmarks'),
+        waitForMetahubObjectId(api, metahubId, 'Development Plans'),
+        waitForMetahubObjectId(api, metahubId, 'Development Plan Stages'),
+        waitForMetahubObjectId(api, metahubId, 'Development Plan Tasks'),
+        waitForMetahubObjectId(api, metahubId, 'Reports'),
         waitForMetahubEnumerationId(api, metahubId, 'Content Type'),
         waitForMetahubEnumerationId(api, metahubId, 'Resource Type'),
         waitForMetahubEnumerationId(api, metahubId, 'Module Status'),
@@ -136,7 +136,7 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
 
     const classRowsByKey = new Map<string, Awaited<ReturnType<typeof createRecord>>>()
     for (const seededClass of LMS_DEMO_CLASSES) {
-        const classRow = await createRecord(api, metahubId, classesCatalogId, {
+        const classRow = await createRecord(api, metahubId, classesObjectId, {
             data: {
                 Name: buildVLC(seededClass.name.en, seededClass.name.ru),
                 Description: buildVLC(seededClass.description.en, seededClass.description.ru),
@@ -149,7 +149,7 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
 
     const studentRowsByKey = new Map<string, Awaited<ReturnType<typeof createRecord>>>()
     for (const seededStudent of LMS_DEMO_STUDENTS) {
-        const studentRow = await createRecord(api, metahubId, studentsCatalogId, {
+        const studentRow = await createRecord(api, metahubId, studentsObjectId, {
             data: {
                 DisplayName: seededStudent.displayName.en,
                 Email: seededStudent.email,
@@ -163,7 +163,7 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
     const resourceRowsByCodename = new Map<string, Awaited<ReturnType<typeof createRecord>>>()
     for (const seededResource of LMS_DEMO_RESOURCES) {
         const resourceTypeValueId = seededResource.source.type === 'video' ? videoResourceTypeValueId : pageResourceTypeValueId
-        const resourceRow = await createRecord(api, metahubId, learningResourcesCatalogId, {
+        const resourceRow = await createRecord(api, metahubId, learningResourcesObjectId, {
             data: {
                 Title: seededResource.title,
                 ResourceType: resourceTypeValueId,
@@ -177,7 +177,7 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
 
     const courseRowsByKey = new Map<string, Awaited<ReturnType<typeof createRecord>>>()
     for (const seededCourse of LMS_DEMO_COURSES) {
-        const courseRow = await createRecord(api, metahubId, coursesCatalogId, {
+        const courseRow = await createRecord(api, metahubId, coursesObjectId, {
             data: {
                 Title: buildVLC(seededCourse.title.en, seededCourse.title.ru),
                 Description: buildVLC(seededCourse.description.en, seededCourse.description.ru),
@@ -190,7 +190,7 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
 
     const quizRowsByKey = new Map<string, Awaited<ReturnType<typeof createRecord>>>()
     for (const seededQuiz of LMS_DEMO_QUIZZES) {
-        const quizRow = await createRecord(api, metahubId, quizzesCatalogId, {
+        const quizRow = await createRecord(api, metahubId, quizzesObjectId, {
             data: {
                 Title: buildVLC(seededQuiz.title.en, seededQuiz.title.ru),
                 Description: buildVLC(seededQuiz.description.en, seededQuiz.description.ru),
@@ -213,7 +213,7 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
 
     const moduleRowsByKey = new Map<string, Awaited<ReturnType<typeof createRecord>>>()
     for (const seededModule of LMS_DEMO_MODULES) {
-        const moduleRow = await createRecord(api, metahubId, modulesCatalogId, {
+        const moduleRow = await createRecord(api, metahubId, modulesObjectId, {
             data: {
                 Title: buildVLC(seededModule.title.en, seededModule.title.ru),
                 Description: buildVLC(seededModule.description.en, seededModule.description.ru),
@@ -269,7 +269,7 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
     ]
 
     for (const section of courseSections) {
-        await createRecord(api, metahubId, courseSectionsCatalogId, {
+        await createRecord(api, metahubId, courseSectionsObjectId, {
             data: {
                 CourseId: section.course?.id ?? null,
                 Title: section.title,
@@ -281,7 +281,7 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
     }
 
     const trackRowsByKey = new Map<string, Awaited<ReturnType<typeof createRecord>>>()
-    const onboardingTrack = await createRecord(api, metahubId, learningTracksCatalogId, {
+    const onboardingTrack = await createRecord(api, metahubId, learningTracksObjectId, {
         data: {
             Title: buildVLC('New learner onboarding track', 'Трек адаптации нового учащегося'),
             Description: buildVLC('A guided sequence for the first learning week.', 'Последовательный маршрут на первую учебную неделю.'),
@@ -293,7 +293,7 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
     })
     trackRowsByKey.set('onboarding-track', onboardingTrack)
 
-    const complianceTrack = await createRecord(api, metahubId, learningTracksCatalogId, {
+    const complianceTrack = await createRecord(api, metahubId, learningTracksObjectId, {
         data: {
             Title: buildVLC('Compliance refresh track', 'Трек обновления требований'),
             Description: buildVLC('A short periodic compliance route.', 'Короткий периодический маршрут по требованиям.'),
@@ -327,7 +327,7 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
     ]
 
     for (const step of trackSteps) {
-        await createRecord(api, metahubId, trackStepsCatalogId, {
+        await createRecord(api, metahubId, trackStepsObjectId, {
             data: {
                 TrackId: step.track.id,
                 Title: step.title,
@@ -340,7 +340,7 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
     }
 
     for (const seededLink of LMS_DEMO_ACCESS_LINKS) {
-        await createRecord(api, metahubId, accessLinksCatalogId, {
+        await createRecord(api, metahubId, accessLinksObjectId, {
             data: {
                 Slug: seededLink.slug,
                 TargetType: 'module',
@@ -355,7 +355,7 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
     }
 
     for (const seededEnrollment of LMS_DEMO_ENROLLMENTS) {
-        await createRecord(api, metahubId, enrollmentsCatalogId, {
+        await createRecord(api, metahubId, enrollmentsObjectId, {
             data: {
                 EnrollmentStudentId: studentRowsByKey.get(seededEnrollment.studentKey)?.id ?? null,
                 EnrollmentClassId: classRowsByKey.get(seededEnrollment.classKey)?.id ?? null,
@@ -369,7 +369,7 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
     }
 
     for (const seededProgress of LMS_DEMO_MODULE_PROGRESS) {
-        await createRecord(api, metahubId, moduleProgressCatalogId, {
+        await createRecord(api, metahubId, moduleProgressObjectId, {
             data: {
                 ProgressStudentId: studentRowsByKey.get(seededProgress.studentKey)?.id ?? null,
                 ModuleId: moduleRowsByKey.get(seededProgress.moduleKey)?.id ?? null,
@@ -383,7 +383,7 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
     }
 
     for (const seededResponse of LMS_DEMO_QUIZ_RESPONSES) {
-        await createRecord(api, metahubId, quizResponsesCatalogId, {
+        await createRecord(api, metahubId, quizResponsesObjectId, {
             data: {
                 StudentId: studentRowsByKey.get(seededResponse.studentKey)?.id ?? null,
                 QuizId: quizRowsByKey.get(seededResponse.quizKey)?.id ?? null,
@@ -396,14 +396,14 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
         })
     }
 
-    const knowledgeSpaceRow = await createRecord(api, metahubId, knowledgeSpacesCatalogId, {
+    const knowledgeSpaceRow = await createRecord(api, metahubId, knowledgeSpacesObjectId, {
         data: {
             Title: buildVLC(LMS_DEMO_KNOWLEDGE_SPACE.title.en, LMS_DEMO_KNOWLEDGE_SPACE.title.ru),
             Description: buildVLC(LMS_DEMO_KNOWLEDGE_SPACE.description.en, LMS_DEMO_KNOWLEDGE_SPACE.description.ru),
             Visibility: 'workspace'
         }
     })
-    const knowledgeFolderRow = await createRecord(api, metahubId, knowledgeFoldersCatalogId, {
+    const knowledgeFolderRow = await createRecord(api, metahubId, knowledgeFoldersObjectId, {
         data: {
             SpaceId: knowledgeSpaceRow.id,
             Title: buildVLC('Getting started articles', 'Статьи для старта'),
@@ -411,7 +411,7 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
             SortOrder: 1
         }
     })
-    await createRecord(api, metahubId, knowledgeBookmarksCatalogId, {
+    await createRecord(api, metahubId, knowledgeBookmarksObjectId, {
         data: {
             StudentId: studentRowsByKey.get('ava-solaris')?.id ?? null,
             FolderId: knowledgeFolderRow.id,
@@ -419,7 +419,7 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
         }
     })
 
-    const developmentPlanRow = await createRecord(api, metahubId, developmentPlansCatalogId, {
+    const developmentPlanRow = await createRecord(api, metahubId, developmentPlansObjectId, {
         data: {
             Title: buildVLC(LMS_DEMO_DEVELOPMENT_PLAN.title.en, LMS_DEMO_DEVELOPMENT_PLAN.title.ru),
             StudentId: studentRowsByKey.get('ava-solaris')?.id ?? null,
@@ -427,14 +427,14 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
             Status: inProgressCompletionStatusValueId
         }
     })
-    const developmentStageRow = await createRecord(api, metahubId, developmentPlanStagesCatalogId, {
+    const developmentStageRow = await createRecord(api, metahubId, developmentPlanStagesObjectId, {
         data: {
             PlanId: developmentPlanRow.id,
             Title: buildVLC(LMS_DEMO_DEVELOPMENT_PLAN.stageTitle.en, LMS_DEMO_DEVELOPMENT_PLAN.stageTitle.ru),
             SortOrder: 1
         }
     })
-    await createRecord(api, metahubId, developmentPlanTasksCatalogId, {
+    await createRecord(api, metahubId, developmentPlanTasksObjectId, {
         data: {
             StageId: developmentStageRow.id,
             Title: buildVLC(LMS_DEMO_DEVELOPMENT_PLAN.taskTitle.en, LMS_DEMO_DEVELOPMENT_PLAN.taskTitle.ru),
@@ -444,7 +444,7 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
     })
 
     for (const reportDefinition of LMS_DEMO_REPORTS) {
-        await createRecord(api, metahubId, reportsCatalogId, {
+        await createRecord(api, metahubId, reportsObjectId, {
             data: {
                 Name: reportDefinition.title,
                 ReportType: progressReportTypeValueId,

@@ -83,10 +83,10 @@ export const buildSharedBehaviorContainer = (value: unknown): Record<string, unk
 
 const getTargetLabels = (entityKind: SharedEntityKind) => {
     switch (entityKind) {
-        case 'attribute':
+        case 'component':
             return {
-                singular: 'catalog',
-                plural: 'catalogs'
+                singular: 'object',
+                plural: 'objects'
             }
         case 'constant':
             return {
@@ -134,7 +134,7 @@ export const resolveSharedTargetSecondaryLabel = (
 }
 
 const mapSharedTargets = async (metahubId: string, entityKind: SharedEntityKind, locale: string): Promise<SharedTargetOption[]> => {
-    const kind = entityKind === 'attribute' ? 'catalog' : entityKind === 'constant' ? 'set' : 'enumeration'
+    const kind = entityKind === 'component' ? 'object' : entityKind === 'constant' ? 'set' : 'enumeration'
     const response = await fetchAllPaginatedItems((params) => listEntityInstances(metahubId, { ...params, kind }), {
         limit: 1000,
         sortBy: 'sortOrder',

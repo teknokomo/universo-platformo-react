@@ -39,7 +39,7 @@ export type FieldType = 'STRING' | 'NUMBER' | 'BOOLEAN' | 'DATE' | 'REF' | 'JSON
 
 /**
  * Validation rules for form fields.
- * Matches FieldDefinitionValidationRules from @universo/types.
+ * Matches component validation rules from @universo/types.
  */
 export interface FieldValidationRules extends Record<string, unknown> {
     // STRING settings
@@ -85,7 +85,7 @@ export interface FieldConfig {
     refSetConstantLabel?: string | null
     /** Data type of selected set constant (for diagnostics/UI hints). */
     refSetConstantDataType?: string | null
-    /** Runtime options for REF fields (catalog/enumeration). */
+    /** Runtime options for REF fields (object/enumeration). */
     refOptions?: Array<{
         id: string
         label: string
@@ -109,12 +109,12 @@ export interface FieldConfig {
     enumAllowEmpty?: boolean
     /** Defines how empty label-mode value should be rendered. */
     enumLabelEmptyDisplay?: 'empty' | 'dash'
-    /** Child field definitions for TABLE-type attributes. */
+    /** Child components for TABLE-type components. */
     childFields?: FieldConfig[]
-    /** UI configuration for TABLE-type attributes. */
+    /** UI configuration for TABLE-type components. */
     tableUiConfig?: Record<string, unknown>
-    /** Original attribute UUID — used for TABLE-type API calls (tabular part endpoint). */
-    attributeId?: string
+    /** Original component UUID — used for TABLE-type API calls (tabular part endpoint). */
+    componentId?: string
 }
 
 export interface FormDialogProps {
@@ -142,8 +142,8 @@ export interface FormDialogProps {
     apiBaseUrl?: string
     /** Application UUID — required for TABLE inline editing in EDIT mode. */
     applicationId?: string
-    /** Catalog UUID — required for TABLE inline editing in EDIT mode. */
-    linkedCollectionId?: string
+    /** Object UUID — required for TABLE inline editing in EDIT mode. */
+    objectCollectionId?: string
     /** Row being edited (null = create mode) — used for TABLE rendering. */
     editRowId?: string | null
     renderField?: (params: {
@@ -245,7 +245,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
     renderField: renderFieldOverride,
     apiBaseUrl,
     applicationId,
-    linkedCollectionId,
+    objectCollectionId,
     editRowId
 }) => {
     const [formData, setFormData] = useState<Record<string, unknown>>({})
@@ -1166,15 +1166,15 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                 const tableMissing = checkMissing(rowCount)
 
                 // EDIT mode: inline editor with deferred persistence (commit on form Save)
-                if (editRowId && apiBaseUrl && applicationId && linkedCollectionId) {
+                if (editRowId && apiBaseUrl && applicationId && objectCollectionId) {
                     return (
                         <Box>
                             <RuntimeInlineTabularEditor
                                 apiBaseUrl={apiBaseUrl}
                                 applicationId={applicationId}
-                                linkedCollectionId={linkedCollectionId}
+                                objectCollectionId={objectCollectionId}
                                 parentRecordId={editRowId}
-                                attributeId={field.attributeId ?? field.id}
+                                componentId={field.componentId ?? field.id}
                                 childFields={childFieldDefs}
                                 showTitle={tableShowTitle}
                                 label={field.label}

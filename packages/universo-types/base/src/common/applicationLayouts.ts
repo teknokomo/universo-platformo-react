@@ -57,7 +57,7 @@ const menuWidgetItemSchema = z
         title: applicationLayoutLocalizedContentSchema,
         icon: z.string().nullable().optional(),
         href: z.string().nullable().optional(),
-        linkedCollectionId: z.string().nullable().optional(),
+        objectCollectionId: z.string().nullable().optional(),
         sectionId: z.string().nullable().optional(),
         hubId: z.string().nullable().optional(),
         treeEntityId: z.string().nullable().optional(),

@@ -22,8 +22,8 @@ Frontend application for managing applications and connectors in the Universo Pl
 - **Context-Aware Navigation**: Application-aware routing with breadcrumbs and sidebar preservation
 - **Mutable Visibility**: Application owners/admins can switch applications between closed and public after creation
 - **Public Discovery + Join**: Public applications are visible to regular users and support explicit join / leave flows
-- **Workspace Isolation**: Workspace-enabled applications isolate runtime catalog rows per user workspace
-- **Workspace Limits**: Admin settings expose per-catalog row limits at the workspace boundary
+- **Workspace Isolation**: Workspace-enabled applications isolate runtime object rows per user workspace
+- **Workspace Limits**: Admin settings expose per-object row limits at the workspace boundary
 
 ### 🗂️ Connectors
 - **Connectors**: Data containers that define the structure of your application
@@ -138,8 +138,8 @@ PUT    /api/v1/applications/:id                # Update application
 DELETE /api/v1/applications/:id                # Delete application
 POST   /api/v1/applications/:id/join           # Join a public application
 POST   /api/v1/applications/:id/leave          # Leave an application and archive personal workspace
-GET    /api/v1/applications/:id/settings/limits # Read workspace catalog limits
-PUT    /api/v1/applications/:id/settings/limits # Update workspace catalog limits
+GET    /api/v1/applications/:id/settings/limits # Read workspace object limits
+PUT    /api/v1/applications/:id/settings/limits # Update workspace object limits
 ```
 
 ### Connectors
@@ -184,7 +184,7 @@ POST   /api/v1/applications/:id/layouts/:layoutId/copy # Copy layout into an app
 - The application create and copy dialogs do not expose a workspace toggle.
 - Once schema sync enables workspaces, later connector syncs cannot turn them off.
 - On first runtime schema creation, the owner and all current members receive a personal `Main` workspace in the database.
-- Runtime catalog creation and copy flows enforce workspace boundaries automatically.
+- Runtime object creation and copy flows enforce workspace boundaries automatically.
 - When a workspace limit is reached, the runtime UI disables the create action and shows an informational alert.
 
 ## Development

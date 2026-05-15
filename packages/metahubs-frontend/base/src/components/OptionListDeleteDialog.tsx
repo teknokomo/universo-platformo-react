@@ -7,7 +7,7 @@ import type { OptionListEntity } from '../types'
 import { getVLCString } from '../types'
 import { getBlockingOptionListReferences, type BlockingOptionListReference } from '../domains/entities/presets/api/optionLists'
 import { metahubsQueryKeys } from '../domains/shared'
-import { buildLinkedCollectionAuthoringPath, resolveEntityChildKindKey } from '../domains/shared/entityMetadataRoutePaths'
+import { buildObjectCollectionAuthoringPath, resolveEntityChildKindKey } from '../domains/shared/entityMetadataRoutePaths'
 
 export interface OptionListDeleteDialogProps {
     open: boolean
@@ -20,8 +20,8 @@ export interface OptionListDeleteDialogProps {
 }
 
 interface BlockingReferenceRow extends BlockingOptionListReference {
-    sourceCatalogDisplayName: string
-    attributeDisplayName: string
+    sourceObjectDisplayName: string
+    componentDisplayName: string
 }
 
 export const OptionListDeleteDialog = ({
@@ -46,11 +46,11 @@ export const OptionListDeleteDialog = ({
             ),
             blockingWarning: t(
                 'enumerations.deleteDialog.hasBlockingReferences',
-                'Cannot delete enumeration. Remove these references from attributes first:'
+                'Cannot delete enumeration. Remove these references from components first:'
             ),
             resolutionHint: t(
                 'enumerations.deleteDialog.resolutionHint',
-                'Open the source catalogs and update or remove the reference attributes.'
+                'Open the source objects and update or remove the reference components.'
             ),
             fetchError: t('enumerations.deleteDialog.fetchBlockingError', 'Failed to check for blocking references'),
             cancelButton: t('common:actions.cancel', 'Cancel'),
@@ -70,18 +70,18 @@ export const OptionListDeleteDialog = ({
                 render: (_row, index) => <Typography sx={{ fontSize: 14, color: 'text.secondary' }}>{index + 1}</Typography>
             },
             {
-                id: 'sourceCatalog',
-                label: t('enumerations.deleteDialog.blockingTable.catalog', 'LinkedCollectionEntity'),
+                id: 'sourceObject',
+                label: t('enumerations.deleteDialog.blockingTable.object', 'Object'),
                 render: (row) => (
-                    <Typography sx={{ fontSize: 14, fontWeight: 500, wordBreak: 'break-word' }}>{row.sourceCatalogDisplayName}</Typography>
+                    <Typography sx={{ fontSize: 14, fontWeight: 500, wordBreak: 'break-word' }}>{row.sourceObjectDisplayName}</Typography>
                 )
             },
             {
-                id: 'attribute',
-                label: t('enumerations.deleteDialog.blockingTable.attribute', 'Attribute'),
+                id: 'component',
+                label: t('enumerations.deleteDialog.blockingTable.component', 'Component'),
                 render: (row) => (
                     <Typography sx={{ fontSize: 14, color: 'text.secondary', wordBreak: 'break-word' }}>
-                        {row.attributeDisplayName}
+                        {row.componentDisplayName}
                     </Typography>
                 )
             }
@@ -93,27 +93,27 @@ export const OptionListDeleteDialog = ({
         const result = await getBlockingOptionListReferences(metahubId, optionListId, kindKey)
         const blockingEntities: BlockingReferenceRow[] = result.blockingReferences.map((ref) => ({
             ...ref,
-            sourceCatalogDisplayName:
-                getVLCString(ref.sourceCatalogName ?? undefined, uiLocale) ||
-                getVLCString(ref.sourceCatalogName ?? undefined, 'en') ||
-                ref.sourceCatalogCodename ||
+            sourceObjectDisplayName:
+                getVLCString(ref.sourceObjectName ?? undefined, uiLocale) ||
+                getVLCString(ref.sourceObjectName ?? undefined, 'en') ||
+                ref.sourceObjectCodename ||
                 '—',
-            attributeDisplayName:
-                getVLCString(ref.attributeName ?? undefined, uiLocale) ||
-                getVLCString(ref.attributeName ?? undefined, 'en') ||
-                ref.attributeCodename ||
+            componentDisplayName:
+                getVLCString(ref.componentName ?? undefined, uiLocale) ||
+                getVLCString(ref.componentName ?? undefined, 'en') ||
+                ref.componentCodename ||
                 '—'
         }))
         return { blockingEntities }
     }
 
-    const catalogKindKey = resolveEntityChildKindKey({ routeKindKey: kindKey, childObjectKind: 'catalog' })
+    const objectKindKey = resolveEntityChildKindKey({ routeKindKey: kindKey, childObjectKind: 'object' })
     const getBlockingEntityLink = (row: BlockingReferenceRow) =>
-        buildLinkedCollectionAuthoringPath({
+        buildObjectCollectionAuthoringPath({
             metahubId,
-            linkedCollectionId: row.sourceLinkedCollectionId,
-            kindKey: catalogKindKey,
-            tab: 'fieldDefinitions'
+            objectCollectionId: row.sourceObjectCollectionId,
+            kindKey: objectKindKey,
+            tab: 'components'
         })
 
     return (

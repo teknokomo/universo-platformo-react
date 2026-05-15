@@ -1,7 +1,7 @@
 import type { Knex } from 'knex'
 import { mirrorToGlobalCatalog } from '@universo/migrations-catalog'
 import { hasRuntimeHistoryTable } from '@universo/migrations-core'
-import { isGlobalMigrationCatalogEnabled } from '@universo/utils'
+import { isGlobalMigrationObjectEnabled } from '@universo/utils'
 import { ChangeType } from './diff'
 import type { SchemaChange, SchemaDiff } from './diff'
 import type { MigrationMeta, MigrationRecord, MigrationChangeRecord, RollbackAnalysis, SchemaSnapshot } from './types'
@@ -90,7 +90,7 @@ export class MigrationManager {
 
         const globalRunId = await mirrorToGlobalCatalog({
             knex,
-            globalCatalogEnabled: isGlobalMigrationCatalogEnabled(),
+            globalCatalogEnabled: isGlobalMigrationObjectEnabled(),
             scopeKind: 'runtime_schema',
             scopeKey: schemaName,
             sourceKind: 'publication_snapshot',

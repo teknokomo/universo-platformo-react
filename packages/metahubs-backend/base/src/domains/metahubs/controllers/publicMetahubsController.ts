@@ -5,7 +5,7 @@ import type { DbExecutor } from '../../../utils'
 import { MetahubSchemaService } from '../services/MetahubSchemaService'
 import { MetahubObjectsService } from '../services/MetahubObjectsService'
 import type { MetahubObjectRow } from '../services/MetahubObjectsService'
-import { MetahubFieldDefinitionsService } from '../services/MetahubFieldDefinitionsService'
+import { MetahubComponentsService } from '../services/MetahubComponentsService'
 import { MetahubRecordsService } from '../services/MetahubRecordsService'
 import { MetahubTreeEntitiesService } from '../services/MetahubTreeEntitiesService'
 import { MetahubNotFoundError, MetahubValidationError } from '../../shared/domainErrors'
@@ -55,25 +55,25 @@ const resolveTreeEntity = async (
     return treeEntity as Record<string, unknown> & { id: string }
 }
 
-const resolveLinkedCollectionInTreeEntity = async (
+const resolveObjectCollectionInTreeEntity = async (
     objectsService: MetahubObjectsService,
     metahubId: string,
-    linkedCollectionCodename: string,
+    objectCollectionCodename: string,
     treeEntityId: string
 ): Promise<MetahubObjectRow> => {
-    const linkedCollection = await objectsService.findByCodename(metahubId, linkedCollectionCodename)
-    if (!linkedCollection) {
-        throw new MetahubNotFoundError('Catalog')
+    const objectCollection = await objectsService.findByCodename(metahubId, objectCollectionCodename)
+    if (!objectCollection) {
+        throw new MetahubNotFoundError('Object')
     }
-    const objectKind = typeof linkedCollection.kind === 'string' ? linkedCollection.kind.trim() : ''
-    if (objectKind !== 'catalog') {
-        throw new MetahubNotFoundError('Catalog')
+    const objectKind = typeof objectCollection.kind === 'string' ? objectCollection.kind.trim() : ''
+    if (objectKind !== 'object') {
+        throw new MetahubNotFoundError('Object')
     }
-    const treeEntityIds: string[] = ((linkedCollection.config as Record<string, unknown>)?.hubs as string[]) || []
+    const treeEntityIds: string[] = ((objectCollection.config as Record<string, unknown>)?.hubs as string[]) || []
     if (!treeEntityIds.includes(treeEntityId)) {
-        throw new MetahubNotFoundError('Catalog')
+        throw new MetahubNotFoundError('Object')
     }
-    return linkedCollection
+    return objectCollection
 }
 
 // ---------------------------------------------------------------------------
@@ -85,10 +85,10 @@ export function createPublicMetahubsController(getDbExecutor: () => DbExecutor) 
         const exec = getDbExecutor()
         const schemaService = new MetahubSchemaService(exec)
         const objectsService = new MetahubObjectsService(exec, schemaService)
-        const fieldDefinitionsService = new MetahubFieldDefinitionsService(exec, schemaService)
-        const recordsService = new MetahubRecordsService(exec, schemaService, objectsService, fieldDefinitionsService)
+        const componentsService = new MetahubComponentsService(exec, schemaService)
+        const recordsService = new MetahubRecordsService(exec, schemaService, objectsService, componentsService)
         const treeEntitiesService = new MetahubTreeEntitiesService(exec, schemaService)
-        return { exec, treeEntitiesService, objectsService, fieldDefinitionsService, recordsService }
+        return { exec, treeEntitiesService, objectsService, componentsService, recordsService }
     }
 
     const getBySlug = async (req: Request, res: Response) => {
@@ -118,56 +118,56 @@ export function createPublicMetahubsController(getDbExecutor: () => DbExecutor) 
         res.json(treeEntity)
     }
 
-    const listLinkedCollections = async (req: Request, res: Response) => {
+    const listObjectCollections = async (req: Request, res: Response) => {
         const { slug, treeEntityCodename } = req.params
         const { exec, treeEntitiesService, objectsService } = services()
         const metahub = await resolvePublicMetahub(exec, slug)
         const treeEntity = await resolveTreeEntity(treeEntitiesService, metahub.id, treeEntityCodename)
 
-        const allLinkedCollections = await objectsService.findAll(metahub.id)
-        const linkedCollections = allLinkedCollections.filter((collection) => {
+        const allObjectCollections = await objectsService.findAll(metahub.id)
+        const objectCollections = allObjectCollections.filter((collection) => {
             const objectKind = typeof collection.kind === 'string' ? collection.kind.trim() : ''
-            if (objectKind !== 'catalog') {
+            if (objectKind !== 'object') {
                 return false
             }
             const treeEntityIds: string[] = ((collection.config as Record<string, unknown>)?.hubs as string[]) || []
             return treeEntityIds.includes(treeEntity.id)
         })
-        res.json({ items: linkedCollections, pagination: { total: linkedCollections.length, limit: 100, offset: 0 } })
+        res.json({ items: objectCollections, pagination: { total: objectCollections.length, limit: 100, offset: 0 } })
     }
 
-    const getLinkedCollection = async (req: Request, res: Response) => {
-        const { slug, treeEntityCodename, linkedCollectionCodename } = req.params
+    const getObjectCollection = async (req: Request, res: Response) => {
+        const { slug, treeEntityCodename, objectCollectionCodename } = req.params
         const { exec, treeEntitiesService, objectsService } = services()
         const metahub = await resolvePublicMetahub(exec, slug)
         const treeEntity = await resolveTreeEntity(treeEntitiesService, metahub.id, treeEntityCodename)
-        const linkedCollection = await resolveLinkedCollectionInTreeEntity(
+        const objectCollection = await resolveObjectCollectionInTreeEntity(
             objectsService,
             metahub.id,
-            linkedCollectionCodename,
+            objectCollectionCodename,
             treeEntity.id
         )
-        res.json(linkedCollection)
+        res.json(objectCollection)
     }
 
-    const listFieldDefinitions = async (req: Request, res: Response) => {
-        const { slug, treeEntityCodename, linkedCollectionCodename } = req.params
-        const { exec, treeEntitiesService, objectsService, fieldDefinitionsService } = services()
+    const listComponents = async (req: Request, res: Response) => {
+        const { slug, treeEntityCodename, objectCollectionCodename } = req.params
+        const { exec, treeEntitiesService, objectsService, componentsService } = services()
         const metahub = await resolvePublicMetahub(exec, slug)
         const treeEntity = await resolveTreeEntity(treeEntitiesService, metahub.id, treeEntityCodename)
-        const linkedCollection = await resolveLinkedCollectionInTreeEntity(
+        const objectCollection = await resolveObjectCollectionInTreeEntity(
             objectsService,
             metahub.id,
-            linkedCollectionCodename,
+            objectCollectionCodename,
             treeEntity.id
         )
 
-        const fieldDefinitions = await fieldDefinitionsService.findAll(metahub.id, linkedCollection.id)
-        res.json({ items: fieldDefinitions, pagination: { total: fieldDefinitions.length, limit: 100, offset: 0 } })
+        const components = await componentsService.findAll(metahub.id, objectCollection.id)
+        res.json({ items: components, pagination: { total: components.length, limit: 100, offset: 0 } })
     }
 
     const listRecords = async (req: Request, res: Response) => {
-        const { slug, treeEntityCodename, linkedCollectionCodename } = req.params
+        const { slug, treeEntityCodename, objectCollectionCodename } = req.params
         const parsed = paginationSchema.safeParse(req.query)
         if (!parsed.success) {
             throw new MetahubValidationError('Invalid pagination parameters', { details: parsed.error.format() })
@@ -176,14 +176,14 @@ export function createPublicMetahubsController(getDbExecutor: () => DbExecutor) 
         const { exec, treeEntitiesService, objectsService, recordsService } = services()
         const metahub = await resolvePublicMetahub(exec, slug)
         const treeEntity = await resolveTreeEntity(treeEntitiesService, metahub.id, treeEntityCodename)
-        const linkedCollection = await resolveLinkedCollectionInTreeEntity(
+        const objectCollection = await resolveObjectCollectionInTreeEntity(
             objectsService,
             metahub.id,
-            linkedCollectionCodename,
+            objectCollectionCodename,
             treeEntity.id
         )
 
-        const { items: records, total } = await recordsService.findAllAndCount(metahub.id, linkedCollection.id, {
+        const { items: records, total } = await recordsService.findAllAndCount(metahub.id, objectCollection.id, {
             limit,
             offset,
             sortOrder: 'asc'
@@ -192,18 +192,18 @@ export function createPublicMetahubsController(getDbExecutor: () => DbExecutor) 
     }
 
     const getRecord = async (req: Request, res: Response) => {
-        const { slug, treeEntityCodename, linkedCollectionCodename, recordId } = req.params
+        const { slug, treeEntityCodename, objectCollectionCodename, recordId } = req.params
         const { exec, treeEntitiesService, objectsService, recordsService } = services()
         const metahub = await resolvePublicMetahub(exec, slug)
         const treeEntity = await resolveTreeEntity(treeEntitiesService, metahub.id, treeEntityCodename)
-        const linkedCollection = await resolveLinkedCollectionInTreeEntity(
+        const objectCollection = await resolveObjectCollectionInTreeEntity(
             objectsService,
             metahub.id,
-            linkedCollectionCodename,
+            objectCollectionCodename,
             treeEntity.id
         )
 
-        const record = await recordsService.findById(metahub.id, linkedCollection.id, recordId)
+        const record = await recordsService.findById(metahub.id, objectCollection.id, recordId)
         if (!record) {
             throw new MetahubNotFoundError('Record')
         }
@@ -214,9 +214,9 @@ export function createPublicMetahubsController(getDbExecutor: () => DbExecutor) 
         getBySlug,
         listTreeEntities,
         getTreeEntity,
-        listLinkedCollections,
-        getLinkedCollection,
-        listFieldDefinitions,
+        listObjectCollections,
+        getObjectCollection,
+        listComponents,
         listRecords,
         getRecord
     }

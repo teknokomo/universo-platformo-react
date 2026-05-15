@@ -6,7 +6,7 @@ description: Generic LMS resource model used by the metahub fixture and publishe
 
 ![Resources workspace used by the LMS resource model](../.gitbook/assets/entities/resources-workspace.png)
 
-The LMS fixture models learning content as ordinary Catalog records, not as a dedicated LMS runtime module.
+The LMS fixture models learning content as ordinary Object records, not as a dedicated LMS runtime module.
 
 ## Entities
 
@@ -30,4 +30,4 @@ The V1 fixture intentionally does not implement file upload, package extraction,
 ## Runtime Behavior
 
 Published applications render resources through existing dashboard widgets, Page navigation, runtime rows, and scripts.
-Progress is stored in Catalog records and Catalog-backed ledgers such as `ProgressLedger` and `LearningActivityLedger`.
+Progress is stored in Object records and Object-backed ledgers such as `ProgressLedger` and `LearningActivityLedger`.

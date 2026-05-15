@@ -7,7 +7,7 @@ description: Guide to the sparse exclusion and override mechanism used by shared
 Exclusions are sparse target-specific overrides, not cloned copies of shared rows.
 They let one shared source stay central while selected targets opt out of inheriting it.
 
-![Shared attributes list where inherited behavior is configured](../../.gitbook/assets/entities/shared-attributes.png)
+![Shared components list where inherited behavior is configured](../../.gitbook/assets/entities/shared-components.png)
 
 ## How It Works
 
@@ -25,7 +25,7 @@ They let one shared source stay central while selected targets opt out of inheri
 
 ## Related Reading
 
-- [Shared Attributes](shared-field-definitions.md)
+- [Shared Components](shared-components.md)
 - [Shared Constants](shared-fixed-values.md)
 - [Shared Values](shared-option-values.md)
 - [Shared Behavior Settings](shared-behavior-settings.md)

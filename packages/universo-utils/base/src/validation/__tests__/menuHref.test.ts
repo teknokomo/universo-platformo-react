@@ -3,7 +3,7 @@ import { isSafeMenuHref, sanitizeMenuHref } from '../menuHref'
 
 describe('menu href validation', () => {
     it('allows runtime-supported navigation targets', () => {
-        expect(sanitizeMenuHref('/catalog/modules')).toBe('/catalog/modules')
+        expect(sanitizeMenuHref('/object/modules')).toBe('/object/modules')
         expect(sanitizeMenuHref(' https://example.com/path ')).toBe('https://example.com/path')
         expect(sanitizeMenuHref('http://example.com')).toBe('http://example.com')
         expect(sanitizeMenuHref('mailto:training@example.com')).toBe('mailto:training@example.com')

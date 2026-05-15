@@ -5,7 +5,7 @@ import { validateLedgerConfigReferencesForEntity } from '../../domains/entities/
 const buildLedgerType = (): ResolvedEntityType =>
     ({
         kindKey: 'ledger',
-        components: {
+        capabilities: {
             dataSchema: { enabled: true },
             physicalTable: { enabled: true },
             ledgerSchema: { enabled: true }
@@ -20,7 +20,7 @@ const buildLedgerType = (): ResolvedEntityType =>
 
 describe('entityControllerShared ledger config validation', () => {
     it('allows creating a ledger before field definitions exist', async () => {
-        const fieldDefinitionsService = {
+        const componentsService = {
             findAllFlat: jest.fn()
         }
 
@@ -31,14 +31,14 @@ describe('entityControllerShared ledger config validation', () => {
                 metahubId: 'metahub-1',
                 objectId: null,
                 userId: 'user-1',
-                fieldDefinitionsService: fieldDefinitionsService as never
+                componentsService: componentsService as never
             })
         ).resolves.toBeUndefined()
-        expect(fieldDefinitionsService.findAllFlat).not.toHaveBeenCalled()
+        expect(componentsService.findAllFlat).not.toHaveBeenCalled()
     })
 
     it('rejects updating a ledger when schema references missing fields', async () => {
-        const fieldDefinitionsService = {
+        const componentsService = {
             findAllFlat: jest.fn(async () => [])
         }
 
@@ -49,7 +49,7 @@ describe('entityControllerShared ledger config validation', () => {
                 metahubId: 'metahub-1',
                 objectId: 'ledger-1',
                 userId: 'user-1',
-                fieldDefinitionsService: fieldDefinitionsService as never
+                componentsService: componentsService as never
             })
         ).rejects.toMatchObject({
             message: 'Ledger schema config contains invalid field references',
@@ -57,6 +57,6 @@ describe('entityControllerShared ledger config validation', () => {
                 field: 'config.ledger'
             }
         })
-        expect(fieldDefinitionsService.findAllFlat).toHaveBeenCalledWith('metahub-1', 'ledger-1', 'user-1', 'business')
+        expect(componentsService.findAllFlat).toHaveBeenCalledWith('metahub-1', 'ledger-1', 'user-1', 'business')
     })
 })

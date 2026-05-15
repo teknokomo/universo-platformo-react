@@ -1,5 +1,5 @@
 import { qSchemaTable } from '@universo/database'
-import { isEnabledComponentConfig, type ScriptModuleRole } from '@universo/types'
+import { isEnabledCapabilityConfig, type ScriptModuleRole } from '@universo/types'
 import { queryMany, queryOne, queryOneOrThrow, type DbExecutor, type SqlQueryable } from '@universo/utils/database'
 import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
 import { codenamePrimaryTextSql, ensureCodenameValue, getCodenameText } from '../../shared/codename'
@@ -163,7 +163,7 @@ export class ActionService {
         }
 
         const typeDefinition = await this.entityTypeService.resolveTypeInSchema(schemaName, objectRow.kind, db)
-        if (!typeDefinition || !isEnabledComponentConfig(typeDefinition.components.actions)) {
+        if (!typeDefinition || !isEnabledCapabilityConfig(typeDefinition.capabilities.actions)) {
             throw new MetahubValidationError('The target object type does not enable actions', {
                 objectId,
                 kind: objectRow.kind

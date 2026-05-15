@@ -92,18 +92,18 @@ describe('ValueGroupDeleteDialog', () => {
         mockUseParams.mockReturnValue({})
     })
 
-    it('maps blocking references to catalog/attribute rows and builds entity-owned catalog attribute links', async () => {
+    it('maps blocking references to object/component rows and builds entity-owned object component links', async () => {
         vi.mocked(getBlockingValueGroupReferences).mockResolvedValue({
             valueGroupId: 'set-1',
             canDelete: false,
             blockingReferences: [
                 {
-                    sourceLinkedCollectionId: 'catalog-1',
-                    sourceCatalogCodename: 'ProductsCatalog',
-                    sourceCatalogName: null,
-                    fieldDefinitionId: 'attr-1',
-                    attributeCodename: 'OwnerRef',
-                    attributeName: null
+                    sourceObjectCollectionId: 'object-1',
+                    sourceObjectCodename: 'ProductsObject',
+                    sourceObjectName: null,
+                    componentId: 'component-1',
+                    componentCodename: 'OwnerRef',
+                    componentName: null
                 }
             ]
         })
@@ -127,25 +127,25 @@ describe('ValueGroupDeleteDialog', () => {
         const [firstRow] = result.blockingEntities
 
         expect(getBlockingValueGroupReferences).toHaveBeenCalledWith('metahub-1', 'set-1', undefined)
-        expect(dialogProps.labels.blockingWarning).toContain('catalog attributes')
-        expect(firstRow.sourceCatalogDisplayName).toBe('ProductsCatalog')
-        expect(firstRow.attributeDisplayName).toBe('OwnerRef')
-        expect(dialogProps.getBlockingEntityLink(firstRow)).toBe('/metahub/metahub-1/entities/catalog/instance/catalog-1/field-definitions')
+        expect(dialogProps.labels.blockingWarning).toContain('object components')
+        expect(firstRow.sourceObjectDisplayName).toBe('ProductsObject')
+        expect(firstRow.componentDisplayName).toBe('OwnerRef')
+        expect(dialogProps.getBlockingEntityLink(firstRow)).toBe('/metahub/metahub-1/entities/object/instance/object-1/components')
     })
 
-    it('builds catalog blocker links on the unified entity route even when the current surface kind is set', async () => {
+    it('builds object blocker links on the unified entity route even when the current surface kind is set', async () => {
         mockUseParams.mockReturnValue({ kindKey: 'set' })
         vi.mocked(getBlockingValueGroupReferences).mockResolvedValue({
             valueGroupId: 'set-1',
             canDelete: false,
             blockingReferences: [
                 {
-                    sourceLinkedCollectionId: 'catalog-1',
-                    sourceCatalogCodename: 'ProductsCatalog',
-                    sourceCatalogName: null,
-                    fieldDefinitionId: 'attr-1',
-                    attributeCodename: 'OwnerRef',
-                    attributeName: null
+                    sourceObjectCollectionId: 'object-1',
+                    sourceObjectCodename: 'ProductsObject',
+                    sourceObjectName: null,
+                    componentId: 'component-1',
+                    componentCodename: 'OwnerRef',
+                    componentName: null
                 }
             ]
         })
@@ -166,6 +166,6 @@ describe('ValueGroupDeleteDialog', () => {
         const [firstRow] = result.blockingEntities
 
         expect(getBlockingValueGroupReferences).toHaveBeenCalledWith('metahub-1', 'set-1', 'set')
-        expect(dialogProps.getBlockingEntityLink(firstRow)).toBe('/metahub/metahub-1/entities/catalog/instance/catalog-1/field-definitions')
+        expect(dialogProps.getBlockingEntityLink(firstRow)).toBe('/metahub/metahub-1/entities/object/instance/object-1/components')
     })
 })

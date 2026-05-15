@@ -34,9 +34,9 @@ import {
 import {
     archivePersonalWorkspaceForUser,
     ensurePersonalWorkspaceForUser,
-    listCatalogWorkspaceLimits,
+    listObjectWorkspaceLimits,
     runtimeWorkspaceTablesExist,
-    upsertCatalogWorkspaceLimits
+    upsertObjectWorkspaceLimits
 } from '../services/applicationWorkspaces'
 import { escapeLikeWildcards, getRequestDbExecutor } from '../utils'
 import {
@@ -990,11 +990,11 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
         }
 
         const schemaIdent = quoteIdentifier(application.schemaName)
-        const catalogs = (await ds.query(
+        const objects = (await ds.query(
             `
         SELECT id, codename, table_name, presentation
         FROM ${schemaIdent}._app_objects
-        WHERE kind = 'catalog'
+        WHERE kind = 'object'
           AND _upl_deleted = false
           AND _app_deleted = false
         ORDER BY ${runtimeCodenameTextSql('codename')} ASC, id ASC
@@ -1006,27 +1006,27 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
             presentation?: unknown
         }>
 
-        const limits = await listCatalogWorkspaceLimits(ds, {
+        const limits = await listObjectWorkspaceLimits(ds, {
             schemaName: application.schemaName
         })
         const limitMap = new Map(limits.map((limit) => [limit.objectId, limit.maxRows]))
 
         return res.json({
-            items: catalogs.map((catalog) => ({
-                objectId: catalog.id,
-                codename: catalog.codename,
+            items: objects.map((object) => ({
+                objectId: object.id,
+                codename: object.codename,
                 codenameDisplay: resolvePresentationCodename(
-                    catalog.presentation,
+                    object.presentation,
                     normalizeLocale(req.query.locale as string | undefined),
-                    resolveRuntimeCodenameText(catalog.codename)
+                    resolveRuntimeCodenameText(object.codename)
                 ),
-                tableName: catalog.table_name,
+                tableName: object.table_name,
                 name: resolvePresentationName(
-                    catalog.presentation,
+                    object.presentation,
                     normalizeLocale(req.query.locale as string | undefined),
-                    resolveRuntimeCodenameText(catalog.codename)
+                    resolveRuntimeCodenameText(object.codename)
                 ),
-                maxRows: limitMap.get(catalog.id) ?? null
+                maxRows: limitMap.get(object.id) ?? null
             }))
         })
     }
@@ -1070,7 +1070,7 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
 
         const uniqueObjectIds = new Set(parsed.data.limits.map((limit) => limit.objectId))
         if (uniqueObjectIds.size !== parsed.data.limits.length) {
-            return res.status(400).json({ error: 'Duplicate catalog limit rows are not allowed' })
+            return res.status(400).json({ error: 'Duplicate object limit rows are not allowed' })
         }
 
         const limitsSchemaName = application.schemaName
@@ -1079,7 +1079,7 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
                 `
           SELECT id
           FROM ${quoteIdentifier(limitsSchemaName)}._app_objects
-          WHERE kind = 'catalog'
+          WHERE kind = 'object'
             AND _upl_deleted = false
             AND _app_deleted = false
             AND id = ANY($1::uuid[])
@@ -1089,17 +1089,17 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
 
             if (catalogRows.length !== uniqueObjectIds.size) {
                 throw new UpdateFailure(400, {
-                    error: 'Limits can only be updated for active catalogs'
+                    error: 'Limits can only be updated for active objects'
                 })
             }
 
-            await upsertCatalogWorkspaceLimits(trx, {
+            await upsertObjectWorkspaceLimits(trx, {
                 schemaName: limitsSchemaName,
                 actorUserId: userId,
                 limits: parsed.data.limits
             })
 
-            return listCatalogWorkspaceLimits(trx, { schemaName: limitsSchemaName })
+            return listObjectWorkspaceLimits(trx, { schemaName: limitsSchemaName })
         })
         return res.json({ items: updatedLimits })
     }

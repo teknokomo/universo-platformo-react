@@ -25,7 +25,7 @@
 1. Prelude migrations платформы запускают `pre_schema_generation` support SQL для схемы.
 2. `ensureRegisteredSystemAppSchemaGenerationPlans()` строит fixed application-like entities из manifest и обеспечивает нужную форму схемы `metahubs`.
 3. Post-schema migrations платформы запускают `post_schema_generation` support SQL и built-in template seed migration.
-4. `bootstrapRegisteredSystemAppStructureMetadata()` синхронизирует метаданные `_app_objects` и `_app_attributes` для fixed schema.
+4. `bootstrapRegisteredSystemAppStructureMetadata()` синхронизирует метаданные `_app_objects` и `_app_components` для fixed schema.
 5. В `metahubs._app_migrations` записывается детерминированная baseline-строка вроде `baseline_metahubs_structure_0_1_0`.
 
 ## Поверхность фиксированной схемы
@@ -33,12 +33,12 @@
 Фиксированная схема `metahubs` хранит design-time metadata, данные реестра шаблонов и метаданные публикаций.
 Среди business tables, определённых manifest, есть, например:
 
-- `cat_metahubs`
-- `cat_metahub_branches`
+- `obj_metahubs`
+- `obj_metahub_branches`
 - `rel_metahub_users`
-- `cat_templates`
+- `obj_templates`
 - `doc_template_versions`
-- `cat_publications`
+- `doc_publications`
 - `doc_publication_versions`
 
 Поверхность system tables для fixed schema следует из включённых application-like capabilities этого system app и отслеживается через локальные таблицы метаданных `_app_*`.
@@ -84,7 +84,7 @@ Severity вычисляется через общий helper `determineSeverity(
 ## Граница ответственности с applications
 
 `@universo/metahubs-backend` владеет design-time metadata, branch runtime migrations, publication metadata и migration-control surface.
-`@universo/applications-backend` владеет runtime application schema sync, diff calculation, release-bundle export/apply и сохранением `installed_release_metadata` в `applications.cat_applications`.
+`@universo/applications-backend` владеет runtime application schema sync, diff calculation, release-bundle export/apply и сохранением `installed_release_metadata` в `applications.obj_applications`.
 Publication-driven application creation пересекает эту границу, но финальная runtime sync route surface остаётся в `@universo/applications-backend`.
 
 ## Реестр шаблонов и create options

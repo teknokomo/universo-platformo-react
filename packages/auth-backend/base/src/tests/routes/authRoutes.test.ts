@@ -85,6 +85,6 @@ describe('createAuthRouter registration rollback', () => {
             reason: 'auto-assigned on registration'
         })
         expect(deleteAuthUser).toHaveBeenCalledWith('user-1')
-        expect(exec.query).toHaveBeenLastCalledWith(expect.stringContaining('UPDATE profiles.cat_profiles'), ['user-1', null])
+        expect(exec.query).toHaveBeenLastCalledWith(expect.stringContaining('UPDATE profiles.obj_profiles'), ['user-1', null])
     })
 })

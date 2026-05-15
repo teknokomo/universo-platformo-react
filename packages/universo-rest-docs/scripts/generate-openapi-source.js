@@ -185,7 +185,7 @@ const routeSources = [
         security: bearerSecurity
     },
     {
-        file: 'packages/metahubs-backend/base/src/domains/entities/metadata/fieldDefinition/routes.ts',
+        file: 'packages/metahubs-backend/base/src/domains/entities/metadata/component/routes.ts',
         mountPrefix: '',
         tag: 'Attributes',
         security: bearerSecurity

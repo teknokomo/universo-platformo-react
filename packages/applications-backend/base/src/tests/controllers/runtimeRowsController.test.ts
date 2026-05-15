@@ -36,10 +36,10 @@ describe('runtimeRowsController startup section resolution', () => {
 
             if (sql.includes('FROM runtime_schema._app_objects') && sql.includes('id::text = $1')) {
                 expect(params).toEqual(['Modules'])
-                expect(sql).toContain("config->'components'->'layoutConfig'->>'enabled'")
+                expect(sql).toContain("config->'capabilities'->'layoutConfig'->>'enabled'")
                 expect(sql).not.toContain("COALESCE(kind, '') NOT IN")
                 expect(sql).not.toContain("= 'page'")
-                return [{ id: 'modules-catalog-id' }]
+                return [{ id: 'modules-object-id' }]
             }
 
             throw new Error(`Unexpected SQL: ${sql}`)
@@ -51,7 +51,7 @@ describe('runtimeRowsController startup section resolution', () => {
                 schemaName: 'runtime_schema',
                 schemaIdent: 'runtime_schema'
             })
-        ).resolves.toBe('modules-catalog-id')
+        ).resolves.toBe('modules-object-id')
 
         const executedSql = executor.query.mock.calls.map(([sql]) => String(sql)).join('\n')
         expect(executedSql).not.toContain("config->'hubs' @>")
@@ -75,7 +75,7 @@ describe('runtimeRowsController startup section resolution', () => {
 
             if (sql.includes('FROM runtime_schema._app_objects') && sql.includes('id::text = $1')) {
                 expect(params).toEqual(['CustomLanding'])
-                expect(sql).toContain("config->'components'->'layoutConfig'->>'enabled'")
+                expect(sql).toContain("config->'capabilities'->'layoutConfig'->>'enabled'")
                 expect(sql).not.toContain("COALESCE(kind, '') NOT IN")
                 expect(sql).not.toContain("= 'page'")
                 return [{ id: 'custom-layout-capable-entity-id' }]
@@ -113,7 +113,7 @@ describe('runtimeRowsController startup section resolution', () => {
             if (sql.includes("config->'hubs' @>")) {
                 expect(sql).toContain("COALESCE(kind, '') NOT IN ('hub', 'set', 'enumeration', 'page', 'ledger')")
                 expect(sql).not.toContain('custom.')
-                return [{ id: 'catalog-1' }]
+                return [{ id: 'object-1' }]
             }
 
             throw new Error(`Unexpected SQL: ${sql}`)
@@ -125,7 +125,7 @@ describe('runtimeRowsController startup section resolution', () => {
                 schemaName: 'runtime_schema',
                 schemaIdent: 'runtime_schema'
             })
-        ).resolves.toBe('catalog-1')
+        ).resolves.toBe('object-1')
 
         expect(executor.query).toHaveBeenCalled()
     })

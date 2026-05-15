@@ -48,8 +48,8 @@ export {
     isSuperuserEnabled,
     isGlobalAdminEnabled,
     getAdminConfig,
-    getGlobalMigrationCatalogConfig,
-    isGlobalMigrationCatalogEnabled,
+    getGlobalMigrationObjectConfig,
+    isGlobalMigrationObjectEnabled,
     type AdminConfig
 } from './env'
 
@@ -135,14 +135,14 @@ export {
     getUplArchiveFields,
     getUplLockFields,
     getUplUnlockFields,
-    getCatalogSystemFieldDefinitions,
-    getCatalogSystemFieldDefinition,
-    getCatalogSystemFieldSeedInputs,
-    buildCatalogSystemFieldDefinitionSeedRecord,
-    getCatalogSystemFieldDefinitionSeedRecords,
-    getReservedCatalogSystemFieldCodenames,
-    getDefaultCatalogSystemFieldStates,
-    validateCatalogSystemFieldToggleSet,
+    getObjectSystemComponents,
+    getObjectSystemComponent,
+    getObjectSystemComponentSeedInputs,
+    buildObjectSystemComponentSeedRecord,
+    getObjectSystemComponentSeedRecords,
+    getReservedObjectSystemFieldCodenames,
+    getDefaultObjectSystemFieldStates,
+    validateObjectSystemFieldToggleSet,
     deriveApplicationLifecycleContract,
     derivePlatformSystemFieldsContract,
     normalizeApplicationLifecycleContract,
@@ -152,9 +152,9 @@ export {
     type SoftDeleteOptions,
     type UplSoftDeleteOptions,
     type MhbSoftDeleteOptions,
-    type CatalogSystemFieldToggleValidationResult,
-    type CatalogSystemFieldDefinitionSeedInput,
-    type CatalogSystemFieldDefinitionSeedRecord,
+    type ObjectSystemFieldToggleValidationResult,
+    type ObjectSystemComponentSeedInput,
+    type ObjectSystemComponentSeedRecord,
     type PlatformSystemFieldFamilyContract,
     type PlatformSystemFieldsContract,
     getUplDeleteConditions,
@@ -179,11 +179,11 @@ export { generateUuidV7, isValidUuid } from './uuid'
 // Number validation utilities for precision/scale constraints
 export {
     normalizeApplicationCopyOptions,
-    normalizeFieldDefinitionCopyOptions,
+    normalizeComponentCopyOptions,
     normalizeBranchCopyOptions,
     normalizeRecordCopyOptions,
     normalizeTreeEntityCopyOptions,
-    normalizeLinkedCollectionCopyOptions,
+    normalizeObjectCollectionCopyOptions,
     normalizeValueGroupCopyOptions,
     normalizeOptionListCopyOptions,
     normalizeLayoutCopyOptions,
@@ -191,13 +191,13 @@ export {
 } from './validation/copyOptions'
 
 export {
-    extractLinkedCollectionLayoutBehaviorConfig,
-    normalizeLinkedCollectionRuntimeViewConfig,
-    resolveLinkedCollectionLayoutBehaviorConfig,
-    sanitizeLinkedCollectionRuntimeViewConfig,
-    setLinkedCollectionLayoutBehaviorConfig,
-    resolveLinkedCollectionRuntimeDashboardLayoutConfig
-} from './validation/linkedCollectionRuntimeConfig'
+    extractObjectCollectionLayoutBehaviorConfig,
+    normalizeObjectCollectionRuntimeViewConfig,
+    resolveObjectCollectionLayoutBehaviorConfig,
+    sanitizeObjectCollectionRuntimeViewConfig,
+    setObjectCollectionLayoutBehaviorConfig,
+    resolveObjectCollectionRuntimeDashboardLayoutConfig
+} from './validation/objectCollectionRuntimeConfig'
 export { normalizeDashboardLayoutConfig } from './validation/dashboardLayout'
 
 export {

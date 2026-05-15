@@ -25,7 +25,7 @@ import {
     resolveTabularContext,
     resolveRuntimeSchema,
     ensureRuntimePermission,
-    type RuntimeTableChildAttributeMeta
+    type RuntimeTableChildComponentMeta
 } from '../shared/runtimeHelpers'
 import { assertRuntimeRecordMutable } from '../services/runtimeRecordBehavior'
 
@@ -49,11 +49,11 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
 
     // ============ LIST CHILD ROWS ============
     const listChildRows = async (req: Request, res: Response) => {
-        const { applicationId, recordId, attributeId } = req.params
+        const { applicationId, recordId, componentId } = req.params
         if (!UUID_REGEX.test(recordId)) return res.status(400).json({ error: 'Invalid record ID format' })
-        const linkedCollectionId = typeof req.query.linkedCollectionId === 'string' ? req.query.linkedCollectionId : undefined
-        if (!linkedCollectionId || !UUID_REGEX.test(linkedCollectionId))
-            return res.status(400).json({ error: 'linkedCollectionId query parameter is required' })
+        const objectCollectionId = typeof req.query.objectCollectionId === 'string' ? req.query.objectCollectionId : undefined
+        if (!objectCollectionId || !UUID_REGEX.test(objectCollectionId))
+            return res.status(400).json({ error: 'objectCollectionId query parameter is required' })
 
         const limitParam = typeof req.query.limit === 'string' ? parseInt(req.query.limit, 10) : undefined
         const offsetParam = typeof req.query.offset === 'string' ? parseInt(req.query.offset, 10) : undefined
@@ -63,11 +63,11 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
         const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
         if (!ctx) return
 
-        const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, linkedCollectionId, attributeId)
+        const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, objectCollectionId, componentId)
         if (tc.error !== null) return res.status(400).json({ error: tc.error })
         const runtimeRowCondition = buildRuntimeActiveRowCondition(
             tc.lifecycleContract,
-            tc.catalog.config,
+            tc.object.config,
             undefined,
             ctx.currentWorkspaceId
         )
@@ -113,21 +113,21 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
 
     // ============ CREATE CHILD ROW ============
     const createChildRow = async (req: Request, res: Response) => {
-        const { applicationId, recordId, attributeId } = req.params
+        const { applicationId, recordId, componentId } = req.params
         if (!UUID_REGEX.test(recordId)) return res.status(400).json({ error: 'Invalid record ID format' })
-        const linkedCollectionId = typeof req.query.linkedCollectionId === 'string' ? req.query.linkedCollectionId : undefined
-        if (!linkedCollectionId || !UUID_REGEX.test(linkedCollectionId))
-            return res.status(400).json({ error: 'linkedCollectionId query parameter is required' })
+        const objectCollectionId = typeof req.query.objectCollectionId === 'string' ? req.query.objectCollectionId : undefined
+        if (!objectCollectionId || !UUID_REGEX.test(objectCollectionId))
+            return res.status(400).json({ error: 'objectCollectionId query parameter is required' })
 
         const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
         if (!ctx) return
         if (!ensureRuntimePermission(res, ctx, 'editContent')) return
 
-        const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, linkedCollectionId, attributeId)
+        const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, objectCollectionId, componentId)
         if (tc.error !== null) return res.status(400).json({ error: tc.error })
         const runtimeRowCondition = buildRuntimeActiveRowCondition(
             tc.lifecycleContract,
-            tc.catalog.config,
+            tc.object.config,
             undefined,
             ctx.currentWorkspaceId
         )
@@ -254,7 +254,7 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                 if (parentRows[0]._upl_locked) {
                     throw new UpdateFailure(423, { error: 'Parent record is locked' })
                 }
-                assertRuntimeRecordMutable(tc.catalog.config, parentRows[0])
+                assertRuntimeRecordMutable(tc.object.config, parentRows[0])
 
                 const { minRows, maxRows } = getTableRowLimits(tc.tableAttr.validation_rules)
                 const activeCountRows = (await tx.query(
@@ -294,23 +294,23 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
 
     // ============ UPDATE CHILD ROW ============
     const updateChildRow = async (req: Request, res: Response) => {
-        const { applicationId, recordId, attributeId, childRowId } = req.params
+        const { applicationId, recordId, componentId, childRowId } = req.params
         if (!UUID_REGEX.test(recordId) || !UUID_REGEX.test(childRowId)) {
             return res.status(400).json({ error: 'Invalid ID format' })
         }
-        const linkedCollectionId = typeof req.query.linkedCollectionId === 'string' ? req.query.linkedCollectionId : undefined
-        if (!linkedCollectionId || !UUID_REGEX.test(linkedCollectionId))
-            return res.status(400).json({ error: 'linkedCollectionId query parameter is required' })
+        const objectCollectionId = typeof req.query.objectCollectionId === 'string' ? req.query.objectCollectionId : undefined
+        if (!objectCollectionId || !UUID_REGEX.test(objectCollectionId))
+            return res.status(400).json({ error: 'objectCollectionId query parameter is required' })
 
         const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
         if (!ctx) return
         if (!ensureRuntimePermission(res, ctx, 'editContent')) return
 
-        const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, linkedCollectionId, attributeId)
+        const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, objectCollectionId, componentId)
         if (tc.error !== null) return res.status(400).json({ error: tc.error })
         const runtimeRowCondition = buildRuntimeActiveRowCondition(
             tc.lifecycleContract,
-            tc.catalog.config,
+            tc.object.config,
             undefined,
             ctx.currentWorkspaceId
         )
@@ -334,7 +334,7 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
         if (parentRows.length === 0) return res.status(404).json({ error: 'Parent record not found' })
         if (parentRows[0]._upl_locked) return res.status(423).json({ error: 'Parent record is locked' })
         try {
-            assertRuntimeRecordMutable(tc.catalog.config, parentRows[0])
+            assertRuntimeRecordMutable(tc.object.config, parentRows[0])
         } catch (error) {
             if (error instanceof UpdateFailure) return res.status(error.statusCode).json(error.body)
             throw error
@@ -497,23 +497,23 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
 
     // ============ COPY CHILD ROW ============
     const copyChildRow = async (req: Request, res: Response) => {
-        const { applicationId, recordId, attributeId, childRowId } = req.params
+        const { applicationId, recordId, componentId, childRowId } = req.params
         if (!UUID_REGEX.test(recordId) || !UUID_REGEX.test(childRowId)) {
             return res.status(400).json({ error: 'Invalid ID format' })
         }
-        const linkedCollectionId = typeof req.query.linkedCollectionId === 'string' ? req.query.linkedCollectionId : undefined
-        if (!linkedCollectionId || !UUID_REGEX.test(linkedCollectionId))
-            return res.status(400).json({ error: 'linkedCollectionId query parameter is required' })
+        const objectCollectionId = typeof req.query.objectCollectionId === 'string' ? req.query.objectCollectionId : undefined
+        if (!objectCollectionId || !UUID_REGEX.test(objectCollectionId))
+            return res.status(400).json({ error: 'objectCollectionId query parameter is required' })
 
         const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
         if (!ctx) return
         if (!ensureRuntimePermission(res, ctx, 'createContent')) return
 
-        const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, linkedCollectionId, attributeId)
+        const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, objectCollectionId, componentId)
         if (tc.error !== null) return res.status(400).json({ error: tc.error })
         const runtimeRowCondition = buildRuntimeActiveRowCondition(
             tc.lifecycleContract,
-            tc.catalog.config,
+            tc.object.config,
             undefined,
             ctx.currentWorkspaceId
         )
@@ -538,7 +538,7 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                 if (parentRows[0]._upl_locked) {
                     throw new UpdateFailure(423, { error: 'Parent record is locked' })
                 }
-                assertRuntimeRecordMutable(tc.catalog.config, parentRows[0])
+                assertRuntimeRecordMutable(tc.object.config, parentRows[0])
 
                 const sourceRows = (await tx.query(
                     `
@@ -590,7 +590,7 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                     [recordId, sourceSortOrder]
                 )
 
-                const childAttrsByColumn = new Map<string, RuntimeTableChildAttributeMeta>(
+                const childAttrsByColumn = new Map<string, RuntimeTableChildComponentMeta>(
                     tc.childAttrs
                         .filter((attr) => IDENTIFIER_REGEX.test(attr.column_name))
                         .map((attr) => [
@@ -646,28 +646,28 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
 
     // ============ DELETE CHILD ROW ============
     const deleteChildRow = async (req: Request, res: Response) => {
-        const { applicationId, recordId, attributeId, childRowId } = req.params
+        const { applicationId, recordId, componentId, childRowId } = req.params
         if (!UUID_REGEX.test(recordId) || !UUID_REGEX.test(childRowId)) {
             return res.status(400).json({ error: 'Invalid ID format' })
         }
-        const linkedCollectionId = typeof req.query.linkedCollectionId === 'string' ? req.query.linkedCollectionId : undefined
-        if (!linkedCollectionId || !UUID_REGEX.test(linkedCollectionId))
-            return res.status(400).json({ error: 'linkedCollectionId query parameter is required' })
+        const objectCollectionId = typeof req.query.objectCollectionId === 'string' ? req.query.objectCollectionId : undefined
+        if (!objectCollectionId || !UUID_REGEX.test(objectCollectionId))
+            return res.status(400).json({ error: 'objectCollectionId query parameter is required' })
 
         const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
         if (!ctx) return
         if (!ensureRuntimePermission(res, ctx, 'deleteContent')) return
 
-        const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, linkedCollectionId, attributeId)
+        const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, objectCollectionId, componentId)
         if (tc.error !== null) return res.status(400).json({ error: tc.error })
         const runtimeRowCondition = buildRuntimeActiveRowCondition(
             tc.lifecycleContract,
-            tc.catalog.config,
+            tc.object.config,
             undefined,
             ctx.currentWorkspaceId
         )
         const runtimeDeleteSetClause = isSoftDeleteLifecycle(tc.lifecycleContract)
-            ? buildRuntimeSoftDeleteSetClause('$1', tc.lifecycleContract, tc.catalog.config)
+            ? buildRuntimeSoftDeleteSetClause('$1', tc.lifecycleContract, tc.object.config)
             : null
 
         // FIX: replaced manual BEGIN/COMMIT/ROLLBACK with .transaction()
@@ -690,7 +690,7 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                 if (parentRows[0]._upl_locked) {
                     throw new UpdateFailure(423, { error: 'Parent record is locked' })
                 }
-                assertRuntimeRecordMutable(tc.catalog.config, parentRows[0])
+                assertRuntimeRecordMutable(tc.object.config, parentRows[0])
 
                 const childRows = (await tx.query(
                     `

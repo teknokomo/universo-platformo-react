@@ -7,7 +7,7 @@ import {
 import { createMockDbExecutor } from '../utils/dbMocks'
 
 describe('applicationWorkspaces service', () => {
-    it('adds workspace foreign keys and scoped policies to runtime catalog tables', async () => {
+    it('adds workspace foreign keys and scoped policies to runtime object tables', async () => {
         const { executor } = createMockDbExecutor()
         let generatedIdCounter = 0
         const schemaName = 'app_018f8a787b8f7c1da111222233334440'
@@ -45,7 +45,7 @@ describe('applicationWorkspaces service', () => {
                 {
                     id: '018f8a78-7b8f-7c1d-a111-222233334442',
                     codename: 'orders',
-                    kind: 'catalog',
+                    kind: 'object',
                     fields: [
                         {
                             id: '018f8a78-7b8f-7c1d-a111-222233334443',
@@ -59,7 +59,7 @@ describe('applicationWorkspaces service', () => {
                     codename: 'progressledger',
                     kind: 'ledger',
                     physicalTablePrefix: 'led',
-                    components: {
+                    capabilities: {
                         dataSchema: {
                             enabled: true
                         },
@@ -102,16 +102,16 @@ describe('applicationWorkspaces service', () => {
         expect(executedSql).toContain(`CREATE TABLE "${schemaName}"."_app_limits"`)
         expect(executedSql).not.toContain('DO $$')
         expect(executedSql).toContain('ADD COLUMN IF NOT EXISTS "_seed_source_key" TEXT NULL')
-        expect(executedSql).toContain('ADD CONSTRAINT "cat_018f8a787b8f7c1da111222233334442_workspace_id_fk"')
+        expect(executedSql).toContain('ADD CONSTRAINT "obj_018f8a787b8f7c1da111222233334442_workspace_id_fk"')
         expect(executedSql).toContain(`FOREIGN KEY ("workspace_id") REFERENCES "${schemaName}"."_app_workspaces"(id) ON DELETE RESTRICT`)
-        expect(executedSql).toContain(`CREATE POLICY "workspace_select" ON "${schemaName}"."cat_018f8a787b8f7c1da111222233334442"`)
+        expect(executedSql).toContain(`CREATE POLICY "workspace_select" ON "${schemaName}"."obj_018f8a787b8f7c1da111222233334442"`)
         expect(executedSql).toContain(`CREATE POLICY "workspace_insert" ON "${schemaName}"."tbl_018f8a787b8f7c1da111222233334443"`)
         expect(executedSql).toContain(`CREATE UNIQUE INDEX IF NOT EXISTS "led_018f8a787b8f7c1da111222233334460_ledger_idempotency_uidx"`)
         expect(executedSql).toContain(
-            `ON "${schemaName}"."led_018f8a787b8f7c1da111222233334460"("workspace_id", "attr_018f8a787b8f7c1da111222233334461", "attr_018f8a787b8f7c1da111222233334462")`
+            `ON "${schemaName}"."led_018f8a787b8f7c1da111222233334460"("workspace_id", "cmp_018f8a787b8f7c1da111222233334461", "cmp_018f8a787b8f7c1da111222233334462")`
         )
         expect(executedSql).toContain(
-            `WHERE "attr_018f8a787b8f7c1da111222233334461" IS NOT NULL AND "attr_018f8a787b8f7c1da111222233334462" IS NOT NULL`
+            `WHERE "cmp_018f8a787b8f7c1da111222233334461" IS NOT NULL AND "cmp_018f8a787b8f7c1da111222233334462" IS NOT NULL`
         )
     })
 
@@ -178,17 +178,17 @@ describe('applicationWorkspaces service', () => {
                     {
                         objectId: '018f8a78-7b8f-7c1d-a111-222233334470',
                         codename: 'accesslinks',
-                        tableName: 'cat_018f8a787b8f7c1da111222233334470'
+                        tableName: 'obj_018f8a787b8f7c1da111222233334470'
                     }
                 ]
             }
 
-            if (sql.includes(`FROM "${schemaName}"."_app_attributes"`)) {
+            if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
                 return [
                     {
                         objectId: '018f8a78-7b8f-7c1d-a111-222233334470',
-                        attributeId: '018f8a78-7b8f-7c1d-a111-222233334471',
-                        parentAttributeId: null,
+                        componentId: '018f8a78-7b8f-7c1d-a111-222233334471',
+                        parentComponentId: null,
                         codename: 'title',
                         columnName: 'col_018f8a787b8f7c1da111222233334471',
                         dataType: 'STRING',
@@ -204,7 +204,7 @@ describe('applicationWorkspaces service', () => {
             if (sql.includes('FROM information_schema.columns')) {
                 return [
                     {
-                        tableName: 'cat_018f8a787b8f7c1da111222233334470',
+                        tableName: 'obj_018f8a787b8f7c1da111222233334470',
                         columnName: 'col_018f8a787b8f7c1da111222233334471',
                         udtName: 'jsonb'
                     }
@@ -226,7 +226,7 @@ describe('applicationWorkspaces service', () => {
                 {
                     id: '018f8a78-7b8f-7c1d-a111-222233334470',
                     codename: 'accesslinks',
-                    kind: 'catalog',
+                    kind: 'object',
                     fields: []
                 } as never
             ]
@@ -234,7 +234,7 @@ describe('applicationWorkspaces service', () => {
 
         expect(
             executor.query.mock.calls.find(([sql]) =>
-                String(sql).includes(`INSERT INTO "${schemaName}"."cat_018f8a787b8f7c1da111222233334470"`)
+                String(sql).includes(`INSERT INTO "${schemaName}"."obj_018f8a787b8f7c1da111222233334470"`)
             )
         ).toBeUndefined()
 
@@ -245,7 +245,7 @@ describe('applicationWorkspaces service', () => {
         })
 
         const runtimeSeedInsertCall = executor.query.mock.calls.find(([sql]) =>
-            String(sql).includes(`INSERT INTO "${schemaName}"."cat_018f8a787b8f7c1da111222233334470"`)
+            String(sql).includes(`INSERT INTO "${schemaName}"."obj_018f8a787b8f7c1da111222233334470"`)
         )
 
         expect(runtimeSeedInsertCall).toBeDefined()
@@ -272,7 +272,7 @@ describe('applicationWorkspaces service', () => {
 
             if (sql.includes('FROM information_schema.columns')) {
                 return [
-                    { tableName: 'cat_018f8a787b8f7c1da111222233334552' },
+                    { tableName: 'obj_018f8a787b8f7c1da111222233334552' },
                     { tableName: 'tbl_018f8a787b8f7c1da111222233334553' },
                     { tableName: 'led_018f8a787b8f7c1da111222233334556' }
                 ]
@@ -289,7 +289,7 @@ describe('applicationWorkspaces service', () => {
 
         const executedSql = executor.query.mock.calls.map(([sql]) => String(sql)).join('\n')
 
-        expect(executedSql).toContain(`UPDATE "${schemaName}"."cat_018f8a787b8f7c1da111222233334552"`)
+        expect(executedSql).toContain(`UPDATE "${schemaName}"."obj_018f8a787b8f7c1da111222233334552"`)
         expect(executedSql).toContain(`UPDATE "${schemaName}"."tbl_018f8a787b8f7c1da111222233334553"`)
         expect(executedSql).toContain(`UPDATE "${schemaName}"."led_018f8a787b8f7c1da111222233334556"`)
         expect(executedSql).toContain('WHERE "workspace_id" = ANY($1::uuid[])')
@@ -355,17 +355,17 @@ describe('applicationWorkspaces service', () => {
                 return [
                     {
                         objectId: '018f8a78-7b8f-7c1d-a111-222233334670',
-                        tableName: 'cat_018f8a787b8f7c1da111222233334670'
+                        tableName: 'obj_018f8a787b8f7c1da111222233334670'
                     }
                 ]
             }
 
-            if (sql.includes(`FROM "${schemaName}"."_app_attributes"`)) {
+            if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
                 return [
                     {
                         objectId: '018f8a78-7b8f-7c1d-a111-222233334670',
-                        attributeId: '018f8a78-7b8f-7c1d-a111-222233334671',
-                        parentAttributeId: null,
+                        componentId: '018f8a78-7b8f-7c1d-a111-222233334671',
+                        parentComponentId: null,
                         codename: 'title',
                         columnName: 'col_018f8a787b8f7c1da111222233334671',
                         dataType: 'STRING',
@@ -380,7 +380,7 @@ describe('applicationWorkspaces service', () => {
             if (sql.includes('FROM information_schema.columns')) {
                 return [
                     {
-                        tableName: 'cat_018f8a787b8f7c1da111222233334670',
+                        tableName: 'obj_018f8a787b8f7c1da111222233334670',
                         columnName: 'col_018f8a787b8f7c1da111222233334671',
                         udtName: 'jsonb'
                     }
@@ -409,7 +409,7 @@ describe('applicationWorkspaces service', () => {
         expect(workspaceInsertCall).toBeDefined()
 
         const runtimeSeedInsertCall = executor.query.mock.calls.find(([sql]) =>
-            String(sql).includes(`INSERT INTO "${schemaName}"."cat_018f8a787b8f7c1da111222233334670"`)
+            String(sql).includes(`INSERT INTO "${schemaName}"."obj_018f8a787b8f7c1da111222233334670"`)
         )
         expect(runtimeSeedInsertCall).toBeDefined()
         expect(runtimeSeedInsertCall?.[1]).toEqual(
@@ -425,7 +425,7 @@ describe('applicationWorkspaces service', () => {
         )
     })
 
-    it('remaps workspace seed refs for catalog-like objects even when kind metadata is not literal catalog', async () => {
+    it('remaps workspace seed refs for object-like objects even when kind metadata is not literal object', async () => {
         const { executor } = createMockDbExecutor()
         const schemaName = 'app_018f8a787b8f7c1da111222233334750'
         const generatedIds = [
@@ -491,21 +491,21 @@ describe('applicationWorkspaces service', () => {
                 return [
                     {
                         objectId: 'accessObject',
-                        tableName: 'cat_access_object'
+                        tableName: 'obj_access_object'
                     },
                     {
                         objectId: 'classObject',
-                        tableName: 'cat_class_object'
+                        tableName: 'obj_class_object'
                     }
                 ]
             }
 
-            if (sql.includes(`FROM "${schemaName}"."_app_attributes"`)) {
+            if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
                 return [
                     {
                         objectId: 'accessObject',
-                        attributeId: 'access-ref-attr',
-                        parentAttributeId: null,
+                        componentId: 'access-ref-cmp',
+                        parentComponentId: null,
                         codename: 'linkClassId',
                         columnName: 'col_link_class_id',
                         dataType: 'REF',
@@ -515,8 +515,8 @@ describe('applicationWorkspaces service', () => {
                     },
                     {
                         objectId: 'accessObject',
-                        attributeId: 'access-status-attr',
-                        parentAttributeId: null,
+                        componentId: 'access-status-cmp',
+                        parentComponentId: null,
                         codename: 'status',
                         columnName: 'col_status',
                         dataType: 'REF',
@@ -526,8 +526,8 @@ describe('applicationWorkspaces service', () => {
                     },
                     {
                         objectId: 'classObject',
-                        attributeId: 'class-title-attr',
-                        parentAttributeId: null,
+                        componentId: 'class-title-cmp',
+                        parentComponentId: null,
                         codename: 'title',
                         columnName: 'col_title',
                         dataType: 'STRING',
@@ -541,17 +541,17 @@ describe('applicationWorkspaces service', () => {
             if (sql.includes('FROM information_schema.columns')) {
                 return [
                     {
-                        tableName: 'cat_access_object',
+                        tableName: 'obj_access_object',
                         columnName: 'col_link_class_id',
                         udtName: 'uuid'
                     },
                     {
-                        tableName: 'cat_access_object',
+                        tableName: 'obj_access_object',
                         columnName: 'col_status',
                         udtName: 'uuid'
                     },
                     {
-                        tableName: 'cat_class_object',
+                        tableName: 'obj_class_object',
                         columnName: 'col_title',
                         udtName: 'text'
                     }
@@ -573,10 +573,10 @@ describe('applicationWorkspaces service', () => {
         })
 
         const classInsertCall = executor.query.mock.calls.find(([sql]) =>
-            String(sql).includes(`INSERT INTO "${schemaName}"."cat_class_object"`)
+            String(sql).includes(`INSERT INTO "${schemaName}"."obj_class_object"`)
         )
         const accessInsertCall = executor.query.mock.calls.find(([sql]) =>
-            String(sql).includes(`INSERT INTO "${schemaName}"."cat_access_object"`)
+            String(sql).includes(`INSERT INTO "${schemaName}"."obj_access_object"`)
         )
 
         expect(classInsertCall).toBeDefined()
@@ -659,22 +659,22 @@ describe('applicationWorkspaces service', () => {
                     {
                         objectId: 'accessObject',
                         codename: 'AccessLinks',
-                        tableName: 'cat_access_object'
+                        tableName: 'obj_access_object'
                     },
                     {
                         objectId: 'moduleObject',
                         codename: 'Modules',
-                        tableName: 'cat_module_object'
+                        tableName: 'obj_module_object'
                     }
                 ]
             }
 
-            if (sql.includes(`FROM "${schemaName}"."_app_attributes"`)) {
+            if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
                 return [
                     {
                         objectId: 'accessObject',
-                        attributeId: 'access-target-type-attr',
-                        parentAttributeId: null,
+                        componentId: 'access-target-type-cmp',
+                        parentComponentId: null,
                         codename: 'TargetType',
                         columnName: 'col_target_type',
                         dataType: 'STRING',
@@ -684,8 +684,8 @@ describe('applicationWorkspaces service', () => {
                     },
                     {
                         objectId: 'accessObject',
-                        attributeId: 'access-target-id-attr',
-                        parentAttributeId: null,
+                        componentId: 'access-target-id-cmp',
+                        parentComponentId: null,
                         codename: 'TargetId',
                         columnName: 'col_target_id',
                         dataType: 'STRING',
@@ -695,8 +695,8 @@ describe('applicationWorkspaces service', () => {
                     },
                     {
                         objectId: 'moduleObject',
-                        attributeId: 'module-title-attr',
-                        parentAttributeId: null,
+                        componentId: 'module-title-cmp',
+                        parentComponentId: null,
                         codename: 'Title',
                         columnName: 'col_title',
                         dataType: 'STRING',
@@ -710,17 +710,17 @@ describe('applicationWorkspaces service', () => {
             if (sql.includes('FROM information_schema.columns')) {
                 return [
                     {
-                        tableName: 'cat_access_object',
+                        tableName: 'obj_access_object',
                         columnName: 'col_target_type',
                         udtName: 'text'
                     },
                     {
-                        tableName: 'cat_access_object',
+                        tableName: 'obj_access_object',
                         columnName: 'col_target_id',
                         udtName: 'text'
                     },
                     {
-                        tableName: 'cat_module_object',
+                        tableName: 'obj_module_object',
                         columnName: 'col_title',
                         udtName: 'text'
                     }
@@ -742,10 +742,10 @@ describe('applicationWorkspaces service', () => {
         })
 
         const moduleInsertCall = executor.query.mock.calls.find(([sql]) =>
-            String(sql).includes(`INSERT INTO "${schemaName}"."cat_module_object"`)
+            String(sql).includes(`INSERT INTO "${schemaName}"."obj_module_object"`)
         )
         const accessInsertCall = executor.query.mock.calls.find(([sql]) =>
-            String(sql).includes(`INSERT INTO "${schemaName}"."cat_access_object"`)
+            String(sql).includes(`INSERT INTO "${schemaName}"."obj_access_object"`)
         )
 
         expect(moduleInsertCall).toBeDefined()
@@ -899,22 +899,22 @@ describe('applicationWorkspaces service', () => {
                     {
                         objectId: 'moduleObject',
                         codename: 'Modules',
-                        tableName: 'cat_module_object'
+                        tableName: 'obj_module_object'
                     },
                     {
                         objectId: 'quizObject',
                         codename: 'Quizzes',
-                        tableName: 'cat_quiz_object'
+                        tableName: 'obj_quiz_object'
                     }
                 ]
             }
 
-            if (sql.includes(`FROM "${schemaName}"."_app_attributes"`)) {
+            if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
                 return [
                     {
                         objectId: 'moduleObject',
-                        attributeId: 'module-title-attr',
-                        parentAttributeId: null,
+                        componentId: 'module-title-cmp',
+                        parentComponentId: null,
                         codename: 'Title',
                         columnName: 'col_title',
                         dataType: 'STRING',
@@ -924,8 +924,8 @@ describe('applicationWorkspaces service', () => {
                     },
                     {
                         objectId: 'moduleObject',
-                        attributeId: 'module-content-items-attr',
-                        parentAttributeId: null,
+                        componentId: 'module-content-items-cmp',
+                        parentComponentId: null,
                         codename: 'ContentItems',
                         columnName: 'col_content_items',
                         dataType: 'TABLE',
@@ -935,8 +935,8 @@ describe('applicationWorkspaces service', () => {
                     },
                     {
                         objectId: 'moduleObject',
-                        attributeId: 'module-content-item-quiz-attr',
-                        parentAttributeId: 'module-content-items-attr',
+                        componentId: 'module-content-item-quiz-cmp',
+                        parentComponentId: 'module-content-items-cmp',
                         codename: 'QuizId',
                         columnName: 'col_quiz_id',
                         dataType: 'STRING',
@@ -946,8 +946,8 @@ describe('applicationWorkspaces service', () => {
                     },
                     {
                         objectId: 'moduleObject',
-                        attributeId: 'module-content-item-title-attr',
-                        parentAttributeId: 'module-content-items-attr',
+                        componentId: 'module-content-item-title-cmp',
+                        parentComponentId: 'module-content-items-cmp',
                         codename: 'ItemTitle',
                         columnName: 'col_item_title',
                         dataType: 'STRING',
@@ -957,8 +957,8 @@ describe('applicationWorkspaces service', () => {
                     },
                     {
                         objectId: 'moduleObject',
-                        attributeId: 'module-content-item-metadata-attr',
-                        parentAttributeId: 'module-content-items-attr',
+                        componentId: 'module-content-item-metadata-cmp',
+                        parentComponentId: 'module-content-items-cmp',
                         codename: 'Metadata',
                         columnName: 'col_metadata',
                         dataType: 'JSON',
@@ -968,8 +968,8 @@ describe('applicationWorkspaces service', () => {
                     },
                     {
                         objectId: 'quizObject',
-                        attributeId: 'quiz-title-attr',
-                        parentAttributeId: null,
+                        componentId: 'quiz-title-cmp',
+                        parentComponentId: null,
                         codename: 'Title',
                         columnName: 'col_title',
                         dataType: 'STRING',
@@ -981,30 +981,30 @@ describe('applicationWorkspaces service', () => {
             }
 
             if (sql.includes('FROM information_schema.columns')) {
-                expect(params?.[1]).toEqual(expect.arrayContaining(['cat_module_object', 'cat_quiz_object', 'tbl_modulecontentitemsattr']))
+                expect(params?.[1]).toEqual(expect.arrayContaining(['obj_module_object', 'obj_quiz_object', 'tbl_modulecontentitemscmp']))
                 return [
                     {
-                        tableName: 'cat_module_object',
+                        tableName: 'obj_module_object',
                         columnName: 'col_title',
                         udtName: 'text'
                     },
                     {
-                        tableName: 'cat_quiz_object',
+                        tableName: 'obj_quiz_object',
                         columnName: 'col_title',
                         udtName: 'text'
                     },
                     {
-                        tableName: 'tbl_modulecontentitemsattr',
+                        tableName: 'tbl_modulecontentitemscmp',
                         columnName: 'col_quiz_id',
                         udtName: 'text'
                     },
                     {
-                        tableName: 'tbl_modulecontentitemsattr',
+                        tableName: 'tbl_modulecontentitemscmp',
                         columnName: 'col_item_title',
                         udtName: 'text'
                     },
                     {
-                        tableName: 'tbl_modulecontentitemsattr',
+                        tableName: 'tbl_modulecontentitemscmp',
                         columnName: 'col_metadata',
                         udtName: 'jsonb'
                     }
@@ -1026,10 +1026,10 @@ describe('applicationWorkspaces service', () => {
         })
 
         const quizInsertCall = executor.query.mock.calls.find(([sql]) =>
-            String(sql).includes(`INSERT INTO "${schemaName}"."cat_quiz_object"`)
+            String(sql).includes(`INSERT INTO "${schemaName}"."obj_quiz_object"`)
         )
         const childInsertCall = executor.query.mock.calls.find(([sql]) =>
-            String(sql).includes(`INSERT INTO "${schemaName}"."tbl_modulecontentitemsattr"`)
+            String(sql).includes(`INSERT INTO "${schemaName}"."tbl_modulecontentitemscmp"`)
         )
 
         expect(quizInsertCall).toBeDefined()
@@ -1037,7 +1037,7 @@ describe('applicationWorkspaces service', () => {
         expect(childInsertCall?.[1]).toEqual(
             expect.arrayContaining([
                 '018f8a78-7b8f-7c1d-a111-222233334955',
-                'module-seed-row:module-content-items-attr:0',
+                'module-seed-row:module-content-items-cmp:0',
                 '018f8a78-7b8f-7c1d-a111-222233334953',
                 'Readiness check',
                 JSON.stringify({ weight: 1, required: true })
@@ -1047,7 +1047,7 @@ describe('applicationWorkspaces service', () => {
         expect(childInsertCall?.[1]).not.toEqual(expect.arrayContaining(['quiz-seed-row']))
     })
 
-    it('orders workspace seed objects by catalog refs declared inside table child attributes', async () => {
+    it('orders workspace seed objects by object refs declared inside table child components', async () => {
         const { executor } = createMockDbExecutor()
         const schemaName = 'app_018f8a787b8f7c1da111222233335050'
         const generatedIds = [
@@ -1120,22 +1120,22 @@ describe('applicationWorkspaces service', () => {
                     {
                         objectId: 'trackObject',
                         codename: 'LearningTracks',
-                        tableName: 'cat_track_object'
+                        tableName: 'obj_track_object'
                     },
                     {
                         objectId: 'moduleObject',
                         codename: 'Modules',
-                        tableName: 'cat_module_object'
+                        tableName: 'obj_module_object'
                     }
                 ]
             }
 
-            if (sql.includes(`FROM "${schemaName}"."_app_attributes"`)) {
+            if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
                 return [
                     {
                         objectId: 'trackObject',
-                        attributeId: 'track-title-attr',
-                        parentAttributeId: null,
+                        componentId: 'track-title-cmp',
+                        parentComponentId: null,
                         codename: 'Title',
                         columnName: 'col_title',
                         dataType: 'STRING',
@@ -1145,8 +1145,8 @@ describe('applicationWorkspaces service', () => {
                     },
                     {
                         objectId: 'trackObject',
-                        attributeId: 'track-items-attr',
-                        parentAttributeId: null,
+                        componentId: 'track-items-cmp',
+                        parentComponentId: null,
                         codename: 'TrackItems',
                         columnName: 'col_track_items',
                         dataType: 'TABLE',
@@ -1156,19 +1156,19 @@ describe('applicationWorkspaces service', () => {
                     },
                     {
                         objectId: 'trackItemsObject',
-                        attributeId: 'track-item-module-attr',
-                        parentAttributeId: 'track-items-attr',
+                        componentId: 'track-item-module-cmp',
+                        parentComponentId: 'track-items-cmp',
                         codename: 'ModuleId',
                         columnName: 'col_module_id',
                         dataType: 'REF',
                         uiConfig: null,
                         targetObjectId: 'moduleObject',
-                        targetObjectKind: 'catalog'
+                        targetObjectKind: 'object'
                     },
                     {
                         objectId: 'trackItemsObject',
-                        attributeId: 'track-item-required-attr',
-                        parentAttributeId: 'track-items-attr',
+                        componentId: 'track-item-required-cmp',
+                        parentComponentId: 'track-items-cmp',
                         codename: 'Required',
                         columnName: 'col_required',
                         dataType: 'BOOLEAN',
@@ -1178,8 +1178,8 @@ describe('applicationWorkspaces service', () => {
                     },
                     {
                         objectId: 'moduleObject',
-                        attributeId: 'module-title-attr',
-                        parentAttributeId: null,
+                        componentId: 'module-title-cmp',
+                        parentComponentId: null,
                         codename: 'Title',
                         columnName: 'col_title',
                         dataType: 'STRING',
@@ -1193,22 +1193,22 @@ describe('applicationWorkspaces service', () => {
             if (sql.includes('FROM information_schema.columns')) {
                 return [
                     {
-                        tableName: 'cat_track_object',
+                        tableName: 'obj_track_object',
                         columnName: 'col_title',
                         udtName: 'text'
                     },
                     {
-                        tableName: 'cat_module_object',
+                        tableName: 'obj_module_object',
                         columnName: 'col_title',
                         udtName: 'text'
                     },
                     {
-                        tableName: 'tbl_trackitemsattr',
+                        tableName: 'tbl_trackitemscmp',
                         columnName: 'col_module_id',
                         udtName: 'uuid'
                     },
                     {
-                        tableName: 'tbl_trackitemsattr',
+                        tableName: 'tbl_trackitemscmp',
                         columnName: 'col_required',
                         udtName: 'bool'
                     }
@@ -1230,15 +1230,15 @@ describe('applicationWorkspaces service', () => {
         })
 
         const insertCalls = executor.query.mock.calls.filter(([sql]) => String(sql).includes('INSERT INTO'))
-        const moduleInsertIndex = insertCalls.findIndex(([sql]) => String(sql).includes(`INSERT INTO "${schemaName}"."cat_module_object"`))
-        const trackInsertIndex = insertCalls.findIndex(([sql]) => String(sql).includes(`INSERT INTO "${schemaName}"."cat_track_object"`))
-        const childInsertCall = insertCalls.find(([sql]) => String(sql).includes(`INSERT INTO "${schemaName}"."tbl_trackitemsattr"`))
+        const moduleInsertIndex = insertCalls.findIndex(([sql]) => String(sql).includes(`INSERT INTO "${schemaName}"."obj_module_object"`))
+        const trackInsertIndex = insertCalls.findIndex(([sql]) => String(sql).includes(`INSERT INTO "${schemaName}"."obj_track_object"`))
+        const childInsertCall = insertCalls.find(([sql]) => String(sql).includes(`INSERT INTO "${schemaName}"."tbl_trackitemscmp"`))
 
         expect(moduleInsertIndex).toBeGreaterThanOrEqual(0)
         expect(trackInsertIndex).toBeGreaterThanOrEqual(0)
         expect(moduleInsertIndex).toBeLessThan(trackInsertIndex)
         expect(childInsertCall?.[1]).toEqual(
-            expect.arrayContaining(['track-seed-row:track-items-attr:0', '018f8a78-7b8f-7c1d-a111-222233335053', true])
+            expect.arrayContaining(['track-seed-row:track-items-cmp:0', '018f8a78-7b8f-7c1d-a111-222233335053', true])
         )
         expect(childInsertCall?.[1]).not.toEqual(expect.arrayContaining(['module-seed-row']))
     })

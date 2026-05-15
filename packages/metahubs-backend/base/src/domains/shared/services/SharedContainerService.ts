@@ -19,10 +19,10 @@ export type SharedContainerDescriptor = {
 }
 
 export const SHARED_CONTAINER_DESCRIPTORS: Record<SharedObjectKind, SharedContainerDescriptor> = {
-    [SHARED_OBJECT_KINDS.SHARED_CATALOG_POOL]: {
-        codename: 'shared_attributes',
-        title: 'Shared Attributes',
-        description: 'Virtual container for metahub-wide shared attributes'
+    [SHARED_OBJECT_KINDS.SHARED_OBJECT_POOL]: {
+        codename: 'shared_components',
+        title: 'Shared Components',
+        description: 'Virtual container for metahub-wide shared components'
     },
     [SHARED_OBJECT_KINDS.SHARED_SET_POOL]: {
         codename: 'shared_constants',

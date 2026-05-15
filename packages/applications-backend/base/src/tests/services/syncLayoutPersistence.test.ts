@@ -350,7 +350,7 @@ describe('syncLayoutPersistence', () => {
                     zone: 'center',
                     widgetKey: 'detailsTable',
                     sortOrder: 10,
-                    config: { datasource: { kind: 'records.list', sectionId: 'catalog-1' } },
+                    config: { datasource: { kind: 'records.list', sectionId: 'object-1' } },
                     isActive: true
                 }
             ],

@@ -1,7 +1,7 @@
 import type { SystemTableCapabilityOptions } from '@universo/migrations-core'
 
 export interface ResolvedSystemTableCapabilityOptions {
-    includeAttributes: boolean
+    includeComponents: boolean
     includeValues: boolean
     includeLayouts: boolean
     includeWidgets: boolean
@@ -12,7 +12,7 @@ const SYSTEM_TABLE_ORDER = [
     '_app_settings',
     '_app_objects',
     '_app_record_counters',
-    '_app_attributes',
+    '_app_components',
     '_app_values',
     '_app_scripts',
     '_app_layouts',
@@ -23,7 +23,7 @@ export type SystemTableName = (typeof SYSTEM_TABLE_ORDER)[number]
 
 export const normalizeSystemTableCapabilities = (options?: SystemTableCapabilityOptions): ResolvedSystemTableCapabilityOptions => {
     const normalized: ResolvedSystemTableCapabilityOptions = {
-        includeAttributes: options?.includeAttributes ?? true,
+        includeComponents: options?.includeComponents ?? true,
         includeValues: options?.includeValues ?? true,
         includeLayouts: options?.includeLayouts ?? true,
         includeWidgets: options?.includeWidgets ?? true
@@ -40,8 +40,8 @@ export const resolveSystemTableNames = (options?: SystemTableCapabilityOptions):
     const capabilities = normalizeSystemTableCapabilities(options)
 
     return SYSTEM_TABLE_ORDER.filter((tableName): tableName is SystemTableName => {
-        if (tableName === '_app_attributes') {
-            return capabilities.includeAttributes
+        if (tableName === '_app_components') {
+            return capabilities.includeComponents
         }
 
         if (tableName === '_app_values') {

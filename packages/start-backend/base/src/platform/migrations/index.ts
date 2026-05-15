@@ -151,15 +151,15 @@ DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.description,
 const createStartSchemaMigrationDefinition: SqlMigrationDefinition = {
     id: 'CreateStartSchema1710000000000',
     version: '1710000000000',
-    summary: 'Create start platform schema with catalog tables, user selections, RLS, and seed data',
+    summary: 'Create start platform schema with object tables, user selections, RLS, and seed data',
     up: [
         // 1. Schema creation
         { sql: `CREATE SCHEMA IF NOT EXISTS start` },
 
-        // 2. Catalog tables
+        // 2. Object tables
         {
             sql: `
-CREATE TABLE IF NOT EXISTS start.cat_goals (
+CREATE TABLE IF NOT EXISTS start.obj_goals (
     id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
     codename VARCHAR(50) NOT NULL,
     name JSONB NOT NULL DEFAULT '{}',
@@ -171,7 +171,7 @@ CREATE TABLE IF NOT EXISTS start.cat_goals (
         },
         {
             sql: `
-CREATE TABLE IF NOT EXISTS start.cat_topics (
+CREATE TABLE IF NOT EXISTS start.obj_topics (
     id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
     codename VARCHAR(50) NOT NULL,
     name JSONB NOT NULL DEFAULT '{}',
@@ -183,7 +183,7 @@ CREATE TABLE IF NOT EXISTS start.cat_topics (
         },
         {
             sql: `
-CREATE TABLE IF NOT EXISTS start.cat_features (
+CREATE TABLE IF NOT EXISTS start.obj_features (
     id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
     codename VARCHAR(50) NOT NULL,
     name JSONB NOT NULL DEFAULT '{}',
@@ -200,49 +200,49 @@ CREATE TABLE IF NOT EXISTS start.cat_features (
 CREATE TABLE IF NOT EXISTS start.rel_user_selections (
     id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
     user_id UUID NOT NULL,
-    catalog_kind VARCHAR(20) NOT NULL,
+    object_kind VARCHAR(20) NOT NULL,
     item_id UUID NOT NULL,${SYSTEM_FIELDS}
 )
             `
         },
-        createDropConstraintStatement('start', 'rel_user_selections', 'user_selections_catalog_kind_check'),
+        createDropConstraintStatement('start', 'rel_user_selections', 'user_selections_object_kind_check'),
         createCheckConstraintStatement(
             'start',
             'rel_user_selections',
-            'user_selections_catalog_kind_check',
-            `catalog_kind IN ('goals', 'topics', 'features')`
+            'user_selections_object_kind_check',
+            `object_kind IN ('goals', 'topics', 'features')`
         ),
 
         // 4. Indexes — must precede seed INSERTs that use ON CONFLICT
         {
             sql: `CREATE UNIQUE INDEX IF NOT EXISTS idx_goals_codename_active
-                  ON start.cat_goals (codename) WHERE _upl_deleted = false AND _app_deleted = false`
+                  ON start.obj_goals (codename) WHERE _upl_deleted = false AND _app_deleted = false`
         },
         {
             sql: `CREATE UNIQUE INDEX IF NOT EXISTS idx_topics_codename_active
-                  ON start.cat_topics (codename) WHERE _upl_deleted = false AND _app_deleted = false`
+                  ON start.obj_topics (codename) WHERE _upl_deleted = false AND _app_deleted = false`
         },
         {
             sql: `CREATE UNIQUE INDEX IF NOT EXISTS idx_features_codename_active
-                  ON start.cat_features (codename) WHERE _upl_deleted = false AND _app_deleted = false`
+                  ON start.obj_features (codename) WHERE _upl_deleted = false AND _app_deleted = false`
         },
         {
             sql: `CREATE UNIQUE INDEX IF NOT EXISTS idx_user_selections_unique
-                  ON start.rel_user_selections (user_id, catalog_kind, item_id)
+                  ON start.rel_user_selections (user_id, object_kind, item_id)
                   WHERE _upl_deleted = false AND _app_deleted = false`
         },
         // Performance indexes
         {
             sql: `CREATE INDEX IF NOT EXISTS idx_goals_active
-                  ON start.cat_goals (sort_order) WHERE _upl_deleted = false AND _app_deleted = false AND is_active = true`
+                  ON start.obj_goals (sort_order) WHERE _upl_deleted = false AND _app_deleted = false AND is_active = true`
         },
         {
             sql: `CREATE INDEX IF NOT EXISTS idx_topics_active
-                  ON start.cat_topics (sort_order) WHERE _upl_deleted = false AND _app_deleted = false AND is_active = true`
+                  ON start.obj_topics (sort_order) WHERE _upl_deleted = false AND _app_deleted = false AND is_active = true`
         },
         {
             sql: `CREATE INDEX IF NOT EXISTS idx_features_active
-                  ON start.cat_features (sort_order) WHERE _upl_deleted = false AND _app_deleted = false AND is_active = true`
+                  ON start.obj_features (sort_order) WHERE _upl_deleted = false AND _app_deleted = false AND is_active = true`
         },
         {
             sql: `CREATE INDEX IF NOT EXISTS idx_user_selections_user
@@ -250,14 +250,14 @@ CREATE TABLE IF NOT EXISTS start.rel_user_selections (
         },
 
         // 5. Enable RLS
-        { sql: `ALTER TABLE start.cat_goals ENABLE ROW LEVEL SECURITY` },
-        { sql: `ALTER TABLE start.cat_topics ENABLE ROW LEVEL SECURITY` },
-        { sql: `ALTER TABLE start.cat_features ENABLE ROW LEVEL SECURITY` },
+        { sql: `ALTER TABLE start.obj_goals ENABLE ROW LEVEL SECURITY` },
+        { sql: `ALTER TABLE start.obj_topics ENABLE ROW LEVEL SECURITY` },
+        { sql: `ALTER TABLE start.obj_features ENABLE ROW LEVEL SECURITY` },
         { sql: `ALTER TABLE start.rel_user_selections ENABLE ROW LEVEL SECURITY` },
 
         // 6. Seed data — Goals (10 items)
         seedInsert(
-            'cat_goals',
+            'obj_goals',
             'teknokomo-era',
             'Teknokomo Era',
             'Эра Текнокомо',
@@ -266,7 +266,7 @@ CREATE TABLE IF NOT EXISTS start.rel_user_selections (
             1
         ),
         seedInsert(
-            'cat_goals',
+            'obj_goals',
             'world-communism',
             'World Communism',
             'Всемирный коммунизм',
@@ -275,7 +275,7 @@ CREATE TABLE IF NOT EXISTS start.rel_user_selections (
             2
         ),
         seedInsert(
-            'cat_goals',
+            'obj_goals',
             'global-cooperation',
             'Global Cooperation',
             'Глобальная кооперация',
@@ -284,7 +284,7 @@ CREATE TABLE IF NOT EXISTS start.rel_user_selections (
             3
         ),
         seedInsert(
-            'cat_goals',
+            'obj_goals',
             'social-capitalism',
             'Social Capitalism',
             'Социальный капитализм',
@@ -293,7 +293,7 @@ CREATE TABLE IF NOT EXISTS start.rel_user_selections (
             4
         ),
         seedInsert(
-            'cat_goals',
+            'obj_goals',
             'anarchist-communities',
             'Anarchist Communities',
             'Анархические сообщества',
@@ -302,7 +302,7 @@ CREATE TABLE IF NOT EXISTS start.rel_user_selections (
             5
         ),
         seedInsert(
-            'cat_goals',
+            'obj_goals',
             'space-empire',
             'Space Empire',
             'Космическая империя',
@@ -311,7 +311,7 @@ CREATE TABLE IF NOT EXISTS start.rel_user_selections (
             6
         ),
         seedInsert(
-            'cat_goals',
+            'obj_goals',
             'market-socialism',
             'Market Socialism',
             'Рыночный социализм',
@@ -320,7 +320,7 @@ CREATE TABLE IF NOT EXISTS start.rel_user_selections (
             7
         ),
         seedInsert(
-            'cat_goals',
+            'obj_goals',
             'technocratic-governance',
             'Technocratic Governance',
             'Технократическое управление',
@@ -329,7 +329,7 @@ CREATE TABLE IF NOT EXISTS start.rel_user_selections (
             8
         ),
         seedInsert(
-            'cat_goals',
+            'obj_goals',
             'expert-meritocracy',
             'Expert Meritocracy',
             'Экспертная меритократия',
@@ -338,7 +338,7 @@ CREATE TABLE IF NOT EXISTS start.rel_user_selections (
             9
         ),
         seedInsert(
-            'cat_goals',
+            'obj_goals',
             'ecological-technocivilization',
             'Ecological Technocivilization',
             'Экологическая техноцивилизация',
@@ -349,7 +349,7 @@ CREATE TABLE IF NOT EXISTS start.rel_user_selections (
 
         // 9. Seed data — Topics (10 items)
         seedInsert(
-            'cat_topics',
+            'obj_topics',
             'computer-games',
             'Computer Games',
             'Компьютерные игры',
@@ -358,7 +358,7 @@ CREATE TABLE IF NOT EXISTS start.rel_user_selections (
             1
         ),
         seedInsert(
-            'cat_topics',
+            'obj_topics',
             'board-games',
             'Board Games',
             'Настольные игры',
@@ -367,7 +367,7 @@ CREATE TABLE IF NOT EXISTS start.rel_user_selections (
             2
         ),
         seedInsert(
-            'cat_topics',
+            'obj_topics',
             'sports-lifestyle',
             'Sports & Active Lifestyle',
             'Спорт и активный образ жизни',
@@ -376,7 +376,7 @@ CREATE TABLE IF NOT EXISTS start.rel_user_selections (
             3
         ),
         seedInsert(
-            'cat_topics',
+            'obj_topics',
             'programming',
             'Programming & Development',
             'Программирование и разработка',
@@ -385,7 +385,7 @@ CREATE TABLE IF NOT EXISTS start.rel_user_selections (
             4
         ),
         seedInsert(
-            'cat_topics',
+            'obj_topics',
             'robotics',
             'Robotics & Automation',
             'Робототехника и автоматизация',
@@ -394,7 +394,7 @@ CREATE TABLE IF NOT EXISTS start.rel_user_selections (
             5
         ),
         seedInsert(
-            'cat_topics',
+            'obj_topics',
             'science',
             'Science & Knowledge',
             'Наука и популяризация знаний',
@@ -403,7 +403,7 @@ CREATE TABLE IF NOT EXISTS start.rel_user_selections (
             6
         ),
         seedInsert(
-            'cat_topics',
+            'obj_topics',
             'space-futurism',
             'Space & Futurism',
             'Космос и футурология',
@@ -412,7 +412,7 @@ CREATE TABLE IF NOT EXISTS start.rel_user_selections (
             7
         ),
         seedInsert(
-            'cat_topics',
+            'obj_topics',
             'cinema',
             'Cinema & Screenwriting',
             'Кино, сериалы и сценаристика',
@@ -421,7 +421,7 @@ CREATE TABLE IF NOT EXISTS start.rel_user_selections (
             8
         ),
         seedInsert(
-            'cat_topics',
+            'obj_topics',
             'design-3d',
             'Design & 3D Visualization',
             'Дизайн, 3D и визуализация',
@@ -430,7 +430,7 @@ CREATE TABLE IF NOT EXISTS start.rel_user_selections (
             9
         ),
         seedInsert(
-            'cat_topics',
+            'obj_topics',
             'learning',
             'Learning & Self-Development',
             'Обучение и саморазвитие',
@@ -441,7 +441,7 @@ CREATE TABLE IF NOT EXISTS start.rel_user_selections (
 
         // 10. Seed data — Features (10 items)
         seedInsert(
-            'cat_features',
+            'obj_features',
             'kiberplano',
             'Universo Kiberplano',
             'Universo Kiberplano',
@@ -450,7 +450,7 @@ CREATE TABLE IF NOT EXISTS start.rel_user_selections (
             1
         ),
         seedInsert(
-            'cat_features',
+            'obj_features',
             'mmoomm',
             'Universo MMOOMM',
             'Universo MMOOMM',
@@ -459,7 +459,7 @@ CREATE TABLE IF NOT EXISTS start.rel_user_selections (
             2
         ),
         seedInsert(
-            'cat_features',
+            'obj_features',
             'cad-system',
             'CAD System',
             'CAD-система',
@@ -468,7 +468,7 @@ CREATE TABLE IF NOT EXISTS start.rel_user_selections (
             3
         ),
         seedInsert(
-            'cat_features',
+            'obj_features',
             'erp-system',
             'ERP System',
             'ERP-система',
@@ -477,7 +477,7 @@ CREATE TABLE IF NOT EXISTS start.rel_user_selections (
             4
         ),
         seedInsert(
-            'cat_features',
+            'obj_features',
             'plm-system',
             'PLM System',
             'PLM-система',
@@ -486,7 +486,7 @@ CREATE TABLE IF NOT EXISTS start.rel_user_selections (
             5
         ),
         seedInsert(
-            'cat_features',
+            'obj_features',
             'crm-system',
             'CRM System',
             'CRM-система',
@@ -495,7 +495,7 @@ CREATE TABLE IF NOT EXISTS start.rel_user_selections (
             6
         ),
         seedInsert(
-            'cat_features',
+            'obj_features',
             'bpm-workflow',
             'BPM / Workflow System',
             'BPM / Workflow-система',
@@ -504,7 +504,7 @@ CREATE TABLE IF NOT EXISTS start.rel_user_selections (
             7
         ),
         seedInsert(
-            'cat_features',
+            'obj_features',
             'wms-system',
             'WMS System',
             'WMS-система',
@@ -513,7 +513,7 @@ CREATE TABLE IF NOT EXISTS start.rel_user_selections (
             8
         ),
         seedInsert(
-            'cat_features',
+            'obj_features',
             'tms-system',
             'TMS System',
             'TMS-система',
@@ -522,7 +522,7 @@ CREATE TABLE IF NOT EXISTS start.rel_user_selections (
             9
         ),
         seedInsert(
-            'cat_features',
+            'obj_features',
             'courier-delivery',
             'Courier Delivery System',
             'Система курьерской доставки',
@@ -535,16 +535,16 @@ CREATE TABLE IF NOT EXISTS start.rel_user_selections (
         createDropPolicyIfTableExistsStatement('admin_manage_all_selections', 'start', 'rel_user_selections'),
         createDropPolicyIfTableExistsStatement('users_manage_own_selections', 'start', 'rel_user_selections'),
         createDropPolicyIfTableExistsStatement('users_read_own_selections', 'start', 'rel_user_selections'),
-        createDropPolicyIfTableExistsStatement('admin_manage_features', 'start', 'cat_features'),
-        createDropPolicyIfTableExistsStatement('authenticated_read_features', 'start', 'cat_features'),
-        createDropPolicyIfTableExistsStatement('admin_manage_topics', 'start', 'cat_topics'),
-        createDropPolicyIfTableExistsStatement('authenticated_read_topics', 'start', 'cat_topics'),
-        createDropPolicyIfTableExistsStatement('admin_manage_goals', 'start', 'cat_goals'),
-        createDropPolicyIfTableExistsStatement('authenticated_read_goals', 'start', 'cat_goals'),
+        createDropPolicyIfTableExistsStatement('admin_manage_features', 'start', 'obj_features'),
+        createDropPolicyIfTableExistsStatement('authenticated_read_features', 'start', 'obj_features'),
+        createDropPolicyIfTableExistsStatement('admin_manage_topics', 'start', 'obj_topics'),
+        createDropPolicyIfTableExistsStatement('authenticated_read_topics', 'start', 'obj_topics'),
+        createDropPolicyIfTableExistsStatement('admin_manage_goals', 'start', 'obj_goals'),
+        createDropPolicyIfTableExistsStatement('authenticated_read_goals', 'start', 'obj_goals'),
         { sql: `DROP TABLE IF EXISTS start.rel_user_selections CASCADE` },
-        { sql: `DROP TABLE IF EXISTS start.cat_features CASCADE` },
-        { sql: `DROP TABLE IF EXISTS start.cat_topics CASCADE` },
-        { sql: `DROP TABLE IF EXISTS start.cat_goals CASCADE` },
+        { sql: `DROP TABLE IF EXISTS start.obj_features CASCADE` },
+        { sql: `DROP TABLE IF EXISTS start.obj_topics CASCADE` },
+        { sql: `DROP TABLE IF EXISTS start.obj_goals CASCADE` },
         { sql: `DROP SCHEMA IF EXISTS start CASCADE` }
     ]
 }
@@ -585,33 +585,33 @@ export const applyStartSchemaPoliciesMigrationDefinition: SqlMigrationDefinition
         createDropPolicyIfTableExistsStatement('admin_manage_all_selections', 'start', 'rel_user_selections'),
         createDropPolicyIfTableExistsStatement('users_manage_own_selections', 'start', 'rel_user_selections'),
         createDropPolicyIfTableExistsStatement('users_read_own_selections', 'start', 'rel_user_selections'),
-        createDropPolicyIfTableExistsStatement('admin_manage_features', 'start', 'cat_features'),
-        createDropPolicyIfTableExistsStatement('authenticated_read_features', 'start', 'cat_features'),
-        createDropPolicyIfTableExistsStatement('admin_manage_topics', 'start', 'cat_topics'),
-        createDropPolicyIfTableExistsStatement('authenticated_read_topics', 'start', 'cat_topics'),
-        createDropPolicyIfTableExistsStatement('admin_manage_goals', 'start', 'cat_goals'),
-        createDropPolicyIfTableExistsStatement('authenticated_read_goals', 'start', 'cat_goals'),
-        createPolicyStatement('authenticated_read_goals', 'start', 'cat_goals', 'FOR SELECT', 'true'),
+        createDropPolicyIfTableExistsStatement('admin_manage_features', 'start', 'obj_features'),
+        createDropPolicyIfTableExistsStatement('authenticated_read_features', 'start', 'obj_features'),
+        createDropPolicyIfTableExistsStatement('admin_manage_topics', 'start', 'obj_topics'),
+        createDropPolicyIfTableExistsStatement('authenticated_read_topics', 'start', 'obj_topics'),
+        createDropPolicyIfTableExistsStatement('admin_manage_goals', 'start', 'obj_goals'),
+        createDropPolicyIfTableExistsStatement('authenticated_read_goals', 'start', 'obj_goals'),
+        createPolicyStatement('authenticated_read_goals', 'start', 'obj_goals', 'FOR SELECT', 'true'),
         createPolicyStatement(
             'admin_manage_goals',
             'start',
-            'cat_goals',
+            'obj_goals',
             'FOR ALL',
             '(select admin.has_admin_permission((select auth.uid())))'
         ),
-        createPolicyStatement('authenticated_read_topics', 'start', 'cat_topics', 'FOR SELECT', 'true'),
+        createPolicyStatement('authenticated_read_topics', 'start', 'obj_topics', 'FOR SELECT', 'true'),
         createPolicyStatement(
             'admin_manage_topics',
             'start',
-            'cat_topics',
+            'obj_topics',
             'FOR ALL',
             '(select admin.has_admin_permission((select auth.uid())))'
         ),
-        createPolicyStatement('authenticated_read_features', 'start', 'cat_features', 'FOR SELECT', 'true'),
+        createPolicyStatement('authenticated_read_features', 'start', 'obj_features', 'FOR SELECT', 'true'),
         createPolicyStatement(
             'admin_manage_features',
             'start',
-            'cat_features',
+            'obj_features',
             'FOR ALL',
             '(select admin.has_admin_permission((select auth.uid())))'
         ),

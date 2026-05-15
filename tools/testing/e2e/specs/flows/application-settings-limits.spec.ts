@@ -20,7 +20,7 @@ import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublicatio
 import { applicationSelectors, buildApplicationLimitInputSelector, pageSpacingSelectors } from '../../support/selectors/contracts'
 
 type RuntimeState = {
-    catalog?: {
+    objectCollection?: {
         id?: string
         name?: string
         codename?: string
@@ -32,18 +32,18 @@ type RuntimeState = {
     }
 }
 
-async function waitForRuntimeState(api: Awaited<ReturnType<typeof createLoggedInApiContext>>, applicationId: string, catalogId?: string) {
+async function waitForRuntimeState(api: Awaited<ReturnType<typeof createLoggedInApiContext>>, applicationId: string, objectCollectionId?: string) {
     let runtimeState: RuntimeState | null = null
 
     await expect
         .poll(async () => {
-            runtimeState = await getApplicationRuntime(api, applicationId, catalogId ? { catalogId } : {})
-            return typeof runtimeState?.catalog?.id === 'string'
+            runtimeState = await getApplicationRuntime(api, applicationId, objectCollectionId ? { objectCollectionId } : {})
+            return typeof runtimeState?.objectCollection?.id === 'string'
         })
         .toBe(true)
 
-    if (!runtimeState?.catalog?.id) {
-        throw new Error(`Runtime catalog did not become available for application ${applicationId}`)
+    if (!runtimeState?.objectCollection?.id) {
+        throw new Error(`Runtime objectCollection did not become available for application ${applicationId}`)
     }
 
     return runtimeState
@@ -127,17 +127,17 @@ test('@flow @combined application settings persist workspace limits and runtime 
         })
 
         const initialRuntime = await waitForRuntimeState(api, applicationId)
-        const catalogId = initialRuntime.catalog?.id
+        const objectCollectionId = initialRuntime.objectCollection?.id
 
-        if (typeof catalogId !== 'string') {
-            throw new Error(`Runtime catalog id is missing for application ${applicationId}`)
+        if (typeof objectCollectionId !== 'string') {
+            throw new Error(`Runtime objectCollection id is missing for application ${applicationId}`)
         }
 
         await page.goto(`/a/${applicationId}`)
         await expect(page.getByTestId(applicationSelectors.runtimeCreateButton)).toBeEnabled({ timeout: 30_000 })
 
         const createdRow = await createRuntimeRow(api, applicationId, {
-            catalogId,
+            objectCollectionId,
             data: {}
         })
 
@@ -162,7 +162,7 @@ test('@flow @combined application settings persist workspace limits and runtime 
         )
         await page.getByRole('tab', { name: 'Limits' }).click()
 
-        const limitInput = page.getByTestId(buildApplicationLimitInputSelector(catalogId))
+        const limitInput = page.getByTestId(buildApplicationLimitInputSelector(objectCollectionId))
         await expect(limitInput).toBeVisible()
         await limitInput.fill('1')
 
@@ -177,13 +177,13 @@ test('@flow @combined application settings persist workspace limits and runtime 
         await expect
             .poll(async () => {
                 const limits = await getApplicationWorkspaceLimits(api, applicationId)
-                return limits.find((limit) => limit.objectId === catalogId)?.maxRows ?? null
+                return limits.find((limit) => limit.objectId === objectCollectionId)?.maxRows ?? null
             })
             .toBe(1)
 
         await expect
             .poll(async () => {
-                const runtime = await getApplicationRuntime(api, applicationId, { catalogId })
+                const runtime = await getApplicationRuntime(api, applicationId, { objectCollectionId })
                 return runtime?.workspaceLimit ?? null
             })
             .toMatchObject({

@@ -26,12 +26,12 @@ describe('MetahubFixedValuesService compatibility-aware blocker queries', () => 
         await service.findSetReferenceBlockers('metahub-1', 'set-1', 'user-1', ['set', 'custom.value-group'])
 
         expect(mockExecQuery).toHaveBeenCalled()
-        expect(mockExecQuery.mock.calls[0][0]).toContain('attr.target_object_kind = ANY($2::text[])')
+        expect(mockExecQuery.mock.calls[0][0]).toContain('cmp.target_object_kind = ANY($2::text[])')
         expect(mockExecQuery.mock.calls[0][1]).toEqual(['set-1', ['set', 'custom.value-group']])
     })
 
-    it('matches compatible set target kinds when finding constant attribute blockers', async () => {
-        await service.findAttributeReferenceBlockersByConstant('metahub-1', 'set-1', 'constant-1', 'user-1', ['set', 'custom.value-group'])
+    it('matches compatible set target kinds when finding constant component blockers', async () => {
+        await service.findComponentReferenceBlockersByConstant('metahub-1', 'set-1', 'constant-1', 'user-1', ['set', 'custom.value-group'])
 
         expect(mockExecQuery).toHaveBeenCalled()
         expect(mockExecQuery.mock.calls[0][0]).toContain('target_object_kind = ANY($2::text[])')

@@ -4,7 +4,7 @@ import { applyBrowserPreferences } from '../../support/browser/preferences'
 import {
     createLoggedInApiContext,
     createMetahub,
-    createFieldDefinition,
+    createComponent,
     createPublication,
     createPublicationLinkedApplication,
     createPublicationVersion,
@@ -12,7 +12,7 @@ import {
     getLayout,
     listLayoutZoneWidgets,
     listLayouts,
-    listLinkedCollections,
+    listObjectCollections,
     sendWithCsrf,
     syncApplicationSchema,
     syncPublication,
@@ -692,22 +692,22 @@ async function applyCenteredQuizLayout(api: Awaited<ReturnType<typeof createLogg
     }
 }
 
-async function waitForCatalogId(api: Awaited<ReturnType<typeof createLoggedInApiContext>>, metahubId: string) {
-    let catalogId: string | undefined
+async function waitForObjectId(api: Awaited<ReturnType<typeof createLoggedInApiContext>>, metahubId: string) {
+    let objectCollectionId: string | undefined
 
     await expect
         .poll(async () => {
-            const response = await listLinkedCollections(api, metahubId, { limit: 100, offset: 0 })
-            catalogId = response?.items?.[0]?.id
-            return typeof catalogId === 'string'
+            const response = await listObjectCollections(api, metahubId, { limit: 100, offset: 0 })
+            objectCollectionId = response?.items?.[0]?.id
+            return typeof objectCollectionId === 'string'
         })
         .toBe(true)
 
-    if (!catalogId) {
-        throw new Error(`No catalog was returned for metahub ${metahubId}`)
+    if (!objectCollectionId) {
+        throw new Error(`No objectCollection was returned for metahub ${metahubId}`)
     }
 
-    return catalogId
+    return objectCollectionId
 }
 
 test('@flow quiz widget scripts publish into runtime and execute through the real /a browser surface', async ({ page, runManifest }) => {
@@ -741,10 +741,10 @@ test('@flow quiz widget scripts publish into runtime and execute through the rea
             codename: metahubCodename
         })
 
-        const catalogId = await waitForCatalogId(api, metahub.id)
+        const objectCollectionId = await waitForObjectId(api, metahub.id)
         const layoutId = await waitForLayoutId(api, metahub.id)
 
-        await createFieldDefinition(api, metahub.id, catalogId, {
+        await createComponent(api, metahub.id, objectCollectionId, {
             name: { en: 'Title' },
             namePrimaryLocale: 'en',
             codename: createLocalizedContent('en', 'title'),

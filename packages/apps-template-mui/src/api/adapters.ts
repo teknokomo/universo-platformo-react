@@ -23,42 +23,42 @@ export function createStandaloneAdapter(params: { apiBaseUrl: string; applicatio
     return {
         queryKeyPrefix: appQueryKeys.list(applicationId),
 
-        fetchList: ({ limit, offset, locale, linkedCollectionId, sectionId, search, sort, filters }) =>
-            fetchAppData({ apiBaseUrl, applicationId, limit, offset, locale, linkedCollectionId, sectionId, search, sort, filters }),
+        fetchList: ({ limit, offset, locale, objectCollectionId, sectionId, search, sort, filters }) =>
+            fetchAppData({ apiBaseUrl, applicationId, limit, offset, locale, objectCollectionId, sectionId, search, sort, filters }),
 
-        fetchRow: (rowId, linkedCollectionId) =>
-            fetchAppRow({ apiBaseUrl, applicationId, rowId, linkedCollectionId, sectionId: linkedCollectionId }),
+        fetchRow: (rowId, objectCollectionId) =>
+            fetchAppRow({ apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId: objectCollectionId }),
 
-        fetchTabularRows: async ({ parentRowId, attributeId, linkedCollectionId, sectionId }) => {
-            const resolvedSectionId = sectionId ?? linkedCollectionId
+        fetchTabularRows: async ({ parentRowId, componentId, objectCollectionId, sectionId }) => {
+            const resolvedSectionId = sectionId ?? objectCollectionId
             if (!resolvedSectionId) return []
             const response = await fetchTabularRows({
                 apiBaseUrl,
                 applicationId,
                 parentRecordId: parentRowId,
-                attributeId,
-                linkedCollectionId: resolvedSectionId,
+                componentId,
+                objectCollectionId: resolvedSectionId,
                 sectionId: resolvedSectionId
             })
             return response.items
         },
 
-        createRow: (data, linkedCollectionId) =>
-            createAppRow({ apiBaseUrl, applicationId, data, linkedCollectionId, sectionId: linkedCollectionId }),
+        createRow: (data, objectCollectionId) =>
+            createAppRow({ apiBaseUrl, applicationId, data, objectCollectionId, sectionId: objectCollectionId }),
 
-        updateRow: (rowId, data, linkedCollectionId) =>
-            updateAppRow({ apiBaseUrl, applicationId, rowId, data, linkedCollectionId, sectionId: linkedCollectionId }),
+        updateRow: (rowId, data, objectCollectionId) =>
+            updateAppRow({ apiBaseUrl, applicationId, rowId, data, objectCollectionId, sectionId: objectCollectionId }),
 
-        deleteRow: (rowId, linkedCollectionId) =>
-            deleteAppRow({ apiBaseUrl, applicationId, rowId, linkedCollectionId, sectionId: linkedCollectionId }),
+        deleteRow: (rowId, objectCollectionId) =>
+            deleteAppRow({ apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId: objectCollectionId }),
 
         copyRow: (rowId, data) =>
             copyAppRow({
                 apiBaseUrl,
                 applicationId,
                 rowId,
-                linkedCollectionId: data?.linkedCollectionId,
-                sectionId: data?.sectionId ?? data?.linkedCollectionId,
+                objectCollectionId: data?.objectCollectionId,
+                sectionId: data?.sectionId ?? data?.objectCollectionId,
                 copyChildTables: data?.copyChildTables
             }),
 
@@ -68,8 +68,8 @@ export function createStandaloneAdapter(params: { apiBaseUrl: string; applicatio
                 applicationId,
                 rowId,
                 command,
-                linkedCollectionId: data?.linkedCollectionId,
-                sectionId: data?.sectionId ?? data?.linkedCollectionId,
+                objectCollectionId: data?.objectCollectionId,
+                sectionId: data?.sectionId ?? data?.objectCollectionId,
                 expectedVersion: data?.expectedVersion
             })
     }

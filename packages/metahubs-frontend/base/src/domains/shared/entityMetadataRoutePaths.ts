@@ -1,7 +1,7 @@
-export type LinkedCollectionAuthoringTab = 'fieldDefinitions' | 'system' | 'records'
-export type TreeEntityAuthoringTab = 'treeEntities' | 'linkedCollections' | 'valueGroups' | 'optionLists'
+export type ObjectCollectionAuthoringTab = 'components' | 'system' | 'records'
+export type TreeEntityAuthoringTab = 'treeEntities' | 'objectCollections' | 'valueGroups' | 'optionLists'
 
-export type EntityMetadataChildKind = 'hub' | 'catalog' | 'set' | 'enumeration'
+export type EntityMetadataChildKind = 'hub' | 'object' | 'set' | 'enumeration'
 
 type EntityMetadataRouteOptions = {
     metahubId?: string | null
@@ -9,9 +9,9 @@ type EntityMetadataRouteOptions = {
     treeEntityId?: string | null
 }
 
-type LinkedCollectionAuthoringPathOptions = EntityMetadataRouteOptions & {
-    linkedCollectionId?: string | null
-    tab: LinkedCollectionAuthoringTab
+type ObjectCollectionAuthoringPathOptions = EntityMetadataRouteOptions & {
+    objectCollectionId?: string | null
+    tab: ObjectCollectionAuthoringTab
 }
 
 type ValueGroupAuthoringPathOptions = EntityMetadataRouteOptions & {
@@ -22,15 +22,15 @@ type OptionListAuthoringPathOptions = EntityMetadataRouteOptions & {
     optionListId?: string | null
 }
 
-const ENTITY_METADATA_CHILD_KINDS: readonly EntityMetadataChildKind[] = ['hub', 'catalog', 'set', 'enumeration'] as const
+const ENTITY_METADATA_CHILD_KINDS: readonly EntityMetadataChildKind[] = ['hub', 'object', 'set', 'enumeration'] as const
 const TREE_TAB_CHILD_KIND: Record<TreeEntityAuthoringTab, EntityMetadataChildKind> = {
     treeEntities: 'hub',
-    linkedCollections: 'catalog',
+    objectCollections: 'object',
     valueGroups: 'set',
     optionLists: 'enumeration'
 }
-const LINKED_COLLECTION_TAB_SEGMENTS: Record<LinkedCollectionAuthoringTab, string> = {
-    fieldDefinitions: 'field-definitions',
+const OBJECT_COLLECTION_TAB_SEGMENTS: Record<ObjectCollectionAuthoringTab, string> = {
+    components: 'components',
     system: 'system',
     records: 'records'
 }
@@ -91,35 +91,35 @@ export const buildTreeEntityAuthoringPath = ({
     return `/metahub/${normalizedMetahubId}/entities/${encodeURIComponent(normalizedKindKey)}/instance/${normalizedTreeEntityId}/instances`
 }
 
-export const buildLinkedCollectionAuthoringPath = ({
+export const buildObjectCollectionAuthoringPath = ({
     metahubId,
-    linkedCollectionId,
+    objectCollectionId,
     treeEntityId,
     kindKey,
     tab
-}: LinkedCollectionAuthoringPathOptions): string => {
+}: ObjectCollectionAuthoringPathOptions): string => {
     const normalizedMetahubId = normalizeSegment(metahubId)
-    const normalizedLinkedCollectionId = normalizeSegment(linkedCollectionId)
+    const normalizedObjectCollectionId = normalizeSegment(objectCollectionId)
     const normalizedTreeEntityId = normalizeSegment(treeEntityId)
     const normalizedKindKey =
-        resolveEntityChildKindKey({ routeKindKey: kindKey, childObjectKind: 'catalog' }) ??
-        resolveEntityRouteKindOrDefault({ kindKey, treeEntityId, fallbackKind: 'catalog' })
+        resolveEntityChildKindKey({ routeKindKey: kindKey, childObjectKind: 'object' }) ??
+        resolveEntityRouteKindOrDefault({ kindKey, treeEntityId, fallbackKind: 'object' })
 
-    if (!normalizedMetahubId || !normalizedLinkedCollectionId) {
+    if (!normalizedMetahubId || !normalizedObjectCollectionId) {
         return ''
     }
 
-    const tabSegment = LINKED_COLLECTION_TAB_SEGMENTS[tab]
+    const tabSegment = OBJECT_COLLECTION_TAB_SEGMENTS[tab]
 
     if (normalizedTreeEntityId) {
         return `/metahub/${normalizedMetahubId}/entities/${encodeURIComponent(
             normalizedKindKey
-        )}/instance/${normalizedTreeEntityId}/instance/${normalizedLinkedCollectionId}/${tabSegment}`
+        )}/instance/${normalizedTreeEntityId}/instance/${normalizedObjectCollectionId}/${tabSegment}`
     }
 
     return `/metahub/${normalizedMetahubId}/entities/${encodeURIComponent(
         normalizedKindKey
-    )}/instance/${normalizedLinkedCollectionId}/${tabSegment}`
+    )}/instance/${normalizedObjectCollectionId}/${tabSegment}`
 }
 
 export const buildValueGroupAuthoringPath = ({

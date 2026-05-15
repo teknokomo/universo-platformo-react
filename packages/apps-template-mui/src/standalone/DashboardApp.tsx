@@ -58,7 +58,7 @@ const toStandaloneSectionLinkMenuItem = (
         return { ...item, selected: false }
     }
 
-    const targetCollectionId = item.sectionId ?? item.linkedCollectionId
+    const targetCollectionId = item.sectionId ?? item.objectCollectionId
     if (!targetCollectionId) {
         return { ...item, selected: false }
     }
@@ -105,22 +105,22 @@ export default function DashboardApp(props: DashboardAppProps) {
 
     const state = useCrudDashboard({ adapter, locale: props.locale, initialSectionId: routeSectionId })
 
-    const detailsTitle = isWorkspacesRoute ? t('workspace.title', 'Workspaces') : state.appData?.linkedCollection.name ?? 'Details'
+    const detailsTitle = isWorkspacesRoute ? t('workspace.title', 'Workspaces') : state.appData?.objectCollection.name ?? 'Details'
     const contentPermissions = state.appData?.permissions
-    const canCreateContent = contentPermissions?.createContent !== false
-    const canEditContent = contentPermissions?.editContent !== false
-    const canDeleteContent = contentPermissions?.deleteContent !== false
-    const showCreateButton = state.appData?.linkedCollection.runtimeConfig?.showCreateButton !== false && canCreateContent
-    const activeLinkedCollectionRuntimeConfig = state.appData?.linkedCollection.runtimeConfig
+    const canCreateContent = contentPermissions?.createContent === true
+    const canEditContent = contentPermissions?.editContent === true
+    const canDeleteContent = contentPermissions?.deleteContent === true
+    const showCreateButton = state.appData?.objectCollection.runtimeConfig?.showCreateButton !== false && canCreateContent
+    const activeObjectCollectionRuntimeConfig = state.appData?.objectCollection.runtimeConfig
     const currentWorkspaceId = state.appData?.currentWorkspaceId ?? null
     const workspacesEnabled = state.appData?.workspacesEnabled ?? false
     const activeFormSurface = !state.formOpen
         ? 'dialog'
         : state.copyRowId
-        ? activeLinkedCollectionRuntimeConfig?.copySurface ?? 'dialog'
+        ? activeObjectCollectionRuntimeConfig?.copySurface ?? 'dialog'
         : state.editRowId
-        ? activeLinkedCollectionRuntimeConfig?.editSurface ?? 'dialog'
-        : activeLinkedCollectionRuntimeConfig?.createSurface ?? 'dialog'
+        ? activeObjectCollectionRuntimeConfig?.editSurface ?? 'dialog'
+        : activeObjectCollectionRuntimeConfig?.createSurface ?? 'dialog'
 
     const createActions = useMemo(
         () =>
@@ -156,13 +156,13 @@ export default function DashboardApp(props: DashboardAppProps) {
         () => ({
             title: detailsTitle,
             applicationId: props.applicationId,
-            sectionId: state.appData?.activeSectionId ?? state.selectedLinkedCollectionId ?? state.activeLinkedCollectionId ?? null,
+            sectionId: state.appData?.activeSectionId ?? state.selectedObjectCollectionId ?? state.activeObjectCollectionId ?? null,
             sectionCodename: state.appData?.section?.codename ?? null,
-            linkedCollectionId:
-                state.appData?.activeLinkedCollectionId ?? state.selectedLinkedCollectionId ?? state.activeLinkedCollectionId ?? null,
-            linkedCollectionCodename: state.appData?.linkedCollection.codename ?? null,
+            objectCollectionId:
+                state.appData?.activeObjectCollectionId ?? state.selectedObjectCollectionId ?? state.activeObjectCollectionId ?? null,
+            objectCollectionCodename: state.appData?.objectCollection.codename ?? null,
             sections: state.appData?.sections ?? [],
-            linkedCollections: state.appData?.linkedCollections ?? [],
+            objectCollections: state.appData?.objectCollections ?? [],
             apiBaseUrl: props.apiBaseUrl,
             locale: props.locale,
             currentWorkspaceId,
@@ -185,7 +185,7 @@ export default function DashboardApp(props: DashboardAppProps) {
             localeText: state.localeText,
             actions: createActions,
             navigate,
-            searchMode: state.appData?.linkedCollection.runtimeConfig?.searchMode ?? 'page-local',
+            searchMode: state.appData?.objectCollection.runtimeConfig?.searchMode ?? 'page-local',
             rowReorder: state.canPersistRowReorder
                 ? {
                       onReorder: state.handlePersistRowReorder,
@@ -196,14 +196,14 @@ export default function DashboardApp(props: DashboardAppProps) {
         [
             detailsTitle,
             state.appData?.activeSectionId,
-            state.appData?.activeLinkedCollectionId,
+            state.appData?.activeObjectCollectionId,
             state.appData?.section?.codename,
-            state.appData?.linkedCollection.codename,
+            state.appData?.objectCollection.codename,
             state.appData?.sections,
-            state.appData?.linkedCollections,
-            state.selectedLinkedCollectionId,
-            state.activeLinkedCollectionId,
-            state.appData?.linkedCollection.runtimeConfig?.searchMode,
+            state.appData?.objectCollections,
+            state.selectedObjectCollectionId,
+            state.activeObjectCollectionId,
+            state.appData?.objectCollection.runtimeConfig?.searchMode,
             currentWorkspaceId,
             workspacesEnabled,
             state.canPersistRowReorder,
@@ -337,7 +337,7 @@ export default function DashboardApp(props: DashboardAppProps) {
                         locale={props.locale}
                         apiBaseUrl={props.apiBaseUrl}
                         applicationId={props.applicationId}
-                        linkedCollectionId={state.selectedLinkedCollectionId ?? state.activeLinkedCollectionId}
+                        objectCollectionId={state.selectedObjectCollectionId ?? state.activeObjectCollectionId}
                         surface={activeFormSurface}
                         labels={{
                             editTitle: t('app.editRow', 'Edit element'),
@@ -347,7 +347,7 @@ export default function DashboardApp(props: DashboardAppProps) {
                             savingText: t('app.saving', 'Saving...'),
                             creatingText: t('app.creating', 'Creating...'),
                             cancelText: t('app.cancel', 'Cancel'),
-                            noFieldsText: t('app.noFields', 'No fields configured for this catalog.'),
+                            noFieldsText: t('app.noFields', 'No fields configured for this object.'),
                             deleteTitle: t('app.deleteConfirmTitle', 'Delete element?'),
                             deleteDescription: t(
                                 'app.deleteConfirmDescription',

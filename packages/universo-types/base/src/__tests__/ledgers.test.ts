@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
     DEFAULT_LEDGER_CONFIG,
-    FieldDefinitionDataType,
+    ComponentDefinitionDataType,
     ledgerConfigSchema,
     normalizeLedgerConfig,
     normalizeLedgerConfigFromConfig,
@@ -20,7 +20,7 @@ describe('ledger contracts', () => {
             mode: 'balance',
             mutationPolicy: 'appendOnly',
             sourcePolicy: 'registrar',
-            registrarKinds: [' catalog ', 'document'],
+            registrarKinds: [' object ', 'document'],
             fieldRoles: [
                 { fieldCodename: ' Learner ', role: 'dimension', required: true },
                 { fieldCodename: ' ProgressDelta ', role: 'resource', aggregate: 'sum' }
@@ -44,7 +44,7 @@ describe('ledger contracts', () => {
             mode: 'balance',
             mutationPolicy: 'appendOnly',
             sourcePolicy: 'registrar',
-            registrarKinds: ['catalog', 'document'],
+            registrarKinds: ['object', 'document'],
             fieldRoles: [
                 { fieldCodename: 'Learner', role: 'dimension', required: true },
                 { fieldCodename: 'ProgressDelta', role: 'resource', aggregate: 'sum' }
@@ -75,7 +75,7 @@ describe('ledger contracts', () => {
             effectiveDateField: 'EffectiveAt',
             fieldRoles: [
                 { fieldCodename: 'Learner', role: 'dimension' },
-                { fieldCodename: 'Learner', role: 'attribute' },
+                { fieldCodename: 'Learner', role: 'component' },
                 { fieldCodename: 'Status', role: 'resource', aggregate: 'sum' },
                 { fieldCodename: 'Missing', role: 'resource' }
             ],
@@ -91,9 +91,9 @@ describe('ledger contracts', () => {
         const errors = validateLedgerConfigReferences({
             config,
             fields: [
-                { codename: 'Learner', dataType: FieldDefinitionDataType.REF },
-                { codename: 'Status', dataType: FieldDefinitionDataType.STRING },
-                { codename: 'SourceRowId', dataType: FieldDefinitionDataType.STRING }
+                { codename: 'Learner', dataType: ComponentDefinitionDataType.REF },
+                { codename: 'Status', dataType: ComponentDefinitionDataType.STRING },
+                { codename: 'SourceRowId', dataType: ComponentDefinitionDataType.STRING }
             ]
         })
 
@@ -122,9 +122,9 @@ describe('ledger contracts', () => {
         const errors = validateLedgerConfigReferences({
             config,
             fields: [
-                { codename: 'SourceObjectId', dataType: FieldDefinitionDataType.STRING },
-                { codename: 'SourceRowId', dataType: FieldDefinitionDataType.STRING },
-                { codename: 'SourceLineId', dataType: FieldDefinitionDataType.STRING }
+                { codename: 'SourceObjectId', dataType: ComponentDefinitionDataType.STRING },
+                { codename: 'SourceRowId', dataType: ComponentDefinitionDataType.STRING },
+                { codename: 'SourceLineId', dataType: ComponentDefinitionDataType.STRING }
             ]
         })
 

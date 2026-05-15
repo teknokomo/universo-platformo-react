@@ -13,7 +13,7 @@ import {
     getApplicationLayoutDetail,
     getApplicationRuntimeSchemaName,
     listApplicationLayoutScopes,
-    listApplicationLayoutWidgetCatalog,
+    listApplicationLayoutWidgetObject,
     listApplicationLayoutWidgets,
     listApplicationLayouts,
     moveApplicationLayoutWidget,
@@ -83,7 +83,7 @@ export function createApplicationLayoutsController(getDbExecutor: () => DbExecut
         const rows = await executor.query<{ settings: unknown }>(
             `
             SELECT settings
-            FROM applications.cat_applications
+            FROM applications.obj_applications
             WHERE id = $1
               AND _upl_deleted = false
               AND _app_deleted = false
@@ -213,11 +213,11 @@ export function createApplicationLayoutsController(getDbExecutor: () => DbExecut
             res.json({ items: await listApplicationLayoutWidgets(ctx.executor, ctx.schemaName, req.params.layoutId) })
         },
 
-        async listWidgetCatalog(_req: Request, res: Response) {
+        async listWidgetObject(_req: Request, res: Response) {
             const executor = getRequestDbExecutor(_req, getDbExecutor())
             const ctx = await ensureSchema(_req, res, await resolveReadRoles(executor, _req.params.applicationId))
             if (!ctx) return
-            res.json({ items: listApplicationLayoutWidgetCatalog() })
+            res.json({ items: listApplicationLayoutWidgetObject() })
         },
 
         async upsertWidget(req: Request, res: Response) {

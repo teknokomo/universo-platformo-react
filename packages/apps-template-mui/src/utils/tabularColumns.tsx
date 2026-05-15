@@ -350,7 +350,7 @@ function resolveEnumValue(rawValue: unknown, field: FieldConfig, refOptions: Ref
 }
 
 export interface BuildTabularColumnsOptions {
-    /** Child field definitions. */
+    /** Child components. */
     childFields: FieldConfig[]
     /** Map from row id → 1-based row number (for # column). */
     rowNumberById: Map<string, number>

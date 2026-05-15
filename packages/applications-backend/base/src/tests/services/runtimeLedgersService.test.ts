@@ -11,7 +11,7 @@ const ledgerObject = {
     presentation: { name: { _primary: 'en', locales: { en: { content: 'Progress Ledger' } } } },
     table_name: 'led_progress',
     config: {
-        components: {
+        capabilities: {
             dataSchema: { enabled: true },
             physicalTable: { enabled: true },
             ledgerSchema: { enabled: true }
@@ -21,7 +21,7 @@ const ledgerObject = {
             mutationPolicy: 'appendOnly',
             periodicity: 'instant',
             sourcePolicy: 'registrar',
-            registrarKinds: ['catalog'],
+            registrarKinds: ['object'],
             fieldRoles: [
                 { fieldCodename: 'Learner', role: 'dimension', required: true },
                 { fieldCodename: 'ProgressDelta', role: 'resource', aggregate: 'sum', required: true }
@@ -108,7 +108,7 @@ describe('RuntimeLedgersService', () => {
         expect(ledgers).toHaveLength(1)
         expect(String(executor.query.mock.calls[0]?.[0])).not.toContain("kind = 'ledger'")
         expect(String(executor.query.mock.calls[0]?.[0])).not.toContain("config ? 'ledger'")
-        expect(String(executor.query.mock.calls[0]?.[0])).toContain("config->'components'->'ledgerSchema'")
+        expect(String(executor.query.mock.calls[0]?.[0])).toContain("config->'capabilities'->'ledgerSchema'")
         expect(String(executor.query.mock.calls[0]?.[0])).toContain("jsonb_typeof(config->'ledger') = 'object'")
         expect(ledgers[0]).toEqual(
             expect.objectContaining({
@@ -201,7 +201,7 @@ describe('RuntimeLedgersService', () => {
                 currentUserId: '019e0000-0000-7000-8000-000000000999',
                 facts: [{ data: { Learner: 'student-1', ProgressDelta: 10, Unexpected: true } }],
                 writeOrigin: 'registrar',
-                registrarKind: 'catalog'
+                registrarKind: 'object'
             })
         ).rejects.toMatchObject({
             statusCode: 400,
@@ -231,7 +231,7 @@ describe('RuntimeLedgersService', () => {
                 currentUserId: '019e0000-0000-7000-8000-000000000999',
                 facts: [{ data: { Learner: 'student-1', ProgressDelta: 'not-a-number' } }],
                 writeOrigin: 'registrar',
-                registrarKind: 'catalog'
+                registrarKind: 'object'
             })
         ).rejects.toMatchObject({
             statusCode: 400,
@@ -313,7 +313,7 @@ describe('RuntimeLedgersService', () => {
             currentUserId: '019e0000-0000-7000-8000-000000000999',
             facts: [{ data: { Learner: 'student-1', ProgressDelta: 10 } }],
             writeOrigin: 'registrar',
-            registrarKind: 'catalog'
+            registrarKind: 'object'
         })
 
         expect(result).toEqual([{ id: '019e0000-0000-7000-8000-000000000777' }])
@@ -351,7 +351,7 @@ describe('RuntimeLedgersService', () => {
             currentUserId: '019e0000-0000-7000-8000-000000000999',
             facts: [{ data: { Learner: 'student-1', ProgressDelta: 10 } }],
             writeOrigin: 'registrar',
-            registrarKind: 'catalog'
+            registrarKind: 'object'
         })
 
         expect(result).toEqual([{ id: existingFactId, idempotent: true }])
@@ -400,7 +400,7 @@ describe('RuntimeLedgersService', () => {
                 }
             ],
             writeOrigin: 'registrar',
-            registrarKind: 'catalog'
+            registrarKind: 'object'
         })
 
         expect(result).toEqual([{ id: existingFactId, idempotent: true }])
@@ -445,7 +445,7 @@ describe('RuntimeLedgersService', () => {
             currentUserId: '019e0000-0000-7000-8000-000000000999',
             facts: [{ data: { Learner: 'student-1', ProgressDelta: 10 } }],
             writeOrigin: 'registrar',
-            registrarKind: 'catalog'
+            registrarKind: 'object'
         })
 
         expect(result).toEqual([{ id: existingFactId, idempotent: true }])
@@ -712,7 +712,7 @@ describe('RuntimeLedgersService', () => {
             currentUserId: '019e0000-0000-7000-8000-000000000999',
             factIds: [sourceFactId],
             writeOrigin: 'registrar',
-            registrarKind: 'catalog'
+            registrarKind: 'object'
         })
 
         expect(result).toEqual([{ id: reversedFactId }])
@@ -777,7 +777,7 @@ describe('RuntimeLedgersService', () => {
             currentUserId: '019e0000-0000-7000-8000-000000000999',
             factIds: [sourceFactId],
             writeOrigin: 'registrar',
-            registrarKind: 'catalog'
+            registrarKind: 'object'
         })
 
         expect(result).toEqual([{ id: reversedFactId }])
@@ -845,7 +845,7 @@ describe('RuntimeLedgersService', () => {
                 currentUserId: '019e0000-0000-7000-8000-000000000999',
                 factIds: [sourceFactId],
                 writeOrigin: 'registrar',
-                registrarKind: 'catalog'
+                registrarKind: 'object'
             })
         ).rejects.toMatchObject({
             statusCode: 404,

@@ -48,7 +48,7 @@ describe('start system app migration integration', () => {
             }
         })
 
-        it('includes unique indexes for catalog codenames and user selections', () => {
+        it('includes unique indexes for object codenames and user selections', () => {
             const { up } = finalizeStartSchemaSupportMigrationDefinition
             const indexSql = up.map((s) => normalizeSql(s.sql))
 
@@ -62,14 +62,14 @@ describe('start system app migration integration', () => {
             )
         })
 
-        it('reapplies the catalog_kind CHECK constraint after table generation', () => {
+        it('reapplies the object_kind CHECK constraint after table generation', () => {
             const { up } = finalizeStartSchemaSupportMigrationDefinition
             const constraintSql = up.map((s) => normalizeSql(s.sql))
 
             expect(constraintSql).toEqual(
                 expect.arrayContaining([
-                    'ALTER TABLE IF EXISTS start.rel_user_selections DROP CONSTRAINT IF EXISTS user_selections_catalog_kind_check',
-                    "ALTER TABLE IF EXISTS start.rel_user_selections ADD CONSTRAINT user_selections_catalog_kind_check CHECK (catalog_kind IN ('goals', 'topics', 'features'))"
+                    'ALTER TABLE IF EXISTS start.rel_user_selections DROP CONSTRAINT IF EXISTS user_selections_object_kind_check',
+                    "ALTER TABLE IF EXISTS start.rel_user_selections ADD CONSTRAINT user_selections_object_kind_check CHECK (object_kind IN ('goals', 'topics', 'features'))"
                 ])
             )
         })
@@ -83,9 +83,9 @@ describe('start system app migration integration', () => {
             const tables = rlsSql.map((s) => normalizeSql(s.sql))
             expect(tables).toEqual(
                 expect.arrayContaining([
-                    expect.stringContaining('start.cat_goals'),
-                    expect.stringContaining('start.cat_topics'),
-                    expect.stringContaining('start.cat_features'),
+                    expect.stringContaining('start.obj_goals'),
+                    expect.stringContaining('start.obj_topics'),
+                    expect.stringContaining('start.obj_features'),
                     expect.stringContaining('start.rel_user_selections')
                 ])
             )
@@ -147,9 +147,9 @@ describe('start system app migration integration', () => {
             const { up } = finalizeStartSchemaSupportMigrationDefinition
             const insertStatements = up.filter((s) => normalizeSql(s.sql).startsWith('INSERT INTO start.'))
 
-            const goalInserts = insertStatements.filter((s) => s.sql.includes('start.cat_goals'))
-            const topicInserts = insertStatements.filter((s) => s.sql.includes('start.cat_topics'))
-            const featureInserts = insertStatements.filter((s) => s.sql.includes('start.cat_features'))
+            const goalInserts = insertStatements.filter((s) => s.sql.includes('start.obj_goals'))
+            const topicInserts = insertStatements.filter((s) => s.sql.includes('start.obj_topics'))
+            const featureInserts = insertStatements.filter((s) => s.sql.includes('start.obj_features'))
 
             expect(goalInserts).toHaveLength(10)
             expect(topicInserts).toHaveLength(10)

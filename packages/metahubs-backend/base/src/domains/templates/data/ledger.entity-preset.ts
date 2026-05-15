@@ -1,7 +1,7 @@
 import type { EntityTypePresetManifest } from '@universo/types'
 import {
     LEDGER_DEFAULT_INSTANCES,
-    LEDGER_TYPE_COMPONENTS,
+    LEDGER_TYPE_CAPABILITIES,
     LEDGER_TYPE_CONFIG,
     LEDGER_TYPE_UI,
     STANDARD_LEDGER_DESCRIPTION,
@@ -24,7 +24,7 @@ export const ledgerEntityPreset: EntityTypePresetManifest = {
     entityType: {
         kindKey: 'ledger',
         codename: vlc('Ledger', 'Ledger'),
-        components: LEDGER_TYPE_COMPONENTS,
+        capabilities: LEDGER_TYPE_CAPABILITIES,
         ui: LEDGER_TYPE_UI,
         presentation: {
             name: STANDARD_LEDGER_NAME,

@@ -93,7 +93,7 @@ const requiredScreenshotPages = [
     'platform/metahubs/script-scopes.md',
     'platform/metahubs/scripts.md',
     'platform/metahubs/shared-behavior-settings.md',
-    'platform/metahubs/shared-field-definitions.md',
+    'platform/metahubs/shared-components.md',
     'platform/metahubs/shared-fixed-values.md',
     'platform/metahubs/shared-option-values.md',
     'platform/metahubs/shared-scripts.md',

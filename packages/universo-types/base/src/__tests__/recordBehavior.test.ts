@@ -1,18 +1,18 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-    DEFAULT_CATALOG_RECORD_BEHAVIOR,
-    catalogRecordBehaviorSchema,
-    isCatalogRecordBehaviorEnabled,
-    normalizeCatalogRecordBehavior,
-    normalizeCatalogRecordBehaviorFromConfig
+    DEFAULT_OBJECT_RECORD_BEHAVIOR,
+    objectRecordBehaviorSchema,
+    isObjectRecordBehaviorEnabled,
+    normalizeObjectRecordBehavior,
+    normalizeObjectRecordBehaviorFromConfig
 } from '../index'
 
 describe('record behavior contracts', () => {
     it('normalizes missing and invalid input to the safe default behavior', () => {
-        expect(normalizeCatalogRecordBehavior(null)).toEqual(DEFAULT_CATALOG_RECORD_BEHAVIOR)
+        expect(normalizeObjectRecordBehavior(null)).toEqual(DEFAULT_OBJECT_RECORD_BEHAVIOR)
         expect(
-            normalizeCatalogRecordBehavior({
+            normalizeObjectRecordBehavior({
                 mode: 'unsafe',
                 numbering: { enabled: 'yes', scope: 'tenant', periodicity: 'century', minLength: 99 },
                 effectiveDate: { enabled: 'yes', defaultToNow: 'no' },
@@ -21,9 +21,9 @@ describe('record behavior contracts', () => {
                 immutability: 'locked'
             })
         ).toEqual({
-            ...DEFAULT_CATALOG_RECORD_BEHAVIOR,
+            ...DEFAULT_OBJECT_RECORD_BEHAVIOR,
             numbering: {
-                ...DEFAULT_CATALOG_RECORD_BEHAVIOR.numbering,
+                ...DEFAULT_OBJECT_RECORD_BEHAVIOR.numbering,
                 minLength: 32
             },
             lifecycle: {
@@ -38,7 +38,7 @@ describe('record behavior contracts', () => {
     })
 
     it('preserves valid transactional behavior and removes duplicate list values', () => {
-        const normalized = normalizeCatalogRecordBehaviorFromConfig({
+        const normalized = normalizeObjectRecordBehaviorFromConfig({
             recordBehavior: {
                 mode: 'transactional',
                 numbering: {
@@ -100,11 +100,11 @@ describe('record behavior contracts', () => {
             },
             immutability: 'posted'
         })
-        expect(catalogRecordBehaviorSchema.parse(normalized)).toEqual(normalized)
-        expect(isCatalogRecordBehaviorEnabled(normalized)).toBe(true)
+        expect(objectRecordBehaviorSchema.parse(normalized)).toEqual(normalized)
+        expect(isObjectRecordBehaviorEnabled(normalized)).toBe(true)
     })
 
     it('reports disabled behavior for the default reference configuration', () => {
-        expect(isCatalogRecordBehaviorEnabled(DEFAULT_CATALOG_RECORD_BEHAVIOR)).toBe(false)
+        expect(isObjectRecordBehaviorEnabled(DEFAULT_OBJECT_RECORD_BEHAVIOR)).toBe(false)
     })
 })

@@ -5,12 +5,12 @@ import { waitForSettledMutationResponse } from '../../support/browser/network'
 import {
     createLoggedInApiContext,
     createMetahub,
-    createFieldDefinition,
+    createComponent,
     disposeApiContext,
-    getFieldDefinition,
+    getComponent,
     getOptionValue,
     getFixedValue,
-    listLinkedCollections,
+    listObjectCollections,
     listOptionLists,
     listValueGroups,
     updateMetahubSettings
@@ -155,7 +155,7 @@ async function expectViewportWithoutHorizontalOverflow(page: Page) {
     expect(metrics.scrollWidth, 'Viewport should not gain horizontal overflow').toBeLessThanOrEqual(metrics.clientWidth + 1)
 }
 
-test('@flow metahub entity dialogs cover constant edit, enumeration value edit-copy fields, and localized attribute copy codename generation', async ({
+test('@flow metahub entity dialogs cover constant edit, enumeration value edit-copy fields, and localized component copy codename generation', async ({
     page,
     runManifest
 }) => {
@@ -200,7 +200,7 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
             () => listOptionLists(api, metahub.id, { limit: 100, offset: 0 }),
             'enumeration'
         )
-        const catalogId = await waitForFirstEntityId(() => listLinkedCollections(api, metahub.id, { limit: 100, offset: 0 }), 'catalog')
+        const objectId = await waitForFirstEntityId(() => listObjectCollections(api, metahub.id, { limit: 100, offset: 0 }), 'object')
 
         await page.goto(`/metahub/${metahub.id}/entities/set/instances`)
         await expect(page.getByRole('heading', { name: 'Sets' })).toBeVisible()
@@ -414,24 +414,24 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
         const persistedCopiedValue = await getOptionValue(api, metahub.id, enumerationId, copiedValue.id)
         expect(readPrimaryText(persistedCopiedValue.description)).toBe(`Copied value description ${runManifest.runId}`)
 
-        const attribute = await createFieldDefinition(api, metahub.id, catalogId, {
-            name: { en: `Attribute ${runManifest.runId}` },
+        const component = await createComponent(api, metahub.id, objectId, {
+            name: { en: `Component ${runManifest.runId}` },
             namePrimaryLocale: 'en',
-            codename: createLocalizedContent('en', `${runManifest.runId}-attribute`),
+            codename: createLocalizedContent('en', `${runManifest.runId}-component`),
             dataType: 'STRING',
             isRequired: false
         })
 
-        if (!attribute?.id) {
-            throw new Error('Attribute creation did not return an id for copy regression coverage')
+        if (!component?.id) {
+            throw new Error('Component creation did not return an id for copy regression coverage')
         }
 
-        await page.goto(`/metahub/${metahub.id}/entities/catalog/instance/${catalogId}/field-definitions`)
-        await expect(page.getByRole('heading', { name: 'Attributes' })).toBeVisible()
-        await page.getByTestId(buildEntityMenuTriggerSelector('attribute', attribute.id)).click()
-        await page.getByTestId(buildEntityMenuItemSelector('attribute', 'copy', attribute.id)).click()
+        await page.goto(`/metahub/${metahub.id}/entities/object/instance/${objectId}/components`)
+        await expect(page.getByRole('heading', { name: 'Components' })).toBeVisible()
+        await page.getByTestId(buildEntityMenuTriggerSelector('component', component.id)).click()
+        await page.getByTestId(buildEntityMenuItemSelector('component', 'copy', component.id)).click()
 
-        const copyAttributeDialog = page.getByRole('dialog', { name: 'Copy Attribute' })
+        const copyAttributeDialog = page.getByRole('dialog', { name: 'Copy Component' })
         await expect(copyAttributeDialog).toBeVisible()
         await expect(copyAttributeDialog.getByLabel('Name').first()).toBeVisible()
         await expect(copyAttributeDialog.getByLabel('Codename').first()).toBeVisible()
@@ -447,20 +447,20 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
             page,
             (response) =>
                 response.request().method() === 'POST' &&
-                responsePathnameEquals(response, `/api/v1/metahub/${metahub.id}/entities/catalog/instance/${catalogId}/field-definition/${attribute.id}/copy`),
-            { label: 'Copying attribute' }
+                responsePathnameEquals(response, `/api/v1/metahub/${metahub.id}/entities/object/instance/${objectId}/component/${component.id}/copy`),
+            { label: 'Copying component' }
         )
         await copyAttributeDialog.getByTestId(entityDialogSelectors.submitButton).click()
-        const copiedAttribute = await parseJsonResponse<EntityRecord>(await copyAttributeRequest, 'Copying attribute')
+        const copiedAttribute = await parseJsonResponse<EntityRecord>(await copyAttributeRequest, 'Copying component')
         if (!copiedAttribute?.id) {
-            throw new Error('Attribute copy did not return an id')
+            throw new Error('Component copy did not return an id')
         }
 
-        const persistedCopiedAttribute = await getFieldDefinition(api, metahub.id, catalogId, copiedAttribute.id)
+        const persistedCopiedAttribute = await getComponent(api, metahub.id, objectId, copiedAttribute.id)
         const copiedAttributeCodename = readPrimaryText(persistedCopiedAttribute.codename) ?? ''
         expect(copiedAttributeCodename.toLowerCase()).toContain('copy')
 
-        await createFieldDefinition(api, metahub.id, catalogId, {
+        await createComponent(api, metahub.id, objectId, {
             name: { en: `Set blocker ${runManifest.runId}` },
             namePrimaryLocale: 'en',
             codename: createLocalizedContent('en', `${runManifest.runId}-set-blocker`),
@@ -470,7 +470,7 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
             targetConstantId: createdConstant.id
         })
 
-        await createFieldDefinition(api, metahub.id, catalogId, {
+        await createComponent(api, metahub.id, objectId, {
             name: { en: `Enumeration blocker ${runManifest.runId}` },
             namePrimaryLocale: 'en',
             codename: createLocalizedContent('en', `${runManifest.runId}-enumeration-blocker`),
@@ -486,11 +486,11 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
 
         const setDeleteDialog = page.getByRole('dialog', { name: 'Delete Set' })
         await expect(setDeleteDialog).toBeVisible()
-        await expect(setDeleteDialog.getByText('Cannot delete set. Remove these references from catalog attributes first:')).toBeVisible()
-        await expect(setDeleteDialog.locator(`a[href*="/entities/catalog/instance/${catalogId}/field-definitions"]`).first()).toBeVisible()
-        await setDeleteDialog.locator(`a[href*="/entities/catalog/instance/${catalogId}/field-definitions"]`).first().click()
-        await expect(page).toHaveURL(new RegExp(`/metahub/${metahub.id}/entities/catalog/instance/${catalogId}/field-definitions$`))
-        await expect(page.getByRole('heading', { name: 'Attributes' })).toBeVisible()
+        await expect(setDeleteDialog.getByText('Cannot delete set. Remove these references from object components first:')).toBeVisible()
+        await expect(setDeleteDialog.locator(`a[href*="/entities/object/instance/${objectId}/components"]`).first()).toBeVisible()
+        await setDeleteDialog.locator(`a[href*="/entities/object/instance/${objectId}/components"]`).first().click()
+        await expect(page).toHaveURL(new RegExp(`/metahub/${metahub.id}/entities/object/instance/${objectId}/components$`))
+        await expect(page.getByRole('heading', { name: 'Components' })).toBeVisible()
 
         await page.goto(`/metahub/${metahub.id}/entities/enumeration/instances`)
         await expect(page.getByRole('heading', { name: 'Enumerations' })).toBeVisible()
@@ -499,11 +499,11 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
 
         const enumerationDeleteDialog = page.getByRole('dialog', { name: 'Delete Enumeration' })
         await expect(enumerationDeleteDialog).toBeVisible()
-        await expect(enumerationDeleteDialog.getByText('Cannot delete enumeration. Remove these references from attributes first:')).toBeVisible()
-        await expect(enumerationDeleteDialog.locator(`a[href*="/entities/catalog/instance/${catalogId}/field-definitions"]`).first()).toBeVisible()
-        await enumerationDeleteDialog.locator(`a[href*="/entities/catalog/instance/${catalogId}/field-definitions"]`).first().click()
-        await expect(page).toHaveURL(new RegExp(`/metahub/${metahub.id}/entities/catalog/instance/${catalogId}/field-definitions$`))
-        await expect(page.getByRole('heading', { name: 'Attributes' })).toBeVisible()
+        await expect(enumerationDeleteDialog.getByText('Cannot delete enumeration. Remove these references from components first:')).toBeVisible()
+        await expect(enumerationDeleteDialog.locator(`a[href*="/entities/object/instance/${objectId}/components"]`).first()).toBeVisible()
+        await enumerationDeleteDialog.locator(`a[href*="/entities/object/instance/${objectId}/components"]`).first().click()
+        await expect(page).toHaveURL(new RegExp(`/metahub/${metahub.id}/entities/object/instance/${objectId}/components$`))
+        await expect(page.getByRole('heading', { name: 'Components' })).toBeVisible()
     } finally {
         await disposeApiContext(api)
     }

@@ -4,14 +4,14 @@ import { MetahubSchemaService } from './MetahubSchemaService'
 /**
  * Ensures the Design-Time schema (mhb_<uuid>) exists with system tables.
  *
- * IMPORTANT: This function does NOT create physical data tables (cat_*, doc_*, etc.)
+ * IMPORTANT: This function does NOT create physical data tables (obj_*, doc_*, etc.)
  * in Design-Time schemas. Physical tables are only created during Publication sync
  * to Application schemas (app_<uuid>).
  *
  * Design-Time schemas contain only metadata tables:
  * - _mhb_objects: Registry of metahub entity instances and metadata-owned objects
- * - _mhb_attributes: Attribute definitions for objects
- * - _mhb_elements: Predefined data for catalogs
+ * - _mhb_components: Component definitions for objects
+ * - _mhb_elements: Predefined data for objects
  *
  * @param metahubId - The Metahub UUID
  * @param exec - SQL executor (RLS-scoped or admin)

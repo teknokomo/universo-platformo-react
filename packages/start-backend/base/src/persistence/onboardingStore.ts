@@ -1,9 +1,9 @@
 import { softDeleteSetClause } from '@universo/utils'
 import type { DbExecutor } from '@universo/utils/database'
 
-export type CatalogKind = 'goals' | 'topics' | 'features'
+export type ObjectKind = 'goals' | 'topics' | 'features'
 
-export interface OnboardingCatalogRow {
+export interface OnboardingObjectRow {
     id: string
     codename: string
     name: Record<string, unknown>
@@ -15,25 +15,25 @@ export interface OnboardingCatalogRow {
 export interface UserSelectionRow {
     id: string
     user_id: string
-    catalog_kind: CatalogKind
+    object_kind: ObjectKind
     item_id: string
 }
 
-const CATALOG_TABLE_MAP: Record<CatalogKind, string> = {
-    goals: 'start.cat_goals',
-    topics: 'start.cat_topics',
-    features: 'start.cat_features'
+const OBJECT_TABLE_MAP: Record<ObjectKind, string> = {
+    goals: 'start.obj_goals',
+    topics: 'start.obj_topics',
+    features: 'start.obj_features'
 }
 
 const ACTIVE_PREDICATE = '_upl_deleted = false AND _app_deleted = false'
 
-const CATALOG_COLUMNS = 'id, codename, name, description, sort_order, is_active'
-const SELECTION_COLUMNS = 'id, user_id, catalog_kind, item_id'
+const OBJECT_COLUMNS = 'id, codename, name, description, sort_order, is_active'
+const SELECTION_COLUMNS = 'id, user_id, object_kind, item_id'
 
-export async function fetchCatalogItems(exec: DbExecutor, kind: CatalogKind): Promise<OnboardingCatalogRow[]> {
-    const table = CATALOG_TABLE_MAP[kind]
-    return exec.query<OnboardingCatalogRow>(
-        `SELECT ${CATALOG_COLUMNS}
+export async function fetchObjectItems(exec: DbExecutor, kind: ObjectKind): Promise<OnboardingObjectRow[]> {
+    const table = OBJECT_TABLE_MAP[kind]
+    return exec.query<OnboardingObjectRow>(
+        `SELECT ${OBJECT_COLUMNS}
          FROM ${table}
          WHERE ${ACTIVE_PREDICATE} AND is_active = true
          ORDER BY sort_order ASC, _upl_created_at ASC`,
@@ -41,11 +41,11 @@ export async function fetchCatalogItems(exec: DbExecutor, kind: CatalogKind): Pr
     )
 }
 
-export async function fetchUserSelections(exec: DbExecutor, userId: string, kind: CatalogKind): Promise<UserSelectionRow[]> {
+export async function fetchUserSelections(exec: DbExecutor, userId: string, kind: ObjectKind): Promise<UserSelectionRow[]> {
     return exec.query<UserSelectionRow>(
         `SELECT ${SELECTION_COLUMNS}
          FROM start.rel_user_selections
-         WHERE user_id = $1 AND catalog_kind = $2 AND ${ACTIVE_PREDICATE}`,
+         WHERE user_id = $1 AND object_kind = $2 AND ${ACTIVE_PREDICATE}`,
         [userId, kind]
     )
 }
@@ -59,8 +59,8 @@ export async function fetchAllUserSelections(exec: DbExecutor, userId: string): 
     )
 }
 
-export async function validateItemExists(exec: DbExecutor, kind: CatalogKind, itemId: string): Promise<boolean> {
-    const table = CATALOG_TABLE_MAP[kind]
+export async function validateItemExists(exec: DbExecutor, kind: ObjectKind, itemId: string): Promise<boolean> {
+    const table = OBJECT_TABLE_MAP[kind]
     const rows = await exec.query<{ id: string }>(
         `SELECT id FROM ${table} WHERE id = $1 AND ${ACTIVE_PREDICATE} AND is_active = true LIMIT 1`,
         [itemId]
@@ -71,7 +71,7 @@ export async function validateItemExists(exec: DbExecutor, kind: CatalogKind, it
 export async function syncUserSelections(
     exec: DbExecutor,
     userId: string,
-    kind: CatalogKind,
+    kind: ObjectKind,
     itemIds: string[]
 ): Promise<{ added: number; removed: number }> {
     const uniqueItemIds = [...new Set(itemIds)]
@@ -96,9 +96,9 @@ export async function syncUserSelections(
 
     for (const itemId of toAdd) {
         await exec.query<UserSelectionRow>(
-            `INSERT INTO start.rel_user_selections (user_id, catalog_kind, item_id, _upl_created_by, _upl_updated_by)
+            `INSERT INTO start.rel_user_selections (user_id, object_kind, item_id, _upl_created_by, _upl_updated_by)
              VALUES ($1, $2, $3, $1, $1)
-             ON CONFLICT (user_id, catalog_kind, item_id) WHERE _upl_deleted = false AND _app_deleted = false
+             ON CONFLICT (user_id, object_kind, item_id) WHERE _upl_deleted = false AND _app_deleted = false
              DO NOTHING
              RETURNING ${SELECTION_COLUMNS}`,
             [userId, kind, itemId]

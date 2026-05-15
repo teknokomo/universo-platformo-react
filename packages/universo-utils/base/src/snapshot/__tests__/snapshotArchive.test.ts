@@ -19,8 +19,8 @@ function makeMinimalSnapshot(): MetahubSnapshotTransportEnvelope['snapshot'] {
         entities: {
             'ent-1': {
                 id: 'ent-1',
-                kind: 'catalog',
-                codename: createCodenameVlc('test_catalog', 'тестовый_каталог'),
+                kind: 'object',
+                codename: createCodenameVlc('test_object', 'тестовый_каталог'),
                 fields: []
             }
         },
@@ -94,7 +94,7 @@ function makeSnapshotWithExtendedSections(): Record<string, unknown> {
                 scopeEntityId: 'ent-1',
                 baseLayoutId: 'layout-1',
                 templateKey: 'dashboard',
-                name: { en: 'Catalog Layout' },
+                name: { en: 'Object Layout' },
                 description: null,
                 config: { searchMode: 'advanced' },
                 isDefault: true,
@@ -172,7 +172,7 @@ describe('computeSnapshotHash', () => {
         expect(computeSnapshotHash(snap1)).not.toBe(computeSnapshotHash(snap2))
     })
 
-    it('produces different hashes when catalog widget overrides change', () => {
+    it('produces different hashes when object widget overrides change', () => {
         const snap1 = makeSnapshotWithExtendedSections()
         const snap2 = makeSnapshotWithExtendedSections()
 
@@ -238,7 +238,7 @@ describe('validateSnapshotEnvelope', () => {
         expect(() => validateSnapshotEnvelope(envelope)).toThrow('hash mismatch')
     })
 
-    it('rejects tampered catalog overlay sections', () => {
+    it('rejects tampered object overlay sections', () => {
         const snapshot = makeSnapshotWithExtendedSections()
         const envelope = buildSnapshotEnvelope({
             snapshot: snapshot as MetahubSnapshotTransportEnvelope['snapshot'],
@@ -269,7 +269,7 @@ describe('validateSnapshotEnvelope', () => {
         const snapshot = makeMinimalSnapshot()
         const entities: Record<string, unknown> = {}
         for (let i = 0; i < SNAPSHOT_BUNDLE_CONSTRAINTS.MAX_ENTITIES + 1; i++) {
-            entities[`ent-${i}`] = { id: `ent-${i}`, kind: 'catalog', codename: `c${i}`, fields: [] }
+            entities[`ent-${i}`] = { id: `ent-${i}`, kind: 'object', codename: `c${i}`, fields: [] }
         }
         snapshot.entities = entities
 
@@ -293,8 +293,8 @@ describe('validateSnapshotEnvelope', () => {
         }))
         ;(snapshot.entities as Record<string, unknown>)['ent-1'] = {
             id: 'ent-1',
-            kind: 'catalog',
-            codename: 'test_catalog',
+            kind: 'object',
+            codename: 'test_object',
             fields
         }
 

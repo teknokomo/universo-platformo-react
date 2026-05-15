@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { toFieldDefinitionDisplay, type FieldDefinition } from '../types'
+import { toComponentDisplay, type Component } from '../types'
 
-describe('metahubs frontend attribute types', () => {
+describe('metahubs frontend component types', () => {
     it('preserves system metadata when converting to display form', () => {
-        const attribute: FieldDefinition = {
-            id: 'attribute-1',
-            scopeEntityId: 'catalog-1',
+        const component: Component = {
+            id: 'component-1',
+            scopeEntityId: 'object-1',
             codename: {
                 _primary: 'en',
                 locales: {
@@ -24,7 +24,7 @@ describe('metahubs frontend attribute types', () => {
             validationRules: {},
             uiConfig: {},
             isRequired: false,
-            isDisplayAttribute: false,
+            isDisplayComponent: false,
             sortOrder: 1,
             createdAt: '2026-03-16T00:00:00.000Z',
             updatedAt: '2026-03-16T00:00:00.000Z',
@@ -36,10 +36,10 @@ describe('metahubs frontend attribute types', () => {
             }
         }
 
-        const display = toFieldDefinitionDisplay(attribute, 'ru')
+        const display = toComponentDisplay(component, 'ru')
 
         expect(display.name).toBe('Удалён')
         expect(display.codename).toBe('_app_deleted')
-        expect(display.system).toEqual(attribute.system)
+        expect(display.system).toEqual(component.system)
     })
 })

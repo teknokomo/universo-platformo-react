@@ -31,7 +31,7 @@ describe('migration cli helpers', () => {
             options: {
                 outFile: null,
                 inFile: null,
-                source: 'catalog-platform',
+                source: 'object-platform',
                 stage: 'current',
                 keys: ['profiles', 'metahubs']
             }
@@ -46,7 +46,7 @@ describe('migration cli helpers', () => {
             options: {
                 outFile: null,
                 inFile: null,
-                source: 'catalog-platform',
+                source: 'object-platform',
                 stage: 'target',
                 keys: ['profiles', 'applications']
             }
@@ -61,7 +61,7 @@ describe('migration cli helpers', () => {
             options: {
                 outFile: null,
                 inFile: null,
-                source: 'catalog-platform',
+                source: 'object-platform',
                 stage: 'target',
                 keys: ['profiles', 'admin']
             }
@@ -69,40 +69,40 @@ describe('migration cli helpers', () => {
     })
 
     it('detects manifest-oriented sources', () => {
-        expect(isSystemAppManifestSource('catalog-system-app-manifests')).toBe(true)
+        expect(isSystemAppManifestSource('object-system-app-manifests')).toBe(true)
         expect(isSystemAppManifestSource('registered-system-app-manifests')).toBe(true)
-        expect(isSystemAppManifestSource('catalog-platform')).toBe(false)
+        expect(isSystemAppManifestSource('object-platform')).toBe(false)
         expect(isSystemAppManifestSource('registered-platform')).toBe(false)
     })
 
     it('detects schema-plan-oriented sources', () => {
-        expect(isSystemAppSchemaPlanSource('catalog-system-app-schema-plans')).toBe(true)
+        expect(isSystemAppSchemaPlanSource('object-system-app-schema-plans')).toBe(true)
         expect(isSystemAppSchemaPlanSource('registered-system-app-schema-plans')).toBe(true)
-        expect(isSystemAppSchemaPlanSource('catalog-system-app-manifests')).toBe(false)
-        expect(isSystemAppSchemaPlanSource('catalog-platform')).toBe(false)
+        expect(isSystemAppSchemaPlanSource('object-system-app-manifests')).toBe(false)
+        expect(isSystemAppSchemaPlanSource('object-platform')).toBe(false)
     })
 
     it('detects compiled-artifact-oriented sources', () => {
-        expect(isSystemAppCompiledSource('catalog-system-app-compiled')).toBe(true)
+        expect(isSystemAppCompiledSource('object-system-app-compiled')).toBe(true)
         expect(isSystemAppCompiledSource('registered-system-app-compiled')).toBe(true)
-        expect(isSystemAppCompiledSource('catalog-system-app-schema-plans')).toBe(false)
-        expect(isSystemAppCompiledSource('catalog-platform')).toBe(false)
+        expect(isSystemAppCompiledSource('object-system-app-schema-plans')).toBe(false)
+        expect(isSystemAppCompiledSource('object-platform')).toBe(false)
     })
 
     it('builds deterministic diff summaries', () => {
         const summary = definitionDiffSummary([
             { status: 'match' },
-            { status: 'missing_in_catalog' },
+            { status: 'missing_in_object' },
             { status: 'checksum_mismatch' },
-            { status: 'catalog_only' },
+            { status: 'object_only' },
             { status: 'match' }
         ])
 
         expect(summary).toEqual({
             match: 2,
-            missingInCatalog: 1,
+            missingInObject: 1,
             checksumMismatch: 1,
-            catalogOnly: 1
+            objectOnly: 1
         })
     })
 
@@ -120,7 +120,7 @@ describe('migration cli helpers', () => {
                 systemAppManifestDiff: [
                     {
                         logicalKey: 'system_app_manifest.metahubs::custom',
-                        status: 'missing_in_catalog',
+                        status: 'missing_in_object',
                         desiredChecksum: 'a',
                         actualChecksum: null
                     }
@@ -130,7 +130,7 @@ describe('migration cli helpers', () => {
                 systemAppCompiledLint: { ok: true, issues: [], orderedKeys: [] },
                 systemAppCompiledDiff: [],
                 migrationPlan: { dryRun: true, planned: [] },
-                catalogLifecycle: {
+                objectLifecycle: {
                     ok: true,
                     storageReady: true,
                     exportTarget: 'stdout',
@@ -140,7 +140,7 @@ describe('migration cli helpers', () => {
                     missingRegistryKeys: [],
                     missingExportKeys: []
                 },
-                systemAppManifestCatalogLifecycle: {
+                systemAppManifestObjectLifecycle: {
                     ok: true,
                     storageReady: true,
                     exportTarget: 'stdout',
@@ -150,7 +150,7 @@ describe('migration cli helpers', () => {
                     missingRegistryKeys: [],
                     missingExportKeys: []
                 },
-                systemAppSchemaPlanCatalogLifecycle: {
+                systemAppSchemaPlanObjectLifecycle: {
                     ok: true,
                     storageReady: true,
                     exportTarget: 'stdout',
@@ -160,7 +160,7 @@ describe('migration cli helpers', () => {
                     missingRegistryKeys: [],
                     missingExportKeys: []
                 },
-                systemAppCompiledCatalogLifecycle: {
+                systemAppCompiledObjectLifecycle: {
                     ok: true,
                     storageReady: true,
                     exportTarget: 'stdout',
@@ -194,7 +194,7 @@ describe('migration cli helpers', () => {
                 systemAppCompiledLint: { ok: true, issues: [], orderedKeys: [] },
                 systemAppCompiledDiff: [],
                 migrationPlan: { dryRun: true, planned: [] },
-                catalogLifecycle: {
+                objectLifecycle: {
                     ok: true,
                     storageReady: true,
                     exportTarget: 'stdout',
@@ -204,7 +204,7 @@ describe('migration cli helpers', () => {
                     missingRegistryKeys: [],
                     missingExportKeys: []
                 },
-                systemAppManifestCatalogLifecycle: {
+                systemAppManifestObjectLifecycle: {
                     ok: true,
                     storageReady: true,
                     exportTarget: 'stdout',
@@ -214,7 +214,7 @@ describe('migration cli helpers', () => {
                     missingRegistryKeys: [],
                     missingExportKeys: []
                 },
-                systemAppSchemaPlanCatalogLifecycle: {
+                systemAppSchemaPlanObjectLifecycle: {
                     ok: true,
                     storageReady: true,
                     exportTarget: 'stdout',
@@ -224,7 +224,7 @@ describe('migration cli helpers', () => {
                     missingRegistryKeys: [],
                     missingExportKeys: []
                 },
-                systemAppCompiledCatalogLifecycle: {
+                systemAppCompiledObjectLifecycle: {
                     ok: true,
                     storageReady: true,
                     exportTarget: 'stdout',
@@ -255,7 +255,7 @@ describe('migration cli helpers', () => {
                 systemAppCompiledLint: { ok: true, issues: [], orderedKeys: [] },
                 systemAppCompiledDiff: [],
                 migrationPlan: { dryRun: true, planned: [] },
-                catalogLifecycle: {
+                objectLifecycle: {
                     ok: true,
                     storageReady: true,
                     exportTarget: 'stdout',
@@ -265,7 +265,7 @@ describe('migration cli helpers', () => {
                     missingRegistryKeys: [],
                     missingExportKeys: []
                 },
-                systemAppManifestCatalogLifecycle: {
+                systemAppManifestObjectLifecycle: {
                     ok: true,
                     storageReady: true,
                     exportTarget: 'stdout',
@@ -275,7 +275,7 @@ describe('migration cli helpers', () => {
                     missingRegistryKeys: [],
                     missingExportKeys: []
                 },
-                systemAppSchemaPlanCatalogLifecycle: {
+                systemAppSchemaPlanObjectLifecycle: {
                     ok: true,
                     storageReady: true,
                     exportTarget: 'stdout',
@@ -285,7 +285,7 @@ describe('migration cli helpers', () => {
                     missingRegistryKeys: [],
                     missingExportKeys: []
                 },
-                systemAppCompiledCatalogLifecycle: {
+                systemAppCompiledObjectLifecycle: {
                     ok: true,
                     storageReady: true,
                     exportTarget: 'stdout',
@@ -312,12 +312,12 @@ describe('migration cli helpers', () => {
                             schemaName: 'admin',
                             legacyTableName: 'roles',
                             targetSchemaName: 'admin',
-                            targetTableName: 'cat_roles',
+                            targetTableName: 'obj_roles',
                             legacyQualifiedName: 'admin.roles',
-                            targetQualifiedName: 'admin.cat_roles'
+                            targetQualifiedName: 'admin.obj_roles'
                         }
                     ],
-                    issues: ['admin.roles must be reconciled to admin.cat_roles']
+                    issues: ['admin.roles must be reconciled to admin.obj_roles']
                 },
                 migrationsValidation: { ok: true, issues: [], orderedIds: [] },
                 definitionsLint: { ok: true, issues: [], orderedKeys: [] },
@@ -330,7 +330,7 @@ describe('migration cli helpers', () => {
                 systemAppCompiledLint: { ok: true, issues: [], orderedKeys: [] },
                 systemAppCompiledDiff: [],
                 migrationPlan: { dryRun: true, planned: [] },
-                catalogLifecycle: {
+                objectLifecycle: {
                     ok: true,
                     storageReady: true,
                     exportTarget: 'stdout',
@@ -340,7 +340,7 @@ describe('migration cli helpers', () => {
                     missingRegistryKeys: [],
                     missingExportKeys: []
                 },
-                systemAppManifestCatalogLifecycle: {
+                systemAppManifestObjectLifecycle: {
                     ok: true,
                     storageReady: true,
                     exportTarget: 'stdout',
@@ -350,7 +350,7 @@ describe('migration cli helpers', () => {
                     missingRegistryKeys: [],
                     missingExportKeys: []
                 },
-                systemAppSchemaPlanCatalogLifecycle: {
+                systemAppSchemaPlanObjectLifecycle: {
                     ok: true,
                     storageReady: true,
                     exportTarget: 'stdout',
@@ -360,7 +360,7 @@ describe('migration cli helpers', () => {
                     missingRegistryKeys: [],
                     missingExportKeys: []
                 },
-                systemAppCompiledCatalogLifecycle: {
+                systemAppCompiledObjectLifecycle: {
                     ok: true,
                     storageReady: true,
                     exportTarget: 'stdout',
@@ -382,7 +382,7 @@ describe('migration cli helpers', () => {
                 legacyFixedSchemaTables: { ok: true, leftovers: [], issues: [] },
                 systemAppStructureMetadataInspection: {
                     ok: false,
-                    issues: ['profiles: missing _app_attributes metadata for profiles.nickname'],
+                    issues: ['profiles: missing _app_components metadata for profiles.nickname'],
                     entries: []
                 },
                 migrationsValidation: { ok: true, issues: [], orderedIds: [] },
@@ -395,7 +395,7 @@ describe('migration cli helpers', () => {
                 systemAppCompiledLint: { ok: true, issues: [], orderedKeys: [] },
                 systemAppCompiledDiff: [],
                 migrationPlan: { dryRun: true, planned: [] },
-                catalogLifecycle: {
+                objectLifecycle: {
                     ok: true,
                     storageReady: true,
                     exportTarget: 'stdout',
@@ -405,7 +405,7 @@ describe('migration cli helpers', () => {
                     missingRegistryKeys: [],
                     missingExportKeys: []
                 },
-                systemAppManifestCatalogLifecycle: {
+                systemAppManifestObjectLifecycle: {
                     ok: true,
                     storageReady: true,
                     exportTarget: 'stdout',
@@ -415,7 +415,7 @@ describe('migration cli helpers', () => {
                     missingRegistryKeys: [],
                     missingExportKeys: []
                 },
-                systemAppSchemaPlanCatalogLifecycle: {
+                systemAppSchemaPlanObjectLifecycle: {
                     ok: true,
                     storageReady: true,
                     exportTarget: 'stdout',
@@ -425,7 +425,7 @@ describe('migration cli helpers', () => {
                     missingRegistryKeys: [],
                     missingExportKeys: []
                 },
-                systemAppCompiledCatalogLifecycle: {
+                systemAppCompiledObjectLifecycle: {
                     ok: true,
                     storageReady: true,
                     exportTarget: 'stdout',
@@ -455,7 +455,7 @@ describe('migration cli helpers', () => {
                 systemAppSchemaPlanDiff: [
                     {
                         logicalKey: 'system_app_schema_plan.target.profiles::custom',
-                        status: 'missing_in_catalog',
+                        status: 'missing_in_object',
                         desiredChecksum: 'a',
                         actualChecksum: null
                     }
@@ -463,7 +463,7 @@ describe('migration cli helpers', () => {
                 systemAppCompiledLint: { ok: true, issues: [], orderedKeys: [] },
                 systemAppCompiledDiff: [],
                 migrationPlan: { dryRun: true, planned: [] },
-                catalogLifecycle: {
+                objectLifecycle: {
                     ok: true,
                     storageReady: true,
                     exportTarget: 'stdout',
@@ -473,7 +473,7 @@ describe('migration cli helpers', () => {
                     missingRegistryKeys: [],
                     missingExportKeys: []
                 },
-                systemAppManifestCatalogLifecycle: {
+                systemAppManifestObjectLifecycle: {
                     ok: true,
                     storageReady: true,
                     exportTarget: 'stdout',
@@ -483,7 +483,7 @@ describe('migration cli helpers', () => {
                     missingRegistryKeys: [],
                     missingExportKeys: []
                 },
-                systemAppSchemaPlanCatalogLifecycle: {
+                systemAppSchemaPlanObjectLifecycle: {
                     ok: true,
                     storageReady: true,
                     exportTarget: 'stdout',
@@ -493,7 +493,7 @@ describe('migration cli helpers', () => {
                     missingRegistryKeys: [],
                     missingExportKeys: []
                 },
-                systemAppCompiledCatalogLifecycle: {
+                systemAppCompiledObjectLifecycle: {
                     ok: true,
                     storageReady: true,
                     exportTarget: 'stdout',
@@ -525,13 +525,13 @@ describe('migration cli helpers', () => {
                 systemAppCompiledDiff: [
                     {
                         logicalKey: 'system_app_compiled.schema.target.profiles.profiles::custom',
-                        status: 'missing_in_catalog',
+                        status: 'missing_in_object',
                         desiredChecksum: 'a',
                         actualChecksum: null
                     }
                 ],
                 migrationPlan: { dryRun: true, planned: [] },
-                catalogLifecycle: {
+                objectLifecycle: {
                     ok: true,
                     storageReady: true,
                     exportTarget: 'stdout',
@@ -541,7 +541,7 @@ describe('migration cli helpers', () => {
                     missingRegistryKeys: [],
                     missingExportKeys: []
                 },
-                systemAppManifestCatalogLifecycle: {
+                systemAppManifestObjectLifecycle: {
                     ok: true,
                     storageReady: true,
                     exportTarget: 'stdout',
@@ -551,7 +551,7 @@ describe('migration cli helpers', () => {
                     missingRegistryKeys: [],
                     missingExportKeys: []
                 },
-                systemAppSchemaPlanCatalogLifecycle: {
+                systemAppSchemaPlanObjectLifecycle: {
                     ok: true,
                     storageReady: true,
                     exportTarget: 'stdout',
@@ -561,7 +561,7 @@ describe('migration cli helpers', () => {
                     missingRegistryKeys: [],
                     missingExportKeys: []
                 },
-                systemAppCompiledCatalogLifecycle: {
+                systemAppCompiledObjectLifecycle: {
                     ok: false,
                     storageReady: true,
                     exportTarget: 'stdout',

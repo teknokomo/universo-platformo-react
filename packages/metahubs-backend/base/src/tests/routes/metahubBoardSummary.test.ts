@@ -123,14 +123,14 @@ describe('Metahub Board Summary', () => {
             if (sql.includes('_mhb_objects') && sql.includes('SELECT kind, COUNT(*)::int AS count') && sql.includes('GROUP BY kind')) {
                 return [
                     { kind: 'hub', count: 2 },
-                    { kind: 'catalog', count: 4 },
+                    { kind: 'object', count: 4 },
                     { kind: 'custom.article', count: 3 }
                 ]
             }
             if (sql.includes('doc_publication_versions')) {
                 return [{ count: 7 }]
             }
-            if (sql.includes('applications.cat_applications')) {
+            if (sql.includes('applications.obj_applications')) {
                 return [{ count: 1 }]
             }
             if (sql.includes('metahubs.doc_publications')) {
@@ -149,7 +149,7 @@ describe('Metahub Board Summary', () => {
             branchesCount: 3,
             entityCounts: {
                 hub: 2,
-                catalog: 4,
+                object: 4,
                 'custom.article': 3
             },
             membersCount: 5,

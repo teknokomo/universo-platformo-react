@@ -39,8 +39,8 @@ export const LMS_WELCOME_PAGE = {
         ru: 'Добро пожаловать в учебный портал'
     },
     intro: {
-        en: 'This portal brings together the learning paths, modules, assignments, tests, and progress indicators that learners need every day. Start with your assigned modules, continue from the last opened activity, and use the catalog to find approved materials for independent study.',
-        ru: 'Этот портал объединяет учебные траектории, модули, задания, тесты и показатели прогресса, которые нужны учащимся каждый день. Начните с назначенных модулей, продолжите обучение с последнего открытого материала и используйте каталог для самостоятельного изучения утвержденных материалов.'
+        en: 'This portal brings together the learning paths, modules, assignments, tests, and progress indicators that learners need every day. Start with your assigned modules, continue from the last opened activity, and use the module library to find approved materials for independent study.',
+        ru: 'Этот портал объединяет учебные траектории, модули, задания, тесты и показатели прогресса, которые нужны учащимся каждый день. Начните с назначенных модулей, продолжите обучение с последнего открытого материала и используйте библиотеку модулей для самостоятельного изучения утвержденных материалов.'
     },
     howToStartTitle: {
         en: 'How to start',
@@ -801,7 +801,7 @@ const REQUIRED_ENTITY_CODENAMES = [
 
 const REQUIRED_BASIC_BASELINE_ENTITIES = [
     { kind: 'hub', name: 'Main' },
-    { kind: 'catalog', name: 'Main' },
+    { kind: 'object', name: 'Main' },
     { kind: 'set', name: 'Main' },
     { kind: 'enumeration', name: 'Main' }
 ] as const
@@ -945,27 +945,29 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         envelope.snapshot?.entityTypeDefinitions && typeof envelope.snapshot.entityTypeDefinitions === 'object'
             ? envelope.snapshot.entityTypeDefinitions
             : {}
-    const catalogEntityType = entityTypeDefinitions.catalog
-    const catalogEntityTypeUi =
-        catalogEntityType?.ui && typeof catalogEntityType.ui === 'object' && !Array.isArray(catalogEntityType.ui)
-            ? (catalogEntityType.ui as Record<string, unknown>)
+    const objectEntityType = entityTypeDefinitions.object
+    const objectEntityTypeUi =
+        objectEntityType?.ui && typeof objectEntityType.ui === 'object' && !Array.isArray(objectEntityType.ui)
+            ? (objectEntityType.ui as Record<string, unknown>)
             : null
-    const catalogEntityTypeTabs = Array.isArray(catalogEntityTypeUi?.tabs) ? catalogEntityTypeUi.tabs : []
-    const catalogEntityTypeComponents =
-        catalogEntityType?.components && typeof catalogEntityType.components === 'object' && !Array.isArray(catalogEntityType.components)
-            ? (catalogEntityType.components as Record<string, unknown>)
+    const objectEntityTypeTabs = Array.isArray(objectEntityTypeUi?.tabs) ? objectEntityTypeUi.tabs : []
+    const objectEntityTypeComponents =
+        objectEntityType?.capabilities && typeof objectEntityType.capabilities === 'object' && !Array.isArray(objectEntityType.capabilities)
+            ? (objectEntityType.capabilities as Record<string, unknown>)
+            : objectEntityType?.components && typeof objectEntityType.components === 'object' && !Array.isArray(objectEntityType.components)
+              ? (objectEntityType.components as Record<string, unknown>)
             : null
 
-    if (!catalogEntityTypeTabs.includes('behavior')) {
-        errors.push('LMS fixture Catalog entity type must expose the generic behavior tab')
+    if (!objectEntityTypeTabs.includes('behavior')) {
+        errors.push('LMS fixture Object entity type must expose the generic behavior tab')
     }
-    if (!catalogEntityTypeTabs.includes('ledgerSchema')) {
-        errors.push('LMS fixture Catalog entity type must expose the generic ledger schema tab')
+    if (!objectEntityTypeTabs.includes('ledgerSchema')) {
+        errors.push('LMS fixture Object entity type must expose the generic ledger schema tab')
     }
     for (const componentKey of ['identityFields', 'recordLifecycle', 'posting', 'ledgerSchema']) {
-        const component = catalogEntityTypeComponents?.[componentKey]
+        const component = objectEntityTypeComponents?.[componentKey]
         if (!component || typeof component !== 'object' || Array.isArray(component) || (component as Record<string, unknown>).enabled !== true) {
-            errors.push(`LMS fixture Catalog entity type must enable ${componentKey} for runtime behavior authoring`)
+            errors.push(`LMS fixture Object entity type must enable ${componentKey} for runtime behavior authoring`)
         }
     }
 
@@ -1215,13 +1217,13 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         'NotificationLedger'
     ]) {
         const ledgerEntity = entityByCodename.get(ledgerCodename)
-        if (ledgerEntity?.kind !== 'catalog') {
-            errors.push(`LMS fixture must include ${ledgerCodename} as a register-enabled Catalog entity`)
+        if (ledgerEntity?.kind !== 'object') {
+            errors.push(`LMS fixture must include ${ledgerCodename} as a register-enabled Object entity`)
         } else if (ledgerEntity.config?.ledger === undefined) {
             errors.push(`LMS ${ledgerCodename} must carry the canonical ledger configuration`)
         }
     }
-    for (const transactionalCatalogCodename of [
+    for (const transactionalObjectCodename of [
         'QuizResponses',
         'QuizAttempts',
         'ModuleProgress',
@@ -1233,15 +1235,15 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         'CertificateIssues',
         'Enrollments'
     ]) {
-        const catalogEntity = entityByCodename.get(transactionalCatalogCodename)
+        const objectEntity = entityByCodename.get(transactionalObjectCodename)
         const recordBehavior =
-            catalogEntity?.config?.recordBehavior &&
-            typeof catalogEntity.config.recordBehavior === 'object' &&
-            !Array.isArray(catalogEntity.config.recordBehavior)
-                ? (catalogEntity.config.recordBehavior as Record<string, unknown>)
+            objectEntity?.config?.recordBehavior &&
+            typeof objectEntity.config.recordBehavior === 'object' &&
+            !Array.isArray(objectEntity.config.recordBehavior)
+                ? (objectEntity.config.recordBehavior as Record<string, unknown>)
                 : null
         if (recordBehavior?.mode !== 'transactional') {
-            errors.push(`LMS ${transactionalCatalogCodename} catalog must use transactional record behavior`)
+            errors.push(`LMS ${transactionalObjectCodename} object must use transactional record behavior`)
         }
     }
     const enrollmentEntity = entityByCodename.get('Enrollments')
@@ -1259,7 +1261,7 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
             : null
     const targetLedgers = Array.isArray(enrollmentPosting?.targetLedgers) ? enrollmentPosting.targetLedgers : []
     if (enrollmentRecordBehavior?.mode !== 'transactional') {
-        errors.push('LMS Enrollments catalog must use transactional record behavior')
+        errors.push('LMS Enrollments object must use transactional record behavior')
     }
     if (enrollmentPosting?.mode !== 'manual' || !targetLedgers.includes('ProgressLedger')) {
         errors.push('LMS Enrollments posting behavior must manually target ProgressLedger')
@@ -1283,7 +1285,7 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         const manifest = script.manifest && typeof script.manifest === 'object' ? (script.manifest as Record<string, unknown>) : null
         const capabilities = Array.isArray(manifest?.capabilities) ? manifest.capabilities : []
         const attachedEntity = entityByCodename.get(requiredScript.attachedTo)
-        if (script.attachedToKind !== 'catalog' || !attachedEntity?.id || script.attachedToId !== attachedEntity.id) {
+        if (script.attachedToKind !== 'object' || !attachedEntity?.id || script.attachedToId !== attachedEntity.id) {
             errors.push(`LMS ${requiredScript.codename} must be attached to ${requiredScript.attachedTo}`)
         }
         for (const capability of requiredScript.capabilities) {
@@ -1310,8 +1312,8 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
                 (method as Record<string, unknown>).target === 'server' &&
                 (method as Record<string, unknown>).eventName === 'beforePost'
         )
-        if (enrollmentPostingScript.attachedToKind !== 'catalog' || enrollmentPostingScript.attachedToId !== enrollmentEntity?.id) {
-            errors.push('LMS EnrollmentPostingScript must be attached to the Enrollments catalog')
+        if (enrollmentPostingScript.attachedToKind !== 'object' || enrollmentPostingScript.attachedToId !== enrollmentEntity?.id) {
+            errors.push('LMS EnrollmentPostingScript must be attached to the Enrollments object')
         }
         if (enrollmentPostingScript.moduleRole !== 'lifecycle') {
             errors.push('LMS EnrollmentPostingScript must use the lifecycle module role')

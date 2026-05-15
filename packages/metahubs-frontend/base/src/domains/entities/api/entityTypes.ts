@@ -1,4 +1,4 @@
-import type { ComponentManifest, EntityTypeUIConfig, VersionedLocalizedContent } from '@universo/types'
+import type { EntityTypeCapabilities, EntityTypeUIConfig, VersionedLocalizedContent } from '@universo/types'
 
 import { apiClient } from '../../shared'
 import type { PaginatedResponse, PaginationParams } from '../../../types'
@@ -6,7 +6,7 @@ import type { PaginatedResponse, PaginationParams } from '../../../types'
 export interface MetahubEntityType {
     id?: string
     kindKey: string
-    components: ComponentManifest
+    capabilities: EntityTypeCapabilities
     ui: EntityTypeUIConfig
     codename?: VersionedLocalizedContent<string> | string | null
     presentation?: Record<string, unknown>
@@ -22,7 +22,7 @@ export interface EntityTypePayload {
     kindKey: string
     codename: VersionedLocalizedContent<string> | string | Record<string, unknown>
     presentation?: Record<string, unknown>
-    components: ComponentManifest
+    capabilities: EntityTypeCapabilities
     ui: EntityTypeUIConfig
     config?: Record<string, unknown>
     published?: boolean

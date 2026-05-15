@@ -7,8 +7,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 const createElementMutateAsyncMock = vi.fn()
 const enqueueSnackbarMock = vi.fn()
 
-const currentCatalog = {
-    id: 'catalog-1',
+const currentObject = {
+    id: 'object-1',
     metahubId: 'metahub-1',
     codename: 'products',
     name: null,
@@ -22,9 +22,9 @@ const currentCatalog = {
     treeEntities: []
 }
 
-const catalogAttributes = [
+const objectComponents = [
     {
-        id: 'attr-1',
+        id: 'cmp-1',
         codename: 'Name',
         name: null,
         dataType: 'STRING',
@@ -65,8 +65,8 @@ vi.mock('@tanstack/react-query', () => ({
         isMutating: () => 0
     }),
     useQuery: ({ queryKey }: { queryKey: unknown[] }) => {
-        if (Array.isArray(queryKey) && queryKey.includes('allLinkedCollections') && queryKey.includes('detail')) {
-            return { data: currentCatalog, isLoading: false, error: null }
+        if (Array.isArray(queryKey) && queryKey.includes('allObjectCollections') && queryKey.includes('detail')) {
+            return { data: currentObject, isLoading: false, error: null }
         }
         if (Array.isArray(queryKey) && queryKey.includes('treeEntities') && queryKey.includes('list')) {
             return {
@@ -75,14 +75,14 @@ vi.mock('@tanstack/react-query', () => ({
                 error: null
             }
         }
-        if (Array.isArray(queryKey) && queryKey.includes('fieldDefinitions') && queryKey.includes('list')) {
+        if (Array.isArray(queryKey) && queryKey.includes('components') && queryKey.includes('list')) {
             return {
-                data: { items: catalogAttributes, pagination: { limit: 100, offset: 0, count: 1, total: 1, hasMore: false } },
+                data: { items: objectComponents, pagination: { limit: 100, offset: 0, count: 1, total: 1, hasMore: false } },
                 isLoading: false,
                 error: null
             }
         }
-        if (Array.isArray(queryKey) && queryKey.includes('childAttributesForElements')) {
+        if (Array.isArray(queryKey) && queryKey.includes('childComponentsForElements')) {
             return { data: {}, isLoading: false, error: null }
         }
         return { data: undefined, isLoading: false, error: null }
@@ -213,19 +213,19 @@ vi.mock('../../hooks/mutations', () => ({
     useReorderRecord: () => ({ mutateAsync: vi.fn(), isPending: false })
 }))
 
-vi.mock('../../entities/metadata/fieldDefinition/api', () => ({
-    listAttributes: vi.fn(async () => ({
-        items: catalogAttributes,
+vi.mock('../../entities/metadata/component/api', () => ({
+    listComponents: vi.fn(async () => ({
+        items: objectComponents,
         pagination: { limit: 100, offset: 0, count: 1, total: 1, hasMore: false }
     })),
-    listFieldDefinitionsDirect: vi.fn(async () => ({
-        items: catalogAttributes,
+    listComponentsDirect: vi.fn(async () => ({
+        items: objectComponents,
         pagination: { limit: 100, offset: 0, count: 1, total: 1, hasMore: false }
     }))
 }))
 
-vi.mock('../../../presets/api/linkedCollections', () => ({
-    getLinkedCollectionById: vi.fn(async () => currentCatalog)
+vi.mock('../../../presets/api/objectCollections', () => ({
+    getObjectCollectionById: vi.fn(async () => currentObject)
 }))
 
 vi.mock('../../entities/metadata/fixedValue/api', () => ({
@@ -238,16 +238,16 @@ vi.mock('../../../presets/api/optionLists', () => ({
 
 vi.mock('../../../../shared', () => ({
     metahubsQueryKeys: {
-        allLinkedCollections: (...args: unknown[]) => ['allLinkedCollections', ...args],
-        linkedCollectionDetail: (...args: unknown[]) => ['allLinkedCollections', 'detail', ...args],
+        allObjectCollections: (...args: unknown[]) => ['allObjectCollections', ...args],
+        objectCollectionDetail: (...args: unknown[]) => ['allObjectCollections', 'detail', ...args],
         treeEntities: (...args: unknown[]) => ['treeEntities', ...args],
         treeEntitiesList: (...args: unknown[]) => ['treeEntities', 'list', ...args],
         recordsList: (...args: unknown[]) => ['records', 'list', ...args],
-        fieldDefinitions: (...args: unknown[]) => ['fieldDefinitions', ...args],
-        fieldDefinitionsList: (...args: unknown[]) => ['fieldDefinitions', 'list', ...args],
+        components: (...args: unknown[]) => ['components', ...args],
+        componentsList: (...args: unknown[]) => ['components', 'list', ...args],
         fixedValues: (...args: unknown[]) => ['fixedValues', ...args],
         optionLists: (...args: unknown[]) => ['optionLists', ...args],
-        childAttributesForElements: (...args: unknown[]) => ['childAttributesForElements', ...args]
+        childComponentsForElements: (...args: unknown[]) => ['childComponentsForElements', ...args]
     },
     fetchAllPaginatedItems: vi.fn(async () => ({
         items: [],
@@ -274,15 +274,15 @@ vi.mock('../../hooks/useRecordListData', () => ({
     useRecordListData: () => ({
         metahubId: 'metahub-1',
         hubIdParam: undefined,
-        linkedCollectionId: 'catalog-1',
+        objectCollectionId: 'object-1',
         effectiveTreeEntityId: undefined,
         treeEntities: [],
-        catalogForHubResolution: currentCatalog,
-        isCatalogResolutionLoading: false,
-        catalogResolutionError: null,
-        fieldDefinitions: catalogAttributes,
-        orderedAttributes: catalogAttributes,
-        childAttributesMap: {},
+        objectForHubResolution: currentObject,
+        isObjectResolutionLoading: false,
+        objectResolutionError: null,
+        components: objectComponents,
+        orderedComponents: objectComponents,
+        childComponentsMap: {},
         childEnumValuesMap: {},
         setConstantsMap: {},
         allowElementCopy: true,
@@ -301,8 +301,8 @@ vi.mock('../../hooks/useRecordListData', () => ({
         images: new Map(),
         elementMap: new Map(),
         elementOrderMap: new Map(),
-        visibleAttributesForColumns: catalogAttributes,
-        refTargetByAttribute: new Map(),
+        visibleComponentsForColumns: objectComponents,
+        refTargetByComponent: new Map(),
         refDisplayMap: new Map(),
         isFetchingRefDisplayMap: false
     })
@@ -318,16 +318,16 @@ vi.mock('../InlineTableEditor', () => ({
     default: () => null
 }))
 
-vi.mock('../../../presets/ui/LinkedCollectionActions', () => ({
+vi.mock('../../../presets/ui/ObjectCollectionActions', () => ({
     buildInitialValues: () => ({}),
     buildFormTabs: () => [],
-    validateLinkedCollectionForm: () => null,
-    canSaveLinkedCollectionForm: () => true,
+    validateObjectCollectionForm: () => null,
+    canSaveObjectCollectionForm: () => true,
     toPayload: (value: unknown) => value
 }))
 
-vi.mock('../../../presets/hooks/linkedCollectionMutations', () => ({
-    useUpdateLinkedCollectionAtMetahub: () => ({ mutate: vi.fn(), isPending: false })
+vi.mock('../../../presets/hooks/objectCollectionMutations', () => ({
+    useUpdateObjectCollectionAtMetahub: () => ({ mutate: vi.fn(), isPending: false })
 }))
 
 vi.mock('../../../presets/api/trees', () => ({
@@ -351,7 +351,7 @@ vi.mock('@universo/utils', () => ({
     }),
     filterLocalizedContent: (value: unknown) => value ?? null,
     updateLocalizedContentLocale: (content: unknown) => content,
-    normalizeLinkedCollectionCopyOptions: (opts: unknown) => opts ?? {},
+    normalizeObjectCollectionCopyOptions: (opts: unknown) => opts ?? {},
     getVLCString: () => '',
     getVLCPrimaryString: () => '',
     buildVLC: (locale: string, content: unknown) => ({
@@ -412,9 +412,9 @@ describe('RecordList create error flow', () => {
         createElementMutateAsyncMock.mockRejectedValueOnce(new Error('Validation failed: child localized content is invalid'))
 
         render(
-            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/catalog/instance/catalog-1/records']}>
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/object/instance/object-1/records']}>
                 <Routes>
-                    <Route path='/metahub/:metahubId/entities/:kindKey/instance/:linkedCollectionId/records' element={<RecordList />} />
+                    <Route path='/metahub/:metahubId/entities/:kindKey/instance/:objectCollectionId/records' element={<RecordList />} />
                 </Routes>
             </MemoryRouter>
         )

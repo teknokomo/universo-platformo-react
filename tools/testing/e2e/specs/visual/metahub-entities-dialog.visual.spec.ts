@@ -38,13 +38,13 @@ test('@visual metahub entities create dialog remains stable with a seeded preset
         await page.goto(`/metahub/${metahub.id}/entities`)
         await page.getByTestId(toolbarSelectors.primaryAction).click()
 
-        const dialog = page.getByRole('dialog', { name: 'Create Entity Type' })
+        const dialog = page.getByRole('dialog', { name: /Create Entity(?: Type)?/ })
         await expect(dialog.getByLabel('Select template')).toBeVisible()
 
         await dialog.getByLabel('Select template').click()
-        await page.getByRole('option', { name: /Catalogs/i }).click()
+        await page.getByRole('option', { name: /Objects/i }).click()
 
-        await expect.poll(async () => dialog.getByLabel('Kind key').inputValue()).toBe('catalog')
+        await expect.poll(async () => dialog.getByLabel('Kind key').inputValue()).toBe('objectCollection')
         await dialog.click({ position: { x: 32, y: 24 } })
         await expect(dialog.getByLabel('Select template')).not.toBeFocused()
         await expect(dialog.getByRole('progressbar')).toHaveCount(0)

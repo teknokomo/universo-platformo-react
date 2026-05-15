@@ -67,10 +67,7 @@ export function createOptionValueHandlers(createHandler: ReturnType<typeof creat
     })
 
     const getOptionValueBlockingReferences = createHandler(async ({ req, res, metahubId, userId, exec, schemaService }) => {
-        const { objectsService, valuesService, fieldDefinitionsService, entityTypeService } = createOptionListRouteServices(
-            exec,
-            schemaService
-        )
+        const { objectsService, valuesService, componentsService, entityTypeService } = createOptionListRouteServices(exec, schemaService)
         const compatibleKindSet = await loadCompatibleOptionListKindSet(entityTypeService, metahubId, userId)
         const compatibleKinds = Array.from(compatibleKindSet)
         const optionList = await objectsService.findById(metahubId, req.params.optionListId, userId)
@@ -84,13 +81,13 @@ export function createOptionValueHandlers(createHandler: ReturnType<typeof creat
         }
 
         const [blockingDefaults, blockingElements] = await Promise.all([
-            findBlockingDefaultValueReferences(metahubId, req.params.valueId, compatibleKinds, fieldDefinitionsService, userId),
+            findBlockingDefaultValueReferences(metahubId, req.params.valueId, compatibleKinds, componentsService, userId),
             findBlockingRecordValueReferences(
                 metahubId,
                 req.params.optionListId,
                 req.params.valueId,
                 compatibleKinds,
-                fieldDefinitionsService,
+                componentsService,
                 userId
             )
         ])
@@ -496,7 +493,7 @@ export function createOptionValueHandlers(createHandler: ReturnType<typeof creat
 
     const deleteOptionValue = createHandler(
         async ({ req, res, metahubId, userId, exec, schemaService }) => {
-            const { objectsService, valuesService, fieldDefinitionsService, entityTypeService } = createOptionListRouteServices(
+            const { objectsService, valuesService, componentsService, entityTypeService } = createOptionListRouteServices(
                 exec,
                 schemaService
             )
@@ -516,12 +513,12 @@ export function createOptionValueHandlers(createHandler: ReturnType<typeof creat
                 metahubId,
                 req.params.valueId,
                 compatibleKinds,
-                fieldDefinitionsService,
+                componentsService,
                 userId
             )
             if (blockingDefaults.length > 0) {
                 return res.status(409).json({
-                    error: 'Cannot delete optionList value: it is configured as default in attributes',
+                    error: 'Cannot delete optionList value: it is configured as default in components',
                     blockingDefaults
                 })
             }
@@ -531,7 +528,7 @@ export function createOptionValueHandlers(createHandler: ReturnType<typeof creat
                 req.params.optionListId,
                 req.params.valueId,
                 compatibleKinds,
-                fieldDefinitionsService,
+                componentsService,
                 userId
             )
             if (blockingElements.length > 0) {

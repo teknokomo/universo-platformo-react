@@ -104,7 +104,7 @@ function matchesSectionDefinition(
 async function loadSelfHostedAppFixture(): Promise<{
     fixturePath: string
     metahubName: string
-    expectedCounts: { hubs: number; catalogs: number; sets: number; enumerations: number }
+    expectedCounts: { hubs: number; objects: number; sets: number; enumerations: number }
     expectedCatalogNames: string[]
     sharedAttributeName: string
     sharedConstantName: string
@@ -125,7 +125,7 @@ async function loadSelfHostedAppFixture(): Promise<{
     }
 
     const expectedCatalogNames = entities
-        .filter((entity) => entity.kind === 'catalog')
+        .filter((entity) => entity.kind === 'object')
         .map((entity) => readLocalizedText(entity.presentation?.name))
         .filter((value): value is string => typeof value === 'string' && value.length > 0)
         .slice(0, 3)
@@ -135,12 +135,12 @@ async function loadSelfHostedAppFixture(): Promise<{
         metahubName,
         expectedCounts: {
             hubs: entities.filter((entity) => entity.kind === 'hub').length,
-            catalogs: entities.filter((entity) => entity.kind === 'catalog').length,
+            objects: entities.filter((entity) => entity.kind === 'object').length,
             sets: entities.filter((entity) => entity.kind === 'set').length,
             enumerations: entities.filter((entity) => entity.kind === 'enumeration').length
         },
         expectedCatalogNames,
-        sharedAttributeName: SELF_HOSTED_APP_SHARED_ENTITIES.attribute.name.en,
+        sharedAttributeName: SELF_HOSTED_APP_SHARED_ENTITIES.component.name.en,
         sharedConstantName: SELF_HOSTED_APP_SHARED_ENTITIES.constant.name.en,
         sharedEnumerationValueName: SELF_HOSTED_APP_SHARED_ENTITIES.enumerationValue.name.en
     }
@@ -335,8 +335,8 @@ test.describe('Snapshot Export/Import Flow', () => {
                   >)
                 : {}
         )
-        const importedSharedAttributes = Array.isArray(importedSnapshot.sharedFieldDefinitions)
-            ? importedSnapshot.sharedFieldDefinitions
+        const importedSharedAttributes = Array.isArray(importedSnapshot.sharedComponents)
+            ? importedSnapshot.sharedComponents
             : Array.isArray(importedSnapshot.sharedAttributes)
                 ? importedSnapshot.sharedAttributes
                 : []
@@ -359,21 +359,21 @@ test.describe('Snapshot Export/Import Flow', () => {
             ? importedSnapshot.layoutWidgetOverrides
             : []
 
-        expect(importedEntities.filter((entity) => entity.kind === 'catalog')).toHaveLength(fixture.expectedCounts.catalogs)
+        expect(importedEntities.filter((entity) => entity.kind === 'object')).toHaveLength(fixture.expectedCounts.objects)
         expect(importedEntities.filter((entity) => entity.kind === 'hub')).toHaveLength(fixture.expectedCounts.hubs)
         expect(importedEntities.filter((entity) => entity.kind === 'set')).toHaveLength(fixture.expectedCounts.sets)
         expect(importedEntities.filter((entity) => entity.kind === 'enumeration')).toHaveLength(fixture.expectedCounts.enumerations)
 
         const settingsCatalog = importedEntities.find(
-            (entity) => entity.kind === 'catalog' && readLocalizedText(entity?.presentation?.name) === 'Settings'
+            (entity) => entity.kind === 'object' && readLocalizedText(entity?.presentation?.name) === 'Settings'
         )
         expect(typeof settingsCatalog?.id).toBe('string')
 
         const includedCatalogSection = findSelfHostedAppSection(
-            SELF_HOSTED_APP_SHARED_ENTITIES.attribute.includedCatalogSectionCodename
+            SELF_HOSTED_APP_SHARED_ENTITIES.component.includedCatalogSectionCodename
         )
         const importedSharedCatalog = importedEntities.find(
-            (entity) => entity.kind === 'catalog' && matchesSectionDefinition(entity, includedCatalogSection)
+            (entity) => entity.kind === 'object' && matchesSectionDefinition(entity, includedCatalogSection)
         )
         expect(typeof importedSharedCatalog?.id).toBe('string')
 
@@ -393,7 +393,7 @@ test.describe('Snapshot Export/Import Flow', () => {
 
         expect(
             importedSharedAttributes.some(
-                (attribute) => readLocalizedText(attribute?.presentation?.name) === fixture.sharedAttributeName
+                (component) => readLocalizedText(component?.presentation?.name) === fixture.sharedAttributeName
             )
         ).toBe(true)
         expect(
@@ -422,7 +422,7 @@ test.describe('Snapshot Export/Import Flow', () => {
             showViewToggle: SELF_HOSTED_APP_SETTINGS_LAYOUT.runtimeConfig.showViewToggle,
             defaultViewMode: SELF_HOSTED_APP_SETTINGS_LAYOUT.runtimeConfig.defaultViewMode,
             showFilterBar: SELF_HOSTED_APP_SETTINGS_LAYOUT.runtimeConfig.showFilterBar,
-            catalogBehavior: SELF_HOSTED_APP_SETTINGS_LAYOUT.catalogBehavior
+            objectBehavior: SELF_HOSTED_APP_SETTINGS_LAYOUT.objectBehavior
         })
         expect(typeof settingsLayout?.baseLayoutId).toBe('string')
 
@@ -435,8 +435,8 @@ test.describe('Snapshot Export/Import Flow', () => {
         )
         expect(detailsTitleWidgetOverride?.isActive).toBe(false)
 
-        await page.goto(`/metahub/${importedId}/entities/catalog/instances`)
-        await expect(page.getByRole('heading', { name: 'Catalogs' })).toBeVisible()
+        await page.goto(`/metahub/${importedId}/entities/object/instances`)
+        await expect(page.getByRole('heading', { name: 'Objects' })).toBeVisible()
 
         for (const catalogName of fixture.expectedCatalogNames) {
             await expect(page.getByText(catalogName, { exact: true }).first()).toBeVisible()

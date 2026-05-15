@@ -105,7 +105,7 @@ export async function listRoles(
     const dir = sortOrder === 'desc' ? 'DESC' : 'ASC'
 
     // Count
-    const countRows = await exec.query<{ count: string }>(`SELECT COUNT(*) AS count FROM admin.cat_roles r ${where}`, params)
+    const countRows = await exec.query<{ count: string }>(`SELECT COUNT(*) AS count FROM admin.obj_roles r ${where}`, params)
     const total = parseInt(countRows[0]?.count ?? '0', 10)
 
     if (total === 0) return { items: [], total: 0 }
@@ -113,7 +113,7 @@ export async function listRoles(
     // Paginated roles
     const rolesParams = [...params, limit, offset]
     const roles = await exec.query<RoleRow>(
-        `SELECT ${ROLE_SELECT_COLUMNS} FROM admin.cat_roles r ${where} ORDER BY ${sortCol} ${dir}, r.id ASC LIMIT $${
+        `SELECT ${ROLE_SELECT_COLUMNS} FROM admin.obj_roles r ${where} ORDER BY ${sortCol} ${dir}, r.id ASC LIMIT $${
             params.length + 1
         } OFFSET $${params.length + 2}`,
         rolesParams
@@ -142,7 +142,7 @@ export async function listAssignableRoles(exec: DbExecutor): Promise<RoleRow[]> 
     return exec.query<RoleRow>(
         `SELECT id, ${roleCodenameTextSql(
             'codename'
-        )} AS codename, name, color FROM admin.cat_roles WHERE ${activeAppRowCondition()} ORDER BY ${roleCodenameTextSql(
+        )} AS codename, name, color FROM admin.obj_roles WHERE ${activeAppRowCondition()} ORDER BY ${roleCodenameTextSql(
             'codename'
         )} ASC, id ASC`
     )
@@ -150,7 +150,7 @@ export async function listAssignableRoles(exec: DbExecutor): Promise<RoleRow[]> 
 
 export async function findRoleById(exec: DbExecutor, id: string): Promise<RoleWithPermissions | null> {
     const roles = await exec.query<RoleRow>(
-        `SELECT ${ROLE_SELECT_COLUMNS} FROM admin.cat_roles r WHERE r.id = $1 AND ${activeAppRowCondition('r')} LIMIT 1`,
+        `SELECT ${ROLE_SELECT_COLUMNS} FROM admin.obj_roles r WHERE r.id = $1 AND ${activeAppRowCondition('r')} LIMIT 1`,
         [id]
     )
     if (roles.length === 0) return null
@@ -165,7 +165,7 @@ export async function findRoleById(exec: DbExecutor, id: string): Promise<RoleWi
 export async function findRoleByCodename(exec: DbExecutor, codename: string): Promise<RoleRow | null> {
     const rows = await exec.query<RoleRow>(
         `SELECT ${ROLE_SELECT_COLUMNS}
-         FROM admin.cat_roles r
+         FROM admin.obj_roles r
          WHERE ${roleCodenameTextSql('r.codename')} = $1 AND ${activeAppRowCondition('r')}
          LIMIT 1`,
         [codename]
@@ -185,7 +185,7 @@ export async function createRole(
     }
 ): Promise<RoleRow> {
     const rows = await exec.query<RoleRow>(
-        `INSERT INTO admin.cat_roles (codename, name, description, color, is_superuser, is_system, _upl_created_by)
+        `INSERT INTO admin.obj_roles (codename, name, description, color, is_superuser, is_system, _upl_created_by)
          VALUES ($1, $2, $3, $4, $5, false, $6)
          RETURNING ${ROLE_RETURNING_COLUMNS}`,
         [
@@ -236,7 +236,7 @@ export async function updateRole(
     params.push(id)
 
     const rows = await exec.query<RoleRow>(
-        `UPDATE admin.cat_roles SET ${sets.join(
+        `UPDATE admin.obj_roles SET ${sets.join(
             ', '
         )} WHERE id = $${idx} AND ${activeAppRowCondition()} RETURNING ${ROLE_RETURNING_COLUMNS}`,
         params
@@ -246,7 +246,7 @@ export async function updateRole(
 
 export async function deleteRole(exec: DbExecutor, id: string, deletedBy?: string): Promise<boolean> {
     const rows = await exec.query<{ id: string }>(
-        `UPDATE admin.cat_roles
+        `UPDATE admin.obj_roles
          SET ${softDeleteSetClause('$2')}
          WHERE id = $1 AND ${activeAppRowCondition()}
          RETURNING id`,

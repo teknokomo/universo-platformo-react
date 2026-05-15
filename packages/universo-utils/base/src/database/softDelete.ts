@@ -49,7 +49,7 @@ export interface UplSoftDeleteOptions {
 }
 
 /**
- * Options for metahub-level tables (_mhb_objects, _mhb_attributes, etc.)
+ * Options for metahub-level tables (_mhb_objects, _mhb_components, etc.)
  */
 export interface MhbSoftDeleteOptions {
     /** Include platform-level deleted records */
@@ -80,7 +80,7 @@ export function getUplDeleteConditions(options: UplSoftDeleteOptions = {}): Reco
 
 /**
  * Builds WHERE conditions for metahub-level soft delete filter.
- * Use with dynamic metahub tables (_mhb_objects, _mhb_attributes, _mhb_elements)
+ * Use with dynamic metahub tables (_mhb_objects, _mhb_components, _mhb_elements)
  */
 export function getMhbDeleteConditions(options: MhbSoftDeleteOptions = {}): Record<string, boolean> {
     const { includeUplDeleted = false, includeMhbDeleted = false, onlyMhbDeleted = false, onlyUplDeleted = false } = options
@@ -206,7 +206,7 @@ export function getDeletedFieldName(level: DeleteLevel): string {
  * (all fixed system-app schemas: admin, profiles, metahubs, applications).
  *
  * @example
- * const sql = `SELECT * FROM admin.cat_roles r WHERE ${activeAppRowCondition('r')}`
+ * const sql = `SELECT * FROM admin.obj_roles r WHERE ${activeAppRowCondition('r')}`
  * // → "r._upl_deleted = false AND r._app_deleted = false"
  */
 export function activeAppRowCondition(alias?: string): string {

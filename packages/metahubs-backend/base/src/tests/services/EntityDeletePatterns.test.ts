@@ -48,22 +48,22 @@ describe('entityDeletePatterns', () => {
                 id: 'entity-1',
                 config: { hubs: ['hub-1'], isRequiredHub: true }
             },
-            entityLabel: 'Catalog',
+            entityLabel: 'Object',
             treeEntityId: 'hub-1',
             forceDelete: false,
             getTreeEntityIds: (entity) => entity.config.hubs,
             isRequiredHub: (entity) => entity.config.isRequiredHub,
             lastHubConflictMessage:
-                'Cannot remove catalog from its last hub because it requires at least one hub association. Use force=true to delete the catalog entirely.',
+                'Cannot remove object from its last hub because it requires at least one hub association. Use force=true to delete the object entirely.',
             detachFromHub: jest.fn(async () => undefined),
-            detachedMessage: 'Catalog removed from hub',
+            detachedMessage: 'Object removed from hub',
             deleteEntity: jest.fn(async () => undefined)
         })
 
         expect(result).toEqual({
             status: 409,
             body: {
-                error: 'Cannot remove catalog from its last hub because it requires at least one hub association. Use force=true to delete the catalog entirely.'
+                error: 'Cannot remove object from its last hub because it requires at least one hub association. Use force=true to delete the object entirely.'
             }
         })
     })

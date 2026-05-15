@@ -3,13 +3,13 @@ import type { SystemAppDefinition, SystemAppStructureCapabilities } from '../typ
 
 const createCapabilities = (overrides: Partial<SystemAppStructureCapabilities> = {}): SystemAppStructureCapabilities => ({
     appCoreTables: true,
-    catalogTables: true,
+    objectTables: true,
     documentTables: false,
     relationTables: true,
     settingsTables: true,
     layoutTables: false,
     widgetTables: false,
-    attributeValueTables: false,
+   componentValueTables: false,
     ...overrides
 })
 
@@ -34,17 +34,17 @@ const createSystemAppDefinition = (overrides: Partial<SystemAppDefinition> = {})
     targetStorageModel: 'application_like',
     currentStructureCapabilities: createCapabilities({
         appCoreTables: false,
-        catalogTables: true,
+        objectTables: true,
         relationTables: true,
         settingsTables: false
     }),
     targetStructureCapabilities: createCapabilities(),
     currentBusinessTables: [
-        { kind: 'catalog', codename: 'metahubs', tableName: 'metahubs' },
+        { kind: 'object', codename: 'metahubs', tableName: 'metahubs' },
         { kind: 'relation', codename: 'metahub_users', tableName: 'metahubs_users' }
     ],
     targetBusinessTables: [
-        { kind: 'catalog', codename: 'metahubs', tableName: 'cat_metahubs' },
+        { kind: 'object', codename: 'metahubs', tableName: 'obj_metahubs' },
         { kind: 'relation', codename: 'metahub_users', tableName: 'rel_metahub_users' }
     ],
     migrations: [],
@@ -53,9 +53,9 @@ const createSystemAppDefinition = (overrides: Partial<SystemAppDefinition> = {})
 })
 
 describe('resolveSystemTableCapabilityOptions', () => {
-    it('enables attribute metadata for application-like catalogs and relations', () => {
+    it('enables attribute metadata for application-like objects and relations', () => {
         expect(resolveSystemTableCapabilityOptions(createCapabilities())).toEqual({
-            includeAttributes: true,
+            includeComponents: true,
             includeValues: false,
             includeLayouts: false,
             includeWidgets: false
@@ -66,13 +66,13 @@ describe('resolveSystemTableCapabilityOptions', () => {
         expect(
             resolveSystemTableCapabilityOptions(
                 createCapabilities({
-                    catalogTables: false,
+                    objectTables: false,
                     relationTables: false,
                     settingsTables: true
                 })
             )
         ).toEqual({
-            includeAttributes: false,
+            includeComponents: false,
             includeValues: false,
             includeLayouts: false,
             includeWidgets: false
@@ -88,7 +88,7 @@ describe('resolveSystemTableCapabilityOptions', () => {
                 })
             )
         ).toEqual({
-            includeAttributes: true,
+            includeComponents: true,
             includeValues: false,
             includeLayouts: true,
             includeWidgets: true
@@ -104,22 +104,22 @@ describe('resolveSystemTableCapabilityOptions', () => {
                 })
             )
         ).toEqual({
-            includeAttributes: true,
+            includeComponents: true,
             includeValues: false,
             includeLayouts: false,
             includeWidgets: false
         })
     })
 
-    it('enables attribute values only for structures that explicitly need value tables', () => {
+    it('enables component values only for structures that explicitly need value tables', () => {
         expect(
             resolveSystemTableCapabilityOptions(
                 createCapabilities({
-                    attributeValueTables: true
+                   componentValueTables: true
                 })
             )
         ).toEqual({
-            includeAttributes: true,
+            includeComponents: true,
             includeValues: true,
             includeLayouts: false,
             includeWidgets: false
@@ -130,7 +130,7 @@ describe('resolveSystemTableCapabilityOptions', () => {
 describe('resolveSystemAppDefinitionSystemTableCapabilities', () => {
     it('uses target capabilities by default', () => {
         expect(resolveSystemAppDefinitionSystemTableCapabilities(createSystemAppDefinition())).toEqual({
-            includeAttributes: true,
+            includeComponents: true,
             includeValues: false,
             includeLayouts: false,
             includeWidgets: false
@@ -139,7 +139,7 @@ describe('resolveSystemAppDefinitionSystemTableCapabilities', () => {
 
     it('can resolve current capabilities for legacy fixed schemas', () => {
         expect(resolveSystemAppDefinitionSystemTableCapabilities(createSystemAppDefinition(), 'current')).toEqual({
-            includeAttributes: false,
+            includeComponents: false,
             includeValues: false,
             includeLayouts: false,
             includeWidgets: false

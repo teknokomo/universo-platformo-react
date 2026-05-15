@@ -18,8 +18,8 @@ export type { TreeDeleteDialogProps } from './TreeDeleteDialog'
 export { BranchDeleteDialog } from './BranchDeleteDialog'
 export type { BranchDeleteDialogProps } from './BranchDeleteDialog'
 
-export { LinkedCollectionDeleteDialog } from './LinkedCollectionDeleteDialog'
-export type { LinkedCollectionDeleteDialogProps } from './LinkedCollectionDeleteDialog'
+export { ObjectCollectionDeleteDialog } from './ObjectCollectionDeleteDialog'
+export type { ObjectCollectionDeleteDialogProps } from './ObjectCollectionDeleteDialog'
 
 export { ValueGroupDeleteDialog } from './ValueGroupDeleteDialog'
 export type { ValueGroupDeleteDialogProps } from './ValueGroupDeleteDialog'

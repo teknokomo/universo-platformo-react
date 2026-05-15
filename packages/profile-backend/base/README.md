@@ -53,7 +53,7 @@ app.use('/api/v1/profile', profileRoutes)
 
 ## Database Notes
 
-- Data is stored in `profiles.cat_profiles`.
+- Data is stored in `profiles.obj_profiles`.
 - RLS policies limit rows to the authenticated user context.
 - SQL functions support profile bootstrap, email update, and password validation or update flows.
 - Platform bootstrap runs the package migration definitions before routes are mounted.

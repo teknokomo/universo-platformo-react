@@ -19,7 +19,7 @@ Treat it as a SQL-first backend package with one narrow Tier 3 DDL boundary.
 - Application-domain active rows require `_upl_deleted = false AND _app_deleted = false`.
 - Mutating helpers should use `RETURNING id` when the caller needs row confirmation.
 - Zero-row writes should fail closed with explicit errors instead of silently succeeding.
-- Release metadata belongs in `applications.cat_applications`, not in parallel state tables.
+- Release metadata belongs in `applications.obj_applications`, not in parallel state tables.
 
 ## Runtime Sync Rules
 

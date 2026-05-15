@@ -1,10 +1,10 @@
-import type { CodenameAlphabet, CodenameStyle, ComponentManifest, EntityTypePresetManifest } from '@universo/types'
+import type { CodenameAlphabet, CodenameStyle, EntityTypeCapabilities, EntityTypePresetManifest } from '@universo/types'
 
 import { getVLCString } from '../../../types'
 import { ensureLocalizedContent } from '../../../utils/localizedInput'
 import { normalizeCodenameForStyle } from '../../../utils/codename'
 
-const normalizePresetComponents = (value: ComponentManifest): ComponentManifest => ({
+const normalizePresetComponents = (value: EntityTypeCapabilities): EntityTypeCapabilities => ({
     ...value
 })
 
@@ -52,7 +52,7 @@ export const buildEntityTypePresetFormPatch = (
         sidebarSection: manifest.entityType.ui.sidebarSection,
         sidebarOrder: manifest.entityType.ui.sidebarOrder ?? '',
         resourceSurfaces: manifest.entityType.ui.resourceSurfaces ? [...manifest.entityType.ui.resourceSurfaces] : [],
-        components: normalizePresetComponents(manifest.entityType.components),
+        capabilities: normalizePresetComponents(manifest.entityType.capabilities),
         presentationText: stringifyJson(manifest.entityType.presentation ?? {}),
         configText: stringifyJson(manifest.entityType.config ?? {}),
         published: true

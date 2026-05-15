@@ -16,11 +16,11 @@ describe('normalizePublicationSnapshotForHash', () => {
             version: 1,
             metahubId: 'metahub-1',
             entities: {
-                catalogB: {
-                    id: 'catalog-b',
-                    kind: 'catalog',
+                objectB: {
+                    id: 'object-b',
+                    kind: 'object',
                     codename: createCodenameVlc('products', 'товары'),
-                    physicalTableName: 'cat_products',
+                    physicalTableName: 'obj_products',
                     presentation: { name: { en: 'Products' } },
                     config: { featured: true },
                     hubs: ['hub-2', 'hub-1'],
@@ -57,16 +57,16 @@ describe('normalizePublicationSnapshotForHash', () => {
                         }
                     ]
                 },
-                catalogA: {
-                    id: 'catalog-a',
-                    kind: 'catalog',
+                objectA: {
+                    id: 'object-a',
+                    kind: 'object',
                     codename: createCodenameVlc('articles', 'статьи'),
-                    tableName: 'cat_articles',
+                    tableName: 'obj_articles',
                     fields: []
                 }
             },
             elements: {
-                'catalog-b': [
+                'object-b': [
                     { id: 'element-2', data: { title: 'B' }, sortOrder: 2 },
                     { id: 'element-1', data: { title: 'A' }, sortOrder: 1 }
                 ]
@@ -84,7 +84,7 @@ describe('normalizePublicationSnapshotForHash', () => {
                 ]
             },
             systemFields: {
-                'catalog-b': {
+                'object-b': {
                     fields: [
                         { key: 'app.deleted_by', enabled: true },
                         { key: 'app.deleted', enabled: true }
@@ -151,7 +151,7 @@ describe('normalizePublicationSnapshotForHash', () => {
                     clientBundle: null,
                     checksum: 'checksum-a',
                     isActive: false,
-                    config: { scope: 'catalog' }
+                    config: { scope: 'object' }
                 }
             ],
             layouts: [
@@ -161,7 +161,7 @@ describe('normalizePublicationSnapshotForHash', () => {
             scopedLayouts: [
                 {
                     id: 'entity-layout-2',
-                    scopeEntityId: 'catalog-b',
+                    scopeEntityId: 'object-b',
                     baseLayoutId: 'layout-2',
                     templateKey: 'dashboard',
                     name: { en: 'Products Layout' },
@@ -172,7 +172,7 @@ describe('normalizePublicationSnapshotForHash', () => {
                 },
                 {
                     id: 'entity-layout-1',
-                    scopeEntityId: 'catalog-a',
+                    scopeEntityId: 'object-a',
                     baseLayoutId: 'layout-1',
                     templateKey: 'dashboard',
                     name: { en: 'Articles Layout' },
@@ -221,15 +221,15 @@ describe('normalizePublicationSnapshotForHash', () => {
 
         expect(normalized.entities).toEqual([
             expect.objectContaining({
-                id: 'catalog-a',
+                id: 'object-a',
                 codename: createCodenameVlc('articles', 'статьи'),
-                tableName: 'cat_articles',
+                tableName: 'obj_articles',
                 hubs: []
             }),
             expect.objectContaining({
-                id: 'catalog-b',
+                id: 'object-b',
                 codename: createCodenameVlc('products', 'товары'),
-                tableName: 'cat_products',
+                tableName: 'obj_products',
                 hubs: ['hub-1', 'hub-2']
             })
         ])
@@ -254,7 +254,7 @@ describe('normalizePublicationSnapshotForHash', () => {
         ])
         expect(normalized.elements).toEqual([
             {
-                objectId: 'catalog-b',
+                objectId: 'object-b',
                 elements: [
                     { id: 'element-1', data: { title: 'A' }, sortOrder: 1 },
                     { id: 'element-2', data: { title: 'B' }, sortOrder: 2 }
@@ -299,7 +299,7 @@ describe('normalizePublicationSnapshotForHash', () => {
         ])
         expect(normalized.systemFields).toEqual([
             expect.objectContaining({
-                entityId: 'catalog-b',
+                entityId: 'object-b',
                 fields: [
                     { key: 'app.deleted', enabled: true },
                     { key: 'app.deleted_by', enabled: true }
@@ -347,8 +347,8 @@ describe('normalizePublicationSnapshotForHash', () => {
             expect.objectContaining({ id: 'layout-2', isDefault: false, sortOrder: 2 })
         ])
         expect(normalized.scopedLayouts).toEqual([
-            expect.objectContaining({ id: 'entity-layout-1', scopeEntityId: 'catalog-a', baseLayoutId: 'layout-1', sortOrder: 1 }),
-            expect.objectContaining({ id: 'entity-layout-2', scopeEntityId: 'catalog-b', baseLayoutId: 'layout-2', sortOrder: 2 })
+            expect.objectContaining({ id: 'entity-layout-1', scopeEntityId: 'object-a', baseLayoutId: 'layout-1', sortOrder: 1 }),
+            expect.objectContaining({ id: 'entity-layout-2', scopeEntityId: 'object-b', baseLayoutId: 'layout-2', sortOrder: 2 })
         ])
         expect(normalized.layoutZoneWidgets).toEqual([
             expect.objectContaining({ id: 'widget-1', layoutId: 'layout-1', zone: 'main', sortOrder: 1 }),

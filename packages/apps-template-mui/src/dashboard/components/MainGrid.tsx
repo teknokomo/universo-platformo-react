@@ -130,7 +130,7 @@ const findRuntimeSectionIdByCodename = (details: DashboardDetailsSlot | undefine
     const normalized = codename.trim()
     return (
         details.sections?.find((section) => section.codename === normalized)?.id ??
-        details.linkedCollections?.find((section) => section.codename === normalized)?.id ??
+        details.objectCollections?.find((section) => section.codename === normalized)?.id ??
         undefined
     )
 }
@@ -186,18 +186,18 @@ function RuntimeStatCard({ config, fallback }: { config: StatCardWidgetConfig; f
     const params = isRecord(datasource?.params) ? datasource.params : undefined
     const explicitTargetSectionId =
         readStringParam(params, 'sectionId') ??
-        readStringParam(params, 'linkedCollectionId') ??
+        readStringParam(params, 'objectCollectionId') ??
         findRuntimeSectionIdByCodename(
             details,
-            readStringParam(params, 'sectionCodename') ?? readStringParam(params, 'linkedCollectionCodename')
+            readStringParam(params, 'sectionCodename') ?? readStringParam(params, 'objectCollectionCodename')
         )
     const hasExplicitTarget =
         hasTextValue(params?.sectionId) ||
-        hasTextValue(params?.linkedCollectionId) ||
+        hasTextValue(params?.objectCollectionId) ||
         hasTextValue(params?.sectionCodename) ||
-        hasTextValue(params?.linkedCollectionCodename)
+        hasTextValue(params?.objectCollectionCodename)
     const targetSectionId =
-        explicitTargetSectionId ?? (!hasExplicitTarget ? details?.sectionId ?? details?.linkedCollectionId ?? undefined : undefined)
+        explicitTargetSectionId ?? (!hasExplicitTarget ? details?.sectionId ?? details?.objectCollectionId ?? undefined : undefined)
     const search = readStringParam(params, 'search')
     const metricQuery = useQuery({
         queryKey: [
@@ -213,7 +213,7 @@ function RuntimeStatCard({ config, fallback }: { config: StatCardWidgetConfig; f
                 locale: details?.locale ?? 'en',
                 limit: 1,
                 offset: 0,
-                linkedCollectionId: targetSectionId,
+                objectCollectionId: targetSectionId,
                 sectionId: targetSectionId,
                 search
             }),
@@ -238,18 +238,18 @@ function RuntimeRecordsSeriesChart({ config, variant }: { config: RecordsSeriesC
     const ledgerProjectionDatasource = datasource?.kind === 'ledger.projection' ? datasource : null
     const explicitTargetSectionId =
         readOptionalId(recordsDatasource?.sectionId) ??
-        readOptionalId(recordsDatasource?.linkedCollectionId) ??
+        readOptionalId(recordsDatasource?.objectCollectionId) ??
         findRuntimeSectionIdByCodename(
             details,
-            recordsDatasource?.sectionCodename ?? recordsDatasource?.linkedCollectionCodename ?? undefined
+            recordsDatasource?.sectionCodename ?? recordsDatasource?.objectCollectionCodename ?? undefined
         )
     const hasExplicitTarget =
         hasTextValue(recordsDatasource?.sectionId) ||
-        hasTextValue(recordsDatasource?.linkedCollectionId) ||
+        hasTextValue(recordsDatasource?.objectCollectionId) ||
         hasTextValue(recordsDatasource?.sectionCodename) ||
-        hasTextValue(recordsDatasource?.linkedCollectionCodename)
+        hasTextValue(recordsDatasource?.objectCollectionCodename)
     const targetSectionId =
-        explicitTargetSectionId ?? (!hasExplicitTarget ? details?.sectionId ?? details?.linkedCollectionId ?? undefined : undefined)
+        explicitTargetSectionId ?? (!hasExplicitTarget ? details?.sectionId ?? details?.objectCollectionId ?? undefined : undefined)
     const configuredSeries = config.series ?? []
     const canFetchRecordSeries = Boolean(
         recordsDatasource &&
@@ -306,7 +306,7 @@ function RuntimeRecordsSeriesChart({ config, variant }: { config: RecordsSeriesC
                 locale: details?.locale ?? 'en',
                 limit: config.maxRows ?? 30,
                 offset: 0,
-                linkedCollectionId: targetSectionId,
+                objectCollectionId: targetSectionId,
                 sectionId: targetSectionId,
                 search: listQuery?.search,
                 sort: listQuery?.sort,

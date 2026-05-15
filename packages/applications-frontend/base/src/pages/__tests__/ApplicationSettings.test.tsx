@@ -253,7 +253,7 @@ describe('ApplicationSettings', () => {
         await userEvent.click(screen.getByRole('tab', { name: 'Limits' }))
         expect(
             screen.getByText(
-                'Set row limits per catalog for every workspace. When the limit is reached, users will not be able to create more records in that catalog.'
+                'Set row limits per object for every workspace. When the limit is reached, users will not be able to create more records in that object.'
             )
         ).toBeInTheDocument()
         expect(screen.getByText('Limits settings will become available after the application schema is created.')).toBeInTheDocument()

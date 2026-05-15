@@ -7,7 +7,7 @@ import type { ValueGroupEntity } from '../types'
 import { getVLCString } from '../types'
 import { getBlockingValueGroupReferences, type BlockingValueGroupReference } from '../domains/entities/presets/api/valueGroups'
 import { metahubsQueryKeys } from '../domains/shared'
-import { buildLinkedCollectionAuthoringPath, resolveEntityChildKindKey } from '../domains/shared/entityMetadataRoutePaths'
+import { buildObjectCollectionAuthoringPath, resolveEntityChildKindKey } from '../domains/shared/entityMetadataRoutePaths'
 
 export interface ValueGroupDeleteDialogProps {
     open: boolean
@@ -20,8 +20,8 @@ export interface ValueGroupDeleteDialogProps {
 }
 
 interface BlockingReferenceRow extends BlockingValueGroupReference {
-    sourceCatalogDisplayName: string
-    attributeDisplayName: string
+    sourceObjectDisplayName: string
+    componentDisplayName: string
 }
 
 export const ValueGroupDeleteDialog = ({
@@ -46,9 +46,9 @@ export const ValueGroupDeleteDialog = ({
             ),
             blockingWarning: t(
                 'sets.deleteDialog.hasBlockingReferences',
-                'Cannot delete set. Remove these references from catalog attributes first:'
+                'Cannot delete set. Remove these references from object components first:'
             ),
-            resolutionHint: t('sets.deleteDialog.resolutionHint', 'Open source catalogs from the table and adjust the listed attributes.'),
+            resolutionHint: t('sets.deleteDialog.resolutionHint', 'Open source objects from the table and adjust the listed components.'),
             fetchError: t('sets.deleteDialog.fetchBlockingError', 'Failed to check for blocking references'),
             cancelButton: t('common:actions.cancel', 'Cancel'),
             deleteButton: t('common:actions.delete', 'Delete'),
@@ -67,18 +67,18 @@ export const ValueGroupDeleteDialog = ({
                 render: (_row, index) => <Typography sx={{ fontSize: 14, color: 'text.secondary' }}>{index + 1}</Typography>
             },
             {
-                id: 'sourceCatalog',
-                label: t('sets.deleteDialog.blockingTable.catalog', 'LinkedCollectionEntity'),
+                id: 'sourceObject',
+                label: t('sets.deleteDialog.blockingTable.object', 'Object'),
                 render: (row) => (
-                    <Typography sx={{ fontSize: 14, fontWeight: 500, wordBreak: 'break-word' }}>{row.sourceCatalogDisplayName}</Typography>
+                    <Typography sx={{ fontSize: 14, fontWeight: 500, wordBreak: 'break-word' }}>{row.sourceObjectDisplayName}</Typography>
                 )
             },
             {
-                id: 'attribute',
-                label: t('sets.deleteDialog.blockingTable.attribute', 'Attribute'),
+                id: 'component',
+                label: t('sets.deleteDialog.blockingTable.component', 'Component'),
                 render: (row) => (
                     <Typography sx={{ fontSize: 14, color: 'text.secondary', wordBreak: 'break-word' }}>
-                        {row.attributeDisplayName}
+                        {row.componentDisplayName}
                     </Typography>
                 )
             }
@@ -90,27 +90,27 @@ export const ValueGroupDeleteDialog = ({
         const result = await getBlockingValueGroupReferences(metahubId, valueGroupId, kindKey)
         const blockingEntities: BlockingReferenceRow[] = result.blockingReferences.map((ref) => ({
             ...ref,
-            sourceCatalogDisplayName:
-                getVLCString(ref.sourceCatalogName ?? undefined, uiLocale) ||
-                getVLCString(ref.sourceCatalogName ?? undefined, 'en') ||
-                ref.sourceCatalogCodename ||
+            sourceObjectDisplayName:
+                getVLCString(ref.sourceObjectName ?? undefined, uiLocale) ||
+                getVLCString(ref.sourceObjectName ?? undefined, 'en') ||
+                ref.sourceObjectCodename ||
                 '—',
-            attributeDisplayName:
-                getVLCString(ref.attributeName ?? undefined, uiLocale) ||
-                getVLCString(ref.attributeName ?? undefined, 'en') ||
-                ref.attributeCodename ||
+            componentDisplayName:
+                getVLCString(ref.componentName ?? undefined, uiLocale) ||
+                getVLCString(ref.componentName ?? undefined, 'en') ||
+                ref.componentCodename ||
                 '—'
         }))
         return { blockingEntities }
     }
 
-    const catalogKindKey = resolveEntityChildKindKey({ routeKindKey: kindKey, childObjectKind: 'catalog' })
+    const objectKindKey = resolveEntityChildKindKey({ routeKindKey: kindKey, childObjectKind: 'object' })
     const getBlockingEntityLink = (row: BlockingReferenceRow) =>
-        buildLinkedCollectionAuthoringPath({
+        buildObjectCollectionAuthoringPath({
             metahubId,
-            linkedCollectionId: row.sourceLinkedCollectionId,
-            kindKey: catalogKindKey,
-            tab: 'fieldDefinitions'
+            objectCollectionId: row.sourceObjectCollectionId,
+            kindKey: objectKindKey,
+            tab: 'components'
         })
 
     return (

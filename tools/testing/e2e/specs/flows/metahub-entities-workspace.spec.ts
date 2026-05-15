@@ -7,8 +7,7 @@ import {
     createAdminUser,
     createLoggedInApiContext,
     createMetahub,
-    createFieldDefinition,
-    createLinkedCollection,
+    createComponent,
     disposeApiContext,
     getAssignableRoles,
     listMetahubEntityTypes,
@@ -89,11 +88,11 @@ function buildApiCookieHeader(api: ApiSessionLike): string {
         .join('; ')
 }
 
-const buildCatalogInstancesPagePath = (metahubId: string, kindKey = 'catalog') =>
+const buildObjectInstancesPagePath = (metahubId: string, kindKey = 'object') =>
     `/metahub/${metahubId}/entities/${encodeURIComponent(kindKey)}/instances`
 
-const buildCatalogAttributesPagePath = (metahubId: string, catalogId: string, kindKey = 'catalog') =>
-    `/metahub/${metahubId}/entities/${encodeURIComponent(kindKey)}/instance/${catalogId}/field-definitions`
+const buildObjectComponentsPagePath = (metahubId: string, objectId: string, kindKey = 'object') =>
+    `/metahub/${metahubId}/entities/${encodeURIComponent(kindKey)}/instance/${objectId}/components`
 
 const buildEntityInstancesApiPath = (metahubId: string, kindKey: string) =>
     `/api/v1/metahub/${metahubId}/entities?kind=${encodeURIComponent(kindKey)}`
@@ -278,15 +277,15 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
     const metahubName = `E2E ${runManifest.runId} entities workspace`
     const metahubCodename = `${runManifest.runId}-entities-workspace`
     const kindSuffix = buildKindSuffix(runManifest.runId)
-    const customKindKey = `custom.catalog-${kindSuffix}`
-    const customName = `Catalogs ${kindSuffix}`
+    const customKindKey = `custom.object-${kindSuffix}`
+    const customName = `Objects ${kindSuffix}`
     const instanceName = `${customName} Instance`
-    const instanceCodename = `catalog-instance-${kindSuffix}`
+    const instanceCodename = `object-instance-${kindSuffix}`
     const entityDescription = `Entity description ${kindSuffix}`
     const copiedInstanceName = `${customName} Copy`
-    const copiedInstanceCodename = `catalog-instance-${kindSuffix}-copy`
-    const attributeName = `Title ${kindSuffix}`
-    const attributeCodename = `title-${kindSuffix}`
+    const copiedInstanceCodename = `object-instance-${kindSuffix}-copy`
+    const componentName = `Title ${kindSuffix}`
+    const componentCodename = `title-${kindSuffix}`
     const standardManagedSurfaces = [
         { kindKey: 'hub', heading: 'Hubs' },
         { kindKey: 'set', heading: 'Sets' },
@@ -321,7 +320,7 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
         await expect(page.getByTestId(toolbarSelectors.primaryAction)).toContainText('Create')
 
         for (const surface of standardManagedSurfaces) {
-            await page.goto(buildCatalogInstancesPagePath(metahub.id, surface.kindKey))
+            await page.goto(buildObjectInstancesPagePath(metahub.id, surface.kindKey))
             await expect(page).toHaveURL(`/metahub/${metahub.id}/entities/${surface.kindKey}/instances`)
             await expect(page.getByRole('heading', { name: surface.heading })).toBeVisible()
             await expect(page.getByTestId(toolbarSelectors.primaryAction)).toContainText('Create')
@@ -331,16 +330,16 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
 
         await page.getByTestId(toolbarSelectors.primaryAction).click()
 
-        const createDialog = page.getByRole('dialog', { name: 'Create Entity Type' })
+        const createDialog = page.getByRole('dialog', { name: /Create Entity(?: Type)?/ })
         await expect(createDialog).toBeVisible()
         await expect(createDialog.getByLabel('Select template')).toBeVisible()
         await expect(createDialog.getByText('Reusable presets are sourced from the existing template registry.')).toBeVisible()
 
         await createDialog.getByLabel('Select template').click()
-        await page.getByRole('option', { name: /^Catalogs\b/i }).click()
+        await page.getByRole('option', { name: /^Objects\b/i }).click()
 
-        await expect.poll(async () => createDialog.getByLabel('Kind key').inputValue()).toBe('catalog')
-        await expect(createDialog.getByLabel('Name').first()).toHaveValue('Catalogs')
+        await expect.poll(async () => createDialog.getByLabel('Kind key').inputValue()).toBe('object')
+        await expect(createDialog.getByLabel('Name').first()).toHaveValue('Objects')
         await expect(createDialog.getByRole('checkbox', { name: 'Publish to dynamic menu' })).toBeChecked()
         await expect(createDialog.getByRole('checkbox', { name: 'Hubs' })).toBeChecked()
         await expect(createDialog.getByRole('checkbox', { name: 'Layout' })).toBeChecked()
@@ -408,12 +407,12 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
 
         await createInstanceDialog.getByTestId(entityDialogSelectors.submitButton).click()
 
-        const createdCatalogCompatibleInstance = await parseJsonResponse<{ id?: string }>(
+        const createdObjectInstance = await parseJsonResponse<{ id?: string }>(
             await createInstanceResponse,
             'Creating entity through the generic entity surface'
         )
 
-        if (!createdCatalogCompatibleInstance.id) {
+        if (!createdObjectInstance.id) {
             throw new Error('Create entity response did not contain an id')
         }
 
@@ -424,19 +423,19 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
             .poll(
                 async () => {
                     const payload = await listEntitiesViaApi(api, metahub.id, customKindKey)
-                    persistedEntityRecord = payload.items?.find((item) => item.id === createdCatalogCompatibleInstance.id)
+                    persistedEntityRecord = payload.items?.find((item) => item.id === createdObjectInstance.id)
                     return persistedEntityRecord?.id ?? null
                 },
                 { message: 'Waiting for the created entity instance to appear in the generic entity list' }
             )
-            .toBe(createdCatalogCompatibleInstance.id)
+            .toBe(createdObjectInstance.id)
 
         const createdEntityRow = page.getByRole('row').filter({ hasText: instanceName })
         await createdEntityRow.getByRole('button', { name: 'Edit' }).click()
 
         const entityEditDialog = page.getByRole('dialog', { name: 'Edit Entity' })
         await expect(entityEditDialog).toBeVisible()
-        await expect(entityEditDialog.getByRole('tab', { name: 'Attributes' })).toBeVisible()
+        await expect(entityEditDialog.getByRole('tab', { name: 'Components' })).toBeVisible()
         await expect(entityEditDialog.getByRole('tab', { name: 'Layout' })).toBeVisible()
         await expect(entityEditDialog.getByRole('tab', { name: 'Scripts' })).toBeVisible()
 
@@ -444,7 +443,7 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
             page,
             (response) =>
                 response.request().method() === 'PATCH' &&
-                response.url().endsWith(buildEntityInstanceApiPath(metahub.id, createdCatalogCompatibleInstance.id)),
+                response.url().endsWith(buildEntityInstanceApiPath(metahub.id, createdObjectInstance.id)),
             { label: 'Updating entity instance through the generic entity route' }
         )
 
@@ -459,13 +458,13 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
             }
         })
         const entityEditResponseBody = (await entityEditNetworkResponse.json()) as EntityRecord
-        expect(entityEditResponseBody.id).toBe(createdCatalogCompatibleInstance.id)
+        expect(entityEditResponseBody.id).toBe(createdObjectInstance.id)
         await expect(entityEditDialog).toHaveCount(0)
 
         await expect
             .poll(
                 async () => {
-                    const entityRecord = await getEntityViaApi(api, metahub.id, createdCatalogCompatibleInstance.id)
+                    const entityRecord = await getEntityViaApi(api, metahub.id, createdObjectInstance.id)
                     return readLocalizedText(entityRecord.description)
                 },
                 { message: 'Waiting for the generic entity get-by-id endpoint to expose the edited description' }
@@ -476,22 +475,22 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
             .poll(
                 async () => {
                     const payload = await listEntitiesViaApi(api, metahub.id, customKindKey)
-                    const entityRecord = payload.items?.find((item) => item.id === createdCatalogCompatibleInstance.id)
+                    const entityRecord = payload.items?.find((item) => item.id === createdObjectInstance.id)
                     return readLocalizedText(entityRecord?.description)
                 },
                 { message: 'Waiting for the generic entity list endpoint to expose the edited description' }
             )
             .toBe(entityDescription)
 
-        await createFieldDefinition(api, metahub.id, createdCatalogCompatibleInstance.id, {
-            name: { en: attributeName },
+        await createComponent(api, metahub.id, createdObjectInstance.id, {
+            name: { en: componentName },
             namePrimaryLocale: 'en',
-            codename: createLocalizedContent('en', attributeCodename),
+            codename: createLocalizedContent('en', componentCodename),
             dataType: 'STRING',
             isRequired: false
         })
 
-        await page.goto(buildCatalogInstancesPagePath(metahub.id, customKindKey))
+        await page.goto(buildObjectInstancesPagePath(metahub.id, customKindKey))
         await expect(page.getByRole('heading', { name: `${customName} instances` })).toBeVisible()
         await expect(page.getByText(instanceName, { exact: true })).toBeVisible()
         const reopenedEntityRow = page.getByRole('row').filter({ hasText: instanceName })
@@ -505,28 +504,28 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
         await reopenedEditDialog.getByTestId(entityDialogSelectors.cancelButton).click()
         await expect(reopenedEditDialog).toHaveCount(0)
 
-        await page.goto(buildCatalogAttributesPagePath(metahub.id, createdCatalogCompatibleInstance.id, customKindKey))
+        await page.goto(buildObjectComponentsPagePath(metahub.id, createdObjectInstance.id, customKindKey))
         const entityBreadcrumbs = page.getByLabel('breadcrumb')
-        await expect(page.getByRole('heading', { name: 'Attributes' })).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Components' })).toBeVisible()
         await expect(entityBreadcrumbs).toContainText('Entities')
-        await expect(entityBreadcrumbs).toContainText('Catalogs')
+        await expect(entityBreadcrumbs).toContainText('Objects')
         await expect(entityBreadcrumbs).toContainText(instanceName)
-        await expect(entityBreadcrumbs.getByRole('link', { name: 'Catalogs' })).toHaveAttribute(
+        await expect(entityBreadcrumbs.getByRole('link', { name: 'Objects' })).toHaveAttribute(
             'href',
             `/metahub/${metahub.id}/entities/${encodeURIComponent(customKindKey)}/instances`
         )
         await expect(entityBreadcrumbs.getByRole('link', { name: instanceName })).toHaveAttribute(
             'href',
-            `/metahub/${metahub.id}/entities/${encodeURIComponent(customKindKey)}/instance/${createdCatalogCompatibleInstance.id}/field-definitions`
+            `/metahub/${metahub.id}/entities/${encodeURIComponent(customKindKey)}/instance/${createdObjectInstance.id}/components`
         )
         await page.getByRole('tab', { name: 'System' }).click()
-        await expect(page.getByRole('heading', { name: 'System Attributes' })).toBeVisible()
-        await expect(entityBreadcrumbs).toContainText('System Attributes')
+        await expect(page.getByRole('heading', { name: 'System Components' })).toBeVisible()
+        await expect(entityBreadcrumbs).toContainText('System Components')
         await page.getByRole('tab', { name: /Records|Elements|records.title/ }).click()
         await expect(page.getByRole('heading', { name: /Records|Elements|records.title/ })).toBeVisible()
         await expect(entityBreadcrumbs).toContainText(/Records|Elements|records.title/)
 
-        await page.goto(buildCatalogInstancesPagePath(metahub.id, customKindKey))
+        await page.goto(buildObjectInstancesPagePath(metahub.id, customKindKey))
         const copySourceRow = page.getByRole('row').filter({ hasText: instanceName })
         await copySourceRow.getByRole('button', { name: 'Copy' }).click()
 
@@ -539,7 +538,7 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
             page,
             (response) =>
                 response.request().method() === 'POST' &&
-                response.url().endsWith(`${buildEntityInstanceApiPath(metahub.id, createdCatalogCompatibleInstance.id)}/copy`),
+                response.url().endsWith(`${buildEntityInstanceApiPath(metahub.id, createdObjectInstance.id)}/copy`),
             { label: 'Copying entity instance through the generic entity route' }
         )
 
@@ -576,7 +575,7 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
         const customEntityLink = page.locator(`a[href="/metahub/${metahub.id}/entities/${customKindKey}/instances"]`).first()
         await expect(customEntityLink).toBeVisible()
         await customEntityLink.click()
-        await expect(page.getByRole('heading', { name: /Каталоги|Catalogs/ })).toBeVisible()
+        await expect(page.getByRole('heading', { name: /Объекты|Objects/ })).toBeVisible()
         await expect(page.getByTestId(toolbarSelectors.primaryAction)).toContainText('Создать')
         await page.goto(`/metahub/${metahub.id}/entities`)
 
@@ -587,7 +586,7 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
         await expect(ruDialog.getByLabel('Выберите шаблон')).toBeVisible()
 
         await ruDialog.getByLabel('Выберите шаблон').click()
-        await expect(page.getByRole('option', { name: /Каталоги|Catalogs/i }).first()).toBeVisible()
+        await expect(page.getByRole('option', { name: /Объекты|Objects/i }).first()).toBeVisible()
         await page.keyboard.press('Escape')
         await ruDialog.getByTestId(entityDialogSelectors.cancelButton).click()
         await expect(ruDialog).toHaveCount(0)
@@ -842,7 +841,7 @@ test('@flow metahub custom entity instances author scripts actions and events th
     }
 })
 
-test('@flow @permission catalog-style entity instances stay read-only for metahub members', async ({ browser, runManifest }) => {
+test('@flow @permission object-style entity instances stay read-only for metahub members', async ({ browser, runManifest }) => {
     test.setTimeout(300_000)
 
     const bootstrapApi = await createBootstrapApiContext()
@@ -851,20 +850,20 @@ test('@flow @permission catalog-style entity instances stay read-only for metahu
         password: runManifest.testUser.password
     })
 
-    const memberEmail = `e2e+${runManifest.runId}.catalog-member@${process.env.E2E_TEST_USER_EMAIL_DOMAIN || 'example.test'}`
+    const memberEmail = `e2e+${runManifest.runId}.object-member@${process.env.E2E_TEST_USER_EMAIL_DOMAIN || 'example.test'}`
     const memberPassword = process.env.E2E_TEST_USER_PASSWORD || 'ChangeMe_E2E-123456!'
     const defaultRoleCodenames = String(process.env.E2E_TEST_USER_ROLE_CODENAMES || 'User')
         .split(',')
         .map((entry) => entry.trim())
         .filter(Boolean)
-    const metahubName = `E2E ${runManifest.runId} catalog-style member metahub`
-    const metahubCodename = `${runManifest.runId}-catalog-style-member`
+    const metahubName = `E2E ${runManifest.runId} object-style member metahub`
+    const metahubCodename = `${runManifest.runId}-object-style-member`
     const kindSuffix = buildKindSuffix(`${runManifest.runId}-readonly`)
-    const customKindKey = `custom.catalog-readonly-${kindSuffix}`
-    const customName = `Catalogs Read Only ${kindSuffix}`
+    const customKindKey = `custom.object-readonly-${kindSuffix}`
+    const customName = `Objects Read Only ${kindSuffix}`
     const instanceName = `${customName} Instance`
-    const typeCodename = `CatalogReadOnly${kindSuffix}`
-    const instanceCodename = `CatalogReadOnly${kindSuffix}`
+    const typeCodename = `ObjectReadOnly${kindSuffix}`
+    const instanceCodename = `ObjectReadOnly${kindSuffix}`
 
     let memberSession: Awaited<ReturnType<typeof createLoggedInBrowserContext>> | null = null
 
@@ -876,7 +875,7 @@ test('@flow @permission catalog-style entity instances stay read-only for metahu
             email: memberEmail,
             password: memberPassword,
             roleIds: defaultRoleIds,
-            comment: `Created for catalog-style member ACL coverage ${runManifest.runId}`
+            comment: `Created for object-style member ACL coverage ${runManifest.runId}`
         })
 
         if (!createdUser?.userId) {
@@ -892,7 +891,7 @@ test('@flow @permission catalog-style entity instances stay read-only for metahu
         })
 
         if (!metahub?.id) {
-            throw new Error('Metahub creation did not return an id for catalog-style member coverage')
+            throw new Error('Metahub creation did not return an id for object-style member coverage')
         }
 
         await recordCreatedMetahub({
@@ -926,18 +925,18 @@ test('@flow @permission catalog-style entity instances stay read-only for metahu
                 tabs: ['general', 'hubs', 'layout', 'scripts'],
                 sidebarSection: 'objects',
                 nameKey: customName,
-                descriptionKey: 'Catalog-style read-only ACL proof'
+                descriptionKey: 'Object-style read-only ACL proof'
             },
             config: {
                 compatibility: {
-                    legacyObjectKind: 'catalog'
+                    legacyObjectKind: 'object'
                 }
             },
             published: true
         })
 
         if (!createdEntityType.id) {
-            throw new Error('Entity type creation did not return an id for catalog-style member coverage')
+            throw new Error('Entity type creation did not return an id for object-style member coverage')
         }
 
         const createdInstance = await createEntityInstanceViaApi(ownerApi, metahub.id, {
@@ -948,7 +947,7 @@ test('@flow @permission catalog-style entity instances stay read-only for metahu
         })
 
         if (!createdInstance.id) {
-            throw new Error('Entity instance creation did not return an id for catalog-style member coverage')
+            throw new Error('Entity instance creation did not return an id for object-style member coverage')
         }
 
         await addMetahubMember(ownerApi, metahub.id, {
@@ -968,10 +967,10 @@ test('@flow @permission catalog-style entity instances stay read-only for metahu
         await memberPage.goto(`/metahub/${metahub.id}/entities/${customKindKey}/instances`)
 
         await expect(memberPage).toHaveURL(new RegExp(`/metahub/${metahub.id}/entities/${customKindKey}/instances(?:\\?.*)?$`))
-        await expect(memberPage.getByRole('heading', { name: 'Catalogs' })).toBeVisible()
+        await expect(memberPage.getByRole('heading', { name: 'Objects' })).toBeVisible()
         await expect(memberPage.getByText(instanceName, { exact: true })).toBeVisible()
         await expect(memberPage.getByTestId(toolbarSelectors.primaryAction)).toHaveCount(0)
-        await expect(memberPage.getByTestId(buildEntityMenuTriggerSelector('catalog', createdInstance.id))).toHaveCount(0)
+        await expect(memberPage.getByTestId(buildEntityMenuTriggerSelector(customKindKey, createdInstance.id))).toHaveCount(0)
         await expect(memberPage.getByRole('button', { name: 'Edit' })).toHaveCount(0)
         await expect(memberPage.getByRole('button', { name: 'Copy' })).toHaveCount(0)
         await expect(memberPage.getByRole('button', { name: 'Delete' })).toHaveCount(0)
@@ -982,7 +981,7 @@ test('@flow @permission catalog-style entity instances stay read-only for metahu
         await expect(memberPage.getByRole('heading', { name: 'Entities' })).toBeVisible()
         await expect(memberPage.getByRole('link', { name: customName, exact: true })).toBeVisible()
         await expect(memberPage.getByTestId(toolbarSelectors.primaryAction)).toHaveCount(0)
-        await expect(memberPage.getByRole('button', { name: 'Create Entity Type' })).toHaveCount(0)
+        await expect(memberPage.getByRole('button', { name: /Create Entity(?: Type)?/ })).toHaveCount(0)
         await expect(memberPage.getByRole('button', { name: 'Edit Entity Type' })).toHaveCount(0)
     } finally {
         await memberSession?.context.close().catch(() => undefined)

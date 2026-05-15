@@ -99,7 +99,7 @@ export function useCreateMetahub() {
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
                 treeEntitiesCount: 0,
-                linkedCollectionsCount: 0,
+                objectCollectionsCount: 0,
                 membersCount: 1,
                 role: 'owner',
                 accessType: 'member',

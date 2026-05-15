@@ -212,6 +212,19 @@ const renderPage = () =>
         </MemoryRouter>
     )
 
+const mockMenuAnchorLayout = (anchor: HTMLElement) =>
+    vi.spyOn(anchor, 'getBoundingClientRect').mockReturnValue({
+        x: 16,
+        y: 16,
+        top: 16,
+        left: 16,
+        right: 44,
+        bottom: 44,
+        width: 28,
+        height: 28,
+        toJSON: () => ({})
+    } as DOMRect)
+
 describe('PublicationApplicationList', () => {
     beforeEach(() => {
         vi.clearAllMocks()
@@ -281,15 +294,21 @@ describe('PublicationApplicationList', () => {
 
         renderPage()
 
-        await user.click(screen.getByRole('button', { name: '' }))
-        await user.click(screen.getByRole('menuitem', { name: 'Open application' }))
-        expect(windowOpenSpy).toHaveBeenCalledWith('/a/app-1', '_blank', 'noopener,noreferrer')
+        const actionButton = screen.getByRole('button', { name: 'Application actions' })
+        const anchorLayoutSpy = mockMenuAnchorLayout(actionButton)
 
-        await user.click(screen.getByRole('button', { name: '' }))
-        await user.click(screen.getByRole('menuitem', { name: 'Application dashboard' }))
-        expect(windowOpenSpy).toHaveBeenCalledWith('/a/app-1/admin', '_blank', 'noopener,noreferrer')
+        try {
+            await user.click(actionButton)
+            await user.click(screen.getByRole('menuitem', { name: 'Open application' }))
+            expect(windowOpenSpy).toHaveBeenCalledWith('/a/app-1', '_blank', 'noopener,noreferrer')
 
-        windowOpenSpy.mockRestore()
+            await user.click(actionButton)
+            await user.click(screen.getByRole('menuitem', { name: 'Application dashboard' }))
+            expect(windowOpenSpy).toHaveBeenCalledWith('/a/app-1/admin', '_blank', 'noopener,noreferrer')
+        } finally {
+            anchorLayoutSpy.mockRestore()
+            windowOpenSpy.mockRestore()
+        }
     })
 
     it('keeps the publication settings tab accessible from the applications subview', async () => {

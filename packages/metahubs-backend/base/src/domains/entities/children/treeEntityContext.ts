@@ -1,7 +1,7 @@
 import { qSchemaTable } from '@universo/database'
 import type { DbExecutor, SqlQueryable } from '@universo/utils'
 import { queryMany } from '@universo/utils/database'
-import { isEnabledComponentConfig } from '@universo/types'
+import { isEnabledCapabilityConfig } from '@universo/types'
 
 import type { EntityTypeService } from '../services/EntityTypeService'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
@@ -19,8 +19,8 @@ export type BlockingTreeDependency = {
 export type TreeEntityContext = {
     hubKinds: string[]
     hubKindSet: Set<string>
-    linkedCollectionKinds: string[]
-    linkedCollectionKindSet: Set<string>
+    objectCollectionKinds: string[]
+    objectCollectionKindSet: Set<string>
     valueGroupKinds: string[]
     valueGroupKindSet: Set<string>
     optionListKinds: string[]
@@ -36,16 +36,16 @@ export const loadTreeEntityContext = async (
     metahubId: string,
     userId?: string
 ): Promise<TreeEntityContext> => {
-    const [hubKinds, linkedCollectionKinds, valueGroupKinds, optionListKinds, editableTypes] = await Promise.all([
+    const [hubKinds, objectCollectionKinds, valueGroupKinds, optionListKinds, editableTypes] = await Promise.all([
         resolveEntityMetadataKinds(entityTypeService, metahubId, 'hub', userId),
-        resolveEntityMetadataKinds(entityTypeService, metahubId, 'catalog', userId),
+        resolveEntityMetadataKinds(entityTypeService, metahubId, 'object', userId),
         resolveEntityMetadataKinds(entityTypeService, metahubId, 'set', userId),
         resolveEntityMetadataKinds(entityTypeService, metahubId, 'enumeration', userId),
         entityTypeService.listEditableTypes(metahubId, userId)
     ])
     const hubKindSet = createEntityMetadataKindSet(hubKinds)
     const hubAssignableTypes = editableTypes.filter(
-        (type) => !hubKindSet.has(type.kindKey) && isEnabledComponentConfig(type.components.treeAssignment)
+        (type) => !hubKindSet.has(type.kindKey) && isEnabledCapabilityConfig(type.capabilities.treeAssignment)
     )
     const hubAssignableKinds = [...new Set(hubAssignableTypes.map((type) => type.kindKey))]
     const hubAssignableTypeByKind = new Map<string, { name?: unknown; nameKey?: string }>()
@@ -60,8 +60,8 @@ export const loadTreeEntityContext = async (
     return {
         hubKinds,
         hubKindSet,
-        linkedCollectionKinds,
-        linkedCollectionKindSet: createEntityMetadataKindSet(linkedCollectionKinds),
+        objectCollectionKinds,
+        objectCollectionKindSet: createEntityMetadataKindSet(objectCollectionKinds),
         valueGroupKinds,
         valueGroupKindSet: createEntityMetadataKindSet(valueGroupKinds),
         optionListKinds,

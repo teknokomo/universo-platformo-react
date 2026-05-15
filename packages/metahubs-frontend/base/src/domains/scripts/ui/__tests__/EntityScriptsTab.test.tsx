@@ -145,8 +145,8 @@ const createScriptRecord = (overrides: Record<string, unknown> = {}) => ({
             }
         }
     },
-    attachedToKind: 'catalog',
-    attachedToId: 'catalog-1',
+    attachedToKind: 'object',
+    attachedToId: 'object-1',
     moduleRole: 'module',
     sourceKind: 'embedded',
     sdkApiVersion: '1.0.0',
@@ -219,7 +219,7 @@ describe('EntityScriptsTab', () => {
     })
 
     it('blocks script authoring until a non-metahub entity has been saved', () => {
-        renderTab(<EntityScriptsTab metahubId='metahub-1' attachedToKind='catalog' attachedToId={null} t={translate} />)
+        renderTab(<EntityScriptsTab metahubId='metahub-1' attachedToKind='object' attachedToId={null} t={translate} />)
 
         expect(screen.getByText('Save this entity first, then scripts can be attached from this tab.')).toBeInTheDocument()
         expect(mocks.list).not.toHaveBeenCalled()
@@ -228,9 +228,9 @@ describe('EntityScriptsTab', () => {
     it('shows validation feedback before creating an incomplete script draft', async () => {
         const user = userEvent.setup()
 
-        renderTab(<EntityScriptsTab metahubId='metahub-1' attachedToKind='catalog' attachedToId='catalog-1' t={translate} />)
+        renderTab(<EntityScriptsTab metahubId='metahub-1' attachedToKind='object' attachedToId='object-1' t={translate} />)
 
-        await waitFor(() => expect(mocks.list).toHaveBeenCalledWith('metahub-1', { attachedToKind: 'catalog', attachedToId: 'catalog-1' }))
+        await waitFor(() => expect(mocks.list).toHaveBeenCalledWith('metahub-1', { attachedToKind: 'object', attachedToId: 'object-1' }))
         await user.click(screen.getByRole('button', { name: 'Create script' }))
 
         expect(screen.getByText('Codename, name, and source code are required')).toBeInTheDocument()
@@ -253,7 +253,7 @@ describe('EntityScriptsTab', () => {
     it('swaps to the widget template and submits a create payload for new widget scripts', async () => {
         const user = userEvent.setup()
 
-        renderTab(<EntityScriptsTab metahubId='metahub-1' attachedToKind='catalog' attachedToId='catalog-1' t={translate} />)
+        renderTab(<EntityScriptsTab metahubId='metahub-1' attachedToKind='object' attachedToId='object-1' t={translate} />)
 
         await waitFor(() => expect(mocks.list).toHaveBeenCalled())
         await waitFor(() => expect(screen.queryByText('Loading attached scripts...')).not.toBeInTheDocument())
@@ -277,8 +277,8 @@ describe('EntityScriptsTab', () => {
             expect(mocks.create).toHaveBeenCalledWith(
                 'metahub-1',
                 expect.objectContaining({
-                    attachedToKind: 'catalog',
-                    attachedToId: 'catalog-1',
+                    attachedToKind: 'object',
+                    attachedToId: 'object-1',
                     moduleRole: 'widget',
                     capabilities: expect.arrayContaining(['metadata.read', 'rpc.client']),
                     codename: 'runtime-quiz-widget',
@@ -307,7 +307,7 @@ describe('EntityScriptsTab', () => {
         mocks.list.mockResolvedValue([existing])
         mocks.update.mockResolvedValue(updated)
 
-        renderTab(<EntityScriptsTab metahubId='metahub-1' attachedToKind='catalog' attachedToId='catalog-1' t={translate} />)
+        renderTab(<EntityScriptsTab metahubId='metahub-1' attachedToKind='object' attachedToId='object-1' t={translate} />)
 
         await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue('Quiz widget'))
         await user.clear(screen.getByLabelText('Name'))
@@ -321,8 +321,8 @@ describe('EntityScriptsTab', () => {
                 expect.objectContaining({
                     codename: 'quiz-widget',
                     name: 'Updated quiz widget',
-                    attachedToKind: 'catalog',
-                    attachedToId: 'catalog-1',
+                    attachedToKind: 'object',
+                    attachedToId: 'object-1',
                     moduleRole: 'module'
                 })
             )
@@ -343,7 +343,7 @@ describe('EntityScriptsTab', () => {
             })
         ])
 
-        renderTab(<EntityScriptsTab metahubId='metahub-1' attachedToKind='catalog' attachedToId='catalog-1' t={translate} />)
+        renderTab(<EntityScriptsTab metahubId='metahub-1' attachedToKind='object' attachedToId='object-1' t={translate} />)
 
         await waitFor(() => expect(screen.getByText('Run posting handlers')).toBeInTheDocument())
         expect(screen.getByText('Read ledgers')).toBeInTheDocument()
@@ -358,7 +358,7 @@ describe('EntityScriptsTab', () => {
 
         mocks.list.mockResolvedValueOnce([createScriptRecord()]).mockResolvedValueOnce([])
 
-        renderTab(<EntityScriptsTab metahubId='metahub-1' attachedToKind='catalog' attachedToId='catalog-1' t={translate} />)
+        renderTab(<EntityScriptsTab metahubId='metahub-1' attachedToKind='object' attachedToId='object-1' t={translate} />)
 
         await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue('Quiz widget'))
         await user.click(screen.getByRole('button', { name: 'Delete' }))
@@ -383,7 +383,7 @@ describe('EntityScriptsTab', () => {
             }
         })
 
-        renderTab(<EntityScriptsTab metahubId='metahub-1' attachedToKind='catalog' attachedToId='catalog-1' t={translate} />)
+        renderTab(<EntityScriptsTab metahubId='metahub-1' attachedToKind='object' attachedToId='object-1' t={translate} />)
 
         await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue('Quiz widget'))
         await user.click(screen.getByRole('button', { name: 'Delete' }))
@@ -394,7 +394,7 @@ describe('EntityScriptsTab', () => {
     it('switches to a compact layout based on the actual container width', async () => {
         mocks.list.mockResolvedValue([createScriptRecord()])
 
-        renderTab(<EntityScriptsTab metahubId='metahub-1' attachedToKind='catalog' attachedToId='catalog-1' t={translate} />)
+        renderTab(<EntityScriptsTab metahubId='metahub-1' attachedToKind='object' attachedToId='object-1' t={translate} />)
 
         await waitFor(() => expect(screen.getByTestId('entity-scripts-layout')).toHaveAttribute('data-layout-mode', 'compact'))
         await waitFor(() => expect(screen.getByText('Selected: Quiz widget')).toBeInTheDocument())
@@ -405,7 +405,7 @@ describe('EntityScriptsTab', () => {
     it('returns to split layout when the dialog becomes wide enough', async () => {
         mocks.list.mockResolvedValue([createScriptRecord()])
 
-        renderTab(<EntityScriptsTab metahubId='metahub-1' attachedToKind='catalog' attachedToId='catalog-1' t={translate} />)
+        renderTab(<EntityScriptsTab metahubId='metahub-1' attachedToKind='object' attachedToId='object-1' t={translate} />)
 
         await waitFor(() => expect(screen.getByTestId('entity-scripts-layout')).toHaveAttribute('data-layout-mode', 'compact'))
 

@@ -55,7 +55,7 @@ const findRuntimeSectionIdByCodename = (
     const normalized = codename.trim()
     return (
         details.sections?.find((section) => section.codename === normalized)?.id ??
-        details.linkedCollections?.find((section) => section.codename === normalized)?.id ??
+        details.objectCollections?.find((section) => section.codename === normalized)?.id ??
         undefined
     )
 }
@@ -64,8 +64,8 @@ const readRecordsListTarget = (datasource: RuntimeDatasourceDescriptor, details:
     if (datasource.kind !== 'records.list') return undefined
     return (
         datasource.sectionId ??
-        datasource.linkedCollectionId ??
-        findRuntimeSectionIdByCodename(details, datasource.sectionCodename ?? datasource.linkedCollectionCodename) ??
+        datasource.objectCollectionId ??
+        findRuntimeSectionIdByCodename(details, datasource.sectionCodename ?? datasource.objectCollectionCodename) ??
         undefined
     )
 }
@@ -106,7 +106,7 @@ function RecordsListDetailsTableWidget({ datasource }: { datasource: Extract<Run
                 locale: details?.locale ?? 'en',
                 limit,
                 offset,
-                linkedCollectionId: targetSectionId,
+                objectCollectionId: targetSectionId,
                 sectionId: targetSectionId,
                 search: staticSearch,
                 sort: runtimeSort,

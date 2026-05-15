@@ -6,12 +6,12 @@ import type { AssignSystemRole } from '@universo/types'
 import type { DbExecutor } from '@universo/utils/database'
 import { activeAppRowCondition } from '@universo/utils'
 import {
-    fetchCatalogItems,
+    fetchObjectItems,
     fetchAllUserSelections,
     syncUserSelections,
     validateItemExists,
-    type CatalogKind,
-    type OnboardingCatalogRow
+    type ObjectKind,
+    type OnboardingObjectRow
 } from '../persistence/onboardingStore'
 
 const resolveAuthUser = (req: Request): { id?: string; email?: string } => {
@@ -22,7 +22,7 @@ const resolveAuthUser = (req: Request): { id?: string; email?: string } => {
     }
 }
 
-const CATALOG_KINDS: CatalogKind[] = ['goals', 'topics', 'features']
+const OBJECT_KINDS: ObjectKind[] = ['goals', 'topics', 'features']
 
 const selectionsSchema = z.object({
     goals: z.array(z.string().uuid()),
@@ -54,15 +54,15 @@ export function createOnboardingRoutes(
 
         try {
             const [goals, topics, features, selections, profile] = await Promise.all([
-                fetchCatalogItems(exec, 'goals'),
-                fetchCatalogItems(exec, 'topics'),
-                fetchCatalogItems(exec, 'features'),
+                fetchObjectItems(exec, 'goals'),
+                fetchObjectItems(exec, 'topics'),
+                fetchObjectItems(exec, 'features'),
                 fetchAllUserSelections(exec, userId),
                 profileService.getUserProfile(userId)
             ])
 
             const selectionSet = new Set(selections.map((s) => s.item_id))
-            const mapItems = (rows: OnboardingCatalogRow[]) =>
+            const mapItems = (rows: OnboardingObjectRow[]) =>
                 rows.map((r) => ({
                     id: r.id,
                     codename: r.codename,
@@ -107,12 +107,12 @@ export function createOnboardingRoutes(
 
         try {
             const results = await exec.transaction(async (trx) => {
-                for (const kind of CATALOG_KINDS) {
+                for (const kind of OBJECT_KINDS) {
                     for (const itemId of data[kind]) {
                         const exists = await validateItemExists(trx, kind, itemId)
                         if (!exists) {
                             return {
-                                error: `Item ${itemId} not found in ${kind} catalog`
+                                error: `Item ${itemId} not found in ${kind} object`
                             }
                         }
                     }
@@ -172,7 +172,7 @@ export function createOnboardingRoutes(
                     if (!previousProfile?.onboarding_completed) {
                         try {
                             await exec.query(
-                                `UPDATE profiles.cat_profiles
+                                `UPDATE profiles.obj_profiles
                                  SET onboarding_completed = $1, _upl_updated_at = NOW()
                                  WHERE user_id = $2 AND ${activeAppRowCondition()}`,
                                 [false, userId]

@@ -140,19 +140,19 @@ const mockTemplatesList = [
         }
     },
     {
-        id: 'template-entity-catalog',
-        codename: 'catalog',
+        id: 'template-entity-object',
+        codename: 'object',
         definitionType: 'entity_type_preset',
-        name: createVlc('Catalog preset', 'Пресет каталога'),
-        description: createVlc('Standard catalog preset', 'Стандартный пресет каталога'),
+        name: createVlc('Object preset', 'Пресет объекта'),
+        description: createVlc('Standard object preset', 'Стандартный пресет объекта'),
         icon: 'IconDatabase',
         isSystem: true,
         sortOrder: 4,
         activeVersion: {
-            id: 'template-entity-catalog-v1',
+            id: 'template-entity-object-v1',
             versionNumber: 1,
             versionLabel: '0.1.0',
-            changelog: 'Catalog preset'
+            changelog: 'Object preset'
         }
     }
 ]
@@ -245,9 +245,9 @@ export const handlers = [
                           name: template.name,
                           description: template.description,
                           entityType: {
-                              kindKey: 'catalog',
-                              codename: createVlc('LinkedCollectionEntity', 'LinkedCollectionEntity'),
-                              components: {
+                              kindKey: 'object',
+                              codename: createVlc('ObjectCollectionEntity', 'ObjectCollectionEntity'),
+                              capabilities: {
                                   dataSchema: { enabled: true },
                                   records: { enabled: true },
                                   treeAssignment: { enabled: true },
@@ -261,19 +261,19 @@ export const handlers = [
                                   scripting: { enabled: true },
                                   layoutConfig: { enabled: true },
                                   runtimeBehavior: { enabled: true },
-                                  physicalTable: { enabled: true, prefix: 'catx' }
+                                  physicalTable: { enabled: true, prefix: 'objx' }
                               },
                               ui: {
                                   iconName: 'IconDatabase',
                                   tabs: ['general', 'hubs', 'layout', 'scripts'],
                                   sidebarSection: 'objects',
-                                  nameKey: 'Catalogs',
-                                  descriptionKey: 'LinkedCollectionEntity-compatible entity preset'
+                                  nameKey: 'Objects',
+                                  descriptionKey: 'ObjectCollectionEntity-compatible entity preset'
                               },
                               presentation: {},
                               config: {
                                   compatibility: {
-                                      legacyObjectKind: 'catalog'
+                                      legacyObjectKind: 'object'
                                   }
                               }
                           }

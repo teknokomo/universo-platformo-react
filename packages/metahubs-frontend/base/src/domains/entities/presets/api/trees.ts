@@ -137,7 +137,7 @@ export const createTreeEntity = (
 
 export type TreeEntityCopyInput = TreeEntityLocalizedPayload & {
     copyAllRelations?: TreeEntityCopyOptions['copyAllRelations']
-    copyLinkedCollectionRelations?: TreeEntityCopyOptions['copyLinkedCollectionRelations']
+    copyObjectCollectionRelations?: TreeEntityCopyOptions['copyObjectCollectionRelations']
     copyValueGroupRelations?: TreeEntityCopyOptions['copyValueGroupRelations']
     copyOptionListRelations?: TreeEntityCopyOptions['copyOptionListRelations']
 }

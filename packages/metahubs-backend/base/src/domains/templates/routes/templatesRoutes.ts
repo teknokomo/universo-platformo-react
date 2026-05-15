@@ -5,7 +5,7 @@ import { listActiveTemplatesForCatalog, findTemplateByIdNotDeleted, listTemplate
 import type { SqlQueryable } from '../../../persistence'
 
 /**
- * Templates routes — read-only catalog of available metahub templates.
+ * Templates routes — read-only object of available metahub templates.
  *
  * All authenticated users can list templates.
  * Template management (create/update/delete) is admin-only and

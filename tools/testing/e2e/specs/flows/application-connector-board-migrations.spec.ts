@@ -5,7 +5,7 @@ import {
     analyzeApplicationMigrationRollback,
     createLoggedInApiContext,
     createMetahub,
-    createFieldDefinition,
+    createComponent,
     createPublication,
     createPublicationLinkedApplication,
     createPublicationVersion,
@@ -13,7 +13,7 @@ import {
     getApplication,
     listApplicationMigrations,
     listConnectors,
-    listLinkedCollections,
+    listObjectCollections,
     syncApplicationSchema,
     syncPublication,
     waitForPublicationReady
@@ -61,22 +61,22 @@ type RollbackAnalysis = {
     rollbackChanges?: string[]
 }
 
-async function waitForCatalogId(api: Awaited<ReturnType<typeof createLoggedInApiContext>>, metahubId: string) {
+async function waitForObjectId(api: Awaited<ReturnType<typeof createLoggedInApiContext>>, metahubId: string) {
     let payload: CatalogListResponse | null = null
 
     await expect
         .poll(async () => {
-            payload = (await listLinkedCollections(api, metahubId, { limit: 100, offset: 0 })) as CatalogListResponse
+            payload = (await listObjectCollections(api, metahubId, { limit: 100, offset: 0 })) as CatalogListResponse
             return typeof payload?.items?.[0]?.id === 'string'
         })
         .toBe(true)
 
-    const catalogId = payload?.items?.[0]?.id
-    if (!catalogId) {
-        throw new Error(`Metahub ${metahubId} did not expose a default catalog`)
+    const objectCollectionId = payload?.items?.[0]?.id
+    if (!objectCollectionId) {
+        throw new Error(`Metahub ${metahubId} did not expose a default objectCollection`)
     }
 
-    return catalogId
+    return objectCollectionId
 }
 
 async function waitForApplicationSchemaStatus(
@@ -208,9 +208,9 @@ test('@flow @combined application connector board exposes schema state and links
             codename: metahubCodename
         })
 
-        const catalogId = await waitForCatalogId(api, metahub.id)
+        const objectCollectionId = await waitForObjectId(api, metahub.id)
 
-        await createFieldDefinition(api, metahub.id, catalogId, {
+        await createComponent(api, metahub.id, objectCollectionId, {
             name: { en: firstAttributeName },
             namePrimaryLocale: 'en',
             codename: createLocalizedContent('en', firstAttributeCodename),
@@ -264,7 +264,7 @@ test('@flow @combined application connector board exposes schema state and links
         const connectorId = connector.id
         const connectorName = extractLocalizedText(connector.name)
 
-        await createFieldDefinition(api, metahub.id, catalogId, {
+        await createComponent(api, metahub.id, objectCollectionId, {
             name: { en: secondAttributeName },
             namePrimaryLocale: 'en',
             codename: createLocalizedContent('en', secondAttributeCodename),

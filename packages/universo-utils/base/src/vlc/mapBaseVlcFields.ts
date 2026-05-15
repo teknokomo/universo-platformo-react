@@ -20,8 +20,8 @@ interface VlcMappableEntity {
  * export const toMetahubDisplay = (m: Metahub, locale = 'en') => mapBaseVlcFields(m, locale)
  *
  * // Complex case — as building block:
- * export function toCatalogDisplay(catalog: Catalog, locale = 'en'): CatalogDisplay {
- *   const base = mapBaseVlcFields(catalog, locale)
+ * export function toObjectDisplay(object: Object, locale = 'en'): ObjectDisplay {
+ *   const base = mapBaseVlcFields(object, locale)
  *   return { ...base, name: base.name || base.codename }
  * }
  * ```

@@ -61,7 +61,7 @@ vi.mock('@universo/apps-template-mui', async () => {
                 content?: ReactNode
                 locale?: string
                 sections?: Array<{ id: string; codename: string }>
-                linkedCollections?: Array<{ id: string; codename: string }>
+                objectCollections?: Array<{ id: string; codename: string }>
             }
             layoutConfig?: Record<string, unknown>
             menu?: { items?: Array<{ label: string; selected?: boolean; href?: string | null }> }
@@ -77,7 +77,7 @@ vi.mock('@universo/apps-template-mui', async () => {
                     {JSON.stringify({
                         locale: details?.locale,
                         sections: details?.sections,
-                        linkedCollections: details?.linkedCollections
+                        objectCollections: details?.objectCollections
                     })}
                 </div>
                 <div data-testid='apps-dashboard-actions'>{details?.actions}</div>
@@ -132,9 +132,9 @@ vi.mock('@universo/apps-template-mui', async () => {
                     settings: { sectionLinksEnabled: true },
                     workspacesEnabled: true,
                     section: { name: 'Details', codename: 'details' },
-                    sections: [{ id: 'catalog-1', codename: 'details' }],
-                    linkedCollection: { name: 'Details' },
-                    linkedCollections: [{ id: 'catalog-1', codename: 'details' }]
+                    sections: [{ id: 'object-1', codename: 'details' }],
+                    objectCollection: { name: 'Details' },
+                    objectCollections: [{ id: 'object-1', codename: 'details' }]
                 },
                 isLoading: false,
                 isFetching: false,
@@ -149,18 +149,18 @@ vi.mock('@universo/apps-template-mui', async () => {
                 pageSizeOptions: [10, 25, 50, 100],
                 localeText: undefined,
                 handlePendingInteractionAttempt: runtimeMocks.handlePendingInteractionAttempt,
-                activeSectionId: 'catalog-1',
-                selectedSectionId: 'catalog-1',
+                activeSectionId: 'object-1',
+                selectedSectionId: 'object-1',
                 onSelectSection: vi.fn(),
-                activeLinkedCollectionId: 'catalog-1',
-                selectedLinkedCollectionId: 'catalog-1',
-                onSelectLinkedCollection: vi.fn(),
+                activeObjectCollectionId: 'object-1',
+                selectedObjectCollectionId: 'object-1',
+                onSelectObjectCollection: vi.fn(),
                 activeMenu: null,
                 dashboardMenuItems: [],
                 menuSlot: {
                     title: null,
                     showTitle: false,
-                    items: [{ id: 'modules', label: 'Modules', kind: 'section', linkedCollectionId: 'catalog-1', selected: true }]
+                    items: [{ id: 'modules', label: 'Modules', kind: 'section', objectCollectionId: 'object-1', selected: true }]
                 },
                 menusMap: {},
                 formOpen: false,
@@ -306,9 +306,9 @@ describe('ApplicationRuntime pending interaction safety', () => {
 
         expect(screen.getByTestId('apps-dashboard-title')).toHaveTextContent('Details')
         expect(screen.getByTestId('apps-dashboard-details')).toHaveTextContent('"locale":"en"')
-        expect(screen.getByTestId('apps-dashboard-details')).toHaveTextContent('"sections":[{"id":"catalog-1","codename":"details"}]')
+        expect(screen.getByTestId('apps-dashboard-details')).toHaveTextContent('"sections":[{"id":"object-1","codename":"details"}]')
         expect(screen.getByTestId('apps-dashboard-details')).toHaveTextContent(
-            '"linkedCollections":[{"id":"catalog-1","codename":"details"}]'
+            '"objectCollections":[{"id":"object-1","codename":"details"}]'
         )
 
         const user = userEvent.setup()
@@ -324,7 +324,7 @@ describe('ApplicationRuntime pending interaction safety', () => {
         expect(screen.getByTestId('apps-dashboard-title')).toHaveTextContent('Workspaces')
         expect(screen.getByTestId('runtime-workspaces-page')).toHaveTextContent('workspaces:app-1')
         expect(screen.getByTestId('apps-dashboard-menu')).toHaveTextContent(
-            'Modules:false:/a/app-1/catalog-1|Workspaces:true:/a/app-1/workspaces'
+            'Modules:false:/a/app-1/object-1|Workspaces:true:/a/app-1/workspaces'
         )
         expect(screen.getByTestId('apps-dashboard-layout')).toHaveTextContent('"showOverviewTitle":false')
         expect(screen.getByTestId('apps-dashboard-layout')).toHaveTextContent('"showOverviewCards":false')
@@ -341,7 +341,7 @@ describe('ApplicationRuntime pending interaction safety', () => {
 
         expect(screen.getByTestId('runtime-workspaces-page')).toHaveTextContent(`workspaces:app-1:${workspaceId}:access`)
         expect(screen.getByTestId('apps-dashboard-menu')).toHaveTextContent(
-            `Modules:false:/a/app-1/catalog-1|Workspaces:true:/a/app-1/workspaces|Dashboard:false:/a/app-1/workspaces/${workspaceId}|Access:true:/a/app-1/workspaces/${workspaceId}/access`
+            `Modules:false:/a/app-1/object-1|Workspaces:true:/a/app-1/workspaces|Dashboard:false:/a/app-1/workspaces/${workspaceId}|Access:true:/a/app-1/workspaces/${workspaceId}/access`
         )
     })
 
@@ -351,7 +351,7 @@ describe('ApplicationRuntime pending interaction safety', () => {
                 title: null,
                 showTitle: false,
                 items: [
-                    { id: 'modules', label: 'Modules', kind: 'section', linkedCollectionId: 'catalog-1', selected: true },
+                    { id: 'modules', label: 'Modules', kind: 'section', objectCollectionId: 'object-1', selected: true },
                     {
                         id: 'runtime-workspaces',
                         label: 'Workspaces',
@@ -367,7 +367,7 @@ describe('ApplicationRuntime pending interaction safety', () => {
         renderRuntimePageAt('/applications/app-1/runtime/workspaces')
 
         expect(screen.getByTestId('apps-dashboard-menu')).toHaveTextContent(
-            'Modules:false:/a/app-1/catalog-1|Workspaces:true:/a/app-1/workspaces'
+            'Modules:false:/a/app-1/object-1|Workspaces:true:/a/app-1/workspaces'
         )
     })
 
@@ -380,7 +380,7 @@ describe('ApplicationRuntime pending interaction safety', () => {
                 settings: { sectionLinksEnabled: false },
                 workspacesEnabled: true,
                 section: { name: 'Details', codename: 'details' },
-                linkedCollection: { name: 'Details' }
+                objectCollection: { name: 'Details' }
             }
         }
 
@@ -403,7 +403,7 @@ describe('ApplicationRuntime pending interaction safety', () => {
                 zoneWidgets: { left: [], right: [], center: [] },
                 menus: [],
                 activeMenuId: null,
-                linkedCollection: { name: 'Details' },
+                objectCollection: { name: 'Details' },
                 workspaceLimit: {
                     canCreate: false,
                     currentRows: 2,
@@ -426,12 +426,12 @@ describe('ApplicationRuntime pending interaction safety', () => {
                 menus: [],
                 activeMenuId: null,
                 section: { name: 'Orders', codename: 'orders' },
-                linkedCollection: { name: 'Legacy Catalog' }
+                objectCollection: { name: 'Legacy Object' }
             },
             activeSectionId: 'section-9',
             selectedSectionId: 'section-9',
-            activeLinkedCollectionId: 'catalog-legacy',
-            selectedLinkedCollectionId: 'catalog-legacy'
+            activeObjectCollectionId: 'object-legacy',
+            selectedObjectCollectionId: 'object-legacy'
         }
 
         renderRuntimePage()
@@ -455,13 +455,13 @@ describe('ApplicationRuntime pending interaction safety', () => {
         })
     })
 
-    it('hides the create action when the catalog runtime config disables it', () => {
+    it('hides the create action when the object runtime config disables it', () => {
         runtimeMocks.dashboardStateOverrides = {
             appData: {
                 zoneWidgets: { left: [], right: [], center: [] },
                 menus: [],
                 activeMenuId: null,
-                linkedCollection: {
+                objectCollection: {
                     name: 'Details',
                     runtimeConfig: { showCreateButton: false }
                 }
@@ -479,7 +479,7 @@ describe('ApplicationRuntime pending interaction safety', () => {
                 zoneWidgets: { left: [], right: [], center: [] },
                 menus: [],
                 activeMenuId: null,
-                linkedCollection: {
+                objectCollection: {
                     name: 'Details',
                     runtimeConfig: { createSurface: 'page' }
                 },
@@ -508,7 +508,7 @@ describe('ApplicationRuntime pending interaction safety', () => {
                 zoneWidgets: { left: [], right: [], center: [] },
                 menus: [],
                 activeMenuId: null,
-                linkedCollection: {
+                objectCollection: {
                     name: 'Details',
                     runtimeConfig: { createSurface: 'page' }
                 }
@@ -532,7 +532,7 @@ describe('ApplicationRuntime pending interaction safety', () => {
                 zoneWidgets: { left: [], right: [], center: [] },
                 menus: [],
                 activeMenuId: null,
-                linkedCollection: {
+                objectCollection: {
                     name: 'Details',
                     runtimeConfig: { createSurface: 'page' }
                 }
@@ -577,7 +577,7 @@ describe('ApplicationRuntime pending interaction safety', () => {
             zoneWidgets: { left: [], right: [], center: [] },
             menus: [],
             activeMenuId: null,
-            linkedCollection: {
+            objectCollection: {
                 name: 'Details',
                 runtimeConfig: { createSurface: 'page' }
             }
@@ -630,13 +630,13 @@ describe('ApplicationRuntime pending interaction safety', () => {
         expect(runtimeMocks.handleOpenCreate).not.toHaveBeenCalled()
     })
 
-    it('blocks direct create page navigation when the catalog hides the create action', async () => {
+    it('blocks direct create page navigation when the object hides the create action', async () => {
         runtimeMocks.dashboardStateOverrides = {
             appData: {
                 zoneWidgets: { left: [], right: [], center: [] },
                 menus: [],
                 activeMenuId: null,
-                linkedCollection: {
+                objectCollection: {
                     name: 'Details',
                     runtimeConfig: { showCreateButton: false, createSurface: 'page' }
                 }
@@ -652,29 +652,29 @@ describe('ApplicationRuntime pending interaction safety', () => {
         expect(runtimeMocks.handleOpenCreate).not.toHaveBeenCalled()
     })
 
-    it('clears page surface state when the active catalog changes', async () => {
-        const catalogOneData = {
+    it('clears page surface state when the active object changes', async () => {
+        const objectOneData = {
             zoneWidgets: { left: [], right: [], center: [] },
             menus: [],
             activeMenuId: null,
             section: {
-                name: 'Catalog One',
-                codename: 'catalog-one',
+                name: 'Object One',
+                codename: 'object-one',
                 runtimeConfig: { createSurface: 'page' }
             },
-            linkedCollection: {
-                name: 'Catalog One',
+            objectCollection: {
+                name: 'Object One',
                 runtimeConfig: { createSurface: 'page' }
             }
         }
 
         runtimeMocks.dashboardStateOverrides = {
-            appData: catalogOneData,
+            appData: objectOneData,
             formOpen: false,
-            activeSectionId: 'catalog-1',
-            selectedSectionId: 'catalog-1',
-            activeLinkedCollectionId: 'catalog-1',
-            selectedLinkedCollectionId: 'catalog-1'
+            activeSectionId: 'object-1',
+            selectedSectionId: 'object-1',
+            activeObjectCollectionId: 'object-1',
+            selectedObjectCollectionId: 'object-1'
         }
 
         renderRuntimeHarness('/applications/app-1/runtime?surface=page&mode=create')
@@ -684,12 +684,12 @@ describe('ApplicationRuntime pending interaction safety', () => {
         })
 
         runtimeMocks.dashboardStateOverrides = {
-            appData: catalogOneData,
+            appData: objectOneData,
             formOpen: true,
-            activeSectionId: 'catalog-1',
-            selectedSectionId: 'catalog-1',
-            activeLinkedCollectionId: 'catalog-1',
-            selectedLinkedCollectionId: 'catalog-1'
+            activeSectionId: 'object-1',
+            selectedSectionId: 'object-1',
+            activeObjectCollectionId: 'object-1',
+            selectedObjectCollectionId: 'object-1'
         }
 
         act(() => {
@@ -704,22 +704,22 @@ describe('ApplicationRuntime pending interaction safety', () => {
 
         runtimeMocks.dashboardStateOverrides = {
             appData: {
-                ...catalogOneData,
+                ...objectOneData,
                 section: {
-                    name: 'Catalog Two',
-                    codename: 'catalog-two',
+                    name: 'Object Two',
+                    codename: 'object-two',
                     runtimeConfig: { createSurface: 'page' }
                 },
-                linkedCollection: {
-                    name: 'Catalog Two',
+                objectCollection: {
+                    name: 'Object Two',
                     runtimeConfig: { createSurface: 'page' }
                 }
             },
             formOpen: true,
-            activeSectionId: 'catalog-2',
-            selectedSectionId: 'catalog-2',
-            activeLinkedCollectionId: 'catalog-2',
-            selectedLinkedCollectionId: 'catalog-2'
+            activeSectionId: 'object-2',
+            selectedSectionId: 'object-2',
+            activeObjectCollectionId: 'object-2',
+            selectedObjectCollectionId: 'object-2'
         }
 
         act(() => {
@@ -739,7 +739,7 @@ describe('ApplicationRuntime pending interaction safety', () => {
             zoneWidgets: { left: [], right: [], center: [] },
             menus: [],
             activeMenuId: null,
-            linkedCollection: {
+            objectCollection: {
                 name: 'Details',
                 runtimeConfig: { createSurface: 'page' }
             }
@@ -840,7 +840,7 @@ describe('ApplicationRuntime pending interaction safety', () => {
             rowId: 'row-1',
             field: 'isEnabled',
             value: true,
-            sectionId: 'catalog-1'
+            sectionId: 'object-1'
         })
     })
 })

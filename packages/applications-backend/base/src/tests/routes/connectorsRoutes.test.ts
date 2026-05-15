@@ -196,11 +196,11 @@ describe('Connectors Routes', () => {
     describe('POST /applications/:applicationId/connectors', () => {
         it('should create a new connector', async () => {
             const dataSource = buildDataSource((sql, _params, scope) => {
-                if (scope === 'root' && sql.includes('FROM applications.cat_applications') && sql.includes('schema_status')) {
+                if (scope === 'root' && sql.includes('FROM applications.obj_applications') && sql.includes('schema_status')) {
                     return [{ id: 'application-1', schemaStatus: null }]
                 }
 
-                if (scope === 'tx' && sql.includes('INSERT INTO applications.cat_connectors')) {
+                if (scope === 'tx' && sql.includes('INSERT INTO applications.obj_connectors')) {
                     return [
                         {
                             id: 'new-connector-id',
@@ -237,7 +237,7 @@ describe('Connectors Routes', () => {
 
         it('should return 404 when application does not exist', async () => {
             const dataSource = buildDataSource((sql, _params, scope) => {
-                if (scope === 'root' && sql.includes('FROM applications.cat_applications') && sql.includes('schema_status')) {
+                if (scope === 'root' && sql.includes('FROM applications.obj_applications') && sql.includes('schema_status')) {
                     return []
                 }
 
@@ -252,7 +252,7 @@ describe('Connectors Routes', () => {
 
         it('should reject empty name', async () => {
             const dataSource = buildDataSource((sql, _params, scope) => {
-                if (scope === 'root' && sql.includes('FROM applications.cat_applications') && sql.includes('schema_status')) {
+                if (scope === 'root' && sql.includes('FROM applications.obj_applications') && sql.includes('schema_status')) {
                     return [{ id: 'application-1', schemaStatus: null }]
                 }
 
@@ -265,11 +265,11 @@ describe('Connectors Routes', () => {
 
         it('should use sortOrder 0 when not provided', async () => {
             const dataSource = buildDataSource((sql, params, scope) => {
-                if (scope === 'root' && sql.includes('FROM applications.cat_applications') && sql.includes('schema_status')) {
+                if (scope === 'root' && sql.includes('FROM applications.obj_applications') && sql.includes('schema_status')) {
                     return [{ id: 'application-1', schemaStatus: null }]
                 }
 
-                if (scope === 'tx' && sql.includes('INSERT INTO applications.cat_connectors')) {
+                if (scope === 'tx' && sql.includes('INSERT INTO applications.obj_connectors')) {
                     expect(params[3]).toBe(0)
 
                     return [
@@ -300,7 +300,7 @@ describe('Connectors Routes', () => {
     describe('GET /applications/:applicationId/connectors/:connectorId', () => {
         it('should return 404 for non-existent connector', async () => {
             const dataSource = buildDataSource((sql, _params, scope) => {
-                if (scope === 'root' && sql.includes('FROM applications.cat_connectors') && sql.includes('application_id = $2')) {
+                if (scope === 'root' && sql.includes('FROM applications.obj_connectors') && sql.includes('application_id = $2')) {
                     return []
                 }
 
@@ -313,7 +313,7 @@ describe('Connectors Routes', () => {
 
         it('should return connector details', async () => {
             const dataSource = buildDataSource((sql, _params, scope) => {
-                if (scope === 'root' && sql.includes('FROM applications.cat_connectors') && sql.includes('application_id = $2')) {
+                if (scope === 'root' && sql.includes('FROM applications.obj_connectors') && sql.includes('application_id = $2')) {
                     return [
                         {
                             id: 'connector-1',
@@ -346,9 +346,9 @@ describe('Connectors Routes', () => {
     describe('PATCH /applications/:applicationId/connectors/:connectorId', () => {
         it('should update connector', async () => {
             const dataSource = buildDataSource((sql, _params, scope) => {
-                if (scope === 'root' && sql.includes('FROM applications.cat_connectors') && sql.includes('application_id = $2')) {
+                if (scope === 'root' && sql.includes('FROM applications.obj_connectors') && sql.includes('application_id = $2')) {
                     if (
-                        dataSource.query.mock.calls.filter(([value]) => String(value).includes('FROM applications.cat_connectors'))
+                        dataSource.query.mock.calls.filter(([value]) => String(value).includes('FROM applications.obj_connectors'))
                             .length === 1
                     ) {
                         return [
@@ -385,7 +385,7 @@ describe('Connectors Routes', () => {
                     ]
                 }
 
-                if (scope === 'root' && sql.includes('UPDATE applications.cat_connectors')) {
+                if (scope === 'root' && sql.includes('UPDATE applications.obj_connectors')) {
                     return [
                         {
                             id: 'connector-1',
@@ -419,7 +419,7 @@ describe('Connectors Routes', () => {
     describe('DELETE /applications/:applicationId/connectors/:connectorId', () => {
         it('should delete connector and touch schema status in one transaction', async () => {
             const dataSource = buildDataSource((sql, _params, scope) => {
-                if (scope === 'root' && sql.includes('FROM applications.cat_connectors') && sql.includes('application_id = $2')) {
+                if (scope === 'root' && sql.includes('FROM applications.obj_connectors') && sql.includes('application_id = $2')) {
                     return [
                         {
                             id: 'connector-1',
@@ -439,14 +439,14 @@ describe('Connectors Routes', () => {
 
                 if (
                     scope === 'tx' &&
-                    sql.includes('UPDATE applications.cat_connectors') &&
+                    sql.includes('UPDATE applications.obj_connectors') &&
                     sql.includes('_upl_deleted = true') &&
                     sql.includes('_app_deleted = true')
                 ) {
                     return [{ id: 'connector-1' }]
                 }
 
-                if (scope === 'tx' && sql.includes("UPDATE applications.cat_applications\n        SET schema_status = 'synced'")) {
+                if (scope === 'tx' && sql.includes("UPDATE applications.obj_applications\n        SET schema_status = 'synced'")) {
                     return [{ id: 'application-1' }]
                 }
 
@@ -459,7 +459,7 @@ describe('Connectors Routes', () => {
             expect(
                 dataSource.manager.query.mock.calls.some(
                     ([sql]) =>
-                        String(sql).includes('UPDATE applications.cat_connectors') &&
+                        String(sql).includes('UPDATE applications.obj_connectors') &&
                         String(sql).includes('_upl_deleted = true') &&
                         String(sql).includes('_app_deleted = true')
                 )
@@ -469,7 +469,7 @@ describe('Connectors Routes', () => {
 
         it('should return 404 for non-existent connector', async () => {
             const dataSource = buildDataSource((sql, _params, scope) => {
-                if (scope === 'root' && sql.includes('FROM applications.cat_connectors') && sql.includes('application_id = $2')) {
+                if (scope === 'root' && sql.includes('FROM applications.obj_connectors') && sql.includes('application_id = $2')) {
                     return []
                 }
 

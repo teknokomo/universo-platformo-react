@@ -48,9 +48,9 @@ import {
 
 const LEDGER_CAPABILITY_CONDITION = `
 (
-  COALESCE((config->'components'->'ledgerSchema'->>'enabled')::boolean, false) = true
-  AND COALESCE((config->'components'->'dataSchema'->>'enabled')::boolean, false) = true
-  AND COALESCE((config->'components'->'physicalTable'->>'enabled')::boolean, false) = true
+  COALESCE((config->'capabilities'->'ledgerSchema'->>'enabled')::boolean, false) = true
+  AND COALESCE((config->'capabilities'->'dataSchema'->>'enabled')::boolean, false) = true
+  AND COALESCE((config->'capabilities'->'physicalTable'->>'enabled')::boolean, false) = true
   AND jsonb_typeof(config->'ledger') = 'object'
 )`
 
@@ -79,7 +79,7 @@ type RuntimeScriptObjectRow = {
     config?: Record<string, unknown> | null
 }
 
-type RuntimeScriptAttributeRow = {
+type RuntimeScriptComponentRow = {
     id: string
     codename: unknown
     column_name: string
@@ -96,7 +96,7 @@ type RuntimeScriptRecordBinding = {
         lifecycleContract: ApplicationLifecycleContract
         hasWorkspaceColumn: boolean
     }
-    attrs: RuntimeScriptAttributeRow[]
+    attrs: RuntimeScriptComponentRow[]
     tableIdent: string
     activeRowCondition: string
 }
@@ -111,7 +111,7 @@ type RuntimeLifecycleDispatchParams = {
     currentWorkspaceId?: string | null
     currentUserId?: string | null
     permissions?: Record<RolePermission, boolean> | null
-    attributeIds?: string[]
+    componentIds?: string[]
     payload: Omit<ScriptLifecyclePayload, 'entityCodename'>
 }
 
@@ -176,44 +176,44 @@ const createPublicRpcError = (): Error => new Error('Runtime script method is no
 
 const buildAttachmentKey = (kind: ScriptAttachmentKind, id: string | null | undefined): string => `${kind}:${id ?? ''}`
 
-const resolveRecordFieldKey = (attr: RuntimeScriptAttributeRow): string => {
-    const codenameKey = resolveRuntimeCodenameText(attr.codename)
-    return codenameKey.trim().length > 0 ? codenameKey : attr.column_name
+const resolveRecordFieldKey = (cmp: RuntimeScriptComponentRow): string => {
+    const codenameKey = resolveRuntimeCodenameText(cmp.codename)
+    return codenameKey.trim().length > 0 ? codenameKey : cmp.column_name
 }
 
 const resolveLifecycleAttachmentKind = (kind: string): ScriptAttachmentKind | null =>
     isScriptAttachmentKind(kind) ? normalizeScriptAttachmentKind(kind) : null
 
-const collectTouchedRecordAttributeIds = (attrs: RuntimeScriptAttributeRow[], payload: Record<string, unknown>): string[] => {
+const collectTouchedRecordComponentIds = (attrs: RuntimeScriptComponentRow[], payload: Record<string, unknown>): string[] => {
     const touched = new Set<string>()
 
-    for (const attr of attrs) {
-        const { hasUserValue } = getRuntimeInputValue(payload, attr.column_name, resolveRecordFieldKey(attr))
+    for (const cmp of attrs) {
+        const { hasUserValue } = getRuntimeInputValue(payload, cmp.column_name, resolveRecordFieldKey(cmp))
 
         if (hasUserValue) {
-            touched.add(attr.id)
+            touched.add(cmp.id)
         }
     }
 
     return [...touched]
 }
 
-const isLocalizedStringAttribute = (attr: RuntimeScriptAttributeRow): boolean =>
-    attr.data_type === 'STRING' && Boolean(attr.validation_rules?.versioned || attr.validation_rules?.localized)
+const isLocalizedStringComponent = (cmp: RuntimeScriptComponentRow): boolean =>
+    cmp.data_type === 'STRING' && Boolean(cmp.validation_rules?.versioned || cmp.validation_rules?.localized)
 
-const buildScriptRecordPayload = (row: Record<string, unknown>, attrs: RuntimeScriptAttributeRow[]): Record<string, unknown> => {
+const buildScriptRecordPayload = (row: Record<string, unknown>, attrs: RuntimeScriptComponentRow[]): Record<string, unknown> => {
     const payload: Record<string, unknown> = {
         id: String(row.id)
     }
 
-    for (const attr of attrs) {
-        const fieldKey = resolveRecordFieldKey(attr)
+    for (const cmp of attrs) {
+        const fieldKey = resolveRecordFieldKey(cmp)
         if (fieldKey === 'id') {
             continue
         }
 
-        const rawValue = row[attr.column_name] ?? null
-        payload[fieldKey] = attr.data_type === 'NUMBER' && rawValue !== null ? pgNumericToNumber(rawValue) : rawValue
+        const rawValue = row[cmp.column_name] ?? null
+        payload[fieldKey] = cmp.data_type === 'NUMBER' && rawValue !== null ? pgNumericToNumber(rawValue) : rawValue
     }
 
     return payload
@@ -235,27 +235,27 @@ const assertMutationPermission = (permissions: Record<RolePermission, boolean> |
     throw new Error('Insufficient permissions for this action')
 }
 
-const ensureNoUnsupportedTableFields = (attrs: RuntimeScriptAttributeRow[], payload: Record<string, unknown>) => {
-    const tableAttrs = attrs.filter((attr) => attr.data_type === 'TABLE')
+const ensureNoUnsupportedTableFields = (attrs: RuntimeScriptComponentRow[], payload: Record<string, unknown>) => {
+    const tableAttrs = attrs.filter((cmp) => cmp.data_type === 'TABLE')
 
-    for (const attr of tableAttrs) {
-        const { hasUserValue } = getRuntimeInputValue(payload, attr.column_name, attr.codename)
+    for (const cmp of tableAttrs) {
+        const { hasUserValue } = getRuntimeInputValue(payload, cmp.column_name, cmp.codename)
         if (hasUserValue) {
-            throw new Error(`TABLE field is not supported by the runtime Record API: ${formatRuntimeFieldLabel(attr.codename)}`)
+            throw new Error(`TABLE field is not supported by the runtime Record API: ${formatRuntimeFieldLabel(cmp.codename)}`)
         }
     }
 }
 
 const assertNoUnknownRecordFields = (
-    attrs: RuntimeScriptAttributeRow[],
+    attrs: RuntimeScriptComponentRow[],
     payload: Record<string, unknown>,
     allowedExtraKeys: string[] = []
 ) => {
     const allowedKeys = new Set<string>(allowedExtraKeys)
 
-    for (const attr of attrs) {
-        allowedKeys.add(attr.column_name)
-        allowedKeys.add(resolveRecordFieldKey(attr))
+    for (const cmp of attrs) {
+        allowedKeys.add(cmp.column_name)
+        allowedKeys.add(resolveRecordFieldKey(cmp))
     }
 
     for (const key of Object.keys(payload)) {
@@ -285,36 +285,36 @@ const normalizeFilterPagination = (filters?: Record<string, unknown>): { limit: 
     return { limit, offset }
 }
 
-const resolveFilterAttribute = (attrs: RuntimeScriptAttributeRow[], key: string): RuntimeScriptAttributeRow | null => {
+const resolveFilterComponent = (attrs: RuntimeScriptComponentRow[], key: string): RuntimeScriptComponentRow | null => {
     const normalizedKey = key.trim().toLowerCase()
     if (!normalizedKey) {
         return null
     }
 
     return (
-        attrs.find((attr) => {
-            const codenameKey = resolveRecordFieldKey(attr).trim().toLowerCase()
-            return codenameKey === normalizedKey || attr.column_name.trim().toLowerCase() === normalizedKey
+        attrs.find((cmp) => {
+            const codenameKey = resolveRecordFieldKey(cmp).trim().toLowerCase()
+            return codenameKey === normalizedKey || cmp.column_name.trim().toLowerCase() === normalizedKey
         }) ?? null
     )
 }
 
-const resolveFilterColumnSql = (attr: RuntimeScriptAttributeRow): string => {
-    const columnRef = quoteIdentifier(attr.column_name)
-    return isLocalizedStringAttribute(attr) ? runtimeCodenameTextSql(columnRef) : columnRef
+const resolveFilterColumnSql = (cmp: RuntimeScriptComponentRow): string => {
+    const columnRef = quoteIdentifier(cmp.column_name)
+    return isLocalizedStringComponent(cmp) ? runtimeCodenameTextSql(columnRef) : columnRef
 }
 
-const normalizeRecordFilterValue = (attr: RuntimeScriptAttributeRow, rawValue: unknown): unknown => {
-    if (attr.data_type === 'REF') {
+const normalizeRecordFilterValue = (cmp: RuntimeScriptComponentRow, rawValue: unknown): unknown => {
+    if (cmp.data_type === 'REF') {
         const refId = resolveRefId(rawValue)
-        return coerceRuntimeValue(refId ?? rawValue, attr.data_type, attr.validation_rules)
+        return coerceRuntimeValue(refId ?? rawValue, cmp.data_type, cmp.validation_rules)
     }
 
-    return coerceRuntimeValue(rawValue, attr.data_type, attr.validation_rules)
+    return coerceRuntimeValue(rawValue, cmp.data_type, cmp.validation_rules)
 }
 
 const buildRecordListFilters = (
-    attrs: RuntimeScriptAttributeRow[],
+    attrs: RuntimeScriptComponentRow[],
     filters?: Record<string, unknown>
 ): { clauses: string[]; values: unknown[]; limit: number; offset: number } => {
     if (!filters) {
@@ -340,30 +340,30 @@ const buildRecordListFilters = (
             continue
         }
 
-        const attr = resolveFilterAttribute(attrs, key)
-        if (!attr) {
+        const cmp = resolveFilterComponent(attrs, key)
+        if (!cmp) {
             throw new Error(`Unknown record filter field: ${key}`)
         }
-        if (attr.data_type === 'TABLE') {
-            throw new Error(`TABLE field cannot be used as a record filter: ${formatRuntimeFieldLabel(attr.codename)}`)
+        if (cmp.data_type === 'TABLE') {
+            throw new Error(`TABLE field cannot be used as a record filter: ${formatRuntimeFieldLabel(cmp.codename)}`)
         }
 
-        const normalizedValue = normalizeRecordFilterValue(attr, rawValue)
+        const normalizedValue = normalizeRecordFilterValue(cmp, rawValue)
         if (normalizedValue === null) {
-            clauses.push(`${resolveFilterColumnSql(attr)} IS NULL`)
+            clauses.push(`${resolveFilterColumnSql(cmp)} IS NULL`)
             continue
         }
 
         values.push(normalizedValue)
-        clauses.push(`${resolveFilterColumnSql(attr)} = $${values.length}`)
+        clauses.push(`${resolveFilterColumnSql(cmp)} = $${values.length}`)
     }
 
     return { clauses, values, limit, offset }
 }
 
-const buildWritableAttrs = (attrs: RuntimeScriptAttributeRow[]): RuntimeScriptAttributeRow[] =>
+const buildWritableAttrs = (attrs: RuntimeScriptComponentRow[]): RuntimeScriptComponentRow[] =>
     attrs.filter(
-        (attr) => IDENTIFIER_REGEX.test(attr.column_name) && RUNTIME_WRITABLE_TYPES.has(attr.data_type) && attr.data_type !== 'TABLE'
+        (cmp) => IDENTIFIER_REGEX.test(cmp.column_name) && RUNTIME_WRITABLE_TYPES.has(cmp.data_type) && cmp.data_type !== 'TABLE'
     )
 
 export class RuntimeScriptsService {
@@ -471,7 +471,7 @@ export class RuntimeScriptsService {
         const attachmentKeys = new Set<string>([
             buildAttachmentKey('metahub', null),
             ...(params.attachmentKind && params.attachmentId ? [buildAttachmentKey(params.attachmentKind, params.attachmentId)] : []),
-            ...(params.attributeIds ?? []).map((attributeId) => buildAttachmentKey('attribute', attributeId))
+            ...(params.componentIds ?? []).map((componentId) => buildAttachmentKey('component', componentId))
         ])
         const results: unknown[] = []
 
@@ -532,7 +532,7 @@ export class RuntimeScriptsService {
         currentWorkspaceId: string | null
         currentUserId: string | null
         permissions: Record<RolePermission, boolean> | null
-        attributeIds?: string[]
+        componentIds?: string[]
         payload: Omit<ScriptLifecyclePayload, 'entityCodename'>
     }): RuntimeLifecycleDispatchParams {
         return {
@@ -545,7 +545,7 @@ export class RuntimeScriptsService {
             currentWorkspaceId: params.currentWorkspaceId,
             currentUserId: params.currentUserId,
             permissions: params.permissions,
-            attributeIds: params.attributeIds,
+            componentIds: params.componentIds,
             payload: params.payload
         }
     }
@@ -738,11 +738,11 @@ export class RuntimeScriptsService {
                               return null
                           }
 
-                          if (kind === 'attribute') {
+                          if (kind === 'component') {
                               const rows = (await params.executor.query(
                                   `
                     SELECT id, object_id, codename, column_name, data_type
-                    FROM "${params.schemaName}"._app_attributes
+                    FROM "${params.schemaName}"._app_components
                     WHERE ${runtimeCodenameTextSql('codename')} = $1
                       AND _upl_deleted = false
                       AND _app_deleted = false
@@ -922,14 +922,14 @@ export class RuntimeScriptsService {
             `
         SELECT id, codename, column_name, data_type, is_required, validation_rules,
                target_object_id, target_object_kind, ui_config
-        FROM ${schemaIdent}._app_attributes
+        FROM ${schemaIdent}._app_components
         WHERE object_id = $1
-          AND parent_attribute_id IS NULL
+          AND parent_component_id IS NULL
           AND _upl_deleted = false
           AND _app_deleted = false
       `,
             [object.id]
-        )) as RuntimeScriptAttributeRow[]
+        )) as RuntimeScriptComponentRow[]
 
         const lifecycleContract = resolveApplicationLifecycleContractFromConfig(object.config)
         const hasWorkspaceColumn = hasWorkspaceColumnRows.length > 0
@@ -956,8 +956,8 @@ export class RuntimeScriptsService {
         binding: RuntimeScriptRecordBinding
         recordId: string
     }): Promise<Record<string, unknown> | null> {
-        const attrs = params.binding.attrs.filter((attr) => IDENTIFIER_REGEX.test(attr.column_name) && attr.data_type !== 'TABLE')
-        const selectColumns = ['id', ...attrs.map((attr) => quoteIdentifier(attr.column_name))]
+        const attrs = params.binding.attrs.filter((cmp) => IDENTIFIER_REGEX.test(cmp.column_name) && cmp.data_type !== 'TABLE')
+        const selectColumns = ['id', ...attrs.map((cmp) => quoteIdentifier(cmp.column_name))]
 
         const rows = (await params.executor.query(
             `
@@ -981,9 +981,9 @@ export class RuntimeScriptsService {
         filters?: Record<string, unknown>
     }): Promise<Record<string, unknown>[]> {
         const binding = await this.resolveRecordBinding(params)
-        const attrs = binding.attrs.filter((attr) => IDENTIFIER_REGEX.test(attr.column_name) && attr.data_type !== 'TABLE')
+        const attrs = binding.attrs.filter((cmp) => IDENTIFIER_REGEX.test(cmp.column_name) && cmp.data_type !== 'TABLE')
         const { clauses, values, limit, offset } = buildRecordListFilters(attrs, params.filters)
-        const selectColumns = ['id', ...attrs.map((attr) => quoteIdentifier(attr.column_name))]
+        const selectColumns = ['id', ...attrs.map((cmp) => quoteIdentifier(cmp.column_name))]
         const whereClause = [binding.activeRowCondition, ...clauses].join(' AND ')
         const queryValues = [...values, limit, offset]
 
@@ -1025,17 +1025,17 @@ export class RuntimeScriptsService {
         codename: string
     }): Promise<Record<string, unknown> | null> {
         const binding = await this.resolveRecordBinding(params)
-        const attrs = binding.attrs.filter((attr) => IDENTIFIER_REGEX.test(attr.column_name) && attr.data_type !== 'TABLE')
-        const codenameAttr = attrs.find((attr) => {
-            const key = resolveRecordFieldKey(attr).trim().toLowerCase()
-            return key === 'codename' || attr.column_name.trim().toLowerCase() === 'codename'
+        const attrs = binding.attrs.filter((cmp) => IDENTIFIER_REGEX.test(cmp.column_name) && cmp.data_type !== 'TABLE')
+        const codenameAttr = attrs.find((cmp) => {
+            const key = resolveRecordFieldKey(cmp).trim().toLowerCase()
+            return key === 'codename' || cmp.column_name.trim().toLowerCase() === 'codename'
         })
 
         if (!codenameAttr) {
             throw new Error(`Runtime entity does not expose a codename field: ${params.entityCodename}`)
         }
 
-        const selectColumns = ['id', ...attrs.map((attr) => quoteIdentifier(attr.column_name))]
+        const selectColumns = ['id', ...attrs.map((cmp) => quoteIdentifier(cmp.column_name))]
         const codenameColumnSql = resolveFilterColumnSql(codenameAttr)
 
         const rows = (await params.executor.query(
@@ -1055,7 +1055,7 @@ export class RuntimeScriptsService {
     private async buildWritableColumnValues(params: {
         executor: DbExecutor
         schemaName: string
-        attrs: RuntimeScriptAttributeRow[]
+        attrs: RuntimeScriptComponentRow[]
         payload: Record<string, unknown>
         mode: 'create' | 'update'
     }): Promise<Array<{ column: string; value: unknown }>> {
@@ -1065,27 +1065,27 @@ export class RuntimeScriptsService {
         const writableAttrs = buildWritableAttrs(params.attrs)
         const values: Array<{ column: string; value: unknown }> = []
 
-        for (const attr of writableAttrs) {
-            const attrLabel = formatRuntimeFieldLabel(attr.codename)
-            const { hasUserValue, value: inputValue } = getRuntimeInputValue(params.payload, attr.column_name, attr.codename)
+        for (const cmp of writableAttrs) {
+            const attrLabel = formatRuntimeFieldLabel(cmp.codename)
+            const { hasUserValue, value: inputValue } = getRuntimeInputValue(params.payload, cmp.column_name, cmp.codename)
             let raw = inputValue
 
-            const isEnumRef = attr.data_type === 'REF' && attr.target_object_kind === 'enumeration'
-            const enumMode = getEnumPresentationMode(attr.ui_config)
+            const isEnumRef = cmp.data_type === 'REF' && cmp.target_object_kind === 'enumeration'
+            const enumMode = getEnumPresentationMode(cmp.ui_config)
 
             if (isEnumRef && enumMode === 'label' && hasUserValue) {
                 throw new Error(`Field is read-only: ${attrLabel}`)
             }
 
-            if (params.mode === 'create' && raw === undefined && isEnumRef && typeof attr.target_object_id === 'string') {
-                const defaultEnumValueId = getDefaultEnumValueId(attr.ui_config)
+            if (params.mode === 'create' && raw === undefined && isEnumRef && typeof cmp.target_object_id === 'string') {
+                const defaultEnumValueId = getDefaultEnumValueId(cmp.ui_config)
                 if (defaultEnumValueId) {
                     try {
                         await ensureEnumerationValueBelongsToTarget(
                             params.executor,
                             quoteIdentifier(params.schemaName),
                             defaultEnumValueId,
-                            attr.target_object_id
+                            cmp.target_object_id
                         )
                         raw = defaultEnumValueId
                     } catch (error) {
@@ -1097,7 +1097,7 @@ export class RuntimeScriptsService {
             }
 
             const setConstantConfig =
-                attr.data_type === 'REF' && attr.target_object_kind === 'set' ? getSetConstantConfig(attr.ui_config) : null
+                cmp.data_type === 'REF' && cmp.target_object_kind === 'set' ? getSetConstantConfig(cmp.ui_config) : null
 
             if (setConstantConfig) {
                 const providedRefId = resolveRefId(raw)
@@ -1111,30 +1111,30 @@ export class RuntimeScriptsService {
             }
 
             if (raw === undefined) {
-                if (params.mode === 'create' && attr.is_required && attr.data_type !== 'BOOLEAN') {
+                if (params.mode === 'create' && cmp.is_required && cmp.data_type !== 'BOOLEAN') {
                     throw new Error(`Required field missing: ${attrLabel}`)
                 }
                 continue
             }
 
-            const normalizedRaw = attr.data_type === 'REF' ? resolveRefId(raw) ?? raw : raw
-            const coerced = coerceRuntimeValue(normalizedRaw, attr.data_type, attr.validation_rules)
+            const normalizedRaw = cmp.data_type === 'REF' ? resolveRefId(raw) ?? raw : raw
+            const coerced = coerceRuntimeValue(normalizedRaw, cmp.data_type, cmp.validation_rules)
 
-            if (attr.is_required && attr.data_type !== 'BOOLEAN' && coerced === null) {
+            if (cmp.is_required && cmp.data_type !== 'BOOLEAN' && coerced === null) {
                 throw new Error(`Required field cannot be set to null: ${attrLabel}`)
             }
 
-            if (isEnumRef && typeof attr.target_object_id === 'string' && coerced) {
+            if (isEnumRef && typeof cmp.target_object_id === 'string' && coerced) {
                 await ensureEnumerationValueBelongsToTarget(
                     params.executor,
                     quoteIdentifier(params.schemaName),
                     String(coerced),
-                    attr.target_object_id
+                    cmp.target_object_id
                 )
             }
 
             values.push({
-                column: attr.column_name,
+                column: cmp.column_name,
                 value: coerced
             })
         }
@@ -1162,7 +1162,7 @@ export class RuntimeScriptsService {
                 ...params,
                 executor: txExecutor
             })
-            const touchedAttributeIds = collectTouchedRecordAttributeIds(binding.attrs, params.data)
+            const touchedComponentIds = collectTouchedRecordComponentIds(binding.attrs, params.data)
             const columnValues = await this.buildWritableColumnValues({
                 executor: txExecutor,
                 schemaName: params.schemaName,
@@ -1180,7 +1180,7 @@ export class RuntimeScriptsService {
                     currentWorkspaceId: params.currentWorkspaceId,
                     currentUserId: params.currentUserId,
                     permissions: params.permissions,
-                    attributeIds: touchedAttributeIds,
+                    componentIds: touchedComponentIds,
                     payload: {
                         eventName: 'beforeCreate',
                         patch: params.data
@@ -1258,7 +1258,7 @@ export class RuntimeScriptsService {
                 currentWorkspaceId: params.currentWorkspaceId,
                 currentUserId: params.currentUserId,
                 permissions: params.permissions,
-                attributeIds: touchedAttributeIds,
+                componentIds: touchedComponentIds,
                 payload: {
                     eventName: 'afterCreate',
                     row: created,
@@ -1327,7 +1327,7 @@ export class RuntimeScriptsService {
                 throw new Error('Runtime record was not found')
             }
 
-            const touchedAttributeIds = collectTouchedRecordAttributeIds(binding.attrs, params.patch)
+            const touchedComponentIds = collectTouchedRecordComponentIds(binding.attrs, params.patch)
             const columnValues = await this.buildWritableColumnValues({
                 executor: txExecutor,
                 schemaName: params.schemaName,
@@ -1350,7 +1350,7 @@ export class RuntimeScriptsService {
                     currentWorkspaceId: params.currentWorkspaceId,
                     currentUserId: params.currentUserId,
                     permissions: params.permissions,
-                    attributeIds: touchedAttributeIds,
+                    componentIds: touchedComponentIds,
                     payload: {
                         eventName: 'beforeUpdate',
                         previousRow,
@@ -1403,7 +1403,7 @@ export class RuntimeScriptsService {
                 currentWorkspaceId: params.currentWorkspaceId,
                 currentUserId: params.currentUserId,
                 permissions: params.permissions,
-                attributeIds: touchedAttributeIds,
+                componentIds: touchedComponentIds,
                 payload: {
                     eventName: 'afterUpdate',
                     row: updated,

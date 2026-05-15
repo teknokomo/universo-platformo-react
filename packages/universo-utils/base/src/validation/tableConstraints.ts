@@ -1,5 +1,5 @@
 /**
- * Shared utility for building TABLE attribute constraint text.
+ * Shared utility for building TABLE component constraint text.
  * Used in DynamicEntityFormDialog, FormDialog, and InlineTableEditor
  * to display helper text about row count requirements.
  */

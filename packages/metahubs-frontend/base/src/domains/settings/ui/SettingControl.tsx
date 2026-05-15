@@ -70,7 +70,7 @@ const SettingControl = ({ settingKey, valueType, value, options, onChange, disab
         [valueType, onChange]
     )
 
-    const isCompactMultiselect = settingKey === buildEntitySurfaceSettingKey('linkedCollection', 'allowedAttributeTypes')
+    const isCompactMultiselect = settingKey === buildEntitySurfaceSettingKey('objectCollection', 'allowedComponentTypes')
 
     switch (valueType) {
         case 'boolean':
@@ -177,7 +177,7 @@ const SettingControl = ({ settingKey, valueType, value, options, onChange, disab
  * Map a setting key + option value to the corresponding i18n label key.
  * For example:
  *   'general.codenameStyle' + 'kebab-case' → 'settings.codenameStyles.kebab-case'
- *   'entity.catalog.attributeCodenameScope' + 'per-level' → 'settings.attributeCodenameScopes.per-level'
+ *   'entity.object.componentCodenameScope' + 'per-level' → 'settings.componentCodenameScopes.per-level'
  */
 function getOptionLabelKey(settingKey: string, option: string): string {
     if (settingKey === 'general.codenameStyle') {
@@ -186,17 +186,17 @@ function getOptionLabelKey(settingKey: string, option: string): string {
     if (settingKey === 'general.codenameAlphabet') {
         return `settings.codenameAlphabets.${option}`
     }
-    if (settingKey === buildEntitySurfaceSettingKey('linkedCollection', 'attributeCodenameScope')) {
-        return `settings.attributeCodenameScopes.${option}`
+    if (settingKey === buildEntitySurfaceSettingKey('objectCollection', 'componentCodenameScope')) {
+        return `settings.componentCodenameScopes.${option}`
     }
-    if (settingKey === buildEntitySurfaceSettingKey('linkedCollection', 'allowedAttributeTypes')) {
-        return `fieldDefinitions.dataTypeOptions.${option.toLowerCase()}`
+    if (settingKey === buildEntitySurfaceSettingKey('objectCollection', 'allowedComponentTypes')) {
+        return `components.dataTypeOptions.${option.toLowerCase()}`
     }
     if (settingKey === buildEntitySurfaceSettingKey('valueGroup', 'constantCodenameScope')) {
-        return `settings.attributeCodenameScopes.${option}`
+        return `settings.componentCodenameScopes.${option}`
     }
     if (settingKey === buildEntitySurfaceSettingKey('valueGroup', 'allowedConstantTypes')) {
-        return `fieldDefinitions.dataTypeOptions.${option.toLowerCase()}`
+        return `components.dataTypeOptions.${option.toLowerCase()}`
     }
     if (settingKey === 'general.language') {
         return `settings.languages.${option}`

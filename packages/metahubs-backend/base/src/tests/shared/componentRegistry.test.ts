@@ -1,15 +1,15 @@
-import { COMPONENT_REGISTRY, getEnabledComponents } from '../../domains/shared/componentRegistry'
+import { CAPABILITY_REGISTRY, getEnabledCapabilities } from '../../domains/shared/capabilityRegistry'
 
-describe('componentRegistry', () => {
+describe('capabilityRegistry', () => {
     it('maps the new ECAE action and event storage seams', () => {
-        expect(COMPONENT_REGISTRY.actions.tables).toEqual(['_mhb_actions'])
-        expect(COMPONENT_REGISTRY.events.tables).toEqual(['_mhb_event_bindings'])
-        expect(COMPONENT_REGISTRY.events.dependencies).toEqual(['actions'])
-        expect(COMPONENT_REGISTRY.ledgerSchema.supportedKinds).toBeNull()
+        expect(CAPABILITY_REGISTRY.actions.tables).toEqual(['_mhb_actions'])
+        expect(CAPABILITY_REGISTRY.events.tables).toEqual(['_mhb_event_bindings'])
+        expect(CAPABILITY_REGISTRY.events.dependencies).toEqual(['actions'])
+        expect(CAPABILITY_REGISTRY.ledgerSchema.supportedKinds).toBeNull()
     })
 
     it('collects only enabled components from a manifest', () => {
-        const enabled = getEnabledComponents({
+        const enabled = getEnabledCapabilities({
             dataSchema: { enabled: true },
             records: { enabled: true },
             treeAssignment: false,

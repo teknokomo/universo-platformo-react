@@ -264,37 +264,37 @@ describe('ConnectorDiffDialog', () => {
                             create: {
                                 tables: [
                                     {
-                                        id: 'catalog-1',
+                                        id: 'object-1',
                                         codename: 'Resources',
-                                        tableName: 'cat_resources',
+                                        tableName: 'obj_resources',
                                         fields: [
                                             {
                                                 id: 'field-name',
                                                 codename: 'Name',
                                                 dataType: 'STRING',
                                                 isRequired: true,
-                                                parentAttributeId: null
+                                                parentComponentId: null
                                             },
                                             {
                                                 id: 'field-table',
                                                 codename: 'NestedResources',
                                                 dataType: 'TABLE',
                                                 isRequired: false,
-                                                parentAttributeId: null
+                                                parentComponentId: null
                                             },
                                             {
                                                 id: 'field-child-name',
                                                 codename: 'NestedTitle',
                                                 dataType: 'STRING',
                                                 isRequired: true,
-                                                parentAttributeId: 'field-table'
+                                                parentComponentId: 'field-table'
                                             },
                                             {
                                                 id: 'field-child-amount',
                                                 codename: 'NestedAmount',
                                                 dataType: 'NUMBER',
                                                 isRequired: false,
-                                                parentAttributeId: 'field-table'
+                                                parentComponentId: 'field-table'
                                             }
                                         ],
                                         recordsCount: 1,
@@ -388,16 +388,16 @@ describe('ConnectorDiffDialog', () => {
                             create: {
                                 tables: [
                                     {
-                                        id: 'catalog-1',
+                                        id: 'object-1',
                                         codename: 'Resources',
-                                        tableName: 'cat_resources',
+                                        tableName: 'obj_resources',
                                         fields: [
                                             {
                                                 id: 'field-child-name',
                                                 codename: 'NestedTitle',
                                                 dataType: 'STRING',
                                                 isRequired: true,
-                                                parentAttributeId: 'missing-parent'
+                                                parentComponentId: 'missing-parent'
                                             }
                                         ],
                                         recordsCount: 1,
@@ -496,13 +496,13 @@ describe('ConnectorDiffDialog', () => {
                                         ]
                                     },
                                     {
-                                        kindKey: 'catalog',
-                                        typeName: vlc('Catalogs', 'Каталоги'),
-                                        typeCodename: vlc('Catalog', 'Каталог'),
+                                        kindKey: 'object',
+                                        typeName: vlc('Objects', 'Каталоги'),
+                                        typeCodename: vlc('Object', 'Каталог'),
                                         entities: [
                                             {
-                                                id: 'catalog-1',
-                                                kind: 'catalog',
+                                                id: 'object-1',
+                                                kind: 'object',
                                                 name: vlc('Classes', 'Классы'),
                                                 codename: vlc('Classes', 'Классы'),
                                                 fields: [
@@ -512,7 +512,7 @@ describe('ConnectorDiffDialog', () => {
                                                         name: vlc('Name', 'Название'),
                                                         dataType: 'STRING',
                                                         isRequired: true,
-                                                        parentAttributeId: null
+                                                        parentComponentId: null
                                                     }
                                                 ],
                                                 recordsCount: 1,
@@ -620,13 +620,13 @@ describe('ConnectorDiffDialog', () => {
                             create: {
                                 entityGroups: [
                                     {
-                                        kindKey: 'catalog',
-                                        typeName: vlc('Catalogs', 'Каталоги'),
-                                        typeCodename: vlc('Catalog', 'Каталог'),
+                                        kindKey: 'object',
+                                        typeName: vlc('Objects', 'Каталоги'),
+                                        typeCodename: vlc('Object', 'Каталог'),
                                         entities: [
                                             {
-                                                id: 'catalog-1',
-                                                kind: 'catalog',
+                                                id: 'object-1',
+                                                kind: 'object',
                                                 name: vlc('Classes', 'Классы'),
                                                 codename: vlc('Classes', 'Классы'),
                                                 fields: [],
@@ -657,7 +657,7 @@ describe('ConnectorDiffDialog', () => {
             />
         )
 
-        expect(screen.getByText('Catalogs')).toBeInTheDocument()
+        expect(screen.getByText('Objects')).toBeInTheDocument()
         expect(screen.getAllByText('Classes').length).toBeGreaterThan(0)
         expect(screen.queryByText('Каталоги')).not.toBeInTheDocument()
         expect(screen.queryByText('Классы')).not.toBeInTheDocument()

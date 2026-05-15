@@ -2,7 +2,7 @@ import { Router, Request, Response, RequestHandler } from 'express'
 import { z } from 'zod'
 import { getRequestDbExecutor, type DbExecutor } from '@universo/utils'
 import type { IPermissionService } from '@universo/auth-backend'
-import { PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS } from '@universo/types'
+import { PLATFORM_SYSTEM_COMPONENT_ADMIN_KEYS } from '@universo/types'
 import type { GlobalAccessService } from '../services/globalAccessService'
 import { createEnsureGlobalAccess, type RequestWithGlobalRole } from '../guards/ensureGlobalAccess'
 import {
@@ -57,9 +57,9 @@ const METAHUB_SETTING_VALUE_SCHEMAS: Record<string, z.ZodTypeAny> = {
     codenameAllowMixedAlphabets: z.boolean(),
     codenameAutoConvertMixedAlphabets: z.boolean(),
     codenameLocalizedEnabled: z.boolean(),
-    [PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS.allowConfiguration]: z.boolean(),
-    [PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS.forceCreate]: z.boolean(),
-    [PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS.ignoreMetahubSettings]: z.boolean()
+    [PLATFORM_SYSTEM_COMPONENT_ADMIN_KEYS.allowConfiguration]: z.boolean(),
+    [PLATFORM_SYSTEM_COMPONENT_ADMIN_KEYS.forceCreate]: z.boolean(),
+    [PLATFORM_SYSTEM_COMPONENT_ADMIN_KEYS.ignoreMetahubSettings]: z.boolean()
 }
 
 const GENERAL_SETTING_VALUE_SCHEMAS: Record<string, z.ZodTypeAny> = {

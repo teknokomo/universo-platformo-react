@@ -1,5 +1,5 @@
 import { qSchemaTable } from '@universo/database'
-import { SCRIPT_LIFECYCLE_EVENTS, isEnabledComponentConfig } from '@universo/types'
+import { SCRIPT_LIFECYCLE_EVENTS, isEnabledCapabilityConfig } from '@universo/types'
 import { queryMany, queryOne, queryOneOrThrow, type DbExecutor, type SqlQueryable } from '@universo/utils/database'
 import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
 import { MetahubConflictError, MetahubNotFoundError, MetahubValidationError } from '../../shared/domainErrors'
@@ -164,7 +164,7 @@ export class EventBindingService {
         }
 
         const typeDefinition = await this.entityTypeService.resolveTypeInSchema(schemaName, objectRow.kind, db)
-        if (!typeDefinition || !isEnabledComponentConfig(typeDefinition.components.events)) {
+        if (!typeDefinition || !isEnabledCapabilityConfig(typeDefinition.capabilities.events)) {
             throw new MetahubValidationError('The target object type does not enable events', {
                 objectId,
                 kind: objectRow.kind

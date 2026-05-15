@@ -33,7 +33,7 @@ type StoredMetadataObjectRow = {
     config?: unknown
 }
 
-type StoredMetadataAttributeRow = {
+type StoredMetadataComponentRow = {
     id: string
     object_id: string
     codename: unknown
@@ -237,9 +237,9 @@ export class EntityActionExecutionService {
             return { id: request.metahubId }
         }
 
-        if (kind === 'attribute') {
-            const qt = qSchemaTable(request.schemaName, '_mhb_attributes')
-            const row = await queryOne<StoredMetadataAttributeRow>(
+        if (kind === 'component') {
+            const qt = qSchemaTable(request.schemaName, '_mhb_components')
+            const row = await queryOne<StoredMetadataComponentRow>(
                 request.executor,
                 `SELECT id, object_id, codename, column_name, data_type
                  FROM ${qt}

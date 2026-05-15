@@ -5,7 +5,7 @@ import { queryMany, queryOne } from '@universo/utils/database'
 import { generateTableName } from '../../ddl'
 import { codenamePrimaryTextSql } from '../../shared/codename'
 import { resolveEntityMetadataKinds, resolveEntityMetadataSettingKey } from '../../shared/entityMetadataKinds'
-import { findBlockingLinkedCollectionReferences, isLinkedCollectionCompatibleResolvedType } from '../children/linkedCollectionContext'
+import { findBlockingObjectCollectionReferences, isObjectCollectionCompatibleResolvedType } from '../children/objectCollectionContext'
 import { findBlockingTreeDependencies, loadTreeEntityContext, removeHubFromObjectAssociations } from '../children/treeEntityContext'
 import type { EntityBehaviorBlockingState, EntityBehaviorDeleteContext, EntityBehaviorDeletePlan } from './EntityBehaviorService'
 
@@ -15,7 +15,7 @@ const getSurfaceLabels = (kindKey: BuiltinEntityKind) => {
 }
 
 export const resolveBuiltinGeneratedTableName = (kindKey: BuiltinEntityKind, objectId: string): string | null =>
-    resolveEntitySurfaceKey(kindKey) === 'linkedCollection' ? generateTableName(objectId, kindKey) : null
+    resolveEntitySurfaceKey(kindKey) === 'objectCollection' ? generateTableName(objectId, kindKey) : null
 
 type PageLayoutReference = {
     source: 'layoutWidget' | 'layoutWidgetOverride'
@@ -99,7 +99,7 @@ export const buildBuiltinKindBlockingState = async (
     kindKey: BuiltinEntityKind,
     {
         resolvedType,
-        fieldDefinitionsService,
+        componentsService,
         fixedValuesService,
         entityTypeService,
         metahubId,
@@ -111,23 +111,23 @@ export const buildBuiltinKindBlockingState = async (
 ): Promise<EntityBehaviorBlockingState> => {
     const surfaceKey = resolveEntitySurfaceKey(kindKey)
 
-    if (surfaceKey === 'linkedCollection') {
-        if (!isLinkedCollectionCompatibleResolvedType(resolvedType)) {
+    if (surfaceKey === 'objectCollection') {
+        if (!isObjectCollectionCompatibleResolvedType(resolvedType)) {
             return {
                 status: 200,
                 body: {
-                    linkedCollectionId: entityId,
+                    objectCollectionId: entityId,
                     blockingReferences: [],
                     canDelete: true
                 }
             }
         }
 
-        const blockingReferences = await findBlockingLinkedCollectionReferences(metahubId, entityId, fieldDefinitionsService, userId)
+        const blockingReferences = await findBlockingObjectCollectionReferences(metahubId, entityId, componentsService, userId)
         return {
             status: 200,
             body: {
-                linkedCollectionId: entityId,
+                objectCollectionId: entityId,
                 blockingReferences,
                 canDelete: blockingReferences.length === 0
             }
@@ -149,7 +149,7 @@ export const buildBuiltinKindBlockingState = async (
 
     if (surfaceKey === 'optionList') {
         const compatibleEnumerationKinds = await resolveEntityMetadataKinds(entityTypeService, metahubId, 'enumeration', userId)
-        const blockingReferences = await fieldDefinitionsService.findReferenceBlockersByTarget(
+        const blockingReferences = await componentsService.findReferenceBlockersByTarget(
             metahubId,
             entityId,
             compatibleEnumerationKinds,
@@ -205,7 +205,7 @@ export const buildBuiltinKindDeletePlan = async (
     {
         resolvedType,
         settingsService,
-        fieldDefinitionsService,
+        componentsService,
         fixedValuesService,
         entityTypeService,
         metahubId,
@@ -235,14 +235,14 @@ export const buildBuiltinKindDeletePlan = async (
 
     const surfaceKey = resolveEntitySurfaceKey(kindKey)
 
-    if (surfaceKey === 'linkedCollection' && isLinkedCollectionCompatibleResolvedType(resolvedType)) {
-        const blockingReferences = await findBlockingLinkedCollectionReferences(metahubId, entityId, fieldDefinitionsService, userId)
+    if (surfaceKey === 'objectCollection' && isObjectCollectionCompatibleResolvedType(resolvedType)) {
+        const blockingReferences = await findBlockingObjectCollectionReferences(metahubId, entityId, componentsService, userId)
         if (blockingReferences.length > 0) {
             return {
                 policyOutcome: {
                     status: 409,
                     body: {
-                        error: 'Cannot delete catalog: it is referenced by attributes in other catalogs',
+                        error: 'Cannot delete object: it is referenced by components in other objects',
                         blockingReferences
                     }
                 }
@@ -274,7 +274,7 @@ export const buildBuiltinKindDeletePlan = async (
 
     if (surfaceKey === 'optionList') {
         const compatibleEnumerationKinds = await resolveEntityMetadataKinds(entityTypeService, metahubId, 'enumeration', userId)
-        const blockingReferences = await fieldDefinitionsService.findReferenceBlockersByTarget(
+        const blockingReferences = await componentsService.findReferenceBlockersByTarget(
             metahubId,
             entityId,
             compatibleEnumerationKinds,
@@ -285,7 +285,7 @@ export const buildBuiltinKindDeletePlan = async (
                 policyOutcome: {
                     status: 409,
                     body: {
-                        error: 'Cannot delete enumeration: it is referenced by attributes',
+                        error: 'Cannot delete enumeration: it is referenced by components',
                         blockingReferences
                     }
                 }
@@ -317,7 +317,7 @@ export const buildBuiltinKindDeletePlan = async (
     const blockingState = await buildBuiltinKindBlockingState(kindKey, {
         resolvedType,
         settingsService,
-        fieldDefinitionsService,
+        componentsService,
         fixedValuesService,
         entityTypeService,
         metahubId,

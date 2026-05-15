@@ -54,7 +54,7 @@ describe('admin system-app definition', () => {
 
         for (const fragment of [
             'CREATE TABLE IF NOT EXISTS admin.cfg_instances',
-            'CREATE TABLE IF NOT EXISTS admin.cat_roles',
+            'CREATE TABLE IF NOT EXISTS admin.obj_roles',
             'CREATE TABLE IF NOT EXISTS admin.rel_role_permissions',
             'CREATE TABLE IF NOT EXISTS admin.rel_user_roles',
             'CREATE TABLE IF NOT EXISTS admin.cfg_locales',
@@ -64,8 +64,8 @@ describe('admin system-app definition', () => {
         }
 
         for (const fragment of [
-            expectedSafePolicyDrop('authenticated_read_roles', 'admin', 'cat_roles'),
-            expectedSafePolicyDrop('admin_access_manage_roles', 'admin', 'cat_roles'),
+            expectedSafePolicyDrop('authenticated_read_roles', 'admin', 'obj_roles'),
+            expectedSafePolicyDrop('admin_access_manage_roles', 'admin', 'obj_roles'),
             expectedSafePolicyDrop('authenticated_read_locales', 'admin', 'cfg_locales'),
             expectedSafePolicyDrop('admin_access_manage_locales', 'admin', 'cfg_locales'),
             expectedSafePolicyDrop('authenticated_read_settings', 'admin', 'cfg_settings'),

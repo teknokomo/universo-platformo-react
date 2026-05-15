@@ -4,7 +4,7 @@
 
 import { z } from 'zod'
 import type { EntityDefinition, SchemaSnapshot, SchemaDiff } from '@universo/schema-ddl'
-import { FieldDefinitionDataType, type ApplicationLayoutWidget, type VersionedLocalizedContent } from '@universo/types'
+import { ComponentDefinitionDataType, type ApplicationLayoutWidget, type VersionedLocalizedContent } from '@universo/types'
 import type { ApplicationRecord, ApplicationCopySourceRecord } from '../../persistence/applicationsStore'
 import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
 import type {
@@ -115,7 +115,7 @@ export type RuntimeApplicationObjectRow = {
     config: unknown
 }
 
-export type RuntimeApplicationAttributeRow = {
+export type RuntimeApplicationComponentRow = {
     id: unknown
     object_id: unknown
     codename: unknown
@@ -123,10 +123,10 @@ export type RuntimeApplicationAttributeRow = {
     column_name: unknown
     data_type: unknown
     is_required: unknown
-    is_display_attribute: unknown
+    is_display_component: unknown
     target_object_id: unknown
     target_object_kind: unknown
-    parent_attribute_id: unknown
+    parent_component_id: unknown
     presentation: unknown
     validation_rules: unknown
     ui_config: unknown
@@ -242,7 +242,7 @@ export type SnapshotWidgetRow = {
 }
 
 export const ENUMERATION_KIND = 'enumeration'
-export const REF_DATA_TYPE = FieldDefinitionDataType.REF
+export const REF_DATA_TYPE = ComponentDefinitionDataType.REF
 
 // --- Layout persistence types ---
 
@@ -301,7 +301,7 @@ export type DiffTableFieldDetails = {
     codename: string
     dataType: string
     isRequired: boolean
-    parentAttributeId: string | null
+    parentComponentId: string | null
 }
 
 export type DiffTableDetails = {
@@ -323,7 +323,7 @@ export type DiffEntityFieldDetails = {
     name?: unknown
     dataType: string
     isRequired: boolean
-    parentAttributeId: string | null
+    parentComponentId: string | null
 }
 
 export type DiffEntityMetricDetails = {
@@ -385,7 +385,7 @@ export const EMPTY_VLC: VersionedLocalizedContent<string> = {
 export const RUNTIME_ENTITY_KIND_PATTERN = /^[a-z][a-z0-9._-]{0,63}$/
 export const RUNTIME_ENTITY_KINDS = new Set<EntityDefinition['kind']>([
     'hub',
-    'catalog',
+    'object',
     'set',
     'enumeration',
     'page',

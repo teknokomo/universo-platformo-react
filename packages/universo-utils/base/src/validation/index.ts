@@ -31,24 +31,24 @@ export {
 } from './codename'
 export {
     normalizeApplicationCopyOptions,
-    normalizeFieldDefinitionCopyOptions,
+    normalizeComponentCopyOptions,
     normalizeBranchCopyOptions,
     normalizeRecordCopyOptions,
     normalizeTreeEntityCopyOptions,
-    normalizeLinkedCollectionCopyOptions,
+    normalizeObjectCollectionCopyOptions,
     normalizeValueGroupCopyOptions,
     normalizeOptionListCopyOptions,
     normalizeLayoutCopyOptions,
     normalizeFixedValueCopyOptions
 } from './copyOptions'
 export {
-    extractLinkedCollectionLayoutBehaviorConfig,
-    normalizeLinkedCollectionRuntimeViewConfig,
-    resolveLinkedCollectionLayoutBehaviorConfig,
-    sanitizeLinkedCollectionRuntimeViewConfig,
-    setLinkedCollectionLayoutBehaviorConfig,
-    resolveLinkedCollectionRuntimeDashboardLayoutConfig
-} from './linkedCollectionRuntimeConfig'
+    extractObjectCollectionLayoutBehaviorConfig,
+    normalizeObjectCollectionRuntimeViewConfig,
+    resolveObjectCollectionLayoutBehaviorConfig,
+    sanitizeObjectCollectionRuntimeViewConfig,
+    setObjectCollectionLayoutBehaviorConfig,
+    resolveObjectCollectionRuntimeDashboardLayoutConfig
+} from './objectCollectionRuntimeConfig'
 export { normalizeDashboardLayoutConfig } from './dashboardLayout'
 export { SAFE_MENU_HREF_RE, isSafeMenuHref, sanitizeMenuHref } from './menuHref'
 export {

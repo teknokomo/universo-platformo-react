@@ -121,23 +121,23 @@ export const publicSystemAppDefinition: SystemAppDefinition = {
     targetStorageModel: 'legacy_fixed',
     currentStructureCapabilities: {
         appCoreTables: false,
-        catalogTables: false,
+        objectTables: false,
         documentTables: false,
         relationTables: false,
         settingsTables: false,
         layoutTables: false,
         widgetTables: false,
-        attributeValueTables: false
+       componentValueTables: false
     },
     targetStructureCapabilities: {
         appCoreTables: false,
-        catalogTables: false,
+        objectTables: false,
         documentTables: false,
         relationTables: false,
         settingsTables: false,
         layoutTables: false,
         widgetTables: false,
-        attributeValueTables: false
+       componentValueTables: false
     },
     currentBusinessTables: [],
     targetBusinessTables: [],

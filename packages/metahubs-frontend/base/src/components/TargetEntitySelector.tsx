@@ -18,7 +18,7 @@ import {
 import Autocomplete, { autocompleteClasses } from '@mui/material/Autocomplete'
 import { styled } from '@mui/material/styles'
 import UnfoldMoreRoundedIcon from '@mui/icons-material/UnfoldMoreRounded'
-import { isBuiltinEntityKind, isEnabledComponentConfig, type EntityKind } from '@universo/types'
+import { isBuiltinEntityKind, isEnabledCapabilityConfig, type EntityKind } from '@universo/types'
 import { getVLCString } from '../types'
 import type { FixedValue } from '../types'
 import { listFixedValuesDirect } from '../domains/entities/metadata/fixedValue/api'
@@ -27,7 +27,7 @@ import { listEntityTypes, type MetahubEntityType } from '../domains/entities/api
 import { metahubsQueryKeys } from '../domains/shared'
 
 const isReferenceableEntityType = (entityType: MetahubEntityType) =>
-    entityType.kindKey === 'enumeration' || isEnabledComponentConfig(entityType.components.dataSchema)
+    entityType.kindKey === 'enumeration' || isEnabledCapabilityConfig(entityType.capabilities.dataSchema)
 
 const shouldTranslateEntityTypeUiText = (kindKey: string) => isBuiltinEntityKind(kindKey)
 
@@ -60,8 +60,8 @@ export interface TargetEntitySelectorProps {
     targetConstantId?: string | null
     /** Callback when target constant ID changes */
     onTargetConstantIdChange?: (id: string | null) => void
-    /** ID of current catalog to exclude from selection (prevent self-reference) */
-    excludeLinkedCollectionId?: string
+    /** ID of current object to exclude from selection (prevent self-reference) */
+    excludeObjectCollectionId?: string
     /** Whether the selector is disabled */
     disabled?: boolean
     /** Error message to display */
@@ -76,7 +76,7 @@ export interface TargetEntitySelectorProps {
  * Component for selecting target entity for REF (reference) field type.
  * Allows selecting entity kind and then the specific entity.
  *
- * Loads available entities (catalogs/enumerations) automatically from the API.
+ * Loads available entities (objects/enumerations) automatically from the API.
  */
 export const TargetEntitySelector = ({
     metahubId,
@@ -86,7 +86,7 @@ export const TargetEntitySelector = ({
     onEntityIdChange,
     targetConstantId,
     onTargetConstantIdChange,
-    excludeLinkedCollectionId,
+    excludeObjectCollectionId,
     disabled = false,
     error,
     targetConstantError,
@@ -169,6 +169,23 @@ export const TargetEntitySelector = ({
             })),
         [availableEntityTypes, getEntityTypeDisplayName]
     )
+    const hasSelectedEntityKindOption = useMemo(
+        () => Boolean(targetEntityKind && entityKindOptions.some((option) => option.value === targetEntityKind)),
+        [entityKindOptions, targetEntityKind]
+    )
+    const displayedEntityKindOptions = useMemo(() => {
+        if (!targetEntityKind || hasSelectedEntityKindOption || !isLoadingEntityTypes) {
+            return entityKindOptions
+        }
+
+        return [
+            {
+                value: targetEntityKind,
+                label: String(targetEntityKind)
+            },
+            ...entityKindOptions
+        ]
+    }, [entityKindOptions, hasSelectedEntityKindOption, isLoadingEntityTypes, targetEntityKind])
 
     // Get display name for constant
     const getConstantDisplayName = useCallback(
@@ -229,15 +246,15 @@ export const TargetEntitySelector = ({
         },
         [onTargetConstantIdChange]
     )
-    // Filter out the current catalog to prevent self-reference
+    // Filter out the current object to prevent self-reference
     const selectableTargetEntities = useMemo(() => {
-        if (!(excludeLinkedCollectionId && targetEntityKind === 'catalog')) return availableTargetEntities
-        return availableTargetEntities.filter((entity) => entity.id !== excludeLinkedCollectionId)
-    }, [availableTargetEntities, excludeLinkedCollectionId, targetEntityKind])
+        if (!(excludeObjectCollectionId && targetEntityKind === 'object')) return availableTargetEntities
+        return availableTargetEntities.filter((entity) => entity.id !== excludeObjectCollectionId)
+    }, [availableTargetEntities, excludeObjectCollectionId, targetEntityKind])
 
     const targetEntityLabel =
-        targetEntityKind === 'catalog'
-            ? t('ref.targetCatalog', 'Target LinkedCollectionEntity')
+        targetEntityKind === 'object'
+            ? t('ref.targetObject', 'Target Object')
             : targetEntityKind === 'enumeration'
             ? t('ref.targetEnumeration', 'Target OptionListEntity')
             : targetEntityKind === 'set'
@@ -245,8 +262,8 @@ export const TargetEntitySelector = ({
             : t('ref.targetEntity', 'Target Entity')
 
     const targetEntityPlaceholder =
-        targetEntityKind === 'catalog'
-            ? t('ref.selectCatalog', 'Select catalog...')
+        targetEntityKind === 'object'
+            ? t('ref.selectObject', 'Select object...')
             : targetEntityKind === 'enumeration'
             ? t('ref.selectEnumeration', 'Select enumeration...')
             : targetEntityKind === 'set'
@@ -255,8 +272,8 @@ export const TargetEntitySelector = ({
 
     const targetEntityHelperText =
         !targetEntityId && error
-            ? targetEntityKind === 'catalog'
-                ? t('ref.catalogRequired', 'Please select a catalog')
+            ? targetEntityKind === 'object'
+                ? t('ref.objectRequired', 'Please select a object')
                 : targetEntityKind === 'enumeration'
                 ? t('ref.enumerationRequired', 'Please select an enumeration')
                 : targetEntityKind === 'set'
@@ -265,16 +282,15 @@ export const TargetEntitySelector = ({
             : undefined
 
     const targetEntityNoOptionsText =
-        targetEntityKind === 'catalog'
-            ? t('ref.noCatalogsAvailable', 'No catalogs available')
+        targetEntityKind === 'object'
+            ? t('ref.noObjectsAvailable', 'No objects available')
             : targetEntityKind === 'enumeration'
             ? t('ref.noEnumerationsAvailable', 'No enumerations available')
             : targetEntityKind === 'set'
             ? t('ref.noSetsAvailable', 'No sets available')
             : t('ref.noEntitiesAvailable', 'No entities available')
 
-    const isKindSupported =
-        !targetEntityKind || isLoadingEntityTypes || entityKindOptions.some((option) => option.value === targetEntityKind)
+    const isKindSupported = !targetEntityKind || isLoadingEntityTypes || hasSelectedEntityKindOption
 
     return (
         <Stack spacing={2}>
@@ -290,7 +306,7 @@ export const TargetEntitySelector = ({
                     <MenuItem value=''>
                         <em>{t('ref.notSelected', 'Not selected')}</em>
                     </MenuItem>
-                    {entityKindOptions.map((option) => (
+                    {displayedEntityKindOptions.map((option) => (
                         <MenuItem key={option.value} value={option.value}>
                             {option.label}
                         </MenuItem>

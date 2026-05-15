@@ -12,11 +12,11 @@ describe('EntityTypeService', () => {
     })
 
     const createStandardCatalogRow = () => ({
-        id: 'standard-type-catalog',
-        kind_key: BuiltinEntityKinds.CATALOG,
-        codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'catalog' } } },
-        presentation: { name: { en: 'Catalogs' } },
-        components: {
+        id: 'standard-type-object',
+        kind_key: BuiltinEntityKinds.OBJECT,
+        codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'object' } } },
+        presentation: { name: { en: 'Objects' } },
+        capabilities: {
             dataSchema: { enabled: true },
             records: false,
             treeAssignment: false,
@@ -36,14 +36,14 @@ describe('EntityTypeService', () => {
             iconName: 'IconDatabase',
             tabs: ['general'],
             sidebarSection: 'objects',
-            nameKey: 'metahubs:catalogs.title',
+            nameKey: 'metahubs:objects.title',
             resourceSurfaces: [
                 {
-                    key: 'fieldDefinitions',
+                    key: 'components',
                     capability: 'dataSchema',
-                    routeSegment: 'field-definitions',
-                    title: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Attributes' } } },
-                    fallbackTitle: 'Attributes'
+                    routeSegment: 'components',
+                    title: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Components' } } },
+                    fallbackTitle: 'Components'
                 }
             ]
         },
@@ -61,11 +61,11 @@ describe('EntityTypeService', () => {
             if (sql.includes('_mhb_entity_type_definitions')) {
                 return [
                     {
-                        id: 'standard-type-catalog',
-                        kind_key: BuiltinEntityKinds.CATALOG,
-                        codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'catalog' } } },
-                        presentation: { name: { en: 'Catalogs' } },
-                        components: {
+                        id: 'standard-type-object',
+                        kind_key: BuiltinEntityKinds.OBJECT,
+                        codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'object' } } },
+                        presentation: { name: { en: 'Objects' } },
+                        capabilities: {
                             dataSchema: { enabled: true },
                             records: false,
                             treeAssignment: { enabled: true },
@@ -85,7 +85,7 @@ describe('EntityTypeService', () => {
                             iconName: 'IconDatabase',
                             tabs: ['general'],
                             sidebarSection: 'objects',
-                            nameKey: 'metahubs:catalogs.title'
+                            nameKey: 'metahubs:objects.title'
                         },
                         config: {},
                         _mhb_published: true,
@@ -96,7 +96,7 @@ describe('EntityTypeService', () => {
                         kind_key: 'custom-order',
                         codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-order' } } },
                         presentation: { name: { en: 'Custom Order' } },
-                        components: {
+                        capabilities: {
                             dataSchema: { enabled: true },
                             records: false,
                             treeAssignment: false,
@@ -130,7 +130,7 @@ describe('EntityTypeService', () => {
         const service = new EntityTypeService(createExecutor(queryMock) as any, { ensureSchema: mockEnsureSchema } as any)
         const result = await service.listTypes('metahub-1', 'user-1')
 
-        expect(result.some((item) => item.kindKey === BuiltinEntityKinds.CATALOG)).toBe(true)
+        expect(result.some((item) => item.kindKey === BuiltinEntityKinds.OBJECT)).toBe(true)
         expect(result.some((item) => item.kindKey === 'custom-order')).toBe(true)
         expect(result.find((item) => item.kindKey === 'custom-order')?.published).toBe(true)
     })
@@ -144,7 +144,7 @@ describe('EntityTypeService', () => {
                         kind_key: 'custom-order',
                         codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-order' } } },
                         presentation: { name: { en: 'Custom Order' } },
-                        components: {
+                        capabilities: {
                             dataSchema: { enabled: true },
                             records: false,
                             treeAssignment: false,
@@ -180,7 +180,7 @@ describe('EntityTypeService', () => {
 
         expect(result).toHaveLength(1)
         expect(result.some((item) => item.kindKey === BuiltinEntityKinds.HUB)).toBe(false)
-        expect(result.some((item) => item.kindKey === BuiltinEntityKinds.CATALOG)).toBe(false)
+        expect(result.some((item) => item.kindKey === BuiltinEntityKinds.OBJECT)).toBe(false)
         expect(result.some((item) => item.kindKey === BuiltinEntityKinds.SET)).toBe(false)
         expect(result.some((item) => item.kindKey === BuiltinEntityKinds.ENUMERATION)).toBe(false)
         expect(result.find((item) => item.kindKey === 'custom-order')?.published).toBe(true)
@@ -191,9 +191,9 @@ describe('EntityTypeService', () => {
 
         await expect(
             service.createType('metahub-1', {
-                kindKey: BuiltinEntityKinds.CATALOG,
-                codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'catalog' } } },
-                components: {
+                kindKey: BuiltinEntityKinds.OBJECT,
+                codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'object' } } },
+                capabilities: {
                     dataSchema: { enabled: true },
                     records: false,
                     treeAssignment: false,
@@ -213,7 +213,7 @@ describe('EntityTypeService', () => {
                     iconName: 'IconTest',
                     tabs: ['general'],
                     sidebarSection: 'objects',
-                    nameKey: 'Catalog clone'
+                    nameKey: 'Object clone'
                 }
             })
         ).rejects.toThrow('Standard entity kinds are reserved for platform-provided entity types')
@@ -260,7 +260,7 @@ describe('EntityTypeService', () => {
         const service = new EntityTypeService(createExecutor(queryMock) as any, { ensureSchema: mockEnsureSchema } as any)
         const result = await service.updateType(
             'metahub-1',
-            'standard-type-catalog',
+            'standard-type-object',
             {
                 ui: nextUi
             },
@@ -285,16 +285,16 @@ describe('EntityTypeService', () => {
         await expect(
             service.updateType(
                 'metahub-1',
-                'standard-type-catalog',
+                'standard-type-object',
                 {
-                    components: {
-                        ...standardCatalogRow.components,
+                    capabilities: {
+                        ...standardCatalogRow.capabilities,
                         records: { enabled: true }
                     }
                 },
                 'user-1'
             )
-        ).rejects.toThrow('Standard entity type components cannot be changed through the Entities constructor')
+        ).rejects.toThrow('Standard entity type capabilities cannot be changed through the Entities constructor')
     })
 
     it('rejects structural resource surface changes for persisted standard entity types', async () => {
@@ -321,7 +321,7 @@ describe('EntityTypeService', () => {
         await expect(
             service.updateType(
                 'metahub-1',
-                'standard-type-catalog',
+                'standard-type-object',
                 {
                     ui: nextUi
                 },
@@ -345,7 +345,7 @@ describe('EntityTypeService', () => {
         await expect(
             service.updateType(
                 'metahub-1',
-                'standard-type-catalog',
+                'standard-type-object',
                 {
                     published: false
                 },
@@ -371,7 +371,7 @@ describe('EntityTypeService', () => {
                         kind_key: 'custom-order',
                         codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-order' } } },
                         presentation: {},
-                        components: {
+                        capabilities: {
                             dataSchema: { enabled: true },
                             records: false,
                             treeAssignment: false,
@@ -406,7 +406,7 @@ describe('EntityTypeService', () => {
         const result = await service.createType('metahub-1', {
             kindKey: 'custom-order',
             codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-order' } } },
-            components: {
+            capabilities: {
                 dataSchema: { enabled: true },
                 records: false,
                 treeAssignment: false,
@@ -446,7 +446,7 @@ describe('EntityTypeService', () => {
                         kind_key: 'custom-existing',
                         codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-order' } } },
                         presentation: {},
-                        components: {
+                        capabilities: {
                             dataSchema: { enabled: true },
                             records: false,
                             treeAssignment: false,
@@ -483,7 +483,7 @@ describe('EntityTypeService', () => {
             service.createType('metahub-1', {
                 kindKey: 'custom-order',
                 codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-order' } } },
-                components: {
+                capabilities: {
                     dataSchema: { enabled: true },
                     records: false,
                     treeAssignment: false,
@@ -533,7 +533,7 @@ describe('EntityTypeService', () => {
             service.createType('metahub-1', {
                 kindKey: 'custom-order',
                 codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-order' } } },
-                components: {
+                capabilities: {
                     dataSchema: { enabled: true },
                     records: false,
                     treeAssignment: false,
@@ -572,7 +572,7 @@ describe('EntityTypeService', () => {
                         kind_key: 'custom-hidden',
                         codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-hidden' } } },
                         presentation: {},
-                        components: {
+                        capabilities: {
                             dataSchema: { enabled: true },
                             records: false,
                             treeAssignment: false,
@@ -607,7 +607,7 @@ describe('EntityTypeService', () => {
         const result = await service.createType('metahub-1', {
             kindKey: 'custom-hidden',
             codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-hidden' } } },
-            components: {
+            capabilities: {
                 dataSchema: { enabled: true },
                 records: false,
                 treeAssignment: false,
@@ -650,7 +650,7 @@ describe('EntityTypeService', () => {
                         kind_key: 'custom-knowledge',
                         codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-knowledge' } } },
                         presentation: {},
-                        components: {
+                        capabilities: {
                             dataSchema: { enabled: true },
                             records: false,
                             treeAssignment: false,
@@ -673,10 +673,10 @@ describe('EntityTypeService', () => {
                             nameKey: 'Knowledge',
                             resourceSurfaces: [
                                 {
-                                    key: 'attributes',
+                                    key: 'components',
                                     capability: 'dataSchema',
-                                    routeSegment: 'attributes',
-                                    fallbackTitle: 'Attributes'
+                                    routeSegment: 'components',
+                                    fallbackTitle: 'Components'
                                 }
                             ]
                         },
@@ -693,7 +693,7 @@ describe('EntityTypeService', () => {
         const result = await service.createType('metahub-1', {
             kindKey: 'custom-knowledge',
             codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-knowledge' } } },
-            components: {
+            capabilities: {
                 dataSchema: { enabled: true },
                 records: false,
                 treeAssignment: false,
@@ -716,10 +716,10 @@ describe('EntityTypeService', () => {
                 nameKey: 'Knowledge',
                 resourceSurfaces: [
                     {
-                        key: 'attributes',
+                        key: 'components',
                         capability: 'dataSchema',
-                        routeSegment: 'attributes',
-                        fallbackTitle: 'Attributes'
+                        routeSegment: 'components',
+                        fallbackTitle: 'Components'
                     }
                 ]
             }
@@ -727,9 +727,9 @@ describe('EntityTypeService', () => {
 
         expect(result.ui.resourceSurfaces).toEqual([
             expect.objectContaining({
-                key: 'attributes',
+                key: 'components',
                 capability: 'dataSchema',
-                routeSegment: 'attributes'
+                routeSegment: 'components'
             })
         ])
     })
@@ -741,7 +741,7 @@ describe('EntityTypeService', () => {
             service.createType('metahub-1', {
                 kindKey: 'custom-invalid-surface',
                 codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-invalid-surface' } } },
-                components: {
+                capabilities: {
                     dataSchema: false,
                     records: false,
                     treeAssignment: false,
@@ -764,15 +764,15 @@ describe('EntityTypeService', () => {
                     nameKey: 'Invalid Surface',
                     resourceSurfaces: [
                         {
-                            key: 'attributes',
+                            key: 'components',
                             capability: 'dataSchema',
-                            routeSegment: 'attributes',
-                            fallbackTitle: 'Attributes'
+                            routeSegment: 'components',
+                            fallbackTitle: 'Components'
                         }
                     ]
                 }
             })
-        ).rejects.toThrow('Entity resource surface attributes requires enabled component dataSchema')
+        ).rejects.toThrow('Entity resource surface components requires enabled component dataSchema')
     })
 
     it('rejects duplicate resource surface route segments even when keys differ', async () => {
@@ -782,7 +782,7 @@ describe('EntityTypeService', () => {
             service.createType('metahub-1', {
                 kindKey: 'custom-duplicate-route',
                 codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-duplicate-route' } } },
-                components: {
+                capabilities: {
                     dataSchema: { enabled: true },
                     records: false,
                     treeAssignment: false,
@@ -805,10 +805,10 @@ describe('EntityTypeService', () => {
                     nameKey: 'Duplicate Route',
                     resourceSurfaces: [
                         {
-                            key: 'attributes',
+                            key: 'components',
                             capability: 'dataSchema',
                             routeSegment: 'shared-tab',
-                            fallbackTitle: 'Attributes'
+                            fallbackTitle: 'Components'
                         },
                         {
                             key: 'values',
@@ -831,7 +831,7 @@ describe('EntityTypeService', () => {
                         kind_key: 'custom-order',
                         codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-order' } } },
                         presentation: {},
-                        components: {
+                        capabilities: {
                             dataSchema: { enabled: true },
                             records: false,
                             treeAssignment: false,
@@ -872,7 +872,7 @@ describe('EntityTypeService', () => {
                         kind_key: 'custom-order',
                         codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-order' } } },
                         presentation: {},
-                        components: {
+                        capabilities: {
                             dataSchema: { enabled: true },
                             records: false,
                             treeAssignment: false,
@@ -926,7 +926,7 @@ describe('EntityTypeService', () => {
                         kind_key: 'custom-order',
                         codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-order' } } },
                         presentation: {},
-                        components: {
+                        capabilities: {
                             dataSchema: { enabled: true },
                             records: false,
                             treeAssignment: false,
@@ -966,7 +966,7 @@ describe('EntityTypeService', () => {
                         kind_key: 'custom-existing',
                         codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'duplicate-codename' } } },
                         presentation: {},
-                        components: {
+                        capabilities: {
                             dataSchema: { enabled: true },
                             records: false,
                             treeAssignment: false,
@@ -1021,7 +1021,7 @@ describe('EntityTypeService', () => {
                         kind_key: 'custom-order',
                         codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-order' } } },
                         presentation: {},
-                        components: {
+                        capabilities: {
                             dataSchema: { enabled: true },
                             records: false,
                             treeAssignment: false,
@@ -1077,7 +1077,7 @@ describe('EntityTypeService', () => {
                         kind_key: 'custom-order',
                         codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-order' } } },
                         presentation: {},
-                        components: {
+                        capabilities: {
                             dataSchema: { enabled: true },
                             records: false,
                             treeAssignment: false,
@@ -1117,7 +1117,7 @@ describe('EntityTypeService', () => {
                         kind_key: 'custom-order',
                         codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-order' } } },
                         presentation: {},
-                        components: {
+                        capabilities: {
                             dataSchema: { enabled: true },
                             records: false,
                             treeAssignment: false,

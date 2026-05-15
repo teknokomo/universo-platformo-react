@@ -447,39 +447,39 @@ export class MetahubFixedValuesService {
 
     async findSetReferenceBlockers(metahubId: string, targetValueGroupId: string, userId?: string, targetObjectKinds?: readonly string[]) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const attrQt = qSchemaTable(schemaName, '_mhb_attributes')
+        const attrQt = qSchemaTable(schemaName, '_mhb_components')
         const objQt = qSchemaTable(schemaName, '_mhb_objects')
         const compatibleTargetKinds = normalizeCompatibleTargetKinds(targetObjectKinds, 'set')
         const rows = await queryMany<Record<string, unknown>>(
             this.exec,
-            `SELECT attr.id AS attribute_id,
-                    attr.codename AS attribute_codename,
-                    attr.presentation AS attribute_presentation,
-                    attr.object_id AS source_catalog_id,
-                    obj.codename AS source_catalog_codename,
-                    obj.presentation AS source_catalog_presentation
-             FROM ${attrQt} AS attr
-             LEFT JOIN ${objQt} AS obj ON obj.id = attr.object_id
-             WHERE attr.data_type = 'REF'
-               AND attr.target_object_id = $1
-                             AND attr.target_object_kind = ANY($2::text[])
-               AND attr._upl_deleted = false AND attr._mhb_deleted = false
+            `SELECT cmp.id AS component_id,
+                    cmp.codename AS component_codename,
+                    cmp.presentation AS component_presentation,
+                    cmp.object_id AS source_object_id,
+                    obj.codename AS source_object_codename,
+                    obj.presentation AS source_object_presentation
+             FROM ${attrQt} AS cmp
+             LEFT JOIN ${objQt} AS obj ON obj.id = cmp.object_id
+             WHERE cmp.data_type = 'REF'
+               AND cmp.target_object_id = $1
+                             AND cmp.target_object_kind = ANY($2::text[])
+               AND cmp._upl_deleted = false AND cmp._mhb_deleted = false
                AND obj._upl_deleted = false AND obj._mhb_deleted = false
-             ORDER BY ${codenamePrimaryTextSql('obj.codename')} ASC, attr.sort_order ASC`,
+             ORDER BY ${codenamePrimaryTextSql('obj.codename')} ASC, cmp.sort_order ASC`,
             [targetValueGroupId, compatibleTargetKinds]
         )
 
         return rows.map((row) => ({
-            fieldDefinitionId: row.attribute_id,
-            attributeCodename: row.attribute_codename,
-            attributeName: (row.attribute_presentation as Record<string, unknown>)?.name ?? null,
-            sourceLinkedCollectionId: row.source_catalog_id,
-            sourceCatalogCodename: getCodenameText(row.source_catalog_codename),
-            sourceCatalogName: (row.source_catalog_presentation as Record<string, unknown>)?.name ?? null
+            componentId: row.component_id,
+            componentCodename: row.component_codename,
+            componentName: (row.component_presentation as Record<string, unknown>)?.name ?? null,
+            sourceObjectCollectionId: row.source_object_id,
+            sourceObjectCodename: getCodenameText(row.source_object_codename),
+            sourceObjectName: (row.source_object_presentation as Record<string, unknown>)?.name ?? null
         }))
     }
 
-    async findAttributeReferenceBlockersByConstant(
+    async findComponentReferenceBlockersByConstant(
         metahubId: string,
         targetValueGroupId: string,
         targetConstantId: string,
@@ -487,7 +487,7 @@ export class MetahubFixedValuesService {
         targetObjectKinds?: readonly string[]
     ) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
-        const qt = qSchemaTable(schemaName, '_mhb_attributes')
+        const qt = qSchemaTable(schemaName, '_mhb_components')
         const compatibleTargetKinds = normalizeCompatibleTargetKinds(targetObjectKinds, 'set')
         const rows = await this.exec.query<{ id: string }>(
             `SELECT id FROM ${qt}

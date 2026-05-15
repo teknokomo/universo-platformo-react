@@ -88,12 +88,12 @@ const BranchCopyOptionsTab = ({
             <FormControlLabel
                 control={
                     <Checkbox
-                        checked={options.copyLinkedCollections}
-                        onChange={(event) => toggleBranchCopyChild(setValue, 'copyLinkedCollections', event.target.checked, values)}
+                        checked={options.copyObjectCollections}
+                        onChange={(event) => toggleBranchCopyChild(setValue, 'copyObjectCollections', event.target.checked, values)}
                         disabled={isLoading}
                     />
                 }
-                label={t('metahubs:branches.copy.options.copyLinkedCollections', 'Каталоги')}
+                label={t('metahubs:branches.copy.options.copyObjectCollections', 'Каталоги')}
             />
             <FormControlLabel
                 control={

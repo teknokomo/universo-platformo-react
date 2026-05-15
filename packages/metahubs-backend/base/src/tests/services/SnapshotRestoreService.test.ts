@@ -1,14 +1,14 @@
-const mockReadPlatformSystemFieldDefinitionsPolicy = jest.fn(async () => ({
+const mockReadPlatformSystemComponentsPolicy = jest.fn(async () => ({
     publishEnabled: true,
     archiveEnabled: true,
     deleteEnabled: true
 }))
-const mockEnsureCatalogSystemFieldDefinitionsSeed = jest.fn(async () => undefined)
+const mockEnsureCatalogSystemComponentsSeed = jest.fn(async () => undefined)
 
-jest.mock('../../domains/templates/services/systemFieldDefinitionSeed', () => ({
+jest.mock('../../domains/templates/services/systemComponentSeed', () => ({
     __esModule: true,
-    readPlatformSystemFieldDefinitionsPolicyWithKnex: mockReadPlatformSystemFieldDefinitionsPolicy,
-    ensureCatalogSystemFieldDefinitionsSeed: mockEnsureCatalogSystemFieldDefinitionsSeed
+    readPlatformSystemComponentsPolicyWithKnex: mockReadPlatformSystemComponentsPolicy,
+    ensureObjectSystemComponentsSeed: mockEnsureCatalogSystemComponentsSeed
 }))
 
 const mockResolveWidgetTableName = jest.fn(async () => '_mhb_widgets')
@@ -84,8 +84,8 @@ describe('SnapshotRestoreService', () => {
             version: '1.0.0',
             metahubId: '00000000-0000-0000-0000-000000000001',
             entities: {
-                'old-catalog-id': {
-                    kind: 'catalog',
+                'old-object-id': {
+                    kind: 'object',
                     codename: 'products',
                     presentation: { name: { en: 'Products' }, description: {} },
                     config: {},
@@ -95,7 +95,7 @@ describe('SnapshotRestoreService', () => {
                             codename: 'title',
                             dataType: 'STRING',
                             isRequired: false,
-                            isDisplayAttribute: true,
+                            isDisplayComponent: true,
                             presentation: { name: { en: 'Title' }, description: {} },
                             validationRules: {},
                             uiConfig: {},
@@ -111,7 +111,7 @@ describe('SnapshotRestoreService', () => {
             ...overrides
         } as unknown as MetahubSnapshot)
 
-    it('creates entities and attributes from a minimal snapshot', async () => {
+    it('creates entities and components from a minimal snapshot', async () => {
         const { knex, insertedRows } = createMockKnex()
         const service = new SnapshotRestoreService(knex as any, 'test_schema')
 
@@ -119,15 +119,15 @@ describe('SnapshotRestoreService', () => {
 
         expect(insertedRows['_mhb_objects']).toHaveLength(1)
         expect(insertedRows['_mhb_objects']![0]).toMatchObject({
-            kind: 'catalog',
+            kind: 'object',
             codename: expect.objectContaining({ _schema: '1' })
         })
-        expect(insertedRows['_mhb_attributes']).toHaveLength(1)
-        expect(insertedRows['_mhb_attributes']![0]).toMatchObject({
+        expect(insertedRows['_mhb_components']).toHaveLength(1)
+        expect(insertedRows['_mhb_components']![0]).toMatchObject({
             codename: expect.objectContaining({ _schema: '1' }),
             data_type: 'STRING'
         })
-        expect(mockEnsureCatalogSystemFieldDefinitionsSeed).toHaveBeenCalled()
+        expect(mockEnsureCatalogSystemComponentsSeed).toHaveBeenCalled()
     })
 
     it('rejects imported ledger configs with invalid field references before restoring entities', async () => {
@@ -155,7 +155,7 @@ describe('SnapshotRestoreService', () => {
                     kindKey: 'ledger',
                     codename: 'ledger',
                     presentation: { name: { en: 'Ledgers' }, description: {} },
-                    components: {
+                    capabilities: {
                         dataSchema: { enabled: true },
                         physicalTable: { enabled: true },
                         ledgerSchema: { enabled: true }
@@ -195,7 +195,7 @@ describe('SnapshotRestoreService', () => {
                         kindKey: 'page',
                         codename: 'page',
                         presentation: { name: { en: 'Pages' }, description: {} },
-                        components: { blockContent: { enabled: true } },
+                        capabilities: { blockContent: { enabled: true } },
                         ui: { tabs: ['general'], sidebarSection: 'objects' },
                         config: {},
                         published: true
@@ -250,7 +250,7 @@ describe('SnapshotRestoreService', () => {
                         kindKey: 'page',
                         codename: 'page',
                         presentation: { name: { en: 'Pages' }, description: {} },
-                        components: {
+                        capabilities: {
                             blockContent: {
                                 enabled: true,
                                 storage: 'objectConfig',
@@ -326,7 +326,7 @@ describe('SnapshotRestoreService', () => {
                             kindKey: 'page',
                             codename: 'page',
                             presentation: { name: { en: 'Pages' }, description: {} },
-                            components: {
+                            capabilities: {
                                 blockContent: {
                                     enabled: true,
                                     storage: 'objectConfig',
@@ -385,7 +385,7 @@ describe('SnapshotRestoreService', () => {
                             kindKey: 'page',
                             codename: 'page',
                             presentation: { name: { en: 'Pages' }, description: {} },
-                            components: {
+                            capabilities: {
                                 blockContent: {
                                     enabled: true,
                                     storage: 'objectConfig',
@@ -452,7 +452,7 @@ describe('SnapshotRestoreService', () => {
         await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
 
         expect(insertedRows['_mhb_objects']).toHaveLength(1)
-        expect(insertedRows['_mhb_attributes']).toHaveLength(1)
+        expect(insertedRows['_mhb_components']).toHaveLength(1)
         expect(insertedRows['_mhb_scripts']).toHaveLength(1)
         expect(insertedRows['_mhb_scripts']![0]).toMatchObject({
             codename: expect.objectContaining({ _schema: '1' }),
@@ -475,9 +475,9 @@ describe('SnapshotRestoreService', () => {
                     fields: [],
                     hubs: []
                 },
-                'old-catalog-id': {
-                    id: 'old-catalog-id',
-                    kind: 'catalog',
+                'old-object-id': {
+                    id: 'old-object-id',
+                    kind: 'object',
                     codename: 'products',
                     presentation: { name: { en: 'Products' }, description: {} },
                     config: {},
@@ -492,7 +492,7 @@ describe('SnapshotRestoreService', () => {
 
         await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
 
-        // Hub is created first, then catalog references the new hub ID
+        // Hub is created first, then object references the new hub ID
         expect(insertedRows['_mhb_objects']).toHaveLength(2)
         const catalogRow = insertedRows['_mhb_objects']![1]
         expect((catalogRow as any).config).toHaveProperty('hubs')
@@ -589,9 +589,9 @@ describe('SnapshotRestoreService', () => {
     it('restores scripts with sourceCode and remaps attachment ids', async () => {
         const snapshot = makeMinimalSnapshot({
             entities: {
-                'old-catalog-id': {
-                    id: 'old-catalog-id',
-                    kind: 'catalog',
+                'old-object-id': {
+                    id: 'old-object-id',
+                    kind: 'object',
                     codename: 'products',
                     presentation: { name: { en: 'Products' }, description: {} },
                     config: {},
@@ -601,7 +601,7 @@ describe('SnapshotRestoreService', () => {
                             codename: 'title',
                             dataType: 'STRING',
                             isRequired: false,
-                            isDisplayAttribute: true,
+                            isDisplayComponent: true,
                             presentation: { name: { en: 'Title' }, description: {} },
                             validationRules: {},
                             uiConfig: {},
@@ -637,29 +637,29 @@ describe('SnapshotRestoreService', () => {
                         "import { ExtensionScript } from '@universo/extension-sdk'\nexport default class QuizWidget extends ExtensionScript {}"
                 },
                 {
-                    id: 'script-attribute-id',
-                    codename: 'attribute-hook',
-                    presentation: { name: { en: 'Attribute hook' } },
-                    attachedToKind: 'attribute',
+                    id: 'script-component-id',
+                    codename: 'component-hook',
+                    presentation: { name: { en: 'Component hook' } },
+                    attachedToKind: 'component',
                     attachedToId: 'old-field-id',
                     moduleRole: 'lifecycle',
                     sourceKind: 'embedded',
                     sdkApiVersion: '1.0.0',
                     manifest: {
-                        className: 'AttributeHook',
+                        className: 'ComponentHook',
                         sdkApiVersion: '1.0.0',
                         moduleRole: 'lifecycle',
                         sourceKind: 'embedded',
                         capabilities: ['records.read', 'records.write', 'metadata.read', 'lifecycle'],
                         methods: []
                     },
-                    serverBundle: 'attribute server bundle',
+                    serverBundle: 'component server bundle',
                     clientBundle: null,
-                    checksum: 'checksum-attribute',
+                    checksum: 'checksum-component',
                     isActive: true,
                     config: {},
                     sourceCode:
-                        "import { ExtensionScript } from '@universo/extension-sdk'\nexport default class AttributeHook extends ExtensionScript {}"
+                        "import { ExtensionScript } from '@universo/extension-sdk'\nexport default class ComponentHook extends ExtensionScript {}"
                 }
             ]
         } as unknown as Partial<MetahubSnapshot>)
@@ -678,10 +678,10 @@ describe('SnapshotRestoreService', () => {
             _mhb_published: true
         })
         expect(insertedRows['_mhb_scripts']![1]).toMatchObject({
-            attached_to_kind: 'attribute',
+            attached_to_kind: 'component',
             attached_to_id: 'generated-id-2',
-            source_code: expect.stringContaining('AttributeHook extends ExtensionScript'),
-            server_bundle: 'attribute server bundle'
+            source_code: expect.stringContaining('ComponentHook extends ExtensionScript'),
+            server_bundle: 'component server bundle'
         })
     })
 
@@ -726,7 +726,7 @@ describe('SnapshotRestoreService', () => {
                     kindKey: 'customer_registry',
                     codename: 'customer_registry',
                     presentation: { name: { en: 'Customer Registry' }, description: {} },
-                    components: {
+                    capabilities: {
                         dataSchema: { enabled: true },
                         records: false,
                         treeAssignment: false,
@@ -847,8 +847,8 @@ describe('SnapshotRestoreService', () => {
             ],
             scopedLayouts: [
                 {
-                    id: 'old-catalog-layout-id',
-                    scopeEntityId: 'old-catalog-id',
+                    id: 'old-object-layout-id',
+                    scopeEntityId: 'old-object-id',
                     baseLayoutId: 'old-global-layout-id',
                     templateKey: 'dashboard',
                     name: { en: 'Entity override' },
@@ -871,7 +871,7 @@ describe('SnapshotRestoreService', () => {
                 },
                 {
                     id: 'old-owned-widget-id',
-                    layoutId: 'old-catalog-layout-id',
+                    layoutId: 'old-object-layout-id',
                     zone: 'right',
                     widgetKey: 'statsOverview',
                     sortOrder: 1,
@@ -882,7 +882,7 @@ describe('SnapshotRestoreService', () => {
             layoutWidgetOverrides: [
                 {
                     id: 'old-override-id',
-                    layoutId: 'old-catalog-layout-id',
+                    layoutId: 'old-object-layout-id',
                     baseWidgetId: 'old-global-widget-id',
                     zone: 'top',
                     sortOrder: 2,
@@ -971,9 +971,9 @@ describe('SnapshotRestoreService', () => {
     it('restores shared containers, shared entities, and remapped shared overrides', async () => {
         const snapshot = makeMinimalSnapshot({
             entities: {
-                'old-catalog-id': {
-                    id: 'old-catalog-id',
-                    kind: 'catalog',
+                'old-object-id': {
+                    id: 'old-object-id',
+                    kind: 'object',
                     codename: 'products',
                     presentation: { name: { en: 'Products' }, description: {} },
                     config: {},
@@ -999,13 +999,13 @@ describe('SnapshotRestoreService', () => {
                     hubs: []
                 }
             },
-            sharedFieldDefinitions: [
+            sharedComponents: [
                 {
-                    id: 'old-shared-attribute-id',
+                    id: 'old-shared-component-id',
                     codename: 'shared_title',
                     dataType: 'STRING',
                     isRequired: false,
-                    isDisplayAttribute: false,
+                    isDisplayComponent: false,
                     presentation: { name: { en: 'Shared Title' }, description: {} },
                     validationRules: {},
                     uiConfig: {},
@@ -1037,10 +1037,10 @@ describe('SnapshotRestoreService', () => {
             ],
             sharedEntityOverrides: [
                 {
-                    id: 'override-attribute-id',
-                    entityKind: 'attribute',
-                    sharedEntityId: 'old-shared-attribute-id',
-                    targetObjectId: 'old-catalog-id',
+                    id: 'override-component-id',
+                    entityKind: 'component',
+                    sharedEntityId: 'old-shared-component-id',
+                    targetObjectId: 'old-object-id',
                     isExcluded: false,
                     isActive: true,
                     sortOrder: 0
@@ -1073,14 +1073,14 @@ describe('SnapshotRestoreService', () => {
 
         const objectRows = (insertedRows['_mhb_objects'] ?? []) as Record<string, unknown>[]
         expect(objectRows).toHaveLength(6)
-        expect(objectRows.slice(3).map((row) => row.kind)).toEqual(['shared-catalog-pool', 'shared-set-pool', 'shared-enumeration-pool'])
+        expect(objectRows.slice(3).map((row) => row.kind)).toEqual(['shared-object-pool', 'shared-set-pool', 'shared-enumeration-pool'])
 
-        const sharedAttributeRow = insertedRows['_mhb_attributes']![0] as Record<string, unknown>
+        const sharedComponentRow = insertedRows['_mhb_components']![0] as Record<string, unknown>
         const sharedConstantRow = insertedRows['_mhb_constants']![0] as Record<string, unknown>
         const sharedValueRow = insertedRows['_mhb_values']![0] as Record<string, unknown>
         const overrideRows = insertedRows['_mhb_shared_entity_overrides'] as Record<string, unknown>[]
 
-        expect(sharedAttributeRow).toMatchObject({
+        expect(sharedComponentRow).toMatchObject({
             object_id: objectRows[3]?.id,
             codename: expect.objectContaining({ _schema: '1' })
         })
@@ -1095,8 +1095,8 @@ describe('SnapshotRestoreService', () => {
 
         expect(overrideRows).toHaveLength(3)
         expect(overrideRows[0]).toMatchObject({
-            entity_kind: 'attribute',
-            shared_entity_id: sharedAttributeRow.id,
+            entity_kind: 'component',
+            shared_entity_id: sharedComponentRow.id,
             target_object_id: objectRows[0]?.id,
             is_excluded: false,
             is_active: true,
@@ -1139,9 +1139,9 @@ describe('SnapshotRestoreService', () => {
     it('preserves snapshot ids for restored enumeration values and elements', async () => {
         const snapshot = makeMinimalSnapshot({
             entities: {
-                'old-catalog-id': {
-                    id: 'old-catalog-id',
-                    kind: 'catalog',
+                'old-object-id': {
+                    id: 'old-object-id',
+                    kind: 'object',
                     codename: 'products',
                     presentation: { name: { en: 'Products' }, description: {} },
                     config: {},
@@ -1151,7 +1151,7 @@ describe('SnapshotRestoreService', () => {
                             codename: 'status',
                             dataType: 'REF',
                             isRequired: true,
-                            isDisplayAttribute: false,
+                            isDisplayComponent: false,
                             targetEntityId: 'old-enum-id',
                             targetEntityKind: 'enumeration',
                             presentation: { name: { en: 'Status' }, description: {} },
@@ -1183,10 +1183,10 @@ describe('SnapshotRestoreService', () => {
                 ]
             },
             elements: {
-                'old-catalog-id': [
+                'old-object-id': [
                     {
                         id: 'element-id',
-                        objectId: 'old-catalog-id',
+                        objectId: 'old-object-id',
                         data: { status: 'enum-value-id' },
                         sortOrder: 1
                     }

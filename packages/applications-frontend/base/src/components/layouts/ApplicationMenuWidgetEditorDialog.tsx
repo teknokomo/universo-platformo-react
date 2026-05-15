@@ -83,7 +83,7 @@ const normalizeEditableMenuItemKind = (kind: MetahubMenuItemKind | string | null
 }
 
 const resolveMenuItemSectionTarget = (item?: MenuWidgetConfigItem | null): string => {
-    return item?.sectionId ?? item?.linkedCollectionId ?? ''
+    return item?.sectionId ?? item?.objectCollectionId ?? ''
 }
 
 const makeDefaultConfig = (_uiLocale: string): MenuWidgetConfig => ({
@@ -201,7 +201,7 @@ export default function ApplicationMenuWidgetEditorDialog({
             icon: itemDraft.icon.trim() || null,
             href: itemDraft.kind === 'link' ? itemDraft.href.trim() || null : null,
             hubId: itemDraft.kind === 'hub' ? itemDraft.hubId.trim() || null : null,
-            linkedCollectionId: itemDraft.kind === 'section' ? itemDraft.sectionId.trim() || null : null,
+            objectCollectionId: itemDraft.kind === 'section' ? itemDraft.sectionId.trim() || null : null,
             sectionId: itemDraft.kind === 'section' ? itemDraft.sectionId.trim() || null : null,
             sortOrder: 0,
             isActive: itemDraft.isActive

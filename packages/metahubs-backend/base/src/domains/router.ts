@@ -5,7 +5,7 @@ import { createRateLimiters } from '@universo/utils/rate-limiting'
 import { createLogger } from '../utils/logger'
 import { createMetahubsRoutes } from './metahubs/routes/metahubsRoutes'
 import { createBranchesRoutes } from './branches/routes/branchesRoutes'
-import { createEntityFieldDefinitionRoutes } from './entities/metadata/fieldDefinition/routes'
+import { createEntityComponentRoutes } from './entities/metadata/component/routes'
 import { createEntityRecordRoutes } from './entities/metadata/record/routes'
 import { createEntityFixedValueRoutes } from './entities/metadata/fixedValue/routes'
 import { createLayoutsRoutes } from './layouts/routes/layoutsRoutes'
@@ -81,7 +81,7 @@ export function createMetahubsServiceRoutes(ensureAuth: RequestHandler, getDbExe
     router.use('/', createApplicationMigrationsRoutes(ensureAuth, getDbExecutor, read, write))
 
     // Entity-owned metadata routes
-    router.use('/', createEntityFieldDefinitionRoutes(ensureAuth, getDbExecutor, read, write))
+    router.use('/', createEntityComponentRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createEntityFixedValueRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createEntityRecordRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createLayoutsRoutes(ensureAuth, getDbExecutor, read, write))
@@ -95,7 +95,7 @@ export function createMetahubsServiceRoutes(ensureAuth: RequestHandler, getDbExe
     // Settings (metahub-level configuration)
     router.use('/', createSettingsRoutes(ensureAuth, getDbExecutor, read, write))
 
-    // Templates catalog (read-only)
+    // Templates object (read-only)
     router.use('/', createTemplatesRoutes(ensureAuth, getDbExecutor, read))
 
     const domainErrorHandler: ErrorRequestHandler = (err, _req, res, next) => {
@@ -153,7 +153,7 @@ export function createPublicMetahubsServiceRoutes(getDbExecutor: () => DbExecuto
 
 export { createMetahubsRoutes } from './metahubs/routes/metahubsRoutes'
 export { createBranchesRoutes } from './branches/routes/branchesRoutes'
-export { createEntityFieldDefinitionRoutes } from './entities/metadata/fieldDefinition/routes'
+export { createEntityComponentRoutes } from './entities/metadata/component/routes'
 export { createEntityFixedValueRoutes } from './entities/metadata/fixedValue/routes'
 export { createEntityRecordRoutes } from './entities/metadata/record/routes'
 export { createLayoutsRoutes } from './layouts/routes/layoutsRoutes'

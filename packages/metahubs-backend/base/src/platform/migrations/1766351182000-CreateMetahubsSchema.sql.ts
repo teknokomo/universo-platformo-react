@@ -48,7 +48,7 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
         {
             sql: `
                 DO $$ BEGIN
-                    CREATE TYPE metahubs.attribute_data_type AS ENUM (
+                    CREATE TYPE metahubs.component_data_type AS ENUM (
                         'STRING', 'NUMBER', 'BOOLEAN', 'DATE', 'REF', 'JSON'
                     );
                 EXCEPTION
@@ -85,10 +85,10 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
                 END $$;
             `
         },
-        // ── cat_metahubs ──
+        // ── obj_metahubs ──
         {
             sql: `
-                CREATE TABLE metahubs.cat_metahubs (
+                CREATE TABLE metahubs.obj_metahubs (
                     id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                     name JSONB NOT NULL DEFAULT '{}',
                     description JSONB DEFAULT '{}',
@@ -132,35 +132,35 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
         {
             sql: `
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_metahubs_codename_active
-                ON metahubs.cat_metahubs (${codenamePrimaryTextSql('codename')})
+                ON metahubs.obj_metahubs (${codenamePrimaryTextSql('codename')})
                 WHERE _upl_deleted = false AND _app_deleted = false
             `
         },
         {
             sql: `
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_metahubs_slug_active
-                ON metahubs.cat_metahubs (slug)
+                ON metahubs.obj_metahubs (slug)
                 WHERE _upl_deleted = false AND _app_deleted = false AND slug IS NOT NULL
             `
         },
         {
             sql: `
                 CREATE INDEX IF NOT EXISTS idx_metahubs_deleted
-                ON metahubs.cat_metahubs (_upl_deleted_at)
+                ON metahubs.obj_metahubs (_upl_deleted_at)
                 WHERE _upl_deleted = true
             `
         },
         {
             sql: `
                 CREATE INDEX IF NOT EXISTS idx_metahubs_archived
-                ON metahubs.cat_metahubs (_upl_archived)
+                ON metahubs.obj_metahubs (_upl_archived)
                 WHERE _upl_archived = true
             `
         },
-        // ── cat_metahub_branches ──
+        // ── obj_metahub_branches ──
         {
             sql: `
-                CREATE TABLE metahubs.cat_metahub_branches (
+                CREATE TABLE metahubs.obj_metahub_branches (
                     id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                     metahub_id UUID NOT NULL,
                     source_branch_id UUID,
@@ -200,7 +200,7 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
                     _app_deleted_by UUID,
                     _app_owner_id UUID,
                     _app_access_level VARCHAR(20) NOT NULL DEFAULT 'private',
-                    FOREIGN KEY (metahub_id) REFERENCES metahubs.cat_metahubs(id) ON DELETE CASCADE,
+                    FOREIGN KEY (metahub_id) REFERENCES metahubs.obj_metahubs(id) ON DELETE CASCADE,
                     FOREIGN KEY (_upl_created_by) REFERENCES auth.users(id) ON DELETE SET NULL
                 )
             `
@@ -208,21 +208,21 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
         {
             sql: `
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_branches_schema_name_active
-                ON metahubs.cat_metahub_branches (schema_name)
+                ON metahubs.obj_metahub_branches (schema_name)
                 WHERE _upl_deleted = false AND _app_deleted = false
             `
         },
         {
             sql: `
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_branches_metahub_codename_active
-                ON metahubs.cat_metahub_branches (metahub_id, ${codenamePrimaryTextSql('codename')})
+                ON metahubs.obj_metahub_branches (metahub_id, ${codenamePrimaryTextSql('codename')})
                 WHERE _upl_deleted = false AND _app_deleted = false
             `
         },
         {
             sql: `
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_branches_metahub_number_active
-                ON metahubs.cat_metahub_branches (metahub_id, branch_number)
+                ON metahubs.obj_metahub_branches (metahub_id, branch_number)
                 WHERE _upl_deleted = false AND _app_deleted = false
             `
         },
@@ -233,17 +233,17 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
                     IF NOT EXISTS (
                         SELECT 1 FROM pg_constraint WHERE conname = 'fk_metahubs_default_branch'
                     ) THEN
-                        ALTER TABLE metahubs.cat_metahubs
+                        ALTER TABLE metahubs.obj_metahubs
                         ADD CONSTRAINT fk_metahubs_default_branch
-                        FOREIGN KEY (default_branch_id) REFERENCES metahubs.cat_metahub_branches(id) ON DELETE SET NULL;
+                        FOREIGN KEY (default_branch_id) REFERENCES metahubs.obj_metahub_branches(id) ON DELETE SET NULL;
                     END IF;
                 END $$;
             `
         },
-        // ── cat_templates (Group B: add _app_* block + fold definition_type) ──
+        // ── obj_templates (Group B: add _app_* block + fold definition_type) ──
         {
             sql: `
-                CREATE TABLE metahubs.cat_templates (
+                CREATE TABLE metahubs.obj_templates (
                     id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
                     codename JSONB NOT NULL,
                     name JSONB NOT NULL DEFAULT '{}',
@@ -286,14 +286,14 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
         },
         {
             sql: `
-                COMMENT ON COLUMN metahubs.cat_templates.definition_type IS
+                COMMENT ON COLUMN metahubs.obj_templates.definition_type IS
                 'Distinguishes template kind: metahub_template, application_template, or custom. Supports the unified application-definition model where Metahubs are a specialization.'
             `
         },
         {
             sql: `
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_templates_codename_active
-                ON metahubs.cat_templates (${codenamePrimaryTextSql('codename')})
+                ON metahubs.obj_templates (${codenamePrimaryTextSql('codename')})
                 WHERE _upl_deleted = false AND _app_deleted = false
             `
         },
@@ -338,7 +338,7 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
                     _app_owner_id UUID,
                     _app_access_level VARCHAR(20) NOT NULL DEFAULT 'private',
                     CONSTRAINT fk_template_versions_template
-                        FOREIGN KEY (template_id) REFERENCES metahubs.cat_templates(id) ON DELETE CASCADE
+                        FOREIGN KEY (template_id) REFERENCES metahubs.obj_templates(id) ON DELETE CASCADE
                 )
             `
         },
@@ -363,7 +363,7 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
                     IF NOT EXISTS (
                         SELECT 1 FROM pg_constraint WHERE conname = 'fk_templates_active_version'
                     ) THEN
-                        ALTER TABLE metahubs.cat_templates
+                        ALTER TABLE metahubs.obj_templates
                         ADD CONSTRAINT fk_templates_active_version
                         FOREIGN KEY (active_version_id) REFERENCES metahubs.doc_template_versions(id) ON DELETE SET NULL;
                     END IF;
@@ -377,9 +377,9 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
                     IF NOT EXISTS (
                         SELECT 1 FROM pg_constraint WHERE conname = 'fk_metahubs_template'
                     ) THEN
-                        ALTER TABLE metahubs.cat_metahubs
+                        ALTER TABLE metahubs.obj_metahubs
                         ADD CONSTRAINT fk_metahubs_template
-                        FOREIGN KEY (template_id) REFERENCES metahubs.cat_templates(id) ON DELETE SET NULL;
+                        FOREIGN KEY (template_id) REFERENCES metahubs.obj_templates(id) ON DELETE SET NULL;
                     END IF;
                 END $$;
             `
@@ -391,7 +391,7 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
                     IF NOT EXISTS (
                         SELECT 1 FROM pg_constraint WHERE conname = 'fk_metahubs_template_version'
                     ) THEN
-                        ALTER TABLE metahubs.cat_metahubs
+                        ALTER TABLE metahubs.obj_metahubs
                         ADD CONSTRAINT fk_metahubs_template_version
                         FOREIGN KEY (template_version_id) REFERENCES metahubs.doc_template_versions(id) ON DELETE SET NULL;
                     END IF;
@@ -405,7 +405,7 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
                     IF NOT EXISTS (
                         SELECT 1 FROM pg_constraint WHERE conname = 'fk_branches_last_template_version'
                     ) THEN
-                        ALTER TABLE metahubs.cat_metahub_branches
+                        ALTER TABLE metahubs.obj_metahub_branches
                         ADD CONSTRAINT fk_branches_last_template_version
                         FOREIGN KEY (last_template_version_id) REFERENCES metahubs.doc_template_versions(id) ON DELETE SET NULL;
                     END IF;
@@ -449,8 +449,8 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
                     _app_deleted_by UUID,
                     _app_owner_id UUID,
                     _app_access_level VARCHAR(20) NOT NULL DEFAULT 'private',
-                    FOREIGN KEY (metahub_id) REFERENCES metahubs.cat_metahubs(id) ON DELETE CASCADE,
-                    FOREIGN KEY (active_branch_id) REFERENCES metahubs.cat_metahub_branches(id) ON DELETE SET NULL
+                    FOREIGN KEY (metahub_id) REFERENCES metahubs.obj_metahubs(id) ON DELETE CASCADE,
+                    FOREIGN KEY (active_branch_id) REFERENCES metahubs.obj_metahub_branches(id) ON DELETE SET NULL
                 )
             `
         },
@@ -520,7 +520,7 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
                     _app_owner_id UUID,
                     _app_access_level VARCHAR(20) NOT NULL DEFAULT 'private',
                     CONSTRAINT fk_publication_metahub FOREIGN KEY (metahub_id)
-                        REFERENCES metahubs.cat_metahubs(id) ON DELETE CASCADE
+                        REFERENCES metahubs.obj_metahubs(id) ON DELETE CASCADE
                 )
             `
         },
@@ -595,19 +595,19 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
         { sql: `CREATE INDEX IF NOT EXISTS idx_mu_metahub ON metahubs.rel_metahub_users(metahub_id)` },
         { sql: `CREATE INDEX IF NOT EXISTS idx_mu_user ON metahubs.rel_metahub_users(user_id)` },
         { sql: `CREATE INDEX IF NOT EXISTS idx_mu_active_branch ON metahubs.rel_metahub_users(active_branch_id)` },
-        { sql: `CREATE INDEX IF NOT EXISTS idx_metahub_slug ON metahubs.cat_metahubs(slug)` },
-        { sql: `CREATE INDEX IF NOT EXISTS idx_metahub_codename ON metahubs.cat_metahubs((${codenamePrimaryTextSql('codename')}))` },
-        { sql: `CREATE INDEX IF NOT EXISTS idx_metahub_default_branch ON metahubs.cat_metahubs(default_branch_id)` },
-        { sql: `CREATE INDEX IF NOT EXISTS idx_branch_metahub ON metahubs.cat_metahub_branches(metahub_id)` },
-        { sql: `CREATE INDEX IF NOT EXISTS idx_branch_codename ON metahubs.cat_metahub_branches((${codenamePrimaryTextSql('codename')}))` },
-        { sql: `CREATE INDEX IF NOT EXISTS idx_branch_number ON metahubs.cat_metahub_branches(branch_number)` },
-        { sql: `CREATE INDEX IF NOT EXISTS idx_branch_source ON metahubs.cat_metahub_branches(source_branch_id)` },
-        { sql: `CREATE INDEX IF NOT EXISTS idx_templates_active ON metahubs.cat_templates (is_active) WHERE is_active = true` },
-        { sql: `CREATE INDEX IF NOT EXISTS idx_templates_system ON metahubs.cat_templates (is_system) WHERE is_system = true` },
+        { sql: `CREATE INDEX IF NOT EXISTS idx_metahub_slug ON metahubs.obj_metahubs(slug)` },
+        { sql: `CREATE INDEX IF NOT EXISTS idx_metahub_codename ON metahubs.obj_metahubs((${codenamePrimaryTextSql('codename')}))` },
+        { sql: `CREATE INDEX IF NOT EXISTS idx_metahub_default_branch ON metahubs.obj_metahubs(default_branch_id)` },
+        { sql: `CREATE INDEX IF NOT EXISTS idx_branch_metahub ON metahubs.obj_metahub_branches(metahub_id)` },
+        { sql: `CREATE INDEX IF NOT EXISTS idx_branch_codename ON metahubs.obj_metahub_branches((${codenamePrimaryTextSql('codename')}))` },
+        { sql: `CREATE INDEX IF NOT EXISTS idx_branch_number ON metahubs.obj_metahub_branches(branch_number)` },
+        { sql: `CREATE INDEX IF NOT EXISTS idx_branch_source ON metahubs.obj_metahub_branches(source_branch_id)` },
+        { sql: `CREATE INDEX IF NOT EXISTS idx_templates_active ON metahubs.obj_templates (is_active) WHERE is_active = true` },
+        { sql: `CREATE INDEX IF NOT EXISTS idx_templates_system ON metahubs.obj_templates (is_system) WHERE is_system = true` },
         { sql: `CREATE INDEX IF NOT EXISTS idx_template_versions_template ON metahubs.doc_template_versions (template_id)` },
         { sql: `CREATE INDEX IF NOT EXISTS idx_template_versions_hash ON metahubs.doc_template_versions (manifest_hash)` },
-        { sql: `CREATE INDEX IF NOT EXISTS idx_metahubs_template ON metahubs.cat_metahubs (template_id)` },
-        { sql: `CREATE INDEX IF NOT EXISTS idx_metahub_name_gin ON metahubs.cat_metahubs USING GIN (name)` },
+        { sql: `CREATE INDEX IF NOT EXISTS idx_metahubs_template ON metahubs.obj_metahubs (template_id)` },
+        { sql: `CREATE INDEX IF NOT EXISTS idx_metahub_name_gin ON metahubs.obj_metahubs USING GIN (name)` },
         { sql: `CREATE INDEX IF NOT EXISTS idx_pub_metahub ON metahubs.doc_publications(metahub_id)` },
         { sql: `CREATE INDEX IF NOT EXISTS idx_pub_schema_name ON metahubs.doc_publications(schema_name)` },
         { sql: `CREATE INDEX IF NOT EXISTS idx_pub_status ON metahubs.doc_publications(schema_status)` },
@@ -615,26 +615,26 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
         { sql: `CREATE INDEX IF NOT EXISTS idx_publications_versions_publication ON metahubs.doc_publication_versions(publication_id)` },
         { sql: `CREATE INDEX IF NOT EXISTS idx_publications_versions_branch ON metahubs.doc_publication_versions(branch_id)` },
         // ── RLS ──
-        { sql: `ALTER TABLE metahubs.cat_metahubs ENABLE ROW LEVEL SECURITY;` },
-        { sql: `ALTER TABLE metahubs.cat_metahub_branches ENABLE ROW LEVEL SECURITY;` },
+        { sql: `ALTER TABLE metahubs.obj_metahubs ENABLE ROW LEVEL SECURITY;` },
+        { sql: `ALTER TABLE metahubs.obj_metahub_branches ENABLE ROW LEVEL SECURITY;` },
         { sql: `ALTER TABLE metahubs.rel_metahub_users ENABLE ROW LEVEL SECURITY;` },
         { sql: `ALTER TABLE metahubs.doc_publications ENABLE ROW LEVEL SECURITY;` },
         { sql: `ALTER TABLE metahubs.doc_publication_versions ENABLE ROW LEVEL SECURITY;` },
-        { sql: `ALTER TABLE metahubs.cat_templates ENABLE ROW LEVEL SECURITY` },
+        { sql: `ALTER TABLE metahubs.obj_templates ENABLE ROW LEVEL SECURITY` },
         { sql: `ALTER TABLE metahubs.doc_template_versions ENABLE ROW LEVEL SECURITY` },
         // ── RLS policies ──
-        createDropPolicyIfTableExistsStatement('templates_read_all', 'metahubs', 'cat_templates'),
+        createDropPolicyIfTableExistsStatement('templates_read_all', 'metahubs', 'obj_templates'),
         {
             sql: `
-                CREATE POLICY "templates_read_all" ON metahubs.cat_templates
+                CREATE POLICY "templates_read_all" ON metahubs.obj_templates
                 FOR SELECT
                 USING (true)
             `
         },
-        createDropPolicyIfTableExistsStatement('templates_write_superuser', 'metahubs', 'cat_templates'),
+        createDropPolicyIfTableExistsStatement('templates_write_superuser', 'metahubs', 'obj_templates'),
         {
             sql: `
-                CREATE POLICY "templates_write_superuser" ON metahubs.cat_templates
+                CREATE POLICY "templates_write_superuser" ON metahubs.obj_templates
                 FOR ALL
                 USING ((select admin.is_superuser((select auth.uid()))))
                 WITH CHECK ((select admin.is_superuser((select auth.uid()))))
@@ -672,44 +672,44 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
                 )
             `
         },
-        createDropPolicyIfTableExistsStatement('Allow users to manage their own metahubs', 'metahubs', 'cat_metahubs'),
+        createDropPolicyIfTableExistsStatement('Allow users to manage their own metahubs', 'metahubs', 'obj_metahubs'),
         {
             sql: `
-                CREATE POLICY "Allow users to manage their own metahubs" ON metahubs.cat_metahubs
+                CREATE POLICY "Allow users to manage their own metahubs" ON metahubs.obj_metahubs
                 FOR ALL
                 USING (
                     is_public = true
                     OR EXISTS (
                         SELECT 1 FROM metahubs.rel_metahub_users mu
-                        WHERE mu.metahub_id = metahubs.cat_metahubs.id AND mu.user_id = (select auth.uid())
+                        WHERE mu.metahub_id = metahubs.obj_metahubs.id AND mu.user_id = (select auth.uid())
                     )
                     OR (select admin.is_superuser((select auth.uid())))
                 )
                 WITH CHECK (
                     EXISTS (
                         SELECT 1 FROM metahubs.rel_metahub_users mu
-                        WHERE mu.metahub_id = metahubs.cat_metahubs.id AND mu.user_id = (select auth.uid())
+                        WHERE mu.metahub_id = metahubs.obj_metahubs.id AND mu.user_id = (select auth.uid())
                     )
                     OR (select admin.is_superuser((select auth.uid())))
                 )
             `
         },
-        createDropPolicyIfTableExistsStatement('branches_access_via_metahub', 'metahubs', 'cat_metahub_branches'),
+        createDropPolicyIfTableExistsStatement('branches_access_via_metahub', 'metahubs', 'obj_metahub_branches'),
         {
             sql: `
-                CREATE POLICY "branches_access_via_metahub" ON metahubs.cat_metahub_branches
+                CREATE POLICY "branches_access_via_metahub" ON metahubs.obj_metahub_branches
                 FOR ALL
                 USING (
                     EXISTS (
                         SELECT 1 FROM metahubs.rel_metahub_users mu
-                        WHERE mu.metahub_id = metahubs.cat_metahub_branches.metahub_id AND mu.user_id = (select auth.uid())
+                        WHERE mu.metahub_id = metahubs.obj_metahub_branches.metahub_id AND mu.user_id = (select auth.uid())
                     )
                     OR (select admin.is_superuser((select auth.uid())))
                 )
                 WITH CHECK (
                     EXISTS (
                         SELECT 1 FROM metahubs.rel_metahub_users mu
-                        WHERE mu.metahub_id = metahubs.cat_metahub_branches.metahub_id AND mu.user_id = (select auth.uid())
+                        WHERE mu.metahub_id = metahubs.obj_metahub_branches.metahub_id AND mu.user_id = (select auth.uid())
                     )
                     OR (select admin.is_superuser((select auth.uid())))
                 )
@@ -760,17 +760,17 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
     down: [
         createDropPolicyIfTableExistsStatement('template_versions_write_superuser', 'metahubs', 'doc_template_versions'),
         createDropPolicyIfTableExistsStatement('template_versions_read_all', 'metahubs', 'doc_template_versions'),
-        createDropPolicyIfTableExistsStatement('templates_write_superuser', 'metahubs', 'cat_templates'),
-        createDropPolicyIfTableExistsStatement('templates_read_all', 'metahubs', 'cat_templates'),
+        createDropPolicyIfTableExistsStatement('templates_write_superuser', 'metahubs', 'obj_templates'),
+        createDropPolicyIfTableExistsStatement('templates_read_all', 'metahubs', 'obj_templates'),
         { sql: `ALTER TABLE metahubs.doc_template_versions DISABLE ROW LEVEL SECURITY` },
-        { sql: `ALTER TABLE metahubs.cat_templates DISABLE ROW LEVEL SECURITY` },
+        { sql: `ALTER TABLE metahubs.obj_templates DISABLE ROW LEVEL SECURITY` },
         createDropPolicyIfTableExistsStatement('publications_versions_policy', 'metahubs', 'doc_publication_versions'),
         createDropPolicyIfTableExistsStatement('pub_access_via_metahub', 'metahubs', 'doc_publications'),
-        createDropPolicyIfTableExistsStatement('branches_access_via_metahub', 'metahubs', 'cat_metahub_branches'),
-        createDropPolicyIfTableExistsStatement('Allow users to manage their own metahubs', 'metahubs', 'cat_metahubs'),
+        createDropPolicyIfTableExistsStatement('branches_access_via_metahub', 'metahubs', 'obj_metahub_branches'),
+        createDropPolicyIfTableExistsStatement('Allow users to manage their own metahubs', 'metahubs', 'obj_metahubs'),
         createDropPolicyIfTableExistsStatement('Allow users to manage their metahub memberships', 'metahubs', 'rel_metahub_users'),
-        { sql: `ALTER TABLE metahubs.cat_metahubs DISABLE ROW LEVEL SECURITY;` },
-        { sql: `ALTER TABLE metahubs.cat_metahub_branches DISABLE ROW LEVEL SECURITY;` },
+        { sql: `ALTER TABLE metahubs.obj_metahubs DISABLE ROW LEVEL SECURITY;` },
+        { sql: `ALTER TABLE metahubs.obj_metahub_branches DISABLE ROW LEVEL SECURITY;` },
         { sql: `ALTER TABLE metahubs.rel_metahub_users DISABLE ROW LEVEL SECURITY;` },
         { sql: `ALTER TABLE metahubs.doc_publications DISABLE ROW LEVEL SECURITY;` },
         { sql: `ALTER TABLE metahubs.doc_publication_versions DISABLE ROW LEVEL SECURITY;` },
@@ -810,19 +810,19 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
         { sql: `DROP INDEX IF EXISTS metahubs.idx_templates_codename_active` },
         { sql: `DROP TABLE IF EXISTS metahubs.doc_publication_versions` },
         { sql: `DROP TABLE IF EXISTS metahubs.doc_publications` },
-        { sql: `ALTER TABLE metahubs.cat_metahub_branches DROP CONSTRAINT IF EXISTS fk_branches_last_template_version` },
-        { sql: `ALTER TABLE metahubs.cat_metahubs DROP CONSTRAINT IF EXISTS fk_metahubs_template_version` },
-        { sql: `ALTER TABLE metahubs.cat_metahubs DROP CONSTRAINT IF EXISTS fk_metahubs_template` },
-        { sql: `ALTER TABLE metahubs.cat_templates DROP CONSTRAINT IF EXISTS fk_templates_active_version` },
+        { sql: `ALTER TABLE metahubs.obj_metahub_branches DROP CONSTRAINT IF EXISTS fk_branches_last_template_version` },
+        { sql: `ALTER TABLE metahubs.obj_metahubs DROP CONSTRAINT IF EXISTS fk_metahubs_template_version` },
+        { sql: `ALTER TABLE metahubs.obj_metahubs DROP CONSTRAINT IF EXISTS fk_metahubs_template` },
+        { sql: `ALTER TABLE metahubs.obj_templates DROP CONSTRAINT IF EXISTS fk_templates_active_version` },
         { sql: `DROP TABLE IF EXISTS metahubs.doc_template_versions` },
-        { sql: `DROP TABLE IF EXISTS metahubs.cat_templates` },
-        { sql: `ALTER TABLE metahubs.cat_metahubs DROP CONSTRAINT IF EXISTS fk_metahubs_default_branch` },
+        { sql: `DROP TABLE IF EXISTS metahubs.obj_templates` },
+        { sql: `ALTER TABLE metahubs.obj_metahubs DROP CONSTRAINT IF EXISTS fk_metahubs_default_branch` },
         { sql: `DROP TABLE IF EXISTS metahubs.rel_metahub_users` },
-        { sql: `DROP TABLE IF EXISTS metahubs.cat_metahub_branches` },
-        { sql: `DROP TABLE IF EXISTS metahubs.cat_metahubs` },
+        { sql: `DROP TABLE IF EXISTS metahubs.obj_metahub_branches` },
+        { sql: `DROP TABLE IF EXISTS metahubs.obj_metahubs` },
         { sql: `DROP TYPE IF EXISTS metahubs.publication_schema_status` },
         { sql: `DROP TYPE IF EXISTS metahubs.publication_access_mode` },
-        { sql: `DROP TYPE IF EXISTS metahubs.attribute_data_type` },
+        { sql: `DROP TYPE IF EXISTS metahubs.component_data_type` },
         { sql: `DROP SCHEMA IF EXISTS metahubs CASCADE` }
     ]
 }

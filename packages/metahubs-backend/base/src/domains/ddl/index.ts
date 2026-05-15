@@ -48,7 +48,7 @@ export {
 // Re-export types from @universo/schema-ddl
 export type {
     EntityDefinition,
-    FieldDefinition,
+    Component,
     SchemaGenerationResult,
     SchemaSnapshot,
     SchemaEntitySnapshot,

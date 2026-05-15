@@ -54,7 +54,7 @@ export function createApplicationsRoutes(
     router.delete('/:applicationId/layouts/:layoutId', writeLimiter, asyncHandler(layouts.remove))
     router.post('/:applicationId/layouts/:layoutId/copy', writeLimiter, asyncHandler(layouts.copy))
     router.get('/:applicationId/layouts/:layoutId/zone-widgets', readLimiter, asyncHandler(layouts.listWidgets))
-    router.get('/:applicationId/layouts/:layoutId/zone-widgets/catalog', readLimiter, asyncHandler(layouts.listWidgetCatalog))
+    router.get('/:applicationId/layouts/:layoutId/zone-widgets/object', readLimiter, asyncHandler(layouts.listWidgetObject))
     router.put('/:applicationId/layouts/:layoutId/zone-widget', writeLimiter, asyncHandler(layouts.upsertWidget))
     router.patch('/:applicationId/layouts/:layoutId/zone-widgets/move', writeLimiter, asyncHandler(layouts.moveWidget))
     router.patch('/:applicationId/layouts/:layoutId/zone-widget/:widgetId/config', writeLimiter, asyncHandler(layouts.updateWidgetConfig))
@@ -109,20 +109,20 @@ export function createApplicationsRoutes(
     router.delete('/:applicationId/runtime/workspaces/:workspaceId/members/:userId', writeLimiter, asyncHandler(workspace.deleteMember))
 
     // ── Runtime child rows (tabular) ──
-    router.get('/:applicationId/runtime/rows/:recordId/tabular/:attributeId', readLimiter, asyncHandler(childRows.listChildRows))
-    router.post('/:applicationId/runtime/rows/:recordId/tabular/:attributeId', writeLimiter, asyncHandler(childRows.createChildRow))
+    router.get('/:applicationId/runtime/rows/:recordId/tabular/:componentId', readLimiter, asyncHandler(childRows.listChildRows))
+    router.post('/:applicationId/runtime/rows/:recordId/tabular/:componentId', writeLimiter, asyncHandler(childRows.createChildRow))
     router.patch(
-        '/:applicationId/runtime/rows/:recordId/tabular/:attributeId/:childRowId',
+        '/:applicationId/runtime/rows/:recordId/tabular/:componentId/:childRowId',
         writeLimiter,
         asyncHandler(childRows.updateChildRow)
     )
     router.post(
-        '/:applicationId/runtime/rows/:recordId/tabular/:attributeId/:childRowId/copy',
+        '/:applicationId/runtime/rows/:recordId/tabular/:componentId/:childRowId/copy',
         writeLimiter,
         asyncHandler(childRows.copyChildRow)
     )
     router.delete(
-        '/:applicationId/runtime/rows/:recordId/tabular/:attributeId/:childRowId',
+        '/:applicationId/runtime/rows/:recordId/tabular/:componentId/:childRowId',
         writeLimiter,
         asyncHandler(childRows.deleteChildRow)
     )

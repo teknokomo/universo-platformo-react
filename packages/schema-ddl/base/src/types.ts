@@ -1,17 +1,17 @@
 import type {
-    ComponentManifest,
-    FieldDefinitionDataType,
+    EntityTypeCapabilities,
+    ComponentDefinitionDataType,
     EntityKind,
     MetaEntityDefinition,
-    MetaFieldDefinition,
+    MetaComponentDefinition,
     MetaPresentation
 } from '@universo/types'
 
 export type RuntimeEntityKind = EntityKind | 'enumeration' | 'relation' | 'settings'
 
-export interface FieldDefinition extends Omit<MetaFieldDefinition, 'targetEntityKind' | 'childFields'> {
+export interface Component extends Omit<MetaComponentDefinition, 'targetEntityKind' | 'childFields'> {
     targetEntityKind?: RuntimeEntityKind | null
-    childFields?: FieldDefinition[]
+    childFields?: Component[]
     physicalColumnName?: string | null
     physicalDataType?: string
     defaultSqlExpression?: string
@@ -19,21 +19,21 @@ export interface FieldDefinition extends Omit<MetaFieldDefinition, 'targetEntity
 
 export interface EntityDefinition extends Omit<MetaEntityDefinition, 'kind' | 'fields'> {
     kind: RuntimeEntityKind
-    fields: FieldDefinition[]
+    fields: Component[]
     physicalTableEnabled?: boolean
     physicalTableName?: string
     physicalTablePrefix?: string | null
     config?: Record<string, unknown>
-    components?: ComponentManifest
+    capabilities?: EntityTypeCapabilities
 }
 
 export interface SchemaFieldSnapshot {
     codename: string
     columnName: string
-    dataType: FieldDefinitionDataType
+    dataType: ComponentDefinitionDataType
     isRequired: boolean
-    /** Whether this attribute is used to display the element when referenced */
-    isDisplayAttribute?: boolean
+    /** Whether this component is used to display the element when referenced */
+    isDisplayComponent?: boolean
     /** ID of the target entity for REF field type */
     targetEntityId?: string | null
     /** Kind of the target entity for REF field type (polymorphic discriminator) */
@@ -66,12 +66,12 @@ export interface SysObjectRecord {
     config: Record<string, unknown>
 }
 
-export interface SysAttributeRecord {
+export interface SysComponentRecord {
     id: string
     objectId: string
     codename: string
     columnName: string
-    dataType: FieldDefinitionDataType
+    dataType: ComponentDefinitionDataType
     isRequired: boolean
     targetObjectId?: string | null
     presentation: MetaPresentation

@@ -72,7 +72,7 @@ describeIntegration('createAuthUserProvisioningService integration (requires Sup
         if (userIds.size > 0) {
             const normalizedUserIds = Array.from(userIds)
             await executor.query(`DELETE FROM admin.rel_user_roles WHERE user_id = ANY($1::uuid[])`, [normalizedUserIds])
-            await executor.query(`DELETE FROM profiles.cat_profiles WHERE user_id = ANY($1::uuid[])`, [normalizedUserIds])
+            await executor.query(`DELETE FROM profiles.obj_profiles WHERE user_id = ANY($1::uuid[])`, [normalizedUserIds])
 
             for (const userId of normalizedUserIds) {
                 await supabaseAdmin.auth.admin.deleteUser(userId)
@@ -80,7 +80,7 @@ describeIntegration('createAuthUserProvisioningService integration (requires Sup
         }
 
         for (const profilePrefix of Array.from(new Set(trackedProfilePrefixes))) {
-            await executor.query(`DELETE FROM profiles.cat_profiles WHERE POSITION($1 IN nickname) = 1`, [profilePrefix])
+            await executor.query(`DELETE FROM profiles.obj_profiles WHERE POSITION($1 IN nickname) = 1`, [profilePrefix])
         }
 
         trackedEmails = []
@@ -137,7 +137,7 @@ describeIntegration('createAuthUserProvisioningService integration (requires Sup
 
         const profileRows = await executor.query<{ user_id: string }>(
             `SELECT user_id
-             FROM profiles.cat_profiles
+             FROM profiles.obj_profiles
              WHERE user_id = $1
                AND ${activeAppRowCondition()}`,
             [result.userId]
@@ -187,7 +187,7 @@ describeIntegration('createAuthUserProvisioningService integration (requires Sup
 
         const profileRows = await executor.query<{ user_id: string; nickname: string }>(
             `SELECT user_id, nickname
-             FROM profiles.cat_profiles
+             FROM profiles.obj_profiles
              WHERE POSITION($1 IN nickname) = 1
                AND ${activeAppRowCondition()}`,
             [profilePrefix]

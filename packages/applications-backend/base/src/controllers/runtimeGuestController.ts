@@ -9,10 +9,10 @@ import {
     listActivePublicWorkspaceIds,
     loadPublicRuntimeRecord,
     loadPublicTableRows,
-    resolveChildAttributes,
+    resolveChildComponents,
     resolvePublicRuntimeObject,
     resolvePublicRuntimeSchema,
-    resolveTopLevelAttributes,
+    resolveTopLevelComponents,
     setPublicWorkspaceContext,
     type PublicRuntimeObjectBinding,
     type PublicRuntimeSchemaContext
@@ -382,19 +382,19 @@ const normalizeEnumCodename = (value: unknown): string => {
         .toLowerCase()
 }
 
-const isEnumerationRefAttribute = (attribute: {
+const isEnumerationRefComponent = (component: {
     data_type?: string
     target_object_kind?: string | null
     target_object_id?: string | null
-}) => attribute.data_type === 'REF' && attribute.target_object_kind === 'enumeration' && typeof attribute.target_object_id === 'string'
+}) => component.data_type === 'REF' && component.target_object_kind === 'enumeration' && typeof component.target_object_id === 'string'
 
 const loadEnumerationValueCodeMaps = async (
     executor: DbExecutor,
     schemaName: string,
-    attributes: Array<{ data_type?: string; target_object_kind?: string | null; target_object_id?: string | null }>
+    components: Array<{ data_type?: string; target_object_kind?: string | null; target_object_id?: string | null }>
 ) => {
     const optionListIds = Array.from(
-        new Set(attributes.filter(isEnumerationRefAttribute).map((attribute) => String(attribute.target_object_id)))
+        new Set(components.filter(isEnumerationRefComponent).map((component) => String(component.target_object_id)))
     )
 
     const maps = new Map<string, Map<string, string>>()
@@ -424,15 +424,15 @@ const loadEnumerationValueCodeMaps = async (
 }
 
 const resolveEnumerationRefValue = (
-    attribute: { data_type?: string; target_object_kind?: string | null; target_object_id?: string | null } | undefined,
+    component: { data_type?: string; target_object_kind?: string | null; target_object_id?: string | null } | undefined,
     value: unknown,
     enumValueCodeMaps: Map<string, Map<string, string>>
 ) => {
-    if (typeof value !== 'string' || !attribute || !isEnumerationRefAttribute(attribute)) {
+    if (typeof value !== 'string' || !component || !isEnumerationRefComponent(component)) {
         return typeof value === 'string' ? value : ''
     }
 
-    return enumValueCodeMaps.get(String(attribute.target_object_id))?.get(value) ?? value
+    return enumValueCodeMaps.get(String(component.target_object_id))?.get(value) ?? value
 }
 
 const normalizeOptions = (value: unknown, locale: string): Array<{ id: string; label: string; isCorrect: boolean }> => {
@@ -458,7 +458,7 @@ const normalizeQuestionRows = (
     columns: Record<string, string>,
     options?: {
         locale?: string
-        questionTypeAttribute?: { data_type?: string; target_object_kind?: string | null; target_object_id?: string | null }
+        questionTypeComponent?: { data_type?: string; target_object_kind?: string | null; target_object_id?: string | null }
         enumValueCodeMaps?: Map<string, Map<string, string>>
     }
 ) =>
@@ -467,7 +467,7 @@ const normalizeQuestionRows = (
         prompt: resolveLocalizedContent(row[columns.prompt], options?.locale ?? 'en', ''),
         description: resolveLocalizedContent(row[columns.description], options?.locale ?? 'en', ''),
         questionType: resolveEnumerationRefValue(
-            options?.questionTypeAttribute,
+            options?.questionTypeComponent,
             row[columns.questionType],
             options?.enumValueCodeMaps ?? new Map<string, Map<string, string>>()
         ),
@@ -596,7 +596,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
         const binding = await resolveAccessLinksBinding(executor, schemaName, config)
         if (!binding) return null
 
-        const attrs = resolveTopLevelAttributes(binding)
+        const attrs = resolveTopLevelComponents(binding)
         const attrByCodename = indexByCodename(attrs)
         const fields = config.fields.accessLink
         const slugColumn = attrByCodename[fields.slug]?.column_name
@@ -796,7 +796,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
         const binding = await resolveStudentsBinding(executor, schemaName, config)
         if (!binding) return { isValid: false, accessLinkId: null, workspaceId: null }
 
-        const attrs = resolveTopLevelAttributes(binding)
+        const attrs = resolveTopLevelComponents(binding)
         const attrByCodename = indexByCodename(attrs)
         const studentFields = config.fields.participant
         const tokenColumn = attrByCodename[studentFields.guestSessionToken]?.column_name
@@ -869,17 +869,17 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
         const row = await loadPublicRuntimeRecord(executor, schemaName, binding, moduleId)
         if (!row) return null
 
-        const attrs = resolveTopLevelAttributes(binding)
+        const attrs = resolveTopLevelComponents(binding)
         const attrByCodename = indexByCodename(attrs)
         const moduleFields = config.fields.contentNode
         const contentItemFields = config.fields.contentPart
         const contentTable = attrByCodename[moduleFields.contentItems]
-        const contentAttrs = resolveChildAttributes(binding, contentTable?.id ?? '')
+        const contentAttrs = resolveChildComponents(binding, contentTable?.id ?? '')
         const contentAttrByCodename = indexByCodename(contentAttrs)
         const childRows = contentTable ? await loadPublicTableRows(executor, schemaName, contentTable, contentAttrs, moduleId) : []
         const enumValueCodeMaps = await loadEnumerationValueCodeMaps(executor, schemaName, contentAttrs)
 
-        const columns = Object.fromEntries(contentAttrs.map((attr) => [resolveRuntimeCodenameText(attr.codename), attr.column_name]))
+        const columns = Object.fromEntries(contentAttrs.map((cmp) => [resolveRuntimeCodenameText(cmp.codename), cmp.column_name]))
 
         return {
             type: 'module' as const,
@@ -925,16 +925,16 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
         const row = await loadPublicRuntimeRecord(executor, schemaName, binding, quizId)
         if (!row) return null
 
-        const attrs = resolveTopLevelAttributes(binding)
+        const attrs = resolveTopLevelComponents(binding)
         const attrByCodename = indexByCodename(attrs)
         const quizFields = config.fields.assessment
         const questionFields = config.fields.assessmentQuestion
         const questionsTable = attrByCodename[quizFields.questions]
-        const questionAttrs = questionsTable ? resolveChildAttributes(binding, questionsTable.id) : []
+        const questionAttrs = questionsTable ? resolveChildComponents(binding, questionsTable.id) : []
         const questionAttrByCodename = indexByCodename(questionAttrs)
         const questionRows = questionsTable ? await loadPublicTableRows(executor, schemaName, questionsTable, questionAttrs, quizId) : []
         const enumValueCodeMaps = await loadEnumerationValueCodeMaps(executor, schemaName, questionAttrs)
-        const columns = Object.fromEntries(questionAttrs.map((attr) => [resolveRuntimeCodenameText(attr.codename), attr.column_name]))
+        const columns = Object.fromEntries(questionAttrs.map((cmp) => [resolveRuntimeCodenameText(cmp.codename), cmp.column_name]))
         const questions = normalizeQuestionRows(
             questionRows,
             {
@@ -947,7 +947,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
             },
             {
                 locale,
-                questionTypeAttribute: questionAttrByCodename[questionFields.questionType],
+                questionTypeComponent: questionAttrByCodename[questionFields.questionType],
                 enumValueCodeMaps
             }
         ).map((question) => ({
@@ -1123,22 +1123,22 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
 
             const studentsBinding = await resolveStudentsBinding(ctx.manager, ctx.schemaName, runtimeConfig)
             if (!studentsBinding) {
-                res.status(400).json({ error: 'Participant catalog is not available in this application' })
+                res.status(400).json({ error: 'Participant object is not available in this application' })
                 return
             }
 
-            const attrs = resolveTopLevelAttributes(studentsBinding)
+            const attrs = resolveTopLevelComponents(studentsBinding)
             const attrByCodename = indexByCodename(attrs)
             const studentFields = runtimeConfig.fields.participant
             const displayNameColumn = attrByCodename[studentFields.displayName]?.column_name
             const isGuestColumn = attrByCodename[studentFields.isGuest]?.column_name
             const tokenColumn = attrByCodename[studentFields.guestSessionToken]?.column_name
             if (!displayNameColumn || !isGuestColumn || !tokenColumn) {
-                res.status(400).json({ error: 'Students catalog is missing guest session fields' })
+                res.status(400).json({ error: 'Students object is missing guest session fields' })
                 return
             }
             if (!IDENTIFIER_REGEX.test(displayNameColumn) || !IDENTIFIER_REGEX.test(isGuestColumn) || !IDENTIFIER_REGEX.test(tokenColumn)) {
-                res.status(400).json({ error: 'Participant catalog has invalid guest session fields' })
+                res.status(400).json({ error: 'Participant object has invalid guest session fields' })
                 return
             }
 
@@ -1374,11 +1374,11 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
 
             const responsesBinding = await resolveQuizResponsesBinding(ctx.manager, ctx.schemaName, runtimeConfig)
             if (!responsesBinding) {
-                res.status(400).json({ error: 'Assessment responses catalog is not available' })
+                res.status(400).json({ error: 'Assessment responses object is not available' })
                 return
             }
 
-            const attrs = resolveTopLevelAttributes(responsesBinding)
+            const attrs = resolveTopLevelComponents(responsesBinding)
             const attrByCodename = indexByCodename(attrs)
             const tableQt = qSchemaTable(ctx.schemaName, responsesBinding.tableName)
             const responseFields = runtimeConfig.fields.assessmentResponse
@@ -1393,13 +1393,13 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
             }
 
             if (Object.values(columns).some((column) => !column)) {
-                res.status(400).json({ error: 'Assessment responses catalog is missing required fields' })
+                res.status(400).json({ error: 'Assessment responses object is missing required fields' })
                 return
             }
 
             for (const col of Object.values(columns)) {
                 if (!IDENTIFIER_REGEX.test(col)) {
-                    res.status(400).json({ error: 'Assessment responses catalog has invalid column names' })
+                    res.status(400).json({ error: 'Assessment responses object has invalid column names' })
                     return
                 }
             }
@@ -1555,11 +1555,11 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
 
             const progressBinding = await resolveModuleProgressBinding(ctx.manager, ctx.schemaName, runtimeConfig)
             if (!progressBinding) {
-                res.status(500).json({ error: 'Content progress catalog is not available' })
+                res.status(500).json({ error: 'Content progress object is not available' })
                 return
             }
 
-            const attrs = resolveTopLevelAttributes(progressBinding)
+            const attrs = resolveTopLevelComponents(progressBinding)
             const attrByCodename = indexByCodename(attrs)
             const progressFields = runtimeConfig.fields.contentProgress
             const columns = {
@@ -1572,13 +1572,13 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                 lastAccessedItemIndex: attrByCodename[progressFields.lastAccessedItemIndex]?.column_name
             }
             if (Object.values(columns).some((column) => !column)) {
-                res.status(500).json({ error: 'Content progress catalog is missing required fields' })
+                res.status(500).json({ error: 'Content progress object is missing required fields' })
                 return
             }
 
             for (const col of Object.values(columns)) {
                 if (!IDENTIFIER_REGEX.test(col)) {
-                    res.status(400).json({ error: 'Content progress catalog has invalid column names' })
+                    res.status(400).json({ error: 'Content progress object has invalid column names' })
                     return
                 }
             }

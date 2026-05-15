@@ -20,7 +20,7 @@ interface PolicyRewrite {
 
 const adminPolicies: PolicyRewrite[] = [
     {
-        table: 'admin.cat_roles',
+        table: 'admin.obj_roles',
         name: 'admin_access_manage_roles',
         forClause: 'FOR ALL',
         using: '(select admin.has_admin_permission((select auth.uid())))'
@@ -71,19 +71,19 @@ const adminPolicies: PolicyRewrite[] = [
 
 const profilePolicies: PolicyRewrite[] = [
     {
-        table: 'profiles.cat_profiles',
+        table: 'profiles.obj_profiles',
         name: 'Allow users to view own profile',
         forClause: 'FOR SELECT',
         using: '(select auth.uid()) = user_id'
     },
     {
-        table: 'profiles.cat_profiles',
+        table: 'profiles.obj_profiles',
         name: 'Allow users to update own profile',
         forClause: 'FOR UPDATE',
         using: '(select auth.uid()) = user_id'
     },
     {
-        table: 'profiles.cat_profiles',
+        table: 'profiles.obj_profiles',
         name: 'Allow profile creation for existing users',
         forClause: 'FOR INSERT',
         withCheck: 'EXISTS (SELECT 1 FROM auth.users WHERE id = user_id)'
@@ -92,7 +92,7 @@ const profilePolicies: PolicyRewrite[] = [
 
 const metahubsPolicies: PolicyRewrite[] = [
     {
-        table: 'metahubs.cat_templates',
+        table: 'metahubs.obj_templates',
         name: 'templates_write_superuser',
         forClause: 'FOR ALL',
         using: '(select admin.is_superuser((select auth.uid())))',
@@ -113,33 +113,33 @@ const metahubsPolicies: PolicyRewrite[] = [
         withCheck: `user_id = (select auth.uid()) OR (select admin.is_superuser((select auth.uid())))`
     },
     {
-        table: 'metahubs.cat_metahubs',
+        table: 'metahubs.obj_metahubs',
         name: 'Allow users to manage their own metahubs',
         forClause: 'FOR ALL',
         using: `is_public = true
                     OR EXISTS (
                         SELECT 1 FROM metahubs.rel_metahub_users mu
-                        WHERE mu.metahub_id = metahubs.cat_metahubs.id AND mu.user_id = (select auth.uid())
+                        WHERE mu.metahub_id = metahubs.obj_metahubs.id AND mu.user_id = (select auth.uid())
                     )
                     OR (select admin.is_superuser((select auth.uid())))`,
         withCheck: `EXISTS (
                         SELECT 1 FROM metahubs.rel_metahub_users mu
-                        WHERE mu.metahub_id = metahubs.cat_metahubs.id AND mu.user_id = (select auth.uid())
+                        WHERE mu.metahub_id = metahubs.obj_metahubs.id AND mu.user_id = (select auth.uid())
                     )
                     OR (select admin.is_superuser((select auth.uid())))`
     },
     {
-        table: 'metahubs.cat_metahub_branches',
+        table: 'metahubs.obj_metahub_branches',
         name: 'branches_access_via_metahub',
         forClause: 'FOR ALL',
         using: `EXISTS (
                         SELECT 1 FROM metahubs.rel_metahub_users mu
-                        WHERE mu.metahub_id = metahubs.cat_metahub_branches.metahub_id AND mu.user_id = (select auth.uid())
+                        WHERE mu.metahub_id = metahubs.obj_metahub_branches.metahub_id AND mu.user_id = (select auth.uid())
                     )
                     OR (select admin.is_superuser((select auth.uid())))`,
         withCheck: `EXISTS (
                         SELECT 1 FROM metahubs.rel_metahub_users mu
-                        WHERE mu.metahub_id = metahubs.cat_metahub_branches.metahub_id AND mu.user_id = (select auth.uid())
+                        WHERE mu.metahub_id = metahubs.obj_metahub_branches.metahub_id AND mu.user_id = (select auth.uid())
                     )
                     OR (select admin.is_superuser((select auth.uid())))`
     },
@@ -184,35 +184,35 @@ const applicationsPolicies: PolicyRewrite[] = [
         withCheck: `user_id = (select auth.uid()) OR (select admin.is_superuser((select auth.uid())))`
     },
     {
-        table: 'applications.cat_applications',
+        table: 'applications.obj_applications',
         name: 'Allow users to manage their own applications',
         forClause: 'FOR ALL',
         using: `is_public = true
                     OR EXISTS (
                         SELECT 1 FROM applications.rel_application_users au
-                        WHERE au.application_id = applications.cat_applications.id AND au.user_id = (select auth.uid())
+                        WHERE au.application_id = applications.obj_applications.id AND au.user_id = (select auth.uid())
                     )
                     OR (select admin.is_superuser((select auth.uid())))`,
         withCheck: `EXISTS (
                         SELECT 1 FROM applications.rel_application_users au
-                        WHERE au.application_id = applications.cat_applications.id AND au.user_id = (select auth.uid())
+                        WHERE au.application_id = applications.obj_applications.id AND au.user_id = (select auth.uid())
                     )
                     OR (select admin.is_superuser((select auth.uid())))`
     },
     {
-        table: 'applications.cat_connectors',
+        table: 'applications.obj_connectors',
         name: 'Allow users to manage connectors in their applications',
         forClause: 'FOR ALL',
         using: `EXISTS (
-                        SELECT 1 FROM applications.cat_applications a
+                        SELECT 1 FROM applications.obj_applications a
                         LEFT JOIN applications.rel_application_users au ON a.id = au.application_id
-                        WHERE a.id = applications.cat_connectors.application_id
+                        WHERE a.id = applications.obj_connectors.application_id
                         AND (a.is_public = true OR au.user_id = (select auth.uid()))
                     )
                     OR (select admin.is_superuser((select auth.uid())))`,
         withCheck: `EXISTS (
                         SELECT 1 FROM applications.rel_application_users au
-                        WHERE au.application_id = applications.cat_connectors.application_id AND au.user_id = (select auth.uid())
+                        WHERE au.application_id = applications.obj_connectors.application_id AND au.user_id = (select auth.uid())
                     )
                     OR (select admin.is_superuser((select auth.uid())))`
     },
@@ -221,13 +221,13 @@ const applicationsPolicies: PolicyRewrite[] = [
         name: 'Allow users to manage connector-publication links',
         forClause: 'FOR ALL',
         using: `EXISTS (
-                        SELECT 1 FROM applications.cat_connectors c
+                        SELECT 1 FROM applications.obj_connectors c
                         JOIN applications.rel_application_users au ON c.application_id = au.application_id
                         WHERE c.id = applications.rel_connector_publications.connector_id AND au.user_id = (select auth.uid())
                     )
                     OR (select admin.is_superuser((select auth.uid())))`,
         withCheck: `EXISTS (
-                        SELECT 1 FROM applications.cat_connectors c
+                        SELECT 1 FROM applications.obj_connectors c
                         JOIN applications.rel_application_users au ON c.application_id = au.application_id
                         WHERE c.id = applications.rel_connector_publications.connector_id AND au.user_id = (select auth.uid())
                     )
@@ -237,19 +237,19 @@ const applicationsPolicies: PolicyRewrite[] = [
 
 const startPolicies: PolicyRewrite[] = [
     {
-        table: 'start.cat_goals',
+        table: 'start.obj_goals',
         name: 'admin_manage_goals',
         forClause: 'FOR ALL',
         using: '(select admin.has_admin_permission((select auth.uid())))'
     },
     {
-        table: 'start.cat_topics',
+        table: 'start.obj_topics',
         name: 'admin_manage_topics',
         forClause: 'FOR ALL',
         using: '(select admin.has_admin_permission((select auth.uid())))'
     },
     {
-        table: 'start.cat_features',
+        table: 'start.obj_features',
         name: 'admin_manage_features',
         forClause: 'FOR ALL',
         using: '(select admin.has_admin_permission((select auth.uid())))'

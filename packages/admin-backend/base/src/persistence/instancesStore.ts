@@ -173,10 +173,10 @@ export async function getInstanceStats(exec: DbExecutor): Promise<{
         exec.query<{ count: string }>(
             `SELECT COUNT(DISTINCT ur.user_id) AS count
              FROM admin.rel_user_roles ur
-             INNER JOIN admin.cat_roles r ON r.id = ur.role_id AND ${activeAppRowCondition('r')}
+             INNER JOIN admin.obj_roles r ON r.id = ur.role_id AND ${activeAppRowCondition('r')}
              WHERE ${activeAppRowCondition('ur')} AND r.is_superuser = true`
         ),
-        exec.query<{ count: string }>(`SELECT COUNT(*) AS count FROM admin.cat_roles WHERE ${activeAppRowCondition()}`)
+        exec.query<{ count: string }>(`SELECT COUNT(*) AS count FROM admin.obj_roles WHERE ${activeAppRowCondition()}`)
     ])
 
     return {

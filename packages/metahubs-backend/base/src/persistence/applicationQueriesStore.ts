@@ -104,7 +104,7 @@ const CONNECTOR_PUB_SELECT = `
 
 export async function findApplicationById(exec: SqlQueryable, id: string): Promise<AppRow | null> {
     const rows = await exec.query<AppRow>(
-        `SELECT ${APP_SELECT} FROM applications.cat_applications WHERE id = $1 AND ${activeAppRowCondition()} LIMIT 1`,
+        `SELECT ${APP_SELECT} FROM applications.obj_applications WHERE id = $1 AND ${activeAppRowCondition()} LIMIT 1`,
         [id]
     )
     return rows[0] ?? null
@@ -154,7 +154,7 @@ export async function updateApplicationFields(
     params.push(id)
 
     const rows = await exec.query<AppRow>(
-        `UPDATE applications.cat_applications
+        `UPDATE applications.obj_applications
          SET ${setClauses.join(', ')}
          WHERE id = $${params.length} AND ${activeAppRowCondition()}
          RETURNING ${APP_SELECT}`,
@@ -175,7 +175,7 @@ export async function createApplication(
     }
 ): Promise<AppRow> {
     const rows = await exec.query<AppRow>(
-        `INSERT INTO applications.cat_applications (
+        `INSERT INTO applications.obj_applications (
              name,
              description,
              is_public,
@@ -231,7 +231,7 @@ export async function createApplicationUser(
 
 export async function findConnectorsByApplicationId(exec: SqlQueryable, applicationId: string): Promise<ConnectorRow[]> {
     return exec.query<ConnectorRow>(
-        `SELECT ${CONNECTOR_SELECT} FROM applications.cat_connectors
+        `SELECT ${CONNECTOR_SELECT} FROM applications.obj_connectors
          WHERE application_id = $1 AND ${activeAppRowCondition()}`,
         [applicationId]
     )
@@ -239,7 +239,7 @@ export async function findConnectorsByApplicationId(exec: SqlQueryable, applicat
 
 export async function findFirstConnectorByApplicationId(exec: SqlQueryable, applicationId: string): Promise<ConnectorRow | null> {
     const rows = await exec.query<ConnectorRow>(
-        `SELECT ${CONNECTOR_SELECT} FROM applications.cat_connectors
+        `SELECT ${CONNECTOR_SELECT} FROM applications.obj_connectors
          WHERE application_id = $1 AND ${activeAppRowCondition()}
          LIMIT 1`,
         [applicationId]
@@ -258,7 +258,7 @@ export async function createConnector(
     }
 ): Promise<ConnectorRow> {
     const rows = await exec.query<ConnectorRow>(
-        `INSERT INTO applications.cat_connectors (application_id, name, description, sort_order, _upl_created_by, _upl_updated_by)
+        `INSERT INTO applications.obj_connectors (application_id, name, description, sort_order, _upl_created_by, _upl_updated_by)
          VALUES ($1, $2, $3, $4, $5, $5)
          RETURNING ${CONNECTOR_SELECT}`,
         [
@@ -328,13 +328,13 @@ export async function notifyLinkedAppsUpdateAvailable(
         versionFilter = ` AND (a.last_synced_publication_version_id IS NULL OR a.last_synced_publication_version_id != $${params.length})`
     }
     const rows = await exec.query<{ id: string }>(
-        `UPDATE applications.cat_applications a
+        `UPDATE applications.obj_applications a
          SET schema_status = 'update_available',
              _upl_updated_at = NOW(),
              _upl_version = COALESCE(a._upl_version, 1) + 1
          WHERE a.id IN (
              SELECT c.application_id
-             FROM applications.cat_connectors c
+             FROM applications.obj_connectors c
              INNER JOIN applications.rel_connector_publications cp ON cp.connector_id = c.id
              WHERE cp.publication_id = $1
                AND ${activeAppRowCondition('c')} AND ${activeAppRowCondition('cp')}
@@ -353,13 +353,13 @@ export async function notifyLinkedAppsUpdateAvailable(
  */
 export async function resetLinkedAppsToSynced(exec: SqlQueryable, publicationId: string): Promise<void> {
     await exec.query(
-        `UPDATE applications.cat_applications a
+        `UPDATE applications.obj_applications a
          SET schema_status = 'synced',
              _upl_updated_at = NOW(),
              _upl_version = COALESCE(a._upl_version, 1) + 1
          WHERE a.id IN (
              SELECT c.application_id
-             FROM applications.cat_connectors c
+             FROM applications.obj_connectors c
              INNER JOIN applications.rel_connector_publications cp ON cp.connector_id = c.id
              WHERE cp.publication_id = $1
                AND ${activeAppRowCondition('c')} AND ${activeAppRowCondition('cp')}

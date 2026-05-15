@@ -5,11 +5,11 @@ import { waitForSettledMutationResponse } from '../../support/browser/network'
 import {
     createLoggedInApiContext,
     createMetahub,
-    createFieldDefinition,
+    createComponent,
     disposeApiContext,
     getApplication,
     getPublication,
-    listLinkedCollections,
+    listObjectCollections,
     listPublicationApplications,
     listPublications
 } from '../../support/backend/api-session.mjs'
@@ -284,14 +284,14 @@ test('@flow @combined @slow publication create dialog supports immediate applica
             codename: metahubCodename
         })
 
-        const catalogsPayload = await listLinkedCollections(api, metahub.id)
-        const catalog = (catalogsPayload.items ?? [])[0]
+        const catalogsPayload = await listObjectCollections(api, metahub.id)
+        const objectCollection = (catalogsPayload.items ?? [])[0]
 
-        if (!catalog?.id) {
-            throw new Error('Default catalog is missing for publication create-with-schema coverage')
+        if (!objectCollection?.id) {
+            throw new Error('Default objectCollection is missing for publication create-with-schema coverage')
         }
 
-        await createFieldDefinition(api, metahub.id, catalog.id, {
+        await createComponent(api, metahub.id, objectCollection.id, {
             name: { en: `Title ${executionRunId}` },
             namePrimaryLocale: 'en',
             codename: createLocalizedContent('en', `title_${executionRunId}`),

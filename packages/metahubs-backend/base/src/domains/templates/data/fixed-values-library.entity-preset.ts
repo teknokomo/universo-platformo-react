@@ -1,5 +1,5 @@
 import type { EntityTypePresetManifest } from '@universo/types'
-import { SET_TYPE_COMPONENTS, SET_TYPE_UI } from './standardEntityTypeDefinitions'
+import { SET_TYPE_CAPABILITIES, SET_TYPE_UI } from './standardEntityTypeDefinitions'
 import { vlc } from './basic.template'
 
 export const fixedValuesLibraryEntityPreset: EntityTypePresetManifest = {
@@ -20,7 +20,7 @@ export const fixedValuesLibraryEntityPreset: EntityTypePresetManifest = {
     entityType: {
         kindKey: 'fixed-values-library',
         codename: vlc('ConstantsLibrary', 'ConstantsLibrary'),
-        components: SET_TYPE_COMPONENTS,
+        capabilities: SET_TYPE_CAPABILITIES,
         ui: {
             ...SET_TYPE_UI,
             nameKey: 'Constants Library',

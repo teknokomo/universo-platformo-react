@@ -46,7 +46,7 @@ Frontend package for entity-first metahub authoring, shared resources, and dynam
 - **Unified Authoring**: Standard and custom entity types share the same workspace actions and generic entity route contract.
 - **Resource Surface Editing**: Standard resource surface titles are edited with the same localized field controls used by other entity metadata; standard structural fields remain protected.
 - **Entity-Owned Surfaces**: Standard kinds render through entity-owned route components, while shared resources remain on the dedicated `/resources` surface.
-- **Route Ownership**: Detail tabs stay under `/metahub/:id/entities/:kindKey/...`, and metahub resources stay under `/metahub/:id/resources/...`; removed top-level `/hubs`, `/catalogs`, `/sets`, and `/enumerations` authoring routes are no longer part of the shipped frontend contract.
+- **Route Ownership**: Detail tabs stay under `/metahub/:id/entities/:kindKey/...`, and metahub resources stay under `/metahub/:id/resources/...`; removed top-level `/hubs`, `/objects`, `/sets`, and `/enumerations` authoring routes are no longer part of the shipped frontend contract.
 - **Runtime Boundary**: Runtime sections materialize from published entity metadata after publication sync instead of V2-specific compatibility aliases.
 
 ### 📋 Template Selection
@@ -99,7 +99,7 @@ import { metahubsTranslations } from '@universo/metahubs-frontend'
 <Route path="/metahub/:id/resources" element={<MetahubResources />} />
 <Route path="/metahub/:id/entities/:kindKey/instances" element={<StandardEntityCollectionPage />} />
 <Route path="/metahub/:id/entities/:kindKey/instance/:entityId/instances" element={<StandardEntityChildCollectionPage />} />
-<Route path="/metahub/:id/entities/:kindKey/instance/:entityId/field-definitions" element={<FieldDefinitionList />} />
+<Route path="/metahub/:id/entities/:kindKey/instance/:entityId/components" element={<FieldDefinitionList />} />
 <Route path="/metahub/:id/entities/:kindKey/instance/:entityId/records" element={<RecordList />} />
 ```
 
@@ -410,10 +410,10 @@ Factory for mapping backend error codes to localized snackbar messages. Eliminat
 
 ```ts
 const handleError = createDomainErrorHandler({
-    LIMIT_REACHED: (data, t) => t('attributes.limitReached', { limit: data.limit }),
+    LIMIT_REACHED: (data, t) => t('components.limitReached', { limit: data.limit }),
 })
 
-// In mutation: handleError(error, t, enqueueSnackbar, 'attributes.createError')
+// In mutation: handleError(error, t, enqueueSnackbar, 'components.createError')
 ```
 
 ### `createSimpleDeleteMutation()`

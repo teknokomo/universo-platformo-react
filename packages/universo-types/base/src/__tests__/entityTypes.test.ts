@@ -3,32 +3,32 @@ import { describe, expect, it } from 'vitest'
 import {
     MetaEntityKind,
     BuiltinEntityKinds,
-    getEnabledComponentKeys,
+    getEnabledCapabilityKeys,
     getDefaultEntityResourceSurfaceDefinition,
     isBuiltinEntityKind,
     isLedgerSchemaCapableEntity,
     normalizeEntityResourceSurfaceDefinitions,
     resolveEntityResourceSurfaceTitle,
     supportsLedgerSchema,
-    validateEntityResourceSurfacesAgainstComponents,
-    validateComponentDependencies,
+    validateEntityResourceSurfacesAgainstCapabilities,
+    validateCapabilityDependencies,
     buildEntitySettingKey,
     METAHUB_SETTINGS_REGISTRY,
-    type ComponentManifest,
+    type EntityTypeCapabilities,
     METAHUB_MENU_ITEM_KINDS,
     type MetahubSnapshotFormatVersion
 } from '../index'
 
 describe('entity type contracts', () => {
     it('recognizes only the promoted entity metadata kinds', () => {
-        expect(isBuiltinEntityKind(MetaEntityKind.CATALOG)).toBe(true)
+        expect(isBuiltinEntityKind(MetaEntityKind.OBJECT)).toBe(true)
         expect(isBuiltinEntityKind(MetaEntityKind.SET)).toBe(true)
         expect(isBuiltinEntityKind(MetaEntityKind.ENUMERATION)).toBe(true)
         expect(isBuiltinEntityKind(MetaEntityKind.HUB)).toBe(true)
         expect(isBuiltinEntityKind(MetaEntityKind.PAGE)).toBe(true)
         expect(isBuiltinEntityKind(MetaEntityKind.LEDGER)).toBe(true)
         expect(isBuiltinEntityKind('custom_registry')).toBe(false)
-        expect(Object.values(BuiltinEntityKinds)).toEqual(['catalog', 'set', 'enumeration', 'hub', 'page', 'ledger'])
+        expect(Object.values(BuiltinEntityKinds)).toEqual(['object', 'set', 'enumeration', 'hub', 'page', 'ledger'])
         expect(Object.values(BuiltinEntityKinds)).not.toContain('document')
     })
 
@@ -63,7 +63,7 @@ describe('entity type contracts', () => {
     })
 
     it('reports missing component dependencies and lists enabled manifest keys', () => {
-        const manifest: ComponentManifest = {
+        const manifest: EntityTypeCapabilities = {
             dataSchema: { enabled: true },
             records: { enabled: true },
             treeAssignment: false,
@@ -85,12 +85,12 @@ describe('entity type contracts', () => {
             ledgerSchema: false
         }
 
-        expect(validateComponentDependencies(manifest)).toEqual([])
-        expect(getEnabledComponentKeys(manifest)).toEqual(expect.arrayContaining(['dataSchema', 'records', 'actions', 'events']))
+        expect(validateCapabilityDependencies(manifest)).toEqual([])
+        expect(getEnabledCapabilityKeys(manifest)).toEqual(expect.arrayContaining(['dataSchema', 'records', 'actions', 'events']))
     })
 
     it('treats ledgerSchema as a generic component capability, not as a kind name', () => {
-        const manifest: ComponentManifest = {
+        const manifest: EntityTypeCapabilities = {
             dataSchema: { enabled: true },
             records: { enabled: true },
             treeAssignment: false,
@@ -105,7 +105,7 @@ describe('entity type contracts', () => {
             blockContent: false,
             layoutConfig: false,
             runtimeBehavior: false,
-            physicalTable: { enabled: true, prefix: 'cat' },
+            physicalTable: { enabled: true, prefix: 'obj' },
             identityFields: { enabled: true },
             recordLifecycle: { enabled: true },
             posting: false,
@@ -125,9 +125,9 @@ describe('entity type contracts', () => {
     it('normalizes and validates resource surface contracts', () => {
         const surfaces = normalizeEntityResourceSurfaceDefinitions([
             {
-                key: 'fieldDefinitions',
+                key: 'components',
                 capability: 'dataSchema',
-                routeSegment: 'field-definitions',
+                routeSegment: 'components',
                 title: {
                     _schema: '1',
                     _primary: 'en',
@@ -136,7 +136,7 @@ describe('entity type contracts', () => {
                         ru: { content: 'Свойства', version: 1, isActive: true }
                     }
                 },
-                fallbackTitle: 'Attributes'
+                fallbackTitle: 'Components'
             }
         ])
 
@@ -144,7 +144,7 @@ describe('entity type contracts', () => {
         expect(resolveEntityResourceSurfaceTitle(surfaces![0], { locale: 'ru' })).toBe('Свойства')
         expect(resolveEntityResourceSurfaceTitle(surfaces![0], { locale: 'de' })).toBe('Properties')
 
-        validateEntityResourceSurfacesAgainstComponents(surfaces, {
+        validateEntityResourceSurfacesAgainstCapabilities(surfaces, {
             dataSchema: { enabled: true },
             records: false,
             treeAssignment: false,
@@ -166,10 +166,10 @@ describe('entity type contracts', () => {
 
     it('exposes shared default resource surface metadata by capability', () => {
         expect(getDefaultEntityResourceSurfaceDefinition('dataSchema')).toMatchObject({
-            key: 'fieldDefinitions',
+            key: 'components',
             capability: 'dataSchema',
-            routeSegment: 'field-definitions',
-            fallbackTitle: 'fieldDefinitions'
+            routeSegment: 'components',
+            fallbackTitle: 'components'
         })
         expect(getDefaultEntityResourceSurfaceDefinition('fixedValues')).toMatchObject({
             key: 'fixedValues',
@@ -194,8 +194,8 @@ describe('entity type contracts', () => {
         ).toThrow(/duplicate capability/)
 
         expect(() =>
-            validateEntityResourceSurfacesAgainstComponents(
-                [{ key: 'fieldDefinitions', capability: 'dataSchema', routeSegment: 'field-definitions' }],
+            validateEntityResourceSurfacesAgainstCapabilities(
+                [{ key: 'components', capability: 'dataSchema', routeSegment: 'components' }],
                 {
                     dataSchema: false,
                     records: false,
@@ -222,9 +222,9 @@ describe('entity type contracts', () => {
         expect(() =>
             normalizeEntityResourceSurfaceDefinitions([
                 {
-                    key: 'fieldDefinitions',
+                    key: 'components',
                     capability: 'dataSchema',
-                    routeSegment: 'field-definitions',
+                    routeSegment: 'components',
                     title: {
                         locales: {
                             en: { content: 'Properties' }
@@ -237,9 +237,9 @@ describe('entity type contracts', () => {
         expect(() =>
             normalizeEntityResourceSurfaceDefinitions([
                 {
-                    key: 'fieldDefinitions',
+                    key: 'components',
                     capability: 'dataSchema',
-                    routeSegment: 'field-definitions',
+                    routeSegment: 'components',
                     title: {
                         _primary: 'en',
                         locales: {
@@ -253,9 +253,9 @@ describe('entity type contracts', () => {
         expect(() =>
             normalizeEntityResourceSurfaceDefinitions([
                 {
-                    key: 'fieldDefinitions',
+                    key: 'components',
                     capability: 'dataSchema',
-                    routeSegment: 'field-definitions',
+                    routeSegment: 'components',
                     title: {
                         _primary: 'en',
                         locales: {

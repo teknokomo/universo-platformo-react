@@ -16,7 +16,7 @@ describe('systemAppDefinitions compiler capability bridge', () => {
 
         expect(profileDefinition).not.toBeNull()
         expect(resolveSystemAppSystemTableCapabilities(profileDefinition!)).toEqual({
-            includeAttributes: true,
+            includeComponents: true,
             includeValues: false,
             includeLayouts: false,
             includeWidgets: false
@@ -28,7 +28,7 @@ describe('systemAppDefinitions compiler capability bridge', () => {
 
         expect(metahubsDefinition).not.toBeNull()
         expect(resolveSystemAppSystemTableCapabilities(metahubsDefinition!)).toEqual({
-            includeAttributes: true,
+            includeComponents: true,
             includeValues: false,
             includeLayouts: false,
             includeWidgets: false
@@ -42,7 +42,7 @@ describe('systemAppDefinitions compiler capability bridge', () => {
                 businessTables: expect.arrayContaining([
                     expect.objectContaining({
                         codename: 'profiles',
-                        tableName: 'cat_profiles',
+                        tableName: 'obj_profiles',
                         presentation: expect.objectContaining({
                             name: expect.objectContaining({
                                 locales: expect.objectContaining({
@@ -91,9 +91,9 @@ describe('systemAppDefinitions compiler capability bridge', () => {
                 definitionKey: 'admin',
                 businessTables: expect.arrayContaining([
                     expect.objectContaining({
-                        kind: 'catalog',
+                        kind: 'object',
                         codename: 'roles',
-                        tableName: 'cat_roles',
+                        tableName: 'obj_roles',
                         presentation: expect.objectContaining({
                             name: expect.objectContaining({
                                 locales: expect.objectContaining({
@@ -107,18 +107,14 @@ describe('systemAppDefinitions compiler capability bridge', () => {
                             expect.objectContaining({
                                 codename: 'codename',
                                 physicalColumnName: 'codename',
-                                dataType: 'STRING',
-                                isRequired: true,
-                                validationRules: {
-                                    maxLength: 50,
-                                    pattern: '^[a-z0-9:_-]+$'
-                                }
+                                dataType: 'JSON',
+                                isRequired: true
                             }),
                             expect.objectContaining({
                                 codename: 'name',
                                 physicalColumnName: 'name',
                                 dataType: 'JSON',
-                                isDisplayAttribute: true,
+                                isDisplayComponent: true,
                                 presentation: expect.objectContaining({
                                     name: expect.objectContaining({
                                         locales: expect.objectContaining({
@@ -172,9 +168,9 @@ describe('systemAppDefinitions compiler capability bridge', () => {
                 definitionKey: 'applications',
                 businessTables: expect.arrayContaining([
                     expect.objectContaining({
-                        kind: 'catalog',
+                        kind: 'object',
                         codename: 'applications',
-                        tableName: 'cat_applications',
+                        tableName: 'obj_applications',
                         presentation: expect.objectContaining({
                             name: expect.objectContaining({
                                 locales: expect.objectContaining({
@@ -190,7 +186,7 @@ describe('systemAppDefinitions compiler capability bridge', () => {
                                 physicalColumnName: 'name',
                                 dataType: 'JSON',
                                 isRequired: true,
-                                isDisplayAttribute: true,
+                                isDisplayComponent: true,
                                 presentation: expect.objectContaining({
                                     name: expect.objectContaining({
                                         locales: expect.objectContaining({
@@ -242,9 +238,9 @@ describe('systemAppDefinitions compiler capability bridge', () => {
                 definitionKey: 'metahubs',
                 businessTables: expect.arrayContaining([
                     expect.objectContaining({
-                        kind: 'catalog',
+                        kind: 'object',
                         codename: 'metahubs',
-                        tableName: 'cat_metahubs',
+                        tableName: 'obj_metahubs',
                         presentation: expect.objectContaining({
                             name: expect.objectContaining({
                                 locales: expect.objectContaining({
@@ -258,7 +254,7 @@ describe('systemAppDefinitions compiler capability bridge', () => {
                             expect.objectContaining({
                                 codename: 'codename',
                                 physicalColumnName: 'codename',
-                                dataType: 'STRING',
+                                dataType: 'JSON',
                                 isRequired: true
                             }),
                             expect.objectContaining({
@@ -266,7 +262,7 @@ describe('systemAppDefinitions compiler capability bridge', () => {
                                 physicalColumnName: 'name',
                                 dataType: 'JSON',
                                 isRequired: true,
-                                isDisplayAttribute: true,
+                                isDisplayComponent: true,
                                 presentation: expect.objectContaining({
                                     name: expect.objectContaining({
                                         locales: expect.objectContaining({
@@ -330,14 +326,14 @@ describe('systemAppDefinitions compiler capability bridge', () => {
 
     it('resolves current-stage compiler contract to the effective fresh-bootstrap application-like state', () => {
         expect(resolveRegisteredSystemAppSystemTableCapabilities('profiles', 'current')).toEqual({
-            includeAttributes: true,
+            includeComponents: true,
             includeValues: false,
             includeLayouts: false,
             includeWidgets: false
         })
 
         expect(resolveRegisteredSystemAppSystemTableCapabilities('applications', 'target')).toEqual({
-            includeAttributes: true,
+            includeComponents: true,
             includeValues: false,
             includeLayouts: false,
             includeWidgets: false
@@ -379,31 +375,31 @@ describe('systemAppDefinitions compiler capability bridge', () => {
             configurationVersion: '0.1.0',
             structureCapabilities: {
                 appCoreTables: true,
-                catalogTables: true,
+                objectTables: true,
                 documentTables: false,
                 relationTables: false,
                 settingsTables: true,
                 layoutTables: false,
                 widgetTables: false,
-                attributeValueTables: false
+               componentValueTables: false
             },
             systemTableCapabilities: {
-                includeAttributes: true,
+                includeComponents: true,
                 includeValues: false,
                 includeLayouts: false,
                 includeWidgets: false
             },
             businessTables: [
                 expect.objectContaining({
-                    kind: 'catalog',
+                    kind: 'object',
                     codename: 'profiles',
-                    tableName: 'cat_profiles',
+                    tableName: 'obj_profiles',
                     fields: expect.arrayContaining([
                         expect.objectContaining({
                             codename: 'nickname',
                             physicalColumnName: 'nickname',
                             dataType: 'STRING',
-                            isDisplayAttribute: true
+                            isDisplayComponent: true
                         })
                     ])
                 })
@@ -425,38 +421,38 @@ describe('systemAppDefinitions compiler capability bridge', () => {
             configurationVersion: '0.1.0',
             structureCapabilities: {
                 appCoreTables: true,
-                catalogTables: true,
+                objectTables: true,
                 documentTables: true,
                 relationTables: true,
                 settingsTables: true,
                 layoutTables: false,
                 widgetTables: false,
-                attributeValueTables: false
+               componentValueTables: false
             },
             systemTableCapabilities: {
-                includeAttributes: true,
+                includeComponents: true,
                 includeValues: false,
                 includeLayouts: false,
                 includeWidgets: false
             },
             businessTables: [
                 expect.objectContaining({
-                    kind: 'catalog',
+                    kind: 'object',
                     codename: 'metahubs',
-                    tableName: 'cat_metahubs',
+                    tableName: 'obj_metahubs',
                     fields: expect.arrayContaining([
                         expect.objectContaining({
                             codename: 'codename',
                             physicalColumnName: 'codename',
-                            dataType: 'STRING',
+                            dataType: 'JSON',
                             isRequired: true
                         })
                     ])
                 }),
                 expect.objectContaining({
-                    kind: 'catalog',
+                    kind: 'object',
                     codename: 'metahub_branches',
-                    tableName: 'cat_metahub_branches',
+                    tableName: 'obj_metahub_branches',
                     fields: expect.arrayContaining([
                         expect.objectContaining({
                             codename: 'schema_name',
@@ -480,9 +476,9 @@ describe('systemAppDefinitions compiler capability bridge', () => {
                     ])
                 }),
                 expect.objectContaining({
-                    kind: 'catalog',
+                    kind: 'object',
                     codename: 'templates',
-                    tableName: 'cat_templates',
+                    tableName: 'obj_templates',
                     fields: expect.arrayContaining([
                         expect.objectContaining({
                             codename: 'is_active',
@@ -535,7 +531,7 @@ describe('systemAppDefinitions compiler capability bridge', () => {
         })
     })
 
-    it('can build schema generation plan for the start system app with catalog and relation tables', () => {
+    it('can build schema generation plan for the start system app with object and relation tables', () => {
         expect(buildRegisteredSystemAppSchemaGenerationPlan('start')).toEqual(
             expect.objectContaining({
                 definitionKey: 'start',
@@ -545,9 +541,9 @@ describe('systemAppDefinitions compiler capability bridge', () => {
                 storageModel: 'application_like',
                 businessTables: expect.arrayContaining([
                     expect.objectContaining({
-                        kind: 'catalog',
+                        kind: 'object',
                         codename: 'goals',
-                        tableName: 'cat_goals',
+                        tableName: 'obj_goals',
                         fields: expect.arrayContaining([
                             expect.objectContaining({
                                 codename: 'codename',
@@ -559,19 +555,19 @@ describe('systemAppDefinitions compiler capability bridge', () => {
                                 codename: 'name',
                                 physicalColumnName: 'name',
                                 dataType: 'JSON',
-                                isDisplayAttribute: true
+                                isDisplayComponent: true
                             })
                         ])
                     }),
                     expect.objectContaining({
-                        kind: 'catalog',
+                        kind: 'object',
                         codename: 'topics',
-                        tableName: 'cat_topics'
+                        tableName: 'obj_topics'
                     }),
                     expect.objectContaining({
-                        kind: 'catalog',
+                        kind: 'object',
                         codename: 'features',
-                        tableName: 'cat_features'
+                        tableName: 'obj_features'
                     }),
                     expect.objectContaining({
                         kind: 'relation',
@@ -585,8 +581,8 @@ describe('systemAppDefinitions compiler capability bridge', () => {
                                 isRequired: true
                             }),
                             expect.objectContaining({
-                                codename: 'catalog_kind',
-                                physicalColumnName: 'catalog_kind',
+                                codename: 'object_kind',
+                                physicalColumnName: 'object_kind',
                                 dataType: 'STRING',
                                 isRequired: true
                             }),
@@ -625,16 +621,16 @@ describe('systemAppDefinitions compiler capability bridge', () => {
             configurationVersion: '0.1.0',
             structureCapabilities: {
                 appCoreTables: false,
-                catalogTables: false,
+                objectTables: false,
                 documentTables: false,
                 relationTables: false,
                 settingsTables: false,
                 layoutTables: false,
                 widgetTables: false,
-                attributeValueTables: false
+               componentValueTables: false
             },
             systemTableCapabilities: {
-                includeAttributes: false,
+                includeComponents: false,
                 includeValues: false,
                 includeLayouts: false,
                 includeWidgets: false

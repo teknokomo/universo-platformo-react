@@ -21,7 +21,7 @@ describe('ApplicationSchemaStateStore', () => {
 
         expect(mockQuery).toHaveBeenCalledTimes(1)
         const [sql, params] = mockQuery.mock.calls[0]
-        expect(sql).toContain('UPDATE applications.cat_applications')
+        expect(sql).toContain('UPDATE applications.obj_applications')
         expect(sql).toContain('RETURNING id')
         expect(sql).toContain('_upl_deleted = false AND _app_deleted = false')
         expect(params).toContain(ApplicationSchemaStatus.SYNCED)

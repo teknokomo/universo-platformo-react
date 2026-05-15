@@ -1,4 +1,4 @@
-import { FieldDefinitionDataType } from '@universo/types'
+import { ComponentDefinitionDataType } from '@universo/types'
 import { SchemaGenerator } from '../SchemaGenerator'
 import { generateSchemaName, generateTableName, generateColumnName } from '../naming'
 
@@ -72,9 +72,9 @@ describe('SchemaGenerator', () => {
         })
 
         describe('generateTableName', () => {
-            it('should generate table name with correct prefix for catalog', () => {
-                const result = generateTableName('e1-0000-0000-0000-000000000001', 'catalog')
-                expect(result).toMatch(/^cat_/)
+            it('should generate table name with correct prefix for object', () => {
+                const result = generateTableName('e1-0000-0000-0000-000000000001', 'object')
+                expect(result).toMatch(/^obj_/)
             })
 
             it('should generate table name with correct prefix for hub', () => {
@@ -89,59 +89,59 @@ describe('SchemaGenerator', () => {
         })
 
         describe('generateColumnName', () => {
-            it('should generate column name with attr_ prefix', () => {
+            it('should generate column name with cmp_ prefix', () => {
                 const result = generateColumnName('f1-0000-0000-0000-000000000001')
-                expect(result).toMatch(/^attr_/)
+                expect(result).toMatch(/^cmp_/)
             })
         })
 
         describe('mapDataType', () => {
             it('should map STRING to TEXT by default', () => {
-                expect(SchemaGenerator.mapDataType(FieldDefinitionDataType.STRING)).toBe('TEXT')
+                expect(SchemaGenerator.mapDataType(ComponentDefinitionDataType.STRING)).toBe('TEXT')
             })
 
             it('should map STRING to VARCHAR(n) when maxLength is specified', () => {
-                expect(SchemaGenerator.mapDataType(FieldDefinitionDataType.STRING, { maxLength: 255 })).toBe('VARCHAR(255)')
+                expect(SchemaGenerator.mapDataType(ComponentDefinitionDataType.STRING, { maxLength: 255 })).toBe('VARCHAR(255)')
             })
 
             it('should map NUMBER to NUMERIC(10,0) by default', () => {
-                expect(SchemaGenerator.mapDataType(FieldDefinitionDataType.NUMBER)).toBe('NUMERIC(10,0)')
+                expect(SchemaGenerator.mapDataType(ComponentDefinitionDataType.NUMBER)).toBe('NUMERIC(10,0)')
             })
 
             it('should map NUMBER with custom precision and scale', () => {
-                expect(SchemaGenerator.mapDataType(FieldDefinitionDataType.NUMBER, { precision: 15, scale: 4 })).toBe('NUMERIC(15,4)')
+                expect(SchemaGenerator.mapDataType(ComponentDefinitionDataType.NUMBER, { precision: 15, scale: 4 })).toBe('NUMERIC(15,4)')
             })
 
             it('should map BOOLEAN to BOOLEAN', () => {
-                expect(SchemaGenerator.mapDataType(FieldDefinitionDataType.BOOLEAN)).toBe('BOOLEAN')
+                expect(SchemaGenerator.mapDataType(ComponentDefinitionDataType.BOOLEAN)).toBe('BOOLEAN')
             })
 
             it('should map DATE to TIMESTAMPTZ by default (datetime composition)', () => {
-                expect(SchemaGenerator.mapDataType(FieldDefinitionDataType.DATE)).toBe('TIMESTAMPTZ')
+                expect(SchemaGenerator.mapDataType(ComponentDefinitionDataType.DATE)).toBe('TIMESTAMPTZ')
             })
 
             it('should map DATE to DATE when dateComposition is date', () => {
-                expect(SchemaGenerator.mapDataType(FieldDefinitionDataType.DATE, { dateComposition: 'date' })).toBe('DATE')
+                expect(SchemaGenerator.mapDataType(ComponentDefinitionDataType.DATE, { dateComposition: 'date' })).toBe('DATE')
             })
 
             it('should map DATE to TIME when dateComposition is time', () => {
-                expect(SchemaGenerator.mapDataType(FieldDefinitionDataType.DATE, { dateComposition: 'time' })).toBe('TIME')
+                expect(SchemaGenerator.mapDataType(ComponentDefinitionDataType.DATE, { dateComposition: 'time' })).toBe('TIME')
             })
 
             it('should map DATE to TIMESTAMPTZ when dateComposition is datetime', () => {
-                expect(SchemaGenerator.mapDataType(FieldDefinitionDataType.DATE, { dateComposition: 'datetime' })).toBe('TIMESTAMPTZ')
+                expect(SchemaGenerator.mapDataType(ComponentDefinitionDataType.DATE, { dateComposition: 'datetime' })).toBe('TIMESTAMPTZ')
             })
 
             it('should map REF to UUID', () => {
-                expect(SchemaGenerator.mapDataType(FieldDefinitionDataType.REF)).toBe('UUID')
+                expect(SchemaGenerator.mapDataType(ComponentDefinitionDataType.REF)).toBe('UUID')
             })
 
             it('should map JSON to JSONB', () => {
-                expect(SchemaGenerator.mapDataType(FieldDefinitionDataType.JSON)).toBe('JSONB')
+                expect(SchemaGenerator.mapDataType(ComponentDefinitionDataType.JSON)).toBe('JSONB')
             })
 
             it('should default unknown types to TEXT', () => {
-                expect(SchemaGenerator.mapDataType('unknown' as FieldDefinitionDataType)).toBe('TEXT')
+                expect(SchemaGenerator.mapDataType('unknown' as ComponentDefinitionDataType)).toBe('TEXT')
             })
         })
     })
@@ -197,12 +197,12 @@ describe('SchemaGenerator', () => {
             {
                 id: 'entity-1111-2222-3333-444455556666',
                 codename: 'products',
-                kind: 'catalog' as const,
+                kind: 'object' as const,
                 fields: [
                     {
                         id: 'field-1111-2222-3333-444455556666',
                         codename: 'name',
-                        dataType: FieldDefinitionDataType.STRING,
+                        dataType: ComponentDefinitionDataType.STRING,
                         isRequired: true
                     }
                 ]
@@ -232,14 +232,14 @@ describe('SchemaGenerator', () => {
         })
 
         it('should create physical tables for custom kinds even when compatibility hints map to hub', async () => {
-            const catalogId = 'catalog-1111-2222-3333-444455556666'
+            const objectId = 'object-1111-2222-3333-444455556666'
             const customHubId = 'hub-1111-2222-3333-444455556666'
 
             const result = await generator.generateFullSchema('profiles', [
                 {
-                    id: catalogId,
+                    id: objectId,
                     codename: 'products',
-                    kind: 'catalog',
+                    kind: 'object',
                     fields: []
                 },
                 {
@@ -260,8 +260,8 @@ describe('SchemaGenerator', () => {
                 {
                     id: 'profile-1111-2222-3333-444455556666',
                     codename: 'profiles',
-                    kind: 'catalog',
-                    physicalTableName: 'cat_profiles',
+                    kind: 'object',
+                    physicalTableName: 'obj_profiles',
                     presentation: {
                         name: {
                             _schema: '1',
@@ -281,7 +281,7 @@ describe('SchemaGenerator', () => {
                 }
             ])
 
-            expect(mockSchemaBuilder.createTable).toHaveBeenCalledWith('cat_profiles', expect.any(Function))
+            expect(mockSchemaBuilder.createTable).toHaveBeenCalledWith('obj_profiles', expect.any(Function))
         })
 
         it('should create business columns using explicit physical column names when provided', async () => {
@@ -289,8 +289,8 @@ describe('SchemaGenerator', () => {
                 {
                     id: 'profile-1111-2222-3333-444455556666',
                     codename: 'profiles',
-                    kind: 'catalog',
-                    physicalTableName: 'cat_profiles',
+                    kind: 'object',
+                    physicalTableName: 'obj_profiles',
                     presentation: {
                         name: {
                             _schema: '1',
@@ -311,7 +311,7 @@ describe('SchemaGenerator', () => {
                             id: 'nickname-field-1111-2222-333344445555',
                             codename: 'nickname',
                             physicalColumnName: 'nickname',
-                            dataType: FieldDefinitionDataType.STRING,
+                            dataType: ComponentDefinitionDataType.STRING,
                             isRequired: true
                         }
                     ]
@@ -327,15 +327,15 @@ describe('SchemaGenerator', () => {
             const field = {
                 id: 'field-ref-set-0000-0000-0000-000000000001',
                 codename: 'version',
-                dataType: FieldDefinitionDataType.REF,
+                dataType: ComponentDefinitionDataType.REF,
                 isRequired: false,
                 targetEntityId: 'set-0000-0000-0000-000000000001',
                 targetEntityKind: 'set' as import('../types').RuntimeEntityKind
             }
             const entity = {
-                id: 'catalog-0000-0000-0000-000000000001',
+                id: 'object-0000-0000-0000-000000000001',
                 codename: 'orders',
-                kind: 'catalog' as const,
+                kind: 'object' as const,
                 fields: [field]
             }
 
@@ -371,14 +371,14 @@ describe('SchemaGenerator', () => {
         it('deletes missing metadata before upsert when removeMissing=true', async () => {
             const operations: string[] = []
             const objectsTable = createTableMock('_app_objects', operations)
-            const attributesTable = createTableMock('_app_attributes', operations)
+            const componentsTable = createTableMock('_app_components', operations)
 
             const localKnex = {
                 fn: { now: jest.fn(() => 'NOW()') },
                 withSchema: jest.fn((_schemaName: string) => ({
                     table: jest.fn((tableName: string) => {
                         if (tableName === '_app_objects') return objectsTable
-                        if (tableName === '_app_attributes') return attributesTable
+                        if (tableName === '_app_components') return componentsTable
                         throw new Error(`Unexpected table: ${tableName}`)
                     })
                 }))
@@ -397,14 +397,14 @@ describe('SchemaGenerator', () => {
                 [
                     {
                         id: 'entity-1',
-                        kind: 'catalog',
+                        kind: 'object',
                         codename: 'products',
                         presentation: { name: emptyVlc },
                         fields: [
                             {
                                 id: 'field-1',
                                 codename: 'name',
-                                dataType: FieldDefinitionDataType.STRING,
+                                dataType: ComponentDefinitionDataType.STRING,
                                 isRequired: false,
                                 presentation: { name: emptyVlc }
                             }
@@ -419,22 +419,22 @@ describe('SchemaGenerator', () => {
             expect(operations.indexOf('_app_objects.del')).toBeGreaterThanOrEqual(0)
             expect(operations.indexOf('_app_objects.insert')).toBeGreaterThanOrEqual(0)
             expect(operations.indexOf('_app_objects.del')).toBeLessThan(operations.indexOf('_app_objects.insert'))
-            expect(operations.indexOf('_app_attributes.del')).toBeGreaterThanOrEqual(0)
-            expect(operations.indexOf('_app_attributes.insert')).toBeGreaterThanOrEqual(0)
-            expect(operations.indexOf('_app_attributes.del')).toBeLessThan(operations.indexOf('_app_attributes.insert'))
+            expect(operations.indexOf('_app_components.del')).toBeGreaterThanOrEqual(0)
+            expect(operations.indexOf('_app_components.insert')).toBeGreaterThanOrEqual(0)
+            expect(operations.indexOf('_app_components.del')).toBeLessThan(operations.indexOf('_app_components.insert'))
         })
 
         it('stores null table_name for nonphysical hub metadata rows', async () => {
             const operations: string[] = []
             const objectsTable = createTableMock('_app_objects', operations)
-            const attributesTable = createTableMock('_app_attributes', operations)
+            const componentsTable = createTableMock('_app_components', operations)
 
             const localKnex = {
                 fn: { now: jest.fn(() => 'NOW()') },
                 withSchema: jest.fn((_schemaName: string) => ({
                     table: jest.fn((tableName: string) => {
                         if (tableName === '_app_objects') return objectsTable
-                        if (tableName === '_app_attributes') return attributesTable
+                        if (tableName === '_app_components') return componentsTable
                         throw new Error(`Unexpected table: ${tableName}`)
                     })
                 }))
@@ -472,14 +472,14 @@ describe('SchemaGenerator', () => {
 
         it('passes capability gates to ensureSystemTables during metadata sync', async () => {
             const objectsTable = createTableMock('_app_objects', [])
-            const attributesTable = createTableMock('_app_attributes', [])
+            const componentsTable = createTableMock('_app_components', [])
 
             const localKnex = {
                 fn: { now: jest.fn(() => 'NOW()') },
                 withSchema: jest.fn((_schemaName: string) => ({
                     table: jest.fn((tableName: string) => {
                         if (tableName === '_app_objects') return objectsTable
-                        if (tableName === '_app_attributes') return attributesTable
+                        if (tableName === '_app_components') return componentsTable
                         throw new Error(`Unexpected table: ${tableName}`)
                     })
                 }))
@@ -490,7 +490,7 @@ describe('SchemaGenerator', () => {
 
             await localGenerator.syncSystemMetadata('profiles', [], {
                 systemTableCapabilities: {
-                    includeAttributes: true,
+                    includeComponents: true,
                     includeValues: false,
                     includeLayouts: false,
                     includeWidgets: false
@@ -498,23 +498,23 @@ describe('SchemaGenerator', () => {
             })
 
             expect(ensureSystemTablesSpy).toHaveBeenCalledWith('profiles', undefined, {
-                includeAttributes: true,
+                includeComponents: true,
                 includeValues: false,
                 includeLayouts: false,
                 includeWidgets: false
             })
         })
 
-        it('stores explicit physical column names in _app_attributes metadata', async () => {
+        it('stores explicit physical column names in _app_components metadata', async () => {
             const objectsTable = createTableMock('_app_objects', [])
-            const attributesTable = createTableMock('_app_attributes', [])
+            const componentsTable = createTableMock('_app_components', [])
 
             const localKnex = {
                 fn: { now: jest.fn(() => 'NOW()') },
                 withSchema: jest.fn((_schemaName: string) => ({
                     table: jest.fn((tableName: string) => {
                         if (tableName === '_app_objects') return objectsTable
-                        if (tableName === '_app_attributes') return attributesTable
+                        if (tableName === '_app_components') return componentsTable
                         throw new Error(`Unexpected table: ${tableName}`)
                     })
                 }))
@@ -531,16 +531,16 @@ describe('SchemaGenerator', () => {
             await localGenerator.syncSystemMetadata('profiles', [
                 {
                     id: 'profile-object-1',
-                    kind: 'catalog',
+                    kind: 'object',
                     codename: 'profiles',
-                    physicalTableName: 'cat_profiles',
+                    physicalTableName: 'obj_profiles',
                     presentation: { name: emptyVlc },
                     fields: [
                         {
                             id: 'field-nickname-1',
                             codename: 'nickname',
                             physicalColumnName: 'nickname',
-                            dataType: FieldDefinitionDataType.STRING,
+                            dataType: ComponentDefinitionDataType.STRING,
                             isRequired: true,
                             presentation: { name: emptyVlc }
                         }
@@ -548,7 +548,7 @@ describe('SchemaGenerator', () => {
                 } as unknown as import('../types').EntityDefinition
             ])
 
-            const insertedRows = attributesTable.insert.mock.calls[0]?.[0] as Array<Record<string, unknown>>
+            const insertedRows = componentsTable.insert.mock.calls[0]?.[0] as Array<Record<string, unknown>>
             expect(insertedRows[0]?.column_name).toBe('nickname')
         })
     })
@@ -562,7 +562,7 @@ describe('SchemaGenerator', () => {
             })
 
             const createdTables = mockSchemaBuilder.createTable.mock.calls.map((call) => call[0])
-            expect(createdTables).toEqual(expect.arrayContaining(['_app_objects', '_app_attributes', '_app_migrations', '_app_settings']))
+            expect(createdTables).toEqual(expect.arrayContaining(['_app_objects', '_app_components', '_app_migrations', '_app_settings']))
             expect(createdTables).not.toContain('_app_layouts')
             expect(createdTables).not.toContain('_app_widgets')
             expect(createdTables).not.toContain('_app_values')
@@ -643,7 +643,7 @@ describe('SchemaGenerator', () => {
             expect(recordMigration.mock.invocationCallOrder[0]).toBeLessThan(afterMigrationRecorded.mock.invocationCallOrder[0])
         })
 
-        it('omits application lifecycle columns entirely for hard-delete catalogs with disabled publish and archive', async () => {
+        it('omits application lifecycle columns entirely for hard-delete objects with disabled publish and archive', async () => {
             const createTableCalls = new Map<string, Array<{ method: string; args: unknown[] }>>()
             const createTable = jest.fn((tableName: string, callback: (table: any) => void) => {
                 const calls: Array<{ method: string; args: unknown[] }> = []
@@ -715,9 +715,9 @@ describe('SchemaGenerator', () => {
 
             await localGenerator.generateFullSchema('app_test123', [
                 {
-                    id: 'catalog-orders',
+                    id: 'object-orders',
                     codename: 'orders',
-                    kind: 'catalog',
+                    kind: 'object',
                     physicalTableName: 'orders',
                     config: {
                         systemFields: {
@@ -830,9 +830,9 @@ describe('SchemaGenerator', () => {
 
             await localGenerator.generateFullSchema('app_test123', [
                 {
-                    id: 'catalog-orders',
+                    id: 'object-orders',
                     codename: 'orders',
-                    kind: 'catalog',
+                    kind: 'object',
                     physicalTableName: 'orders',
                     config: {
                         systemFields: {
@@ -913,7 +913,7 @@ describe('SchemaGenerator', () => {
                 codename: 'progress_ledger',
                 kind: 'ledger',
                 physicalTableName: 'led_progress',
-                components: {
+                capabilities: {
                     dataSchema: { enabled: true },
                     physicalTable: { enabled: true, prefix: 'led' },
                     ledgerSchema: { enabled: true }
@@ -965,12 +965,12 @@ describe('SchemaGenerator', () => {
 
             const localGenerator = new SchemaGenerator(localKnex)
             await localGenerator.createEntityTable('app_test123', {
-                id: 'catalog-ledger',
-                codename: 'hybrid_catalog',
-                kind: 'catalog',
-                physicalTableName: 'cat_hybrid_catalog',
+                id: 'object-ledger',
+                codename: 'hybrid_object',
+                kind: 'object',
+                physicalTableName: 'obj_hybrid_object',
                 fields: [],
-                components: {
+                capabilities: {
                     dataSchema: { enabled: true },
                     records: { enabled: true },
                     treeAssignment: false,
@@ -985,7 +985,7 @@ describe('SchemaGenerator', () => {
                     blockContent: false,
                     layoutConfig: false,
                     runtimeBehavior: false,
-                    physicalTable: { enabled: true, prefix: 'cat' },
+                    physicalTable: { enabled: true, prefix: 'obj' },
                     ledgerSchema: { enabled: true, allowProjections: true }
                 },
                 config: {
@@ -993,7 +993,7 @@ describe('SchemaGenerator', () => {
                 }
             } as unknown as import('../types').EntityDefinition)
 
-            const ledgerColumns = (createTableCalls.get('cat_hybrid_catalog') ?? []).map((entry) => String(entry.args[0]))
+            const ledgerColumns = (createTableCalls.get('obj_hybrid_object') ?? []).map((entry) => String(entry.args[0]))
             expect(ledgerColumns).toContain('_app_reversal_of_fact_id')
         })
     })

@@ -2,9 +2,10 @@ import { qSchemaTable } from '@universo/database'
 import {
     isBuiltinEntityKind,
     normalizeEntityResourceSurfaceDefinitions,
-    validateEntityResourceSurfacesAgainstComponents,
-    validateComponentDependencies,
-    type ComponentManifest,
+    normalizeEntityTypeTreeAssignmentLabels,
+    validateEntityResourceSurfacesAgainstCapabilities,
+    validateCapabilityDependencies,
+    type EntityTypeCapabilities,
     type EntityKind,
     type EntityTypeUIConfig,
     type ResolvedEntityType
@@ -36,7 +37,7 @@ interface StoredEntityTypeRow {
     kind_key: string
     codename: unknown
     presentation: unknown
-    components: unknown
+    capabilities: unknown
     ui_config: unknown
     config: unknown
     _mhb_published?: boolean | null
@@ -58,7 +59,7 @@ export interface CreateEntityTypeInput {
     kindKey: string
     codename: unknown
     presentation?: JsonRecord
-    components: ComponentManifest
+    capabilities: EntityTypeCapabilities
     ui: EntityTypeUIConfig
     config?: JsonRecord
     published?: boolean
@@ -69,7 +70,7 @@ export interface UpdateEntityTypeInput {
     kindKey?: string
     codename?: unknown
     presentation?: JsonRecord
-    components?: ComponentManifest
+    capabilities?: EntityTypeCapabilities
     ui?: EntityTypeUIConfig
     config?: JsonRecord
     published?: boolean
@@ -130,6 +131,13 @@ const normalizeUiConfig = (value: EntityTypeUIConfig): EntityTypeUIConfig => {
         throw new MetahubValidationError(error instanceof Error ? error.message : 'Invalid entity resource surface definition')
     }
 
+    let treeAssignmentLabels: EntityTypeUIConfig['treeAssignmentLabels']
+    try {
+        treeAssignmentLabels = normalizeEntityTypeTreeAssignmentLabels(value.treeAssignmentLabels)
+    } catch (error) {
+        throw new MetahubValidationError(error instanceof Error ? error.message : 'Invalid entity tree assignment labels')
+    }
+
     return {
         iconName,
         tabs,
@@ -138,29 +146,30 @@ const normalizeUiConfig = (value: EntityTypeUIConfig): EntityTypeUIConfig => {
         nameKey,
         descriptionKey:
             typeof value.descriptionKey === 'string' && value.descriptionKey.trim().length > 0 ? value.descriptionKey : undefined,
-        resourceSurfaces
+        resourceSurfaces,
+        treeAssignmentLabels
     }
 }
 
-const validateResourceSurfacesAgainstComponents = (ui: EntityTypeUIConfig, components: ComponentManifest): void => {
+const validateResourceSurfacesAgainstComponents = (ui: EntityTypeUIConfig, capabilities: EntityTypeCapabilities): void => {
     try {
-        validateEntityResourceSurfacesAgainstComponents(ui.resourceSurfaces, components)
+        validateEntityResourceSurfacesAgainstCapabilities(ui.resourceSurfaces, capabilities)
     } catch (error) {
         throw new MetahubValidationError(error instanceof Error ? error.message : 'Invalid entity resource surface component binding')
     }
 }
 
-const normalizeComponentManifest = (value: ComponentManifest): ComponentManifest => {
-    const manifest = value as ComponentManifest
-    const dependencyErrors = validateComponentDependencies(manifest)
+const normalizeEntityTypeCapabilities = (value: EntityTypeCapabilities): EntityTypeCapabilities => {
+    const manifest = value as EntityTypeCapabilities
+    const dependencyErrors = validateCapabilityDependencies(manifest)
     if (dependencyErrors.length > 0) {
         throw new MetahubValidationError(dependencyErrors.join('; '))
     }
     return manifest
 }
 
-const parseStoredComponentManifest = (value: unknown): ComponentManifest => {
-    return normalizeComponentManifest(ensureJsonRecord(value) as unknown as ComponentManifest)
+const parseStoredEntityTypeCapabilities = (value: unknown): EntityTypeCapabilities => {
+    return normalizeEntityTypeCapabilities(ensureJsonRecord(value) as unknown as EntityTypeCapabilities)
 }
 
 const parseStoredUiConfig = (value: unknown): EntityTypeUIConfig => {
@@ -198,7 +207,7 @@ const assertStandardEntityTypeUpdateAllowed = (
     next: {
         kindKey: string
         codename: JsonRecord
-        components: ComponentManifest
+        capabilities: EntityTypeCapabilities
         ui: EntityTypeUIConfig
         config: JsonRecord
         published: boolean
@@ -216,8 +225,8 @@ const assertStandardEntityTypeUpdateAllowed = (
         throw new MetahubValidationError('Standard entity type codenames cannot be changed', { kindKey: existing.kind_key })
     }
 
-    if (stableStringify(next.components) !== stableStringify(parseStoredComponentManifest(existing.components))) {
-        throw new MetahubValidationError('Standard entity type components cannot be changed through the Entities constructor', {
+    if (stableStringify(next.capabilities) !== stableStringify(parseStoredEntityTypeCapabilities(existing.capabilities))) {
+        throw new MetahubValidationError('Standard entity type capabilities cannot be changed through the Entities constructor', {
             kindKey: existing.kind_key
         })
     }
@@ -260,7 +269,7 @@ export class EntityTypeService {
         return {
             id: row.id,
             kindKey: row.kind_key as EntityKind,
-            components: parseStoredComponentManifest(row.components),
+            capabilities: parseStoredEntityTypeCapabilities(row.capabilities),
             ui: parseStoredUiConfig(row.ui_config),
             codename: ensureCodenameValue(row.codename),
             presentation: ensureJsonRecord(row.presentation),
@@ -388,9 +397,9 @@ export class EntityTypeService {
             throw new MetahubValidationError('Standard entity kinds are reserved for platform-provided entity types', { kindKey })
         }
 
-        const components = normalizeComponentManifest(input.components)
+        const capabilities = normalizeEntityTypeCapabilities(input.capabilities)
         const ui = normalizeUiConfig(input.ui)
-        validateResourceSurfacesAgainstComponents(ui, components)
+        validateResourceSurfacesAgainstComponents(ui, capabilities)
         const codename = normalizeEntityTypeCodename(input.codename)
         const presentation = ensureJsonRecord(input.presentation)
         const config = ensureJsonRecord(input.config)
@@ -420,7 +429,7 @@ export class EntityTypeService {
                         kind_key,
                         codename,
                         presentation,
-                        components,
+                        capabilities,
                         ui_config,
                         config,
                         _upl_created_at,
@@ -443,7 +452,7 @@ export class EntityTypeService {
                         kindKey,
                         JSON.stringify(codename),
                         JSON.stringify(presentation),
-                        JSON.stringify(components),
+                        JSON.stringify(capabilities),
                         JSON.stringify(ui),
                         JSON.stringify(config),
                         new Date(),
@@ -479,9 +488,9 @@ export class EntityTypeService {
         }
 
         const nextComponents =
-            input.components !== undefined
-                ? normalizeComponentManifest(input.components)
-                : parseStoredComponentManifest(existing.components)
+            input.capabilities !== undefined
+                ? normalizeEntityTypeCapabilities(input.capabilities)
+                : parseStoredEntityTypeCapabilities(existing.capabilities)
         const nextUi = input.ui !== undefined ? normalizeUiConfig(input.ui) : parseStoredUiConfig(existing.ui_config)
         validateResourceSurfacesAgainstComponents(nextUi, nextComponents)
         const nextCodename =
@@ -493,7 +502,7 @@ export class EntityTypeService {
         assertStandardEntityTypeUpdateAllowed(existing, {
             kindKey: nextKindKey,
             codename: nextCodename,
-            components: nextComponents,
+            capabilities: nextComponents,
             ui: nextUi,
             config: nextConfig,
             published: nextPublished
@@ -522,7 +531,7 @@ export class EntityTypeService {
                 kind_key: nextKindKey,
                 codename: JSON.stringify(nextCodename),
                 presentation: JSON.stringify(nextPresentation),
-                components: JSON.stringify(nextComponents),
+                capabilities: JSON.stringify(nextComponents),
                 ui_config: JSON.stringify(nextUi),
                 config: JSON.stringify(nextConfig),
                 _mhb_published: nextPublished,

@@ -1,14 +1,14 @@
 import {
-    DEFAULT_CATALOG_RECORD_BEHAVIOR,
+    DEFAULT_OBJECT_RECORD_BEHAVIOR,
     DEFAULT_LEDGER_CONFIG,
     isBuiltinEntityKind,
-    normalizeCatalogRecordBehaviorFromConfig,
+    normalizeObjectRecordBehaviorFromConfig,
     normalizeLedgerConfigFromConfig,
     type BuiltinEntityKind,
     type VersionedLocalizedContent
 } from '@universo/types'
-import { normalizeLinkedCollectionCopyOptions } from '@universo/utils'
-import { type LinkedCollectionEntity, type TreeEntity } from '../../../types'
+import { normalizeObjectCollectionCopyOptions } from '@universo/utils'
+import { type ObjectCollectionEntity, type TreeEntity } from '../../../types'
 import { ensureLocalizedContent, getLocalizedContentText } from '../../../utils/localizedInput'
 import type { MetahubEntityInstance, MetahubEntityType } from '../api'
 
@@ -35,7 +35,7 @@ export type EntityInstanceDialogMode = 'create' | 'edit' | 'copy' | 'delete' | '
 
 const BUILTIN_ENTITY_TYPE_NAME_KEYS: Record<BuiltinEntityKind, { key: string; fallback: string }> = {
     hub: { key: 'metahubs:hubs.title', fallback: 'Hubs' },
-    catalog: { key: 'metahubs:catalogs.title', fallback: 'Catalogs' },
+    object: { key: 'metahubs:objects.title', fallback: 'Objects' },
     set: { key: 'metahubs:sets.title', fallback: 'Sets' },
     enumeration: { key: 'metahubs:enumerations.title', fallback: 'Enumerations' },
     page: { key: 'metahubs:pages.title', fallback: 'Pages' },
@@ -52,11 +52,11 @@ const BUILTIN_ENTITY_DIALOG_TITLE_KEYS: Record<
         copy: { key: 'metahubs:hubs.copyTitle', fallback: 'Copy Hub' },
         delete: { key: 'metahubs:hubs.deleteDialog.title', fallback: 'Delete Hub' }
     },
-    catalog: {
-        create: { key: 'metahubs:catalogs.createDialog.title', fallback: 'Create Catalog' },
-        edit: { key: 'metahubs:catalogs.editDialog.title', fallback: 'Edit Catalog' },
-        copy: { key: 'metahubs:catalogs.copyTitle', fallback: 'Copy Catalog' },
-        delete: { key: 'metahubs:catalogs.deleteDialog.title', fallback: 'Delete Catalog' }
+    object: {
+        create: { key: 'metahubs:objects.createDialog.title', fallback: 'Create Object' },
+        edit: { key: 'metahubs:objects.editDialog.title', fallback: 'Edit Object' },
+        copy: { key: 'metahubs:objects.copyTitle', fallback: 'Copy Object' },
+        delete: { key: 'metahubs:objects.deleteDialog.title', fallback: 'Delete Object' }
     },
     set: {
         create: { key: 'metahubs:sets.createDialog.title', fallback: 'Create Set' },
@@ -99,7 +99,7 @@ export const decodeKindKey = (value?: string): string => {
     }
 }
 
-const STANDARD_ENTITY_METADATA_KIND_SET = new Set<string>(['hub', 'catalog', 'set', 'enumeration', 'page', 'ledger'])
+const STANDARD_ENTITY_METADATA_KIND_SET = new Set<string>(['hub', 'object', 'set', 'enumeration', 'page', 'ledger'])
 
 export const isStandardEntityMetadataKind = (kind: string): kind is BuiltinEntityKind => STANDARD_ENTITY_METADATA_KIND_SET.has(kind)
 
@@ -262,7 +262,7 @@ export const buildInitialFormValues = (uiLocale: string, entity?: MetahubEntityI
         descriptionVlc: entity?.description ? ensureLocalizedContent(entity.description, uiLocale, descriptionFallback) : null,
         codename: entity ? ensureLocalizedContent(entity.codename ?? null, uiLocale, nameFallback || entity.id) : null,
         codenameTouched: Boolean(entity),
-        recordBehavior: entity ? normalizeCatalogRecordBehaviorFromConfig(config) : DEFAULT_CATALOG_RECORD_BEHAVIOR,
+        recordBehavior: entity ? normalizeObjectRecordBehaviorFromConfig(config) : DEFAULT_OBJECT_RECORD_BEHAVIOR,
         ledgerSchemaEnabled: Boolean(isRecord(config.ledger)),
         ledgerConfig: entity ? normalizeLedgerConfigFromConfig(config) : DEFAULT_LEDGER_CONFIG,
         treeEntityIds: getConfigTreeEntityIds(config),
@@ -271,16 +271,16 @@ export const buildInitialFormValues = (uiLocale: string, entity?: MetahubEntityI
     }
 }
 
-export const getLinkedCollectionCopyOptions = (values: EntityInstanceFormValues) =>
-    normalizeLinkedCollectionCopyOptions({
-        copyFieldDefinitions: values.copyFieldDefinitions as boolean | undefined,
+export const getObjectCollectionCopyOptions = (values: EntityInstanceFormValues) =>
+    normalizeObjectCollectionCopyOptions({
+        copyComponents: values.copyComponents as boolean | undefined,
         copyRecords: values.copyRecords as boolean | undefined
     })
 
 export const buildCopyInitialValues = (
     uiLocale: string,
     entity?: MetahubEntityInstance | null,
-    applyLinkedCollectionDefaults = false
+    applyObjectCollectionDefaults = false
 ): EntityInstanceFormValues => {
     const initial = buildInitialFormValues(uiLocale, entity)
     const nameFallback = entity
@@ -292,7 +292,7 @@ export const buildCopyInitialValues = (
         nameVlc: appendLocalizedCopySuffix(initial.nameVlc as VersionedLocalizedContent<string> | null | undefined, uiLocale, nameFallback),
         codename: null,
         codenameTouched: false,
-        ...(applyLinkedCollectionDefaults ? normalizeLinkedCollectionCopyOptions() : {})
+        ...(applyObjectCollectionDefaults ? normalizeObjectCollectionCopyOptions() : {})
     }
 }
 
@@ -319,7 +319,7 @@ export const buildInstanceDisplayRow = (entity: MetahubEntityInstance, uiLocale:
     }
 }
 
-export const buildLinkedCollectionDeleteDialogEntity = ({
+export const buildObjectCollectionDeleteDialogEntity = ({
     entity,
     metahubId,
     uiLocale,
@@ -329,7 +329,7 @@ export const buildLinkedCollectionDeleteDialogEntity = ({
     metahubId: string
     uiLocale: string
     treeEntities: TreeEntity[]
-}): LinkedCollectionEntity => {
+}): ObjectCollectionEntity => {
     const config = getEntityConfig(entity)
     const codenameFallback = getLocalizedContentText(entity.codename, uiLocale, entity.id) || entity.id
     const nameFallback = getLocalizedContentText(entity.name, uiLocale, codenameFallback) || codenameFallback
@@ -339,14 +339,14 @@ export const buildLinkedCollectionDeleteDialogEntity = ({
     return {
         id: entity.id,
         metahubId,
-        codename: ensureLocalizedContent(entity.codename ?? null, uiLocale, codenameFallback) as LinkedCollectionEntity['codename'],
-        name: ensureLocalizedContent(entity.name ?? null, uiLocale, nameFallback) as LinkedCollectionEntity['name'],
+        codename: ensureLocalizedContent(entity.codename ?? null, uiLocale, codenameFallback) as ObjectCollectionEntity['codename'],
+        name: ensureLocalizedContent(entity.name ?? null, uiLocale, nameFallback) as ObjectCollectionEntity['name'],
         description: entity.description
             ? (ensureLocalizedContent(
                   entity.description ?? null,
                   uiLocale,
                   getLocalizedContentText(entity.description, uiLocale, '')
-              ) as LinkedCollectionEntity['description'])
+              ) as ObjectCollectionEntity['description'])
             : undefined,
         isSingleHub: getConfigBoolean(config, 'isSingleHub'),
         isRequiredHub: getConfigBoolean(config, 'isRequiredHub'),

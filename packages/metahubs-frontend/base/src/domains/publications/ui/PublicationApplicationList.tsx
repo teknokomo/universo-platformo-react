@@ -389,6 +389,7 @@ export const PublicationApplicationList: React.FC = () => {
                                     renderActions={(row: ApplicationTableRow) => (
                                         <IconButton
                                             size='small'
+                                            aria-label={t('metahubs:publications.applications.actions', 'Application actions')}
                                             sx={{ width: 28, height: 28, p: 0.5 }}
                                             onClick={(e: React.MouseEvent<HTMLElement>) => handleMenuOpen(e, row.id)}
                                         >

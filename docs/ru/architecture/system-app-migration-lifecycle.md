@@ -37,7 +37,7 @@ metahubs и applications.
 - **`schemaTarget`** — фиксированное имя схемы (например, `{ kind: 'fixed', schemaName: 'admin' }`).
 - **`currentStorageModel` / `targetStorageModel`** — `'application_like'` для конвергентных приложений.
 - **`currentBusinessTables` / `targetBusinessTables`** — массивы определений таблиц с полями, типами данных, FK-ссылками и значениями по умолчанию.
-- **`currentStructureCapabilities` / `targetStructureCapabilities`** — флаги для системных таблиц (`_app_objects`, `_app_attributes`, `_app_migrations` и т.д.).
+- **`currentStructureCapabilities` / `targetStructureCapabilities`** — флаги для системных таблиц (`_app_objects`, `_app_components`, `_app_migrations` и т.д.).
 - **`migrations`** — SQL-записи миграций с маркерами `bootstrapPhase`.
 
 ## Последовательность начальной загрузки
@@ -52,10 +52,10 @@ metahubs и applications.
 5. runRegisteredPlatformPreludeMigrations()        ← pre_schema_generation SQL
 6. ensureRegisteredSystemAppSchemaGenerationPlans() ← DDL на основе манифестов
 7. runRegisteredPlatformPostSchemaMigrations()      ← post_schema_generation SQL
-8. bootstrapRegisteredSystemAppStructureMetadata()  ← синхронизация _app_objects / _app_attributes
+8. bootstrapRegisteredSystemAppStructureMetadata()  ← синхронизация _app_objects / _app_components
 9. inspectLegacyFixedSchemaTables()                ← проверка отсутствия устаревших таблиц
 10. inspectRegisteredSystemAppStructureMetadata()   ← проверка отпечатка метаданных
-11. syncRegisteredPlatformDefinitionsToCatalog()    ← опциональная синхронизация с глобальным каталогом
+11. syncRegisteredPlatformDefinitionsToObject()    ← опциональная синхронизация с глобальным объектом
 ```
 
 ## Движок сравнения
@@ -71,7 +71,7 @@ metahubs и applications.
 | `ALTER_COLUMN`         | Аддитивный   | Тип поля или значение по умолчанию изменены|
 | `ADD_FK`               | Аддитивный   | Добавлено ограничение внешнего ключа |
 | `DROP_FK`              | Деструктивный| Ограничение внешнего ключа удалено   |
-| `ADD_TABULAR_TABLE`    | Аддитивный   | Дочерняя таблица для TABLE-атрибута  |
+| `ADD_TABULAR_TABLE`    | Аддитивный   | Дочерняя таблица для TABLE-компонента  |
 | `DROP_TABULAR_TABLE`   | Деструктивный| Дочерняя таблица удалена             |
 | `ADD_TABULAR_COLUMN`   | Аддитивный   | Столбец в дочерней таблице добавлен  |
 | `DROP_TABULAR_COLUMN`  | Деструктивный| Столбец в дочерней таблице удалён    |
@@ -112,7 +112,7 @@ metahubs и applications.
 
 1. Генерирует **детерминированные UUID** для сущностей и полей с помощью
    SHA-256 хешей вида `namespace:definitionKey:stage:kind:codename:tableName`.
-2. Отображает типы бизнес-таблиц (`catalog`, `document`, `relation`, `settings`)
+2. Отображает типы бизнес-таблиц (`object`, `document`, `relation`, `settings`)
    на типы сущностей времени выполнения.
 3. Создаёт синтетические объекты `presentation` для локализованных
    отображаемых имён.
@@ -172,5 +172,5 @@ TypeScript-манифестов.
 
 - [Обновление схем системных приложений](../guides/updating-system-app-schemas.md)
 - [Конвергенция фиксированных системных приложений](system-app-convergence.md)
-- [Опциональный глобальный каталог](optional-global-catalog.md)
+- [Опциональный глобальный объект](optional-global-catalog.md)
 - [Проектирование базы данных](database.md)

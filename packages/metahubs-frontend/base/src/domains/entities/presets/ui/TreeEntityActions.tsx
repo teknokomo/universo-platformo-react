@@ -136,7 +136,7 @@ const getTreeEntityCopyOptions = (rawValues?: Record<string, unknown> | null) =>
     const values = ensureFormValues(rawValues)
     return normalizeTreeEntityCopyOptions({
         copyAllRelations: values.copyAllRelations as boolean | undefined,
-        copyLinkedCollectionRelations: values.copyLinkedCollectionRelations as boolean | undefined,
+        copyObjectCollectionRelations: values.copyObjectCollectionRelations as boolean | undefined,
         copyValueGroupRelations: values.copyValueGroupRelations as boolean | undefined,
         copyOptionListRelations: values.copyOptionListRelations as boolean | undefined
     })
@@ -366,14 +366,14 @@ const TreeEntityCopyOptionsTab = ({
             <FormControlLabel
                 control={
                     <Checkbox
-                        checked={options.copyLinkedCollectionRelations}
+                        checked={options.copyObjectCollectionRelations}
                         onChange={(event) =>
-                            toggleTreeEntityCopyChild(setValue, 'copyLinkedCollectionRelations', event.target.checked, values)
+                            toggleTreeEntityCopyChild(setValue, 'copyObjectCollectionRelations', event.target.checked, values)
                         }
                         disabled={isLoading}
                     />
                 }
-                label={t('hubs.copy.options.copyLinkedCollectionRelations', 'Catalog relations')}
+                label={t('hubs.copy.options.copyObjectCollectionRelations', 'Object relations')}
             />
             <FormControlLabel
                 control={
@@ -656,7 +656,7 @@ const treeEntityActions: readonly ActionDescriptor<TreeEntityDisplay, TreeEntity
         tone: 'danger',
         order: 100,
         group: 'danger',
-        // Use custom onSelect to open TreeDeleteDialog with blocking linkedCollections check.
+        // Use custom onSelect to open TreeDeleteDialog with blocking objectCollections check.
         onSelect: async (ctx) => {
             // Open the TreeDeleteDialog via helper defined in TreeEntityList.tsx.
             ctx.helpers?.openDeleteDialog?.(ctx.entity)

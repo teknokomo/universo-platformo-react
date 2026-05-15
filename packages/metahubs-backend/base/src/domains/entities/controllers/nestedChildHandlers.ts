@@ -13,13 +13,13 @@ import { isValidCodenameForStyle, normalizeCodenameForStyle } from '@universo/ut
 import { MetahubTreeEntitiesService } from '../../metahubs/services/MetahubTreeEntitiesService'
 import { EntityTypeService } from '../services/EntityTypeService'
 import {
-    createLinkedCollectionByHub,
-    deleteLinkedCollectionByHub,
-    getLinkedCollectionByHub,
-    listLinkedCollectionsByHub,
-    reorderLinkedCollections,
-    updateLinkedCollectionByHub
-} from '../children/linkedCollectionHelpers'
+    createObjectCollectionByHub,
+    deleteObjectCollectionByHub,
+    getObjectCollectionByHub,
+    listObjectCollectionsByHub,
+    reorderObjectCollections,
+    updateObjectCollectionByHub
+} from '../children/objectCollectionHelpers'
 import {
     compareOptionListItems,
     createOptionListSchema,
@@ -541,12 +541,12 @@ export function createNestedChildHandlers(createHandler: ReturnType<typeof creat
         },
         { permission: 'deleteContent' }
     )
-    const listNestedLinkedCollections = createHandler(listLinkedCollectionsByHub)
-    const createNestedLinkedCollection = createHandler(createLinkedCollectionByHub, { permission: 'editContent' })
-    const reorderNestedLinkedCollections = createHandler(reorderLinkedCollections, { permission: 'editContent' })
-    const getNestedLinkedCollectionById = createHandler(getLinkedCollectionByHub)
-    const updateNestedLinkedCollection = createHandler(updateLinkedCollectionByHub, { permission: 'editContent' })
-    const deleteNestedLinkedCollection = createHandler(deleteLinkedCollectionByHub, { permission: 'deleteContent' })
+    const listNestedObjectCollections = createHandler(listObjectCollectionsByHub)
+    const createNestedObjectCollection = createHandler(createObjectCollectionByHub, { permission: 'editContent' })
+    const reorderNestedObjectCollections = createHandler(reorderObjectCollections, { permission: 'editContent' })
+    const getNestedObjectCollectionById = createHandler(getObjectCollectionByHub)
+    const updateNestedObjectCollection = createHandler(updateObjectCollectionByHub, { permission: 'editContent' })
+    const deleteNestedObjectCollection = createHandler(deleteObjectCollectionByHub, { permission: 'deleteContent' })
 
     const listNestedTreeEntities = createHandler(async ({ req, res, metahubId, userId, exec, schemaService }) => {
         const treeEntitiesService = new MetahubTreeEntitiesService(exec, schemaService)
@@ -1058,7 +1058,7 @@ export function createNestedChildHandlers(createHandler: ReturnType<typeof creat
 
     const deleteNestedOptionList = createHandler(
         async ({ req, res, metahubId, userId, exec, schemaService }) => {
-            const { objectsService, fieldDefinitionsService, settingsService, entityTypeService } = createOptionListRouteServices(
+            const { objectsService, componentsService, settingsService, entityTypeService } = createOptionListRouteServices(
                 exec,
                 schemaService
             )
@@ -1090,14 +1090,14 @@ export function createNestedChildHandlers(createHandler: ReturnType<typeof creat
                         metahubId,
                         req.params.optionListId,
                         compatibleKinds,
-                        fieldDefinitionsService,
+                        componentsService,
                         userId
                     )
                     if (refs.length > 0) {
                         return {
                             status: 409,
                             body: {
-                                error: 'Cannot delete enumeration: it is referenced by attributes',
+                                error: 'Cannot delete enumeration: it is referenced by components',
                                 blockingReferences: refs
                             }
                         }
@@ -1138,12 +1138,12 @@ export function createNestedChildHandlers(createHandler: ReturnType<typeof creat
         createNestedSet,
         updateNestedSet,
         deleteNestedSet,
-        listNestedLinkedCollections,
-        createNestedLinkedCollection,
-        reorderNestedLinkedCollections,
-        getNestedLinkedCollectionById,
-        updateNestedLinkedCollection,
-        deleteNestedLinkedCollection,
+        listNestedObjectCollections,
+        createNestedObjectCollection,
+        reorderNestedObjectCollections,
+        getNestedObjectCollectionById,
+        updateNestedObjectCollection,
+        deleteNestedObjectCollection,
         listNestedTreeEntities,
         listNestedOptionLists,
         reorderNestedOptionLists,

@@ -76,12 +76,12 @@ export interface BlockingEntitiesDeleteDialogProps<T extends DeletableEntity, B 
  *   open={open}
  *   entity={hub}
  *   queryKey={['blocking', metahubId, hub.id]}
- *   fetchBlockingEntities={() => getBlockingCatalogs(metahubId, hub.id)}
+ *   fetchBlockingEntities={() => getBlockingObjects(metahubId, hub.id)}
  *   onClose={handleClose}
  *   onConfirm={handleDelete}
  *   labels={hubDeleteLabels}
- *   columns={blockingCatalogColumns}
- *   getBlockingEntityLink={(c) => `/metahub/${metahubId}/catalog/${c.id}`}
+ *   columns={blockingObjectColumns}
+ *   getBlockingEntityLink={(object) => `/metahub/${metahubId}/entities/object/instance/${object.id}`}
  * />
  * ```
  */

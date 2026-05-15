@@ -1,16 +1,16 @@
 import { createHash } from 'crypto'
 import stableStringify from 'json-stable-stringify'
-import type { EntityDefinition, FieldDefinition } from '@universo/schema-ddl'
+import type { EntityDefinition, Component } from '@universo/schema-ddl'
 import {
     MetaEntityKind,
     SHARED_OBJECT_KINDS,
     isBuiltinEntityKind,
-    isEnabledComponentConfig,
+    isEnabledCapabilityConfig,
     normalizeLedgerConfigFromConfig,
     supportsLedgerSchema,
     validateLedgerConfigReferences,
-    type CatalogSystemFieldsSnapshot,
-    type ComponentManifest,
+    type ObjectSystemFieldsSnapshot,
+    type EntityTypeCapabilities,
     type EntityKind,
     type EntityTypeUIConfig,
     type EnumerationValueDefinition,
@@ -23,7 +23,7 @@ import {
 } from '@universo/types'
 import { serialization } from '@universo/utils'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
-import { MetahubFieldDefinitionsService } from '../../metahubs/services/MetahubFieldDefinitionsService'
+import { MetahubComponentsService } from '../../metahubs/services/MetahubComponentsService'
 import { MetahubRecordsService } from '../../metahubs/services/MetahubRecordsService'
 import { MetahubTreeEntitiesService } from '../../metahubs/services/MetahubTreeEntitiesService'
 import { MetahubOptionValuesService } from '../../metahubs/services/MetahubOptionValuesService'
@@ -43,10 +43,7 @@ import { createLogger } from '../../../utils/logger'
 
 const log = createLogger('SnapshotSerializer')
 
-const resolveEntityMetadataKind = (
-    kind: unknown,
-    _config?: unknown
-): 'catalog' | 'hub' | 'set' | 'enumeration' | 'page' | 'ledger' | null =>
+const resolveEntityMetadataKind = (kind: unknown, _config?: unknown): 'object' | 'hub' | 'set' | 'enumeration' | 'page' | 'ledger' | null =>
     typeof kind === 'string' && isBuiltinEntityKind(kind) ? kind : null
 
 export type SnapshotCodenameValue = VersionedLocalizedContent<string> | string
@@ -61,20 +58,20 @@ const mergeEntitySnapshotConfig = (
     const componentContract = ensureRecord(definitionComponents)
     const definitionCompatibility = ensureRecord(baseDefinitionConfig.compatibility)
     const entityCompatibility = ensureRecord(baseEntityConfig.compatibility)
-    const components = Object.keys(componentContract).length > 0 ? { components: componentContract } : {}
+    const capabilities = Object.keys(componentContract).length > 0 ? { capabilities: componentContract } : {}
 
     if (Object.keys(definitionCompatibility).length === 0 && Object.keys(entityCompatibility).length === 0) {
         return {
             ...baseDefinitionConfig,
             ...baseEntityConfig,
-            ...components
+            ...capabilities
         }
     }
 
     return {
         ...baseDefinitionConfig,
         ...baseEntityConfig,
-        ...components,
+        ...capabilities,
         compatibility: {
             ...definitionCompatibility,
             ...entityCompatibility
@@ -92,15 +89,13 @@ export interface MetahubSnapshot {
     elements?: Record<string, MetaElementSnapshot[]>
     optionValues?: Record<string, MetaEnumerationValueSnapshot[]>
     fixedValues?: Record<string, MetaFixedValueSnapshot[]>
-    sharedFieldDefinitions?: MetaFieldSnapshot[]
-    /** @deprecated use sharedFieldDefinitions */
-    sharedAttributes?: MetaFieldSnapshot[]
+    sharedComponents?: MetaFieldSnapshot[]
     sharedFixedValues?: MetaFixedValueSnapshot[]
     sharedOptionValues?: MetaEnumerationValueSnapshot[]
     /** @deprecated use sharedOptionValues */
     sharedEnumerationValues?: MetaEnumerationValueSnapshot[]
     sharedEntityOverrides?: MetahubSharedEntityOverrideSnapshot[]
-    systemFields?: Record<string, CatalogSystemFieldsSnapshot>
+    systemFields?: Record<string, ObjectSystemFieldsSnapshot>
     scripts?: MetahubSnapshotScript[]
     /**
      * Active UI layouts captured at publication time.
@@ -160,7 +155,7 @@ export interface MetahubEntityTypeDefinitionSnapshot {
     kindKey: EntityKind | string
     codename: SnapshotCodenameValue
     presentation: Record<string, unknown>
-    components: ComponentManifest
+    capabilities: EntityTypeCapabilities
     ui: EntityTypeUIConfig
     config: Record<string, unknown>
     published?: boolean
@@ -229,12 +224,12 @@ export interface MetaEntitySnapshot extends Omit<EntityDefinition, 'codename' | 
     eventBindings?: MetahubEventBindingSnapshot[]
 }
 
-type SnapshotAttributeRecord = {
+type SnapshotComponentRecord = {
     id: string
     codename: SnapshotCodenameValue
-    dataType: FieldDefinition['dataType']
+    dataType: Component['dataType']
     isRequired: boolean
-    isDisplayAttribute?: boolean | null
+    isDisplayComponent?: boolean | null
     targetEntityId?: string | null
     targetEntityKind?: EntityKind | null
     targetConstantId?: string | null
@@ -243,7 +238,7 @@ type SnapshotAttributeRecord = {
     validationRules?: Record<string, unknown> | null
     uiConfig?: Record<string, unknown> | null
     sortOrder?: number | null
-    parentAttributeId?: string | null
+    parentComponentId?: string | null
     system?: {
         isSystem?: boolean | null
     } | null
@@ -272,7 +267,7 @@ type SnapshotEnumerationValueRecord = {
     isDefault?: boolean | null
 }
 
-export interface MetaFieldSnapshot extends Omit<FieldDefinition, 'codename' | 'childFields'> {
+export interface MetaFieldSnapshot extends Omit<Component, 'codename' | 'childFields'> {
     codename: SnapshotCodenameValue
     childFields?: MetaFieldSnapshot[]
     sortOrder: number
@@ -304,7 +299,7 @@ export interface MetaFixedValueSnapshot {
 export class SnapshotSerializer {
     constructor(
         private readonly objectsService: MetahubObjectsService,
-        private readonly fieldDefinitionsService: MetahubFieldDefinitionsService,
+        private readonly componentsService: MetahubComponentsService,
         private readonly recordsService?: MetahubRecordsService,
         private readonly treeEntitiesService?: MetahubTreeEntitiesService, // Hub repository removed - hubs are now in isolated schemas (_mhb_hubs)
         private readonly optionValuesService?: MetahubOptionValuesService,
@@ -324,50 +319,50 @@ export class SnapshotSerializer {
         return typeof value === 'string' || (value && typeof value === 'object') ? (value as SnapshotCodenameValue) : ''
     }
 
-    private static buildFieldSnapshots(attributes: SnapshotAttributeRecord[]): MetaFieldSnapshot[] {
-        const rootAttributes = attributes.filter((attribute) => !attribute.parentAttributeId)
-        const childAttributesByParent = new Map<string, SnapshotAttributeRecord[]>()
+    private static buildFieldSnapshots(components: SnapshotComponentRecord[]): MetaFieldSnapshot[] {
+        const rootComponents = components.filter((component) => !component.parentComponentId)
+        const childComponentsByParent = new Map<string, SnapshotComponentRecord[]>()
 
-        for (const attr of attributes) {
-            if (!attr.parentAttributeId) {
+        for (const cmp of components) {
+            if (!cmp.parentComponentId) {
                 continue
             }
 
-            const list = childAttributesByParent.get(attr.parentAttributeId) ?? []
-            list.push(attr)
-            childAttributesByParent.set(attr.parentAttributeId, list)
+            const list = childComponentsByParent.get(cmp.parentComponentId) ?? []
+            list.push(cmp)
+            childComponentsByParent.set(cmp.parentComponentId, list)
         }
 
-        return rootAttributes.map((attr) => {
-            const resolvedTargetEntityId = attr.targetEntityId ?? undefined
-            const resolvedTargetEntityKind: EntityKind | undefined = attr.targetEntityKind ?? undefined
+        return rootComponents.map((cmp) => {
+            const resolvedTargetEntityId = cmp.targetEntityId ?? undefined
+            const resolvedTargetEntityKind: EntityKind | undefined = cmp.targetEntityKind ?? undefined
 
             const fieldDef: MetaFieldSnapshot = {
-                id: attr.id,
-                codename: SnapshotSerializer.toSnapshotCodenameValue(attr.codename),
-                dataType: attr.dataType,
-                isRequired: attr.isRequired,
-                isDisplayAttribute: attr.isDisplayAttribute ?? false,
+                id: cmp.id,
+                codename: SnapshotSerializer.toSnapshotCodenameValue(cmp.codename),
+                dataType: cmp.dataType,
+                isRequired: cmp.isRequired,
+                isDisplayComponent: cmp.isDisplayComponent ?? false,
                 targetEntityId: resolvedTargetEntityId,
                 targetEntityKind: resolvedTargetEntityKind,
-                targetConstantId: attr.targetConstantId ?? null,
+                targetConstantId: cmp.targetConstantId ?? null,
                 presentation: {
-                    name: (attr.name || {}) as MetaFieldSnapshot['presentation']['name'],
-                    description: (attr.description || {}) as MetaFieldSnapshot['presentation']['description']
+                    name: (cmp.name || {}) as MetaFieldSnapshot['presentation']['name'],
+                    description: (cmp.description || {}) as MetaFieldSnapshot['presentation']['description']
                 },
-                validationRules: attr.validationRules || {},
-                uiConfig: attr.uiConfig || {},
-                sortOrder: attr.sortOrder ?? 0
+                validationRules: cmp.validationRules || {},
+                uiConfig: cmp.uiConfig || {},
+                sortOrder: cmp.sortOrder ?? 0
             }
 
-            if (attr.dataType === 'TABLE') {
-                const children = childAttributesByParent.get(attr.id) ?? []
+            if (cmp.dataType === 'TABLE') {
+                const children = childComponentsByParent.get(cmp.id) ?? []
                 fieldDef.childFields = children.map((child) => ({
                     id: child.id,
                     codename: SnapshotSerializer.toSnapshotCodenameValue(child.codename),
                     dataType: child.dataType,
                     isRequired: child.isRequired,
-                    isDisplayAttribute: child.isDisplayAttribute ?? false,
+                    isDisplayComponent: child.isDisplayComponent ?? false,
                     targetEntityId: child.targetEntityId ?? undefined,
                     targetEntityKind: child.targetEntityKind ?? undefined,
                     targetConstantId: child.targetConstantId ?? null,
@@ -378,7 +373,7 @@ export class SnapshotSerializer {
                     validationRules: child.validationRules || {},
                     uiConfig: child.uiConfig || {},
                     sortOrder: child.sortOrder ?? 0,
-                    parentAttributeId: attr.id
+                    parentComponentId: cmp.id
                 }))
             }
 
@@ -386,9 +381,9 @@ export class SnapshotSerializer {
         })
     }
 
-    private static validateLedgerSnapshotConfig(entity: MetaEntitySnapshot, definition: { components: ComponentManifest }): void {
+    private static validateLedgerSnapshotConfig(entity: MetaEntitySnapshot, definition: { capabilities: EntityTypeCapabilities }): void {
         if (
-            !supportsLedgerSchema(definition.components) ||
+            !supportsLedgerSchema(definition.capabilities) ||
             !entity.config ||
             !Object.prototype.hasOwnProperty.call(entity.config, 'ledger')
         ) {
@@ -479,13 +474,13 @@ export class SnapshotSerializer {
     }
 
     public static materializeSharedEntitiesForRuntime(snapshot: MetahubSnapshot): MetahubSnapshot {
-        const sharedAttributes = snapshot.sharedFieldDefinitions ?? snapshot.sharedAttributes ?? []
+        const sharedComponents = snapshot.sharedComponents ?? snapshot.sharedComponents ?? []
         const sharedFixedValues = snapshot.sharedFixedValues ?? []
         const sharedEnumerationValues = snapshot.sharedOptionValues ?? snapshot.sharedEnumerationValues ?? []
         const sharedOverrides = snapshot.sharedEntityOverrides ?? []
 
         if (
-            sharedAttributes.length === 0 &&
+            sharedComponents.length === 0 &&
             sharedFixedValues.length === 0 &&
             sharedEnumerationValues.length === 0 &&
             sharedOverrides.length === 0
@@ -495,14 +490,14 @@ export class SnapshotSerializer {
 
         const entities = Object.fromEntries(
             Object.entries(snapshot.entities ?? {}).map(([entityId, entity]) => {
-                if (resolveEntityMetadataKind(entity.kind, entity.config) !== MetaEntityKind.CATALOG || sharedAttributes.length === 0) {
+                if (resolveEntityMetadataKind(entity.kind, entity.config) !== MetaEntityKind.OBJECT || sharedComponents.length === 0) {
                     return [entityId, entity]
                 }
 
                 const mergedFields = buildMergedSharedEntityList({
                     localItems: entity.fields ?? [],
-                    sharedItems: sharedAttributes,
-                    overrides: SnapshotSerializer.resolveRuntimeSharedOverrides(snapshot, 'attribute', entityId),
+                    sharedItems: sharedComponents,
+                    overrides: SnapshotSerializer.resolveRuntimeSharedOverrides(snapshot, 'component', entityId),
                     getId: (item) => item.id,
                     getSortOrder: (item) => item.sortOrder,
                     getSharedBehavior: (item) =>
@@ -618,10 +613,10 @@ export class SnapshotSerializer {
     }
 
     private async loadSnapshotTypeDefinitions(metahubId: string): Promise<{
-        typeByKind: Map<string, { components: ComponentManifest; config?: Record<string, unknown> }>
+        typeByKind: Map<string, { capabilities: EntityTypeCapabilities; config?: Record<string, unknown> }>
         entityTypeDefinitions?: Record<string, MetahubEntityTypeDefinitionSnapshot>
     }> {
-        const typeByKind = new Map<string, { components: ComponentManifest; config?: Record<string, unknown> }>()
+        const typeByKind = new Map<string, { capabilities: EntityTypeCapabilities; config?: Record<string, unknown> }>()
 
         if (!this.entityTypeService) {
             return { typeByKind }
@@ -632,7 +627,7 @@ export class SnapshotSerializer {
 
         for (const definition of definitions) {
             typeByKind.set(definition.kindKey, {
-                components: definition.components,
+                capabilities: definition.capabilities,
                 config: ensureRecord(definition.config)
             })
             entityTypeDefinitions[definition.kindKey] = {
@@ -640,7 +635,7 @@ export class SnapshotSerializer {
                 kindKey: definition.kindKey,
                 codename: SnapshotSerializer.toSnapshotCodenameValue(definition.codename),
                 presentation: ensureRecord(definition.presentation),
-                components: definition.components,
+                capabilities: definition.capabilities,
                 ui: definition.ui,
                 config: ensureRecord(definition.config),
                 published: definition.published === true
@@ -658,27 +653,27 @@ export class SnapshotSerializer {
         objectId: string,
         kind: string,
         typeConfig?: Record<string, unknown>
-    ): Promise<CatalogSystemFieldsSnapshot | null> {
+    ): Promise<ObjectSystemFieldsSnapshot | null> {
         if (
-            resolveEntityMetadataKind(kind, typeConfig) === MetaEntityKind.CATALOG &&
-            typeof this.fieldDefinitionsService.getCatalogSystemFieldsSnapshot === 'function'
+            resolveEntityMetadataKind(kind, typeConfig) === MetaEntityKind.OBJECT &&
+            typeof this.componentsService.getObjectSystemFieldsSnapshot === 'function'
         ) {
-            return this.fieldDefinitionsService.getCatalogSystemFieldsSnapshot(metahubId, objectId)
+            return this.componentsService.getObjectSystemFieldsSnapshot(metahubId, objectId)
         }
 
         if (
-            typeof this.fieldDefinitionsService.listObjectSystemFieldDefinitions !== 'function' ||
-            typeof this.fieldDefinitionsService.getObjectSystemFieldsSnapshot !== 'function'
+            typeof this.componentsService.listObjectSystemComponents !== 'function' ||
+            typeof this.componentsService.getObjectSystemFieldsSnapshot !== 'function'
         ) {
             return null
         }
 
-        const systemFieldDefinitions = await this.fieldDefinitionsService.listObjectSystemFieldDefinitions(metahubId, objectId)
-        if (!systemFieldDefinitions.length) {
+        const systemComponents = await this.componentsService.listObjectSystemComponents(metahubId, objectId)
+        if (!systemComponents.length) {
             return null
         }
 
-        return this.fieldDefinitionsService.getObjectSystemFieldsSnapshot(metahubId, objectId)
+        return this.componentsService.getObjectSystemFieldsSnapshot(metahubId, objectId)
     }
 
     /**
@@ -708,11 +703,11 @@ export class SnapshotSerializer {
         const elementsByObject: Record<string, MetaElementSnapshot[]> = {}
         const optionValuesByObject: Record<string, MetaEnumerationValueSnapshot[]> = {}
         const fixedValuesByObject: Record<string, MetaFixedValueSnapshot[]> = {}
-        const sharedFieldDefinitions: MetaFieldSnapshot[] = []
+        const sharedComponents: MetaFieldSnapshot[] = []
         const sharedFixedValues: MetaFixedValueSnapshot[] = []
         const sharedOptionValues: MetaEnumerationValueSnapshot[] = []
         const sharedEntityOverrides: MetahubSharedEntityOverrideSnapshot[] = []
-        const systemFieldsByObject: Record<string, CatalogSystemFieldsSnapshot> = {}
+        const systemFieldsByObject: Record<string, ObjectSystemFieldsSnapshot> = {}
         const publishedScripts = this.scriptsService
             ? (await this.scriptsService.listPublishedScripts(metahubId)).map<MetahubSnapshotScript>((script) => ({
                   id: script.id,
@@ -745,7 +740,7 @@ export class SnapshotSerializer {
             .filter(({ kind, object }) => {
                 const resolvedKind = typeof object.kind === 'string' ? object.kind : kind
                 const definition = typeByKind.get(String(resolvedKind))
-                return definition ? isEnabledComponentConfig(definition.components.records) : false
+                return definition ? isEnabledCapabilityConfig(definition.capabilities.records) : false
             })
             .map(({ object }) => object.id)
         const allElements =
@@ -763,22 +758,22 @@ export class SnapshotSerializer {
         const hubs = await this.fetchAllHubs(metahubId)
 
         if (this.sharedContainerService) {
-            const [sharedCatalogPoolId, sharedSetPoolId, sharedEnumerationPoolId] = await Promise.all([
-                this.sharedContainerService.findContainerObjectId(metahubId, SHARED_OBJECT_KINDS.SHARED_CATALOG_POOL),
+            const [sharedObjectPoolId, sharedSetPoolId, sharedEnumerationPoolId] = await Promise.all([
+                this.sharedContainerService.findContainerObjectId(metahubId, SHARED_OBJECT_KINDS.SHARED_OBJECT_POOL),
                 this.sharedContainerService.findContainerObjectId(metahubId, SHARED_OBJECT_KINDS.SHARED_SET_POOL),
                 this.sharedContainerService.findContainerObjectId(metahubId, SHARED_OBJECT_KINDS.SHARED_ENUM_POOL)
             ])
 
-            if (sharedCatalogPoolId) {
-                const allSharedAttributes = (await this.fieldDefinitionsService.findAllFlatForSnapshot(
+            if (sharedObjectPoolId) {
+                const allSharedComponents = (await this.componentsService.findAllFlatForSnapshot(
                     metahubId,
-                    sharedCatalogPoolId,
+                    sharedObjectPoolId,
                     undefined,
                     'all'
-                )) as SnapshotAttributeRecord[]
-                sharedFieldDefinitions.push(
+                )) as SnapshotComponentRecord[]
+                sharedComponents.push(
                     ...SnapshotSerializer.buildFieldSnapshots(
-                        allSharedAttributes.filter((attribute) => attribute.system?.isSystem !== true)
+                        allSharedComponents.filter((component) => component.system?.isSystem !== true)
                     )
                 )
             }
@@ -836,7 +831,7 @@ export class SnapshotSerializer {
                         sortOrder: (hub.sort_order as number) ?? 0,
                         parentTreeEntityId: typeof hub.parent_hub_id === 'string' ? hub.parent_hub_id : null
                     },
-                    hubDefinition?.components
+                    hubDefinition?.capabilities
                 ),
                 fields: [],
                 hubs: []
@@ -851,8 +846,8 @@ export class SnapshotSerializer {
             }
 
             const objectPresentation = ensureRecord(object.presentation)
-            const physicalTableConfig = isEnabledComponentConfig(definition.components.physicalTable)
-                ? definition.components.physicalTable
+            const physicalTableConfig = isEnabledCapabilityConfig(definition.capabilities.physicalTable)
+                ? definition.capabilities.physicalTable
                 : null
             const entityMetadataKind = resolveEntityMetadataKind(kind, definition.config)
 
@@ -876,20 +871,20 @@ export class SnapshotSerializer {
                     name: (objectPresentation.name ?? {}) as MetaEntitySnapshot['presentation']['name'],
                     description: (objectPresentation.description ?? {}) as MetaEntitySnapshot['presentation']['description']
                 },
-                config: mergeEntitySnapshotConfig(definition.config, object.config, definition.components),
+                config: mergeEntitySnapshotConfig(definition.config, object.config, definition.capabilities),
                 fields: [],
                 hubs: treeEntityIds
             }
 
-            if (isEnabledComponentConfig(definition.components.dataSchema)) {
-                const allAttributes = (await this.fieldDefinitionsService.findAllFlatForSnapshot(
+            if (isEnabledCapabilityConfig(definition.capabilities.dataSchema)) {
+                const allComponents = (await this.componentsService.findAllFlatForSnapshot(
                     metahubId,
                     object.id,
                     undefined,
                     'all'
-                )) as SnapshotAttributeRecord[]
-                const businessAttributes = allAttributes.filter((attribute) => attribute.system?.isSystem !== true)
-                entitySnapshot.fields = SnapshotSerializer.buildFieldSnapshots(businessAttributes)
+                )) as SnapshotComponentRecord[]
+                const businessComponents = allComponents.filter((component) => component.system?.isSystem !== true)
+                entitySnapshot.fields = SnapshotSerializer.buildFieldSnapshots(businessComponents)
 
                 const systemFields = await this.loadSystemFieldsSnapshotForObject(metahubId, object.id, kind, definition.config)
                 if (systemFields) {
@@ -902,28 +897,28 @@ export class SnapshotSerializer {
                 elementsByObject[object.id] = objectElements
             }
 
-            if (this.fixedValuesService && isEnabledComponentConfig(definition.components.fixedValues)) {
+            if (this.fixedValuesService && isEnabledCapabilityConfig(definition.capabilities.fixedValues)) {
                 const fixedValues = (await this.fixedValuesService.findAll(metahubId, object.id)) as SnapshotFixedValueRecord[]
                 if (fixedValues.length > 0) {
                     fixedValuesByObject[object.id] = SnapshotSerializer.mapFixedValueSnapshots(fixedValues, object.id)
                 }
             }
 
-            if (this.optionValuesService && isEnabledComponentConfig(definition.components.optionValues)) {
+            if (this.optionValuesService && isEnabledCapabilityConfig(definition.capabilities.optionValues)) {
                 const values = (await this.optionValuesService.findAll(metahubId, object.id)) as SnapshotEnumerationValueRecord[]
                 if (values.length > 0) {
                     optionValuesByObject[object.id] = SnapshotSerializer.mapEnumerationValueSnapshots(values, object.id)
                 }
             }
 
-            if (this.actionService && isEnabledComponentConfig(definition.components.actions)) {
+            if (this.actionService && isEnabledCapabilityConfig(definition.capabilities.actions)) {
                 const actions = await this.actionService.listByObjectId(metahubId, object.id)
                 if (actions.length > 0) {
                     entitySnapshot.actions = SnapshotSerializer.mapEntityActionSnapshots(actions)
                 }
             }
 
-            if (this.eventBindingService && isEnabledComponentConfig(definition.components.events)) {
+            if (this.eventBindingService && isEnabledCapabilityConfig(definition.capabilities.events)) {
                 const eventBindings = await this.eventBindingService.listByObjectId(metahubId, object.id)
                 if (eventBindings.length > 0) {
                     entitySnapshot.eventBindings = SnapshotSerializer.mapEventBindingSnapshots(eventBindings)
@@ -948,7 +943,7 @@ export class SnapshotSerializer {
             elements: Object.keys(elementsByObject).length > 0 ? elementsByObject : undefined,
             optionValues: Object.keys(optionValuesByObject).length > 0 ? optionValuesByObject : undefined,
             fixedValues: Object.keys(fixedValuesByObject).length > 0 ? fixedValuesByObject : undefined,
-            sharedFieldDefinitions: sharedFieldDefinitions.length > 0 ? sharedFieldDefinitions : undefined,
+            sharedComponents: sharedComponents.length > 0 ? sharedComponents : undefined,
             sharedFixedValues: sharedFixedValues.length > 0 ? sharedFixedValues : undefined,
             sharedOptionValues: sharedOptionValues.length > 0 ? sharedOptionValues : undefined,
             sharedEntityOverrides: sharedEntityOverrides.length > 0 ? sharedEntityOverrides : undefined,
@@ -1012,26 +1007,28 @@ export class SnapshotSerializer {
     /**
      * Deserializes a snapshot into EntityDefinition array for DDL generator.
      *
-     * Child fields of TABLE attributes are represented in two ways:
+     * Child fields of TABLE components are represented in two ways:
      * 1. Nested inside the parent field's `childFields` (used by seedPredefinedElements).
-     * 2. As separate entries in `entity.fields` with `parentAttributeId` set
+     * 2. As separate entries in `entity.fields` with `parentComponentId` set
      *    (required by SchemaGenerator, SchemaMigrator and diff engine).
      */
     deserializeSnapshot(snapshot: MetahubSnapshot): EntityDefinition[] {
-        const toExecutableField = (field: MetaFieldSnapshot, parentAttributeId = field.parentAttributeId ?? null): FieldDefinition => ({
+        const toExecutableField = (field: MetaFieldSnapshot, parentComponentId = field.parentComponentId ?? null): Component => ({
             ...field,
             codename: getCodenameText(field.codename),
             targetEntityId: field.targetEntityId,
             targetEntityKind: field.targetEntityKind,
             targetConstantId: field.targetConstantId,
-            childFields: field.childFields?.map((child) => toExecutableField(child, child.parentAttributeId ?? field.id)),
-            parentAttributeId
+            childFields: field.childFields?.map((child) => toExecutableField(child, child.parentComponentId ?? field.id)),
+            parentComponentId
         })
 
         return Object.values(snapshot.entities).map((entity) => {
             const definition = snapshot.entityTypeDefinitions?.[entity.kind]
             const physicalTableConfig =
-                definition && isEnabledComponentConfig(definition.components.physicalTable) ? definition.components.physicalTable : null
+                definition && isEnabledCapabilityConfig(definition.capabilities.physicalTable)
+                    ? definition.capabilities.physicalTable
+                    : null
             const explicitPhysicalTableName = entity.tableName ?? entity.physicalTableName
             const physicalTableEnabled = Boolean(physicalTableConfig || explicitPhysicalTableName)
 
@@ -1052,7 +1049,7 @@ export class SnapshotSerializer {
                     const mapped = toExecutableField(field)
 
                     // Flatten TABLE child fields into the entity.fields array
-                    const children = (field.childFields ?? []).map((child) => toExecutableField(child, child.parentAttributeId ?? field.id))
+                    const children = (field.childFields ?? []).map((child) => toExecutableField(child, child.parentComponentId ?? field.id))
 
                     return [mapped, ...children]
                 })

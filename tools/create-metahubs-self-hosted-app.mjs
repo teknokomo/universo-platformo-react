@@ -25,7 +25,7 @@ import {
     buildSelfHostedAppLiveMetahubCodename,
     buildSelfHostedAppLiveMetahubName,
     canonicalizeSelfHostedAppEnvelope,
-    getSelfHostedAppCatalogAttributes
+    getSelfHostedAppObjectComponents
 } from './testing/e2e/support/selfHostedAppFixtureContract.mjs'
 
 /* ────── CLI args ────── */
@@ -111,13 +111,13 @@ function buildSectionPayload(section, hubId) {
     return payload
 }
 
-async function createCatalogElement(metahubId, catalogId, data) {
-    return api('POST', `/metahub/${metahubId}/catalog/${catalogId}/elements`, { data })
+async function createObjectRecord(metahubId, objectId, data) {
+    return api('POST', `/metahub/${metahubId}/entities/object/instance/${objectId}/records`, { data })
 }
 
-async function seedSettingsBaseline(metahubId, catalogId) {
+async function seedSettingsBaseline(metahubId, objectId) {
     for (const row of SELF_HOSTED_APP_SETTINGS_BASELINE) {
-        await createCatalogElement(metahubId, catalogId, row)
+        await createObjectRecord(metahubId, objectId, row)
     }
 }
 
@@ -180,21 +180,21 @@ async function main() {
             enumerationSectionId = sectionId
         }
 
-        const attrs = sectionDef.kind === 'catalog' ? getSelfHostedAppCatalogAttributes(sectionDef.codename) : []
-        for (const attr of attrs) {
-            await api('POST', `/metahub/${metahubId}/catalog/${sectionId}/attributes`, {
-                codename: attr.codename,
-                name: attr.name,
+        const components = sectionDef.kind === 'object' ? getSelfHostedAppObjectComponents(sectionDef.codename) : []
+        for (const component of components) {
+            await api('POST', `/metahub/${metahubId}/entities/object/instance/${sectionId}/components`, {
+                codename: component.codename,
+                name: component.name,
                 namePrimaryLocale: 'en',
-                dataType: attr.dataType ?? 'STRING',
-                isRequired: attr.isRequired ?? false
+                dataType: component.dataType ?? 'STRING',
+                isRequired: component.isRequired ?? false
             })
         }
         if (sectionDef.codename === 'settings') {
             await seedSettingsBaseline(metahubId, sectionId)
             console.log(`    + ${SELF_HOSTED_APP_SETTINGS_BASELINE.length} settings rows seeded`)
         }
-        console.log(`    + ${attrs.length} attributes created`)
+        console.log(`    + ${components.length} components created`)
     }
 
     if (enumerationSectionId) {

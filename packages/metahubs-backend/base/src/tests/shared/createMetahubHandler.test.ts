@@ -102,7 +102,7 @@ describe('createMetahubHandler', () => {
     it('catches MetahubDomainError and returns structured JSON', async () => {
         const handler = jest.fn(async () => {
             throw new MetahubDomainError({
-                message: 'Catalog limit reached',
+                message: 'Object limit reached',
                 statusCode: 422,
                 code: 'LIMIT_REACHED',
                 details: { limit: 50 }
@@ -116,7 +116,7 @@ describe('createMetahubHandler', () => {
         expect(res.status).toHaveBeenCalledWith(422)
         const jsonFn = (res.status as ReturnType<typeof jest.fn>).mock.results[0].value.json
         expect(jsonFn).toHaveBeenCalledWith({
-            error: 'Catalog limit reached',
+            error: 'Object limit reached',
             code: 'LIMIT_REACHED',
             limit: 50
         })

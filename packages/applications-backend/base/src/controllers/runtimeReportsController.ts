@@ -9,7 +9,7 @@ import {
     createQueryHelper,
     ensureRuntimePermission,
     IDENTIFIER_REGEX,
-    runtimeCatalogFilterSql,
+    runtimeObjectFilterSql,
     resolveRuntimeCodenameText,
     resolveRuntimeSchema,
     runtimeCodenameTextSql,
@@ -43,7 +43,7 @@ type RuntimeReportTarget = {
     fields: RuntimeReportFieldMetadata[]
 }
 
-type RuntimeReportCatalogTarget = RuntimeReportTarget & {
+type RuntimeReportObjectTarget = RuntimeReportTarget & {
     definitionColumnName: string
 }
 
@@ -85,9 +85,9 @@ const resolveReportTargetToken = (definition: z.infer<typeof reportDefinitionSch
 
     return (
         datasource.sectionId?.trim() ||
-        datasource.linkedCollectionId?.trim() ||
+        datasource.objectCollectionId?.trim() ||
         datasource.sectionCodename?.trim() ||
-        datasource.linkedCollectionCodename?.trim() ||
+        datasource.objectCollectionCodename?.trim() ||
         null
     )
 }
@@ -116,7 +116,7 @@ const resolveReportTarget = async (params: {
         FROM ${params.schemaIdent}._app_objects
         WHERE _upl_deleted = false
           AND _app_deleted = false
-          AND ${runtimeCatalogFilterSql('kind', 'config')}
+          AND ${runtimeObjectFilterSql('kind', 'config')}
           AND (id::text = $1 OR ${runtimeCodenameTextSql('codename')} = $1)
         ORDER BY CASE WHEN id::text = $1 THEN 0 ELSE 1 END, ${runtimeCodenameTextSql('codename')} ASC, id ASC
         LIMIT 1
@@ -145,9 +145,9 @@ const resolveReportTarget = async (params: {
     }>(
         `
         SELECT codename, column_name, data_type
-        FROM ${params.schemaIdent}._app_attributes
+        FROM ${params.schemaIdent}._app_components
         WHERE object_id = $1
-          AND parent_attribute_id IS NULL
+          AND parent_component_id IS NULL
           AND _upl_deleted = false
           AND _app_deleted = false
         ORDER BY sort_order ASC, _upl_created_at ASC NULLS LAST, id ASC
@@ -165,7 +165,7 @@ const resolveReportTarget = async (params: {
     }
 }
 
-const resolveReportsCatalogTarget = async (params: { executor: DbExecutor; schemaIdent: string }): Promise<RuntimeReportCatalogTarget> => {
+const resolveReportsObjectTarget = async (params: { executor: DbExecutor; schemaIdent: string }): Promise<RuntimeReportObjectTarget> => {
     const targets = await params.executor.query<{
         id: string
         codename: unknown
@@ -177,7 +177,7 @@ const resolveReportsCatalogTarget = async (params: { executor: DbExecutor; schem
         FROM ${params.schemaIdent}._app_objects
         WHERE _upl_deleted = false
           AND _app_deleted = false
-          AND ${runtimeCatalogFilterSql('kind', 'config')}
+          AND ${runtimeObjectFilterSql('kind', 'config')}
           AND ${runtimeCodenameTextSql('codename')} = $1
         ORDER BY id ASC
         LIMIT 1
@@ -188,14 +188,14 @@ const resolveReportsCatalogTarget = async (params: { executor: DbExecutor; schem
     const target = targets[0]
     if (!target) {
         throw new UpdateFailure(404, {
-            error: 'Reports catalog was not found in the published application',
-            code: 'REPORTS_CATALOG_NOT_FOUND'
+            error: 'Reports object was not found in the published application',
+            code: 'REPORTS_OBJECT_NOT_FOUND'
         })
     }
     if (!target.table_name || !IDENTIFIER_REGEX.test(target.table_name)) {
         throw new UpdateFailure(400, {
-            error: 'Reports catalog table is invalid',
-            code: 'REPORTS_CATALOG_TABLE_INVALID'
+            error: 'Reports object table is invalid',
+            code: 'REPORTS_OBJECT_TABLE_INVALID'
         })
     }
 
@@ -206,9 +206,9 @@ const resolveReportsCatalogTarget = async (params: { executor: DbExecutor; schem
     }>(
         `
         SELECT codename, column_name, data_type
-        FROM ${params.schemaIdent}._app_attributes
+        FROM ${params.schemaIdent}._app_components
         WHERE object_id = $1
-          AND parent_attribute_id IS NULL
+          AND parent_component_id IS NULL
           AND _upl_deleted = false
           AND _app_deleted = false
         ORDER BY sort_order ASC, _upl_created_at ASC NULLS LAST, id ASC
@@ -220,8 +220,8 @@ const resolveReportsCatalogTarget = async (params: { executor: DbExecutor; schem
     const definitionField = fields.find((field) => field.codename === 'Definition' && field.dataType === 'JSON')
     if (!definitionField) {
         throw new UpdateFailure(400, {
-            error: 'Reports catalog does not expose a JSON Definition field',
-            code: 'REPORTS_CATALOG_DEFINITION_FIELD_MISSING'
+            error: 'Reports object does not expose a JSON Definition field',
+            code: 'REPORTS_OBJECT_DEFINITION_FIELD_MISSING'
         })
     }
 
@@ -237,7 +237,7 @@ const resolveReportsCatalogTarget = async (params: { executor: DbExecutor; schem
 const loadSavedReportDefinition = async (params: {
     executor: DbExecutor
     schemaName: string
-    reportCatalog: RuntimeReportCatalogTarget
+    reportObject: RuntimeReportObjectTarget
     reportId?: string
     reportCodename?: string
     activeCondition?: string
@@ -250,8 +250,8 @@ const loadSavedReportDefinition = async (params: {
         })
     }
 
-    const tableSql = qSchemaTable(params.schemaName, params.reportCatalog.tableName)
-    const definitionColumnSql = qColumn(params.reportCatalog.definitionColumnName)
+    const tableSql = qSchemaTable(params.schemaName, params.reportObject.tableName)
+    const definitionColumnSql = qColumn(params.reportObject.definitionColumnName)
     const rows = await params.executor.query<{ definition: unknown }>(
         `
         SELECT ${definitionColumnSql} AS definition
@@ -300,20 +300,20 @@ export function createRuntimeReportsController(getDbExecutor: () => DbExecutor) 
         if (!ensureRuntimePermission(res, ctx, 'readReports')) return
 
         try {
-            const reportsCatalog = await resolveReportsCatalogTarget({
+            const reportsObject = await resolveReportsObjectTarget({
                 executor: ctx.manager,
                 schemaIdent: ctx.schemaIdent
             })
-            const reportsLifecycleContract = resolveApplicationLifecycleContractFromConfig(reportsCatalog.config)
+            const reportsLifecycleContract = resolveApplicationLifecycleContractFromConfig(reportsObject.config)
             const definition = await loadSavedReportDefinition({
                 executor: ctx.manager,
                 schemaName: ctx.schemaName,
-                reportCatalog: reportsCatalog,
+                reportObject: reportsObject,
                 reportId: parsed.data.reportId,
                 reportCodename: parsed.data.reportCodename,
                 activeCondition: buildRuntimeActiveRowCondition(
                     reportsLifecycleContract,
-                    reportsCatalog.config,
+                    reportsObject.config,
                     undefined,
                     ctx.currentWorkspaceId
                 )

@@ -30,7 +30,7 @@ type QuizWidgetDraft = {
     title: string
     description: string
     scriptCodename: string
-    attachedToKind: 'metahub' | 'catalog'
+    attachedToKind: 'metahub' | 'object'
     mountMethodName: string
     submitMethodName: string
     emptyStateTitle: string
@@ -47,7 +47,7 @@ const createDraft = (config?: QuizWidgetConfig | null): QuizWidgetDraft => ({
     title: config?.title ?? '',
     description: config?.description ?? '',
     scriptCodename: config?.scriptCodename ?? '',
-    attachedToKind: config?.attachedToKind === 'catalog' ? 'catalog' : 'metahub',
+    attachedToKind: config?.attachedToKind === 'object' ? 'object' : 'metahub',
     mountMethodName: config?.mountMethodName ?? '',
     submitMethodName: config?.submitMethodName ?? '',
     emptyStateTitle: config?.emptyStateTitle ?? '',
@@ -182,7 +182,7 @@ export default function QuizWidgetEditorDialog({
                     <Typography variant='body2' color='text.secondary'>
                         {t(
                             'layouts.quizEditor.description',
-                            'Bind the quiz widget to a published widget script. The runtime resolves metahub-wide or current-catalog scripts by codename.'
+                            'Bind the quiz widget to a published widget script. The runtime resolves metahub-wide or current-object scripts by codename.'
                         )}
                     </Typography>
 
@@ -225,17 +225,17 @@ export default function QuizWidgetEditorDialog({
                             onChange={(event) =>
                                 setDraft((current) => ({
                                     ...current,
-                                    attachedToKind: event.target.value as 'metahub' | 'catalog'
+                                    attachedToKind: event.target.value as 'metahub' | 'object'
                                 }))
                             }
                         >
                             <MenuItem value='metahub'>{t('layouts.quizEditor.attachmentKinds.metahub', 'Metahub')}</MenuItem>
-                            <MenuItem value='catalog'>{t('layouts.quizEditor.attachmentKinds.catalog', 'Current catalog')}</MenuItem>
+                            <MenuItem value='object'>{t('layouts.quizEditor.attachmentKinds.object', 'Current object')}</MenuItem>
                         </Select>
                         <FormHelperText>
                             {t(
                                 'layouts.quizEditor.attachmentKindHelp',
-                                'LinkedCollectionEntity-scoped scripts resolve against the current catalog at runtime, while metahub scripts stay global.'
+                                'Object-scoped scripts resolve against the current object at runtime, while metahub scripts stay global.'
                             )}
                         </FormHelperText>
                     </FormControl>

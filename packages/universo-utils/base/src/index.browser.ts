@@ -65,11 +65,11 @@ export {
 // Number validation utilities for precision/scale constraints
 export {
     normalizeApplicationCopyOptions,
-    normalizeFieldDefinitionCopyOptions,
+    normalizeComponentCopyOptions,
     normalizeBranchCopyOptions,
     normalizeRecordCopyOptions,
     normalizeTreeEntityCopyOptions,
-    normalizeLinkedCollectionCopyOptions,
+    normalizeObjectCollectionCopyOptions,
     normalizeValueGroupCopyOptions,
     normalizeOptionListCopyOptions,
     normalizeLayoutCopyOptions,
@@ -77,13 +77,13 @@ export {
 } from './validation/copyOptions'
 
 export {
-    extractLinkedCollectionLayoutBehaviorConfig,
-    normalizeLinkedCollectionRuntimeViewConfig,
-    resolveLinkedCollectionLayoutBehaviorConfig,
-    sanitizeLinkedCollectionRuntimeViewConfig,
-    setLinkedCollectionLayoutBehaviorConfig,
-    resolveLinkedCollectionRuntimeDashboardLayoutConfig
-} from './validation/linkedCollectionRuntimeConfig'
+    extractObjectCollectionLayoutBehaviorConfig,
+    normalizeObjectCollectionRuntimeViewConfig,
+    resolveObjectCollectionLayoutBehaviorConfig,
+    sanitizeObjectCollectionRuntimeViewConfig,
+    setObjectCollectionLayoutBehaviorConfig,
+    resolveObjectCollectionRuntimeDashboardLayoutConfig
+} from './validation/objectCollectionRuntimeConfig'
 export { normalizeDashboardLayoutConfig } from './validation/dashboardLayout'
 
 export {
@@ -104,29 +104,29 @@ export {
     type TableConstraintResult
 } from './validation/tableConstraints'
 
-// Catalog system field helpers (browser-safe)
+// Object system field helpers (browser-safe)
 export {
-    getCatalogSystemFieldDefinitions,
-    getCatalogSystemFieldDefinition,
-    getCatalogSystemFieldSeedInputs,
-    buildCatalogSystemFieldDefinitionSeedRecord,
-    getCatalogSystemFieldDefinitionSeedRecords,
-    getReservedCatalogSystemFieldCodenames,
-    getDefaultCatalogSystemFieldStates,
-    validateCatalogSystemFieldToggleSet,
+    getObjectSystemComponents,
+    getObjectSystemComponent,
+    getObjectSystemComponentSeedInputs,
+    buildObjectSystemComponentSeedRecord,
+    getObjectSystemComponentSeedRecords,
+    getReservedObjectSystemFieldCodenames,
+    getDefaultObjectSystemFieldStates,
+    validateObjectSystemFieldToggleSet,
     deriveApplicationLifecycleContract,
     derivePlatformSystemFieldsContract,
     normalizeApplicationLifecycleContract,
     resolveApplicationLifecycleContractFromConfig,
     resolvePlatformSystemFieldsContractFromConfig
-} from './database/catalogSystemFields'
+} from './database/objectSystemFields'
 export type {
-    CatalogSystemFieldToggleValidationResult,
-    CatalogSystemFieldDefinitionSeedInput,
-    CatalogSystemFieldDefinitionSeedRecord,
+    ObjectSystemFieldToggleValidationResult,
+    ObjectSystemComponentSeedInput,
+    ObjectSystemComponentSeedRecord,
     PlatformSystemFieldFamilyContract,
     PlatformSystemFieldsContract
-} from './database/catalogSystemFields'
+} from './database/objectSystemFields'
 
 // Optimistic locking error utilities
 export { OptimisticLockError, type ConflictInfo } from './errors/OptimisticLockError'

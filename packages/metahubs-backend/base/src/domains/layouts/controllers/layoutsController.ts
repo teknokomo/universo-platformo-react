@@ -564,7 +564,7 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
         { permission: 'manageMetahub' }
     )
 
-    const widgetsCatalog = createHandler(async ({ res }) => {
+    const widgetsObject = createHandler(async ({ res }) => {
         return res.json({
             items: DASHBOARD_LAYOUT_WIDGETS.map((widget) => ({
                 key: widget.key,
@@ -745,7 +745,7 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
         copy,
         update,
         remove,
-        widgetsCatalog,
+        widgetsObject,
         listZoneWidgets,
         assignZoneWidget,
         moveZoneWidget,

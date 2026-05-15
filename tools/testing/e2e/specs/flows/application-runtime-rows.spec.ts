@@ -5,13 +5,13 @@ import { waitForSettledMutationResponse } from '../../support/browser/network'
 import {
     createLoggedInApiContext,
     createMetahub,
-    createFieldDefinition,
+    createComponent,
     createPublication,
     createPublicationLinkedApplication,
     createPublicationVersion,
     disposeApiContext,
     getApplicationRuntime,
-    listLinkedCollections,
+    listObjectCollections,
     syncApplicationSchema,
     syncPublication,
     waitForPublicationReady
@@ -25,7 +25,7 @@ import {
 } from '../../support/selectors/contracts'
 
 type RuntimeState = {
-    catalog?: {
+    objectCollection?: {
         id?: string
     }
     columns?: Array<{
@@ -61,39 +61,39 @@ async function fillRuntimeStringField(dialog: Locator, label: string, value: str
     await dialog.getByLabel(label).first().fill(value)
 }
 
-async function waitForRuntimeState(api: Awaited<ReturnType<typeof createLoggedInApiContext>>, applicationId: string, catalogId?: string) {
+async function waitForRuntimeState(api: Awaited<ReturnType<typeof createLoggedInApiContext>>, applicationId: string, objectCollectionId?: string) {
     let runtimeState: RuntimeState | null = null
 
     await expect
         .poll(async () => {
-            runtimeState = (await getApplicationRuntime(api, applicationId, catalogId ? { catalogId } : {})) as RuntimeState
-            return typeof runtimeState?.catalog?.id === 'string' && Array.isArray(runtimeState?.columns) && runtimeState.columns.length > 0
+            runtimeState = (await getApplicationRuntime(api, applicationId, objectCollectionId ? { objectCollectionId } : {})) as RuntimeState
+            return typeof runtimeState?.objectCollection?.id === 'string' && Array.isArray(runtimeState?.columns) && runtimeState.columns.length > 0
         })
         .toBe(true)
 
-    if (!runtimeState?.catalog?.id) {
-        throw new Error(`Runtime catalog did not become available for application ${applicationId}`)
+    if (!runtimeState?.objectCollection?.id) {
+        throw new Error(`Runtime objectCollection did not become available for application ${applicationId}`)
     }
 
     return runtimeState
 }
 
-async function waitForCatalogId(api: Awaited<ReturnType<typeof createLoggedInApiContext>>, metahubId: string) {
+async function waitForObjectId(api: Awaited<ReturnType<typeof createLoggedInApiContext>>, metahubId: string) {
     let payload: CatalogListResponse | null = null
 
     await expect
         .poll(async () => {
-            payload = (await listLinkedCollections(api, metahubId, { limit: 100, offset: 0 })) as CatalogListResponse
+            payload = (await listObjectCollections(api, metahubId, { limit: 100, offset: 0 })) as CatalogListResponse
             return typeof payload?.items?.[0]?.id === 'string'
         })
         .toBe(true)
 
-    const catalogId = payload?.items?.[0]?.id
-    if (!catalogId) {
-        throw new Error(`Metahub ${metahubId} did not expose a default catalog`)
+    const objectCollectionId = payload?.items?.[0]?.id
+    if (!objectCollectionId) {
+        throw new Error(`Metahub ${metahubId} did not expose a default objectCollection`)
     }
 
-    return catalogId
+    return objectCollectionId
 }
 
 function resolveRuntimeFieldKey(runtimeState: RuntimeState, expectedLabel: string, expectedCodename: string) {
@@ -117,14 +117,14 @@ function resolveRuntimeFieldKey(runtimeState: RuntimeState, expectedLabel: strin
 async function waitForRuntimeRow(
     api: Awaited<ReturnType<typeof createLoggedInApiContext>>,
     applicationId: string,
-    catalogId: string,
+    objectCollectionId: string,
     rowId: string
 ) {
     let row: (Record<string, unknown> & { id?: string }) | null = null
 
     await expect
         .poll(async () => {
-            const runtimeState = (await getApplicationRuntime(api, applicationId, { catalogId })) as RuntimeState
+            const runtimeState = (await getApplicationRuntime(api, applicationId, { objectCollectionId })) as RuntimeState
             row = (runtimeState.rows ?? []).find((entry) => entry.id === rowId) ?? null
             return Boolean(row?.id)
         })
@@ -140,14 +140,14 @@ async function waitForRuntimeRow(
 async function waitForRuntimeRowCount(
     api: Awaited<ReturnType<typeof createLoggedInApiContext>>,
     applicationId: string,
-    catalogId: string,
+    objectCollectionId: string,
     expectedCount: number
 ) {
     let runtimeState: RuntimeState | null = null
 
     await expect
         .poll(async () => {
-            runtimeState = (await getApplicationRuntime(api, applicationId, { catalogId })) as RuntimeState
+            runtimeState = (await getApplicationRuntime(api, applicationId, { objectCollectionId })) as RuntimeState
             return runtimeState.rows?.length ?? 0
         })
         .toBe(expectedCount)
@@ -199,9 +199,9 @@ test('@flow @combined application runtime rows support browser create, edit, cop
             codename: metahubCodename
         })
 
-        const catalogId = await waitForCatalogId(api, metahub.id)
+        const objectCollectionId = await waitForObjectId(api, metahub.id)
 
-        const attribute = await createFieldDefinition(api, metahub.id, catalogId, {
+        const component = await createComponent(api, metahub.id, objectCollectionId, {
             name: { en: attributeLabel },
             namePrimaryLocale: 'en',
             codename: createLocalizedContent('en', attributeCodename),
@@ -209,8 +209,8 @@ test('@flow @combined application runtime rows support browser create, edit, cop
             isRequired: false
         })
 
-        if (!attribute?.id) {
-            throw new Error('Attribute creation did not return an id for runtime row coverage')
+        if (!component?.id) {
+            throw new Error('Component creation did not return an id for runtime row coverage')
         }
 
         const publication = await createPublication(api, metahub.id, {
@@ -254,7 +254,7 @@ test('@flow @combined application runtime rows support browser create, edit, cop
 
         await syncApplicationSchema(api, applicationId)
 
-        const runtimeState = await waitForRuntimeState(api, applicationId, catalogId)
+        const runtimeState = await waitForRuntimeState(api, applicationId, objectCollectionId)
         const runtimeFieldKey = resolveRuntimeFieldKey(runtimeState, attributeLabel, attributeCodename)
 
         await page.goto(`/a/${applicationId}`)
@@ -282,7 +282,7 @@ test('@flow @combined application runtime rows support browser create, edit, cop
 
         await ensureRuntimeRowVisible(page, createdRow.id, createdValue)
 
-        const persistedCreatedRow = await waitForRuntimeRow(api, applicationId, catalogId, createdRow.id)
+        const persistedCreatedRow = await waitForRuntimeRow(api, applicationId, objectCollectionId, createdRow.id)
         expect(persistedCreatedRow[runtimeFieldKey]).toBe(createdValue)
 
         await page.getByTestId(buildGridRowActionsTriggerSelector(createdRow.id)).click()
@@ -304,7 +304,7 @@ test('@flow @combined application runtime rows support browser create, edit, cop
         const editResponse = await editRequest
         expect(editResponse.ok()).toBe(true)
 
-        const persistedEditedRow = await waitForRuntimeRow(api, applicationId, catalogId, createdRow.id)
+        const persistedEditedRow = await waitForRuntimeRow(api, applicationId, objectCollectionId, createdRow.id)
         expect(persistedEditedRow[runtimeFieldKey]).toBe(updatedValue)
         await ensureRuntimeRowVisible(page, createdRow.id, updatedValue)
 
@@ -329,7 +329,7 @@ test('@flow @combined application runtime rows support browser create, edit, cop
             throw new Error('Copy runtime row response did not contain an id')
         }
 
-        const runtimeAfterCopy = await waitForRuntimeRowCount(api, applicationId, catalogId, 2)
+        const runtimeAfterCopy = await waitForRuntimeRowCount(api, applicationId, objectCollectionId, 2)
         const persistedCopiedRow = runtimeAfterCopy?.rows?.find((row) => row.id === copiedRow.id)
         expect(persistedCopiedRow?.[runtimeFieldKey]).toBe(copiedValue)
         await ensureRuntimeRowVisible(page, copiedRow.id, copiedValue)
@@ -346,7 +346,7 @@ test('@flow @combined application runtime rows support browser create, edit, cop
         await page.getByTestId(confirmDeleteSelectors.confirmButton).click()
         await deleteRequest
 
-        const runtimeAfterDelete = await waitForRuntimeRowCount(api, applicationId, catalogId, 1)
+        const runtimeAfterDelete = await waitForRuntimeRowCount(api, applicationId, objectCollectionId, 1)
         const remainingRowIds = (runtimeAfterDelete?.rows ?? []).map((row) => row.id)
         expect(remainingRowIds).toContain(createdRow.id)
         expect(remainingRowIds).not.toContain(copiedRow.id)

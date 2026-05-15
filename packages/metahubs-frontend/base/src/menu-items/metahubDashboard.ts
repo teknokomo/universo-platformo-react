@@ -67,7 +67,7 @@ const metahubDashboard: MenuItem = {
             icon: icons.IconLayoutDashboard,
             breadcrumbs: true
         },
-        // Dynamic entity-type items (Hubs, Catalogs, Sets, Enumerations) appear here
+        // Dynamic entity-type items (Hubs, Objects, Sets, Enumerations) appear here
         {
             id: 'divider-secondary',
             title: '',

@@ -125,7 +125,7 @@ describe('LMS platform primitive contracts', () => {
         })
     })
 
-    it('validates Catalog-backed report definitions over runtime datasource descriptors', () => {
+    it('validates Object-backed report definitions over runtime datasource descriptors', () => {
         const definition = reportDefinitionSchema.parse({
             codename: 'LearnerProgress',
             title: { en: 'Learner progress', ru: 'Прогресс учащихся' },

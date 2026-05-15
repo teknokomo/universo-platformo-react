@@ -1,4 +1,4 @@
-import { FieldDefinitionDataType } from '@universo/types'
+import { ComponentDefinitionDataType } from '@universo/types'
 import {
     assertCanonicalPlatformScopeKey,
     assertCanonicalSchemaName,
@@ -235,11 +235,11 @@ const validateStructureCapabilities = (
     label: 'currentStructureCapabilities' | 'targetStructureCapabilities',
     issues: SystemAppDefinitionValidationIssue[]
 ): void => {
-    if ((capabilities.layoutTables || capabilities.widgetTables || capabilities.attributeValueTables) && !capabilities.appCoreTables) {
+    if ((capabilities.layoutTables || capabilities.widgetTables || capabilities.componentValueTables) && !capabilities.appCoreTables) {
         issues.push({
             level: 'error',
             definitionKey,
-            message: `${label} requires appCoreTables=true when layout, widget, or attribute value tables are enabled`
+            message: `${label} requires appCoreTables=true when layout, widget, or component value tables are enabled`
         })
     }
 
@@ -253,14 +253,14 @@ const validateStructureCapabilities = (
 }
 
 const systemAppBusinessTableKindCapabilityMap = {
-    catalog: 'catalogTables',
+    object: 'objectTables',
     document: 'documentTables',
     relation: 'relationTables',
     settings: 'settingsTables'
 } as const satisfies Record<SystemAppBusinessTableDefinition['kind'], keyof SystemAppStructureCapabilities>
 
 const systemAppBusinessTablePrefixes = {
-    catalog: 'cat_',
+    object: 'obj_',
     document: 'doc_',
     relation: 'rel_',
     settings: 'cfg_'
@@ -426,7 +426,7 @@ const validateBusinessTables = (
                     })
                 }
 
-                if (field.dataType !== FieldDefinitionDataType.REF) {
+                if (field.dataType !== ComponentDefinitionDataType.REF) {
                     issues.push({
                         level: 'error',
                         definitionKey,

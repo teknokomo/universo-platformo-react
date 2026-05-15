@@ -64,7 +64,7 @@ export interface BlockingBranchUser {
 
 type BranchCopyCompatibilityErrorCode = 'BRANCH_COPY_OPTION_LIST_REFERENCES' | 'BRANCH_COPY_DANGLING_ENTITY_REFERENCES'
 
-type BranchCopyEntityGroup = 'treeEntity' | 'linkedCollection' | 'valueGroup' | 'optionList'
+type BranchCopyEntityGroup = 'treeEntity' | 'objectCollection' | 'valueGroup' | 'optionList'
 
 class BranchCopyCompatibilityError extends Error {
     constructor(public readonly code: BranchCopyCompatibilityErrorCode) {
@@ -75,7 +75,7 @@ class BranchCopyCompatibilityError extends Error {
 
 type BranchSchemaCompatibilityContext = {
     treeEntityKinds: string[]
-    linkedCollectionKinds: string[]
+    objectCollectionKinds: string[]
     valueGroupKinds: string[]
     optionListKinds: string[]
     entityGroupByKind: Map<string, BranchCopyEntityGroup>
@@ -109,22 +109,22 @@ export class MetahubBranchesService {
         this.assertSafeSchemaName(schemaName)
 
         const entityTypeService = new EntityTypeService(this.exec, new MetahubSchemaService(this.exec))
-        const [treeEntityKinds, linkedCollectionKinds, valueGroupKinds, optionListKinds] = await Promise.all([
+        const [treeEntityKinds, objectCollectionKinds, valueGroupKinds, optionListKinds] = await Promise.all([
             resolveEntityMetadataKindsInSchema(entityTypeService, schemaName, 'hub', exec),
-            resolveEntityMetadataKindsInSchema(entityTypeService, schemaName, 'catalog', exec),
+            resolveEntityMetadataKindsInSchema(entityTypeService, schemaName, 'object', exec),
             resolveEntityMetadataKindsInSchema(entityTypeService, schemaName, 'set', exec),
             resolveEntityMetadataKindsInSchema(entityTypeService, schemaName, 'enumeration', exec)
         ])
 
         const entityGroupByKind = new Map<string, BranchCopyEntityGroup>()
         for (const kind of treeEntityKinds) entityGroupByKind.set(kind, 'treeEntity')
-        for (const kind of linkedCollectionKinds) entityGroupByKind.set(kind, 'linkedCollection')
+        for (const kind of objectCollectionKinds) entityGroupByKind.set(kind, 'objectCollection')
         for (const kind of valueGroupKinds) entityGroupByKind.set(kind, 'valueGroup')
         for (const kind of optionListKinds) entityGroupByKind.set(kind, 'optionList')
 
         return {
             treeEntityKinds,
-            linkedCollectionKinds,
+            objectCollectionKinds,
             valueGroupKinds,
             optionListKinds,
             entityGroupByKind
@@ -138,13 +138,13 @@ export class MetahubBranchesService {
         compatibility: BranchSchemaCompatibilityContext
     ): Promise<void> {
         const keptKinds: string[] = []
-        if (options.copyLinkedCollections) keptKinds.push(...compatibility.linkedCollectionKinds)
+        if (options.copyObjectCollections) keptKinds.push(...compatibility.objectCollectionKinds)
         if (options.copyValueGroups) keptKinds.push(...compatibility.valueGroupKinds)
         if (options.copyTreeEntities) keptKinds.push(...compatibility.treeEntityKinds)
         if (options.copyOptionLists) keptKinds.push(...compatibility.optionListKinds)
 
         const removedKinds: string[] = []
-        if (!options.copyLinkedCollections) removedKinds.push(...compatibility.linkedCollectionKinds)
+        if (!options.copyObjectCollections) removedKinds.push(...compatibility.objectCollectionKinds)
         if (!options.copyValueGroups) removedKinds.push(...compatibility.valueGroupKinds)
         if (!options.copyTreeEntities) removedKinds.push(...compatibility.treeEntityKinds)
         if (!options.copyOptionLists) removedKinds.push(...compatibility.optionListKinds)
@@ -156,23 +156,23 @@ export class MetahubBranchesService {
 
         const rows = await exec.query<{ target_kind: string | null }>(
             `
-                SELECT DISTINCT COALESCE(target.kind, attr.target_object_kind)::text AS target_kind
-                FROM ${schemaIdent}._mhb_attributes attr
+                SELECT DISTINCT COALESCE(target.kind, cmp.target_object_kind)::text AS target_kind
+                FROM ${schemaIdent}._mhb_components cmp
                 INNER JOIN ${schemaIdent}._mhb_objects obj
-                    ON obj.id = attr.object_id
+                    ON obj.id = cmp.object_id
                 LEFT JOIN ${schemaIdent}._mhb_objects target
-                    ON target.id = attr.target_object_id
+                    ON target.id = cmp.target_object_id
                 WHERE obj.kind = ANY($1::text[])
                   AND (
-                      (attr.target_object_id IS NOT NULL AND target.kind = ANY($2::text[]))
-                      OR attr.target_object_kind = ANY($2::text[])
+                      (cmp.target_object_id IS NOT NULL AND target.kind = ANY($2::text[]))
+                      OR cmp.target_object_kind = ANY($2::text[])
                   )
-                  AND COALESCE(attr._upl_deleted, false) = false
-                  AND COALESCE(attr._mhb_deleted, false) = false
+                  AND COALESCE(cmp._upl_deleted, false) = false
+                  AND COALESCE(cmp._mhb_deleted, false) = false
                   AND COALESCE(obj._upl_deleted, false) = false
                   AND COALESCE(obj._mhb_deleted, false) = false
                   AND (
-                      attr.target_object_id IS NULL
+                      cmp.target_object_id IS NULL
                       OR (
                           COALESCE(target._upl_deleted, false) = false
                           AND COALESCE(target._mhb_deleted, false) = false
@@ -205,7 +205,7 @@ export class MetahubBranchesService {
         if (options.copyTreeEntities) return
 
         const kindsWithHubConfig: string[] = []
-        if (options.copyLinkedCollections) kindsWithHubConfig.push(...compatibility.linkedCollectionKinds)
+        if (options.copyObjectCollections) kindsWithHubConfig.push(...compatibility.objectCollectionKinds)
         if (options.copyValueGroups) kindsWithHubConfig.push(...compatibility.valueGroupKinds)
         if (options.copyOptionLists) kindsWithHubConfig.push(...compatibility.optionListKinds)
         if (kindsWithHubConfig.length === 0) return
@@ -276,7 +276,7 @@ export class MetahubBranchesService {
 
         const kindsToDelete: string[] = []
         if (!options.copyTreeEntities) kindsToDelete.push(...compatibility.treeEntityKinds)
-        if (!options.copyLinkedCollections) kindsToDelete.push(...compatibility.linkedCollectionKinds)
+        if (!options.copyObjectCollections) kindsToDelete.push(...compatibility.objectCollectionKinds)
         if (!options.copyValueGroups) kindsToDelete.push(...compatibility.valueGroupKinds)
         if (!options.copyOptionLists) kindsToDelete.push(...compatibility.optionListKinds)
 
@@ -403,7 +403,7 @@ export class MetahubBranchesService {
                 b._app_owner_id AS "_appOwnerId",
                 b._app_access_level AS "_appAccessLevel",
                 COUNT(*) OVER() AS "windowTotal"
-             FROM metahubs.cat_metahub_branches b
+             FROM metahubs.obj_metahub_branches b
              WHERE ${conditions.join(' AND ')}
              ORDER BY ${orderColumn} ${orderDir}
              LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
@@ -469,7 +469,7 @@ export class MetahubBranchesService {
                 b._app_deleted_by AS "_appDeletedBy",
                 b._app_owner_id AS "_appOwnerId",
                 b._app_access_level AS "_appAccessLevel"
-             FROM metahubs.cat_metahub_branches b
+             FROM metahubs.obj_metahub_branches b
              WHERE ${conditions.join(' AND ')}
              ORDER BY ${orderColumn} ${orderDir}`,
             params
@@ -848,7 +848,7 @@ export class MetahubBranchesService {
                 mu.role
              FROM metahubs.rel_metahub_users mu
              LEFT JOIN auth.users au ON au.id = mu.user_id
-             LEFT JOIN profiles.cat_profiles p ON p.user_id = mu.user_id AND p._upl_deleted = false AND p._app_deleted = false
+             LEFT JOIN profiles.obj_profiles p ON p.user_id = mu.user_id AND p._upl_deleted = false AND p._app_deleted = false
              WHERE mu.metahub_id = $1
                AND mu.active_branch_id = $2
                ${excludeClause}`,

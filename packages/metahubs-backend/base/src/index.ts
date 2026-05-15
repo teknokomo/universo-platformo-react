@@ -3,7 +3,7 @@ export { seedTemplates } from './domains/templates/services/TemplateSeeder'
 
 // Route exports
 export { createMetahubsRoutes } from './domains/metahubs/routes/metahubsRoutes'
-export { createEntityFieldDefinitionRoutes } from './domains/entities/metadata/fieldDefinition/routes'
+export { createEntityComponentRoutes } from './domains/entities/metadata/component/routes'
 export { createEntityFixedValueRoutes } from './domains/entities/metadata/fixedValue/routes'
 export { createEntityRecordRoutes } from './domains/entities/metadata/record/routes'
 export { createPublicMetahubsRoutes } from './domains/metahubs/routes/publicMetahubsRoutes'
@@ -39,7 +39,7 @@ export {
 } from './domains/ddl'
 export type {
     EntityDefinition,
-    FieldDefinition,
+    Component,
     SchemaGenerationResult,
     SchemaSnapshot,
     MigrationResult,

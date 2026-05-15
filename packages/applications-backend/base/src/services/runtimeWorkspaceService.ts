@@ -968,7 +968,7 @@ export async function listWorkspaceMembers(
             FROM ${workspaceUserRolesQt} wur
             INNER JOIN ${workspaceRolesQt} r ON r.id = wur.role_id
             LEFT JOIN auth.users u ON u.id = wur.user_id
-            LEFT JOIN profiles.cat_profiles p ON p.user_id = wur.user_id
+            LEFT JOIN profiles.obj_profiles p ON p.user_id = wur.user_id
             WHERE wur.workspace_id = $1
               AND wur.${qColumn('_upl_deleted')} = false
               AND wur.${qColumn('_app_deleted')} = false

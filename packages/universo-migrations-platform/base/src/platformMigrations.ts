@@ -35,7 +35,7 @@ import {
     inspectRegisteredSystemAppStructureMetadata,
     validateRegisteredSystemAppCompiledDefinitions
 } from './systemAppSchemaCompiler'
-import { isGlobalMigrationCatalogEnabled } from '@universo/utils'
+import { isGlobalMigrationObjectEnabled } from '@universo/utils'
 
 export const registeredSystemAppDefinitions = systemAppDefinitions
 export const platformMigrations: PlatformMigrationFile[] = loadPlatformMigrationsFromSystemApps()
@@ -53,14 +53,14 @@ const registeredSystemAppSchemaPlanDefinitionFamily = 'registered_system_app_sch
 const registeredSystemAppCompiledDefinitionFamily = 'registered_system_app_compiled_definitions'
 const mixedRegisteredDefinitionFamily = 'mixed_registered_definition_families'
 const anyRegisteredPlatformLifecycleExportTarget = 'any-active-revision-export'
-export const globalMigrationCatalogDisabledMessage = 'Global migration catalog is disabled by UPL_GLOBAL_MIGRATION_CATALOG_ENABLED=false'
+export const globalMigrationObjectDisabledMessage = 'Global migration object is disabled by UPL_GLOBAL_MIGRATION_OBJECT_ENABLED=false'
 
 const createPlatformMigrationRepository = (knex: Knex) =>
-    isGlobalMigrationCatalogEnabled() ? new PlatformMigrationCatalog(knex) : new PlatformMigrationKernelCatalog(knex)
+    isGlobalMigrationObjectEnabled() ? new PlatformMigrationCatalog(knex) : new PlatformMigrationKernelCatalog(knex)
 
-const assertGlobalMigrationCatalogEnabled = (): void => {
-    if (!isGlobalMigrationCatalogEnabled()) {
-        throw new Error(`${globalMigrationCatalogDisabledMessage}. Enable it to use catalog-backed definition lifecycle commands.`)
+const assertGlobalMigrationObjectEnabled = (): void => {
+    if (!isGlobalMigrationObjectEnabled()) {
+        throw new Error(`${globalMigrationObjectDisabledMessage}. Enable it to use object-backed definition lifecycle commands.`)
     }
 }
 
@@ -175,7 +175,7 @@ interface RegisteredSystemAppCompiledAttributePayload extends Omit<RegisteredSys
     targetObjectCodename?: string | null
     dataType: string
     isRequired: boolean
-    isDisplayAttribute: boolean
+    isDisplayComponent: boolean
     presentation?: Record<string, unknown> | null
     validationRules?: Record<string, unknown> | null
     uiConfig?: Record<string, unknown> | null
@@ -382,7 +382,7 @@ export const lintRegisteredSystemAppCompiledDefinitions = (): RegisteredPlatform
 
 export interface RegisteredPlatformDefinitionDiffEntry {
     logicalKey: string
-    status: 'match' | 'missing_in_catalog' | 'checksum_mismatch' | 'catalog_only'
+    status: 'match' | 'missing_in_object' | 'checksum_mismatch' | 'object_only'
     desiredChecksum: string | null
     actualChecksum: string | null
 }
@@ -392,30 +392,30 @@ export const diffRegisteredPlatformDefinitions = async (knex: Knex): Promise<Reg
     const desiredByKey = new Map<string, DefinitionArtifact>(
         desiredArtifacts.map((artifact) => [`${artifact.schemaQualifiedName}::${artifact.kind}`, artifact] as const)
     )
-    const catalog = new PlatformMigrationCatalog(knex)
+    const object = new PlatformMigrationCatalog(knex)
 
-    if (!(await catalog.isStorageReady())) {
+    if (!(await object.isStorageReady())) {
         return desiredArtifacts
             .map((artifact) => ({
                 logicalKey: `${artifact.schemaQualifiedName}::${artifact.kind}`,
-                status: 'missing_in_catalog' as const,
+                status: 'missing_in_object' as const,
                 desiredChecksum: artifact.checksum,
                 actualChecksum: null
             }))
             .sort((left, right) => left.logicalKey.localeCompare(right.logicalKey))
     }
 
-    const catalogArtifacts = await exportDefinitions(knex, { logicalKeyPrefix: 'platform_migration.' })
-    const catalogByKey = new Map<string, DefinitionArtifact>(
-        catalogArtifacts.map((artifact) => [`${artifact.schemaQualifiedName}::${artifact.kind}`, artifact] as const)
+    const objectArtifacts = await exportDefinitions(knex, { logicalKeyPrefix: 'platform_migration.' })
+    const objectByKey = new Map<string, DefinitionArtifact>(
+        objectArtifacts.map((artifact) => [`${artifact.schemaQualifiedName}::${artifact.kind}`, artifact] as const)
     )
-    const keys: string[] = Array.from(new Set<string>([...desiredByKey.keys(), ...catalogByKey.keys()])).sort((left, right) =>
+    const keys: string[] = Array.from(new Set<string>([...desiredByKey.keys(), ...objectByKey.keys()])).sort((left, right) =>
         left.localeCompare(right)
     )
 
     return keys.map((logicalKey): RegisteredPlatformDefinitionDiffEntry => {
         const desired = desiredByKey.get(logicalKey) ?? null
-        const actual = catalogByKey.get(logicalKey) ?? null
+        const actual = objectByKey.get(logicalKey) ?? null
 
         if (desired && actual) {
             return {
@@ -429,7 +429,7 @@ export const diffRegisteredPlatformDefinitions = async (knex: Knex): Promise<Reg
         if (desired) {
             return {
                 logicalKey,
-                status: 'missing_in_catalog',
+                status: 'missing_in_object',
                 desiredChecksum: desired.checksum,
                 actualChecksum: null
             }
@@ -437,7 +437,7 @@ export const diffRegisteredPlatformDefinitions = async (knex: Knex): Promise<Reg
 
         return {
             logicalKey,
-            status: 'catalog_only',
+            status: 'object_only',
             desiredChecksum: null,
             actualChecksum: actual?.checksum ?? null
         }
@@ -449,30 +449,30 @@ export const diffRegisteredSystemAppManifestDefinitions = async (knex: Knex): Pr
     const desiredByKey = new Map<string, DefinitionArtifact>(
         desiredArtifacts.map((artifact) => [`${artifact.schemaQualifiedName}::${artifact.kind}`, artifact] as const)
     )
-    const catalog = new PlatformMigrationCatalog(knex)
+    const object = new PlatformMigrationCatalog(knex)
 
-    if (!(await catalog.isStorageReady())) {
+    if (!(await object.isStorageReady())) {
         return desiredArtifacts
             .map((artifact) => ({
                 logicalKey: `${artifact.schemaQualifiedName}::${artifact.kind}`,
-                status: 'missing_in_catalog' as const,
+                status: 'missing_in_object' as const,
                 desiredChecksum: artifact.checksum,
                 actualChecksum: null
             }))
             .sort((left, right) => left.logicalKey.localeCompare(right.logicalKey))
     }
 
-    const catalogArtifacts = await exportDefinitions(knex, { logicalKeyPrefix: 'system_app_manifest.' })
-    const catalogByKey = new Map<string, DefinitionArtifact>(
-        catalogArtifacts.map((artifact) => [`${artifact.schemaQualifiedName}::${artifact.kind}`, artifact] as const)
+    const objectArtifacts = await exportDefinitions(knex, { logicalKeyPrefix: 'system_app_manifest.' })
+    const objectByKey = new Map<string, DefinitionArtifact>(
+        objectArtifacts.map((artifact) => [`${artifact.schemaQualifiedName}::${artifact.kind}`, artifact] as const)
     )
-    const keys: string[] = Array.from(new Set<string>([...desiredByKey.keys(), ...catalogByKey.keys()])).sort((left, right) =>
+    const keys: string[] = Array.from(new Set<string>([...desiredByKey.keys(), ...objectByKey.keys()])).sort((left, right) =>
         left.localeCompare(right)
     )
 
     return keys.map((logicalKey): RegisteredPlatformDefinitionDiffEntry => {
         const desired = desiredByKey.get(logicalKey) ?? null
-        const actual = catalogByKey.get(logicalKey) ?? null
+        const actual = objectByKey.get(logicalKey) ?? null
 
         if (desired && actual) {
             return {
@@ -486,7 +486,7 @@ export const diffRegisteredSystemAppManifestDefinitions = async (knex: Knex): Pr
         if (desired) {
             return {
                 logicalKey,
-                status: 'missing_in_catalog',
+                status: 'missing_in_object',
                 desiredChecksum: desired.checksum,
                 actualChecksum: null
             }
@@ -494,7 +494,7 @@ export const diffRegisteredSystemAppManifestDefinitions = async (knex: Knex): Pr
 
         return {
             logicalKey,
-            status: 'catalog_only',
+            status: 'object_only',
             desiredChecksum: null,
             actualChecksum: actual?.checksum ?? null
         }
@@ -506,30 +506,30 @@ export const diffRegisteredSystemAppSchemaPlanDefinitions = async (knex: Knex): 
     const desiredByKey = new Map<string, DefinitionArtifact>(
         desiredArtifacts.map((artifact) => [`${artifact.schemaQualifiedName}::${artifact.kind}`, artifact] as const)
     )
-    const catalog = new PlatformMigrationCatalog(knex)
+    const object = new PlatformMigrationCatalog(knex)
 
-    if (!(await catalog.isStorageReady())) {
+    if (!(await object.isStorageReady())) {
         return desiredArtifacts
             .map((artifact) => ({
                 logicalKey: `${artifact.schemaQualifiedName}::${artifact.kind}`,
-                status: 'missing_in_catalog' as const,
+                status: 'missing_in_object' as const,
                 desiredChecksum: artifact.checksum,
                 actualChecksum: null
             }))
             .sort((left, right) => left.logicalKey.localeCompare(right.logicalKey))
     }
 
-    const catalogArtifacts = await exportDefinitions(knex, { logicalKeyPrefix: 'system_app_schema_plan.' })
-    const catalogByKey = new Map<string, DefinitionArtifact>(
-        catalogArtifacts.map((artifact) => [`${artifact.schemaQualifiedName}::${artifact.kind}`, artifact] as const)
+    const objectArtifacts = await exportDefinitions(knex, { logicalKeyPrefix: 'system_app_schema_plan.' })
+    const objectByKey = new Map<string, DefinitionArtifact>(
+        objectArtifacts.map((artifact) => [`${artifact.schemaQualifiedName}::${artifact.kind}`, artifact] as const)
     )
-    const keys: string[] = Array.from(new Set<string>([...desiredByKey.keys(), ...catalogByKey.keys()])).sort((left, right) =>
+    const keys: string[] = Array.from(new Set<string>([...desiredByKey.keys(), ...objectByKey.keys()])).sort((left, right) =>
         left.localeCompare(right)
     )
 
     return keys.map((logicalKey): RegisteredPlatformDefinitionDiffEntry => {
         const desired = desiredByKey.get(logicalKey) ?? null
-        const actual = catalogByKey.get(logicalKey) ?? null
+        const actual = objectByKey.get(logicalKey) ?? null
 
         if (desired && actual) {
             return {
@@ -543,7 +543,7 @@ export const diffRegisteredSystemAppSchemaPlanDefinitions = async (knex: Knex): 
         if (desired) {
             return {
                 logicalKey,
-                status: 'missing_in_catalog',
+                status: 'missing_in_object',
                 desiredChecksum: desired.checksum,
                 actualChecksum: null
             }
@@ -551,7 +551,7 @@ export const diffRegisteredSystemAppSchemaPlanDefinitions = async (knex: Knex): 
 
         return {
             logicalKey,
-            status: 'catalog_only',
+            status: 'object_only',
             desiredChecksum: null,
             actualChecksum: actual?.checksum ?? null
         }
@@ -563,30 +563,30 @@ export const diffRegisteredSystemAppCompiledDefinitions = async (knex: Knex): Pr
     const desiredByKey = new Map<string, DefinitionArtifact>(
         desiredArtifacts.map((artifact) => [`${artifact.schemaQualifiedName}::${artifact.kind}`, artifact] as const)
     )
-    const catalog = new PlatformMigrationCatalog(knex)
+    const object = new PlatformMigrationCatalog(knex)
 
-    if (!(await catalog.isStorageReady())) {
+    if (!(await object.isStorageReady())) {
         return desiredArtifacts
             .map((artifact) => ({
                 logicalKey: `${artifact.schemaQualifiedName}::${artifact.kind}`,
-                status: 'missing_in_catalog' as const,
+                status: 'missing_in_object' as const,
                 desiredChecksum: artifact.checksum,
                 actualChecksum: null
             }))
             .sort((left, right) => left.logicalKey.localeCompare(right.logicalKey))
     }
 
-    const catalogArtifacts = await exportDefinitions(knex, { logicalKeyPrefix: 'system_app_compiled.' })
-    const catalogByKey = new Map<string, DefinitionArtifact>(
-        catalogArtifacts.map((artifact) => [`${artifact.schemaQualifiedName}::${artifact.kind}`, artifact] as const)
+    const objectArtifacts = await exportDefinitions(knex, { logicalKeyPrefix: 'system_app_compiled.' })
+    const objectByKey = new Map<string, DefinitionArtifact>(
+        objectArtifacts.map((artifact) => [`${artifact.schemaQualifiedName}::${artifact.kind}`, artifact] as const)
     )
-    const keys: string[] = Array.from(new Set<string>([...desiredByKey.keys(), ...catalogByKey.keys()])).sort((left, right) =>
+    const keys: string[] = Array.from(new Set<string>([...desiredByKey.keys(), ...objectByKey.keys()])).sort((left, right) =>
         left.localeCompare(right)
     )
 
     return keys.map((logicalKey): RegisteredPlatformDefinitionDiffEntry => {
         const desired = desiredByKey.get(logicalKey) ?? null
-        const actual = catalogByKey.get(logicalKey) ?? null
+        const actual = objectByKey.get(logicalKey) ?? null
 
         if (desired && actual) {
             return {
@@ -600,7 +600,7 @@ export const diffRegisteredSystemAppCompiledDefinitions = async (knex: Knex): Pr
         if (desired) {
             return {
                 logicalKey,
-                status: 'missing_in_catalog',
+                status: 'missing_in_object',
                 desiredChecksum: desired.checksum,
                 actualChecksum: null
             }
@@ -608,66 +608,66 @@ export const diffRegisteredSystemAppCompiledDefinitions = async (knex: Knex): Pr
 
         return {
             logicalKey,
-            status: 'catalog_only',
+            status: 'object_only',
             desiredChecksum: null,
             actualChecksum: actual?.checksum ?? null
         }
     })
 }
 
-export const exportCatalogPlatformDefinitions = async (knex: Knex, exportTarget = 'stdout'): Promise<DefinitionArtifact[]> => {
-    const catalog = new PlatformMigrationCatalog(knex)
+export const exportObjectPlatformDefinitions = async (knex: Knex, exportTarget = 'stdout'): Promise<DefinitionArtifact[]> => {
+    const object = new PlatformMigrationCatalog(knex)
 
-    if (!(await catalog.isStorageReady())) {
+    if (!(await object.isStorageReady())) {
         return []
     }
 
     const artifacts = await exportDefinitions(knex, { logicalKeyPrefix: 'platform_migration.' })
-    await recordCatalogDefinitionExports(knex, artifacts, exportTarget)
+    await recordObjectDefinitionExports(knex, artifacts, exportTarget)
 
     return artifacts
 }
 
-export const exportCatalogSystemAppManifestDefinitions = async (knex: Knex, exportTarget = 'stdout'): Promise<DefinitionArtifact[]> => {
-    const catalog = new PlatformMigrationCatalog(knex)
+export const exportObjectSystemAppManifestDefinitions = async (knex: Knex, exportTarget = 'stdout'): Promise<DefinitionArtifact[]> => {
+    const object = new PlatformMigrationCatalog(knex)
 
-    if (!(await catalog.isStorageReady())) {
+    if (!(await object.isStorageReady())) {
         return []
     }
 
     const artifacts = await exportDefinitions(knex, { logicalKeyPrefix: 'system_app_manifest.' })
-    await recordCatalogDefinitionExports(knex, artifacts, exportTarget)
+    await recordObjectDefinitionExports(knex, artifacts, exportTarget)
 
     return artifacts
 }
 
-export const exportCatalogSystemAppSchemaPlanDefinitions = async (knex: Knex, exportTarget = 'stdout'): Promise<DefinitionArtifact[]> => {
-    const catalog = new PlatformMigrationCatalog(knex)
+export const exportObjectSystemAppSchemaPlanDefinitions = async (knex: Knex, exportTarget = 'stdout'): Promise<DefinitionArtifact[]> => {
+    const object = new PlatformMigrationCatalog(knex)
 
-    if (!(await catalog.isStorageReady())) {
+    if (!(await object.isStorageReady())) {
         return []
     }
 
     const artifacts = await exportDefinitions(knex, { logicalKeyPrefix: 'system_app_schema_plan.' })
-    await recordCatalogDefinitionExports(knex, artifacts, exportTarget)
+    await recordObjectDefinitionExports(knex, artifacts, exportTarget)
 
     return artifacts
 }
 
-export const exportCatalogSystemAppCompiledDefinitions = async (knex: Knex, exportTarget = 'stdout'): Promise<DefinitionArtifact[]> => {
-    const catalog = new PlatformMigrationCatalog(knex)
+export const exportObjectSystemAppCompiledDefinitions = async (knex: Knex, exportTarget = 'stdout'): Promise<DefinitionArtifact[]> => {
+    const object = new PlatformMigrationCatalog(knex)
 
-    if (!(await catalog.isStorageReady())) {
+    if (!(await object.isStorageReady())) {
         return []
     }
 
     const artifacts = await exportDefinitions(knex, { logicalKeyPrefix: 'system_app_compiled.' })
-    await recordCatalogDefinitionExports(knex, artifacts, exportTarget)
+    await recordObjectDefinitionExports(knex, artifacts, exportTarget)
 
     return artifacts
 }
 
-const recordCatalogDefinitionExports = async (
+const recordObjectDefinitionExports = async (
     knex: Knex,
     artifacts: DefinitionArtifact[],
     exportTarget: string,
@@ -695,7 +695,7 @@ const recordCatalogDefinitionExports = async (
     }
 }
 
-export const exportCatalogPlatformDefinitionBundle = async (knex: Knex, exportTarget = 'stdout') => {
+export const exportObjectPlatformDefinitionBundle = async (knex: Knex, exportTarget = 'stdout') => {
     const bundle = await exportDefinitionBundle(
         knex,
         { logicalKeyPrefix: 'platform_migration.' },
@@ -707,21 +707,21 @@ export const exportCatalogPlatformDefinitionBundle = async (knex: Knex, exportTa
             },
             provenance: {
                 exportedFrom: exportTarget,
-                source: 'catalog-platform-definitions'
+                source: 'object-platform-definitions'
             }
         }
     )
 
-    await recordCatalogDefinitionExports(knex, bundle.artifacts, exportTarget, {
+    await recordObjectDefinitionExports(knex, bundle.artifacts, exportTarget, {
         bundleVersion: bundle.bundleVersion,
         checksumFamily: bundle.checksumFamily,
-        source: 'catalog-platform-definitions'
+        source: 'object-platform-definitions'
     })
 
     return bundle
 }
 
-export const exportCatalogSystemAppManifestDefinitionBundle = async (knex: Knex, exportTarget = 'stdout') => {
+export const exportObjectSystemAppManifestDefinitionBundle = async (knex: Knex, exportTarget = 'stdout') => {
     const bundle = await exportDefinitionBundle(
         knex,
         { logicalKeyPrefix: 'system_app_manifest.' },
@@ -733,21 +733,21 @@ export const exportCatalogSystemAppManifestDefinitionBundle = async (knex: Knex,
             },
             provenance: {
                 exportedFrom: exportTarget,
-                source: 'catalog-system-app-manifests'
+                source: 'object-system-app-manifests'
             }
         }
     )
 
-    await recordCatalogDefinitionExports(knex, bundle.artifacts, exportTarget, {
+    await recordObjectDefinitionExports(knex, bundle.artifacts, exportTarget, {
         bundleVersion: bundle.bundleVersion,
         checksumFamily: bundle.checksumFamily,
-        source: 'catalog-system-app-manifests'
+        source: 'object-system-app-manifests'
     })
 
     return bundle
 }
 
-export const exportCatalogSystemAppSchemaPlanDefinitionBundle = async (knex: Knex, exportTarget = 'stdout') => {
+export const exportObjectSystemAppSchemaPlanDefinitionBundle = async (knex: Knex, exportTarget = 'stdout') => {
     const bundle = await exportDefinitionBundle(
         knex,
         { logicalKeyPrefix: 'system_app_schema_plan.' },
@@ -759,21 +759,21 @@ export const exportCatalogSystemAppSchemaPlanDefinitionBundle = async (knex: Kne
             },
             provenance: {
                 exportedFrom: exportTarget,
-                source: 'catalog-system-app-schema-plans'
+                source: 'object-system-app-schema-plans'
             }
         }
     )
 
-    await recordCatalogDefinitionExports(knex, bundle.artifacts, exportTarget, {
+    await recordObjectDefinitionExports(knex, bundle.artifacts, exportTarget, {
         bundleVersion: bundle.bundleVersion,
         checksumFamily: bundle.checksumFamily,
-        source: 'catalog-system-app-schema-plans'
+        source: 'object-system-app-schema-plans'
     })
 
     return bundle
 }
 
-export const exportCatalogSystemAppCompiledDefinitionBundle = async (knex: Knex, exportTarget = 'stdout') => {
+export const exportObjectSystemAppCompiledDefinitionBundle = async (knex: Knex, exportTarget = 'stdout') => {
     const bundle = await exportDefinitionBundle(
         knex,
         { logicalKeyPrefix: 'system_app_compiled.' },
@@ -785,15 +785,15 @@ export const exportCatalogSystemAppCompiledDefinitionBundle = async (knex: Knex,
             },
             provenance: {
                 exportedFrom: exportTarget,
-                source: 'catalog-system-app-compiled-definitions'
+                source: 'object-system-app-compiled-definitions'
             }
         }
     )
 
-    await recordCatalogDefinitionExports(knex, bundle.artifacts, exportTarget, {
+    await recordObjectDefinitionExports(knex, bundle.artifacts, exportTarget, {
         bundleVersion: bundle.bundleVersion,
         checksumFamily: bundle.checksumFamily,
-        source: 'catalog-system-app-compiled-definitions'
+        source: 'object-system-app-compiled-definitions'
     })
 
     return bundle
@@ -814,7 +814,7 @@ export interface RegisteredPlatformDefinitionSyncResult {
     systemAppCompiledLint?: RegisteredPlatformDefinitionLintResult
 }
 
-export interface RegisteredPlatformCatalogLifecycleHealth {
+export interface RegisteredPlatformObjectLifecycleHealth {
     ok: boolean
     storageReady: boolean
     exportTarget: string
@@ -878,14 +878,14 @@ const legacyFixedSchemaTableTargets: LegacyFixedSchemaTableTarget[] = [
         schemaName: 'public',
         legacyTableName: 'profiles',
         targetSchemaName: 'profiles',
-        targetTableName: 'cat_profiles'
+        targetTableName: 'obj_profiles'
     },
     {
         definitionKey: 'profiles',
         schemaName: 'profiles',
         legacyTableName: 'profiles',
         targetSchemaName: 'profiles',
-        targetTableName: 'cat_profiles'
+        targetTableName: 'obj_profiles'
     },
     {
         definitionKey: 'admin',
@@ -899,7 +899,7 @@ const legacyFixedSchemaTableTargets: LegacyFixedSchemaTableTarget[] = [
         schemaName: 'admin',
         legacyTableName: 'roles',
         targetSchemaName: 'admin',
-        targetTableName: 'cat_roles'
+        targetTableName: 'obj_roles'
     },
     {
         definitionKey: 'admin',
@@ -934,14 +934,14 @@ const legacyFixedSchemaTableTargets: LegacyFixedSchemaTableTarget[] = [
         schemaName: 'applications',
         legacyTableName: 'applications',
         targetSchemaName: 'applications',
-        targetTableName: 'cat_applications'
+        targetTableName: 'obj_applications'
     },
     {
         definitionKey: 'applications',
         schemaName: 'applications',
         legacyTableName: 'connectors',
         targetSchemaName: 'applications',
-        targetTableName: 'cat_connectors'
+        targetTableName: 'obj_connectors'
     },
     {
         definitionKey: 'applications',
@@ -962,14 +962,14 @@ const legacyFixedSchemaTableTargets: LegacyFixedSchemaTableTarget[] = [
         schemaName: 'metahubs',
         legacyTableName: 'metahubs',
         targetSchemaName: 'metahubs',
-        targetTableName: 'cat_metahubs'
+        targetTableName: 'obj_metahubs'
     },
     {
         definitionKey: 'metahubs',
         schemaName: 'metahubs',
         legacyTableName: 'metahubs_branches',
         targetSchemaName: 'metahubs',
-        targetTableName: 'cat_metahub_branches'
+        targetTableName: 'obj_metahub_branches'
     },
     {
         definitionKey: 'metahubs',
@@ -983,7 +983,7 @@ const legacyFixedSchemaTableTargets: LegacyFixedSchemaTableTarget[] = [
         schemaName: 'metahubs',
         legacyTableName: 'templates',
         targetSchemaName: 'metahubs',
-        targetTableName: 'cat_templates'
+        targetTableName: 'obj_templates'
     },
     {
         definitionKey: 'metahubs',
@@ -1113,7 +1113,7 @@ const inferImportedDefinitionFamily = (artifacts: DefinitionArtifact[]): string 
     return mixedRegisteredDefinitionFamily
 }
 
-const syncDefinitionArtifactsToCatalog = async (
+const syncDefinitionArtifactsToObject = async (
     knex: Knex,
     artifacts: DefinitionArtifact[],
     options: {
@@ -1132,8 +1132,8 @@ const syncDefinitionArtifactsToCatalog = async (
     }
 
     const syncedAt = new Date().toISOString()
-    const existingState = await loadRegisteredDefinitionCatalogState(knex, artifacts, options.exportTarget)
-    if (isRegisteredDefinitionCatalogStateCurrent(existingState, artifacts, options.definitionFamily)) {
+    const existingState = await loadRegisteredDefinitionObjectState(knex, artifacts, options.exportTarget)
+    if (isRegisteredDefinitionObjectStateCurrent(existingState, artifacts, options.definitionFamily)) {
         return {
             created: 0,
             updated: 0,
@@ -1153,7 +1153,7 @@ const syncDefinitionArtifactsToCatalog = async (
         }
     })
 
-    const importedState = await loadRegisteredDefinitionCatalogState(knex, artifacts, options.exportTarget)
+    const importedState = await loadRegisteredDefinitionObjectState(knex, artifacts, options.exportTarget)
     for (const artifact of artifacts) {
         const state = importedState.get(buildLogicalKey(artifact))
         if (!state?.registryId || !state.activeRevisionId || !state.activeChecksum) {
@@ -1177,7 +1177,7 @@ const syncDefinitionArtifactsToCatalog = async (
     return result
 }
 
-interface RegisteredDefinitionCatalogStateRow {
+interface RegisteredDefinitionObjectStateRow {
     logicalKey: string
     registryId: string | null
     activeRevisionId: string | null
@@ -1218,11 +1218,11 @@ const parseActiveDefinitionArtifact = (value: unknown): DefinitionArtifact | nul
     return null
 }
 
-const loadRegisteredDefinitionCatalogState = async (
+const loadRegisteredDefinitionObjectState = async (
     knex: Knex,
     artifacts: DefinitionArtifact[],
     exportTarget: string
-): Promise<Map<string, RegisteredDefinitionCatalogStateRow>> => {
+): Promise<Map<string, RegisteredDefinitionObjectStateRow>> => {
     const logicalKeys = artifacts.map((artifact) => buildLogicalKey(artifact))
     const placeholders = logicalKeys.map(() => '?').join(', ')
     const rows = normalizeRawRows(
@@ -1277,15 +1277,15 @@ const loadRegisteredDefinitionCatalogState = async (
                             provenance?.reviewState === 'published' &&
                             provenance?.checksumFamily === 'sha256' &&
                             typeof provenance?.sourceKind === 'string'
-                    } satisfies RegisteredDefinitionCatalogStateRow
+                    } satisfies RegisteredDefinitionObjectStateRow
                 ] as const
             })
-            .filter((entry): entry is readonly [string, RegisteredDefinitionCatalogStateRow] => entry !== null)
+            .filter((entry): entry is readonly [string, RegisteredDefinitionObjectStateRow] => entry !== null)
     )
 }
 
-const isRegisteredDefinitionCatalogStateCurrent = (
-    state: Map<string, RegisteredDefinitionCatalogStateRow>,
+const isRegisteredDefinitionObjectStateCurrent = (
+    state: Map<string, RegisteredDefinitionObjectStateRow>,
     artifacts: DefinitionArtifact[],
     definitionFamily: string
 ): boolean => {
@@ -1458,7 +1458,7 @@ const parseSystemAppCompiledPayload = (sql: string, index: number): RegisteredSy
             !(typeof parsed.uiConfig === 'undefined' || parsed.uiConfig === null || isRecord(parsed.uiConfig)) ||
             typeof parsed.dataType !== 'string' ||
             typeof parsed.isRequired !== 'boolean' ||
-            typeof parsed.isDisplayAttribute !== 'boolean')
+            typeof parsed.isDisplayComponent !== 'boolean')
     ) {
         throw new Error(`Definition artifact at index ${index} contains an invalid system app compiled payload`)
     }
@@ -1567,11 +1567,11 @@ const assertDefinitionArtifact = (value: unknown, index: number): DefinitionArti
     }
 }
 
-export const syncRegisteredPlatformDefinitionsToCatalog = async (
+export const syncRegisteredPlatformDefinitionsToObject = async (
     knex: Knex,
     meta?: Record<string, unknown>
 ): Promise<RegisteredPlatformDefinitionSyncResult> => {
-    assertGlobalMigrationCatalogEnabled()
+    assertGlobalMigrationObjectEnabled()
 
     const systemAppDefinitionsValidation = validateRegisteredSystemAppDefinitions()
     if (!systemAppDefinitionsValidation.ok) {
@@ -1627,25 +1627,25 @@ export const syncRegisteredPlatformDefinitionsToCatalog = async (
         )
     }
 
-    const platformResult = await syncDefinitionArtifactsToCatalog(knex, exportRegisteredPlatformDefinitions(), {
+    const platformResult = await syncDefinitionArtifactsToObject(knex, exportRegisteredPlatformDefinitions(), {
         definitionFamily: registeredPlatformDefinitionFamily,
         provenanceSource: 'registered-platform-definitions',
         exportTarget,
         meta
     })
-    const manifestResult = await syncDefinitionArtifactsToCatalog(knex, exportRegisteredSystemAppManifestDefinitions(), {
+    const manifestResult = await syncDefinitionArtifactsToObject(knex, exportRegisteredSystemAppManifestDefinitions(), {
         definitionFamily: registeredSystemAppManifestDefinitionFamily,
         provenanceSource: 'registered-system-app-manifests',
         exportTarget,
         meta
     })
-    const schemaPlanResult = await syncDefinitionArtifactsToCatalog(knex, exportRegisteredSystemAppSchemaPlanDefinitions(), {
+    const schemaPlanResult = await syncDefinitionArtifactsToObject(knex, exportRegisteredSystemAppSchemaPlanDefinitions(), {
         definitionFamily: registeredSystemAppSchemaPlanDefinitionFamily,
         provenanceSource: 'registered-system-app-schema-plans',
         exportTarget,
         meta
     })
-    const compiledResult = await syncDefinitionArtifactsToCatalog(knex, exportRegisteredSystemAppCompiledDefinitions(), {
+    const compiledResult = await syncDefinitionArtifactsToObject(knex, exportRegisteredSystemAppCompiledDefinitions(), {
         definitionFamily: registeredSystemAppCompiledDefinitionFamily,
         provenanceSource: 'registered-system-app-compiled-definitions',
         exportTarget,
@@ -1675,7 +1675,7 @@ export const importPlatformDefinitionsFromFile = async (
     filePath: string,
     meta?: Record<string, unknown>
 ): Promise<RegisteredPlatformDefinitionSyncResult> => {
-    assertGlobalMigrationCatalogEnabled()
+    assertGlobalMigrationObjectEnabled()
 
     const raw = await readFile(filePath, 'utf8')
     const parsed = JSON.parse(raw) as PlatformDefinitionImportPayload
@@ -1767,20 +1767,20 @@ export interface RegisteredPlatformDoctorResult {
     systemAppCompiledLint: RegisteredPlatformDefinitionLintResult
     systemAppCompiledDiff: RegisteredPlatformDefinitionDiffEntry[]
     migrationPlan: Awaited<ReturnType<typeof planRegisteredPlatformMigrations>>
-    catalogLifecycle: RegisteredPlatformCatalogLifecycleHealth
-    systemAppManifestCatalogLifecycle: RegisteredPlatformCatalogLifecycleHealth
-    systemAppSchemaPlanCatalogLifecycle: RegisteredPlatformCatalogLifecycleHealth
-    systemAppCompiledCatalogLifecycle: RegisteredPlatformCatalogLifecycleHealth
+    objectLifecycle: RegisteredPlatformObjectLifecycleHealth
+    systemAppManifestObjectLifecycle: RegisteredPlatformObjectLifecycleHealth
+    systemAppSchemaPlanObjectLifecycle: RegisteredPlatformObjectLifecycleHealth
+    systemAppCompiledObjectLifecycle: RegisteredPlatformObjectLifecycleHealth
 }
 
-const inspectDefinitionCatalogLifecycle = async (
+const inspectDefinitionObjectLifecycle = async (
     knex: Knex,
     desired: DefinitionArtifact[],
     exportTarget: string
-): Promise<RegisteredPlatformCatalogLifecycleHealth> => {
-    const catalog = new PlatformMigrationCatalog(knex)
+): Promise<RegisteredPlatformObjectLifecycleHealth> => {
+    const object = new PlatformMigrationCatalog(knex)
 
-    if (!(await catalog.isStorageReady())) {
+    if (!(await object.isStorageReady())) {
         return {
             ok: false,
             storageReady: false,
@@ -1863,17 +1863,17 @@ const inspectDefinitionCatalogLifecycle = async (
     }
 }
 
-const inspectRegisteredPlatformCatalogLifecycle = async (knex: Knex): Promise<RegisteredPlatformCatalogLifecycleHealth> =>
-    inspectDefinitionCatalogLifecycle(knex, exportRegisteredPlatformDefinitions(), anyRegisteredPlatformLifecycleExportTarget)
+const inspectRegisteredPlatformObjectLifecycle = async (knex: Knex): Promise<RegisteredPlatformObjectLifecycleHealth> =>
+    inspectDefinitionObjectLifecycle(knex, exportRegisteredPlatformDefinitions(), anyRegisteredPlatformLifecycleExportTarget)
 
-const inspectRegisteredSystemAppManifestCatalogLifecycle = async (knex: Knex): Promise<RegisteredPlatformCatalogLifecycleHealth> =>
-    inspectDefinitionCatalogLifecycle(knex, exportRegisteredSystemAppManifestDefinitions(), anyRegisteredPlatformLifecycleExportTarget)
+const inspectRegisteredSystemAppManifestObjectLifecycle = async (knex: Knex): Promise<RegisteredPlatformObjectLifecycleHealth> =>
+    inspectDefinitionObjectLifecycle(knex, exportRegisteredSystemAppManifestDefinitions(), anyRegisteredPlatformLifecycleExportTarget)
 
-const inspectRegisteredSystemAppSchemaPlanCatalogLifecycle = async (knex: Knex): Promise<RegisteredPlatformCatalogLifecycleHealth> =>
-    inspectDefinitionCatalogLifecycle(knex, exportRegisteredSystemAppSchemaPlanDefinitions(), anyRegisteredPlatformLifecycleExportTarget)
+const inspectRegisteredSystemAppSchemaPlanObjectLifecycle = async (knex: Knex): Promise<RegisteredPlatformObjectLifecycleHealth> =>
+    inspectDefinitionObjectLifecycle(knex, exportRegisteredSystemAppSchemaPlanDefinitions(), anyRegisteredPlatformLifecycleExportTarget)
 
-const inspectRegisteredSystemAppCompiledCatalogLifecycle = async (knex: Knex): Promise<RegisteredPlatformCatalogLifecycleHealth> =>
-    inspectDefinitionCatalogLifecycle(knex, exportRegisteredSystemAppCompiledDefinitions(), anyRegisteredPlatformLifecycleExportTarget)
+const inspectRegisteredSystemAppCompiledObjectLifecycle = async (knex: Knex): Promise<RegisteredPlatformObjectLifecycleHealth> =>
+    inspectDefinitionObjectLifecycle(knex, exportRegisteredSystemAppCompiledDefinitions(), anyRegisteredPlatformLifecycleExportTarget)
 
 export const doctorRegisteredPlatformState = async (knex: Knex): Promise<RegisteredPlatformDoctorResult> => ({
     systemAppDefinitionsValidation: validateRegisteredSystemAppDefinitions(),
@@ -1891,48 +1891,48 @@ export const doctorRegisteredPlatformState = async (knex: Knex): Promise<Registe
     systemAppCompiledLint: lintRegisteredSystemAppCompiledDefinitions(),
     systemAppCompiledDiff: await diffRegisteredSystemAppCompiledDefinitions(knex),
     migrationPlan: await planRegisteredPlatformMigrations(knex),
-    catalogLifecycle: await inspectRegisteredPlatformCatalogLifecycle(knex),
-    systemAppManifestCatalogLifecycle: await inspectRegisteredSystemAppManifestCatalogLifecycle(knex),
-    systemAppSchemaPlanCatalogLifecycle: await inspectRegisteredSystemAppSchemaPlanCatalogLifecycle(knex),
-    systemAppCompiledCatalogLifecycle: await inspectRegisteredSystemAppCompiledCatalogLifecycle(knex)
+    objectLifecycle: await inspectRegisteredPlatformObjectLifecycle(knex),
+    systemAppManifestObjectLifecycle: await inspectRegisteredSystemAppManifestObjectLifecycle(knex),
+    systemAppSchemaPlanObjectLifecycle: await inspectRegisteredSystemAppSchemaPlanObjectLifecycle(knex),
+    systemAppCompiledObjectLifecycle: await inspectRegisteredSystemAppCompiledObjectLifecycle(knex)
 })
 
 export const runRegisteredPlatformMigrations = async (knex: Knex, logger?: MigrationLogger) => {
-    const catalog = createPlatformMigrationRepository(knex)
+    const object = createPlatformMigrationRepository(knex)
     return runPlatformMigrations({
         knex,
         migrations: platformMigrations,
-        catalog,
+        object,
         logger
     })
 }
 
 export const runRegisteredPlatformPreludeMigrations = async (knex: Knex, logger?: MigrationLogger) => {
-    const catalog = createPlatformMigrationRepository(knex)
+    const object = createPlatformMigrationRepository(knex)
     return runPlatformMigrations({
         knex,
         migrations: platformPreludeMigrations,
-        catalog,
+        object,
         logger
     })
 }
 
 export const runRegisteredPlatformPostSchemaMigrations = async (knex: Knex, logger?: MigrationLogger) => {
-    const catalog = createPlatformMigrationRepository(knex)
+    const object = createPlatformMigrationRepository(knex)
     return runPlatformMigrations({
         knex,
         migrations: platformPostSchemaMigrations,
-        catalog,
+        object,
         logger
     })
 }
 
 export const planRegisteredPlatformMigrations = async (knex: Knex, logger?: MigrationLogger) => {
-    const catalog = createPlatformMigrationRepository(knex)
+    const object = createPlatformMigrationRepository(knex)
     return runPlatformMigrations({
         knex,
         migrations: platformMigrations,
-        catalog,
+        object,
         logger,
         dryRun: true
     })
@@ -1943,11 +1943,11 @@ export const planRegisteredPlatformMigrationsForPhases = async (
     phases: readonly SystemAppMigrationBootstrapPhase[],
     logger?: MigrationLogger
 ) => {
-    const catalog = createPlatformMigrationRepository(knex)
+    const object = createPlatformMigrationRepository(knex)
     return runPlatformMigrations({
         knex,
         migrations: loadPlatformMigrationsFromSystemApps(systemAppDefinitions, phases),
-        catalog,
+        object,
         logger,
         dryRun: true
     })

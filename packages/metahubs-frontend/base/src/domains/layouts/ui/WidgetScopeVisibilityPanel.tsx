@@ -49,6 +49,25 @@ export default function WidgetScopeVisibilityPanel({ metahubId, layoutId, widget
         enabled: Boolean(metahubId && layoutId && widgetId)
     })
 
+    const resolveKindLabel = (kind: string): string => {
+        switch (kind) {
+            case 'hub':
+                return t('hubs.title', 'Hub')
+            case 'object':
+                return t('objects.title', 'Object')
+            case 'set':
+                return t('sets.title', 'Set')
+            case 'enumeration':
+                return t('enumerations.title', 'Enumeration')
+            case 'page':
+                return t('pages.title', 'Page')
+            case 'ledger':
+                return t('ledgers.title', 'Ledger')
+            default:
+                return kind
+        }
+    }
+
     const mutation = useMutation({
         mutationFn: ({ scopeEntityId, isVisible }: { scopeEntityId: string; isVisible: boolean }) =>
             layoutsApi.updateLayoutWidgetScopeVisibility(metahubId, layoutId, widgetId, scopeEntityId, isVisible),
@@ -99,6 +118,7 @@ export default function WidgetScopeVisibilityPanel({ metahubId, layoutId, widget
             {items.map((item) => {
                 const name = resolveLocalizedText(item.name, uiLocale) || t('layouts.widgetScopeVisibility.unnamedEntity', 'Unnamed entity')
                 const codename = resolveLocalizedText(item.codename, uiLocale)
+                const kind = resolveKindLabel(item.kind)
                 const isPending = mutation.isPending && mutation.variables?.scopeEntityId === item.scopeEntityId
                 return (
                     <Paper
@@ -121,7 +141,7 @@ export default function WidgetScopeVisibilityPanel({ metahubId, layoutId, widget
                             </Typography>
                             <Typography variant='caption' color='text.secondary' noWrap component='div'>
                                 {t('layouts.widgetScopeVisibility.entityMeta', '{{kind}}{{codename}}', {
-                                    kind: item.kind,
+                                    kind,
                                     codename: codename ? ` · ${codename}` : ''
                                 })}
                             </Typography>
