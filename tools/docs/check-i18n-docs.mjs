@@ -135,7 +135,6 @@ const screenshotExemptPages = new Set([
     'guides/ledgers.md',
     'guides/lms-reports.md',
     'guides/lms-resource-model.md',
-    'guides/pages-entity-type.md',
     'guides/transactional-objects.md'
 ])
 

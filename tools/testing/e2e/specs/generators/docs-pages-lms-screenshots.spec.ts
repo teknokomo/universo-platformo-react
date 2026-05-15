@@ -24,7 +24,6 @@ import {
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
 import { repoRoot } from '../../support/env/load-e2e-env.mjs'
-import { pageSpacingSelectors, toolbarSelectors } from '../../support/selectors/contracts'
 import { createLocalizedContent } from '@universo/utils'
 
 type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
@@ -54,7 +53,7 @@ async function captureScreenshot(
     name: string
 ) {
     const dir = path.join(repoRoot, `docs/${locale}/.gitbook/assets/${category}`)
-    await page.screenshot({ path: path.join(dir, `${name}.png`), fullPage: false })
+    await page.screenshot({ path: path.join(dir, `${name}.png`), fullPage: true })
 }
 
 const UI_COPY = {
@@ -137,13 +136,10 @@ test('@generator capture Pages and LMS documentation screenshots for EN and RU l
                 await expect(page.getByRole('heading', { name: uiCopy.content })).toBeVisible({ timeout: 30_000 })
 
                 // Wait for Editor.js to load
-                await page.waitForTimeout(2000)
-
-                // Check if editor is visible
+                // Wait for Editor.js to load and take a screenshot
                 const editorContainer = page.locator('[data-testid="editor-js-container"]').or(page.locator('.codex-editor'))
-                if (await editorContainer.isVisible()) {
-                    await captureScreenshot(page, locale, 'entities', 'pages-editor')
-                }
+                await expect(editorContainer).toBeVisible({ timeout: 10000 })
+                await captureScreenshot(page, locale, 'entities', 'pages-editor')
             }
 
             // 3. Ledgers list (if any exist)
