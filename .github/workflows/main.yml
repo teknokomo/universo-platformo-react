@@ -36,7 +36,7 @@ jobs:
               run: node tools/lint-db-access.mjs
             - run: pnpm build
             - name: Cypress install
-              run: pnpm cypress install
+              run: pnpm --filter @universo/core-backend exec cypress install
             - name: Install dependencies (Cypress Action)
               uses: cypress-io/github-action@v6
               with:
