@@ -27,16 +27,6 @@
 * [Приложения](platform/applications.md)
 * [Администрирование](platform/admin.md)
 * [Публикации](platform/publications.md)
-* [UPDL](platform/updl/README.md)
-  * [Узлы пространств](platform/updl/space-nodes.md)
-  * [Узлы сущностей](platform/updl/entity-nodes.md)
-  * [Узлы компонентов](platform/updl/component-nodes.md)
-  * [Узлы действий](platform/updl/action-nodes.md)
-  * [Узлы событий](platform/updl/event-nodes.md)
-  * [Узлы данных](platform/updl/data-nodes.md)
-* [Потоки инструментов-конструкторов](platform/space-builder.md)
-* [Аналитика и наблюдаемость](platform/analytics.md)
-* [Моделирование и виртуальные миры](platform/metaverses.md)
 
 ## Архитектура
 
@@ -83,6 +73,7 @@
 * [Модель ресурсов LMS](guides/lms-resource-model.md)
 * [Отчёты LMS](guides/lms-reports.md)
 * [Гостевой доступ LMS](guides/lms-guest-access.md)
+* [Тип Сущности Страницы](guides/pages-entity-type.md)
 * [Транзакционные объекты](guides/transactional-objects.md)
 * [Руководство по Регистрам](guides/ledgers.md)
 * [Управление рабочими пространствами](guides/workspace-management.md)
@@ -93,8 +84,6 @@
 * [Скрипты метахаба](guides/metahub-scripting.md)
 * [Создание приложений](guides/creating-application.md)
 * [Публикация контента](guides/publishing-content.md)
-* [Работа с UPDL](guides/working-with-updl.md)
-* [Мультиплатформенный экспорт](guides/multi-platform-export.md)
 * [Туториал: приложение-квиз](guides/quiz-application-tutorial.md)
 * [Браузерное E2E-тестирование](guides/browser-e2e-testing.md)
 * [Обновление схем системных приложений](guides/updating-system-app-schemas.md)
