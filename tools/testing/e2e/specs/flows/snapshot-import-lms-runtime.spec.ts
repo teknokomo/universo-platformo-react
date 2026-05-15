@@ -471,9 +471,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             page,
             (response) =>
                 response.request().method() === 'PATCH' &&
-                response.url().endsWith(
-                    `/api/v1/metahub/${importedId}/entities/object/instance/${metahubProgressLedgerId}`
-                ),
+                response.url().endsWith(`/api/v1/metahub/${importedId}/entities/object/instance/${metahubProgressLedgerId}`),
             { label: 'Saving LMS Progress ledger schema periodicity' }
         )
         await progressLedgerDialog.getByTestId(entityDialogSelectors.submitButton).click()
@@ -493,9 +491,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             page,
             (response) =>
                 response.request().method() === 'PATCH' &&
-                response.url().endsWith(
-                    `/api/v1/metahub/${importedId}/entities/object/instance/${metahubProgressLedgerId}`
-                ),
+                response.url().endsWith(`/api/v1/metahub/${importedId}/entities/object/instance/${metahubProgressLedgerId}`),
             { label: 'Restoring LMS Progress ledger schema periodicity' }
         )
         await progressLedgerDialog.getByTestId(entityDialogSelectors.submitButton).click()
@@ -644,9 +640,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
 
         const syncResponsePromise = waitForSettledMutationResponse(
             page,
-            (response) =>
-                response.request().method() === 'POST' &&
-                response.url().endsWith(`/api/v1/application/${applicationId}/sync`),
+            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/application/${applicationId}/sync`),
             { label: 'Creating imported LMS application schema with workspaces', timeout: 420_000 }
         )
         await diffDialog.getByRole('button', { name: 'Create Schema' }).click()
@@ -659,14 +653,13 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         })
         await expect(diffDialog).toHaveCount(0)
 
-        const [studentsObjectId, quizResponsesObjectId, moduleProgressObjectId, enrollmentsObjectId, progressLedgerId] =
-            await Promise.all([
-                waitForApplicationObjectId(api, applicationId, 'Students'),
-                waitForApplicationObjectId(api, applicationId, 'Quiz Responses'),
-                waitForApplicationObjectId(api, applicationId, 'Module Progress'),
-                waitForApplicationObjectId(api, applicationId, 'Enrollments'),
-                waitForApplicationLedgerId(api, applicationId, 'ProgressLedger')
-            ])
+        const [studentsObjectId, quizResponsesObjectId, moduleProgressObjectId, enrollmentsObjectId, progressLedgerId] = await Promise.all([
+            waitForApplicationObjectId(api, applicationId, 'Students'),
+            waitForApplicationObjectId(api, applicationId, 'Quiz Responses'),
+            waitForApplicationObjectId(api, applicationId, 'Module Progress'),
+            waitForApplicationObjectId(api, applicationId, 'Enrollments'),
+            waitForApplicationLedgerId(api, applicationId, 'ProgressLedger')
+        ])
 
         await applyBrowserPreferences(page, { language: 'en' })
         await page.goto(`/a/${applicationId}`)

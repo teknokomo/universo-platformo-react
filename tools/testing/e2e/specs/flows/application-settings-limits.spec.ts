@@ -32,7 +32,11 @@ type RuntimeState = {
     }
 }
 
-async function waitForRuntimeState(api: Awaited<ReturnType<typeof createLoggedInApiContext>>, applicationId: string, objectCollectionId?: string) {
+async function waitForRuntimeState(
+    api: Awaited<ReturnType<typeof createLoggedInApiContext>>,
+    applicationId: string,
+    objectCollectionId?: string
+) {
     let runtimeState: RuntimeState | null = null
 
     await expect

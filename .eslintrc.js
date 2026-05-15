@@ -23,12 +23,15 @@ module.exports = {
             plugins: ['@typescript-eslint', 'unused-imports'],
             rules: {
                 // TypeScript-specific rules
-                '@typescript-eslint/no-unused-vars': ['warn', { 
-                    vars: 'all', 
-                    varsIgnorePattern: '^_', 
-                    args: 'after-used', 
-                    argsIgnorePattern: '^_' 
-                }],
+                '@typescript-eslint/no-unused-vars': [
+                    'warn',
+                    {
+                        vars: 'all',
+                        varsIgnorePattern: '^_',
+                        args: 'after-used',
+                        argsIgnorePattern: '^_'
+                    }
+                ],
                 '@typescript-eslint/explicit-module-boundary-types': 'off',
                 '@typescript-eslint/no-explicit-any': 'warn',
                 '@typescript-eslint/no-inferrable-types': 'warn',

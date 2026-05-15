@@ -127,7 +127,7 @@ export const publicSystemAppDefinition: SystemAppDefinition = {
         settingsTables: false,
         layoutTables: false,
         widgetTables: false,
-       componentValueTables: false
+        componentValueTables: false
     },
     targetStructureCapabilities: {
         appCoreTables: false,
@@ -137,7 +137,7 @@ export const publicSystemAppDefinition: SystemAppDefinition = {
         settingsTables: false,
         layoutTables: false,
         widgetTables: false,
-       componentValueTables: false
+        componentValueTables: false
     },
     currentBusinessTables: [],
     targetBusinessTables: [],

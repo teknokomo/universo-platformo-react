@@ -1,16 +1,6 @@
 import type { VersionedLocalizedContent } from './admin'
 
-export const SCRIPT_ATTACHMENT_KINDS = [
-    'metahub',
-    'object',
-    'hub',
-    'set',
-    'enumeration',
-    'page',
-    'ledger',
-    'component',
-    'general'
-] as const
+export const SCRIPT_ATTACHMENT_KINDS = ['metahub', 'object', 'hub', 'set', 'enumeration', 'page', 'ledger', 'component', 'general'] as const
 export type KnownScriptAttachmentKind = (typeof SCRIPT_ATTACHMENT_KINDS)[number]
 export type ScriptAttachmentKind = KnownScriptAttachmentKind | (string & {})
 

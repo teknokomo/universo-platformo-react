@@ -616,7 +616,10 @@ export interface PhysicalTypeInfo {
  * @param rules - Validation rules containing type-specific settings
  * @returns Physical type information for UI display
  */
-export function getPhysicalDataType(dataType: ComponentDefinitionDataType, rules?: Partial<ComponentDefinitionValidationRules>): PhysicalTypeInfo {
+export function getPhysicalDataType(
+    dataType: ComponentDefinitionDataType,
+    rules?: Partial<ComponentDefinitionValidationRules>
+): PhysicalTypeInfo {
     switch (dataType) {
         case 'STRING': {
             // If versioned or localized, store as JSONB for VLC structure

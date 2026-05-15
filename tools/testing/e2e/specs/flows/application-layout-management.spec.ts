@@ -187,7 +187,11 @@ test('@flow @combined application layout management exposes sourced layouts and 
         expect(detail.item?.sourceKind).toBe('metahub')
         expect(detail.item?.syncState).toBe('clean')
 
-        const widgetObject = (await listApplicationLayoutWidgetObject(api, applicationId, layoutId)) as ApplicationLayoutWidgetObjectResponse
+        const widgetObject = (await listApplicationLayoutWidgetObject(
+            api,
+            applicationId,
+            layoutId
+        )) as ApplicationLayoutWidgetObjectResponse
         expect(widgetObject.items?.some((item) => item.key === 'divider' && item.allowedZones?.includes('top'))).toBe(true)
 
         const centerWidget = detail.widgets?.find((widget) => widget.zone === 'center' && typeof widget.id === 'string')

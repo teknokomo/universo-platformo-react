@@ -1,12 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { test, expect } from '../../fixtures/test'
-import {
-    createLoggedInApiContext,
-    createMetahub,
-    createRecord,
-    disposeApiContext
-} from '../../support/backend/api-session.mjs'
+import { createLoggedInApiContext, createMetahub, createRecord, disposeApiContext } from '../../support/backend/api-session.mjs'
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
 import { repoRoot } from '../../support/env/load-e2e-env.mjs'
 import { buildSnapshotEnvelope, buildVLC, validateSnapshotEnvelope } from '@universo/utils'
@@ -120,19 +115,18 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
         notStartedCompletionStatusValueId,
         inProgressCompletionStatusValueId,
         progressReportTypeValueId
-    ] =
-        await Promise.all([
-            waitForOptionValueId(api, metahubId, contentTypeEnumerationId, 'Text'),
-            waitForOptionValueId(api, metahubId, contentTypeEnumerationId, 'QuizRef'),
-            waitForOptionValueId(api, metahubId, resourceTypeEnumerationId, 'Page'),
-            waitForOptionValueId(api, metahubId, resourceTypeEnumerationId, 'Video'),
-            waitForOptionValueId(api, metahubId, moduleStatusEnumerationId, 'Published'),
-            waitForOptionValueId(api, metahubId, questionTypeEnumerationId, 'SingleChoice'),
-            waitForOptionValueId(api, metahubId, enrollmentStatusEnumerationId, 'Active'),
-            waitForOptionValueId(api, metahubId, completionStatusEnumerationId, 'NotStarted'),
-            waitForOptionValueId(api, metahubId, completionStatusEnumerationId, 'InProgress'),
-            waitForOptionValueId(api, metahubId, reportTypeEnumerationId, 'Progress')
-        ])
+    ] = await Promise.all([
+        waitForOptionValueId(api, metahubId, contentTypeEnumerationId, 'Text'),
+        waitForOptionValueId(api, metahubId, contentTypeEnumerationId, 'QuizRef'),
+        waitForOptionValueId(api, metahubId, resourceTypeEnumerationId, 'Page'),
+        waitForOptionValueId(api, metahubId, resourceTypeEnumerationId, 'Video'),
+        waitForOptionValueId(api, metahubId, moduleStatusEnumerationId, 'Published'),
+        waitForOptionValueId(api, metahubId, questionTypeEnumerationId, 'SingleChoice'),
+        waitForOptionValueId(api, metahubId, enrollmentStatusEnumerationId, 'Active'),
+        waitForOptionValueId(api, metahubId, completionStatusEnumerationId, 'NotStarted'),
+        waitForOptionValueId(api, metahubId, completionStatusEnumerationId, 'InProgress'),
+        waitForOptionValueId(api, metahubId, reportTypeEnumerationId, 'Progress')
+    ])
 
     const classRowsByKey = new Map<string, Awaited<ReturnType<typeof createRecord>>>()
     for (const seededClass of LMS_DEMO_CLASSES) {

@@ -9,7 +9,7 @@ const createCapabilities = (overrides: Partial<SystemAppStructureCapabilities> =
     settingsTables: true,
     layoutTables: false,
     widgetTables: false,
-   componentValueTables: false,
+    componentValueTables: false,
     ...overrides
 })
 
@@ -115,7 +115,7 @@ describe('resolveSystemTableCapabilityOptions', () => {
         expect(
             resolveSystemTableCapabilityOptions(
                 createCapabilities({
-                   componentValueTables: true
+                    componentValueTables: true
                 })
             )
         ).toEqual({

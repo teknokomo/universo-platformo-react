@@ -2,37 +2,24 @@ module.exports = {
     preset: 'ts-jest',
     testEnvironment: 'jsdom',
     roots: ['<rootDir>/src'],
-    testMatch: [
-        '**/__tests__/**/*.+(ts|tsx|js)',
-        '**/*.(test|spec).+(ts|tsx|js)'
-    ],
+    testMatch: ['**/__tests__/**/*.+(ts|tsx|js)', '**/*.(test|spec).+(ts|tsx|js)'],
     transform: {
-        '^.+\\.(ts|tsx)$': ['ts-jest', {
-            tsconfig: {
-                jsx: 'react-jsx'
+        '^.+\\.(ts|tsx)$': [
+            'ts-jest',
+            {
+                tsconfig: {
+                    jsx: 'react-jsx'
+                }
             }
-        }]
+        ]
     },
-    collectCoverageFrom: [
-        'src/**/*.{ts,tsx}',
-        '!src/**/*.d.ts',
-        '!src/__tests__/**/*',
-        '!src/templates/**/*'
-    ],
+    collectCoverageFrom: ['src/**/*.{ts,tsx}', '!src/**/*.d.ts', '!src/__tests__/**/*', '!src/templates/**/*'],
     setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts'],
-    testPathIgnorePatterns: [
-        '/node_modules/',
-        '/dist/',
-        '/templates/'
-    ],
+    testPathIgnorePatterns: ['/node_modules/', '/dist/', '/templates/'],
     coverageDirectory: 'coverage',
-    coverageReporters: [
-        'text',
-        'lcov',
-        'html'
-    ],
+    coverageReporters: ['text', 'lcov', 'html'],
     testEnvironmentOptions: {
-        customExportConditions: [''],
+        customExportConditions: ['']
     },
     coverageThreshold: {
         global: {
@@ -48,4 +35,4 @@ module.exports = {
         // CSS modules
         '\\.(css|less|sass|scss)$': 'identity-obj-proxy'
     }
-};
+}

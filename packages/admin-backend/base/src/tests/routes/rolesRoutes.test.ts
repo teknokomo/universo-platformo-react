@@ -271,9 +271,7 @@ describe('rolesRoutes', () => {
         mockFindById.mockResolvedValue(systemRole as never)
 
         const newCn = vlcString('Changed')
-        const res = await request(buildApp())
-            .patch(`/roles/${VALID_UUID}`)
-            .send({ codename: newCn })
+        const res = await request(buildApp()).patch(`/roles/${VALID_UUID}`).send({ codename: newCn })
 
         expect(res.status).toBe(403)
         expect(res.body.error).toContain('system role')

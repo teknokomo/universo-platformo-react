@@ -32,7 +32,12 @@ import {
 
 import { ColorPicker } from './ColorPicker'
 import { usePlatformCodenameConfig } from '../hooks/usePlatformCodenameConfig'
-import { mergeDialogPaperProps, mergeDialogSx, resolveDialogMaxWidth, useDialogPresentation } from '@universo/template-mui/components/dialogs'
+import {
+    mergeDialogPaperProps,
+    mergeDialogSx,
+    resolveDialogMaxWidth,
+    useDialogPresentation
+} from '@universo/template-mui/components/dialogs'
 
 export interface RoleFormDialogSubmitData {
     codename: VersionedLocalizedContent<string>

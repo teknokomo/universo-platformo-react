@@ -3,12 +3,7 @@ import type { Locator, Page, Response as PlaywrightResponse } from '@playwright/
 import { createLocalizedContent } from '@universo/utils'
 
 import { expect } from '../../fixtures/test'
-import {
-    createMetahubEntityType,
-    createLoggedInApiContext,
-    getTemplate,
-    listTemplates
-} from '../../support/backend/api-session.mjs'
+import { createMetahubEntityType, createLoggedInApiContext, getTemplate, listTemplates } from '../../support/backend/api-session.mjs'
 import { toolbarSelectors } from '../../support/selectors/contracts'
 
 export type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
@@ -62,8 +57,9 @@ export const readLocalizedText = (value: unknown, locale = 'en'): string | undef
         return primaryValue
     }
 
-    const fallbackValue = Object.values(raw.locales ?? {}).find((entry) => typeof entry?.content === 'string' && entry.content.length > 0)
-        ?.content
+    const fallbackValue = Object.values(raw.locales ?? {}).find(
+        (entry) => typeof entry?.content === 'string' && entry.content.length > 0
+    )?.content
     return typeof fallbackValue === 'string' ? fallbackValue : undefined
 }
 

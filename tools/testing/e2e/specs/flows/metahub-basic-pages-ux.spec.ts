@@ -449,8 +449,7 @@ test('@flow basic metahub exposes clean Pages UX and Sets-backed shared constant
         const textBlockMenuItem = page.getByText('Текст', { exact: true }).last()
         await expect(textBlockMenuItem).toBeVisible()
         const blockToolboxBox = await textBlockMenuItem.evaluate((element) => {
-            const visibleElement =
-                element.closest('.ce-popover') ?? element.closest('[class*="ce-popover"]') ?? element.parentElement
+            const visibleElement = element.closest('.ce-popover') ?? element.closest('[class*="ce-popover"]') ?? element.parentElement
             if (!visibleElement) return null
             const rect = visibleElement.getBoundingClientRect()
             return { x: rect.x, y: rect.y, width: rect.width, height: rect.height }

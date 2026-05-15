@@ -250,12 +250,9 @@ async function createEnumerationValue(api, metahubId, enumerationId, payload, la
 
 async function seedSettingsBaseline(api: ApiContext, metahubId: string, objectId: string) {
     for (const row of SELF_HOSTED_APP_SETTINGS_BASELINE) {
-        const response = await sendWithCsrf(
-            api,
-            'POST',
-            `/api/v1/metahub/${metahubId}/entities/object/instance/${objectId}/records`,
-            { data: row }
-        )
+        const response = await sendWithCsrf(api, 'POST', `/api/v1/metahub/${metahubId}/entities/object/instance/${objectId}/records`, {
+            data: row
+        })
         expect(response.ok).toBe(true)
     }
 }

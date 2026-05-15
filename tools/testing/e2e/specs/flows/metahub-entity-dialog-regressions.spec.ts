@@ -196,10 +196,7 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
         ])
 
         const setId = await waitForFirstEntityId(() => listValueGroups(api, metahub.id, { limit: 100, offset: 0 }), 'set')
-        const enumerationId = await waitForFirstEntityId(
-            () => listOptionLists(api, metahub.id, { limit: 100, offset: 0 }),
-            'enumeration'
-        )
+        const enumerationId = await waitForFirstEntityId(() => listOptionLists(api, metahub.id, { limit: 100, offset: 0 }), 'enumeration')
         const objectId = await waitForFirstEntityId(() => listObjectCollections(api, metahub.id, { limit: 100, offset: 0 }), 'object')
 
         await page.goto(`/metahub/${metahub.id}/entities/set/instances`)
@@ -335,7 +332,10 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
             page,
             (response) =>
                 response.request().method() === 'PATCH' &&
-                responsePathnameEquals(response, `/api/v1/metahub/${metahub.id}/entities/set/instance/${setId}/fixed-value/${createdConstant.id}`),
+                responsePathnameEquals(
+                    response,
+                    `/api/v1/metahub/${metahub.id}/entities/set/instance/${setId}/fixed-value/${createdConstant.id}`
+                ),
             { label: 'Updating constant' }
         )
         await editConstantDialog.getByTestId(entityDialogSelectors.submitButton).click()
@@ -378,7 +378,10 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
             page,
             (response) =>
                 response.request().method() === 'PATCH' &&
-                responsePathnameEquals(response, `/api/v1/metahub/${metahub.id}/entities/enumeration/instance/${enumerationId}/value/${createdValue.id}`),
+                responsePathnameEquals(
+                    response,
+                    `/api/v1/metahub/${metahub.id}/entities/enumeration/instance/${enumerationId}/value/${createdValue.id}`
+                ),
             { label: 'Updating enumeration value' }
         )
         await editValueDialog.getByTestId(entityDialogSelectors.submitButton).click()
@@ -447,7 +450,10 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
             page,
             (response) =>
                 response.request().method() === 'POST' &&
-                responsePathnameEquals(response, `/api/v1/metahub/${metahub.id}/entities/object/instance/${objectId}/component/${component.id}/copy`),
+                responsePathnameEquals(
+                    response,
+                    `/api/v1/metahub/${metahub.id}/entities/object/instance/${objectId}/component/${component.id}/copy`
+                ),
             { label: 'Copying component' }
         )
         await copyAttributeDialog.getByTestId(entityDialogSelectors.submitButton).click()
@@ -499,7 +505,9 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
 
         const enumerationDeleteDialog = page.getByRole('dialog', { name: 'Delete Enumeration' })
         await expect(enumerationDeleteDialog).toBeVisible()
-        await expect(enumerationDeleteDialog.getByText('Cannot delete enumeration. Remove these references from components first:')).toBeVisible()
+        await expect(
+            enumerationDeleteDialog.getByText('Cannot delete enumeration. Remove these references from components first:')
+        ).toBeVisible()
         await expect(enumerationDeleteDialog.locator(`a[href*="/entities/object/instance/${objectId}/components"]`).first()).toBeVisible()
         await enumerationDeleteDialog.locator(`a[href*="/entities/object/instance/${objectId}/components"]`).first().click()
         await expect(page).toHaveURL(new RegExp(`/metahub/${metahub.id}/entities/object/instance/${objectId}/components$`))

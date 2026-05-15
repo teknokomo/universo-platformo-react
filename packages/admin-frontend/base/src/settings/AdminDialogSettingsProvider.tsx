@@ -23,16 +23,22 @@ export function AdminDialogSettingsProvider({ children }: { children: ReactNode 
         retry: false
     })
 
-    const settingsMap = useMemo(() => new Map((settingsQuery.data?.items ?? []).map((item) => [item.key, item])), [settingsQuery.data?.items])
+    const settingsMap = useMemo(
+        () => new Map((settingsQuery.data?.items ?? []).map((item) => [item.key, item])),
+        [settingsQuery.data?.items]
+    )
 
     const sizePreset =
-        (extractValue(settingsMap.get('dialogSizePreset')) as DialogSizePreset | undefined) ?? DEFAULT_ADMIN_DIALOG_SETTINGS.dialogSizePreset
+        (extractValue(settingsMap.get('dialogSizePreset')) as DialogSizePreset | undefined) ??
+        DEFAULT_ADMIN_DIALOG_SETTINGS.dialogSizePreset
     const allowFullscreen =
-        (extractValue(settingsMap.get('dialogAllowFullscreen')) as boolean | undefined) ?? DEFAULT_ADMIN_DIALOG_SETTINGS.dialogAllowFullscreen
+        (extractValue(settingsMap.get('dialogAllowFullscreen')) as boolean | undefined) ??
+        DEFAULT_ADMIN_DIALOG_SETTINGS.dialogAllowFullscreen
     const allowResize =
         (extractValue(settingsMap.get('dialogAllowResize')) as boolean | undefined) ?? DEFAULT_ADMIN_DIALOG_SETTINGS.dialogAllowResize
     const closeBehavior =
-        (extractValue(settingsMap.get('dialogCloseBehavior')) as DialogCloseBehavior | undefined) ?? DEFAULT_ADMIN_DIALOG_SETTINGS.dialogCloseBehavior
+        (extractValue(settingsMap.get('dialogCloseBehavior')) as DialogCloseBehavior | undefined) ??
+        DEFAULT_ADMIN_DIALOG_SETTINGS.dialogCloseBehavior
 
     return (
         <DialogPresentationProvider

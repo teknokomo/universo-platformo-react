@@ -42,7 +42,12 @@ const applicationBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
                 defaultSqlExpression: `'{}'::jsonb`,
                 presentation: p('Application Settings', 'Persisted UI and behavior settings for the application control panel')
             },
-            { codename: 'slug', physicalColumnName: 'slug', dataType: ComponentDefinitionDataType.STRING, physicalDataType: 'VARCHAR(100)' },
+            {
+                codename: 'slug',
+                physicalColumnName: 'slug',
+                dataType: ComponentDefinitionDataType.STRING,
+                physicalDataType: 'VARCHAR(100)'
+            },
             {
                 codename: 'is_public',
                 physicalColumnName: 'is_public',
@@ -164,7 +169,12 @@ const applicationBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
                 isRequired: true,
                 targetTableCodename: 'connectors'
             },
-            { codename: 'publication_id', physicalColumnName: 'publication_id', dataType: ComponentDefinitionDataType.REF, isRequired: true },
+            {
+                codename: 'publication_id',
+                physicalColumnName: 'publication_id',
+                dataType: ComponentDefinitionDataType.REF,
+                isRequired: true
+            },
             {
                 codename: 'sort_order',
                 physicalColumnName: 'sort_order',

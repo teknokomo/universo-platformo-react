@@ -248,11 +248,7 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
             const localizedEnabled = await isCodenameLocalizedEnabled(exec)
             const codename = enforceSingleLocaleCodename(rawCodename, localizedEnabled)
             const codenameText = getCodenamePrimary(codename)
-            const codenameValidationDetails = validateRoleCodename(
-                codename,
-                codenameText,
-                await getRoleCodenameValidationConfig(exec)
-            )
+            const codenameValidationDetails = validateRoleCodename(codename, codenameText, await getRoleCodenameValidationConfig(exec))
 
             if (codenameValidationDetails) {
                 res.status(400).json({

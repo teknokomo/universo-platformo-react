@@ -187,15 +187,18 @@ test('@flow @permission admin can manage roles, users, and locales from browser 
         await savePermissionsRequest
 
         await expect
-            .poll(async () => {
-                const role = await getRole(api, roleId)
-                return (
-                    Array.isArray(role.permissions) &&
-                    role.permissions.some(
-                        (permission: { subject?: string; action?: string }) => permission.subject === '*' && permission.action === '*'
+            .poll(
+                async () => {
+                    const role = await getRole(api, roleId)
+                    return (
+                        Array.isArray(role.permissions) &&
+                        role.permissions.some(
+                            (permission: { subject?: string; action?: string }) => permission.subject === '*' && permission.action === '*'
+                        )
                     )
-                )
-            }, { timeout: 30_000, intervals: [500, 1_000, 2_000] })
+                },
+                { timeout: 30_000, intervals: [500, 1_000, 2_000] }
+            )
             .toBe(true)
 
         const assignableRoles = await getAssignableRoles(api)

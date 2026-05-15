@@ -87,7 +87,12 @@ const adminBusinessTables = [
                 dataType: ComponentDefinitionDataType.BOOLEAN,
                 defaultSqlExpression: 'false'
             },
-            { codename: 'is_system', physicalColumnName: 'is_system', dataType: ComponentDefinitionDataType.BOOLEAN, defaultSqlExpression: 'false' }
+            {
+                codename: 'is_system',
+                physicalColumnName: 'is_system',
+                dataType: ComponentDefinitionDataType.BOOLEAN,
+                defaultSqlExpression: 'false'
+            }
         ]
     },
     {

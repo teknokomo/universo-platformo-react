@@ -28,10 +28,7 @@ import { createLocalizedContent } from '@universo/utils'
 
 type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
 
-const SCREENSHOT_DIRECTORIES = [
-    'docs/en/.gitbook/assets/entities',
-    'docs/ru/.gitbook/assets/entities'
-]
+const SCREENSHOT_DIRECTORIES = ['docs/en/.gitbook/assets/entities', 'docs/ru/.gitbook/assets/entities']
 
 function ensureDirectories() {
     for (const dir of SCREENSHOT_DIRECTORIES) {

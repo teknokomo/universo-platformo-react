@@ -21,7 +21,8 @@ module.exports = {
         '^@universo/metahubs-backend/platform-migrations$': '<rootDir>/../../metahubs-backend/base/src/platform/migrations/index.ts',
         '^@universo/applications-backend/platform-definition$':
             '<rootDir>/../../applications-backend/base/src/platform/systemAppDefinition.ts',
-        '^@universo/applications-backend/platform-migrations$': '<rootDir>/../../applications-backend/base/src/platform/migrations/index.ts',
+        '^@universo/applications-backend/platform-migrations$':
+            '<rootDir>/../../applications-backend/base/src/platform/migrations/index.ts',
         '^@universo/start-backend/platform-definition$': '<rootDir>/../../start-backend/base/src/platform/systemAppDefinition.ts',
         '^@universo/start-backend/platform-migrations$': '<rootDir>/../../start-backend/base/src/platform/migrations/index.ts'
     }

@@ -329,9 +329,7 @@ export const normalizePublicationSnapshotForHash = (
         }))
         .sort((left, right) => compareStrings(left.objectId, right.objectId))
 
-    const sharedComponents = asArray<unknown>(snapshot.sharedComponents)
-        .map(normalizeField)
-        .sort(compareBySortOrderCodenameAndId)
+    const sharedComponents = asArray<unknown>(snapshot.sharedComponents).map(normalizeField).sort(compareBySortOrderCodenameAndId)
 
     const sharedConstants = asArray<unknown>(snapshot.sharedFixedValues ?? snapshot.sharedConstants)
         .map(normalizeConstant)

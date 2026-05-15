@@ -61,13 +61,25 @@ async function fillRuntimeStringField(dialog: Locator, label: string, value: str
     await dialog.getByLabel(label).first().fill(value)
 }
 
-async function waitForRuntimeState(api: Awaited<ReturnType<typeof createLoggedInApiContext>>, applicationId: string, objectCollectionId?: string) {
+async function waitForRuntimeState(
+    api: Awaited<ReturnType<typeof createLoggedInApiContext>>,
+    applicationId: string,
+    objectCollectionId?: string
+) {
     let runtimeState: RuntimeState | null = null
 
     await expect
         .poll(async () => {
-            runtimeState = (await getApplicationRuntime(api, applicationId, objectCollectionId ? { objectCollectionId } : {})) as RuntimeState
-            return typeof runtimeState?.objectCollection?.id === 'string' && Array.isArray(runtimeState?.columns) && runtimeState.columns.length > 0
+            runtimeState = (await getApplicationRuntime(
+                api,
+                applicationId,
+                objectCollectionId ? { objectCollectionId } : {}
+            )) as RuntimeState
+            return (
+                typeof runtimeState?.objectCollection?.id === 'string' &&
+                Array.isArray(runtimeState?.columns) &&
+                runtimeState.columns.length > 0
+            )
         })
         .toBe(true)
 

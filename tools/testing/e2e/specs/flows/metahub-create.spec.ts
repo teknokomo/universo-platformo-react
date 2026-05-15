@@ -154,7 +154,9 @@ test('@flow empty metahub template supports manual entity-type authoring from th
         await expect
             .poll(async () => {
                 const payload = await listMetahubEntityTypes(api, persistedMetahub.id, { limit: 100, offset: 0 })
-                const item = (payload.items ?? []).find((entry: { kindKey?: string; ui?: { resourceSurfaces?: unknown[] } }) => entry.kindKey === entityTypeKindKey)
+                const item = (payload.items ?? []).find(
+                    (entry: { kindKey?: string; ui?: { resourceSurfaces?: unknown[] } }) => entry.kindKey === entityTypeKindKey
+                )
                 const resourceSurface = item?.ui?.resourceSurfaces?.[0] as
                     | { key?: string; capability?: string; routeSegment?: string; fallbackTitle?: string }
                     | undefined

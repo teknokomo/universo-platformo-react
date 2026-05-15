@@ -1,4 +1,4 @@
-import { hasRequiredRole, isValidUnikRole, getRoleLevel, ROLE_HIERARCHY, UnikRole } from '../../src/services/access-control/roles'
+import { hasRequiredRole, isValidUnikRole, getRoleLevel, ROLE_HIERARCHY } from '../../src/services/access-control/roles'
 
 describe('Access Control Roles', () => {
     describe('hasRequiredRole', () => {

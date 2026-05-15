@@ -20,12 +20,7 @@ import { disposeBootstrapApiContext, createBootstrapApiContext } from '../../sup
 import { recordCreatedGlobalUser, recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
 import { waitForSettledMutationResponse } from '../../support/browser/network'
 import { applyBrowserPreferences } from '../../support/browser/preferences'
-import {
-    buildEntityMenuItemSelector,
-    buildEntityMenuTriggerSelector,
-    entityDialogSelectors,
-    toolbarSelectors
-} from '../../support/selectors/contracts'
+import { buildEntityMenuTriggerSelector, entityDialogSelectors, toolbarSelectors } from '../../support/selectors/contracts'
 
 type EntityTypeRecord = {
     id?: string
@@ -99,7 +94,6 @@ const buildEntityInstancesApiPath = (metahubId: string, kindKey: string) =>
 
 const buildEntityInstanceApiPath = (metahubId: string, entityId: string) => `/api/v1/metahub/${metahubId}/entity/${entityId}`
 
-
 async function getEntityViaApi(api: ApiSessionLike, metahubId: string, entityId: string): Promise<EntityRecord> {
     const response = await fetch(new URL(buildEntityInstanceApiPath(metahubId, entityId), api.baseURL), {
         headers: {
@@ -141,11 +135,7 @@ async function listEntityActionsViaApi(api: ApiSessionLike, metahubId: string, e
     return parseApiJsonResponse(response, `Listing actions for entity ${entityId}`)
 }
 
-async function listEntityEventBindingsViaApi(
-    api: ApiSessionLike,
-    metahubId: string,
-    entityId: string
-): Promise<EventBindingListPayload> {
+async function listEntityEventBindingsViaApi(api: ApiSessionLike, metahubId: string, entityId: string): Promise<EventBindingListPayload> {
     const response = await fetch(new URL(`/api/v1/metahub/${metahubId}/object/${entityId}/event-bindings`, api.baseURL), {
         headers: {
             Accept: 'application/json',
@@ -595,7 +585,10 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
     }
 })
 
-test('@flow metahub custom entity instances author scripts actions and events through the browser with custom attachment kinds', async ({ page, runManifest }) => {
+test('@flow metahub custom entity instances author scripts actions and events through the browser with custom attachment kinds', async ({
+    page,
+    runManifest
+}) => {
     test.setTimeout(300_000)
 
     const api = await createLoggedInApiContext({
@@ -672,11 +665,11 @@ test('@flow metahub custom entity instances author scripts actions and events th
         await page.goto(`/metahub/${metahub.id}/entities/${customKindKey}/instances`)
 
         await expect(page.getByRole('heading', { name: `${customTypeName} instances` })).toBeVisible()
-    await expect(page.getByTestId(toolbarSelectors.primaryAction)).toContainText('Create entity')
+        await expect(page.getByTestId(toolbarSelectors.primaryAction)).toContainText('Create entity')
 
         await page.getByTestId(toolbarSelectors.primaryAction).click()
 
-    const createEntityDialog = page.getByRole('dialog', { name: 'Create entity' })
+        const createEntityDialog = page.getByRole('dialog', { name: 'Create entity' })
         await expect(createEntityDialog).toBeVisible()
         await createEntityDialog.getByLabel('Name').first().fill(entityName)
         await createEntityDialog.getByLabel('Codename').first().fill(entityCodename)
@@ -722,7 +715,8 @@ test('@flow metahub custom entity instances author scripts actions and events th
             (request) => request.method() === 'POST' && request.url().endsWith(`/api/v1/metahub/${metahub.id}/scripts`)
         )
         const createScriptResponse = page.waitForResponse(
-            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/scripts`) && response.ok()
+            (response) =>
+                response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/scripts`) && response.ok()
         )
 
         await editEntityDialog.getByRole('button', { name: 'Create script' }).click()

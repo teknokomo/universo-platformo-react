@@ -429,7 +429,8 @@ const buildSpec = () => {
                 GenericObject: {
                     type: 'object',
                     additionalProperties: true,
-                    description: 'Generic JSON object used where the route inventory is current but payload-specific schemas remain handler-defined.'
+                    description:
+                        'Generic JSON object used where the route inventory is current but payload-specific schemas remain handler-defined.'
                 },
                 ApiError: {
                     type: 'object',
@@ -438,7 +439,12 @@ const buildSpec = () => {
                         error: { type: 'string' },
                         message: { type: 'string' },
                         details: {
-                            oneOf: [{ type: 'object', additionalProperties: true }, { type: 'array', items: {} }, { type: 'string' }, { type: 'null' }]
+                            oneOf: [
+                                { type: 'object', additionalProperties: true },
+                                { type: 'array', items: {} },
+                                { type: 'string' },
+                                { type: 'null' }
+                            ]
                         }
                     },
                     description: 'Generic error envelope used across backend route packages.'

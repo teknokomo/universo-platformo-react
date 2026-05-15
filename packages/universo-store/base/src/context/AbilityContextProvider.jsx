@@ -60,7 +60,7 @@ const buildAbilityFromPermissions = (permissions) => {
 
     for (const perm of permissions) {
         // Map subject to CASL subject ('metaverses' -> 'Metaverse', '*' -> 'all')
-        const subject = perm.subject === '*' ? 'all' : (ABILITY_MODULE_TO_SUBJECT[perm.subject] || perm.subject)
+        const subject = perm.subject === '*' ? 'all' : ABILITY_MODULE_TO_SUBJECT[perm.subject] || perm.subject
 
         // Map action ('*' -> 'manage')
         const action = ACTION_MAP[perm.action] || perm.action
@@ -258,7 +258,19 @@ const AbilityContextProvider = ({ children }) => {
             // Admin feature flags
             adminConfig
         }),
-        [ability, loading, error, refreshAbility, clearAbility, globalRoles, rolesMetadata, isSuperuser, hasAdminAccess, hasAnyGlobalRole, adminConfig]
+        [
+            ability,
+            loading,
+            error,
+            refreshAbility,
+            clearAbility,
+            globalRoles,
+            rolesMetadata,
+            isSuperuser,
+            hasAdminAccess,
+            hasAnyGlobalRole,
+            adminConfig
+        ]
     )
 
     return <AbilityContext.Provider value={value}>{children}</AbilityContext.Provider>

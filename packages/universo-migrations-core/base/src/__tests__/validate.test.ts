@@ -41,7 +41,7 @@ const createSystemAppDefinition = (overrides: Partial<SystemAppDefinition> = {})
         settingsTables: false,
         layoutTables: false,
         widgetTables: false,
-       componentValueTables: false
+        componentValueTables: false
     },
     targetStructureCapabilities: {
         appCoreTables: true,
@@ -51,7 +51,7 @@ const createSystemAppDefinition = (overrides: Partial<SystemAppDefinition> = {})
         settingsTables: true,
         layoutTables: false,
         widgetTables: false,
-       componentValueTables: false
+        componentValueTables: false
     },
     currentBusinessTables: [
         {
@@ -336,7 +336,7 @@ describe('validatePlatformMigrations', () => {
                     settingsTables: true,
                     layoutTables: true,
                     widgetTables: true,
-                   componentValueTables: true
+                    componentValueTables: true
                 }
             })
         ])
@@ -358,7 +358,7 @@ describe('validatePlatformMigrations', () => {
                     settingsTables: false,
                     layoutTables: true,
                     widgetTables: false,
-                   componentValueTables: false
+                    componentValueTables: false
                 }
             })
         ])
@@ -389,7 +389,7 @@ describe('validatePlatformMigrations', () => {
                     settingsTables: true,
                     layoutTables: false,
                     widgetTables: true,
-                   componentValueTables: false
+                    componentValueTables: false
                 }
             })
         ])
@@ -563,7 +563,7 @@ describe('validatePlatformMigrations', () => {
                     settingsTables: false,
                     layoutTables: false,
                     widgetTables: false,
-                   componentValueTables: false
+                    componentValueTables: false
                 },
                 currentBusinessTables: [
                     {

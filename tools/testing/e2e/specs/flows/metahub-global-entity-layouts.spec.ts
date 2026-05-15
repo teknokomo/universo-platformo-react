@@ -1,12 +1,7 @@
 import type { Locator, Page, Response, TestInfo } from '@playwright/test'
 import { createLocalizedContent } from '@universo/utils'
 import { expect, test } from '../../fixtures/test'
-import {
-    applicationSelectors,
-    buildGridRowActionsTriggerSelector,
-    entityDialogSelectors,
-    pageSpacingSelectors
-} from '../../support/selectors/contracts'
+import { applicationSelectors, buildGridRowActionsTriggerSelector, pageSpacingSelectors } from '../../support/selectors/contracts'
 import {
     assignLayoutZoneWidget,
     createLayout,
@@ -104,9 +99,7 @@ async function waitForRuntimeState(api: Awaited<ReturnType<typeof createLoggedIn
     await expect
         .poll(async () => {
             runtimeState = (await getApplicationRuntime(api, applicationId, { objectId })) as RuntimeState
-            return (
-                typeof runtimeState?.object?.id === 'string' && Array.isArray(runtimeState?.columns) && Array.isArray(runtimeState?.rows)
-            )
+            return typeof runtimeState?.object?.id === 'string' && Array.isArray(runtimeState?.columns) && Array.isArray(runtimeState?.rows)
         })
         .toBe(true)
 

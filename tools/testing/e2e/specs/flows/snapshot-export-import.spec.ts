@@ -1,12 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { test, expect } from '../../fixtures/test'
-import {
-    createLoggedInApiContext,
-    createMetahub,
-    disposeApiContext,
-    sendWithCsrf
-} from '../../support/backend/api-session.mjs'
+import { createLoggedInApiContext, createMetahub, disposeApiContext, sendWithCsrf } from '../../support/backend/api-session.mjs'
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
 import { toolbarSelectors } from '../../support/selectors/contracts'
 import { createLocalizedContent } from '@universo/utils'
@@ -197,7 +192,7 @@ test.describe('Snapshot Export/Import Flow', () => {
     test('@flow snapshot export returns valid envelope and reimport succeeds', async ({ runManifest }) => {
         api = await createLoggedInApiContext({
             email: runManifest.testUser.email,
-            password: runManifest.testUser.password,
+            password: runManifest.testUser.password
         })
         const created = await createMetahub(api, {
             name: { en: `E2E ${runManifest.runId} snapshot-export` },
@@ -208,11 +203,15 @@ test.describe('Snapshot Export/Import Flow', () => {
         })
         const metahubId = created?.data?.id ?? created?.id
         expect(metahubId).toBeTruthy()
-        await recordCreatedMetahub({ id: metahubId, name: `E2E ${runManifest.runId} snapshot-export`, codename: `e2e-${runManifest.runId}-snapshot-export` })
+        await recordCreatedMetahub({
+            id: metahubId,
+            name: `E2E ${runManifest.runId} snapshot-export`,
+            codename: `e2e-${runManifest.runId}-snapshot-export`
+        })
 
         const exportResp = await apiGet(api, `/api/v1/metahub/${metahubId}/export`)
         expect(exportResp.ok).toBe(true)
-        const envelope = await exportResp.json() as Record<string, unknown>
+        const envelope = (await exportResp.json()) as Record<string, unknown>
         expect(envelope.kind).toBe('metahub_snapshot_bundle')
         expect(envelope.bundleVersion).toBe(1)
         expect(envelope.snapshot).toBeTruthy()
@@ -232,20 +231,24 @@ test.describe('Snapshot Export/Import Flow', () => {
     test('@flow rejects tampered snapshot on import', async ({ runManifest }) => {
         api = await createLoggedInApiContext({
             email: runManifest.testUser.email,
-            password: runManifest.testUser.password,
+            password: runManifest.testUser.password
         })
         const created = await createMetahub(api, {
             name: { en: `E2E ${runManifest.runId} tampered-test` },
             namePrimaryLocale: 'en',
-            codename: createLocalizedContent('en', `e2e-${runManifest.runId}-tampered-test`),
+            codename: createLocalizedContent('en', `e2e-${runManifest.runId}-tampered-test`)
         })
         const metahubId = created?.data?.id ?? created?.id
         expect(metahubId).toBeTruthy()
-        await recordCreatedMetahub({ id: metahubId, name: `E2E ${runManifest.runId} tampered-test`, codename: `e2e-${runManifest.runId}-tampered-test` })
+        await recordCreatedMetahub({
+            id: metahubId,
+            name: `E2E ${runManifest.runId} tampered-test`,
+            codename: `e2e-${runManifest.runId}-tampered-test`
+        })
 
         const exportResp = await apiGet(api, `/api/v1/metahub/${metahubId}/export`)
         expect(exportResp.ok).toBe(true)
-        const envelope = await exportResp.json() as Record<string, unknown>
+        const envelope = (await exportResp.json()) as Record<string, unknown>
         expect(envelope.kind).toBe('metahub_snapshot_bundle')
 
         const tampered = { ...envelope, snapshotHash: 'a'.repeat(64) }
@@ -253,14 +256,17 @@ test.describe('Snapshot Export/Import Flow', () => {
         expect(importResp.status).toBe(400)
     })
 
-    test('@flow self-hosted app snapshot fixture imports through the browser UI and restores MVP structure', async ({ page, runManifest }) => {
+    test('@flow self-hosted app snapshot fixture imports through the browser UI and restores MVP structure', async ({
+        page,
+        runManifest
+    }) => {
         test.setTimeout(180_000)
 
         const fixture = await loadSelfHostedAppFixture()
 
         api = await createLoggedInApiContext({
             email: runManifest.testUser.email,
-            password: runManifest.testUser.password,
+            password: runManifest.testUser.password
         })
 
         await page.goto('/metahubs')
@@ -285,7 +291,10 @@ test.describe('Snapshot Export/Import Flow', () => {
             (response) => response.request().method() === 'POST' && response.url().endsWith('/api/v1/metahubs/import'),
             { timeout: 120_000 }
         )
-        await dialog.getByRole('button', { name: /import/i }).last().click()
+        await dialog
+            .getByRole('button', { name: /import/i })
+            .last()
+            .click()
 
         const importResponse = await importResponsePromise
         expect(importResponse.status()).toBe(201)
@@ -293,24 +302,22 @@ test.describe('Snapshot Export/Import Flow', () => {
         const importBody = await readBrowserResponseJsonSafe(importResponse)
         await expect(dialog).toHaveCount(0)
         await expect
-            .poll(
-                () => new URL(page.url()).pathname,
-                {
-                    timeout: 15_000,
-                    message: 'Waiting for imported metahub board navigation after snapshot import'
-                }
-            )
+            .poll(() => new URL(page.url()).pathname, {
+                timeout: 15_000,
+                message: 'Waiting for imported metahub board navigation after snapshot import'
+            })
             .toMatch(/^\/metahub\/[0-9a-f-]+$/)
 
         const importedIdFromResponse =
             typeof importBody?.metahub === 'object' && importBody.metahub && 'id' in importBody.metahub
                 ? (importBody.metahub as { id?: unknown }).id
                 : importBody?.data && typeof importBody.data === 'object' && 'id' in importBody.data
-                  ? (importBody.data as { id?: unknown }).id
-                  : importBody?.id
-        const importedId = typeof importedIdFromResponse === 'string'
-            ? importedIdFromResponse
-            : new URL(page.url()).pathname.match(/^\/metahub\/([^/]+)$/)?.[1]
+                ? (importBody.data as { id?: unknown }).id
+                : importBody?.id
+        const importedId =
+            typeof importedIdFromResponse === 'string'
+                ? importedIdFromResponse
+                : new URL(page.url()).pathname.match(/^\/metahub\/([^/]+)$/)?.[1]
         expect(typeof importedId).toBe('string')
 
         await recordCreatedMetahub({ id: importedId, name: fixture.metahubName, codename: 'self-hosted-app-imported-fixture' })
@@ -338,18 +345,18 @@ test.describe('Snapshot Export/Import Flow', () => {
         const importedSharedAttributes = Array.isArray(importedSnapshot.sharedComponents)
             ? importedSnapshot.sharedComponents
             : Array.isArray(importedSnapshot.sharedAttributes)
-                ? importedSnapshot.sharedAttributes
-                : []
+            ? importedSnapshot.sharedAttributes
+            : []
         const importedSharedConstants = Array.isArray(importedSnapshot.sharedFixedValues)
             ? importedSnapshot.sharedFixedValues
             : Array.isArray(importedSnapshot.sharedConstants)
-                ? importedSnapshot.sharedConstants
-                : []
+            ? importedSnapshot.sharedConstants
+            : []
         const importedSharedEnumerationValues = Array.isArray(importedSnapshot.sharedEnumerationValues)
             ? importedSnapshot.sharedEnumerationValues
             : Array.isArray(importedSnapshot.sharedOptionValues)
-                ? importedSnapshot.sharedOptionValues
-                : []
+            ? importedSnapshot.sharedOptionValues
+            : []
         const importedSharedEntityOverrides = Array.isArray(importedSnapshot.sharedEntityOverrides)
             ? importedSnapshot.sharedEntityOverrides
             : []
@@ -369,9 +376,7 @@ test.describe('Snapshot Export/Import Flow', () => {
         )
         expect(typeof settingsCatalog?.id).toBe('string')
 
-        const includedCatalogSection = findSelfHostedAppSection(
-            SELF_HOSTED_APP_SHARED_ENTITIES.component.includedCatalogSectionCodename
-        )
+        const includedCatalogSection = findSelfHostedAppSection(SELF_HOSTED_APP_SHARED_ENTITIES.component.includedCatalogSectionCodename)
         const importedSharedCatalog = importedEntities.find(
             (entity) => entity.kind === 'object' && matchesSectionDefinition(entity, includedCatalogSection)
         )
@@ -392,21 +397,15 @@ test.describe('Snapshot Export/Import Flow', () => {
         expect(typeof importedEnumerationSection?.id).toBe('string')
 
         expect(
-            importedSharedAttributes.some(
-                (component) => readLocalizedText(component?.presentation?.name) === fixture.sharedAttributeName
-            )
+            importedSharedAttributes.some((component) => readLocalizedText(component?.presentation?.name) === fixture.sharedAttributeName)
         ).toBe(true)
         expect(
             importedSharedEntityOverrides.some(
-                (override) =>
-                    override?.targetObjectId === settingsCatalog.id &&
-                    override?.isExcluded === true
+                (override) => override?.targetObjectId === settingsCatalog.id && override?.isExcluded === true
             )
         ).toBe(true)
         expect(
-            importedSharedConstants.some(
-                (constant) => readLocalizedText(constant?.presentation?.name) === fixture.sharedConstantName
-            )
+            importedSharedConstants.some((constant) => readLocalizedText(constant?.presentation?.name) === fixture.sharedConstantName)
         ).toBe(true)
         expect(
             importedSharedEnumerationValues.some(

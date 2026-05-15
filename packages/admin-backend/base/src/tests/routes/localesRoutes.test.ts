@@ -69,7 +69,7 @@ function buildAuthApp() {
         createLocalesRoutes({
             globalAccessService: {} as never,
             permissionService: {} as never,
-            getDbExecutor: () => ({ query: jest.fn(), transaction: jest.fn() }) as never
+            getDbExecutor: () => ({ query: jest.fn(), transaction: jest.fn() } as never)
         })
     )
     return app
@@ -80,7 +80,7 @@ function buildPublicApp() {
     app.use(
         '/public-locales',
         createPublicLocalesRoutes({
-            getDbExecutor: () => ({ query: jest.fn(), transaction: jest.fn() }) as never
+            getDbExecutor: () => ({ query: jest.fn(), transaction: jest.fn() } as never)
         })
     )
     return app
@@ -171,7 +171,13 @@ describe('localesRoutes', () => {
 
     // ── DELETE /:id ────────────────────────────────────────────
     it('deletes a regular locale', async () => {
-        mockFindById.mockResolvedValue({ id: VALID_UUID, code: 'fr', is_system: false, is_default_content: false, is_default_ui: false } as never)
+        mockFindById.mockResolvedValue({
+            id: VALID_UUID,
+            code: 'fr',
+            is_system: false,
+            is_default_content: false,
+            is_default_ui: false
+        } as never)
         mockDeleteLocale.mockResolvedValue(undefined as never)
 
         const res = await request(buildAuthApp()).delete(`/locales/${VALID_UUID}`)
@@ -179,14 +185,26 @@ describe('localesRoutes', () => {
     })
 
     it('rejects deleting system locale', async () => {
-        mockFindById.mockResolvedValue({ id: VALID_UUID, code: 'en', is_system: true, is_default_content: false, is_default_ui: false } as never)
+        mockFindById.mockResolvedValue({
+            id: VALID_UUID,
+            code: 'en',
+            is_system: true,
+            is_default_content: false,
+            is_default_ui: false
+        } as never)
 
         const res = await request(buildAuthApp()).delete(`/locales/${VALID_UUID}`)
         expect(res.status).toBe(403)
     })
 
     it('rejects deleting default locale', async () => {
-        mockFindById.mockResolvedValue({ id: VALID_UUID, code: 'en', is_system: false, is_default_content: true, is_default_ui: false } as never)
+        mockFindById.mockResolvedValue({
+            id: VALID_UUID,
+            code: 'en',
+            is_system: false,
+            is_default_content: true,
+            is_default_ui: false
+        } as never)
 
         const res = await request(buildAuthApp()).delete(`/locales/${VALID_UUID}`)
         expect(res.status).toBe(400)

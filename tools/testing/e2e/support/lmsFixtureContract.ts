@@ -955,7 +955,7 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         objectEntityType?.capabilities && typeof objectEntityType.capabilities === 'object' && !Array.isArray(objectEntityType.capabilities)
             ? (objectEntityType.capabilities as Record<string, unknown>)
             : objectEntityType?.components && typeof objectEntityType.components === 'object' && !Array.isArray(objectEntityType.components)
-              ? (objectEntityType.components as Record<string, unknown>)
+            ? (objectEntityType.components as Record<string, unknown>)
             : null
 
     if (!objectEntityTypeTabs.includes('behavior')) {
@@ -966,7 +966,12 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
     }
     for (const componentKey of ['identityFields', 'recordLifecycle', 'posting', 'ledgerSchema']) {
         const component = objectEntityTypeComponents?.[componentKey]
-        if (!component || typeof component !== 'object' || Array.isArray(component) || (component as Record<string, unknown>).enabled !== true) {
+        if (
+            !component ||
+            typeof component !== 'object' ||
+            Array.isArray(component) ||
+            (component as Record<string, unknown>).enabled !== true
+        ) {
             errors.push(`LMS fixture Object entity type must enable ${componentKey} for runtime behavior authoring`)
         }
     }
@@ -1075,7 +1080,11 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
             if (normalizedItem.kind !== 'section' && normalizedItem.kind !== 'link') {
                 errors.push(`LMS menuWidget item ${String(normalizedItem.id ?? '<unknown>')} must use section or link kind`)
             }
-            if (normalizedItem.kind === 'section' && typeof normalizedItem.sectionId !== 'string' && typeof normalizedItem.linkedCollectionId !== 'string') {
+            if (
+                normalizedItem.kind === 'section' &&
+                typeof normalizedItem.sectionId !== 'string' &&
+                typeof normalizedItem.linkedCollectionId !== 'string'
+            ) {
                 errors.push(`LMS menuWidget section item ${String(normalizedItem.id ?? '<unknown>')} must target a real section`)
             }
         }
@@ -1396,7 +1405,9 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
     }
 
     for (const expectedResource of LMS_DEMO_RESOURCES) {
-        const resourceRow = resourceRows.find((row) => readLocalizedText(row?.data?.Title, 'en') === readLocalizedText(expectedResource.title, 'en'))
+        const resourceRow = resourceRows.find(
+            (row) => readLocalizedText(row?.data?.Title, 'en') === readLocalizedText(expectedResource.title, 'en')
+        )
         if (!resourceRow) {
             errors.push(`LMS fixture is missing learning resource ${expectedResource.codename}`)
             continue
@@ -1415,7 +1426,9 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
 
     const reportRowsByCodename = new Map<string, SnapshotElement>()
     for (const expectedReport of LMS_DEMO_REPORTS) {
-        const reportRow = reportRows.find((row) => readLocalizedText(row?.data?.Name, 'en') === readLocalizedText(expectedReport.title, 'en'))
+        const reportRow = reportRows.find(
+            (row) => readLocalizedText(row?.data?.Name, 'en') === readLocalizedText(expectedReport.title, 'en')
+        )
         if (!reportRow) {
             errors.push(`LMS fixture is missing report definition ${expectedReport.codename}`)
             continue

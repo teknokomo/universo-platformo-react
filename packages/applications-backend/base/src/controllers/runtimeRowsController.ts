@@ -912,9 +912,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
               })
 
         const activeObjectCollection =
-            (requestedObjectCollectionId
-                ? runtimeObjects.find((objectRow) => objectRow.id === requestedObjectCollectionId)
-                : undefined) ??
+            (requestedObjectCollectionId ? runtimeObjects.find((objectRow) => objectRow.id === requestedObjectCollectionId) : undefined) ??
             (preferredObjectCollectionIdFromMenu
                 ? runtimeObjects.find((objectRow) => objectRow.id === preferredObjectCollectionIdFromMenu)
                 : undefined) ??
@@ -1002,14 +1000,10 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         const enumTargetObjectIds = Array.from(
             new Set([
                 ...safeComponents
-                    .filter(
-                        (cmp) => cmp.data_type === 'REF' && isRuntimeEnumerationKind(cmp.target_object_kind) && cmp.target_object_id
-                    )
+                    .filter((cmp) => cmp.data_type === 'REF' && isRuntimeEnumerationKind(cmp.target_object_kind) && cmp.target_object_id)
                     .map((cmp) => String(cmp.target_object_id)),
                 ...allChildComponents
-                    .filter(
-                        (cmp) => cmp.data_type === 'REF' && isRuntimeEnumerationKind(cmp.target_object_kind) && cmp.target_object_id
-                    )
+                    .filter((cmp) => cmp.data_type === 'REF' && isRuntimeEnumerationKind(cmp.target_object_kind) && cmp.target_object_id)
                     .map((cmp) => String(cmp.target_object_id))
             ])
         )
@@ -1060,14 +1054,10 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         const objectTargetObjectIds = Array.from(
             new Set([
                 ...safeComponents
-                    .filter(
-                        (cmp) => cmp.data_type === 'REF' && isRuntimeObjectTargetKind(cmp.target_object_kind) && cmp.target_object_id
-                    )
+                    .filter((cmp) => cmp.data_type === 'REF' && isRuntimeObjectTargetKind(cmp.target_object_kind) && cmp.target_object_id)
                     .map((cmp) => String(cmp.target_object_id)),
                 ...allChildComponents
-                    .filter(
-                        (cmp) => cmp.data_type === 'REF' && isRuntimeObjectTargetKind(cmp.target_object_kind) && cmp.target_object_id
-                    )
+                    .filter((cmp) => cmp.data_type === 'REF' && isRuntimeObjectTargetKind(cmp.target_object_kind) && cmp.target_object_id)
                     .map((cmp) => String(cmp.target_object_id))
             ])
         )

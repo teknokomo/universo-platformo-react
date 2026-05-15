@@ -1,12 +1,7 @@
 import { createLocalizedContent } from '@universo/utils'
 
 import { expect, test } from '../../fixtures/test'
-import {
-    createLoggedInApiContext,
-    createMetahub,
-    disposeApiContext,
-    listMetahubEntityTypes
-} from '../../support/backend/api-session.mjs'
+import { createLoggedInApiContext, createMetahub, disposeApiContext, listMetahubEntityTypes } from '../../support/backend/api-session.mjs'
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
 import { waitForSettledMutationResponse } from '../../support/browser/network'
 import { applyBrowserPreferences } from '../../support/browser/preferences'
@@ -99,7 +94,9 @@ test('@flow entity resource labels are data-driven in the browser', async ({ pag
         await expect
             .poll(async () => {
                 const payload = await listMetahubEntityTypes(api, metahub.id, { limit: 100, offset: 0 })
-                const refreshedCatalogType = (payload.items ?? []).find((entry: { kindKey?: string }) => entry.kindKey === 'objectCollection')
+                const refreshedCatalogType = (payload.items ?? []).find(
+                    (entry: { kindKey?: string }) => entry.kindKey === 'objectCollection'
+                )
                 const resourceSurface = refreshedCatalogType?.ui?.resourceSurfaces?.[0]
                 return {
                     fallbackTitle: resourceSurface?.fallbackTitle,

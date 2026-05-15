@@ -183,7 +183,12 @@ const buildFieldReferenceKeys = (field: { codename: string; columnName?: string 
 
 export const validateLedgerConfigReferences = (params: {
     config: LedgerConfig
-    fields: Array<{ codename: string; dataType: ComponentDefinitionDataType; columnName?: string | null; physicalColumnName?: string | null }>
+    fields: Array<{
+        codename: string
+        dataType: ComponentDefinitionDataType
+        columnName?: string | null
+        physicalColumnName?: string | null
+    }>
 }): LedgerConfigReferenceError[] => {
     const fieldsByCodename = new Map<string, { codename: string; dataType: ComponentDefinitionDataType }>()
     params.fields.forEach((field) => {

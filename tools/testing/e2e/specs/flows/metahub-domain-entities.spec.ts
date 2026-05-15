@@ -411,11 +411,7 @@ test('@flow @combined metahub collection routes support browser create plus hub 
         }
 
         await expect(page.getByText(enumerationName, { exact: true })).toBeVisible()
-        await waitForListEntity(
-            () => listOptionLists(api, metahub.id, { limit: 100, offset: 0 }),
-            createdEnumeration.id,
-            'enumeration'
-        )
+        await waitForListEntity(() => listOptionLists(api, metahub.id, { limit: 100, offset: 0 }), createdEnumeration.id, 'enumeration')
         const persistedEnumeration = await getOptionList(api, metahub.id, createdEnumeration.id)
         expect(persistedEnumeration.id).toBe(createdEnumeration.id)
 
@@ -616,10 +612,7 @@ test('@flow @combined metahub leaf routes support browser component element enum
         })
 
         const objectId = await waitForFirstEntityId(() => listObjectCollections(api, metahub.id, { limit: 100, offset: 0 }), 'object')
-        const enumerationId = await waitForFirstEntityId(
-            () => listOptionLists(api, metahub.id, { limit: 100, offset: 0 }),
-            'enumeration'
-        )
+        const enumerationId = await waitForFirstEntityId(() => listOptionLists(api, metahub.id, { limit: 100, offset: 0 }), 'enumeration')
         const setId = await waitForFirstEntityId(() => listValueGroups(api, metahub.id, { limit: 100, offset: 0 }), 'set')
 
         await page.goto(`/metahub/${metahub.id}/entities/object/instance/${objectId}/components`)
@@ -688,11 +681,7 @@ test('@flow @combined metahub leaf routes support browser component element enum
         }
 
         await expect(page.getByText(elementValue, { exact: true })).toBeVisible()
-        await waitForListEntity(
-            () => listRecords(api, metahub.id, objectId, { limit: 100, offset: 0 }),
-            createdElement.id,
-            'element'
-        )
+        await waitForListEntity(() => listRecords(api, metahub.id, objectId, { limit: 100, offset: 0 }), createdElement.id, 'element')
         const persistedElement = await getRecord(api, metahub.id, objectId, createdElement.id)
         expect(persistedElement.id).toBe(createdElement.id)
         const persistedAttributeCodename = typeof persistedAttribute.codename === 'string' ? persistedAttribute.codename : attributeCodename
@@ -735,7 +724,8 @@ test('@flow @combined metahub leaf routes support browser component element enum
         const createConstantResponse = waitForSettledMutationResponse(
             page,
             (response) =>
-                response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/entities/set/instance/${setId}/fixed-values`),
+                response.request().method() === 'POST' &&
+                response.url().endsWith(`/api/v1/metahub/${metahub.id}/entities/set/instance/${setId}/fixed-values`),
             { label: 'Creating constant' }
         )
         await constantDialog.getByTestId(entityDialogSelectors.submitButton).click()

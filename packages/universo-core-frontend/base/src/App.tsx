@@ -29,8 +29,7 @@ interface CustomizationState {
     customization: Record<string, unknown>
 }
 
-const normalizeLang = (value: string | undefined): string =>
-    value ? String(value).split('-')[0].toLowerCase() : 'en'
+const normalizeLang = (value: string | undefined): string => (value ? String(value).split('-')[0].toLowerCase() : 'en')
 
 const getMetaValue = (i18nInstance: I18nInstance, key: string): string => {
     const value = i18nInstance.t(key, { ns: 'meta' })
@@ -200,15 +199,26 @@ const App: React.FC = () => {
     }, [i18n, i18nInitialized])
 
     if (!i18nInitialized) {
-        return <StyledEngineProvider injectFirst>
-            <ThemeProvider theme={themeInstance}>
-                <CssBaseline />
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-                    <div style={{ width: 40, height: 40, border: '3px solid #e0e0e0', borderTopColor: '#1976d2', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                    <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-                </div>
-            </ThemeProvider>
-        </StyledEngineProvider>
+        return (
+            <StyledEngineProvider injectFirst>
+                <ThemeProvider theme={themeInstance}>
+                    <CssBaseline />
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+                        <div
+                            style={{
+                                width: 40,
+                                height: 40,
+                                border: '3px solid #e0e0e0',
+                                borderTopColor: '#1976d2',
+                                borderRadius: '50%',
+                                animation: 'spin 0.8s linear infinite'
+                            }}
+                        />
+                        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+                    </div>
+                </ThemeProvider>
+            </StyledEngineProvider>
+        )
     }
 
     return (

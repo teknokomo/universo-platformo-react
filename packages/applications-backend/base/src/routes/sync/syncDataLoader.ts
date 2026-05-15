@@ -204,9 +204,12 @@ export async function loadApplicationRuntimeElements(
         const tableName = entity.physicalTableName ?? generateTableName(entity.id, entity.kind)
         const tableIdent = quoteQualifiedIdentifier(schemaName, tableName)
         const runtimeRowCondition = buildDynamicRuntimeActiveRowSql(resolveEntityLifecycleContract(entity), entity.config)
-        const topLevelFields = entity.fields.filter((field) => field.dataType !== ComponentDefinitionDataType.TABLE && !field.parentComponentId)
+        const topLevelFields = entity.fields.filter(
+            (field) => field.dataType !== ComponentDefinitionDataType.TABLE && !field.parentComponentId
+        )
         const tableFields = entity.fields.filter(
-            (field) => field.dataType === ComponentDefinitionDataType.TABLE && !field.parentComponentId && (field.childFields?.length ?? 0) > 0
+            (field) =>
+                field.dataType === ComponentDefinitionDataType.TABLE && !field.parentComponentId && (field.childFields?.length ?? 0) > 0
         )
         const selectColumns = [
             'id',

@@ -366,7 +366,9 @@ export class SchemaGenerator {
                     result.tablesCreated.push(entity.codename)
 
                     // Create tabular tables for TABLE components
-                    const tableFields = entity.fields.filter((f) => f.dataType === ComponentDefinitionDataType.TABLE && !f.parentComponentId)
+                    const tableFields = entity.fields.filter(
+                        (f) => f.dataType === ComponentDefinitionDataType.TABLE && !f.parentComponentId
+                    )
                     for (const tableField of tableFields) {
                         const childFields = entity.fields.filter((f) => f.parentComponentId === tableField.id)
                         const parentTableName = resolveEntityTableName(entity)

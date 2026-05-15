@@ -21,7 +21,12 @@ import { createLocalizedContent, filterLocalizedContent } from '@universo/utils'
 import type { VersionedLocalizedContent } from '@universo/types'
 
 import { LocalizedInlineField } from '@universo/template-mui'
-import { mergeDialogPaperProps, mergeDialogSx, resolveDialogMaxWidth, useDialogPresentation } from '@universo/template-mui/components/dialogs'
+import {
+    mergeDialogPaperProps,
+    mergeDialogSx,
+    resolveDialogMaxWidth,
+    useDialogPresentation
+} from '@universo/template-mui/components/dialogs'
 
 import * as localesApi from '../api/localesApi'
 import type { LocaleItem, CreateLocalePayload, UpdateLocalePayload } from '../api/localesApi'

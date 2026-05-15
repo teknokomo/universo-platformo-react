@@ -381,7 +381,7 @@ describe('systemAppDefinitions compiler capability bridge', () => {
                 settingsTables: true,
                 layoutTables: false,
                 widgetTables: false,
-               componentValueTables: false
+                componentValueTables: false
             },
             systemTableCapabilities: {
                 includeComponents: true,
@@ -427,7 +427,7 @@ describe('systemAppDefinitions compiler capability bridge', () => {
                 settingsTables: true,
                 layoutTables: false,
                 widgetTables: false,
-               componentValueTables: false
+                componentValueTables: false
             },
             systemTableCapabilities: {
                 includeComponents: true,
@@ -627,7 +627,7 @@ describe('systemAppDefinitions compiler capability bridge', () => {
                 settingsTables: false,
                 layoutTables: false,
                 widgetTables: false,
-               componentValueTables: false
+                componentValueTables: false
             },
             systemTableCapabilities: {
                 includeComponents: false,

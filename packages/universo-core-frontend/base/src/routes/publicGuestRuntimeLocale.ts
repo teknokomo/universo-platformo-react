@@ -47,7 +47,14 @@ export const resolvePublicGuestRuntimeLocale = (source?: PublicGuestRuntimeLocal
     })()
     const persistedLocale = runtimeSource.localStorage?.getItem('i18nextLng') ?? null
     const navigatorLanguages = runtimeSource.navigator?.languages ?? []
-    const candidates = [explicitLocale, persistedLocale, ...navigatorLanguages, runtimeSource.navigator?.language, runtimeSource.document?.documentElement?.lang, 'en']
+    const candidates = [
+        explicitLocale,
+        persistedLocale,
+        ...navigatorLanguages,
+        runtimeSource.navigator?.language,
+        runtimeSource.document?.documentElement?.lang,
+        'en'
+    ]
 
     for (const candidate of candidates) {
         const locale = normalizeLocale(candidate)

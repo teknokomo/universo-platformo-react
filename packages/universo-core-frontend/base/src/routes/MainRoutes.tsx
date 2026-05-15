@@ -97,7 +97,9 @@ const GuardedApplicationRuntime = () => (
 const PublicGuestRuntime = () => {
     const { applicationId = '', slug = '' } = useParams<{ applicationId: string; slug: string }>()
 
-    return <PublicGuestRuntimePage applicationId={applicationId} slug={slug} locale={resolvePublicGuestRuntimeLocale()} apiBaseUrl='/api/v1' />
+    return (
+        <PublicGuestRuntimePage applicationId={applicationId} slug={slug} locale={resolvePublicGuestRuntimeLocale()} apiBaseUrl='/api/v1' />
+    )
 }
 
 const AdminDialogScope = () => (

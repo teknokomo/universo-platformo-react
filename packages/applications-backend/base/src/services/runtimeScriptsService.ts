@@ -1,4 +1,5 @@
 import { ScriptEngine } from '@universo/scripting-engine'
+import { qSchemaTable } from '@universo/database'
 import {
     canCallScriptMethodOverPublicRpc,
     hasScriptCapability,
@@ -362,9 +363,7 @@ const buildRecordListFilters = (
 }
 
 const buildWritableAttrs = (attrs: RuntimeScriptComponentRow[]): RuntimeScriptComponentRow[] =>
-    attrs.filter(
-        (cmp) => IDENTIFIER_REGEX.test(cmp.column_name) && RUNTIME_WRITABLE_TYPES.has(cmp.data_type) && cmp.data_type !== 'TABLE'
-    )
+    attrs.filter((cmp) => IDENTIFIER_REGEX.test(cmp.column_name) && RUNTIME_WRITABLE_TYPES.has(cmp.data_type) && cmp.data_type !== 'TABLE')
 
 export class RuntimeScriptsService {
     constructor(
@@ -555,11 +554,12 @@ export class RuntimeScriptsService {
             return []
         }
 
+        const scriptsTable = qSchemaTable(schemaName, '_app_scripts')
         const rows = (await executor.query(
             `
         SELECT id, codename, presentation, attached_to_kind, attached_to_id, module_role, source_kind,
                sdk_api_version, manifest, server_bundle, client_bundle, checksum, is_active, config
-        FROM "${schemaName}"._app_scripts
+        FROM ${scriptsTable}
         WHERE ${ACTIVE_SCRIPT_WHERE}
         ORDER BY attached_to_kind ASC, attached_to_id ASC NULLS FIRST, codename ASC, id ASC
       `
@@ -577,11 +577,12 @@ export class RuntimeScriptsService {
             return null
         }
 
+        const scriptsTable = qSchemaTable(schemaName, '_app_scripts')
         const rows = (await executor.query(
             `
         SELECT id, codename, presentation, attached_to_kind, attached_to_id, module_role, source_kind,
                sdk_api_version, manifest, server_bundle, client_bundle, checksum, is_active, config
-        FROM "${schemaName}"._app_scripts
+        FROM ${scriptsTable}
         WHERE id = $1 AND ${ACTIVE_SCRIPT_WHERE}
         LIMIT 1
       `,
@@ -739,10 +740,11 @@ export class RuntimeScriptsService {
                           }
 
                           if (kind === 'component') {
+                              const componentsTable = qSchemaTable(params.schemaName, '_app_components')
                               const rows = (await params.executor.query(
                                   `
                     SELECT id, object_id, codename, column_name, data_type
-                    FROM "${params.schemaName}"._app_components
+                    FROM ${componentsTable}
                     WHERE ${runtimeCodenameTextSql('codename')} = $1
                       AND _upl_deleted = false
                       AND _app_deleted = false
@@ -754,10 +756,11 @@ export class RuntimeScriptsService {
                               return rows[0] ?? null
                           }
 
+                          const objectsTable = qSchemaTable(params.schemaName, '_app_objects')
                           const rows = (await params.executor.query(
                               `
                   SELECT id, kind, codename, table_name, presentation, config
-                  FROM "${params.schemaName}"._app_objects
+                  FROM ${objectsTable}
                   WHERE kind = $1
                     AND ${runtimeCodenameTextSql('codename')} = $2
                     AND _upl_deleted = false

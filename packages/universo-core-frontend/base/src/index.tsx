@@ -68,8 +68,7 @@ const routerConfig: RouterConfig = {
  *
  * @see https://react.dev/reference/react/StrictMode#strictmode
  */
-const AppWrapper: React.ComponentType<{ children?: ReactNode }> =
-    process.env.NODE_ENV === 'development' ? React.StrictMode : React.Fragment
+const AppWrapper: React.ComponentType<{ children?: ReactNode }> = process.env.NODE_ENV === 'development' ? React.StrictMode : React.Fragment
 
 interface RouterWrapperProps {
     children: ReactNode

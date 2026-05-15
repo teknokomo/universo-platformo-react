@@ -5,7 +5,7 @@
 
 // Set test environment
 if (!process.env.NODE_ENV) {
-  process.env.NODE_ENV = 'test'
+    process.env.NODE_ENV = 'test'
 }
 
 // This file intentionally left minimal - complex setup should go in setupAfterEnv.ts

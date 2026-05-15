@@ -344,9 +344,7 @@ export const getObjectSystemComponentSeedInputs = (states?: ObjectSystemFieldSta
     }))
 }
 
-export const buildObjectSystemComponentSeedRecord = (
-    definition: ObjectSystemComponentSeedInput
-): ObjectSystemComponentSeedRecord => ({
+export const buildObjectSystemComponentSeedRecord = (definition: ObjectSystemComponentSeedInput): ObjectSystemComponentSeedRecord => ({
     key: definition.key,
     codename: definition.columnName,
     dataType: definition.dataType,
@@ -360,18 +358,15 @@ export const buildObjectSystemComponentSeedRecord = (
     isSystemEnabled: definition.enabled
 })
 
-export const getObjectSystemComponentSeedRecords = (
-    states?: ObjectSystemFieldState[] | null
-): ObjectSystemComponentSeedRecord[] => getObjectSystemComponentSeedInputs(states).map(buildObjectSystemComponentSeedRecord)
+export const getObjectSystemComponentSeedRecords = (states?: ObjectSystemFieldState[] | null): ObjectSystemComponentSeedRecord[] =>
+    getObjectSystemComponentSeedInputs(states).map(buildObjectSystemComponentSeedRecord)
 
 export const getReservedObjectSystemFieldCodenames = (): string[] => SYSTEM_FIELD_REGISTRY.map((definition) => definition.columnName)
 
 export const getDefaultObjectSystemFieldStates = (): ObjectSystemFieldState[] =>
     SYSTEM_FIELD_REGISTRY.map((definition) => ({ key: definition.key, enabled: definition.defaultEnabled }))
 
-export const validateObjectSystemFieldToggleSet = (
-    states?: ObjectSystemFieldState[] | null
-): ObjectSystemFieldToggleValidationResult => {
+export const validateObjectSystemFieldToggleSet = (states?: ObjectSystemFieldState[] | null): ObjectSystemFieldToggleValidationResult => {
     const normalizedStates = normalizeStatesMap(states)
     const errors: string[] = []
 

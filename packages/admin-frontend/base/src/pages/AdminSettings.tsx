@@ -248,7 +248,10 @@ const AdminSettings = () => {
                             </Stack>
                         ) : (
                             <Stack spacing={0} divider={<Divider />}>
-                                <Box data-testid='admin-setting-dialogSizePreset' sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
+                                <Box
+                                    data-testid='admin-setting-dialogSizePreset'
+                                    sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
+                                >
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
                                         <Typography variant='subtitle2'>{t('settings.general.dialogSizePreset')}</Typography>
                                         <Typography variant='body2' color='text.secondary'>
@@ -292,7 +295,10 @@ const AdminSettings = () => {
                                     />
                                 </Box>
 
-                                <Box data-testid='admin-setting-dialogAllowResize' sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
+                                <Box
+                                    data-testid='admin-setting-dialogAllowResize'
+                                    sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
+                                >
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
                                         <Typography variant='subtitle2'>{t('settings.general.dialogAllowResize')}</Typography>
                                         <Typography variant='body2' color='text.secondary'>
@@ -310,7 +316,10 @@ const AdminSettings = () => {
                                     />
                                 </Box>
 
-                                <Box data-testid='admin-setting-dialogCloseBehavior' sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
+                                <Box
+                                    data-testid='admin-setting-dialogCloseBehavior'
+                                    sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
+                                >
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
                                         <Typography variant='subtitle2'>{t('settings.general.dialogCloseBehavior')}</Typography>
                                         <Typography variant='body2' color='text.secondary'>
@@ -359,13 +368,20 @@ const AdminSettings = () => {
                             </Stack>
                         ) : (
                             <Stack spacing={0} divider={<Divider />}>
-                                <Box data-testid='admin-setting-codenameStyle' sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
+                                <Box
+                                    data-testid='admin-setting-codenameStyle'
+                                    sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
+                                >
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
                                         <Typography variant='subtitle2'>{t('settings.metahubs.codenameStyle')}</Typography>
                                         <Typography variant='body2' color='text.secondary'>
                                             {t('settings.metahubs.codenameStyleDescription')}
                                         </Typography>
-                                        <CodenamePreview style={effectiveStyle} alphabet={effectiveAlphabet} allowMixed={effectiveAllowMixed} />
+                                        <CodenamePreview
+                                            style={effectiveStyle}
+                                            alphabet={effectiveAlphabet}
+                                            allowMixed={effectiveAllowMixed}
+                                        />
                                     </Box>
                                     <FormControl size='small' sx={{ minWidth: 250 }}>
                                         <InputLabel>{t('settings.metahubs.codenameStyle')}</InputLabel>
@@ -389,7 +405,11 @@ const AdminSettings = () => {
                                         <Typography variant='body2' color='text.secondary'>
                                             {t('settings.metahubs.codenameAlphabetDescription')}
                                         </Typography>
-                                        <CodenamePreview style={effectiveStyle} alphabet={effectiveAlphabet} allowMixed={effectiveAllowMixed} />
+                                        <CodenamePreview
+                                            style={effectiveStyle}
+                                            alphabet={effectiveAlphabet}
+                                            allowMixed={effectiveAllowMixed}
+                                        />
                                     </Box>
                                     <FormControl size='small' sx={{ minWidth: 250 }}>
                                         <InputLabel>{t('settings.metahubs.codenameAlphabet')}</InputLabel>
@@ -467,7 +487,10 @@ const AdminSettings = () => {
                                     </Box>
                                 ) : null}
 
-                                <Box data-testid='admin-setting-codenameLocalizedEnabled' sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
+                                <Box
+                                    data-testid='admin-setting-codenameLocalizedEnabled'
+                                    sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}
+                                >
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
                                         <Typography variant='subtitle2'>{t('settings.metahubs.codenameLocalizedEnabled')}</Typography>
                                         <Typography variant='body2' color='text.secondary'>
@@ -499,7 +522,10 @@ const AdminSettings = () => {
                                             <Switch
                                                 checked={effectivePlatformSystemComponentsConfigurable}
                                                 onChange={(event) =>
-                                                    handleMetahubsChange(PLATFORM_SYSTEM_COMPONENT_ADMIN_KEYS.allowConfiguration, event.target.checked)
+                                                    handleMetahubsChange(
+                                                        PLATFORM_SYSTEM_COMPONENT_ADMIN_KEYS.allowConfiguration,
+                                                        event.target.checked
+                                                    )
                                                 }
                                             />
                                         }
@@ -521,7 +547,10 @@ const AdminSettings = () => {
                                             <Switch
                                                 checked={effectivePlatformSystemComponentsRequired}
                                                 onChange={(event) =>
-                                                    handleMetahubsChange(PLATFORM_SYSTEM_COMPONENT_ADMIN_KEYS.forceCreate, event.target.checked)
+                                                    handleMetahubsChange(
+                                                        PLATFORM_SYSTEM_COMPONENT_ADMIN_KEYS.forceCreate,
+                                                        event.target.checked
+                                                    )
                                                 }
                                             />
                                         }

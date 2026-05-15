@@ -175,7 +175,9 @@ test.describe('Metahubs Quiz App Export', () => {
             .poll(async () => {
                 const response = await listLayoutZoneWidgets(api, metahub.id, layoutId)
                 const items = response?.items ?? []
-                const quizWidget = items.find((item) => item.widgetKey === 'quizWidget' && item.config?.scriptCodename === QUIZ_SCRIPT_CODENAME)
+                const quizWidget = items.find(
+                    (item) => item.widgetKey === 'quizWidget' && item.config?.scriptCodename === QUIZ_SCRIPT_CODENAME
+                )
                 const removableWidgetKeys = new Set<string>(QUIZ_REMOVED_LAYOUT_WIDGET_KEYS)
                 const hasLegacyWidgets = items.some((item) => removableWidgetKeys.has(String(item?.widgetKey ?? '')))
                 const hasRightZoneWidgets = items.some((item) => item.zone === 'right')

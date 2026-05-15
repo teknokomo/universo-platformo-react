@@ -4,26 +4,26 @@ interface DiagnosticsWindow extends Window {
 
 const registerGlobalDiagnostics = (): void => {
     if (typeof window === 'undefined') {
-        return;
+        return
     }
 
-    const globalScope = window as DiagnosticsWindow;
+    const globalScope = window as DiagnosticsWindow
 
     if (globalScope.__UP_DIAGNOSTICS_INSTALLED__) {
-        return;
+        return
     }
 
-    globalScope.__UP_DIAGNOSTICS_INSTALLED__ = true;
+    globalScope.__UP_DIAGNOSTICS_INSTALLED__ = true
 
     const logError = (type: string, payload: Record<string, unknown>): void => {
         try {
-            const timestamp = new Date().toISOString();
+            const timestamp = new Date().toISOString()
             // eslint-disable-next-line no-console
-            console.error(`[bootstrap-${type}]`, { timestamp, ...payload });
+            console.error(`[bootstrap-${type}]`, { timestamp, ...payload })
         } catch (error) {
             // Fail silently if logging fails to avoid recursive exceptions
         }
-    };
+    }
 
     globalScope.addEventListener('error', (event) => {
         logError('error', {
@@ -31,20 +31,20 @@ const registerGlobalDiagnostics = (): void => {
             stack: event?.error?.stack,
             filename: event?.filename,
             lineno: event?.lineno,
-            colno: event?.colno,
-        });
-    });
+            colno: event?.colno
+        })
+    })
 
     globalScope.addEventListener('unhandledrejection', (event) => {
-        const reason = event?.reason;
+        const reason = event?.reason
         logError('rejection', {
             message: typeof reason === 'object' ? reason?.message : reason,
             stack: reason?.stack,
-            reason,
-        });
-    });
-};
+            reason
+        })
+    })
+}
 
-registerGlobalDiagnostics();
+registerGlobalDiagnostics()
 
-export {};
+export {}

@@ -156,7 +156,11 @@ async function waitForRuntimeCatalogId(
     return runtimeState?.objectCollection?.id ?? fallbackCatalogId
 }
 
-async function ensureTitleComponent(api: Awaited<ReturnType<typeof createLoggedInApiContext>>, metahubId: string, objectCollectionId: string) {
+async function ensureTitleComponent(
+    api: Awaited<ReturnType<typeof createLoggedInApiContext>>,
+    metahubId: string,
+    objectCollectionId: string
+) {
     const components = await listComponents(api, metahubId, objectCollectionId, { limit: 100, offset: 0, includeShared: true })
     const hasTitleField = (components.items ?? []).some(
         (item: { codename?: unknown; name?: unknown }) =>
@@ -185,7 +189,10 @@ async function ensureTitleComponent(api: Awaited<ReturnType<typeof createLoggedI
 }
 
 async function createRuntimeRowViaBrowser(page: Page, value: string) {
-    const createButton = page.getByTestId(applicationSelectors.runtimeCreateButton).or(page.getByRole('button', { name: 'Create' })).first()
+    const createButton = page
+        .getByTestId(applicationSelectors.runtimeCreateButton)
+        .or(page.getByRole('button', { name: 'Create' }))
+        .first()
     await expect(createButton).toBeEnabled({ timeout: 30_000 })
     await createButton.click()
 

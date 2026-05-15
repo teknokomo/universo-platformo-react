@@ -191,10 +191,7 @@ interface AuthUserDeleteResult {
     message?: string
 }
 
-async function deleteAllAuthUsers(
-    db: DbExecutor,
-    authUsers: { id: string; email: string }[]
-): Promise<AuthUserDeleteResult[]> {
+async function deleteAllAuthUsers(db: DbExecutor, authUsers: { id: string; email: string }[]): Promise<AuthUserDeleteResult[]> {
     if (authUsers.length === 0) {
         return []
     }

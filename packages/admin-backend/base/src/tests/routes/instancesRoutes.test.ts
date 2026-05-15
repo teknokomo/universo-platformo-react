@@ -37,7 +37,7 @@ function buildApp() {
         createInstancesRoutes({
             globalAccessService: {} as never,
             permissionService: {} as never,
-            getDbExecutor: () => ({ query: jest.fn(), transaction: jest.fn() }) as never
+            getDbExecutor: () => ({ query: jest.fn(), transaction: jest.fn() } as never)
         })
     )
     return app
