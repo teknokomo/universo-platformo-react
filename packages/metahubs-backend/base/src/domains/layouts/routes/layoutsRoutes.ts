@@ -23,7 +23,7 @@ export function createLayoutsRoutes(
     router.post('/metahub/:metahubId/layout/:layoutId/copy', writeLimiter, asyncHandler(ctrl.copy))
     router.patch('/metahub/:metahubId/layout/:layoutId', writeLimiter, asyncHandler(ctrl.update))
     router.delete('/metahub/:metahubId/layout/:layoutId', writeLimiter, asyncHandler(ctrl.remove))
-    router.get('/metahub/:metahubId/layout/:layoutId/zone-widgets/catalog', readLimiter, asyncHandler(ctrl.widgetsCatalog))
+    router.get('/metahub/:metahubId/layout/:layoutId/zone-widgets/object', readLimiter, asyncHandler(ctrl.widgetsObject))
     router.get('/metahub/:metahubId/layout/:layoutId/zone-widgets', readLimiter, asyncHandler(ctrl.listZoneWidgets))
     router.put('/metahub/:metahubId/layout/:layoutId/zone-widget', writeLimiter, asyncHandler(ctrl.assignZoneWidget))
     router.patch('/metahub/:metahubId/layout/:layoutId/zone-widgets/move', writeLimiter, asyncHandler(ctrl.moveZoneWidget))

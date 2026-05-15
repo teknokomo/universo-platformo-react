@@ -28,7 +28,7 @@ import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } 
 import { CSS } from '@dnd-kit/utilities'
 import Autocomplete from '@mui/material/Autocomplete'
 import type { MenuWidgetConfig, MenuWidgetConfigItem, MetahubMenuItemKind, VersionedLocalizedContent } from '@universo/types'
-import { isEnabledComponentConfig } from '@universo/types'
+import { isEnabledCapabilityConfig } from '@universo/types'
 import { EntityFormDialog, LocalizedInlineField } from '@universo/template-mui'
 import {
     createLocalizedContent,
@@ -99,11 +99,11 @@ export const normalizeEditableMenuItemKind = (kind: MetahubMenuItemKind | string
 }
 
 export const resolveMenuItemSectionTarget = (item?: MenuWidgetConfigItem | null): string => {
-    return item?.sectionId ?? item?.linkedCollectionId ?? ''
+    return item?.sectionId ?? item?.objectCollectionId ?? ''
 }
 
-export const isLayoutMenuSectionEntityType = (entityType: Pick<MetahubEntityType, 'components'>): boolean =>
-    isEnabledComponentConfig(entityType.components.layoutConfig)
+export const isLayoutMenuSectionEntityType = (entityType: Pick<MetahubEntityType, 'capabilities'>): boolean =>
+    isEnabledCapabilityConfig(entityType.capabilities.layoutConfig)
 
 function makeDefaultConfig(): MenuWidgetConfig {
     return {
@@ -159,7 +159,7 @@ function SortableItemRow({
     onEdit: () => void
     onRemove: () => void
 }) {
-    const { fieldDefinitions, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
+    const { components, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
     const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }
 
     return (
@@ -169,7 +169,7 @@ function SortableItemRow({
             variant='outlined'
             sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 1, borderRadius: 1.5 }}
         >
-            <IconButton size='small' sx={{ cursor: 'grab' }} {...fieldDefinitions} {...listeners}>
+            <IconButton size='small' sx={{ cursor: 'grab' }} {...components} {...listeners}>
                 <DragIndicatorRoundedIcon fontSize='small' />
             </IconButton>
             <Box sx={{ flexGrow: 1, minWidth: 0 }}>
@@ -331,7 +331,7 @@ function ItemFormDialog({
             title: titleVlc ?? createLocalizedContent(normalizeLocale(uiLocale), ''),
             icon: icon.trim() || null,
             href: kind === 'link' ? href.trim() || null : null,
-            linkedCollectionId: kind === 'section' ? sectionTargetId.trim() || null : null,
+            objectCollectionId: kind === 'section' ? sectionTargetId.trim() || null : null,
             treeEntityId: kind === 'hub' ? treeEntityId || null : null,
             sectionId: kind === 'section' ? sectionTargetId.trim() || null : null,
             sortOrder: item?.sortOrder ?? 0,

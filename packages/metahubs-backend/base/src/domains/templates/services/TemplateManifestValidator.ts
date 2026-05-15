@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import {
-    FIELD_DEFINITION_DATA_TYPES,
-    validateComponentDependencies,
+    COMPONENT_DATA_TYPES,
+    validateCapabilityDependencies,
     FIXED_VALUE_DATA_TYPES,
     DASHBOARD_LAYOUT_ZONES,
     DASHBOARD_LAYOUT_WIDGETS,
@@ -74,10 +74,10 @@ const templatePresetReferenceSchema = z.object({
     includedByDefault: z.boolean().optional()
 })
 
-/** Schema for a child attribute inside a TABLE attribute (no nesting). */
-const seedChildAttributeSchema = z.object({
+/** Schema for a child component inside a TABLE component (no nesting). */
+const seedChildComponentSchema = z.object({
     codename: z.string().min(1).max(100),
-    dataType: z.enum(FIELD_DEFINITION_DATA_TYPES),
+    dataType: z.enum(COMPONENT_DATA_TYPES),
     name: vlcSchema,
     description: vlcSchema.optional(),
     isRequired: z.boolean().optional(),
@@ -89,21 +89,21 @@ const seedChildAttributeSchema = z.object({
     uiConfig: z.record(z.unknown()).optional()
 })
 
-const seedAttributeSchema = z.object({
+const seedComponentSchema = z.object({
     codename: z.string().min(1).max(100),
-    dataType: z.enum(FIELD_DEFINITION_DATA_TYPES),
+    dataType: z.enum(COMPONENT_DATA_TYPES),
     name: vlcSchema,
     description: vlcSchema.optional(),
     isRequired: z.boolean().optional(),
-    isDisplayAttribute: z.boolean().optional(),
+    isDisplayComponent: z.boolean().optional(),
     sortOrder: z.number().int().optional(),
     targetEntityCodename: z.string().optional(),
     targetEntityKind: entityKindKeySchema.optional(),
     targetConstantCodename: z.string().optional(),
     validationRules: z.record(z.unknown()).optional(),
     uiConfig: z.record(z.unknown()).optional(),
-    /** Child attributes for TABLE data type (tabular parts). */
-    childAttributes: z.array(seedChildAttributeSchema).optional()
+    /** Child components for TABLE data type (tabular parts). */
+    childComponents: z.array(seedChildComponentSchema).optional()
 })
 
 const seedFixedValueSchema = z.object({
@@ -124,7 +124,7 @@ const seedEntitySchema = z.object({
     description: vlcSchema.optional(),
     localizeCodenameFromName: z.boolean().optional(),
     config: z.record(z.unknown()).optional(),
-    attributes: z.array(seedAttributeSchema).optional(),
+    components: z.array(seedComponentSchema).optional(),
     fixedValues: z.array(seedFixedValueSchema).optional(),
     hubs: z.array(z.string()).optional()
 })
@@ -168,7 +168,7 @@ const presetDefaultInstanceSchema = z.object({
     description: vlcSchema.optional(),
     localizeCodenameFromName: z.boolean().optional(),
     config: z.record(z.unknown()).optional(),
-    attributes: z.array(seedAttributeSchema).optional(),
+    components: z.array(seedComponentSchema).optional(),
     fixedValues: z.array(seedFixedValueSchema).optional(),
     elements: z.array(seedElementSchema).optional(),
     optionValues: z.array(seedEnumerationValueSchema).optional(),
@@ -196,7 +196,7 @@ const templateMetaSchema = z.object({
 const componentConfigSchema = z.object({ enabled: z.boolean() })
 
 const componentManifestSchema = z.object({
-    dataSchema: z.union([componentConfigSchema.extend({ maxAttributes: z.number().int().nullable().optional() }), z.literal(false)]),
+    dataSchema: z.union([componentConfigSchema.extend({ maxComponents: z.number().int().nullable().optional() }), z.literal(false)]),
     records: z.union([componentConfigSchema.extend({ maxElements: z.number().int().nullable().optional() }), z.literal(false)]),
     treeAssignment: z.union([
         componentConfigSchema.extend({
@@ -291,7 +291,8 @@ const entityTypeUiSchema = z.object({
                 fallbackTitle: z.string().min(1).optional()
             })
         )
-        .optional()
+        .optional(),
+    treeAssignmentLabels: z.record(z.string(), vlcSchema).optional()
 })
 
 const baseTemplateManifestSchema = z.object({
@@ -560,57 +561,57 @@ export const templateManifestSchema = baseTemplateManifestSchema.superRefine((ma
 
     for (let i = 0; i < entities.length; i++) {
         const entity = entities[i]
-        for (let attrIndex = 0; attrIndex < (entity.attributes?.length ?? 0); attrIndex++) {
-            const attribute = entity.attributes?.[attrIndex]
-            if (!attribute) continue
+        for (let attrIndex = 0; attrIndex < (entity.components?.length ?? 0); attrIndex++) {
+            const component = entity.components?.[attrIndex]
+            if (!component) continue
 
-            const attrPath = ['seed', 'entities', i, 'attributes', attrIndex] as (string | number)[]
-            const nestedAttributes = attribute.childAttributes ?? []
+            const attrPath = ['seed', 'entities', i, 'components', attrIndex] as (string | number)[]
+            const nestedComponents = component.childComponents ?? []
 
-            const attributesToValidate: Array<{
-                attribute: typeof attribute | (typeof nestedAttributes)[number]
+            const componentsToValidate: Array<{
+                component: typeof component | (typeof nestedComponents)[number]
                 path: (string | number)[]
-            }> = [{ attribute, path: attrPath }]
+            }> = [{ component, path: attrPath }]
 
-            for (let childIndex = 0; childIndex < nestedAttributes.length; childIndex++) {
-                attributesToValidate.push({
-                    attribute: nestedAttributes[childIndex],
-                    path: [...attrPath, 'childAttributes', childIndex]
+            for (let childIndex = 0; childIndex < nestedComponents.length; childIndex++) {
+                componentsToValidate.push({
+                    component: nestedComponents[childIndex],
+                    path: [...attrPath, 'childComponents', childIndex]
                 })
             }
 
-            for (const { attribute: attr, path } of attributesToValidate) {
-                if (attr.targetEntityCodename) {
-                    const hasTarget = attr.targetEntityKind
-                        ? entityByKindCodename.has(`${attr.targetEntityKind}:${attr.targetEntityCodename}`)
-                        : (entityByCodename.get(attr.targetEntityCodename) ?? 0) === 1
+            for (const { component: cmp, path } of componentsToValidate) {
+                if (cmp.targetEntityCodename) {
+                    const hasTarget = cmp.targetEntityKind
+                        ? entityByKindCodename.has(`${cmp.targetEntityKind}:${cmp.targetEntityCodename}`)
+                        : (entityByCodename.get(cmp.targetEntityCodename) ?? 0) === 1
 
                     if (!hasTarget) {
                         ctx.addIssue({
                             code: z.ZodIssueCode.custom,
                             path: [...path, 'targetEntityCodename'],
-                            message: `Attribute target not found or ambiguous: ${attr.targetEntityCodename}`
+                            message: `Component target not found or ambiguous: ${cmp.targetEntityCodename}`
                         })
                     }
                 }
 
-                if (attr.targetConstantCodename && attr.dataType !== 'REF') {
+                if (cmp.targetConstantCodename && cmp.dataType !== 'REF') {
                     ctx.addIssue({
                         code: z.ZodIssueCode.custom,
                         path: [...path, 'targetConstantCodename'],
-                        message: 'targetConstantCodename is only supported for REF attributes'
+                        message: 'targetConstantCodename is only supported for REF components'
                     })
                 }
 
-                if (!attr.targetConstantCodename && attr.targetEntityKind === 'set' && attr.dataType === 'REF') {
+                if (!cmp.targetConstantCodename && cmp.targetEntityKind === 'set' && cmp.dataType === 'REF') {
                     ctx.addIssue({
                         code: z.ZodIssueCode.custom,
                         path: [...path, 'targetConstantCodename'],
-                        message: 'REF attributes targeting set must define targetConstantCodename'
+                        message: 'REF components targeting set must define targetConstantCodename'
                     })
                 }
 
-                if (attr.targetConstantCodename && attr.targetEntityKind !== 'set') {
+                if (cmp.targetConstantCodename && cmp.targetEntityKind !== 'set') {
                     ctx.addIssue({
                         code: z.ZodIssueCode.custom,
                         path: [...path, 'targetConstantCodename'],
@@ -618,7 +619,7 @@ export const templateManifestSchema = baseTemplateManifestSchema.superRefine((ma
                     })
                 }
 
-                if (attr.targetConstantCodename && !attr.targetEntityCodename) {
+                if (cmp.targetConstantCodename && !cmp.targetEntityCodename) {
                     ctx.addIssue({
                         code: z.ZodIssueCode.custom,
                         path: [...path, 'targetEntityCodename'],
@@ -627,13 +628,13 @@ export const templateManifestSchema = baseTemplateManifestSchema.superRefine((ma
                     continue
                 }
 
-                if (attr.targetConstantCodename && attr.targetEntityCodename) {
-                    const targetSetConstants = setFixedValuesByEntityCodename.get(attr.targetEntityCodename)
-                    if (!targetSetConstants || !targetSetConstants.has(attr.targetConstantCodename)) {
+                if (cmp.targetConstantCodename && cmp.targetEntityCodename) {
+                    const targetSetConstants = setFixedValuesByEntityCodename.get(cmp.targetEntityCodename)
+                    if (!targetSetConstants || !targetSetConstants.has(cmp.targetConstantCodename)) {
                         ctx.addIssue({
                             code: z.ZodIssueCode.custom,
                             path: [...path, 'targetConstantCodename'],
-                            message: `Set constant not found: ${attr.targetEntityCodename}.${attr.targetConstantCodename}`
+                            message: `Set constant not found: ${cmp.targetEntityCodename}.${cmp.targetConstantCodename}`
                         })
                     }
                 }
@@ -661,7 +662,7 @@ const entityTypePresetManifestSchemaBase = z.object({
             .max(64)
             .regex(/^[a-z][a-z0-9._-]{0,63}$/, 'Kind key must be lowercase and start with a letter'),
         codename: vlcSchema.optional(),
-        components: componentManifestSchema,
+        capabilities: componentManifestSchema,
         ui: entityTypeUiSchema,
         presentation: z.record(z.unknown()).optional(),
         config: z.record(z.unknown()).optional()
@@ -678,11 +679,11 @@ export const entityTypePresetManifestSchema = entityTypePresetManifestSchemaBase
         })
     }
 
-    const dependencyErrors = validateComponentDependencies(manifest.entityType.components)
+    const dependencyErrors = validateCapabilityDependencies(manifest.entityType.capabilities)
     for (const [index, error] of dependencyErrors.entries()) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            path: ['entityType', 'components', index],
+            path: ['entityType', 'capabilities', index],
             message: error
         })
     }
@@ -736,7 +737,7 @@ export const entityTypePresetManifestSchema = entityTypePresetManifestSchemaBase
         }
         seenResourceSurfaceRouteSegments.add(surface.routeSegment)
 
-        if (manifest.entityType.components[surface.capability] === false) {
+        if (manifest.entityType.capabilities[surface.capability] === false) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 path: ['entityType', 'ui', 'resourceSurfaces', index, 'capability'],
@@ -759,15 +760,15 @@ export const entityTypePresetManifestSchema = entityTypePresetManifestSchemaBase
         }
         defaultInstanceCodenameSet.add(instance.codename)
 
-        if (instance.attributes?.length && manifest.entityType.components.dataSchema === false) {
+        if (instance.components?.length && manifest.entityType.capabilities.dataSchema === false) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
-                path: ['defaultInstances', index, 'attributes'],
-                message: 'Default instance attributes require the dataSchema component'
+                path: ['defaultInstances', index, 'components'],
+                message: 'Default instance components require the dataSchema component'
             })
         }
 
-        if (instance.fixedValues?.length && manifest.entityType.components.fixedValues === false) {
+        if (instance.fixedValues?.length && manifest.entityType.capabilities.fixedValues === false) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 path: ['defaultInstances', index, 'fixedValues'],
@@ -775,7 +776,7 @@ export const entityTypePresetManifestSchema = entityTypePresetManifestSchemaBase
             })
         }
 
-        if (instance.elements?.length && manifest.entityType.components.records === false) {
+        if (instance.elements?.length && manifest.entityType.capabilities.records === false) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 path: ['defaultInstances', index, 'elements'],
@@ -783,7 +784,7 @@ export const entityTypePresetManifestSchema = entityTypePresetManifestSchemaBase
             })
         }
 
-        if (instance.optionValues?.length && manifest.entityType.components.optionValues === false) {
+        if (instance.optionValues?.length && manifest.entityType.capabilities.optionValues === false) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 path: ['defaultInstances', index, 'optionValues'],
@@ -791,7 +792,7 @@ export const entityTypePresetManifestSchema = entityTypePresetManifestSchemaBase
             })
         }
 
-        if (instance.hubs?.length && manifest.entityType.components.treeAssignment === false) {
+        if (instance.hubs?.length && manifest.entityType.capabilities.treeAssignment === false) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 path: ['defaultInstances', index, 'hubs'],

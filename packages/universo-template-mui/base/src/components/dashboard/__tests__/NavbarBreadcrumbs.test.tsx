@@ -61,14 +61,14 @@ jest.mock('react-i18next', () => ({
                 instance: 'Instance',
                 role: 'Role',
                 hubs: 'Hubs',
-                catalogs: 'Catalogs',
+                objects: 'Objects',
                 sets: 'Sets',
                 enumerations: 'Enumerations',
-                attributes: 'Attributes',
+                components: 'Components',
                 elements: 'Elements',
                 constants: 'Constants',
                 values: 'Values',
-                'metahubs:attributes.system.title': 'System Attributes'
+                'metahubs:components.system.title': 'System Components'
             }
 
             return labels[key] || options?.defaultValue || key
@@ -82,12 +82,12 @@ jest.mock('../../../hooks', () => ({
     truncateApplicationName: (value: string) => value,
     useMetahubPublicationName: () => null,
     useTreeEntityName: (_metahubId: string | null, treeEntityId: string | null) => (treeEntityId ? `Hub ${treeEntityId}` : null),
-    useLinkedCollectionName: (_metahubId: string | null, _hubId: string | null, linkedCollectionId: string | null) =>
-        linkedCollectionId ? `Catalog ${linkedCollectionId}` : null,
-    useLinkedCollectionNameStandalone: (_metahubId: string | null, linkedCollectionId: string | null) =>
-        linkedCollectionId ? `Catalog ${linkedCollectionId}` : null,
+    useObjectCollectionName: (_metahubId: string | null, _hubId: string | null, objectCollectionId: string | null) =>
+        objectCollectionId ? `Object ${objectCollectionId}` : null,
+    useObjectCollectionNameStandalone: (_metahubId: string | null, objectCollectionId: string | null) =>
+        objectCollectionId ? `Object ${objectCollectionId}` : null,
     useValueGroupNameStandalone: (_metahubId: string | null, valueGroupId: string | null) => (valueGroupId ? `Set ${valueGroupId}` : null),
-    truncateLinkedCollectionName: (value: string) => value,
+    truncateObjectCollectionName: (value: string) => value,
     truncateValueGroupName: (value: string) => value,
     useOptionListName: (_metahubId: string | null, optionListId: string | null) => (optionListId ? `Enumeration ${optionListId}` : null),
     truncateOptionListName: (value: string) => value,
@@ -150,24 +150,24 @@ describe('NavbarBreadcrumbs', () => {
         })
     })
 
-    it('renders entity-route catalog list breadcrumbs', async () => {
-        renderBreadcrumbs('/metahub/mhb-1/entities/catalog/instances')
+    it('renders entity-route object list breadcrumbs', async () => {
+        renderBreadcrumbs('/metahub/mhb-1/entities/object/instances')
 
         await waitFor(() => {
-            expect(screen.getByText('Catalogs')).toBeInTheDocument()
+            expect(screen.getByText('Objects')).toBeInTheDocument()
         })
         expect(screen.getByRole('link', { name: 'Entities' })).toHaveAttribute('href', '/metahub/mhb-1/entities')
     })
 
-    it('renders entity-route hub instance with nested catalogs breadcrumbs', async () => {
-        renderBreadcrumbs('/metahub/mhb-1/entities/hub/instance/hub-1/catalogs')
+    it('renders entity-route hub instance with nested objects breadcrumbs', async () => {
+        renderBreadcrumbs('/metahub/mhb-1/entities/hub/instance/hub-1/objects')
 
         await waitFor(() => {
             expect(screen.getByRole('link', { name: 'Hubs' })).toHaveAttribute('href', '/metahub/mhb-1/entities/hub/instances')
         })
 
         expect(screen.getByRole('link', { name: 'Hub hub-1' })).toHaveAttribute('href', '/metahub/mhb-1/entities/hub/instance/hub-1/hubs')
-        expect(screen.getByText('Catalogs')).toBeInTheDocument()
+        expect(screen.getByText('Objects')).toBeInTheDocument()
     })
 
     it('renders entity-route set list breadcrumbs', async () => {

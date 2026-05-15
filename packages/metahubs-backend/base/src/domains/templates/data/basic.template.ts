@@ -75,7 +75,7 @@ export function buildBasicMinimalSeedZoneWidgets(): TemplateSeedZoneWidget[] {
 
 /**
  * "Basic" minimal starter template — essential widgets only.
- * Default entities (hub, catalog, set, enumeration) can be toggled via createOptions.
+ * Default entities (hub, object, set, enumeration) can be toggled via createOptions.
  */
 export const basicTemplate: MetahubTemplateManifest = {
     $schema: 'metahub-template/v1',
@@ -95,7 +95,7 @@ export const basicTemplate: MetahubTemplateManifest = {
     presets: [
         { presetCodename: 'hub', includedByDefault: true },
         { presetCodename: 'page', includedByDefault: true },
-        { presetCodename: 'catalog', includedByDefault: true },
+        { presetCodename: 'object', includedByDefault: true },
         { presetCodename: 'set', includedByDefault: true },
         { presetCodename: 'enumeration', includedByDefault: true }
     ],
@@ -123,9 +123,9 @@ export const basicTemplate: MetahubTemplateManifest = {
             { key: 'general.codenameAutoConvertMixedAlphabets', value: { _value: true } },
             { key: 'general.codenameAutoReformat', value: { _value: true } },
             { key: 'general.codenameRequireReformat', value: { _value: true } },
-            { key: 'entity.catalog.allowAttributeCopy', value: { _value: true } },
-            { key: 'entity.catalog.allowAttributeDelete', value: { _value: true } },
-            { key: 'entity.catalog.allowDeleteLastDisplayAttribute', value: { _value: true } }
+            { key: 'entity.object.allowComponentCopy', value: { _value: true } },
+            { key: 'entity.object.allowComponentDelete', value: { _value: true } },
+            { key: 'entity.object.allowDeleteLastDisplayComponent', value: { _value: true } }
         ]
     }
 }

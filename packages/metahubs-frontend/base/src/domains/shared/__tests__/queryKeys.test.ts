@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from 'vitest'
 import { QueryClient } from '@tanstack/react-query'
 
 import {
-    invalidateFieldDefinitionsQueries,
-    invalidateLinkedCollectionsQueries,
+    invalidateComponentsQueries,
+    invalidateObjectCollectionsQueries,
     invalidateEntitiesQueries,
     invalidateEntityTypesQueries,
     invalidateOptionListsQueries,
@@ -180,45 +180,45 @@ describe('queryKeys factories + invalidation helpers', () => {
             'blockingTreeDependencies'
         ])
 
-        expect(metahubsQueryKeys.linkedCollections('m1', 'h1')).toEqual([
+        expect(metahubsQueryKeys.objectCollections('m1', 'h1')).toEqual([
             'metahubs',
             'detail',
             'm1',
             'treeEntities',
             'detail',
             'h1',
-            'linkedCollections'
+            'objectCollections'
         ])
-        expect(metahubsQueryKeys.linkedCollectionsScope('m1', 'h1', ' catalog ')).toEqual([
+        expect(metahubsQueryKeys.objectCollectionsScope('m1', 'h1', ' object ')).toEqual([
             'metahubs',
             'detail',
             'm1',
             'treeEntities',
             'detail',
             'h1',
-            'linkedCollections',
-            { kindKey: 'catalog' }
+            'objectCollections',
+            { kindKey: 'object' }
         ])
-        expect(metahubsQueryKeys.linkedCollectionsList('m1', 'h1', { offset: 10, sortOrder: 'asc' as any })).toEqual([
+        expect(metahubsQueryKeys.objectCollectionsList('m1', 'h1', { offset: 10, sortOrder: 'asc' as any })).toEqual([
             'metahubs',
             'detail',
             'm1',
             'treeEntities',
             'detail',
             'h1',
-            'linkedCollections',
+            'objectCollections',
             'list',
             { limit: 100, offset: 10, sortBy: 'updated', sortOrder: 'asc', search: undefined }
         ])
-        expect(metahubsQueryKeys.linkedCollectionsList('m1', 'h1', { kindKey: ' catalog ' })).toEqual([
+        expect(metahubsQueryKeys.objectCollectionsList('m1', 'h1', { kindKey: ' object ' })).toEqual([
             'metahubs',
             'detail',
             'm1',
             'treeEntities',
             'detail',
             'h1',
-            'linkedCollections',
-            { kindKey: 'catalog' },
+            'objectCollections',
+            { kindKey: 'object' },
             'list',
             {
                 limit: 100,
@@ -226,32 +226,32 @@ describe('queryKeys factories + invalidation helpers', () => {
                 sortBy: 'updated',
                 sortOrder: 'desc',
                 search: undefined,
-                kindKey: 'catalog'
+                kindKey: 'object'
             }
         ])
 
-        expect(metahubsQueryKeys.allLinkedCollections('m1')).toEqual(['metahubs', 'detail', 'm1', 'allLinkedCollections'])
-        expect(metahubsQueryKeys.allLinkedCollectionsScope('m1', ' catalog ')).toEqual([
+        expect(metahubsQueryKeys.allObjectCollections('m1')).toEqual(['metahubs', 'detail', 'm1', 'allObjectCollections'])
+        expect(metahubsQueryKeys.allObjectCollectionsScope('m1', ' object ')).toEqual([
             'metahubs',
             'detail',
             'm1',
-            'allLinkedCollections',
-            { kindKey: 'catalog' }
+            'allObjectCollections',
+            { kindKey: 'object' }
         ])
-        expect(metahubsQueryKeys.allLinkedCollectionsList('m1', { search: 'Cat' })).toEqual([
+        expect(metahubsQueryKeys.allObjectCollectionsList('m1', { search: 'Cat' })).toEqual([
             'metahubs',
             'detail',
             'm1',
-            'allLinkedCollections',
+            'allObjectCollections',
             'list',
             { limit: 100, offset: 0, sortBy: 'updated', sortOrder: 'desc', search: 'Cat' }
         ])
-        expect(metahubsQueryKeys.allLinkedCollectionsList('m1', { kindKey: ' catalog ' })).toEqual([
+        expect(metahubsQueryKeys.allObjectCollectionsList('m1', { kindKey: ' object ' })).toEqual([
             'metahubs',
             'detail',
             'm1',
-            'allLinkedCollections',
-            { kindKey: 'catalog' },
+            'allObjectCollections',
+            { kindKey: 'object' },
             'list',
             {
                 limit: 100,
@@ -259,7 +259,7 @@ describe('queryKeys factories + invalidation helpers', () => {
                 sortBy: 'updated',
                 sortOrder: 'desc',
                 search: undefined,
-                kindKey: 'catalog'
+                kindKey: 'object'
             }
         ])
 
@@ -453,70 +453,70 @@ describe('queryKeys factories + invalidation helpers', () => {
             }
         ])
 
-        expect(metahubsQueryKeys.linkedCollectionDetail('m1', 'c1')).toEqual([
+        expect(metahubsQueryKeys.objectCollectionDetail('m1', 'c1')).toEqual([
             'metahubs',
             'detail',
             'm1',
-            'allLinkedCollections',
+            'allObjectCollections',
             'detail',
             'c1'
         ])
-        expect(metahubsQueryKeys.linkedCollectionDetail('m1', 'c1', 'catalog')).toEqual([
+        expect(metahubsQueryKeys.objectCollectionDetail('m1', 'c1', 'object')).toEqual([
             'metahubs',
             'detail',
             'm1',
-            'allLinkedCollections',
-            { kindKey: 'catalog' },
+            'allObjectCollections',
+            { kindKey: 'object' },
             'detail',
             'c1'
         ])
-        expect(metahubsQueryKeys.linkedCollectionDetailInTreeEntity('m1', 'h1', 'c1')).toEqual([
+        expect(metahubsQueryKeys.objectCollectionDetailInTreeEntity('m1', 'h1', 'c1')).toEqual([
             'metahubs',
             'detail',
             'm1',
             'treeEntities',
             'detail',
             'h1',
-            'linkedCollections',
+            'objectCollections',
             'detail',
             'c1'
         ])
-        expect(metahubsQueryKeys.linkedCollectionDetailInTreeEntity('m1', 'h1', 'c1', 'catalog')).toEqual([
+        expect(metahubsQueryKeys.objectCollectionDetailInTreeEntity('m1', 'h1', 'c1', 'object')).toEqual([
             'metahubs',
             'detail',
             'm1',
             'treeEntities',
             'detail',
             'h1',
-            'linkedCollections',
-            { kindKey: 'catalog' },
+            'objectCollections',
+            { kindKey: 'object' },
             'detail',
             'c1'
         ])
 
-        expect(metahubsQueryKeys.fieldDefinitions('m1', 'h1', 'c1')).toEqual([
+        expect(metahubsQueryKeys.components('m1', 'h1', 'c1')).toEqual([
             'metahubs',
             'detail',
             'm1',
             'treeEntities',
             'detail',
             'h1',
-            'linkedCollections',
+            'objectCollections',
             'detail',
             'c1',
-            'fieldDefinitions'
+            'components'
         ])
-        expect(metahubsQueryKeys.fieldDefinitionsList('m1', 'h1', 'c1')).toEqual([
+        expect(metahubsQueryKeys.componentsList('m1', 'h1', 'c1')).toEqual([
             'metahubs',
             'detail',
             'm1',
             'treeEntities',
             'detail',
             'h1',
-            'linkedCollections',
+            'objectCollections',
             'detail',
             'c1',
-            'fieldDefinitions',
+            'components',
             'list',
             {
                 limit: 100,
@@ -529,17 +529,17 @@ describe('queryKeys factories + invalidation helpers', () => {
                 includeShared: false
             }
         ])
-        expect(metahubsQueryKeys.fieldDefinitionsList('m1', 'h1', 'c1', { scope: 'system', locale: 'ru' })).toEqual([
+        expect(metahubsQueryKeys.componentsList('m1', 'h1', 'c1', { scope: 'system', locale: 'ru' })).toEqual([
             'metahubs',
             'detail',
             'm1',
             'treeEntities',
             'detail',
             'h1',
-            'linkedCollections',
+            'objectCollections',
             'detail',
             'c1',
-            'fieldDefinitions',
+            'components',
             'list',
             {
                 limit: 100,
@@ -552,23 +552,23 @@ describe('queryKeys factories + invalidation helpers', () => {
                 includeShared: false
             }
         ])
-        expect(metahubsQueryKeys.fieldDefinitionsDirect('m1', 'c1')).toEqual([
+        expect(metahubsQueryKeys.componentsDirect('m1', 'c1')).toEqual([
             'metahubs',
             'detail',
             'm1',
-            'allLinkedCollections',
+            'allObjectCollections',
             'detail',
             'c1',
-            'fieldDefinitions'
+            'components'
         ])
-        expect(metahubsQueryKeys.fieldDefinitionsListDirect('m1', 'c1', { sortBy: 'created' as any })).toEqual([
+        expect(metahubsQueryKeys.componentsListDirect('m1', 'c1', { sortBy: 'created' as any })).toEqual([
             'metahubs',
             'detail',
             'm1',
-            'allLinkedCollections',
+            'allObjectCollections',
             'detail',
             'c1',
-            'fieldDefinitions',
+            'components',
             'list',
             {
                 limit: 100,
@@ -581,14 +581,14 @@ describe('queryKeys factories + invalidation helpers', () => {
                 includeShared: false
             }
         ])
-        expect(metahubsQueryKeys.fieldDefinitionsListDirect('m1', 'c1', { scope: 'system' })).toEqual([
+        expect(metahubsQueryKeys.componentsListDirect('m1', 'c1', { scope: 'system' })).toEqual([
             'metahubs',
             'detail',
             'm1',
-            'allLinkedCollections',
+            'allObjectCollections',
             'detail',
             'c1',
-            'fieldDefinitions',
+            'components',
             'list',
             {
                 limit: 100,
@@ -609,7 +609,7 @@ describe('queryKeys factories + invalidation helpers', () => {
             'treeEntities',
             'detail',
             'h1',
-            'linkedCollections',
+            'objectCollections',
             'detail',
             'c1',
             'records'
@@ -621,7 +621,7 @@ describe('queryKeys factories + invalidation helpers', () => {
             'treeEntities',
             'detail',
             'h1',
-            'linkedCollections',
+            'objectCollections',
             'detail',
             'c1',
             'records',
@@ -632,7 +632,7 @@ describe('queryKeys factories + invalidation helpers', () => {
             'metahubs',
             'detail',
             'm1',
-            'allLinkedCollections',
+            'allObjectCollections',
             'detail',
             'c1',
             'records'
@@ -641,7 +641,7 @@ describe('queryKeys factories + invalidation helpers', () => {
             'metahubs',
             'detail',
             'm1',
-            'allLinkedCollections',
+            'allObjectCollections',
             'detail',
             'c1',
             'records',
@@ -677,9 +677,9 @@ describe('queryKeys factories + invalidation helpers', () => {
         await invalidateTreeEntitiesQueries.lists(queryClient, 'm1')
         await invalidateTreeEntitiesQueries.detail(queryClient, 'm1', 'h1')
 
-        await invalidateLinkedCollectionsQueries.all(queryClient, 'm1', 'h1')
-        await invalidateLinkedCollectionsQueries.lists(queryClient, 'm1', 'h1')
-        await invalidateLinkedCollectionsQueries.detail(queryClient, 'm1', 'c1', 'h1')
+        await invalidateObjectCollectionsQueries.all(queryClient, 'm1', 'h1')
+        await invalidateObjectCollectionsQueries.lists(queryClient, 'm1', 'h1')
+        await invalidateObjectCollectionsQueries.detail(queryClient, 'm1', 'c1', 'h1')
 
         await invalidateValueGroupsQueries.all(queryClient, 'm1')
         await invalidateValueGroupsQueries.lists(queryClient, 'm1')
@@ -690,8 +690,8 @@ describe('queryKeys factories + invalidation helpers', () => {
         await invalidateOptionListsQueries.lists(queryClient, 'm1')
         await invalidateOptionListsQueries.detail(queryClient, 'm1', 'enum-1')
 
-        await invalidateFieldDefinitionsQueries.all(queryClient, 'm1', 'h1', 'c1')
-        await invalidateFieldDefinitionsQueries.lists(queryClient, 'm1', 'h1', 'c1')
+        await invalidateComponentsQueries.all(queryClient, 'm1', 'h1', 'c1')
+        await invalidateComponentsQueries.lists(queryClient, 'm1', 'h1', 'c1')
 
         await invalidateRecordsQueries.all(queryClient, 'm1', 'h1', 'c1')
         await invalidateRecordsQueries.lists(queryClient, 'm1', 'h1', 'c1')
@@ -718,9 +718,9 @@ describe('queryKeys factories + invalidation helpers', () => {
         expect(spy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.treeEntitiesList('m1') })
         expect(spy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.treeEntityDetail('m1', 'h1') })
 
-        expect(spy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.linkedCollections('m1', 'h1') })
-        expect(spy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.linkedCollectionsList('m1', 'h1') })
-        expect(spy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.linkedCollectionDetailInTreeEntity('m1', 'h1', 'c1') })
+        expect(spy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.objectCollections('m1', 'h1') })
+        expect(spy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.objectCollectionsList('m1', 'h1') })
+        expect(spy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.objectCollectionDetailInTreeEntity('m1', 'h1', 'c1') })
 
         expect(spy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.allValueGroups('m1') })
         expect(spy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.allValueGroupsList('m1') })
@@ -731,8 +731,8 @@ describe('queryKeys factories + invalidation helpers', () => {
         expect(spy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.allOptionListsList('m1') })
         expect(spy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.optionListDetail('m1', 'enum-1') })
 
-        expect(spy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.fieldDefinitions('m1', 'h1', 'c1') })
-        expect(spy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.fieldDefinitionsList('m1', 'h1', 'c1') })
+        expect(spy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.components('m1', 'h1', 'c1') })
+        expect(spy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.componentsList('m1', 'h1', 'c1') })
 
         expect(spy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.records('m1', 'h1', 'c1') })
         expect(spy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.recordsList('m1', 'h1', 'c1') })

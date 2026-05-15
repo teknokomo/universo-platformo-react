@@ -10,7 +10,7 @@ The Entity-Component-Action-Event (ECAE) layer adds custom and standard metahub 
 
 - Keep new domain modeling inside one generic entity pipeline.
 - Reuse existing metahub authoring services and runtime publication flow.
-- Publish entity-based sections such as Hubs, Catalogs, Sets, and Enumerations through metadata instead of hardcoded menus.
+- Publish entity-based sections such as Hubs, Objects, Sets, and Enumerations through metadata instead of hardcoded menus.
 
 ## Core Model
 
@@ -32,7 +32,7 @@ The Entity-Component-Action-Event (ECAE) layer adds custom and standard metahub 
 
 - Generic entity instance routes still focus on true custom kinds.
 - Standard metadata kinds enter through entity-owned routes and reuse the matching authoring surfaces underneath.
-- Shared services and adapters let custom kinds reuse existing attribute, layout, and publication seams.
+- Shared services and adapters let custom kinds reuse existing component, layout, and publication seams.
 - Runtime consumers resolve section-oriented aliases from published entity metadata before falling back to older naming aliases.
 
 ## Builder Flow
@@ -45,7 +45,7 @@ The Entity-Component-Action-Event (ECAE) layer adds custom and standard metahub 
 
 ## Route Ownership Rules
 
-- Standard Hubs, Catalogs, Sets, and Enumerations are published through direct standard kind keys.
+- Standard Hubs, Objects, Sets, and Enumerations are published through direct standard kind keys.
 - Entity-owned routes reuse the matching authoring primitives instead of introducing a second CRUD shell.
 - Browser validation must cover design-time workspace flows, entity-owned standard routes, and the publication/runtime path.
 - Runtime navigation materializes the sections described by the published entity metadata and current runtime adapters.

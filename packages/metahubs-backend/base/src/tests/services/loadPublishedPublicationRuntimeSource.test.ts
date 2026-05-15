@@ -6,7 +6,7 @@ const mockMaterializeSharedEntitiesForRuntime = jest.fn()
 const mockEnrichDefinitionsWithSetConstants = jest.fn()
 const mockSchemaServiceCtor = jest.fn()
 const mockObjectsServiceCtor = jest.fn()
-const mockFieldDefinitionsServiceCtor = jest.fn()
+const mockComponentsServiceCtor = jest.fn()
 
 jest.mock('../../persistence', () => ({
     findPublicationById: (...args: unknown[]) => mockFindPublicationById(...args),
@@ -27,9 +27,9 @@ jest.mock('../../domains/metahubs/services/MetahubObjectsService', () => ({
     })
 }))
 
-jest.mock('../../domains/metahubs/services/MetahubFieldDefinitionsService', () => ({
-    MetahubFieldDefinitionsService: jest.fn().mockImplementation((...args: unknown[]) => {
-        mockFieldDefinitionsServiceCtor(...args)
+jest.mock('../../domains/metahubs/services/MetahubComponentsService', () => ({
+    MetahubComponentsService: jest.fn().mockImplementation((...args: unknown[]) => {
+        mockComponentsServiceCtor(...args)
         return {}
     })
 }))
@@ -102,15 +102,15 @@ describe('loadPublishedPublicationRuntimeSource', () => {
         const publicationSnapshot = {
             version: 2,
             entities: {
-                'catalog-1': {
-                    id: 'catalog-1',
-                    kind: 'catalog'
+                'object-1': {
+                    id: 'object-1',
+                    kind: 'object'
                 }
             },
-            sharedFieldDefinitions: [
+            sharedComponents: [
                 {
-                    id: 'shared-attribute-1',
-                    linkedCollectionId: 'catalog-1'
+                    id: 'shared-component-1',
+                    objectCollectionId: 'object-1'
                 }
             ],
             sharedFixedValues: [
@@ -128,8 +128,8 @@ describe('loadPublishedPublicationRuntimeSource', () => {
             sharedEntityOverrides: [
                 {
                     id: 'override-1',
-                    targetObjectId: 'catalog-1',
-                    sharedEntityId: 'shared-attribute-1',
+                    targetObjectId: 'object-1',
+                    sharedEntityId: 'shared-component-1',
                     isExcluded: false
                 }
             ]
@@ -138,14 +138,14 @@ describe('loadPublishedPublicationRuntimeSource', () => {
             ...publicationSnapshot,
             entities: {
                 ...publicationSnapshot.entities,
-                'catalog-1': {
-                    ...publicationSnapshot.entities['catalog-1'],
-                    fields: [{ id: 'shared-attribute-1' }]
+                'object-1': {
+                    ...publicationSnapshot.entities['object-1'],
+                    fields: [{ id: 'shared-component-1' }]
                 }
             }
         }
-        const rawDefinitions = [{ linkedCollectionId: 'catalog-1', fields: [{ id: 'shared-attribute-1' }] }]
-        const enrichedDefinitions = [{ linkedCollectionId: 'catalog-1', constantsResolved: true }]
+        const rawDefinitions = [{ objectCollectionId: 'object-1', fields: [{ id: 'shared-component-1' }] }]
+        const enrichedDefinitions = [{ objectCollectionId: 'object-1', constantsResolved: true }]
 
         mockFindPublicationById.mockResolvedValue({
             id: 'publication-1',
@@ -164,7 +164,7 @@ describe('loadPublishedPublicationRuntimeSource', () => {
 
         expect(mockSchemaServiceCtor).toHaveBeenCalledWith(executor)
         expect(mockObjectsServiceCtor).toHaveBeenCalledWith(executor, expect.any(Object))
-        expect(mockFieldDefinitionsServiceCtor).toHaveBeenCalledWith(executor, expect.any(Object))
+        expect(mockComponentsServiceCtor).toHaveBeenCalledWith(executor, expect.any(Object))
         expect(mockMaterializeSharedEntitiesForRuntime).toHaveBeenCalledWith(publicationSnapshot)
         expect(mockDeserializeSnapshot).toHaveBeenCalledWith(runtimeSnapshot)
         expect(mockEnrichDefinitionsWithSetConstants).toHaveBeenCalledWith(rawDefinitions, runtimeSnapshot)
@@ -183,20 +183,20 @@ describe('loadPublishedPublicationRuntimeSource', () => {
         const publicationSnapshot = {
             version: 2,
             entities: {
-                'catalog-1': {
-                    id: 'catalog-1',
-                    kind: 'catalog'
+                'object-1': {
+                    id: 'object-1',
+                    kind: 'object'
                 }
             },
-            sharedFieldDefinitions: [{ id: 'shared-attribute-1', linkedCollectionId: 'catalog-1' }]
+            sharedComponents: [{ id: 'shared-component-1', objectCollectionId: 'object-1' }]
         }
         const runtimeSnapshot = {
             ...publicationSnapshot,
             entities: {
                 ...publicationSnapshot.entities,
-                'catalog-1': {
-                    ...publicationSnapshot.entities['catalog-1'],
-                    fields: [{ id: 'shared-attribute-1' }]
+                'object-1': {
+                    ...publicationSnapshot.entities['object-1'],
+                    fields: [{ id: 'shared-component-1' }]
                 }
             }
         }

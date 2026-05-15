@@ -59,9 +59,9 @@ const mocks = vi.hoisted(() => ({
     enqueueSnackbar: vi.fn(),
     t: (key: string, fallback?: string) => fallback ?? key,
     nextId: 1,
-    fieldDefinitionsApi: {
-        reorderFieldDefinition: vi.fn(),
-        reorderFieldDefinitionDirect: vi.fn()
+    componentsApi: {
+        reorderComponent: vi.fn(),
+        reorderComponentDirect: vi.fn()
     },
     hubsApi: {
         createTreeEntity: vi.fn(),
@@ -70,15 +70,15 @@ const mocks = vi.hoisted(() => ({
         copyTreeEntity: vi.fn(),
         reorderTreeEntity: vi.fn()
     },
-    catalogsApi: {
-        createLinkedCollectionAtMetahub: vi.fn(),
-        updateLinkedCollectionAtMetahub: vi.fn(),
-        deleteLinkedCollectionDirect: vi.fn(),
-        copyLinkedCollection: vi.fn(),
-        createLinkedCollection: vi.fn(),
-        updateLinkedCollection: vi.fn(),
-        deleteLinkedCollection: vi.fn(),
-        reorderLinkedCollection: vi.fn()
+    objectCollectionsApi: {
+        createObjectCollectionAtMetahub: vi.fn(),
+        updateObjectCollectionAtMetahub: vi.fn(),
+        deleteObjectCollectionDirect: vi.fn(),
+        copyObjectCollection: vi.fn(),
+        createObjectCollection: vi.fn(),
+        updateObjectCollection: vi.fn(),
+        deleteObjectCollection: vi.fn(),
+        reorderObjectCollection: vi.fn()
     },
     fixedValuesApi: {
         reorderFixedValue: vi.fn(),
@@ -325,18 +325,18 @@ vi.mock('@universo/template-mui', () => ({
     })
 }))
 
-vi.mock('../../entities/metadata/fieldDefinition/api', () => mocks.fieldDefinitionsApi)
+vi.mock('../../entities/metadata/component/api', () => mocks.componentsApi)
 vi.mock('../../entities/presets/api/trees', () => mocks.hubsApi)
-vi.mock('../../entities/presets/api/linkedCollections', () => mocks.catalogsApi)
+vi.mock('../../entities/presets/api/objectCollections', () => mocks.objectCollectionsApi)
 vi.mock('../../entities/metadata/fixedValue/api', () => mocks.fixedValuesApi)
 vi.mock('../../entities/presets/api/valueGroups', () => mocks.setsApi)
 vi.mock('../../entities/presets/api/optionLists', () => mocks.enumerationsApi)
 vi.mock('../../layouts/api', () => mocks.layoutsApi)
 vi.mock('../../publications/api', () => mocks.publicationsApi)
 
-import * as attributeHooks from '../../entities/metadata/fieldDefinition/hooks/mutations'
+import * as componentHooks from '../../entities/metadata/component/hooks/mutations'
 import * as hubHooks from '../../entities/presets/hooks/treeEntityMutations'
-import * as catalogHooks from '../../entities/presets/hooks/linkedCollectionMutations'
+import * as objectCollectionHooks from '../../entities/presets/hooks/objectCollectionMutations'
 import * as setHooks from '../../entities/presets/hooks/valueGroupMutations'
 import * as constantHooks from '../../entities/metadata/fixedValue/hooks/mutations'
 import * as enumerationHooks from '../../entities/presets/hooks/optionListMutations'
@@ -344,11 +344,11 @@ import * as layoutHooks from '../../layouts/hooks/mutations'
 import * as publicationHooks from '../../publications/hooks/mutations'
 import { metahubsQueryKeys } from '../queryKeys'
 
-type ReorderAttributeParams = Parameters<ReturnType<typeof attributeHooks.useReorderFieldDefinition>['mutate']>[0]
+type ReorderComponentParams = Parameters<ReturnType<typeof componentHooks.useReorderComponent>['mutate']>[0]
 type CreateTreeEntityParams = Parameters<ReturnType<typeof hubHooks.useCreateTreeEntity>['mutate']>[0]
 type UpdateTreeEntityParams = Parameters<ReturnType<typeof hubHooks.useUpdateTreeEntity>['mutate']>[0]
 type CopyTreeEntityParams = Parameters<ReturnType<typeof hubHooks.useCopyTreeEntity>['mutate']>[0]
-type CopyLinkedCollectionParams = Parameters<ReturnType<typeof catalogHooks.useCopyLinkedCollection>['mutate']>[0]
+type CopyObjectCollectionParams = Parameters<ReturnType<typeof objectCollectionHooks.useCopyObjectCollection>['mutate']>[0]
 type CreateValueGroupParams = Parameters<ReturnType<typeof setHooks.useCreateValueGroupAtMetahub>['mutate']>[0]
 type UpdateValueGroupParams = Parameters<ReturnType<typeof setHooks.useUpdateValueGroupAtMetahub>['mutate']>[0]
 type CopyValueGroupParams = Parameters<ReturnType<typeof setHooks.useCopyValueGroup>['mutate']>[0]
@@ -390,14 +390,14 @@ describe('remaining metahubs optimistic mutation hooks', () => {
 
         const queryClient = createTestQueryClient()
         queryClient.setQueryData(listKey, {
-            items: [{ id: 'hub-1', codename: 'hub-1', name: { en: 'TreeEntity 1' }, linkedCollectionsCount: 1 }],
+            items: [{ id: 'hub-1', codename: 'hub-1', name: { en: 'TreeEntity 1' }, objectCollectionsCount: 1 }],
             pagination: { total: 1 }
         })
         queryClient.setQueryData(detailKey, {
             id: 'hub-1',
             codename: 'hub-1',
             name: { en: 'TreeEntity 1' },
-            linkedCollectionsCount: 1
+            objectCollectionsCount: 1
         })
 
         let createTreeEntity: ReturnType<typeof hubHooks.useCreateTreeEntity> | undefined
@@ -684,58 +684,58 @@ describe('remaining metahubs optimistic mutation hooks', () => {
         })
     })
 
-    it('applies optimistic copy state for linkedCollections in both metahub and hub scopes', async () => {
-        const metahubId = 'metahub-linkedCollections'
-        const listKey = metahubsQueryKeys.allLinkedCollectionsList(metahubId)
-        const hubListKey = metahubsQueryKeys.linkedCollectionsList(metahubId, 'hub-1')
-        const copyCatalogRequest = createPromiseController<{ data: { id: string; treeEntities: Array<{ id: string }> } }>()
+    it('applies optimistic copy state for objectCollections in both metahub and hub scopes', async () => {
+        const metahubId = 'metahub-objectCollections'
+        const listKey = metahubsQueryKeys.allObjectCollectionsList(metahubId)
+        const hubListKey = metahubsQueryKeys.objectCollectionsList(metahubId, 'hub-1')
+        const copyObjectRequest = createPromiseController<{ data: { id: string; treeEntities: Array<{ id: string }> } }>()
 
-        mocks.catalogsApi.copyLinkedCollection.mockReturnValue(copyCatalogRequest.promise)
+        mocks.objectCollectionsApi.copyObjectCollection.mockReturnValue(copyObjectRequest.promise)
 
         const queryClient = createTestQueryClient()
         queryClient.setQueryData(listKey, {
-            items: [{ id: 'catalog-1', codename: 'catalog-1', name: { en: 'LinkedCollectionEntity 1' }, treeEntities: [{ id: 'hub-1' }] }],
+            items: [{ id: 'object-1', codename: 'object-1', name: { en: 'ObjectCollectionEntity 1' }, treeEntities: [{ id: 'hub-1' }] }],
             pagination: { total: 1 }
         })
         queryClient.setQueryData(hubListKey, {
-            items: [{ id: 'catalog-1', codename: 'catalog-1', name: { en: 'LinkedCollectionEntity 1' }, treeEntities: [{ id: 'hub-1' }] }],
+            items: [{ id: 'object-1', codename: 'object-1', name: { en: 'ObjectCollectionEntity 1' }, treeEntities: [{ id: 'hub-1' }] }],
             pagination: { total: 1 }
         })
 
-        let copyLinkedCollection: ReturnType<typeof catalogHooks.useCopyLinkedCollection> | undefined
+        let copyObjectCollection: ReturnType<typeof objectCollectionHooks.useCopyObjectCollection> | undefined
 
         function Probe() {
-            copyLinkedCollection = catalogHooks.useCopyLinkedCollection()
+            copyObjectCollection = objectCollectionHooks.useCopyObjectCollection()
             return null
         }
 
         render(createElement(QueryClientProvider, { client: queryClient }, createElement(Probe)))
 
         act(() => {
-            copyLinkedCollection!.mutate({
+            copyObjectCollection!.mutate({
                 metahubId,
-                linkedCollectionId: 'catalog-1',
-                data: { name: { en: 'LinkedCollectionEntity 1 copy' } }
-            } as CopyLinkedCollectionParams)
+                objectCollectionId: 'object-1',
+                data: { name: { en: 'ObjectCollectionEntity 1 copy' } }
+            } as CopyObjectCollectionParams)
         })
 
         await waitFor(() => {
             const data = queryClient.getQueryData<{ items: Array<Record<string, unknown>> }>(listKey)
             const hubData = queryClient.getQueryData<{ items: Array<Record<string, unknown>> }>(hubListKey)
-            const copiedCatalog = data?.items.at(0)
-            const copiedCatalogInHub = hubData?.items.at(0)
-            expect(copiedCatalog?.__pendingAction).toBe('copy')
-            expect(copiedCatalog?.codename).toBe('')
-            expect(copiedCatalogInHub?.__pendingAction).toBe('copy')
-            expect(copiedCatalogInHub?.codename).toBe('')
+            const copiedObject = data?.items.at(0)
+            const copiedObjectInHub = hubData?.items.at(0)
+            expect(copiedObject?.__pendingAction).toBe('copy')
+            expect(copiedObject?.codename).toBe('')
+            expect(copiedObjectInHub?.__pendingAction).toBe('copy')
+            expect(copiedObjectInHub?.codename).toBe('')
         })
 
-        copyCatalogRequest.resolve({ data: { id: 'catalog-copy', treeEntities: [{ id: 'hub-1' }] } })
+        copyObjectRequest.resolve({ data: { id: 'object-copy', treeEntities: [{ id: 'hub-1' }] } })
 
         await waitFor(() => {
-            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('Catalog copied', { variant: 'success' })
+            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('Object copied', { variant: 'success' })
             const hubData = queryClient.getQueryData<{ items: Array<Record<string, unknown>> }>(hubListKey)
-            expect(hubData?.items.at(0)?.id).toBe('catalog-copy')
+            expect(hubData?.items.at(0)?.id).toBe('object-copy')
         })
     })
 
@@ -1084,11 +1084,11 @@ describe('remaining metahubs optimistic mutation hooks', () => {
         reorderRequest.resolve({ data: { id: 'constant-local-2' } })
     })
 
-    it('keeps locked shared fieldDefinitions fixed while optimistically reordering merged local rows', async () => {
-        const metahubId = 'metahub-fieldDefinitions'
+    it('keeps locked shared components fixed while optimistically reordering merged local rows', async () => {
+        const metahubId = 'metahub-components'
         const treeEntityId = 'hub-1'
-        const linkedCollectionId = 'catalog-1'
-        const listKey = metahubsQueryKeys.fieldDefinitionsList(metahubId, treeEntityId, linkedCollectionId, {
+        const objectCollectionId = 'object-1'
+        const listKey = metahubsQueryKeys.componentsList(metahubId, treeEntityId, objectCollectionId, {
             limit: 100,
             offset: 0,
             sortOrder: 'asc',
@@ -1096,50 +1096,50 @@ describe('remaining metahubs optimistic mutation hooks', () => {
         })
         const reorderRequest = createPromiseController<{ data: { id: string } }>()
 
-        mocks.fieldDefinitionsApi.reorderFieldDefinition.mockReturnValue(reorderRequest.promise)
+        mocks.componentsApi.reorderComponent.mockReturnValue(reorderRequest.promise)
 
         const queryClient = createTestQueryClient()
         queryClient.setQueryData(listKey, {
             items: [
                 {
-                    id: 'attribute-shared',
+                    id: 'component-shared',
                     sortOrder: 1,
                     effectiveSortOrder: 1,
                     isShared: true,
                     sharedBehavior: { canDeactivate: true, canExclude: true, positionLocked: true }
                 },
-                { id: 'attribute-local-1', sortOrder: 2, effectiveSortOrder: 2 },
-                { id: 'attribute-local-2', sortOrder: 3, effectiveSortOrder: 3 }
+                { id: 'component-local-1', sortOrder: 2, effectiveSortOrder: 2 },
+                { id: 'component-local-2', sortOrder: 3, effectiveSortOrder: 3 }
             ],
             pagination: { total: 3 }
         })
 
-        let reorderAttribute: ReturnType<typeof attributeHooks.useReorderFieldDefinition> | undefined
+        let reorderComponent: ReturnType<typeof componentHooks.useReorderComponent> | undefined
 
         function Probe() {
-            reorderAttribute = attributeHooks.useReorderFieldDefinition()
+            reorderComponent = componentHooks.useReorderComponent()
             return null
         }
 
         render(createElement(QueryClientProvider, { client: queryClient }, createElement(Probe)))
 
         act(() => {
-            reorderAttribute!.mutate({
+            reorderComponent!.mutate({
                 metahubId,
                 treeEntityId,
-                linkedCollectionId,
-                fieldDefinitionId: 'attribute-local-2',
+                objectCollectionId,
+                componentId: 'component-local-2',
                 newSortOrder: 2,
-                mergedOrderIds: ['attribute-local-2', 'attribute-local-1']
-            } as ReorderAttributeParams)
+                mergedOrderIds: ['component-local-2', 'component-local-1']
+            } as ReorderComponentParams)
         })
 
         await waitFor(() => {
             const data = queryClient.getQueryData<{ items: Array<Record<string, unknown>> }>(listKey)
-            expect(data?.items.map((item) => item.id)).toEqual(['attribute-shared', 'attribute-local-2', 'attribute-local-1'])
+            expect(data?.items.map((item) => item.id)).toEqual(['component-shared', 'component-local-2', 'component-local-1'])
         })
 
-        reorderRequest.resolve({ data: { id: 'attribute-local-2' } })
+        reorderRequest.resolve({ data: { id: 'component-local-2' } })
     })
 
     it('keeps locked shared enumeration values fixed while optimistically reordering merged local rows', async () => {

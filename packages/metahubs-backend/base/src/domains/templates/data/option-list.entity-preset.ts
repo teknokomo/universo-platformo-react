@@ -1,7 +1,7 @@
 import type { EntityTypePresetManifest } from '@universo/types'
 import {
     ENUMERATION_DEFAULT_INSTANCES,
-    ENUMERATION_TYPE_COMPONENTS,
+    ENUMERATION_TYPE_CAPABILITIES,
     ENUMERATION_TYPE_UI,
     STANDARD_ENUMERATION_DESCRIPTION,
     STANDARD_ENUMERATION_NAME
@@ -23,7 +23,7 @@ export const enumerationEntityPreset: EntityTypePresetManifest = {
     entityType: {
         kindKey: 'enumeration',
         codename: vlc('Enumeration', 'Enumeration'),
-        components: ENUMERATION_TYPE_COMPONENTS,
+        capabilities: ENUMERATION_TYPE_CAPABILITIES,
         ui: ENUMERATION_TYPE_UI,
         presentation: {
             name: STANDARD_ENUMERATION_NAME,

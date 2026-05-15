@@ -50,13 +50,13 @@ import {
 import { useCreateRecord, useUpdateRecord, useDeleteRecord, useMoveRecord, useReorderRecord } from '../hooks/mutations'
 import { useRecordListData } from '../hooks/useRecordListData'
 import * as recordsApi from '../api'
-import * as fieldDefinitionsApi from '../../fieldDefinition/api'
+import * as componentsApi from '../../component/api'
 import { listOptionValues } from '../../../presets/api/optionLists'
 import { listEntityInstances } from '../../../api/entityInstances'
 import { metahubsQueryKeys, invalidateRecordsQueries } from '../../../../shared'
 import {
-    LinkedCollectionEntity,
-    LinkedCollectionLocalizedPayload,
+    ObjectCollectionEntity,
+    ObjectCollectionLocalizedPayload,
     RecordItem,
     RecordItemDisplay,
     getVLCString,
@@ -68,14 +68,14 @@ import recordActions from './RecordActions'
 import InlineTableEditor from './InlineTableEditor'
 import type { DynamicFieldConfig, DynamicFieldValidationRules } from '@universo/template-mui/components/dialogs'
 import {
-    buildInitialValues as buildCatalogInitialValues,
-    buildFormTabs as buildLinkedCollectionFormTabs,
-    validateLinkedCollectionForm,
-    canSaveLinkedCollectionForm,
-    toPayload as catalogToPayload
-} from '../../../presets/ui/LinkedCollectionActions'
-import type { LinkedCollectionDisplayWithContainer } from '../../../presets/ui/LinkedCollectionActions'
-import { useUpdateLinkedCollectionAtMetahub } from '../../../presets/hooks/linkedCollectionMutations'
+    buildInitialValues as buildObjectInitialValues,
+    buildFormTabs as buildObjectCollectionFormTabs,
+    validateObjectCollectionForm,
+    canSaveObjectCollectionForm,
+    toPayload as objectToPayload
+} from '../../../presets/ui/ObjectCollectionActions'
+import type { ObjectCollectionDisplayWithContainer } from '../../../presets/ui/ObjectCollectionActions'
+import { useUpdateObjectCollectionAtMetahub } from '../../../presets/hooks/objectCollectionMutations'
 import {
     type ElementMenuContext,
     type ElementConfirmSpec,
@@ -85,9 +85,9 @@ import {
     extractResponseMessage,
     resolveSetConstantLabel,
     resolveRefId,
-    applyCopySuffixToFirstStringAttribute
+    applyCopySuffixToFirstStringComponent
 } from './recordListUtils'
-import { buildLinkedCollectionAuthoringPath } from '../../../../shared/entityMetadataRoutePaths'
+import { buildObjectCollectionAuthoringPath } from '../../../../shared/entityMetadataRoutePaths'
 
 const StyledPopper = styled(Popper)(({ theme }) => ({
     boxShadow: theme.shadows[4],
@@ -120,7 +120,7 @@ const getLocalizedCodenameString = (codename: unknown, locale: string, fallback:
     return fallback
 }
 
-const getFieldDefinitionKey = (definition: { id: string; codename: unknown }, locale: string): string =>
+const getComponentKey = (definition: { id: string; codename: unknown }, locale: string): string =>
     getLocalizedCodenameString(definition.codename, locale, definition.id)
 
 type ReferenceFieldAutocompleteProps = {
@@ -151,8 +151,8 @@ const ReferenceFieldAutocomplete = ({
     locale
 }: ReferenceFieldAutocompleteProps) => {
     const { t } = useTranslation('metahubs')
-    const isCatalogTarget = targetEntityKind === 'catalog'
-    const fieldDefinitionListParams = useMemo(
+    const isObjectTarget = targetEntityKind === 'object'
+    const componentListParams = useMemo(
         () => ({ limit: 100, offset: 0, sortBy: 'sortOrder', sortOrder: 'asc' as const, locale, includeShared: true }),
         [locale]
     )
@@ -162,33 +162,33 @@ const ReferenceFieldAutocomplete = ({
         [locale, targetEntityKind]
     )
 
-    const { data: targetAttributesData, isLoading: isLoadingAttributes } = useQuery({
-        queryKey: metahubsQueryKeys.fieldDefinitionsListDirect(metahubId, targetEntityId, fieldDefinitionListParams),
-        queryFn: () => fieldDefinitionsApi.listFieldDefinitionsDirect(metahubId, targetEntityId, fieldDefinitionListParams),
-        enabled: Boolean(metahubId && targetEntityId && isCatalogTarget)
+    const { data: targetComponentsData, isLoading: isLoadingComponents } = useQuery({
+        queryKey: metahubsQueryKeys.componentsListDirect(metahubId, targetEntityId, componentListParams),
+        queryFn: () => componentsApi.listComponentsDirect(metahubId, targetEntityId, componentListParams),
+        enabled: Boolean(metahubId && targetEntityId && isObjectTarget)
     })
 
-    const targetAttributes = useMemo(() => targetAttributesData?.items ?? [], [targetAttributesData])
+    const targetComponents = useMemo(() => targetComponentsData?.items ?? [], [targetComponentsData])
 
     const { data: targetElementsData, isLoading: isLoadingElements } = useQuery({
         queryKey: metahubsQueryKeys.recordsListDirect(metahubId, targetEntityId, recordListParams),
         queryFn: () => recordsApi.listRecordsDirect(metahubId, targetEntityId, recordListParams),
-        enabled: Boolean(metahubId && targetEntityId && isCatalogTarget)
+        enabled: Boolean(metahubId && targetEntityId && isObjectTarget)
     })
 
     const { data: targetEntitiesData, isLoading: isLoadingEntities } = useQuery({
         queryKey: metahubId ? metahubsQueryKeys.entitiesList(metahubId, entityListParams) : ['empty'],
         queryFn: () => listEntityInstances(metahubId, entityListParams),
-        enabled: Boolean(metahubId && targetEntityId && !isCatalogTarget)
+        enabled: Boolean(metahubId && targetEntityId && !isObjectTarget)
     })
 
-    const catalogElementOptions = useMemo<ElementOption[]>(() => {
+    const objectElementOptions = useMemo<ElementOption[]>(() => {
         const records = targetElementsData?.items ?? []
         return records.map((element) => {
-            const display = toRecordItemDisplay(element, targetAttributes, locale)
+            const display = toRecordItemDisplay(element, targetComponents, locale)
             return { id: element.id, name: display.name || element.id }
         })
-    }, [targetElementsData, targetAttributes, locale])
+    }, [targetElementsData, targetComponents, locale])
 
     const genericEntityOptions = useMemo<ElementOption[]>(() => {
         const entities = targetEntitiesData?.items ?? []
@@ -203,17 +203,17 @@ const ReferenceFieldAutocomplete = ({
         }))
     }, [targetEntitiesData?.items, locale])
 
-    const options = isCatalogTarget ? catalogElementOptions : genericEntityOptions
+    const options = isObjectTarget ? objectElementOptions : genericEntityOptions
 
     const selectedOption = useMemo<ElementOption | null>(() => {
         if (!value) return null
         const found = options.find((option) => option.id === value)
         if (found) return found
-        const fallbackLabel = isCatalogTarget
+        const fallbackLabel = isObjectTarget
             ? t('ref.unknownElement', 'Element {{id}}', { id: value.slice(0, 8) })
             : t('ref.unknownEntity', 'Entity {{id}}', { id: value.slice(0, 8) })
         return { id: value, name: fallbackLabel }
-    }, [isCatalogTarget, options, t, value])
+    }, [isObjectTarget, options, t, value])
 
     const optionsWithFallback = useMemo(() => {
         if (!selectedOption) return options
@@ -245,10 +245,10 @@ const ReferenceFieldAutocomplete = ({
                     }
                 }
             }}
-            loading={isCatalogTarget ? isLoadingElements || isLoadingAttributes : isLoadingEntities}
-            loadingText={isCatalogTarget ? t('ref.loadingElements', 'Loading records...') : t('ref.loadingEntities', 'Loading entities...')}
+            loading={isObjectTarget ? isLoadingElements || isLoadingComponents : isLoadingEntities}
+            loadingText={isObjectTarget ? t('ref.loadingElements', 'Loading records...') : t('ref.loadingEntities', 'Loading entities...')}
             noOptionsText={
-                isCatalogTarget
+                isObjectTarget
                     ? t('ref.noElementsAvailable', 'No records available')
                     : t('ref.noEntitiesAvailable', 'No entities available')
             }
@@ -275,8 +275,8 @@ const ReferenceFieldAutocomplete = ({
                         ...params.InputProps,
                         endAdornment: (
                             <>
-                                {isCatalogTarget ? (
-                                    isLoadingElements || isLoadingAttributes
+                                {isObjectTarget ? (
+                                    isLoadingElements || isLoadingComponents
                                 ) : isLoadingEntities ? (
                                     <CircularProgress color='inherit' size={16} />
                                 ) : null}
@@ -515,15 +515,15 @@ const RecordList = () => {
     const {
         metahubId,
         hubIdParam,
-        linkedCollectionId,
+        objectCollectionId,
         effectiveTreeEntityId,
         treeEntities,
-        catalogForHubResolution,
-        isCatalogResolutionLoading,
-        catalogResolutionError,
-        fieldDefinitions,
-        orderedAttributes,
-        childAttributesMap,
+        objectForHubResolution,
+        isObjectResolutionLoading,
+        objectResolutionError,
+        components,
+        orderedComponents,
+        childComponentsMap,
         childEnumValuesMap,
         setConstantsMap,
         allowElementCopy,
@@ -536,8 +536,8 @@ const RecordList = () => {
         images,
         elementMap,
         elementOrderMap,
-        visibleAttributesForColumns,
-        refTargetByAttribute,
+        visibleComponentsForColumns,
+        refTargetByComponent,
         refDisplayMap,
         isFetchingRefDisplayMap
     } = useRecordListData()
@@ -545,7 +545,7 @@ const RecordList = () => {
     // ── Local state ──
     const { dialogs, openCreate, openEdit, openCopy, openDelete, openConflict, close } = useListDialogs<RecordItem>()
     const [editDialogOpen, setEditDialogOpen] = useState(false)
-    const updateLinkedCollectionMutation = useUpdateLinkedCollectionAtMetahub()
+    const updateObjectCollectionMutation = useUpdateObjectCollectionAtMetahub()
 
     // State management for dialog
     const [isSubmitting, setSubmitting] = useState(false)
@@ -565,7 +565,7 @@ const RecordList = () => {
     )
 
     const resolveFieldKey = useCallback(
-        (definition: { id: string; codename: unknown }) => getFieldDefinitionKey(definition, i18n.language),
+        (definition: { id: string; codename: unknown }) => getComponentKey(definition, i18n.language),
         [i18n.language]
     )
 
@@ -576,12 +576,12 @@ const RecordList = () => {
 
             if (minLength === null && maxLength === null) return undefined
             if (minLength !== null && maxLength !== null) {
-                return t('fieldDefinitions.validation.stringLengthRange', 'Length: {{min}}–{{max}}', { min: minLength, max: maxLength })
+                return t('components.validation.stringLengthRange', 'Length: {{min}}–{{max}}', { min: minLength, max: maxLength })
             }
             if (minLength !== null) {
-                return t('fieldDefinitions.validation.stringMinLength', 'Min length: {{min}}', { min: minLength })
+                return t('components.validation.stringMinLength', 'Min length: {{min}}', { min: minLength })
             }
-            return t('fieldDefinitions.validation.stringMaxLength', 'Max length: {{max}}', { max: maxLength })
+            return t('components.validation.stringMaxLength', 'Max length: {{max}}', { max: maxLength })
         },
         [t]
     )
@@ -593,16 +593,16 @@ const RecordList = () => {
             const isNonNegative = Boolean(rules?.nonNegative)
 
             if (minValue !== null && maxValue !== null) {
-                return t('fieldDefinitions.validation.numberRange', 'Range: {{min}}–{{max}}', { min: minValue, max: maxValue })
+                return t('components.validation.numberRange', 'Range: {{min}}–{{max}}', { min: minValue, max: maxValue })
             }
             if (minValue !== null) {
-                return t('fieldDefinitions.validation.numberMin', 'Min value: {{min}}', { min: minValue })
+                return t('components.validation.numberMin', 'Min value: {{min}}', { min: minValue })
             }
             if (maxValue !== null) {
-                return t('fieldDefinitions.validation.numberMax', 'Max value: {{max}}', { max: maxValue })
+                return t('components.validation.numberMax', 'Max value: {{max}}', { max: maxValue })
             }
             if (isNonNegative) {
-                return t('fieldDefinitions.validation.numberNonNegative', 'Non-negative value')
+                return t('components.validation.numberNonNegative', 'Non-negative value')
             }
             return undefined
         },
@@ -611,16 +611,16 @@ const RecordList = () => {
 
     const elementFields = useMemo<DynamicFieldConfig[]>(
         () =>
-            orderedAttributes.map((attribute) => {
-                const resolvedTargetEntityId = attribute.targetEntityId ?? null
-                const resolvedTargetEntityKind = attribute.targetEntityKind ?? null
-                const resolvedTargetConstantId = resolvedTargetEntityKind === 'set' ? attribute.targetConstantId ?? null : null
+            orderedComponents.map((component) => {
+                const resolvedTargetEntityId = component.targetEntityId ?? null
+                const resolvedTargetEntityKind = component.targetEntityKind ?? null
+                const resolvedTargetConstantId = resolvedTargetEntityKind === 'set' ? component.targetConstantId ?? null : null
                 const resolvedSetConstant =
                     resolvedTargetEntityKind === 'set' && resolvedTargetEntityId && resolvedTargetConstantId
                         ? (setConstantsMap?.[resolvedTargetEntityId] ?? []).find((constant) => constant.id === resolvedTargetConstantId) ??
                           null
                         : null
-                const uiConfig = (attribute.uiConfig ?? {}) as Record<string, unknown>
+                const uiConfig = (component.uiConfig ?? {}) as Record<string, unknown>
                 const enumPresentationMode =
                     uiConfig.enumPresentationMode === 'radio' || uiConfig.enumPresentationMode === 'label'
                         ? uiConfig.enumPresentationMode
@@ -629,10 +629,10 @@ const RecordList = () => {
                 const enumAllowEmpty = uiConfig.enumAllowEmpty !== false
                 const enumLabelEmptyDisplay = uiConfig.enumLabelEmptyDisplay === 'empty' ? 'empty' : 'dash'
 
-                // Build childFields for TABLE fieldDefinitions
+                // Build childFields for TABLE components
                 let childFields: DynamicFieldConfig[] | undefined
-                if (attribute.dataType === 'TABLE' && childAttributesMap?.[attribute.id]) {
-                    const children = childAttributesMap[attribute.id]
+                if (component.dataType === 'TABLE' && childComponentsMap?.[component.id]) {
+                    const children = childComponentsMap[component.id]
                     childFields = children
                         .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
                         .map((child) => {
@@ -702,7 +702,7 @@ const RecordList = () => {
                             }
                         })
                 }
-                const attributeKey = resolveFieldKey(attribute)
+                const componentKey = resolveFieldKey(component)
                 const topLevelEnumOptions =
                     resolvedTargetEntityKind === 'set' && resolvedTargetConstantId
                         ? [
@@ -718,17 +718,17 @@ const RecordList = () => {
                         : undefined
 
                 return {
-                    id: attributeKey,
-                    label: getVLCString(attribute.name, i18n.language) || attributeKey,
-                    type: attribute.dataType as DynamicFieldConfig['type'],
-                    required: attribute.isRequired,
+                    id: componentKey,
+                    label: getVLCString(component.name, i18n.language) || componentKey,
+                    type: component.dataType as DynamicFieldConfig['type'],
+                    required: component.isRequired,
                     helperText:
-                        attribute.dataType === 'STRING'
-                            ? buildStringLengthHelperText(attribute.validationRules)
-                            : attribute.dataType === 'NUMBER'
-                            ? buildNumberRangeHelperText(attribute.validationRules)
+                        component.dataType === 'STRING'
+                            ? buildStringLengthHelperText(component.validationRules)
+                            : component.dataType === 'NUMBER'
+                            ? buildNumberRangeHelperText(component.validationRules)
                             : undefined,
-                    validationRules: attribute.validationRules as DynamicFieldValidationRules | undefined,
+                    validationRules: component.validationRules as DynamicFieldValidationRules | undefined,
                     refTargetEntityId: resolvedTargetEntityId,
                     refTargetEntityKind: resolvedTargetEntityKind,
                     refTargetConstantId: resolvedTargetConstantId,
@@ -741,15 +741,15 @@ const RecordList = () => {
                     enumAllowEmpty: resolvedTargetEntityKind === 'set' ? false : enumAllowEmpty,
                     enumLabelEmptyDisplay,
                     childFields,
-                    tableShowTitle: attribute.dataType === 'TABLE' ? uiConfig.showTitle !== false : undefined
+                    tableShowTitle: component.dataType === 'TABLE' ? uiConfig.showTitle !== false : undefined
                 }
             }),
         [
-            orderedAttributes,
+            orderedComponents,
             i18n.language,
             buildStringLengthHelperText,
             buildNumberRangeHelperText,
-            childAttributesMap,
+            childComponentsMap,
             childEnumValuesMap,
             resolveFieldKey,
             setConstantsMap,
@@ -819,7 +819,7 @@ const RecordList = () => {
                 )
             }
 
-            if (targetKind === 'catalog' || (targetKind !== 'enumeration' && targetKind !== 'set')) {
+            if (targetKind === 'object' || (targetKind !== 'enumeration' && targetKind !== 'set')) {
                 return (
                     <ReferenceFieldAutocomplete
                         metahubId={metahubId}
@@ -829,7 +829,7 @@ const RecordList = () => {
                         onChange={(nextValue) => onChange(nextValue)}
                         label={field.label}
                         placeholder={
-                            targetKind === 'catalog'
+                            targetKind === 'object'
                                 ? t('ref.selectElement', 'Select element...')
                                 : t('ref.selectEntity', 'Select entity...')
                         }
@@ -904,20 +904,20 @@ const RecordList = () => {
 
     const handlePendingElementInteraction = useCallback(
         (recordId: string) => {
-            if (!metahubId || !linkedCollectionId) return
+            if (!metahubId || !objectCollectionId) return
             revealPendingEntityFeedback({
                 queryClient,
                 queryKeyPrefix: effectiveTreeEntityId
-                    ? metahubsQueryKeys.records(metahubId, effectiveTreeEntityId, linkedCollectionId)
-                    : metahubsQueryKeys.recordsDirect(metahubId, linkedCollectionId),
+                    ? metahubsQueryKeys.records(metahubId, effectiveTreeEntityId, objectCollectionId)
+                    : metahubsQueryKeys.recordsDirect(metahubId, objectCollectionId),
                 entityId: recordId
             })
             enqueueSnackbar(pendingInteractionMessage, { variant: 'info' })
         },
-        [linkedCollectionId, effectiveTreeEntityId, enqueueSnackbar, metahubId, pendingInteractionMessage, queryClient]
+        [objectCollectionId, effectiveTreeEntityId, enqueueSnackbar, metahubId, pendingInteractionMessage, queryClient]
     )
 
-    // Build dynamic columns based on fieldDefinitions
+    // Build dynamic columns based on components
     const elementColumns = useMemo(() => {
         const cols: Array<{
             id: string
@@ -937,20 +937,20 @@ const RecordList = () => {
             )
         })
 
-        // Add columns for first 4 fieldDefinitions
-        const visibleAttrs = visibleAttributesForColumns
-        visibleAttrs.forEach((attr) => {
-            const attributeKey = resolveFieldKey(attr)
+        // Add columns for first 4 components
+        const visibleAttrs = visibleComponentsForColumns
+        visibleAttrs.forEach((cmp) => {
+            const componentKey = resolveFieldKey(cmp)
             cols.push({
-                id: attributeKey,
-                label: getVLCString(attr.name, i18n.language) || attributeKey,
+                id: componentKey,
+                label: getVLCString(cmp.name, i18n.language) || componentKey,
                 width: `${80 / Math.max(visibleAttrs.length, 1)}%`,
                 align: 'left',
                 render: (row: RecordItemDisplay) => {
-                    const value = row.data?.[attributeKey]
+                    const value = row.data?.[componentKey]
                     if (value === undefined || value === null) return '—'
 
-                    switch (attr.dataType) {
+                    switch (cmp.dataType) {
                         case 'STRING': {
                             const localizedValue = isVersionedLocalizedContent(value) ? getVLCString(value, i18n.language) : String(value)
                             return (
@@ -960,7 +960,7 @@ const RecordList = () => {
                             )
                         }
                         case 'REF': {
-                            const target = refTargetByAttribute[attributeKey]
+                            const target = refTargetByComponent[componentKey]
                             if (target?.kind === 'set') {
                                 return (
                                     <Typography sx={{ fontSize: 14 }} noWrap>
@@ -1019,17 +1019,17 @@ const RecordList = () => {
         })
 
         return cols
-    }, [i18n.language, visibleAttributesForColumns, refDisplayMap, refTargetByAttribute, isFetchingRefDisplayMap, resolveFieldKey, t])
+    }, [i18n.language, visibleComponentsForColumns, refDisplayMap, refTargetByComponent, isFetchingRefDisplayMap, resolveFieldKey, t])
 
     const handleMoveElement = useCallback(
         async (recordId: string, direction: 'up' | 'down') => {
-            if (!metahubId || !linkedCollectionId) return
+            if (!metahubId || !objectCollectionId) return
 
             try {
                 await moveElementMutation.mutateAsync({
                     metahubId,
                     treeEntityId: effectiveTreeEntityId,
-                    linkedCollectionId,
+                    objectCollectionId,
                     recordId,
                     direction
                 })
@@ -1045,7 +1045,7 @@ const RecordList = () => {
                 enqueueSnackbar(message, { variant: 'error' })
             }
         },
-        [linkedCollectionId, effectiveTreeEntityId, enqueueSnackbar, metahubId, moveElementMutation, t]
+        [objectCollectionId, effectiveTreeEntityId, enqueueSnackbar, metahubId, moveElementMutation, t]
     )
 
     const createElementContext = useCallback(
@@ -1062,14 +1062,14 @@ const RecordList = () => {
             moveElement: handleMoveElement,
             api: {
                 updateEntity: async (id: string, patch: { data: ElementUpdatePatch }) => {
-                    if (!metahubId || !linkedCollectionId) return
+                    if (!metahubId || !objectCollectionId) return
                     const element = elementMap.get(id)
                     const expectedVersion = element?.version
                     try {
                         await updateElementMutation.mutateAsync({
                             metahubId,
                             treeEntityId: effectiveTreeEntityId,
-                            linkedCollectionId,
+                            objectCollectionId,
                             recordId: id,
                             data: { ...patch, expectedVersion }
                         })
@@ -1084,31 +1084,31 @@ const RecordList = () => {
                     }
                 },
                 deleteEntity: (id: string) => {
-                    if (!metahubId || !linkedCollectionId) return Promise.resolve()
+                    if (!metahubId || !objectCollectionId) return Promise.resolve()
                     return deleteElementMutation.mutateAsync({
                         metahubId,
                         treeEntityId: effectiveTreeEntityId,
-                        linkedCollectionId,
+                        objectCollectionId,
                         recordId: id
                     })
                 }
             },
             helpers: {
                 refreshList: async () => {
-                    if (metahubId && linkedCollectionId) {
+                    if (metahubId && objectCollectionId) {
                         const invalidations: Promise<unknown>[] = []
                         if (effectiveTreeEntityId) {
                             invalidations.push(
-                                invalidateRecordsQueries.all(queryClient, metahubId, effectiveTreeEntityId, linkedCollectionId)
+                                invalidateRecordsQueries.all(queryClient, metahubId, effectiveTreeEntityId, objectCollectionId)
                             )
                         }
                         invalidations.push(
                             queryClient.invalidateQueries({
-                                queryKey: metahubsQueryKeys.linkedCollectionDetail(metahubId, linkedCollectionId)
+                                queryKey: metahubsQueryKeys.objectCollectionDetail(metahubId, objectCollectionId)
                             })
                         )
                         invalidations.push(
-                            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.recordsDirect(metahubId, linkedCollectionId) })
+                            queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.recordsDirect(metahubId, objectCollectionId) })
                         )
                         await Promise.all(invalidations)
                     }
@@ -1140,7 +1140,7 @@ const RecordList = () => {
                     openDelete(fullElement)
                 },
                 openEditDialog: async (element: RecordItem | RecordItemDisplay) => {
-                    if (!metahubId || !linkedCollectionId) return
+                    if (!metahubId || !objectCollectionId) return
                     const hasData = typeof (element as RecordItem).data === 'object'
                     let fullRecord: RecordItem | null = null
                     if (hasData && (element as RecordItem).data) {
@@ -1151,10 +1151,10 @@ const RecordList = () => {
                             try {
                                 if (effectiveTreeEntityId) {
                                     fullRecord = (
-                                        await recordsApi.getRecord(metahubId, effectiveTreeEntityId, linkedCollectionId, element.id)
+                                        await recordsApi.getRecord(metahubId, effectiveTreeEntityId, objectCollectionId, element.id)
                                     ).data
                                 } else {
-                                    fullRecord = (await recordsApi.getRecordDirect(metahubId, linkedCollectionId, element.id)).data
+                                    fullRecord = (await recordsApi.getRecordDirect(metahubId, objectCollectionId, element.id)).data
                                 }
                             } catch {
                                 fullRecord = null
@@ -1183,7 +1183,7 @@ const RecordList = () => {
             }
         }),
         [
-            linkedCollectionId,
+            objectCollectionId,
             confirm,
             deleteElementMutation,
             elementOrderMap,
@@ -1205,40 +1205,40 @@ const RecordList = () => {
 
     const copyInitialData = useMemo(() => {
         if (!dialogs.copy.item?.data || typeof dialogs.copy.item.data !== 'object') return undefined
-        return applyCopySuffixToFirstStringAttribute({
+        return applyCopySuffixToFirstStringComponent({
             sourceData: dialogs.copy.item.data as Record<string, unknown>,
-            fieldDefinitions: orderedAttributes.map((attribute) => ({
-                dataType: attribute.dataType,
-                codename: resolveFieldKey(attribute)
+            components: orderedComponents.map((component) => ({
+                dataType: component.dataType,
+                codename: resolveFieldKey(component)
             })),
             locale: i18n.language
         })
-    }, [dialogs.copy.item?.data, i18n.language, orderedAttributes, resolveFieldKey])
+    }, [dialogs.copy.item?.data, i18n.language, orderedComponents, resolveFieldKey])
 
     const applySetReferenceDefaultsToPayload = useCallback(
         (inputData: Record<string, unknown>): Record<string, unknown> => {
             const nextData: Record<string, unknown> = { ...inputData }
 
-            orderedAttributes.forEach((attribute) => {
-                const attributeKey = resolveFieldKey(attribute)
-                if (attribute.dataType === 'REF' && attribute.targetEntityKind === 'set' && attribute.targetConstantId) {
-                    const currentValue = resolveRefId(nextData[attributeKey])
-                    if (!currentValue || currentValue !== attribute.targetConstantId) {
-                        nextData[attributeKey] = attribute.targetConstantId
+            orderedComponents.forEach((component) => {
+                const componentKey = resolveFieldKey(component)
+                if (component.dataType === 'REF' && component.targetEntityKind === 'set' && component.targetConstantId) {
+                    const currentValue = resolveRefId(nextData[componentKey])
+                    if (!currentValue || currentValue !== component.targetConstantId) {
+                        nextData[componentKey] = component.targetConstantId
                     }
                     return
                 }
 
-                if (attribute.dataType !== 'TABLE') return
-                const childAttributes = childAttributesMap?.[attribute.id] ?? []
-                if (childAttributes.length === 0) return
-                const rawRows = nextData[attributeKey]
+                if (component.dataType !== 'TABLE') return
+                const childComponents = childComponentsMap?.[component.id] ?? []
+                if (childComponents.length === 0) return
+                const rawRows = nextData[componentKey]
                 if (!Array.isArray(rawRows)) return
 
-                nextData[attributeKey] = rawRows.map((rawRow) => {
+                nextData[componentKey] = rawRows.map((rawRow) => {
                     if (!rawRow || typeof rawRow !== 'object' || Array.isArray(rawRow)) return rawRow
                     const row = { ...(rawRow as Record<string, unknown>) }
-                    childAttributes.forEach((child) => {
+                    childComponents.forEach((child) => {
                         const childKey = resolveFieldKey(child)
                         if (child.dataType !== 'REF' || child.targetEntityKind !== 'set' || !child.targetConstantId) return
                         const currentValue = resolveRefId(row[childKey])
@@ -1252,35 +1252,35 @@ const RecordList = () => {
 
             return nextData
         },
-        [childAttributesMap, orderedAttributes, resolveFieldKey]
+        [childComponentsMap, orderedComponents, resolveFieldKey]
     )
 
-    const buildCatalogTabPath = useCallback(
-        (tab: 'fieldDefinitions' | 'system' | 'records') =>
-            buildLinkedCollectionAuthoringPath({
+    const buildObjectTabPath = useCallback(
+        (tab: 'components' | 'system' | 'records') =>
+            buildObjectCollectionAuthoringPath({
                 metahubId,
                 treeEntityId: hubIdParam,
                 kindKey,
-                linkedCollectionId,
+                objectCollectionId,
                 tab
             }),
-        [linkedCollectionId, hubIdParam, kindKey, metahubId]
+        [objectCollectionId, hubIdParam, kindKey, metahubId]
     )
 
     // Validate required route params after all hooks are declared.
-    if (!metahubId || !linkedCollectionId) {
+    if (!metahubId || !objectCollectionId) {
         return (
             <EmptyListState
                 image={APIEmptySVG}
-                imageAlt={t('records.parentCollectionMissingTitle', 'No catalog selected')}
-                title={t('records.parentCollectionMissingTitle', 'No catalog selected')}
-                description={t('records.parentCollectionMissingDescription', 'Select a catalog to manage records.')}
+                imageAlt={t('records.parentCollectionMissingTitle', 'No object selected')}
+                title={t('records.parentCollectionMissingTitle', 'No object selected')}
+                description={t('records.parentCollectionMissingDescription', 'Select a object to manage records.')}
             />
         )
     }
 
-    // Show loading state while resolving the parent catalog.
-    if (!hubIdParam && isCatalogResolutionLoading) {
+    // Show loading state while resolving the parent object.
+    if (!hubIdParam && isObjectResolutionLoading) {
         return (
             <EmptyListState
                 image={APIEmptySVG}
@@ -1291,16 +1291,14 @@ const RecordList = () => {
         )
     }
 
-    // Show error only when parent linked-collection resolution fails.
-    if (!hubIdParam && catalogResolutionError) {
+    // Show error only when parent object-collection resolution fails.
+    if (!hubIdParam && objectResolutionError) {
         return (
             <EmptyListState
                 image={APIEmptySVG}
-                imageAlt={t('records.parentCollectionLoadError', 'Error loading catalog')}
-                title={t('records.parentCollectionLoadError', 'Error loading catalog')}
-                description={
-                    catalogResolutionError instanceof Error ? catalogResolutionError.message : String(catalogResolutionError || '')
-                }
+                imageAlt={t('records.parentCollectionLoadError', 'Error loading object')}
+                title={t('records.parentCollectionLoadError', 'Error loading object')}
+                description={objectResolutionError instanceof Error ? objectResolutionError.message : String(objectResolutionError || '')}
             />
         )
     }
@@ -1323,14 +1321,14 @@ const RecordList = () => {
         setCopyDialogError(null)
     }
 
-    const handleCatalogTabChange = (_event: unknown, nextTab: 'fieldDefinitions' | 'system' | 'records' | 'settings') => {
-        if (!metahubId || !linkedCollectionId) return
+    const handleObjectTabChange = (_event: unknown, nextTab: 'components' | 'system' | 'records' | 'settings') => {
+        if (!metahubId || !objectCollectionId) return
         if (nextTab === 'records') return
         if (nextTab === 'settings') {
             setEditDialogOpen(true)
             return
         }
-        const nextPath = buildCatalogTabPath(nextTab === 'system' ? 'system' : 'fieldDefinitions')
+        const nextPath = buildObjectTabPath(nextTab === 'system' ? 'system' : 'components')
         if (nextPath) {
             navigate(nextPath)
         }
@@ -1344,7 +1342,7 @@ const RecordList = () => {
             await createElementMutation.mutateAsync({
                 metahubId,
                 treeEntityId: effectiveTreeEntityId,
-                linkedCollectionId,
+                objectCollectionId,
                 data: { data: normalizedData }
             })
 
@@ -1376,7 +1374,7 @@ const RecordList = () => {
             updateElementMutation.mutate({
                 metahubId,
                 treeEntityId: effectiveTreeEntityId,
-                linkedCollectionId,
+                objectCollectionId,
                 recordId: dialogs.edit.item.id,
                 data: { data: normalizedData }
             })
@@ -1409,7 +1407,7 @@ const RecordList = () => {
             await createElementMutation.mutateAsync({
                 metahubId,
                 treeEntityId: effectiveTreeEntityId,
-                linkedCollectionId,
+                objectCollectionId,
                 data: { data: normalizedData }
             })
             handleCopyClose()
@@ -1428,7 +1426,7 @@ const RecordList = () => {
     }
 
     const handleSortableDragEnd = async (event: DragEndEvent) => {
-        if (!metahubId || !linkedCollectionId) return
+        if (!metahubId || !objectCollectionId) return
         const { active, over } = event
         if (!over || active.id === over.id) return
 
@@ -1439,7 +1437,7 @@ const RecordList = () => {
             await reorderElementMutation.mutateAsync({
                 metahubId,
                 treeEntityId: effectiveTreeEntityId,
-                linkedCollectionId,
+                objectCollectionId,
                 recordId: String(active.id),
                 newSortOrder: overElement.sortOrder ?? 1
             })
@@ -1460,7 +1458,7 @@ const RecordList = () => {
         if (!activeId) return null
         const element = elementMap.get(activeId)
         if (!element) return null
-        const display = toRecordItemDisplay(element, fieldDefinitions, i18n.language)
+        const display = toRecordItemDisplay(element, components, i18n.language)
         return (
             <Box
                 sx={{
@@ -1483,7 +1481,7 @@ const RecordList = () => {
     }
 
     // Transform Element data for FlowListTable
-    const getElementTableData = (element: RecordItem): RecordItemDisplay => toRecordItemDisplay(element, fieldDefinitions, i18n.language)
+    const getElementTableData = (element: RecordItem): RecordItemDisplay => toRecordItemDisplay(element, components, i18n.language)
 
     return (
         <MainCard
@@ -1518,7 +1516,7 @@ const RecordList = () => {
                                 label: tc('create'),
                                 onClick: handleAddNew,
                                 startIcon: <AddRoundedIcon />,
-                                disabled: fieldDefinitions.length === 0
+                                disabled: components.length === 0
                             }}
                         />
                     </ViewHeader>
@@ -1526,8 +1524,8 @@ const RecordList = () => {
                     <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
                         <Tabs
                             value='records'
-                            onChange={handleCatalogTabChange}
-                            aria-label={t('records.parentCollectionTabsLabel', 'Catalog tabs')}
+                            onChange={handleObjectTabChange}
+                            aria-label={t('records.parentCollectionTabsLabel', 'Object tabs')}
                             textColor='primary'
                             indicatorColor='primary'
                             sx={{
@@ -1538,8 +1536,8 @@ const RecordList = () => {
                                 }
                             }}
                         >
-                            <Tab value='fieldDefinitions' label={t('fieldDefinitions.title')} />
-                            <Tab value='system' label={t('fieldDefinitions.tabs.system', 'System')} />
+                            <Tab value='components' label={t('components.title')} />
+                            <Tab value='system' label={t('components.tabs.system', 'System')} />
                             <Tab value='records' label={t('records.title')} />
                             <Tab value='settings' label={t('settings.title')} />
                         </Tabs>
@@ -1552,7 +1550,7 @@ const RecordList = () => {
                             image={APIEmptySVG}
                             imageAlt='No records'
                             title={t('records.empty')}
-                            description={fieldDefinitions.length === 0 ? t('records.addAttributesFirst') : t('records.emptyDescription')}
+                            description={components.length === 0 ? t('records.addComponentsFirst') : t('records.emptyDescription')}
                         />
                     ) : (
                         <Box>
@@ -1578,7 +1576,7 @@ const RecordList = () => {
 
                                     return (
                                         <BaseEntityMenu<RecordItemDisplay, { data: Record<string, unknown> }>
-                                            entity={toRecordItemDisplay(originalElement, fieldDefinitions, i18n.language)}
+                                            entity={toRecordItemDisplay(originalElement, components, i18n.language)}
                                             entityKind='element'
                                             descriptors={descriptors}
                                             namespace='metahubs'
@@ -1620,7 +1618,7 @@ const RecordList = () => {
                 title={t('records.createDialog.title', 'Add Record')}
                 locale={i18n.language}
                 requireAnyValue
-                emptyStateText={t('records.noAttributes')}
+                emptyStateText={t('records.noComponents')}
                 saveButtonText={tc('actions.create', 'Create')}
                 savingButtonText={tc('actions.creating', 'Creating...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}
@@ -1640,7 +1638,7 @@ const RecordList = () => {
                 locale={i18n.language}
                 fields={elementFields}
                 requireAnyValue
-                emptyStateText={t('records.noAttributes')}
+                emptyStateText={t('records.noComponents')}
                 saveButtonText={tc('actions.save', 'Save')}
                 savingButtonText={tc('actions.saving', 'Saving...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}
@@ -1666,7 +1664,7 @@ const RecordList = () => {
                 locale={i18n.language}
                 fields={elementFields}
                 requireAnyValue
-                emptyStateText={t('records.noAttributes')}
+                emptyStateText={t('records.noComponents')}
                 saveButtonText={t('records.copy.action', 'Copy')}
                 savingButtonText={t('records.copy.actionLoading', 'Copying...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}
@@ -1692,7 +1690,7 @@ const RecordList = () => {
                         {
                             metahubId,
                             treeEntityId: effectiveTreeEntityId,
-                            linkedCollectionId,
+                            objectCollectionId,
                             recordId: dialogs.delete.item.id
                         },
                         {
@@ -1717,22 +1715,22 @@ const RecordList = () => {
                 conflict={(dialogs.conflict.data as { conflict?: ConflictInfo })?.conflict ?? null}
                 onCancel={() => {
                     close('conflict')
-                    if (metahubId && linkedCollectionId) {
+                    if (metahubId && objectCollectionId) {
                         if (effectiveTreeEntityId) {
-                            invalidateRecordsQueries.all(queryClient, metahubId, effectiveTreeEntityId, linkedCollectionId)
+                            invalidateRecordsQueries.all(queryClient, metahubId, effectiveTreeEntityId, objectCollectionId)
                         }
-                        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.recordsDirect(metahubId, linkedCollectionId) })
+                        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.recordsDirect(metahubId, objectCollectionId) })
                     }
                 }}
                 onOverwrite={async () => {
                     const pendingUpdate = (dialogs.conflict.data as { pendingUpdate?: { id: string; patch: { data: ElementUpdatePatch } } })
                         ?.pendingUpdate
-                    if (pendingUpdate && metahubId && linkedCollectionId) {
+                    if (pendingUpdate && metahubId && objectCollectionId) {
                         const { id, patch } = pendingUpdate
                         await updateElementMutation.mutateAsync({
                             metahubId,
                             treeEntityId: effectiveTreeEntityId,
-                            linkedCollectionId,
+                            objectCollectionId,
                             recordId: id,
                             data: patch
                         })
@@ -1742,65 +1740,65 @@ const RecordList = () => {
                 isLoading={updateElementMutation.isPending}
             />
 
-            {catalogForHubResolution &&
-                linkedCollectionId &&
+            {objectForHubResolution &&
+                objectCollectionId &&
                 (() => {
-                    const catalogDisplay: LinkedCollectionDisplayWithContainer = {
-                        id: catalogForHubResolution.id,
-                        metahubId: catalogForHubResolution.metahubId,
+                    const objectDisplay: ObjectCollectionDisplayWithContainer = {
+                        id: objectForHubResolution.id,
+                        metahubId: objectForHubResolution.metahubId,
                         codename: getLocalizedCodenameString(
-                            catalogForHubResolution.codename,
+                            objectForHubResolution.codename,
                             preferredVlcLocale,
-                            catalogForHubResolution.id
+                            objectForHubResolution.id
                         ),
                         name:
-                            getVLCString(catalogForHubResolution.name, preferredVlcLocale) ||
-                            getLocalizedCodenameString(catalogForHubResolution.codename, preferredVlcLocale, catalogForHubResolution.id),
-                        description: getVLCString(catalogForHubResolution.description, preferredVlcLocale) || '',
-                        isSingleHub: catalogForHubResolution.isSingleHub,
-                        isRequiredHub: catalogForHubResolution.isRequiredHub,
-                        sortOrder: catalogForHubResolution.sortOrder,
-                        createdAt: catalogForHubResolution.createdAt,
-                        updatedAt: catalogForHubResolution.updatedAt,
+                            getVLCString(objectForHubResolution.name, preferredVlcLocale) ||
+                            getLocalizedCodenameString(objectForHubResolution.codename, preferredVlcLocale, objectForHubResolution.id),
+                        description: getVLCString(objectForHubResolution.description, preferredVlcLocale) || '',
+                        isSingleHub: objectForHubResolution.isSingleHub,
+                        isRequiredHub: objectForHubResolution.isRequiredHub,
+                        sortOrder: objectForHubResolution.sortOrder,
+                        createdAt: objectForHubResolution.createdAt,
+                        updatedAt: objectForHubResolution.updatedAt,
                         treeEntityId: effectiveTreeEntityId || undefined,
-                        treeEntities: catalogForHubResolution.treeEntities?.map((h) => ({
+                        treeEntities: objectForHubResolution.treeEntities?.map((h) => ({
                             id: h.id,
                             name:
                                 (typeof h.name === 'string' && h.name) || getLocalizedCodenameString(h.codename, preferredVlcLocale, h.id),
                             codename: getLocalizedCodenameString(h.codename, preferredVlcLocale, h.id)
                         }))
                     }
-                    const catalogMap = new Map<string, LinkedCollectionEntity>([[catalogForHubResolution.id, catalogForHubResolution]])
+                    const objectMap = new Map<string, ObjectCollectionEntity>([[objectForHubResolution.id, objectForHubResolution]])
                     const settingsCtx = {
-                        entity: catalogDisplay,
-                        entityKind: 'catalog' as const,
+                        entity: objectDisplay,
+                        entityKind: 'object' as const,
                         t,
-                        catalogMap,
+                        objectMap,
                         metahubId,
                         currentTreeEntityId: effectiveTreeEntityId || null,
                         uiLocale: preferredVlcLocale,
                         api: {
-                            updateEntity: async (id: string, patch: LinkedCollectionLocalizedPayload) => {
+                            updateEntity: async (id: string, patch: ObjectCollectionLocalizedPayload) => {
                                 if (!metahubId) return
-                                await updateLinkedCollectionMutation.mutateAsync({
+                                await updateObjectCollectionMutation.mutateAsync({
                                     metahubId,
-                                    linkedCollectionId: id,
-                                    data: { ...patch, expectedVersion: catalogForHubResolution.version }
+                                    objectCollectionId: id,
+                                    data: { ...patch, expectedVersion: objectForHubResolution.version }
                                 })
                             }
                         },
                         helpers: {
                             refreshList: async () => {
-                                if (metahubId && linkedCollectionId) {
+                                if (metahubId && objectCollectionId) {
                                     await Promise.all([
                                         queryClient.invalidateQueries({
-                                            queryKey: metahubsQueryKeys.linkedCollectionDetail(metahubId, linkedCollectionId)
+                                            queryKey: metahubsQueryKeys.objectCollectionDetail(metahubId, objectCollectionId)
                                         }),
-                                        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allLinkedCollections(metahubId) }),
+                                        queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allObjectCollections(metahubId) }),
                                         queryClient.invalidateQueries({
-                                            queryKey: ['breadcrumb', 'catalog-standalone', metahubId, linkedCollectionId]
+                                            queryKey: ['breadcrumb', 'object-standalone', metahubId, objectCollectionId]
                                         }),
-                                        queryClient.invalidateQueries({ queryKey: ['breadcrumb', 'catalog', metahubId] })
+                                        queryClient.invalidateQueries({ queryKey: ['breadcrumb', 'object', metahubId] })
                                     ])
                                 }
                             },
@@ -1816,20 +1814,20 @@ const RecordList = () => {
                         <EntityFormDialog
                             open={editDialogOpen}
                             mode='edit'
-                            title={t('records.parentCollectionEditTitle', 'Edit catalog')}
+                            title={t('records.parentCollectionEditTitle', 'Edit object')}
                             nameLabel={tc('fields.name', 'Name')}
                             descriptionLabel={tc('fields.description', 'Description')}
                             saveButtonText={tc('actions.save', 'Save')}
                             savingButtonText={tc('actions.saving', 'Saving...')}
                             cancelButtonText={tc('actions.cancel', 'Cancel')}
                             hideDefaultFields
-                            initialExtraValues={buildCatalogInitialValues(settingsCtx)}
-                            tabs={buildLinkedCollectionFormTabs(settingsCtx, treeEntities, linkedCollectionId)}
-                            validate={(values) => validateLinkedCollectionForm(settingsCtx, values)}
-                            canSave={canSaveLinkedCollectionForm}
+                            initialExtraValues={buildObjectInitialValues(settingsCtx)}
+                            tabs={buildObjectCollectionFormTabs(settingsCtx, treeEntities, objectCollectionId)}
+                            validate={(values) => validateObjectCollectionForm(settingsCtx, values)}
+                            canSave={canSaveObjectCollectionForm}
                             onSave={(data) => {
-                                const payload = catalogToPayload(data)
-                                settingsCtx.api.updateEntity(catalogForHubResolution.id, payload)
+                                const payload = objectToPayload(data)
+                                settingsCtx.api.updateEntity(objectForHubResolution.id, payload)
                             }}
                             onClose={() => setEditDialogOpen(false)}
                         />

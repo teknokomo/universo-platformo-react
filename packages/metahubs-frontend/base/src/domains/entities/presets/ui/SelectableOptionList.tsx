@@ -610,7 +610,7 @@ export const SelectableOptionListContent = ({
             },
             {
                 id: 'move-up',
-                labelKey: 'fieldDefinitions.actions.moveUp',
+                labelKey: 'components.actions.moveUp',
                 order: 30,
                 dividerBefore: true,
                 icon: <ArrowUpwardRoundedIcon fontSize='small' />,
@@ -631,7 +631,7 @@ export const SelectableOptionListContent = ({
             },
             {
                 id: 'move-down',
-                labelKey: 'fieldDefinitions.actions.moveDown',
+                labelKey: 'components.actions.moveDown',
                 order: 40,
                 icon: <ArrowDownwardRoundedIcon fontSize='small' />,
                 enabled: (ctx) => {
@@ -681,7 +681,7 @@ export const SelectableOptionListContent = ({
         () => [
             {
                 id: 'sortOrder',
-                label: t('fieldDefinitions.table.order', '#'),
+                label: t('components.table.order', '#'),
                 width: '4%',
                 align: 'center' as const,
                 render: (row: OptionValueDisplay) => <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{row.sortOrder ?? 0}</Typography>

@@ -50,15 +50,15 @@ export interface RuntimeInlineTabularEditorProps {
     apiBaseUrl: string
     /** Application UUID. */
     applicationId: string
-    /** Catalog UUID that owns the parent record. */
-    linkedCollectionId: string
+    /** Object UUID that owns the parent record. */
+    objectCollectionId: string
     /** Parent record UUID. */
     parentRecordId: string
-    /** TABLE attribute UUID. */
-    attributeId: string
-    /** Child field definitions from the parent form's FieldConfig. */
+    /** TABLE component UUID. */
+    componentId: string
+    /** Child components from the parent form's FieldConfig. */
     childFields: FieldConfig[]
-    /** Whether to show the attribute label above the table. */
+    /** Whether to show the component label above the table. */
     showTitle?: boolean
     /** Label text for the table header. */
     label?: string
@@ -80,7 +80,7 @@ export interface RuntimeInlineTabularEditorProps {
 }
 
 /**
- * Runtime inline editor for TABLE attribute child rows during EDIT mode.
+ * Runtime inline editor for TABLE component child rows during EDIT mode.
  *
  * Provides the same inline editing experience as TabularPartEditor (CREATE mode).
  * Supports two modes:
@@ -90,9 +90,9 @@ export interface RuntimeInlineTabularEditorProps {
 export function RuntimeInlineTabularEditor({
     apiBaseUrl,
     applicationId,
-    linkedCollectionId,
+    objectCollectionId,
     parentRecordId,
-    attributeId,
+    componentId,
     childFields,
     showTitle = true,
     label,
@@ -110,8 +110,8 @@ export function RuntimeInlineTabularEditor({
     const apiRef = useGridApiRef()
 
     const queryKey = useMemo(
-        () => ['tabularRows', applicationId, parentRecordId, attributeId],
-        [applicationId, parentRecordId, attributeId]
+        () => ['tabularRows', applicationId, parentRecordId, componentId],
+        [applicationId, parentRecordId, componentId]
     )
 
     // Fetch rows via React Query
@@ -121,7 +121,7 @@ export function RuntimeInlineTabularEditor({
         error: fetchError
     } = useQuery({
         queryKey,
-        queryFn: () => fetchTabularRows({ apiBaseUrl, applicationId, parentRecordId, attributeId, linkedCollectionId }),
+        queryFn: () => fetchTabularRows({ apiBaseUrl, applicationId, parentRecordId, componentId, objectCollectionId }),
         staleTime: 0,
         refetchOnMount: 'always'
     })
@@ -188,7 +188,7 @@ export function RuntimeInlineTabularEditor({
         setDraftRows([])
         setHasLocalChanges(false)
         nextLocalIdRef.current = 1
-    }, [deferPersistence, parentRecordId, attributeId])
+    }, [deferPersistence, parentRecordId, componentId])
 
     useEffect(() => {
         if (!deferPersistence) return
@@ -249,7 +249,7 @@ export function RuntimeInlineTabularEditor({
                 data[field.id] = field.type === 'BOOLEAN' ? false : null
             }
             data._tp_sort_order = maxSortOrder + 1
-            await createTabularRow({ apiBaseUrl, applicationId, parentRecordId, attributeId, linkedCollectionId, data })
+            await createTabularRow({ apiBaseUrl, applicationId, parentRecordId, componentId, objectCollectionId, data })
             await queryClient.invalidateQueries({ queryKey })
         } catch (err) {
             const message = extractApiErrorMessage(err, 'Failed to create row')
@@ -267,8 +267,8 @@ export function RuntimeInlineTabularEditor({
         apiBaseUrl,
         applicationId,
         parentRecordId,
-        attributeId,
-        linkedCollectionId,
+        componentId,
+        objectCollectionId,
         queryClient,
         queryKey,
         onError
@@ -302,8 +302,8 @@ export function RuntimeInlineTabularEditor({
                 apiBaseUrl,
                 applicationId,
                 parentRecordId,
-                attributeId,
-                linkedCollectionId,
+                componentId,
+                objectCollectionId,
                 childRowId: deleteRowId
             })
             setDeleteRowId(null)
@@ -323,8 +323,8 @@ export function RuntimeInlineTabularEditor({
         apiBaseUrl,
         applicationId,
         parentRecordId,
-        attributeId,
-        linkedCollectionId,
+        componentId,
+        objectCollectionId,
         queryClient,
         queryKey,
         onError
@@ -390,8 +390,8 @@ export function RuntimeInlineTabularEditor({
                 apiBaseUrl,
                 applicationId,
                 parentRecordId,
-                attributeId,
-                linkedCollectionId,
+                componentId,
+                objectCollectionId,
                 childRowId: menuRowId
             })
             await queryClient.invalidateQueries({ queryKey })
@@ -411,8 +411,8 @@ export function RuntimeInlineTabularEditor({
         apiBaseUrl,
         applicationId,
         parentRecordId,
-        attributeId,
-        linkedCollectionId,
+        componentId,
+        objectCollectionId,
         queryClient,
         queryKey,
         onError,
@@ -489,8 +489,8 @@ export function RuntimeInlineTabularEditor({
                 apiBaseUrl,
                 applicationId,
                 parentRecordId,
-                attributeId,
-                linkedCollectionId,
+                componentId,
+                objectCollectionId,
                 childRowId: rowId,
                 data
             })
@@ -506,8 +506,8 @@ export function RuntimeInlineTabularEditor({
             apiBaseUrl,
             applicationId,
             parentRecordId,
-            attributeId,
-            linkedCollectionId,
+            componentId,
+            objectCollectionId,
             queryClient,
             queryKey
         ]
@@ -549,8 +549,8 @@ export function RuntimeInlineTabularEditor({
                     apiBaseUrl,
                     applicationId,
                     parentRecordId,
-                    attributeId,
-                    linkedCollectionId,
+                    componentId,
+                    objectCollectionId,
                     childRowId: rowId,
                     data: { [fieldId]: newValue }
                 })
@@ -570,8 +570,8 @@ export function RuntimeInlineTabularEditor({
             apiBaseUrl,
             applicationId,
             parentRecordId,
-            attributeId,
-            linkedCollectionId,
+            componentId,
+            objectCollectionId,
             queryClient,
             queryKey,
             onError
@@ -639,7 +639,7 @@ export function RuntimeInlineTabularEditor({
                 <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: 36, maxHeight: 400 }}>
                     <DataGrid
                         apiRef={apiRef}
-                        key={`${parentRecordId}-${attributeId}`}
+                        key={`${parentRecordId}-${componentId}`}
                         rows={gridRows}
                         columns={columns}
                         density='compact'

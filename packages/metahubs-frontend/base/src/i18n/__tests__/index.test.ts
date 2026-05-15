@@ -10,12 +10,21 @@ describe('metahubs i18n consolidation', () => {
         expect(translations.shared?.list?.badge).toBe('Общая')
     })
 
-    it('keeps fieldDefinitions translations inside the consolidated metahubs namespace', () => {
+    it('keeps components translations inside the consolidated metahubs namespace', () => {
         const translations = getMetahubsTranslations('ru') as {
-            fieldDefinitions?: { title?: string }
+            components?: { title?: string }
         }
 
-        expect(translations.fieldDefinitions?.title).toBe('Атрибуты')
+        expect(translations.components?.title).toBe('Компоненты')
+    })
+
+    it('keeps Objects translations inside the consolidated metahubs namespace', () => {
+        const translations = getMetahubsTranslations('ru') as {
+            objects?: { allTitle?: string; searchPlaceholder?: string }
+        }
+
+        expect(translations.objects?.allTitle).toBe('Объекты')
+        expect(translations.objects?.searchPlaceholder).toBe('Поиск объектов...')
     })
 
     it('keeps Pages translations inside the consolidated metahubs namespace', () => {

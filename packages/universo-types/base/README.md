@@ -20,7 +20,7 @@
 - 📦 **Protocol Versioning** - Protocol version control
 - 📋 **Strict Typing** - Full TypeScript support
 - 🔄 **Backward Compatibility** - Version compatibility preservation
-- 🧾 **Record Behavior Types** - Shared Catalog numbering, lifecycle, and posting contracts
+- 🧾 **Record Behavior Types** - Shared Object numbering, lifecycle, and posting contracts
 - 📊 **Ledger Types** - Shared append-only Ledger configuration, field roles, source policies, and projections
 - 🎓 **LMS Platform Primitives** - Generic resource, sequence, workflow action, role policy, report definition, and acceptance-matrix contracts
 
@@ -34,7 +34,7 @@ Base protocol types and ECS domain types for Universo Platformo.
 - Error codes
 - Protocol version
 - Metahub entity component manifests
-- Catalog `recordBehavior` and Ledger configuration contracts
+- Object `recordBehavior` and Ledger configuration contracts
 - Generic LMS-like platform primitives that remain reusable outside LMS configurations
 
 ### Out of scope:
@@ -47,9 +47,9 @@ Base protocol types and ECS domain types for Universo Platformo.
 - **Only add new fields** as optional to preserve backward compatibility
 - **Extend** component and event unions by adding new keys
 
-## Catalog And Ledger Contracts
+## Object And Ledger Contracts
 
-`common/recordBehavior` defines the shared metadata contract that turns a standard Catalog into a reference, transactional, or hybrid collection.
+`common/recordBehavior` defines the shared metadata contract that turns a standard Object into a reference, transactional, or hybrid collection.
 It covers identity fields, atomic numbering, effective dates, lifecycle states, posting target ledgers, and posted-row immutability.
 
 `common/ledgers` defines the standard Ledger configuration.

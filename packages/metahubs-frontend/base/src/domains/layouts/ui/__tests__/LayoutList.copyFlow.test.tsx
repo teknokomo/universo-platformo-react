@@ -309,7 +309,7 @@ describe('LayoutList copy flow entry', () => {
 
         render(
             <QueryClientProvider client={queryClient}>
-                <MemoryRouter initialEntries={['/metahub/metahub-1/entities/catalog/instance/catalog-1/layout']}>
+                <MemoryRouter initialEntries={['/metahub/metahub-1/entities/object/instance/object-1/layout']}>
                     <Routes>
                         <Route
                             path='/metahub/:metahubId/entities/:kindKey/instance/:scopeEntityId/layout'
@@ -479,7 +479,7 @@ describe('LayoutList copy flow entry', () => {
 
         render(
             <QueryClientProvider client={queryClient}>
-                <MemoryRouter initialEntries={['/metahub/metahub-1/entities/catalog/instance/catalog-1/layout']}>
+                <MemoryRouter initialEntries={['/metahub/metahub-1/entities/object/instance/object-1/layout']}>
                     <Routes>
                         <Route path='/metahub/:metahubId/entities/:kindKey/instance/:scopeEntityId/layout' element={<LayoutList />} />
                     </Routes>
@@ -500,7 +500,7 @@ describe('LayoutList copy flow entry', () => {
         expect(payload).toMatchObject({
             metahubId: 'metahub-1',
             data: {
-                scopeEntityId: 'catalog-1'
+                scopeEntityId: 'object-1'
             }
         })
         expect(payload.data.config).toBeUndefined()

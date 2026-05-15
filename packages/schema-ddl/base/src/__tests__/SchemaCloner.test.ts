@@ -42,16 +42,16 @@ describe('SchemaCloner', () => {
     it('maps PostgreSQL placeholders to knex positional bindings for raw execution', async () => {
         const raw = jest.fn(async (sql: string, _params: unknown[] = []) => {
             if (sql.includes('information_schema.tables')) {
-                return { rows: [{ table_name: 'cat_a1' }] }
+                return { rows: [{ table_name: 'obj_a1' }] }
             }
 
             if (sql.includes("con.contype = 'f'")) {
                 return {
                     rows: [
                         {
-                            table_name: 'cat_a1',
-                            constraint_name: 'fk_cat_a1_parent',
-                            constraint_definition: `FOREIGN KEY (parent_id) REFERENCES "${SOURCE_SCHEMA}"."cat_a1"(id)`
+                            table_name: 'obj_a1',
+                            constraint_name: 'fk_obj_a1_parent',
+                            constraint_definition: `FOREIGN KEY (parent_id) REFERENCES "${SOURCE_SCHEMA}"."obj_a1"(id)`
                         }
                     ]
                 }
@@ -83,7 +83,7 @@ describe('SchemaCloner', () => {
         expect(existsCall).toBeDefined()
         expect(existsCall?.[0]).toContain('?')
         expect(existsCall?.[0]).not.toContain('$1')
-        expect(existsCall?.[1]).toEqual([TARGET_SCHEMA, 'cat_a1', 'fk_cat_a1_parent'])
+        expect(existsCall?.[1]).toEqual([TARGET_SCHEMA, 'obj_a1', 'fk_obj_a1_parent'])
 
         const hasRewrittenReference = raw.mock.calls.some(
             ([sql]) => typeof sql === 'string' && sql.includes(`REFERENCES "${TARGET_SCHEMA}".`)
@@ -94,15 +94,15 @@ describe('SchemaCloner', () => {
     it('rewrites unquoted schema-qualified FK references without producing nested schema prefixes', async () => {
         const raw = jest.fn(async (sql: string, _params: unknown[] = []) => {
             if (sql.includes('information_schema.tables')) {
-                return { rows: [{ table_name: '_mhb_attributes' }] }
+                return { rows: [{ table_name: '_mhb_components' }] }
             }
 
             if (sql.includes("con.contype = 'f'")) {
                 return {
                     rows: [
                         {
-                            table_name: '_mhb_attributes',
-                            constraint_name: '_mhb_attributes_object_id_foreign',
+                            table_name: '_mhb_components',
+                            constraint_name: '_mhb_components_object_id_foreign',
                             constraint_definition: `FOREIGN KEY (object_id) REFERENCES ${SOURCE_SCHEMA}._mhb_objects(id) ON DELETE CASCADE`
                         }
                     ]
@@ -126,7 +126,7 @@ describe('SchemaCloner', () => {
         })
 
         const alterStatement = raw.mock.calls.find(
-            ([sql]) => typeof sql === 'string' && sql.includes('ADD CONSTRAINT "_mhb_attributes_object_id_foreign"')
+            ([sql]) => typeof sql === 'string' && sql.includes('ADD CONSTRAINT "_mhb_components_object_id_foreign"')
         )?.[0]
 
         expect(alterStatement).toBeDefined()

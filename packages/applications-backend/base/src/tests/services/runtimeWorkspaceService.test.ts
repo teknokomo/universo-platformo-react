@@ -231,7 +231,7 @@ describe('runtimeWorkspaceService', () => {
             }
 
             if (sql.includes('information_schema.columns') && sql.includes("column_name = 'workspace_id'")) {
-                return [{ table_name: 'cat_lessons' }]
+                return [{ table_name: 'obj_lessons' }]
             }
 
             if (sql.includes('information_schema.columns') && sql.includes("column_name NOT IN ('id', 'workspace_id')")) {
@@ -276,7 +276,7 @@ describe('runtimeWorkspaceService', () => {
             'workspace-copy',
             'user-1'
         ])
-        const insertCall = txExecutor.query.mock.calls.find(([sql]) => String(sql).includes(`INSERT INTO "${schemaName}"."cat_lessons"`))
+        const insertCall = txExecutor.query.mock.calls.find(([sql]) => String(sql).includes(`INSERT INTO "${schemaName}"."obj_lessons"`))
         expect(insertCall?.[0]).toEqual(expect.not.stringContaining('source."_upl_created_at"'))
         expect(insertCall?.[0]).toEqual(expect.not.stringContaining('source."_upl_created_by"'))
         expect(insertCall?.[0]).toEqual(expect.not.stringContaining('source."_upl_version"'))

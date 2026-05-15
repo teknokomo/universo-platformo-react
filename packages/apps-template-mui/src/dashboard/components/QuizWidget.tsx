@@ -194,25 +194,25 @@ export default function QuizWidget({ config }: { config?: Record<string, unknown
     const [currentScore, setCurrentScore] = useState(0)
 
     const applicationId = details?.applicationId
-    const linkedCollectionId = details?.linkedCollectionId ?? null
+    const objectCollectionId = details?.objectCollectionId ?? null
     const apiBaseUrl = details?.apiBaseUrl ?? '/api/v1'
     const mountMethodName = widgetConfig.mountMethodName || 'mount'
     const submitMethodName = widgetConfig.submitMethodName || 'submit'
 
     const scriptsQuery = useQuery({
-        queryKey: ['quiz-widget-scripts', applicationId, linkedCollectionId, widgetConfig.scriptCodename, widgetConfig.attachedToKind],
+        queryKey: ['quiz-widget-scripts', applicationId, objectCollectionId, widgetConfig.scriptCodename, widgetConfig.attachedToKind],
         enabled: Boolean(applicationId),
         queryFn: async () => {
-            const shouldQueryCatalog = widgetConfig.attachedToKind !== 'metahub' && Boolean(linkedCollectionId)
-            const shouldQueryMetahub = widgetConfig.attachedToKind !== 'catalog'
+            const shouldQueryObject = widgetConfig.attachedToKind !== 'metahub' && Boolean(objectCollectionId)
+            const shouldQueryMetahub = widgetConfig.attachedToKind !== 'object'
 
-            const [catalogScripts, metahubScripts] = await Promise.all([
-                shouldQueryCatalog
+            const [objectScripts, metahubScripts] = await Promise.all([
+                shouldQueryObject
                     ? fetchRuntimeScripts({
                           apiBaseUrl,
                           applicationId: applicationId!,
-                          attachedToKind: 'catalog',
-                          attachedToId: linkedCollectionId
+                          attachedToKind: 'object',
+                          attachedToId: objectCollectionId
                       })
                     : Promise.resolve([]),
                 shouldQueryMetahub
@@ -220,7 +220,7 @@ export default function QuizWidget({ config }: { config?: Record<string, unknown
                     : Promise.resolve([])
             ])
 
-            const items = [...catalogScripts, ...metahubScripts].filter(
+            const items = [...objectScripts, ...metahubScripts].filter(
                 (script, index, array) =>
                     script.moduleRole === 'widget' &&
                     script.manifest.methods.some((method) => isClientScriptMethodTarget(method.target)) &&
@@ -256,7 +256,7 @@ export default function QuizWidget({ config }: { config?: Record<string, unknown
     const clientBundle = clientBundleQuery.data
 
     const quizModelQuery = useQuery({
-        queryKey: ['quiz-widget-model', selectedScript?.id, linkedCollectionId, mountMethodName, widgetConfig.quizId],
+        queryKey: ['quiz-widget-model', selectedScript?.id, objectCollectionId, mountMethodName, widgetConfig.quizId],
         enabled: Boolean(applicationId && selectedScript && clientBundle),
         queryFn: async () => {
             if (!applicationId || !selectedScript || !clientBundle) {
@@ -496,7 +496,7 @@ export default function QuizWidget({ config }: { config?: Record<string, unknown
                         {widgetConfig.emptyStateDescription ||
                             t(
                                 'emptyDescription',
-                                'Attach an active widget script to the current catalog or metahub and expose a mount() method to render quiz content here.'
+                                'Attach an active widget script to the current object or metahub and expose a mount() method to render quiz content here.'
                             )}
                     </Typography>
                 </CardContent>

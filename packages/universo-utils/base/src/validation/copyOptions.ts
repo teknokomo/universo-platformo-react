@@ -3,11 +3,11 @@ import type {
     BranchCopyOptionKey,
     BranchCopyOptions,
     BranchCopyOptionsInput,
-    FieldDefinitionCopyOptions,
+    ComponentCopyOptions,
     FixedValueCopyOptions,
     LayoutCopyOptions,
-    LinkedCollectionCopyOptions,
-    LinkedCollectionCopyOptionsInput,
+    ObjectCollectionCopyOptions,
+    ObjectCollectionCopyOptionsInput,
     OptionListCopyOptions,
     OptionListCopyOptionsInput,
     RecordCopyOptions,
@@ -20,12 +20,12 @@ import type {
 import {
     BRANCH_COPY_OPTION_KEYS,
     DEFAULT_APPLICATION_COPY_OPTIONS,
-    DEFAULT_FIELD_DEFINITION_COPY_OPTIONS,
+    DEFAULT_COMPONENT_COPY_OPTIONS,
     DEFAULT_BRANCH_COPY_OPTIONS,
     DEFAULT_FIXED_VALUE_COPY_OPTIONS,
     TREE_ENTITY_COPY_OPTION_KEYS,
     DEFAULT_TREE_ENTITY_COPY_OPTIONS,
-    DEFAULT_LINKED_COLLECTION_COPY_OPTIONS,
+    DEFAULT_OBJECT_COLLECTION_COPY_OPTIONS,
     DEFAULT_OPTION_LIST_COPY_OPTIONS,
     DEFAULT_VALUE_GROUP_COPY_OPTIONS,
     DEFAULT_LAYOUT_COPY_OPTIONS,
@@ -68,10 +68,10 @@ export const normalizeBranchCopyOptions = (input?: BranchCopyOptionsInput | null
         fullCopy: toBoolean(input?.fullCopy ?? DEFAULT_BRANCH_COPY_OPTIONS.fullCopy),
         copyLayouts: resolveBranchCopyOptionValue(input, 'copyLayouts', DEFAULT_BRANCH_COPY_OPTIONS.copyLayouts),
         copyTreeEntities: resolveBranchCopyOptionValue(input, 'copyTreeEntities', DEFAULT_BRANCH_COPY_OPTIONS.copyTreeEntities),
-        copyLinkedCollections: resolveBranchCopyOptionValue(
+        copyObjectCollections: resolveBranchCopyOptionValue(
             input,
-            'copyLinkedCollections',
-            DEFAULT_BRANCH_COPY_OPTIONS.copyLinkedCollections
+            'copyObjectCollections',
+            DEFAULT_BRANCH_COPY_OPTIONS.copyObjectCollections
         ),
         copyValueGroups: resolveBranchCopyOptionValue(input, 'copyValueGroups', DEFAULT_BRANCH_COPY_OPTIONS.copyValueGroups),
         copyOptionLists: resolveBranchCopyOptionValue(input, 'copyOptionLists', DEFAULT_BRANCH_COPY_OPTIONS.copyOptionLists)
@@ -115,10 +115,10 @@ export const normalizeTreeEntityCopyOptions = (input?: TreeEntityCopyOptionsInpu
 
     const merged: TreeEntityCopyOptions = {
         copyAllRelations: toBoolean(input?.copyAllRelations ?? DEFAULT_TREE_ENTITY_COPY_OPTIONS.copyAllRelations),
-        copyLinkedCollectionRelations: resolveTreeEntityCopyOptionValue(
+        copyObjectCollectionRelations: resolveTreeEntityCopyOptionValue(
             input,
-            'copyLinkedCollectionRelations',
-            DEFAULT_TREE_ENTITY_COPY_OPTIONS.copyLinkedCollectionRelations
+            'copyObjectCollectionRelations',
+            DEFAULT_TREE_ENTITY_COPY_OPTIONS.copyObjectCollectionRelations
         ),
         copyValueGroupRelations: resolveTreeEntityCopyOptionValue(
             input,
@@ -152,13 +152,13 @@ export const normalizeTreeEntityCopyOptions = (input?: TreeEntityCopyOptionsInpu
     }
 }
 
-export const normalizeLinkedCollectionCopyOptions = (input?: LinkedCollectionCopyOptionsInput | null): LinkedCollectionCopyOptions => {
-    const normalized: LinkedCollectionCopyOptions = {
-        copyFieldDefinitions: toBoolean(input?.copyFieldDefinitions ?? DEFAULT_LINKED_COLLECTION_COPY_OPTIONS.copyFieldDefinitions),
-        copyRecords: toBoolean(input?.copyRecords ?? DEFAULT_LINKED_COLLECTION_COPY_OPTIONS.copyRecords)
+export const normalizeObjectCollectionCopyOptions = (input?: ObjectCollectionCopyOptionsInput | null): ObjectCollectionCopyOptions => {
+    const normalized: ObjectCollectionCopyOptions = {
+        copyComponents: toBoolean(input?.copyComponents ?? DEFAULT_OBJECT_COLLECTION_COPY_OPTIONS.copyComponents),
+        copyRecords: toBoolean(input?.copyRecords ?? DEFAULT_OBJECT_COLLECTION_COPY_OPTIONS.copyRecords)
     }
 
-    if (!normalized.copyFieldDefinitions) {
+    if (!normalized.copyComponents) {
         normalized.copyRecords = false
     }
 
@@ -190,11 +190,9 @@ export const normalizeLayoutCopyOptions = (input?: Partial<LayoutCopyOptions> | 
     return normalized
 }
 
-export const normalizeFieldDefinitionCopyOptions = (input?: Partial<FieldDefinitionCopyOptions> | null): FieldDefinitionCopyOptions => {
+export const normalizeComponentCopyOptions = (input?: Partial<ComponentCopyOptions> | null): ComponentCopyOptions => {
     return {
-        copyChildFieldDefinitions: toBoolean(
-            input?.copyChildFieldDefinitions ?? DEFAULT_FIELD_DEFINITION_COPY_OPTIONS.copyChildFieldDefinitions
-        )
+        copyChildComponents: toBoolean(input?.copyChildComponents ?? DEFAULT_COMPONENT_COPY_OPTIONS.copyChildComponents)
     }
 }
 

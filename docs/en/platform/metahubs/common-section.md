@@ -12,7 +12,7 @@ It is separate from target-object CRUD because it owns the shared design contrac
 ## Tabs
 
 - Layouts: shared layouts and entity-specific layout overrides.
-- Attributes: shared attribute pools reused by compatible entity types with the `dataSchema` capability.
+- Components: shared component pools reused by compatible entity types with the `dataSchema` capability.
 - Constants: shared constant pools reused by compatible entity types with the `fixedValues` capability.
 - Values: shared enumeration-value pools reused by compatible entity types with the `optionValues` capability.
 - Scripts: resources-scoped library scripts imported through `@shared/<codename>`.
@@ -31,7 +31,7 @@ This keeps authoring reusable while keeping runtime tables flat and predictable.
 
 ## Related Reading
 
-- [Shared Attributes](shared-field-definitions.md)
+- [Shared Components](shared-components.md)
 - [Shared Constants](shared-fixed-values.md)
 - [Shared Values](shared-option-values.md)
 - [Shared Scripts](shared-scripts.md)

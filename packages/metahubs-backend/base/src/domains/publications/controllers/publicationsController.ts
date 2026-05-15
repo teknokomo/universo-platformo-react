@@ -41,7 +41,7 @@ import { createLinkedApplication } from '../helpers/createLinkedApplication'
 import { MetahubNotFoundError } from '../../shared/domainErrors'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
-import { MetahubFieldDefinitionsService } from '../../metahubs/services/MetahubFieldDefinitionsService'
+import { MetahubComponentsService } from '../../metahubs/services/MetahubComponentsService'
 import { MetahubRecordsService } from '../../metahubs/services/MetahubRecordsService'
 import { MetahubTreeEntitiesService } from '../../metahubs/services/MetahubTreeEntitiesService'
 import { MetahubOptionValuesService } from '../../metahubs/services/MetahubOptionValuesService'
@@ -215,17 +215,17 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         const exec = getRequestDbExecutor(req, getDbExecutor())
         const schemaService = new MetahubSchemaService(exec)
         const objectsService = new MetahubObjectsService(exec, schemaService)
-        const fieldDefinitionsService = new MetahubFieldDefinitionsService(exec, schemaService)
-        const recordsService = new MetahubRecordsService(exec, schemaService, objectsService, fieldDefinitionsService)
+        const componentsService = new MetahubComponentsService(exec, schemaService)
+        const recordsService = new MetahubRecordsService(exec, schemaService, objectsService, componentsService)
 
-        return { exec, schemaService, objectsService, fieldDefinitionsService, recordsService }
+        return { exec, schemaService, objectsService, componentsService, recordsService }
     }
 
     const createSnapshotSerializer = (params: {
         exec: DbExecutor
         schemaService: MetahubSchemaService
         objectsService: MetahubObjectsService
-        fieldDefinitionsService: MetahubFieldDefinitionsService
+        componentsService: MetahubComponentsService
         recordsService?: MetahubRecordsService
         treeEntitiesService?: MetahubTreeEntitiesService
         optionValuesService?: MetahubOptionValuesService
@@ -240,7 +240,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
 
         return new SnapshotSerializer(
             params.objectsService,
-            params.fieldDefinitionsService,
+            params.componentsService,
             params.recordsService,
             params.treeEntitiesService,
             params.optionValuesService,
@@ -279,12 +279,12 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         }
     }
 
-    const buildRuntimeCatalogDefs = (serializer: SnapshotSerializer, snapshot: MetahubSnapshot) => {
+    const buildRuntimeObjectDefs = (serializer: SnapshotSerializer, snapshot: MetahubSnapshot) => {
         const runtimeSnapshot = SnapshotSerializer.materializeSharedEntitiesForRuntime(snapshot)
-        const rawCatalogDefs = serializer.deserializeSnapshot(runtimeSnapshot)
-        const catalogDefs = enrichDefinitionsWithValueGroupFixedValues(rawCatalogDefs, runtimeSnapshot)
+        const rawObjectDefs = serializer.deserializeSnapshot(runtimeSnapshot)
+        const objectDefs = enrichDefinitionsWithValueGroupFixedValues(rawObjectDefs, runtimeSnapshot)
 
-        return { runtimeSnapshot, catalogDefs }
+        return { runtimeSnapshot, objectDefs }
     }
 
     // ─── LIST AVAILABLE ─────────────────────────────────────────────────────────
@@ -324,7 +324,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
           COALESCE(m.codename->'locales'->(m.codename->>'_primary')->>'content', m.codename->'locales'->'en'->>'content', m.slug, m.id::text) as "metahubCodename",
           m.name as "metahubName"
       FROM metahubs.doc_publications p
-      JOIN metahubs.cat_metahubs m ON m.id = p.metahub_id
+      JOIN metahubs.obj_metahubs m ON m.id = p.metahub_id
       JOIN metahubs.rel_metahub_users mu ON mu.metahub_id = m.id
       WHERE mu.user_id = $1
         AND COALESCE(p._upl_deleted, false) = false
@@ -354,7 +354,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
             `
       SELECT COUNT(*) as total
       FROM metahubs.doc_publications p
-      JOIN metahubs.cat_metahubs m ON m.id = p.metahub_id
+      JOIN metahubs.obj_metahubs m ON m.id = p.metahub_id
       JOIN metahubs.rel_metahub_users mu ON mu.metahub_id = m.id
       WHERE mu.user_id = $1
         AND COALESCE(p._upl_deleted, false) = false
@@ -491,8 +491,8 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
 
         const schemaService = new MetahubSchemaService(exec, effectiveBranchId)
         const objectsService = new MetahubObjectsService(exec, schemaService)
-        const fieldDefinitionsService = new MetahubFieldDefinitionsService(exec, schemaService)
-        const recordsService = new MetahubRecordsService(exec, schemaService, objectsService, fieldDefinitionsService)
+        const componentsService = new MetahubComponentsService(exec, schemaService)
+        const recordsService = new MetahubRecordsService(exec, schemaService, objectsService, componentsService)
         const treeEntitiesService = new MetahubTreeEntitiesService(exec, schemaService)
         const optionValuesService = new MetahubOptionValuesService(exec, schemaService)
         const fixedValuesService = new MetahubFixedValuesService(exec, schemaService)
@@ -502,7 +502,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
             exec,
             schemaService,
             objectsService,
-            fieldDefinitionsService,
+            componentsService,
             recordsService,
             treeEntitiesService,
             optionValuesService,
@@ -777,7 +777,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         let deletedSchemaName: string | null = publication.schemaName
         try {
             await exec.transaction(async (tx) => {
-                const metahubLocked = await tx.query<{ id: string }>('SELECT id FROM metahubs.cat_metahubs WHERE id = $1 FOR UPDATE', [
+                const metahubLocked = await tx.query<{ id: string }>('SELECT id FROM metahubs.obj_metahubs WHERE id = $1 FOR UPDATE', [
                     metahubId
                 ])
                 if (metahubLocked.length === 0) {
@@ -860,8 +860,8 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         }>(
             `
       SELECT DISTINCT a.id, a.name, a.description, a.slug, a._upl_created_at as "createdAt"
-      FROM applications.cat_applications a
-      JOIN applications.cat_connectors c ON c.application_id = a.id
+      FROM applications.obj_applications a
+      JOIN applications.obj_connectors c ON c.application_id = a.id
       JOIN applications.rel_connector_publications cp ON cp.connector_id = c.id
       WHERE cp.publication_id = $1
       ORDER BY a._upl_created_at DESC
@@ -950,7 +950,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         const { metahubId, publicationId } = req.params
         const userId = await ensureMetahubRouteAccess(req, res, metahubId)
         if (!userId) return
-        const { exec, schemaService, objectsService, fieldDefinitionsService } = services(req)
+        const { exec, schemaService, objectsService, componentsService } = services(req)
 
         const metahub = await findMetahubById(exec, metahubId)
         if (!metahub) {
@@ -983,13 +983,13 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
             return res.status(400).json({ error: 'Invalid publication snapshot' })
         }
 
-        const serializer = createSnapshotSerializer({ exec, schemaService, objectsService, fieldDefinitionsService })
-        const { catalogDefs } = buildRuntimeCatalogDefs(serializer, snapshot)
+        const serializer = createSnapshotSerializer({ exec, schemaService, objectsService, componentsService })
+        const { objectDefs } = buildRuntimeObjectDefs(serializer, snapshot)
 
         const oldSnapshot = publication.schemaSnapshot as SchemaSnapshot | null
 
         const { generator, migrator } = getDDLServices()
-        const schemaDiff: SchemaDiff = migrator.calculateDiff(oldSnapshot, catalogDefs)
+        const schemaDiff: SchemaDiff = migrator.calculateDiff(oldSnapshot, objectDefs)
 
         const schemaExists = await generator.schemaExists(publication.schemaName || '')
 
@@ -1010,7 +1010,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         const { metahubId, publicationId } = req.params
         const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'manageMetahub')
         if (!userId) return
-        const { exec, schemaService, objectsService, fieldDefinitionsService } = services(req)
+        const { exec, schemaService, objectsService, componentsService } = services(req)
 
         const parsed = syncSchema.safeParse(req.body)
         if (!parsed.success) {
@@ -1050,8 +1050,8 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
             return res.status(400).json({ error: 'Invalid publication snapshot' })
         }
 
-        const serializer = createSnapshotSerializer({ exec, schemaService, objectsService, fieldDefinitionsService })
-        const { catalogDefs } = buildRuntimeCatalogDefs(serializer, snapshot)
+        const serializer = createSnapshotSerializer({ exec, schemaService, objectsService, componentsService })
+        const { objectDefs } = buildRuntimeObjectDefs(serializer, snapshot)
 
         const { generator, migrator, migrationManager } = getDDLServices()
 
@@ -1061,7 +1061,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
 
         try {
             if (!schemaExists) {
-                const result = await generator.generateFullSchema(publication.schemaName!, catalogDefs, {
+                const result = await generator.generateFullSchema(publication.schemaName!, objectDefs, {
                     recordMigration: true,
                     migrationDescription: 'initial_schema',
                     migrationManager
@@ -1076,7 +1076,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
                     return res.status(500).json({ status: 'error', errors: result.errors })
                 }
 
-                const newSchemaSnapshot = generator.generateSnapshot(catalogDefs)
+                const newSchemaSnapshot = generator.generateSnapshot(objectDefs)
 
                 await updatePublication(exec, publicationId, {
                     schemaName: result.schemaName,
@@ -1094,13 +1094,13 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
             }
 
             const oldSnapshot = publication.schemaSnapshot as SchemaSnapshot | null
-            const schemaDiff = migrator.calculateDiff(oldSnapshot, catalogDefs)
+            const schemaDiff = migrator.calculateDiff(oldSnapshot, objectDefs)
 
             if (!schemaDiff.hasChanges) {
-                await generator.syncSystemMetadata(publication.schemaName!, catalogDefs, {
+                await generator.syncSystemMetadata(publication.schemaName!, objectDefs, {
                     removeMissing: true
                 })
-                const syncedSnapshot = generator.generateSnapshot(catalogDefs)
+                const syncedSnapshot = generator.generateSnapshot(objectDefs)
                 await updatePublication(exec, publicationId, {
                     schemaStatus: 'synced',
                     schemaSnapshot: syncedSnapshot as unknown as Record<string, unknown>
@@ -1119,7 +1119,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
                 })
             }
 
-            const migrationResult = await migrator.applyAllChanges(publication.schemaName!, schemaDiff, catalogDefs, confirmDestructive, {
+            const migrationResult = await migrator.applyAllChanges(publication.schemaName!, schemaDiff, objectDefs, confirmDestructive, {
                 recordMigration: true,
                 migrationDescription: 'schema_sync'
             })
@@ -1132,7 +1132,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
                 return res.status(500).json({ status: 'error', errors: migrationResult.errors })
             }
 
-            const migratedSnapshot = generator.generateSnapshot(catalogDefs)
+            const migratedSnapshot = generator.generateSnapshot(objectDefs)
             await updatePublication(exec, publicationId, {
                 schemaStatus: 'synced',
                 schemaError: null,
@@ -1222,8 +1222,8 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
 
         const schemaService = new MetahubSchemaService(exec, effectiveBranchId)
         const objectsService = new MetahubObjectsService(exec, schemaService)
-        const fieldDefinitionsService = new MetahubFieldDefinitionsService(exec, schemaService)
-        const recordsService = new MetahubRecordsService(exec, schemaService, objectsService, fieldDefinitionsService)
+        const componentsService = new MetahubComponentsService(exec, schemaService)
+        const recordsService = new MetahubRecordsService(exec, schemaService, objectsService, componentsService)
         const treeEntitiesService = new MetahubTreeEntitiesService(exec, schemaService)
         const optionValuesService = new MetahubOptionValuesService(exec, schemaService)
         const fixedValuesService = new MetahubFixedValuesService(exec, schemaService)
@@ -1232,7 +1232,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
             exec,
             schemaService,
             objectsService,
-            fieldDefinitionsService,
+            componentsService,
             recordsService,
             treeEntitiesService,
             optionValuesService,

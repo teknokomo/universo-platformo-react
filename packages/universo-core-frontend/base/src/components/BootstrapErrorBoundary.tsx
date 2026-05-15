@@ -30,7 +30,7 @@ class BootstrapErrorBoundary extends React.Component<BootstrapErrorBoundaryProps
         console.error('[bootstrap-boundary]', {
             message: error?.message,
             stack: error?.stack,
-            componentStack: info?.componentStack,
+            componentStack: info?.componentStack
         })
     }
 

@@ -70,7 +70,7 @@ describe('createAdminSchemaMigrationDefinition SQL contract', () => {
 
     it('creates all required admin tables', () => {
         const sql = upSql()
-        for (const table of ['cfg_instances', 'cat_roles', 'rel_role_permissions', 'rel_user_roles', 'cfg_locales', 'cfg_settings']) {
+        for (const table of ['cfg_instances', 'obj_roles', 'rel_role_permissions', 'rel_user_roles', 'cfg_locales', 'cfg_settings']) {
             expect(sql).toContain(`admin.${table}`)
         }
     })

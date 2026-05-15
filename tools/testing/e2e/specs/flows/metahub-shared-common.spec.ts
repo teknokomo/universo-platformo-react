@@ -6,18 +6,18 @@ import { waitForSettledMutationResponse } from '../../support/browser/network'
 import {
     createLoggedInApiContext,
     createMetahub,
-    createLinkedCollection,
+    createObjectCollection,
     createPublication,
     createPublicationLinkedApplication,
     createPublicationVersion,
     disposeApiContext,
     getApplicationRuntime,
     getLayout,
-    listFieldDefinitions,
+    listComponents,
     listOptionValues,
     listLayoutZoneWidgets,
     listLayouts,
-    listLinkedCollections,
+    listObjectCollections,
     listOptionLists,
     listValueGroups,
     listFixedValues,
@@ -52,7 +52,7 @@ type EntityRecord = {
 }
 
 type RuntimeState = {
-    catalog?: {
+    object?: {
         id?: string
     }
     columns?: Array<{
@@ -326,21 +326,21 @@ async function applyCenteredQuizLayout(api: ApiContext, metahubId: string, layou
     }
 }
 
-async function waitForRuntimeState(api: ApiContext, applicationId: string, catalogId: string) {
+async function waitForRuntimeState(api: ApiContext, applicationId: string, objectId: string) {
     let runtimeState: RuntimeState | null = null
 
     await expect
         .poll(
             async () => {
-                runtimeState = (await getApplicationRuntime(api, applicationId, { catalogId })) as RuntimeState
-                return typeof runtimeState?.catalog?.id === 'string' && Array.isArray(runtimeState?.columns)
+                runtimeState = (await getApplicationRuntime(api, applicationId, { objectId })) as RuntimeState
+                return typeof runtimeState?.object?.id === 'string' && Array.isArray(runtimeState?.columns)
             },
-            { timeout: 60_000, message: `Waiting for runtime catalog ${catalogId} in application ${applicationId}` }
+            { timeout: 60_000, message: `Waiting for runtime object ${objectId} in application ${applicationId}` }
         )
         .toBe(true)
 
-    if (!runtimeState?.catalog?.id) {
-        throw new Error(`Runtime catalog ${catalogId} did not become available for application ${applicationId}`)
+    if (!runtimeState?.object?.id) {
+        throw new Error(`Runtime object ${objectId} did not become available for application ${applicationId}`)
     }
 
     return runtimeState
@@ -376,7 +376,7 @@ async function clickCatalogMenuItem(page: Page, catalogName: string, fallbackNam
         }
     }
 
-    throw new Error(`Catalog menu item not found: ${candidateNames.join(', ')}`)
+    throw new Error(`Object menu item not found: ${candidateNames.join(', ')}`)
 }
 
 async function expectEmbeddedCommonControlsAlignedEnd(page: Page) {
@@ -570,8 +570,8 @@ test('@flow Common shared entities merge, exclusion, publication, and runtime st
 
     const metahubName = `E2E ${runManifest.runId} shared common`
     const metahubCodename = `${runManifest.runId}-shared-common`
-    const excludedCatalogName = `Excluded Catalog ${runManifest.runId}`
-    const excludedCatalogCodename = `${runManifest.runId}-excluded-catalog`
+    const excludedObjectName = `Excluded Object ${runManifest.runId}`
+    const excludedObjectCodename = `${runManifest.runId}-excluded-object`
     const sharedAttributeName = `Shared Title ${runManifest.runId}`
     const sharedAttributeCodename = `${runManifest.runId}-shared-title`
     const sharedConstantName = `Shared Constant ${runManifest.runId}`
@@ -598,26 +598,26 @@ test('@flow Common shared entities merge, exclusion, publication, and runtime st
         })
 
         const defaultCatalogId = await waitForFirstEntityId(
-            () => listLinkedCollections(api, metahub.id, { limit: 100, offset: 0 }),
-            'catalog'
+            () => listObjectCollections(api, metahub.id, { limit: 100, offset: 0 }),
+            'object'
         )
         const enumerationId = await waitForFirstEntityId(() => listOptionLists(api, metahub.id, { limit: 100, offset: 0 }), 'enumeration')
         const setId = await waitForFirstEntityId(() => listValueGroups(api, metahub.id, { limit: 100, offset: 0 }), 'set')
 
-        const excludedCatalog = await createLinkedCollection(api, metahub.id, {
-            name: { en: excludedCatalogName },
+        const excludedObject = await createObjectCollection(api, metahub.id, {
+            name: { en: excludedObjectName },
             namePrimaryLocale: 'en',
-            codename: createLocalizedContent('en', excludedCatalogCodename)
+            codename: createLocalizedContent('en', excludedObjectCodename)
         })
 
-        if (!excludedCatalog?.id) {
-            throw new Error('Excluded catalog creation did not return an id for shared Common coverage')
+        if (!excludedObject?.id) {
+            throw new Error('Excluded object creation did not return an id for shared Common coverage')
         }
 
-        const catalogsPayload = await listLinkedCollections(api, metahub.id, { limit: 100, offset: 0 })
+        const catalogsPayload = await listObjectCollections(api, metahub.id, { limit: 100, offset: 0 })
         const defaultCatalogName = readLocalizedText(catalogsPayload.items?.find((item) => item.id === defaultCatalogId)?.name, 'en')
         if (!defaultCatalogName) {
-            throw new Error('Default catalog name could not be resolved for shared Common coverage')
+            throw new Error('Default object name could not be resolved for shared Common coverage')
         }
 
         await page.goto(`/metahub/${metahub.id}/resources`)
@@ -625,10 +625,10 @@ test('@flow Common shared entities merge, exclusion, publication, and runtime st
         await expect(page.getByTestId(pageSpacingSelectors.metahubResourcesTabs)).toBeVisible()
         await expectEmbeddedCommonControlsAlignedEnd(page)
 
-        await page.getByRole('tab', { name: 'Attributes', exact: true }).click()
+        await page.getByRole('tab', { name: 'Components', exact: true }).click()
         await expectEmbeddedCommonControlsAlignedEnd(page)
         await captureProofScreenshot(page, testInfo, 'shared-common-toolbar-alignment.png')
-        const attributeDialog = await openEntityDialog(page, 'Add Attribute')
+        const attributeDialog = await openEntityDialog(page, 'Create Component')
         await fillNameAndCodename(attributeDialog, { name: sharedAttributeName, codename: sharedAttributeCodename })
         await expect(attributeDialog.getByRole('tab', { name: 'Presentation', exact: true })).toBeVisible()
         await expect(attributeDialog.getByRole('tab', { name: 'Exclusions', exact: true })).toBeVisible()
@@ -637,14 +637,14 @@ test('@flow Common shared entities merge, exclusion, publication, and runtime st
             page,
             (response) =>
                 response.request().method() === 'POST' &&
-                response.url().includes(`/api/v1/metahub/${metahub.id}/entities/catalog/instance/`) &&
-                response.url().endsWith('/field-definitions'),
-            { label: 'Creating shared attribute' }
+                response.url().includes(`/api/v1/metahub/${metahub.id}/entities/object/instance/`) &&
+                response.url().endsWith('/components'),
+            { label: 'Creating shared component' }
         )
         await attributeDialog.getByTestId(entityDialogSelectors.submitButton).click()
-        const createdAttribute = await parseJsonResponse<EntityRecord>(await createAttributeResponse, 'Creating shared attribute')
+        const createdAttribute = await parseJsonResponse<EntityRecord>(await createAttributeResponse, 'Creating shared component')
         if (!createdAttribute.id) {
-            throw new Error('Shared attribute creation did not return an id')
+            throw new Error('Shared component creation did not return an id')
         }
 
         await page.getByRole('tab', { name: 'Constants', exact: true }).click()
@@ -687,13 +687,13 @@ test('@flow Common shared entities merge, exclusion, publication, and runtime st
             throw new Error('Shared enumeration value creation did not return an id')
         }
 
-        await page.getByRole('tab', { name: 'Attributes', exact: true }).click()
+        await page.getByRole('tab', { name: 'Components', exact: true }).click()
         await expect(page.getByText(sharedAttributeName, { exact: true })).toBeVisible({ timeout: 15_000 })
 
-        await page.getByTestId(buildEntityMenuTriggerSelector('attribute', createdAttribute.id)).click()
-        await page.getByTestId(buildEntityMenuItemSelector('attribute', 'edit', createdAttribute.id)).click()
+        await page.getByTestId(buildEntityMenuTriggerSelector('component', createdAttribute.id)).click()
+        await page.getByTestId(buildEntityMenuItemSelector('component', 'edit', createdAttribute.id)).click()
 
-        const editAttributeDialog = page.getByRole('dialog', { name: 'Edit Attribute' })
+        const editAttributeDialog = page.getByRole('dialog', { name: 'Edit Component' })
         await expect(editAttributeDialog).toBeVisible()
         await editAttributeDialog.getByRole('tab', { name: 'Presentation', exact: true }).click()
         await expect(editAttributeDialog.getByLabel('Can be excluded', { exact: true })).toBeChecked()
@@ -704,10 +704,10 @@ test('@flow Common shared entities merge, exclusion, publication, and runtime st
 
         const exclusionsPicker = page.getByRole('dialog', { name: 'Select exclusions' })
         await expect(exclusionsPicker).toBeVisible({ timeout: 30_000 })
-        await exclusionsPicker.getByTestId(`entity-selection-option-${excludedCatalog.id}`).click()
+        await exclusionsPicker.getByTestId(`entity-selection-option-${excludedObject.id}`).click()
         await exclusionsPicker.getByTestId('entity-selection-confirm').click()
         await expect(exclusionsPicker).toHaveCount(0)
-        await expect(editAttributeDialog.getByText(excludedCatalogName, { exact: true })).toBeVisible({ timeout: 30_000 })
+        await expect(editAttributeDialog.getByText(excludedObjectName, { exact: true })).toBeVisible({ timeout: 30_000 })
 
         const exclusionResponse = waitForSettledMutationResponse(
             page,
@@ -720,14 +720,14 @@ test('@flow Common shared entities merge, exclusion, publication, and runtime st
         await expect(editAttributeDialog).toHaveCount(0)
 
         await waitForListEntity(
-            () => listFieldDefinitions(api, metahub.id, defaultCatalogId, { limit: 100, offset: 0, includeShared: true }),
+            () => listComponents(api, metahub.id, defaultCatalogId, { limit: 100, offset: 0, includeShared: true }),
             createdAttribute.id,
-            'shared attribute in included catalog'
+            'shared component in included object'
         )
         await waitForEntityAbsence(
-            () => listFieldDefinitions(api, metahub.id, excludedCatalog.id, { limit: 100, offset: 0, includeShared: true }),
+            () => listComponents(api, metahub.id, excludedObject.id, { limit: 100, offset: 0, includeShared: true }),
             createdAttribute.id,
-            'shared attribute in excluded catalog'
+            'shared component in excluded object'
         )
         await waitForListEntity(
             () => listFixedValues(api, metahub.id, setId, { limit: 100, offset: 0, includeShared: true }),
@@ -740,14 +740,14 @@ test('@flow Common shared entities merge, exclusion, publication, and runtime st
             'shared enumeration value in merged list'
         )
 
-        await page.goto(`/metahub/${metahub.id}/entities/catalog/instance/${defaultCatalogId}/field-definitions`)
-        await expect(page.getByRole('heading', { name: 'Attributes' })).toBeVisible()
+        await page.goto(`/metahub/${metahub.id}/entities/object/instance/${defaultCatalogId}/components`)
+        await expect(page.getByRole('heading', { name: 'Components' })).toBeVisible()
         await expect(page.getByText(sharedAttributeName, { exact: true })).toBeVisible()
         await expect(page.getByText('Shared', { exact: true }).first()).toBeVisible()
-        await expect(page.getByTestId(buildEntityMenuTriggerSelector('attribute', createdAttribute.id))).toBeVisible()
+        await expect(page.getByTestId(buildEntityMenuTriggerSelector('component', createdAttribute.id))).toBeVisible()
 
-        await page.goto(`/metahub/${metahub.id}/entities/catalog/instance/${excludedCatalog.id}/field-definitions`)
-        await expect(page.getByRole('heading', { name: 'Attributes' })).toBeVisible()
+        await page.goto(`/metahub/${metahub.id}/entities/object/instance/${excludedObject.id}/components`)
+        await expect(page.getByRole('heading', { name: 'Components' })).toBeVisible()
         await expect(page.getByText(sharedAttributeName, { exact: true })).toHaveCount(0)
 
         await page.goto(`/metahub/${metahub.id}/entities/set/instance/${setId}/fixed-values`)
@@ -761,18 +761,18 @@ test('@flow Common shared entities merge, exclusion, publication, and runtime st
         await expect(page.getByTestId(buildEntityMenuTriggerSelector('enumerationValue', createdValue.id))).toBeVisible()
 
         await applyBrowserPreferences(page, { language: 'ru' })
-        await page.goto(`/metahub/${metahub.id}/entities/catalog/instance/${defaultCatalogId}/field-definitions`)
+        await page.goto(`/metahub/${metahub.id}/entities/object/instance/${defaultCatalogId}/components`)
         await expect(page.getByText('Общая', { exact: true }).first()).toBeVisible()
         await captureProofScreenshot(page, testInfo, 'shared-common-ru-badge.png')
-        await page.getByTestId(buildEntityMenuTriggerSelector('attribute', createdAttribute.id)).click()
+        await page.getByTestId(buildEntityMenuTriggerSelector('component', createdAttribute.id)).click()
         await expect(page.getByRole('menuitem', { name: 'Деактивировать' })).toBeVisible()
         await expect(page.getByRole('menuitem', { name: 'Исключить' })).toBeVisible()
 
         await page.goto(`/metahub/${metahub.id}/resources`)
-        await expect(page.getByRole('tab', { name: 'Атрибуты', exact: true })).toBeVisible()
-        await page.getByRole('tab', { name: 'Атрибуты', exact: true }).click()
-        await page.getByTestId(buildEntityMenuTriggerSelector('attribute', createdAttribute.id)).click()
-        await page.getByTestId(buildEntityMenuItemSelector('attribute', 'edit', createdAttribute.id)).click()
+        await expect(page.getByRole('tab', { name: 'Компоненты', exact: true })).toBeVisible()
+        await page.getByRole('tab', { name: 'Компоненты', exact: true }).click()
+        await page.getByTestId(buildEntityMenuTriggerSelector('component', createdAttribute.id)).click()
+        await page.getByTestId(buildEntityMenuItemSelector('component', 'edit', createdAttribute.id)).click()
         const localizedEditDialog = page.locator('[role="dialog"]').last()
         await expect(localizedEditDialog.getByRole('tab', { name: 'Исключения', exact: true })).toBeVisible()
         await localizedEditDialog.getByRole('tab', { name: 'Представление', exact: true }).click()
@@ -822,7 +822,7 @@ test('@flow Common shared entities merge, exclusion, publication, and runtime st
         await syncApplicationSchema(api, applicationId)
 
         const includedRuntime = await waitForRuntimeState(api, applicationId, defaultCatalogId)
-        const excludedRuntime = await waitForRuntimeState(api, applicationId, excludedCatalog.id)
+        const excludedRuntime = await waitForRuntimeState(api, applicationId, excludedObject.id)
 
         expect(findRuntimeFieldKey(includedRuntime, sharedAttributeName, sharedAttributeCodename)).toBeTruthy()
         expect(findRuntimeFieldKey(excludedRuntime, sharedAttributeName, sharedAttributeCodename)).toBeNull()
@@ -831,7 +831,7 @@ test('@flow Common shared entities merge, exclusion, publication, and runtime st
         await clickCatalogMenuItem(page, defaultCatalogName, ['Основной'])
         await createRuntimeRowViaBrowser(page, applicationId, sharedAttributeName, runtimeValue)
 
-        await clickCatalogMenuItem(page, excludedCatalogName)
+        await clickCatalogMenuItem(page, excludedObjectName)
         await expect(page.getByTestId(applicationSelectors.runtimeCreateButton)).toBeEnabled({ timeout: 30_000 })
         await page.getByTestId(applicationSelectors.runtimeCreateButton).click()
         const excludedCreateDialog = page.getByRole('dialog', { name: /^(Create element|Создать элемент)$/ })

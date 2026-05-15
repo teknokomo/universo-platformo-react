@@ -33,7 +33,7 @@ export const listActivePublicWorkspaceIds = async (executor: DbExecutor, schemaN
 }
 
 /**
- * When workspaces are enabled, RLS policies on catalog tables require
+ * When workspaces are enabled, RLS policies on object tables require
  * workspace_id to match current_setting('app.current_workspace_id').
  * Public runtime must therefore bind itself to each candidate active workspace
  * while resolving an explicit access-link slug or guest session token.
@@ -70,12 +70,12 @@ export interface ResolvePublicRuntimeSchemaOptions {
     requireResolvedWorkspace?: boolean
 }
 
-export interface PublicRuntimeObjectAttribute {
+export interface PublicRuntimeObjectComponent {
     id: string
     codename: unknown
     column_name: string
     data_type: string
-    parent_attribute_id: string | null
+    parent_component_id: string | null
     target_object_id?: string | null
     target_object_kind?: string | null
 }
@@ -85,7 +85,7 @@ export interface PublicRuntimeObjectBinding {
     codename: unknown
     kind: string
     tableName: string
-    attrs: PublicRuntimeObjectAttribute[]
+    attrs: PublicRuntimeObjectComponent[]
 }
 
 export const resolvePublicRuntimeSchema = async (
@@ -111,7 +111,7 @@ export const resolvePublicRuntimeSchema = async (
         SELECT id, schema_name AS "schemaName", is_public AS "isPublic",
                workspaces_enabled AS "workspacesEnabled",
                settings
-        FROM applications.cat_applications
+        FROM applications.obj_applications
         WHERE id = $1
           AND ${ACTIVE_ROW_SQL}
         LIMIT 1
@@ -172,7 +172,7 @@ export const resolvePublicRuntimeObject = async (
     objectCodename: string
 ): Promise<PublicRuntimeObjectBinding | null> => {
     const objectsQt = qSchemaTable(schemaName, '_app_objects')
-    const attrsQt = qSchemaTable(schemaName, '_app_attributes')
+    const attrsQt = qSchemaTable(schemaName, '_app_components')
 
     const objectRows = await executor.query<{
         id: string
@@ -195,13 +195,13 @@ export const resolvePublicRuntimeObject = async (
         return null
     }
 
-    const attrs = await executor.query<PublicRuntimeObjectAttribute>(
+    const attrs = await executor.query<PublicRuntimeObjectComponent>(
         `
-        SELECT id, codename, column_name, data_type, parent_attribute_id, target_object_id, target_object_kind
+        SELECT id, codename, column_name, data_type, parent_component_id, target_object_id, target_object_kind
         FROM ${attrsQt}
         WHERE object_id = $1
           AND ${ACTIVE_ROW_SQL}
-        ORDER BY parent_attribute_id ASC NULLS FIRST, id ASC
+        ORDER BY parent_component_id ASC NULLS FIRST, id ASC
         `,
         [object.id]
     )
@@ -215,11 +215,11 @@ export const resolvePublicRuntimeObject = async (
     }
 }
 
-export const resolveTopLevelAttributes = (binding: PublicRuntimeObjectBinding): PublicRuntimeObjectAttribute[] =>
-    binding.attrs.filter((attr) => attr.parent_attribute_id === null)
+export const resolveTopLevelComponents = (binding: PublicRuntimeObjectBinding): PublicRuntimeObjectComponent[] =>
+    binding.attrs.filter((cmp) => cmp.parent_component_id === null)
 
-export const resolveChildAttributes = (binding: PublicRuntimeObjectBinding, parentAttributeId: string): PublicRuntimeObjectAttribute[] =>
-    binding.attrs.filter((attr) => attr.parent_attribute_id === parentAttributeId)
+export const resolveChildComponents = (binding: PublicRuntimeObjectBinding, parentComponentId: string): PublicRuntimeObjectComponent[] =>
+    binding.attrs.filter((cmp) => cmp.parent_component_id === parentComponentId)
 
 export const loadPublicRuntimeRecord = async (
     executor: DbExecutor,
@@ -232,12 +232,12 @@ export const loadPublicRuntimeRecord = async (
     }
 
     const tableQt = qSchemaTable(schemaName, binding.tableName)
-    const topLevelAttrs = resolveTopLevelAttributes(binding)
+    const topLevelAttrs = resolveTopLevelComponents(binding)
     const selectColumns = [
         'id',
         ...topLevelAttrs
-            .filter((attr) => attr.data_type !== 'TABLE' && IDENTIFIER_REGEX.test(attr.column_name))
-            .map((attr) => quoteIdentifier(attr.column_name))
+            .filter((cmp) => cmp.data_type !== 'TABLE' && IDENTIFIER_REGEX.test(cmp.column_name))
+            .map((cmp) => quoteIdentifier(cmp.column_name))
     ]
 
     const rows = await executor.query<Record<string, unknown>>(
@@ -257,14 +257,14 @@ export const loadPublicRuntimeRecord = async (
 export const loadPublicTableRows = async (
     executor: DbExecutor,
     schemaName: string,
-    tableAttribute: PublicRuntimeObjectAttribute,
-    childAttributes: PublicRuntimeObjectAttribute[],
+    tableComponent: PublicRuntimeObjectComponent,
+    childComponents: PublicRuntimeObjectComponent[],
     parentRecordId: string
 ): Promise<Array<Record<string, unknown>>> => {
     const tableName =
-        typeof tableAttribute.column_name === 'string' && IDENTIFIER_REGEX.test(tableAttribute.column_name)
-            ? tableAttribute.column_name
-            : generateChildTableName(tableAttribute.id)
+        typeof tableComponent.column_name === 'string' && IDENTIFIER_REGEX.test(tableComponent.column_name)
+            ? tableComponent.column_name
+            : generateChildTableName(tableComponent.id)
 
     if (!IDENTIFIER_REGEX.test(tableName) || !UUID_REGEX.test(parentRecordId)) {
         return []
@@ -273,7 +273,7 @@ export const loadPublicTableRows = async (
     const tableQt = qSchemaTable(schemaName, tableName)
     const selectColumns = [
         'id',
-        ...childAttributes.filter((attr) => IDENTIFIER_REGEX.test(attr.column_name)).map((attr) => quoteIdentifier(attr.column_name))
+        ...childComponents.filter((cmp) => IDENTIFIER_REGEX.test(cmp.column_name)).map((cmp) => quoteIdentifier(cmp.column_name))
     ]
 
     return executor.query<Record<string, unknown>>(

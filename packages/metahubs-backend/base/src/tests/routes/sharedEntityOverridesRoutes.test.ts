@@ -66,7 +66,7 @@ const targetObjectId = '00000000-0000-0000-0000-000000000002'
 
 const createOverrideRecord = (overrides: Record<string, unknown> = {}) => ({
     id: 'override-1',
-    entityKind: 'attribute',
+    entityKind: 'component',
     sharedEntityId: attributeEntityId,
     targetObjectId,
     isExcluded: false,
@@ -110,11 +110,11 @@ describe('Shared Entity Override Routes', () => {
             isSynthetic: false
         })
         mockFindAllContainerObjectIds.mockResolvedValue({
-            [SHARED_OBJECT_KINDS.SHARED_CATALOG_POOL]: '00000000-0000-0000-0000-000000000011',
+            [SHARED_OBJECT_KINDS.SHARED_OBJECT_POOL]: '00000000-0000-0000-0000-000000000011',
             [SHARED_OBJECT_KINDS.SHARED_SET_POOL]: '00000000-0000-0000-0000-000000000012'
         })
         mockResolveAllContainerObjectIds.mockResolvedValue({
-            [SHARED_OBJECT_KINDS.SHARED_CATALOG_POOL]: '00000000-0000-0000-0000-000000000011',
+            [SHARED_OBJECT_KINDS.SHARED_OBJECT_POOL]: '00000000-0000-0000-0000-000000000011',
             [SHARED_OBJECT_KINDS.SHARED_SET_POOL]: '00000000-0000-0000-0000-000000000012',
             [SHARED_OBJECT_KINDS.SHARED_ENUM_POOL]: '00000000-0000-0000-0000-000000000013'
         })
@@ -130,7 +130,7 @@ describe('Shared Entity Override Routes', () => {
         const response = await request(app).get('/metahub/metahub-1/shared-containers').expect(200)
 
         expect(response.body.items).toEqual([
-            { kind: SHARED_OBJECT_KINDS.SHARED_CATALOG_POOL, objectId: '00000000-0000-0000-0000-000000000011' },
+            { kind: SHARED_OBJECT_KINDS.SHARED_OBJECT_POOL, objectId: '00000000-0000-0000-0000-000000000011' },
             { kind: SHARED_OBJECT_KINDS.SHARED_SET_POOL, objectId: '00000000-0000-0000-0000-000000000012' }
         ])
         expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'manageMetahub', mockDbSession)
@@ -144,7 +144,7 @@ describe('Shared Entity Override Routes', () => {
         const response = await request(app).post('/metahub/metahub-1/shared-containers/ensure').expect(200)
 
         expect(response.body.items).toEqual([
-            { kind: SHARED_OBJECT_KINDS.SHARED_CATALOG_POOL, objectId: '00000000-0000-0000-0000-000000000011' },
+            { kind: SHARED_OBJECT_KINDS.SHARED_OBJECT_POOL, objectId: '00000000-0000-0000-0000-000000000011' },
             { kind: SHARED_OBJECT_KINDS.SHARED_SET_POOL, objectId: '00000000-0000-0000-0000-000000000012' },
             { kind: SHARED_OBJECT_KINDS.SHARED_ENUM_POOL, objectId: '00000000-0000-0000-0000-000000000013' }
         ])
@@ -154,7 +154,7 @@ describe('Shared Entity Override Routes', () => {
     it('rejects shared override list queries without exactly one filter', async () => {
         const app = buildApp()
 
-        const response = await request(app).get('/metahub/metahub-1/shared-entity-overrides?entityKind=attribute').expect(400)
+        const response = await request(app).get('/metahub/metahub-1/shared-entity-overrides?entityKind=component').expect(400)
 
         expect(response.body.error).toBe('Invalid query')
         expect(mockFindBySharedEntity).not.toHaveBeenCalled()
@@ -165,11 +165,11 @@ describe('Shared Entity Override Routes', () => {
         const app = buildApp()
 
         const response = await request(app)
-            .get(`/metahub/metahub-1/shared-entity-overrides?entityKind=attribute&sharedEntityId=${attributeEntityId}`)
+            .get(`/metahub/metahub-1/shared-entity-overrides?entityKind=component&sharedEntityId=${attributeEntityId}`)
             .expect(200)
 
         expect(response.body.items).toHaveLength(1)
-        expect(mockFindBySharedEntity).toHaveBeenCalledWith('metahub-1', 'attribute', attributeEntityId, 'user-1')
+        expect(mockFindBySharedEntity).toHaveBeenCalledWith('metahub-1', 'component', attributeEntityId, 'user-1')
         expect(mockFindByTargetObject).not.toHaveBeenCalled()
     })
 
@@ -179,7 +179,7 @@ describe('Shared Entity Override Routes', () => {
         const response = await request(app)
             .patch('/metahub/metahub-1/shared-entity-overrides')
             .send({
-                entityKind: 'attribute',
+                entityKind: 'component',
                 sharedEntityId: attributeEntityId,
                 targetObjectId
             })
@@ -196,7 +196,7 @@ describe('Shared Entity Override Routes', () => {
         const response = await request(app)
             .patch('/metahub/metahub-1/shared-entity-overrides')
             .send({
-                entityKind: 'attribute',
+                entityKind: 'component',
                 sharedEntityId: attributeEntityId,
                 targetObjectId,
                 isExcluded: true
@@ -212,11 +212,11 @@ describe('Shared Entity Override Routes', () => {
 
         await request(app)
             .delete(
-                `/metahub/metahub-1/shared-entity-overrides?entityKind=attribute&sharedEntityId=${attributeEntityId}&targetObjectId=${targetObjectId}`
+                `/metahub/metahub-1/shared-entity-overrides?entityKind=component&sharedEntityId=${attributeEntityId}&targetObjectId=${targetObjectId}`
             )
             .expect(204)
 
-        expect(mockClearOverride).toHaveBeenCalledWith('metahub-1', 'attribute', attributeEntityId, targetObjectId, 'user-1')
+        expect(mockClearOverride).toHaveBeenCalledWith('metahub-1', 'component', attributeEntityId, targetObjectId, 'user-1')
         expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'manageMetahub', mockDbSession)
     })
 })

@@ -3,12 +3,12 @@ import { ChangeType } from '../diff'
 import type { SchemaDiff, SchemaSnapshot } from '../types'
 import { hasRuntimeHistoryTable } from '@universo/migrations-core'
 
-const mockMirrorToGlobalCatalog = jest.fn().mockResolvedValue('run_019ccefc2f7b7b3682f485cdb1312268')
+const mockMirrorToGlobalObject = jest.fn().mockResolvedValue('run_019ccefc2f7b7b3682f485cdb1312268')
 const mockHasRuntimeHistoryTable = hasRuntimeHistoryTable as jest.MockedFunction<typeof hasRuntimeHistoryTable>
-const mockIsGlobalMigrationCatalogEnabled = jest.fn(() => true)
+const mockIsGlobalMigrationObjectEnabled = jest.fn(() => true)
 
 jest.mock('@universo/migrations-catalog', () => ({
-    mirrorToGlobalCatalog: (...args: unknown[]) => mockMirrorToGlobalCatalog(...args)
+    mirrorToGlobalCatalog: (...args: unknown[]) => mockMirrorToGlobalObject(...args)
 }))
 
 jest.mock('@universo/migrations-core', () => ({
@@ -16,7 +16,7 @@ jest.mock('@universo/migrations-core', () => ({
 }))
 
 jest.mock('@universo/utils', () => ({
-    isGlobalMigrationCatalogEnabled: (...args: unknown[]) => mockIsGlobalMigrationCatalogEnabled(...args)
+    isGlobalMigrationObjectEnabled: (...args: unknown[]) => mockIsGlobalMigrationObjectEnabled(...args)
 }))
 
 // Create mock Knex instance
@@ -71,8 +71,8 @@ describe('MigrationManager', () => {
         mockSchemaBuilder.hasTable.mockResolvedValue(true)
         mockHasRuntimeHistoryTable.mockResolvedValue(true)
         mockKnex.raw.mockResolvedValue({ rows: [{ exists: true }] })
-        mockMirrorToGlobalCatalog.mockResolvedValue('run_019ccefc2f7b7b3682f485cdb1312268')
-        mockIsGlobalMigrationCatalogEnabled.mockReturnValue(true)
+        mockMirrorToGlobalObject.mockResolvedValue('run_019ccefc2f7b7b3682f485cdb1312268')
+        mockIsGlobalMigrationObjectEnabled.mockReturnValue(true)
     })
 
     describe('generateMigrationName', () => {
@@ -132,7 +132,7 @@ describe('MigrationManager', () => {
                 {
                     type: ChangeType.ADD_TABLE,
                     entityCodename: 'products',
-                    tableName: 'cat_products',
+                    tableName: 'obj_products',
                     isDestructive: false,
                     description: 'Create table "products"'
                 }
@@ -142,7 +142,7 @@ describe('MigrationManager', () => {
                       {
                           type: ChangeType.DROP_TABLE,
                           entityCodename: 'old_table',
-                          tableName: 'cat_old',
+                          tableName: 'obj_old',
                           isDestructive: true,
                           description: 'Drop table "old_table"'
                       }
@@ -160,7 +160,7 @@ describe('MigrationManager', () => {
             expect(migrationId).toBe('migration-id-123')
             // Knex.withSchema is called on the knex instance
             expect(mockKnex.withSchema).toHaveBeenCalledWith('app_test123')
-            expect(mockMirrorToGlobalCatalog).toHaveBeenCalledWith(
+            expect(mockMirrorToGlobalObject).toHaveBeenCalledWith(
                 expect.objectContaining({
                     scopeKind: 'runtime_schema',
                     scopeKey: 'app_test123',
@@ -205,16 +205,16 @@ describe('MigrationManager', () => {
             expect(meta.changes.length).toBe(2) // 1 additive + 1 destructive
         })
 
-        it('should keep local _app_migrations history when the global catalog is disabled and omit globalRunId', async () => {
+        it('should keep local _app_migrations history when the global object is disabled and omit globalRunId', async () => {
             const snapshotAfter = createTestSnapshot()
             const diff = createTestDiff()
 
-            mockIsGlobalMigrationCatalogEnabled.mockReturnValue(false)
-            mockMirrorToGlobalCatalog.mockResolvedValueOnce(null)
+            mockIsGlobalMigrationObjectEnabled.mockReturnValue(false)
+            mockMirrorToGlobalObject.mockResolvedValueOnce(null)
 
-            await manager.recordMigration('app_test123', '20260117_143022_disabled_catalog', null, snapshotAfter, diff)
+            await manager.recordMigration('app_test123', '20260117_143022_disabled_object', null, snapshotAfter, diff)
 
-            expect(mockMirrorToGlobalCatalog).toHaveBeenCalledWith(
+            expect(mockMirrorToGlobalObject).toHaveBeenCalledWith(
                 expect.objectContaining({
                     globalCatalogEnabled: false,
                     localHistoryTable: '_app_migrations'
@@ -226,16 +226,16 @@ describe('MigrationManager', () => {
             expect(meta.globalRunId).toBeUndefined()
         })
 
-        it('should abort local history recording when enabled-mode catalog mirroring fails', async () => {
+        it('should abort local history recording when enabled-mode object mirroring fails', async () => {
             const snapshotAfter = createTestSnapshot()
             const diff = createTestDiff()
 
-            mockIsGlobalMigrationCatalogEnabled.mockReturnValue(true)
-            mockMirrorToGlobalCatalog.mockRejectedValueOnce(new Error('catalog unavailable'))
+            mockIsGlobalMigrationObjectEnabled.mockReturnValue(true)
+            mockMirrorToGlobalObject.mockRejectedValueOnce(new Error('object unavailable'))
 
             await expect(
-                manager.recordMigration('app_test123', '20260117_143022_abort_on_catalog_failure', null, snapshotAfter, diff)
-            ).rejects.toThrow('catalog unavailable')
+                manager.recordMigration('app_test123', '20260117_143022_abort_on_object_failure', null, snapshotAfter, diff)
+            ).rejects.toThrow('object unavailable')
 
             expect(mockQueryBuilder.insert).not.toHaveBeenCalled()
         })

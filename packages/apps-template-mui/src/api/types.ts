@@ -26,46 +26,46 @@ export interface CrudDataAdapter {
             limit: number
             offset: number
             locale: string
-            linkedCollectionId?: string
+            objectCollectionId?: string
             sectionId?: string
         } & RuntimeListQueryParams
     ): Promise<AppDataResponse>
 
     /** Fetch a single row (raw data, for edit forms). */
-    fetchRow(rowId: string, linkedCollectionId?: string): Promise<Record<string, unknown>>
+    fetchRow(rowId: string, objectCollectionId?: string): Promise<Record<string, unknown>>
 
     /** Fetch TABLE child rows for a source row (used to prefill copy form). */
     fetchTabularRows?(params: {
         parentRowId: string
-        attributeId: string
-        linkedCollectionId?: string
+        componentId: string
+        objectCollectionId?: string
         sectionId?: string
     }): Promise<Array<Record<string, unknown>>>
 
     /** Create a new row. Returns the created row. */
-    createRow(data: Record<string, unknown>, linkedCollectionId?: string): Promise<Record<string, unknown>>
+    createRow(data: Record<string, unknown>, objectCollectionId?: string): Promise<Record<string, unknown>>
 
     /** Update an existing row. Returns the updated row. */
-    updateRow(rowId: string, data: Record<string, unknown>, linkedCollectionId?: string): Promise<Record<string, unknown>>
+    updateRow(rowId: string, data: Record<string, unknown>, objectCollectionId?: string): Promise<Record<string, unknown>>
 
     /** Soft-delete a row. */
-    deleteRow(rowId: string, linkedCollectionId?: string): Promise<void>
+    deleteRow(rowId: string, objectCollectionId?: string): Promise<void>
 
     /** Copy a row. */
     copyRow(
         rowId: string,
-        data?: { copyChildTables?: boolean; linkedCollectionId?: string; sectionId?: string }
+        data?: { copyChildTables?: boolean; objectCollectionId?: string; sectionId?: string }
     ): Promise<Record<string, unknown>>
 
     /** Execute a generic runtime record lifecycle command. */
     recordCommand?(
         rowId: string,
         command: RuntimeRecordCommand,
-        data?: { linkedCollectionId?: string; sectionId?: string; expectedVersion?: number }
+        data?: { objectCollectionId?: string; sectionId?: string; expectedVersion?: number }
     ): Promise<Record<string, unknown>>
 
-    /** Persist a complete runtime row order for catalogs that explicitly support reordering. */
-    reorderRows?(params: { linkedCollectionId?: string; sectionId?: string; orderedRowIds: string[] }): Promise<void>
+    /** Persist a complete runtime row order for objects that explicitly support reordering. */
+    reorderRows?(params: { objectCollectionId?: string; sectionId?: string; orderedRowIds: string[] }): Promise<void>
 }
 
 /**

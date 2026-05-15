@@ -67,10 +67,10 @@ test('@flow @combined published custom entities survive publication sync and ope
     const metahubCodename = `${runManifest.runId}-entities-publication-runtime`
     const publicationName = `E2E ${runManifest.runId} Entities Publication`
     const applicationName = `E2E ${runManifest.runId} Entities Runtime`
-    const customKindKey = `custom.catalog-${suffix}`
-    const customTypeName = `Catalogs ${suffix}`
-    const customEntityName = `Published Catalog ${suffix}`
-    const customEntityCodename = `published-catalog-${suffix}`
+    const customKindKey = `custom.object-${suffix}`
+    const customTypeName = `Objects ${suffix}`
+    const customEntityName = `Published Object ${suffix}`
+    const customEntityCodename = `published-object-${suffix}`
 
     try {
         const metahub = await createMetahub(api, {
@@ -95,12 +95,12 @@ test('@flow @combined published custom entities survive publication sync and ope
 
         await page.getByTestId(toolbarSelectors.primaryAction).click()
 
-        const createTypeDialog = page.getByRole('dialog', { name: 'Create Entity Type' })
+        const createTypeDialog = page.getByRole('dialog', { name: /Create Entity(?: Type)?/ })
         await expect(createTypeDialog).toBeVisible()
         await createTypeDialog.getByLabel('Select template').click()
-        await page.getByRole('option', { name: /^Catalogs\b/i }).click()
+        await page.getByRole('option', { name: /^Objects\b/i }).click()
 
-        await expect.poll(async () => createTypeDialog.getByLabel('Kind key').inputValue()).toBe('catalog')
+        await expect.poll(async () => createTypeDialog.getByLabel('Kind key').inputValue()).toBe('object')
         await createTypeDialog.getByLabel('Kind key').fill(customKindKey)
         await createTypeDialog.getByLabel('Name').first().fill(customTypeName)
 
@@ -127,7 +127,7 @@ test('@flow @combined published custom entities survive publication sync and ope
 
         await page.getByTestId(toolbarSelectors.primaryAction).click()
 
-        const createEntityDialog = page.getByRole('dialog', { name: 'Create Entity' })
+        const createEntityDialog = page.getByRole('dialog', { name: /Create (Entity|Object)/ })
         await expect(createEntityDialog).toBeVisible()
         await createEntityDialog.getByLabel('Name').first().fill(customEntityName)
         await createEntityDialog.getByLabel('Codename').first().fill(customEntityCodename)
@@ -208,11 +208,11 @@ test('@flow @combined published custom entities survive publication sync and ope
 
         const runtimeSectionId = runtimeSection.id
 
-        const sectionState = (await getApplicationRuntime(api, applicationId, { catalogId: runtimeSectionId })) as RuntimeState
+        const sectionState = (await getApplicationRuntime(api, applicationId, { objectCollectionId: runtimeSectionId })) as RuntimeState
         expect(sectionState.activeSectionId).toBe(runtimeSectionId)
 
-        await page.goto(`/a/${applicationId}?catalogId=${runtimeSectionId}`)
-        await expect(page).toHaveURL(new RegExp(`/a/${applicationId}\\?catalogId=${runtimeSectionId}$`))
+        await page.goto(`/a/${applicationId}?objectCollectionId=${runtimeSectionId}`)
+        await expect(page).toHaveURL(new RegExp(`/a/${applicationId}\\?objectCollectionId=${runtimeSectionId}$`))
         await expect(page.getByTestId(applicationSelectors.runtimeCreateButton)).toBeVisible({ timeout: 30_000 })
     } finally {
         await disposeApiContext(api)

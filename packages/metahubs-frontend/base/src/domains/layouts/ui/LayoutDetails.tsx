@@ -19,7 +19,7 @@ import {
 } from '@mui/material'
 import { DragEndEvent } from '@dnd-kit/core'
 import type {
-    LinkedCollectionRuntimeViewConfig,
+    ObjectCollectionRuntimeViewConfig,
     DashboardLayoutZone,
     DashboardLayoutWidgetKey,
     MenuWidgetConfig,
@@ -29,15 +29,15 @@ import type {
 import { DASHBOARD_LAYOUT_ZONES } from '@universo/types'
 import { LayoutAuthoringDetails, TemplateMainCard as MainCard, ViewHeaderMUI as ViewHeader, notifyError } from '@universo/template-mui'
 import {
-    extractLinkedCollectionLayoutBehaviorConfig,
-    normalizeLinkedCollectionRuntimeViewConfig,
-    setLinkedCollectionLayoutBehaviorConfig
+    extractObjectCollectionLayoutBehaviorConfig,
+    normalizeObjectCollectionRuntimeViewConfig,
+    setObjectCollectionLayoutBehaviorConfig
 } from '@universo/utils'
 
 import { metahubsQueryKeys, invalidateLayoutsQueries } from '../../shared'
 import { useMetahubDetails } from '../../metahubs/hooks'
 import * as layoutsApi from '../api'
-import type { Metahub, MetahubLayout, MetahubLayoutZoneWidget, DashboardLayoutWidgetCatalogItem } from '../../../types'
+import type { Metahub, MetahubLayout, MetahubLayoutZoneWidget, DashboardLayoutWidgetItem } from '../../../types'
 import { getVLCString, normalizeLocale } from '../../../types'
 import MenuWidgetEditorDialog from './MenuWidgetEditorDialog'
 import ColumnsContainerEditorDialog from './ColumnsContainerEditorDialog'
@@ -71,11 +71,12 @@ type QuizEditorState = {
 type WidgetBehaviorEditorState = {
     open: boolean
     widgetId: string | null
+    widgetLabel: string | null
     config: Record<string, unknown> | null
 }
 
 const EMPTY_ZONE_WIDGETS: MetahubLayoutZoneWidget[] = []
-const EMPTY_WIDGET_CATALOG: DashboardLayoutWidgetCatalogItem[] = []
+const EMPTY_WIDGET_OBJECTS: DashboardLayoutWidgetItem[] = []
 
 export default function LayoutDetails() {
     const { metahubId, layoutId } = useParams<{ metahubId: string; layoutId: string }>()
@@ -89,6 +90,7 @@ export default function LayoutDetails() {
     const [widgetBehaviorEditor, setWidgetBehaviorEditor] = useState<WidgetBehaviorEditorState>({
         open: false,
         widgetId: null,
+        widgetLabel: null,
         config: null
     })
     const [viewSettingsSaving, setViewSettingsSaving] = useState(false)
@@ -108,29 +110,29 @@ export default function LayoutDetails() {
         queryFn: async () => layoutsApi.listLayoutZoneWidgets(String(metahubId), String(layoutId))
     })
 
-    const widgetCatalogQuery = useQuery({
-        queryKey: metahubId && layoutId ? metahubsQueryKeys.layoutZoneWidgetsCatalog(metahubId, layoutId) : ['layout-zone-catalog-empty'],
+    const widgetObjectsQuery = useQuery({
+        queryKey: metahubId && layoutId ? metahubsQueryKeys.layoutZoneWidgetObjects(metahubId, layoutId) : ['layout-zone-objects-empty'],
         enabled: Boolean(metahubId && layoutId),
-        queryFn: async () => layoutsApi.getLayoutZoneWidgetsCatalog(String(metahubId), String(layoutId))
+        queryFn: async () => layoutsApi.getLayoutZoneWidgetObjects(String(metahubId), String(layoutId))
     })
 
     const cachedMetahub = metahubId ? queryClient.getQueryData<Metahub>(metahubsQueryKeys.detail(metahubId)) : undefined
     const canManageLayouts = (metahubDetailsQuery.data?.permissions ?? cachedMetahub?.permissions)?.manageMetahub === true
     const layout = layoutQuery.data as MetahubLayout | undefined
     const zoneWidgets = zoneWidgetsQuery.data ?? EMPTY_ZONE_WIDGETS
-    const widgetCatalog = widgetCatalogQuery.data ?? EMPTY_WIDGET_CATALOG
+    const widgetObjects = widgetObjectsQuery.data ?? EMPTY_WIDGET_OBJECTS
     const isGlobalLayout = layout?.scopeEntityId == null
     const uiLocale = normalizeLocale(i18n.language)
     const layoutName = layout ? getVLCString(layout.name, uiLocale) || getVLCString(layout.name, 'en') || layout.templateKey : ''
-    const catalogBehaviorConfig = useMemo(
-        () => normalizeLinkedCollectionRuntimeViewConfig(extractLinkedCollectionLayoutBehaviorConfig(layout?.config)),
+    const objectBehaviorConfig = useMemo(
+        () => normalizeObjectCollectionRuntimeViewConfig(extractObjectCollectionLayoutBehaviorConfig(layout?.config)),
         [layout?.config]
     )
     const [reorderPersistenceFieldDraft, setReorderPersistenceFieldDraft] = useState('')
 
     useEffect(() => {
-        setReorderPersistenceFieldDraft(catalogBehaviorConfig.reorderPersistenceField ?? '')
-    }, [catalogBehaviorConfig.reorderPersistenceField])
+        setReorderPersistenceFieldDraft(objectBehaviorConfig.reorderPersistenceField ?? '')
+    }, [objectBehaviorConfig.reorderPersistenceField])
 
     const zoneToItems = useMemo(() => {
         const initial = DASHBOARD_LAYOUT_ZONES.reduce((acc, zone) => {
@@ -150,11 +152,11 @@ export default function LayoutDetails() {
 
     const widgetLabelByKey = useMemo(() => {
         const labels: Record<string, string> = {}
-        for (const item of widgetCatalog) {
+        for (const item of widgetObjects) {
             labels[item.key] = t(`layouts.widgets.${item.key}`, item.key)
         }
         return labels
-    }, [widgetCatalog, t])
+    }, [widgetObjects, t])
 
     const zoneLabels = useMemo<Record<DashboardLayoutZone, string>>(
         () => ({
@@ -205,6 +207,7 @@ export default function LayoutDetails() {
                 setWidgetBehaviorEditor({
                     open: true,
                     widgetId: item.id,
+                    widgetLabel: widgetLabelByKey[item.widgetKey] ?? item.widgetKey,
                     config:
                         item.config && typeof item.config === 'object' && !Array.isArray(item.config)
                             ? { ...(item.config as Record<string, unknown>) }
@@ -212,7 +215,7 @@ export default function LayoutDetails() {
                 })
             }
         },
-        [isGlobalLayout]
+        [isGlobalLayout, widgetLabelByKey]
     )
 
     /** Build a chip label: for menuWidget append the resolved menu title, for columnsContainer list inner widgets. */
@@ -244,14 +247,14 @@ export default function LayoutDetails() {
     )
 
     const getAvailableWidgetsForZone = useCallback(
-        (zone: DashboardLayoutZone): DashboardLayoutWidgetCatalogItem[] => {
-            return widgetCatalog.filter((widgetItem) => {
+        (zone: DashboardLayoutZone): DashboardLayoutWidgetItem[] => {
+            return widgetObjects.filter((widgetItem) => {
                 // Multi-instance widgets are always available for adding
                 if (!widgetItem.multiInstance && allAssignedWidgetKeys.has(widgetItem.key)) return false
                 return widgetItem.allowedZones.includes(zone)
             })
         },
-        [allAssignedWidgetKeys, widgetCatalog]
+        [allAssignedWidgetKeys, widgetObjects]
     )
 
     const persistAndRefresh = useCallback(async () => {
@@ -319,13 +322,13 @@ export default function LayoutDetails() {
         [canManageLayouts, enqueueSnackbar, layout, persistLayoutConfig, t]
     )
 
-    const handleCatalogBehaviorChange = useCallback(
-        async (patch: Partial<LinkedCollectionRuntimeViewConfig>) => {
+    const handleObjectBehaviorChange = useCallback(
+        async (patch: Partial<ObjectCollectionRuntimeViewConfig>) => {
             if (!layout || !canManageLayouts) return
             setViewSettingsSaving(true)
             try {
-                const currentBehaviorConfig = extractLinkedCollectionLayoutBehaviorConfig(layout.config) ?? {}
-                await persistLayoutConfig(setLinkedCollectionLayoutBehaviorConfig(layout.config, { ...currentBehaviorConfig, ...patch }))
+                const currentBehaviorConfig = extractObjectCollectionLayoutBehaviorConfig(layout.config) ?? {}
+                await persistLayoutConfig(setObjectCollectionLayoutBehaviorConfig(layout.config, { ...currentBehaviorConfig, ...patch }))
             } catch (e: unknown) {
                 notifyError(t, enqueueSnackbar, e)
             } finally {
@@ -339,16 +342,16 @@ export default function LayoutDetails() {
         if (!layout || !canManageLayouts) return
 
         const normalizedValue = reorderPersistenceFieldDraft.trim()
-        const currentValue = catalogBehaviorConfig.reorderPersistenceField ?? ''
+        const currentValue = objectBehaviorConfig.reorderPersistenceField ?? ''
 
         if (normalizedValue === currentValue) {
             return
         }
 
-        await handleCatalogBehaviorChange({
+        await handleObjectBehaviorChange({
             reorderPersistenceField: normalizedValue || null
         })
-    }, [canManageLayouts, catalogBehaviorConfig.reorderPersistenceField, handleCatalogBehaviorChange, layout, reorderPersistenceFieldDraft])
+    }, [canManageLayouts, objectBehaviorConfig.reorderPersistenceField, handleObjectBehaviorChange, layout, reorderPersistenceFieldDraft])
 
     const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event
@@ -605,8 +608,8 @@ export default function LayoutDetails() {
         )
     }
 
-    const isLoading = layoutQuery.isLoading || zoneWidgetsQuery.isLoading || widgetCatalogQuery.isLoading
-    const hasError = layoutQuery.error || zoneWidgetsQuery.error || widgetCatalogQuery.error
+    const isLoading = layoutQuery.isLoading || zoneWidgetsQuery.isLoading || widgetObjectsQuery.isLoading
+    const hasError = layoutQuery.error || zoneWidgetsQuery.error || widgetObjectsQuery.error
 
     return (
         <MainCard content={false} sx={{ maxWidth: '100%', width: '100%', p: 0, gap: 0 }} disableHeader border={false} shadow={false}>
@@ -630,7 +633,7 @@ export default function LayoutDetails() {
                                 dragHint={t('layouts.details.dragHint', 'Drag widgets between zones to change runtime composition.')}
                                 emptyZoneLabel={t('layouts.empty', 'No layouts yet')}
                                 addWidgetLabel={t('layouts.details.addWidget', 'Add widget')}
-                                availableWidgetsLabel={t('layouts.details.widgetCatalogTitle', 'Available widgets')}
+                                availableWidgetsLabel={t('layouts.details.widgetObjectsTitle', 'Available widgets')}
                                 moveWidgetLabel={t('layouts.moveWidget', 'Move widget')}
                                 zones={authoringZones}
                                 onDragEnd={handleDragEnd}
@@ -640,17 +643,17 @@ export default function LayoutDetails() {
                                         <Paper variant='outlined' sx={{ p: 2 }}>
                                             <Typography variant='subtitle1' sx={{ mb: 1.5 }}>
                                                 {layout?.scopeEntityId
-                                                    ? t('layouts.details.catalogBehaviorTitleCatalog', 'Entity runtime behavior')
-                                                    : t('layouts.details.catalogBehaviorTitleGlobal', 'Default entity runtime behavior')}
+                                                    ? t('layouts.details.objectBehaviorTitleObject', 'Entity runtime behavior')
+                                                    : t('layouts.details.objectBehaviorTitleGlobal', 'Default entity runtime behavior')}
                                             </Typography>
                                             <Typography variant='body2' color='text.secondary' sx={{ mb: 2 }}>
                                                 {layout?.scopeEntityId
                                                     ? t(
-                                                          'layouts.details.catalogBehaviorDescriptionCatalog',
+                                                          'layouts.details.objectBehaviorDescriptionObject',
                                                           'This scoped layout overrides the create/search behavior inherited from its global base layout.'
                                                       )
                                                     : t(
-                                                          'layouts.details.catalogBehaviorDescriptionGlobal',
+                                                          'layouts.details.objectBehaviorDescriptionGlobal',
                                                           'These settings define the default create/search behavior for entities that use this global layout until an entity-specific layout overrides it.'
                                                       )}
                                             </Typography>
@@ -658,112 +661,110 @@ export default function LayoutDetails() {
                                                 <FormControlLabel
                                                     control={
                                                         <Switch
-                                                            checked={catalogBehaviorConfig.showCreateButton}
+                                                            checked={objectBehaviorConfig.showCreateButton}
                                                             disabled={viewSettingsSaving || !canManageLayouts}
                                                             onChange={(_, checked) =>
-                                                                void handleCatalogBehaviorChange({ showCreateButton: checked })
+                                                                void handleObjectBehaviorChange({ showCreateButton: checked })
                                                             }
                                                         />
                                                     }
-                                                    label={t('catalogs.runtime.showCreateButton', 'Show create button')}
+                                                    label={t('objects.runtime.showCreateButton', 'Show create button')}
                                                 />
                                                 <FormControl size='small' sx={{ minWidth: 220 }}>
-                                                    <InputLabel>{t('catalogs.runtime.searchMode', 'Search mode')}</InputLabel>
+                                                    <InputLabel>{t('objects.runtime.searchMode', 'Search mode')}</InputLabel>
                                                     <Select
-                                                        value={catalogBehaviorConfig.searchMode}
-                                                        label={t('catalogs.runtime.searchMode', 'Search mode')}
+                                                        value={objectBehaviorConfig.searchMode}
+                                                        label={t('objects.runtime.searchMode', 'Search mode')}
                                                         disabled={viewSettingsSaving || !canManageLayouts}
                                                         onChange={(event) =>
-                                                            void handleCatalogBehaviorChange({
+                                                            void handleObjectBehaviorChange({
                                                                 searchMode: event.target
-                                                                    .value as LinkedCollectionRuntimeViewConfig['searchMode']
+                                                                    .value as ObjectCollectionRuntimeViewConfig['searchMode']
                                                             })
                                                         }
                                                     >
                                                         <MenuItem value='page-local'>
-                                                            {t('catalogs.runtime.searchModePageLocal', 'Page-local')}
+                                                            {t('objects.runtime.searchModePageLocal', 'Page-local')}
                                                         </MenuItem>
                                                         <MenuItem value='server'>
-                                                            {t('catalogs.runtime.searchModeServer', 'Server')}
+                                                            {t('objects.runtime.searchModeServer', 'Server')}
                                                         </MenuItem>
                                                     </Select>
                                                 </FormControl>
                                                 <FormControl size='small' sx={{ minWidth: 220 }}>
-                                                    <InputLabel>{t('catalogs.runtime.createSurface', 'Create form type')}</InputLabel>
+                                                    <InputLabel>{t('objects.runtime.createSurface', 'Create form type')}</InputLabel>
                                                     <Select
-                                                        value={catalogBehaviorConfig.createSurface}
-                                                        label={t('catalogs.runtime.createSurface', 'Create form type')}
+                                                        value={objectBehaviorConfig.createSurface}
+                                                        label={t('objects.runtime.createSurface', 'Create form type')}
                                                         disabled={viewSettingsSaving || !canManageLayouts}
                                                         onChange={(event) =>
-                                                            void handleCatalogBehaviorChange({
+                                                            void handleObjectBehaviorChange({
                                                                 createSurface: event.target
-                                                                    .value as LinkedCollectionRuntimeViewConfig['createSurface']
+                                                                    .value as ObjectCollectionRuntimeViewConfig['createSurface']
                                                             })
                                                         }
                                                     >
-                                                        <MenuItem value='dialog'>{t('catalogs.runtime.surfaceDialog', 'Dialog')}</MenuItem>
-                                                        <MenuItem value='page'>{t('catalogs.runtime.surfacePage', 'Page')}</MenuItem>
+                                                        <MenuItem value='dialog'>{t('objects.runtime.surfaceDialog', 'Dialog')}</MenuItem>
+                                                        <MenuItem value='page'>{t('objects.runtime.surfacePage', 'Page')}</MenuItem>
                                                     </Select>
                                                 </FormControl>
                                                 <FormControl size='small' sx={{ minWidth: 220 }}>
-                                                    <InputLabel>{t('catalogs.runtime.editSurface', 'Edit form type')}</InputLabel>
+                                                    <InputLabel>{t('objects.runtime.editSurface', 'Edit form type')}</InputLabel>
                                                     <Select
-                                                        value={catalogBehaviorConfig.editSurface}
-                                                        label={t('catalogs.runtime.editSurface', 'Edit form type')}
+                                                        value={objectBehaviorConfig.editSurface}
+                                                        label={t('objects.runtime.editSurface', 'Edit form type')}
                                                         disabled={viewSettingsSaving || !canManageLayouts}
                                                         onChange={(event) =>
-                                                            void handleCatalogBehaviorChange({
+                                                            void handleObjectBehaviorChange({
                                                                 editSurface: event.target
-                                                                    .value as LinkedCollectionRuntimeViewConfig['editSurface']
+                                                                    .value as ObjectCollectionRuntimeViewConfig['editSurface']
                                                             })
                                                         }
                                                     >
-                                                        <MenuItem value='dialog'>{t('catalogs.runtime.surfaceDialog', 'Dialog')}</MenuItem>
-                                                        <MenuItem value='page'>{t('catalogs.runtime.surfacePage', 'Page')}</MenuItem>
+                                                        <MenuItem value='dialog'>{t('objects.runtime.surfaceDialog', 'Dialog')}</MenuItem>
+                                                        <MenuItem value='page'>{t('objects.runtime.surfacePage', 'Page')}</MenuItem>
                                                     </Select>
                                                 </FormControl>
                                                 <FormControl size='small' sx={{ minWidth: 220 }}>
-                                                    <InputLabel>{t('catalogs.runtime.copySurface', 'Copy form type')}</InputLabel>
+                                                    <InputLabel>{t('objects.runtime.copySurface', 'Copy form type')}</InputLabel>
                                                     <Select
-                                                        value={catalogBehaviorConfig.copySurface}
-                                                        label={t('catalogs.runtime.copySurface', 'Copy form type')}
+                                                        value={objectBehaviorConfig.copySurface}
+                                                        label={t('objects.runtime.copySurface', 'Copy form type')}
                                                         disabled={viewSettingsSaving || !canManageLayouts}
                                                         onChange={(event) =>
-                                                            void handleCatalogBehaviorChange({
+                                                            void handleObjectBehaviorChange({
                                                                 copySurface: event.target
-                                                                    .value as LinkedCollectionRuntimeViewConfig['copySurface']
+                                                                    .value as ObjectCollectionRuntimeViewConfig['copySurface']
                                                             })
                                                         }
                                                     >
-                                                        <MenuItem value='dialog'>{t('catalogs.runtime.surfaceDialog', 'Dialog')}</MenuItem>
-                                                        <MenuItem value='page'>{t('catalogs.runtime.surfacePage', 'Page')}</MenuItem>
+                                                        <MenuItem value='dialog'>{t('objects.runtime.surfaceDialog', 'Dialog')}</MenuItem>
+                                                        <MenuItem value='page'>{t('objects.runtime.surfacePage', 'Page')}</MenuItem>
                                                     </Select>
                                                 </FormControl>
                                                 <FormControlLabel
                                                     control={
                                                         <Switch
-                                                            checked={catalogBehaviorConfig.enableRowReordering}
+                                                            checked={objectBehaviorConfig.enableRowReordering}
                                                             disabled={viewSettingsSaving || !canManageLayouts}
                                                             onChange={(_, checked) =>
-                                                                void handleCatalogBehaviorChange({
+                                                                void handleObjectBehaviorChange({
                                                                     enableRowReordering: checked
                                                                 })
                                                             }
                                                         />
                                                     }
-                                                    label={t('catalogs.runtime.enableRowReordering', 'Enable row reordering')}
+                                                    label={t('objects.runtime.enableRowReordering', 'Enable row reordering')}
                                                 />
                                                 <TextField
                                                     size='small'
-                                                    label={t('catalogs.runtime.reorderPersistenceField', 'Reorder persistence field')}
+                                                    label={t('objects.runtime.reorderPersistenceField', 'Reorder persistence field')}
                                                     value={reorderPersistenceFieldDraft}
                                                     disabled={
-                                                        viewSettingsSaving ||
-                                                        !canManageLayouts ||
-                                                        !catalogBehaviorConfig.enableRowReordering
+                                                        viewSettingsSaving || !canManageLayouts || !objectBehaviorConfig.enableRowReordering
                                                     }
                                                     helperText={t(
-                                                        'catalogs.runtime.reorderPersistenceFieldHelper',
+                                                        'objects.runtime.reorderPersistenceFieldHelper',
                                                         'Enter the numeric field codename or column key that stores the persisted row order, for example sort_order.'
                                                     )}
                                                     onChange={(event) => setReorderPersistenceFieldDraft(event.target.value)}
@@ -996,6 +997,7 @@ export default function LayoutDetails() {
                 metahubId={metahubId}
                 layoutId={layoutId}
                 widgetId={widgetBehaviorEditor.widgetId}
+                widgetLabel={widgetBehaviorEditor.widgetLabel}
                 showScopeVisibility={isGlobalLayout && Boolean(widgetBehaviorEditor.widgetId)}
                 onSave={async (config) => {
                     const widgetId = widgetBehaviorEditor.widgetId
@@ -1004,12 +1006,12 @@ export default function LayoutDetails() {
                         const response = await layoutsApi.updateLayoutZoneWidgetConfig(metahubId, layoutId, widgetId, config)
                         upsertZoneWidgetInCache(response.data.item)
                         await persistAndRefresh()
-                        setWidgetBehaviorEditor({ open: false, widgetId: null, config: null })
+                        setWidgetBehaviorEditor({ open: false, widgetId: null, widgetLabel: null, config: null })
                     } catch (e: unknown) {
                         notifyError(t, enqueueSnackbar, e)
                     }
                 }}
-                onCancel={() => setWidgetBehaviorEditor({ open: false, widgetId: null, config: null })}
+                onCancel={() => setWidgetBehaviorEditor({ open: false, widgetId: null, widgetLabel: null, config: null })}
             />
         </MainCard>
     )

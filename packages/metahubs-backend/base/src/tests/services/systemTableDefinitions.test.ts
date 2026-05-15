@@ -14,7 +14,7 @@ describe('systemTableDefinitions', () => {
         it('contains expected system tables', () => {
             const tableNames = SYSTEM_TABLES.map((t) => t.name)
             expect(tableNames).toContain('_mhb_objects')
-            expect(tableNames).toContain('_mhb_attributes')
+            expect(tableNames).toContain('_mhb_components')
             expect(tableNames).toContain('_mhb_constants')
             expect(tableNames).toContain('_mhb_values')
             expect(tableNames).toContain('_mhb_elements')

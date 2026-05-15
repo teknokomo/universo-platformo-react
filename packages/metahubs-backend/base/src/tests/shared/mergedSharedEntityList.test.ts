@@ -15,9 +15,9 @@ describe('mergedSharedEntityList', () => {
             overrides: [
                 {
                     id: 'override-1',
-                    entityKind: 'attribute',
+                    entityKind: 'component',
                     sharedEntityId: 'shared-excluded',
-                    targetObjectId: 'catalog-1',
+                    targetObjectId: 'object-1',
                     isExcluded: true,
                     isActive: null,
                     sortOrder: null,

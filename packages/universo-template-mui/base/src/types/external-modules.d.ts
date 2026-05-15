@@ -65,7 +65,7 @@ declare module '@universo/metahubs-frontend' {
     export const BuiltinEntityCollectionPage: GenericComponent
     export const StandardEntityChildCollectionPage: GenericComponent
     export const SelectableOptionList: GenericComponent
-    export const FieldDefinitionList: GenericComponent
+    export const ComponentList: GenericComponent
     export const FixedValueList: GenericComponent
     export const RecordList: GenericComponent
     export const MetahubResources: GenericComponent

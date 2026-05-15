@@ -57,7 +57,7 @@ function isProfileUpdateColumnKey(value: string): value is keyof ProfileUpdateRo
 
 export async function findProfileByUserId(exec: DbExecutor, userId: string): Promise<ProfileRow | null> {
     const rows = await exec.query<ProfileRow>(
-        `SELECT * FROM profiles.cat_profiles WHERE user_id = $1 AND ${activeAppRowCondition()} LIMIT 1`,
+        `SELECT * FROM profiles.obj_profiles WHERE user_id = $1 AND ${activeAppRowCondition()} LIMIT 1`,
         [userId]
     )
     return rows[0] ?? null
@@ -68,7 +68,7 @@ export async function createProfile(
     data: { user_id: string; nickname: string; first_name?: string; last_name?: string; settings?: UserSettingsData }
 ): Promise<ProfileRow> {
     const rows = await exec.query<ProfileRow>(
-        `INSERT INTO profiles.cat_profiles (id, user_id, nickname, first_name, last_name, settings)
+        `INSERT INTO profiles.obj_profiles (id, user_id, nickname, first_name, last_name, settings)
          VALUES (public.uuid_generate_v7(), $1, $2, $3, $4, $5::jsonb)
          RETURNING ${PROFILE_RETURNING_COLUMNS}`,
         [data.user_id, data.nickname, data.first_name ?? null, data.last_name ?? null, JSON.stringify(data.settings ?? {})]
@@ -96,7 +96,7 @@ export async function updateProfileByUserId(exec: DbExecutor, userId: string, da
     params.push(userId)
 
     const rows = await exec.query<ProfileRow>(
-        `UPDATE profiles.cat_profiles SET ${sets.join(
+        `UPDATE profiles.obj_profiles SET ${sets.join(
             ', '
         )} WHERE user_id = $${idx} AND ${activeAppRowCondition()} RETURNING ${PROFILE_RETURNING_COLUMNS}`,
         params
@@ -106,7 +106,7 @@ export async function updateProfileByUserId(exec: DbExecutor, userId: string, da
 
 export async function isNicknameAvailable(exec: DbExecutor, nickname: string, excludeUserId?: string): Promise<boolean> {
     const params: unknown[] = [nickname]
-    let sql = `SELECT 1 FROM profiles.cat_profiles WHERE nickname = $1 AND ${activeAppRowCondition()}`
+    let sql = `SELECT 1 FROM profiles.obj_profiles WHERE nickname = $1 AND ${activeAppRowCondition()}`
     if (excludeUserId) {
         sql += ' AND user_id != $2'
         params.push(excludeUserId)
@@ -118,19 +118,19 @@ export async function isNicknameAvailable(exec: DbExecutor, nickname: string, ex
 
 export async function profileExistsByUserId(exec: DbExecutor, userId: string): Promise<boolean> {
     const rows = await exec.query<{ n: string }>(
-        `SELECT 1 AS n FROM profiles.cat_profiles WHERE user_id = $1 AND ${activeAppRowCondition()} LIMIT 1`,
+        `SELECT 1 AS n FROM profiles.obj_profiles WHERE user_id = $1 AND ${activeAppRowCondition()} LIMIT 1`,
         [userId]
     )
     return rows.length > 0
 }
 
 export async function findAllProfiles(exec: DbExecutor): Promise<ProfileRow[]> {
-    return exec.query<ProfileRow>(`SELECT * FROM profiles.cat_profiles WHERE ${activeAppRowCondition()} ORDER BY _upl_created_at DESC`)
+    return exec.query<ProfileRow>(`SELECT * FROM profiles.obj_profiles WHERE ${activeAppRowCondition()} ORDER BY _upl_created_at DESC`)
 }
 
 export async function deleteProfileByUserId(exec: DbExecutor, userId: string, deletedBy?: string): Promise<boolean> {
     const rows = await exec.query<{ id: string }>(
-        `UPDATE profiles.cat_profiles
+        `UPDATE profiles.obj_profiles
          SET ${softDeleteSetClause('$2')}
          WHERE user_id = $1 AND ${activeAppRowCondition()}
          RETURNING id`,

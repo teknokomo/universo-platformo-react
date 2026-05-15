@@ -112,7 +112,7 @@ if (hasAccess) {
 
 ## Схема базы данных
 
-### admin.cat_roles
+### admin.obj_roles
 
 | Колонка | Тип | Описание |
 |---------|-----|----------|
@@ -130,7 +130,7 @@ if (hasAccess) {
 |---------|-----|----------|
 | id | UUID | Первичный ключ |
 | user_id | UUID | Ссылка на auth.users |
-| role_id | UUID | Ссылка на admin.cat_roles |
+| role_id | UUID | Ссылка на admin.obj_roles |
 | granted_by | UUID | Админ, назначивший роль |
 | comment | TEXT | Примечания к назначению |
 

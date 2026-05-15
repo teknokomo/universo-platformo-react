@@ -119,7 +119,7 @@ describe('createGlobalAccessService', () => {
         expect(
             executedSql.some(
                 (sql) =>
-                    sql.includes('SELECT user_id, nickname, onboarding_completed, _upl_created_at FROM profiles.cat_profiles') &&
+                    sql.includes('SELECT user_id, nickname, onboarding_completed, _upl_created_at FROM profiles.obj_profiles') &&
                     sql.includes('_upl_deleted = false') &&
                     sql.includes('_app_deleted = false')
             )
@@ -167,7 +167,7 @@ describe('createGlobalAccessService', () => {
         expect(
             executedSql.some(
                 (sql) =>
-                    sql.includes('LEFT JOIN profiles.cat_profiles p ON p.user_id = u.id') &&
+                    sql.includes('LEFT JOIN profiles.obj_profiles p ON p.user_id = u.id') &&
                     sql.includes('p._upl_deleted = false') &&
                     sql.includes('p._app_deleted = false')
             )

@@ -134,9 +134,9 @@ const mhbObjects: SystemTableDef = {
     ]
 }
 
-const mhbAttributes: SystemTableDef = {
-    name: '_mhb_attributes',
-    description: 'Attributes for objects',
+const mhbComponents: SystemTableDef = {
+    name: '_mhb_components',
+    description: 'Components for objects',
     columns: [
         { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
         { name: 'object_id', type: 'uuid', nullable: false },
@@ -147,37 +147,37 @@ const mhbAttributes: SystemTableDef = {
         { name: 'ui_config', type: 'jsonb', defaultTo: '{}' },
         { name: 'sort_order', type: 'integer', defaultTo: 0 },
         { name: 'is_required', type: 'boolean', defaultTo: false },
-        { name: 'is_display_attribute', type: 'boolean', defaultTo: false },
+        { name: 'is_display_component', type: 'boolean', defaultTo: false },
         { name: 'is_system', type: 'boolean', nullable: false, defaultTo: false },
         { name: 'system_key', type: 'string', nullable: true },
         { name: 'is_system_managed', type: 'boolean', nullable: false, defaultTo: false },
         { name: 'is_system_enabled', type: 'boolean', nullable: false, defaultTo: true },
         { name: 'target_object_id', type: 'uuid', nullable: true },
         { name: 'target_object_kind', type: 'string', length: 64, nullable: true },
-        { name: 'parent_attribute_id', type: 'uuid', nullable: true }
+        { name: 'parent_component_id', type: 'uuid', nullable: true }
     ],
     foreignKeys: [
         { column: 'object_id', referencesTable: '_mhb_objects', referencesColumn: 'id', onDelete: 'CASCADE' },
-        { column: 'parent_attribute_id', referencesTable: '_mhb_attributes', referencesColumn: 'id', onDelete: 'CASCADE' }
+        { column: 'parent_component_id', referencesTable: '_mhb_components', referencesColumn: 'id', onDelete: 'CASCADE' }
     ],
     indexes: [
-        { name: 'idx_mhb_attributes_object_id', columns: ['object_id'] },
-        { name: 'idx_mhb_attributes_target_object_id', columns: ['target_object_id'] },
-        { name: 'idx_mhb_attributes_parent_attribute_id', columns: ['parent_attribute_id'] },
+        { name: 'idx_mhb_components_object_id', columns: ['object_id'] },
+        { name: 'idx_mhb_components_target_object_id', columns: ['target_object_id'] },
+        { name: 'idx_mhb_components_parent_component_id', columns: ['parent_component_id'] },
         {
-            name: 'idx_mhb_attributes_object_codename_root_active',
+            name: 'idx_mhb_components_object_codename_root_active',
             columns: ['object_id', codenamePrimaryTextSql('codename')],
             unique: true,
-            where: 'parent_attribute_id IS NULL AND _upl_deleted = false AND _mhb_deleted = false'
+            where: 'parent_component_id IS NULL AND _upl_deleted = false AND _mhb_deleted = false'
         },
         {
-            name: 'idx_mhb_attributes_object_parent_codename_child_active',
-            columns: ['object_id', 'parent_attribute_id', codenamePrimaryTextSql('codename')],
+            name: 'idx_mhb_components_object_parent_codename_child_active',
+            columns: ['object_id', 'parent_component_id', codenamePrimaryTextSql('codename')],
             unique: true,
-            where: 'parent_attribute_id IS NOT NULL AND _upl_deleted = false AND _mhb_deleted = false'
+            where: 'parent_component_id IS NOT NULL AND _upl_deleted = false AND _mhb_deleted = false'
         },
         {
-            name: 'idx_mhb_attributes_object_system_key_active',
+            name: 'idx_mhb_components_object_system_key_active',
             columns: ['object_id', 'system_key'],
             unique: true,
             where: 'is_system = true AND system_key IS NOT NULL AND _upl_deleted = false AND _mhb_deleted = false'
@@ -216,14 +216,14 @@ const mhbConstants: SystemTableDef = {
     ]
 }
 
-const mhbAttributesV2: SystemTableDef = {
-    ...mhbAttributes,
-    columns: [...mhbAttributes.columns, { name: 'target_constant_id', type: 'uuid', nullable: true }],
+const mhbComponentsV2: SystemTableDef = {
+    ...mhbComponents,
+    columns: [...mhbComponents.columns, { name: 'target_constant_id', type: 'uuid', nullable: true }],
     foreignKeys: [
-        ...(mhbAttributes.foreignKeys ?? []),
+        ...(mhbComponents.foreignKeys ?? []),
         { column: 'target_constant_id', referencesTable: '_mhb_constants', referencesColumn: 'id', onDelete: 'SET NULL' }
     ],
-    indexes: [...(mhbAttributes.indexes ?? []), { name: 'idx_mhb_attributes_target_constant_id', columns: ['target_constant_id'] }]
+    indexes: [...(mhbComponents.indexes ?? []), { name: 'idx_mhb_components_target_constant_id', columns: ['target_constant_id'] }]
 }
 
 const mhbEnumerationValues: SystemTableDef = {
@@ -263,7 +263,7 @@ const mhbEnumerationValues: SystemTableDef = {
 
 const mhbElements: SystemTableDef = {
     name: '_mhb_elements',
-    description: 'Predefined data for catalogs',
+    description: 'Predefined data for objects',
     columns: [
         { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
         { name: 'object_id', type: 'uuid', nullable: false },
@@ -508,7 +508,7 @@ const mhbEntityTypeDefinitions: SystemTableDef = {
         { name: 'kind_key', type: 'string', length: 64, nullable: false },
         { name: 'codename', type: 'jsonb', nullable: false },
         { name: 'presentation', type: 'jsonb', nullable: false, defaultTo: '{}' },
-        { name: 'components', type: 'jsonb', nullable: false },
+        { name: 'capabilities', type: 'jsonb', nullable: false },
         { name: 'ui_config', type: 'jsonb', nullable: false, defaultTo: '{}' },
         { name: 'config', type: 'jsonb', nullable: false, defaultTo: '{}' }
     ],
@@ -594,7 +594,7 @@ const mhbEventBindings: SystemTableDef = {
 export const SYSTEM_TABLES_V1: SystemTableDef[] = [
     mhbObjects,
     mhbConstants,
-    mhbAttributesV2,
+    mhbComponentsV2,
     mhbEnumerationValues,
     mhbElements,
     mhbSettings,

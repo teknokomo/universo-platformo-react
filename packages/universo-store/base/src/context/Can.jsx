@@ -24,7 +24,7 @@
  * </Can>
  * ```
  */
-import React, { useContext } from 'react'
+import { useContext } from 'react'
 import PropTypes from 'prop-types'
 import { Can as CaslCan } from '@casl/react'
 import AbilityContext from './AbilityContext'

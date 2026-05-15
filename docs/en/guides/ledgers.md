@@ -13,7 +13,7 @@ They are intended for reporting, projections, posting, and script-controlled aud
 
 Create Ledgers in the same Entity workspace as other standard types.
 The metahub menu places Ledgers after Enumerations.
-Ledger fields use the shared field-definition UI, while `config.ledger.fieldRoles` classifies each field as a dimension, resource, measure, period field, source reference, workspace scope, or plain attribute.
+Ledger fields use the shared field-definition UI, while `config.ledger.fieldRoles` classifies each field as a dimension, resource, measure, period field, source reference, workspace scope, or plain component.
 
 Use the code-facing term `ledger` in metadata and APIs.
 The Russian UI label is "Регистры".
@@ -37,17 +37,17 @@ They are fact stores, not editable record lists.
 Ledger configuration controls who can append or reverse facts:
 
 - `manual` allows direct authorized API or script calls.
-- `registrar` allows platform registrar flows such as Catalog posting.
+- `registrar` allows platform registrar flows such as Object posting.
 - `mixed` allows both when the caller has the required permission and capability.
 
 Registrar-only Ledgers can also restrict allowed registrar kinds.
-Catalog posting writes use registrar kind `catalog`.
+Object posting writes use registrar kind `object`.
 
 ## Reversal
 
 Reversal is append-only.
 The runtime creates a compensating fact instead of mutating or deleting the original fact.
-Transactional Catalog unpost and void commands use stored posting movement metadata to reverse previous movements safely.
+Transactional Object unpost and void commands use stored posting movement metadata to reverse previous movements safely.
 
 ## Reporting
 

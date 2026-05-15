@@ -139,21 +139,21 @@ describe('optimisticCrud integration', () => {
     })
 
     describe('full update lifecycle', () => {
-        const listKey = ['catalogs', 'list', { metahubId: 'm1' }]
-        const detailKey = ['catalogs', 'detail', 'c1']
-        const queryKeyPrefix = ['catalogs']
+        const listKey = ['objects', 'list', { metahubId: 'm1' }]
+        const detailKey = ['objects', 'detail', 'o1']
+        const queryKeyPrefix = ['objects']
 
         beforeEach(() => {
             queryClient.setQueryData(listKey, {
                 items: [
-                    { id: 'c1', name: 'Catalog 1', version: 1 },
-                    { id: 'c2', name: 'Catalog 2', version: 1 }
+                    { id: 'o1', name: 'Object 1', version: 1 },
+                    { id: 'o2', name: 'Object 2', version: 1 }
                 ],
                 pagination: { total: 2 }
             })
             queryClient.setQueryData(detailKey, {
-                id: 'c1',
-                name: 'Catalog 1',
+                id: 'o1',
+                name: 'Object 1',
                 version: 1,
                 description: 'Original'
             })
@@ -164,26 +164,26 @@ describe('optimisticCrud integration', () => {
             const context = await applyOptimisticUpdate<{ id: string; name: string; version: number; description?: string }>({
                 queryClient,
                 queryKeyPrefix,
-                entityId: 'c1',
-                updater: { name: 'Catalog 1 Updated' },
+                entityId: 'o1',
+                updater: { name: 'Object 1 Updated' },
                 detailQueryKey: detailKey
             })
 
             // Verify list updated
             const listData = queryClient.getQueryData<ListCache>(listKey)
-            const updatedItem = listData?.items?.find((i) => i.id === 'c1')
-            expect(updatedItem?.name).toBe('Catalog 1 Updated')
+            const updatedItem = listData?.items?.find((i) => i.id === 'o1')
+            expect(updatedItem?.name).toBe('Object 1 Updated')
             expect(isPendingEntity(updatedItem)).toBe(true)
             expect(getPendingAction(updatedItem)).toBe('update')
 
             // Verify detail updated
             const detailData = queryClient.getQueryData<Record<string, unknown>>(detailKey)
-            expect(detailData?.name).toBe('Catalog 1 Updated')
+            expect(detailData?.name).toBe('Object 1 Updated')
             expect(isPendingEntity(detailData)).toBe(true)
 
             // Other items unchanged
-            const otherItem = listData?.items?.find((i) => i.id === 'c2')
-            expect(otherItem?.name).toBe('Catalog 2')
+            const otherItem = listData?.items?.find((i) => i.id === 'o2')
+            expect(otherItem?.name).toBe('Object 2')
             expect(isPendingEntity(otherItem)).toBe(false)
 
             // onError — rollback
@@ -191,12 +191,12 @@ describe('optimisticCrud integration', () => {
 
             // Verify complete rollback
             const rolledBackList = queryClient.getQueryData<ListCache>(listKey)
-            const rolledBackItem = rolledBackList?.items?.find((i) => i.id === 'c1')
-            expect(rolledBackItem?.name).toBe('Catalog 1')
+            const rolledBackItem = rolledBackList?.items?.find((i) => i.id === 'o1')
+            expect(rolledBackItem?.name).toBe('Object 1')
             expect(isPendingEntity(rolledBackItem)).toBe(false)
 
             const rolledBackDetail = queryClient.getQueryData<Record<string, unknown>>(detailKey)
-            expect(rolledBackDetail?.name).toBe('Catalog 1')
+            expect(rolledBackDetail?.name).toBe('Object 1')
             expect(rolledBackDetail?.description).toBe('Original')
         })
     })
@@ -340,7 +340,7 @@ describe('optimisticCrud integration', () => {
     describe('RowsListCache compatibility (runtime CRUD)', () => {
         it('applyOptimisticCreate inserts into rows-based caches', async () => {
             // Simulate a cache that has rows but not items
-            const rowsKey = ['runtime', 'list', { linkedCollectionId: 'cat1' }]
+            const rowsKey = ['runtime', 'list', { objectId: 'obj1' }]
             queryClient.setQueryData(rowsKey, {
                 rows: [{ id: 'r1', title: 'Row 1' }],
                 pagination: { total: 1 }

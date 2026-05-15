@@ -9,7 +9,7 @@ import {
     createApplication,
     createLoggedInApiContext,
     createMetahub,
-    createFieldDefinition,
+    createComponent,
     createPublication,
     createPublicationLinkedApplication,
     createPublicationVersion,
@@ -17,8 +17,8 @@ import {
     getApplicationRuntime,
     getAssignableRoles,
     listApplicationMembers,
-    listFieldDefinitions,
-    listLinkedCollections,
+    listComponents,
+    listObjectCollections,
     syncApplicationSchema,
     syncPublication,
     waitForPublicationReady
@@ -37,7 +37,7 @@ type ListedMember = {
 }
 
 type RuntimeState = {
-    catalog?: {
+    objectCollection?: {
         id?: string
     }
     rows?: Array<Record<string, unknown> & { id?: string }>
@@ -103,35 +103,35 @@ async function waitForBrowserLoginReadiness(credentials: { email: string; passwo
         .toBe(true)
 }
 
-async function waitForCatalogId(api: Awaited<ReturnType<typeof createLoggedInApiContext>>, metahubId: string) {
-    let catalogId: string | undefined
+async function waitForObjectId(api: Awaited<ReturnType<typeof createLoggedInApiContext>>, metahubId: string) {
+    let objectCollectionId: string | undefined
 
     await expect
         .poll(async () => {
-            const payload = await listLinkedCollections(api, metahubId, { limit: 100, offset: 0 })
-            catalogId = payload.items?.[0]?.id
-            return typeof catalogId === 'string'
+            const payload = await listObjectCollections(api, metahubId, { limit: 100, offset: 0 })
+            objectCollectionId = payload.items?.[0]?.id
+            return typeof objectCollectionId === 'string'
         })
         .toBe(true)
 
-    if (!catalogId) {
-        throw new Error(`Metahub ${metahubId} did not expose a default catalog`)
+    if (!objectCollectionId) {
+        throw new Error(`Metahub ${metahubId} did not expose a default objectCollection`)
     }
 
-    return catalogId
+    return objectCollectionId
 }
 
 async function waitForRuntimeRows(
     api: Awaited<ReturnType<typeof createLoggedInApiContext>>,
     applicationId: string,
-    catalogId: string,
+    objectCollectionId: string,
     expectedCount: number
 ) {
     let runtimeState: RuntimeState | null = null
 
     await expect
         .poll(async () => {
-            runtimeState = (await getApplicationRuntime(api, applicationId, { catalogId })) as RuntimeState
+            runtimeState = (await getApplicationRuntime(api, applicationId, { objectCollectionId })) as RuntimeState
             return runtimeState.rows?.length ?? 0
         })
         .toBe(expectedCount)
@@ -148,17 +148,21 @@ async function waitForRuntimeCatalogId(
 
     await expect
         .poll(async () => {
-            runtimeState = (await getApplicationRuntime(api, applicationId, { catalogId: fallbackCatalogId })) as RuntimeState
-            return typeof runtimeState?.catalog?.id === 'string'
+            runtimeState = (await getApplicationRuntime(api, applicationId, { objectCollectionId: fallbackCatalogId })) as RuntimeState
+            return typeof runtimeState?.objectCollection?.id === 'string'
         })
         .toBe(true)
 
-    return runtimeState?.catalog?.id ?? fallbackCatalogId
+    return runtimeState?.objectCollection?.id ?? fallbackCatalogId
 }
 
-async function ensureTitleFieldDefinition(api: Awaited<ReturnType<typeof createLoggedInApiContext>>, metahubId: string, catalogId: string) {
-    const fieldDefinitions = await listFieldDefinitions(api, metahubId, catalogId, { limit: 100, offset: 0, includeShared: true })
-    const hasTitleField = (fieldDefinitions.items ?? []).some(
+async function ensureTitleComponent(
+    api: Awaited<ReturnType<typeof createLoggedInApiContext>>,
+    metahubId: string,
+    objectCollectionId: string
+) {
+    const components = await listComponents(api, metahubId, objectCollectionId, { limit: 100, offset: 0, includeShared: true })
+    const hasTitleField = (components.items ?? []).some(
         (item: { codename?: unknown; name?: unknown }) =>
             readLocalizedText(item.codename, 'en') === 'title' || readLocalizedText(item.name, 'en') === 'Title'
     )
@@ -168,7 +172,7 @@ async function ensureTitleFieldDefinition(api: Awaited<ReturnType<typeof createL
     }
 
     try {
-        return await createFieldDefinition(api, metahubId, catalogId, {
+        return await createComponent(api, metahubId, objectCollectionId, {
             name: { en: 'Title' },
             namePrimaryLocale: 'en',
             codename: createLocalizedContent('en', 'title'),
@@ -185,7 +189,10 @@ async function ensureTitleFieldDefinition(api: Awaited<ReturnType<typeof createL
 }
 
 async function createRuntimeRowViaBrowser(page: Page, value: string) {
-    const createButton = page.getByTestId(applicationSelectors.runtimeCreateButton).or(page.getByRole('button', { name: 'Create' })).first()
+    const createButton = page
+        .getByTestId(applicationSelectors.runtimeCreateButton)
+        .or(page.getByRole('button', { name: 'Create' }))
+        .first()
     await expect(createButton).toBeEnabled({ timeout: 30_000 })
     await createButton.click()
 
@@ -257,12 +264,12 @@ test('@flow application settings show an info state before schema creation and w
             codename: `${runManifest.runId}-workspace-metahub`
         })
 
-        const catalogId = await waitForCatalogId(ownerApi, metahub.id)
+        const objectCollectionId = await waitForObjectId(ownerApi, metahub.id)
 
-        const attribute = await ensureTitleFieldDefinition(ownerApi, metahub.id, catalogId)
+        const component = await ensureTitleComponent(ownerApi, metahub.id, objectCollectionId)
 
-        if (!attribute?.id) {
-            throw new Error('Attribute creation did not return an id for workspace isolation coverage')
+        if (!component?.id) {
+            throw new Error('Component creation did not return an id for workspace isolation coverage')
         }
 
         const publication = await createPublication(ownerApi, metahub.id, {
@@ -311,7 +318,7 @@ test('@flow application settings show an info state before schema creation and w
             }
         })
 
-        const resolvedCatalogId = await waitForRuntimeCatalogId(ownerApi, applicationId, catalogId)
+        const resolvedCatalogId = await waitForRuntimeCatalogId(ownerApi, applicationId, objectCollectionId)
 
         const assignableRoles = await getAssignableRoles(bootstrapApi)
         const defaultRoleIds = resolveGlobalRoleIds(assignableRoles, defaultRoleCodenames)
@@ -423,11 +430,11 @@ test('@flow application without workspaces shares runtime rows between applicati
             codename: `${runManifest.runId}-shared-metahub`
         })
 
-        const catalogId = await waitForCatalogId(ownerApi, metahub.id)
-        const attribute = await ensureTitleFieldDefinition(ownerApi, metahub.id, catalogId)
+        const objectCollectionId = await waitForObjectId(ownerApi, metahub.id)
+        const component = await ensureTitleComponent(ownerApi, metahub.id, objectCollectionId)
 
-        if (!attribute?.id) {
-            throw new Error('Attribute creation did not return an id for shared-row coverage')
+        if (!component?.id) {
+            throw new Error('Component creation did not return an id for shared-row coverage')
         }
 
         const publication = await createPublication(ownerApi, metahub.id, {
@@ -471,7 +478,7 @@ test('@flow application without workspaces shares runtime rows between applicati
 
         await syncApplicationSchema(ownerApi, applicationId)
 
-        const resolvedCatalogId = await waitForRuntimeCatalogId(ownerApi, applicationId, catalogId)
+        const resolvedCatalogId = await waitForRuntimeCatalogId(ownerApi, applicationId, objectCollectionId)
         const assignableRoles = await getAssignableRoles(bootstrapApi)
         const defaultRoleIds = resolveGlobalRoleIds(assignableRoles, defaultRoleCodenames)
 

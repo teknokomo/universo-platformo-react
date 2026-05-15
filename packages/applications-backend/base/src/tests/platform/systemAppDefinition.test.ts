@@ -22,9 +22,9 @@ describe('applications system-app definition', () => {
         expect(applicationsSystemAppDefinition.targetBusinessTables).toEqual(
             expect.arrayContaining([
                 expect.objectContaining({
-                    kind: 'catalog',
+                    kind: 'object',
                     codename: 'applications',
-                    tableName: 'cat_applications',
+                    tableName: 'obj_applications',
                     presentation: expect.objectContaining({
                         name: expect.objectContaining({
                             locales: expect.objectContaining({
@@ -40,7 +40,7 @@ describe('applications system-app definition', () => {
                             physicalColumnName: 'name',
                             dataType: 'JSON',
                             isRequired: true,
-                            isDisplayAttribute: true,
+                            isDisplayComponent: true,
                             presentation: expect.objectContaining({
                                 name: expect.objectContaining({
                                     locales: expect.objectContaining({
@@ -89,8 +89,8 @@ describe('applications system-app definition', () => {
         const createSql = normalizeSql(createApplicationsSchemaMigrationDefinition.up.map((statement) => statement.sql).join('\n'))
 
         for (const fragment of [
-            'CREATE TABLE IF NOT EXISTS applications.cat_applications',
-            'CREATE TABLE IF NOT EXISTS applications.cat_connectors',
+            'CREATE TABLE IF NOT EXISTS applications.obj_applications',
+            'CREATE TABLE IF NOT EXISTS applications.obj_connectors',
             'CREATE TABLE IF NOT EXISTS applications.rel_connector_publications',
             'CREATE TABLE IF NOT EXISTS applications.rel_application_users'
         ]) {
@@ -105,8 +105,8 @@ describe('applications system-app definition', () => {
         const createSql = normalizeSql(createApplicationsSchemaMigrationDefinition.up.map((statement) => statement.sql).join('\n'))
 
         for (const fragment of [
-            'CREATE POLICY "Allow users to read visible applications" ON applications.cat_applications FOR SELECT',
-            'CREATE POLICY "Allow users to create applications" ON applications.cat_applications FOR INSERT',
+            'CREATE POLICY "Allow users to read visible applications" ON applications.obj_applications FOR SELECT',
+            'CREATE POLICY "Allow users to create applications" ON applications.obj_applications FOR INSERT',
             'CREATE POLICY "Allow application creators to bootstrap owner memberships" ON applications.rel_application_users FOR INSERT',
             'CREATE POLICY "Allow users to join public applications" ON applications.rel_application_users FOR INSERT',
             'CREATE POLICY "Allow app owners and admins to update memberships" ON applications.rel_application_users FOR UPDATE',

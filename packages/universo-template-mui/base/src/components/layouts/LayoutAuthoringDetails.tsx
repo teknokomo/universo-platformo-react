@@ -33,7 +33,7 @@ export type LayoutAuthoringWidgetRow = {
     onToggleActive?: (active: boolean) => void
 }
 
-export type LayoutAuthoringWidgetCatalogItem = {
+export type LayoutAuthoringAvailableWidgetItem = {
     key: DashboardLayoutWidgetKey
     label: string
 }
@@ -42,7 +42,7 @@ export type LayoutAuthoringZone = {
     zone: DashboardLayoutZone
     title: string
     items: LayoutAuthoringWidgetRow[]
-    availableWidgets: LayoutAuthoringWidgetCatalogItem[]
+    availableWidgets: LayoutAuthoringAvailableWidgetItem[]
     addDisabled?: boolean
 }
 

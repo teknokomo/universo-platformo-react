@@ -88,18 +88,18 @@ describe('OptionListDeleteDialog', () => {
         mockUseParams.mockReturnValue({ kindKey: 'enumeration' })
     })
 
-    it('routes blocking catalog links to the catalog entity authoring surface on unified entity routes', async () => {
+    it('routes blocking object links to the object entity authoring surface on unified entity routes', async () => {
         vi.mocked(getBlockingOptionListReferences).mockResolvedValue({
             optionListId: 'enumeration-1',
             canDelete: false,
             blockingReferences: [
                 {
-                    sourceLinkedCollectionId: 'catalog-1',
-                    sourceCatalogCodename: 'ProductsCatalog',
-                    sourceCatalogName: null,
-                    fieldDefinitionId: 'attr-1',
-                    attributeCodename: 'StatusRef',
-                    attributeName: null
+                    sourceObjectCollectionId: 'object-1',
+                    sourceObjectCodename: 'ProductsObject',
+                    sourceObjectName: null,
+                    componentId: 'component-1',
+                    componentCodename: 'StatusRef',
+                    componentName: null
                 }
             ]
         })
@@ -122,6 +122,6 @@ describe('OptionListDeleteDialog', () => {
         const [firstRow] = result.blockingEntities
 
         expect(getBlockingOptionListReferences).toHaveBeenCalledWith('metahub-1', 'enumeration-1', 'enumeration')
-        expect(dialogProps.getBlockingEntityLink(firstRow)).toBe('/metahub/metahub-1/entities/catalog/instance/catalog-1/field-definitions')
+        expect(dialogProps.getBlockingEntityLink(firstRow)).toBe('/metahub/metahub-1/entities/object/instance/object-1/components')
     })
 })

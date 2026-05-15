@@ -4,17 +4,17 @@ description: REST reference for the sparse shared-entity override endpoints.
 
 # Shared Entity Overrides
 
-The shared-entity override endpoints manage sparse per-target state for shared attributes, constants, and enumeration values.
+The shared-entity override endpoints manage sparse per-target state for shared components, constants, and enumeration values.
 They require metahub management permission and do not clone the shared source row.
 
-![Shared attributes](../.gitbook/assets/entities/shared-attributes.png)
+![Shared components](../.gitbook/assets/entities/shared-components.png)
 
 ## List Endpoints
 
-- `GET /metahub/{metahubId}/shared-entity-overrides?entityKind=attribute&sharedEntityId={id}` lists all target overrides for one shared row.
-- `GET /metahub/{metahubId}/shared-entity-overrides?entityKind=attribute&targetObjectId={id}` lists all shared overrides affecting one target object.
+- `GET /metahub/{metahubId}/shared-entity-overrides?entityKind=component&sharedEntityId={id}` lists all target overrides for one shared row.
+- `GET /metahub/{metahubId}/shared-entity-overrides?entityKind=component&targetObjectId={id}` lists all shared overrides affecting one target object.
 - Exactly one of `sharedEntityId` or `targetObjectId` must be present.
-- `entityKind` accepts `attribute`, `constant`, or `value`.
+- `entityKind` accepts `component`, `constant`, or `value`.
 
 ## Upsert Endpoint
 
@@ -25,7 +25,7 @@ They require metahub management permission and do not clone the shared source ro
 
 ## Clear Endpoint
 
-- `DELETE /metahub/{metahubId}/shared-entity-overrides?entityKind=attribute&sharedEntityId={id}&targetObjectId={targetId}`
+- `DELETE /metahub/{metahubId}/shared-entity-overrides?entityKind=component&sharedEntityId={id}&targetObjectId={targetId}`
 - Use this when the target should go back to inherited default behavior.
 - The endpoint returns `204 No Content` on success.
 - Deleting the override never deletes the shared source row.

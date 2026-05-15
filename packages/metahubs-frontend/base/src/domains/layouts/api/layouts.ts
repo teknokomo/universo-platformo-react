@@ -1,6 +1,6 @@
 import { apiClient } from '../../shared'
 import type {
-    DashboardLayoutWidgetCatalogItem,
+    DashboardLayoutWidgetItem,
     MetahubCreateLayoutPayload,
     MetahubLayout,
     MetahubLayoutLocalizedPayload,
@@ -94,9 +94,9 @@ export const updateLayout = (metahubId: string, layoutId: string, data: Partial<
  */
 export const deleteLayout = (metahubId: string, layoutId: string) => apiClient.delete<void>(`/metahub/${metahubId}/layout/${layoutId}`)
 
-export const getLayoutZoneWidgetsCatalog = async (metahubId: string, layoutId: string): Promise<DashboardLayoutWidgetCatalogItem[]> => {
-    const response = await apiClient.get<{ items: DashboardLayoutWidgetCatalogItem[] }>(
-        `/metahub/${metahubId}/layout/${layoutId}/zone-widgets/catalog`
+export const getLayoutZoneWidgetObjects = async (metahubId: string, layoutId: string): Promise<DashboardLayoutWidgetItem[]> => {
+    const response = await apiClient.get<{ items: DashboardLayoutWidgetItem[] }>(
+        `/metahub/${metahubId}/layout/${layoutId}/zone-widgets/object`
     )
     return response.data.items ?? []
 }

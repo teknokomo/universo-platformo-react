@@ -124,7 +124,7 @@ const SettingsPage = () => {
         const effectiveAlphabet = effectiveVal('general.codenameAlphabet', 'en-ru')
         const effectiveAllowMixed = effectiveVal('general.codenameAllowMixedAlphabets', false)
         const effectiveAutoReformat = effectiveVal('general.codenameAutoReformat', true)
-        const effectiveAllowAttributeDelete = effectiveVal(buildEntitySurfaceSettingKey('linkedCollection', 'allowAttributeDelete'), true)
+        const effectiveAllowComponentDelete = effectiveVal(buildEntitySurfaceSettingKey('objectCollection', 'allowComponentDelete'), true)
         const effectiveAllowTreeEntityNesting = effectiveVal(buildEntitySurfaceSettingKey('treeEntity', 'allowNesting'), true)
         const hasHubNesting = data?.meta?.hasHubNesting === true
 
@@ -147,10 +147,10 @@ const SettingsPage = () => {
             entries = entries.filter((entry) => entry.key !== 'general.codenameRequireReformat')
         }
 
-        // Show allowDeleteLastDisplayAttribute only when attribute deletion is enabled
-        if (effectiveAllowAttributeDelete !== true) {
+        // Show allowDeleteLastDisplayComponent only when component deletion is enabled
+        if (effectiveAllowComponentDelete !== true) {
             entries = entries.filter(
-                (entry) => entry.key !== buildEntitySurfaceSettingKey('linkedCollection', 'allowDeleteLastDisplayAttribute')
+                (entry) => entry.key !== buildEntitySurfaceSettingKey('objectCollection', 'allowDeleteLastDisplayComponent')
             )
         }
 

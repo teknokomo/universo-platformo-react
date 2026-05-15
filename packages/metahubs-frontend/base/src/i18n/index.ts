@@ -20,13 +20,13 @@ interface MetahubsBundle {
     documents?: Record<string, unknown>
     hubs?: Record<string, unknown>
     pages?: Record<string, unknown>
-    catalogs?: Record<string, unknown>
+    objects?: Record<string, unknown>
     ledgers?: Record<string, unknown>
     sets?: Record<string, unknown>
     fixedValues?: Record<string, unknown>
     enumerations?: Record<string, unknown>
     optionValues?: Record<string, unknown>
-    fieldDefinitions?: Record<string, unknown>
+    components?: Record<string, unknown>
     records?: Record<string, unknown>
     publications?: Record<string, unknown>
     migrations?: Record<string, unknown>
@@ -65,13 +65,13 @@ const consolidateMetahubsNamespace = (bundle: MetahubsBundle) => {
         documents: bundle?.documents ?? {},
         hubs: bundle?.hubs ?? {},
         pages: bundle?.pages ?? {},
-        catalogs: bundle?.catalogs ?? {},
+        objects: bundle?.objects ?? {},
         ledgers: bundle?.ledgers ?? {},
         sets: bundle?.sets ?? {},
         fixedValues: bundle?.fixedValues ?? {},
         enumerations: bundle?.enumerations ?? {},
         optionValues: bundle?.optionValues ?? {},
-        fieldDefinitions: bundle?.fieldDefinitions ?? {},
+        components: bundle?.components ?? {},
         records: bundle?.records ?? {},
         publications: bundle?.publications ?? {},
         migrations: bundle?.migrations ?? {},
@@ -106,7 +106,7 @@ interface MetahubsTranslation {
     documents?: Record<string, unknown>
     hubs?: Record<string, unknown>
     pages?: Record<string, unknown>
-    catalogs?: Record<string, unknown>
+    objects?: Record<string, unknown>
     ledgers?: Record<string, unknown>
     sets?: Record<string, unknown>
     fixedValues?: Record<string, unknown>

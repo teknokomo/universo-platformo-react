@@ -47,11 +47,11 @@ export class EntityTypeResolver {
 
     async isComponentEnabled(
         kind: EntityKind | string,
-        componentKey: keyof ResolvedEntityType['components'],
+        componentKey: keyof ResolvedEntityType['capabilities'],
         options?: ResolveEntityTypeOptions
     ): Promise<boolean> {
         const resolved = await this.resolve(kind, options)
-        const component = resolved?.components[componentKey]
+        const component = resolved?.capabilities[componentKey]
 
         return Boolean(component && typeof component === 'object' && component.enabled)
     }

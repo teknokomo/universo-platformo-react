@@ -28,7 +28,7 @@ import type { DragEndEvent } from '@universo/template-mui'
 import { EntityFormDialog, ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
 import type { TabConfig } from '@universo/template-mui/components/dialogs'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo/template-mui'
-import { isEnabledComponentConfig, type VersionedLocalizedContent } from '@universo/types'
+import { isEnabledCapabilityConfig, type VersionedLocalizedContent } from '@universo/types'
 
 import {
     useCreateTreeEntity,
@@ -237,7 +237,7 @@ export const TreeEntityListContent = () => {
         const entityTypes = entityTypesQuery.data?.items ?? []
         const hubType = entityTypes.find((entityType) => entityType.kindKey === hubKindKey)
         const relatedTabs = entityTypes
-            .filter((entityType) => entityType.kindKey !== hubKindKey && isEnabledComponentConfig(entityType.components?.treeAssignment))
+            .filter((entityType) => entityType.kindKey !== hubKindKey && isEnabledCapabilityConfig(entityType.capabilities?.treeAssignment))
             .sort((a, b) => {
                 const byOrder = (a.ui?.sidebarOrder ?? 1000) - (b.ui?.sidebarOrder ?? 1000)
                 return byOrder !== 0 ? byOrder : a.kindKey.localeCompare(b.kindKey)
@@ -484,7 +484,7 @@ export const TreeEntityListContent = () => {
         const columns = [
             {
                 id: 'sortOrder',
-                label: t('fieldDefinitions.table.order', '#'),
+                label: t('components.table.order', '#'),
                 width: '4%',
                 align: 'center' as const,
                 sortable: true,
@@ -635,7 +635,7 @@ export const TreeEntityListContent = () => {
             width: '10%',
             align: 'center' as const,
             render: (row: TreeEntityDisplay) => {
-                const itemsCount = typeof row.itemsCount === 'number' ? row.itemsCount : row.linkedCollectionsCount
+                const itemsCount = typeof row.itemsCount === 'number' ? row.itemsCount : row.objectCollectionsCount
                 return typeof itemsCount === 'number' ? itemsCount : '—'
             }
         })
@@ -1113,9 +1113,9 @@ export const TreeEntityListContent = () => {
                                                 const descriptors = [...filteredTreeEntityActions]
                                                 const parentHub = getDirectParentHub(hub)
                                                 const itemsCount =
-                                                    typeof hub.itemsCount === 'number' ? hub.itemsCount : hub.linkedCollectionsCount ?? 0
+                                                    typeof hub.itemsCount === 'number' ? hub.itemsCount : hub.objectCollectionsCount ?? 0
                                                 const showItemsCount =
-                                                    typeof hub.itemsCount === 'number' || typeof hub.linkedCollectionsCount === 'number'
+                                                    typeof hub.itemsCount === 'number' || typeof hub.objectCollectionsCount === 'number'
                                                 const showParentHubInfo = !isHubScoped && Boolean(parentHub)
 
                                                 return (
@@ -1296,7 +1296,7 @@ export const TreeEntityListContent = () => {
                     }}
                 />
 
-                {/* TreeEntity delete dialog with blocking linkedCollections check */}
+                {/* TreeEntity delete dialog with blocking objectCollections check */}
                 <TreeDeleteDialog
                     open={dialogs.delete.open}
                     hub={dialogs.delete.item}

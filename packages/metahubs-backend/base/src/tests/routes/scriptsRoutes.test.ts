@@ -77,7 +77,7 @@ const createScriptRecord = (overrides: Record<string, unknown> = {}) => ({
             }
         }
     },
-    attachedToKind: 'catalog',
+    attachedToKind: 'object',
     attachedToId: '018f8a78-7b8f-7c1d-a111-222233334499',
     moduleRole: 'widget',
     sourceKind: 'embedded',
@@ -148,7 +148,7 @@ describe('Scripts Routes', () => {
         const attachedToId = '018f8a78-7b8f-7c1d-a111-222233334499'
 
         const response = await request(app)
-            .get(`/metahub/metahub-1/scripts?attachedToKind=catalog&attachedToId=${attachedToId}&onlyActive=true`)
+            .get(`/metahub/metahub-1/scripts?attachedToKind=object&attachedToId=${attachedToId}&onlyActive=true`)
             .expect(200)
 
         expect(response.body.items).toHaveLength(1)
@@ -156,7 +156,7 @@ describe('Scripts Routes', () => {
         expect(mockListScripts).toHaveBeenCalledWith(
             'metahub-1',
             {
-                attachedToKind: 'catalog',
+                attachedToKind: 'object',
                 attachedToId,
                 onlyActive: true
             },
@@ -238,7 +238,7 @@ describe('Scripts Routes', () => {
             .post('/metahub/metahub-1/scripts')
             .send({
                 codename: 'quiz-widget',
-                attachedToKind: 'catalog',
+                attachedToKind: 'object',
                 sourceCode: 'export default class BrokenScript {}'
             })
             .expect(400)

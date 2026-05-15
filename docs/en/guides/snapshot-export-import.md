@@ -16,7 +16,7 @@ A **snapshot envelope** is a self-contained JSON file that includes:
 
 - **kind**: `metahub_snapshot_bundle`
 - **bundleVersion**: `1` (for forward compatibility)
-- **snapshot**: the full metahub state — entities, layouts, scripts, shared attributes/constants/values, and shared override rows
+- **snapshot**: the full metahub state — entities, layouts, scripts, shared components/constants/values, and shared override rows
 - **snapshotHash**: SHA-256 integrity hash computed from normalized snapshot data
 
 ## Exporting
@@ -66,7 +66,7 @@ metahub snapshot without going through publication versions.
       "snapshotFormatVersion": 2
     },
     "entities": { ... },
-    "sharedAttributes": [ ... ],
+    "sharedComponents": [ ... ],
     "sharedConstants": [ ... ],
     "sharedEnumerationValues": [ ... ],
     "sharedEntityOverrides": [ ... ]
@@ -87,7 +87,7 @@ metahub snapshot without going through publication versions.
 
 ## Shared Authoring Data
 
-- `sharedAttributes`, `sharedConstants`, and `sharedEnumerationValues` preserve the Resources-workspace shared pools.
+- `sharedComponents`, `sharedConstants`, and `sharedEnumerationValues` preserve the Resources-workspace shared pools.
 - `sharedEntityOverrides` preserves per-target exclusions, inactive overrides, and sparse sort-order changes.
 - Publication runtime loading materializes those shared sections before application sync and runtime deserialization.
 - Snapshot import recreates the shared containers first and then remaps shared override targets to the restored objects.

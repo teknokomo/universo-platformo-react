@@ -46,8 +46,12 @@ const EXCLUDED_PATTERNS = [
     /packages\/metahubs-backend\/.*\/services\/systemTableDiff\.ts$/,
     // metahubs-backend platform migration seed files: Tier 3 Knex-based migrations
     /packages\/metahubs-backend\/.*\/platform\/migrations\//,
+    // Snapshot restore runs as an explicit package-local transactional restore boundary.
+    /packages\/metahubs-backend\/.*\/services\/SnapshotRestoreService\.ts$/,
     // applications-backend DDL boundary: legitimate Knex usage for schema sync/runtime metadata orchestration
-    /packages\/applications-backend\/.*\/ddl\//
+    /packages\/applications-backend\/.*\/ddl\//,
+    // applications-backend platform migration seed files: Tier 3 SQL migration definitions
+    /packages\/applications-backend\/.*\/platform\/migrations\//
 ]
 
 const RULES = [

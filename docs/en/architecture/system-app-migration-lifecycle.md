@@ -38,7 +38,7 @@ A `SystemAppDefinition` contains:
 - **`currentBusinessTables` / `targetBusinessTables`** — arrays of table
   definitions with fields, data types, FK references, and defaults.
 - **`currentStructureCapabilities` / `targetStructureCapabilities`** — flags
-  for system tables (`_app_objects`, `_app_attributes`, `_app_migrations`, etc.).
+  for system tables (`_app_objects`, `_app_components`, `_app_migrations`, etc.).
 - **`migrations`** — SQL migration entries with `bootstrapPhase` markers.
 
 ## Bootstrap Sequence
@@ -54,10 +54,10 @@ The full bootstrap runs inside `initDatabase()` in
 5. runRegisteredPlatformPreludeMigrations()        ← pre_schema_generation SQL
 6. ensureRegisteredSystemAppSchemaGenerationPlans() ← manifest-driven DDL
 7. runRegisteredPlatformPostSchemaMigrations()      ← post_schema_generation SQL
-8. bootstrapRegisteredSystemAppStructureMetadata()  ← _app_objects / _app_attributes sync
+8. bootstrapRegisteredSystemAppStructureMetadata()  ← _app_objects / _app_components sync
 9. inspectLegacyFixedSchemaTables()                ← verify no legacy tables remain
 10. inspectRegisteredSystemAppStructureMetadata()   ← verify metadata fingerprint
-11. syncRegisteredPlatformDefinitionsToCatalog()    ← optional global catalog sync
+11. syncRegisteredPlatformDefinitionsToObject()    ← optional global object sync
 ```
 
 ## Diff Engine
@@ -73,7 +73,7 @@ The diff engine supports the following change types:
 | `ALTER_COLUMN`         | Additive     | Field type or default changed    |
 | `ADD_FK`               | Additive     | Foreign key constraint added     |
 | `DROP_FK`              | Destructive  | Foreign key constraint removed   |
-| `ADD_TABULAR_TABLE`    | Additive     | Child table for TABLE attribute  |
+| `ADD_TABULAR_TABLE`    | Additive     | Child table for TABLE component  |
 | `DROP_TABULAR_TABLE`   | Destructive  | Child table removed              |
 | `ADD_TABULAR_COLUMN`   | Additive     | Column in child table added      |
 | `DROP_TABULAR_COLUMN`  | Destructive  | Column in child table removed    |
@@ -114,7 +114,7 @@ function:
 
 1. Generates **deterministic UUIDs** for entities and fields using SHA-256
    hashes of `namespace:definitionKey:stage:kind:codename:tableName`.
-2. Maps business table kinds (`catalog`, `document`, `relation`, `settings`)
+2. Maps business table kinds (`object`, `document`, `relation`, `settings`)
    to runtime entity kinds.
 3. Creates synthetic `presentation` objects for localized display names.
 4. Resolves inter-table FK references via `targetTableCodename`.

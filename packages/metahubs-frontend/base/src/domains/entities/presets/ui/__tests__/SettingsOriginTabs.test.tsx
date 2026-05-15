@@ -22,11 +22,11 @@ vi.mock('../../../../scripts/ui/EntityScriptsTab', () => ({
 }))
 
 import {
-    default as linkedCollectionActions,
-    buildFormTabs as buildLinkedCollectionFormTabs,
-    type LinkedCollectionActionContext,
-    type LinkedCollectionDisplayWithContainer
-} from '../LinkedCollectionActions'
+    default as objectCollectionActions,
+    buildFormTabs as buildObjectCollectionFormTabs,
+    type ObjectCollectionActionContext,
+    type ObjectCollectionDisplayWithContainer
+} from '../ObjectCollectionActions'
 import {
     buildFormTabs as buildValueGroupFormTabs,
     type ValueGroupActionContext,
@@ -57,23 +57,23 @@ const renderWithProviders = (content: React.ReactNode) => {
     )
 }
 
-const createLinkedCollectionContext = (
+const createObjectCollectionContext = (
     metahubId: string | null,
-    overrides: Partial<LinkedCollectionActionContext> = {}
-): LinkedCollectionActionContext => ({
+    overrides: Partial<ObjectCollectionActionContext> = {}
+): ObjectCollectionActionContext => ({
     entity: {
-        id: 'catalog-1',
+        id: 'object-1',
         metahubId: metahubId ?? 'metahub-1',
-        codename: 'catalog-1',
-        name: 'LinkedCollectionEntity 1',
+        codename: 'object-1',
+        name: 'ObjectCollectionEntity 1',
         description: '',
         treeEntityId: 'hub-1',
         treeEntities: [baseHub]
-    } as LinkedCollectionDisplayWithContainer,
-    entityKind: 'catalog',
+    } as ObjectCollectionDisplayWithContainer,
+    entityKind: 'object',
     t: translate,
     uiLocale: 'en',
-    catalogMap: new Map(),
+    objectMap: new Map(),
     currentTreeEntityId: 'hub-1',
     metahubId,
     ...overrides
@@ -122,10 +122,10 @@ describe('Settings-origin shared form tabs', () => {
     })
 
     it('renders the entity layout manager and scripts tab when the edit context carries metahubId', () => {
-        const tabs = buildLinkedCollectionFormTabs(
-            createLinkedCollectionContext('metahub-1'),
+        const tabs = buildObjectCollectionFormTabs(
+            createObjectCollectionContext('metahub-1'),
             [baseHub] as never[],
-            'catalog-1'
+            'object-1'
         )({
             values: {},
             setValue: vi.fn(),
@@ -141,17 +141,17 @@ describe('Settings-origin shared form tabs', () => {
         expect(screen.getByTestId('entity-layout-list')).toBeInTheDocument()
         expect(mockLayoutList).toHaveBeenCalledWith(
             expect.objectContaining({
-                scopeEntityId: 'catalog-1',
+                scopeEntityId: 'object-1',
                 metahubId: 'metahub-1'
             })
         )
     })
 
     it('still renders the entity layout manager when metahubId is available on the edited entity', () => {
-        const tabs = buildLinkedCollectionFormTabs(
-            createLinkedCollectionContext(null),
+        const tabs = buildObjectCollectionFormTabs(
+            createObjectCollectionContext(null),
             [baseHub] as never[],
-            'catalog-1'
+            'object-1'
         )({
             values: {},
             setValue: vi.fn(),
@@ -167,20 +167,20 @@ describe('Settings-origin shared form tabs', () => {
         expect(screen.getByTestId('entity-layout-list')).toBeInTheDocument()
         expect(mockLayoutList).toHaveBeenCalledWith(
             expect.objectContaining({
-                scopeEntityId: 'catalog-1',
+                scopeEntityId: 'object-1',
                 metahubId: 'metahub-1'
             })
         )
     })
 
-    it('uses the active linked-collection kind for scripts tabs instead of the base catalog kind', () => {
-        const tabs = buildLinkedCollectionFormTabs(
-            createLinkedCollectionContext('metahub-1', {
-                routeKindKey: 'documentCatalog',
-                entityKind: 'catalog'
+    it('uses the active object-collection kind for scripts tabs instead of the base object kind', () => {
+        const tabs = buildObjectCollectionFormTabs(
+            createObjectCollectionContext('metahub-1', {
+                routeKindKey: 'documentObject',
+                entityKind: 'object'
             }),
             [baseHub] as never[],
-            'catalog-1'
+            'object-1'
         )({
             values: {},
             setValue: vi.fn(),
@@ -191,22 +191,22 @@ describe('Settings-origin shared form tabs', () => {
         expect(tabs.map((tab) => tab.id)).toContain('scripts')
         expect(mockCreateScriptsTab).toHaveBeenCalledWith(
             expect.objectContaining({
-                attachedToKind: 'documentCatalog',
-                attachedToId: 'catalog-1',
+                attachedToKind: 'documentObject',
+                attachedToId: 'object-1',
                 metahubId: 'metahub-1'
             })
         )
     })
 
-    it('preserves edited record behavior in the linked-collection copy payload config', async () => {
+    it('preserves edited record behavior in the object-collection copy payload config', async () => {
         const copyEntity = vi.fn()
-        const context = createLinkedCollectionContext('metahub-1', {
+        const context = createObjectCollectionContext('metahub-1', {
             recordBehaviorEnabled: true,
             api: {
                 copyEntity
-            } as LinkedCollectionActionContext['api']
+            } as ObjectCollectionActionContext['api']
         })
-        const copyAction = linkedCollectionActions.find((action) => action.id === 'copy')
+        const copyAction = objectCollectionActions.find((action) => action.id === 'copy')
         const props = copyAction?.dialog?.buildProps?.(context) as
             | {
                   onSave?: (values: Record<string, unknown>) => Promise<void>
@@ -225,7 +225,7 @@ describe('Settings-origin shared form tabs', () => {
                 locales: { en: { content: 'EnrollmentCopy' } }
             },
             treeEntityIds: ['hub-1'],
-            copyFieldDefinitions: true,
+            copyComponents: true,
             copyRecords: false,
             recordBehavior: {
                 mode: 'transactional',
@@ -238,7 +238,7 @@ describe('Settings-origin shared form tabs', () => {
         })
 
         expect(copyEntity).toHaveBeenCalledWith(
-            'catalog-1',
+            'object-1',
             expect.objectContaining({
                 config: {
                     recordBehavior: expect.objectContaining({
@@ -250,7 +250,7 @@ describe('Settings-origin shared form tabs', () => {
                         })
                     })
                 },
-                copyFieldDefinitions: true,
+                copyComponents: true,
                 copyRecords: false
             })
         )

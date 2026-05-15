@@ -152,7 +152,7 @@ describe('MetahubBoard', () => {
         branchesCount: 1,
         entityCounts: {
             hub: 1,
-            catalog: 1
+            object: 1
         },
         membersCount: 1,
         publicationsCount: 1,

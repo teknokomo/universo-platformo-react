@@ -43,11 +43,11 @@ const createBranchSchema = z
         fullCopy: z.boolean().optional(),
         copyLayouts: z.boolean().optional(),
         copyTreeEntities: z.boolean().optional(),
-        copyLinkedCollections: z.boolean().optional(),
+        copyObjectCollections: z.boolean().optional(),
         copyValueGroups: z.boolean().optional(),
         copyOptionLists: z.boolean().optional(),
         copyHubs: z.boolean().optional(),
-        copyCatalogs: z.boolean().optional(),
+        copyObjects: z.boolean().optional(),
         copySets: z.boolean().optional(),
         copyEnumerations: z.boolean().optional()
     })
@@ -55,7 +55,7 @@ const createBranchSchema = z
     .superRefine((value, ctx) => {
         const aliasPairs = [
             ['copyTreeEntities', 'copyHubs'],
-            ['copyLinkedCollections', 'copyCatalogs'],
+            ['copyObjectCollections', 'copyObjects'],
             ['copyValueGroups', 'copySets'],
             ['copyOptionLists', 'copyEnumerations']
         ] as const
@@ -76,7 +76,7 @@ const createBranchSchema = z
         const childFlags = [
             value.copyLayouts,
             value.copyTreeEntities ?? value.copyHubs,
-            value.copyLinkedCollections ?? value.copyCatalogs,
+            value.copyObjectCollections ?? value.copyObjects,
             value.copyValueGroups ?? value.copySets,
             value.copyOptionLists ?? value.copyEnumerations
         ]
@@ -110,7 +110,7 @@ const getNormalizedBranchCopyOptionsInput = (value: z.infer<typeof createBranchS
     fullCopy: value.fullCopy,
     copyLayouts: value.copyLayouts,
     copyTreeEntities: value.copyTreeEntities ?? value.copyHubs,
-    copyLinkedCollections: value.copyLinkedCollections ?? value.copyCatalogs,
+    copyObjectCollections: value.copyObjectCollections ?? value.copyObjects,
     copyValueGroups: value.copyValueGroups ?? value.copySets,
     copyOptionLists: value.copyOptionLists ?? value.copyEnumerations
 })

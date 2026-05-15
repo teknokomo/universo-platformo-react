@@ -1,5 +1,5 @@
 import { getCodenamePrimary } from '../vlc'
-import type { CatalogSystemFieldsSnapshot, MetahubSnapshotVersionEnvelope } from '@universo/types'
+import type { ObjectSystemFieldsSnapshot, MetahubSnapshotVersionEnvelope } from '@universo/types'
 
 type SnapshotRecord = Record<string, unknown>
 
@@ -13,9 +13,7 @@ export interface PublicationSnapshotHashInput {
     optionValues?: Record<string, unknown>
     constants?: Record<string, unknown>
     fixedValues?: Record<string, unknown>
-    sharedFieldDefinitions?: unknown
-    /** @deprecated use sharedFieldDefinitions */
-    sharedAttributes?: unknown
+    sharedComponents?: unknown
     sharedFixedValues?: unknown
     /** @deprecated use sharedFixedValues */
     sharedConstants?: unknown
@@ -23,7 +21,7 @@ export interface PublicationSnapshotHashInput {
     /** @deprecated use sharedOptionValues */
     sharedEnumerationValues?: unknown
     sharedEntityOverrides?: unknown
-    systemFields?: Record<string, CatalogSystemFieldsSnapshot | SnapshotRecord>
+    systemFields?: Record<string, ObjectSystemFieldsSnapshot | SnapshotRecord>
     scripts?: unknown
     layouts?: unknown
     scopedLayouts?: unknown
@@ -138,7 +136,7 @@ const normalizeField = (fieldValue: unknown): Record<string, unknown> => {
         codename: normalizeCodenameValue(field.codename),
         dataType: field.dataType,
         isRequired: Boolean(field.isRequired),
-        isDisplayAttribute: Boolean(field.isDisplayAttribute),
+        isDisplayComponent: Boolean(field.isDisplayComponent),
         targetEntityId: typeof field.targetEntityId === 'string' ? field.targetEntityId : null,
         targetEntityKind: typeof field.targetEntityKind === 'string' ? field.targetEntityKind : null,
         targetConstantId: typeof field.targetConstantId === 'string' ? field.targetConstantId : null,
@@ -146,12 +144,12 @@ const normalizeField = (fieldValue: unknown): Record<string, unknown> => {
         validationRules: field.validationRules ?? {},
         uiConfig: field.uiConfig ?? {},
         sortOrder,
-        parentAttributeId: typeof field.parentAttributeId === 'string' ? field.parentAttributeId : null,
+        parentComponentId: typeof field.parentComponentId === 'string' ? field.parentComponentId : null,
         childFields: field.childFields
             ? asArray<unknown>(field.childFields)
                   .map((childFieldValue) => {
                       const childField = normalizeField(childFieldValue)
-                      const { parentAttributeId: _parentAttributeId, childFields: _childFields, ...normalizedChildField } = childField
+                      const { parentComponentId: _parentComponentId, childFields: _childFields, ...normalizedChildField } = childField
                       return normalizedChildField
                   })
                   .sort((left, right) => {
@@ -254,7 +252,7 @@ export const normalizePublicationSnapshotForHash = (
 ): Record<string, unknown> => {
     const snapshotSystemFields =
         snapshot.systemFields && typeof snapshot.systemFields === 'object'
-            ? (snapshot.systemFields as Record<string, CatalogSystemFieldsSnapshot | SnapshotRecord>)
+            ? (snapshot.systemFields as Record<string, ObjectSystemFieldsSnapshot | SnapshotRecord>)
             : null
 
     const entityTypeDefinitions = Object.entries(snapshot.entityTypeDefinitions ?? {})
@@ -331,9 +329,7 @@ export const normalizePublicationSnapshotForHash = (
         }))
         .sort((left, right) => compareStrings(left.objectId, right.objectId))
 
-    const sharedAttributes = asArray<unknown>(snapshot.sharedFieldDefinitions ?? snapshot.sharedAttributes)
-        .map(normalizeField)
-        .sort(compareBySortOrderCodenameAndId)
+    const sharedComponents = asArray<unknown>(snapshot.sharedComponents).map(normalizeField).sort(compareBySortOrderCodenameAndId)
 
     const sharedConstants = asArray<unknown>(snapshot.sharedFixedValues ?? snapshot.sharedConstants)
         .map(normalizeConstant)
@@ -497,7 +493,7 @@ export const normalizePublicationSnapshotForHash = (
         elements,
         optionValues,
         fixedValues,
-        sharedAttributes,
+        sharedComponents,
         sharedConstants,
         sharedEnumerationValues,
         sharedEntityOverrides,

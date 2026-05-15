@@ -16,7 +16,12 @@ import {
     updateAdminSetting,
     updateInstance
 } from '../../support/backend/api-session.mjs'
-import { buildEntityMenuItemSelector, buildEntityMenuTriggerSelector, entityDialogSelectors, pageSpacingSelectors } from '../../support/selectors/contracts'
+import {
+    buildEntityMenuItemSelector,
+    buildEntityMenuTriggerSelector,
+    entityDialogSelectors,
+    pageSpacingSelectors
+} from '../../support/selectors/contracts'
 
 function extractWrappedValue(setting: { value?: Record<string, unknown> } | undefined): unknown {
     if (!setting?.value || typeof setting.value !== 'object') {

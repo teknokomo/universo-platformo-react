@@ -30,7 +30,7 @@ export interface ContainerSelectionPanelProps {
     currentTreeEntityId?: string | null
     /** Current container context for quick re-link action */
     currentContainerId?: string | null
-    /** Optional label overrides for non-linked-collection contexts. */
+    /** Optional label overrides for non-object-collection contexts. */
     labelsOverride?: Partial<EntitySelectionLabels>
 }
 
@@ -79,7 +79,8 @@ export const ContainerSelectionPanel = ({
             singleLabel: t('entities.selection.singleLabel', 'Single container only'),
             singleEnabledHelp: t('entities.selection.singleEnabledHelp', 'The entity can only be linked to one container'),
             singleDisabledHelp: t('entities.selection.singleDisabledHelp', 'The entity can be linked to multiple containers'),
-            singleWarning: t('entities.selection.singleWarning', 'Cannot enable while multiple containers are selected')
+            singleWarning: t('entities.selection.singleWarning', 'Cannot enable while multiple containers are selected'),
+            currentContainerShort: t('entities.selection.currentContainerShort', 'Current container')
         }),
         [t]
     )
@@ -134,7 +135,7 @@ export const ContainerSelectionPanel = ({
             headerActions={
                 showRelinkCurrentContainer ? (
                     <Button size='small' variant='outlined' onClick={handleRelinkCurrentContainer} disabled={disabled}>
-                        {t('entities.selection.currentContainerShort', 'Current container')}
+                        {resolvedLabels.currentContainerShort}
                     </Button>
                 ) : undefined
             }

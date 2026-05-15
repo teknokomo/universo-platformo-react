@@ -5,7 +5,7 @@ import type { RuntimeWorkspaceListParams, RuntimeWorkspaceMemberListParams } fro
 /** Query key factory for application data. */
 export const appQueryKeys = {
     all: ['application-data'] as const,
-    list: (applicationId: string, linkedCollectionId?: string) => [...appQueryKeys.all, applicationId, linkedCollectionId] as const,
+    list: (applicationId: string, objectCollectionId?: string) => [...appQueryKeys.all, applicationId, objectCollectionId] as const,
     row: (applicationId: string, rowId: string) => [...appQueryKeys.all, 'row', applicationId, rowId] as const
 }
 
@@ -32,13 +32,13 @@ export function useAppRow(options: {
     apiBaseUrl: string
     applicationId: string
     rowId: string | null
-    linkedCollectionId?: string
+    objectCollectionId?: string
     enabled?: boolean
 }) {
-    const { apiBaseUrl, applicationId, rowId, linkedCollectionId, enabled = true } = options
+    const { apiBaseUrl, applicationId, rowId, objectCollectionId, enabled = true } = options
     return useQuery({
         queryKey: appQueryKeys.row(applicationId, rowId ?? ''),
-        queryFn: () => fetchAppRow({ apiBaseUrl, applicationId, rowId: rowId!, linkedCollectionId }),
+        queryFn: () => fetchAppRow({ apiBaseUrl, applicationId, rowId: rowId!, objectCollectionId }),
         enabled: enabled && Boolean(rowId),
         staleTime: 0, // Always refetch for fresh data
         gcTime: 0
@@ -46,12 +46,12 @@ export function useAppRow(options: {
 }
 
 /** Create a new row and invalidate list queries. */
-export function useCreateAppRow(options: { apiBaseUrl: string; applicationId: string; linkedCollectionId?: string }) {
-    const { apiBaseUrl, applicationId, linkedCollectionId } = options
+export function useCreateAppRow(options: { apiBaseUrl: string; applicationId: string; objectCollectionId?: string }) {
+    const { apiBaseUrl, applicationId, objectCollectionId } = options
     const queryClient = useQueryClient()
 
     return useMutation({
-        mutationFn: (data: Record<string, unknown>) => createAppRow({ apiBaseUrl, applicationId, linkedCollectionId, data }),
+        mutationFn: (data: Record<string, unknown>) => createAppRow({ apiBaseUrl, applicationId, objectCollectionId, data }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: appQueryKeys.list(applicationId) })
         }
@@ -59,13 +59,13 @@ export function useCreateAppRow(options: { apiBaseUrl: string; applicationId: st
 }
 
 /** Update an existing row and invalidate list + row queries. */
-export function useUpdateAppRow(options: { apiBaseUrl: string; applicationId: string; linkedCollectionId?: string }) {
-    const { apiBaseUrl, applicationId, linkedCollectionId } = options
+export function useUpdateAppRow(options: { apiBaseUrl: string; applicationId: string; objectCollectionId?: string }) {
+    const { apiBaseUrl, applicationId, objectCollectionId } = options
     const queryClient = useQueryClient()
 
     return useMutation({
         mutationFn: (params: { rowId: string; data: Record<string, unknown> }) =>
-            updateAppRow({ apiBaseUrl, applicationId, rowId: params.rowId, linkedCollectionId, data: params.data }),
+            updateAppRow({ apiBaseUrl, applicationId, rowId: params.rowId, objectCollectionId, data: params.data }),
         onSuccess: (_data, variables) => {
             queryClient.invalidateQueries({ queryKey: appQueryKeys.list(applicationId) })
             queryClient.invalidateQueries({ queryKey: appQueryKeys.row(applicationId, variables.rowId) })
@@ -74,12 +74,12 @@ export function useUpdateAppRow(options: { apiBaseUrl: string; applicationId: st
 }
 
 /** Soft-delete a row and invalidate list queries. */
-export function useDeleteAppRow(options: { apiBaseUrl: string; applicationId: string; linkedCollectionId?: string }) {
-    const { apiBaseUrl, applicationId, linkedCollectionId } = options
+export function useDeleteAppRow(options: { apiBaseUrl: string; applicationId: string; objectCollectionId?: string }) {
+    const { apiBaseUrl, applicationId, objectCollectionId } = options
     const queryClient = useQueryClient()
 
     return useMutation({
-        mutationFn: (rowId: string) => deleteAppRow({ apiBaseUrl, applicationId, rowId, linkedCollectionId }),
+        mutationFn: (rowId: string) => deleteAppRow({ apiBaseUrl, applicationId, rowId, objectCollectionId }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: appQueryKeys.list(applicationId) })
         }

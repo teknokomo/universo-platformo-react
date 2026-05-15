@@ -37,7 +37,7 @@ const resolveIcon = (iconName?: string | null) => {
         case 'tasks':
             return <AssignmentRoundedIcon />
         case 'database':
-        case 'catalog':
+        case 'object':
             return <TableRowsRoundedIcon />
         case 'folder':
             return <FolderRoundedIcon />
@@ -106,7 +106,7 @@ export default function MenuContent({ menu }: MenuContentProps) {
             return
         }
 
-        const targetSectionId = item.sectionId ?? item.linkedCollectionId
+        const targetSectionId = item.sectionId ?? item.objectCollectionId
         if (!targetSectionId) {
             return
         }
@@ -116,8 +116,8 @@ export default function MenuContent({ menu }: MenuContentProps) {
             return
         }
 
-        if (menu?.onSelectLinkedCollection) {
-            menu.onSelectLinkedCollection(targetSectionId)
+        if (menu?.onSelectObjectCollection) {
+            menu.onSelectObjectCollection(targetSectionId)
         }
     }
 

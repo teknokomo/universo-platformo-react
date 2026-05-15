@@ -162,7 +162,7 @@ describe('MetahubLayoutsService', () => {
                                 _schema: '1',
                                 _primary: 'en',
                                 locales: {
-                                    en: { content: 'Catalogs', version: 1, isActive: true }
+                                    en: { content: 'Objects', version: 1, isActive: true }
                                 }
                             }
                         },
@@ -193,7 +193,7 @@ describe('MetahubLayoutsService', () => {
                                 _schema: '1',
                                 _primary: 'en',
                                 locales: {
-                                    en: { content: 'Catalogs', version: 1, isActive: true }
+                                    en: { content: 'Objects', version: 1, isActive: true }
                                 }
                             }
                         },
@@ -230,7 +230,7 @@ describe('MetahubLayoutsService', () => {
                     autoShowAllSections: true,
                     showTitle: true,
                     title: {
-                        en: 'Catalogs',
+                        en: 'Objects',
                         ru: 'Каталоги'
                     }
                 }
@@ -258,14 +258,14 @@ describe('MetahubLayoutsService', () => {
     })
 
     it('creates entity-scoped layouts against the active global base layout without seeding default widgets', async () => {
-        const layoutId = 'catalog-layout-1'
-        const scopeEntityId = 'catalog-1'
+        const layoutId = 'object-layout-1'
+        const scopeEntityId = 'object-1'
         const baseLayoutConfig = {
             showHeader: false,
             showFooter: true,
             showViewToggle: false,
             defaultViewMode: 'card',
-            catalogBehavior: {
+            objectBehavior: {
                 showCreateButton: false,
                 searchMode: 'server'
             }
@@ -279,14 +279,14 @@ describe('MetahubLayoutsService', () => {
                 _schema: '1',
                 _primary: 'en',
                 locales: {
-                    en: { content: 'Catalog layout', version: 1, isActive: true }
+                    en: { content: 'Object layout', version: 1, isActive: true }
                 }
             },
             description: null,
             config: {
                 showViewToggle: true,
                 defaultViewMode: 'card',
-                catalogBehavior: {
+                objectBehavior: {
                     showCreateButton: false,
                     searchMode: 'server'
                 },
@@ -304,7 +304,7 @@ describe('MetahubLayoutsService', () => {
             if (sql.includes('_mhb_objects') && sql.includes('_mhb_entity_type_definitions')) {
                 expect(params).toEqual([scopeEntityId])
                 expect(sql).not.toContain('t.is_active')
-                return [{ id: scopeEntityId, kind: 'catalog', components: { layoutConfig: { enabled: true } } }]
+                return [{ id: scopeEntityId, kind: 'object', capabilities: { layoutConfig: { enabled: true } } }]
             }
 
             if (sql.includes('scope_entity_id IS NULL') && sql.includes('is_active = true') && sql.includes('_mhb_layouts')) {
@@ -324,7 +324,7 @@ describe('MetahubLayoutsService', () => {
                 expect(JSON.parse(String(params?.[5] ?? '{}'))).toEqual({
                     showViewToggle: true,
                     defaultViewMode: 'card',
-                    catalogBehavior: {
+                    objectBehavior: {
                         showCreateButton: false,
                         searchMode: 'server'
                     },
@@ -361,7 +361,7 @@ describe('MetahubLayoutsService', () => {
                     _schema: '1',
                     _primary: 'en',
                     locales: {
-                        en: { content: 'Catalog layout', version: 1, isActive: true }
+                        en: { content: 'Object layout', version: 1, isActive: true }
                     }
                 },
                 description: null,
@@ -378,7 +378,7 @@ describe('MetahubLayoutsService', () => {
         expect(created.config).toEqual({
             showViewToggle: true,
             defaultViewMode: 'card',
-            catalogBehavior: {
+            objectBehavior: {
                 showCreateButton: false,
                 searchMode: 'server'
             },
@@ -499,7 +499,7 @@ describe('MetahubLayoutsService', () => {
     it('rejects scoped layout creation when scopeEntityId points to an entity without layoutConfig support', async () => {
         const query = jest.fn(async (sql: string) => {
             if (sql.includes('_mhb_objects') && sql.includes('_mhb_entity_type_definitions')) {
-                return [{ id: 'catalog-1', kind: 'set', components: { layoutConfig: false } }]
+                return [{ id: 'object-1', kind: 'set', capabilities: { layoutConfig: false } }]
             }
 
             throw new Error(`Unexpected SQL in scoped layout validation test: ${sql}`)
@@ -521,13 +521,13 @@ describe('MetahubLayoutsService', () => {
             service.createLayout(
                 'metahub-1',
                 {
-                    scopeEntityId: 'catalog-1',
+                    scopeEntityId: 'object-1',
                     templateKey: 'dashboard',
                     name: {
                         _schema: '1',
                         _primary: 'en',
                         locales: {
-                            en: { content: 'Catalog layout', version: 1, isActive: true }
+                            en: { content: 'Object layout', version: 1, isActive: true }
                         }
                     },
                     description: null,
@@ -545,7 +545,7 @@ describe('MetahubLayoutsService', () => {
     })
 
     it('ignores stale inherited widget overrides when the base sharedBehavior forbids them', async () => {
-        const layoutId = 'catalog-layout-1'
+        const layoutId = 'object-layout-1'
         const baseLayoutId = 'global-layout-1'
         const baseWidgetId = 'base-widget-1'
 
@@ -576,7 +576,7 @@ describe('MetahubLayoutsService', () => {
                 return [
                     {
                         id: layoutId,
-                        scope_entity_id: 'catalog-1',
+                        scope_entity_id: 'object-1',
                         base_layout_id: baseLayoutId,
                         config: {}
                     }
@@ -644,8 +644,8 @@ describe('MetahubLayoutsService', () => {
         )
     })
 
-    it('rejects inherited catalog widget config edits', async () => {
-        const layoutId = 'catalog-layout-1'
+    it('rejects inherited object widget config edits', async () => {
+        const layoutId = 'object-layout-1'
         const baseLayoutId = 'global-layout-1'
         const baseWidgetId = 'base-widget-1'
 
@@ -657,7 +657,7 @@ describe('MetahubLayoutsService', () => {
                 return [
                     {
                         id: layoutId,
-                        scope_entity_id: 'catalog-1',
+                        scope_entity_id: 'object-1',
                         base_layout_id: baseLayoutId,
                         config: {}
                     }
@@ -717,7 +717,7 @@ describe('MetahubLayoutsService', () => {
     })
 
     it('rejects inherited widget exclusion when the base layout disables it', async () => {
-        const layoutId = 'catalog-layout-1'
+        const layoutId = 'object-layout-1'
         const baseLayoutId = 'global-layout-1'
         const baseWidgetId = 'base-widget-1'
 
@@ -729,7 +729,7 @@ describe('MetahubLayoutsService', () => {
                 return [
                     {
                         id: layoutId,
-                        scope_entity_id: 'catalog-1',
+                        scope_entity_id: 'object-1',
                         base_layout_id: baseLayoutId,
                         config: {}
                     }
@@ -789,8 +789,8 @@ describe('MetahubLayoutsService', () => {
         ).toBe(false)
     })
 
-    it('stores inherited widget exclusion through catalog override rows when allowed', async () => {
-        const layoutId = 'catalog-layout-1'
+    it('stores inherited widget exclusion through object override rows when allowed', async () => {
+        const layoutId = 'object-layout-1'
         const baseLayoutId = 'global-layout-1'
         const baseWidgetId = 'base-widget-1'
         const overrideRows: Array<Record<string, unknown>> = []
@@ -803,7 +803,7 @@ describe('MetahubLayoutsService', () => {
                 return [
                     {
                         id: layoutId,
-                        scope_entity_id: 'catalog-1',
+                        scope_entity_id: 'object-1',
                         base_layout_id: baseLayoutId,
                         config: {}
                     }
@@ -889,7 +889,7 @@ describe('MetahubLayoutsService', () => {
     })
 
     it('rejects inherited widget moves when the base layout locks position', async () => {
-        const layoutId = 'catalog-layout-1'
+        const layoutId = 'object-layout-1'
         const baseLayoutId = 'global-layout-1'
         const baseWidgetId = 'base-widget-1'
 
@@ -898,7 +898,7 @@ describe('MetahubLayoutsService', () => {
                 return [
                     {
                         id: layoutId,
-                        scope_entity_id: 'catalog-1',
+                        scope_entity_id: 'object-1',
                         base_layout_id: baseLayoutId,
                         config: {}
                     }
@@ -955,7 +955,7 @@ describe('MetahubLayoutsService', () => {
     })
 
     it('rejects inherited widget activation changes when the base layout disables deactivation', async () => {
-        const layoutId = 'catalog-layout-1'
+        const layoutId = 'object-layout-1'
         const baseLayoutId = 'global-layout-1'
         const baseWidgetId = 'base-widget-1'
 
@@ -967,7 +967,7 @@ describe('MetahubLayoutsService', () => {
                 return [
                     {
                         id: layoutId,
-                        scope_entity_id: 'catalog-1',
+                        scope_entity_id: 'object-1',
                         base_layout_id: baseLayoutId,
                         config: {}
                     }
@@ -1039,7 +1039,7 @@ describe('MetahubLayoutsService', () => {
 
             if (sql.includes('SELECT id FROM') && sql.includes('base_layout_id = $1')) {
                 expect(params).toEqual([layoutId])
-                return [{ id: 'catalog-layout-1' }]
+                return [{ id: 'object-layout-1' }]
             }
 
             throw new Error(`Unexpected SQL in delete guard test: ${sql}`)
@@ -1078,8 +1078,8 @@ describe('MetahubLayoutsService', () => {
             if (sql.includes('_mhb_objects') && sql.includes('_mhb_entity_type_definitions')) {
                 return [
                     {
-                        id: 'catalog-1',
-                        kind: 'catalog',
+                        id: 'object-1',
+                        kind: 'object',
                         codename: {
                             _schema: 'v1',
                             _primary: 'en',
@@ -1092,14 +1092,14 @@ describe('MetahubLayoutsService', () => {
                                 locales: { en: { content: 'Courses' }, ru: { content: 'Курсы' } }
                             }
                         },
-                        components: { layoutConfig: { enabled: true } }
+                        capabilities: { layoutConfig: { enabled: true } }
                     },
                     {
                         id: 'set-1',
                         kind: 'set',
                         codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Settings' } } },
                         presentation: {},
-                        components: { layoutConfig: false }
+                        capabilities: { layoutConfig: false }
                     },
                     {
                         id: 'page-1',
@@ -1112,17 +1112,17 @@ describe('MetahubLayoutsService', () => {
                                 locales: { en: { content: 'Home' } }
                             }
                         },
-                        components: { layoutConfig: { enabled: true } }
+                        capabilities: { layoutConfig: { enabled: true } }
                     }
                 ]
             }
 
             if (sql.includes('FROM') && sql.includes('_mhb_layouts') && sql.includes('base_layout_id = $1')) {
-                expect(params).toEqual(['global-layout-1', ['catalog-1', 'page-1']])
+                expect(params).toEqual(['global-layout-1', ['object-1', 'page-1']])
                 return [
                     {
-                        id: 'catalog-layout-1',
-                        scope_entity_id: 'catalog-1',
+                        id: 'object-layout-1',
+                        scope_entity_id: 'object-1',
                         name: {
                             _schema: 'v1',
                             _primary: 'en',
@@ -1136,8 +1136,8 @@ describe('MetahubLayoutsService', () => {
             }
 
             if (sql.includes('FROM') && sql.includes('_mhb_layout_widget_overrides') && sql.includes('base_widget_id = $1')) {
-                expect(params).toEqual(['base-widget-1', ['catalog-layout-1']])
-                return [{ layout_id: 'catalog-layout-1', is_active: false, is_deleted_override: false }]
+                expect(params).toEqual(['base-widget-1', ['object-layout-1']])
+                return [{ layout_id: 'object-layout-1', is_active: false, is_deleted_override: false }]
             }
 
             throw new Error(`Unexpected SQL in scope visibility list test: ${sql}`)
@@ -1153,9 +1153,9 @@ describe('MetahubLayoutsService', () => {
 
         expect(result).toEqual([
             expect.objectContaining({
-                scopeEntityId: 'catalog-1',
-                kind: 'catalog',
-                layoutId: 'catalog-layout-1',
+                scopeEntityId: 'object-1',
+                kind: 'object',
+                layoutId: 'object-layout-1',
                 isVisible: false,
                 isOverridden: true
             }),
@@ -1176,7 +1176,7 @@ describe('MetahubLayoutsService', () => {
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
             if (sql.includes('_mhb_objects') && sql.includes('_mhb_entity_type_definitions') && sql.includes('WHERE o.id = $1')) {
                 expect(params).toEqual(['page-1'])
-                return [{ id: 'page-1', kind: 'page', components: { layoutConfig: { enabled: true } } }]
+                return [{ id: 'page-1', kind: 'page', capabilities: { layoutConfig: { enabled: true } } }]
             }
 
             if (
@@ -1265,7 +1265,7 @@ describe('MetahubLayoutsService', () => {
                                 locales: { en: { content: 'Home' } }
                             }
                         },
-                        components: { layoutConfig: { enabled: true } }
+                        capabilities: { layoutConfig: { enabled: true } }
                     }
                 ]
             }

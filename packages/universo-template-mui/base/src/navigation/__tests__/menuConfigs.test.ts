@@ -38,14 +38,14 @@ describe('menuConfigs', () => {
         )
     })
 
-    it('inserts published custom entity kinds below the legacy object items', () => {
+    it('inserts published custom entity kinds below the standard object items', () => {
         const menuItems = getMetahubMenuItems('mhb-1', {
             canManageMetahub: true,
             canManageMembers: true,
             menuEntityTypes: [
                 {
-                    kindKey: 'catalog',
-                    title: 'Catalogs',
+                    kindKey: 'object',
+                    title: 'Objects',
                     iconName: 'IconDatabase',
                     sidebarSection: 'objects',
                     sidebarOrder: 20
@@ -55,7 +55,7 @@ describe('menuConfigs', () => {
                     title: 'Custom Order',
                     iconName: 'IconBolt',
                     sidebarSection: 'objects',
-                    sidebarOrder: 20
+                    sidebarOrder: 30
                 }
             ]
         })
@@ -70,11 +70,11 @@ describe('menuConfigs', () => {
             ])
         )
 
-        const catalogsIndex = menuItems.findIndex((item) => item.id === 'metahub-entity-catalog')
+        const objectsIndex = menuItems.findIndex((item) => item.id === 'metahub-entity-object')
         const customIndex = menuItems.findIndex((item) => item.id === 'metahub-entity-custom-order')
         const publicationsIndex = menuItems.findIndex((item) => item.id === 'metahub-publications')
 
-        expect(customIndex).toBeGreaterThan(catalogsIndex)
+        expect(customIndex).toBeGreaterThan(objectsIndex)
         expect(customIndex).toBeLessThan(publicationsIndex)
     })
 
@@ -114,12 +114,12 @@ describe('menuConfigs', () => {
         expect(dynamicItemIds).toEqual(['metahub-entity-custom-alpha', 'metahub-entity-custom-beta', 'metahub-entity-custom-zeta'])
     })
 
-    it('keeps standard metahub object menu order as hubs, pages, catalogs, sets, enumerations, and ledgers', () => {
+    it('keeps standard metahub object menu order as hubs, pages, objects, sets, enumerations, and ledgers', () => {
         const menuItems = getMetahubMenuItems('mhb-1', {
             canManageMetahub: true,
             canManageMembers: true,
             menuEntityTypes: [
-                { kindKey: 'catalog', title: 'Catalogs', iconName: 'IconDatabase', sidebarSection: 'objects', sidebarOrder: 30 },
+                { kindKey: 'object', title: 'Objects', iconName: 'IconDatabase', sidebarSection: 'objects', sidebarOrder: 30 },
                 { kindKey: 'set', title: 'Sets', iconName: 'IconStack2', sidebarSection: 'objects', sidebarOrder: 40 },
                 { kindKey: 'page', title: 'Pages', iconName: 'IconFileText', sidebarSection: 'objects', sidebarOrder: 20 },
                 { kindKey: 'enumeration', title: 'Enumerations', iconName: 'IconFiles', sidebarSection: 'objects', sidebarOrder: 50 },
@@ -135,7 +135,7 @@ describe('menuConfigs', () => {
         expect(dynamicItemIds).toEqual([
             'metahub-entity-hub',
             'metahub-entity-page',
-            'metahub-entity-catalog',
+            'metahub-entity-object',
             'metahub-entity-set',
             'metahub-entity-enumeration',
             'metahub-entity-ledger'
@@ -155,8 +155,8 @@ describe('menuConfigs', () => {
             canManageMembers: false,
             menuEntityTypes: [
                 {
-                    kindKey: 'catalog',
-                    title: 'Catalogs',
+                    kindKey: 'object',
+                    title: 'Objects',
                     iconName: 'IconDatabase',
                     sidebarSection: 'objects',
                     sidebarOrder: 20
@@ -174,7 +174,7 @@ describe('menuConfigs', () => {
         expect(menuItems.find((item) => item.id === 'metahub-branches')).toBeUndefined()
         expect(menuItems.find((item) => item.id === 'metahub-common')).toBeUndefined()
         expect(menuItems.find((item) => item.id === 'metahub-entities')).toBeUndefined()
-        expect(menuItems.find((item) => item.id === 'metahub-entity-catalog')).toBeDefined()
+        expect(menuItems.find((item) => item.id === 'metahub-entity-object')).toBeDefined()
         expect(menuItems.find((item) => item.id === 'metahub-entity-custom-order')).toBeDefined()
         expect(menuItems.find((item) => item.id === 'metahub-publications')).toBeUndefined()
         expect(menuItems.find((item) => item.id === 'metahub-access')).toBeUndefined()

@@ -13,10 +13,10 @@ import { assertCanonicalIdentifier, assertCanonicalSchemaName, quoteIdentifier }
 import type { EntityDefinition, SchemaSnapshot } from '@universo/schema-ddl'
 import {
     ApplicationSchemaStatus,
-    FieldDefinitionDataType,
+    ComponentDefinitionDataType,
     type ApplicationLifecycleContract,
     type ApplicationLayoutWidget,
-    type FieldDefinitionValidationRules,
+    type ComponentDefinitionValidationRules,
     type VersionedLocalizedContent
 } from '@universo/types'
 import {
@@ -136,11 +136,11 @@ export const toWorkspaceAwareSchemaSnapshot = (
 
 // --- Field helpers ---
 
-export function isVLCField(field: { dataType: FieldDefinitionDataType; validationRules?: Record<string, unknown> }): boolean {
-    if (field.dataType !== FieldDefinitionDataType.STRING) {
+export function isVLCField(field: { dataType: ComponentDefinitionDataType; validationRules?: Record<string, unknown> }): boolean {
+    if (field.dataType !== ComponentDefinitionDataType.STRING) {
         return false
     }
-    const rules = field.validationRules as Partial<FieldDefinitionValidationRules> | undefined
+    const rules = field.validationRules as Partial<ComponentDefinitionValidationRules> | undefined
     return rules?.versioned === true || rules?.localized === true
 }
 
@@ -289,12 +289,12 @@ export function normalizeRuntimeSnapshotValue(value: unknown, field: EntityDefin
         return null
     }
 
-    if (field.dataType === FieldDefinitionDataType.NUMBER && typeof value === 'string') {
+    if (field.dataType === ComponentDefinitionDataType.NUMBER && typeof value === 'string') {
         const parsed = Number(value)
         return Number.isFinite(parsed) ? parsed : value
     }
 
-    if (field.dataType === FieldDefinitionDataType.DATE && value instanceof Date) {
+    if (field.dataType === ComponentDefinitionDataType.DATE && value instanceof Date) {
         return value.toISOString()
     }
 
@@ -727,7 +727,7 @@ export function resolveSetReferenceId(
 export function normalizeChildFieldValue(
     value: unknown,
     field: {
-        dataType: FieldDefinitionDataType
+        dataType: ComponentDefinitionDataType
         validationRules?: Record<string, unknown>
         targetEntityKind?: string | null
         targetConstantId?: string | null
@@ -739,8 +739,8 @@ export function normalizeChildFieldValue(
 ): unknown {
     if (value === null || value === undefined) return null
     if (isVLCField(field)) return prepareJsonbValue(value)
-    if (field.dataType === FieldDefinitionDataType.JSON) return prepareJsonbValue(value)
-    if (field.dataType === FieldDefinitionDataType.NUMBER) {
+    if (field.dataType === ComponentDefinitionDataType.JSON) return prepareJsonbValue(value)
+    if (field.dataType === ComponentDefinitionDataType.NUMBER) {
         return validateNumericValue({
             value,
             field: { codename, validationRules: field.validationRules },
@@ -748,7 +748,7 @@ export function normalizeChildFieldValue(
             elementId
         })
     }
-    if (field.dataType === FieldDefinitionDataType.REF) {
+    if (field.dataType === ComponentDefinitionDataType.REF) {
         if (field.targetEntityKind === 'set') {
             return resolveSetReferenceId(value, field)
         }
@@ -757,24 +757,24 @@ export function normalizeChildFieldValue(
     return value
 }
 
-export function resolveCatalogSeedingOrder(entities: EntityDefinition[]): string[] {
-    const catalogs = entities.filter((entity) => entity.kind === 'catalog')
-    const catalogById = new Map(catalogs.map((entity) => [entity.id, entity]))
+export function resolveObjectSeedingOrder(entities: EntityDefinition[]): string[] {
+    const objects = entities.filter((entity) => entity.kind === 'object')
+    const objectById = new Map(objects.map((entity) => [entity.id, entity]))
     const adjacency = new Map<string, Set<string>>()
     const indegree = new Map<string, number>()
 
-    for (const entity of catalogs) {
+    for (const entity of objects) {
         adjacency.set(entity.id, new Set())
         indegree.set(entity.id, 0)
     }
 
-    for (const entity of catalogs) {
+    for (const entity of objects) {
         for (const field of entity.fields ?? []) {
-            if (field.dataType !== FieldDefinitionDataType.REF) continue
-            if (field.targetEntityKind !== 'catalog') continue
+            if (field.dataType !== ComponentDefinitionDataType.REF) continue
+            if (field.targetEntityKind !== 'object') continue
             const targetId = field.targetEntityId
             if (typeof targetId !== 'string' || targetId.length === 0 || targetId === entity.id) continue
-            if (!catalogById.has(targetId)) continue
+            if (!objectById.has(targetId)) continue
 
             const neighbors = adjacency.get(targetId)
             if (!neighbors || neighbors.has(entity.id)) continue
@@ -783,12 +783,12 @@ export function resolveCatalogSeedingOrder(entities: EntityDefinition[]): string
         }
     }
 
-    const queue = catalogs
+    const queue = objects
         .filter((entity) => (indegree.get(entity.id) ?? 0) === 0)
         .map((entity) => entity.id)
         .sort((a, b) => {
-            const aEntity = catalogById.get(a)
-            const bEntity = catalogById.get(b)
+            const aEntity = objectById.get(a)
+            const bEntity = objectById.get(b)
             if (!aEntity || !bEntity) return a.localeCompare(b)
             const codenameCmp = aEntity.codename.localeCompare(bEntity.codename)
             return codenameCmp !== 0 ? codenameCmp : a.localeCompare(b)
@@ -801,8 +801,8 @@ export function resolveCatalogSeedingOrder(entities: EntityDefinition[]): string
         ordered.push(current)
 
         const nextIds = Array.from(adjacency.get(current) ?? []).sort((a, b) => {
-            const aEntity = catalogById.get(a)
-            const bEntity = catalogById.get(b)
+            const aEntity = objectById.get(a)
+            const bEntity = objectById.get(b)
             if (!aEntity || !bEntity) return a.localeCompare(b)
             const codenameCmp = aEntity.codename.localeCompare(bEntity.codename)
             return codenameCmp !== 0 ? codenameCmp : a.localeCompare(b)
@@ -813,8 +813,8 @@ export function resolveCatalogSeedingOrder(entities: EntityDefinition[]): string
             if (nextDegree === 0) {
                 queue.push(nextId)
                 queue.sort((a, b) => {
-                    const aEntity = catalogById.get(a)
-                    const bEntity = catalogById.get(b)
+                    const aEntity = objectById.get(a)
+                    const bEntity = objectById.get(b)
                     if (!aEntity || !bEntity) return a.localeCompare(b)
                     const codenameCmp = aEntity.codename.localeCompare(bEntity.codename)
                     return codenameCmp !== 0 ? codenameCmp : a.localeCompare(b)
@@ -823,7 +823,7 @@ export function resolveCatalogSeedingOrder(entities: EntityDefinition[]): string
         }
     }
 
-    const unprocessed = catalogs.map((entity) => entity.id).filter((id) => !ordered.includes(id))
+    const unprocessed = objects.map((entity) => entity.id).filter((id) => !ordered.includes(id))
     return [...ordered, ...unprocessed]
 }
 
@@ -852,7 +852,7 @@ export function validateNumericValue(options: {
         return value as unknown as number
     }
 
-    const rules = field.validationRules as Partial<FieldDefinitionValidationRules> | undefined
+    const rules = field.validationRules as Partial<ComponentDefinitionValidationRules> | undefined
 
     try {
         return validateNumberOrThrow(
@@ -889,8 +889,8 @@ export function resolveFieldDefaultEnumValueId(field: EntityDefinition['fields']
 export function resolveElementPreviewLabel(entity: EntityDefinition, data: Record<string, unknown>): string | null {
     const fields = entity.fields ?? []
     const displayField =
-        fields.find((field) => field.isDisplayAttribute) ??
-        fields.find((field) => field.dataType === FieldDefinitionDataType.STRING) ??
+        fields.find((field) => field.isDisplayComponent) ??
+        fields.find((field) => field.dataType === ComponentDefinitionDataType.STRING) ??
         fields[0]
 
     if (!displayField) return null

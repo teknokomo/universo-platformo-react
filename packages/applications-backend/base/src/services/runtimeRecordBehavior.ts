@@ -1,16 +1,16 @@
-import { isCatalogRecordBehaviorEnabled, normalizeCatalogRecordBehaviorFromConfig, type CatalogRecordBehavior } from '@universo/types'
+import { isObjectRecordBehaviorEnabled, normalizeObjectRecordBehaviorFromConfig, type ObjectRecordBehavior } from '@universo/types'
 import type { DbExecutor } from '@universo/utils'
 import { UpdateFailure } from '../shared/runtimeHelpers'
 
 export type RuntimeRecordCommand = 'post' | 'unpost' | 'void'
 export type RuntimeRecordCreateColumnValue = { column: string; value: unknown }
 
-export const normalizeRuntimeRecordBehavior = (config: Record<string, unknown> | null | undefined): CatalogRecordBehavior =>
-    normalizeCatalogRecordBehaviorFromConfig(config)
+export const normalizeRuntimeRecordBehavior = (config: Record<string, unknown> | null | undefined): ObjectRecordBehavior =>
+    normalizeObjectRecordBehaviorFromConfig(config)
 
-export const isRuntimeRecordBehaviorEnabled = (behavior: CatalogRecordBehavior): boolean => isCatalogRecordBehaviorEnabled(behavior)
+export const isRuntimeRecordBehaviorEnabled = (behavior: ObjectRecordBehavior): boolean => isObjectRecordBehaviorEnabled(behavior)
 
-const isRecordImmutableByBehavior = (behavior: CatalogRecordBehavior, row: Record<string, unknown>): boolean => {
+const isRecordImmutableByBehavior = (behavior: ObjectRecordBehavior, row: Record<string, unknown>): boolean => {
     const state = typeof row._app_record_state === 'string' ? row._app_record_state : null
     if (behavior.immutability === 'posted') {
         return state === 'posted' || state === 'voided'
@@ -32,7 +32,7 @@ export const assertRuntimeRecordMutable = (config: Record<string, unknown> | nul
     }
 }
 
-export const resolveRecordNumberPeriodKey = (date: Date, periodicity: CatalogRecordBehavior['numbering']['periodicity']): string => {
+export const resolveRecordNumberPeriodKey = (date: Date, periodicity: ObjectRecordBehavior['numbering']['periodicity']): string => {
     const year = date.getUTCFullYear()
     const month = String(date.getUTCMonth() + 1).padStart(2, '0')
     const day = String(date.getUTCDate()).padStart(2, '0')
@@ -47,7 +47,7 @@ export const allocateRuntimeRecordNumber = async (params: {
     manager: DbExecutor
     schemaIdent: string
     objectId: string
-    behavior: CatalogRecordBehavior
+    behavior: ObjectRecordBehavior
     currentWorkspaceId: string | null
     currentUserId: string | null
     date: Date
@@ -91,7 +91,7 @@ export const allocateRuntimeRecordNumber = async (params: {
 }
 
 export class RuntimeNumberingService {
-    resolvePeriodKey(date: Date, periodicity: CatalogRecordBehavior['numbering']['periodicity']): string {
+    resolvePeriodKey(date: Date, periodicity: ObjectRecordBehavior['numbering']['periodicity']): string {
         return resolveRecordNumberPeriodKey(date, periodicity)
     }
 
@@ -105,7 +105,7 @@ export class RuntimeRecordCommandService {
 
     async buildInitialCreateColumnValues(params: {
         columnValues: readonly RuntimeRecordCreateColumnValue[]
-        behavior: CatalogRecordBehavior
+        behavior: ObjectRecordBehavior
         manager: DbExecutor
         schemaIdent: string
         objectId: string
@@ -166,7 +166,7 @@ export class RuntimeRecordCommandService {
     async buildUpdate(params: {
         command: RuntimeRecordCommand
         previousRow: Record<string, unknown>
-        behavior: CatalogRecordBehavior
+        behavior: ObjectRecordBehavior
         manager: DbExecutor
         schemaIdent: string
         objectId: string

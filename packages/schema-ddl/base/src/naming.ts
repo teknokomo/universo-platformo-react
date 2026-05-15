@@ -8,7 +8,7 @@ import {
 import type { RuntimeEntityKind } from './types'
 
 const ENTITY_TABLE_PREFIX: Record<string, string> = {
-    catalog: 'cat',
+    object: 'obj',
     set: 'set',
     enumeration: 'enum',
     ledger: 'led',
@@ -19,7 +19,7 @@ const ENTITY_TABLE_PREFIX: Record<string, string> = {
 }
 
 const SCHEMA_PREFIX = 'app'
-const FIELD_PREFIX = 'attr'
+const FIELD_PREFIX = 'cmp'
 const RESERVED_DYNAMIC_SCHEMA_PREFIX_PATTERN = /^(app|mhb)_/
 
 export const generateSchemaName = (applicationId: string): string => {
@@ -77,16 +77,16 @@ export const isValidSchemaName = (schemaName: string): boolean => {
 }
 
 /**
- * Generates independent table name for a child table (TABLE attribute).
- * Convention: tbl_{attributeUuid32}
- * Uses full UUID v7 hex (32 chars) of the TABLE attribute ID.
+ * Generates independent table name for a child table (TABLE component).
+ * Convention: tbl_{componentUuid32}
+ * Uses full UUID v7 hex (32 chars) of the TABLE component ID.
  * Total name = 4 ('tbl_') + 32 (hex) = 36 chars, well within PostgreSQL 63-char limit.
  * The name is independent of the parent table, enabling future multi-parent (junction table) support.
  *
  * Example: tbl_0196117f8e037db3bbe2d3e0f1a2b3c4
  */
-export const generateChildTableName = (attributeId: string): string => {
-    const cleanId = attributeId.replace(/-/g, '')
+export const generateChildTableName = (componentId: string): string => {
+    const cleanId = componentId.replace(/-/g, '')
     return `tbl_${cleanId}`
 }
 

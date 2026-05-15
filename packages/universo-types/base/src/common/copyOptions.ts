@@ -13,7 +13,7 @@ export const DEFAULT_APPLICATION_COPY_OPTIONS: ApplicationCopyOptions = {
 export const BRANCH_COPY_OPTION_KEYS = [
     'copyLayouts',
     'copyTreeEntities',
-    'copyLinkedCollections',
+    'copyObjectCollections',
     'copyValueGroups',
     'copyOptionLists'
 ] as const
@@ -24,7 +24,7 @@ export interface BranchCopyOptions {
     fullCopy: boolean
     copyLayouts: boolean
     copyTreeEntities: boolean
-    copyLinkedCollections: boolean
+    copyObjectCollections: boolean
     copyValueGroups: boolean
     copyOptionLists: boolean
 }
@@ -35,18 +35,18 @@ export const DEFAULT_BRANCH_COPY_OPTIONS: BranchCopyOptions = {
     fullCopy: true,
     copyLayouts: true,
     copyTreeEntities: true,
-    copyLinkedCollections: true,
+    copyObjectCollections: true,
     copyValueGroups: true,
     copyOptionLists: true
 }
 
-export const TREE_ENTITY_COPY_OPTION_KEYS = ['copyLinkedCollectionRelations', 'copyValueGroupRelations', 'copyOptionListRelations'] as const
+export const TREE_ENTITY_COPY_OPTION_KEYS = ['copyObjectCollectionRelations', 'copyValueGroupRelations', 'copyOptionListRelations'] as const
 
 export type TreeEntityCopyOptionKey = (typeof TREE_ENTITY_COPY_OPTION_KEYS)[number]
 
 export interface TreeEntityCopyOptions {
     copyAllRelations: boolean
-    copyLinkedCollectionRelations: boolean
+    copyObjectCollectionRelations: boolean
     copyValueGroupRelations: boolean
     copyOptionListRelations: boolean
 }
@@ -55,20 +55,20 @@ export type TreeEntityCopyOptionsInput = Partial<TreeEntityCopyOptions>
 
 export const DEFAULT_TREE_ENTITY_COPY_OPTIONS: TreeEntityCopyOptions = {
     copyAllRelations: true,
-    copyLinkedCollectionRelations: true,
+    copyObjectCollectionRelations: true,
     copyValueGroupRelations: true,
     copyOptionListRelations: true
 }
 
-export interface LinkedCollectionCopyOptions {
-    copyFieldDefinitions: boolean
+export interface ObjectCollectionCopyOptions {
+    copyComponents: boolean
     copyRecords: boolean
 }
 
-export type LinkedCollectionCopyOptionsInput = Partial<LinkedCollectionCopyOptions>
+export type ObjectCollectionCopyOptionsInput = Partial<ObjectCollectionCopyOptions>
 
-export const DEFAULT_LINKED_COLLECTION_COPY_OPTIONS: LinkedCollectionCopyOptions = {
-    copyFieldDefinitions: true,
+export const DEFAULT_OBJECT_COLLECTION_COPY_OPTIONS: ObjectCollectionCopyOptions = {
+    copyComponents: true,
     copyRecords: true
 }
 
@@ -102,12 +102,12 @@ export const DEFAULT_LAYOUT_COPY_OPTIONS: LayoutCopyOptions = {
     deactivateAllWidgets: false
 }
 
-export interface FieldDefinitionCopyOptions {
-    copyChildFieldDefinitions: boolean
+export interface ComponentCopyOptions {
+    copyChildComponents: boolean
 }
 
-export const DEFAULT_FIELD_DEFINITION_COPY_OPTIONS: FieldDefinitionCopyOptions = {
-    copyChildFieldDefinitions: true
+export const DEFAULT_COMPONENT_COPY_OPTIONS: ComponentCopyOptions = {
+    copyChildComponents: true
 }
 
 export interface FixedValueCopyOptions {

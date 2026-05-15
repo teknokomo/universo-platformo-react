@@ -21,7 +21,7 @@ import {
     ViewHeaderMUI as ViewHeader
 } from '@universo/template-mui'
 import { ConflictResolutionDialog } from '@universo/template-mui/components/dialogs'
-import { isEnabledComponentConfig, normalizePageBlockContentForStorage, type PageBlockContent } from '@universo/types'
+import { isEnabledCapabilityConfig, normalizePageBlockContentForStorage, type PageBlockContent } from '@universo/types'
 import { extractConflictInfo, isOptimisticLockConflict, type ConflictInfo } from '@universo/utils'
 
 import type { Metahub } from '../../../types'
@@ -132,7 +132,9 @@ export const EntityBlockContentPage = () => {
         () => (entityTypesQuery.data?.items ?? []).find((item) => item.kindKey === resolvedKindKey) ?? null,
         [entityTypesQuery.data?.items, resolvedKindKey]
     )
-    const blockContentConfig = isEnabledComponentConfig(entityType?.components.blockContent) ? entityType.components.blockContent : null
+    const blockContentConfig = isEnabledCapabilityConfig(entityType?.capabilities.blockContent)
+        ? entityType.capabilities.blockContent
+        : null
     const entityQuery = useEntityInstanceQuery(metahubId, entityId)
     const updateEntityMutation = useUpdateEntityInstance()
     const entity = entityQuery.data ?? null

@@ -21,67 +21,67 @@ describe('sharedEntityExclusions', () => {
     })
 
     it('normalizes the hidden exclusion field into a unique ordered array', () => {
-        expect(readSharedExcludedTargetIdsField({ _sharedExcludedTargetIds: ['catalog-2', 'catalog-1', 'catalog-2', ''] })).toEqual([
-            'catalog-2',
-            'catalog-1'
+        expect(readSharedExcludedTargetIdsField({ _sharedExcludedTargetIds: ['object-2', 'object-1', 'object-2', ''] })).toEqual([
+            'object-2',
+            'object-1'
         ])
-        expect(normalizeSharedExcludedTargetIds(['catalog-1', 'catalog-1', 123, 'catalog-2'])).toEqual(['catalog-1', 'catalog-2'])
+        expect(normalizeSharedExcludedTargetIds(['object-1', 'object-1', 123, 'object-2'])).toEqual(['object-1', 'object-2'])
     })
 
     it('computes only the exclusion state transitions that actually changed', () => {
         expect(
             resolveSharedEntityExclusionChanges(
                 [
-                    { targetObjectId: 'catalog-1', isExcluded: true },
-                    { targetObjectId: 'catalog-2', isExcluded: false },
-                    { targetObjectId: 'catalog-3', isExcluded: true }
+                    { targetObjectId: 'object-1', isExcluded: true },
+                    { targetObjectId: 'object-2', isExcluded: false },
+                    { targetObjectId: 'object-3', isExcluded: true }
                 ],
-                ['catalog-2', 'catalog-3']
+                ['object-2', 'object-3']
             )
         ).toEqual([
-            { targetObjectId: 'catalog-1', isExcluded: false },
-            { targetObjectId: 'catalog-2', isExcluded: true }
+            { targetObjectId: 'object-1', isExcluded: false },
+            { targetObjectId: 'object-2', isExcluded: true }
         ])
     })
 
     it('syncs only changed exclusion states and preserves non-exclusion override fields through upserts', async () => {
         listSharedEntityOverridesByEntityMock.mockResolvedValue([
-            { targetObjectId: 'catalog-1', isExcluded: true },
-            { targetObjectId: 'catalog-3', isExcluded: false }
+            { targetObjectId: 'object-1', isExcluded: true },
+            { targetObjectId: 'object-3', isExcluded: false }
         ])
         upsertSharedEntityOverrideMock.mockResolvedValue(null)
 
         await syncSharedEntityExclusions({
             metahubId: 'metahub-1',
-            entityKind: 'attribute',
-            sharedEntityId: 'attribute-1',
-            excludedTargetIds: ['catalog-2']
+            entityKind: 'component',
+            sharedEntityId: 'component-1',
+            excludedTargetIds: ['object-2']
         })
 
-        expect(listSharedEntityOverridesByEntityMock).toHaveBeenCalledWith('metahub-1', 'attribute', 'attribute-1')
+        expect(listSharedEntityOverridesByEntityMock).toHaveBeenCalledWith('metahub-1', 'component', 'component-1')
         expect(upsertSharedEntityOverrideMock).toHaveBeenCalledTimes(2)
         expect(upsertSharedEntityOverrideMock).toHaveBeenNthCalledWith(1, 'metahub-1', {
-            entityKind: 'attribute',
-            sharedEntityId: 'attribute-1',
-            targetObjectId: 'catalog-1',
+            entityKind: 'component',
+            sharedEntityId: 'component-1',
+            targetObjectId: 'object-1',
             isExcluded: false
         })
         expect(upsertSharedEntityOverrideMock).toHaveBeenNthCalledWith(2, 'metahub-1', {
-            entityKind: 'attribute',
-            sharedEntityId: 'attribute-1',
-            targetObjectId: 'catalog-2',
+            entityKind: 'component',
+            sharedEntityId: 'component-1',
+            targetObjectId: 'object-2',
             isExcluded: true
         })
     })
 
     it('skips writes when the desired exclusions already match the stored override state', async () => {
-        listSharedEntityOverridesByEntityMock.mockResolvedValue([{ targetObjectId: 'catalog-2', isExcluded: true }])
+        listSharedEntityOverridesByEntityMock.mockResolvedValue([{ targetObjectId: 'object-2', isExcluded: true }])
 
         await syncSharedEntityExclusions({
             metahubId: 'metahub-1',
-            entityKind: 'attribute',
-            sharedEntityId: 'attribute-1',
-            excludedTargetIds: ['catalog-2']
+            entityKind: 'component',
+            sharedEntityId: 'component-1',
+            excludedTargetIds: ['object-2']
         })
 
         expect(upsertSharedEntityOverrideMock).not.toHaveBeenCalled()

@@ -24,7 +24,7 @@ On platform startup `@universo/core-backend` runs the fixed system-app pipeline 
 1. Platform prelude migrations run the `pre_schema_generation` support SQL for the schema.
 2. `ensureRegisteredSystemAppSchemaGenerationPlans()` builds fixed application-like entities from the manifest and ensures the `applications` schema shape.
 3. Platform post-schema migrations run the `post_schema_generation` support SQL for indexes, policies, and other dependent objects.
-4. `bootstrapRegisteredSystemAppStructureMetadata()` syncs `_app_objects` and `_app_attributes` metadata for the fixed schema.
+4. `bootstrapRegisteredSystemAppStructureMetadata()` syncs `_app_objects` and `_app_components` metadata for the fixed schema.
 5. A deterministic baseline row such as `baseline_applications_structure_0_1_0` is stored in `applications._app_migrations`.
 
 ## Fixed Schema Surface
@@ -32,8 +32,8 @@ On platform startup `@universo/core-backend` runs the fixed system-app pipeline 
 The fixed `applications` schema is the platform catalog for application metadata, not the per-application runtime schema.
 The current manifest defines these business tables:
 
-- `cat_applications`
-- `cat_connectors`
+- `obj_applications`
+- `obj_connectors`
 - `rel_connector_publications`
 - `rel_application_users`
 
@@ -42,7 +42,7 @@ The current fixed-schema system-table surface comes from the enabled application
 - `_app_migrations`
 - `_app_settings`
 - `_app_objects`
-- `_app_attributes`
+- `_app_components`
 
 ## Runtime Application Schemas
 
@@ -53,7 +53,7 @@ When a runtime schema exists, the canonical shared system-table set is:
 - `_app_migrations`
 - `_app_settings`
 - `_app_objects`
-- `_app_attributes`
+- `_app_components`
 - `_app_values`
 - `_app_layouts`
 - `_app_widgets`
@@ -69,7 +69,7 @@ There is no current `_app_metadata` system table in the shared schema-ddl contra
 - `POST /application/:applicationId/release-bundle/apply`
 - `GET /application/:applicationId/diff`
 
-These routes create or update the managed runtime schema, persist `schema_status`, `schema_snapshot`, and `installed_release_metadata` in `applications.cat_applications`, and reuse the same sync engine for publication-backed and file-bundle installs.
+These routes create or update the managed runtime schema, persist `schema_status`, `schema_snapshot`, and `installed_release_metadata` in `applications.obj_applications`, and reuse the same sync engine for publication-backed and file-bundle installs.
 
 ## Related Migration-Control Routes
 

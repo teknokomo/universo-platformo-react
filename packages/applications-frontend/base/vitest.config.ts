@@ -15,56 +15,56 @@ const enforceCoverageThresholds = process.env.VITEST_ENFORCE_COVERAGE === 'true'
 
 // Merge with baseConfig (now uses happy-dom from base)
 export default mergeConfig(
-  baseConfig,
-  defineConfig({
-    root: __dirname,
-    resolve: {
-      alias: [
-        {
-          find: /^@\/views\//,
-          replacement: `${path.resolve(coreFrontendSrcDir, 'views')}/`,
+    baseConfig,
+    defineConfig({
+        root: __dirname,
+        resolve: {
+            alias: [
+                {
+                    find: /^@\/views\//,
+                    replacement: `${path.resolve(coreFrontendSrcDir, 'views')}/`
+                },
+                ...Object.entries(tsconfigAliases).map(([find, replacement]) => ({ find, replacement })),
+                {
+                    find: '@',
+                    replacement: srcDir
+                }
+            ]
         },
-        ...Object.entries(tsconfigAliases).map(([find, replacement]) => ({ find, replacement })),
-        {
-          find: '@',
-          replacement: srcDir,
-        },
-      ],
-    },
-    test: {
-      globals: true,
-      include: ['src/**/*.{test,spec}.{ts,tsx,js,jsx}'],
-      setupFiles: [...sharedSetupFiles, path.resolve(__dirname, 'setupTests.ts')],
-      coverage: {
-        enabled: coverageEnabled,
-        reporter: ['text', 'json-summary'],
-        reportsDirectory: path.resolve(__dirname, 'coverage'),
-        include: ['src/**/*.{ts,tsx}'],
-        exclude: [
-          'src/**/__tests__/**',
-          'src/**/__mocks__/**',
-          'src/pages/**',
-          'src/components/**',
-          'src/hooks/**',
-          'src/menu-items/**',
-          'src/i18n/**',
-        ],
-        ...(enforceCoverageThresholds
-          ? {
-              thresholds: {
-                statements: 70,
-                branches: 70,
-                functions: 70,
-                lines: 70,
-              },
+        test: {
+            globals: true,
+            include: ['src/**/*.{test,spec}.{ts,tsx,js,jsx}'],
+            setupFiles: [...sharedSetupFiles, path.resolve(__dirname, 'setupTests.ts')],
+            coverage: {
+                enabled: coverageEnabled,
+                reporter: ['text', 'json-summary'],
+                reportsDirectory: path.resolve(__dirname, 'coverage'),
+                include: ['src/**/*.{ts,tsx}'],
+                exclude: [
+                    'src/**/__tests__/**',
+                    'src/**/__mocks__/**',
+                    'src/pages/**',
+                    'src/components/**',
+                    'src/hooks/**',
+                    'src/menu-items/**',
+                    'src/i18n/**'
+                ],
+                ...(enforceCoverageThresholds
+                    ? {
+                          thresholds: {
+                              statements: 70,
+                              branches: 70,
+                              functions: 70,
+                              lines: 70
+                          }
+                      }
+                    : {})
             }
-          : {}),
-      },
-    },
-    esbuild: {
-      loader: 'tsx',
-      include: [/src\/.*\.[jt]sx?$/, /tools\/testing\/frontend\/.*\.[jt]sx?$/],
-      jsx: 'automatic',
-    },
-  })
+        },
+        esbuild: {
+            loader: 'tsx',
+            include: [/src\/.*\.[jt]sx?$/, /tools\/testing\/frontend\/.*\.[jt]sx?$/],
+            jsx: 'automatic'
+        }
+    })
 )

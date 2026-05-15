@@ -34,7 +34,7 @@ const mockRecordsService = {
     reorderRecord: jest.fn()
 }
 
-const mockFieldDefinitionsService = {
+const mockComponentsService = {
     findAllFlat: jest.fn()
 }
 
@@ -48,9 +48,9 @@ jest.mock('../../domains/metahubs/services/MetahubObjectsService', () => ({
     MetahubObjectsService: jest.fn().mockImplementation(() => ({}))
 }))
 
-jest.mock('../../domains/metahubs/services/MetahubFieldDefinitionsService', () => ({
+jest.mock('../../domains/metahubs/services/MetahubComponentsService', () => ({
     __esModule: true,
-    MetahubFieldDefinitionsService: jest.fn().mockImplementation(() => mockFieldDefinitionsService)
+    MetahubComponentsService: jest.fn().mockImplementation(() => mockComponentsService)
 }))
 
 jest.mock('../../domains/metahubs/services/MetahubRecordsService', () => ({
@@ -97,10 +97,10 @@ describe('Record Routes', () => {
         })
     })
 
-    it('PATCH /metahub/:metahubId/catalog/:linkedCollectionId/record/:recordId/move moves record', async () => {
+    it('PATCH /metahub/:metahubId/object/:objectCollectionId/record/:recordId/move moves record', async () => {
         const app = buildApp()
         const response = await request(app)
-            .patch('/metahub/metahub-1/entities/catalog/instance/catalog-1/record/55555555-5555-4555-8555-555555555555/move')
+            .patch('/metahub/metahub-1/entities/object/instance/object-1/record/55555555-5555-4555-8555-555555555555/move')
             .send({ direction: 'up' })
             .expect(200)
 
@@ -110,30 +110,30 @@ describe('Record Routes', () => {
         })
         expect(mockRecordsService.moveRecord).toHaveBeenCalledWith(
             'metahub-1',
-            'catalog-1',
+            'object-1',
             '55555555-5555-4555-8555-555555555555',
             'up',
             'test-user-id'
         )
     })
 
-    it('PATCH /metahub/:metahubId/catalog/:linkedCollectionId/record/:recordId/move returns 404 when missing', async () => {
+    it('PATCH /metahub/:metahubId/object/:objectCollectionId/record/:recordId/move returns 404 when missing', async () => {
         const missingError = new MetahubNotFoundError('Element', '55555555-5555-4555-8555-555555555555')
         mockRecordsService.moveRecord.mockRejectedValueOnce(missingError)
 
         const app = buildApp()
         const response = await request(app)
-            .patch('/metahub/metahub-1/entities/catalog/instance/catalog-1/record/55555555-5555-4555-8555-555555555555/move')
+            .patch('/metahub/metahub-1/entities/object/instance/object-1/record/55555555-5555-4555-8555-555555555555/move')
             .send({ direction: 'down' })
             .expect(404)
 
         expect(response.body.error).toBe('Element not found')
     })
 
-    it('PATCH /metahub/:metahubId/catalog/:linkedCollectionId/records/reorder reorders record', async () => {
+    it('PATCH /metahub/:metahubId/object/:objectCollectionId/records/reorder reorders record', async () => {
         const app = buildApp()
         const response = await request(app)
-            .patch('/metahub/metahub-1/entities/catalog/instance/catalog-1/records/reorder')
+            .patch('/metahub/metahub-1/entities/object/instance/object-1/records/reorder')
             .send({
                 recordId: '55555555-5555-4555-8555-555555555555',
                 newSortOrder: 2
@@ -146,17 +146,17 @@ describe('Record Routes', () => {
         })
         expect(mockRecordsService.reorderRecord).toHaveBeenCalledWith(
             'metahub-1',
-            'catalog-1',
+            'object-1',
             '55555555-5555-4555-8555-555555555555',
             2,
             'test-user-id'
         )
     })
 
-    it('PATCH /metahub/:metahubId/catalog/:linkedCollectionId/records/reorder validates payload', async () => {
+    it('PATCH /metahub/:metahubId/object/:objectCollectionId/records/reorder validates payload', async () => {
         const app = buildApp()
         const response = await request(app)
-            .patch('/metahub/metahub-1/entities/catalog/instance/catalog-1/records/reorder')
+            .patch('/metahub/metahub-1/entities/object/instance/object-1/records/reorder')
             .send({
                 recordId: 'bad-id',
                 newSortOrder: 0

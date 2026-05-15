@@ -12,14 +12,14 @@ import type {
     GlobalRole,
     CodenameVLC,
     VersionedLocalizedContent,
-    FieldDefinitionDataType,
+    ComponentDefinitionDataType,
     FixedValueDataType,
     EntityKind,
     SharedBehavior,
     DashboardLayoutZone,
     DashboardLayoutWidgetKey,
     BranchCopyOptions,
-    FieldDefinitionSystemMetadata
+    ComponentSystemMetadata
 } from '@universo/types'
 
 // Re-export centralized VLC utilities for consumers
@@ -39,11 +39,11 @@ export type { ConflictInfo } from '@universo/utils'
 // Re-export from @universo/types for consistency
 export type { PaginationParams, PaginationMeta, PaginatedResponse } from '@universo/types'
 export type {
-    FieldDefinitionDataType,
+    ComponentDefinitionDataType,
     FixedValueDataType,
-    FieldDefinitionValidationRules,
+    ComponentDefinitionValidationRules,
     PhysicalTypeInfo,
-    FieldDefinitionSystemMetadata
+    ComponentSystemMetadata
 } from '@universo/types'
 export { getDefaultValidationRules, getPhysicalDataType, formatPhysicalType } from '@universo/types'
 
@@ -91,7 +91,7 @@ export interface MetahubMembersResponse {
 
 // ============ METAHUB ENTITY ============
 
-/** Metahub root entity for hubs, catalogs, and related metadata. */
+/** Metahub root entity for hubs, objects, and related metadata. */
 export interface Metahub {
     id: string
     codename: CodenameVLC
@@ -108,7 +108,7 @@ export interface Metahub {
     meta_entitiesCount?: number
     membersCount?: number
     treeEntitiesCount?: number
-    linkedCollectionsCount?: number
+    objectCollectionsCount?: number
     // Access info
     role?: MetahubRole
     accessType?: AccessType
@@ -129,7 +129,7 @@ export interface MetahubDisplay {
     meta_entitiesCount?: number
     membersCount?: number
     treeEntitiesCount?: number
-    linkedCollectionsCount?: number
+    objectCollectionsCount?: number
     role?: MetahubRole
     accessType?: AccessType
     permissions?: MetahubPermissions
@@ -247,14 +247,14 @@ export interface MetahubLayoutZoneWidget {
 /** @deprecated Use MetahubLayoutZoneWidget instead. */
 export type MetahubLayoutZoneModule = MetahubLayoutZoneWidget
 
-export interface DashboardLayoutWidgetCatalogItem {
+export interface DashboardLayoutWidgetItem {
     key: DashboardLayoutWidgetKey
     allowedZones: DashboardLayoutZone[]
     multiInstance: boolean
 }
 
-/** @deprecated Use DashboardLayoutWidgetCatalogItem instead. */
-export type DashboardLayoutModuleCatalogItem = DashboardLayoutWidgetCatalogItem
+/** @deprecated Use DashboardLayoutWidgetItem instead. */
+export type DashboardLayoutModuleItem = DashboardLayoutWidgetItem
 
 // ============ PUBLICATION ENTITY ============
 
@@ -277,7 +277,7 @@ export interface PublicationDisplay {
 
 /**
  * TreeEntity - a hierarchical container within a Metahub.
- * Catalogs can be associated through an N:M relationship.
+ * Object collections can be associated through an N:M relationship.
  */
 export interface TreeEntity {
     id: string
@@ -290,7 +290,7 @@ export interface TreeEntity {
     createdAt: string
     updatedAt: string
     version?: number
-    linkedCollectionsCount?: number
+    objectCollectionsCount?: number
     itemsCount?: number
     role?: MetahubRole
     permissions?: MetahubPermissions
@@ -307,7 +307,7 @@ export interface TreeEntityDisplay {
     parentTreeEntityId?: string | null
     createdAt: string
     updatedAt: string
-    linkedCollectionsCount?: number
+    objectCollectionsCount?: number
     itemsCount?: number
     role?: MetahubRole
     permissions?: MetahubPermissions
@@ -323,14 +323,14 @@ export interface TreeEntityRef {
 // ============ CATALOG ENTITY ============
 
 /**
- * LinkedCollectionEntity - a design-time collection inside a Metahub.
+ * ObjectCollectionEntity - a design-time collection inside a Metahub.
  * Can be associated with multiple hubs via a junction table.
  *
  * TreeEntity association constraints (orthogonal flags):
  * - isSingleHub: max 1 hub (true) or unlimited (false)
  * - isRequiredHub: min 1 hub required (true) or can have 0 (false)
  */
-export interface LinkedCollectionEntity {
+export interface ObjectCollectionEntity {
     id: string
     metahubId: string
     codename: CodenameVLC
@@ -344,14 +344,14 @@ export interface LinkedCollectionEntity {
     updatedAt: string
     version?: number
     treeEntities?: TreeEntityRef[]
-    fieldDefinitionsCount?: number
+    componentsCount?: number
     recordsCount?: number
     role?: MetahubRole
     permissions?: MetahubPermissions
 }
 
-/** LinkedCollectionEntity with localized strings for table rendering */
-export interface LinkedCollectionDisplay {
+/** ObjectCollectionEntity with localized strings for table rendering */
+export interface ObjectCollectionDisplay {
     id: string
     metahubId: string
     codename: string
@@ -364,7 +364,7 @@ export interface LinkedCollectionDisplay {
     createdAt: string
     updatedAt: string
     treeEntities?: Array<{ id: string; name: string; codename: string }>
-    fieldDefinitionsCount?: number
+    componentsCount?: number
     recordsCount?: number
     role?: MetahubRole
     permissions?: MetahubPermissions
@@ -374,7 +374,7 @@ export interface LinkedCollectionDisplay {
 
 /**
  * ValueGroupEntity - a container for grouped fixed values.
- * Mirrors linked-collection association rules while storing fixed values instead of records.
+ * Mirrors object-collection association rules while storing fixed values instead of records.
  */
 export interface ValueGroupEntity {
     id: string
@@ -494,14 +494,14 @@ export interface OptionValueDisplay {
 // ============ FIELD DEFINITION ENTITY ============
 
 /**
- * FieldDefinition - a virtual field within a LinkedCollectionEntity
- * Defines the schema for LinkedCollectionEntity records
+ * Component - a virtual field within a ObjectCollectionEntity
+ * Defines the schema for ObjectCollectionEntity records
  */
-export interface FieldDefinition {
+export interface Component {
     id: string
-    linkedCollectionId: string
+    objectCollectionId: string
     codename: CodenameVLC
-    dataType: FieldDefinitionDataType
+    dataType: ComponentDefinitionDataType
     name: VersionedLocalizedContent<string>
     targetEntityId?: string | null
     targetEntityKind?: EntityKind | null
@@ -509,7 +509,7 @@ export interface FieldDefinition {
     validationRules: Record<string, unknown>
     uiConfig: Record<string, unknown>
     isRequired: boolean
-    isDisplayAttribute?: boolean
+    isDisplayComponent?: boolean
     sortOrder: number
     effectiveSortOrder?: number
     isShared?: boolean
@@ -521,15 +521,15 @@ export interface FieldDefinition {
     version?: number
     role?: MetahubRole
     permissions?: MetahubPermissions
-    system?: FieldDefinitionSystemMetadata | null
+    system?: ComponentSystemMetadata | null
 }
 
-/** FieldDefinition with localized strings for table rendering */
-export interface FieldDefinitionDisplay {
+/** Component with localized strings for table rendering */
+export interface ComponentDisplay {
     id: string
-    linkedCollectionId: string
+    objectCollectionId: string
     codename: string
-    dataType: FieldDefinitionDataType
+    dataType: ComponentDefinitionDataType
     name: string
     targetEntityId?: string | null
     targetEntityKind?: EntityKind | null
@@ -537,7 +537,7 @@ export interface FieldDefinitionDisplay {
     validationRules: Record<string, unknown>
     uiConfig: Record<string, unknown>
     isRequired: boolean
-    isDisplayAttribute?: boolean
+    isDisplayComponent?: boolean
     sortOrder: number
     effectiveSortOrder?: number
     isShared?: boolean
@@ -548,7 +548,7 @@ export interface FieldDefinitionDisplay {
     updatedAt: string
     role?: MetahubRole
     permissions?: MetahubPermissions
-    system?: FieldDefinitionSystemMetadata | null
+    system?: ComponentSystemMetadata | null
 }
 
 // ============ FIXED VALUE ENTITY ============
@@ -598,10 +598,10 @@ export interface FixedValueDisplay {
 
 // ============ RECORD ENTITY ============
 
-/** RecordItem - a data row within a LinkedCollectionEntity */
+/** RecordItem - a data row within a ObjectCollectionEntity */
 export interface RecordItem {
     id: string
-    linkedCollectionId: string
+    objectCollectionId: string
     data: Record<string, unknown>
     ownerId: string | null
     sortOrder: number
@@ -613,7 +613,7 @@ export interface RecordItem {
 /** RecordItem with derived name/description for FlowListTable compatibility */
 export interface RecordItemDisplay {
     id: string
-    linkedCollectionId: string
+    objectCollectionId: string
     name: string
     description: string
     data: Record<string, unknown>
@@ -655,13 +655,13 @@ export interface BranchLocalizedPayload {
     fullCopy?: BranchCopyOptions['fullCopy']
     copyLayouts?: BranchCopyOptions['copyLayouts']
     copyTreeEntities?: BranchCopyOptions['copyTreeEntities']
-    copyLinkedCollections?: BranchCopyOptions['copyLinkedCollections']
+    copyObjectCollections?: BranchCopyOptions['copyObjectCollections']
     copyValueGroups?: BranchCopyOptions['copyValueGroups']
     copyOptionLists?: BranchCopyOptions['copyOptionLists']
 }
 
-/** Payload for creating/updating LinkedCollectionEntity */
-export interface LinkedCollectionLocalizedPayload {
+/** Payload for creating/updating ObjectCollectionEntity */
+export interface ObjectCollectionLocalizedPayload {
     codename: CodenameVLC
     name: SimpleLocalizedInput
     description?: SimpleLocalizedInput
@@ -709,14 +709,14 @@ export interface OptionValueLocalizedPayload {
     isDefault?: boolean
 }
 
-/** Payload for creating/updating field definition */
-export interface FieldDefinitionLocalizedPayload {
+/** Payload for creating/updating component */
+export interface ComponentLocalizedPayload {
     codename: CodenameVLC
-    dataType: FieldDefinitionDataType
+    dataType: ComponentDefinitionDataType
     name: SimpleLocalizedInput
     namePrimaryLocale?: string
     isRequired?: boolean
-    isDisplayAttribute?: boolean
+    isDisplayComponent?: boolean
     validationRules?: Record<string, unknown>
     targetEntityId?: string
     targetEntityKind?: EntityKind
@@ -745,11 +745,11 @@ export {
     toBranchDisplay,
     toMetahubLayoutDisplay,
     toTreeEntityDisplay,
-    toLinkedCollectionDisplay,
+    toObjectCollectionDisplay,
     toValueGroupDisplay,
     toOptionListDisplay,
     toOptionValueDisplay,
-    toFieldDefinitionDisplay,
+    toComponentDisplay,
     toFixedValueDisplay,
     toRecordItemDisplay
 } from './displayConverters'

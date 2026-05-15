@@ -180,7 +180,9 @@ describe('startupReset', () => {
             const result = await executeStartupFullReset()
 
             // Verify DELETE FROM auth.users was called with user IDs
-            const deleteCalls = mockTx.query.mock.calls.filter((call) => typeof call[0] === 'string' && call[0].includes('DELETE FROM auth.users'))
+            const deleteCalls = mockTx.query.mock.calls.filter(
+                (call) => typeof call[0] === 'string' && call[0].includes('DELETE FROM auth.users')
+            )
             expect(deleteCalls.length).toBe(1)
             expect(deleteCalls[0][1]).toEqual([['user-1', 'user-2']])
 

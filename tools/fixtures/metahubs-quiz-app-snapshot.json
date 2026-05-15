@@ -1,9 +1,9 @@
 {
   "kind": "metahub_snapshot_bundle",
   "bundleVersion": 1,
-  "exportedAt": "2026-04-18T01:15:39.750Z",
+  "exportedAt": "2026-05-15T00:50:44.801Z",
   "metahub": {
-    "id": "019d9e27-d716-7db0-b590-09f5a6bd31ac",
+    "id": "019e291d-41cf-79ed-aedc-596ff658ecc7",
     "name": {
       "_schema": "1",
       "locales": {
@@ -11,15 +11,15 @@
           "content": "Space Quiz Metahub",
           "version": 1,
           "isActive": true,
-          "createdAt": "2026-04-18T01:15:03.493Z",
-          "updatedAt": "2026-04-18T01:15:03.493Z"
+          "createdAt": "2026-05-15T00:50:43.784Z",
+          "updatedAt": "2026-05-15T00:50:43.784Z"
         },
         "ru": {
           "content": "Метахаб космической викторины",
           "version": 1,
           "isActive": true,
-          "createdAt": "2026-04-18T01:15:03.493Z",
-          "updatedAt": "2026-04-18T01:15:03.493Z"
+          "createdAt": "2026-05-15T00:50:43.784Z",
+          "updatedAt": "2026-05-15T00:50:43.784Z"
         }
       },
       "_primary": "en"
@@ -31,15 +31,15 @@
           "content": "Canonical metahub fixture for the full scripting-powered Space Quiz experience with 10 questions, scoring, and restart flow.",
           "version": 1,
           "isActive": true,
-          "createdAt": "2026-04-18T01:15:03.493Z",
-          "updatedAt": "2026-04-18T01:15:03.493Z"
+          "createdAt": "2026-05-15T00:50:43.784Z",
+          "updatedAt": "2026-05-15T00:50:43.784Z"
         },
         "ru": {
           "content": "Канонический fixture метахаба для полноценной космической викторины на скриптах: 10 вопросов, подсчёт баллов и перезапуск.",
           "version": 1,
           "isActive": true,
-          "createdAt": "2026-04-18T01:15:03.493Z",
-          "updatedAt": "2026-04-18T01:15:03.493Z"
+          "createdAt": "2026-05-15T00:50:43.784Z",
+          "updatedAt": "2026-05-15T00:50:43.784Z"
         }
       },
       "_primary": "en"
@@ -51,23 +51,23 @@
           "content": "SpaceQuizMetahub",
           "version": 2,
           "isActive": true,
-          "createdAt": "2026-04-18T01:15:02.293Z",
-          "updatedAt": "2026-04-18T01:15:03.493Z"
+          "createdAt": "2026-05-15T00:50:43.763Z",
+          "updatedAt": "2026-05-15T00:50:43.785Z"
         },
         "ru": {
           "content": "МетахабКосмическойВикторины",
           "version": 1,
           "isActive": true,
-          "createdAt": "2026-04-18T01:15:02.293Z",
-          "updatedAt": "2026-04-18T01:15:02.293Z"
+          "createdAt": "2026-05-15T00:50:43.763Z",
+          "updatedAt": "2026-05-15T00:50:43.763Z"
         }
       },
       "_primary": "en"
     }
   },
   "snapshot": {
-    "metahubId": "019d9e27-d716-7db0-b590-09f5a6bd31ac",
-    "generatedAt": "2026-04-18T01:15:38.822Z",
+    "metahubId": "019e291d-41cf-79ed-aedc-596ff658ecc7",
+    "generatedAt": "2026-05-15T00:50:44.781Z",
     "version": 1,
     "versionEnvelope": {
       "structureVersion": "0.1.0",
@@ -75,8 +75,8 @@
       "snapshotFormatVersion": 3
     },
     "entities": {
-      "019d9e28-0cd9-73c3-863e-3720801ce6f2": {
-        "id": "019d9e28-0cd9-73c3-863e-3720801ce6f2",
+      "019e291d-436a-7488-8e30-0686733e1587": {
+        "id": "019e291d-436a-7488-8e30-0686733e1587",
         "kind": "hub",
         "codename": {
           "_schema": "1",
@@ -85,15 +85,15 @@
               "content": "Main",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-18T01:15:18.065Z",
-              "updatedAt": "2026-04-18T01:15:18.065Z"
+              "createdAt": "2026-05-15T00:50:44.201Z",
+              "updatedAt": "2026-05-15T00:50:44.201Z"
             },
             "ru": {
               "content": "Основной",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-18T01:15:18.065Z",
-              "updatedAt": "2026-04-18T01:15:18.065Z"
+              "createdAt": "2026-05-15T00:50:44.201Z",
+              "updatedAt": "2026-05-15T00:50:44.201Z"
             }
           },
           "_primary": "en"
@@ -142,182 +142,40 @@
         },
         "config": {
           "sortOrder": 1,
-          "parentTreeEntityId": null
+          "parentTreeEntityId": null,
+          "capabilities": {
+            "events": {
+              "enabled": true
+            },
+            "actions": {
+              "enabled": true
+            },
+            "posting": false,
+            "records": false,
+            "hierarchy": false,
+            "relations": false,
+            "scripting": {
+              "enabled": true
+            },
+            "dataSchema": false,
+            "fixedValues": false,
+            "blockContent": false,
+            "layoutConfig": false,
+            "ledgerSchema": false,
+            "optionValues": false,
+            "physicalTable": false,
+            "identityFields": false,
+            "treeAssignment": false,
+            "recordLifecycle": false,
+            "runtimeBehavior": false,
+            "nestedCollections": false
+          }
         },
         "fields": [],
         "hubs": []
       },
-      "019d9e28-0d6a-757d-9d51-b3011fdcfe39": {
-        "id": "019d9e28-0d6a-757d-9d51-b3011fdcfe39",
-        "kind": "catalog",
-        "codename": {
-          "_schema": "1",
-          "locales": {
-            "en": {
-              "content": "Main",
-              "version": 1,
-              "isActive": true,
-              "createdAt": "2026-04-18T01:15:18.211Z",
-              "updatedAt": "2026-04-18T01:15:18.211Z"
-            },
-            "ru": {
-              "content": "Основной",
-              "version": 1,
-              "isActive": true,
-              "createdAt": "2026-04-18T01:15:18.211Z",
-              "updatedAt": "2026-04-18T01:15:18.211Z"
-            }
-          },
-          "_primary": "en"
-        },
-        "tableName": "cat_019d9e280d6a757d9d51b3011fdcfe39",
-        "presentation": {
-          "name": {
-            "_schema": "1",
-            "locales": {
-              "en": {
-                "content": "Main",
-                "version": 1,
-                "isActive": true,
-                "createdAt": "1970-01-01T00:00:00.000Z",
-                "updatedAt": "1970-01-01T00:00:00.000Z"
-              },
-              "ru": {
-                "content": "Основной",
-                "version": 1,
-                "isActive": true,
-                "createdAt": "1970-01-01T00:00:00.000Z",
-                "updatedAt": "1970-01-01T00:00:00.000Z"
-              }
-            },
-            "_primary": "en"
-          },
-          "description": {
-            "_schema": "1",
-            "locales": {
-              "en": {
-                "content": "Main catalog for storing records",
-                "version": 1,
-                "isActive": true,
-                "createdAt": "1970-01-01T00:00:00.000Z",
-                "updatedAt": "1970-01-01T00:00:00.000Z"
-              },
-              "ru": {
-                "content": "Основной каталог для хранения записей",
-                "version": 1,
-                "isActive": true,
-                "createdAt": "1970-01-01T00:00:00.000Z",
-                "updatedAt": "1970-01-01T00:00:00.000Z"
-              }
-            },
-            "_primary": "en"
-          }
-        },
-        "config": {
-          "sortOrder": 1
-        },
-        "fields": [
-          {
-            "id": "019d9e28-1417-7706-8d03-5c5e9fc208a8",
-            "codename": {
-              "_schema": "1",
-              "locales": {
-                "en": {
-                  "content": "Title",
-                  "version": 1,
-                  "isActive": true,
-                  "createdAt": "2026-04-18T01:15:19.921Z",
-                  "updatedAt": "2026-04-18T01:15:19.921Z"
-                }
-              },
-              "_primary": "en"
-            },
-            "dataType": "STRING",
-            "isRequired": false,
-            "isDisplayAttribute": true,
-            "targetConstantId": null,
-            "presentation": {
-              "name": {
-                "_schema": "1",
-                "locales": {
-                  "en": {
-                    "content": "Title",
-                    "version": 1,
-                    "isActive": true,
-                    "createdAt": "1970-01-01T00:00:00.000Z",
-                    "updatedAt": "1970-01-01T00:00:00.000Z"
-                  },
-                  "ru": {
-                    "content": "Название",
-                    "version": 1,
-                    "isActive": true,
-                    "createdAt": "1970-01-01T00:00:00.000Z",
-                    "updatedAt": "1970-01-01T00:00:00.000Z"
-                  }
-                },
-                "_primary": "en"
-              },
-              "description": {}
-            },
-            "validationRules": {
-              "maxLength": 255
-            },
-            "uiConfig": {
-              "isDisplay": true
-            },
-            "sortOrder": 1
-          },
-          {
-            "id": "019d9e28-14a3-752a-8133-3c3b1c364af7",
-            "codename": {
-              "_schema": "1",
-              "locales": {
-                "en": {
-                  "content": "Description",
-                  "version": 1,
-                  "isActive": true,
-                  "createdAt": "2026-04-18T01:15:20.060Z",
-                  "updatedAt": "2026-04-18T01:15:20.060Z"
-                }
-              },
-              "_primary": "en"
-            },
-            "dataType": "STRING",
-            "isRequired": false,
-            "isDisplayAttribute": false,
-            "targetConstantId": null,
-            "presentation": {
-              "name": {
-                "_schema": "1",
-                "locales": {
-                  "en": {
-                    "content": "Description",
-                    "version": 1,
-                    "isActive": true,
-                    "createdAt": "1970-01-01T00:00:00.000Z",
-                    "updatedAt": "1970-01-01T00:00:00.000Z"
-                  },
-                  "ru": {
-                    "content": "Описание",
-                    "version": 1,
-                    "isActive": true,
-                    "createdAt": "1970-01-01T00:00:00.000Z",
-                    "updatedAt": "1970-01-01T00:00:00.000Z"
-                  }
-                },
-                "_primary": "en"
-              },
-              "description": {}
-            },
-            "validationRules": {},
-            "uiConfig": {},
-            "sortOrder": 2
-          }
-        ],
-        "hubs": []
-      },
-      "019d9e28-12f7-7f79-864d-e654d88e68a4": {
-        "id": "019d9e28-12f7-7f79-864d-e654d88e68a4",
+      "019e291d-43a4-7b61-934f-d45bd277da94": {
+        "id": "019e291d-43a4-7b61-934f-d45bd277da94",
         "kind": "enumeration",
         "codename": {
           "_schema": "1",
@@ -326,20 +184,20 @@
               "content": "Main",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-18T01:15:19.631Z",
-              "updatedAt": "2026-04-18T01:15:19.631Z"
+              "createdAt": "2026-05-15T00:50:44.259Z",
+              "updatedAt": "2026-05-15T00:50:44.259Z"
             },
             "ru": {
               "content": "Основное",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-18T01:15:19.631Z",
-              "updatedAt": "2026-04-18T01:15:19.631Z"
+              "createdAt": "2026-05-15T00:50:44.259Z",
+              "updatedAt": "2026-05-15T00:50:44.259Z"
             }
           },
           "_primary": "en"
         },
-        "tableName": "enum_019d9e2812f77f79864de654d88e68a4",
+        "tableName": "enum_019e291d43a47b61934fd45bd277da94",
         "presentation": {
           "name": {
             "_schema": "1",
@@ -383,13 +241,489 @@
           }
         },
         "config": {
-          "sortOrder": 1
+          "sortOrder": 1,
+          "capabilities": {
+            "events": {
+              "enabled": true
+            },
+            "actions": {
+              "enabled": true
+            },
+            "posting": false,
+            "records": false,
+            "hierarchy": false,
+            "relations": false,
+            "scripting": {
+              "enabled": true
+            },
+            "dataSchema": false,
+            "fixedValues": false,
+            "blockContent": false,
+            "layoutConfig": false,
+            "ledgerSchema": false,
+            "optionValues": {
+              "enabled": true
+            },
+            "physicalTable": false,
+            "identityFields": false,
+            "treeAssignment": {
+              "enabled": true
+            },
+            "recordLifecycle": false,
+            "runtimeBehavior": false,
+            "nestedCollections": false
+          }
         },
         "fields": [],
         "hubs": []
       },
-      "019d9e28-126b-7e50-bd64-3f48d3fff5d6": {
-        "id": "019d9e28-126b-7e50-bd64-3f48d3fff5d6",
+      "019e291d-4378-79c5-9454-485a80d7e5a7": {
+        "id": "019e291d-4378-79c5-9454-485a80d7e5a7",
+        "kind": "object",
+        "codename": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "Main",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-05-15T00:50:44.216Z",
+              "updatedAt": "2026-05-15T00:50:44.216Z"
+            },
+            "ru": {
+              "content": "Основной",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-05-15T00:50:44.216Z",
+              "updatedAt": "2026-05-15T00:50:44.216Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "tableName": "obj_019e291d437879c59454485a80d7e5a7",
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Main",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Основной",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Main object for storing records",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Основной объект для хранения записей",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          }
+        },
+        "config": {
+          "recordBehavior": {
+            "mode": "reference",
+            "posting": {
+              "mode": "disabled",
+              "targetLedgers": []
+            },
+            "lifecycle": {
+              "states": [],
+              "enabled": false
+            },
+            "numbering": {
+              "scope": "workspace",
+              "enabled": false,
+              "minLength": 6,
+              "periodicity": "none"
+            },
+            "immutability": "none",
+            "effectiveDate": {
+              "enabled": false,
+              "defaultToNow": true
+            }
+          },
+          "sortOrder": 1,
+          "capabilities": {
+            "events": {
+              "enabled": true
+            },
+            "actions": {
+              "enabled": true
+            },
+            "posting": {
+              "enabled": true,
+              "allowManualPosting": true,
+              "allowAutomaticPosting": true
+            },
+            "records": {
+              "enabled": true
+            },
+            "hierarchy": {
+              "enabled": true,
+              "supportsFolders": true
+            },
+            "relations": {
+              "enabled": true,
+              "allowedRelationTypes": [
+                "manyToOne"
+              ]
+            },
+            "scripting": {
+              "enabled": true
+            },
+            "dataSchema": {
+              "enabled": true
+            },
+            "fixedValues": false,
+            "blockContent": false,
+            "layoutConfig": {
+              "enabled": true
+            },
+            "ledgerSchema": {
+              "enabled": true,
+              "allowManualFacts": true,
+              "allowProjections": true,
+              "allowRegistrarPolicy": true
+            },
+            "optionValues": false,
+            "physicalTable": {
+              "prefix": "obj",
+              "enabled": true
+            },
+            "identityFields": {
+              "enabled": true,
+              "allowNumber": true,
+              "allowEffectiveDate": true
+            },
+            "treeAssignment": {
+              "enabled": true
+            },
+            "recordLifecycle": {
+              "enabled": true,
+              "allowCustomStates": true
+            },
+            "runtimeBehavior": {
+              "enabled": true
+            },
+            "nestedCollections": false
+          }
+        },
+        "fields": [
+          {
+            "id": "019e291d-43ab-7e68-bcad-a8f17e990e2e",
+            "codename": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Title",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "2026-05-15T00:50:44.266Z",
+                  "updatedAt": "2026-05-15T00:50:44.266Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "dataType": "STRING",
+            "isRequired": false,
+            "isDisplayComponent": true,
+            "targetConstantId": null,
+            "presentation": {
+              "name": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Title",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "1970-01-01T00:00:00.000Z",
+                    "updatedAt": "1970-01-01T00:00:00.000Z"
+                  },
+                  "ru": {
+                    "content": "Название",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "1970-01-01T00:00:00.000Z",
+                    "updatedAt": "1970-01-01T00:00:00.000Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "description": {}
+            },
+            "validationRules": {
+              "maxLength": 255
+            },
+            "uiConfig": {
+              "isDisplay": true
+            },
+            "sortOrder": 1
+          },
+          {
+            "id": "019e291d-43ad-7a21-b1a0-b0d908dffbd4",
+            "codename": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Description",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "2026-05-15T00:50:44.268Z",
+                  "updatedAt": "2026-05-15T00:50:44.268Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "dataType": "STRING",
+            "isRequired": false,
+            "isDisplayComponent": false,
+            "targetConstantId": null,
+            "presentation": {
+              "name": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Description",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "1970-01-01T00:00:00.000Z",
+                    "updatedAt": "1970-01-01T00:00:00.000Z"
+                  },
+                  "ru": {
+                    "content": "Описание",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "1970-01-01T00:00:00.000Z",
+                    "updatedAt": "1970-01-01T00:00:00.000Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "description": {}
+            },
+            "validationRules": {},
+            "uiConfig": {},
+            "sortOrder": 2
+          }
+        ],
+        "hubs": []
+      },
+      "019e291d-436f-7c19-ac97-36d82ecd92f4": {
+        "id": "019e291d-436f-7c19-ac97-36d82ecd92f4",
+        "kind": "page",
+        "codename": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "WelcomePage",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-05-15T00:50:44.206Z",
+              "updatedAt": "2026-05-15T00:50:44.206Z"
+            },
+            "ru": {
+              "content": "ДоброПожаловать",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "2026-05-15T00:50:44.206Z",
+              "updatedAt": "2026-05-15T00:50:44.206Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Welcome",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Добро пожаловать",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Starter page with structured block content.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Стартовая страница со структурированным блочным контентом.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          }
+        },
+        "config": {
+          "runtime": {
+            "routeSegment": "welcome",
+            "menuVisibility": "visible"
+          },
+          "sortOrder": 1,
+          "blockContent": {
+            "data": {
+              "time": 0,
+              "blocks": [
+                {
+                  "id": "welcome-title",
+                  "data": {
+                    "text": {
+                      "_schema": "1",
+                      "locales": {
+                        "en": {
+                          "content": "Welcome",
+                          "version": 1,
+                          "isActive": true,
+                          "createdAt": "1970-01-01T00:00:00.000Z",
+                          "updatedAt": "1970-01-01T00:00:00.000Z"
+                        },
+                        "ru": {
+                          "content": "Добро пожаловать",
+                          "version": 1,
+                          "isActive": true,
+                          "createdAt": "1970-01-01T00:00:00.000Z",
+                          "updatedAt": "1970-01-01T00:00:00.000Z"
+                        }
+                      },
+                      "_primary": "en"
+                    },
+                    "level": 2
+                  },
+                  "type": "header"
+                },
+                {
+                  "id": "welcome-body",
+                  "data": {
+                    "text": {
+                      "_schema": "1",
+                      "locales": {
+                        "en": {
+                          "content": "Use this page to publish structured application content.",
+                          "version": 1,
+                          "isActive": true,
+                          "createdAt": "1970-01-01T00:00:00.000Z",
+                          "updatedAt": "1970-01-01T00:00:00.000Z"
+                        },
+                        "ru": {
+                          "content": "Используйте эту страницу для публикации структурированного контента приложения.",
+                          "version": 1,
+                          "isActive": true,
+                          "createdAt": "1970-01-01T00:00:00.000Z",
+                          "updatedAt": "1970-01-01T00:00:00.000Z"
+                        }
+                      },
+                      "_primary": "en"
+                    }
+                  },
+                  "type": "paragraph"
+                }
+              ],
+              "version": "2.29.1"
+            },
+            "format": "editorjs"
+          },
+          "capabilities": {
+            "events": {
+              "enabled": true
+            },
+            "actions": {
+              "enabled": true
+            },
+            "posting": false,
+            "records": false,
+            "hierarchy": false,
+            "relations": false,
+            "scripting": {
+              "enabled": true
+            },
+            "dataSchema": false,
+            "fixedValues": false,
+            "blockContent": {
+              "enabled": true,
+              "storage": "objectConfig",
+              "maxBlocks": 500,
+              "defaultFormat": "editorjs",
+              "supportedFormats": [
+                "editorjs"
+              ],
+              "allowedBlockTypes": [
+                "paragraph",
+                "header",
+                "list",
+                "quote",
+                "table",
+                "image",
+                "embed",
+                "delimiter"
+              ]
+            },
+            "layoutConfig": {
+              "enabled": true
+            },
+            "ledgerSchema": false,
+            "optionValues": false,
+            "physicalTable": false,
+            "identityFields": false,
+            "treeAssignment": {
+              "enabled": true,
+              "isSingleHub": false,
+              "isRequiredHub": false
+            },
+            "recordLifecycle": false,
+            "runtimeBehavior": {
+              "enabled": true
+            },
+            "nestedCollections": false
+          }
+        },
+        "fields": [],
+        "hubs": []
+      },
+      "019e291d-43a1-7ccb-9db4-c6de09f3b622": {
+        "id": "019e291d-43a1-7ccb-9db4-c6de09f3b622",
         "kind": "set",
         "codename": {
           "_schema": "1",
@@ -398,20 +732,20 @@
               "content": "Main",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-18T01:15:19.490Z",
-              "updatedAt": "2026-04-18T01:15:19.490Z"
+              "createdAt": "2026-05-15T00:50:44.256Z",
+              "updatedAt": "2026-05-15T00:50:44.256Z"
             },
             "ru": {
               "content": "Основной",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-18T01:15:19.490Z",
-              "updatedAt": "2026-04-18T01:15:19.490Z"
+              "createdAt": "2026-05-15T00:50:44.256Z",
+              "updatedAt": "2026-05-15T00:50:44.256Z"
             }
           },
           "_primary": "en"
         },
-        "tableName": "set_019d9e28126b7e50bd643f48d3fff5d6",
+        "tableName": "set_019e291d43a17ccb9db4c6de09f3b622",
         "presentation": {
           "name": {
             "_schema": "1",
@@ -455,147 +789,50 @@
           }
         },
         "config": {
-          "sortOrder": 1
+          "sortOrder": 1,
+          "capabilities": {
+            "events": {
+              "enabled": true
+            },
+            "actions": {
+              "enabled": true
+            },
+            "posting": false,
+            "records": false,
+            "hierarchy": false,
+            "relations": false,
+            "scripting": {
+              "enabled": true
+            },
+            "dataSchema": {
+              "enabled": true
+            },
+            "fixedValues": {
+              "enabled": true
+            },
+            "blockContent": false,
+            "layoutConfig": {
+              "enabled": true
+            },
+            "ledgerSchema": false,
+            "optionValues": false,
+            "physicalTable": false,
+            "identityFields": false,
+            "treeAssignment": {
+              "enabled": true
+            },
+            "recordLifecycle": false,
+            "runtimeBehavior": false,
+            "nestedCollections": false
+          }
         },
         "fields": [],
         "hubs": []
       }
     },
     "entityTypeDefinitions": {
-      "catalog": {
-        "id": "019d9e27-ffbc-7783-95f1-676eb9096948",
-        "kindKey": "catalog",
-        "codename": {
-          "_schema": "1",
-          "locales": {
-            "en": {
-              "content": "Catalog",
-              "version": 1,
-              "isActive": true,
-              "createdAt": "1970-01-01T00:00:00.000Z",
-              "updatedAt": "1970-01-01T00:00:00.000Z"
-            },
-            "ru": {
-              "content": "Catalog",
-              "version": 1,
-              "isActive": true,
-              "createdAt": "1970-01-01T00:00:00.000Z",
-              "updatedAt": "1970-01-01T00:00:00.000Z"
-            }
-          },
-          "_primary": "en"
-        },
-        "presentation": {
-          "name": {
-            "_schema": "1",
-            "locales": {
-              "en": {
-                "content": "Catalogs",
-                "version": 1,
-                "isActive": true,
-                "createdAt": "1970-01-01T00:00:00.000Z",
-                "updatedAt": "1970-01-01T00:00:00.000Z"
-              },
-              "ru": {
-                "content": "Каталоги",
-                "version": 1,
-                "isActive": true,
-                "createdAt": "1970-01-01T00:00:00.000Z",
-                "updatedAt": "1970-01-01T00:00:00.000Z"
-              }
-            },
-            "_primary": "en"
-          },
-          "description": {
-            "_schema": "1",
-            "locales": {
-              "en": {
-                "content": "Standard catalog entity type with schema, hierarchy, references, scripts, and runtime layout support.",
-                "version": 1,
-                "isActive": true,
-                "createdAt": "1970-01-01T00:00:00.000Z",
-                "updatedAt": "1970-01-01T00:00:00.000Z"
-              },
-              "ru": {
-                "content": "Стандартный тип каталога со схемой, иерархией, связями, скриптами и поддержкой runtime layout.",
-                "version": 1,
-                "isActive": true,
-                "createdAt": "1970-01-01T00:00:00.000Z",
-                "updatedAt": "1970-01-01T00:00:00.000Z"
-              }
-            },
-            "_primary": "en"
-          }
-        },
-        "components": {
-          "events": {
-            "enabled": true
-          },
-          "actions": {
-            "enabled": true
-          },
-          "records": {
-            "enabled": true
-          },
-          "hierarchy": {
-            "enabled": true,
-            "supportsFolders": true
-          },
-          "relations": {
-            "enabled": true,
-            "allowedRelationTypes": [
-              "manyToOne"
-            ]
-          },
-          "scripting": {
-            "enabled": true
-          },
-          "dataSchema": {
-            "enabled": true
-          },
-          "fixedValues": false,
-          "layoutConfig": {
-            "enabled": true
-          },
-          "optionValues": false,
-          "physicalTable": {
-            "prefix": "cat",
-            "enabled": true
-          },
-          "treeAssignment": {
-            "enabled": true
-          },
-          "runtimeBehavior": {
-            "enabled": true
-          },
-          "nestedCollections": false
-        },
-        "ui": {
-          "iconName": "IconDatabase",
-          "tabs": [
-            "general",
-            "hubs",
-            "layout",
-            "scripts"
-          ],
-          "sidebarSection": "objects",
-          "sidebarOrder": 20,
-          "nameKey": "metahubs:catalogs.title",
-          "resourceSurfaces": [
-            {
-              "key": "fieldDefinitions",
-              "capability": "dataSchema",
-              "routeSegment": "field-definitions",
-              "titleKey": "metahubs:fieldDefinitions.resourceTabTitle",
-              "fallbackTitle": "Attributes"
-            }
-          ]
-        },
-        "config": {},
-        "published": true
-      },
       "enumeration": {
-        "id": "019d9e28-00d5-7029-91a8-6b879425018a",
+        "id": "019e291d-4345-7efe-a25c-91fb02d74444",
         "kindKey": "enumeration",
         "codename": {
           "_schema": "1",
@@ -657,15 +894,98 @@
               }
             },
             "_primary": "en"
+          },
+          "dialogTitles": {
+            "copy": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Copy Enumeration",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Копирование перечисления",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "edit": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Edit Enumeration",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Редактировать перечисление",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "create": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Create Enumeration",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Создать перечисление",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "delete": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Delete Enumeration",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Удалить перечисление",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            }
           }
         },
-        "components": {
+        "capabilities": {
           "events": {
             "enabled": true
           },
           "actions": {
             "enabled": true
           },
+          "posting": false,
           "records": false,
           "hierarchy": false,
           "relations": false,
@@ -674,12 +994,18 @@
           },
           "dataSchema": false,
           "fixedValues": false,
+          "blockContent": false,
           "layoutConfig": false,
+          "ledgerSchema": false,
           "optionValues": {
             "enabled": true
           },
           "physicalTable": false,
-          "treeAssignment": false,
+          "identityFields": false,
+          "treeAssignment": {
+            "enabled": true
+          },
+          "recordLifecycle": false,
           "runtimeBehavior": false,
           "nestedCollections": false
         },
@@ -687,26 +1013,329 @@
           "iconName": "IconFiles",
           "tabs": [
             "general",
+            "hubs",
             "scripts"
           ],
           "sidebarSection": "objects",
-          "sidebarOrder": 40,
+          "sidebarOrder": 50,
           "nameKey": "metahubs:enumerations.title",
           "resourceSurfaces": [
             {
               "key": "optionValues",
               "capability": "optionValues",
               "routeSegment": "values",
+              "title": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Values",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "1970-01-01T00:00:00.000Z",
+                    "updatedAt": "1970-01-01T00:00:00.000Z"
+                  },
+                  "ru": {
+                    "content": "Значения",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "1970-01-01T00:00:00.000Z",
+                    "updatedAt": "1970-01-01T00:00:00.000Z"
+                  }
+                },
+                "_primary": "en"
+              },
               "titleKey": "metahubs:optionValues.resourceTabTitle",
               "fallbackTitle": "Values"
             }
-          ]
+          ],
+          "treeAssignmentLabels": {
+            "title": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Hubs",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Хабы",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "addButton": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Add",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Добавить",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "dialogTitle": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Select hubs",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Выберите хабы",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "emptyMessage": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "No hubs selected",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Хабы не выбраны",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "requiredWarningMessage": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Select at least one hub",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Выберите хотя бы один хаб",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "noAvailableMessage": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "No hubs available",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Доступных хабов нет",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "requiredLabel": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Hub required",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Хаб обязателен",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "requiredEnabledHelp": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "At least one hub must stay linked",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Хотя бы один хаб должен оставаться привязанным",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "requiredDisabledHelp": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "The entity can exist without linked hubs",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Сущность может существовать без привязанных хабов",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "singleLabel": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Single hub only",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Только один хаб",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "singleEnabledHelp": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "The entity can only be linked to one hub",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Сущность может быть привязана только к одному хабу",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "singleDisabledHelp": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "The entity can be linked to multiple hubs",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Сущность может быть привязана к нескольким хабам",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "singleWarning": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Cannot enable while multiple hubs are selected",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Нельзя включить, пока выбрано несколько хабов",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "currentContainerShort": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Current hub",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Текущий хаб",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            }
+          }
         },
         "config": {},
         "published": true
       },
       "hub": {
-        "id": "019d9e27-ff1c-7bed-a543-a4306c67974d",
+        "id": "019e291d-4331-7dce-96c5-5a290f352725",
         "kindKey": "hub",
         "codename": {
           "_schema": "1",
@@ -768,15 +1397,98 @@
               }
             },
             "_primary": "en"
+          },
+          "dialogTitles": {
+            "copy": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Copy Hub",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Копирование хаба",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "edit": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Edit Hub",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Редактировать хаб",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "create": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Create Hub",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Создать хаб",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "delete": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Delete Hub",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Удалить хаб",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            }
           }
         },
-        "components": {
+        "capabilities": {
           "events": {
             "enabled": true
           },
           "actions": {
             "enabled": true
           },
+          "posting": false,
           "records": false,
           "hierarchy": false,
           "relations": false,
@@ -785,10 +1497,14 @@
           },
           "dataSchema": false,
           "fixedValues": false,
+          "blockContent": false,
           "layoutConfig": false,
+          "ledgerSchema": false,
           "optionValues": false,
           "physicalTable": false,
+          "identityFields": false,
           "treeAssignment": false,
+          "recordLifecycle": false,
           "runtimeBehavior": false,
           "nestedCollections": false
         },
@@ -804,8 +1520,1068 @@
         "config": {},
         "published": true
       },
+      "object": {
+        "id": "019e291d-433d-7316-9c69-5f054226afe5",
+        "kindKey": "object",
+        "codename": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "Object",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "1970-01-01T00:00:00.000Z",
+              "updatedAt": "1970-01-01T00:00:00.000Z"
+            },
+            "ru": {
+              "content": "Object",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "1970-01-01T00:00:00.000Z",
+              "updatedAt": "1970-01-01T00:00:00.000Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Objects",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Объекты",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Standard object entity type with schema, hierarchy, references, scripts, and runtime layout support.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Стандартный тип объекта со схемой, иерархией, связями, скриптами и поддержкой runtime layout.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "dialogTitles": {
+            "copy": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Copy Object",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Копирование объекта",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "edit": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Edit Object",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Редактировать объект",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "create": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Create Object",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Создать объект",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "delete": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Delete Object",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Удалить объект",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            }
+          }
+        },
+        "capabilities": {
+          "events": {
+            "enabled": true
+          },
+          "actions": {
+            "enabled": true
+          },
+          "posting": {
+            "enabled": true,
+            "allowManualPosting": true,
+            "allowAutomaticPosting": true
+          },
+          "records": {
+            "enabled": true
+          },
+          "hierarchy": {
+            "enabled": true,
+            "supportsFolders": true
+          },
+          "relations": {
+            "enabled": true,
+            "allowedRelationTypes": [
+              "manyToOne"
+            ]
+          },
+          "scripting": {
+            "enabled": true
+          },
+          "dataSchema": {
+            "enabled": true
+          },
+          "fixedValues": false,
+          "blockContent": false,
+          "layoutConfig": {
+            "enabled": true
+          },
+          "ledgerSchema": {
+            "enabled": true,
+            "allowManualFacts": true,
+            "allowProjections": true,
+            "allowRegistrarPolicy": true
+          },
+          "optionValues": false,
+          "physicalTable": {
+            "prefix": "obj",
+            "enabled": true
+          },
+          "identityFields": {
+            "enabled": true,
+            "allowNumber": true,
+            "allowEffectiveDate": true
+          },
+          "treeAssignment": {
+            "enabled": true
+          },
+          "recordLifecycle": {
+            "enabled": true,
+            "allowCustomStates": true
+          },
+          "runtimeBehavior": {
+            "enabled": true
+          },
+          "nestedCollections": false
+        },
+        "ui": {
+          "iconName": "IconDatabase",
+          "tabs": [
+            "behavior",
+            "general",
+            "hubs",
+            "layout",
+            "ledgerSchema",
+            "scripts"
+          ],
+          "sidebarSection": "objects",
+          "sidebarOrder": 30,
+          "nameKey": "metahubs:objects.title",
+          "resourceSurfaces": [
+            {
+              "key": "components",
+              "capability": "dataSchema",
+              "routeSegment": "components",
+              "title": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Components",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "1970-01-01T00:00:00.000Z",
+                    "updatedAt": "1970-01-01T00:00:00.000Z"
+                  },
+                  "ru": {
+                    "content": "Компоненты",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "1970-01-01T00:00:00.000Z",
+                    "updatedAt": "1970-01-01T00:00:00.000Z"
+                  }
+                },
+                "_primary": "en"
+              },
+              "titleKey": "metahubs:components.resourceTabTitle",
+              "fallbackTitle": "Components"
+            }
+          ],
+          "treeAssignmentLabels": {
+            "title": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Hubs",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Хабы",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "addButton": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Add",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Добавить",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "dialogTitle": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Select hubs",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Выберите хабы",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "emptyMessage": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "No hubs selected",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Хабы не выбраны",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "requiredWarningMessage": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Select at least one hub",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Выберите хотя бы один хаб",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "noAvailableMessage": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "No hubs available",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Доступных хабов нет",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "requiredLabel": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Hub required",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Хаб обязателен",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "requiredEnabledHelp": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "At least one hub must stay linked",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Хотя бы один хаб должен оставаться привязанным",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "requiredDisabledHelp": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "The entity can exist without linked hubs",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Сущность может существовать без привязанных хабов",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "singleLabel": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Single hub only",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Только один хаб",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "singleEnabledHelp": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "The entity can only be linked to one hub",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Сущность может быть привязана только к одному хабу",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "singleDisabledHelp": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "The entity can be linked to multiple hubs",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Сущность может быть привязана к нескольким хабам",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "singleWarning": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Cannot enable while multiple hubs are selected",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Нельзя включить, пока выбрано несколько хабов",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "currentContainerShort": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Current hub",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Текущий хаб",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            }
+          }
+        },
+        "config": {
+          "recordBehavior": {
+            "mode": "reference",
+            "posting": {
+              "mode": "disabled",
+              "targetLedgers": []
+            },
+            "lifecycle": {
+              "states": [],
+              "enabled": false
+            },
+            "numbering": {
+              "scope": "workspace",
+              "enabled": false,
+              "minLength": 6,
+              "periodicity": "none"
+            },
+            "immutability": "none",
+            "effectiveDate": {
+              "enabled": false,
+              "defaultToNow": true
+            }
+          }
+        },
+        "published": true
+      },
+      "page": {
+        "id": "019e291d-4339-7ffa-963b-ae1a2e86e689",
+        "kindKey": "page",
+        "codename": {
+          "_schema": "1",
+          "locales": {
+            "en": {
+              "content": "Page",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "1970-01-01T00:00:00.000Z",
+              "updatedAt": "1970-01-01T00:00:00.000Z"
+            },
+            "ru": {
+              "content": "Page",
+              "version": 1,
+              "isActive": true,
+              "createdAt": "1970-01-01T00:00:00.000Z",
+              "updatedAt": "1970-01-01T00:00:00.000Z"
+            }
+          },
+          "_primary": "en"
+        },
+        "presentation": {
+          "name": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Pages",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Страницы",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "description": {
+            "_schema": "1",
+            "locales": {
+              "en": {
+                "content": "Standard page entity type for structured block content stored on metadata objects.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              },
+              "ru": {
+                "content": "Стандартный тип страницы для структурированного блочного контента, хранящегося в объектах метаданных.",
+                "version": 1,
+                "isActive": true,
+                "createdAt": "1970-01-01T00:00:00.000Z",
+                "updatedAt": "1970-01-01T00:00:00.000Z"
+              }
+            },
+            "_primary": "en"
+          },
+          "dialogTitles": {
+            "copy": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Copy Page",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Копирование страницы",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "edit": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Edit Page",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Редактировать страницу",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "create": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Create Page",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Создать страницу",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "delete": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Delete Page",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Удалить страницу",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            }
+          }
+        },
+        "capabilities": {
+          "events": {
+            "enabled": true
+          },
+          "actions": {
+            "enabled": true
+          },
+          "posting": false,
+          "records": false,
+          "hierarchy": false,
+          "relations": false,
+          "scripting": {
+            "enabled": true
+          },
+          "dataSchema": false,
+          "fixedValues": false,
+          "blockContent": {
+            "enabled": true,
+            "storage": "objectConfig",
+            "maxBlocks": 500,
+            "defaultFormat": "editorjs",
+            "supportedFormats": [
+              "editorjs"
+            ],
+            "allowedBlockTypes": [
+              "paragraph",
+              "header",
+              "list",
+              "quote",
+              "table",
+              "image",
+              "embed",
+              "delimiter"
+            ]
+          },
+          "layoutConfig": {
+            "enabled": true
+          },
+          "ledgerSchema": false,
+          "optionValues": false,
+          "physicalTable": false,
+          "identityFields": false,
+          "treeAssignment": {
+            "enabled": true,
+            "isSingleHub": false,
+            "isRequiredHub": false
+          },
+          "recordLifecycle": false,
+          "runtimeBehavior": {
+            "enabled": true
+          },
+          "nestedCollections": false
+        },
+        "ui": {
+          "iconName": "IconFileText",
+          "tabs": [
+            "content",
+            "general",
+            "hubs",
+            "layout",
+            "scripts"
+          ],
+          "sidebarSection": "objects",
+          "sidebarOrder": 20,
+          "nameKey": "metahubs:pages.title",
+          "treeAssignmentLabels": {
+            "title": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Hubs",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Хабы",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "addButton": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Add",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Добавить",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "dialogTitle": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Select hubs",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Выберите хабы",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "emptyMessage": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "No hubs selected",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Хабы не выбраны",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "requiredWarningMessage": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Select at least one hub",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Выберите хотя бы один хаб",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "noAvailableMessage": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "No hubs available",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Доступных хабов нет",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "requiredLabel": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Hub required",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Хаб обязателен",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "requiredEnabledHelp": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "At least one hub must stay linked",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Хотя бы один хаб должен оставаться привязанным",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "requiredDisabledHelp": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "The entity can exist without linked hubs",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Сущность может существовать без привязанных хабов",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "singleLabel": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Single hub only",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Только один хаб",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "singleEnabledHelp": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "The entity can only be linked to one hub",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Сущность может быть привязана только к одному хабу",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "singleDisabledHelp": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "The entity can be linked to multiple hubs",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Сущность может быть привязана к нескольким хабам",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "singleWarning": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Cannot enable while multiple hubs are selected",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Нельзя включить, пока выбрано несколько хабов",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "currentContainerShort": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Current hub",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Текущий хаб",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            }
+          }
+        },
+        "config": {},
+        "published": true
+      },
       "set": {
-        "id": "019d9e28-004a-7a2d-9d09-b0c5c59f9644",
+        "id": "019e291d-4341-7210-954b-f94ba8acc2dd",
         "kindKey": "set",
         "codename": {
           "_schema": "1",
@@ -867,15 +2643,98 @@
               }
             },
             "_primary": "en"
+          },
+          "dialogTitles": {
+            "copy": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Copy Set",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Копирование набора",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "edit": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Edit Set",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Редактировать набор",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "create": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Create Set",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Создать набор",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "delete": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Delete Set",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Удалить набор",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            }
           }
         },
-        "components": {
+        "capabilities": {
           "events": {
             "enabled": true
           },
           "actions": {
             "enabled": true
           },
+          "posting": false,
           "records": false,
           "hierarchy": false,
           "relations": false,
@@ -888,43 +2747,352 @@
           "fixedValues": {
             "enabled": true
           },
+          "blockContent": false,
           "layoutConfig": {
             "enabled": true
           },
+          "ledgerSchema": false,
           "optionValues": false,
           "physicalTable": false,
-          "treeAssignment": false,
+          "identityFields": false,
+          "treeAssignment": {
+            "enabled": true
+          },
+          "recordLifecycle": false,
           "runtimeBehavior": false,
           "nestedCollections": false
         },
         "ui": {
-          "iconName": "IconFileText",
+          "iconName": "IconStack2",
           "tabs": [
             "general",
+            "hubs",
             "scripts"
           ],
           "sidebarSection": "objects",
-          "sidebarOrder": 30,
+          "sidebarOrder": 40,
           "nameKey": "metahubs:sets.title",
           "resourceSurfaces": [
             {
               "key": "fixedValues",
               "capability": "fixedValues",
               "routeSegment": "fixed-values",
+              "title": {
+                "_schema": "1",
+                "locales": {
+                  "en": {
+                    "content": "Constants",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "1970-01-01T00:00:00.000Z",
+                    "updatedAt": "1970-01-01T00:00:00.000Z"
+                  },
+                  "ru": {
+                    "content": "Константы",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "1970-01-01T00:00:00.000Z",
+                    "updatedAt": "1970-01-01T00:00:00.000Z"
+                  }
+                },
+                "_primary": "en"
+              },
               "titleKey": "metahubs:fixedValues.resourceTabTitle",
               "fallbackTitle": "Constants"
             }
-          ]
+          ],
+          "treeAssignmentLabels": {
+            "title": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Hubs",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Хабы",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "addButton": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Add",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Добавить",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "dialogTitle": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Select hubs",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Выберите хабы",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "emptyMessage": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "No hubs selected",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Хабы не выбраны",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "requiredWarningMessage": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Select at least one hub",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Выберите хотя бы один хаб",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "noAvailableMessage": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "No hubs available",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Доступных хабов нет",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "requiredLabel": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Hub required",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Хаб обязателен",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "requiredEnabledHelp": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "At least one hub must stay linked",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Хотя бы один хаб должен оставаться привязанным",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "requiredDisabledHelp": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "The entity can exist without linked hubs",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Сущность может существовать без привязанных хабов",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "singleLabel": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Single hub only",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Только один хаб",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "singleEnabledHelp": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "The entity can only be linked to one hub",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Сущность может быть привязана только к одному хабу",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "singleDisabledHelp": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "The entity can be linked to multiple hubs",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Сущность может быть привязана к нескольким хабам",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "singleWarning": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Cannot enable while multiple hubs are selected",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Нельзя включить, пока выбрано несколько хабов",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            },
+            "currentContainerShort": {
+              "_schema": "1",
+              "locales": {
+                "en": {
+                  "content": "Current hub",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                },
+                "ru": {
+                  "content": "Текущий хаб",
+                  "version": 1,
+                  "isActive": true,
+                  "createdAt": "1970-01-01T00:00:00.000Z",
+                  "updatedAt": "1970-01-01T00:00:00.000Z"
+                }
+              },
+              "_primary": "en"
+            }
+          }
         },
         "config": {},
         "published": true
       }
     },
     "optionValues": {
-      "019d9e28-12f7-7f79-864d-e654d88e68a4": [
+      "019e291d-43a4-7b61-934f-d45bd277da94": [
         {
-          "id": "019d9e28-1583-70a9-8805-d9b04182f62b",
-          "objectId": "019d9e28-12f7-7f79-864d-e654d88e68a4",
+          "id": "019e291d-43b2-7c2d-8a13-e4bf1070bcd5",
+          "objectId": "019e291d-43a4-7b61-934f-d45bd277da94",
           "codename": {
             "_schema": "1",
             "locales": {
@@ -932,8 +3100,8 @@
                 "content": "Active",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-18T01:15:20.282Z",
-                "updatedAt": "2026-04-18T01:15:20.282Z"
+                "createdAt": "2026-05-15T00:50:44.274Z",
+                "updatedAt": "2026-05-15T00:50:44.274Z"
               }
             },
             "_primary": "en"
@@ -964,8 +3132,8 @@
           "isDefault": true
         },
         {
-          "id": "019d9e28-1617-776e-9066-b847bcc7ec7f",
-          "objectId": "019d9e28-12f7-7f79-864d-e654d88e68a4",
+          "id": "019e291d-43b5-77bf-844e-fe3c30d2d752",
+          "objectId": "019e291d-43a4-7b61-934f-d45bd277da94",
           "codename": {
             "_schema": "1",
             "locales": {
@@ -973,8 +3141,8 @@
                 "content": "Inactive",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-18T01:15:20.431Z",
-                "updatedAt": "2026-04-18T01:15:20.431Z"
+                "createdAt": "2026-05-15T00:50:44.276Z",
+                "updatedAt": "2026-05-15T00:50:44.276Z"
               }
             },
             "_primary": "en"
@@ -1007,10 +3175,10 @@
       ]
     },
     "fixedValues": {
-      "019d9e28-126b-7e50-bd64-3f48d3fff5d6": [
+      "019e291d-43a1-7ccb-9db4-c6de09f3b622": [
         {
-          "id": "019d9e28-1385-7a8f-b423-27eb97949163",
-          "objectId": "019d9e28-126b-7e50-bd64-3f48d3fff5d6",
+          "id": "019e291d-43a7-786c-86c7-086556c0b899",
+          "objectId": "019e291d-43a1-7ccb-9db4-c6de09f3b622",
           "codename": {
             "_schema": "1",
             "locales": {
@@ -1018,8 +3186,8 @@
                 "content": "AppName",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-18T01:15:19.773Z",
-                "updatedAt": "2026-04-18T01:15:19.773Z"
+                "createdAt": "2026-05-15T00:50:44.262Z",
+                "updatedAt": "2026-05-15T00:50:44.262Z"
               }
             },
             "_primary": "en"
@@ -1055,7 +3223,7 @@
       ]
     },
     "systemFields": {
-      "019d9e28-0d6a-757d-9d51-b3011fdcfe39": {
+      "019e291d-4378-79c5-9454-485a80d7e5a7": {
         "fields": [
           {
             "key": "app.published",
@@ -1139,7 +3307,7 @@
     },
     "scripts": [
       {
-        "id": "019d9e28-3fdd-767c-88c3-f232c8e69042",
+        "id": "019e291d-4503-74ae-9655-6261effdda2d",
         "codename": {
           "_schema": "1",
           "locales": {
@@ -1147,8 +3315,8 @@
               "content": "quiz-widget",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-18T01:15:30.974Z",
-              "updatedAt": "2026-04-18T01:15:30.974Z"
+              "createdAt": "2026-05-15T00:50:44.607Z",
+              "updatedAt": "2026-05-15T00:50:44.607Z"
             }
           },
           "_primary": "en"
@@ -1161,8 +3329,8 @@
                 "content": "Space quiz widget",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-18T01:15:29.822Z",
-                "updatedAt": "2026-04-18T01:15:29.822Z"
+                "createdAt": "2026-05-15T00:50:44.505Z",
+                "updatedAt": "2026-05-15T00:50:44.505Z"
               }
             },
             "_primary": "en"
@@ -1174,8 +3342,8 @@
                 "content": "Canonical Space Quiz widget script for snapshot export",
                 "version": 1,
                 "isActive": true,
-                "createdAt": "2026-04-18T01:15:29.823Z",
-                "updatedAt": "2026-04-18T01:15:29.823Z"
+                "createdAt": "2026-05-15T00:50:44.505Z",
+                "updatedAt": "2026-05-15T00:50:44.505Z"
               }
             },
             "_primary": "en"
@@ -1221,9 +3389,89 @@
         "config": {}
       }
     ],
+    "settings": [
+      {
+        "key": "entity.object.allowComponentCopy",
+        "value": {
+          "_value": true
+        }
+      },
+      {
+        "key": "entity.object.allowComponentDelete",
+        "value": {
+          "_value": true
+        }
+      },
+      {
+        "key": "entity.object.allowDeleteLastDisplayComponent",
+        "value": {
+          "_value": true
+        }
+      },
+      {
+        "key": "general.codenameAllowMixedAlphabets",
+        "value": {
+          "_value": false
+        }
+      },
+      {
+        "key": "general.codenameAlphabet",
+        "value": {
+          "_value": "en-ru"
+        }
+      },
+      {
+        "key": "general.codenameAutoConvertMixedAlphabets",
+        "value": {
+          "_value": true
+        }
+      },
+      {
+        "key": "general.codenameAutoReformat",
+        "value": {
+          "_value": true
+        }
+      },
+      {
+        "key": "general.codenameRequireReformat",
+        "value": {
+          "_value": true
+        }
+      },
+      {
+        "key": "general.codenameStyle",
+        "value": {
+          "_value": "pascal-case"
+        }
+      },
+      {
+        "key": "general.language",
+        "value": {
+          "_value": "system"
+        }
+      },
+      {
+        "key": "general.timezone",
+        "value": {
+          "_value": "UTC"
+        }
+      },
+      {
+        "key": "system.templatePresetToggles",
+        "value": {
+          "_value": {
+            "hub": true,
+            "set": true,
+            "page": true,
+            "object": true,
+            "enumeration": true
+          }
+        }
+      }
+    ],
     "layouts": [
       {
-        "id": "019d9e28-01a6-735c-94bd-1b9bf915d1ab",
+        "id": "019e291d-4349-713b-a4ff-0aa948a2fb87",
         "templateKey": "dashboard",
         "name": {
           "_schema": "1",
@@ -1232,15 +3480,15 @@
               "content": "Main",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-18T01:15:23.889Z",
-              "updatedAt": "2026-04-18T01:15:23.889Z"
+              "createdAt": "2026-05-15T00:50:44.391Z",
+              "updatedAt": "2026-05-15T00:50:44.391Z"
             },
             "ru": {
               "content": "Основной",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-18T01:15:23.889Z",
-              "updatedAt": "2026-04-18T01:15:23.889Z"
+              "createdAt": "2026-05-15T00:50:44.391Z",
+              "updatedAt": "2026-05-15T00:50:44.391Z"
             }
           },
           "_primary": "en"
@@ -1252,15 +3500,15 @@
               "content": "Main layout for published applications",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-18T01:15:23.890Z",
-              "updatedAt": "2026-04-18T01:15:23.890Z"
+              "createdAt": "2026-05-15T00:50:44.392Z",
+              "updatedAt": "2026-05-15T00:50:44.392Z"
             },
             "ru": {
               "content": "Основной макет для опубликованных приложений",
               "version": 1,
               "isActive": true,
-              "createdAt": "2026-04-18T01:15:23.890Z",
-              "updatedAt": "2026-04-18T01:15:23.890Z"
+              "createdAt": "2026-05-15T00:50:44.392Z",
+              "updatedAt": "2026-05-15T00:50:44.392Z"
             }
           },
           "_primary": "en"
@@ -1291,7 +3539,8 @@
         "sortOrder": 0
       }
     ],
-    "defaultLayoutId": "019d9e28-01a6-735c-94bd-1b9bf915d1ab",
+    "scopedLayouts": [],
+    "defaultLayoutId": "019e291d-4349-713b-a4ff-0aa948a2fb87",
     "layoutConfig": {
       "showFooter": false,
       "showHeader": true,
@@ -1315,8 +3564,8 @@
     },
     "layoutZoneWidgets": [
       {
-        "id": "019d9e28-44ce-7ef8-97a2-0eeeaa15a823",
-        "layoutId": "019d9e28-01a6-735c-94bd-1b9bf915d1ab",
+        "id": "019e291d-452e-7981-adc0-e5c968b13daf",
+        "layoutId": "019e291d-4349-713b-a4ff-0aa948a2fb87",
         "zone": "center",
         "widgetKey": "quizWidget",
         "sortOrder": 1,
@@ -1327,8 +3576,8 @@
         "isActive": true
       },
       {
-        "id": "019d9e28-0316-7246-86f5-81a8a8a86e6f",
-        "layoutId": "019d9e28-01a6-735c-94bd-1b9bf915d1ab",
+        "id": "019e291d-43bd-77ed-bd19-b73e088beaf4",
+        "layoutId": "019e291d-4349-713b-a4ff-0aa948a2fb87",
         "zone": "top",
         "widgetKey": "appNavbar",
         "sortOrder": 1,
@@ -1336,8 +3585,8 @@
         "isActive": true
       },
       {
-        "id": "019d9e28-03a0-70c7-a4bf-cc5dd41f7bc8",
-        "layoutId": "019d9e28-01a6-735c-94bd-1b9bf915d1ab",
+        "id": "019e291d-43bf-762b-8e0b-ad37abbf272b",
+        "layoutId": "019e291d-4349-713b-a4ff-0aa948a2fb87",
         "zone": "top",
         "widgetKey": "header",
         "sortOrder": 2,
@@ -1345,8 +3594,7 @@
         "isActive": true
       }
     ],
-    "scopedLayouts": [],
     "layoutWidgetOverrides": []
   },
-  "snapshotHash": "88a1c9198e685528bc4e35a1c57c7c915ddbc27f971d4ff06fd2c3235bb40856"
+  "snapshotHash": "4252108b306a7d15ff389ebbb9bad369e3e0a29ae65a5e35619e783801059505"
 }

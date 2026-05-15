@@ -7,7 +7,7 @@ export interface PersistConnectorSyncTouchInput {
 
 export const persistConnectorSyncTouch = async (trx: SqlQueryable, input: PersistConnectorSyncTouchInput): Promise<void> => {
     const rows = await trx.query<{ id: string }>(
-        `UPDATE applications.cat_connectors
+        `UPDATE applications.obj_connectors
          SET _upl_updated_at = NOW(),
              _upl_updated_by = $1,
              _upl_version = COALESCE(_upl_version, 1) + 1

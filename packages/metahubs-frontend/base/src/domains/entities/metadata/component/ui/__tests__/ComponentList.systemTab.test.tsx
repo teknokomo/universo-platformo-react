@@ -1,0 +1,507 @@
+import React from 'react'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { render, screen } from '@testing-library/react'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
+
+const navigateMock = vi.fn()
+
+type MockBaseEntity = {
+    id?: string
+}
+
+type MockBaseContext = {
+    entity: MockBaseEntity
+    entityKind: string
+    t: (key: string, fallback?: string) => string
+}
+
+type MockMenuDescriptor = {
+    id: string
+    entityKinds?: string[]
+    visible?: (context: MockBaseContext) => boolean
+}
+
+const invalidateQueriesMock = vi.fn()
+const usePaginatedMock = vi.fn()
+const goToPageMock = vi.fn()
+
+const currentObject = {
+    id: 'object-1',
+    metahubId: 'metahub-1',
+    codename: 'products',
+    name: null,
+    description: null,
+    treeEntities: []
+}
+
+const systemComponent = {
+    id: 'cmp-system-1',
+    objectCollectionId: 'object-1',
+    codename: '_upl_deleted',
+    name: { version: 1, locales: { en: { content: 'Deleted flag' } } },
+    description: null,
+    dataType: 'BOOLEAN',
+    validationRules: {},
+    uiConfig: {},
+    isRequired: false,
+    isDisplayComponent: false,
+    sortOrder: 1,
+    createdAt: '2026-03-16T00:00:00.000Z',
+    updatedAt: '2026-03-16T00:00:00.000Z',
+    system: {
+        isSystem: true,
+        systemKey: 'upl.deleted',
+        isManaged: true,
+        isEnabled: false
+    }
+}
+
+vi.mock('react-i18next', async () => {
+    const actual = await vi.importActual<typeof import('react-i18next')>('react-i18next')
+    return {
+        ...actual,
+        useTranslation: () => ({
+            t: (key: string, fallback?: string) => fallback ?? key,
+            i18n: { language: 'en' }
+        })
+    }
+})
+
+vi.mock('@universo/i18n', () => ({
+    useCommonTranslations: () => ({
+        t: (_key: string, fallback?: string) => fallback ?? _key
+    })
+}))
+
+vi.mock('notistack', () => ({
+    useSnackbar: () => ({
+        enqueueSnackbar: vi.fn()
+    })
+}))
+
+vi.mock('@tanstack/react-query', async () => {
+    const actual = await vi.importActual<typeof import('@tanstack/react-query')>('@tanstack/react-query')
+    return {
+        ...actual,
+        useQueryClient: () => ({
+            invalidateQueries: invalidateQueriesMock,
+            isMutating: () => 0
+        }),
+        useQuery: ({ queryKey }: { queryKey: unknown[] }) => {
+            if (Array.isArray(queryKey) && queryKey.includes('allObjectCollections') && queryKey.includes('detail')) {
+                return { data: currentObject, isLoading: false, error: null }
+            }
+            if (Array.isArray(queryKey) && queryKey.includes('treeEntities') && queryKey.includes('list')) {
+                return {
+                    data: {
+                        items: [],
+                        pagination: { limit: 1000, offset: 0, count: 0, total: 0, hasMore: false }
+                    },
+                    isLoading: false,
+                    error: null
+                }
+            }
+            return { data: undefined, isLoading: false, error: null }
+        },
+        useMutation: () => ({
+            mutate: vi.fn(),
+            mutateAsync: vi.fn(),
+            isPending: false,
+            isLoading: false,
+            error: null
+        })
+    }
+})
+
+vi.mock('@universo/template-mui', async () => {
+    const actual = await vi.importActual<typeof import('@universo/template-mui')>('@universo/template-mui')
+    return {
+        ...actual,
+        TemplateMainCard: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+        ToolbarControls: ({ primaryAction }: { primaryAction?: { label: string; onClick: () => void } }) =>
+            primaryAction ? <button onClick={primaryAction.onClick}>{primaryAction.label}</button> : null,
+        EmptyListState: ({ title, description }: { title: string; description: string }) => (
+            <div>
+                <div>{title}</div>
+                <div>{description}</div>
+            </div>
+        ),
+        APIEmptySVG: () => null,
+        usePaginated: (...args: unknown[]) => usePaginatedMock(...args),
+        useDebouncedSearch: () => ({
+            searchValue: '',
+            handleSearchChange: vi.fn()
+        }),
+        PaginationControls: () => null,
+        FlowListTable: ({
+            data,
+            customColumns,
+            renderActions,
+            getRowSx,
+            isRowDragDisabled
+        }: {
+            data: Array<{ id: string; name?: string; codename?: string }>
+            customColumns?: Array<{
+                id: string
+                render?: (row: { id: string; name?: string; codename?: string }, index: number) => React.ReactNode
+            }>
+            renderActions?: (row: { id: string; name?: string; codename?: string }) => React.ReactNode
+            getRowSx?: (row: { id: string; name?: string; codename?: string }, index: number) => unknown
+            isRowDragDisabled?: (row: { id: string; name?: string; codename?: string }, index: number) => boolean
+        }) => (
+            <div data-testid='flow-list-table'>
+                {data.map((row, index) => (
+                    <div key={row.id} data-testid={`row-${row.id}`}>
+                        {customColumns && customColumns.length > 0 ? (
+                            customColumns.map((column) => <div key={column.id}>{column.render?.(row, index)}</div>)
+                        ) : (
+                            <div>{row.name ?? row.codename}</div>
+                        )}
+                        {getRowSx?.(row, index) ? <div>row-styled</div> : null}
+                        {isRowDragDisabled?.(row, index) ? <div>drag-disabled</div> : null}
+                        {renderActions?.(row)}
+                    </div>
+                ))}
+            </div>
+        ),
+        useConfirm: () => ({ confirm: vi.fn() }),
+        revealPendingEntityFeedback: vi.fn(),
+        ViewHeaderMUI: ({ title, children }: { title: string; children?: React.ReactNode }) => (
+            <div>
+                <h1>{title}</h1>
+                {children}
+            </div>
+        ),
+        BaseEntityMenu: ({
+            entity,
+            entityKind,
+            descriptors,
+            createContext
+        }: {
+            entity: MockBaseEntity
+            entityKind: string
+            descriptors: MockMenuDescriptor[]
+            createContext: (context: MockBaseContext) => MockBaseContext
+        }) => {
+            const context = createContext({ entity, entityKind, t: (key: string, fallback?: string) => fallback ?? key })
+            const visible = descriptors.filter(
+                (descriptor) =>
+                    (!descriptor.entityKinds || descriptor.entityKinds.includes(entityKind)) &&
+                    (!descriptor.visible || descriptor.visible(context))
+            )
+
+            if (visible.length === 0) return null
+
+            return (
+                <div data-testid='base-entity-menu' data-entity-id={entity.id}>
+                    {visible.map((descriptor) => (
+                        <span key={descriptor.id}>{descriptor.id}</span>
+                    ))}
+                </div>
+            )
+        }
+    }
+})
+
+vi.mock('@universo/template-mui/components/dialogs', () => ({
+    EntityFormDialog: () => null,
+    ConfirmDeleteDialog: () => null,
+    ConflictResolutionDialog: () => null
+}))
+
+vi.mock('../../hooks/mutations', () => ({
+    useCreateComponent: () => ({ mutateAsync: vi.fn(), isPending: false }),
+    useCopyComponent: () => ({ mutateAsync: vi.fn(), isPending: false }),
+    useUpdateComponent: () => ({ mutateAsync: vi.fn(), isPending: false }),
+    useDeleteComponent: () => ({ mutateAsync: vi.fn(), isPending: false }),
+    useMoveComponent: () => ({ mutateAsync: vi.fn(), isPending: false }),
+    useReorderComponent: () => ({ mutateAsync: vi.fn(), isPending: false }),
+    useToggleComponentRequired: () => ({ mutateAsync: vi.fn(), isPending: false }),
+    useSetDisplayComponent: () => ({ mutateAsync: vi.fn(), isPending: false }),
+    useClearDisplayComponent: () => ({ mutateAsync: vi.fn(), isPending: false })
+}))
+
+vi.mock('../api', () => ({
+    listComponents: vi.fn(),
+    listComponentsDirect: vi.fn(),
+    listAllComponentCodenames: vi.fn(async () => ({ items: [] }))
+}))
+
+vi.mock('../../../presets/api/objectCollections', () => ({
+    getObjectCollectionById: vi.fn(async () => currentObject)
+}))
+
+vi.mock('../../../../shared', async () => {
+    const actual = await vi.importActual<typeof import('../../../../shared')>('../../../../shared')
+    return {
+        ...actual,
+        fetchAllPaginatedItems: vi.fn(async () => ({
+            items: [],
+            pagination: { limit: 1000, offset: 0, count: 0, total: 0, hasMore: false }
+        })),
+        useUpsertSharedEntityOverride: () => ({ mutateAsync: vi.fn(), isPending: false }),
+        invalidateComponentsQueries: {
+            all: vi.fn(),
+            allCodenames: vi.fn()
+        }
+    }
+})
+
+vi.mock('../../../../components', () => ({
+    ExistingCodenamesProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>
+}))
+
+vi.mock('./ComponentActions', () => ({
+    __esModule: true,
+    default: [{ id: 'edit' }, { id: 'move-up' }, { id: 'move-down' }]
+}))
+
+vi.mock('./ComponentFormFields', () => ({
+    __esModule: true,
+    default: () => null,
+    PresentationTabFields: () => null
+}))
+
+vi.mock('./NestedComponentList', () => ({
+    __esModule: true,
+    default: () => null
+}))
+
+vi.mock('./dnd', () => ({
+    ComponentDndProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    ComponentDndContainerRegistryProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    useComponentDndState: () => ({
+        activeContainerId: null,
+        overContainerId: null,
+        pendingTransfer: null,
+        activeComponent: undefined
+    })
+}))
+
+vi.mock('../../../settings/hooks/useCodenameConfig', () => ({
+    useCodenameConfig: () => ({ style: 'kebab-case', alphabet: 'en-ru', allowMixed: false })
+}))
+
+vi.mock('../../../settings/hooks/useMetahubPrimaryLocale', () => ({
+    useMetahubPrimaryLocale: () => 'en'
+}))
+
+vi.mock('../../../settings/hooks/useSettings', () => ({
+    useSettingValue: (key: string) => {
+        if (key === 'entity.object.componentCodenameScope') return 'per-level'
+        return null
+    }
+}))
+
+vi.mock('../../../presets/ui/ObjectCollectionActions', () => ({
+    buildInitialValues: () => ({}),
+    buildFormTabs: () => [],
+    validateObjectCollectionForm: () => null,
+    canSaveObjectCollectionForm: () => true,
+    toPayload: (value: unknown) => value
+}))
+
+vi.mock('../../../presets/hooks/objectCollectionMutations', () => ({
+    useUpdateObjectCollectionAtMetahub: () => ({ mutate: vi.fn(), isPending: false })
+}))
+
+vi.mock('../../../presets/api/trees', () => ({
+    listTreeEntities: vi.fn(async () => ({ items: [] }))
+}))
+
+vi.mock('@universo/utils', async () => {
+    const actual = await vi.importActual<typeof import('@universo/utils')>('@universo/utils')
+    return {
+        ...actual,
+        isOptimisticLockConflict: () => false,
+        extractConflictInfo: () => null
+    }
+})
+
+vi.mock('../../../../utils/codename', () => ({
+    normalizeCodenameForStyle: (value: string) => value,
+    isValidCodenameForStyle: () => true
+}))
+
+vi.mock('../../../../utils/localizedInput', () => ({
+    extractLocalizedInput: () => null,
+    hasPrimaryContent: () => true
+}))
+
+vi.mock('react-router-dom', async () => {
+    const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
+    return {
+        ...actual,
+        useNavigate: () => navigateMock
+    }
+})
+
+import ComponentList from '../ComponentList'
+
+describe('ComponentList system tab', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+        usePaginatedMock.mockReturnValue({
+            data: [systemComponent],
+            isLoading: false,
+            error: null,
+            meta: {
+                totalAll: 1,
+                limit: 100,
+                limitReached: false,
+                childSearchMatchParentIds: [],
+                platformSystemComponentsPolicy: {
+                    allowConfiguration: true,
+                    forceCreate: true,
+                    ignoreMetahubSettings: true
+                }
+            },
+            pagination: { totalItems: 1, page: 1, limit: 20, totalPages: 1, hasNextPage: false, hasPrevPage: false },
+            actions: { setSearch: vi.fn(), goToPage: goToPageMock }
+        })
+    })
+
+    it('renders the dedicated system view without the create action', async () => {
+        render(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/object/instance/object-1/system']}>
+                <Routes>
+                    <Route path='/metahub/:metahubId/entities/:kindKey/instance/:objectCollectionId/system' element={<ComponentList />} />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        expect(await screen.findByRole('heading', { name: 'System Components' })).toBeInTheDocument()
+        expect(
+            screen.getByText('System components are provided by the platform. You can only enable or disable supported components.')
+        ).toBeInTheDocument()
+        expect(screen.getByText('Deleted flag')).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Create' })).not.toBeInTheDocument()
+        expect(screen.getByRole('tab', { name: 'System' })).toBeInTheDocument()
+        expect(screen.getByText('enable-system-field')).toBeInTheDocument()
+    })
+
+    it('keeps system redirects inside the standard object entity route tree', async () => {
+        render(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/object/instance/object-1/components?tab=system']}>
+                <Routes>
+                    <Route
+                        path='/metahub/:metahubId/entities/:kindKey/instance/:objectCollectionId/components'
+                        element={<ComponentList />}
+                    />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        expect(await screen.findByRole('heading', { name: 'System Components' })).toBeInTheDocument()
+        expect(navigateMock).toHaveBeenCalledWith('/metahub/metahub-1/entities/object/instance/object-1/system', {
+            replace: true
+        })
+    })
+
+    it('disables previous-query placeholder data for scoped component views', async () => {
+        render(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/object/instance/object-1/system']}>
+                <Routes>
+                    <Route path='/metahub/:metahubId/entities/:kindKey/instance/:objectCollectionId/system' element={<ComponentList />} />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        await screen.findByRole('heading', { name: 'System Components' })
+
+        expect(usePaginatedMock).toHaveBeenCalled()
+        expect(usePaginatedMock.mock.calls[0]?.[0]).toMatchObject({
+            keepPreviousDataOnQueryKeyChange: false
+        })
+        expect(goToPageMock).toHaveBeenCalledWith(1)
+    })
+
+    it('renders shared rows as read-only and keeps local rows editable in merged views', async () => {
+        usePaginatedMock.mockReturnValue({
+            data: [
+                {
+                    id: 'cmp-shared-1',
+                    objectCollectionId: 'object-1',
+                    codename: 'shared_name',
+                    name: { version: 1, locales: { en: { content: 'Shared Name' } } },
+                    description: null,
+                    dataType: 'STRING',
+                    validationRules: {},
+                    uiConfig: {},
+                    isRequired: false,
+                    isDisplayComponent: false,
+                    sortOrder: 1,
+                    effectiveSortOrder: 1,
+                    isShared: true,
+                    isActive: false,
+                    sharedBehavior: {
+                        canDeactivate: true,
+                        canExclude: true,
+                        positionLocked: true
+                    },
+                    createdAt: '2026-03-16T00:00:00.000Z',
+                    updatedAt: '2026-03-16T00:00:00.000Z'
+                },
+                {
+                    id: 'cmp-local-1',
+                    objectCollectionId: 'object-1',
+                    codename: 'local_name',
+                    name: { version: 1, locales: { en: { content: 'Local Name' } } },
+                    description: null,
+                    dataType: 'STRING',
+                    validationRules: {},
+                    uiConfig: {},
+                    isRequired: false,
+                    isDisplayComponent: false,
+                    sortOrder: 2,
+                    createdAt: '2026-03-16T00:00:00.000Z',
+                    updatedAt: '2026-03-16T00:00:00.000Z'
+                }
+            ],
+            isLoading: false,
+            error: null,
+            meta: {
+                totalAll: 2,
+                limit: 100,
+                limitReached: false,
+                childSearchMatchParentIds: [],
+                platformSystemComponentsPolicy: {
+                    allowConfiguration: true,
+                    forceCreate: true,
+                    ignoreMetahubSettings: true
+                }
+            },
+            pagination: { totalItems: 2, page: 1, limit: 20, totalPages: 1, hasNextPage: false, hasPrevPage: false },
+            actions: { setSearch: vi.fn(), goToPage: goToPageMock }
+        })
+
+        render(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/object/instance/object-1/components']}>
+                <Routes>
+                    <Route
+                        path='/metahub/:metahubId/entities/:kindKey/instance/:objectCollectionId/components'
+                        element={<ComponentList />}
+                    />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        expect(await screen.findByText('Shared Name')).toBeInTheDocument()
+        expect(screen.getByText('Shared')).toBeInTheDocument()
+        expect(screen.getByText('Inactive')).toBeInTheDocument()
+        expect(screen.queryByText('Local')).not.toBeInTheDocument()
+
+        const sharedRow = screen.getByTestId('row-cmp-shared-1')
+        const localRow = screen.getByTestId('row-cmp-local-1')
+
+        expect(sharedRow).toHaveTextContent('drag-disabled')
+        expect(sharedRow).not.toHaveTextContent('edit')
+        expect(sharedRow).toHaveTextContent('activate')
+        expect(sharedRow).toHaveTextContent('exclude')
+
+        expect(localRow).toHaveTextContent('row-styled')
+        expect(localRow).toHaveTextContent('edit')
+        expect(localRow).not.toHaveTextContent('move-up')
+        expect(localRow).not.toHaveTextContent('move-down')
+    })
+})

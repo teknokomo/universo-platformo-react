@@ -26,10 +26,10 @@ describe('MetahubDomainError', () => {
             message: 'Not found',
             statusCode: 404,
             code: 'NOT_FOUND',
-            details: { entity: 'catalog', id: '123' }
+            details: { entity: 'object', id: '123' }
         })
 
-        expect(err.details).toEqual({ entity: 'catalog', id: '123' })
+        expect(err.details).toEqual({ entity: 'object', id: '123' })
     })
 
     it('omits details when not provided', () => {

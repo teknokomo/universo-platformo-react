@@ -27,7 +27,7 @@ UPL_GLOBAL_MIGRATION_CATALOG_ENABLED=false
 ## Release Bundles
 
 - Publications can now be exported as application_release_bundle artifacts from the application sync API.
-- Bundle apply reuses applications.cat_applications.installed_release_metadata instead of introducing per-schema release state.
+- Bundle apply reuses applications.obj_applications.installed_release_metadata instead of introducing per-schema release state.
 - Empty targets use the baseline/bootstrap path; existing targets use the incremental migration path with release-version checks.
 
 ## Operator Guidance
@@ -40,4 +40,4 @@ UPL_GLOBAL_MIGRATION_CATALOG_ENABLED=false
 
 - Disabled mode should never create the full upl_migrations definition registry on cold start.
 - Enabled mode should be recovered by fixing the catalog health issue, not by silently downgrading to local-only writes.
-- Application sync and bundle install state should always be checked first in applications.cat_applications.
+- Application sync and bundle install state should always be checked first in applications.obj_applications.

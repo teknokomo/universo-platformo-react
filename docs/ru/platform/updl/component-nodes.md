@@ -7,7 +7,7 @@ description: Объясняет роль component nodes в UPDL.
 Узлы компонентов добавляют другим узлам переиспользуемые возможности, поля,
 поведения или метаданные.
 
-![Общие атрибуты как переиспользуемые component-like определения](../../.gitbook/assets/entities/shared-attributes.png)
+![Общие компоненты как переиспользуемые component-like определения](../../.gitbook/assets/entities/shared-components.png)
 
 ## Типичные обязанности
 

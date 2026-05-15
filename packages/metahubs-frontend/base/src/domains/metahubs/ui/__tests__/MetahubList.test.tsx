@@ -462,10 +462,10 @@ describe('MetahubList', () => {
                     activeVersion: null
                 },
                 {
-                    id: 'preset-catalog',
-                    codename: 'catalog',
+                    id: 'preset-object',
+                    codename: 'object',
                     definitionType: 'entity_type_preset',
-                    name: createVlc('LinkedCollectionEntity'),
+                    name: createVlc('ObjectCollectionEntity'),
                     isSystem: true,
                     sortOrder: 2,
                     activeVersion: null
@@ -507,7 +507,7 @@ describe('MetahubList', () => {
                           name: 'Template 1',
                           presets: [
                               { presetCodename: 'hub', includedByDefault: true },
-                              { presetCodename: 'catalog', includedByDefault: true },
+                              { presetCodename: 'object', includedByDefault: true },
                               { presetCodename: 'set', includedByDefault: true },
                               { presetCodename: 'enumeration', includedByDefault: true }
                           ]
@@ -794,7 +794,7 @@ describe('MetahubList', () => {
                         createOptions: {
                             presetToggles: {
                                 hub: false,
-                                catalog: true,
+                                object: true,
                                 set: false,
                                 enumeration: true
                             }
@@ -859,7 +859,7 @@ describe('MetahubList', () => {
                                       ? []
                                       : [
                                             { presetCodename: 'hub', includedByDefault: true },
-                                            { presetCodename: 'catalog', includedByDefault: true },
+                                            { presetCodename: 'object', includedByDefault: true },
                                             { presetCodename: 'set', includedByDefault: true },
                                             { presetCodename: 'enumeration', includedByDefault: true }
                                         ]
@@ -883,7 +883,7 @@ describe('MetahubList', () => {
             })
 
             expect(screen.queryByRole('checkbox', { name: 'TreeEntity' })).not.toBeInTheDocument()
-            expect(screen.queryByRole('checkbox', { name: 'LinkedCollectionEntity' })).not.toBeInTheDocument()
+            expect(screen.queryByRole('checkbox', { name: 'ObjectCollectionEntity' })).not.toBeInTheDocument()
         })
     })
 

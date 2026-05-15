@@ -1,13 +1,13 @@
-import type { ComponentManifest } from './entityComponents'
-import { isEnabledComponentConfig } from './entityComponents'
+import type { EntityTypeCapabilities } from './entityCapabilities'
+import { isEnabledCapabilityConfig } from './entityCapabilities'
 import type { VersionedLocalizedContent } from './admin'
 import type { EntityKind } from './metahubs'
 
 export type EntitySidebarSection = 'objects' | 'admin'
-export type BuiltinEntityResourceSurfaceKey = 'fieldDefinitions' | 'fixedValues' | 'optionValues'
-export type EntityResourceSurfaceCapability = keyof Pick<ComponentManifest, 'dataSchema' | 'fixedValues' | 'optionValues'>
+export type BuiltinEntityResourceSurfaceKey = 'components' | 'fixedValues' | 'optionValues'
+export type EntityResourceSurfaceCapability = keyof Pick<EntityTypeCapabilities, 'dataSchema' | 'fixedValues' | 'optionValues'>
 
-export const BUILTIN_ENTITY_RESOURCE_SURFACE_KEYS = ['fieldDefinitions', 'fixedValues', 'optionValues'] as const
+export const BUILTIN_ENTITY_RESOURCE_SURFACE_KEYS = ['components', 'fixedValues', 'optionValues'] as const
 export const ENTITY_RESOURCE_SURFACE_CAPABILITIES = ['dataSchema', 'fixedValues', 'optionValues'] as const
 export const ENTITY_RESOURCE_SURFACE_KEY_PATTERN = /^[a-z][a-zA-Z0-9._-]{0,63}$/
 export const ENTITY_RESOURCE_SURFACE_ROUTE_PATTERN = /^[a-z][a-z0-9-]{0,63}$/
@@ -16,10 +16,10 @@ export const DEFAULT_ENTITY_RESOURCE_SURFACE_BY_CAPABILITY: Record<
     Pick<EntityResourceSurfaceDefinition, 'key' | 'capability' | 'routeSegment' | 'fallbackTitle'>
 > = {
     dataSchema: {
-        key: 'fieldDefinitions',
+        key: 'components',
         capability: 'dataSchema',
-        routeSegment: 'field-definitions',
-        fallbackTitle: 'fieldDefinitions'
+        routeSegment: 'components',
+        fallbackTitle: 'components'
     },
     fixedValues: {
         key: 'fixedValues',
@@ -44,6 +44,27 @@ export interface EntityResourceSurfaceDefinition {
     fallbackTitle?: string
 }
 
+export const ENTITY_TYPE_TREE_ASSIGNMENT_LABEL_KEYS = [
+    'title',
+    'addButton',
+    'dialogTitle',
+    'emptyMessage',
+    'requiredWarningMessage',
+    'noAvailableMessage',
+    'requiredLabel',
+    'requiredEnabledHelp',
+    'requiredDisabledHelp',
+    'singleLabel',
+    'singleEnabledHelp',
+    'singleDisabledHelp',
+    'singleWarning',
+    'currentContainerShort'
+] as const
+
+export type EntityTypeTreeAssignmentLabelKey = (typeof ENTITY_TYPE_TREE_ASSIGNMENT_LABEL_KEYS)[number]
+
+export type EntityTypeTreeAssignmentLabels = Partial<Record<EntityTypeTreeAssignmentLabelKey, VersionedLocalizedContent<string>>>
+
 export const getDefaultEntityResourceSurfaceDefinition = (
     capability: EntityResourceSurfaceCapability
 ): EntityResourceSurfaceDefinition => ({
@@ -58,11 +79,12 @@ export interface EntityTypeUIConfig {
     nameKey: string
     descriptionKey?: string
     resourceSurfaces?: readonly EntityResourceSurfaceDefinition[]
+    treeAssignmentLabels?: EntityTypeTreeAssignmentLabels
 }
 
 export interface EntityTypeDefinition {
     kindKey: EntityKind
-    components: ComponentManifest
+    capabilities: EntityTypeCapabilities
     ui: EntityTypeUIConfig
     presentation?: Record<string, unknown>
     config?: Record<string, unknown>
@@ -114,6 +136,50 @@ const normalizeLocalizedTitle = (value: unknown): VersionedLocalizedContent<stri
     }
 
     return value as unknown as VersionedLocalizedContent<string>
+}
+
+const normalizeLocalizedTreeAssignmentLabel = (value: unknown, key: string): VersionedLocalizedContent<string> | undefined => {
+    if (!isRecord(value) || !isRecord(value.locales)) {
+        return undefined
+    }
+
+    const primary = normalizeOptionalString(value._primary)
+    if (!primary) {
+        throw new Error(`Entity tree assignment label ${key} must contain a primary locale`)
+    }
+
+    const locales = value.locales
+    if (!isRecord(locales) || Object.keys(locales).length === 0) {
+        throw new Error(`Entity tree assignment label ${key} must contain at least one locale`)
+    }
+
+    if (!isRecord(locales[primary])) {
+        throw new Error(`Entity tree assignment label ${key} must contain the primary locale entry`)
+    }
+
+    for (const [locale, entry] of Object.entries(locales)) {
+        if (!normalizeOptionalString(locale) || !isRecord(entry) || typeof entry.content !== 'string') {
+            throw new Error(`Entity tree assignment label ${key} locales must contain string content`)
+        }
+    }
+
+    return value as unknown as VersionedLocalizedContent<string>
+}
+
+export const normalizeEntityTypeTreeAssignmentLabels = (value: unknown): EntityTypeTreeAssignmentLabels | undefined => {
+    if (!isRecord(value)) {
+        return undefined
+    }
+
+    const labels: EntityTypeTreeAssignmentLabels = {}
+    for (const key of ENTITY_TYPE_TREE_ASSIGNMENT_LABEL_KEYS) {
+        const label = normalizeLocalizedTreeAssignmentLabel(value[key], key)
+        if (label) {
+            labels[key] = label
+        }
+    }
+
+    return Object.keys(labels).length > 0 ? labels : undefined
 }
 
 export const normalizeEntityResourceSurfaceDefinition = (
@@ -194,12 +260,12 @@ export const normalizeEntityResourceSurfaceDefinitions = (
     return surfaces
 }
 
-export const validateEntityResourceSurfacesAgainstComponents = (
+export const validateEntityResourceSurfacesAgainstCapabilities = (
     surfaces: readonly EntityResourceSurfaceDefinition[] | undefined,
-    components: ComponentManifest
+    capabilities: EntityTypeCapabilities
 ): void => {
     for (const surface of surfaces ?? []) {
-        if (!isEnabledComponentConfig(components[surface.capability])) {
+        if (!isEnabledCapabilityConfig(capabilities[surface.capability])) {
             throw new Error(`Entity resource surface ${surface.key} requires enabled component ${surface.capability}`)
         }
     }

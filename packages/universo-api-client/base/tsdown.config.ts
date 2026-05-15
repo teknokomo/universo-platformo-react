@@ -10,9 +10,5 @@ export default defineConfig({
     sourcemap: false,
     platform: 'neutral',
     // Prevent bundling workspace singletons
-    external: [
-        '@universo/auth-frontend',
-        '@universo/utils',
-        '@tanstack/react-query'
-    ],
+    external: ['@universo/auth-frontend', '@universo/utils', '@tanstack/react-query']
 })

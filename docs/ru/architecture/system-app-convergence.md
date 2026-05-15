@@ -18,7 +18,7 @@ description: Fixed system-app convergence model for application-like schemas.
 
 ## Структурные правила
 
-- Бизнес-таблицы используют канонические префиксы `cat_`, `doc_`, `rel_` и `cfg_`.
+- Бизнес-таблицы используют канонические префиксы `obj_`, `doc_`, `rel_` и `cfg_`.
 - Бизнес-строки fixed system apps используют двойные lifecycle layers `_upl_*` и `_app_*`.
 - Ветвевые схемы сохраняют поля `_mhb_*` и не входят в это правило конвергенции.
 - Динамические схемы приложений сохраняют поля `_app_*` и тот же naming contract.
@@ -28,7 +28,7 @@ description: Fixed system-app convergence model for application-like schemas.
 1. Выполнить pre-schema platform migrations, подготавливающие общие database capabilities.
 2. Сгенерировать fixed system-app schemas из registered manifest-driven schema plans.
 3. Выполнить post-schema platform migrations, зависящие от generated fixed tables.
-4. Выполнить bootstrap metadata `_app_objects` и `_app_attributes` для fixed schemas.
+4. Выполнить bootstrap metadata `_app_objects` и `_app_components` для fixed schemas.
 5. Пропускать повторный metadata sync только когда live fingerprint совпадает с compiled target.
 
 ## Границы ответственности

@@ -18,7 +18,7 @@ All four schemas now bootstrap as application-like fixed schemas.
 
 ## Structural Rules
 
-- Business tables use the canonical prefixes `cat_`, `doc_`, `rel_`, and `cfg_`.
+- Business tables use the canonical prefixes `obj_`, `doc_`, `rel_`, and `cfg_`.
 - Fixed system-app business rows use the dual lifecycle layers `_upl_*` and `_app_*`.
 - Branch schemas keep `_mhb_*` fields and are not part of this convergence rule.
 - Dynamic application schemas keep `_app_*` fields and follow the same naming contract.
@@ -28,7 +28,7 @@ All four schemas now bootstrap as application-like fixed schemas.
 1. Run pre-schema platform migrations that prepare shared database capabilities.
 2. Generate fixed system-app schemas from registered manifest-driven schema plans.
 3. Run post-schema platform migrations that depend on generated fixed tables.
-4. Bootstrap `_app_objects` and `_app_attributes` metadata for the fixed schemas.
+4. Bootstrap `_app_objects` and `_app_components` metadata for the fixed schemas.
 5. Skip repeated metadata sync only when the live fingerprint matches the compiled target.
 
 ## Ownership Boundaries

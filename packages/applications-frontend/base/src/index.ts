@@ -41,7 +41,7 @@ export type {
     SimpleLocalizedInput,
     ApplicationLocalizedPayload,
     ApplicationRuntimeResponse,
-    ApplicationRuntimeLinkedCollection,
+    ApplicationRuntimeObjectCollection,
     ApplicationRuntimeColumn,
     ApplicationRuntimeMenu,
     ApplicationRuntimeMenuItem,

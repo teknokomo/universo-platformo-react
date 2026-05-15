@@ -14,7 +14,7 @@ import {
     type SchemaSnapshot
 } from '@universo/schema-ddl'
 import { quoteQualifiedIdentifier } from '@universo/migrations-core'
-import { FieldDefinitionDataType } from '@universo/types'
+import { ComponentDefinitionDataType } from '@universo/types'
 import type { DbExecutor } from '@universo/utils'
 import {
     createApplicationReleaseBundle,
@@ -29,7 +29,7 @@ import {
     type SyncableApplicationRecord,
     type ApplicationSchemaSyncSource,
     type RuntimeApplicationObjectRow,
-    type RuntimeApplicationAttributeRow,
+    type RuntimeApplicationComponentRow,
     type RuntimeApplicationEnumerationValueRow,
     type RuntimeApplicationLayoutRow,
     type RuntimeApplicationWidgetRow
@@ -63,7 +63,7 @@ export async function loadApplicationRuntimeEntities(exec: DbExecutor, schemaNam
             ORDER BY ${runtimeCodenameTextSql('codename')} ASC, id ASC
         `
     )
-    const attributeRows = await exec.query<RuntimeApplicationAttributeRow>(
+    const componentRows = await exec.query<RuntimeApplicationComponentRow>(
         `
             SELECT
                 id,
@@ -73,17 +73,17 @@ export async function loadApplicationRuntimeEntities(exec: DbExecutor, schemaNam
                 column_name,
                 data_type,
                 is_required,
-                is_display_attribute,
+                is_display_component,
                 target_object_id,
                 target_object_kind,
-                parent_attribute_id,
+                parent_component_id,
                 presentation,
                 validation_rules,
                 ui_config
-            FROM ${schemaIdent}._app_attributes
+            FROM ${schemaIdent}._app_components
             WHERE _upl_deleted = false
               AND _app_deleted = false
-            ORDER BY object_id ASC, parent_attribute_id ASC NULLS FIRST, sort_order ASC, id ASC
+            ORDER BY object_id ASC, parent_component_id ASC NULLS FIRST, sort_order ASC, id ASC
         `
     )
 
@@ -91,17 +91,17 @@ export async function loadApplicationRuntimeEntities(exec: DbExecutor, schemaNam
         string,
         {
             objectId: string
-            parentAttributeId: string | null
+            parentComponentId: string | null
             sortOrder: number
             field: EntityDefinition['fields'][number]
         }
     >()
 
-    for (const row of attributeRows) {
+    for (const row of componentRows) {
         const id = typeof row.id === 'string' ? row.id : null
         const objectId = typeof row.object_id === 'string' ? row.object_id : null
         const codename = typeof row.codename === 'string' ? row.codename : null
-        const dataType = typeof row.data_type === 'string' ? (row.data_type as FieldDefinitionDataType) : null
+        const dataType = typeof row.data_type === 'string' ? (row.data_type as ComponentDefinitionDataType) : null
         const columnName = typeof row.column_name === 'string' ? row.column_name : null
 
         if (!id || !objectId || !codename || !dataType || !columnName) {
@@ -114,18 +114,18 @@ export async function loadApplicationRuntimeEntities(exec: DbExecutor, schemaNam
 
         fieldNodes.set(id, {
             objectId,
-            parentAttributeId: typeof row.parent_attribute_id === 'string' ? row.parent_attribute_id : null,
+            parentComponentId: typeof row.parent_component_id === 'string' ? row.parent_component_id : null,
             sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 0,
             field: {
                 id,
                 codename,
                 dataType,
                 isRequired: row.is_required === true,
-                isDisplayAttribute: row.is_display_attribute === true,
+                isDisplayComponent: row.is_display_component === true,
                 targetEntityId: typeof row.target_object_id === 'string' ? row.target_object_id : null,
                 targetEntityKind: normalizeRuntimeEntityKind(row.target_object_kind),
                 targetConstantId,
-                parentAttributeId: typeof row.parent_attribute_id === 'string' ? row.parent_attribute_id : null,
+                parentComponentId: typeof row.parent_component_id === 'string' ? row.parent_component_id : null,
                 presentation: normalizeRuntimePresentation(row.presentation),
                 validationRules: isRecord(row.validation_rules) ? row.validation_rules : {},
                 uiConfig,
@@ -141,10 +141,10 @@ export async function loadApplicationRuntimeEntities(exec: DbExecutor, schemaNam
     const topLevelNodesByObject = new Map<string, Array<{ sortOrder: number; field: EntityDefinition['fields'][number] }>>()
 
     for (const node of fieldNodes.values()) {
-        if (node.parentAttributeId) {
-            const children = childNodesByParent.get(node.parentAttributeId) ?? []
+        if (node.parentComponentId) {
+            const children = childNodesByParent.get(node.parentComponentId) ?? []
             children.push({ sortOrder: node.sortOrder, field: node.field })
-            childNodesByParent.set(node.parentAttributeId, children)
+            childNodesByParent.set(node.parentComponentId, children)
             continue
         }
 
@@ -197,16 +197,19 @@ export async function loadApplicationRuntimeElements(
     const result: Record<string, unknown[]> = {}
 
     for (const entity of entities) {
-        if (entity.kind !== 'catalog' || !hasPhysicalRuntimeTable(entity)) {
+        if (entity.kind !== 'object' || !hasPhysicalRuntimeTable(entity)) {
             continue
         }
 
         const tableName = entity.physicalTableName ?? generateTableName(entity.id, entity.kind)
         const tableIdent = quoteQualifiedIdentifier(schemaName, tableName)
         const runtimeRowCondition = buildDynamicRuntimeActiveRowSql(resolveEntityLifecycleContract(entity), entity.config)
-        const topLevelFields = entity.fields.filter((field) => field.dataType !== FieldDefinitionDataType.TABLE && !field.parentAttributeId)
+        const topLevelFields = entity.fields.filter(
+            (field) => field.dataType !== ComponentDefinitionDataType.TABLE && !field.parentComponentId
+        )
         const tableFields = entity.fields.filter(
-            (field) => field.dataType === FieldDefinitionDataType.TABLE && !field.parentAttributeId && (field.childFields?.length ?? 0) > 0
+            (field) =>
+                field.dataType === ComponentDefinitionDataType.TABLE && !field.parentComponentId && (field.childFields?.length ?? 0) > 0
         )
         const selectColumns = [
             'id',
@@ -382,7 +385,7 @@ export function loadApplicationRuntimeFixedValues(entities: EntityDefinition[]):
 
     for (const entity of entities) {
         for (const field of entity.fields) {
-            if (field.parentAttributeId) {
+            if (field.parentComponentId) {
                 continue
             }
 

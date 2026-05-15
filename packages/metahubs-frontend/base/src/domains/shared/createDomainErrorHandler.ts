@@ -25,15 +25,15 @@ type DomainMutationError = Error & {
  *
  * @example
  * ```ts
- * const handleAttributeError = createDomainErrorHandler({
- *   ATTRIBUTE_LIMIT_REACHED: (data, t) => t('fieldDefinitions.limitReached', { limit: data.limit ?? '—' }),
- *   TABLE_CHILD_LIMIT_REACHED: (data, t) => t('fieldDefinitions.tableValidation.maxChildAttributes', { max: data.maxChildAttributes ?? '—' }),
+ * const handleComponentError = createDomainErrorHandler({
+ *   ATTRIBUTE_LIMIT_REACHED: (data, t) => t('components.limitReached', { limit: data.limit ?? '—' }),
+ *   TABLE_CHILD_LIMIT_REACHED: (data, t) => t('components.tableValidation.maxChildComponents', { max: data.maxChildComponents ?? '—' }),
  * })
  *
  * // In mutation onError:
  * onError: (error) => {
  *   rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
- *   handleAttributeError(error, t, enqueueSnackbar, 'fieldDefinitions.createError')
+ *   handleComponentError(error, t, enqueueSnackbar, 'components.createError')
  * }
  * ```
  */

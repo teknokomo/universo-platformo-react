@@ -81,7 +81,7 @@ const mockDeleteEntityInstance = vi.fn()
 const mockRestoreEntityInstance = vi.fn()
 const mockPermanentDeleteEntityInstance = vi.fn()
 const templateMainCardMock = vi.fn()
-const catalogEntityInstanceViewMock = vi.fn()
+const objectEntityInstanceViewMock = vi.fn()
 const hubEntityInstanceViewMock = vi.fn()
 const setEntityInstanceViewMock = vi.fn()
 const enumerationEntityInstanceViewMock = vi.fn()
@@ -181,19 +181,18 @@ vi.mock('react-i18next', () => ({
                 'metahubs:ledgers.title': 'Ledgers',
                 'ledgers.empty': 'No ledgers yet',
                 'ledgers.searchPlaceholder': 'Search ledgers...',
-                'ledgers.fieldDefinitions.emptyTitle': 'This ledger has no attributes yet',
-                'ledgers.fieldDefinitions.emptyDescription':
-                    'Create ledger dimensions, resources, or properties through the shared attribute list.',
+                'ledgers.components.emptyTitle': 'This ledger has no components yet',
+                'ledgers.components.emptyDescription':
+                    'Create ledger dimensions, resources, or properties through the shared component list.',
                 'hubs.title': 'Hubs',
-                'catalogs.tabs.layout': 'Layouts',
+                'objects.tabs.layout': 'Layouts',
                 'pages.empty': 'No pages yet',
                 'pages.emptyDescription': 'Create the first page to configure structured application content',
                 'pages.searchPlaceholder': 'Search pages...',
-                'entities.instances.tabs.fieldDefinitions': 'Attributes',
-                'entities.instances.fieldDefinitions.emptyTitle': 'No attributes yet',
-                'entities.instances.fieldDefinitions.emptyDescription':
-                    'Create the first attribute to define the data shape for this entity.',
-                'fieldDefinitions.searchPlaceholder': 'Search attributes...',
+                'entities.instances.tabs.components': 'Components',
+                'entities.instances.components.emptyTitle': 'No components yet',
+                'entities.instances.components.emptyDescription': 'Create the first component to define the data shape for this entity.',
+                'components.searchPlaceholder': 'Search components...',
                 'entities.instances.tabs.content': 'Content',
                 'common:actions.more': 'More actions',
                 'common:actions.copy': 'Copy',
@@ -416,18 +415,18 @@ vi.mock('@universo/template-mui/components/dialogs', () => ({
 vi.mock('../../../../components', () => ({
     ExistingCodenamesProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     ContainerSelectionPanel: () => <div>ContainerSelectionPanel</div>,
-    LinkedCollectionDeleteDialog: ({ open }: { open: boolean }) =>
-        open ? <div data-testid='catalog-delete-dialog'>LinkedCollectionDeleteDialog</div> : null
+    ObjectCollectionDeleteDialog: ({ open }: { open: boolean }) =>
+        open ? <div data-testid='object-delete-dialog'>ObjectCollectionDeleteDialog</div> : null
 }))
 
 vi.mock('../../../shared/ui/GeneralTabFields', () => ({
     default: () => <div>GeneralTabFields</div>
 }))
 
-vi.mock('../metadata/fieldDefinition/ui/FieldDefinitionList', () => ({
-    FieldDefinitionListContent: ({ emptyTitle, emptyDescription }: { emptyTitle?: string; emptyDescription?: string }) => (
+vi.mock('../metadata/component/ui/ComponentList', () => ({
+    ComponentListContent: ({ emptyTitle, emptyDescription }: { emptyTitle?: string; emptyDescription?: string }) => (
         <div>
-            <div>FieldDefinitionListContent</div>
+            <div>ComponentListContent</div>
             {emptyTitle ? <div>{emptyTitle}</div> : null}
             {emptyDescription ? <div>{emptyDescription}</div> : null}
         </div>
@@ -448,9 +447,9 @@ vi.mock('../../../scripts/ui/EntityScriptsTab', () => ({
 
 vi.mock('../BuiltinEntityCollectionPage', () => ({
     BuiltinEntityCollectionPage: ({ kindKey }: { kindKey?: string | null }) => {
-        if (kindKey === 'catalog') {
-            catalogEntityInstanceViewMock()
-            return <div>BuiltinEntityCollectionPage:catalog</div>
+        if (kindKey === 'object') {
+            objectEntityInstanceViewMock()
+            return <div>BuiltinEntityCollectionPage:object</div>
         }
 
         if (kindKey === 'hub') {
@@ -516,7 +515,7 @@ describe('EntityInstanceList', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         templateMainCardMock.mockClear()
-        catalogEntityInstanceViewMock.mockClear()
+        objectEntityInstanceViewMock.mockClear()
         hubEntityInstanceViewMock.mockClear()
         setEntityInstanceViewMock.mockClear()
         enumerationEntityInstanceViewMock.mockClear()
@@ -572,7 +571,7 @@ describe('EntityInstanceList', () => {
                             sidebarSection: 'objects',
                             nameKey: 'Products'
                         },
-                        components: {
+                        capabilities: {
                             dataSchema: { enabled: true },
                             treeAssignment: { enabled: true },
                             layoutConfig: { enabled: true },
@@ -661,7 +660,7 @@ describe('EntityInstanceList', () => {
 
         expect(screen.getByText('General')).toBeInTheDocument()
         expect(screen.getAllByText('Containers').length).toBeGreaterThan(0)
-        expect(screen.queryByText('Attributes')).not.toBeInTheDocument()
+        expect(screen.queryByText('Components')).not.toBeInTheDocument()
         expect(screen.queryByText('Layouts')).not.toBeInTheDocument()
         expect(screen.queryByText('Scripts')).not.toBeInTheDocument()
         expect(screen.queryByText('Actions')).not.toBeInTheDocument()
@@ -670,7 +669,7 @@ describe('EntityInstanceList', () => {
         await user.click(screen.getByRole('button', { name: 'More actions' }))
         await user.click(screen.getByRole('menuitem', { name: 'Edit' }))
 
-        expect(screen.getByText('Attributes')).toBeInTheDocument()
+        expect(screen.getByText('Components')).toBeInTheDocument()
         expect(screen.getByText('Layouts')).toBeInTheDocument()
         expect(screen.getByText('Scripts')).toBeInTheDocument()
         expect(screen.getByText('Actions')).toBeInTheDocument()
@@ -691,7 +690,7 @@ describe('EntityInstanceList', () => {
                             sidebarSection: 'objects',
                             nameKey: 'Documents'
                         },
-                        components: {
+                        capabilities: {
                             records: { enabled: true },
                             identityFields: { enabled: true, allowNumber: true, allowEffectiveDate: true },
                             recordLifecycle: { enabled: true, allowCustomStates: true },
@@ -818,7 +817,7 @@ describe('EntityInstanceList', () => {
 
         expect(await screen.findByTestId('entity-form-dialog')).toBeInTheDocument()
         expect(screen.getByTestId('dialog-description')).toHaveTextContent('Fresh shared description')
-        expect(screen.getByText('Attributes')).toBeInTheDocument()
+        expect(screen.getByText('Components')).toBeInTheDocument()
     })
 
     it('opens the dedicated content route for block-content entity kinds', async () => {
@@ -835,7 +834,7 @@ describe('EntityInstanceList', () => {
                             sidebarSection: 'objects',
                             nameKey: 'Pages'
                         },
-                        components: {
+                        capabilities: {
                             blockContent: { enabled: true }
                         }
                     }
@@ -903,14 +902,14 @@ describe('EntityInstanceList', () => {
                             nameKey: 'metahubs:ledgers.title',
                             resourceSurfaces: [
                                 {
-                                    key: 'fieldDefinitions',
+                                    key: 'components',
                                     capability: 'dataSchema',
-                                    routeSegment: 'field-definitions',
-                                    fallbackTitle: 'Attributes'
+                                    routeSegment: 'components',
+                                    fallbackTitle: 'Components'
                                 }
                             ]
                         },
-                        components: {
+                        capabilities: {
                             dataSchema: { enabled: true },
                             treeAssignment: { enabled: true },
                             layoutConfig: { enabled: true },
@@ -946,7 +945,7 @@ describe('EntityInstanceList', () => {
                 <Routes>
                     <Route path='/metahub/:metahubId/entities/:kindKey/instances' element={<EntityInstanceListContent />} />
                     <Route
-                        path='/metahub/:metahubId/entities/:kindKey/instance/:entityId/field-definitions'
+                        path='/metahub/:metahubId/entities/:kindKey/instance/:entityId/components'
                         element={<div>Ledger fields route opened</div>}
                     />
                 </Routes>
@@ -961,7 +960,7 @@ describe('EntityInstanceList', () => {
         expect(screen.getByText('Ledger fields route opened')).toBeInTheDocument()
     })
 
-    it('renders Ledger field definitions through the shared localized attributes tab', async () => {
+    it('renders Ledger field definitions through the shared localized components tab', async () => {
         mockEntityTypesQuery.mockReturnValue({
             data: {
                 items: [
@@ -976,14 +975,14 @@ describe('EntityInstanceList', () => {
                             nameKey: 'metahubs:ledgers.title',
                             resourceSurfaces: [
                                 {
-                                    key: 'fieldDefinitions',
+                                    key: 'components',
                                     capability: 'dataSchema',
-                                    routeSegment: 'field-definitions',
-                                    fallbackTitle: 'Attributes'
+                                    routeSegment: 'components',
+                                    fallbackTitle: 'Components'
                                 }
                             ]
                         },
-                        components: {
+                        capabilities: {
                             dataSchema: { enabled: true },
                             treeAssignment: { enabled: true },
                             layoutConfig: { enabled: true },
@@ -1029,9 +1028,9 @@ describe('EntityInstanceList', () => {
         await user.click(screen.getByRole('button', { name: 'More actions' }))
         await user.click(screen.getByRole('menuitem', { name: 'Edit' }))
 
-        expect(screen.getByText('Attributes')).toBeInTheDocument()
-        expect(screen.queryByText('No fieldDefinitions')).not.toBeInTheDocument()
-        expect(screen.queryByText('Create the first attribute to define the schema for this custom entity kind.')).not.toBeInTheDocument()
+        expect(screen.getByText('Components')).toBeInTheDocument()
+        expect(screen.queryByText('No components')).not.toBeInTheDocument()
+        expect(screen.queryByText('Create the first component to define the schema for this custom entity kind.')).not.toBeInTheDocument()
     })
 
     it('blocks Ledger schema saves when field roles reference invalid field definitions', async () => {
@@ -1048,7 +1047,7 @@ describe('EntityInstanceList', () => {
                             sidebarSection: 'objects',
                             nameKey: 'metahubs:ledgers.title'
                         },
-                        components: {
+                        capabilities: {
                             dataSchema: { enabled: true },
                             physicalTable: { enabled: true },
                             ledgerSchema: { enabled: true }
@@ -1090,7 +1089,7 @@ describe('EntityInstanceList', () => {
         })
         mockUseQuery.mockImplementation((options: { queryKey?: unknown[] }) => {
             const queryKey = options?.queryKey ?? []
-            if (queryKey.includes('fieldDefinitions')) {
+            if (queryKey.includes('components')) {
                 return {
                     data: {
                         items: [
@@ -1157,7 +1156,7 @@ describe('EntityInstanceList', () => {
                                 delete: makeVlc('Delete Page')
                             }
                         },
-                        components: {
+                        capabilities: {
                             blockContent: { enabled: true },
                             treeAssignment: { enabled: true },
                             layoutConfig: { enabled: true },
@@ -1238,7 +1237,7 @@ describe('EntityInstanceList', () => {
                             sidebarSection: 'objects',
                             nameKey: 'metahubs:pages.title'
                         },
-                        components: {
+                        capabilities: {
                             blockContent: { enabled: true }
                         },
                         config: {}
@@ -1288,7 +1287,7 @@ describe('EntityInstanceList', () => {
                             sidebarSection: 'objects',
                             nameKey: 'metahubs:pages.title'
                         },
-                        components: {
+                        capabilities: {
                             blockContent: { enabled: true },
                             treeAssignment: { enabled: true },
                             layoutConfig: { enabled: true },
@@ -1384,7 +1383,7 @@ describe('EntityInstanceList', () => {
                             sidebarSection: 'objects',
                             nameKey: 'metahubs:pages.title'
                         },
-                        components: {
+                        capabilities: {
                             blockContent: { enabled: true },
                             layoutConfig: { enabled: true },
                             scripting: { enabled: true }
@@ -1448,21 +1447,21 @@ describe('EntityInstanceList', () => {
         })
     })
 
-    it('renders the linked-collection authoring surface on the entity route', () => {
+    it('renders the object-collection authoring surface on the entity route', () => {
         mockEntityTypesQuery.mockReturnValue({
             data: {
                 items: [
                     {
                         id: 'type-1',
-                        kindKey: 'catalog',
-                        codename: makeVlc('LinkedCollectionEntity'),
+                        kindKey: 'object',
+                        codename: makeVlc('ObjectCollectionEntity'),
                         ui: {
                             iconName: 'IconBox',
                             tabs: ['general', 'treeEntities', 'layout', 'scripts'],
                             sidebarSection: 'objects',
-                            nameKey: 'metahubs:catalogs.title'
+                            nameKey: 'metahubs:objects.title'
                         },
-                        components: {
+                        capabilities: {
                             dataSchema: { enabled: true },
                             scripting: { enabled: true }
                         },
@@ -1476,11 +1475,11 @@ describe('EntityInstanceList', () => {
 
         mockPaginatedResult.data = [
             {
-                id: 'catalog-1',
-                kind: 'catalog',
-                codename: makeVlc('catalog-one'),
-                name: makeVlc('LinkedCollectionEntity One'),
-                description: makeVlc('LinkedCollectionEntity row'),
+                id: 'object-1',
+                kind: 'object',
+                codename: makeVlc('object-one'),
+                name: makeVlc('ObjectCollectionEntity One'),
+                description: makeVlc('ObjectCollectionEntity row'),
                 config: { treeEntities: ['hub-1'], isSingleHub: false, isRequiredHub: false, sortOrder: 1 },
                 sortOrder: 1,
                 version: 3,
@@ -1494,18 +1493,18 @@ describe('EntityInstanceList', () => {
         })
 
         render(
-            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/catalog/instances']}>
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/object/instances']}>
                 <Routes>
                     <Route path='/metahub/:metahubId/entities/:kindKey/instances' element={<EntityInstanceList />} />
                 </Routes>
             </MemoryRouter>
         )
 
-        expect(screen.getByText('BuiltinEntityCollectionPage:catalog')).toBeInTheDocument()
-        expect(catalogEntityInstanceViewMock).toHaveBeenCalledTimes(1)
+        expect(screen.getByText('BuiltinEntityCollectionPage:object')).toBeInTheDocument()
+        expect(objectEntityInstanceViewMock).toHaveBeenCalledTimes(1)
     })
 
-    it('renders the linked-collection surface immediately for the standard catalog route', () => {
+    it('renders the object-collection surface immediately for the standard object route', () => {
         mockEntityTypesQuery.mockReturnValue({
             data: undefined,
             error: null,
@@ -1513,15 +1512,15 @@ describe('EntityInstanceList', () => {
         })
 
         render(
-            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/catalog/instances']}>
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/object/instances']}>
                 <Routes>
                     <Route path='/metahub/:metahubId/entities/:kindKey/instances' element={<EntityInstanceList />} />
                 </Routes>
             </MemoryRouter>
         )
 
-        expect(screen.getByText('BuiltinEntityCollectionPage:catalog')).toBeInTheDocument()
-        expect(catalogEntityInstanceViewMock).toHaveBeenCalledTimes(1)
+        expect(screen.getByText('BuiltinEntityCollectionPage:object')).toBeInTheDocument()
+        expect(objectEntityInstanceViewMock).toHaveBeenCalledTimes(1)
     })
 
     it('renders the tree-entity surface immediately for the standard hub route', () => {
@@ -1581,7 +1580,7 @@ describe('EntityInstanceList', () => {
         expect(enumerationEntityInstanceViewMock).toHaveBeenCalledTimes(1)
     })
 
-    it('keeps the linked-collection surface when existing settings limit copy and delete', () => {
+    it('keeps the object-collection surface when existing settings limit copy and delete', () => {
         mockUseMetahubDetails.mockReturnValue({
             data: { permissions: { manageMetahub: false, editContent: true, deleteContent: false } },
             isLoading: false
@@ -1598,15 +1597,15 @@ describe('EntityInstanceList', () => {
                 items: [
                     {
                         id: 'type-1',
-                        kindKey: 'catalog',
-                        codename: makeVlc('LinkedCollectionEntity'),
+                        kindKey: 'object',
+                        codename: makeVlc('ObjectCollectionEntity'),
                         ui: {
                             iconName: 'IconBox',
                             tabs: ['general', 'treeEntities', 'layout', 'scripts'],
                             sidebarSection: 'objects',
-                            nameKey: 'metahubs:catalogs.title'
+                            nameKey: 'metahubs:objects.title'
                         },
-                        components: {
+                        capabilities: {
                             dataSchema: { enabled: true },
                             treeAssignment: { enabled: true },
                             layoutConfig: { enabled: true },
@@ -1622,10 +1621,10 @@ describe('EntityInstanceList', () => {
 
         mockPaginatedResult.data = [
             {
-                id: 'catalog-1',
-                kind: 'catalog',
-                codename: makeVlc('catalog-one'),
-                name: makeVlc('LinkedCollectionEntity One'),
+                id: 'object-1',
+                kind: 'object',
+                codename: makeVlc('object-one'),
+                name: makeVlc('ObjectCollectionEntity One'),
                 description: null,
                 config: { treeEntities: ['hub-1'], isSingleHub: false, isRequiredHub: false, sortOrder: 1 },
                 sortOrder: 1,
@@ -1641,12 +1640,12 @@ describe('EntityInstanceList', () => {
 
         mockEntityInstanceDetailQuery.mockImplementation((_metahubId?: string, entityId?: string) => ({
             data:
-                entityId === 'catalog-1'
+                entityId === 'object-1'
                     ? {
-                          id: 'catalog-1',
-                          kind: 'catalog',
-                          codename: makeVlc('catalog-one'),
-                          name: makeVlc('LinkedCollectionEntity One'),
+                          id: 'object-1',
+                          kind: 'object',
+                          codename: makeVlc('object-one'),
+                          name: makeVlc('ObjectCollectionEntity One'),
                           description: makeVlc('Fresh shared description'),
                           config: { treeEntities: ['hub-1'], isSingleHub: false, isRequiredHub: false, sortOrder: 1 },
                           sortOrder: 1,
@@ -1659,15 +1658,15 @@ describe('EntityInstanceList', () => {
         }))
 
         render(
-            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/catalog/instances']}>
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/object/instances']}>
                 <Routes>
                     <Route path='/metahub/:metahubId/entities/:kindKey/instances' element={<EntityInstanceList />} />
                 </Routes>
             </MemoryRouter>
         )
 
-        expect(screen.getByText('BuiltinEntityCollectionPage:catalog')).toBeInTheDocument()
-        expect(catalogEntityInstanceViewMock).toHaveBeenCalledTimes(1)
+        expect(screen.getByText('BuiltinEntityCollectionPage:object')).toBeInTheDocument()
+        expect(objectEntityInstanceViewMock).toHaveBeenCalledTimes(1)
     })
 
     it('keeps read-only visibility but hides entity instance authoring affordances without manageMetahub', () => {

@@ -65,6 +65,19 @@ const createVlc = (value: string) => ({
     }
 })
 
+const mockAnchorLayout = () =>
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue({
+        x: 16,
+        y: 16,
+        top: 16,
+        left: 16,
+        right: 216,
+        bottom: 56,
+        width: 200,
+        height: 40,
+        toJSON: () => ({})
+    } as DOMRect)
+
 describe('TargetEntitySelector', () => {
     beforeEach(() => {
         vi.clearAllMocks()
@@ -76,23 +89,23 @@ describe('TargetEntitySelector', () => {
         vi.mocked(listEntityTypes).mockResolvedValue({
             items: [
                 {
-                    kindKey: 'catalog',
-                    components: { dataSchema: { enabled: true } },
-                    ui: { iconName: 'IconDatabase', tabs: [], sidebarSection: 'objects', nameKey: 'Catalog' }
+                    kindKey: 'object',
+                    capabilities: { dataSchema: { enabled: true } },
+                    ui: { iconName: 'IconDatabase', tabs: [], sidebarSection: 'objects', nameKey: 'Object' }
                 },
                 {
                     kindKey: 'enumeration',
-                    components: { dataSchema: false },
+                    capabilities: { dataSchema: false },
                     ui: { iconName: 'IconFiles', tabs: [], sidebarSection: 'objects', nameKey: 'Enumeration' }
                 },
                 {
                     kindKey: 'set',
-                    components: { dataSchema: { enabled: true } },
+                    capabilities: { dataSchema: { enabled: true } },
                     ui: { iconName: 'IconFileText', tabs: [], sidebarSection: 'objects', nameKey: 'Set' }
                 },
                 {
                     kindKey: 'custom.invoice',
-                    components: { dataSchema: { enabled: true } },
+                    capabilities: { dataSchema: { enabled: true } },
                     ui: { iconName: 'IconLayoutDashboard', tabs: [], sidebarSection: 'objects', nameKey: 'Invoices' }
                 }
             ],
@@ -155,8 +168,8 @@ describe('TargetEntitySelector', () => {
             <QueryClientProvider client={queryClient}>
                 <TargetEntitySelector
                     metahubId='metahub-1'
-                    targetEntityKind='catalog'
-                    targetEntityId='catalog-1'
+                    targetEntityKind='object'
+                    targetEntityId='object-1'
                     targetConstantId='constant-1'
                     onEntityKindChange={onEntityKindChange}
                     onEntityIdChange={onEntityIdChange}
@@ -172,8 +185,15 @@ describe('TargetEntitySelector', () => {
             )
         })
 
-        await user.click(screen.getByRole('combobox', { name: 'Target Entity Type' }))
-        await user.click(await screen.findByRole('option', { name: 'set' }))
+        const entityKindCombobox = screen.getByRole('combobox', { name: 'Target Entity Type' })
+        const anchorLayoutSpy = mockAnchorLayout()
+
+        try {
+            await user.click(entityKindCombobox)
+            await user.click(await screen.findByRole('option', { name: 'set' }))
+        } finally {
+            anchorLayoutSpy.mockRestore()
+        }
 
         expect(onEntityKindChange).toHaveBeenCalledWith('set')
         expect(onEntityIdChange).toHaveBeenCalledWith(null)

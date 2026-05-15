@@ -24,7 +24,7 @@ interface CleanupSeedDiff {
 interface EntityCleanupCandidate {
     key: string
     objectId: string
-    attributeIds: string[]
+    componentIds: string[]
     elementIds: string[]
 }
 
@@ -52,7 +52,7 @@ interface CleanupPlanData {
 
 export interface TemplateSeedCleanupSummary {
     entitiesDeleted: number
-    attributesDeleted: number
+    componentsDeleted: number
     elementsDeleted: number
     settingsDeleted: number
     widgetsDeleted: number
@@ -68,7 +68,7 @@ export interface TemplateSeedCleanupResult {
 
 const zeroSummary = (): TemplateSeedCleanupSummary => ({
     entitiesDeleted: 0,
-    attributesDeleted: 0,
+    componentsDeleted: 0,
     elementsDeleted: 0,
     settingsDeleted: 0,
     widgetsDeleted: 0
@@ -118,7 +118,7 @@ export class TemplateSeedCleanupService {
             notes: plan.notes,
             summary: {
                 entitiesDeleted: plan.entityCandidates.length,
-                attributesDeleted: plan.entityCandidates.reduce((sum, candidate) => sum + candidate.attributeIds.length, 0),
+                componentsDeleted: plan.entityCandidates.reduce((sum, candidate) => sum + candidate.componentIds.length, 0),
                 elementsDeleted: plan.entityCandidates.reduce((sum, candidate) => sum + candidate.elementIds.length, 0),
                 settingsDeleted: plan.settingCandidates.length,
                 widgetsDeleted: plan.widgetCandidates.length
@@ -145,7 +145,7 @@ export class TemplateSeedCleanupService {
                 notes: plan.notes,
                 summary: {
                     entitiesDeleted: plan.entityCandidates.length,
-                    attributesDeleted: plan.entityCandidates.reduce((sum, candidate) => sum + candidate.attributeIds.length, 0),
+                    componentsDeleted: plan.entityCandidates.reduce((sum, candidate) => sum + candidate.componentIds.length, 0),
                     elementsDeleted: plan.entityCandidates.reduce((sum, candidate) => sum + candidate.elementIds.length, 0),
                     settingsDeleted: plan.settingCandidates.length,
                     widgetsDeleted: plan.widgetCandidates.length
@@ -193,11 +193,11 @@ export class TemplateSeedCleanupService {
             }
 
             for (const candidate of plan.entityCandidates) {
-                if (candidate.attributeIds.length > 0) {
+                if (candidate.componentIds.length > 0) {
                     await trx
                         .withSchema(this.schemaName)
-                        .from('_mhb_attributes')
-                        .whereIn('id', candidate.attributeIds)
+                        .from('_mhb_components')
+                        .whereIn('id', candidate.componentIds)
                         .where({ _upl_deleted: false, _mhb_deleted: false })
                         .update({
                             _mhb_deleted: true,
@@ -207,7 +207,7 @@ export class TemplateSeedCleanupService {
                             _upl_updated_by: actorId,
                             _upl_version: trx.raw('_upl_version + 1')
                         })
-                    summary.attributesDeleted += candidate.attributeIds.length
+                    summary.componentsDeleted += candidate.componentIds.length
                 }
 
                 if (candidate.elementIds.length > 0) {
@@ -248,7 +248,7 @@ export class TemplateSeedCleanupService {
             hasChanges: summary.entitiesDeleted > 0 || summary.settingsDeleted > 0 || summary.widgetsDeleted > 0,
             blockers: [],
             notes: [
-                `Removed entities: ${summary.entitiesDeleted}, attributes: ${summary.attributesDeleted}, elements: ${summary.elementsDeleted}, settings: ${summary.settingsDeleted}, widgets: ${summary.widgetsDeleted}`
+                `Removed entities: ${summary.entitiesDeleted}, components: ${summary.componentsDeleted}, elements: ${summary.elementsDeleted}, settings: ${summary.settingsDeleted}, widgets: ${summary.widgetsDeleted}`
             ],
             summary
         }
@@ -328,25 +328,25 @@ export class TemplateSeedCleanupService {
                 })
             }
 
-            const liveAttributes = await this.knex
+            const liveComponents = await this.knex
                 .withSchema(this.schemaName)
-                .from('_mhb_attributes')
+                .from('_mhb_components')
                 .where({ object_id: objectRow.id, _upl_deleted: false, _mhb_deleted: false })
                 .select(['id', 'codename', '_upl_created_by', '_upl_updated_by'])
-            const allowedAttributeCodes = new Set((entity.attributes ?? []).map((attribute) => attribute.codename))
-            for (const attr of liveAttributes) {
-                if (!allowedAttributeCodes.has(toStringValue(attr.codename))) {
+            const allowedComponentCodes = new Set((entity.components ?? []).map((component) => component.codename))
+            for (const cmp of liveComponents) {
+                if (!allowedComponentCodes.has(toStringValue(cmp.codename))) {
                     blockers.push({
-                        code: 'entity.attribute_extra',
-                        params: { entityKey, attribute: toStringValue(attr.codename) },
-                        message: `Attribute "${toStringValue(attr.codename)}" of entity "${entityKey}" was added outside template seed.`
+                        code: 'entity.component_extra',
+                        params: { entityKey, component: toStringValue(cmp.codename) },
+                        message: `Component "${toStringValue(cmp.codename)}" of entity "${entityKey}" was added outside template seed.`
                     })
                 }
-                if (attr._upl_created_by || attr._upl_updated_by) {
+                if (cmp._upl_created_by || cmp._upl_updated_by) {
                     blockers.push({
-                        code: 'entity.attribute_audit',
-                        params: { entityKey, attribute: toStringValue(attr.codename) },
-                        message: `Attribute "${toStringValue(attr.codename)}" of entity "${entityKey}" has non-system audit provenance.`
+                        code: 'entity.component_audit',
+                        params: { entityKey, component: toStringValue(cmp.codename) },
+                        message: `Component "${toStringValue(cmp.codename)}" of entity "${entityKey}" has non-system audit provenance.`
                     })
                 }
             }
@@ -390,7 +390,7 @@ export class TemplateSeedCleanupService {
             entityCandidates.push({
                 key: entityKey,
                 objectId: toStringValue(objectRow.id),
-                attributeIds: liveAttributes.map((row) => toStringValue(row.id)),
+                componentIds: liveComponents.map((row) => toStringValue(row.id)),
                 elementIds: liveElements.map((row) => toStringValue(row.id))
             })
         }

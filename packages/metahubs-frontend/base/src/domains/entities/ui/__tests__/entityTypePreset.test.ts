@@ -4,7 +4,7 @@ import { buildEntityTypePresetFormPatch, isEntityTypePresetManifest } from '../e
 
 const presetManifest = {
     $schema: 'entity-type-preset/v1' as const,
-    codename: 'catalog',
+    codename: 'object',
     version: '0.1.0',
     minStructureVersion: '0.4.0',
     name: {
@@ -12,7 +12,7 @@ const presetManifest = {
         _primary: 'en',
         locales: {
             en: {
-                content: 'Catalogs',
+                content: 'Objects',
                 version: 1,
                 isActive: true,
                 createdAt: '2026-04-09T00:00:00.000Z',
@@ -28,13 +28,13 @@ const presetManifest = {
         }
     },
     entityType: {
-        kindKey: 'catalog',
+        kindKey: 'object',
         codename: {
             _schema: '1' as const,
             _primary: 'en',
             locales: {
                 en: {
-                    content: 'LinkedCollectionEntity',
+                    content: 'ObjectCollectionEntity',
                     version: 1,
                     isActive: true,
                     createdAt: '2026-04-09T00:00:00.000Z',
@@ -42,7 +42,7 @@ const presetManifest = {
                 }
             }
         },
-        components: {
+        capabilities: {
             dataSchema: { enabled: true },
             records: { enabled: true },
             treeAssignment: { enabled: true },
@@ -65,15 +65,15 @@ const presetManifest = {
             sidebarOrder: 20,
             resourceSurfaces: [
                 {
-                    key: 'fieldDefinitions',
+                    key: 'components',
                     capability: 'dataSchema',
-                    routeSegment: 'field-definitions',
-                    titleKey: 'metahubs:fieldDefinitions.resourceTabTitle',
-                    fallbackTitle: 'Attributes'
+                    routeSegment: 'components',
+                    titleKey: 'metahubs:components.resourceTabTitle',
+                    fallbackTitle: 'Components'
                 }
             ],
-            nameKey: 'metahubs:catalogs.title',
-            descriptionKey: 'Standard catalog preset'
+            nameKey: 'metahubs:objects.title',
+            descriptionKey: 'Standard object preset'
         },
         presentation: {
             name: {
@@ -81,7 +81,7 @@ const presetManifest = {
                 _primary: 'en',
                 locales: {
                     en: {
-                        content: 'Catalogs',
+                        content: 'Objects',
                         version: 1,
                         isActive: true,
                         createdAt: '2026-04-09T00:00:00.000Z',
@@ -101,7 +101,7 @@ const presetManifest = {
                 _primary: 'en',
                 locales: {
                     en: {
-                        content: 'Standard catalog preset',
+                        content: 'Standard object preset',
                         version: 1,
                         isActive: true,
                         createdAt: '2026-04-09T00:00:00.000Z',
@@ -131,7 +131,7 @@ describe('entityTypePreset helpers', () => {
         const patch = buildEntityTypePresetFormPatch(presetManifest, 'en', 'pascal-case', 'en-ru')
 
         expect(patch).toMatchObject({
-            kindKey: 'catalog',
+            kindKey: 'object',
             iconName: 'IconDatabase',
             tabs: ['general', 'hubs', 'layout', 'scripts'],
             customTabsInput: '',
@@ -139,18 +139,18 @@ describe('entityTypePreset helpers', () => {
             sidebarOrder: 20,
             resourceSurfaces: [
                 {
-                    key: 'fieldDefinitions',
+                    key: 'components',
                     capability: 'dataSchema',
-                    routeSegment: 'field-definitions',
-                    titleKey: 'metahubs:fieldDefinitions.resourceTabTitle',
-                    fallbackTitle: 'Attributes'
+                    routeSegment: 'components',
+                    titleKey: 'metahubs:components.resourceTabTitle',
+                    fallbackTitle: 'Components'
                 }
             ],
             codenameTouched: false,
             published: true
         })
         expect((patch.nameVlc as { locales?: { en?: { content?: string }; ru?: { content?: string } } }).locales?.en?.content).toBe(
-            'Catalogs'
+            'Objects'
         )
         expect((patch.nameVlc as { locales?: { en?: { content?: string }; ru?: { content?: string } } }).locales?.ru?.content).toBe(
             'Каталоги'
@@ -158,7 +158,7 @@ describe('entityTypePreset helpers', () => {
         expect((patch.descriptionVlc as { locales?: { en?: { content?: string }; ru?: { content?: string } } }).locales?.ru?.content).toBe(
             'Стандартный пресет каталога'
         )
-        expect(patch.components).toMatchObject({
+        expect(patch.capabilities).toMatchObject({
             physicalTable: { enabled: true, prefix: 'catx' }
         })
     })

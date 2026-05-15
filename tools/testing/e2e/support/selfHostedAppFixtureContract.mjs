@@ -30,8 +30,8 @@ export const SELF_HOSTED_APP_LAYOUT = {
         ru: 'Базовый макет панели для автономного приложения метахабов.'
     },
     menuTitle: {
-        en: 'Catalogs',
-        ru: 'Каталоги'
+        en: 'Objects',
+        ru: 'Объекты'
     },
     runtimeConfig: {
         showOverviewTitle: false,
@@ -52,12 +52,12 @@ export const SELF_HOSTED_APP_LAYOUT = {
 
 export const SELF_HOSTED_APP_SETTINGS_LAYOUT = {
     name: {
-        en: 'Settings Catalog Layout',
-        ru: 'Макет каталога настроек'
+        en: 'Settings Object Layout',
+        ru: 'Макет объекта настроек'
     },
     description: {
-        en: 'Catalog-specific layout override for the Settings catalog.',
-        ru: 'Специальный макет каталога для каталога настроек.'
+        en: 'Object-specific layout override for the Settings object.',
+        ru: 'Специальный макет объекта для объекта настроек.'
     },
     runtimeConfig: {
         showDetailsTitle: false,
@@ -65,7 +65,7 @@ export const SELF_HOSTED_APP_SETTINGS_LAYOUT = {
         defaultViewMode: 'list',
         showFilterBar: false
     },
-    catalogBehavior: {
+    objectBehavior: {
         showCreateButton: true,
         searchMode: 'server',
         createSurface: 'page',
@@ -146,13 +146,13 @@ export const SELF_HOSTED_APP_HUB_ENTITY_TYPE = createSelfHostedAppEntityType({
     }
 })
 
-export const SELF_HOSTED_APP_CATALOG_ENTITY_TYPE = createSelfHostedAppEntityType({
-    templateCodename: 'catalog',
-    displayLabel: 'Catalogs',
-    kindKey: 'catalog',
+export const SELF_HOSTED_APP_OBJECT_ENTITY_TYPE = createSelfHostedAppEntityType({
+    templateCodename: 'object',
+    displayLabel: 'Objects',
+    kindKey: 'object',
     codename: {
-        en: 'Catalog',
-        ru: 'Catalog'
+        en: 'Object',
+        ru: 'Object'
     },
     components: {
         dataSchema: { enabled: true },
@@ -171,14 +171,14 @@ export const SELF_HOSTED_APP_CATALOG_ENTITY_TYPE = createSelfHostedAppEntityType
     },
     ui: {
         iconName: 'IconDatabase',
-        tabs: ['general', 'hubs', 'layout', 'scripts'],
+        tabs: ['behavior', 'general', 'hubs', 'layout', 'ledgerSchema', 'scripts'],
         sidebarSection: 'objects',
-        sidebarOrder: 20,
-        nameKey: 'metahubs:catalogs.title'
+        sidebarOrder: 30,
+        nameKey: 'metahubs:objects.title'
     },
     physicalTable: {
         enabled: true,
-        prefix: 'cat'
+        prefix: 'obj'
     }
 })
 
@@ -193,7 +193,7 @@ export const SELF_HOSTED_APP_SET_ENTITY_TYPE = createSelfHostedAppEntityType({
     components: {
         dataSchema: { enabled: true },
         records: false,
-        treeAssignment: false,
+        treeAssignment: { enabled: true },
         optionValues: false,
         fixedValues: { enabled: true },
         hierarchy: false,
@@ -207,10 +207,10 @@ export const SELF_HOSTED_APP_SET_ENTITY_TYPE = createSelfHostedAppEntityType({
         physicalTable: false
     },
     ui: {
-        iconName: 'IconFileText',
-        tabs: ['general', 'scripts'],
+        iconName: 'IconStack2',
+        tabs: ['general', 'hubs', 'scripts'],
         sidebarSection: 'objects',
-        sidebarOrder: 30,
+        sidebarOrder: 40,
         nameKey: 'metahubs:sets.title'
     }
 })
@@ -226,7 +226,7 @@ export const SELF_HOSTED_APP_ENUMERATION_ENTITY_TYPE = createSelfHostedAppEntity
     components: {
         dataSchema: false,
         records: false,
-        treeAssignment: false,
+        treeAssignment: { enabled: true },
         optionValues: { enabled: true },
         fixedValues: false,
         hierarchy: false,
@@ -241,22 +241,22 @@ export const SELF_HOSTED_APP_ENUMERATION_ENTITY_TYPE = createSelfHostedAppEntity
     },
     ui: {
         iconName: 'IconFiles',
-        tabs: ['general', 'scripts'],
+        tabs: ['general', 'hubs', 'scripts'],
         sidebarSection: 'objects',
-        sidebarOrder: 40,
+        sidebarOrder: 50,
         nameKey: 'metahubs:enumerations.title'
     }
 })
 
 export const SELF_HOSTED_APP_STANDARD_ENTITY_TYPES = [
     SELF_HOSTED_APP_HUB_ENTITY_TYPE,
-    SELF_HOSTED_APP_CATALOG_ENTITY_TYPE,
+    SELF_HOSTED_APP_OBJECT_ENTITY_TYPE,
     SELF_HOSTED_APP_SET_ENTITY_TYPE,
     SELF_HOSTED_APP_ENUMERATION_ENTITY_TYPE
 ]
 
 export const SELF_HOSTED_APP_SHARED_ENTITIES = {
-    attribute: {
+    component: {
         name: {
             en: 'Shared Title',
             ru: 'Общий заголовок'
@@ -265,8 +265,8 @@ export const SELF_HOSTED_APP_SHARED_ENTITIES = {
             en: 'shared_title',
             ru: 'shared_title'
         },
-        includedCatalogSectionCodename: 'catalogs',
-        excludedCatalogSectionCodename: 'settings'
+        includedObjectSectionCodename: 'objects',
+        excludedObjectSectionCodename: 'settings'
     },
     constant: {
         name: {
@@ -295,7 +295,7 @@ export const SELF_HOSTED_APP_SHARED_ENTITIES = {
 export const SELF_HOSTED_APP_SECTIONS = [
     {
         codename: 'metahubs',
-        kind: 'catalog',
+        kind: 'object',
         name: { en: 'Metahubs', ru: 'Метахабы' },
         description: {
             en: 'Metahub records used to configure authoring, publication, and access workflows.',
@@ -303,21 +303,21 @@ export const SELF_HOSTED_APP_SECTIONS = [
         }
     },
     {
-        codename: 'catalogs',
-        kind: 'catalog',
-        name: { en: 'Catalogs', ru: 'Каталоги' },
+        codename: 'objects',
+        kind: 'object',
+        name: { en: 'Objects', ru: 'Объекты' },
         description: {
-            en: 'Catalog definitions with display settings, editing surfaces, and structure rules.',
-            ru: 'Определения каталогов с настройками отображения, поверхностями редактирования и правилами структуры.'
+            en: 'Object definitions with display settings, editing surfaces, and structure rules.',
+            ru: 'Определения объектов с настройками отображения, поверхностями редактирования и правилами структуры.'
         }
     },
     {
         codename: 'elements',
-        kind: 'catalog',
+        kind: 'object',
         name: { en: 'Enumerations', ru: 'Перечисления' },
         description: {
-            en: 'Catalog records that mirror enumeration-driven content in the published self-hosted app.',
-            ru: 'Записи каталога, отражающие контент на основе перечислений в опубликованном автономном приложении.'
+            en: 'Object records that mirror enumeration-driven content in the published self-hosted app.',
+            ru: 'Записи объекта, отражающие контент на основе перечислений в опубликованном автономном приложении.'
         }
     },
     {
@@ -349,16 +349,16 @@ export const SELF_HOSTED_APP_SECTIONS = [
     },
     {
         codename: 'constants',
-        kind: 'catalog',
+        kind: 'object',
         name: { en: 'Sets', ru: 'Наборы' },
         description: {
-            en: 'Catalog records that mirror set-driven content and shared typed references.',
-            ru: 'Записи каталога, отражающие контент на основе наборов и общие типизированные ссылки.'
+            en: 'Object records that mirror set-driven content and shared typed references.',
+            ru: 'Записи объекта, отражающие контент на основе наборов и общие типизированные ссылки.'
         }
     },
     {
         codename: 'branches',
-        kind: 'catalog',
+        kind: 'object',
         name: { en: 'Branches', ru: 'Ветки' },
         description: {
             en: 'Working branches for preparing and comparing publication changes.',
@@ -367,7 +367,7 @@ export const SELF_HOSTED_APP_SECTIONS = [
     },
     {
         codename: 'publications',
-        kind: 'catalog',
+        kind: 'object',
         name: { en: 'Publications', ru: 'Публикации' },
         description: {
             en: 'Publication records that track application releases, versions, and activation state.',
@@ -376,7 +376,7 @@ export const SELF_HOSTED_APP_SECTIONS = [
     },
     {
         codename: 'layouts',
-        kind: 'catalog',
+        kind: 'object',
         name: { en: 'Layouts', ru: 'Макеты' },
         description: {
             en: 'Dashboard layouts, widget zones, and presentation presets for the app.',
@@ -385,7 +385,7 @@ export const SELF_HOSTED_APP_SECTIONS = [
     },
     {
         codename: 'settings',
-        kind: 'catalog',
+        kind: 'object',
         name: { en: 'Settings', ru: 'Настройки' },
         description: {
             en: 'Seeded settings rows derived from the real metahub settings registry defaults.',
@@ -417,7 +417,7 @@ const ATTRIBUTE_LABELS = {
     category: { en: 'Category', ru: 'Категория' }
 }
 
-const CATALOG_ATTRIBUTE_DEFINITIONS = {
+const OBJECT_COMPONENT_DEFINITIONS = {
     metahubs: [
         { codename: 'name', dataType: 'STRING', isRequired: true },
         { codename: 'description', dataType: 'STRING' },
@@ -425,7 +425,7 @@ const CATALOG_ATTRIBUTE_DEFINITIONS = {
         { codename: 'is_public', dataType: 'BOOLEAN' },
         { codename: 'storage_mode', dataType: 'STRING' }
     ],
-    catalogs: [
+    objects: [
         { codename: 'name', dataType: 'STRING', isRequired: true },
         { codename: 'codename', dataType: 'STRING', isRequired: true },
         { codename: 'kind', dataType: 'STRING' }
@@ -463,8 +463,8 @@ const CATALOG_ATTRIBUTE_DEFINITIONS = {
     ]
 }
 
-export function getSelfHostedAppCatalogAttributes(catalogCodename) {
-    const defs = CATALOG_ATTRIBUTE_DEFINITIONS[catalogCodename] ?? []
+export function getSelfHostedAppObjectComponents(objectCodename) {
+    const defs = OBJECT_COMPONENT_DEFINITIONS[objectCodename] ?? []
     return defs.map((def) => ({
         ...def,
         name: ATTRIBUTE_LABELS[def.codename] ?? { en: def.codename, ru: def.codename }
@@ -517,7 +517,7 @@ const readLocalizedText = (value, locale = 'en') => {
 
 const isLocalizedCodenameObject = (value) => Boolean(value && typeof value === 'object' && !Array.isArray(value) && 'locales' in value)
 
-const flattenFieldRecords = (fields) => {
+const flattenComponentRecords = (fields) => {
     if (!Array.isArray(fields)) {
         return []
     }
@@ -528,7 +528,7 @@ const flattenFieldRecords = (fields) => {
             return []
         }
 
-        return [normalizedField, ...flattenFieldRecords(normalizedField.childFields)]
+        return [normalizedField, ...flattenComponentRecords(normalizedField.childFields)]
     })
 }
 
@@ -548,7 +548,7 @@ const setLocalizedContent = (value, locale, content) => {
     }
 }
 
-const ensureLocalizedField = (container, key) => {
+const ensureLocalizedComponent = (container, key) => {
     if (!container || typeof container !== 'object') {
         return null
     }
@@ -656,7 +656,11 @@ const assertSelfHostedAppEntityTypeDefinition = (entityTypeDefinitions, expected
     }
 
     const persistedComponents =
-        persistedEntityType.components && typeof persistedEntityType.components === 'object' ? persistedEntityType.components : {}
+        persistedEntityType.capabilities && typeof persistedEntityType.capabilities === 'object'
+            ? persistedEntityType.capabilities
+            : persistedEntityType.components && typeof persistedEntityType.components === 'object'
+                ? persistedEntityType.components
+                : {}
     const persistedPhysicalTable =
         persistedComponents.physicalTable && typeof persistedComponents.physicalTable === 'object'
             ? persistedComponents.physicalTable
@@ -734,29 +738,29 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
         assertSelfHostedAppEntityTypeDefinition(entityTypeDefinitions, expectedEntityType, errors)
     }
 
-    if (entities.some((entity) => entity.kind === 'catalog' && (readCodenameText(entity?.codename) === 'Attributes' || readLocalizedText(entity.presentation?.name, 'en') === 'Attributes'))) {
-        errors.push('Self-hosted app fixture still contains the deprecated standalone Attributes catalog')
+    if (entities.some((entity) => entity.kind === 'object' && (readCodenameText(entity?.codename) === 'Components' || readLocalizedText(entity.presentation?.name, 'en') === 'Components'))) {
+        errors.push('Self-hosted app fixture still contains the deprecated standalone Components object')
     }
     if (
         entities.some(
             (entity) =>
-                entity.kind === 'catalog' &&
+                entity.kind === 'object' &&
                 (readCodenameText(entity?.codename) === 'enum_values' || readLocalizedText(entity?.presentation?.name, 'en') === 'Enumeration Values')
         )
     ) {
-        errors.push('Self-hosted app fixture still contains the deprecated standalone Enumeration Values catalog')
+        errors.push('Self-hosted app fixture still contains the deprecated standalone Enumeration Values object')
     }
     if (
         entities.some(
             (entity) =>
-                entity.kind === 'catalog' &&
+                entity.kind === 'object' &&
                 ['Elements', 'Constants'].includes(readLocalizedText(entity?.presentation?.name, 'en') || '')
         )
     ) {
-        errors.push('Self-hosted app fixture still contains legacy Elements / Constants catalog labels')
+        errors.push('Self-hosted app fixture still contains legacy Elements / Constants object labels')
     }
     if (
-        entities.some((entity) => ['MainHub', 'MainCatalog', 'MainSet', 'MainEnumeration'].includes(readCodenameText(entity?.codename)))
+        entities.some((entity) => ['MainHub', 'MainObject', 'MainSet', 'MainEnumeration'].includes(readCodenameText(entity?.codename)))
     ) {
         errors.push('Self-hosted app fixture still contains legacy type-suffixed Main codenames')
     }
@@ -767,7 +771,7 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
         }
     }
 
-    for (const field of entities.flatMap((entity) => flattenFieldRecords(entity?.fields))) {
+    for (const field of entities.flatMap((entity) => flattenComponentRecords(entity?.fields))) {
         if (!isLocalizedCodenameObject(field?.codename) || !readCodenameText(field?.codename)) {
             errors.push(`Field ${String(field?.id || '<unknown>')} must keep codename as a localized snapshot object`)
         }
@@ -794,10 +798,10 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
         }
     }
 
-    const sharedAttributes = Array.isArray(envelope?.snapshot?.sharedFieldDefinitions)
-        ? envelope.snapshot.sharedFieldDefinitions
-        : Array.isArray(envelope?.snapshot?.sharedAttributes)
-            ? envelope.snapshot.sharedAttributes
+    const sharedComponents = Array.isArray(envelope?.snapshot?.sharedComponents)
+        ? envelope.snapshot.sharedComponents
+        : Array.isArray(envelope?.snapshot?.sharedComponents)
+            ? envelope.snapshot.sharedComponents
             : []
     const sharedConstants = Array.isArray(envelope?.snapshot?.sharedFixedValues)
         ? envelope.snapshot.sharedFixedValues
@@ -811,13 +815,13 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
             : []
     const sharedEntityOverrides = Array.isArray(envelope?.snapshot?.sharedEntityOverrides) ? envelope.snapshot.sharedEntityOverrides : []
 
-    const canonicalSharedAttribute = sharedAttributes.find(
+    const canonicalSharedComponent = sharedComponents.find(
         (item) =>
-            readCodenameText(item?.codename) === SELF_HOSTED_APP_SHARED_ENTITIES.attribute.codename.en ||
-            readLocalizedText(item?.presentation?.name, 'en') === SELF_HOSTED_APP_SHARED_ENTITIES.attribute.name.en
+            readCodenameText(item?.codename) === SELF_HOSTED_APP_SHARED_ENTITIES.component.codename.en ||
+            readLocalizedText(item?.presentation?.name, 'en') === SELF_HOSTED_APP_SHARED_ENTITIES.component.name.en
     )
-    if (!canonicalSharedAttribute) {
-        errors.push('Self-hosted app fixture must include the canonical shared attribute')
+    if (!canonicalSharedComponent) {
+        errors.push('Self-hosted app fixture must include the canonical shared component')
     }
 
     const canonicalSharedConstant = sharedConstants.find(
@@ -838,19 +842,19 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
         errors.push('Self-hosted app fixture must include the canonical shared enumeration value')
     }
 
-    const excludedCatalogSection = findSelfHostedAppSection(SELF_HOSTED_APP_SHARED_ENTITIES.attribute.excludedCatalogSectionCodename)
-    const excludedCatalogEntity = excludedCatalogSection ? findSectionEntity(entities, excludedCatalogSection) : null
+    const excludedObjectSection = findSelfHostedAppSection(SELF_HOSTED_APP_SHARED_ENTITIES.component.excludedObjectSectionCodename)
+    const excludedObjectEntity = excludedObjectSection ? findSectionEntity(entities, excludedObjectSection) : null
     if (
-        canonicalSharedAttribute &&
-        excludedCatalogEntity &&
+        canonicalSharedComponent &&
+        excludedObjectEntity &&
         !sharedEntityOverrides.some(
             (override) =>
-                override?.sharedEntityId === canonicalSharedAttribute.id &&
-                override?.targetObjectId === excludedCatalogEntity.id &&
+                override?.sharedEntityId === canonicalSharedComponent.id &&
+                override?.targetObjectId === excludedObjectEntity.id &&
                 override?.isExcluded === true
         )
     ) {
-        errors.push('Self-hosted app fixture must exclude the canonical shared attribute from the Settings catalog')
+        errors.push('Self-hosted app fixture must exclude the canonical shared component from the Settings object')
     }
 
     const layouts = Array.isArray(envelope?.snapshot?.layouts) ? envelope.snapshot.layouts : []
@@ -954,10 +958,10 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
             errors.push(`Section ${section.name.en} is missing the canonical Russian description`)
         }
 
-        if (section.kind === 'catalog') {
+        if (section.kind === 'object') {
             const fieldNames = Array.isArray(sectionEntity.fields) ? sectionEntity.fields : []
             if (fieldNames.some((field) => !readLocalizedText(field.presentation?.name, 'ru'))) {
-                errors.push(`Catalog ${section.name.en} contains attributes without Russian localized names`)
+                errors.push(`Object ${section.name.en} contains components without Russian localized names`)
             }
         }
     }
@@ -970,14 +974,14 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
         }
     }
 
-    const settingsCatalog = entities.find(
-        (entity) => entity.kind === 'catalog' && readLocalizedText(entity.presentation?.name, 'en') === 'Settings'
+    const settingsObject = entities.find(
+        (entity) => entity.kind === 'object' && readLocalizedText(entity.presentation?.name, 'en') === 'Settings'
     )
-    if (!settingsCatalog?.id) {
-        errors.push('Self-hosted app fixture is missing the Settings catalog')
+    if (!settingsObject?.id) {
+        errors.push('Self-hosted app fixture is missing the Settings object')
     } else {
-        const settingsRows = Array.isArray(envelope?.snapshot?.elements?.[settingsCatalog.id])
-            ? envelope.snapshot.elements[settingsCatalog.id]
+        const settingsRows = Array.isArray(envelope?.snapshot?.elements?.[settingsObject.id])
+            ? envelope.snapshot.elements[settingsObject.id]
             : []
         const actualKeys = new Set(settingsRows.map((row) => row?.data?.Key).filter((key) => typeof key === 'string'))
 
@@ -995,7 +999,7 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
 
         const scopedLayouts = Array.isArray(envelope?.snapshot?.scopedLayouts) ? envelope.snapshot.scopedLayouts : []
         const settingsScopedLayouts = scopedLayouts.filter(
-            (layout) => layout?.scopeEntityId === settingsCatalog.id
+            (layout) => layout?.scopeEntityId === settingsObject.id
         )
 
         if (settingsScopedLayouts.length !== 1) {
@@ -1043,15 +1047,15 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
                 }
             }
 
-            const settingsCatalogBehavior =
-                settingsLayoutConfig.catalogBehavior && typeof settingsLayoutConfig.catalogBehavior === 'object'
-                    ? settingsLayoutConfig.catalogBehavior
+            const settingsObjectBehavior =
+                settingsLayoutConfig.objectBehavior && typeof settingsLayoutConfig.objectBehavior === 'object'
+                    ? settingsLayoutConfig.objectBehavior
                     : {}
 
-            for (const [key, expectedValue] of Object.entries(SELF_HOSTED_APP_SETTINGS_LAYOUT.catalogBehavior)) {
-                if (settingsCatalogBehavior[key] !== expectedValue) {
+            for (const [key, expectedValue] of Object.entries(SELF_HOSTED_APP_SETTINGS_LAYOUT.objectBehavior)) {
+                if (settingsObjectBehavior[key] !== expectedValue) {
                     errors.push(
-                        `Settings entity-scoped layout catalogBehavior drifted for ${key}: ${String(settingsCatalogBehavior[key])} != ${String(expectedValue)}`
+                        `Settings entity-scoped layout objectBehavior drifted for ${key}: ${String(settingsObjectBehavior[key])} != ${String(expectedValue)}`
                     )
                 }
             }

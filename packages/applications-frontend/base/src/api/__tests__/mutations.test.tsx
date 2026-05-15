@@ -87,8 +87,8 @@ describe('runtime cell mutation helpers', () => {
         )
 
         const queryClient = createTestQueryClient()
-        let mutateApp1: ((params: { rowId: string; field: string; value: boolean | null; linkedCollectionId?: string }) => void) | undefined
-        let mutateApp2: ((params: { rowId: string; field: string; value: boolean | null; linkedCollectionId?: string }) => void) | undefined
+        let mutateApp1: ((params: { rowId: string; field: string; value: boolean | null; objectCollectionId?: string }) => void) | undefined
+        let mutateApp2: ((params: { rowId: string; field: string; value: boolean | null; objectCollectionId?: string }) => void) | undefined
         let pendingApp1: Array<{ rowId: string; field: string; value: boolean | null; submittedAt: number }> = []
         let pendingApp2: Array<{ rowId: string; field: string; value: boolean | null; submittedAt: number }> = []
 

@@ -56,7 +56,7 @@ Shared/main Supabase mode is only for manual debugging. It requires `E2E_ALLOW_M
 -   Real login and least-privilege navigation boundaries.
 -   Metahub create, copy, delete, settings, members, and publication flows.
 -   Entity-type authoring through the real Entities workspace, including preset-backed creation and manual creation from the `empty` metahub template.
--   Shared Resources flows for layouts, attributes, constants, values, and shared scripts.
+-   Shared Resources flows for layouts, components, constants, values, and shared scripts.
 -   Runtime-facing publication and linked-application flows.
 -   Snapshot export/import fixtures that match the currently shipped entity-first schema.
 -   GitBook screenshot generators that open the real UI and capture the real product state.

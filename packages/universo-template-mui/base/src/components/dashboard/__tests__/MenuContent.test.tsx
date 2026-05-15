@@ -136,10 +136,10 @@ describe('MenuContent', () => {
             metahubDetail: { permissions: { manageMetahub: true, manageMembers: true } },
             entityTypes: [
                 {
-                    kindKey: 'catalog',
+                    kindKey: 'object',
                     published: true,
-                    presentation: { name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Catalogs' } } } },
-                    ui: { iconName: 'IconDatabase', nameKey: 'metahubs:catalogs.title', sidebarSection: 'objects' }
+                    presentation: { name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Objects' } } } },
+                    ui: { iconName: 'IconDatabase', nameKey: 'metahubs:objects.title', sidebarSection: 'objects' }
                 },
                 {
                     kindKey: 'custom-order',
@@ -198,14 +198,14 @@ describe('MenuContent', () => {
     })
 
     it('hides metahub authoring-only navigation without manageMetahub permission', () => {
-        renderMenu('/metahub/mhb-1/entities/catalog/instances', {
+        renderMenu('/metahub/mhb-1/entities/object/instances', {
             metahubDetail: { permissions: { manageMetahub: false, manageMembers: false } },
             entityTypes: [
                 {
-                    kindKey: 'catalog',
+                    kindKey: 'object',
                     published: true,
-                    presentation: { name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Catalogs' } } } },
-                    ui: { iconName: 'IconDatabase', nameKey: 'metahubs:catalogs.title', sidebarSection: 'objects' }
+                    presentation: { name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Objects' } } } },
+                    ui: { iconName: 'IconDatabase', nameKey: 'metahubs:objects.title', sidebarSection: 'objects' }
                 },
                 {
                     kindKey: 'custom-order',
@@ -215,7 +215,7 @@ describe('MenuContent', () => {
             ]
         })
 
-        expect(screen.getByRole('link', { name: 'Catalogs' })).toBeInTheDocument()
+        expect(screen.getByRole('link', { name: 'Objects' })).toBeInTheDocument()
         expect(screen.getByRole('link', { name: 'Custom Order' })).toBeInTheDocument()
         expect(screen.queryByRole('link', { name: 'commonSection' })).not.toBeInTheDocument()
         expect(screen.queryByRole('link', { name: 'entities' })).not.toBeInTheDocument()

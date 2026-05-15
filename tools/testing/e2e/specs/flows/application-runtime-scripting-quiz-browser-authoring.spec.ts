@@ -313,7 +313,8 @@ async function createQuizScriptThroughBrowser(page: Page, metahubId: string, scr
         (request) => request.method() === 'POST' && request.url().endsWith(`/api/v1/metahub/${metahubId}/scripts`)
     )
     const createScriptResponse = page.waitForResponse(
-        (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahubId}/scripts`) && response.ok()
+        (response) =>
+            response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahubId}/scripts`) && response.ok()
     )
 
     await dialog.getByRole('button', { name: 'Create script' }).click()
@@ -354,7 +355,8 @@ async function configureQuizWidgetThroughBrowser(
     await page.getByRole('option', { name: /quiz-widget/ }).click()
 
     const saveResponse = page.waitForResponse(
-        (response) => response.request().method() === 'PUT' && response.url().includes(`/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widget`)
+        (response) =>
+            response.request().method() === 'PUT' && response.url().includes(`/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widget`)
     )
 
     await dialog.getByRole('button', { name: 'Save' }).click()
@@ -479,7 +481,10 @@ async function createApplicationThroughBrowser(
     return application
 }
 
-test('@flow quiz widget scripting authoring can be completed through browser surfaces before runtime verification', async ({ page, runManifest }) => {
+test('@flow quiz widget scripting authoring can be completed through browser surfaces before runtime verification', async ({
+    page,
+    runManifest
+}) => {
     test.setTimeout(240_000)
 
     const api = await createLoggedInApiContext({

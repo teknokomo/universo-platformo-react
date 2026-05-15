@@ -30,11 +30,11 @@ import {
 import type { ActionDescriptor } from '@universo/template-mui'
 import { ConfirmDeleteDialog, ConflictResolutionDialog, EntityFormDialog, type TabConfig } from '@universo/template-mui/components/dialogs'
 import {
-    DEFAULT_CATALOG_RECORD_BEHAVIOR,
+    DEFAULT_OBJECT_RECORD_BEHAVIOR,
     DEFAULT_LEDGER_CONFIG,
-    isEnabledComponentConfig,
-    normalizeCatalogRecordBehavior,
-    normalizeCatalogRecordBehaviorFromConfig,
+    isEnabledCapabilityConfig,
+    normalizeObjectRecordBehavior,
+    normalizeObjectRecordBehaviorFromConfig,
     normalizeLedgerConfig,
     normalizeLedgerConfigFromConfig,
     resolveEntityResourceSurfaceTitle,
@@ -42,7 +42,8 @@ import {
     supportsRecordBehavior,
     validateLedgerConfigReferences,
     type BuiltinEntityKind,
-    type CatalogRecordBehavior,
+    type EntityTypeTreeAssignmentLabelKey,
+    type ObjectRecordBehavior,
     type LedgerConfig,
     type VersionedLocalizedContent
 } from '@universo/types'
@@ -51,11 +52,11 @@ import { extractConflictInfo, isOptimisticLockConflict, type ConflictInfo } from
 import { ExistingCodenamesProvider, ContainerSelectionPanel } from '../../../components'
 import { STORAGE_KEYS } from '../../../view-preferences/storage'
 import { useViewPreference } from '../../../hooks/useViewPreference'
-import { getVLCString, type FieldDefinition, type Metahub } from '../../../types'
+import { getVLCString, type Component, type Metahub } from '../../../types'
 import { ensureLocalizedContent, extractLocalizedInput, getLocalizedContentText, hasPrimaryContent } from '../../../utils/localizedInput'
 import { isValidCodenameForStyle, normalizeCodenameForStyle } from '../../../utils/codename'
-import { FieldDefinitionListContent } from '../metadata/fieldDefinition/ui/FieldDefinitionList'
-import * as fieldDefinitionsApi from '../metadata/fieldDefinition/api'
+import { ComponentListContent } from '../metadata/component/ui/ComponentList'
+import * as componentsApi from '../metadata/component/api'
 import { useTreeEntities } from '../../entities/presets/hooks/useTreeEntities'
 import LayoutList from '../../layouts/ui/LayoutList'
 import { useMetahubDetails } from '../../metahubs/hooks'
@@ -67,7 +68,7 @@ import GeneralTabFields from '../../shared/ui/GeneralTabFields'
 import { createScriptsTab } from '../../scripts/ui/EntityScriptsTab'
 import { scriptsApi } from '../../scripts/api/scriptsApi'
 import { createEntityActionsTab, createEntityEventsTab } from './EntityAutomationTab'
-import { LinkedCollectionDeleteDialog } from '../../../components'
+import { ObjectCollectionDeleteDialog } from '../../../components'
 import type { MetahubEntityInstance, UpdateEntityInstancePayload } from '../api'
 import * as entitiesApi from '../api'
 import {
@@ -91,10 +92,10 @@ import {
     buildEntityInstanceLayoutBasePath,
     buildInitialFormValues,
     buildInstanceDisplayRow,
-    buildLinkedCollectionDeleteDialogEntity,
+    buildObjectCollectionDeleteDialogEntity,
     decodeKindKey,
     getEntityConfig,
-    getLinkedCollectionCopyOptions,
+    getObjectCollectionCopyOptions,
     isRecord,
     resolveEntityMetadataKind,
     resolveEntityInstanceDialogTitle,
@@ -108,12 +109,12 @@ const STANDARD_COLLECTION_I18N_PREFIX_BY_KIND: Partial<Record<BuiltinEntityKind,
     ledger: 'ledgers'
 }
 const PAGE_CONTENT_ROUTE_SEGMENT = 'content'
-const FALLBACK_DATA_SCHEMA_ROUTE_SEGMENT = 'field-definitions'
+const FALLBACK_DATA_SCHEMA_ROUTE_SEGMENT = 'components'
 
 const isRecordValue = (value: unknown): value is Record<string, unknown> =>
     Boolean(value && typeof value === 'object' && !Array.isArray(value))
 
-const getRecordBehaviorFormValue = (value: unknown): CatalogRecordBehavior => normalizeCatalogRecordBehavior(value)
+const getRecordBehaviorFormValue = (value: unknown): ObjectRecordBehavior => normalizeObjectRecordBehavior(value)
 const getLedgerConfigFormValue = (value: unknown): LedgerConfig => normalizeLedgerConfig(value)
 const hasLedgerConfig = (config: unknown): boolean => isRecordValue(config) && isRecordValue(config.ledger)
 
@@ -123,13 +124,13 @@ const toRecordBehaviorOption = (entity: MetahubEntityInstance, uiLocale: string)
     return { codename, label }
 }
 
-const fieldDefinitionToRecordBehaviorOption = (field: FieldDefinition, uiLocale: string): RecordBehaviorOption => {
-    const codename = resolveFieldDefinitionCodename(field, uiLocale)
+const componentToRecordBehaviorOption = (field: Component, uiLocale: string): RecordBehaviorOption => {
+    const codename = resolveComponentCodename(field, uiLocale)
     const label = getLocalizedContentText(field.name, uiLocale, codename) || codename
     return { codename, label }
 }
 
-const resolveFieldDefinitionCodename = (field: FieldDefinition, uiLocale: string): string => {
+const resolveComponentCodename = (field: Component, uiLocale: string): string => {
     const codename = field.codename as unknown
     if (typeof codename === 'string') {
         return codename || field.id
@@ -149,7 +150,7 @@ const scriptToRecordBehaviorOption = (
 const entityTypeToOption = (kindKey: string, label: string): RecordBehaviorOption => ({ codename: kindKey, label })
 
 const validateRecordBehaviorValue = (
-    behavior: CatalogRecordBehavior,
+    behavior: ObjectRecordBehavior,
     t: (key: string, options?: Record<string, unknown> | string) => string
 ): Record<string, string> => {
     const errors: Record<string, string> = {}
@@ -196,7 +197,7 @@ const validateRecordBehaviorValue = (
 
 const validateLedgerConfigValue = (
     config: LedgerConfig,
-    fields: Array<{ codename: string; dataType: FieldDefinition['dataType'] }> | null,
+    fields: Array<{ codename: string; dataType: Component['dataType'] }> | null,
     t: (key: string, options?: Record<string, unknown> | string) => string
 ): Record<string, string> => {
     const errors: Record<string, string> = {}
@@ -249,7 +250,7 @@ const validateLedgerConfigValue = (
     return errors
 }
 
-const LinkedCollectionCopyOptionsTab = ({
+const ObjectCollectionCopyOptionsTab = ({
     values,
     setValue,
     isLoading,
@@ -260,16 +261,16 @@ const LinkedCollectionCopyOptionsTab = ({
     isLoading: boolean
     t: (key: string, options?: Record<string, unknown> | string) => string
 }) => {
-    const options = getLinkedCollectionCopyOptions(values)
+    const options = getObjectCollectionCopyOptions(values)
 
     return (
         <Stack spacing={1}>
             <FormControlLabel
                 control={
                     <Checkbox
-                        checked={options.copyFieldDefinitions}
+                        checked={options.copyComponents}
                         onChange={(event) => {
-                            setValue('copyFieldDefinitions', event.target.checked)
+                            setValue('copyComponents', event.target.checked)
                             if (!event.target.checked) {
                                 setValue('copyRecords', false)
                             }
@@ -277,14 +278,14 @@ const LinkedCollectionCopyOptionsTab = ({
                         disabled={isLoading}
                     />
                 }
-                label={t('entities.copy.options.copyFieldDefinitions', 'Copy field definitions')}
+                label={t('entities.copy.options.copyComponents', 'Copy components')}
             />
             <FormControlLabel
                 control={
                     <Checkbox
                         checked={options.copyRecords}
                         onChange={(event) => setValue('copyRecords', event.target.checked)}
-                        disabled={isLoading || !options.copyFieldDefinitions}
+                        disabled={isLoading || !options.copyComponents}
                     />
                 }
                 label={t('entities.copy.options.copyRecords', 'Copy records')}
@@ -325,7 +326,7 @@ const EntityInstanceListContent = () => {
     const metahubDetailsQuery = useMetahubDetails(metahubId ?? '', { enabled: Boolean(metahubId) })
     const cachedMetahub = metahubId ? queryClient.getQueryData<Metahub>(metahubsQueryKeys.detail(metahubId)) : undefined
     const resolvedPermissions = metahubDetailsQuery.data?.permissions ?? cachedMetahub?.permissions
-    const { allowCopy: allowLinkedCollectionCopy, allowDelete: allowLinkedCollectionDelete } = useEntityPermissions('linkedCollection')
+    const { allowCopy: allowObjectCollectionCopy, allowDelete: allowObjectCollectionDelete } = useEntityPermissions('objectCollection')
     const { allowCopy: allowPageCopy, allowDelete: allowPageDelete } = useEntityPermissions('page')
 
     const showDeleted = false
@@ -357,7 +358,7 @@ const EntityInstanceListContent = () => {
     const hubScopedTabs = useMemo(() => {
         const entityTypes = entityTypesQuery.data?.items ?? []
         const tabs = entityTypes
-            .filter((type) => type.kindKey === 'hub' || isEnabledComponentConfig(type.components?.treeAssignment))
+            .filter((type) => type.kindKey === 'hub' || isEnabledCapabilityConfig(type.capabilities?.treeAssignment))
             .sort((a, b) => {
                 if (a.kindKey === 'hub') return -1
                 if (b.kindKey === 'hub') return 1
@@ -405,24 +406,24 @@ const EntityInstanceListContent = () => {
     )
     const entityMetadataKind = useMemo(() => resolveEntityMetadataKind(entityType, resolvedKindKey), [entityType, resolvedKindKey])
     const isEntityMetadataSurface = entityMetadataKind !== null
-    const usesLinkedCollectionAuthoring = entityMetadataKind === 'catalog'
+    const usesObjectCollectionAuthoring = entityMetadataKind === 'object'
     const usesPageAuthoring = entityMetadataKind === 'page'
     const usesGenericEntityAuthoring =
         isHubScoped || !isEntityMetadataSurface || (entityMetadataKind ? GENERIC_STANDARD_ENTITY_KINDS.has(entityMetadataKind) : false)
-    const canEditLinkedCollectionInstances = resolvedPermissions?.editContent === true
-    const canDeleteLinkedCollectionInstances = resolvedPermissions?.deleteContent === true
-    const canManageEntityInstances = usesLinkedCollectionAuthoring
-        ? canEditLinkedCollectionInstances
+    const canEditObjectCollectionInstances = resolvedPermissions?.editContent === true
+    const canDeleteObjectCollectionInstances = resolvedPermissions?.deleteContent === true
+    const canManageEntityInstances = usesObjectCollectionAuthoring
+        ? canEditObjectCollectionInstances
         : resolvedPermissions?.manageMetahub === true
     const canCreateEntityInstances = canManageEntityInstances
     const canEditEntityInstances = canManageEntityInstances
-    const canCopyEntityInstances = usesLinkedCollectionAuthoring
-        ? canEditLinkedCollectionInstances && allowLinkedCollectionCopy
+    const canCopyEntityInstances = usesObjectCollectionAuthoring
+        ? canEditObjectCollectionInstances && allowObjectCollectionCopy
         : canManageEntityInstances && (!usesPageAuthoring || allowPageCopy)
-    const canDeleteEntityInstances = usesLinkedCollectionAuthoring
-        ? canDeleteLinkedCollectionInstances && allowLinkedCollectionDelete
+    const canDeleteEntityInstances = usesObjectCollectionAuthoring
+        ? canDeleteObjectCollectionInstances && allowObjectCollectionDelete
         : canManageEntityInstances && (!usesPageAuthoring || allowPageDelete)
-    const canRestoreEntityInstances = usesLinkedCollectionAuthoring ? canEditLinkedCollectionInstances : canManageEntityInstances
+    const canRestoreEntityInstances = usesObjectCollectionAuthoring ? canEditObjectCollectionInstances : canManageEntityInstances
     const showManageEntityInstancesNotice = Boolean(resolvedPermissions) && !canCreateEntityInstances
     const isStandardEntityCollection = isEntityMetadataSurface
     const collectionTitle = isStandardEntityCollection
@@ -443,26 +444,28 @@ const EntityInstanceListContent = () => {
     const treeAssignmentTabId = requestedTabs.has('hubs') ? 'hubs' : 'treeEntities'
     const showHubsTab = Boolean(
         entityType &&
-            isEnabledComponentConfig(entityType.components?.treeAssignment) &&
+            isEnabledCapabilityConfig(entityType.capabilities?.treeAssignment) &&
             (requestedTabs.has('treeEntities') || requestedTabs.has('hubs'))
     )
-    const showAttributesTab = Boolean(entityType && isEnabledComponentConfig(entityType.components?.dataSchema))
+    const showComponentsTab = Boolean(entityType && isEnabledCapabilityConfig(entityType.capabilities?.dataSchema))
     const showLayoutTab = Boolean(
-        entityType && isEnabledComponentConfig(entityType.components?.layoutConfig) && requestedTabs.has('layout')
+        entityType && isEnabledCapabilityConfig(entityType.capabilities?.layoutConfig) && requestedTabs.has('layout')
     )
     const hasRecordBehaviorConfig = Boolean(isRecordValue(entityType?.config) && isRecordValue(entityType.config.recordBehavior))
     const showBehaviorTab = Boolean(
-        entityType && supportsRecordBehavior(entityType.components) && (requestedTabs.has('behavior') || hasRecordBehaviorConfig)
+        entityType && supportsRecordBehavior(entityType.capabilities) && (requestedTabs.has('behavior') || hasRecordBehaviorConfig)
     )
     const showLedgerSchemaTab = Boolean(
         entityType &&
-            supportsLedgerSchema(entityType.components) &&
+            supportsLedgerSchema(entityType.capabilities) &&
             (requestedTabs.has('ledgerSchema') || hasLedgerConfig(entityType.config))
     )
-    const showScriptsTab = Boolean(entityType && isEnabledComponentConfig(entityType.components?.scripting) && requestedTabs.has('scripts'))
-    const showActionsTab = Boolean(entityType && isEnabledComponentConfig(entityType.components?.actions))
-    const showEventsTab = Boolean(entityType && isEnabledComponentConfig(entityType.components?.events))
-    const showPageBlocksTab = Boolean(entityType && isEnabledComponentConfig(entityType.components?.blockContent))
+    const showScriptsTab = Boolean(
+        entityType && isEnabledCapabilityConfig(entityType.capabilities?.scripting) && requestedTabs.has('scripts')
+    )
+    const showActionsTab = Boolean(entityType && isEnabledCapabilityConfig(entityType.capabilities?.actions))
+    const showEventsTab = Boolean(entityType && isEnabledCapabilityConfig(entityType.capabilities?.events))
+    const showPageBlocksTab = Boolean(entityType && isEnabledCapabilityConfig(entityType.capabilities?.blockContent))
     const dataSchemaSurface = entityType?.ui.resourceSurfaces?.find((surface) => surface.capability === 'dataSchema') ?? null
     const contentRouteBase =
         metahubId && resolvedKindKey ? `/metahub/${metahubId}/entities/${encodeURIComponent(resolvedKindKey)}/instance` : ''
@@ -474,23 +477,23 @@ const EntityInstanceListContent = () => {
             ? dataSchemaSurface?.routeSegment || FALLBACK_DATA_SCHEMA_ROUTE_SEGMENT
             : null
     const canOpenStandardCollectionRow = Boolean(standardCollectionRouteSegment)
-    const fieldDefinitionsTabLabel = dataSchemaSurface
+    const componentsTabLabel = dataSchemaSurface
         ? resolveEntityResourceSurfaceTitle(dataSchemaSurface, {
               locale: preferredVlcLocale,
               translate: translateResourceSurfaceTitle
           })
-        : t('entities.instances.tabs.fieldDefinitions', 'Attributes')
-    const defaultFieldDefinitionsEmptyTitle = t('entities.instances.fieldDefinitions.emptyTitle', 'No field definitions')
-    const defaultFieldDefinitionsEmptyDescription = t(
-        'entities.instances.fieldDefinitions.emptyDescription',
-        'Create the first attribute to define the schema for this entity kind.'
+        : t('entities.instances.tabs.components', 'Components')
+    const defaultComponentsEmptyTitle = t('entities.instances.components.emptyTitle', 'No components')
+    const defaultComponentsEmptyDescription = t(
+        'entities.instances.components.emptyDescription',
+        'Create the first component to define the schema for this entity kind.'
     )
-    const fieldDefinitionsEmptyTitle = standardCollectionI18nPrefix
-        ? t(`${standardCollectionI18nPrefix}.fieldDefinitions.emptyTitle`, defaultFieldDefinitionsEmptyTitle)
-        : defaultFieldDefinitionsEmptyTitle
-    const fieldDefinitionsEmptyDescription = standardCollectionI18nPrefix
-        ? t(`${standardCollectionI18nPrefix}.fieldDefinitions.emptyDescription`, defaultFieldDefinitionsEmptyDescription)
-        : defaultFieldDefinitionsEmptyDescription
+    const componentsEmptyTitle = standardCollectionI18nPrefix
+        ? t(`${standardCollectionI18nPrefix}.components.emptyTitle`, defaultComponentsEmptyTitle)
+        : defaultComponentsEmptyTitle
+    const componentsEmptyDescription = standardCollectionI18nPrefix
+        ? t(`${standardCollectionI18nPrefix}.components.emptyDescription`, defaultComponentsEmptyDescription)
+        : defaultComponentsEmptyDescription
 
     const paginationResult = usePaginated<MetahubEntityInstance, 'updated' | 'sortOrder'>({
         queryKeyFn: (params) =>
@@ -589,7 +592,7 @@ const EntityInstanceListContent = () => {
     const ledgerCapableKindKeys = useMemo(
         () =>
             (entityTypesQuery.data?.items ?? [])
-                .filter((type) => supportsLedgerSchema(type.components))
+                .filter((type) => supportsLedgerSchema(type.capabilities))
                 .map((type) => type.kindKey)
                 .sort((left, right) => left.localeCompare(right)),
         [entityTypesQuery.data?.items]
@@ -628,13 +631,13 @@ const EntityInstanceListContent = () => {
                 .map((entity) => toRecordBehaviorOption(entity, preferredVlcLocale)),
         [behaviorLedgerQueries, preferredVlcLocale]
     )
-    const behaviorFieldDefinitionsQuery = useQuery({
+    const behaviorComponentsQuery = useQuery({
         queryKey:
             metahubId && behaviorDialogEntityId && resolvedKindKey
-                ? ['metahubs', metahubId, 'recordBehavior', resolvedKindKey, behaviorDialogEntityId, 'fieldDefinitions']
-                : ['metahubs', 'recordBehavior', 'fieldDefinitions', 'empty'],
+                ? ['metahubs', metahubId, 'recordBehavior', resolvedKindKey, behaviorDialogEntityId, 'components']
+                : ['metahubs', 'recordBehavior', 'components', 'empty'],
         queryFn: () =>
-            fieldDefinitionsApi.listFieldDefinitionsDirect(metahubId!, behaviorDialogEntityId!, {
+            componentsApi.listComponentsDirect(metahubId!, behaviorDialogEntityId!, {
                 kindKey: resolvedKindKey,
                 limit: 1000,
                 offset: 0,
@@ -660,21 +663,18 @@ const EntityInstanceListContent = () => {
         staleTime: 30 * 1000
     })
     const behaviorFieldOptions = useMemo(
-        () =>
-            (behaviorFieldDefinitionsQuery.data?.items ?? []).map((field) =>
-                fieldDefinitionToRecordBehaviorOption(field, preferredVlcLocale)
-            ),
-        [behaviorFieldDefinitionsQuery.data?.items, preferredVlcLocale]
+        () => (behaviorComponentsQuery.data?.items ?? []).map((field) => componentToRecordBehaviorOption(field, preferredVlcLocale)),
+        [behaviorComponentsQuery.data?.items, preferredVlcLocale]
     )
     const ledgerReferenceFields = useMemo(
         () =>
-            behaviorFieldDefinitionsQuery.isSuccess
-                ? (behaviorFieldDefinitionsQuery.data?.items ?? []).map((field) => ({
-                      codename: resolveFieldDefinitionCodename(field, preferredVlcLocale),
+            behaviorComponentsQuery.isSuccess
+                ? (behaviorComponentsQuery.data?.items ?? []).map((field) => ({
+                      codename: resolveComponentCodename(field, preferredVlcLocale),
                       dataType: field.dataType
                   }))
                 : null,
-        [behaviorFieldDefinitionsQuery.data?.items, behaviorFieldDefinitionsQuery.isSuccess, preferredVlcLocale]
+        [behaviorComponentsQuery.data?.items, behaviorComponentsQuery.isSuccess, preferredVlcLocale]
     )
     const behaviorScriptOptions = useMemo(
         () => (behaviorScriptsQuery.data ?? []).map((script) => scriptToRecordBehaviorOption(script, preferredVlcLocale)),
@@ -693,8 +693,8 @@ const EntityInstanceListContent = () => {
             ...buildInitialFormValues(preferredVlcLocale, null),
             recordBehavior:
                 showBehaviorTab && entityType?.config
-                    ? normalizeCatalogRecordBehaviorFromConfig(entityType.config)
-                    : DEFAULT_CATALOG_RECORD_BEHAVIOR,
+                    ? normalizeObjectRecordBehaviorFromConfig(entityType.config)
+                    : DEFAULT_OBJECT_RECORD_BEHAVIOR,
             ledgerSchemaEnabled: showLedgerSchemaTab && hasLedgerConfig(entityType?.config),
             ledgerConfig:
                 showLedgerSchemaTab && entityType?.config ? normalizeLedgerConfigFromConfig(entityType.config) : DEFAULT_LEDGER_CONFIG
@@ -711,13 +711,13 @@ const EntityInstanceListContent = () => {
         [editDialogEntity, preferredVlcLocale]
     )
     const copyInitialValues = useMemo(
-        () => buildCopyInitialValues(preferredVlcLocale, copyDialogEntity, usesLinkedCollectionAuthoring),
-        [copyDialogEntity, usesLinkedCollectionAuthoring, preferredVlcLocale]
+        () => buildCopyInitialValues(preferredVlcLocale, copyDialogEntity, usesObjectCollectionAuthoring),
+        [copyDialogEntity, usesObjectCollectionAuthoring, preferredVlcLocale]
     )
-    const blockingDeleteCatalog = useMemo(
+    const blockingDeleteObject = useMemo(
         () =>
             blockingDeleteTarget && metahubId
-                ? buildLinkedCollectionDeleteDialogEntity({
+                ? buildObjectCollectionDeleteDialogEntity({
                       entity: blockingDeleteTarget,
                       metahubId,
                       uiLocale: preferredVlcLocale,
@@ -727,31 +727,66 @@ const EntityInstanceListContent = () => {
         [blockingDeleteTarget, treeEntities, metahubId, preferredVlcLocale]
     )
 
+    const resolveTreeAssignmentLabel = useCallback(
+        (key: EntityTypeTreeAssignmentLabelKey, fallbackKey: string, fallbackValue: string): string => {
+            const label = entityType?.ui.treeAssignmentLabels?.[key]
+            return getVLCString(label, preferredVlcLocale) || getVLCString(label, 'en') || t(fallbackKey, fallbackValue)
+        },
+        [entityType?.ui.treeAssignmentLabels, preferredVlcLocale, t]
+    )
+
     const containerSelectionLabels = useMemo<Partial<EntitySelectionLabels>>(
         () => ({
-            title: t('entities.instances.tabs.containers', 'Containers'),
-            addButton: t('entities.instances.containers.addButton', 'Add'),
-            dialogTitle: t('entities.instances.containers.dialogTitle', 'Select containers'),
-            emptyMessage: t('entities.instances.containers.empty', 'No containers selected'),
-            requiredWarningMessage: t('entities.instances.validation.containerRequired', 'At least one container is required'),
-            noAvailableMessage: t('entities.instances.containers.noAvailable', 'No containers available'),
+            title: resolveTreeAssignmentLabel('title', 'entities.instances.tabs.containers', 'Containers'),
+            addButton: resolveTreeAssignmentLabel('addButton', 'entities.instances.containers.addButton', 'Add'),
+            dialogTitle: resolveTreeAssignmentLabel('dialogTitle', 'entities.instances.containers.dialogTitle', 'Select containers'),
+            emptyMessage: resolveTreeAssignmentLabel('emptyMessage', 'entities.instances.containers.empty', 'No containers selected'),
+            requiredWarningMessage: resolveTreeAssignmentLabel(
+                'requiredWarningMessage',
+                'entities.instances.validation.containerRequired',
+                'At least one container is required'
+            ),
+            noAvailableMessage: resolveTreeAssignmentLabel(
+                'noAvailableMessage',
+                'entities.instances.containers.noAvailable',
+                'No containers available'
+            ),
             confirmButton: t('common:actions.add', 'Add'),
             removeTitle: t('common:actions.remove', 'Remove'),
-            requiredLabel: t('entities.instances.containers.requiredLabel', 'Container required'),
-            requiredEnabledHelp: t(
+            requiredLabel: resolveTreeAssignmentLabel('requiredLabel', 'entities.instances.containers.requiredLabel', 'Container required'),
+            requiredEnabledHelp: resolveTreeAssignmentLabel(
+                'requiredEnabledHelp',
                 'entities.instances.containers.requiredEnabledHelp',
                 'The entity must be linked to at least one container'
             ),
-            requiredDisabledHelp: t('entities.instances.containers.requiredDisabledHelp', 'The entity can exist without linked containers'),
-            singleLabel: t('entities.instances.containers.singleLabel', 'Single container only'),
-            singleEnabledHelp: t('entities.instances.containers.singleEnabledHelp', 'The entity can only be linked to one container'),
-            singleDisabledHelp: t('entities.instances.containers.singleDisabledHelp', 'The entity can be linked to multiple containers'),
-            singleWarning: t(
+            requiredDisabledHelp: resolveTreeAssignmentLabel(
+                'requiredDisabledHelp',
+                'entities.instances.containers.requiredDisabledHelp',
+                'The entity can exist without linked containers'
+            ),
+            singleLabel: resolveTreeAssignmentLabel('singleLabel', 'entities.instances.containers.singleLabel', 'Single container only'),
+            singleEnabledHelp: resolveTreeAssignmentLabel(
+                'singleEnabledHelp',
+                'entities.instances.containers.singleEnabledHelp',
+                'The entity can only be linked to one container'
+            ),
+            singleDisabledHelp: resolveTreeAssignmentLabel(
+                'singleDisabledHelp',
+                'entities.instances.containers.singleDisabledHelp',
+                'The entity can be linked to multiple containers'
+            ),
+            singleWarning: resolveTreeAssignmentLabel(
+                'singleWarning',
                 'entities.instances.validation.singleContainerInvalid',
                 'Single-container entities cannot be linked to multiple containers'
+            ),
+            currentContainerShort: resolveTreeAssignmentLabel(
+                'currentContainerShort',
+                'entities.selection.currentContainerShort',
+                'Current container'
             )
         }),
-        [t]
+        [resolveTreeAssignmentLabel, t]
     )
 
     const validateEntityForm = useCallback(
@@ -783,12 +818,16 @@ const EntityInstanceListContent = () => {
                 const isSingleHub = Boolean(values.isSingleHub)
 
                 if (isRequiredHub && treeEntityIds.length === 0) {
-                    errors.treeEntityIds = t('entities.instances.validation.containerRequired', 'At least one container is required')
+                    errors.treeEntityIds =
+                        containerSelectionLabels.requiredWarningMessage ??
+                        t('entities.instances.validation.containerRequired', 'At least one container is required')
                 } else if (isSingleHub && treeEntityIds.length > 1) {
-                    errors.treeEntityIds = t(
-                        'entities.instances.validation.singleContainerInvalid',
-                        'Single-container entities cannot be linked to multiple containers'
-                    )
+                    errors.treeEntityIds =
+                        containerSelectionLabels.singleWarning ??
+                        t(
+                            'entities.instances.validation.singleContainerInvalid',
+                            'Single-container entities cannot be linked to multiple containers'
+                        )
                 }
             }
 
@@ -811,6 +850,8 @@ const EntityInstanceListContent = () => {
             showHubsTab,
             showLedgerSchemaTab,
             ledgerReferenceFields,
+            containerSelectionLabels.requiredWarningMessage,
+            containerSelectionLabels.singleWarning,
             t,
             tc
         ]
@@ -883,7 +924,7 @@ const EntityInstanceListContent = () => {
             }
 
             if (showBehaviorTab) {
-                nextConfig.recordBehavior = normalizeCatalogRecordBehavior(values.recordBehavior)
+                nextConfig.recordBehavior = normalizeObjectRecordBehavior(values.recordBehavior)
             }
 
             if (showLedgerSchemaTab) {
@@ -1016,7 +1057,7 @@ const EntityInstanceListContent = () => {
                         baseConfig: getEntityConfig(copyDialogEntity),
                         preserveBaseConfig: true
                     }),
-                    ...(usesLinkedCollectionAuthoring ? getLinkedCollectionCopyOptions(values) : {})
+                    ...(usesObjectCollectionAuthoring ? getObjectCollectionCopyOptions(values) : {})
                 }
             })
         },
@@ -1025,7 +1066,7 @@ const EntityInstanceListContent = () => {
             canCopyEntityInstances,
             copyDialogEntity,
             copyEntityMutation,
-            usesLinkedCollectionAuthoring,
+            usesObjectCollectionAuthoring,
             metahubId,
             resolvedKindKey
         ]
@@ -1116,14 +1157,14 @@ const EntityInstanceListContent = () => {
         (entity: MetahubEntityInstance) => {
             if (!canDeleteEntityInstances) return
 
-            if (usesLinkedCollectionAuthoring) {
+            if (usesObjectCollectionAuthoring) {
                 setBlockingDeleteTarget(entity)
                 return
             }
 
             openDelete(entity)
         },
-        [canDeleteEntityInstances, usesLinkedCollectionAuthoring, openDelete]
+        [canDeleteEntityInstances, usesObjectCollectionAuthoring, openDelete]
     )
 
     const handleSelectPermanentDeleteTarget = useCallback(
@@ -1223,9 +1264,9 @@ const EntityInstanceListContent = () => {
                             descriptionLabel={tc('fields.description', 'Description')}
                             codenameLabel={tc('fields.codename', 'Codename')}
                             codenameHelper={
-                                usesLinkedCollectionAuthoring
+                                usesObjectCollectionAuthoring
                                     ? t(
-                                          'catalogs.codenameHelper',
+                                          'objects.codenameHelper',
                                           'Unique identifier for URLs (lowercase Latin letters, numbers, hyphens). Auto-generated from the name with transliteration. You can edit it manually.'
                                       )
                                     : t(
@@ -1248,7 +1289,7 @@ const EntityInstanceListContent = () => {
                             value={getRecordBehaviorFormValue(values.recordBehavior)}
                             onChange={(nextValue) => setValue('recordBehavior', nextValue)}
                             disabled={isLoading}
-                            components={entityType.components}
+                            capabilities={entityType.capabilities}
                             fieldOptions={options.mode === 'create' ? [] : behaviorFieldOptions}
                             ledgerOptions={behaviorLedgerOptions}
                             scriptOptions={options.mode === 'create' ? [] : behaviorScriptOptions}
@@ -1279,7 +1320,7 @@ const EntityInstanceListContent = () => {
                                     value={getLedgerConfigFormValue(values.ledgerConfig)}
                                     onChange={(nextValue) => setValue('ledgerConfig', nextValue)}
                                     disabled={isLoading}
-                                    components={entityType.components}
+                                    capabilities={entityType.capabilities}
                                     fieldOptions={options.mode === 'create' ? [] : behaviorFieldOptions}
                                     entityKindOptions={ledgerEntityKindOptions}
                                     errors={errors}
@@ -1304,7 +1345,10 @@ const EntityInstanceListContent = () => {
 
                 tabs.push({
                     id: treeAssignmentTabId,
-                    label: treeAssignmentTabId === 'hubs' ? t('hubs.title', 'Hubs') : t('entities.instances.tabs.containers', 'Containers'),
+                    label:
+                        treeAssignmentTabId === 'hubs'
+                            ? containerSelectionLabels.title ?? t('hubs.title', 'Hubs')
+                            : t('entities.instances.tabs.containers', 'Containers'),
                     content: (
                         <ContainerSelectionPanel
                             availableContainers={treeEntities}
@@ -1323,19 +1367,19 @@ const EntityInstanceListContent = () => {
                 })
             }
 
-            if (options.mode === 'edit' && options.entityId && showAttributesTab) {
+            if (options.mode === 'edit' && options.entityId && showComponentsTab) {
                 tabs.push({
-                    id: 'fieldDefinitions',
-                    label: fieldDefinitionsTabLabel,
+                    id: 'components',
+                    label: componentsTabLabel,
                     content: (
-                        <FieldDefinitionListContent
+                        <ComponentListContent
                             metahubId={metahubId}
-                            linkedCollectionId={options.entityId}
+                            objectCollectionId={options.entityId}
                             title={null}
-                            emptyTitle={fieldDefinitionsEmptyTitle}
-                            emptyDescription={fieldDefinitionsEmptyDescription}
+                            emptyTitle={componentsEmptyTitle}
+                            emptyDescription={componentsEmptyDescription}
                             renderPageShell={false}
-                            showCatalogTabs={false}
+                            showObjectTabs={false}
                             showSettingsTab={false}
                             allowSystemTab={false}
                         />
@@ -1346,7 +1390,7 @@ const EntityInstanceListContent = () => {
             if (showLayoutTab && metahubId && ((options.mode === 'edit' && options.entityId) || showPageBlocksTab)) {
                 tabs.push({
                     id: 'layout',
-                    label: t('catalogs.tabs.layout', 'Layouts'),
+                    label: t('objects.tabs.layout', 'Layouts'),
                     content:
                         options.mode === 'edit' && options.entityId ? (
                             <LayoutList
@@ -1355,14 +1399,14 @@ const EntityInstanceListContent = () => {
                                 detailBasePath={buildEntityInstanceLayoutBasePath(metahubId, resolvedKindKey, options.entityId)}
                                 title={null}
                                 emptyTitle={
-                                    usesLinkedCollectionAuthoring
-                                        ? t('catalogs.layoutTab.emptyTitle', 'No entity layouts')
+                                    usesObjectCollectionAuthoring
+                                        ? t('objects.layoutTab.emptyTitle', 'No entity layouts')
                                         : t('entities.instances.layouts.emptyTitle', 'No layouts')
                                 }
                                 emptyDescription={
-                                    usesLinkedCollectionAuthoring
+                                    usesObjectCollectionAuthoring
                                         ? t(
-                                              'catalogs.layoutTab.emptyDescription',
+                                              'objects.layoutTab.emptyDescription',
                                               'This entity currently uses the active global layout. Create the first entity layout to override widgets and runtime behavior.'
                                           )
                                         : t(
@@ -1416,11 +1460,11 @@ const EntityInstanceListContent = () => {
                 )
             }
 
-            if (options.mode === 'copy' && usesLinkedCollectionAuthoring) {
+            if (options.mode === 'copy' && usesObjectCollectionAuthoring) {
                 tabs.push({
                     id: 'options',
-                    label: t('catalogs.tabs.options', 'Options'),
-                    content: <LinkedCollectionCopyOptionsTab values={values} setValue={setValue} isLoading={isLoading} t={translate} />
+                    label: t('objects.tabs.options', 'Options'),
+                    content: <ObjectCollectionCopyOptionsTab values={values} setValue={setValue} isLoading={isLoading} t={translate} />
                 })
             }
 
@@ -1432,16 +1476,16 @@ const EntityInstanceListContent = () => {
             behaviorLedgerOptions,
             behaviorScriptOptions,
             ledgerEntityKindOptions,
-            fieldDefinitionsEmptyDescription,
-            fieldDefinitionsEmptyTitle,
-            fieldDefinitionsTabLabel,
+            componentsEmptyDescription,
+            componentsEmptyTitle,
+            componentsTabLabel,
             entityType,
             treeEntities,
-            usesLinkedCollectionAuthoring,
+            usesObjectCollectionAuthoring,
             metahubId,
             preferredVlcLocale,
             resolvedKindKey,
-            showAttributesTab,
+            showComponentsTab,
             showActionsTab,
             showBehaviorTab,
             showEventsTab,
@@ -1521,7 +1565,10 @@ const EntityInstanceListContent = () => {
             },
             {
                 id: 'treeEntities',
-                label: treeAssignmentTabId === 'hubs' ? t('hubs.title', 'Hubs') : t('entities.instances.columns.containers', 'Containers'),
+                label:
+                    treeAssignmentTabId === 'hubs'
+                        ? containerSelectionLabels.title ?? t('hubs.title', 'Hubs')
+                        : t('entities.instances.columns.containers', 'Containers'),
                 width: '24%',
                 sortable: true,
                 sortAccessor: (row: EntityInstanceDisplayRow) => row.treeEntityIds.length,
@@ -1555,7 +1602,7 @@ const EntityInstanceListContent = () => {
                     row.isDeleted ? <Chip size='small' color='warning' label={t('entities.instances.badges.deleted', 'Deleted')} /> : null
             }
         ]
-    }, [renderHubSummary, showDeleted, t, tc, treeAssignmentTabId])
+    }, [containerSelectionLabels.title, renderHubSummary, showDeleted, t, tc, treeAssignmentTabId])
 
     const renderEntityActionMenu = useCallback(
         (row: EntityInstanceDisplayRow) => {
@@ -1676,23 +1723,23 @@ const EntityInstanceListContent = () => {
     const isInstancesInitialLoading = Boolean(entityType && usesGenericEntityAuthoring && paginationResult.isLoading)
     const dialogTitles = useMemo(
         () => ({
-            create: usesLinkedCollectionAuthoring
-                ? t('catalogs.createDialog.title', 'Create LinkedCollectionEntity')
+            create: usesObjectCollectionAuthoring
+                ? t('objects.createDialog.title', 'Create Object')
                 : resolveEntityInstanceDialogTitle(entityType, 'create', preferredVlcLocale, translate, resolvedKindKey),
-            edit: usesLinkedCollectionAuthoring
-                ? t('catalogs.editDialog.title', 'Edit LinkedCollectionEntity')
+            edit: usesObjectCollectionAuthoring
+                ? t('objects.editDialog.title', 'Edit Object')
                 : resolveEntityInstanceDialogTitle(entityType, 'edit', preferredVlcLocale, translate, resolvedKindKey),
-            copy: usesLinkedCollectionAuthoring
-                ? t('catalogs.copyTitle', 'Copying LinkedCollectionEntity')
+            copy: usesObjectCollectionAuthoring
+                ? t('objects.copyTitle', 'Copying Object')
                 : resolveEntityInstanceDialogTitle(entityType, 'copy', preferredVlcLocale, translate, resolvedKindKey),
-            delete: usesLinkedCollectionAuthoring
-                ? t('catalogs.deleteDialog.title', 'Delete LinkedCollectionEntity')
+            delete: usesObjectCollectionAuthoring
+                ? t('objects.deleteDialog.title', 'Delete Object')
                 : resolveEntityInstanceDialogTitle(entityType, 'delete', preferredVlcLocale, translate, resolvedKindKey),
-            deletePermanent: usesLinkedCollectionAuthoring
-                ? t('entities.instances.linkedCollectionDeletePermanentDialog.title', 'Delete Catalog Permanently')
+            deletePermanent: usesObjectCollectionAuthoring
+                ? t('entities.instances.objectCollectionDeletePermanentDialog.title', 'Delete Object Permanently')
                 : resolveEntityInstanceDialogTitle(entityType, 'deletePermanent', preferredVlcLocale, translate, resolvedKindKey)
         }),
-        [entityType, preferredVlcLocale, resolvedKindKey, t, translate, usesLinkedCollectionAuthoring]
+        [entityType, preferredVlcLocale, resolvedKindKey, t, translate, usesObjectCollectionAuthoring]
     )
 
     return (
@@ -1729,8 +1776,8 @@ const EntityInstanceListContent = () => {
                                     ? {
                                           label: isStandardEntityCollection
                                               ? tc('actions.create', 'Create')
-                                              : usesLinkedCollectionAuthoring
-                                              ? t('catalogs.create', 'Create LinkedCollectionEntity')
+                                              : usesObjectCollectionAuthoring
+                                              ? t('objects.create', 'Create Object')
                                               : t('entities.instances.actions.create', 'Create entity'),
                                           onClick: handleOpenCreate,
                                           startIcon: <AddRoundedIcon />,
@@ -1916,9 +1963,9 @@ const EntityInstanceListContent = () => {
                     title={dialogTitles.create}
                     nameLabel={tc('fields.name', 'Name')}
                     descriptionLabel={tc('fields.description', 'Description')}
-                    saveButtonText={usesLinkedCollectionAuthoring ? t('common:actions.create', 'Create') : tc('actions.create', 'Create')}
+                    saveButtonText={usesObjectCollectionAuthoring ? t('common:actions.create', 'Create') : tc('actions.create', 'Create')}
                     savingButtonText={
-                        usesLinkedCollectionAuthoring ? t('common:actions.creating', 'Creating...') : tc('actions.creating', 'Creating...')
+                        usesObjectCollectionAuthoring ? t('common:actions.creating', 'Creating...') : tc('actions.creating', 'Creating...')
                     }
                     cancelButtonText={tc('actions.cancel', 'Cancel')}
                     onClose={() => close('create')}
@@ -1956,10 +2003,10 @@ const EntityInstanceListContent = () => {
                     title={dialogTitles.copy}
                     nameLabel={tc('fields.name', 'Name')}
                     descriptionLabel={tc('fields.description', 'Description')}
-                    saveButtonText={usesLinkedCollectionAuthoring ? t('catalogs.copy.action', 'Copy') : tc('actions.copy', 'Copy')}
+                    saveButtonText={usesObjectCollectionAuthoring ? t('objects.copy.action', 'Copy') : tc('actions.copy', 'Copy')}
                     savingButtonText={
-                        usesLinkedCollectionAuthoring
-                            ? t('catalogs.copy.actionLoading', 'Copying...')
+                        usesObjectCollectionAuthoring
+                            ? t('objects.copy.actionLoading', 'Copying...')
                             : t('entities.instances.copyDialog.copying', 'Copying...')
                     }
                     cancelButtonText={tc('actions.cancel', 'Cancel')}
@@ -1974,15 +2021,15 @@ const EntityInstanceListContent = () => {
                 />
 
                 <ConfirmDeleteDialog
-                    open={dialogs.delete.open && !usesLinkedCollectionAuthoring && canDeleteEntityInstances}
+                    open={dialogs.delete.open && !usesObjectCollectionAuthoring && canDeleteEntityInstances}
                     title={dialogTitles.delete}
                     description={
-                        usesLinkedCollectionAuthoring
-                            ? t('entities.instances.linkedCollectionDeleteDialog.description', {
+                        usesObjectCollectionAuthoring
+                            ? t('entities.instances.objectCollectionDeleteDialog.description', {
                                   name: dialogs.delete.item
                                       ? buildInstanceDisplayRow(dialogs.delete.item, preferredVlcLocale, translate).name
                                       : resolvedEntityTypeName,
-                                  defaultValue: 'Delete catalog "{{name}}"? You can restore it later while deleted items are visible.'
+                                  defaultValue: 'Delete object "{{name}}"? You can restore it later while deleted items are visible.'
                               })
                             : t('entities.instances.deleteDialog.description', {
                                   name: dialogs.delete.item
@@ -1999,9 +2046,9 @@ const EntityInstanceListContent = () => {
                     loading={deleteEntityMutation.isPending}
                 />
 
-                <LinkedCollectionDeleteDialog
-                    open={Boolean(blockingDeleteTarget) && canDeleteEntityInstances && usesLinkedCollectionAuthoring}
-                    catalog={blockingDeleteCatalog}
+                <ObjectCollectionDeleteDialog
+                    open={Boolean(blockingDeleteTarget) && canDeleteEntityInstances && usesObjectCollectionAuthoring}
+                    objectCollection={blockingDeleteObject}
                     metahubId={metahubId ?? ''}
                     onClose={() => setBlockingDeleteTarget(null)}
                     onConfirm={() => {
@@ -2028,12 +2075,12 @@ const EntityInstanceListContent = () => {
                     open={Boolean(permanentDeleteTarget) && canDeleteEntityInstances}
                     title={dialogTitles.deletePermanent}
                     description={
-                        usesLinkedCollectionAuthoring
-                            ? t('entities.instances.linkedCollectionDeletePermanentDialog.description', {
+                        usesObjectCollectionAuthoring
+                            ? t('entities.instances.objectCollectionDeletePermanentDialog.description', {
                                   name: permanentDeleteTarget
                                       ? buildInstanceDisplayRow(permanentDeleteTarget, preferredVlcLocale, translate).name
                                       : '',
-                                  defaultValue: 'Permanently delete catalog "{{name}}"? This action cannot be undone.'
+                                  defaultValue: 'Permanently delete object "{{name}}"? This action cannot be undone.'
                               })
                             : t('entities.instances.deletePermanentDialog.description', {
                                   name: permanentDeleteTarget
@@ -2044,8 +2091,8 @@ const EntityInstanceListContent = () => {
                     }
                     confirmButtonText={t('common:actions.deletePermanently', 'Delete permanently')}
                     deletingButtonText={
-                        usesLinkedCollectionAuthoring
-                            ? t('entities.instances.linkedCollectionDeletePermanentDialog.deleting', 'Deleting permanently...')
+                        usesObjectCollectionAuthoring
+                            ? t('entities.instances.objectCollectionDeletePermanentDialog.deleting', 'Deleting permanently...')
                             : t('entities.instances.deletePermanentDialog.deleting', 'Deleting permanently...')
                     }
                     cancelButtonText={tc('actions.cancel', 'Cancel')}

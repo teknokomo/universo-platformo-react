@@ -249,16 +249,16 @@ describe('MainGrid enhanced runtime details', () => {
                     tableName: 'courses',
                     name: 'Courses'
                 },
-                linkedCollection: {
+                objectCollection: {
                     id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990',
                     codename: 'courses',
                     tableName: 'courses',
                     name: 'Courses'
                 },
                 sections: [],
-                linkedCollections: [],
+                objectCollections: [],
                 activeSectionId: '017f22e2-79b0-7cc3-98c4-dc0c0c073990',
-                activeLinkedCollectionId: '017f22e2-79b0-7cc3-98c4-dc0c0c073990',
+                activeObjectCollectionId: '017f22e2-79b0-7cc3-98c4-dc0c0c073990',
                 columns: [],
                 rows: [],
                 pagination: {
@@ -283,7 +283,7 @@ describe('MainGrid enhanced runtime details', () => {
                         apiBaseUrl: '/api/v1',
                         locale: 'ru',
                         sections: [{ id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990', codename: 'courses' }],
-                        linkedCollections: [{ id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990', codename: 'courses' }]
+                        objectCollections: [{ id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990', codename: 'courses' }]
                     }}
                 >
                     <MainGrid
@@ -323,7 +323,7 @@ describe('MainGrid enhanced runtime details', () => {
         expect(screen.getByTestId('stat-card')).toHaveAttribute('data-series-sum', '0')
         const requestedUrl = new URL(fetchMock.mock.calls[0][0] as string)
         expect(requestedUrl.searchParams.get('limit')).toBe('1')
-        expect(requestedUrl.searchParams.get('linkedCollectionId')).toBe('017f22e2-79b0-7cc3-98c4-dc0c0c073990')
+        expect(requestedUrl.searchParams.get('objectCollectionId')).toBe('017f22e2-79b0-7cc3-98c4-dc0c0c073990')
         expect(requestedUrl.searchParams.get('search')).toBe('safety')
         expect(requestedUrl.searchParams.get('locale')).toBe('ru')
     })
@@ -338,16 +338,16 @@ describe('MainGrid enhanced runtime details', () => {
                     tableName: 'activity',
                     name: 'Activity'
                 },
-                linkedCollection: {
+                objectCollection: {
                     id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990',
                     codename: 'activity',
                     tableName: 'Activity',
                     name: 'Activity'
                 },
                 sections: [],
-                linkedCollections: [],
+                objectCollections: [],
                 activeSectionId: '017f22e2-79b0-7cc3-98c4-dc0c0c073990',
-                activeLinkedCollectionId: '017f22e2-79b0-7cc3-98c4-dc0c0c073990',
+                activeObjectCollectionId: '017f22e2-79b0-7cc3-98c4-dc0c0c073990',
                 columns: [],
                 rows: [
                     { id: 'row-1', period: 'Jan', completed: 12 },
@@ -375,7 +375,7 @@ describe('MainGrid enhanced runtime details', () => {
                         apiBaseUrl: '/api/v1',
                         locale: 'ru',
                         sections: [{ id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990', codename: 'activity' }],
-                        linkedCollections: [{ id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990', codename: 'activity' }]
+                        objectCollections: [{ id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990', codename: 'activity' }]
                     }}
                 >
                     <MainGrid
@@ -411,7 +411,7 @@ describe('MainGrid enhanced runtime details', () => {
         expect(screen.getByTestId('page-views-chart')).toHaveAttribute('data-first-label', 'Завершено')
         const requestedUrl = new URL(fetchMock.mock.calls[0][0] as string)
         expect(requestedUrl.searchParams.get('limit')).toBe('3')
-        expect(requestedUrl.searchParams.get('linkedCollectionId')).toBe('017f22e2-79b0-7cc3-98c4-dc0c0c073990')
+        expect(requestedUrl.searchParams.get('objectCollectionId')).toBe('017f22e2-79b0-7cc3-98c4-dc0c0c073990')
         expect(requestedUrl.searchParams.get('search')).toBe('cohort')
         expect(JSON.parse(requestedUrl.searchParams.get('sort') ?? '[]')).toEqual([{ field: 'period', direction: 'asc' }])
     })
@@ -498,16 +498,16 @@ describe('MainGrid enhanced runtime details', () => {
                     tableName: 'activity',
                     name: 'Activity'
                 },
-                linkedCollection: {
+                objectCollection: {
                     id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990',
                     codename: 'activity',
                     tableName: 'activity',
                     name: 'Activity'
                 },
                 sections: [],
-                linkedCollections: [],
+                objectCollections: [],
                 activeSectionId: '017f22e2-79b0-7cc3-98c4-dc0c0c073990',
-                activeLinkedCollectionId: '017f22e2-79b0-7cc3-98c4-dc0c0c073990',
+                activeObjectCollectionId: '017f22e2-79b0-7cc3-98c4-dc0c0c073990',
                 columns: [],
                 rows: [],
                 pagination: {
@@ -532,7 +532,7 @@ describe('MainGrid enhanced runtime details', () => {
                         apiBaseUrl: '/api/v1',
                         locale: 'ru',
                         sections: [{ id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990', codename: 'activity' }],
-                        linkedCollections: [{ id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990', codename: 'activity' }]
+                        objectCollections: [{ id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990', codename: 'activity' }]
                     }}
                 >
                     <MainGrid

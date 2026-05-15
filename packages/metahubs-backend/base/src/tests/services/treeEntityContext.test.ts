@@ -1,17 +1,17 @@
-import { isEnabledComponentConfig } from '@universo/types'
+import { isEnabledCapabilityConfig } from '@universo/types'
 import { queryMany } from '@universo/utils/database'
 
 import { findBlockingTreeDependencies, loadTreeEntityContext } from '../../domains/entities/children/treeEntityContext'
 import {
-    CATALOG_TYPE_COMPONENTS,
-    CATALOG_TYPE_UI,
-    ENUMERATION_TYPE_COMPONENTS,
+    OBJECT_TYPE_CAPABILITIES,
+    OBJECT_TYPE_UI,
+    ENUMERATION_TYPE_CAPABILITIES,
     ENUMERATION_TYPE_UI,
-    HUB_TYPE_COMPONENTS,
+    HUB_TYPE_CAPABILITIES,
     HUB_TYPE_UI,
-    PAGE_TYPE_COMPONENTS,
+    PAGE_TYPE_CAPABILITIES,
     PAGE_TYPE_UI,
-    SET_TYPE_COMPONENTS,
+    SET_TYPE_CAPABILITIES,
     SET_TYPE_UI
 } from '../../domains/templates/data/standardEntityTypeDefinitions'
 import type { EntityTypeService } from '../../domains/entities/services/EntityTypeService'
@@ -22,7 +22,7 @@ jest.mock('@universo/utils/database', () => ({
 
 const queryManyMock = queryMany as jest.MockedFunction<typeof queryMany>
 
-const createType = (kindKey: string, components: unknown, ui: unknown) => ({
+const createType = (kindKey: string, capabilities: unknown, ui: unknown) => ({
     kindKey,
     codename: {
         _primary: 'en',
@@ -30,7 +30,7 @@ const createType = (kindKey: string, components: unknown, ui: unknown) => ({
             en: { content: kindKey }
         }
     },
-    components,
+    capabilities,
     ui
 })
 
@@ -40,21 +40,21 @@ describe('treeEntityContext', () => {
     })
 
     it('treats every treeAssignment-enabled entity type as hub-assignable', async () => {
-        expect(isEnabledComponentConfig(SET_TYPE_COMPONENTS.treeAssignment)).toBe(true)
-        expect(isEnabledComponentConfig(ENUMERATION_TYPE_COMPONENTS.treeAssignment)).toBe(true)
-        expect(isEnabledComponentConfig(PAGE_TYPE_COMPONENTS.treeAssignment)).toBe(true)
+        expect(isEnabledCapabilityConfig(SET_TYPE_CAPABILITIES.treeAssignment)).toBe(true)
+        expect(isEnabledCapabilityConfig(ENUMERATION_TYPE_CAPABILITIES.treeAssignment)).toBe(true)
+        expect(isEnabledCapabilityConfig(PAGE_TYPE_CAPABILITIES.treeAssignment)).toBe(true)
 
         const entityTypeService = {
             listEditableTypes: jest.fn().mockResolvedValue([
-                createType('hub', HUB_TYPE_COMPONENTS, HUB_TYPE_UI),
-                createType('catalog', CATALOG_TYPE_COMPONENTS, CATALOG_TYPE_UI),
-                createType('page', PAGE_TYPE_COMPONENTS, PAGE_TYPE_UI),
-                createType('set', SET_TYPE_COMPONENTS, SET_TYPE_UI),
-                createType('enumeration', ENUMERATION_TYPE_COMPONENTS, ENUMERATION_TYPE_UI),
+                createType('hub', HUB_TYPE_CAPABILITIES, HUB_TYPE_UI),
+                createType('object', OBJECT_TYPE_CAPABILITIES, OBJECT_TYPE_UI),
+                createType('page', PAGE_TYPE_CAPABILITIES, PAGE_TYPE_UI),
+                createType('set', SET_TYPE_CAPABILITIES, SET_TYPE_UI),
+                createType('enumeration', ENUMERATION_TYPE_CAPABILITIES, ENUMERATION_TYPE_UI),
                 createType(
                     'article',
                     {
-                        ...PAGE_TYPE_COMPONENTS,
+                        ...PAGE_TYPE_CAPABILITIES,
                         treeAssignment: { enabled: true }
                     },
                     {
@@ -67,7 +67,7 @@ describe('treeEntityContext', () => {
 
         const context = await loadTreeEntityContext(entityTypeService, 'metahub-1', 'user-1')
 
-        expect(context.hubAssignableKinds).toEqual(expect.arrayContaining(['catalog', 'page', 'set', 'enumeration', 'article']))
+        expect(context.hubAssignableKinds).toEqual(expect.arrayContaining(['object', 'page', 'set', 'enumeration', 'article']))
         expect(context.hubAssignableKinds).not.toContain('hub')
         expect(context.relatedKinds).toEqual(context.hubAssignableKinds)
     })
@@ -101,8 +101,8 @@ describe('treeEntityContext', () => {
             compatibility: {
                 hubKinds: ['hub'],
                 hubKindSet: new Set(['hub']),
-                linkedCollectionKinds: ['catalog'],
-                linkedCollectionKindSet: new Set(['catalog']),
+                linkedCollectionKinds: ['object'],
+                linkedCollectionKindSet: new Set(['object']),
                 valueGroupKinds: ['set'],
                 valueGroupKindSet: new Set(['set']),
                 optionListKinds: ['enumeration'],

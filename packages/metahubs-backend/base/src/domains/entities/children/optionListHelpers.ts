@@ -5,7 +5,7 @@ import { localizedContent } from '@universo/utils'
 import { getCodenamePayloadText, optionalCodenamePayloadSchema, requiredCodenamePayloadSchema } from '../../shared/codenamePayload'
 import { getCodenameText } from '../../shared/codename'
 import { toTimestamp } from '../../shared/timestamps'
-import { MetahubFieldDefinitionsService } from '../../metahubs/services/MetahubFieldDefinitionsService'
+import { MetahubComponentsService } from '../../metahubs/services/MetahubComponentsService'
 import { MetahubTreeEntitiesService } from '../../metahubs/services/MetahubTreeEntitiesService'
 import { EntityTypeService } from '../services/EntityTypeService'
 import { createEntityMetadataKindSet, resolveEntityMetadataKinds } from '../../shared/entityMetadataKinds'
@@ -195,26 +195,26 @@ export const findBlockingOptionListReferences = async (
     metahubId: string,
     optionListId: string,
     compatibleOptionListKinds: readonly string[],
-    fieldDefinitionsService: MetahubFieldDefinitionsService,
+    componentsService: MetahubComponentsService,
     userId?: string
-) => fieldDefinitionsService.findReferenceBlockersByTarget(metahubId, optionListId, compatibleOptionListKinds, userId)
+) => componentsService.findReferenceBlockersByTarget(metahubId, optionListId, compatibleOptionListKinds, userId)
 
 export const findBlockingDefaultValueReferences = async (
     metahubId: string,
     valueId: string,
     compatibleOptionListKinds: readonly string[],
-    fieldDefinitionsService: MetahubFieldDefinitionsService,
+    componentsService: MetahubComponentsService,
     userId?: string
-) => fieldDefinitionsService.findDefaultEnumValueBlockers(metahubId, valueId, userId, compatibleOptionListKinds)
+) => componentsService.findDefaultEnumValueBlockers(metahubId, valueId, userId, compatibleOptionListKinds)
 
 export const findBlockingRecordValueReferences = async (
     metahubId: string,
     optionListId: string,
     valueId: string,
     compatibleOptionListKinds: readonly string[],
-    fieldDefinitionsService: MetahubFieldDefinitionsService,
+    componentsService: MetahubComponentsService,
     userId?: string
-) => fieldDefinitionsService.findElementEnumValueBlockers(metahubId, optionListId, valueId, userId, compatibleOptionListKinds)
+) => componentsService.findElementEnumValueBlockers(metahubId, optionListId, valueId, userId, compatibleOptionListKinds)
 
 export const loadCompatibleOptionListKinds = async (
     entityTypeService: EntityTypeService,

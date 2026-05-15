@@ -19,13 +19,13 @@
 
 - Управлять applications, connectors, memberships и publication links.
 - Управлять макетами на стороне приложения, включая lineage metahub, application-owned copies, defaults, activation и activity виджетов.
-- Владеть transactional Catalog commands для `recordBehavior`: атомарная нумерация записей, переходы `post` / `unpost` / `void`, lifecycle hooks и проверки неизменяемости опубликованных записей.
+- Владеть transactional Object commands для `recordBehavior`: атомарная нумерация записей, переходы `post` / `unpost` / `void`, lifecycle hooks и проверки неизменяемости опубликованных записей.
 - Применять declarative `beforePost` script movements через generic Ledger service внутри posting transaction.
 - Экспортировать generic runtime Ledger metadata, fact append/reversal, fact listing и projection query routes для стандартных `ledger` entities, не превращая Регистры в обычные row-CRUD sections.
 - Выполнять опубликованные runtime scripts через fail-closed server bridge, который переиспользует runtime row helpers, workspace context и permission maps.
 - Экспортировать `ctx.ledger` для runtime scripts только при объявленных capabilities `ledger.read` или `ledger.write`.
 - Экспортировать runtime sync, diff и release-bundle routes для managed application schemas.
-- Сохранять schema sync state в `applications.cat_applications` через SQL-first stores.
+- Сохранять schema sync state в `applications.obj_applications` через SQL-first stores.
 - Хранить runtime release metadata в той же центральной sync-state surface.
 - Переиспользовать shared guards, identifier helpers и query helpers из стандартных database packages.
 
@@ -40,7 +40,7 @@
 ## Runtime Sync Model
 
 - Publication-driven sync и file-bundle install разделяют один и тот же schema sync engine.
-- Успешный sync записывает `schema_status`, `schema_snapshot` и `installed_release_metadata` в `applications.cat_applications`.
+- Успешный sync записывает `schema_status`, `schema_snapshot` и `installed_release_metadata` в `applications.obj_applications`.
 - Sync макетов сохраняет application-owned layouts, помечает локально изменённые metahub layouts как conflicts вместо перезаписи и сохраняет excluded metahub layouts исключёнными при следующих sync.
 - Активные runtime script codenames уникальны в scope `(attached_to_kind, attached_to_id, module_role, codename)`, а sync чинит scoped index для существующих схем.
 - Advisory locking сериализует sync work для каждого application до начала schema changes.
@@ -49,8 +49,8 @@
 ## Package Surface
 
 - `createApplicationsRoutes(...)` монтирует CRUD, connector, membership и runtime-sync routes.
-- Route surface теперь включает public join/leave flows и settings endpoints для per-workspace catalog limits.
-- Runtime Ledger endpoints монтируются под `/applications/:applicationId/runtime/ledgers` и держат append/reverse/query behavior отдельно от generic Catalog row CRUD.
+- Route surface теперь включает public join/leave flows и settings endpoints для per-workspace object limits.
+- Runtime Ledger endpoints монтируются под `/applications/:applicationId/runtime/ledgers` и держат append/reverse/query behavior отдельно от generic Object row CRUD.
 - Application layout endpoints монтируются под `/applications/:applicationId/layouts` и `/applications/:applicationId/layout-scopes`.
 - `initializeRateLimiters()` подготавливает package-level rate limiting до создания routes.
 - Persistence helpers в `src/services/` и `src/persistence/` образуют SQL-first write/read seams.

@@ -28,7 +28,7 @@ const getEntityCount = (entityCounts: Record<string, number> | undefined, kind: 
  * Metahub Board Page
  *
  * Displays analytics dashboard for a metahub with:
- * - Real-time statistics (treeEntities, linkedCollections, members)
+ * - Real-time statistics (treeEntities, objectCollections, members)
  * - Documentation resources
  *
  * Layout:
@@ -104,7 +104,7 @@ const MetahubBoard = () => {
 
     // Success state with dashboard. Sparkline cards keep demo trend data until analytics service data is available.
     const treeEntitiesCount = getEntityCount(boardSummary?.entityCounts, 'hub')
-    const linkedCollectionsCount = getEntityCount(boardSummary?.entityCounts, 'catalog')
+    const objectCollectionsCount = getEntityCount(boardSummary?.entityCounts, 'object')
     const membersCount = boardSummary?.membersCount ?? 0
     const branchesCount = boardSummary?.branchesCount ?? 0
     const applicationsCount = boardSummary?.applicationsCount ?? 0
@@ -112,7 +112,7 @@ const MetahubBoard = () => {
     const versionsCount = boardSummary?.publicationVersionsCount ?? 0
 
     const treeEntitiesData = buildRealisticTrendData(treeEntitiesCount)
-    const linkedCollectionsData = buildRealisticTrendData(linkedCollectionsCount)
+    const objectCollectionsData = buildRealisticTrendData(objectCollectionsCount)
     const membersData = buildRealisticTrendData(membersCount)
     const branchesData = buildRealisticTrendData(branchesCount)
     const applicationsData = buildRealisticTrendData(applicationsCount)
@@ -192,14 +192,14 @@ const MetahubBoard = () => {
                         />
                     </Grid>
 
-                    {/* Second row: Catalogs */}
+                    {/* Second row: Objects */}
                     <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
                         <StatCard
-                            title={t('board.stats.catalogs.title')}
-                            value={linkedCollectionsCount}
-                            interval={t('board.stats.catalogs.interval')}
-                            data={linkedCollectionsData}
-                            dataTestId='metahub-board-stat-card-linkedCollections'
+                            title={t('board.stats.objects.title')}
+                            value={objectCollectionsCount}
+                            interval={t('board.stats.objects.interval')}
+                            data={objectCollectionsData}
+                            dataTestId='metahub-board-stat-card-objectCollections'
                         />
                     </Grid>
 

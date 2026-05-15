@@ -1,4 +1,4 @@
-import type { CatalogRecordBehavior, ScriptPostingMovement } from '@universo/types'
+import type { ObjectRecordBehavior, ScriptPostingMovement } from '@universo/types'
 import type { DbExecutor } from '@universo/utils'
 import { z } from 'zod'
 import { UpdateFailure } from '../shared/runtimeHelpers'
@@ -42,7 +42,7 @@ const normalizeLedgerCodename = (value: string): string => value.trim().toLowerC
 export class RuntimePostingMovementService {
     constructor(private readonly ledgers = new RuntimeLedgerService()) {}
 
-    normalizeMovementResults(results: unknown[], behavior: CatalogRecordBehavior): ScriptPostingMovement[] {
+    normalizeMovementResults(results: unknown[], behavior: ObjectRecordBehavior): ScriptPostingMovement[] {
         const movements: ScriptPostingMovement[] = []
 
         for (const result of results) {
@@ -77,7 +77,7 @@ export class RuntimePostingMovementService {
         executor: DbExecutor
         schemaName: string
         registrarKind: string
-        behavior: CatalogRecordBehavior
+        behavior: ObjectRecordBehavior
         currentWorkspaceId: string | null
         currentUserId: string | null
         results: unknown[]
@@ -186,7 +186,7 @@ export class RuntimePostingMovementService {
         return { ledgerCodename, facts }
     }
 
-    private assertDeclaredLedgers(movements: ScriptPostingMovement[], behavior: CatalogRecordBehavior): void {
+    private assertDeclaredLedgers(movements: ScriptPostingMovement[], behavior: ObjectRecordBehavior): void {
         if (movements.length === 0) {
             return
         }

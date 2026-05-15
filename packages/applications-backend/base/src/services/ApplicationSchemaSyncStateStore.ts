@@ -19,7 +19,7 @@ export const persistApplicationSchemaSyncState = async (
     input: PersistApplicationSchemaSyncStateInput
 ): Promise<void> => {
     const rows = await trx.query<{ id: string }>(
-        `UPDATE applications.cat_applications
+        `UPDATE applications.obj_applications
          SET schema_status = $1,
              schema_error = $2,
              schema_synced_at = $3,

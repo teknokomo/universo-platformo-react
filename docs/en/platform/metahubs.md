@@ -50,9 +50,9 @@ This keeps metahub authoring separate from admin dialogs and from application-co
 
 ![Resources workspace](../.gitbook/assets/entities/resources-workspace.png)
 
-Catalog records use the same entity-owned pattern: the preset provides a focused authoring view, while the object still participates in the shared entity model.
+Object records use the same entity-owned pattern: the preset provides a focused authoring view, while the object still participates in the shared entity model.
 
-![Catalog records](../.gitbook/assets/entities/catalog-records.png)
+![Object records](../.gitbook/assets/entities/object-records.png)
 
 ## How Metahubs Feed Runtime
 

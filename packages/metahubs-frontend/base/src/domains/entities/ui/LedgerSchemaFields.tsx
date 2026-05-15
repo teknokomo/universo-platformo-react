@@ -25,8 +25,8 @@ import {
     LEDGER_PROJECTION_KINDS,
     LEDGER_RESOURCE_AGGREGATES,
     LEDGER_SOURCE_POLICIES,
-    isEnabledComponentConfig,
-    type ComponentManifest,
+    isEnabledCapabilityConfig,
+    type EntityTypeCapabilities,
     type LedgerConfig,
     type LedgerFieldRole,
     type LedgerProjectionDefinition
@@ -37,7 +37,7 @@ export interface LedgerSchemaFieldsProps {
     value: LedgerConfig
     onChange: (value: LedgerConfig) => void
     disabled?: boolean
-    components: ComponentManifest
+    capabilities: EntityTypeCapabilities
     fieldOptions: RecordBehaviorOption[]
     entityKindOptions: RecordBehaviorOption[]
     errors?: Record<string, string>
@@ -78,13 +78,13 @@ export const LedgerSchemaFields = ({
     value,
     onChange,
     disabled = false,
-    components,
+    capabilities,
     fieldOptions,
     entityKindOptions,
     errors = {}
 }: LedgerSchemaFieldsProps) => {
     const { t } = useTranslation('metahubs')
-    const componentConfig = isEnabledComponentConfig(components.ledgerSchema) ? components.ledgerSchema : null
+    const componentConfig = isEnabledCapabilityConfig(capabilities.ledgerSchema) ? capabilities.ledgerSchema : null
     const allowProjections = componentConfig?.allowProjections !== false
     const allowRegistrarPolicy = componentConfig?.allowRegistrarPolicy !== false
     const allowManualFacts = componentConfig?.allowManualFacts === true

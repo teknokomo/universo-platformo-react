@@ -34,7 +34,7 @@ const mockFixedValuesService = {
     moveFixedValue: jest.fn(),
     reorderConstant: jest.fn(),
     reorderConstantMergedOrder: jest.fn(),
-    findAttributeReferenceBlockersByConstant: jest.fn()
+    findComponentReferenceBlockersByConstant: jest.fn()
 }
 
 const mockObjectsService = {
@@ -136,7 +136,7 @@ describe('Fixed Value Routes', () => {
         mockFixedValuesService.moveFixedValue.mockResolvedValue({})
         mockFixedValuesService.reorderConstant.mockResolvedValue({ id: 'constant-1', sortOrder: 2 })
         mockFixedValuesService.reorderConstantMergedOrder.mockResolvedValue({ id: 'constant-1', effectiveSortOrder: 2, isShared: true })
-        mockFixedValuesService.findAttributeReferenceBlockersByConstant.mockResolvedValue(false)
+        mockFixedValuesService.findComponentReferenceBlockersByConstant.mockResolvedValue(false)
     })
 
     it('GET /metahub/:metahubId/set/:valueGroupId/fixed-values returns list with pagination and meta', async () => {
@@ -406,13 +406,13 @@ describe('Fixed Value Routes', () => {
         expect(mockFixedValuesService.reorderConstant).not.toHaveBeenCalled()
     })
 
-    it('DELETE /metahub/:metahubId/set/:valueGroupId/fixed-value/:fixedValueId blocks deletion when attribute references exist', async () => {
+    it('DELETE /metahub/:metahubId/set/:valueGroupId/fixed-value/:fixedValueId blocks deletion when component references exist', async () => {
         mockFixedValuesService.findById.mockResolvedValue({
             id: 'constant-1',
             valueGroupId: 'set-1',
             codename: 'TaxRate'
         })
-        mockFixedValuesService.findAttributeReferenceBlockersByConstant.mockResolvedValue(true)
+        mockFixedValuesService.findComponentReferenceBlockersByConstant.mockResolvedValue(true)
 
         const app = buildApp()
         const response = await request(app).delete('/metahub/metahub-1/entities/set/instance/set-1/fixed-value/constant-1').expect(409)

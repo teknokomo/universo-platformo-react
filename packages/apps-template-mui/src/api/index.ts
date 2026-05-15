@@ -26,7 +26,7 @@ export { appQueryKeys, runtimeKeys, useAppRow, useCreateAppRow, useUpdateAppRow,
 export type { CrudDataAdapter, CellRendererOverrides, RuntimeRecordCommand } from './types'
 export { createStandaloneAdapter } from './adapters'
 
-// Tabular part (TABLE attribute) adapter
+// Tabular part (TABLE component) adapter
 /** @deprecated Use direct API helpers with RuntimeInlineTabularEditor instead */
 export { createTabularPartAdapter } from './TabularPartAdapter'
 /** @deprecated Use direct API helpers with RuntimeInlineTabularEditor instead */

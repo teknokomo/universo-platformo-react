@@ -1,4 +1,5 @@
 import stableStringify from 'json-stable-stringify'
+import { qSchemaTable, qTable } from '@universo/database'
 import {
     assertSupportedScriptSdkApiVersion,
     DEFAULT_SCRIPT_MODULE_ROLE,
@@ -56,8 +57,8 @@ const buildScriptSortKey = (script: ApplicationScriptDefinition): string =>
     `${script.attachedToKind}:${script.attachedToId ?? ''}:${script.moduleRole}:${script.codename}:${script.id}`
 
 const buildScopedAppScriptIndexSql = (schemaName: string): string => `
-    CREATE UNIQUE INDEX IF NOT EXISTS ${APP_SCRIPTS_SCOPE_INDEX_NAME}
-    ON "${schemaName}"._app_scripts (
+    CREATE UNIQUE INDEX IF NOT EXISTS ${qTable(APP_SCRIPTS_SCOPE_INDEX_NAME)}
+    ON ${qSchemaTable(schemaName, '_app_scripts')} (
         attached_to_kind,
         COALESCE(attached_to_id, '${APP_SCRIPT_SCOPE_NULL_ATTACHMENT_UUID}'::uuid),
         module_role,
@@ -84,7 +85,7 @@ const ensureScopedAppScriptCodenameIndex = async (executor: ApplicationSyncTrans
         return
     }
 
-    await executor.raw(`DROP INDEX IF EXISTS "${schemaName}"."${APP_SCRIPTS_SCOPE_INDEX_NAME}"`)
+    await executor.raw(`DROP INDEX IF EXISTS ${qSchemaTable(schemaName, APP_SCRIPTS_SCOPE_INDEX_NAME)}`)
     await executor.raw(buildScopedAppScriptIndexSql(schemaName))
 }
 

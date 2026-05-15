@@ -2,7 +2,7 @@ import type { LoadPublishedPublicationRuntimeSource, PublishedApplicationSnapsho
 import { findPublicationById, findPublicationVersionById } from '../../../persistence'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
-import { MetahubFieldDefinitionsService } from '../../metahubs/services/MetahubFieldDefinitionsService'
+import { MetahubComponentsService } from '../../metahubs/services/MetahubComponentsService'
 import { enrichDefinitionsWithValueGroupFixedValues } from '../../shared/valueGroupFixedValueRefs'
 import { SnapshotSerializer, type MetahubSnapshot } from './SnapshotSerializer'
 
@@ -24,17 +24,17 @@ export const loadPublishedPublicationRuntimeSource: LoadPublishedPublicationRunt
 
     const schemaService = new MetahubSchemaService(executor)
     const objectsService = new MetahubObjectsService(executor, schemaService)
-    const fieldDefinitionsService = new MetahubFieldDefinitionsService(executor, schemaService)
-    const serializer = new SnapshotSerializer(objectsService, fieldDefinitionsService)
+    const componentsService = new MetahubComponentsService(executor, schemaService)
+    const serializer = new SnapshotSerializer(objectsService, componentsService)
     const runtimeSnapshot = SnapshotSerializer.materializeSharedEntitiesForRuntime(snapshot)
-    const rawCatalogDefs = serializer.deserializeSnapshot(runtimeSnapshot)
+    const rawObjectDefs = serializer.deserializeSnapshot(runtimeSnapshot)
 
     return {
         publicationId: publication.id,
         publicationVersionId: activeVersion.id,
         snapshotHash: serializer.calculateHash(runtimeSnapshot as MetahubSnapshot),
         snapshot: runtimeSnapshot as unknown as PublishedApplicationSnapshot,
-        entities: enrichDefinitionsWithValueGroupFixedValues(rawCatalogDefs, runtimeSnapshot),
+        entities: enrichDefinitionsWithValueGroupFixedValues(rawObjectDefs, runtimeSnapshot),
         publicationSnapshot: snapshot as unknown as Record<string, unknown>
     }
 }

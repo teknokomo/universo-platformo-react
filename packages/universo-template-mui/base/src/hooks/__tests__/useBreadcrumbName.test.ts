@@ -5,8 +5,8 @@ import { useAuth } from '@universo/auth-frontend'
 import {
     createEntityNameHook,
     createTruncateFunction,
-    useLinkedCollectionName,
-    useLinkedCollectionNameStandalone,
+    useObjectCollectionName,
+    useObjectCollectionNameStandalone,
     useOptionListName,
     useTreeEntityName,
     useMetahubPublicationName,
@@ -237,7 +237,7 @@ describe('useBreadcrumbName', () => {
             expect(mockClientGet).toHaveBeenCalledWith('/metaverses/mv-123')
         })
 
-        it('uses entity-owned hub and catalog endpoints for breadcrumb names', async () => {
+        it('uses entity-owned hub and object endpoints for breadcrumb names', async () => {
             mockClientGet
                 .mockResolvedValueOnce({
                     data: {
@@ -254,7 +254,7 @@ describe('useBreadcrumbName', () => {
                         name: {
                             _primary: 'en',
                             locales: {
-                                en: { content: 'Catalog Name' }
+                                en: { content: 'Object Name' }
                             }
                         }
                     }
@@ -264,27 +264,27 @@ describe('useBreadcrumbName', () => {
                         name: {
                             _primary: 'en',
                             locales: {
-                                en: { content: 'Standalone Catalog Name' }
+                                en: { content: 'Standalone Object Name' }
                             }
                         }
                     }
                 })
 
             const { result: hubResult } = renderHook(() => useTreeEntityName('mh-1', 'hub-1'), { wrapper })
-            const { result: catalogResult } = renderHook(() => useLinkedCollectionName('mh-1', 'hub-1', 'catalog-1'), { wrapper })
-            const { result: standaloneCatalogResult } = renderHook(() => useLinkedCollectionNameStandalone('mh-1', 'catalog-1'), {
+            const { result: objectResult } = renderHook(() => useObjectCollectionName('mh-1', 'hub-1', 'object-1'), { wrapper })
+            const { result: standaloneObjectResult } = renderHook(() => useObjectCollectionNameStandalone('mh-1', 'object-1'), {
                 wrapper
             })
 
             await waitFor(() => {
                 expect(hubResult.current).toBe('Hub Name')
-                expect(catalogResult.current).toBe('Catalog Name')
-                expect(standaloneCatalogResult.current).toBe('Standalone Catalog Name')
+                expect(objectResult.current).toBe('Object Name')
+                expect(standaloneObjectResult.current).toBe('Standalone Object Name')
             })
 
             expect(mockClientGet).toHaveBeenNthCalledWith(1, '/metahub/mh-1/entities/hub/instance/hub-1')
-            expect(mockClientGet).toHaveBeenNthCalledWith(2, '/metahub/mh-1/entities/catalog/instance/hub-1/catalog/catalog-1')
-            expect(mockClientGet).toHaveBeenNthCalledWith(3, '/metahub/mh-1/entities/catalog/instance/catalog-1')
+            expect(mockClientGet).toHaveBeenNthCalledWith(2, '/metahub/mh-1/entities/object/instance/hub-1/object/object-1')
+            expect(mockClientGet).toHaveBeenNthCalledWith(3, '/metahub/mh-1/entities/object/instance/object-1')
         })
 
         it('uses entity-owned set and enumeration endpoints for breadcrumb names', async () => {

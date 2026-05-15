@@ -66,12 +66,12 @@ describe('runtimeWidgetHelpers', () => {
         const items = await fetchRuntimeScripts({
             apiBaseUrl: '/api/v1',
             applicationId: 'app-1',
-            attachedToKind: 'catalog',
-            attachedToId: 'catalog-1'
+            attachedToKind: 'object',
+            attachedToId: 'object-1'
         })
 
         expect(fetchMock).toHaveBeenCalledWith(
-            expect.stringContaining('/api/v1/applications/app-1/runtime/scripts?attachedToKind=catalog&attachedToId=catalog-1'),
+            expect.stringContaining('/api/v1/applications/app-1/runtime/scripts?attachedToKind=object&attachedToId=object-1'),
             { credentials: 'include' }
         )
         expect(items).toEqual([{ id: 'script-1', codename: 'widget-runtime' }])
@@ -84,8 +84,8 @@ describe('runtimeWidgetHelpers', () => {
             script: {
                 id: 'script-1',
                 codename: 'widget-runtime',
-                attachedToKind: 'catalog',
-                attachedToId: 'catalog-1',
+                attachedToKind: 'object',
+                attachedToId: 'object-1',
                 manifest: {
                     capabilities: ['metadata.read'],
                     methods: []
@@ -94,8 +94,8 @@ describe('runtimeWidgetHelpers', () => {
         })
 
         await expect(context.metadata.getAttachedEntity()).resolves.toEqual({
-            kind: 'catalog',
-            id: 'catalog-1'
+            kind: 'object',
+            id: 'object-1'
         })
         await expect(context.callServerMethod('mount', [])).rejects.toThrow('Script capability "rpc.client" is not enabled for this module')
     })

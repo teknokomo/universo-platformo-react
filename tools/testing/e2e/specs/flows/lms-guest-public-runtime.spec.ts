@@ -9,7 +9,7 @@ import {
     getApplicationRuntime,
     createRuntimeRow,
     disposeApiContext,
-    listLinkedCollections,
+    listObjectCollections,
     syncApplicationSchema,
     syncPublication,
     waitForPublicationReady
@@ -43,62 +43,62 @@ const readRuntimeLabel = (value) => {
 const normalizeEntityLookup = (value: string) => value.trim().toLowerCase().replace(/\s+/g, '')
 
 async function waitForMetahubCatalogId(api: ApiContext, metahubId: string, expectedName: string) {
-    let catalogId = null
+    let objectCollectionId = null
 
     await expect
         .poll(
             async () => {
-                const catalogsResponse = await listLinkedCollections(api, metahubId, { limit: 100, offset: 0 })
-                const catalogs = catalogsResponse.items ?? []
+                const catalogsResponse = await listObjectCollections(api, metahubId, { limit: 100, offset: 0 })
+                const objectCollections = catalogsResponse.items ?? []
                 const normalizedExpectedName = normalizeEntityLookup(expectedName)
-                const match = catalogs.find((item) => {
+                const match = objectCollections.find((item) => {
                     const candidates = [item.codename, item.name, item.title]
                         .map((candidate) => readRuntimeLabel(candidate))
                         .filter((candidate) => candidate.length > 0)
                     return candidates.some((candidate) => normalizeEntityLookup(candidate) === normalizedExpectedName)
                 })
-                catalogId = match?.id ?? null
-                return catalogId
+                objectCollectionId = match?.id ?? null
+                return objectCollectionId
             },
             { timeout: 30_000, intervals: [500, 1_000, 2_000] }
         )
         .toBeTruthy()
 
-    return catalogId
+    return objectCollectionId
 }
 
 async function waitForApplicationCatalogId(api: ApiContext, applicationId: string, expectedName: string) {
-    let catalogId = null
+    let objectCollectionId = null
 
     await expect
         .poll(
             async () => {
                 const runtime = await getApplicationRuntime(api, applicationId)
-                const catalogs = runtime.catalogs ?? []
+                const objectCollections = runtime.objectCollections ?? []
                 const normalizedExpectedName = normalizeEntityLookup(expectedName)
-                const match = catalogs.find((item) => {
+                const match = objectCollections.find((item) => {
                     const candidates = [item.codename, item.name, item.title]
                         .map((candidate) => readRuntimeLabel(candidate))
                         .filter((candidate) => candidate.length > 0)
                     return candidates.some((candidate) => normalizeEntityLookup(candidate) === normalizedExpectedName)
                 })
-                catalogId = match?.id ?? null
-                return catalogId
+                objectCollectionId = match?.id ?? null
+                return objectCollectionId
             },
             { timeout: 30_000, intervals: [500, 1_000, 2_000] }
         )
         .toBeTruthy()
 
-    return catalogId
+    return objectCollectionId
 }
 
-async function waitForApplicationRuntimeRow(api: ApiContext, applicationId: string, catalogId: string, rowId: string) {
+async function waitForApplicationRuntimeRow(api: ApiContext, applicationId: string, objectCollectionId: string, rowId: string) {
     let row = null
 
     await expect
         .poll(
             async () => {
-                const runtime = await getApplicationRuntime(api, applicationId, { catalogId })
+                const runtime = await getApplicationRuntime(api, applicationId, { objectCollectionId })
                 row = (runtime.rows ?? []).find((item) => item?.id === rowId) ?? null
                 return row?.id ?? null
             },

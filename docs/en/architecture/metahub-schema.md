@@ -7,19 +7,19 @@ description: Architecture reference for metahub design-time storage, shared virt
 Metahub authoring uses a split model: central platform metadata, metahub-scoped design tables, and flattened application runtime output.
 The shared-entity feature adds virtual container objects and sparse override rows without introducing cloned target data.
 
-![Shared attributes in Resources](../.gitbook/assets/entities/shared-attributes.png)
+![Shared components in Resources](../.gitbook/assets/entities/shared-components.png)
 
 ## Design-Time Layers
 
 - Central metahub records live in platform schemas for discovery, membership, and publication management.
 - Each metahub branch owns design-time tables inside its metahub schema.
-- Shared attributes, constants, and values live in virtual Common containers inside `_mhb_objects`.
+- Shared components, constants, and values live in virtual Common containers inside `_mhb_objects`.
 - Sparse target differences live in `_mhb_shared_entity_overrides`.
 - Entity-scoped layout widget differences live in `_mhb_layout_widget_overrides`.
 
 ## Shared Entity Storage
 
-- Shared catalog attributes belong to `shared-catalog-pool`.
+- Shared object components belong to `shared-object-pool`.
 - Shared set constants belong to `shared-set-pool`.
 - Shared enumeration values belong to `shared-enumeration-pool`.
 - Base shared behavior lives on the shared row, while per-target state stays in sparse override rows.

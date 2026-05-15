@@ -9,16 +9,16 @@ function buildTabularUrl(
     apiBaseUrl: string,
     applicationId: string,
     parentRecordId: string,
-    attributeId: string,
-    linkedCollectionId: string,
+    componentId: string,
+    objectCollectionId: string,
     childRowId?: string
 ): string {
     const base = apiBaseUrl.replace(/\/$/, '')
-    let path = `${base}/applications/${applicationId}/runtime/rows/${parentRecordId}/tabular/${attributeId}`
+    let path = `${base}/applications/${applicationId}/runtime/rows/${parentRecordId}/tabular/${componentId}`
     if (childRowId) {
         path += `/${childRowId}`
     }
-    path += `?linkedCollectionId=${encodeURIComponent(linkedCollectionId)}`
+    path += `?objectCollectionId=${encodeURIComponent(objectCollectionId)}`
 
     if (/^https?:\/\//i.test(base)) return new URL(path).toString()
     return new URL(path, window.location.origin).toString()
@@ -45,9 +45,10 @@ async function extractError(res: Response, prefix: string): Promise<string> {
 export interface TabularPartAdapterParams {
     apiBaseUrl: string
     applicationId: string
-    linkedCollectionId: string
+    objectCollectionId: string
     parentRecordId: string
-    attributeId: string
+    componentId: string
+    permissions?: Partial<AppDataResponse['permissions']>
     /** Column definitions for the child table (used to build AppDataResponse). */
     childFields: Array<{
         id: string
@@ -79,7 +80,7 @@ export interface TabularPartAdapterParams {
         enumAllowEmpty?: boolean
         enumLabelEmptyDisplay?: 'empty' | 'dash'
         tableUiConfig?: Record<string, unknown>
-        attributeId?: string
+        componentId?: string
     }>
 }
 
@@ -95,29 +96,37 @@ const normalizeDataType = (value: string): AppDataResponse['columns'][number]['d
  * Use the direct API helpers (`fetchTabularRows`, `createTabularRow`, etc.) with
  * `RuntimeInlineTabularEditor` instead. Will be removed in a future version.
  *
- * CrudDataAdapter implementation for TABLE attribute child rows.
+ * CrudDataAdapter implementation for TABLE component child rows.
  *
  * Uses the tabular CRUD endpoints:
- * - GET    `/:appId/runtime/rows/:recordId/tabular/:attrId?linkedCollectionId=…`
- * - POST   `/:appId/runtime/rows/:recordId/tabular/:attrId?linkedCollectionId=…`
- * - PATCH  `/:appId/runtime/rows/:recordId/tabular/:attrId/:childRowId?linkedCollectionId=…`
- * - DELETE `/:appId/runtime/rows/:recordId/tabular/:attrId/:childRowId?linkedCollectionId=…`
+ * - GET    `/:appId/runtime/rows/:recordId/tabular/:attrId?objectCollectionId=…`
+ * - POST   `/:appId/runtime/rows/:recordId/tabular/:attrId?objectCollectionId=…`
+ * - PATCH  `/:appId/runtime/rows/:recordId/tabular/:attrId/:childRowId?objectCollectionId=…`
+ * - DELETE `/:appId/runtime/rows/:recordId/tabular/:attrId/:childRowId?objectCollectionId=…`
  */
 export function createTabularPartAdapter(params: TabularPartAdapterParams): CrudDataAdapter {
-    const { apiBaseUrl, applicationId, linkedCollectionId, parentRecordId, attributeId, childFields } = params
+    const { apiBaseUrl, applicationId, objectCollectionId, parentRecordId, componentId, childFields, permissions } = params
+    const normalizedPermissions: AppDataResponse['permissions'] = {
+        manageMembers: permissions?.manageMembers === true,
+        manageApplication: permissions?.manageApplication === true,
+        createContent: permissions?.createContent === true,
+        editContent: permissions?.editContent === true,
+        deleteContent: permissions?.deleteContent === true,
+        readReports: permissions?.readReports === true
+    }
 
-    const url = (resolvedCatalogId: string, childRowId?: string) =>
-        buildTabularUrl(apiBaseUrl, applicationId, parentRecordId, attributeId, resolvedCatalogId, childRowId)
+    const url = (resolvedObjectId: string, childRowId?: string) =>
+        buildTabularUrl(apiBaseUrl, applicationId, parentRecordId, componentId, resolvedObjectId, childRowId)
 
     return {
-        queryKeyPrefix: ['tabular', parentRecordId, attributeId] as const,
+        queryKeyPrefix: ['tabular', parentRecordId, componentId] as const,
 
         async fetchList(listParams): Promise<AppDataResponse> {
-            const resolvedCatalogId = listParams.linkedCollectionId ?? linkedCollectionId
+            const resolvedObjectId = listParams.objectCollectionId ?? objectCollectionId
             const { limit, offset } = listParams
 
             // Pass limit/offset to backend for server-side pagination
-            const listUrl = `${url(resolvedCatalogId)}&limit=${encodeURIComponent(limit)}&offset=${encodeURIComponent(offset)}`
+            const listUrl = `${url(resolvedObjectId)}&limit=${encodeURIComponent(limit)}&offset=${encodeURIComponent(offset)}`
             const res = await fetch(listUrl, { credentials: 'include' })
             if (!res.ok) throw new Error(await extractError(res, 'Fetch tabular rows failed'))
 
@@ -125,7 +134,7 @@ export function createTabularPartAdapter(params: TabularPartAdapterParams): Crud
 
             // Map child fields → AppDataResponse column format
             const columns: AppDataResponse['columns'] = childFields.map((f) => ({
-                id: f.attributeId ?? f.id,
+                id: f.componentId ?? f.id,
                 codename: f.id,
                 field: f.id,
                 dataType: normalizeDataType(f.type),
@@ -148,7 +157,7 @@ export function createTabularPartAdapter(params: TabularPartAdapterParams): Crud
             }))
 
             const runtimeSection = {
-                id: resolvedCatalogId,
+                id: resolvedObjectId,
                 codename: '',
                 tableName: '',
                 name: ''
@@ -157,13 +166,14 @@ export function createTabularPartAdapter(params: TabularPartAdapterParams): Crud
             return {
                 section: runtimeSection,
                 sections: [runtimeSection],
-                activeSectionId: resolvedCatalogId,
-                linkedCollection: runtimeSection,
-                linkedCollections: [runtimeSection],
-                activeLinkedCollectionId: resolvedCatalogId,
+                activeSectionId: resolvedObjectId,
+                objectCollection: runtimeSection,
+                objectCollections: [runtimeSection],
+                activeObjectCollectionId: resolvedObjectId,
                 columns,
                 rows: json.items,
                 pagination: { total: json.total, limit, offset },
+                permissions: normalizedPermissions,
                 workspacesEnabled: false,
                 currentWorkspaceId: null,
                 settings: {},
@@ -185,11 +195,11 @@ export function createTabularPartAdapter(params: TabularPartAdapterParams): Crud
          * has no dedicated GET-by-id endpoint for child rows. When such an
          * endpoint is added, this method should call it directly.
          */
-        async fetchRow(rowId: string, overrideCatalogId?: string): Promise<Record<string, unknown>> {
-            const resolvedCatalogId = overrideCatalogId ?? linkedCollectionId
+        async fetchRow(rowId: string, overrideObjectId?: string): Promise<Record<string, unknown>> {
+            const resolvedObjectId = overrideObjectId ?? objectCollectionId
             // The LIST endpoint already returns full row data —
             // return a single item by fetching the list and filtering.
-            const res = await fetch(url(resolvedCatalogId), { credentials: 'include' })
+            const res = await fetch(url(resolvedObjectId), { credentials: 'include' })
             if (!res.ok) throw new Error(await extractError(res, 'Fetch tabular row failed'))
 
             const json = (await res.json()) as { items: Array<Record<string, unknown> & { id: string }> }
@@ -199,9 +209,9 @@ export function createTabularPartAdapter(params: TabularPartAdapterParams): Crud
             return { id: row.id, data: row }
         },
 
-        async createRow(data: Record<string, unknown>, overrideCatalogId?: string): Promise<Record<string, unknown>> {
-            const resolvedCatalogId = overrideCatalogId ?? linkedCollectionId
-            const res = await fetchWithCsrf(apiBaseUrl, url(resolvedCatalogId), {
+        async createRow(data: Record<string, unknown>, overrideObjectId?: string): Promise<Record<string, unknown>> {
+            const resolvedObjectId = overrideObjectId ?? objectCollectionId
+            const res = await fetchWithCsrf(apiBaseUrl, url(resolvedObjectId), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ data })
@@ -210,9 +220,9 @@ export function createTabularPartAdapter(params: TabularPartAdapterParams): Crud
             return res.json()
         },
 
-        async updateRow(rowId: string, data: Record<string, unknown>, overrideCatalogId?: string): Promise<Record<string, unknown>> {
-            const resolvedCatalogId = overrideCatalogId ?? linkedCollectionId
-            const res = await fetchWithCsrf(apiBaseUrl, url(resolvedCatalogId, rowId), {
+        async updateRow(rowId: string, data: Record<string, unknown>, overrideObjectId?: string): Promise<Record<string, unknown>> {
+            const resolvedObjectId = overrideObjectId ?? objectCollectionId
+            const res = await fetchWithCsrf(apiBaseUrl, url(resolvedObjectId, rowId), {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ data })
@@ -221,15 +231,15 @@ export function createTabularPartAdapter(params: TabularPartAdapterParams): Crud
             return res.json()
         },
 
-        async deleteRow(rowId: string, overrideCatalogId?: string): Promise<void> {
-            const resolvedCatalogId = overrideCatalogId ?? linkedCollectionId
-            const res = await fetchWithCsrf(apiBaseUrl, url(resolvedCatalogId, rowId), { method: 'DELETE' })
+        async deleteRow(rowId: string, overrideObjectId?: string): Promise<void> {
+            const resolvedObjectId = overrideObjectId ?? objectCollectionId
+            const res = await fetchWithCsrf(apiBaseUrl, url(resolvedObjectId, rowId), { method: 'DELETE' })
             if (!res.ok) throw new Error(await extractError(res, 'Delete tabular row failed'))
         },
 
-        async copyRow(rowId: string, data?: { linkedCollectionId?: string; sectionId?: string }): Promise<Record<string, unknown>> {
-            const resolvedCatalogId = data?.sectionId ?? data?.linkedCollectionId ?? linkedCollectionId
-            const copyUrl = `${url(resolvedCatalogId, rowId)}/copy`
+        async copyRow(rowId: string, data?: { objectCollectionId?: string; sectionId?: string }): Promise<Record<string, unknown>> {
+            const resolvedObjectId = data?.sectionId ?? data?.objectCollectionId ?? objectCollectionId
+            const copyUrl = `${url(resolvedObjectId, rowId)}/copy`
             const res = await fetchWithCsrf(apiBaseUrl, copyUrl, { method: 'POST' })
             if (!res.ok) throw new Error(await extractError(res, 'Copy tabular row failed'))
             return res.json()

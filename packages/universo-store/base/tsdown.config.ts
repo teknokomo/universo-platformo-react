@@ -14,11 +14,6 @@ export default defineConfig({
     splitting: false, // Important: compile into single file to avoid path resolution issues
     treeshake: true,
     minify: false,
-    external: [
-        'react',
-        'react-dom',
-        'react-redux',
-        'redux'
-    ],
+    external: ['react', 'react-dom', 'react-redux', 'redux'],
     outExtensions: ({ format }) => (format === 'esm' ? '.mjs' : '.js')
 })

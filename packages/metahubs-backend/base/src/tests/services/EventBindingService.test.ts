@@ -25,7 +25,7 @@ describe('EventBindingService', () => {
         const service = new EventBindingService(
             createExecutor(queryMock) as any,
             { ensureSchema: mockEnsureSchema } as any,
-            { resolveTypeInSchema: jest.fn(async () => ({ components: { events: false } })) } as any
+            { resolveTypeInSchema: jest.fn(async () => ({ capabilities: { events: false } })) } as any
         )
 
         await expect(
@@ -40,7 +40,7 @@ describe('EventBindingService', () => {
     it('rejects bindings that point to an action owned by a different object', async () => {
         const queryMock = jest.fn(async (sql: string) => {
             if (sql.includes(`FROM "${schemaName}"."_mhb_objects"`)) {
-                return [{ id: 'object-1', kind: 'catalog' }]
+                return [{ id: 'object-1', kind: 'object' }]
             }
             if (sql.includes(`FROM "${schemaName}"."_mhb_actions"`)) {
                 return [{ id: 'action-1', object_id: 'other-object' }]
@@ -51,7 +51,7 @@ describe('EventBindingService', () => {
         const service = new EventBindingService(
             createExecutor(queryMock) as any,
             { ensureSchema: mockEnsureSchema } as any,
-            { resolveTypeInSchema: jest.fn(async () => ({ components: { events: { enabled: true } } })) } as any
+            { resolveTypeInSchema: jest.fn(async () => ({ capabilities: { events: { enabled: true } } })) } as any
         )
 
         await expect(
@@ -66,7 +66,7 @@ describe('EventBindingService', () => {
     it('creates an active event binding for an event-enabled object', async () => {
         const queryMock = jest.fn(async (sql: string) => {
             if (sql.includes(`FROM "${schemaName}"."_mhb_objects"`)) {
-                return [{ id: 'object-1', kind: 'catalog' }]
+                return [{ id: 'object-1', kind: 'object' }]
             }
             if (sql.includes(`FROM "${schemaName}"."_mhb_actions"`)) {
                 return [{ id: 'action-1', object_id: 'object-1' }]
@@ -94,7 +94,7 @@ describe('EventBindingService', () => {
         const service = new EventBindingService(
             createExecutor(queryMock) as any,
             { ensureSchema: mockEnsureSchema } as any,
-            { resolveTypeInSchema: jest.fn(async () => ({ components: { events: { enabled: true } } })) } as any
+            { resolveTypeInSchema: jest.fn(async () => ({ capabilities: { events: { enabled: true } } })) } as any
         )
 
         const result = await service.create('metahub-1', {

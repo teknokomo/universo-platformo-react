@@ -3,12 +3,12 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { ReactNode } from 'react'
-import { extractLinkedCollectionLayoutBehaviorConfig } from '@universo/utils'
+import { extractObjectCollectionLayoutBehaviorConfig } from '@universo/utils'
 
-const { getLayout, listLayoutZoneWidgets, getLayoutZoneWidgetsCatalog, updateLayout, toggleLayoutZoneWidgetActive } = vi.hoisted(() => ({
+const { getLayout, listLayoutZoneWidgets, getLayoutZoneWidgetObjects, updateLayout, toggleLayoutZoneWidgetActive } = vi.hoisted(() => ({
     getLayout: vi.fn(),
     listLayoutZoneWidgets: vi.fn(),
-    getLayoutZoneWidgetsCatalog: vi.fn(),
+    getLayoutZoneWidgetObjects: vi.fn(),
     updateLayout: vi.fn(),
     toggleLayoutZoneWidgetActive: vi.fn()
 }))
@@ -66,7 +66,7 @@ vi.mock('notistack', () => ({
 vi.mock('../../api', () => ({
     getLayout,
     listLayoutZoneWidgets,
-    getLayoutZoneWidgetsCatalog,
+    getLayoutZoneWidgetObjects,
     updateLayout,
     assignLayoutZoneWidget: vi.fn(),
     moveLayoutZoneWidget: vi.fn(),
@@ -126,13 +126,13 @@ const seedGlobalLayoutResponse = () => {
             zone: 'left',
             widgetKey: 'menuWidget',
             sortOrder: 1,
-            config: { title: 'Catalogs' },
+            config: { title: 'Objects' },
             isActive: true,
             isInherited: false
         }
     ])
 
-    getLayoutZoneWidgetsCatalog.mockResolvedValue([{ key: 'menuWidget', allowedZones: ['left', 'right'], multiInstance: false }])
+    getLayoutZoneWidgetObjects.mockResolvedValue([{ key: 'menuWidget', allowedZones: ['left', 'right'], multiInstance: false }])
 }
 
 describe('LayoutDetails cache invalidation for global layouts', () => {
@@ -183,7 +183,7 @@ describe('LayoutDetails cache invalidation for global layouts', () => {
         expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.layoutsRoot('metahub-1') })
     })
 
-    it('invalidates the full layouts root after changing global catalog behavior settings', async () => {
+    it('invalidates the full layouts root after changing global object behavior settings', async () => {
         const queryClient = createQueryClient()
         const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
 
@@ -212,7 +212,7 @@ describe('LayoutDetails cache invalidation for global layouts', () => {
         expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.layoutsRoot('metahub-1') })
     })
 
-    it('stores persisted row reorder settings inside catalog behavior config', async () => {
+    it('stores persisted row reorder settings inside object behavior config', async () => {
         const queryClient = createQueryClient()
 
         render(
@@ -239,7 +239,7 @@ describe('LayoutDetails cache invalidation for global layouts', () => {
         const nextConfig = lastCall?.[2]?.config as Record<string, unknown>
 
         expect(nextConfig.enableRowReordering).toBeUndefined()
-        expect(extractLinkedCollectionLayoutBehaviorConfig(nextConfig)).toEqual(
+        expect(extractObjectCollectionLayoutBehaviorConfig(nextConfig)).toEqual(
             expect.objectContaining({
                 enableRowReordering: true
             })

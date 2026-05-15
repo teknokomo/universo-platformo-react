@@ -53,7 +53,7 @@ const renderWidget = (details?: Record<string, unknown>) => {
     return render(
         <QueryClientProvider client={queryClient}>
             <DashboardDetailsProvider value={details as never}>
-                <QuizWidget config={{ attachedToKind: 'catalog', scriptCodename: 'quiz-widget' }} />
+                <QuizWidget config={{ attachedToKind: 'object', scriptCodename: 'quiz-widget' }} />
             </DashboardDetailsProvider>
         </QueryClientProvider>
     )
@@ -68,7 +68,7 @@ describe('QuizWidget', () => {
             vi.fn(async (input: string | URL) => {
                 const url = String(input)
 
-                if (url.includes('/runtime/scripts?attachedToKind=catalog&attachedToId=catalog-1')) {
+                if (url.includes('/runtime/scripts?attachedToKind=object&attachedToId=object-1')) {
                     return {
                         ok: true,
                         json: async () => ({
@@ -76,8 +76,8 @@ describe('QuizWidget', () => {
                                 {
                                     id: 'script-1',
                                     codename: 'quiz-widget',
-                                    attachedToKind: 'catalog',
-                                    attachedToId: 'catalog-1',
+                                    attachedToKind: 'object',
+                                    attachedToId: 'object-1',
                                     moduleRole: 'widget',
                                     sourceKind: 'embedded',
                                     sdkApiVersion: '1.0.0',
@@ -164,7 +164,7 @@ describe('QuizWidget', () => {
     it('renders quiz questions, submits the current answer payload, and shows the completion score', async () => {
         renderWidget({
             applicationId: 'app-1',
-            linkedCollectionId: 'catalog-1',
+            objectCollectionId: 'object-1',
             apiBaseUrl: '/api/v1'
         })
 
@@ -249,7 +249,7 @@ describe('QuizWidget', () => {
 
         renderWidget({
             applicationId: 'app-1',
-            linkedCollectionId: 'catalog-1',
+            objectCollectionId: 'object-1',
             apiBaseUrl: '/api/v1'
         })
 
@@ -279,12 +279,12 @@ describe('QuizWidget', () => {
                     value={
                         {
                             applicationId: 'app-1',
-                            linkedCollectionId: 'catalog-1',
+                            objectCollectionId: 'object-1',
                             apiBaseUrl: '/api/v1'
                         } as never
                     }
                 >
-                    <QuizWidget config={{ attachedToKind: 'catalog', scriptCodename: 'quiz-widget', quizId: 'quiz-42' }} />
+                    <QuizWidget config={{ attachedToKind: 'object', scriptCodename: 'quiz-widget', quizId: 'quiz-42' }} />
                 </DashboardDetailsProvider>
             </QueryClientProvider>
         )
@@ -317,7 +317,7 @@ describe('QuizWidget', () => {
     it('allows returning from the completion screen back to the answered questions', async () => {
         renderWidget({
             applicationId: 'app-1',
-            linkedCollectionId: 'catalog-1',
+            objectCollectionId: 'object-1',
             apiBaseUrl: '/api/v1'
         })
 
@@ -387,7 +387,7 @@ describe('QuizWidget', () => {
 
         renderWidget({
             applicationId: 'app-1',
-            linkedCollectionId: 'catalog-1',
+            objectCollectionId: 'object-1',
             apiBaseUrl: '/api/v1'
         })
 

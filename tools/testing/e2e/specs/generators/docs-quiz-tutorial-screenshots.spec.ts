@@ -12,7 +12,7 @@ import {
     getLayout,
     listLayoutZoneWidgets,
     listLayouts,
-    listLinkedCollections,
+    listObjectCollections,
     sendWithCsrf,
     syncApplicationSchema,
     syncPublication,
@@ -46,6 +46,7 @@ const LOCALE_COPY = {
         quizWidget: 'Quiz widget',
         publications: 'Publications',
         versions: 'Versions',
+        applicationViewSettings: 'Application View Settings',
         applicationSettings: 'Application Settings',
         submitLabel: 'Check answer'
     },
@@ -57,6 +58,7 @@ const LOCALE_COPY = {
         quizWidget: 'Виджет квиза',
         publications: 'Публикации',
         versions: 'Версии',
+        applicationViewSettings: 'Настройки отображения приложения',
         applicationSettings: 'Настройки приложения',
         submitLabel: 'Проверить ответ'
     }
@@ -83,22 +85,22 @@ async function expectJsonResponse(response: Response, label: string) {
     return payload
 }
 
-async function waitForCatalogId(api: ApiContext, metahubId: string) {
-    let catalogId: string | undefined
+async function waitForObjectId(api: ApiContext, metahubId: string) {
+    let objectId: string | undefined
 
     await expect
         .poll(async () => {
-            const response = await listLinkedCollections(api, metahubId, { limit: 100, offset: 0 })
-            catalogId = response?.items?.[0]?.id
-            return typeof catalogId === 'string'
+            const response = await listObjectCollections(api, metahubId, { limit: 100, offset: 0 })
+            objectId = response?.items?.[0]?.id
+            return typeof objectId === 'string'
         })
         .toBe(true)
 
-    if (!catalogId) {
-        throw new Error(`No catalog was returned for metahub ${metahubId}`)
+    if (!objectId) {
+        throw new Error(`No object was returned for metahub ${metahubId}`)
     }
 
-    return catalogId
+    return objectId
 }
 
 async function waitForLayoutId(api: ApiContext, metahubId: string) {
@@ -211,7 +213,7 @@ test.describe('Docs Quiz Tutorial Screenshots', () => {
             codename: `docs-quiz-${String(runManifest.runId).toLowerCase()}`
         })
 
-        const catalogId = await waitForCatalogId(api, metahub.id)
+        const objectCollectionId = await waitForObjectId(api, metahub.id)
         const layoutId = await waitForLayoutId(api, metahub.id)
 
         await applyCenteredQuizLayout(api, metahub.id, layoutId)
@@ -325,9 +327,7 @@ test.describe('Docs Quiz Tutorial Screenshots', () => {
 
             await page.goto(`/metahub/${metahub.id}/resources/layouts/${layoutId}`)
             await expect(page.getByText(labels.dragHint)).toBeVisible({ timeout: 30_000 })
-            await expect(page.getByText(new RegExp(`${escapeRegExp(labels.quizWidget)}.*quiz-widget`, 'i')).first()).toBeVisible({
-                timeout: 30_000
-            })
+            await expect(page.getByText(labels.applicationViewSettings)).toBeVisible({ timeout: 30_000 })
             await page.screenshot({ path: path.join(screenshotsDir, 'layout-quiz-widget.png') })
 
             await page.goto(`/a/${applicationId}/admin/settings`)

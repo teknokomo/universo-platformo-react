@@ -41,7 +41,7 @@ export const addProfileMigrationDefinition: SqlMigrationDefinition = {
         },
         {
             sql: `
-CREATE TABLE IF NOT EXISTS profiles.cat_profiles (
+CREATE TABLE IF NOT EXISTS profiles.obj_profiles (
     id UUID NOT NULL DEFAULT public.uuid_generate_v7(),
     user_id UUID NOT NULL,
     nickname VARCHAR(50) NOT NULL,
@@ -89,68 +89,68 @@ CREATE TABLE IF NOT EXISTS profiles.cat_profiles (
         {
             sql: `
 CREATE UNIQUE INDEX IF NOT EXISTS idx_profiles_user_id_active
-    ON profiles.cat_profiles (user_id)
+    ON profiles.obj_profiles (user_id)
     WHERE _upl_deleted = false AND _app_deleted = false
         `
         },
         {
             sql: `
 CREATE UNIQUE INDEX IF NOT EXISTS idx_profiles_nickname_active
-    ON profiles.cat_profiles (nickname)
+    ON profiles.obj_profiles (nickname)
     WHERE _upl_deleted = false AND _app_deleted = false
         `
         },
         {
-            sql: `CREATE INDEX IF NOT EXISTS idx_profiles_user_id ON profiles.cat_profiles (user_id)`
+            sql: `CREATE INDEX IF NOT EXISTS idx_profiles_user_id ON profiles.obj_profiles (user_id)`
         },
         {
-            sql: `CREATE INDEX IF NOT EXISTS idx_profiles_nickname ON profiles.cat_profiles (nickname)`
+            sql: `CREATE INDEX IF NOT EXISTS idx_profiles_nickname ON profiles.obj_profiles (nickname)`
         },
         {
             sql: `
 CREATE INDEX IF NOT EXISTS idx_profiles_onboarding_completed
-    ON profiles.cat_profiles (onboarding_completed)
+    ON profiles.obj_profiles (onboarding_completed)
         `
         },
         {
             sql: `
 CREATE INDEX IF NOT EXISTS idx_profiles_terms_accepted
-    ON profiles.cat_profiles (terms_accepted)
+    ON profiles.obj_profiles (terms_accepted)
         `
         },
         {
             sql: `
 CREATE INDEX IF NOT EXISTS idx_profiles_privacy_accepted
-    ON profiles.cat_profiles (privacy_accepted)
+    ON profiles.obj_profiles (privacy_accepted)
         `
         },
         {
-            sql: `ALTER TABLE profiles.cat_profiles ENABLE ROW LEVEL SECURITY;`
+            sql: `ALTER TABLE profiles.obj_profiles ENABLE ROW LEVEL SECURITY;`
         },
-        createDropPolicyIfTableExistsStatement('Allow users to view own profile', 'profiles', 'cat_profiles'),
+        createDropPolicyIfTableExistsStatement('Allow users to view own profile', 'profiles', 'obj_profiles'),
         {
             sql: `
 CREATE POLICY "Allow users to view own profile"
-    ON profiles.cat_profiles
+    ON profiles.obj_profiles
     FOR SELECT
     USING ((select auth.uid()) = user_id)
         `
         },
-        createDropPolicyIfTableExistsStatement('Allow users to update own profile', 'profiles', 'cat_profiles'),
+        createDropPolicyIfTableExistsStatement('Allow users to update own profile', 'profiles', 'obj_profiles'),
         {
             sql: `
 CREATE POLICY "Allow users to update own profile"
-    ON profiles.cat_profiles
+    ON profiles.obj_profiles
     FOR UPDATE
     USING ((select auth.uid()) = user_id)
         `
         },
-        createDropPolicyIfTableExistsStatement('Allow profile creation for existing users', 'profiles', 'cat_profiles'),
-        createDropPolicyIfTableExistsStatement('Allow users to insert own profile', 'profiles', 'cat_profiles'),
+        createDropPolicyIfTableExistsStatement('Allow profile creation for existing users', 'profiles', 'obj_profiles'),
+        createDropPolicyIfTableExistsStatement('Allow users to insert own profile', 'profiles', 'obj_profiles'),
         {
             sql: `
 CREATE POLICY "Allow users to insert own profile"
-    ON profiles.cat_profiles
+    ON profiles.obj_profiles
     FOR INSERT
     WITH CHECK ((select auth.uid()) = user_id)
         `
@@ -201,7 +201,7 @@ BEGIN
         END IF;
 
         BEGIN
-            INSERT INTO profiles.cat_profiles (
+            INSERT INTO profiles.obj_profiles (
                 user_id, nickname, settings,
                 terms_accepted, terms_accepted_at,
                 privacy_accepted, privacy_accepted_at,
@@ -221,7 +221,7 @@ BEGIN
             WHEN unique_violation THEN
                 IF attempt_count >= max_attempts THEN
                     temp_nickname := 'user_' || extract(epoch from now())::bigint;
-                    INSERT INTO profiles.cat_profiles (
+                    INSERT INTO profiles.obj_profiles (
                         user_id, nickname, settings,
                         terms_accepted, terms_accepted_at,
                         privacy_accepted, privacy_accepted_at,
@@ -388,11 +388,11 @@ END $$;
         { sql: `DROP FUNCTION IF EXISTS update_user_password(uuid, text);` },
         { sql: `DROP FUNCTION IF EXISTS verify_user_password(text);` },
         { sql: `DROP FUNCTION IF EXISTS change_user_password_secure(text, text);` },
-        createDropPolicyIfTableExistsStatement('Allow users to view own profile', 'profiles', 'cat_profiles'),
-        createDropPolicyIfTableExistsStatement('Allow users to update own profile', 'profiles', 'cat_profiles'),
-        createDropPolicyIfTableExistsStatement('Allow profile creation for existing users', 'profiles', 'cat_profiles'),
-        createDropPolicyIfTableExistsStatement('Allow users to insert own profile', 'profiles', 'cat_profiles'),
-        { sql: `DROP TABLE IF EXISTS profiles.cat_profiles;` },
+        createDropPolicyIfTableExistsStatement('Allow users to view own profile', 'profiles', 'obj_profiles'),
+        createDropPolicyIfTableExistsStatement('Allow users to update own profile', 'profiles', 'obj_profiles'),
+        createDropPolicyIfTableExistsStatement('Allow profile creation for existing users', 'profiles', 'obj_profiles'),
+        createDropPolicyIfTableExistsStatement('Allow users to insert own profile', 'profiles', 'obj_profiles'),
+        { sql: `DROP TABLE IF EXISTS profiles.obj_profiles;` },
         { sql: `DROP SCHEMA IF EXISTS profiles;` }
     ] as const
 }

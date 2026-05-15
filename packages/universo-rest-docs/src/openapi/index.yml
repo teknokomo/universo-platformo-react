@@ -2697,47 +2697,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       security: *a1
-  /applications/{applicationId}/layouts/{layoutId}/zone-widgets/catalog:
-    get:
-      tags:
-        - Applications
-      summary: GET /applications/{applicationId}/layouts/{layoutId}/zone-widgets/catalog
-      description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
-      operationId: Applications_get_applications_applicationId_layouts_layoutId_zone_widgets_catalog
-      parameters:
-        - name: applicationId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: applicationId path parameter.
-        - name: layoutId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: layoutId path parameter.
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericSuccess"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "429":
-          $ref: "#/components/responses/TooManyRequests"
-        "500":
-          $ref: "#/components/responses/InternalError"
-      security: *a1
   /applications/{applicationId}/layouts/{layoutId}/zone-widgets/move:
     patch:
       tags:
@@ -2784,6 +2743,47 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/GenericObject"
+      security: *a1
+  /applications/{applicationId}/layouts/{layoutId}/zone-widgets/object:
+    get:
+      tags:
+        - Applications
+      summary: GET /applications/{applicationId}/layouts/{layoutId}/zone-widgets/object
+      description: Auto-generated from
+        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_get_applications_applicationId_layouts_layoutId_zone_widgets_object
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+        - name: layoutId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: layoutId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
       security: *a1
   /applications/{applicationId}/leave:
     post:
@@ -3536,17 +3536,17 @@ paths:
             schema:
               $ref: "#/components/schemas/GenericObject"
       security: *a1
-  /applications/{applicationId}/runtime/rows/{recordId}/tabular/{attributeId}:
+  /applications/{applicationId}/runtime/rows/{recordId}/tabular/{componentId}:
     get:
       tags:
         - Applications
       summary: GET
-        /applications/{applicationId}/runtime/rows/{recordId}/tabular/{attributeId}
+        /applications/{applicationId}/runtime/rows/{recordId}/tabular/{componentId}
       description: Auto-generated from
         packages/applications-backend/base/src/routes/applicationsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
-      operationId: Applications_get_applications_applicationId_runtime_rows_recordId_tabular_attributeId
+      operationId: Applications_get_applications_applicationId_runtime_rows_recordId_tabular_componentId
       parameters:
         - name: applicationId
           in: path
@@ -3560,12 +3560,12 @@ paths:
           schema:
             type: string
           description: recordId path parameter.
-        - name: attributeId
+        - name: componentId
           in: path
           required: true
           schema:
             type: string
-          description: attributeId path parameter.
+          description: componentId path parameter.
       responses:
         "200":
           $ref: "#/components/responses/GenericSuccess"
@@ -3588,12 +3588,12 @@ paths:
       tags:
         - Applications
       summary: POST
-        /applications/{applicationId}/runtime/rows/{recordId}/tabular/{attributeId}
+        /applications/{applicationId}/runtime/rows/{recordId}/tabular/{componentId}
       description: Auto-generated from
         packages/applications-backend/base/src/routes/applicationsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
-      operationId: Applications_post_applications_applicationId_runtime_rows_recordId_tabular_attributeId
+      operationId: Applications_post_applications_applicationId_runtime_rows_recordId_tabular_componentId
       parameters:
         - name: applicationId
           in: path
@@ -3607,12 +3607,12 @@ paths:
           schema:
             type: string
           description: recordId path parameter.
-        - name: attributeId
+        - name: componentId
           in: path
           required: true
           schema:
             type: string
-          description: attributeId path parameter.
+          description: componentId path parameter.
       responses:
         "200":
           $ref: "#/components/responses/GenericSuccess"
@@ -3639,17 +3639,17 @@ paths:
             schema:
               $ref: "#/components/schemas/GenericObject"
       security: *a1
-  /applications/{applicationId}/runtime/rows/{recordId}/tabular/{attributeId}/{childRowId}:
+  /applications/{applicationId}/runtime/rows/{recordId}/tabular/{componentId}/{childRowId}:
     patch:
       tags:
         - Applications
       summary: PATCH
-        /applications/{applicationId}/runtime/rows/{recordId}/tabular/{attributeId}/{childRowId}
+        /applications/{applicationId}/runtime/rows/{recordId}/tabular/{componentId}/{childRowId}
       description: Auto-generated from
         packages/applications-backend/base/src/routes/applicationsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
-      operationId: Applications_patch_applications_applicationId_runtime_rows_recordId_tabular_attributeId_childRowId
+      operationId: Applications_patch_applications_applicationId_runtime_rows_recordId_tabular_componentId_childRowId
       parameters:
         - name: applicationId
           in: path
@@ -3663,12 +3663,12 @@ paths:
           schema:
             type: string
           description: recordId path parameter.
-        - name: attributeId
+        - name: componentId
           in: path
           required: true
           schema:
             type: string
-          description: attributeId path parameter.
+          description: componentId path parameter.
         - name: childRowId
           in: path
           required: true
@@ -3703,12 +3703,12 @@ paths:
       tags:
         - Applications
       summary: DELETE
-        /applications/{applicationId}/runtime/rows/{recordId}/tabular/{attributeId}/{childRowId}
+        /applications/{applicationId}/runtime/rows/{recordId}/tabular/{componentId}/{childRowId}
       description: Auto-generated from
         packages/applications-backend/base/src/routes/applicationsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
-      operationId: Applications_delete_applications_applicationId_runtime_rows_recordId_tabular_attributeId_childRowId
+      operationId: Applications_delete_applications_applicationId_runtime_rows_recordId_tabular_componentId_childRowId
       parameters:
         - name: applicationId
           in: path
@@ -3722,12 +3722,12 @@ paths:
           schema:
             type: string
           description: recordId path parameter.
-        - name: attributeId
+        - name: componentId
           in: path
           required: true
           schema:
             type: string
-          description: attributeId path parameter.
+          description: componentId path parameter.
         - name: childRowId
           in: path
           required: true
@@ -3754,17 +3754,17 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       security: *a1
-  /applications/{applicationId}/runtime/rows/{recordId}/tabular/{attributeId}/{childRowId}/copy:
+  /applications/{applicationId}/runtime/rows/{recordId}/tabular/{componentId}/{childRowId}/copy:
     post:
       tags:
         - Applications
       summary: POST
-        /applications/{applicationId}/runtime/rows/{recordId}/tabular/{attributeId}/{childRowId}/copy
+        /applications/{applicationId}/runtime/rows/{recordId}/tabular/{componentId}/{childRowId}/copy
       description: Auto-generated from
         packages/applications-backend/base/src/routes/applicationsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
-      operationId: Applications_post_applications_applicationId_runtime_rows_recordId_tabular_attributeId_childRowId_copy
+      operationId: Applications_post_applications_applicationId_runtime_rows_recordId_tabular_componentId_childRowId_copy
       parameters:
         - name: applicationId
           in: path
@@ -3778,12 +3778,12 @@ paths:
           schema:
             type: string
           description: recordId path parameter.
-        - name: attributeId
+        - name: componentId
           in: path
           required: true
           schema:
             type: string
-          description: attributeId path parameter.
+          description: componentId path parameter.
         - name: childRowId
           in: path
           required: true
@@ -9188,47 +9188,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       security: *a1
-  /metahub/{metahubId}/layout/{layoutId}/zone-widgets/catalog:
-    get:
-      tags:
-        - Layouts
-      summary: GET /metahub/{metahubId}/layout/{layoutId}/zone-widgets/catalog
-      description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/layouts/routes/layoutsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
-      operationId: Layouts_get_metahub_metahubId_layout_layoutId_zone_widgets_catalog
-      parameters:
-        - name: metahubId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: metahubId path parameter.
-        - name: layoutId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: layoutId path parameter.
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericSuccess"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "429":
-          $ref: "#/components/responses/TooManyRequests"
-        "500":
-          $ref: "#/components/responses/InternalError"
-      security: *a1
   /metahub/{metahubId}/layout/{layoutId}/zone-widgets/move:
     patch:
       tags:
@@ -9275,6 +9234,47 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/GenericObject"
+      security: *a1
+  /metahub/{metahubId}/layout/{layoutId}/zone-widgets/object:
+    get:
+      tags:
+        - Layouts
+      summary: GET /metahub/{metahubId}/layout/{layoutId}/zone-widgets/object
+      description: Auto-generated from
+        packages/metahubs-backend/base/src/domains/layouts/routes/layoutsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Layouts_get_metahub_metahubId_layout_layoutId_zone_widgets_object
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: layoutId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: layoutId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
       security: *a1
   /metahub/{metahubId}/layouts:
     get:
@@ -11788,17 +11788,17 @@ paths:
           $ref: "#/components/responses/TooManyRequests"
         "500":
           $ref: "#/components/responses/InternalError"
-  /public/metahub/{slug}/tree-entity/{treeEntityCodename}/linked-collection/{linkedCollectionCodename}:
+  /public/metahub/{slug}/tree-entity/{treeEntityCodename}/object/{objectCollectionCodename}:
     get:
       tags:
         - Public Metahubs
       summary: GET
-        /public/metahub/{slug}/tree-entity/{treeEntityCodename}/linked-collection/{linkedCollectionCodename}
+        /public/metahub/{slug}/tree-entity/{treeEntityCodename}/object/{objectCollectionCodename}
       description: Auto-generated from
         packages/metahubs-backend/base/src/domains/metahubs/routes/publicMetahubsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
-      operationId: Public_Metahubs_get_public_metahub_slug_tree_entity_treeEntityCodename_linked_collection_linkedCollectionCodename
+      operationId: Public_Metahubs_get_public_metahub_slug_tree_entity_treeEntityCodename_object_objectCollectionCodename
       parameters:
         - name: slug
           in: path
@@ -11812,12 +11812,12 @@ paths:
           schema:
             type: string
           description: treeEntityCodename path parameter.
-        - name: linkedCollectionCodename
+        - name: objectCollectionCodename
           in: path
           required: true
           schema:
             type: string
-          description: linkedCollectionCodename path parameter.
+          description: objectCollectionCodename path parameter.
       responses:
         "200":
           $ref: "#/components/responses/GenericSuccess"
@@ -11831,17 +11831,17 @@ paths:
           $ref: "#/components/responses/TooManyRequests"
         "500":
           $ref: "#/components/responses/InternalError"
-  /public/metahub/{slug}/tree-entity/{treeEntityCodename}/linked-collection/{linkedCollectionCodename}/field-definitions:
+  /public/metahub/{slug}/tree-entity/{treeEntityCodename}/object/{objectCollectionCodename}/components:
     get:
       tags:
         - Public Metahubs
       summary: GET
-        /public/metahub/{slug}/tree-entity/{treeEntityCodename}/linked-collection/{linkedCollectionCodename}/field-definitions
+        /public/metahub/{slug}/tree-entity/{treeEntityCodename}/object/{objectCollectionCodename}/components
       description: Auto-generated from
         packages/metahubs-backend/base/src/domains/metahubs/routes/publicMetahubsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
-      operationId: Public_Metahubs_get_public_metahub_slug_tree_entity_treeEntityCodename_linked_collection_linkedCollectionCodename_field_definitions
+      operationId: Public_Metahubs_get_public_metahub_slug_tree_entity_treeEntityCodename_object_objectCollectionCodename_components
       parameters:
         - name: slug
           in: path
@@ -11855,12 +11855,12 @@ paths:
           schema:
             type: string
           description: treeEntityCodename path parameter.
-        - name: linkedCollectionCodename
+        - name: objectCollectionCodename
           in: path
           required: true
           schema:
             type: string
-          description: linkedCollectionCodename path parameter.
+          description: objectCollectionCodename path parameter.
       responses:
         "200":
           $ref: "#/components/responses/GenericSuccess"
@@ -11874,17 +11874,17 @@ paths:
           $ref: "#/components/responses/TooManyRequests"
         "500":
           $ref: "#/components/responses/InternalError"
-  /public/metahub/{slug}/tree-entity/{treeEntityCodename}/linked-collection/{linkedCollectionCodename}/record/{recordId}:
+  /public/metahub/{slug}/tree-entity/{treeEntityCodename}/object/{objectCollectionCodename}/record/{recordId}:
     get:
       tags:
         - Public Metahubs
       summary: GET
-        /public/metahub/{slug}/tree-entity/{treeEntityCodename}/linked-collection/{linkedCollectionCodename}/record/{recordId}
+        /public/metahub/{slug}/tree-entity/{treeEntityCodename}/object/{objectCollectionCodename}/record/{recordId}
       description: Auto-generated from
         packages/metahubs-backend/base/src/domains/metahubs/routes/publicMetahubsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
-      operationId: Public_Metahubs_get_public_metahub_slug_tree_entity_treeEntityCodename_linked_collection_linkedCollectionCodename_record_recordId
+      operationId: Public_Metahubs_get_public_metahub_slug_tree_entity_treeEntityCodename_object_objectCollectionCodename_record_recordId
       parameters:
         - name: slug
           in: path
@@ -11898,12 +11898,12 @@ paths:
           schema:
             type: string
           description: treeEntityCodename path parameter.
-        - name: linkedCollectionCodename
+        - name: objectCollectionCodename
           in: path
           required: true
           schema:
             type: string
-          description: linkedCollectionCodename path parameter.
+          description: objectCollectionCodename path parameter.
         - name: recordId
           in: path
           required: true
@@ -11923,17 +11923,17 @@ paths:
           $ref: "#/components/responses/TooManyRequests"
         "500":
           $ref: "#/components/responses/InternalError"
-  /public/metahub/{slug}/tree-entity/{treeEntityCodename}/linked-collection/{linkedCollectionCodename}/records:
+  /public/metahub/{slug}/tree-entity/{treeEntityCodename}/object/{objectCollectionCodename}/records:
     get:
       tags:
         - Public Metahubs
       summary: GET
-        /public/metahub/{slug}/tree-entity/{treeEntityCodename}/linked-collection/{linkedCollectionCodename}/records
+        /public/metahub/{slug}/tree-entity/{treeEntityCodename}/object/{objectCollectionCodename}/records
       description: Auto-generated from
         packages/metahubs-backend/base/src/domains/metahubs/routes/publicMetahubsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
-      operationId: Public_Metahubs_get_public_metahub_slug_tree_entity_treeEntityCodename_linked_collection_linkedCollectionCodename_records
+      operationId: Public_Metahubs_get_public_metahub_slug_tree_entity_treeEntityCodename_object_objectCollectionCodename_records
       parameters:
         - name: slug
           in: path
@@ -11947,12 +11947,12 @@ paths:
           schema:
             type: string
           description: treeEntityCodename path parameter.
-        - name: linkedCollectionCodename
+        - name: objectCollectionCodename
           in: path
           required: true
           schema:
             type: string
-          description: linkedCollectionCodename path parameter.
+          description: objectCollectionCodename path parameter.
       responses:
         "200":
           $ref: "#/components/responses/GenericSuccess"
@@ -11966,17 +11966,16 @@ paths:
           $ref: "#/components/responses/TooManyRequests"
         "500":
           $ref: "#/components/responses/InternalError"
-  /public/metahub/{slug}/tree-entity/{treeEntityCodename}/linked-collections:
+  /public/metahub/{slug}/tree-entity/{treeEntityCodename}/objects:
     get:
       tags:
         - Public Metahubs
-      summary: GET
-        /public/metahub/{slug}/tree-entity/{treeEntityCodename}/linked-collections
+      summary: GET /public/metahub/{slug}/tree-entity/{treeEntityCodename}/objects
       description: Auto-generated from
         packages/metahubs-backend/base/src/domains/metahubs/routes/publicMetahubsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
-      operationId: Public_Metahubs_get_public_metahub_slug_tree_entity_treeEntityCodename_linked_collections
+      operationId: Public_Metahubs_get_public_metahub_slug_tree_entity_treeEntityCodename_objects
       parameters:
         - name: slug
           in: path

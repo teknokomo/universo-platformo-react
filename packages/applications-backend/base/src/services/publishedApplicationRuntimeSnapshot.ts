@@ -1,12 +1,12 @@
 import { createHash } from 'crypto'
-import { FieldDefinitionDataType } from '@universo/types'
+import { ComponentDefinitionDataType } from '@universo/types'
 import { getCodenamePrimary, serialization } from '@universo/utils'
 import type {
     PublishedApplicationRuntimeSource,
     PublishedApplicationSnapshot,
     SnapshotEntityDefinition,
     SnapshotEnumerationValueDefinition,
-    SnapshotFieldDefinition
+    SnapshotComponent
 } from './applicationSyncContracts'
 import { resolveExecutablePayloadEntities } from './publishedApplicationSnapshotEntities'
 
@@ -132,10 +132,10 @@ const remapEnumerationReferenceValue = (
 
 const rewriteElementDataForFields = (
     data: Record<string, unknown>,
-    fields: SnapshotFieldDefinition[],
+    fields: SnapshotComponent[],
     scopedIdsByObject: Map<string, Map<string, string>>
 ): Record<string, unknown> => {
-    const fieldByCodename = new Map<string, SnapshotFieldDefinition>()
+    const fieldByCodename = new Map<string, SnapshotComponent>()
     for (const field of fields) {
         const codename = resolveSnapshotCodenameText(field.codename)
         if (codename) {
@@ -152,7 +152,7 @@ const rewriteElementDataForFields = (
             continue
         }
 
-        if (field.dataType === FieldDefinitionDataType.TABLE && Array.isArray(rawValue) && Array.isArray(field.childFields)) {
+        if (field.dataType === ComponentDefinitionDataType.TABLE && Array.isArray(rawValue) && Array.isArray(field.childFields)) {
             const nextRows = rawValue.map((row) => {
                 if (!isRecord(row)) {
                     return row
@@ -169,7 +169,7 @@ const rewriteElementDataForFields = (
         }
 
         if (
-            field.dataType === FieldDefinitionDataType.REF &&
+            field.dataType === ComponentDefinitionDataType.REF &&
             isEnumerationStandardKind(field.targetEntityKind) &&
             typeof field.targetEntityId === 'string'
         ) {

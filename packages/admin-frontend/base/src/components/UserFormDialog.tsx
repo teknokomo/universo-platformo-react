@@ -18,7 +18,12 @@ import { useCommonTranslations } from '@universo/i18n'
 import { resolveLocalizedContent, getCodenamePrimary } from '@universo/utils'
 import { isValidLocaleCode } from '@universo/types'
 import { EntitySelectionPanel } from '@universo/template-mui'
-import { mergeDialogPaperProps, mergeDialogSx, resolveDialogMaxWidth, useDialogPresentation } from '@universo/template-mui/components/dialogs'
+import {
+    mergeDialogPaperProps,
+    mergeDialogSx,
+    resolveDialogMaxWidth,
+    useDialogPresentation
+} from '@universo/template-mui/components/dialogs'
 
 import type { RoleListItem } from '../api/rolesApi'
 

@@ -191,9 +191,9 @@ describe('applicationSyncRoutes', () => {
         }
     }
     const baseCatalogEntity = {
-        id: 'catalog-products',
+        id: 'object-products',
         codename: 'products',
-        kind: 'catalog',
+        kind: 'object',
         fields: [],
         presentation: { name: {} },
         config: {},
@@ -211,7 +211,7 @@ describe('applicationSyncRoutes', () => {
                     snapshotFormatVersion: 1 as const
                 },
                 entities: {
-                    'catalog-products': baseCatalogEntity
+                    'object-products': baseCatalogEntity
                 },
                 elements: {},
                 layouts: []
@@ -225,7 +225,7 @@ describe('applicationSyncRoutes', () => {
                 snapshotFormatVersion: 1 as const
             },
             entities: {
-                'catalog-products': baseCatalogEntity
+                'object-products': baseCatalogEntity
             },
             elements: {},
             layouts: []
@@ -238,7 +238,7 @@ describe('applicationSyncRoutes', () => {
                 snapshotFormatVersion: 1 as const
             },
             entities: {
-                'catalog-products': baseCatalogEntity
+                'object-products': baseCatalogEntity
             },
             elements: {},
             layouts: []
@@ -643,17 +643,17 @@ describe('applicationSyncRoutes', () => {
                     presentation: { name: {} },
                     config: {}
                 },
-                'catalog-resources': {
-                    id: 'catalog-resources',
+                'object-resources': {
+                    id: 'object-resources',
                     codename: 'resources',
-                    kind: 'catalog',
+                    kind: 'object',
                     fields: [
                         {
                             id: tableFieldId,
                             codename: 'NestedResources',
                             dataType: 'TABLE',
                             isRequired: false,
-                            isDisplayAttribute: false,
+                            isDisplayComponent: false,
                             presentation: { name: {} },
                             validationRules: {},
                             uiConfig: {},
@@ -664,12 +664,12 @@ describe('applicationSyncRoutes', () => {
                                     codename: 'NestedTitle',
                                     dataType: 'STRING',
                                     isRequired: true,
-                                    isDisplayAttribute: true,
+                                    isDisplayComponent: true,
                                     presentation: { name: {} },
                                     validationRules: { localized: true },
                                     uiConfig: {},
                                     sortOrder: 1,
-                                    parentAttributeId: tableFieldId
+                                    parentComponentId: tableFieldId
                                 }
                             ]
                         }
@@ -705,15 +705,15 @@ describe('applicationSyncRoutes', () => {
                     presentation: { name: { en: 'Enumerations', ru: 'Перечисления' } },
                     ui: { sidebarOrder: 50 }
                 },
-                catalog: {
-                    kindKey: 'catalog',
-                    codename: 'Catalog',
-                    presentation: { name: { en: 'Catalogs', ru: 'Каталоги' } },
+                object: {
+                    kindKey: 'object',
+                    codename: 'Object',
+                    presentation: { name: { en: 'Objects', ru: 'Каталоги' } },
                     ui: { sidebarOrder: 30 }
                 }
             },
             elements: {
-                'catalog-resources': [
+                'object-resources': [
                     {
                         id: 'element-1',
                         sortOrder: 0,
@@ -773,7 +773,7 @@ describe('applicationSyncRoutes', () => {
             expect.arrayContaining([
                 expect.objectContaining({
                     id: childFieldId,
-                    parentAttributeId: tableFieldId
+                    parentComponentId: tableFieldId
                 })
             ])
         )
@@ -812,14 +812,14 @@ describe('applicationSyncRoutes', () => {
                     ]
                 }),
                 expect.objectContaining({
-                    kindKey: 'catalog',
+                    kindKey: 'object',
                     entities: [
                         expect.objectContaining({
-                            id: 'catalog-resources',
+                            id: 'object-resources',
                             fields: expect.arrayContaining([
                                 expect.objectContaining({
                                     id: childFieldId,
-                                    parentAttributeId: tableFieldId
+                                    parentComponentId: tableFieldId
                                 })
                             ]),
                             metrics: [
@@ -865,7 +865,7 @@ describe('applicationSyncRoutes', () => {
                 {
                     ...baseSyncContext.snapshot,
                     systemFields: {
-                        'catalog-products': {
+                        'object-products': {
                             fields: [
                                 { key: 'app.published', enabled: false },
                                 { key: 'app.published_at', enabled: false },
@@ -890,7 +890,7 @@ describe('applicationSyncRoutes', () => {
             snapshot: {
                 ...baseSyncContext.snapshot,
                 systemFields: {
-                    'catalog-products': {
+                    'object-products': {
                         fields: [
                             { key: 'app.published', enabled: false },
                             { key: 'app.published_at', enabled: false },
@@ -913,7 +913,7 @@ describe('applicationSyncRoutes', () => {
             publicationSnapshot: {
                 ...baseSyncContext.publicationSnapshot,
                 systemFields: {
-                    'catalog-products': {
+                    'object-products': {
                         fields: [
                             { key: 'app.published', enabled: false },
                             { key: 'app.published_at', enabled: false },
@@ -953,7 +953,7 @@ describe('applicationSyncRoutes', () => {
             'app_application1',
             [
                 expect.objectContaining({
-                    id: 'catalog-products',
+                    id: 'object-products',
                     config: expect.objectContaining({
                         systemFields: expect.objectContaining({
                             lifecycleContract: {
@@ -986,16 +986,16 @@ describe('applicationSyncRoutes', () => {
         const constantId = '019d10d1-79ec-78bf-a0d9-1768ee647b33'
 
         const rawCatalogEntity = {
-            id: 'catalog-resources',
+            id: 'object-resources',
             codename: 'resources',
-            kind: 'catalog',
+            kind: 'object',
             fields: [
                 {
                     id: tableFieldId,
                     codename: 'NestedResources',
                     dataType: 'TABLE',
                     isRequired: false,
-                    isDisplayAttribute: false,
+                    isDisplayComponent: false,
                     presentation: { name: {} },
                     validationRules: {},
                     uiConfig: {},
@@ -1006,12 +1006,12 @@ describe('applicationSyncRoutes', () => {
                             codename: 'NestedTitle',
                             dataType: 'STRING',
                             isRequired: true,
-                            isDisplayAttribute: true,
+                            isDisplayComponent: true,
                             presentation: { name: {} },
                             validationRules: { localized: true, versioned: true },
                             uiConfig: {},
                             sortOrder: 1,
-                            parentAttributeId: tableFieldId
+                            parentComponentId: tableFieldId
                         }
                     ]
                 },
@@ -1020,7 +1020,7 @@ describe('applicationSyncRoutes', () => {
                     codename: 'Motto',
                     dataType: 'REF',
                     isRequired: false,
-                    isDisplayAttribute: false,
+                    isDisplayComponent: false,
                     targetEntityId: valueGroupId,
                     targetEntityKind: 'set',
                     targetConstantId: constantId,
@@ -1042,7 +1042,7 @@ describe('applicationSyncRoutes', () => {
                 snapshotFormatVersion: 1 as const
             },
             entities: {
-                'catalog-resources': rawCatalogEntity
+                'object-resources': rawCatalogEntity
             },
             constants: {
                 [valueGroupId]: [
@@ -1105,7 +1105,7 @@ describe('applicationSyncRoutes', () => {
             'app_application1',
             [
                 expect.objectContaining({
-                    id: 'catalog-resources',
+                    id: 'object-resources',
                     fields: expect.arrayContaining([
                         expect.objectContaining({
                             id: tableFieldId,
@@ -1113,13 +1113,13 @@ describe('applicationSyncRoutes', () => {
                             childFields: [
                                 expect.objectContaining({
                                     id: childFieldId,
-                                    parentAttributeId: tableFieldId
+                                    parentComponentId: tableFieldId
                                 })
                             ]
                         }),
                         expect.objectContaining({
                             id: childFieldId,
-                            parentAttributeId: tableFieldId,
+                            parentComponentId: tableFieldId,
                             dataType: 'STRING'
                         }),
                         expect.objectContaining({
@@ -1154,16 +1154,16 @@ describe('applicationSyncRoutes', () => {
         const constantId = '019d10d1-79ec-78bf-a0d9-1768ee647b33'
 
         const rawCatalogEntity = {
-            id: 'catalog-resources',
+            id: 'object-resources',
             codename: 'resources',
-            kind: 'catalog',
+            kind: 'object',
             fields: [
                 {
                     id: tableFieldId,
                     codename: 'NestedResources',
                     dataType: 'TABLE',
                     isRequired: false,
-                    isDisplayAttribute: false,
+                    isDisplayComponent: false,
                     presentation: { name: {} },
                     validationRules: {},
                     uiConfig: {},
@@ -1174,12 +1174,12 @@ describe('applicationSyncRoutes', () => {
                             codename: 'NestedTitle',
                             dataType: 'STRING',
                             isRequired: true,
-                            isDisplayAttribute: true,
+                            isDisplayComponent: true,
                             presentation: { name: {} },
                             validationRules: { localized: true, versioned: true },
                             uiConfig: {},
                             sortOrder: 1,
-                            parentAttributeId: tableFieldId
+                            parentComponentId: tableFieldId
                         }
                     ]
                 },
@@ -1188,7 +1188,7 @@ describe('applicationSyncRoutes', () => {
                     codename: 'Motto',
                     dataType: 'REF',
                     isRequired: false,
-                    isDisplayAttribute: false,
+                    isDisplayComponent: false,
                     targetEntityId: valueGroupId,
                     targetEntityKind: 'set',
                     targetConstantId: constantId,
@@ -1210,7 +1210,7 @@ describe('applicationSyncRoutes', () => {
                 snapshotFormatVersion: 1 as const
             },
             entities: {
-                'catalog-resources': rawCatalogEntity
+                'object-resources': rawCatalogEntity
             },
             constants: {
                 [valueGroupId]: [
@@ -1254,10 +1254,10 @@ describe('applicationSyncRoutes', () => {
                 generatedAt: '2026-03-13T09:00:00.000Z',
                 hasSystemTables: true,
                 entities: {
-                    'catalog-resources': {
-                        id: 'catalog-resources',
+                    'object-resources': {
+                        id: 'object-resources',
                         codename: 'resources',
-                        kind: 'catalog',
+                        kind: 'object',
                         fields: [
                             {
                                 id: tableFieldId,
@@ -1268,7 +1268,7 @@ describe('applicationSyncRoutes', () => {
                                         id: childFieldId,
                                         codename: 'NestedTitle',
                                         dataType: 'STRING',
-                                        parentAttributeId: tableFieldId
+                                        parentComponentId: tableFieldId
                                     }
                                 ]
                             },
@@ -1330,11 +1330,11 @@ describe('applicationSyncRoutes', () => {
             }),
             expect.arrayContaining([
                 expect.objectContaining({
-                    id: 'catalog-resources',
+                    id: 'object-resources',
                     fields: expect.arrayContaining([
                         expect.objectContaining({
                             id: childFieldId,
-                            parentAttributeId: tableFieldId
+                            parentComponentId: tableFieldId
                         }),
                         expect.objectContaining({
                             id: setFieldId,
@@ -1541,8 +1541,8 @@ describe('applicationSyncRoutes', () => {
             if (sql.includes('._app_objects')) {
                 return [
                     {
-                        id: 'catalog-1',
-                        kind: 'catalog',
+                        id: 'object-1',
+                        kind: 'object',
                         codename: 'products',
                         table_name: 'products',
                         presentation: { name: {} },
@@ -1558,36 +1558,36 @@ describe('applicationSyncRoutes', () => {
                     }
                 ]
             }
-            if (sql.includes('._app_attributes')) {
+            if (sql.includes('._app_components')) {
                 return [
                     {
                         id: 'field-1',
-                        object_id: 'catalog-1',
+                        object_id: 'object-1',
                         codename: 'title',
                         sort_order: 0,
                         column_name: 'col_title',
                         data_type: 'STRING',
                         is_required: false,
-                        is_display_attribute: true,
+                        is_display_component: true,
                         target_object_id: null,
                         target_object_kind: null,
-                        parent_attribute_id: null,
+                        parent_component_id: null,
                         presentation: { name: {} },
                         validation_rules: {},
                         ui_config: {}
                     },
                     {
                         id: 'field-2',
-                        object_id: 'catalog-1',
+                        object_id: 'object-1',
                         codename: 'status',
                         sort_order: 1,
                         column_name: 'col_status',
                         data_type: 'REF',
                         is_required: false,
-                        is_display_attribute: false,
+                        is_display_component: false,
                         target_object_id: 'set-1',
                         target_object_kind: 'set',
-                        parent_attribute_id: null,
+                        parent_component_id: null,
                         presentation: { name: {} },
                         validation_rules: {},
                         ui_config: {
@@ -1635,12 +1635,12 @@ describe('applicationSyncRoutes', () => {
                 }),
                 snapshot: expect.objectContaining({
                     entities: expect.objectContaining({
-                        'catalog-1': expect.objectContaining({
+                        'object-1': expect.objectContaining({
                             codename: 'products'
                         })
                     }),
                     elements: expect.objectContaining({
-                        'catalog-1': [
+                        'object-1': [
                             expect.objectContaining({
                                 id: 'element-1',
                                 data: expect.objectContaining({
@@ -1676,9 +1676,9 @@ describe('applicationSyncRoutes', () => {
                 snapshotFormatVersion: 1
             },
             entities: {
-                'catalog-1': {
-                    id: 'catalog-1',
-                    kind: 'catalog',
+                'object-1': {
+                    id: 'object-1',
+                    kind: 'object',
                     codename: 'products',
                     presentation: { name: {} },
                     fields: [
@@ -1687,11 +1687,11 @@ describe('applicationSyncRoutes', () => {
                             codename: 'title',
                             dataType: 'STRING',
                             isRequired: false,
-                            isDisplayAttribute: true,
+                            isDisplayComponent: true,
                             targetEntityId: null,
                             targetEntityKind: null,
                             targetConstantId: null,
-                            parentAttributeId: null,
+                            parentComponentId: null,
                             presentation: { name: {} },
                             validationRules: {},
                             uiConfig: {},
@@ -1704,7 +1704,7 @@ describe('applicationSyncRoutes', () => {
                 }
             },
             elements: {
-                'catalog-1': [
+                'object-1': [
                     {
                         id: 'element-1',
                         data: {
@@ -1747,8 +1747,8 @@ describe('applicationSyncRoutes', () => {
             if (sql.includes('._app_objects')) {
                 return [
                     {
-                        id: 'catalog-1',
-                        kind: 'catalog',
+                        id: 'object-1',
+                        kind: 'object',
                         codename: 'products',
                         table_name: 'products',
                         presentation: { name: {} },
@@ -1756,20 +1756,20 @@ describe('applicationSyncRoutes', () => {
                     }
                 ]
             }
-            if (sql.includes('._app_attributes')) {
+            if (sql.includes('._app_components')) {
                 return [
                     {
                         id: 'field-1',
-                        object_id: 'catalog-1',
+                        object_id: 'object-1',
                         codename: 'title',
                         sort_order: 0,
                         column_name: 'col_title',
                         data_type: 'STRING',
                         is_required: false,
-                        is_display_attribute: true,
+                        is_display_component: true,
                         target_object_id: null,
                         target_object_kind: null,
-                        parent_attribute_id: null,
+                        parent_component_id: null,
                         presentation: { name: {} },
                         validation_rules: {},
                         ui_config: {}
@@ -2150,9 +2150,9 @@ describe('applicationSyncRoutes', () => {
                 generatedAt: '2026-03-13T11:00:00.000Z',
                 entities: {
                     existing_catalog: {
-                        id: 'existing-catalog',
+                        id: 'existing-object',
                         codename: 'existing',
-                        kind: 'catalog',
+                        kind: 'object',
                         fields: []
                     }
                 }

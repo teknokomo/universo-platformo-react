@@ -10,7 +10,7 @@ import {
     listRuntimeLedgerFacts,
     listRuntimeLedgers,
     listLayouts,
-    listLinkedCollections,
+    listObjectCollections,
     listOptionLists,
     listOptionValues,
     syncApplicationSchema,
@@ -59,21 +59,21 @@ const findNamedItem = (items: NamedItem[], expectedName: string) => {
     })
 }
 
-export async function waitForMetahubCatalogId(api: ApiContext, metahubId: string, expectedName: string) {
-    let catalogId: string | null = null
+export async function waitForMetahubObjectId(api: ApiContext, metahubId: string, expectedName: string) {
+    let objectId: string | null = null
 
     await expect
         .poll(
             async () => {
-                const response = await listLinkedCollections(api, metahubId, { limit: 100, offset: 0 })
-                catalogId = findNamedItem(response.items ?? [], expectedName)?.id ?? null
-                return catalogId
+                const response = await listObjectCollections(api, metahubId, { limit: 100, offset: 0 })
+                objectId = findNamedItem(response.items ?? [], expectedName)?.id ?? null
+                return objectId
             },
             { timeout: 30_000, intervals: [500, 1_000, 2_000] }
         )
         .toBeTruthy()
 
-    return String(catalogId)
+    return String(objectId)
 }
 
 export async function waitForMetahubEnumerationId(api: ApiContext, metahubId: string, expectedName: string) {
@@ -115,21 +115,21 @@ export async function waitForOptionValueId(api: ApiContext, metahubId: string, e
     return String(optionValueId)
 }
 
-export async function waitForApplicationCatalogId(api: ApiContext, applicationId: string, expectedName: string) {
-    let catalogId: string | null = null
+export async function waitForApplicationObjectId(api: ApiContext, applicationId: string, expectedName: string) {
+    let objectId: string | null = null
 
     await expect
         .poll(
             async () => {
                 const runtime = await getApplicationRuntime(api, applicationId)
-                catalogId = findNamedItem(runtime.catalogs ?? [], expectedName)?.id ?? null
-                return catalogId
+                objectId = findNamedItem(runtime.objects ?? [], expectedName)?.id ?? null
+                return objectId
             },
             { timeout: 30_000, intervals: [500, 1_000, 2_000] }
         )
         .toBeTruthy()
 
-    return String(catalogId)
+    return String(objectId)
 }
 
 export async function waitForApplicationLedgerId(api: ApiContext, applicationId: string, expectedName: string) {
@@ -175,13 +175,13 @@ export async function waitForApplicationLedgerFactCount(
     return facts
 }
 
-export async function waitForApplicationRuntimeRow(api: ApiContext, applicationId: string, catalogId: string, rowId: string) {
+export async function waitForApplicationRuntimeRow(api: ApiContext, applicationId: string, objectId: string, rowId: string) {
     let row: Record<string, unknown> | null = null
 
     await expect
         .poll(
             async () => {
-                const runtime = await getApplicationRuntime(api, applicationId, { catalogId })
+                const runtime = await getApplicationRuntime(api, applicationId, { objectId })
                 row = (runtime.rows ?? []).find((item: { id?: string }) => item?.id === rowId) ?? null
                 return row && typeof row.id === 'string' ? row.id : null
             },
@@ -195,7 +195,7 @@ export async function waitForApplicationRuntimeRow(api: ApiContext, applicationI
 export async function waitForApplicationRuntimeRowCount(
     api: ApiContext,
     applicationId: string,
-    catalogId: string,
+    objectId: string,
     expectedCount: number,
     params: { workspaceId?: string } = {}
 ) {
@@ -205,7 +205,7 @@ export async function waitForApplicationRuntimeRowCount(
         .poll(
             async () => {
                 const runtime = await getApplicationRuntime(api, applicationId, {
-                    catalogId,
+                    objectId,
                     ...params
                 })
                 runtimeRows = Array.isArray(runtime.rows) ? runtime.rows : []

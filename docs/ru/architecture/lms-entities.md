@@ -7,7 +7,7 @@ description: Каноническая модель сущностей LMS-шаб
 LMS-шаблон намеренно построен вокруг сущностей.
 Все основные понятия LMS представлены как обычные сущности метахаба.
 
-## Основные каталоги
+## Основные объекты
 
 | Сущность         | Назначение                                                                             |
 | ---------------- | -------------------------------------------------------------------------------------- |
@@ -43,7 +43,7 @@ LMS-шаблон намеренно построен вокруг сущност
 -   `TABLE`-поля используются для content items модуля и вопросов теста.
 -   `LearnerHome` является Page, а не физической runtime-таблицей. Её содержимое хранится в metadata blocks и рендерится общей dashboard details surface.
 -   `ProgressLedger` и `ScoreLedger` являются стандартными Ledger entities, а не LMS-specific services. Они используют общий блок Ledger configuration для dimensions, resources, measures, period fields и projections.
--   Транзакционные LMS-каталоги используют общую вкладку Catalog `behavior` для нумерации, effective dates, lifecycle states, posting targets и posting scripts. LMS fixture хранит эти настройки в `config.recordBehavior`.
+-   Транзакционные LMS-объекты используют общую вкладку Object `behavior` для нумерации, effective dates, lifecycle states, posting targets и posting scripts. LMS fixture хранит эти настройки в `config.recordBehavior`.
 -   Access links остаются обычными runtime rows, а не отдельной routing subsystem.
 -   Guest sessions создают student rows в той же schema приложения, чтобы progress и статистику тестов можно было запрашивать совместно.
 

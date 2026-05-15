@@ -56,7 +56,7 @@
         "build:clean": "pnpm clean:all && pnpm install && pnpm build",
         "nuke": "pnpm --filter \"./packages/**\" nuke && rimraf node_modules .turbo",
         "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-        "lint": "eslint \"**/*.{js,jsx,ts,tsx,json,md}\"",
+        "lint": "eslint \"**/*.{js,jsx,ts,tsx}\"",
         "lint-fix": "pnpm lint --fix",
         "test:vitest": "pnpm exec vitest run --workspace vitest.workspace.ts",
         "test:local-supabase:tools": "pnpm exec vitest run -c tools/local-supabase/vitest.config.mjs",

@@ -26,10 +26,10 @@ describe('applicationReleaseBundle', () => {
             snapshotFormatVersion: 1 as const
         },
         entities: {
-            catalog_products: {
-                id: 'catalog-products',
+            object_products: {
+                id: 'object-products',
                 codename: createCodenameVlc('products', 'продукты'),
-                kind: 'catalog',
+                kind: 'object',
                 physicalTableEnabled: true,
                 fields: []
             }
@@ -84,9 +84,9 @@ describe('applicationReleaseBundle', () => {
                 payload: {
                     entities: [
                         expect.objectContaining({
-                            id: 'catalog-products',
+                            id: 'object-products',
                             codename: 'products',
-                            kind: 'catalog',
+                            kind: 'object',
                             config: {}
                         })
                     ],
@@ -109,9 +109,9 @@ describe('applicationReleaseBundle', () => {
                 payload: {
                     entities: [
                         expect.objectContaining({
-                            id: 'catalog-products',
+                            id: 'object-products',
                             codename: 'products',
-                            kind: 'catalog',
+                            kind: 'object',
                             config: {}
                         })
                     ],
@@ -130,22 +130,22 @@ describe('applicationReleaseBundle', () => {
         const snapshotWithResourceLabel = {
             ...snapshot,
             entityTypeDefinitions: {
-                catalog: {
-                    id: 'standard-type-catalog',
-                    kindKey: 'catalog',
-                    codename: createCodenameVlc('catalog'),
+                object: {
+                    id: 'standard-type-object',
+                    kindKey: 'object',
+                    codename: createCodenameVlc('object'),
                     presentation: {},
-                    components: { dataSchema: { enabled: true } },
+                    capabilities: { dataSchema: { enabled: true } },
                     ui: {
                         iconName: 'IconDatabase',
                         tabs: ['general'],
                         sidebarSection: 'objects',
-                        nameKey: 'metahubs:catalogs.title',
+                        nameKey: 'metahubs:objects.title',
                         resourceSurfaces: [
                             {
-                                key: 'fieldDefinitions',
+                                key: 'components',
                                 capability: 'dataSchema',
-                                routeSegment: 'field-definitions',
+                                routeSegment: 'components',
                                 title: createCodenameVlc('Properties', 'Свойства'),
                                 fallbackTitle: 'Properties'
                             }
@@ -159,15 +159,15 @@ describe('applicationReleaseBundle', () => {
         const snapshotWithRenamedResourceLabel = {
             ...snapshotWithResourceLabel,
             entityTypeDefinitions: {
-                catalog: {
-                    ...snapshotWithResourceLabel.entityTypeDefinitions.catalog,
+                object: {
+                    ...snapshotWithResourceLabel.entityTypeDefinitions.object,
                     ui: {
-                        ...snapshotWithResourceLabel.entityTypeDefinitions.catalog.ui,
+                        ...snapshotWithResourceLabel.entityTypeDefinitions.object.ui,
                         resourceSurfaces: [
                             {
-                                ...snapshotWithResourceLabel.entityTypeDefinitions.catalog.ui.resourceSurfaces[0],
-                                title: createCodenameVlc('Attributes', 'Атрибуты'),
-                                fallbackTitle: 'Attributes'
+                                ...snapshotWithResourceLabel.entityTypeDefinitions.object.ui.resourceSurfaces[0],
+                                title: createCodenameVlc('Components', 'Атрибуты'),
+                                fallbackTitle: 'Components'
                             }
                         ]
                     }
@@ -197,7 +197,7 @@ describe('applicationReleaseBundle', () => {
         })
 
         expect(firstHash).not.toBe(secondHash)
-        expect(firstBundle.snapshot.entityTypeDefinitions?.catalog?.ui?.resourceSurfaces?.[0]?.title).toEqual(
+        expect(firstBundle.snapshot.entityTypeDefinitions?.object?.ui?.resourceSurfaces?.[0]?.title).toEqual(
             createCodenameVlc('Properties', 'Свойства')
         )
         expect(firstBundle.bootstrap.payload.entities).toEqual(secondBundle.bootstrap.payload.entities)
@@ -374,7 +374,7 @@ describe('applicationReleaseBundle', () => {
         const snapshotWithSystemFields = {
             ...snapshot,
             systemFields: {
-                'catalog-products': {
+                'object-products': {
                     fields: [
                         { key: '_upl_deleted', isEnabled: true },
                         { key: '_upl_deleted_at', isEnabled: false },
@@ -404,11 +404,11 @@ describe('applicationReleaseBundle', () => {
             },
             metahubId: 'metahub-1',
             entities: {
-                catalog_products: {
-                    id: 'catalog-products',
+                object_products: {
+                    id: 'object-products',
                     codename: 'products',
-                    kind: 'catalog',
-                    tableName: 'cat_products',
+                    kind: 'object',
+                    tableName: 'obj_products',
                     fields: []
                 }
             },
@@ -446,7 +446,7 @@ describe('applicationReleaseBundle', () => {
         const publicationSnapshotWithLifecycleContract = {
             ...snapshot,
             systemFields: {
-                'catalog-products': {
+                'object-products': {
                     fields: [
                         { key: 'app.published', enabled: false },
                         { key: 'app.published_at', enabled: false },
@@ -476,11 +476,11 @@ describe('applicationReleaseBundle', () => {
             snapshotHash: calculateCanonicalApplicationReleaseSnapshotHash(publicationSnapshotWithLifecycleContract, 'publication')
         })
 
-        const expectedSystemFields = publicationSnapshotWithLifecycleContract.systemFields['catalog-products']
+        const expectedSystemFields = publicationSnapshotWithLifecycleContract.systemFields['object-products']
 
         expect(bundle.bootstrap.payload.entities).toEqual([
             expect.objectContaining({
-                id: 'catalog-products',
+                id: 'object-products',
                 config: expect.objectContaining({
                     systemFields: expectedSystemFields
                 })
@@ -488,7 +488,7 @@ describe('applicationReleaseBundle', () => {
         ])
         expect(bundle.incrementalMigration.payload.entities).toEqual([
             expect.objectContaining({
-                id: 'catalog-products',
+                id: 'object-products',
                 config: expect.objectContaining({
                     systemFields: expectedSystemFields
                 })
@@ -504,14 +504,14 @@ describe('applicationReleaseBundle', () => {
                 snapshotFormatVersion: 1 as const
             },
             entities: {
-                'catalog-compatible': {
-                    id: 'catalog-compatible',
+                'object-compatible': {
+                    id: 'object-compatible',
                     codename: createCodenameVlc('products_legacy', 'продукты_legacy'),
                     kind: 'custom.product-registry',
-                    tableName: 'cat_products_legacy',
+                    tableName: 'obj_products_legacy',
                     presentation: { name: {} },
                     config: {
-                        compatibility: { legacyObjectKind: 'catalog' },
+                        compatibility: { legacyObjectKind: 'object' },
                         viewMode: 'grid'
                     },
                     fields: []
@@ -542,13 +542,13 @@ describe('applicationReleaseBundle', () => {
             snapshotHash: calculateCanonicalApplicationReleaseSnapshotHash(compatibilitySnapshot, 'publication')
         })
 
-        const bootstrapCatalogEntity = bundle.bootstrap.payload.entities.find((entity) => entity.id === 'catalog-compatible')
+        const bootstrapCatalogEntity = bundle.bootstrap.payload.entities.find((entity) => entity.id === 'object-compatible')
         const bootstrapSetEntity = bundle.bootstrap.payload.entities.find((entity) => entity.id === 'value-group-compatible')
 
         expect(bootstrapCatalogEntity).toMatchObject({
-            physicalTableName: 'cat_products_legacy',
+            physicalTableName: 'obj_products_legacy',
             config: {
-                compatibility: { legacyObjectKind: 'catalog' },
+                compatibility: { legacyObjectKind: 'object' },
                 viewMode: 'grid'
             }
         })
@@ -559,9 +559,9 @@ describe('applicationReleaseBundle', () => {
                 displayMode: 'chips'
             }
         })
-        expect(bundle.bootstrap.payload.schemaSnapshot.entities['catalog-compatible']?.tableName).toBe('cat_products_legacy')
+        expect(bundle.bootstrap.payload.schemaSnapshot.entities['object-compatible']?.tableName).toBe('obj_products_legacy')
         expect(bundle.bootstrap.payload.schemaSnapshot.entities['value-group-compatible']?.tableName).toBe('set_tags_legacy')
-        expect(bundle.incrementalMigration.payload.schemaSnapshot.entities['catalog-compatible']?.tableName).toBe('cat_products_legacy')
+        expect(bundle.incrementalMigration.payload.schemaSnapshot.entities['object-compatible']?.tableName).toBe('obj_products_legacy')
         expect(bundle.incrementalMigration.payload.schemaSnapshot.entities['value-group-compatible']?.tableName).toBe('set_tags_legacy')
     })
 
@@ -572,7 +572,7 @@ describe('applicationReleaseBundle', () => {
             codename: createCodenameVlc('SharedTitle', 'ОбщийЗаголовок'),
             dataType: 'STRING',
             isRequired: false,
-            isDisplayAttribute: false,
+            isDisplayComponent: false,
             presentation: { name: {} },
             validationRules: {},
             uiConfig: {},
@@ -586,18 +586,18 @@ describe('applicationReleaseBundle', () => {
                 snapshotFormatVersion: 1 as const
             },
             entities: {
-                'catalog-alpha': {
-                    id: 'catalog-alpha',
+                'object-alpha': {
+                    id: 'object-alpha',
                     codename: createCodenameVlc('alpha', 'альфа'),
-                    kind: 'catalog',
+                    kind: 'object',
                     presentation: { name: {} },
                     config: {},
                     fields: [sharedField]
                 },
-                'catalog-beta': {
-                    id: 'catalog-beta',
+                'object-beta': {
+                    id: 'object-beta',
                     codename: createCodenameVlc('beta', 'бета'),
-                    kind: 'catalog',
+                    kind: 'object',
                     presentation: { name: {} },
                     config: {},
                     fields: [sharedField]
@@ -625,11 +625,11 @@ describe('applicationReleaseBundle', () => {
 
         expect(bootstrapEntities).toEqual([
             expect.objectContaining({
-                id: 'catalog-alpha',
+                id: 'object-alpha',
                 fields: [expect.objectContaining({ codename: 'SharedTitle' })]
             }),
             expect.objectContaining({
-                id: 'catalog-beta',
+                id: 'object-beta',
                 fields: [expect.objectContaining({ codename: 'SharedTitle' })]
             })
         ])
@@ -653,10 +653,10 @@ describe('applicationReleaseBundle', () => {
                     snapshotFormatVersion: 1
                 },
                 entities: {
-                    'catalog-main': {
-                        id: 'catalog-main',
+                    'object-main': {
+                        id: 'object-main',
                         codename: createCodenameVlc('Main', 'Главная'),
-                        kind: 'catalog',
+                        kind: 'object',
                         presentation: { name: {} },
                         config: {},
                         fields: [
@@ -724,7 +724,7 @@ describe('applicationReleaseBundle', () => {
                     ]
                 },
                 elements: {
-                    'catalog-main': [
+                    'object-main': [
                         {
                             id: 'row-1',
                             sortOrder: 1,
@@ -745,7 +745,7 @@ describe('applicationReleaseBundle', () => {
 
         const enumAId = syncContext.snapshot.optionValues?.['enum-a']?.[0]?.id
         const enumBId = syncContext.snapshot.optionValues?.['enum-b']?.[0]?.id
-        const elementData = syncContext.snapshot.elements?.['catalog-main']?.[0] as { data?: Record<string, unknown> } | undefined
+        const elementData = syncContext.snapshot.elements?.['object-main']?.[0] as { data?: Record<string, unknown> } | undefined
 
         expect(enumAId).toBeDefined()
         expect(enumBId).toBeDefined()
@@ -771,10 +771,10 @@ describe('applicationReleaseBundle', () => {
                 snapshotFormatVersion: 1 as const
             },
             entities: {
-                'catalog-resources': {
-                    id: 'catalog-resources',
+                'object-resources': {
+                    id: 'object-resources',
                     codename: createCodenameVlc('resources', 'ресурсы'),
-                    kind: 'catalog',
+                    kind: 'object',
                     presentation: { name: {} },
                     config: {},
                     fields: [
@@ -783,7 +783,7 @@ describe('applicationReleaseBundle', () => {
                             codename: createCodenameVlc('NestedResources', 'ВложенныеРесурсы'),
                             dataType: 'TABLE',
                             isRequired: false,
-                            isDisplayAttribute: false,
+                            isDisplayComponent: false,
                             presentation: { name: {} },
                             validationRules: {},
                             uiConfig: {},
@@ -794,12 +794,12 @@ describe('applicationReleaseBundle', () => {
                                     codename: createCodenameVlc('NestedTitle', 'ВложенныйЗаголовок'),
                                     dataType: 'STRING',
                                     isRequired: true,
-                                    isDisplayAttribute: true,
+                                    isDisplayComponent: true,
                                     presentation: { name: {} },
                                     validationRules: { localized: true, versioned: true },
                                     uiConfig: {},
                                     sortOrder: 1,
-                                    parentAttributeId: tableFieldId
+                                    parentComponentId: tableFieldId
                                 }
                             ]
                         },
@@ -808,7 +808,7 @@ describe('applicationReleaseBundle', () => {
                             codename: createCodenameVlc('Motto', 'Девиз'),
                             dataType: 'REF',
                             isRequired: false,
-                            isDisplayAttribute: false,
+                            isDisplayComponent: false,
                             targetEntityId: valueGroupId,
                             targetEntityKind: 'set',
                             targetConstantId: constantId,
@@ -874,7 +874,7 @@ describe('applicationReleaseBundle', () => {
                     expect.objectContaining({
                         id: childFieldId,
                         codename: 'NestedTitle',
-                        parentAttributeId: tableFieldId
+                        parentComponentId: tableFieldId
                     })
                 ]
             })
@@ -883,7 +883,7 @@ describe('applicationReleaseBundle', () => {
             expect.objectContaining({
                 id: childFieldId,
                 codename: 'NestedTitle',
-                parentAttributeId: tableFieldId,
+                parentComponentId: tableFieldId,
                 dataType: 'STRING'
             })
         )

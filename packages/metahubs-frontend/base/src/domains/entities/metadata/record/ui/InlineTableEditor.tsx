@@ -35,11 +35,11 @@ import type { DynamicFieldConfig, DynamicFieldValidationRules } from '@universo/
 export interface InlineTableEditorProps {
     /** Display label for the table section */
     label: string
-    /** Current rows value (controlled) — array of objects with child attribute codenames as keys */
+    /** Current rows value (controlled) — array of objects with child component codenames as keys */
     value: Record<string, unknown>[]
     /** Called when rows change */
     onChange: (rows: Record<string, unknown>[]) => void
-    /** Child field definitions from DynamicFieldConfig.childFields */
+    /** Child components from DynamicFieldConfig.childFields */
     childFields: DynamicFieldConfig[]
     /** Whether editing is disabled */
     disabled?: boolean
@@ -411,7 +411,7 @@ function NumberTableCell({ value, onChange, rules, locale, disabled }: NumberTab
 }
 
 /**
- * Inline table editor for TABLE attribute child rows.
+ * Inline table editor for TABLE component child rows.
  * Uses simple MUI Table with editable inputs for a clean, compact look.
  */
 export function InlineTableEditor({

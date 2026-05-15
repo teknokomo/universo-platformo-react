@@ -91,9 +91,9 @@ jest.mock('@universo/metahubs-backend', () => {
                     entities: [
                         {
                             id: 'entity-1',
-                            kind: 'catalog',
+                            kind: 'object',
                             codename: 'products',
-                            tableName: 'cat_products',
+                            tableName: 'obj_products',
                             fields: []
                         }
                     ],
@@ -281,14 +281,14 @@ describe('core route composition publication -> application sync flow', () => {
 
         for (const plan of fixedPlans) {
             expect(plan.businessTables.length).toBeGreaterThan(0)
-            expect(plan.businessTables.every((table) => /^(cat|doc|rel|cfg)_/.test(table.tableName))).toBe(true)
+            expect(plan.businessTables.every((table) => /^(obj|doc|rel|cfg)_/.test(table.tableName))).toBe(true)
         }
 
         expect(buildRegisteredSystemAppSchemaGenerationPlan('applications').businessTables.map((table) => table.tableName)).toEqual(
-            expect.arrayContaining(['cat_applications', 'cat_connectors', 'rel_connector_publications', 'rel_application_users'])
+            expect.arrayContaining(['obj_applications', 'obj_connectors', 'rel_connector_publications', 'rel_application_users'])
         )
         expect(buildRegisteredSystemAppSchemaGenerationPlan('metahubs').businessTables.map((table) => table.tableName)).toEqual(
-            expect.arrayContaining(['cat_metahubs', 'doc_publications'])
+            expect.arrayContaining(['obj_metahubs', 'doc_publications'])
         )
     })
 })

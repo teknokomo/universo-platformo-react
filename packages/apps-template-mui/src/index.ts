@@ -60,7 +60,7 @@ export { getDataGridLocaleText } from './utils/getDataGridLocale'
 export type { CrudDataAdapter, CellRendererOverrides, RuntimeRecordCommand } from './api/types'
 export { createStandaloneAdapter } from './api/adapters'
 
-// Tabular part (TABLE attribute) adapter & components
+// Tabular part (TABLE component) adapter & components
 /** @deprecated Use direct API helpers with RuntimeInlineTabularEditor instead */
 export { createTabularPartAdapter } from './api/TabularPartAdapter'
 /** @deprecated Use direct API helpers with RuntimeInlineTabularEditor instead */

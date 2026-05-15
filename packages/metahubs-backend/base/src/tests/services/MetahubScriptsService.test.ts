@@ -223,22 +223,22 @@ describe('MetahubScriptsService', () => {
         )
     })
 
-    it('accepts catalog script attachments for the direct standard catalog kind', async () => {
+    it('accepts object script attachments for the direct standard object kind', async () => {
         mockListEditableTypes.mockResolvedValue([
             {
-                kindKey: 'catalog',
+                kindKey: 'object',
                 config: {
                     compatibility: {
-                        legacyObjectKind: 'catalog'
+                        legacyObjectKind: 'object'
                     }
                 }
             }
         ])
-        ;(executor.query as jest.Mock).mockResolvedValueOnce([{ id: 'catalog-1' }])
+        ;(executor.query as jest.Mock).mockResolvedValueOnce([{ id: 'object-1' }])
         mockInsertStoredMetahubScript.mockResolvedValueOnce(
             createStoredScriptRow({
-                attached_to_kind: 'catalog',
-                attached_to_id: 'catalog-1',
+                attached_to_kind: 'object',
+                attached_to_id: 'object-1',
                 module_role: 'module'
             })
         )
@@ -251,25 +251,25 @@ describe('MetahubScriptsService', () => {
                     name: {
                         _primary: 'en',
                         locales: {
-                            en: { content: 'Catalog rules' }
+                            en: { content: 'Object rules' }
                         }
                     }
                 },
-                attachedToKind: 'catalog',
-                attachedToId: 'catalog-1',
+                attachedToKind: 'object',
+                attachedToId: 'object-1',
                 moduleRole: 'module',
                 sourceCode: 'export default class CatalogRules {}'
             },
             'user-1'
         )
 
-        expect(executor.query).toHaveBeenCalledWith(expect.stringContaining('kind = ANY($2::text[])'), ['catalog-1', ['catalog']])
+        expect(executor.query).toHaveBeenCalledWith(expect.stringContaining('kind = ANY($2::text[])'), ['object-1', ['object']])
         expect(mockInsertStoredMetahubScript).toHaveBeenCalledWith(
             expect.anything(),
             schemaName,
             expect.objectContaining({
-                attachedToKind: 'catalog',
-                attachedToId: 'catalog-1'
+                attachedToKind: 'object',
+                attachedToId: 'object-1'
             })
         )
     })
@@ -638,8 +638,8 @@ describe('MetahubScriptsService', () => {
         mockListStoredMetahubScripts.mockResolvedValue([
             createStoredScriptRow({
                 id: 'script-2',
-                attached_to_kind: 'catalog',
-                attached_to_id: 'catalog-1',
+                attached_to_kind: 'object',
+                attached_to_id: 'object-1',
                 module_role: 'module',
                 source_code: "import SharedHelpers from '@shared/shared-helpers'\nexport default class ConsumerScript {}"
             })
@@ -663,8 +663,8 @@ describe('MetahubScriptsService', () => {
                         en: { content: 'consumer-script' }
                     }
                 },
-                attached_to_kind: 'catalog',
-                attached_to_id: 'catalog-1',
+                attached_to_kind: 'object',
+                attached_to_id: 'object-1',
                 module_role: 'module',
                 source_code: "import SharedHelpers from '@shared/shared-helpers'\nexport default class ConsumerScript {}",
                 manifest: {
@@ -800,14 +800,14 @@ describe('MetahubScriptsService', () => {
                 moduleRole: 'module'
             })
         )
-        expect(result.map((script) => script.id)).toEqual(['script-consumer', 'plain-script'])
-        expect(result[0]).toEqual(
+        expect(result.map((script) => script.id)).toEqual(['plain-script', 'script-consumer'])
+        expect(result.find((script) => script.id === 'script-consumer')).toEqual(
             expect.objectContaining({
                 clientBundle: 'compiled:consumer-script',
                 checksum: 'checksum:consumer-script'
             })
         )
-        expect(result[1]).toEqual(
+        expect(result.find((script) => script.id === 'plain-script')).toEqual(
             expect.objectContaining({
                 clientBundle: 'compiled:plain-script',
                 checksum: 'checksum:plain-script'

@@ -51,7 +51,7 @@ export function useCreateTreeEntity() {
                 name: data.name,
                 description: data.description,
                 sortOrder: optimisticSortOrder,
-                linkedCollectionsCount: 0,
+                objectCollectionsCount: 0,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
                 ...makePendingMarkers('create')
@@ -299,7 +299,7 @@ export function useCopyTreeEntity() {
                 queryClient,
                 ['treeEntities'],
                 metahubsQueryKeys.treeEntities(variables.metahubId),
-                metahubsQueryKeys.allLinkedCollections(variables.metahubId),
+                metahubsQueryKeys.allObjectCollections(variables.metahubId),
                 metahubsQueryKeys.allOptionLists(variables.metahubId),
                 metahubsQueryKeys.detail(variables.metahubId)
             )

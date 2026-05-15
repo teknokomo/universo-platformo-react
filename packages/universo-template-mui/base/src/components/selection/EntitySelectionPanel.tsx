@@ -79,6 +79,8 @@ export interface EntitySelectionLabels {
     singleDisabledHelp?: string
     /** Warning when cannot enable single mode */
     singleWarning?: string
+    /** Short label for the current container quick-link action */
+    currentContainerShort?: string
 }
 
 export interface EntitySelectionPanelProps<T extends SelectableEntity> {

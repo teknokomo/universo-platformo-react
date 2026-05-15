@@ -18,10 +18,10 @@ import {
     truncateApplicationName,
     useMetahubPublicationName,
     useTreeEntityName,
-    useLinkedCollectionName,
-    useLinkedCollectionNameStandalone,
+    useObjectCollectionName,
+    useObjectCollectionNameStandalone,
     useValueGroupNameStandalone,
-    truncateLinkedCollectionName,
+    truncateObjectCollectionName,
     truncateValueGroupName,
     useOptionListName,
     truncateOptionListName,
@@ -74,7 +74,7 @@ type BreadcrumbEntityDetail = Record<string, unknown> & {
 }
 
 const LEGACY_COMPATIBLE_ENTITY_LABEL_KEYS: Record<BuiltinEntityKind, string> = {
-    catalog: 'catalogs',
+    object: 'objects',
     hub: 'hubs',
     set: 'sets',
     enumeration: 'enumerations',
@@ -83,7 +83,7 @@ const LEGACY_COMPATIBLE_ENTITY_LABEL_KEYS: Record<BuiltinEntityKind, string> = {
 }
 
 const BUILTIN_ENTITY_TITLE_KEYS: Record<BuiltinEntityKind, { key: string; fallback: string }> = {
-    catalog: { key: 'metahubs:catalogs.title', fallback: 'Catalogs' },
+    object: { key: 'metahubs:objects.title', fallback: 'Objects' },
     hub: { key: 'metahubs:hubs.title', fallback: 'Hubs' },
     set: { key: 'metahubs:sets.title', fallback: 'Sets' },
     enumeration: { key: 'metahubs:enumerations.title', fallback: 'Enumerations' },
@@ -109,8 +109,8 @@ const resolveMenuFallbackLabel = (key: string, fallback: string): string => {
 
 const buildEntityInstancesPath = (metahubId: string, kindSegment: string): string =>
     `/metahub/${metahubId}/entities/${kindSegment}/instances`
-const ENTITY_METADATA_TAB_SEGMENTS: Record<'attributes' | 'system' | 'elements', string> = {
-    attributes: 'field-definitions',
+const ENTITY_METADATA_TAB_SEGMENTS: Record<'components' | 'system' | 'elements', string> = {
+    components: 'components',
     system: 'system',
     elements: 'records'
 }
@@ -137,24 +137,24 @@ const buildEntityInstanceDefaultPath = (
         return `/metahub/${metahubId}/entities/${kindSegment}/instance/${entityId}/content`
     }
 
-    return `/metahub/${metahubId}/entities/${kindSegment}/instance/${entityId}/field-definitions`
+    return `/metahub/${metahubId}/entities/${kindSegment}/instance/${entityId}/components`
 }
 
 const buildEntityTreeEntityScopePath = (
     metahubId: string,
     kindSegment: string,
     treeEntityId: string,
-    tab: 'hubs' | 'catalogs' | 'sets' | 'enumerations'
+    tab: 'hubs' | 'objects' | 'sets' | 'enumerations'
 ) => `/metahub/${metahubId}/entities/${kindSegment}/instance/${treeEntityId}/${tab}`
 
-const buildEntityTreeEntityLinkedCollectionPath = (
+const buildEntityTreeEntityObjectCollectionPath = (
     metahubId: string,
     kindSegment: string,
     treeEntityId: string,
-    linkedCollectionId: string,
-    tab: 'attributes' | 'system' | 'elements'
+    objectCollectionId: string,
+    tab: 'components' | 'system' | 'elements'
 ) =>
-    `/metahub/${metahubId}/entities/${kindSegment}/instance/${treeEntityId}/catalog/${linkedCollectionId}/${ENTITY_METADATA_TAB_SEGMENTS[tab]}`
+    `/metahub/${metahubId}/entities/${kindSegment}/instance/${treeEntityId}/instance/${objectCollectionId}/${ENTITY_METADATA_TAB_SEGMENTS[tab]}`
 
 const buildEntityTreeEntityValueGroupPath = (metahubId: string, kindSegment: string, treeEntityId: string, valueGroupId: string) =>
     `/metahub/${metahubId}/entities/${kindSegment}/instance/${treeEntityId}/set/${valueGroupId}/fixed-values`
@@ -201,8 +201,8 @@ export default function NavbarBreadcrumbs() {
     const entityRouteKindKey = entityRouteKindSegment ? decodeURIComponent(entityRouteKindSegment) : null
     const entityRouteDetailMatch = location.pathname.match(/^\/metahubs?\/([^/]+)\/entities\/[^/]+\/instance\/([^/]+)(?:\/|$)/)
     const entityRouteEntityId = entityRouteDetailMatch ? entityRouteDetailMatch[2] : null
-    const entityRouteTreeEntityLinkedCollectionMatch = location.pathname.match(
-        /^\/metahubs?\/([^/]+)\/entities\/[^/]+\/instance\/([^/]+)\/catalog\/([^/]+)(?:\/|$)/
+    const entityRouteTreeEntityObjectCollectionMatch = location.pathname.match(
+        /^\/metahubs?\/([^/]+)\/entities\/[^/]+\/instance\/([^/]+)\/instance\/([^/]+)(?:\/|$)/
     )
     const entityRouteTreeEntityValueGroupMatch = location.pathname.match(
         /^\/metahubs?\/([^/]+)\/entities\/[^/]+\/instance\/([^/]+)\/set\/([^/]+)(?:\/|$)/
@@ -234,26 +234,26 @@ export default function NavbarBreadcrumbs() {
     const matchedEntityType = (entityTypeRouteQuery.data?.items ?? []).find((item) => item.kindKey === entityRouteKindKey) ?? null
     const resolvedEntityRouteKind = matchedEntityType?.kindKey ?? entityRouteKindKey ?? ''
     const entityRouteLegacyCompatibleKind = isBuiltinEntityKind(resolvedEntityRouteKind) ? resolvedEntityRouteKind : null
-    const entityRouteLinkedCollectionName = useLinkedCollectionNameStandalone(
+    const entityRouteObjectCollectionName = useObjectCollectionNameStandalone(
         entityRouteMetahubId,
-        entityRouteLegacyCompatibleKind === 'catalog' ? entityRouteEntityId : null
+        entityRouteLegacyCompatibleKind === 'object' ? entityRouteEntityId : null
     )
     const entityRouteTreeEntityName = useTreeEntityName(
         entityRouteMetahubId,
         entityRouteLegacyCompatibleKind === 'hub'
             ? entityRouteEntityId
-            : entityRouteTreeEntityLinkedCollectionMatch
-            ? entityRouteTreeEntityLinkedCollectionMatch[2]
+            : entityRouteTreeEntityObjectCollectionMatch
+            ? entityRouteTreeEntityObjectCollectionMatch[2]
             : entityRouteTreeEntityValueGroupMatch
             ? entityRouteTreeEntityValueGroupMatch[2]
             : entityRouteTreeEntityOptionListMatch
             ? entityRouteTreeEntityOptionListMatch[2]
             : null
     )
-    const entityRouteTreeEntityLinkedCollectionName = useLinkedCollectionName(
+    const entityRouteTreeEntityObjectCollectionName = useObjectCollectionName(
         entityRouteMetahubId,
-        entityRouteTreeEntityLinkedCollectionMatch ? entityRouteTreeEntityLinkedCollectionMatch[2] : null,
-        entityRouteTreeEntityLinkedCollectionMatch ? entityRouteTreeEntityLinkedCollectionMatch[3] : null
+        entityRouteTreeEntityObjectCollectionMatch ? entityRouteTreeEntityObjectCollectionMatch[2] : null,
+        entityRouteTreeEntityObjectCollectionMatch ? entityRouteTreeEntityObjectCollectionMatch[3] : null
     )
     const entityRouteValueGroupName = useValueGroupNameStandalone(
         entityRouteMetahubId,
@@ -325,8 +325,8 @@ export default function NavbarBreadcrumbs() {
     })
     const entityInstanceBreadcrumbLabel = (() => {
         const resolvedLabel =
-            (entityRouteLegacyCompatibleKind === 'catalog'
-                ? entityRouteLinkedCollectionName
+            (entityRouteLegacyCompatibleKind === 'object'
+                ? entityRouteObjectCollectionName
                 : entityRouteLegacyCompatibleKind === 'hub'
                 ? entityRouteTreeEntityName
                 : entityRouteLegacyCompatibleKind === 'set'
@@ -441,7 +441,7 @@ export default function NavbarBreadcrumbs() {
                     to: `/metahub/${segments[1]}`
                 })
 
-                // Sub-pages: tree-entities, linked-collections, access, members
+                // Sub-pages: tree entities, objects, access, members
                 if (segments[2] === 'access') {
                     items.push({ label: t('access'), to: location.pathname })
                 } else if (segments[2] === 'members') {
@@ -471,7 +471,7 @@ export default function NavbarBreadcrumbs() {
                             if (entityRouteLegacyCompatibleKind === 'hub') {
                                 if (
                                     segments[6] === 'hubs' ||
-                                    segments[6] === 'catalogs' ||
+                                    segments[6] === 'objects' ||
                                     segments[6] === 'sets' ||
                                     segments[6] === 'enumerations'
                                 ) {
@@ -479,29 +479,29 @@ export default function NavbarBreadcrumbs() {
                                         label: t(segments[6]),
                                         to: buildEntityTreeEntityScopePath(segments[1], segments[3], segments[5], segments[6])
                                     })
-                                } else if (segments[6] === 'catalog' && segments[7]) {
+                                } else if (segments[6] === 'instance' && segments[7]) {
                                     items.push({
-                                        label: t('catalogs'),
-                                        to: buildEntityTreeEntityScopePath(segments[1], segments[3], segments[5], 'catalogs')
+                                        label: t('objects'),
+                                        to: buildEntityTreeEntityScopePath(segments[1], segments[3], segments[5], 'objects')
                                     })
                                     items.push({
-                                        label: entityRouteTreeEntityLinkedCollectionName
-                                            ? truncateLinkedCollectionName(entityRouteTreeEntityLinkedCollectionName)
+                                        label: entityRouteTreeEntityObjectCollectionName
+                                            ? truncateObjectCollectionName(entityRouteTreeEntityObjectCollectionName)
                                             : '...',
-                                        to: buildEntityTreeEntityLinkedCollectionPath(
+                                        to: buildEntityTreeEntityObjectCollectionPath(
                                             segments[1],
                                             segments[3],
                                             segments[5],
                                             segments[7],
-                                            'attributes'
+                                            'components'
                                         )
                                     })
 
-                                    if (segments[8] === 'attributes') {
-                                        items.push({ label: t('attributes'), to: location.pathname })
+                                    if (segments[8] === 'components') {
+                                        items.push({ label: t('components'), to: location.pathname })
                                     } else if (segments[8] === 'system') {
                                         items.push({
-                                            label: i18n.t('metahubs:attributes.system.title', { defaultValue: 'System Attributes' }),
+                                            label: i18n.t('metahubs:components.system.title', { defaultValue: 'System Components' }),
                                             to: location.pathname
                                         })
                                     } else if (segments[8] === 'elements') {
@@ -555,11 +555,11 @@ export default function NavbarBreadcrumbs() {
                                         to: defaultEntityInstancePath
                                     })
                                 }
-                            } else if (segments[6] === 'attributes') {
-                                items.push({ label: t('attributes'), to: location.pathname })
+                            } else if (segments[6] === 'components') {
+                                items.push({ label: t('components'), to: location.pathname })
                             } else if (segments[6] === 'system') {
                                 items.push({
-                                    label: i18n.t('metahubs:attributes.system.title', { defaultValue: 'System Attributes' }),
+                                    label: i18n.t('metahubs:components.system.title', { defaultValue: 'System Components' }),
                                     to: location.pathname
                                 })
                             } else if (segments[6] === 'elements') {

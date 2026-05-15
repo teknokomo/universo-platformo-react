@@ -897,7 +897,7 @@ const ApplicationSettings = () => {
                         <Alert severity='info'>
                             {t(
                                 'settings.limitsHint',
-                                'Set row limits per catalog for every workspace. When the limit is reached, users will not be able to create more records in that catalog.'
+                                'Set row limits per object for every workspace. When the limit is reached, users will not be able to create more records in that object.'
                             )}
                         </Alert>
 

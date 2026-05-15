@@ -35,27 +35,27 @@ const createSystemAppDefinition = (overrides: Partial<SystemAppDefinition> = {})
     targetStorageModel: 'application_like',
     currentStructureCapabilities: {
         appCoreTables: false,
-        catalogTables: true,
+        objectTables: true,
         documentTables: false,
         relationTables: true,
         settingsTables: false,
         layoutTables: false,
         widgetTables: false,
-        attributeValueTables: false
+        componentValueTables: false
     },
     targetStructureCapabilities: {
         appCoreTables: true,
-        catalogTables: true,
+        objectTables: true,
         documentTables: false,
         relationTables: true,
         settingsTables: true,
         layoutTables: false,
         widgetTables: false,
-        attributeValueTables: false
+        componentValueTables: false
     },
     currentBusinessTables: [
         {
-            kind: 'catalog',
+            kind: 'object',
             codename: 'metahubs',
             tableName: 'metahubs'
         },
@@ -67,9 +67,9 @@ const createSystemAppDefinition = (overrides: Partial<SystemAppDefinition> = {})
     ],
     targetBusinessTables: [
         {
-            kind: 'catalog',
+            kind: 'object',
             codename: 'metahubs',
-            tableName: 'cat_metahubs'
+            tableName: 'obj_metahubs'
         },
         {
             kind: 'relation',
@@ -235,9 +235,9 @@ describe('validatePlatformMigrations', () => {
             createSystemAppDefinition({
                 currentBusinessTables: [
                     {
-                        kind: 'catalog',
+                        kind: 'object',
                         codename: 'metahubs',
-                        tableName: 'cat_metahubs',
+                        tableName: 'obj_metahubs',
                         presentation: createSystemAppManifestPresentation('Metahubs', 'System metahub registry'),
                         fields: [
                             {
@@ -245,7 +245,7 @@ describe('validatePlatformMigrations', () => {
                                 physicalColumnName: 'name',
                                 dataType: 'STRING',
                                 isRequired: true,
-                                isDisplayAttribute: true,
+                                isDisplayComponent: true,
                                 presentation: createSystemAppManifestPresentation('Name', 'Primary metahub name'),
                                 validationRules: {
                                     minLength: 1
@@ -259,9 +259,9 @@ describe('validatePlatformMigrations', () => {
                 ],
                 targetBusinessTables: [
                     {
-                        kind: 'catalog',
+                        kind: 'object',
                         codename: 'metahubs',
-                        tableName: 'cat_metahubs',
+                        tableName: 'obj_metahubs',
                         presentation: createSystemAppManifestPresentation('Metahubs', 'System metahub registry'),
                         fields: [
                             {
@@ -269,7 +269,7 @@ describe('validatePlatformMigrations', () => {
                                 physicalColumnName: 'name',
                                 dataType: 'STRING',
                                 isRequired: true,
-                                isDisplayAttribute: true,
+                                isDisplayComponent: true,
                                 presentation: createSystemAppManifestPresentation('Name', 'Primary metahub name'),
                                 validationRules: {
                                     minLength: 1
@@ -318,7 +318,7 @@ describe('validatePlatformMigrations', () => {
                 currentStorageModel: 'application_like',
                 currentBusinessTables: [
                     {
-                        kind: 'catalog',
+                        kind: 'object',
                         codename: 'applications',
                         tableName: 'applications'
                     }
@@ -330,13 +330,13 @@ describe('validatePlatformMigrations', () => {
                 },
                 currentStructureCapabilities: {
                     appCoreTables: true,
-                    catalogTables: true,
+                    objectTables: true,
                     documentTables: false,
                     relationTables: false,
                     settingsTables: true,
                     layoutTables: true,
                     widgetTables: true,
-                    attributeValueTables: true
+                    componentValueTables: true
                 }
             })
         ])
@@ -352,13 +352,13 @@ describe('validatePlatformMigrations', () => {
                 currentStorageModel: 'application_like',
                 currentStructureCapabilities: {
                     appCoreTables: false,
-                    catalogTables: true,
+                    objectTables: true,
                     documentTables: false,
                     relationTables: false,
                     settingsTables: false,
                     layoutTables: true,
                     widgetTables: false,
-                    attributeValueTables: false
+                    componentValueTables: false
                 }
             })
         ])
@@ -369,7 +369,7 @@ describe('validatePlatformMigrations', () => {
                 expect.objectContaining({ message: 'System app manifestVersion must be a positive integer' }),
                 expect.objectContaining({
                     message:
-                        'currentStructureCapabilities requires appCoreTables=true when layout, widget, or attribute value tables are enabled'
+                        'currentStructureCapabilities requires appCoreTables=true when layout, widget, or component value tables are enabled'
                 }),
                 expect.objectContaining({
                     message: 'System app currentStructureCapabilities.appCoreTables must be true for application_like storage'
@@ -383,13 +383,13 @@ describe('validatePlatformMigrations', () => {
             createSystemAppDefinition({
                 targetStructureCapabilities: {
                     appCoreTables: true,
-                    catalogTables: true,
+                    objectTables: true,
                     documentTables: false,
                     relationTables: false,
                     settingsTables: true,
                     layoutTables: false,
                     widgetTables: true,
-                    attributeValueTables: false
+                    componentValueTables: false
                 }
             })
         ])
@@ -407,9 +407,9 @@ describe('validatePlatformMigrations', () => {
             createSystemAppDefinition({
                 targetBusinessTables: [
                     {
-                        kind: 'catalog',
+                        kind: 'object',
                         codename: 'metahubs',
-                        tableName: 'cat_metahubs',
+                        tableName: 'obj_metahubs',
                         fields: [
                             {
                                 codename: 'name',
@@ -440,9 +440,9 @@ describe('validatePlatformMigrations', () => {
             createSystemAppDefinition({
                 targetBusinessTables: [
                     {
-                        kind: 'catalog',
+                        kind: 'object',
                         codename: 'metahubs',
-                        tableName: 'cat_metahubs',
+                        tableName: 'obj_metahubs',
                         fields: [
                             {
                                 codename: 'name',
@@ -474,9 +474,9 @@ describe('validatePlatformMigrations', () => {
             createSystemAppDefinition({
                 targetBusinessTables: [
                     {
-                        kind: 'catalog',
+                        kind: 'object',
                         codename: 'metahubs',
-                        tableName: 'cat_metahubs',
+                        tableName: 'obj_metahubs',
                         fields: [
                             {
                                 codename: 'default_branch_id',
@@ -526,12 +526,12 @@ describe('validatePlatformMigrations', () => {
             createSystemAppDefinition({
                 targetBusinessTables: [
                     {
-                        kind: 'catalog',
+                        kind: 'object',
                         codename: 'metahubs',
                         tableName: 'metahubs'
                     },
                     {
-                        kind: 'catalog',
+                        kind: 'object',
                         codename: 'metahubs_duplicate',
                         tableName: 'metahubs'
                     }
@@ -543,7 +543,7 @@ describe('validatePlatformMigrations', () => {
         expect(result.issues).toEqual(
             expect.arrayContaining([
                 expect.objectContaining({
-                    message: 'targetBusinessTables must use cat_* table names for kind=catalog'
+                    message: 'targetBusinessTables must use obj_* table names for kind=object'
                 }),
                 expect.objectContaining({
                     message: 'targetBusinessTables contains duplicate tableName: metahubs'
@@ -557,13 +557,13 @@ describe('validatePlatformMigrations', () => {
             createSystemAppDefinition({
                 currentStructureCapabilities: {
                     appCoreTables: false,
-                    catalogTables: true,
+                    objectTables: true,
                     documentTables: false,
                     relationTables: false,
                     settingsTables: false,
                     layoutTables: false,
                     widgetTables: false,
-                    attributeValueTables: false
+                    componentValueTables: false
                 },
                 currentBusinessTables: [
                     {

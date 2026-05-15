@@ -51,7 +51,7 @@ describe('metahubs soft-delete parity', () => {
         expect(sql).toContain('membership._upl_deleted = false AND membership._app_deleted = false')
         expect(sql).toContain('m._upl_deleted = false AND m._app_deleted = false')
         expect(sql).toContain('FROM metahubs.rel_metahub_users')
-        expect(sql).toContain('FROM metahubs.cat_metahub_branches')
+        expect(sql).toContain('FROM metahubs.obj_metahub_branches')
         expect(sql).toContain('WHERE _upl_deleted = false AND _app_deleted = false')
     })
 
@@ -111,7 +111,7 @@ describe('metahubs soft-delete parity', () => {
         await getMetahubMembership(exec as never, 'user-1', 'metahub-1')
 
         const [sql, params] = exec.query.mock.calls[0]
-        expect(sql).toContain('JOIN metahubs.cat_metahubs m ON m.id = mu.metahub_id')
+        expect(sql).toContain('JOIN metahubs.obj_metahubs m ON m.id = mu.metahub_id')
         expect(sql).toContain('mu._upl_deleted = false AND mu._app_deleted = false')
         expect(sql).toContain('m._upl_deleted = false AND m._app_deleted = false')
         expect(params).toEqual(['metahub-1', 'user-1'])

@@ -1,26 +1,26 @@
 import type { Knex } from 'knex'
 import type { SystemTableCapabilityOptions } from '@universo/migrations-core'
 import {
-    FieldDefinitionDataType,
+    ComponentDefinitionDataType,
     DASHBOARD_LAYOUT_WIDGETS,
-    isCatalogRecordBehaviorEnabled,
+    isObjectRecordBehaviorEnabled,
     isLedgerSchemaCapableEntity,
-    normalizeCatalogRecordBehaviorFromConfig,
+    normalizeObjectRecordBehaviorFromConfig,
     getPhysicalDataType,
     formatPhysicalType,
-    type ComponentManifest,
+    type EntityTypeCapabilities,
     type ApplicationLifecycleContract,
-    type CatalogRecordBehavior,
+    type ObjectRecordBehavior,
     type VersionedLocalizedContent
 } from '@universo/types'
-import type { FieldDefinitionValidationRules } from '@universo/types'
+import type { ComponentDefinitionValidationRules } from '@universo/types'
 import { resolveApplicationLifecycleContractFromConfig, resolvePlatformSystemFieldsContractFromConfig } from '@universo/utils'
 import { buildSetLocalStatementTimeoutSql } from '@universo/utils/database'
 import { buildSchemaSnapshot } from './snapshot'
 import { buildFkConstraintName, resolveFieldColumnName, resolveEntityTableName, generateChildTableName, isValidSchemaName } from './naming'
 import { generateMigrationName } from './MigrationManager'
 import type { MigrationManager } from './MigrationManager'
-import type { EntityDefinition, FieldDefinition, SchemaGenerationResult, SchemaSnapshot } from './types'
+import type { EntityDefinition, Component, SchemaGenerationResult, SchemaSnapshot } from './types'
 import type { SchemaDiff } from './diff'
 import { hasPhysicalRuntimeTable, isStandardEnumerationKind, isStandardSetKind } from './builtinEntityKinds'
 
@@ -85,7 +85,7 @@ export interface GenerateFullSchemaOptions {
 }
 
 interface NormalizedSystemTableCapabilityOptions {
-    includeAttributes: boolean
+    includeComponents: boolean
     includeValues: boolean
     includeLayouts: boolean
     includeWidgets: boolean
@@ -93,7 +93,7 @@ interface NormalizedSystemTableCapabilityOptions {
 
 const normalizeSystemTableCapabilities = (options?: SystemTableCapabilityOptions): NormalizedSystemTableCapabilityOptions => {
     const normalized: NormalizedSystemTableCapabilityOptions = {
-        includeAttributes: options?.includeAttributes ?? true,
+        includeComponents: options?.includeComponents ?? true,
         includeValues: options?.includeValues ?? true,
         includeLayouts: options?.includeLayouts ?? true,
         includeWidgets: options?.includeWidgets ?? true
@@ -130,23 +130,23 @@ export class SchemaGenerator {
      * @param config - Type-specific configuration from validationRules
      * @returns PostgreSQL type string
      */
-    public static mapDataType(dataType: FieldDefinitionDataType, config?: Partial<FieldDefinitionValidationRules>): string {
-        if (dataType === FieldDefinitionDataType.TABLE) {
+    public static mapDataType(dataType: ComponentDefinitionDataType, config?: Partial<ComponentDefinitionValidationRules>): string {
+        if (dataType === ComponentDefinitionDataType.TABLE) {
             throw new Error('TABLE is a virtual type with no physical column. Use createTabularTable() instead.')
         }
         const info = getPhysicalDataType(dataType, config)
         return formatPhysicalType(info)
     }
 
-    private static resolveFieldPhysicalType(field: FieldDefinition): string {
+    private static resolveFieldPhysicalType(field: Component): string {
         if (typeof field.physicalDataType === 'string' && field.physicalDataType.trim().length > 0) {
             return field.physicalDataType.trim()
         }
 
-        return SchemaGenerator.mapDataType(field.dataType, field.validationRules as Partial<FieldDefinitionValidationRules> | undefined)
+        return SchemaGenerator.mapDataType(field.dataType, field.validationRules as Partial<ComponentDefinitionValidationRules> | undefined)
     }
 
-    private static applyFieldColumn(table: Knex.CreateTableBuilder, knex: Knex | Knex.Transaction, field: FieldDefinition): void {
+    private static applyFieldColumn(table: Knex.CreateTableBuilder, knex: Knex | Knex.Transaction, field: Component): void {
         const columnName = resolveFieldColumnName(field)
         const pgType = SchemaGenerator.resolveFieldPhysicalType(field)
         const column = table.specificType(columnName, pgType)
@@ -162,7 +162,7 @@ export class SchemaGenerator {
             return
         }
 
-        if (!field.isRequired && field.dataType === FieldDefinitionDataType.BOOLEAN) {
+        if (!field.isRequired && field.dataType === ComponentDefinitionDataType.BOOLEAN) {
             column.defaultTo(false)
         }
     }
@@ -175,16 +175,16 @@ export class SchemaGenerator {
         return resolvePlatformSystemFieldsContractFromConfig((entity as { config?: Record<string, unknown> }).config)
     }
 
-    private static resolveRecordBehavior(entity: EntityDefinition): CatalogRecordBehavior {
+    private static resolveRecordBehavior(entity: EntityDefinition): ObjectRecordBehavior {
         const config = (entity as { config?: Record<string, unknown> }).config
-        return normalizeCatalogRecordBehaviorFromConfig(config)
+        return normalizeObjectRecordBehaviorFromConfig(config)
     }
 
-    private static isRecordBehaviorEnabled(behavior: CatalogRecordBehavior): boolean {
-        return isCatalogRecordBehaviorEnabled(behavior)
+    private static isRecordBehaviorEnabled(behavior: ObjectRecordBehavior): boolean {
+        return isObjectRecordBehaviorEnabled(behavior)
     }
 
-    private static applyRecordBehaviorColumns(table: Knex.CreateTableBuilder, behavior: CatalogRecordBehavior): void {
+    private static applyRecordBehaviorColumns(table: Knex.CreateTableBuilder, behavior: ObjectRecordBehavior): void {
         if (!SchemaGenerator.isRecordBehaviorEnabled(behavior)) {
             return
         }
@@ -200,35 +200,35 @@ export class SchemaGenerator {
         table.uuid('_app_voided_by').nullable()
     }
 
-    private static resolveRuntimeComponents(entity: EntityDefinition): ComponentManifest | undefined {
-        if (entity.components) {
-            return entity.components
+    private static resolveRuntimeComponents(entity: EntityDefinition): EntityTypeCapabilities | undefined {
+        if (entity.capabilities) {
+            return entity.capabilities
         }
 
         const config = (entity as { config?: Record<string, unknown> }).config
-        if (isRecord(config?.components)) {
-            return config.components as unknown as ComponentManifest
+        if (isRecord(config?.capabilities)) {
+            return config.capabilities as unknown as EntityTypeCapabilities
         }
 
         return undefined
     }
 
     private static isLedgerEntity(entity: EntityDefinition): boolean {
-        const components = SchemaGenerator.resolveRuntimeComponents(entity)
-        return isLedgerSchemaCapableEntity(components)
+        const capabilities = SchemaGenerator.resolveRuntimeComponents(entity)
+        return isLedgerSchemaCapableEntity(capabilities)
     }
 
     private static buildRuntimeObjectConfig(entity: EntityDefinition): Record<string, unknown> {
         const config = (entity as { config?: Record<string, unknown> }).config ?? {}
-        const components = SchemaGenerator.resolveRuntimeComponents(entity)
+        const capabilities = SchemaGenerator.resolveRuntimeComponents(entity)
 
-        if (!components) {
+        if (!capabilities) {
             return config
         }
 
         return {
             ...config,
-            components
+            capabilities
         }
     }
 
@@ -365,10 +365,12 @@ export class SchemaGenerator {
                     await this.createEntityTable(schemaName, entity, trx)
                     result.tablesCreated.push(entity.codename)
 
-                    // Create tabular tables for TABLE attributes
-                    const tableFields = entity.fields.filter((f) => f.dataType === FieldDefinitionDataType.TABLE && !f.parentAttributeId)
+                    // Create tabular tables for TABLE components
+                    const tableFields = entity.fields.filter(
+                        (f) => f.dataType === ComponentDefinitionDataType.TABLE && !f.parentComponentId
+                    )
                     for (const tableField of tableFields) {
-                        const childFields = entity.fields.filter((f) => f.parentAttributeId === tableField.id)
+                        const childFields = entity.fields.filter((f) => f.parentComponentId === tableField.id)
                         const parentTableName = resolveEntityTableName(entity)
                         await this.createTabularTable(schemaName, entity, parentTableName, tableField, childFields, trx)
                         result.tablesCreated.push(`${entity.codename}__tbl__${tableField.codename}`)
@@ -380,7 +382,7 @@ export class SchemaGenerator {
 
                 for (const entity of entities) {
                     const rootRefFields = entity.fields.filter(
-                        (field) => field.dataType === FieldDefinitionDataType.REF && field.targetEntityId && !field.parentAttributeId
+                        (field) => field.dataType === ComponentDefinitionDataType.REF && field.targetEntityId && !field.parentComponentId
                     )
                     for (const field of rootRefFields) {
                         await this.addForeignKey(schemaName, entity, field, entities, trx)
@@ -388,15 +390,15 @@ export class SchemaGenerator {
 
                     const childRefFields = entity.fields.filter(
                         (field) =>
-                            field.dataType === FieldDefinitionDataType.REF && field.targetEntityId && Boolean(field.parentAttributeId)
+                            field.dataType === ComponentDefinitionDataType.REF && field.targetEntityId && Boolean(field.parentComponentId)
                     )
                     for (const childRefField of childRefFields) {
                         const tableParentField = entity.fields.find(
-                            (field) => field.id === childRefField.parentAttributeId && field.dataType === FieldDefinitionDataType.TABLE
+                            (field) => field.id === childRefField.parentComponentId && field.dataType === ComponentDefinitionDataType.TABLE
                         )
                         if (!tableParentField) {
                             console.warn(
-                                `[SchemaGenerator] TABLE parent field ${childRefField.parentAttributeId} not found for child REF field ${childRefField.id}`
+                                `[SchemaGenerator] TABLE parent field ${childRefField.parentComponentId} not found for child REF field ${childRefField.id}`
                             )
                             continue
                         }
@@ -483,9 +485,9 @@ export class SchemaGenerator {
             // User-defined fields (skip TABLE and child fields)
             for (const field of entity.fields) {
                 // TABLE fields create separate child tables, not columns
-                if (field.dataType === FieldDefinitionDataType.TABLE) continue
+                if (field.dataType === ComponentDefinitionDataType.TABLE) continue
                 // Child fields belong to tabular tables, not the parent entity table
-                if (field.parentAttributeId) continue
+                if (field.parentComponentId) continue
 
                 SchemaGenerator.applyFieldColumn(table, knex, field)
             }
@@ -547,16 +549,16 @@ export class SchemaGenerator {
     }
 
     /**
-     * Creates a tabular part table for a TABLE attribute.
+     * Creates a tabular part table for a TABLE component.
      * Child table has: id, _tp_parent_id (FK CASCADE), _tp_sort_order,
-     * child attribute columns, and full _upl_* + _app_* system fields.
+     * child component columns, and full _upl_* + _app_* system fields.
      */
     public async createTabularTable(
         schemaName: string,
         entity: EntityDefinition,
         parentTableName: string,
-        tableField: FieldDefinition,
-        childFields: FieldDefinition[],
+        tableField: Component,
+        childFields: Component[],
         trx?: Knex.Transaction
     ): Promise<void> {
         const tabularTableName = generateChildTableName(tableField.id)
@@ -572,7 +574,7 @@ export class SchemaGenerator {
             table.uuid('_tp_parent_id').notNullable()
             table.integer('_tp_sort_order').notNullable().defaultTo(0)
 
-            // Child attribute columns
+            // Child component columns
             for (const child of childFields) {
                 SchemaGenerator.applyFieldColumn(table, knex, child)
             }
@@ -633,7 +635,7 @@ export class SchemaGenerator {
     public async addForeignKey(
         schemaName: string,
         entity: EntityDefinition,
-        field: FieldDefinition,
+        field: Component,
         entities: EntityDefinition[],
         trx?: Knex.Transaction
     ): Promise<void> {
@@ -648,7 +650,7 @@ export class SchemaGenerator {
     private async addForeignKeyToTable(
         schemaName: string,
         sourceTableName: string,
-        field: FieldDefinition,
+        field: Component,
         entities: EntityDefinition[],
         trx?: Knex.Transaction
     ): Promise<void> {
@@ -714,8 +716,8 @@ export class SchemaGenerator {
     public async systemTablesExist(schemaName: string): Promise<boolean> {
         const knex = this.knex
         const hasObjects = await knex.schema.withSchema(schemaName).hasTable('_app_objects')
-        const hasAttributes = await knex.schema.withSchema(schemaName).hasTable('_app_attributes')
-        return hasObjects && hasAttributes
+        const hasComponents = await knex.schema.withSchema(schemaName).hasTable('_app_components')
+        return hasObjects && hasComponents
     }
 
     public async ensureSystemTables(schemaName: string, trx?: Knex.Transaction, options?: SystemTableCapabilityOptions): Promise<void> {
@@ -797,12 +799,12 @@ export class SchemaGenerator {
             ALTER COLUMN "table_name" DROP NOT NULL
         `)
 
-        const hasAttributes = capabilities.includeAttributes ? await knex.schema.withSchema(schemaName).hasTable('_app_attributes') : true
-        console.log(`[SchemaGenerator] _app_attributes enabled=${capabilities.includeAttributes} exists: ${hasAttributes}`)
+        const hasComponents = capabilities.includeComponents ? await knex.schema.withSchema(schemaName).hasTable('_app_components') : true
+        console.log(`[SchemaGenerator] _app_components enabled=${capabilities.includeComponents} exists: ${hasComponents}`)
 
-        if (capabilities.includeAttributes && !hasAttributes) {
-            console.log(`[SchemaGenerator] Creating _app_attributes...`)
-            await knex.schema.withSchema(schemaName).createTable('_app_attributes', (table) => {
+        if (capabilities.includeComponents && !hasComponents) {
+            console.log(`[SchemaGenerator] Creating _app_components...`)
+            await knex.schema.withSchema(schemaName).createTable('_app_components', (table) => {
                 table.uuid('id').primary()
                 table.uuid('object_id').notNullable()
                 table.jsonb('codename').notNullable()
@@ -811,12 +813,12 @@ export class SchemaGenerator {
                 table.string('column_name', 255).notNullable()
                 table.string('data_type', 20).notNullable()
                 table.boolean('is_required').notNullable().defaultTo(false)
-                table.boolean('is_display_attribute').notNullable().defaultTo(false)
+                table.boolean('is_display_component').notNullable().defaultTo(false)
                 // Polymorphic reference: target entity ID and kind
                 table.uuid('target_object_id').nullable()
-                table.string('target_object_kind', ENTITY_KIND_DB_LENGTH).nullable() // 'catalog', 'document', 'hub', etc.
-                // Self-reference: parent TABLE attribute ID for child attributes
-                table.uuid('parent_attribute_id').nullable()
+                table.string('target_object_kind', ENTITY_KIND_DB_LENGTH).nullable() // 'object', 'document', 'hub', etc.
+                // Self-reference: parent TABLE component ID for child components
+                table.uuid('parent_component_id').nullable()
                 table.jsonb('presentation').notNullable().defaultTo('{}')
                 table.jsonb('validation_rules').notNullable().defaultTo('{}')
                 table.jsonb('ui_config').notNullable().defaultTo('{}')
@@ -862,32 +864,32 @@ export class SchemaGenerator {
 
                 table.foreign('object_id').references('id').inTable(`${schemaName}._app_objects`).onDelete('CASCADE')
                 table.foreign('target_object_id').references('id').inTable(`${schemaName}._app_objects`).onDelete('SET NULL')
-                table.foreign('parent_attribute_id').references('id').inTable(`${schemaName}._app_attributes`).onDelete('CASCADE')
+                table.foreign('parent_component_id').references('id').inTable(`${schemaName}._app_components`).onDelete('CASCADE')
                 table.unique(['object_id', 'column_name'])
-                table.index(['parent_attribute_id'], 'idx_app_attributes_parent')
+                table.index(['parent_component_id'], 'idx_app_components_parent')
             })
 
             // Partial unique indexes for codename uniqueness (scoped by parent/root and soft-delete status)
 
-            if (capabilities.includeAttributes) {
+            if (capabilities.includeComponents) {
                 await knex.raw(`
-                        ALTER TABLE "${schemaName}"."_app_attributes"
+                        ALTER TABLE "${schemaName}"."_app_components"
                         ALTER COLUMN "target_object_kind" TYPE VARCHAR(${ENTITY_KIND_DB_LENGTH})
                     `)
             }
             await knex.raw(`
-                CREATE UNIQUE INDEX IF NOT EXISTS idx_app_attributes_object_codename_root_active
-                ON "${schemaName}"._app_attributes (object_id, ${SchemaGenerator.runtimeCodenameTextSql('codename')})
-                WHERE parent_attribute_id IS NULL AND _upl_deleted = false AND _app_deleted = false
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_app_components_object_codename_root_active
+                ON "${schemaName}"._app_components (object_id, ${SchemaGenerator.runtimeCodenameTextSql('codename')})
+                WHERE parent_component_id IS NULL AND _upl_deleted = false AND _app_deleted = false
             `)
 
             await knex.raw(`
-                CREATE UNIQUE INDEX IF NOT EXISTS idx_app_attributes_object_parent_codename_child_active
-                ON "${schemaName}"._app_attributes (object_id, parent_attribute_id, ${SchemaGenerator.runtimeCodenameTextSql('codename')})
-                WHERE parent_attribute_id IS NOT NULL AND _upl_deleted = false AND _app_deleted = false
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_app_components_object_parent_codename_child_active
+                ON "${schemaName}"._app_components (object_id, parent_component_id, ${SchemaGenerator.runtimeCodenameTextSql('codename')})
+                WHERE parent_component_id IS NOT NULL AND _upl_deleted = false AND _app_deleted = false
             `)
 
-            console.log(`[SchemaGenerator] _app_attributes created`)
+            console.log(`[SchemaGenerator] _app_components created`)
         }
 
         const hasMigrations = await knex.schema.withSchema(schemaName).hasTable('_app_migrations')
@@ -1423,7 +1425,7 @@ export class SchemaGenerator {
 
         if (options?.removeMissing) {
             const entityIds = entities.map((entity) => entity.id)
-            const attributeIds = entities.flatMap((entity) => entity.fields.map((field) => field.id))
+            const componentIds = entities.flatMap((entity) => entity.fields.map((field) => field.id))
 
             const objectsTable = knex.withSchema(schemaName).table('_app_objects')
             if (entityIds.length > 0) {
@@ -1432,11 +1434,11 @@ export class SchemaGenerator {
                 await objectsTable.del()
             }
 
-            const attributesTable = knex.withSchema(schemaName).table('_app_attributes')
-            if (attributeIds.length > 0) {
-                await attributesTable.whereNotIn('id', attributeIds).del()
+            const componentsTable = knex.withSchema(schemaName).table('_app_components')
+            if (componentIds.length > 0) {
+                await componentsTable.whereNotIn('id', componentIds).del()
             } else {
-                await attributesTable.del()
+                await componentsTable.del()
             }
         }
 
@@ -1462,12 +1464,12 @@ export class SchemaGenerator {
                 .merge(['kind', 'codename', 'table_name', 'presentation', 'config', '_upl_updated_at', '_upl_updated_by'])
         }
 
-        const attributeRows = entities.flatMap((entity) => {
+        const componentRows = entities.flatMap((entity) => {
             return entity.fields.map((field) => {
                 // For TABLE fields, column_name stores the tabular table name
                 // For child fields, column_name is the physical column in the tabular table
                 const columnName =
-                    field.dataType === FieldDefinitionDataType.TABLE && !field.parentAttributeId
+                    field.dataType === ComponentDefinitionDataType.TABLE && !field.parentComponentId
                         ? generateChildTableName(field.id)
                         : resolveFieldColumnName(field)
                 const baseUiConfig = ((field.uiConfig as Record<string, unknown> | undefined) ?? {}) as Record<string, unknown>
@@ -1492,10 +1494,10 @@ export class SchemaGenerator {
                     column_name: columnName,
                     data_type: field.dataType,
                     is_required: field.isRequired,
-                    is_display_attribute: field.isDisplayAttribute ?? false,
+                    is_display_component: field.isDisplayComponent ?? false,
                     target_object_id: field.targetEntityId ?? null,
                     target_object_kind: field.targetEntityKind ?? null,
-                    parent_attribute_id: field.parentAttributeId ?? null,
+                    parent_component_id: field.parentComponentId ?? null,
                     presentation: field.presentation,
                     validation_rules: field.validationRules ?? {},
                     ui_config: normalizedUiConfig,
@@ -1507,11 +1509,11 @@ export class SchemaGenerator {
             })
         })
 
-        if (attributeRows.length > 0) {
+        if (componentRows.length > 0) {
             await knex
                 .withSchema(schemaName)
-                .table('_app_attributes')
-                .insert(attributeRows)
+                .table('_app_components')
+                .insert(componentRows)
                 .onConflict('id')
                 .merge([
                     'object_id',
@@ -1520,10 +1522,10 @@ export class SchemaGenerator {
                     'column_name',
                     'data_type',
                     'is_required',
-                    'is_display_attribute',
+                    'is_display_component',
                     'target_object_id',
                     'target_object_kind',
-                    'parent_attribute_id',
+                    'parent_component_id',
                     'presentation',
                     'validation_rules',
                     'ui_config',

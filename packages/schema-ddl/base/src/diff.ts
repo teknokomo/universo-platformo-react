@@ -12,7 +12,7 @@ export enum ChangeType {
     MODIFY_FIELD = 'MODIFY_FIELD',
     ADD_FK = 'ADD_FK',
     DROP_FK = 'DROP_FK',
-    // Tabular part (TABLE attribute) change types
+    // Tabular part (TABLE component) change types
     ADD_TABULAR_TABLE = 'ADD_TABULAR_TABLE',
     DROP_TABULAR_TABLE = 'DROP_TABULAR_TABLE',
     ADD_TABULAR_COLUMN = 'ADD_TABULAR_COLUMN',
@@ -140,7 +140,7 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
 
         const oldEntity = oldEntitiesById.get(entity.id)
         if (!oldEntity) continue
-        const newFieldIds = new Set(entity.fields.filter((f) => !f.parentAttributeId).map((field) => field.id))
+        const newFieldIds = new Set(entity.fields.filter((f) => !f.parentComponentId).map((field) => field.id))
         const oldFieldIds = new Set(Object.keys(oldEntity.fields))
         const tableName = resolveEntityTableName(entity)
 
@@ -176,11 +176,11 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
 
         for (const field of entity.fields) {
             // Skip child fields — they are diffed through their TABLE parent
-            if (field.parentAttributeId) continue
+            if (field.parentComponentId) continue
 
             if (!oldFieldIds.has(field.id)) {
                 if (field.dataType === 'TABLE') {
-                    // New TABLE attribute → create tabular table
+                    // New TABLE component → create tabular table
                     const tabularTableName = generateChildTableName(field.id)
                     diff.additive.push({
                         type: ChangeType.ADD_TABULAR_TABLE,
@@ -194,7 +194,7 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
                         description: `Create tabular table for "${field.codename}" in "${entity.codename}"`
                     })
 
-                    const newChildFields = entity.fields.filter((childField) => childField.parentAttributeId === field.id)
+                    const newChildFields = entity.fields.filter((childField) => childField.parentComponentId === field.id)
                     for (const childField of newChildFields) {
                         if (!shouldHavePhysicalForeignKey(childField)) continue
 
@@ -234,7 +234,7 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
             if (!newFieldIds.has(oldFieldId)) {
                 const oldField = oldEntity.fields[oldFieldId]
                 if (oldField.dataType === 'TABLE') {
-                    // Removed TABLE attribute → drop tabular table
+                    // Removed TABLE component → drop tabular table
                     diff.destructive.push({
                         type: ChangeType.DROP_TABULAR_TABLE,
                         entityId: entity.id,
@@ -265,7 +265,7 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
 
         // ─── TABLE child field diffs ─────────────────────────────────────
         for (const field of entity.fields) {
-            if (field.dataType !== 'TABLE' || field.parentAttributeId) continue
+            if (field.dataType !== 'TABLE' || field.parentComponentId) continue
             if (!oldFieldIds.has(field.id)) continue // new TABLE — handled above
 
             const oldField = oldEntity.fields[field.id]
@@ -277,7 +277,7 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
             const tabularTableName = oldField.columnName
             const oldChildFields = oldField.childFields ?? {}
             const oldChildIds = new Set(Object.keys(oldChildFields))
-            const newChildFields = entity.fields.filter((f) => f.parentAttributeId === field.id)
+            const newChildFields = entity.fields.filter((f) => f.parentComponentId === field.id)
             const newChildIds = new Set(newChildFields.map((f) => f.id))
 
             // New child fields
@@ -417,7 +417,7 @@ export const calculateSchemaDiff = (oldSnapshot: SchemaSnapshot | null, newEntit
 
         for (const field of entity.fields) {
             // Skip child fields and TABLE fields — handled separately
-            if (field.parentAttributeId) continue
+            if (field.parentComponentId) continue
             if (field.dataType === 'TABLE') continue
             if (!oldFieldIds.has(field.id)) continue
 

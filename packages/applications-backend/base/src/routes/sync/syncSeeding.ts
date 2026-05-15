@@ -12,7 +12,7 @@ import {
     resolveEntityTableName,
     type EntityDefinition
 } from '@universo/schema-ddl'
-import { FieldDefinitionDataType } from '@universo/types'
+import { ComponentDefinitionDataType } from '@universo/types'
 import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
 import { type ApplicationSyncQueryBuilder, type ApplicationSyncTransaction, getApplicationSyncKnex } from '../../ddl'
 import {
@@ -32,7 +32,7 @@ import {
     applyDynamicRuntimeActiveRowFilter,
     resolveSetReferenceId,
     normalizeChildFieldValue,
-    resolveCatalogSeedingOrder,
+    resolveObjectSeedingOrder,
     validateNumericValue,
     resolveFieldDefaultEnumValueId,
     normalizeSnapshotCodenameValue
@@ -58,10 +58,10 @@ export async function seedPredefinedElements(
     const warnings: string[] = []
     const seenDuplicateElementIds = new Set<string>()
 
-    const catalogOrder = resolveCatalogSeedingOrder(entities)
+    const objectOrder = resolveObjectSeedingOrder(entities)
 
     const applySeed = async (activeTrx: ApplicationSyncTransaction) => {
-        for (const objectId of catalogOrder) {
+        for (const objectId of objectOrder) {
             const rawElements = snapshot.elements?.[objectId] as unknown[] | undefined
             const elements = (rawElements ?? []) as SnapshotElementRow[]
             if (!elements || elements.length === 0) continue
@@ -71,18 +71,18 @@ export async function seedPredefinedElements(
             if (!hasPhysicalRuntimeTable(entity)) continue
 
             const tableName = resolveEntityTableName(entity)
-            // Build field map: codename -> { columnName, field definition }
+            // Build field map: codename -> { columnName, component }
             // Exclude TABLE-type fields (no physical column) and child fields (belong to tabular tables)
             const fieldByCodename = new Map<string, { columnName: string; field: EntityField }>(
                 entity.fields
-                    .filter((field: EntityField) => field.dataType !== FieldDefinitionDataType.TABLE && !field.parentAttributeId)
+                    .filter((field: EntityField) => field.dataType !== ComponentDefinitionDataType.TABLE && !field.parentComponentId)
                     .map((field: EntityField) => [field.codename, { columnName: generateColumnName(field.id), field }])
             )
             const dataColumns = Array.from(fieldByCodename.values()).map((v) => v.columnName)
             // Collect TABLE-type fields for child row seeding
             const tableFields = entity.fields.filter(
                 (field: EntityField) =>
-                    field.dataType === FieldDefinitionDataType.TABLE && field.childFields && field.childFields.length > 0
+                    field.dataType === ComponentDefinitionDataType.TABLE && field.childFields && field.childFields.length > 0
             )
 
             const rows = elements.map((element: SnapshotElementRow) => {
@@ -90,7 +90,7 @@ export async function seedPredefinedElements(
                 const missingRequired = entity.fields
                     .filter(
                         (field: EntityField) =>
-                            field.isRequired && field.dataType !== FieldDefinitionDataType.TABLE && !field.parentAttributeId
+                            field.isRequired && field.dataType !== ComponentDefinitionDataType.TABLE && !field.parentComponentId
                     )
                     .filter((field: EntityField) => {
                         if (!Object.prototype.hasOwnProperty.call(data, field.codename)) return true
@@ -121,10 +121,10 @@ export async function seedPredefinedElements(
                         // VLC fields (versioned/localized STRING) are JSONB columns
                         if (isVLCField(field)) {
                             row[columnName] = prepareJsonbValue(rawValue)
-                        } else if (field.dataType === FieldDefinitionDataType.JSON) {
+                        } else if (field.dataType === ComponentDefinitionDataType.JSON) {
                             // JSON type is also JSONB, prepare value
                             row[columnName] = prepareJsonbValue(rawValue)
-                        } else if (field.dataType === FieldDefinitionDataType.NUMBER) {
+                        } else if (field.dataType === ComponentDefinitionDataType.NUMBER) {
                             // Validate and normalize NUMBER values - throws on invalid data
                             row[columnName] = validateNumericValue({
                                 value: rawValue,
@@ -132,7 +132,7 @@ export async function seedPredefinedElements(
                                 tableName,
                                 elementId: element.id
                             })
-                        } else if (field.dataType === FieldDefinitionDataType.REF) {
+                        } else if (field.dataType === ComponentDefinitionDataType.REF) {
                             if (field.targetEntityKind === 'set') {
                                 row[columnName] = resolveSetReferenceId(rawValue, field)
                             } else {
@@ -241,11 +241,11 @@ export async function remapStaleEnumerationReferences(options: {
     if (staleValueIdsByObject.size === 0) return
 
     const knownTables = new Map<string, boolean>()
-    const catalogEntities = Object.values(snapshot.entities ?? {}).filter(
-        (entity) => entity.kind === 'catalog' && hasPhysicalRuntimeTable(entity as unknown as EntityDefinition)
+    const objectEntities = Object.values(snapshot.entities ?? {}).filter(
+        (entity) => entity.kind === 'object' && hasPhysicalRuntimeTable(entity as unknown as EntityDefinition)
     )
 
-    for (const entity of catalogEntities) {
+    for (const entity of objectEntities) {
         const tableName = resolveEntityTableName(entity)
         const lifecycleContract = resolveEntityLifecycleContract(entity as unknown as EntityDefinition)
         if (!knownTables.has(tableName)) {
@@ -273,7 +273,7 @@ export async function remapStaleEnumerationReferences(options: {
 
             if (field.isRequired && !fallbackValueId) {
                 throw new Error(
-                    `[SchemaSync] Cannot remap stale enumeration references for required field "${field.codename}" of catalog "${entity.codename}": no active enumeration values available`
+                    `[SchemaSync] Cannot remap stale enumeration references for required field "${field.codename}" of object "${entity.codename}": no active enumeration values available`
                 )
             }
 

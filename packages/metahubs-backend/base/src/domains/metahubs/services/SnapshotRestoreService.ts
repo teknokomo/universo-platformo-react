@@ -4,12 +4,12 @@ import {
     SHARED_ENTITY_KIND_TO_POOL_KIND,
     SHARED_POOL_TO_ENTITY_KIND,
     SHARED_POOL_TO_TARGET_KIND,
-    isEnabledComponentConfig,
+    isEnabledCapabilityConfig,
     normalizeLedgerConfigFromConfig,
     normalizePageBlockContentForStorage,
     supportsLedgerSchema,
     validateLedgerConfigReferences,
-    type BlockContentComponentConfig,
+    type BlockContentCapabilityConfig,
     type PageBlockContentValidationOptions,
     type SharedEntityKind,
     type SharedObjectKind
@@ -25,10 +25,7 @@ import { ensureCodenameValue } from '../../shared/codename'
 import { MetahubValidationError } from '../../shared/domainErrors'
 import { toJsonbValue } from '../../shared/jsonb'
 import { SHARED_CONTAINER_DESCRIPTORS } from '../../shared/services/SharedContainerService'
-import {
-    ensureCatalogSystemFieldDefinitionsSeed,
-    readPlatformSystemFieldDefinitionsPolicyWithKnex
-} from '../../templates/services/systemFieldDefinitionSeed'
+import { ensureObjectSystemComponentsSeed, readPlatformSystemComponentsPolicyWithKnex } from '../../templates/services/systemComponentSeed'
 import { resolveWidgetTableName } from '../../templates/services/widgetTableResolver'
 import { createLogger } from '../../../utils/logger'
 
@@ -52,7 +49,7 @@ const getFieldCodenameText = (codename: MetaFieldSnapshot['codename']): string =
     return getCodenamePrimary(codename) ?? '[unknown]'
 }
 
-const buildPageBlockContentValidationOptions = (component: Partial<BlockContentComponentConfig>): PageBlockContentValidationOptions => ({
+const buildPageBlockContentValidationOptions = (component: Partial<BlockContentCapabilityConfig>): PageBlockContentValidationOptions => ({
     allowedBlockTypes: component.allowedBlockTypes,
     maxBlocks: component.maxBlocks
 })
@@ -61,9 +58,9 @@ const buildPageBlockContentValidationOptions = (component: Partial<BlockContentC
  * Restores metahub branch schema entities from a MetahubSnapshot.
  *
  * Follows the TemplateSeedExecutor 3-pass creation order to satisfy FK constraints:
- *   Pass 1 — Entities (hubs, catalogs, sets, enumerations) + system attributes
+ *   Pass 1 — Entities (hubs, objects, sets, enumerations) + system components
  *   Pass 2 — Constants (for sets)
- *   Pass 3 — Attributes + children → enum values → elements
+ *   Pass 3 — Components + children → enum values → elements
  *   Final  — Layouts + zone widgets
  *
  * All operations run within a single Knex transaction for atomicity.
@@ -81,12 +78,12 @@ export class SnapshotRestoreService {
             // oldConstantId → newConstantId
             const constantIdMap = await this.restoreConstants(trx, snapshot, entityIdMap, userId)
 
-            const attributeIdMap = await this.restoreAttributes(trx, snapshot, entityIdMap, constantIdMap, userId)
+            const componentIdMap = await this.restoreComponents(trx, snapshot, entityIdMap, constantIdMap, userId)
             await this.restoreEnumerationValues(trx, snapshot, entityIdMap, userId)
             const sharedEntityIdMaps = await this.restoreSharedEntities(trx, snapshot, entityIdMap, constantIdMap, userId)
             await this.restoreSharedEntityOverrides(trx, snapshot, entityIdMap, sharedEntityIdMaps, userId)
             await this.restoreElements(trx, snapshot, entityIdMap, userId)
-            const scriptIdMap = await this.restoreScripts(trx, metahubId, snapshot, entityIdMap, attributeIdMap, userId)
+            const scriptIdMap = await this.restoreScripts(trx, metahubId, snapshot, entityIdMap, componentIdMap, userId)
             const actionIdMap = await this.restoreActions(trx, snapshot, entityIdMap, scriptIdMap, userId)
             await this.restoreEventBindings(trx, snapshot, entityIdMap, actionIdMap, userId)
             await this.restoreLayouts(trx, snapshot, entityIdMap, userId)
@@ -164,7 +161,7 @@ export class SnapshotRestoreService {
                 kind_key: definition.kindKey,
                 codename: ensureCodenameValue(definition.codename),
                 presentation: definition.presentation ?? {},
-                components: definition.components ?? {},
+                capabilities: definition.capabilities ?? {},
                 ui_config: definition.ui ?? {},
                 config: definition.config ?? {},
                 _upl_updated_at: now,
@@ -208,7 +205,7 @@ export class SnapshotRestoreService {
 
     private createSharedEntityIdMaps(): SharedEntityIdMaps {
         return {
-            attribute: new Map<string, string>(),
+            component: new Map<string, string>(),
             constant: new Map<string, string>(),
             value: new Map<string, string>()
         }
@@ -261,14 +258,14 @@ export class SnapshotRestoreService {
         const sharedEntityIdMaps = this.createSharedEntityIdMaps()
         const now = new Date()
 
-        const sharedAttributes = snapshot.sharedFieldDefinitions ?? snapshot.sharedAttributes ?? []
+        const sharedComponents = snapshot.sharedComponents ?? snapshot.sharedComponents ?? []
         const sharedFixedValues = snapshot.sharedFixedValues ?? []
         const sharedEnumerationValues = snapshot.sharedOptionValues ?? snapshot.sharedEnumerationValues ?? []
 
         const sharedContainerIds: Partial<Record<SharedEntityKind, string>> = {}
 
-        if (sharedAttributes.length > 0) {
-            sharedContainerIds.attribute = await this.createSharedContainer(qb, SHARED_ENTITY_KIND_TO_POOL_KIND.attribute, userId, now)
+        if (sharedComponents.length > 0) {
+            sharedContainerIds.component = await this.createSharedContainer(qb, SHARED_ENTITY_KIND_TO_POOL_KIND.component, userId, now)
         }
 
         if (sharedFixedValues.length > 0) {
@@ -279,30 +276,30 @@ export class SnapshotRestoreService {
             sharedContainerIds.value = await this.createSharedContainer(qb, SHARED_ENTITY_KIND_TO_POOL_KIND.value, userId, now)
         }
 
-        if (sharedContainerIds.attribute) {
-            for (const field of sharedAttributes) {
-                const parentId = await this.insertAttribute(
+        if (sharedContainerIds.component) {
+            for (const field of sharedComponents) {
+                const parentId = await this.insertComponent(
                     qb,
-                    sharedContainerIds.attribute,
+                    sharedContainerIds.component,
                     null,
                     field,
                     entityIdMap,
                     constantIdMap,
-                    sharedEntityIdMaps.attribute,
+                    sharedEntityIdMaps.component,
                     userId,
                     now
                 )
 
                 if (field.dataType === 'TABLE' && field.childFields?.length && parentId) {
                     for (const child of field.childFields) {
-                        await this.insertAttribute(
+                        await this.insertComponent(
                             qb,
-                            sharedContainerIds.attribute,
+                            sharedContainerIds.component,
                             parentId,
                             child as MetaFieldSnapshot,
                             entityIdMap,
                             constantIdMap,
-                            sharedEntityIdMaps.attribute,
+                            sharedEntityIdMaps.component,
                             userId,
                             now
                         )
@@ -423,21 +420,21 @@ export class SnapshotRestoreService {
         }
     }
 
-    // ── Pass 1: Entities + system attributes ──────────────────────────────
+    // ── Pass 1: Entities + system components ──────────────────────────────
 
     private async restoreEntities(qb: Knex.Transaction, snapshot: MetahubSnapshot, userId: string): Promise<Map<string, string>> {
         const entityIdMap = new Map<string, string>()
         const now = new Date()
         const entities = snapshot.entities ?? {}
 
-        const needsSystemFieldDefinitionSeed = Object.entries(entities).some(
-            ([oldId, entity]) => entity.kind === 'catalog' || Boolean(snapshot.systemFields?.[oldId])
+        const needsSystemComponentSeed = Object.entries(entities).some(
+            ([oldId, entity]) => entity.kind === 'object' || Boolean(snapshot.systemFields?.[oldId])
         )
-        const platformPolicy = needsSystemFieldDefinitionSeed ? await readPlatformSystemFieldDefinitionsPolicyWithKnex(qb) : undefined
+        const platformPolicy = needsSystemComponentSeed ? await readPlatformSystemComponentsPolicyWithKnex(qb) : undefined
 
-        // Sort: hubs first (they may be referenced by catalogs/sets/enumerations via config.hubs)
+        // Sort: hubs first (they may be referenced by objects/sets/enumerations via config.hubs)
         const sortedEntries = Object.entries(entities).sort(([, a], [, b]) => {
-            const kindOrder: Record<string, number> = { hub: 0, catalog: 1, set: 2, enumeration: 3 }
+            const kindOrder: Record<string, number> = { hub: 0, object: 1, set: 2, enumeration: 3 }
             return (kindOrder[a.kind] ?? 99) - (kindOrder[b.kind] ?? 99)
         })
 
@@ -470,9 +467,9 @@ export class SnapshotRestoreService {
             entityIdMap.set(oldId, inserted.id)
 
             const systemFieldsSnap = snapshot.systemFields?.[oldId]
-            const shouldSeedSystemFieldDefinitions = entity.kind === 'catalog' || Boolean(systemFieldsSnap)
-            if (shouldSeedSystemFieldDefinitions) {
-                await ensureCatalogSystemFieldDefinitionsSeed(qb, this.schemaName, inserted.id, userId, {
+            const shouldSeedSystemComponents = entity.kind === 'object' || Boolean(systemFieldsSnap)
+            if (shouldSeedSystemComponents) {
+                await ensureObjectSystemComponentsSeed(qb, this.schemaName, inserted.id, userId, {
                     states: systemFieldsSnap?.fields,
                     policy: platformPolicy
                 })
@@ -495,9 +492,9 @@ export class SnapshotRestoreService {
 
         if (Object.prototype.hasOwnProperty.call(config, 'blockContent')) {
             const definition = entityTypeDefinitions?.[entity.kind]
-            const blockContentComponent = definition?.components?.blockContent
+            const blockContentComponent = definition?.capabilities?.blockContent
 
-            if (!isEnabledComponentConfig(blockContentComponent)) {
+            if (!isEnabledCapabilityConfig(blockContentComponent)) {
                 throw new MetahubValidationError('Block content is not enabled for imported entity type', {
                     kind: entity.kind,
                     codename: entityCodenameText,
@@ -522,7 +519,7 @@ export class SnapshotRestoreService {
 
         if (Object.prototype.hasOwnProperty.call(config, 'ledger')) {
             const definition = entityTypeDefinitions?.[entity.kind]
-            if (!definition || !supportsLedgerSchema(definition.components)) {
+            if (!definition || !supportsLedgerSchema(definition.capabilities)) {
                 throw new MetahubValidationError('Ledger schema config is not enabled for imported entity type', {
                     kind: entity.kind,
                     codename: entityCodenameText,
@@ -620,9 +617,9 @@ export class SnapshotRestoreService {
         return constantIdMap
     }
 
-    // ── Pass 3a: Attributes + children ────────────────────────────────────
+    // ── Pass 3a: Components + children ────────────────────────────────────
 
-    private async restoreAttributes(
+    private async restoreComponents(
         qb: Knex.Transaction,
         snapshot: MetahubSnapshot,
         entityIdMap: Map<string, string>,
@@ -631,36 +628,36 @@ export class SnapshotRestoreService {
     ): Promise<Map<string, string>> {
         const entities = snapshot.entities ?? {}
         const now = new Date()
-        const attributeIdMap = new Map<string, string>()
+        const componentIdMap = new Map<string, string>()
 
         for (const [oldEntityId, entity] of Object.entries(entities)) {
             const newEntityId = entityIdMap.get(oldEntityId)
             if (!newEntityId || !entity.fields?.length) continue
 
             for (const field of entity.fields) {
-                const parentId = await this.insertAttribute(
+                const parentId = await this.insertComponent(
                     qb,
                     newEntityId,
                     null,
                     field,
                     entityIdMap,
                     constantIdMap,
-                    attributeIdMap,
+                    componentIdMap,
                     userId,
                     now
                 )
 
-                // Insert child attributes for TABLE data type
+                // Insert child components for TABLE data type
                 if (field.dataType === 'TABLE' && field.childFields?.length && parentId) {
                     for (const child of field.childFields) {
-                        await this.insertAttribute(
+                        await this.insertComponent(
                             qb,
                             newEntityId,
                             parentId,
                             child as MetaFieldSnapshot,
                             entityIdMap,
                             constantIdMap,
-                            attributeIdMap,
+                            componentIdMap,
                             userId,
                             now
                         )
@@ -669,17 +666,17 @@ export class SnapshotRestoreService {
             }
         }
 
-        return attributeIdMap
+        return componentIdMap
     }
 
-    private async insertAttribute(
+    private async insertComponent(
         qb: Knex.Transaction,
         objectId: string,
-        parentAttributeId: string | null,
+        parentComponentId: string | null,
         field: MetaFieldSnapshot,
         entityIdMap: Map<string, string>,
         constantIdMap: Map<string, string>,
-        attributeIdMap: Map<string, string>,
+        componentIdMap: Map<string, string>,
         userId: string,
         now: Date
     ): Promise<string | null> {
@@ -701,10 +698,10 @@ export class SnapshotRestoreService {
 
         const [inserted] = await qb
             .withSchema(this.schemaName)
-            .into('_mhb_attributes')
+            .into('_mhb_components')
             .insert({
                 object_id: objectId,
-                parent_attribute_id: parentAttributeId,
+                parent_component_id: parentComponentId,
                 codename: ensureCodenameValue(field.codename),
                 data_type: field.dataType,
                 presentation: field.presentation ?? { name: {}, description: {} },
@@ -712,7 +709,7 @@ export class SnapshotRestoreService {
                 ui_config: field.uiConfig ?? {},
                 sort_order: field.sortOrder ?? 0,
                 is_required: field.isRequired ?? false,
-                is_display_attribute: field.isDisplayAttribute ?? false,
+                is_display_component: field.isDisplayComponent ?? false,
                 target_object_id: targetObjectId,
                 target_object_kind: field.targetEntityKind ?? null,
                 target_constant_id: targetConstantId,
@@ -732,7 +729,7 @@ export class SnapshotRestoreService {
 
         const insertedId = inserted?.id ?? null
         if (insertedId && typeof field.id === 'string' && field.id.length > 0) {
-            attributeIdMap.set(field.id, insertedId)
+            componentIdMap.set(field.id, insertedId)
         }
 
         return insertedId
@@ -834,7 +831,7 @@ export class SnapshotRestoreService {
         metahubId: string,
         snapshot: MetahubSnapshot,
         entityIdMap: Map<string, string>,
-        attributeIdMap: Map<string, string>,
+        componentIdMap: Map<string, string>,
         userId: string
     ): Promise<Map<string, string>> {
         const scripts = (snapshot.scripts ?? []) as SnapshotScript[]
@@ -846,7 +843,7 @@ export class SnapshotRestoreService {
         if (!scripts.length) return scriptIdMap
 
         for (const script of scripts) {
-            const attachedToId = this.resolveScriptAttachmentId(script, metahubId, entityIdMap, attributeIdMap)
+            const attachedToId = this.resolveScriptAttachmentId(script, metahubId, entityIdMap, componentIdMap)
             const scriptCodenameText = getScriptCodenameText(script.codename)
 
             if (script.attachedToKind !== 'metahub' && !attachedToId) {
@@ -1019,7 +1016,7 @@ export class SnapshotRestoreService {
         script: SnapshotScript,
         metahubId: string,
         entityIdMap: Map<string, string>,
-        attributeIdMap: Map<string, string>
+        componentIdMap: Map<string, string>
     ): string | null {
         if (script.attachedToKind === 'metahub') {
             return null
@@ -1029,8 +1026,8 @@ export class SnapshotRestoreService {
             return null
         }
 
-        if (script.attachedToKind === 'attribute') {
-            return attributeIdMap.get(script.attachedToId) ?? null
+        if (script.attachedToKind === 'component') {
+            return componentIdMap.get(script.attachedToId) ?? null
         }
 
         if (script.attachedToId === metahubId) {

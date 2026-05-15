@@ -10,8 +10,8 @@ const defaultLifecycleContract: ApplicationLifecycleContract = {
 
 const createRecordBinding = (overrides: Record<string, unknown> = {}) => ({
     object: {
-        id: 'catalog-1',
-        kind: 'catalog',
+        id: 'object-1',
+        kind: 'object',
         codename: 'orders',
         table_name: 'orders',
         config: {},
@@ -51,8 +51,8 @@ const createScriptDefinition = (overrides: Partial<ApplicationScriptDefinition> 
             }
         }
     },
-    attachedToKind: overrides.attachedToKind ?? 'catalog',
-    attachedToId: overrides.attachedToId ?? 'catalog-1',
+    attachedToKind: overrides.attachedToKind ?? 'object',
+    attachedToId: overrides.attachedToId ?? 'object-1',
     moduleRole: overrides.moduleRole ?? 'widget',
     sourceKind: overrides.sourceKind ?? 'embedded',
     sdkApiVersion: overrides.sdkApiVersion ?? '1.0.0',
@@ -111,8 +111,8 @@ describe('RuntimeScriptsService', () => {
                         locales: { en: { content: 'Quiz widget' } }
                     }
                 },
-                attached_to_kind: 'catalog',
-                attached_to_id: 'catalog-1',
+                attached_to_kind: 'object',
+                attached_to_id: 'object-1',
                 module_role: 'widget',
                 source_kind: 'embedded',
                 sdk_api_version: '1.0.0',
@@ -135,8 +135,8 @@ describe('RuntimeScriptsService', () => {
         const items = await service.listClientScripts({
             executor: executor as never,
             schemaName: 'app_runtime_test',
-            attachedToKind: 'catalog',
-            attachedToId: 'catalog-1'
+            attachedToKind: 'object',
+            attachedToId: 'object-1'
         })
 
         expect(items).toHaveLength(1)
@@ -161,8 +161,8 @@ describe('RuntimeScriptsService', () => {
                         locales: { en: { content: 'Quiz widget' } }
                     }
                 },
-                attached_to_kind: 'catalog',
-                attached_to_id: 'catalog-1',
+                attached_to_kind: 'object',
+                attached_to_id: 'object-1',
                 module_role: 'widget',
                 source_kind: 'embedded',
                 sdk_api_version: '1.0.0',
@@ -185,8 +185,8 @@ describe('RuntimeScriptsService', () => {
         const items = await service.listClientScripts({
             executor: executor as never,
             schemaName: 'app_runtime_test',
-            attachedToKind: 'catalog',
-            attachedToId: 'catalog-1'
+            attachedToKind: 'object',
+            attachedToId: 'object-1'
         })
 
         expect(items).toHaveLength(1)
@@ -440,8 +440,8 @@ describe('RuntimeScriptsService', () => {
                         locales: { en: { content: 'Quiz widget' } }
                     }
                 },
-                attached_to_kind: 'catalog',
-                attached_to_id: 'catalog-1',
+                attached_to_kind: 'object',
+                attached_to_id: 'object-1',
                 module_role: 'widget',
                 source_kind: 'embedded',
                 sdk_api_version: '2.0.0',
@@ -491,8 +491,8 @@ describe('RuntimeScriptsService', () => {
         listActiveScriptsSpy.mockResolvedValueOnce([
             createScriptDefinition({
                 moduleRole: 'lifecycle',
-                attachedToKind: 'catalog',
-                attachedToId: 'catalog-1',
+                attachedToKind: 'object',
+                attachedToId: 'object-1',
                 manifest: {
                     className: 'LifecycleScript',
                     sdkApiVersion: '1.0.0',
@@ -505,8 +505,8 @@ describe('RuntimeScriptsService', () => {
             createScriptDefinition({
                 id: 'script-2',
                 moduleRole: 'lifecycle',
-                attachedToKind: 'catalog',
-                attachedToId: 'catalog-1',
+                attachedToKind: 'object',
+                attachedToId: 'object-1',
                 manifest: {
                     className: 'LifecycleScriptWithoutCapability',
                     sdkApiVersion: '1.0.0',
@@ -522,8 +522,8 @@ describe('RuntimeScriptsService', () => {
             executor: executor as never,
             applicationId: 'application-1',
             schemaName: 'app_runtime_test',
-            attachmentKind: 'catalog',
-            attachmentId: 'catalog-1',
+            attachmentKind: 'object',
+            attachmentId: 'object-1',
             entityCodename: 'orders',
             currentWorkspaceId: null,
             currentUserId: 'user-1',

@@ -3,9 +3,9 @@ import { Alert, Box, Tab, Tabs, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { useParams } from 'react-router-dom'
 import {
-    isEnabledComponentConfig,
+    isEnabledCapabilityConfig,
     resolveEntityResourceSurfaceTitle,
-    type ComponentManifest,
+    type EntityTypeCapabilities,
     type EntityResourceSurfaceDefinition,
     type EntityResourceSurfaceCapability,
     SHARED_OBJECT_KINDS
@@ -13,7 +13,7 @@ import {
 
 import { TemplateMainCard as MainCard, ViewHeaderMUI as ViewHeader } from '@universo/template-mui'
 
-import { FieldDefinitionListContent } from '../../metadata/fieldDefinition/ui/FieldDefinitionList'
+import { ComponentListContent } from '../../metadata/component/ui/ComponentList'
 import { FixedValueListContent } from '../../metadata/fixedValue/ui/FixedValueList'
 import { SelectableOptionListContent } from '../../metadata/optionValue/ui/SelectableOptionList'
 import { LayoutListContent } from '../../../layouts/ui/LayoutList'
@@ -21,7 +21,7 @@ import { EntityScriptsTab } from '../../../scripts/ui/EntityScriptsTab'
 import { useSharedContainerIds } from '../../../shared/hooks/useSharedContainerIds'
 import { useAllEntityTypesQuery } from '../../hooks/queries'
 
-type SharedResourcesTab = 'layouts' | 'fieldDefinitions' | 'fixedValues' | 'optionValues' | 'scripts'
+type SharedResourcesTab = 'layouts' | 'components' | 'fixedValues' | 'optionValues' | 'scripts'
 
 interface TabConfig {
     value: SharedResourcesTab
@@ -29,19 +29,19 @@ interface TabConfig {
     visible: boolean
 }
 
-function hasAnyEnabledComponent(manifests: ComponentManifest[], component: keyof ComponentManifest): boolean {
-    return manifests.some((m) => isEnabledComponentConfig(m[component]))
+function hasAnyEnabledComponent(manifests: EntityTypeCapabilities[], component: keyof EntityTypeCapabilities): boolean {
+    return manifests.some((m) => isEnabledCapabilityConfig(m[component]))
 }
 
 type EntityTypeSummary = {
-    components: ComponentManifest
+    capabilities: EntityTypeCapabilities
     ui?: {
         resourceSurfaces?: readonly EntityResourceSurfaceDefinition[]
     }
 }
 
 interface ResourceSurfaceRegistryEntry {
-    tab: Extract<SharedResourcesTab, 'fieldDefinitions' | 'fixedValues' | 'optionValues'>
+    tab: Extract<SharedResourcesTab, 'components' | 'fixedValues' | 'optionValues'>
     capability: EntityResourceSurfaceCapability
     platformLabelKey: string
     platformLabelFallback: string
@@ -50,11 +50,11 @@ interface ResourceSurfaceRegistryEntry {
 
 const RESOURCE_SURFACE_REGISTRY: readonly ResourceSurfaceRegistryEntry[] = [
     {
-        tab: 'fieldDefinitions',
+        tab: 'components',
         capability: 'dataSchema',
-        platformLabelKey: 'fieldDefinitions.resourceTabTitle',
-        platformLabelFallback: 'fieldDefinitions',
-        poolKind: 'SHARED_CATALOG_POOL'
+        platformLabelKey: 'components.resourceTabTitle',
+        platformLabelFallback: 'components',
+        poolKind: 'SHARED_OBJECT_POOL'
     },
     {
         tab: 'fixedValues',
@@ -152,7 +152,7 @@ export default function SharedResourcesPage() {
 
     const tabs = useMemo<TabConfig[]>(() => {
         const entityTypes = (entityTypesQuery.data?.items ?? []) as EntityTypeSummary[]
-        const manifests = entityTypes.map((et) => et.components)
+        const manifests = entityTypes.map((et) => et.capabilities)
         const resourceTabs = RESOURCE_SURFACE_REGISTRY.map((entry): TabConfig => {
             const platformLabel = t(entry.platformLabelKey, entry.platformLabelFallback)
 
@@ -218,15 +218,15 @@ export default function SharedResourcesPage() {
             return renderSharedTabPlaceholder(t('general.shared.empty', 'Shared container is unavailable.'))
         }
 
-        if (kind === 'SHARED_CATALOG_POOL') {
+        if (kind === 'SHARED_OBJECT_POOL') {
             return (
-                <FieldDefinitionListContent
+                <ComponentListContent
                     metahubId={metahubId}
-                    linkedCollectionId={objectId}
+                    objectCollectionId={objectId}
                     title={null}
                     sharedEntityMode
                     renderPageShell={false}
-                    showCatalogTabs={false}
+                    showObjectTabs={false}
                     showSettingsTab={false}
                     allowSystemTab={false}
                 />

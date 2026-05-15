@@ -1,7 +1,7 @@
 /**
  * Shared hook for fetching all treeEntities within a metahub.
  *
- * Multiple List components (LinkedCollections, ValueGroups, OptionLists, FieldDefinitions, Records, etc.)
+ * Multiple List capabilities (ObjectCollections, ValueGroups, OptionLists, Components, Records, etc.)
  * need the full hub list for create/edit dialogs and hub association UI.
  * This hook centralizes the query with consistent caching and deduplication.
  */

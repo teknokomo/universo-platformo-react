@@ -1,16 +1,16 @@
 import { qSchemaTable } from '@universo/database'
 import type {
-    CatalogSystemFieldState,
+    ObjectSystemFieldState,
     CodenameAlphabet,
     CodenameStyle,
     FixedValueDataType,
-    PlatformSystemFieldDefinitionsPolicy
+    PlatformSystemComponentsPolicy
 } from '@universo/types'
 import { queryMany, queryOne, type SqlQueryable } from '@universo/utils/database'
 import { MetahubDomainError, MetahubValidationError } from '../../shared/domainErrors'
 import { getCodenamePayloadText, syncCodenamePayloadText } from '../../shared/codenamePayload'
 
-type SourceAttributeRow = {
+type SourceComponentRow = {
     id: string
     codename: unknown
     data_type: string
@@ -19,11 +19,11 @@ type SourceAttributeRow = {
     ui_config?: unknown
     sort_order?: number | null
     is_required?: boolean | null
-    is_display_attribute?: boolean | null
+    is_display_component?: boolean | null
     target_object_id?: string | null
     target_object_kind?: string | null
     target_constant_id?: string | null
-    parent_attribute_id?: string | null
+    parent_component_id?: string | null
     is_system?: boolean | null
     system_key?: string | null
     is_system_managed?: boolean | null
@@ -53,14 +53,14 @@ type SourceConstantRow = {
     sortOrder?: number
 }
 
-type EnsureObjectSystemFieldDefinitions = (
+type EnsureObjectSystemComponents = (
     metahubId: string,
     objectId: string,
     userId?: string,
     db?: SqlQueryable,
     options?: {
-        states?: CatalogSystemFieldState[]
-        policy?: PlatformSystemFieldDefinitionsPolicy
+        states?: ObjectSystemFieldState[]
+        policy?: PlatformSystemComponentsPolicy
     }
 ) => Promise<unknown>
 
@@ -99,20 +99,20 @@ export type CopyDesignTimeObjectChildrenOptions = {
     tx: SqlQueryable
     userId?: string
     schemaName?: string
-    copyFieldDefinitions?: boolean
+    copyComponents?: boolean
     copyRecords?: boolean
     copyFixedValues?: boolean
     copyOptionValues?: boolean
     codenameStyle?: CodenameStyle
     codenameAlphabet?: CodenameAlphabet
-    fieldDefinitionCopyFailureMessage?: string
-    ensureObjectSystemFieldDefinitions?: EnsureObjectSystemFieldDefinitions
-    platformSystemFieldDefinitionsPolicy?: PlatformSystemFieldDefinitionsPolicy
+    componentCopyFailureMessage?: string
+    ensureObjectSystemComponents?: EnsureObjectSystemComponents
+    platformSystemComponentsPolicy?: PlatformSystemComponentsPolicy
     fixedValuesService?: FixedValuesServiceAdapter
 }
 
 export type CopyDesignTimeObjectChildrenResult = {
-    fieldDefinitionsCopied: number
+    componentsCopied: number
     recordsCopied: number
     fixedValuesCopied: number
     optionValuesCopied: number
@@ -153,33 +153,33 @@ export async function copyDesignTimeObjectChildren(
         tx,
         userId,
         schemaName,
-        copyFieldDefinitions = false,
+        copyComponents = false,
         copyRecords = false,
         copyFixedValues = false,
         copyOptionValues = false,
         codenameStyle,
         codenameAlphabet,
-        fieldDefinitionCopyFailureMessage = 'Failed to copy object field definitions hierarchy',
-        ensureObjectSystemFieldDefinitions,
-        platformSystemFieldDefinitionsPolicy,
+        componentCopyFailureMessage = 'Failed to copy object components hierarchy',
+        ensureObjectSystemComponents,
+        platformSystemComponentsPolicy,
         fixedValuesService
     } = options
 
     const result: CopyDesignTimeObjectChildrenResult = {
-        fieldDefinitionsCopied: 0,
+        componentsCopied: 0,
         recordsCopied: 0,
         fixedValuesCopied: 0,
         optionValuesCopied: 0
     }
 
-    const needsAttributeTable = copyFieldDefinitions || copyRecords || copyOptionValues || Boolean(ensureObjectSystemFieldDefinitions)
-    const resolvedSchemaName = needsAttributeTable ? getSchemaNameOrThrow(schemaName, 'Design-time child copy') : schemaName
-    const attrQt = resolvedSchemaName ? qSchemaTable(resolvedSchemaName, '_mhb_attributes') : null
+    const needsComponentTable = copyComponents || copyRecords || copyOptionValues || Boolean(ensureObjectSystemComponents)
+    const resolvedSchemaName = needsComponentTable ? getSchemaNameOrThrow(schemaName, 'Design-time child copy') : schemaName
+    const attrQt = resolvedSchemaName ? qSchemaTable(resolvedSchemaName, '_mhb_components') : null
     const elemQt = resolvedSchemaName ? qSchemaTable(resolvedSchemaName, '_mhb_elements') : null
     const valuesQt = resolvedSchemaName ? qSchemaTable(resolvedSchemaName, '_mhb_values') : null
 
-    if (copyFieldDefinitions && attrQt) {
-        const sourceAttributes = await queryMany<SourceAttributeRow>(
+    if (copyComponents && attrQt) {
+        const sourceComponents = await queryMany<SourceComponentRow>(
             tx,
             `SELECT * FROM ${attrQt}
              WHERE object_id = $1 AND _upl_deleted = false AND _mhb_deleted = false
@@ -187,21 +187,21 @@ export async function copyDesignTimeObjectChildren(
             [sourceObjectId]
         )
 
-        const attributeIdMap = new Map<string, string>()
-        const pendingAttributes = [...sourceAttributes]
+        const componentIdMap = new Map<string, string>()
+        const pendingComponents = [...sourceComponents]
 
-        while (pendingAttributes.length > 0) {
+        while (pendingComponents.length > 0) {
             let progressed = false
 
-            for (let index = 0; index < pendingAttributes.length; index += 1) {
-                const sourceAttr = pendingAttributes[index]
-                const sourceParentId = sourceAttr.parent_attribute_id ?? null
+            for (let index = 0; index < pendingComponents.length; index += 1) {
+                const sourceAttr = pendingComponents[index]
+                const sourceParentId = sourceAttr.parent_component_id ?? null
 
-                if (sourceParentId && !attributeIdMap.has(sourceParentId)) {
+                if (sourceParentId && !componentIdMap.has(sourceParentId)) {
                     continue
                 }
 
-                const targetAttributeObjectId =
+                const targetComponentObjectId =
                     sourceAttr.target_object_id && sourceAttr.target_object_id === sourceObjectId
                         ? targetObjectId
                         : sourceAttr.target_object_id ?? null
@@ -210,8 +210,8 @@ export async function copyDesignTimeObjectChildren(
                     tx,
                     `INSERT INTO ${attrQt}
                      (object_id, codename, data_type, presentation, validation_rules, ui_config,
-                      sort_order, is_required, is_display_attribute, target_object_id, target_object_kind,
-                      target_constant_id, parent_attribute_id, is_system, system_key, is_system_managed,
+                      sort_order, is_required, is_display_component, target_object_id, target_object_kind,
+                      target_constant_id, parent_component_id, is_system, system_key, is_system_managed,
                       is_system_enabled, _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by)
                      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW(), $18, NOW(), $18)
                      RETURNING id`,
@@ -224,11 +224,11 @@ export async function copyDesignTimeObjectChildren(
                         JSON.stringify(sourceAttr.ui_config ?? {}),
                         sourceAttr.sort_order ?? 0,
                         sourceAttr.is_required ?? false,
-                        sourceAttr.is_display_attribute ?? false,
-                        targetAttributeObjectId,
+                        sourceAttr.is_display_component ?? false,
+                        targetComponentObjectId,
                         sourceAttr.target_object_kind ?? null,
                         sourceAttr.target_constant_id ?? null,
-                        sourceParentId ? attributeIdMap.get(sourceParentId) ?? null : null,
+                        sourceParentId ? componentIdMap.get(sourceParentId) ?? null : null,
                         sourceAttr.is_system ?? false,
                         sourceAttr.system_key ?? null,
                         sourceAttr.is_system_managed ?? false,
@@ -239,32 +239,32 @@ export async function copyDesignTimeObjectChildren(
 
                 if (!createdAttr?.id) {
                     throw new MetahubDomainError({
-                        message: fieldDefinitionCopyFailureMessage,
+                        message: componentCopyFailureMessage,
                         statusCode: 500,
-                        code: 'COPY_ATTRIBUTES_FAILED'
+                        code: 'COPY_COMPONENTS_FAILED'
                     })
                 }
 
-                attributeIdMap.set(sourceAttr.id, createdAttr.id)
-                pendingAttributes.splice(index, 1)
+                componentIdMap.set(sourceAttr.id, createdAttr.id)
+                pendingComponents.splice(index, 1)
                 index -= 1
-                result.fieldDefinitionsCopied += 1
+                result.componentsCopied += 1
                 progressed = true
             }
 
             if (!progressed) {
                 throw new MetahubDomainError({
-                    message: fieldDefinitionCopyFailureMessage,
+                    message: componentCopyFailureMessage,
                     statusCode: 500,
-                    code: 'COPY_ATTRIBUTES_FAILED'
+                    code: 'COPY_COMPONENTS_FAILED'
                 })
             }
         }
     }
 
-    let sourceSystemStates: CatalogSystemFieldState[] | undefined
-    if (!copyFieldDefinitions && ensureObjectSystemFieldDefinitions && attrQt) {
-        const sourceSystemRows = await queryMany<Pick<SourceAttributeRow, 'system_key' | 'is_system_enabled'>>(
+    let sourceSystemStates: ObjectSystemFieldState[] | undefined
+    if (!copyComponents && ensureObjectSystemComponents && attrQt) {
+        const sourceSystemRows = await queryMany<Pick<SourceComponentRow, 'system_key' | 'is_system_enabled'>>(
             tx,
             `SELECT system_key, is_system_enabled
              FROM ${attrQt}
@@ -280,7 +280,7 @@ export async function copyDesignTimeObjectChildren(
             typeof row.system_key === 'string'
                 ? [
                       {
-                          key: row.system_key as CatalogSystemFieldState['key'],
+                          key: row.system_key as ObjectSystemFieldState['key'],
                           enabled: row.is_system_enabled !== false
                       }
                   ]
@@ -416,10 +416,10 @@ export async function copyDesignTimeObjectChildren(
         }
     }
 
-    if (ensureObjectSystemFieldDefinitions) {
-        await ensureObjectSystemFieldDefinitions(metahubId, targetObjectId, userId, tx, {
+    if (ensureObjectSystemComponents) {
+        await ensureObjectSystemComponents(metahubId, targetObjectId, userId, tx, {
             states: sourceSystemStates,
-            policy: platformSystemFieldDefinitionsPolicy
+            policy: platformSystemComponentsPolicy
         })
     }
 

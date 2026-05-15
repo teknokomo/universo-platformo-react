@@ -162,7 +162,7 @@ describe('createAuthUserProvisioningService', () => {
             })
         ).rejects.toThrow('Failed to assign roles to the newly created user. Newly created auth account was rolled back.')
 
-        expect(executor.query).toHaveBeenCalledWith(expect.stringContaining('UPDATE profiles.cat_profiles'), ['user-1', null])
+        expect(executor.query).toHaveBeenCalledWith(expect.stringContaining('UPDATE profiles.obj_profiles'), ['user-1', null])
         expect(deleteUser).toHaveBeenCalledWith('user-1')
     })
 

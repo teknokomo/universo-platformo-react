@@ -1,12 +1,7 @@
 import { createLocalizedContent } from '@universo/utils'
 
 import { expect, test } from '../../fixtures/test'
-import {
-    createLoggedInApiContext,
-    createMetahub,
-    disposeApiContext,
-    listMetahubEntityTypes
-} from '../../support/backend/api-session.mjs'
+import { createLoggedInApiContext, createMetahub, disposeApiContext, listMetahubEntityTypes } from '../../support/backend/api-session.mjs'
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
 import { waitForSettledMutationResponse } from '../../support/browser/network'
 import { applyBrowserPreferences } from '../../support/browser/preferences'
@@ -44,25 +39,25 @@ test('@flow entity resource labels are data-driven in the browser', async ({ pag
         await expect
             .poll(async () => {
                 const payload = await listMetahubEntityTypes(api, metahub.id, { limit: 100, offset: 0 })
-                catalogType = (payload.items ?? []).find((entry: { kindKey?: string }) => entry.kindKey === 'catalog')
+                catalogType = (payload.items ?? []).find((entry: { kindKey?: string }) => entry.kindKey === 'objectCollection')
                 return typeof catalogType?.id === 'string'
             })
             .toBe(true)
 
         if (!catalogType?.id || !catalogType.ui) {
-            throw new Error('Catalog entity type was not persisted for entity resource coverage')
+            throw new Error('Object entity type was not persisted for entity resource coverage')
         }
 
         await applyBrowserPreferences(page, { language: 'en' })
         await page.goto(`/metahub/${metahub.id}/resources`)
         await expect(page.getByRole('heading', { name: 'Resources' })).toBeVisible()
-        await expect(page.getByRole('tab', { name: 'Attributes' })).toBeVisible()
+        await expect(page.getByRole('tab', { name: 'Components' })).toBeVisible()
         await page.screenshot({ path: testInfo.outputPath('resources-basic-en.png'), fullPage: true })
 
         await applyBrowserPreferences(page, { language: 'ru' })
         await page.goto(`/metahub/${metahub.id}/resources`)
         await expect(page.getByRole('heading', { name: 'Ресурсы' })).toBeVisible()
-        await expect(page.getByRole('tab', { name: 'Атрибуты' })).toBeVisible()
+        await expect(page.getByRole('tab', { name: 'Компоненты' })).toBeVisible()
         await page.screenshot({ path: testInfo.outputPath('resources-basic-ru.png'), fullPage: true })
 
         await applyBrowserPreferences(page, { language: 'en' })
@@ -99,7 +94,9 @@ test('@flow entity resource labels are data-driven in the browser', async ({ pag
         await expect
             .poll(async () => {
                 const payload = await listMetahubEntityTypes(api, metahub.id, { limit: 100, offset: 0 })
-                const refreshedCatalogType = (payload.items ?? []).find((entry: { kindKey?: string }) => entry.kindKey === 'catalog')
+                const refreshedCatalogType = (payload.items ?? []).find(
+                    (entry: { kindKey?: string }) => entry.kindKey === 'objectCollection'
+                )
                 const resourceSurface = refreshedCatalogType?.ui?.resourceSurfaces?.[0]
                 return {
                     fallbackTitle: resourceSurface?.fallbackTitle,

@@ -56,7 +56,7 @@ This means changing admin defaults does not silently rewrite metahub authoring d
 ## Why Global Policy Still Matters
 
 Some behavior must remain platform-governed even when local scopes exist.
-For example, platform system-attribute governance is resolved from admin settings and then applied by metahub backend policy helpers.
+For example, platform system-component governance is resolved from admin settings and then applied by metahub backend policy helpers.
 That is why admin pages document platform policy, while metahub pages document authoring behavior.
 
 ## Recommended Use

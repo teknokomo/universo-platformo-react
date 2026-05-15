@@ -1,7 +1,7 @@
 import type { Knex } from 'knex'
 import type {
-    MigrationCatalogRecord,
-    MigrationCatalogRepository,
+    MigrationObjectRecord,
+    MigrationObjectRepository,
     MigrationLockMode,
     MigrationRunStatus,
     MigrationScopeKind,
@@ -17,9 +17,9 @@ import { catalogBootstrapMigrations } from './catalogBootstrapMigrations'
 
 type MigrationRunRow = {
     id: string
-    scope_kind: MigrationCatalogRecord['scopeKind']
+    scope_kind: MigrationObjectRecord['scopeKind']
     scope_key: string
-    source_kind: MigrationCatalogRecord['sourceKind']
+    source_kind: MigrationObjectRecord['sourceKind']
     migration_name: string
     migration_version: string
     checksum: string
@@ -36,7 +36,7 @@ type MigrationRunRow = {
     _upl_updated_at: string
 }
 
-const mapRow = (row: MigrationRunRow): MigrationCatalogRecord => ({
+const mapRow = (row: MigrationRunRow): MigrationObjectRecord => ({
     id: row.id,
     scopeKind: row.scope_kind,
     scopeKey: row.scope_key,
@@ -44,8 +44,8 @@ const mapRow = (row: MigrationRunRow): MigrationCatalogRecord => ({
     migrationName: row.migration_name,
     migrationVersion: row.migration_version,
     checksum: row.checksum,
-    transactionMode: row.transaction_mode as MigrationCatalogRecord['transactionMode'],
-    lockMode: row.lock_mode as MigrationCatalogRecord['lockMode'],
+    transactionMode: row.transaction_mode as MigrationObjectRecord['transactionMode'],
+    lockMode: row.lock_mode as MigrationObjectRecord['lockMode'],
     status: row.status,
     summary: row.summary,
     meta: row.meta,
@@ -111,7 +111,7 @@ const migrationRunsTableExists = async (knexLike: Knex | Knex.Transaction): Prom
     return result.rows?.[0]?.exists === true
 }
 
-export class PlatformMigrationCatalog implements MigrationCatalogRepository {
+export class PlatformMigrationCatalog implements MigrationObjectRepository {
     constructor(protected readonly knex: Knex | Knex.Transaction) {}
 
     async isStorageReady(): Promise<boolean> {
@@ -187,7 +187,7 @@ export class PlatformMigrationCatalog implements MigrationCatalogRepository {
         })
     }
 
-    async findLatest(scope: MigrationScope, migration: PlatformMigrationFile): Promise<MigrationCatalogRecord | null> {
+    async findLatest(scope: MigrationScope, migration: PlatformMigrationFile): Promise<MigrationObjectRecord | null> {
         const row = await this.knex<MigrationRunRow>('upl_migrations.migration_runs')
             .where({
                 scope_kind: scope.kind,
@@ -207,7 +207,7 @@ export class PlatformMigrationCatalog implements MigrationCatalogRepository {
         summary?: string | null
         meta?: Record<string, unknown> | null
         status?: MigrationRunStatus
-    }): Promise<MigrationCatalogRecord> {
+    }): Promise<MigrationObjectRecord> {
         const id = createRunId()
         const now = new Date().toISOString()
         const status = input.status ?? 'planned'

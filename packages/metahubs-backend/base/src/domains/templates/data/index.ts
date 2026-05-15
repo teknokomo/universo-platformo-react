@@ -3,7 +3,7 @@ import { basicTemplate } from './basic.template'
 import { basicDemoTemplate } from './basic-demo.template'
 import { emptyTemplate } from './empty.template'
 import { lmsTemplate } from './lms.template'
-import { catalogEntityPreset } from './linked-collection.entity-preset'
+import { objectEntityPreset } from './object.entity-preset'
 import { fixedValuesLibraryEntityPreset } from './fixed-values-library.entity-preset'
 import { ledgerEntityPreset } from './ledger.entity-preset'
 import { enumerationEntityPreset } from './option-list.entity-preset'
@@ -19,7 +19,7 @@ export const builtinTemplates: MetahubTemplateManifest[] = [basicTemplate, basic
 
 export const builtinEntityTypePresets: EntityTypePresetManifest[] = [
     hubEntityPreset,
-    catalogEntityPreset,
+    objectEntityPreset,
     pageEntityPreset,
     setEntityPreset,
     enumerationEntityPreset,

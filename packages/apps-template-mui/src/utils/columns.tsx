@@ -197,10 +197,10 @@ export function toFieldConfigs(response: AppDataResponse): FieldConfig[] {
                 : null,
         enumAllowEmpty: c.refTargetEntityKind === 'set' ? false : c.uiConfig?.enumAllowEmpty !== false,
         enumLabelEmptyDisplay: c.uiConfig?.enumLabelEmptyDisplay === 'empty' ? 'empty' : 'dash',
-        // TABLE-specific: child field definitions and attribute UUID
+        // TABLE-specific: child components and component UUID
         ...(c.dataType === 'TABLE' && c.childColumns
             ? {
-                  attributeId: c.id,
+                  componentId: c.id,
                   childFields: c.childColumns.map((child) => ({
                       id: child.field,
                       label: child.headerName,

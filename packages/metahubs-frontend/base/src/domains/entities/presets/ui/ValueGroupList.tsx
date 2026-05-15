@@ -110,7 +110,7 @@ export const ValueGroupListContent = () => {
         [treeEntityId, isHubScoped, metahubId, routeKindKey]
     )
     const buildHubPath = useCallback(
-        (tab: 'treeEntities' | 'linkedCollections' | 'valueGroups' | 'optionLists') =>
+        (tab: 'treeEntities' | 'objectCollections' | 'valueGroups' | 'optionLists') =>
             buildTreeEntityAuthoringPath({
                 metahubId,
                 treeEntityId,
@@ -913,7 +913,7 @@ export const ValueGroupListContent = () => {
 
     const handleHubTabChange = (
         _event: unknown,
-        tabValue: 'treeEntities' | 'linkedCollections' | 'valueGroups' | 'optionLists' | 'settings'
+        tabValue: 'treeEntities' | 'objectCollections' | 'valueGroups' | 'optionLists' | 'settings'
     ) => {
         if (!metahubId || !treeEntityId) return
         if (tabValue === 'treeEntities') {
@@ -930,8 +930,8 @@ export const ValueGroupListContent = () => {
             }
             return
         }
-        if (tabValue === 'linkedCollections') {
-            const nextPath = buildHubPath('linkedCollections')
+        if (tabValue === 'objectCollections') {
+            const nextPath = buildHubPath('objectCollections')
             if (nextPath) {
                 navigate(nextPath)
             }
@@ -1079,7 +1079,7 @@ export const ValueGroupListContent = () => {
                                     }}
                                 >
                                     <Tab value='treeEntities' label={t('hubs.title')} />
-                                    <Tab value='linkedCollections' label={t('catalogs.title')} />
+                                    <Tab value='objectCollections' label={t('objects.title')} />
                                     <Tab value='valueGroups' label={t('sets.title')} />
                                     <Tab value='optionLists' label={t('enumerations.title')} />
                                     <Tab value='settings' label={t('settings.title')} />

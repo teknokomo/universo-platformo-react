@@ -13,7 +13,7 @@ describe('DDL Snapshot Utilities', () => {
         const createTestEntity = (overrides: Partial<EntityDefinition> = {}): EntityDefinition => ({
             id: 'entity-1111-2222-3333-444455556666',
             codename: 'test_entity',
-            kind: 'catalog',
+            kind: 'object',
             fields: [],
             ...overrides
         })
@@ -46,43 +46,43 @@ describe('DDL Snapshot Utilities', () => {
         it('should map entity correctly', () => {
             const entity = createTestEntity({
                 id: 'e1-0000-0000-0000-000000000001',
-                codename: 'my_catalog',
-                kind: 'catalog'
+                codename: 'my_object',
+                kind: 'object'
             })
 
             const snapshot = buildSchemaSnapshot([entity])
 
             expect(snapshot.entities['e1-0000-0000-0000-000000000001']).toBeDefined()
             const snapshotEntity = snapshot.entities['e1-0000-0000-0000-000000000001']
-            expect(snapshotEntity.codename).toBe('my_catalog')
-            expect(snapshotEntity.kind).toBe('catalog')
-            // Table name is 'cat_' + ID with hyphens removed
-            expect(snapshotEntity.tableName).toBe('cat_e1000000000000000000000001')
+            expect(snapshotEntity.codename).toBe('my_object')
+            expect(snapshotEntity.kind).toBe('object')
+            // Table name is 'obj_' + ID with hyphens removed
+            expect(snapshotEntity.tableName).toBe('obj_e1000000000000000000000001')
         })
 
         it('should preserve explicit physical table names in snapshots', () => {
             const entity = createTestEntity({
                 id: 'profile-0000-0000-0000-000000000001',
                 codename: 'profiles',
-                kind: 'catalog',
-                physicalTableName: 'cat_profiles'
+                kind: 'object',
+                physicalTableName: 'obj_profiles'
             })
 
             const snapshot = buildSchemaSnapshot([entity])
 
-            expect(snapshot.entities['profile-0000-0000-0000-000000000001'].tableName).toBe('cat_profiles')
+            expect(snapshot.entities['profile-0000-0000-0000-000000000001'].tableName).toBe('obj_profiles')
         })
 
         it('should generate correct table names for different entity kinds', () => {
             const entities: EntityDefinition[] = [
-                createTestEntity({ id: 'cat-0000-0000-0000-000000000001', kind: 'catalog' }),
+                createTestEntity({ id: 'cat-0000-0000-0000-000000000001', kind: 'object' }),
                 createTestEntity({ id: 'hub-0000-0000-0000-000000000002', kind: 'hub' }),
                 createTestEntity({ id: 'doc-0000-0000-0000-000000000003', kind: 'document' })
             ]
 
             const snapshot = buildSchemaSnapshot(entities)
 
-            expect(snapshot.entities['cat-0000-0000-0000-000000000001'].tableName).toMatch(/^cat_/)
+            expect(snapshot.entities['cat-0000-0000-0000-000000000001'].tableName).toMatch(/^obj_/)
             expect(snapshot.entities['hub-0000-0000-0000-000000000002'].tableName).toBeNull()
             expect(snapshot.entities['hub-0000-0000-0000-000000000002'].physicalTableEnabled).toBe(false)
             expect(snapshot.entities['doc-0000-0000-0000-000000000003'].tableName).toMatch(/^doc_/)
@@ -115,8 +115,8 @@ describe('DDL Snapshot Utilities', () => {
             expect(titleField.codename).toBe('title')
             expect(titleField.dataType).toBe('text')
             expect(titleField.isRequired).toBe(true)
-            // Column name is 'attr_' + ID with hyphens removed
-            expect(titleField.columnName).toBe('attr_field111122223333444455556666')
+            // Column name is 'cmp_' + ID with hyphens removed
+            expect(titleField.columnName).toBe('cmp_field111122223333444455556666')
 
             const countField = fields['field-2222-3333-4444-555566667777']
             expect(countField.codename).toBe('count')
@@ -183,7 +183,7 @@ describe('DDL Snapshot Utilities', () => {
                 createTestEntity({
                     id: 'entity-a-0000-0000-000000000001',
                     codename: 'entity_a',
-                    kind: 'catalog',
+                    kind: 'object',
                     fields: [
                         { id: 'field-a1', codename: 'a1', dataType: 'text' },
                         { id: 'field-a2', codename: 'a2', dataType: 'integer' }
@@ -204,15 +204,15 @@ describe('DDL Snapshot Utilities', () => {
             expect(Object.keys(snapshot.entities['entity-b-0000-0000-000000000002'].fields)).toHaveLength(1)
         })
 
-        describe('TABLE attribute (childFields)', () => {
+        describe('TABLE component (childFields)', () => {
             it('should store TABLE field with tabular table name in columnName', () => {
                 const entity = createTestEntity({
                     id: 'entity-t-0000-0000-000000000001',
                     codename: 'orders',
-                    kind: 'catalog',
+                    kind: 'object',
                     fields: [
                         {
-                            id: 'table-attr-1111-2222-333344445555',
+                            id: 'table-cmp-1111-2222-333344445555',
                             codename: 'order_items',
                             dataType: 'TABLE',
                             isRequired: false
@@ -221,23 +221,23 @@ describe('DDL Snapshot Utilities', () => {
                 })
 
                 const snapshot = buildSchemaSnapshot([entity])
-                const field = snapshot.entities['entity-t-0000-0000-000000000001'].fields['table-attr-1111-2222-333344445555']
+                const field = snapshot.entities['entity-t-0000-0000-000000000001'].fields['table-cmp-1111-2222-333344445555']
 
                 expect(field).toBeDefined()
                 expect(field.dataType).toBe('TABLE')
                 // columnName for TABLE is the child table name: tbl_{cleanAttrId}
                 expect(field.columnName).toContain('tbl_')
-                expect(field.columnName).toBe('tbl_tableattr11112222333344445555')
+                expect(field.columnName).toBe('tbl_tablecmp11112222333344445555')
             })
 
             it('should nest child fields inside TABLE field as childFields', () => {
                 const entity = createTestEntity({
                     id: 'entity-t-0000-0000-000000000001',
                     codename: 'orders',
-                    kind: 'catalog',
+                    kind: 'object',
                     fields: [
                         {
-                            id: 'table-attr-1111-2222-333344445555',
+                            id: 'table-cmp-1111-2222-333344445555',
                             codename: 'order_items',
                             dataType: 'TABLE',
                             isRequired: false
@@ -247,20 +247,20 @@ describe('DDL Snapshot Utilities', () => {
                             codename: 'quantity',
                             dataType: 'integer',
                             isRequired: true,
-                            parentAttributeId: 'table-attr-1111-2222-333344445555'
+                            parentComponentId: 'table-cmp-1111-2222-333344445555'
                         },
                         {
                             id: 'child-field-ffff-0000-111122223333',
                             codename: 'price',
                             dataType: 'decimal',
                             isRequired: false,
-                            parentAttributeId: 'table-attr-1111-2222-333344445555'
+                            parentComponentId: 'table-cmp-1111-2222-333344445555'
                         }
                     ]
                 })
 
                 const snapshot = buildSchemaSnapshot([entity])
-                const tableField = snapshot.entities['entity-t-0000-0000-000000000001'].fields['table-attr-1111-2222-333344445555']
+                const tableField = snapshot.entities['entity-t-0000-0000-000000000001'].fields['table-cmp-1111-2222-333344445555']
 
                 expect(tableField.childFields).toBeDefined()
                 expect(Object.keys(tableField.childFields!)).toHaveLength(2)
@@ -269,7 +269,7 @@ describe('DDL Snapshot Utilities', () => {
                 expect(qtyChild.codename).toBe('quantity')
                 expect(qtyChild.dataType).toBe('integer')
                 expect(qtyChild.isRequired).toBe(true)
-                expect(qtyChild.columnName).toBe('attr_childfieldaaaabbbbccccddddeeee')
+                expect(qtyChild.columnName).toBe('cmp_childfieldaaaabbbbccccddddeeee')
 
                 const priceChild = tableField.childFields!['child-field-ffff-0000-111122223333']
                 expect(priceChild.codename).toBe('price')
@@ -281,10 +281,10 @@ describe('DDL Snapshot Utilities', () => {
                 const entity = createTestEntity({
                     id: 'entity-t-0000-0000-000000000001',
                     codename: 'orders',
-                    kind: 'catalog',
+                    kind: 'object',
                     fields: [
                         {
-                            id: 'table-attr-1111-2222-333344445555',
+                            id: 'table-cmp-1111-2222-333344445555',
                             codename: 'order_items',
                             dataType: 'TABLE',
                             isRequired: false
@@ -294,7 +294,7 @@ describe('DDL Snapshot Utilities', () => {
                             codename: 'quantity',
                             dataType: 'integer',
                             isRequired: true,
-                            parentAttributeId: 'table-attr-1111-2222-333344445555'
+                            parentComponentId: 'table-cmp-1111-2222-333344445555'
                         }
                     ]
                 })
@@ -305,17 +305,17 @@ describe('DDL Snapshot Utilities', () => {
                 // Only TABLE field at top level, child is nested
                 expect(Object.keys(entityFields)).toHaveLength(1)
                 expect(entityFields['child-field-aaaa-bbbb-ccccddddeeee']).toBeUndefined()
-                expect(entityFields['table-attr-1111-2222-333344445555'].childFields).toBeDefined()
+                expect(entityFields['table-cmp-1111-2222-333344445555'].childFields).toBeDefined()
             })
 
-            it('should omit childFields when TABLE attribute has no children', () => {
+            it('should omit childFields when TABLE component has no children', () => {
                 const entity = createTestEntity({
                     id: 'entity-t-0000-0000-000000000001',
                     codename: 'orders',
-                    kind: 'catalog',
+                    kind: 'object',
                     fields: [
                         {
-                            id: 'table-attr-1111-2222-333344445555',
+                            id: 'table-cmp-1111-2222-333344445555',
                             codename: 'order_items',
                             dataType: 'TABLE',
                             isRequired: false
@@ -324,7 +324,7 @@ describe('DDL Snapshot Utilities', () => {
                 })
 
                 const snapshot = buildSchemaSnapshot([entity])
-                const tableField = snapshot.entities['entity-t-0000-0000-000000000001'].fields['table-attr-1111-2222-333344445555']
+                const tableField = snapshot.entities['entity-t-0000-0000-000000000001'].fields['table-cmp-1111-2222-333344445555']
 
                 // childFields should be omitted (not set to empty object)
                 expect(tableField.childFields).toBeUndefined()

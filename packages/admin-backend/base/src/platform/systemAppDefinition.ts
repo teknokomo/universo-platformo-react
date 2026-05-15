@@ -1,5 +1,5 @@
 import { createSystemAppManifestPresentation, type SystemAppDefinition } from '@universo/migrations-core'
-import { FieldDefinitionDataType } from '@universo/types'
+import { ComponentDefinitionDataType } from '@universo/types'
 import {
     finalizeAdminSchemaSupportMigrationDefinition,
     prepareAdminSchemaSupportMigrationDefinition,
@@ -18,27 +18,27 @@ const adminBusinessTables = [
             {
                 codename: 'codename',
                 physicalColumnName: 'codename',
-                dataType: FieldDefinitionDataType.JSON,
+                dataType: ComponentDefinitionDataType.JSON,
                 isRequired: true
             },
             {
                 codename: 'name',
                 physicalColumnName: 'name',
-                dataType: FieldDefinitionDataType.JSON,
+                dataType: ComponentDefinitionDataType.JSON,
                 defaultSqlExpression: `'{}'::jsonb`,
-                isDisplayAttribute: true
+                isDisplayComponent: true
             },
             {
                 codename: 'description',
                 physicalColumnName: 'description',
-                dataType: FieldDefinitionDataType.JSON,
+                dataType: ComponentDefinitionDataType.JSON,
                 defaultSqlExpression: `'{}'::jsonb`
             },
-            { codename: 'url', physicalColumnName: 'url', dataType: FieldDefinitionDataType.STRING, physicalDataType: 'VARCHAR(255)' },
+            { codename: 'url', physicalColumnName: 'url', dataType: ComponentDefinitionDataType.STRING, physicalDataType: 'VARCHAR(255)' },
             {
                 codename: 'status',
                 physicalColumnName: 'status',
-                dataType: FieldDefinitionDataType.STRING,
+                dataType: ComponentDefinitionDataType.STRING,
                 physicalDataType: 'VARCHAR(20)',
                 defaultSqlExpression: `'active'`,
                 isRequired: true
@@ -46,48 +46,53 @@ const adminBusinessTables = [
             {
                 codename: 'is_local',
                 physicalColumnName: 'is_local',
-                dataType: FieldDefinitionDataType.BOOLEAN,
+                dataType: ComponentDefinitionDataType.BOOLEAN,
                 defaultSqlExpression: 'false',
                 isRequired: true
             }
         ]
     },
     {
-        kind: 'catalog',
+        kind: 'object',
         codename: 'roles',
-        tableName: 'cat_roles',
+        tableName: 'obj_roles',
         presentation: p('Roles', 'System-wide access roles'),
         fields: [
             {
                 codename: 'codename',
                 physicalColumnName: 'codename',
-                dataType: FieldDefinitionDataType.JSON,
+                dataType: ComponentDefinitionDataType.JSON,
                 isRequired: true,
                 presentation: p('Role Codename', 'Stable internal role identifier stored as canonical localized JSONB')
             },
             {
                 codename: 'name',
                 physicalColumnName: 'name',
-                dataType: FieldDefinitionDataType.JSON,
+                dataType: ComponentDefinitionDataType.JSON,
                 defaultSqlExpression: `'{}'::jsonb`,
-                isDisplayAttribute: true,
+                isDisplayComponent: true,
                 presentation: p('Role Name', 'Localized display name for the role')
             },
-            { codename: 'description', physicalColumnName: 'description', dataType: FieldDefinitionDataType.JSON },
+            { codename: 'description', physicalColumnName: 'description', dataType: ComponentDefinitionDataType.JSON },
             {
                 codename: 'color',
                 physicalColumnName: 'color',
-                dataType: FieldDefinitionDataType.STRING,
+                dataType: ComponentDefinitionDataType.STRING,
                 physicalDataType: 'VARCHAR(7)',
                 defaultSqlExpression: `'#9e9e9e'`
             },
             {
                 codename: 'is_superuser',
                 physicalColumnName: 'is_superuser',
-                dataType: FieldDefinitionDataType.BOOLEAN,
+                dataType: ComponentDefinitionDataType.BOOLEAN,
                 defaultSqlExpression: 'false'
             },
-            { codename: 'is_system', physicalColumnName: 'is_system', dataType: FieldDefinitionDataType.BOOLEAN, defaultSqlExpression: 'false' }
+            {
+                codename: 'is_system',
+                physicalColumnName: 'is_system',
+                dataType: ComponentDefinitionDataType.BOOLEAN,
+                defaultSqlExpression: 'false'
+            }
         ]
     },
     {
@@ -99,7 +104,7 @@ const adminBusinessTables = [
             {
                 codename: 'role_id',
                 physicalColumnName: 'role_id',
-                dataType: FieldDefinitionDataType.REF,
+                dataType: ComponentDefinitionDataType.REF,
                 isRequired: true,
                 targetTableCodename: 'roles',
                 presentation: p('Role', 'Role that receives the permission grant')
@@ -107,27 +112,27 @@ const adminBusinessTables = [
             {
                 codename: 'subject',
                 physicalColumnName: 'subject',
-                dataType: FieldDefinitionDataType.STRING,
+                dataType: ComponentDefinitionDataType.STRING,
                 physicalDataType: 'VARCHAR(100)',
                 isRequired: true
             },
             {
                 codename: 'action',
                 physicalColumnName: 'action',
-                dataType: FieldDefinitionDataType.STRING,
+                dataType: ComponentDefinitionDataType.STRING,
                 physicalDataType: 'VARCHAR(20)',
                 isRequired: true
             },
             {
                 codename: 'conditions',
                 physicalColumnName: 'conditions',
-                dataType: FieldDefinitionDataType.JSON,
+                dataType: ComponentDefinitionDataType.JSON,
                 defaultSqlExpression: `'{}'::jsonb`
             },
             {
                 codename: 'fields',
                 physicalColumnName: 'fields',
-                dataType: FieldDefinitionDataType.JSON,
+                dataType: ComponentDefinitionDataType.JSON,
                 physicalDataType: 'TEXT[]',
                 defaultSqlExpression: 'ARRAY[]::TEXT[]'
             }
@@ -138,16 +143,16 @@ const adminBusinessTables = [
         codename: 'user_roles',
         tableName: 'rel_user_roles',
         fields: [
-            { codename: 'user_id', physicalColumnName: 'user_id', dataType: FieldDefinitionDataType.REF, isRequired: true },
+            { codename: 'user_id', physicalColumnName: 'user_id', dataType: ComponentDefinitionDataType.REF, isRequired: true },
             {
                 codename: 'role_id',
                 physicalColumnName: 'role_id',
-                dataType: FieldDefinitionDataType.REF,
+                dataType: ComponentDefinitionDataType.REF,
                 isRequired: true,
                 targetTableCodename: 'roles'
             },
-            { codename: 'granted_by', physicalColumnName: 'granted_by', dataType: FieldDefinitionDataType.REF },
-            { codename: 'comment', physicalColumnName: 'comment', dataType: FieldDefinitionDataType.STRING, physicalDataType: 'TEXT' }
+            { codename: 'granted_by', physicalColumnName: 'granted_by', dataType: ComponentDefinitionDataType.REF },
+            { codename: 'comment', physicalColumnName: 'comment', dataType: ComponentDefinitionDataType.STRING, physicalDataType: 'TEXT' }
         ]
     },
     {
@@ -159,64 +164,64 @@ const adminBusinessTables = [
             {
                 codename: 'code',
                 physicalColumnName: 'code',
-                dataType: FieldDefinitionDataType.STRING,
+                dataType: ComponentDefinitionDataType.STRING,
                 physicalDataType: 'VARCHAR(10)',
                 isRequired: true,
-                isDisplayAttribute: true,
+                isDisplayComponent: true,
                 presentation: p('Locale Code', 'Canonical locale code')
             },
             {
                 codename: 'name',
                 physicalColumnName: 'name',
-                dataType: FieldDefinitionDataType.JSON,
+                dataType: ComponentDefinitionDataType.JSON,
                 defaultSqlExpression: `'{}'::jsonb`,
                 isRequired: true
             },
             {
                 codename: 'native_name',
                 physicalColumnName: 'native_name',
-                dataType: FieldDefinitionDataType.STRING,
+                dataType: ComponentDefinitionDataType.STRING,
                 physicalDataType: 'VARCHAR(100)'
             },
             {
                 codename: 'is_enabled_content',
                 physicalColumnName: 'is_enabled_content',
-                dataType: FieldDefinitionDataType.BOOLEAN,
+                dataType: ComponentDefinitionDataType.BOOLEAN,
                 defaultSqlExpression: 'true',
                 isRequired: true
             },
             {
                 codename: 'is_enabled_ui',
                 physicalColumnName: 'is_enabled_ui',
-                dataType: FieldDefinitionDataType.BOOLEAN,
+                dataType: ComponentDefinitionDataType.BOOLEAN,
                 defaultSqlExpression: 'false',
                 isRequired: true
             },
             {
                 codename: 'is_default_content',
                 physicalColumnName: 'is_default_content',
-                dataType: FieldDefinitionDataType.BOOLEAN,
+                dataType: ComponentDefinitionDataType.BOOLEAN,
                 defaultSqlExpression: 'false',
                 isRequired: true
             },
             {
                 codename: 'is_default_ui',
                 physicalColumnName: 'is_default_ui',
-                dataType: FieldDefinitionDataType.BOOLEAN,
+                dataType: ComponentDefinitionDataType.BOOLEAN,
                 defaultSqlExpression: 'false',
                 isRequired: true
             },
             {
                 codename: 'is_system',
                 physicalColumnName: 'is_system',
-                dataType: FieldDefinitionDataType.BOOLEAN,
+                dataType: ComponentDefinitionDataType.BOOLEAN,
                 defaultSqlExpression: 'false',
                 isRequired: true
             },
             {
                 codename: 'sort_order',
                 physicalColumnName: 'sort_order',
-                dataType: FieldDefinitionDataType.NUMBER,
+                dataType: ComponentDefinitionDataType.NUMBER,
                 physicalDataType: 'INTEGER',
                 defaultSqlExpression: '0',
                 isRequired: true
@@ -232,22 +237,22 @@ const adminBusinessTables = [
             {
                 codename: 'category',
                 physicalColumnName: 'category',
-                dataType: FieldDefinitionDataType.STRING,
+                dataType: ComponentDefinitionDataType.STRING,
                 physicalDataType: 'VARCHAR(50)',
                 isRequired: true
             },
             {
                 codename: 'key',
                 physicalColumnName: 'key',
-                dataType: FieldDefinitionDataType.STRING,
+                dataType: ComponentDefinitionDataType.STRING,
                 physicalDataType: 'VARCHAR(100)',
                 isRequired: true,
-                isDisplayAttribute: true
+                isDisplayComponent: true
             },
             {
                 codename: 'value',
                 physicalColumnName: 'value',
-                dataType: FieldDefinitionDataType.JSON,
+                dataType: ComponentDefinitionDataType.JSON,
                 defaultSqlExpression: `'{}'::jsonb`,
                 isRequired: true,
                 presentation: p('Setting Value', 'Serialized configuration value'),
@@ -280,23 +285,23 @@ export const adminSystemAppDefinition: SystemAppDefinition = {
     targetStorageModel: 'application_like',
     currentStructureCapabilities: {
         appCoreTables: true,
-        catalogTables: true,
+        objectTables: true,
         documentTables: false,
         relationTables: true,
         settingsTables: true,
         layoutTables: false,
         widgetTables: false,
-        attributeValueTables: false
+        componentValueTables: false
     },
     targetStructureCapabilities: {
         appCoreTables: true,
-        catalogTables: true,
+        objectTables: true,
         documentTables: false,
         relationTables: true,
         settingsTables: true,
         layoutTables: false,
         widgetTables: false,
-        attributeValueTables: false
+        componentValueTables: false
     },
     currentBusinessTables: adminBusinessTables,
     targetBusinessTables: adminBusinessTables,

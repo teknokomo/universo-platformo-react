@@ -13,7 +13,7 @@ const mockSeedMigrate = jest.fn(async () => ({
     zoneWidgetsAdded: 0,
     settingsAdded: 0,
     entitiesAdded: 0,
-    attributesAdded: 0,
+    componentsAdded: 0,
     elementsAdded: 0,
     skipped: []
 }))
@@ -22,14 +22,14 @@ const mockCleanupAnalyze = jest.fn(async (params: { mode: string }) => ({
     hasChanges: false,
     blockers: [],
     notes: [],
-    summary: { entitiesDeleted: 0, attributesDeleted: 0, elementsDeleted: 0, settingsDeleted: 0 }
+    summary: { entitiesDeleted: 0, componentsDeleted: 0, elementsDeleted: 0, settingsDeleted: 0 }
 }))
 const mockCleanupApply = jest.fn(async (params: { mode: string }) => ({
     mode: params.mode,
     hasChanges: false,
     blockers: [],
     notes: [],
-    summary: { entitiesDeleted: 0, attributesDeleted: 0, elementsDeleted: 0, settingsDeleted: 0 }
+    summary: { entitiesDeleted: 0, componentsDeleted: 0, elementsDeleted: 0, settingsDeleted: 0 }
 }))
 
 const mockHasTable = jest.fn(async () => true)
@@ -157,7 +157,7 @@ describe('Metahub Migrations Routes', () => {
             zoneWidgetsAdded: 0,
             settingsAdded: 0,
             entitiesAdded: 0,
-            attributesAdded: 0,
+            componentsAdded: 0,
             elementsAdded: 0,
             skipped: []
         })
@@ -166,14 +166,14 @@ describe('Metahub Migrations Routes', () => {
             hasChanges: false,
             blockers: [],
             notes: [],
-            summary: { entitiesDeleted: 0, attributesDeleted: 0, elementsDeleted: 0, settingsDeleted: 0 }
+            summary: { entitiesDeleted: 0, componentsDeleted: 0, elementsDeleted: 0, settingsDeleted: 0 }
         }))
         mockCleanupApply.mockImplementation(async (params: { mode: string }) => ({
             mode: params.mode,
             hasChanges: false,
             blockers: [],
             notes: [],
-            summary: { entitiesDeleted: 0, attributesDeleted: 0, elementsDeleted: 0, settingsDeleted: 0 }
+            summary: { entitiesDeleted: 0, componentsDeleted: 0, elementsDeleted: 0, settingsDeleted: 0 }
         }))
     })
 
@@ -529,7 +529,7 @@ describe('Metahub Migrations Routes', () => {
             hasChanges: true,
             blockers: [],
             notes: [],
-            summary: { entitiesDeleted: 1, attributesDeleted: 2, elementsDeleted: 3, settingsDeleted: 1 }
+            summary: { entitiesDeleted: 1, componentsDeleted: 2, elementsDeleted: 3, settingsDeleted: 1 }
         })
 
         const app = buildApp()

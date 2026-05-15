@@ -161,7 +161,7 @@ const zeroSeedCounts: MetahubTemplateSeedMigrationCounts = {
     settingsAdded: 0,
     entitiesAdded: 0,
     fixedValuesAdded: 0,
-    attributesAdded: 0,
+    componentsAdded: 0,
     enumValuesAdded: 0,
     elementsAdded: 0
 }
@@ -467,7 +467,7 @@ async function buildTemplatePlan(
             dryRunResult.settingsAdded > 0 ||
             dryRunResult.entitiesAdded > 0 ||
             dryRunResult.fixedValuesAdded > 0 ||
-            dryRunResult.attributesAdded > 0 ||
+            dryRunResult.componentsAdded > 0 ||
             dryRunResult.elementsAdded > 0
 
         return {
@@ -858,7 +858,7 @@ export function createMetahubMigrationsController(getDbExecutor: () => DbExecuto
                         throw new MetahubNotFoundError('Metahub', metahub!.id)
                     }
                     await tx.query(
-                        `UPDATE metahubs.cat_metahubs
+                        `UPDATE metahubs.obj_metahubs
              SET template_version_id = $1,
                  _upl_updated_by = $2,
                  _upl_updated_at = NOW()

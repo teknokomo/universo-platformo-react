@@ -126,8 +126,8 @@ describe('Entity ECAE routes', () => {
 
         mockEntityTypeService.listTypes.mockResolvedValue([
             {
-                kindKey: 'catalog',
-                ui: { nameKey: 'Catalog', iconName: 'IconBox', tabs: ['general'], sidebarSection: 'objects' },
+                kindKey: 'object',
+                ui: { nameKey: 'Object', iconName: 'IconBox', tabs: ['general'], sidebarSection: 'objects' },
                 codename: null
             },
             {
@@ -135,7 +135,7 @@ describe('Entity ECAE routes', () => {
                 kindKey: 'custom-order',
                 ui: { nameKey: 'Custom Order', iconName: 'IconBolt', tabs: ['general'], sidebarSection: 'objects' },
                 codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-order' } } },
-                components: {},
+                capabilities: {},
                 published: true
             }
         ])
@@ -183,7 +183,7 @@ describe('Entity ECAE routes', () => {
             kindKey: 'custom-order',
             ui: { nameKey: 'Custom Order', iconName: 'IconBolt', tabs: ['general'], sidebarSection: 'objects' },
             codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-order' } } },
-            components: {},
+            capabilities: {},
             published: true
         })
 
@@ -204,7 +204,7 @@ describe('Entity ECAE routes', () => {
             .send({
                 kindKey: 'custom-order',
                 codename: 'custom-order',
-                components: { dataSchema: { enabled: true } },
+                capabilities: { dataSchema: { enabled: true } },
                 ui: { iconName: 'IconBolt', tabs: ['general'], sidebarSection: 'objects', nameKey: 'Custom Order' },
                 published: false
             })
@@ -228,7 +228,7 @@ describe('Entity ECAE routes', () => {
             .send({
                 kindKey: 'custom-order',
                 codename: 'custom-order',
-                components: { dataSchema: { enabled: true } },
+                capabilities: { dataSchema: { enabled: true } },
                 ui: { iconName: 'IconBolt', tabs: ['general'], sidebarSection: 'objects', nameKey: 'Custom Order' }
             })
             .expect(403)
@@ -245,7 +245,7 @@ describe('Entity ECAE routes', () => {
             .send({
                 kindKey: 'custom-knowledge',
                 codename: 'custom-knowledge',
-                components: {
+                capabilities: {
                     dataSchema: { enabled: true },
                     records: false,
                     treeAssignment: false,
@@ -268,10 +268,10 @@ describe('Entity ECAE routes', () => {
                     nameKey: 'Knowledge',
                     resourceSurfaces: [
                         {
-                            key: 'attributes',
+                            key: 'components',
                             capability: 'dataSchema',
-                            routeSegment: 'attributes',
-                            fallbackTitle: 'Attributes'
+                            routeSegment: 'components',
+                            fallbackTitle: 'Components'
                         }
                     ]
                 }
@@ -284,10 +284,10 @@ describe('Entity ECAE routes', () => {
                 ui: expect.objectContaining({
                     resourceSurfaces: [
                         expect.objectContaining({
-                            key: 'attributes',
+                            key: 'components',
                             capability: 'dataSchema',
-                            routeSegment: 'attributes',
-                            fallbackTitle: 'Attributes'
+                            routeSegment: 'components',
+                            fallbackTitle: 'Components'
                         })
                     ]
                 })
@@ -304,7 +304,7 @@ describe('Entity ECAE routes', () => {
             .send({
                 kindKey: 'custom-order',
                 codename: 'custom-order',
-                components: { dataSchema: { enabled: true } },
+                capabilities: { dataSchema: { enabled: true } },
                 ui: {
                     iconName: 'IconBolt',
                     tabs: ['general'],
@@ -314,8 +314,8 @@ describe('Entity ECAE routes', () => {
                         {
                             key: '',
                             capability: 'dataSchema',
-                            routeSegment: 'attributes',
-                            fallbackTitle: 'Attributes'
+                            routeSegment: 'components',
+                            fallbackTitle: 'Components'
                         }
                     ]
                 }
@@ -334,7 +334,7 @@ describe('Entity ECAE routes', () => {
             .send({
                 kindKey: 'custom-order',
                 codename: 'custom-order',
-                components: { dataSchema: { enabled: true } },
+                capabilities: { dataSchema: { enabled: true } },
                 ui: {
                     iconName: 'IconBolt',
                     tabs: ['general'],
@@ -342,16 +342,16 @@ describe('Entity ECAE routes', () => {
                     nameKey: 'Custom Order',
                     resourceSurfaces: [
                         {
-                            key: 'attributes',
+                            key: 'components',
                             capability: 'dataSchema',
-                            routeSegment: 'attributes',
+                            routeSegment: 'components',
                             title: {
                                 _primary: 'en',
                                 locales: {
                                     ru: { content: 'Атрибуты' }
                                 }
                             },
-                            fallbackTitle: 'Attributes'
+                            fallbackTitle: 'Components'
                         }
                     ]
                 }
@@ -377,7 +377,7 @@ describe('Entity ECAE routes', () => {
             .send({
                 kindKey: 'custom-order',
                 codename: 'custom-order',
-                components: { dataSchema: { enabled: true } },
+                capabilities: { dataSchema: { enabled: true } },
                 ui: { iconName: 'IconBolt', tabs: ['general'], sidebarSection: 'objects', nameKey: 'Custom Order' }
             })
             .expect(409)

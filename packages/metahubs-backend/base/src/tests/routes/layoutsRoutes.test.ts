@@ -265,7 +265,7 @@ describe('Layouts Routes', () => {
         it('copies scoped layout entity scope and inherited overrides when deactivating copied widgets', async () => {
             mockGetLayoutById.mockResolvedValueOnce({
                 id: 'layout-1',
-                scopeEntityId: 'catalog-1',
+                scopeEntityId: 'object-1',
                 baseLayoutId: 'base-layout-1',
                 templateKey: 'dashboard',
                 name: {
@@ -289,7 +289,7 @@ describe('Layouts Routes', () => {
             const trx = createLayoutCopyTransactionTrx({
                 copiedLayout: {
                     id: 'layout-copy-id',
-                    scope_entity_id: 'catalog-1',
+                    scope_entity_id: 'object-1',
                     base_layout_id: 'base-layout-1',
                     template_key: 'dashboard',
                     name: {
@@ -349,12 +349,12 @@ describe('Layouts Routes', () => {
                 })
                 .expect(201)
 
-            expect(response.body.scopeEntityId).toBe('catalog-1')
+            expect(response.body.scopeEntityId).toBe('object-1')
             expect(response.body.baseLayoutId).toBe('base-layout-1')
             expect(trx.query).toHaveBeenCalledTimes(6)
 
             const layoutInsertParams = (trx.query as jest.Mock).mock.calls[0]?.[1] as unknown[]
-            expect(layoutInsertParams?.[0]).toBe('catalog-1')
+            expect(layoutInsertParams?.[0]).toBe('object-1')
             expect(layoutInsertParams?.[1]).toBe('base-layout-1')
 
             const overrideInsertParams = (trx.query as jest.Mock).mock.calls[5]?.[1] as unknown[]

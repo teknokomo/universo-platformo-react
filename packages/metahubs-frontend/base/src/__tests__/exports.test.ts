@@ -18,7 +18,7 @@ vi.mock('../domains/entities/ui/BuiltinEntityCollectionPage', () => ({
     BuiltinEntityCollectionPage: () => null,
     StandardEntityChildCollectionPage: () => null
 }))
-vi.mock('../domains/entities/metadata/fieldDefinition/ui/FieldDefinitionList', () => ({ default: () => null }))
+vi.mock('../domains/entities/metadata/component/ui/ComponentList', () => ({ default: () => null }))
 vi.mock('../domains/entities/metadata/record/ui/RecordList', () => ({ default: () => null }))
 vi.mock('../domains/entities/metadata/fixedValue/ui/FixedValueList', () => ({ default: () => null }))
 vi.mock('../domains/entities/shared/ui/SharedResourcesPage', () => ({ default: () => null }))
@@ -45,7 +45,7 @@ describe('metahubs-frontend entry exports', () => {
         expect(entry.EntityInstanceList).toBeTruthy()
         expect(entry.BuiltinEntityCollectionPage).toBeTruthy()
         expect(entry.StandardEntityChildCollectionPage).toBeTruthy()
-        expect(entry.FieldDefinitionList).toBeTruthy()
+        expect(entry.ComponentList).toBeTruthy()
         expect(entry.RecordList).toBeTruthy()
         expect(entry.MetahubResources).toBeTruthy()
         expect(entry.MetahubLayouts).toBeTruthy()
@@ -79,10 +79,10 @@ describe('metahubs-frontend entry exports', () => {
         expect(typeof fallback).toBe('object')
 
         expect((en as any).general.title).toBe('Resources')
-        expect((en as any).catalogs.tabs.layout).toBe('Layouts')
-        expect((en as any).catalogs.runtime.showSearch).toBe('Search/filter bar')
-        expect((en as any).catalogs.runtime.createSurface).toBe('Create form type')
-        expect((en as any).catalogs.runtime.surfacePage).toBe('Page')
+        expect((en as any).objects.tabs.layout).toBe('Layouts')
+        expect((en as any).objects.runtime.showSearch).toBe('Search/filter bar')
+        expect((en as any).objects.runtime.createSurface).toBe('Create form type')
+        expect((en as any).objects.runtime.surfacePage).toBe('Page')
         expect((en as any).entities.title).toBe('Entities')
         expect((en as any).sets.tabs).toEqual({
             general: 'General',
@@ -92,9 +92,9 @@ describe('metahubs-frontend entry exports', () => {
         expect((en as any).sets.runtime).toBeUndefined()
 
         expect((ru as any).general.title).toBe('Ресурсы')
-        expect((ru as any).catalogs.tabs.layout).toBe('Макеты')
-        expect((ru as any).catalogs.runtime.showSearch).toBe('Строка поиска/фильтрации')
-        expect((ru as any).catalogs.runtime.createSurface).toBe('Тип окна создания')
+        expect((ru as any).objects.tabs.layout).toBe('Макеты')
+        expect((ru as any).objects.runtime.showSearch).toBe('Строка поиска/фильтрации')
+        expect((ru as any).objects.runtime.createSurface).toBe('Тип окна создания')
         expect((ru as any).entities.title).toBe('Сущности')
     })
 })

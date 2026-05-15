@@ -8,7 +8,7 @@ import {
     createLoggedInApiContext,
     createPublicationLinkedApplication,
     disposeApiContext,
-    listLinkedCollections,
+    listObjectCollections,
     listMetahubEntityTypes,
     listLayouts,
     listApplicationWorkspaces,
@@ -40,7 +40,7 @@ import {
     LMS_WELCOME_PAGE
 } from '../../support/lmsFixtureContract'
 import {
-    waitForApplicationCatalogId,
+    waitForApplicationObjectId,
     waitForApplicationLedgerFactCount,
     waitForApplicationLedgerId,
     waitForApplicationRuntimeRowCount,
@@ -286,7 +286,7 @@ async function loadLmsFixture(): Promise<{ fixturePath: string; metahubName: str
 }
 
 async function findEntityInstanceIdByCodename(api: ApiContext, metahubId: string, kindKey: string, codename: string): Promise<string> {
-    const payload = await listLinkedCollections(api, metahubId, { kindKey, limit: 200, offset: 0 })
+    const payload = await listObjectCollections(api, metahubId, { kindKey, limit: 200, offset: 0 })
     const entity = (payload?.items ?? []).find((item: Record<string, unknown>) => readLocalizedText(item?.codename, 'en') === codename)
     if (!entity || typeof entity.id !== 'string') {
         throw new Error(`Entity ${kindKey}/${codename} was not found in imported LMS metahub ${metahubId}`)
@@ -295,8 +295,8 @@ async function findEntityInstanceIdByCodename(api: ApiContext, metahubId: string
     return entity.id
 }
 
-async function findCatalogIdByCodename(api: ApiContext, metahubId: string, codename: string): Promise<string> {
-    return findEntityInstanceIdByCodename(api, metahubId, 'catalog', codename)
+async function findObjectIdByCodename(api: ApiContext, metahubId: string, codename: string): Promise<string> {
+    return findEntityInstanceIdByCodename(api, metahubId, 'object', codename)
 }
 
 async function findEntityTypeIdByKind(api: ApiContext, metahubId: string, kindKey: string): Promise<string> {
@@ -447,15 +447,15 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         expect(menuWidget?.config?.startPage).toBe('LearnerHome')
 
         await applyBrowserPreferences(page, { language: 'ru' })
-        await page.goto(`/metahub/${importedId}/entities/catalog/instances`)
-        await expect(page.getByRole('heading', { name: 'Каталоги' })).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByPlaceholder(/Поиск каталогов/i)).toBeVisible({ timeout: 30_000 })
+        await page.goto(`/metahub/${importedId}/entities/object/instances`)
+        await expect(page.getByRole('heading', { name: 'Объекты' })).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByPlaceholder(/Поиск объектов/i)).toBeVisible({ timeout: 30_000 })
         await expect(page.getByRole('heading', { name: 'Ledgers' })).toHaveCount(0)
 
-        const metahubProgressLedgerId = await findEntityInstanceIdByCodename(api, importedId, 'catalog', 'ProgressLedger')
-        await page.getByTestId(buildEntityMenuTriggerSelector('catalog', metahubProgressLedgerId)).click()
-        await page.getByTestId(buildEntityMenuItemSelector('catalog', 'edit', metahubProgressLedgerId)).click()
-        let progressLedgerDialog = page.getByRole('dialog', { name: /Редактировать каталог/i })
+        const metahubProgressLedgerId = await findEntityInstanceIdByCodename(api, importedId, 'object', 'ProgressLedger')
+        await page.getByTestId(buildEntityMenuTriggerSelector('object', metahubProgressLedgerId)).click()
+        await page.getByTestId(buildEntityMenuItemSelector('object', 'edit', metahubProgressLedgerId)).click()
+        let progressLedgerDialog = page.getByRole('dialog', { name: /Редактировать объект/i })
         await expect(progressLedgerDialog).toBeVisible({ timeout: 30_000 })
         await progressLedgerDialog.getByRole('tab', { name: 'Схема регистра' }).click()
         await expect(progressLedgerDialog.getByLabel('Режим регистра')).toContainText('Остатки')
@@ -471,18 +471,16 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             page,
             (response) =>
                 response.request().method() === 'PATCH' &&
-                response.url().endsWith(
-                    `/api/v1/metahub/${importedId}/entities/catalog/instance/${metahubProgressLedgerId}`
-                ),
+                response.url().endsWith(`/api/v1/metahub/${importedId}/entities/object/instance/${metahubProgressLedgerId}`),
             { label: 'Saving LMS Progress ledger schema periodicity' }
         )
         await progressLedgerDialog.getByTestId(entityDialogSelectors.submitButton).click()
         expect((await ledgerSchemaSaveResponse).ok()).toBe(true)
         await expect(progressLedgerDialog).toHaveCount(0)
 
-        await page.getByTestId(buildEntityMenuTriggerSelector('catalog', metahubProgressLedgerId)).click()
-        await page.getByTestId(buildEntityMenuItemSelector('catalog', 'edit', metahubProgressLedgerId)).click()
-        progressLedgerDialog = page.getByRole('dialog', { name: /Редактировать каталог/i })
+        await page.getByTestId(buildEntityMenuTriggerSelector('object', metahubProgressLedgerId)).click()
+        await page.getByTestId(buildEntityMenuItemSelector('object', 'edit', metahubProgressLedgerId)).click()
+        progressLedgerDialog = page.getByRole('dialog', { name: /Редактировать объект/i })
         await expect(progressLedgerDialog).toBeVisible({ timeout: 30_000 })
         await progressLedgerDialog.getByRole('tab', { name: 'Схема регистра' }).click()
         await expect(progressLedgerDialog.getByLabel('Периодичность')).toContainText('Месяц')
@@ -493,9 +491,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             page,
             (response) =>
                 response.request().method() === 'PATCH' &&
-                response.url().endsWith(
-                    `/api/v1/metahub/${importedId}/entities/catalog/instance/${metahubProgressLedgerId}`
-                ),
+                response.url().endsWith(`/api/v1/metahub/${importedId}/entities/object/instance/${metahubProgressLedgerId}`),
             { label: 'Restoring LMS Progress ledger schema periodicity' }
         )
         await progressLedgerDialog.getByTestId(entityDialogSelectors.submitButton).click()
@@ -505,37 +501,37 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         const progressLedgerCell = page.getByText('Регистр прогресса', { exact: true }).first()
         await expect(progressLedgerCell).toBeVisible({ timeout: 30_000 })
         await progressLedgerCell.click()
-        await expect(page).toHaveURL(/\/entities\/catalog\/instance\/[0-9a-f-]+\/field-definitions$/i)
+        await expect(page).toHaveURL(/\/entities\/object\/instance\/[0-9a-f-]+\/components$/i)
 
-        const catalogTypeId = await findEntityTypeIdByKind(api, importedId, 'catalog')
+        const objectTypeId = await findEntityTypeIdByKind(api, importedId, 'object')
         await page.goto(`/metahub/${importedId}/entities`)
-        await expect(page.getByTestId(buildEntityMenuTriggerSelector('entity-type', catalogTypeId))).toBeVisible({ timeout: 30_000 })
-        await page.getByTestId(buildEntityMenuTriggerSelector('entity-type', catalogTypeId)).click()
-        await page.getByTestId(buildEntityMenuItemSelector('entity-type', 'edit', catalogTypeId)).click()
+        await expect(page.getByTestId(buildEntityMenuTriggerSelector('entity-type', objectTypeId))).toBeVisible({ timeout: 30_000 })
+        await page.getByTestId(buildEntityMenuTriggerSelector('entity-type', objectTypeId)).click()
+        await page.getByTestId(buildEntityMenuItemSelector('entity-type', 'edit', objectTypeId)).click()
 
-        const catalogTypeDialog = page.getByRole('dialog', { name: /Редактировать сущность|Edit Entity/i })
-        await expect(catalogTypeDialog).toBeVisible({ timeout: 30_000 })
-        await expect(catalogTypeDialog.getByRole('checkbox', { name: 'Поведение' })).toBeChecked()
-        await expect(catalogTypeDialog.getByLabel('Дополнительные вкладки')).toHaveValue(/hubs/)
-        await catalogTypeDialog.getByRole('tab', { name: 'Компоненты' }).click()
-        await expect(catalogTypeDialog.getByLabel('Схема данных')).toBeChecked()
-        await expect(catalogTypeDialog.getByLabel('Скрипты')).toBeChecked()
-        await expect(catalogTypeDialog.getByLabel('Runtime-поведение')).toBeChecked()
-        await expect(catalogTypeDialog.getByLabel('Физическая таблица')).toBeChecked()
-        await catalogTypeDialog.screenshot({ path: testInfo.outputPath('metahub-catalog-type-behavior-components-ru.png') })
-        await catalogTypeDialog.getByTestId(entityDialogSelectors.cancelButton).click()
-        await expect(catalogTypeDialog).toHaveCount(0)
+        const objectTypeDialog = page.getByRole('dialog', { name: /Редактировать сущность|Edit Entity/i })
+        await expect(objectTypeDialog).toBeVisible({ timeout: 30_000 })
+        await expect(objectTypeDialog.getByRole('checkbox', { name: 'Поведение' })).toBeChecked()
+        await expect(objectTypeDialog.getByLabel('Дополнительные вкладки')).toHaveValue(/hubs/)
+        await objectTypeDialog.getByRole('tab', { name: 'Возможности' }).click()
+        await expect(objectTypeDialog.getByLabel('Схема данных')).toBeChecked()
+        await expect(objectTypeDialog.getByLabel('Скрипты')).toBeChecked()
+        await expect(objectTypeDialog.getByLabel('Runtime-поведение')).toBeChecked()
+        await expect(objectTypeDialog.getByLabel('Физическая таблица')).toBeChecked()
+        await objectTypeDialog.screenshot({ path: testInfo.outputPath('metahub-object-type-behavior-components-ru.png') })
+        await objectTypeDialog.getByTestId(entityDialogSelectors.cancelButton).click()
+        await expect(objectTypeDialog).toHaveCount(0)
 
-        const enrollmentCatalogId = await findCatalogIdByCodename(api, importedId, 'Enrollments')
-        await page.goto(`/metahub/${importedId}/entities/catalog/instances`)
-        await expect(page.getByRole('heading', { name: 'Каталоги' })).toBeVisible({ timeout: 30_000 })
-        const openEnrollmentCatalogDialog = async () => {
-            await page.getByPlaceholder(/Поиск каталогов/i).fill('Enrollments')
-            const menuTrigger = page.getByTestId(buildEntityMenuTriggerSelector('catalog', enrollmentCatalogId))
+        const enrollmentObjectId = await findObjectIdByCodename(api, importedId, 'Enrollments')
+        await page.goto(`/metahub/${importedId}/entities/object/instances`)
+        await expect(page.getByRole('heading', { name: 'Объекты' })).toBeVisible({ timeout: 30_000 })
+        const openEnrollmentObjectDialog = async () => {
+            await page.getByPlaceholder(/Поиск объектов/i).fill('Enrollments')
+            const menuTrigger = page.getByTestId(buildEntityMenuTriggerSelector('object', enrollmentObjectId))
             await expect(menuTrigger).toBeVisible({ timeout: 30_000 })
             await menuTrigger.click()
-            await page.getByTestId(buildEntityMenuItemSelector('catalog', 'edit', enrollmentCatalogId)).click()
-            const dialog = page.getByRole('dialog', { name: /Редактировать каталог/i })
+            await page.getByTestId(buildEntityMenuItemSelector('object', 'edit', enrollmentObjectId)).click()
+            const dialog = page.getByRole('dialog', { name: /Редактировать объект/i })
             await expect(dialog).toBeVisible({ timeout: 30_000 })
             return dialog
         }
@@ -544,49 +540,47 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             .getByRole('button', { name: /создать/i })
             .last()
             .click()
-        const createCatalogDialog = page.getByRole('dialog', { name: /Создать каталог/i })
-        await expect(createCatalogDialog).toBeVisible({ timeout: 30_000 })
-        await createCatalogDialog.getByRole('tab', { name: 'Поведение' }).click()
-        await expect(createCatalogDialog.getByLabel('Режим записей')).toContainText('Справочник')
-        await expect(createCatalogDialog.getByLabel('Включить нумерацию записей')).not.toBeChecked()
-        await expect(createCatalogDialog.getByLabel('Включить дату действия')).not.toBeChecked()
-        await expect(createCatalogDialog.getByLabel('Префикс')).toHaveCount(0)
-        await createCatalogDialog.screenshot({ path: testInfo.outputPath('metahub-catalog-create-behavior-defaults-ru.png') })
-        await createCatalogDialog.getByTestId(entityDialogSelectors.cancelButton).click()
-        await expect(createCatalogDialog).toHaveCount(0)
+        const createObjectDialog = page.getByRole('dialog', { name: /Создать объект/i })
+        await expect(createObjectDialog).toBeVisible({ timeout: 30_000 })
+        await createObjectDialog.getByRole('tab', { name: 'Поведение' }).click()
+        await expect(createObjectDialog.getByLabel('Режим записей')).toContainText('Справочник')
+        await expect(createObjectDialog.getByLabel('Включить нумерацию записей')).not.toBeChecked()
+        await expect(createObjectDialog.getByLabel('Включить дату действия')).not.toBeChecked()
+        await expect(createObjectDialog.getByLabel('Префикс')).toHaveCount(0)
+        await createObjectDialog.screenshot({ path: testInfo.outputPath('metahub-object-create-behavior-defaults-ru.png') })
+        await createObjectDialog.getByTestId(entityDialogSelectors.cancelButton).click()
+        await expect(createObjectDialog).toHaveCount(0)
 
-        let enrollmentDialog = await openEnrollmentCatalogDialog()
+        let enrollmentDialog = await openEnrollmentObjectDialog()
         await enrollmentDialog.getByRole('tab', { name: 'Поведение' }).click()
         await expect(enrollmentDialog.getByLabel('Режим записей')).toContainText('Транзакционный')
         await expect(enrollmentDialog.getByLabel('Префикс')).toHaveValue('ENR-')
         await expect(enrollmentDialog.getByText(/Регистр прогресса|ProgressLedger/).first()).toBeVisible({ timeout: 30_000 })
-        await expect(enrollmentDialog.getByText(/Enrollment Posting Script|EnrollmentPostingScript/).first()).toBeVisible({
-            timeout: 30_000
-        })
-        await enrollmentDialog.screenshot({ path: testInfo.outputPath('metahub-catalog-enrollments-behavior-before-save-ru.png') })
+        await expect(enrollmentDialog.locator('input[value="EnrollmentPostingScript"]')).toHaveCount(1, { timeout: 30_000 })
+        await enrollmentDialog.screenshot({ path: testInfo.outputPath('metahub-object-enrollments-behavior-before-save-ru.png') })
         await enrollmentDialog.getByLabel('Префикс').fill('ENR-QA-')
 
         const behaviorSaveResponse = waitForSettledMutationResponse(
             page,
             (response) =>
                 response.request().method() === 'PATCH' &&
-                response.url().endsWith(`/api/v1/metahub/${importedId}/entities/catalog/instance/${enrollmentCatalogId}`),
+                response.url().endsWith(`/api/v1/metahub/${importedId}/entities/object/instance/${enrollmentObjectId}`),
             { label: 'Saving LMS Enrollment behavior prefix' }
         )
         await enrollmentDialog.getByTestId(entityDialogSelectors.submitButton).click()
         expect((await behaviorSaveResponse).ok()).toBe(true)
         await expect(enrollmentDialog).toHaveCount(0)
 
-        enrollmentDialog = await openEnrollmentCatalogDialog()
+        enrollmentDialog = await openEnrollmentObjectDialog()
         await enrollmentDialog.getByRole('tab', { name: 'Поведение' }).click()
         await expect(enrollmentDialog.getByLabel('Префикс')).toHaveValue('ENR-QA-')
-        await enrollmentDialog.screenshot({ path: testInfo.outputPath('metahub-catalog-enrollments-behavior-reopened-ru.png') })
+        await enrollmentDialog.screenshot({ path: testInfo.outputPath('metahub-object-enrollments-behavior-reopened-ru.png') })
         await enrollmentDialog.getByLabel('Префикс').fill('ENR-')
         const behaviorRestoreResponse = waitForSettledMutationResponse(
             page,
             (response) =>
                 response.request().method() === 'PATCH' &&
-                response.url().endsWith(`/api/v1/metahub/${importedId}/entities/catalog/instance/${enrollmentCatalogId}`),
+                response.url().endsWith(`/api/v1/metahub/${importedId}/entities/object/instance/${enrollmentObjectId}`),
             { label: 'Restoring LMS Enrollment behavior prefix' }
         )
         await enrollmentDialog.getByTestId(entityDialogSelectors.submitButton).click()
@@ -646,9 +640,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
 
         const syncResponsePromise = waitForSettledMutationResponse(
             page,
-            (response) =>
-                response.request().method() === 'POST' &&
-                response.url().endsWith(`/api/v1/application/${applicationId}/sync`),
+            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/application/${applicationId}/sync`),
             { label: 'Creating imported LMS application schema with workspaces', timeout: 420_000 }
         )
         await diffDialog.getByRole('button', { name: 'Create Schema' }).click()
@@ -661,14 +653,13 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         })
         await expect(diffDialog).toHaveCount(0)
 
-        const [studentsCatalogId, quizResponsesCatalogId, moduleProgressCatalogId, enrollmentsCatalogId, progressLedgerId] =
-            await Promise.all([
-                waitForApplicationCatalogId(api, applicationId, 'Students'),
-                waitForApplicationCatalogId(api, applicationId, 'Quiz Responses'),
-                waitForApplicationCatalogId(api, applicationId, 'Module Progress'),
-                waitForApplicationCatalogId(api, applicationId, 'Enrollments'),
-                waitForApplicationLedgerId(api, applicationId, 'ProgressLedger')
-            ])
+        const [studentsObjectId, quizResponsesObjectId, moduleProgressObjectId, enrollmentsObjectId, progressLedgerId] = await Promise.all([
+            waitForApplicationObjectId(api, applicationId, 'Students'),
+            waitForApplicationObjectId(api, applicationId, 'Quiz Responses'),
+            waitForApplicationObjectId(api, applicationId, 'Module Progress'),
+            waitForApplicationObjectId(api, applicationId, 'Enrollments'),
+            waitForApplicationLedgerId(api, applicationId, 'ProgressLedger')
+        ])
 
         await applyBrowserPreferences(page, { language: 'en' })
         await page.goto(`/a/${applicationId}`)
@@ -684,7 +675,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         })
         await expect(page.getByText(LMS_WELCOME_PAGE.howToStartTitle.en, { exact: true })).toBeVisible({ timeout: 30_000 })
         await expect(page.getByText(LMS_WELCOME_PAGE.workspaceGuidance.en)).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByText('Catalog', { exact: true })).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByText('Objects', { exact: true })).toBeVisible({ timeout: 30_000 })
         await expect(page.getByText('Learners', { exact: true })).toBeVisible({ timeout: 30_000 })
         await expect(page.getByText('Department Progress', { exact: true })).toBeVisible({ timeout: 30_000 })
         await expect(page.getByText('Assignment Scores', { exact: true })).toBeVisible({ timeout: 30_000 })
@@ -753,7 +744,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         })
         await expect(page.getByText(LMS_WELCOME_PAGE.howToStartTitle.ru, { exact: true })).toBeVisible({ timeout: 30_000 })
         await expect(page.getByText(LMS_WELCOME_PAGE.workspaceGuidance.ru)).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByText('Каталог', { exact: true })).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByText('Объекты', { exact: true })).toBeVisible({ timeout: 30_000 })
         await expect(page.getByText('Учащиеся', { exact: true })).toBeVisible({ timeout: 30_000 })
         await expect(page.getByText('Прогресс подразделений', { exact: true })).toBeVisible({ timeout: 30_000 })
         await expect(page.getByText('Оценки заданий', { exact: true })).toBeVisible({ timeout: 30_000 })
@@ -839,7 +830,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         const enrollmentRows = await waitForApplicationRuntimeRowCount(
             api,
             applicationId,
-            enrollmentsCatalogId,
+            enrollmentsObjectId,
             LMS_DEMO_ENROLLMENTS.length,
             {
                 workspaceId: mainWorkspaceId
@@ -850,7 +841,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             throw new Error('LMS posting proof could not find an enrollment runtime row')
         }
 
-        await page.goto(`/a/${applicationId}/${encodeURIComponent(enrollmentsCatalogId)}`)
+        await page.goto(`/a/${applicationId}/${encodeURIComponent(enrollmentsObjectId)}`)
         await expect(page.getByTestId(`grid-row-actions-trigger-${enrollmentToPost.id}`)).toBeVisible({ timeout: 30_000 })
         await runRuntimeRecordCommandFromRow(page, enrollmentToPost.id, 'post')
 
@@ -881,13 +872,13 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         }
 
         const [studentRows, quizResponseRows, moduleProgressRows] = await Promise.all([
-            waitForApplicationRuntimeRowCount(api, applicationId, studentsCatalogId, LMS_DEMO_STUDENTS.length + 2, {
+            waitForApplicationRuntimeRowCount(api, applicationId, studentsObjectId, LMS_DEMO_STUDENTS.length + 2, {
                 workspaceId: mainWorkspaceId
             }),
-            waitForApplicationRuntimeRowCount(api, applicationId, quizResponsesCatalogId, LMS_DEMO_QUIZ_RESPONSES.length + 4, {
+            waitForApplicationRuntimeRowCount(api, applicationId, quizResponsesObjectId, LMS_DEMO_QUIZ_RESPONSES.length + 4, {
                 workspaceId: mainWorkspaceId
             }),
-            waitForApplicationRuntimeRowCount(api, applicationId, moduleProgressCatalogId, LMS_DEMO_MODULE_PROGRESS.length + 2, {
+            waitForApplicationRuntimeRowCount(api, applicationId, moduleProgressObjectId, LMS_DEMO_MODULE_PROGRESS.length + 2, {
                 workspaceId: mainWorkspaceId
             })
         ])

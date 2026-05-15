@@ -6,6 +6,70 @@
 
 ## Current Task Ledger (Canonical)
 
+## Active: Object Collections And Components Rename Implementation (2026-05-14)
+
+> Goal: implement the approved rename of the current universal Catalog entity type to Objects/Object collections and replace remaining Attribute terminology with Components across templates, runtime, fixtures, tests, and docs.
+> Status: completed. Final QA cleanup removed the stale test filename and the targeted MUI test-environment warnings.
+
+-   [x] Review and approve `memory-bank/plan/object-collections-and-components-rename-plan-2026-05-14.md`
+    -   Note: implementation should start by renaming Entity type capability infrastructure from `components` to `capabilities`, then proceed with the Object/Component contract.
+
+### IMPLEMENT Action Plan
+
+-   [x] QA closure: rename the remaining stale shared policy test file to Component terminology.
+-   [x] QA closure: remove MUI warnings from TargetEntitySelector tests without weakening the real component behavior.
+-   [x] QA closure: remove MUI menu anchor warnings from PublicationApplicationList tests by tightening the test double.
+-   [x] QA closure: run focused backend/frontend tests, lint, and stale-term checks.
+-   [x] QA closure: update Memory Bank progress with final validation evidence.
+
+-   [x] Final QA remediation: replace stale Playwright `createLinkedCollection` usage with Object helper usage and align local variable naming in affected flows.
+-   [x] Final QA remediation: update `@universo/template-mui` breadcrumb/menu tests from Catalog/LinkedCollection routes and mocks to Object routes and hooks.
+-   [x] Final QA remediation: rename the public layout authoring widget catalog type to an Object-neutral available widget item type.
+-   [x] Final QA remediation: run focused unit, lint, build, stale-term grep, and local Supabase Playwright validation.
+-   [x] Final QA remediation: update Memory Bank progress with final closure evidence.
+
+-   [x] QA remediation: align layout widget Object API naming, frontend query keys, mocks, and tests with the backend `/zone-widgets/object` route.
+-   [x] QA remediation: remove the stale `CatalogTable.tsx` file name by publishing `ObjectTable.tsx` and make package build coverage include component barrels.
+-   [x] QA remediation: replace remaining user-facing Attribute wording and stale `cat_` docs with Component/Object terminology.
+-   [x] QA remediation: update stale frontend test fixtures/routes from Catalog assumptions to Object assumptions.
+-   [x] QA remediation: run focused builds/tests/grep checks and update Memory Bank progress with the closure.
+
+-   [x] Phase 1A: Rename Entity type capability infrastructure from `components`/`ComponentManifest` to `capabilities`/`EntityCapability*` across shared types, backend, DDL, snapshots, and tests.
+-   [x] Phase 1B: Rename shared Attribute/FieldDefinition contracts to Component contracts in `@universo/types` and direct consumers.
+-   [x] Phase 2: Update schema DDL naming, runtime metadata tables, columns, and prefix generation so Object tables use constructor/snapshot prefixes and standard Objects use `obj_*`.
+-   [x] Phase 2A: Update platform system-app and migrations compiler contracts from Catalog/Attribute terminology to Object/Component terminology.
+-   [x] Phase 3: Replace Catalog presets/templates with Object presets/templates in basic, basic-demo, LMS, quiz, and self-hosted fixture generation inputs.
+-   [x] Phase 4: Refactor Metahubs backend routes/services/snapshot restore/export/scripts/layouts to Object/Component terminology and capability-driven behavior.
+-   [x] Phase 5: Refactor Metahubs frontend by renaming existing UI surfaces, preserving current `EntityFormDialog`, tabs, tables, menus, settings, i18n, and shared selectors.
+-   [x] Phase 6: Refactor Applications backend sync/runtime/workspaces/reports/scripts/ledgers to use Object/Component contracts and snapshot-provided physical table metadata.
+-   [x] Phase 7: Refactor published app template runtime UI/API/types from Catalog/Attribute to Object/Component without introducing new UI shells.
+-   [x] Phase 8: Regenerate Playwright product fixtures and update fixture contracts for LMS, quiz, and self-hosted apps.
+-   [x] Phase 9: Add/update Jest, Vitest, Playwright, visual, local Supabase E2E, and grep-gate coverage.
+-   [x] Phase 10: Update package READMEs and GitBook docs in `docs/` for Object/Component terminology.
+-   [x] Phase 11: Remove temporary aliases and verify no active legacy Catalog/Attribute contract remains outside documented migration-catalog allowlists.
+
+### Latest Validation
+
+-   [x] `pnpm --filter @universo/metahubs-frontend test -- --runInBand LayoutDetails.cacheInvalidation LayoutDetails.inheritedWidgets queryKeys TargetEntitySelector LayoutList.copyFlow QuizWidgetEditorDialog EntityScriptsTab MetahubBoard`
+-   [x] `pnpm --filter @universo/metahubs-backend test -- componentRoutes MetahubComponentsService systemComponentSeed layoutsRoutes entityInstancesRoutes fixedValuesRoutes EntityDeletePatterns SnapshotRestoreService snapshotLayouts`
+-   [x] `pnpm --filter @universo/applications-backend test -- applicationReleaseBundle syncLayoutPersistence syncLayoutMaterialization runtimeRowsController applicationWorkspaces publicRuntimeAccess applicationsRoutes`
+-   [x] `pnpm --filter @universo/apps-template-mui build`
+-   [x] `pnpm --filter @universo/metahubs-frontend build`
+-   [x] `pnpm --filter @universo/apps-template-mui lint`
+-   [x] `pnpm --filter @universo/metahubs-frontend lint`
+-   [x] `git diff --check`
+-   [x] Targeted `rg` audit for stale Object/Component rename terms, with only migration-catalog, ABAC, and DnD attribute allowlist hits remaining.
+-   [x] `pnpm --filter @universo/applications-backend test`
+-   [x] `pnpm --filter @universo/metahubs-backend test`
+-   [x] `pnpm --filter @universo/admin-backend test`
+-   [x] `pnpm --filter @universo/profile-backend test`
+-   [x] `pnpm --filter @universo/start-backend test`
+-   [x] `pnpm --filter @universo/auth-backend test`
+-   [x] `pnpm --filter @universo/migrations-core test`
+-   [x] `pnpm --filter @universo/migrations-platform test`
+-   [x] Focused `@universo/core-backend` startup/publication sync Jest tests
+-   [x] Builds for core backend, migrations, rest docs, admin/profile/start/auth/applications/metahubs backend packages
+
 ## Active: Dedicated E2E Supabase And Agent Playwright Guidance Implementation (2026-05-13)
 
 > Goal: implement the approved dedicated E2E Supabase plan with separate local Docker profile, fail-closed E2E source policy, repository-specific Playwright agent guidance, tests, and EN/RU documentation.
@@ -728,3 +792,25 @@ All phases of the entity-first final migration completed:
 
 -   [ ] Review and approve [e2e-dedicated-supabase-and-agent-playwright-guidance-plan-2026-05-13.md](plan/e2e-dedicated-supabase-and-agent-playwright-guidance-plan-2026-05-13.md)
 -   [ ] Implement separate local E2E Supabase profile, source policy guards, and repository-specific Playwright skill guidance after approval
+
+## Active: Object Collections And Components Rename Implementation (2026-05-14)
+
+-   [x] Replace built-in Catalog terminology with Object terminology across entity templates, metahub/application snapshots, runtime schema generation, public routes, frontend i18n, and docs.
+-   [x] Replace Attribute/Field Definition terminology with Component terminology across metadata services, frontend surfaces, shared resources, system tables, fixture contracts, and docs.
+-   [x] Remove legacy technical names from fresh-schema targets: `_mhb_attributes`, `_app_attributes`, `cat_*`, `field-definitions`, `linked-collection(s)`, and attribute-specific system columns.
+-   [x] Regenerate product fixtures through Playwright generators:
+    -   LMS: `2bd91c828905339a5817ba594d94e9821f5ce3970986c299843f1731f0592da3`
+    -   Quiz: `2a3f63f5304bdee9777a5c8e53f39c7be1d876c137dba8594bd328bfc40290e9`
+    -   Self-hosted: `8cc2efb200d1a654e9c16dab4d298b468499449136e12ad521c6aae6582626a2`
+-   [x] Validate the updated LMS fixture through full import, publication, application schema sync, workspace runtime, public guest journey, posting/unposting, and report execution.
+-   [x] Regenerate GitBook screenshot assets for entity and quiz tutorial documentation.
+-   [x] Run final grep audits for forbidden old identifiers and RU user-visible terminology in templates, i18n, docs, fixtures, and E2E specs.
+
+## Completed: Object Collections QA Remediation (2026-05-14)
+
+-   [x] Update Playwright/API runtime tests and helpers to use the Object Collection contract instead of `catalogId` and `catalog` response fields.
+-   [x] Make apps-template runtime permissions fail closed when permissions are missing from the backend payload.
+-   [x] Remove remaining user-facing/documentation stale Catalog/Attribute terminology found by QA.
+-   [x] Fix formatting/lint quality gate issues reported by `git diff --check`.
+-   [x] Run targeted unit and E2E contract validations for the remediation.
+-   [x] Record the completed QA remediation in `memory-bank/progress.md`.

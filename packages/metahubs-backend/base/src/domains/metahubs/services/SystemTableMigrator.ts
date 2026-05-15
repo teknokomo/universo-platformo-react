@@ -7,7 +7,7 @@ import { SYSTEM_TABLE_VERSIONS, buildColumnOnTable, buildIndexSQL, buildSystemSt
 import { buildStructureMigrationMeta } from './metahubMigrationMeta'
 import { mirrorToGlobalCatalog } from '@universo/migrations-catalog'
 import { hasRuntimeHistoryTable } from '@universo/migrations-core'
-import { isGlobalMigrationCatalogEnabled } from '@universo/utils'
+import { isGlobalMigrationObjectEnabled } from '@universo/utils'
 import { createLogger } from '../../../utils/logger'
 
 const log = createLogger('SystemTableMigrator')
@@ -381,7 +381,7 @@ export class SystemTableMigrator {
         const snapshotAfter = buildSystemStructureSnapshot(toVersion)
         const globalRunId = await mirrorToGlobalCatalog({
             knex: trx,
-            globalCatalogEnabled: isGlobalMigrationCatalogEnabled(),
+            globalCatalogEnabled: isGlobalMigrationObjectEnabled(),
             scopeKind: 'runtime_schema',
             scopeKey: this.schemaName,
             sourceKind: 'system_sync',

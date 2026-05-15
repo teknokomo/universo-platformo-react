@@ -57,7 +57,7 @@ const toRuntimeSectionLinkMenuItem = (
         return { ...item, selected: false }
     }
 
-    const targetCollectionId = item.sectionId ?? item.linkedCollectionId
+    const targetCollectionId = item.sectionId ?? item.objectCollectionId
     if (!targetCollectionId) {
         return { ...item, selected: false }
     }
@@ -151,10 +151,10 @@ const ApplicationRuntime = () => {
         cellRenderers
     })
 
-    const activeRuntimeSection = state.appData?.section ?? state.appData?.linkedCollection
+    const activeRuntimeSection = state.appData?.section ?? state.appData?.objectCollection
     const activeRuntimeConfig = activeRuntimeSection?.runtimeConfig
     const currentSectionId =
-        state.selectedSectionId ?? state.activeSectionId ?? state.selectedLinkedCollectionId ?? state.activeLinkedCollectionId
+        state.selectedSectionId ?? state.activeSectionId ?? state.selectedObjectCollectionId ?? state.activeObjectCollectionId
     const contentPermissions = state.appData?.permissions
     const canCreateContent = contentPermissions?.createContent !== false
     const canEditContent = contentPermissions?.editContent !== false
@@ -445,7 +445,7 @@ const ApplicationRuntime = () => {
                     locale={i18n.language}
                     apiBaseUrl='/api/v1'
                     applicationId={applicationId}
-                    linkedCollectionId={currentSectionId}
+                    objectCollectionId={currentSectionId}
                     surface='page'
                     renderDelete={false}
                     labels={{
@@ -479,10 +479,10 @@ const ApplicationRuntime = () => {
             applicationId,
             sectionId: currentSectionId ?? null,
             sectionCodename: activeRuntimeSection?.codename ?? null,
-            linkedCollectionId: currentSectionId ?? null,
-            linkedCollectionCodename: activeRuntimeSection?.codename ?? null,
+            objectCollectionId: currentSectionId ?? null,
+            objectCollectionCodename: activeRuntimeSection?.codename ?? null,
             sections: state.appData?.sections ?? [],
-            linkedCollections: state.appData?.linkedCollections ?? [],
+            objectCollections: state.appData?.objectCollections ?? [],
             apiBaseUrl: '/api/v1',
             locale: i18n.language,
             currentWorkspaceId: state.appData?.currentWorkspaceId ?? null,
@@ -528,7 +528,7 @@ const ApplicationRuntime = () => {
             state.pageSizeOptions,
             state.localeText,
             state.appData?.sections,
-            state.appData?.linkedCollections,
+            state.appData?.objectCollections,
             createActions,
             i18n.language,
             navigate,
@@ -648,7 +648,7 @@ const ApplicationRuntime = () => {
                         locale={i18n.language}
                         apiBaseUrl='/api/v1'
                         applicationId={applicationId}
-                        linkedCollectionId={currentSectionId}
+                        objectCollectionId={currentSectionId}
                         surface={activeFormSurface}
                         renderForm={activeFormSurface !== 'page'}
                         labels={{

@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
-export const CATALOG_RECORD_MODES = ['reference', 'transactional', 'hybrid'] as const
-export type CatalogRecordMode = (typeof CATALOG_RECORD_MODES)[number]
+export const OBJECT_RECORD_MODES = ['reference', 'transactional', 'hybrid'] as const
+export type ObjectRecordMode = (typeof OBJECT_RECORD_MODES)[number]
 
 export const RECORD_NUMBERING_SCOPES = ['global', 'workspace'] as const
 export type RecordNumberingScope = (typeof RECORD_NUMBERING_SCOPES)[number]
@@ -48,8 +48,8 @@ export interface RecordPostingBehavior {
     scriptCodename?: string
 }
 
-export interface CatalogRecordBehavior {
-    mode: CatalogRecordMode
+export interface ObjectRecordBehavior {
+    mode: ObjectRecordMode
     numbering: RecordNumberingBehavior
     effectiveDate: RecordDateBehavior
     lifecycle: RecordLifecycleBehavior
@@ -57,7 +57,7 @@ export interface CatalogRecordBehavior {
     immutability: RecordImmutabilityMode
 }
 
-export const DEFAULT_CATALOG_RECORD_BEHAVIOR: CatalogRecordBehavior = {
+export const DEFAULT_OBJECT_RECORD_BEHAVIOR: ObjectRecordBehavior = {
     mode: 'reference',
     numbering: {
         enabled: false,
@@ -80,7 +80,7 @@ export const DEFAULT_CATALOG_RECORD_BEHAVIOR: CatalogRecordBehavior = {
     immutability: 'none'
 }
 
-const CATALOG_RECORD_MODE_SET = new Set<string>(CATALOG_RECORD_MODES)
+const OBJECT_RECORD_MODE_SET = new Set<string>(OBJECT_RECORD_MODES)
 const RECORD_NUMBERING_SCOPE_SET = new Set<string>(RECORD_NUMBERING_SCOPES)
 const RECORD_NUMBERING_PERIODICITY_SET = new Set<string>(RECORD_NUMBERING_PERIODICITIES)
 const RECORD_POSTING_MODE_SET = new Set<string>(RECORD_POSTING_MODES)
@@ -163,9 +163,9 @@ const normalizeLifecycleStates = (value: unknown): RecordLifecycleState[] => {
     return states
 }
 
-export const catalogRecordBehaviorSchema = z
+export const objectRecordBehaviorSchema = z
     .object({
-        mode: z.enum(CATALOG_RECORD_MODES),
+        mode: z.enum(OBJECT_RECORD_MODES),
         numbering: z
             .object({
                 enabled: z.boolean(),
@@ -209,59 +209,59 @@ export const catalogRecordBehaviorSchema = z
             .strict(),
         immutability: z.enum(RECORD_IMMUTABILITY_MODES)
     })
-    .strict() satisfies z.ZodType<CatalogRecordBehavior>
+    .strict() satisfies z.ZodType<ObjectRecordBehavior>
 
-export const normalizeCatalogRecordBehavior = (value: unknown): CatalogRecordBehavior => {
+export const normalizeObjectRecordBehavior = (value: unknown): ObjectRecordBehavior => {
     const raw = isRecord(value) ? value : {}
     const numbering = isRecord(raw.numbering) ? raw.numbering : {}
     const effectiveDate = isRecord(raw.effectiveDate) ? raw.effectiveDate : {}
     const lifecycle = isRecord(raw.lifecycle) ? raw.lifecycle : {}
     const posting = isRecord(raw.posting) ? raw.posting : {}
 
-    return catalogRecordBehaviorSchema.parse({
-        mode: normalizeEnumValue(raw.mode, CATALOG_RECORD_MODE_SET, DEFAULT_CATALOG_RECORD_BEHAVIOR.mode),
+    return objectRecordBehaviorSchema.parse({
+        mode: normalizeEnumValue(raw.mode, OBJECT_RECORD_MODE_SET, DEFAULT_OBJECT_RECORD_BEHAVIOR.mode),
         numbering: {
-            enabled: normalizeBoolean(numbering.enabled, DEFAULT_CATALOG_RECORD_BEHAVIOR.numbering.enabled),
-            scope: normalizeEnumValue(numbering.scope, RECORD_NUMBERING_SCOPE_SET, DEFAULT_CATALOG_RECORD_BEHAVIOR.numbering.scope),
+            enabled: normalizeBoolean(numbering.enabled, DEFAULT_OBJECT_RECORD_BEHAVIOR.numbering.enabled),
+            scope: normalizeEnumValue(numbering.scope, RECORD_NUMBERING_SCOPE_SET, DEFAULT_OBJECT_RECORD_BEHAVIOR.numbering.scope),
             periodicity: normalizeEnumValue(
                 numbering.periodicity,
                 RECORD_NUMBERING_PERIODICITY_SET,
-                DEFAULT_CATALOG_RECORD_BEHAVIOR.numbering.periodicity
+                DEFAULT_OBJECT_RECORD_BEHAVIOR.numbering.periodicity
             ),
             ...(normalizeOptionalString(numbering.prefix, 32) ? { prefix: normalizeOptionalString(numbering.prefix, 32) } : {}),
-            ...(normalizeInteger(numbering.minLength, DEFAULT_CATALOG_RECORD_BEHAVIOR.numbering.minLength, 1, 32)
-                ? { minLength: normalizeInteger(numbering.minLength, DEFAULT_CATALOG_RECORD_BEHAVIOR.numbering.minLength, 1, 32) }
+            ...(normalizeInteger(numbering.minLength, DEFAULT_OBJECT_RECORD_BEHAVIOR.numbering.minLength, 1, 32)
+                ? { minLength: normalizeInteger(numbering.minLength, DEFAULT_OBJECT_RECORD_BEHAVIOR.numbering.minLength, 1, 32) }
                 : {})
         },
         effectiveDate: {
-            enabled: normalizeBoolean(effectiveDate.enabled, DEFAULT_CATALOG_RECORD_BEHAVIOR.effectiveDate.enabled),
+            enabled: normalizeBoolean(effectiveDate.enabled, DEFAULT_OBJECT_RECORD_BEHAVIOR.effectiveDate.enabled),
             ...(normalizeOptionalString(effectiveDate.fieldCodename, 128)
                 ? { fieldCodename: normalizeOptionalString(effectiveDate.fieldCodename, 128) }
                 : {}),
-            defaultToNow: normalizeBoolean(effectiveDate.defaultToNow, DEFAULT_CATALOG_RECORD_BEHAVIOR.effectiveDate.defaultToNow)
+            defaultToNow: normalizeBoolean(effectiveDate.defaultToNow, DEFAULT_OBJECT_RECORD_BEHAVIOR.effectiveDate.defaultToNow)
         },
         lifecycle: {
-            enabled: normalizeBoolean(lifecycle.enabled, DEFAULT_CATALOG_RECORD_BEHAVIOR.lifecycle.enabled),
+            enabled: normalizeBoolean(lifecycle.enabled, DEFAULT_OBJECT_RECORD_BEHAVIOR.lifecycle.enabled),
             ...(normalizeOptionalString(lifecycle.stateFieldCodename, 128)
                 ? { stateFieldCodename: normalizeOptionalString(lifecycle.stateFieldCodename, 128) }
                 : {}),
             states: normalizeLifecycleStates(lifecycle.states)
         },
         posting: {
-            mode: normalizeEnumValue(posting.mode, RECORD_POSTING_MODE_SET, DEFAULT_CATALOG_RECORD_BEHAVIOR.posting.mode),
+            mode: normalizeEnumValue(posting.mode, RECORD_POSTING_MODE_SET, DEFAULT_OBJECT_RECORD_BEHAVIOR.posting.mode),
             targetLedgers: normalizeStringList(posting.targetLedgers, 64, 128),
             ...(normalizeOptionalString(posting.scriptCodename, 128)
                 ? { scriptCodename: normalizeOptionalString(posting.scriptCodename, 128) }
                 : {})
         },
-        immutability: normalizeEnumValue(raw.immutability, RECORD_IMMUTABILITY_MODE_SET, DEFAULT_CATALOG_RECORD_BEHAVIOR.immutability)
+        immutability: normalizeEnumValue(raw.immutability, RECORD_IMMUTABILITY_MODE_SET, DEFAULT_OBJECT_RECORD_BEHAVIOR.immutability)
     })
 }
 
-export const normalizeCatalogRecordBehaviorFromConfig = (config: Record<string, unknown> | null | undefined): CatalogRecordBehavior =>
-    normalizeCatalogRecordBehavior(isRecord(config?.recordBehavior) ? config.recordBehavior : undefined)
+export const normalizeObjectRecordBehaviorFromConfig = (config: Record<string, unknown> | null | undefined): ObjectRecordBehavior =>
+    normalizeObjectRecordBehavior(isRecord(config?.recordBehavior) ? config.recordBehavior : undefined)
 
-export const isCatalogRecordBehaviorEnabled = (behavior: CatalogRecordBehavior): boolean =>
+export const isObjectRecordBehaviorEnabled = (behavior: ObjectRecordBehavior): boolean =>
     behavior.mode === 'transactional' ||
     behavior.mode === 'hybrid' ||
     behavior.numbering.enabled ||

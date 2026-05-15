@@ -1,19 +1,14 @@
 import type { Locator, Page, Response, TestInfo } from '@playwright/test'
 import { createLocalizedContent } from '@universo/utils'
 import { expect, test } from '../../fixtures/test'
-import {
-    applicationSelectors,
-    buildGridRowActionsTriggerSelector,
-    entityDialogSelectors,
-    pageSpacingSelectors
-} from '../../support/selectors/contracts'
+import { applicationSelectors, buildGridRowActionsTriggerSelector, pageSpacingSelectors } from '../../support/selectors/contracts'
 import {
     assignLayoutZoneWidget,
     createLayout,
     createLoggedInApiContext,
     createMetahub,
-    createFieldDefinition,
-    createLinkedCollection,
+    createComponent,
+    createObjectCollection,
     createPublication,
     createPublicationLinkedApplication,
     createPublicationVersion,
@@ -31,7 +26,7 @@ import {
 import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublication } from '../../support/backend/run-manifest.mjs'
 
 type RuntimeState = {
-    catalog?: {
+    object?: {
         id?: string
         name?: string
         runtimeConfig?: Record<string, unknown>
@@ -76,7 +71,7 @@ async function parseJsonResponse<T>(response: Response, label: string): Promise<
     return JSON.parse(bodyText) as T
 }
 
-async function waitForLayoutId(api: Awaited<ReturnType<typeof createLoggedInApiContext>>, metahubId: string, catalogId?: string) {
+async function waitForLayoutId(api: Awaited<ReturnType<typeof createLoggedInApiContext>>, metahubId: string, objectId?: string) {
     let layoutId: string | undefined
 
     await expect
@@ -84,7 +79,7 @@ async function waitForLayoutId(api: Awaited<ReturnType<typeof createLoggedInApiC
             const response = (await listLayouts(api, metahubId, {
                 limit: 20,
                 offset: 0,
-                ...(catalogId ? { catalogId } : {})
+                ...(objectId ? { objectId } : {})
             })) as LayoutListResponse
             layoutId = response?.items?.[0]?.id
             return typeof layoutId === 'string'
@@ -92,26 +87,24 @@ async function waitForLayoutId(api: Awaited<ReturnType<typeof createLoggedInApiC
         .toBe(true)
 
     if (!layoutId) {
-        throw new Error(`No layout was returned for metahub ${metahubId}${catalogId ? ` catalog ${catalogId}` : ''}`)
+        throw new Error(`No layout was returned for metahub ${metahubId}${objectId ? ` object ${objectId}` : ''}`)
     }
 
     return layoutId
 }
 
-async function waitForRuntimeState(api: Awaited<ReturnType<typeof createLoggedInApiContext>>, applicationId: string, catalogId: string) {
+async function waitForRuntimeState(api: Awaited<ReturnType<typeof createLoggedInApiContext>>, applicationId: string, objectId: string) {
     let runtimeState: RuntimeState | null = null
 
     await expect
         .poll(async () => {
-            runtimeState = (await getApplicationRuntime(api, applicationId, { catalogId })) as RuntimeState
-            return (
-                typeof runtimeState?.catalog?.id === 'string' && Array.isArray(runtimeState?.columns) && Array.isArray(runtimeState?.rows)
-            )
+            runtimeState = (await getApplicationRuntime(api, applicationId, { objectId })) as RuntimeState
+            return typeof runtimeState?.object?.id === 'string' && Array.isArray(runtimeState?.columns) && Array.isArray(runtimeState?.rows)
         })
         .toBe(true)
 
-    if (!runtimeState?.catalog?.id) {
-        throw new Error(`Runtime catalog did not become available for application ${applicationId}`)
+    if (!runtimeState?.object?.id) {
+        throw new Error(`Runtime object did not become available for application ${applicationId}`)
     }
 
     return runtimeState
@@ -155,14 +148,14 @@ async function waitForRuntimeDialogToClose(page: Page, title: string) {
 async function waitForRuntimeRow(
     api: Awaited<ReturnType<typeof createLoggedInApiContext>>,
     applicationId: string,
-    catalogId: string,
+    objectId: string,
     rowId: string
 ) {
     let row: (Record<string, unknown> & { id?: string }) | null = null
 
     await expect
         .poll(async () => {
-            const runtimeState = (await getApplicationRuntime(api, applicationId, { catalogId })) as RuntimeState
+            const runtimeState = (await getApplicationRuntime(api, applicationId, { objectId })) as RuntimeState
             row = (runtimeState.rows ?? []).find((entry) => entry.id === rowId) ?? null
             return Boolean(row?.id)
         })
@@ -175,10 +168,10 @@ async function waitForRuntimeRow(
     return row
 }
 
-async function clickCatalogMenuItem(page: import('@playwright/test').Page, catalogName: string) {
-    const catalogButton = page.getByRole('button', { name: catalogName, exact: true })
-    await expect(catalogButton).toBeVisible({ timeout: 30_000 })
-    await catalogButton.click()
+async function clickObjectMenuItem(page: import('@playwright/test').Page, objectName: string) {
+    const objectButton = page.getByRole('button', { name: objectName, exact: true })
+    await expect(objectButton).toBeVisible({ timeout: 30_000 })
+    await objectButton.click()
 }
 
 test('@flow @combined metahub global and entity-scoped layouts drive runtime widget materialization and page surfaces', async ({
@@ -194,10 +187,10 @@ test('@flow @combined metahub global and entity-scoped layouts drive runtime wid
 
     const metahubName = `E2E ${runManifest.runId} global entity layouts`
     const metahubCodename = `${runManifest.runId}-global-entity-layouts`
-    const fallbackCatalogName = `Fallback Catalog ${runManifest.runId}`
-    const fallbackCatalogCodename = `${runManifest.runId}-fallback-catalog`
-    const customCatalogName = `Custom Catalog ${runManifest.runId}`
-    const customCatalogCodename = `${runManifest.runId}-custom-catalog`
+    const fallbackObjectName = `Fallback Object ${runManifest.runId}`
+    const fallbackObjectCodename = `${runManifest.runId}-fallback-object`
+    const customObjectName = `Custom Object ${runManifest.runId}`
+    const customObjectCodename = `${runManifest.runId}-custom-object`
     const customLayoutName = `Custom layout ${runManifest.runId}`
     const publicationName = `E2E ${runManifest.runId} General Publication`
     const applicationName = `E2E ${runManifest.runId} General Runtime App`
@@ -206,7 +199,7 @@ test('@flow @combined metahub global and entity-scoped layouts drive runtime wid
     const createdValue = `Created row ${runManifest.runId}`
     const updatedValue = `Updated row ${runManifest.runId}`
     const copiedValue = `Copied row ${runManifest.runId}`
-    const catalogBehaviorKey = 'catalogBehavior'
+    const objectBehaviorKey = 'objectBehavior'
 
     try {
         const metahub = await createMetahub(api, {
@@ -229,7 +222,7 @@ test('@flow @combined metahub global and entity-scoped layouts drive runtime wid
 
         await updateLayout(api, metahub.id, globalLayoutId, {
             config: {
-                [catalogBehaviorKey]: {
+                [objectBehaviorKey]: {
                     showCreateButton: false,
                     searchMode: 'page-local',
                     createSurface: 'dialog',
@@ -239,24 +232,24 @@ test('@flow @combined metahub global and entity-scoped layouts drive runtime wid
             }
         })
 
-        const fallbackCatalog = await createLinkedCollection(api, metahub.id, {
-            name: { en: fallbackCatalogName },
+        const fallbackObject = await createObjectCollection(api, metahub.id, {
+            name: { en: fallbackObjectName },
             namePrimaryLocale: 'en',
-            codename: createLocalizedContent('en', fallbackCatalogCodename)
+            codename: createLocalizedContent('en', fallbackObjectCodename)
         })
 
-        const customCatalog = await createLinkedCollection(api, metahub.id, {
-            name: { en: customCatalogName },
+        const customObject = await createObjectCollection(api, metahub.id, {
+            name: { en: customObjectName },
             namePrimaryLocale: 'en',
-            codename: createLocalizedContent('en', customCatalogCodename)
+            codename: createLocalizedContent('en', customObjectCodename)
         })
 
-        if (!fallbackCatalog?.id || !customCatalog?.id) {
+        if (!fallbackObject?.id || !customObject?.id) {
             throw new Error('Entity creation did not return ids for global/entity layout coverage')
         }
 
-        for (const catalogId of [fallbackCatalog.id, customCatalog.id]) {
-            const attribute = await createFieldDefinition(api, metahub.id, catalogId, {
+        for (const objectId of [fallbackObject.id, customObject.id]) {
+            const component = await createComponent(api, metahub.id, objectId, {
                 name: { en: attributeLabel },
                 namePrimaryLocale: 'en',
                 codename: createLocalizedContent('en', attributeCodename),
@@ -264,13 +257,13 @@ test('@flow @combined metahub global and entity-scoped layouts drive runtime wid
                 isRequired: false
             })
 
-            if (!attribute?.id) {
-                throw new Error(`Attribute creation did not return an id for catalog ${catalogId}`)
+            if (!component?.id) {
+                throw new Error(`Component creation did not return an id for object ${objectId}`)
             }
         }
 
         const customLayout = await createLayout(api, metahub.id, {
-            scopeEntityId: customCatalog.id,
+            scopeEntityId: customObject.id,
             baseLayoutId: globalLayoutId,
             name: { en: customLayoutName },
             namePrimaryLocale: 'en',
@@ -285,7 +278,7 @@ test('@flow @combined metahub global and entity-scoped layouts drive runtime wid
         await updateLayout(api, metahub.id, customLayout.id, {
             config: {
                 ...((customLayout.config && typeof customLayout.config === 'object' ? customLayout.config : {}) as Record<string, unknown>),
-                [catalogBehaviorKey]: {
+                [objectBehaviorKey]: {
                     showCreateButton: true,
                     searchMode: 'server',
                     createSurface: 'page',
@@ -318,7 +311,7 @@ test('@flow @combined metahub global and entity-scoped layouts drive runtime wid
         await expect(page.getByTestId(pageSpacingSelectors.metahubResourcesTabs)).toBeVisible()
         await expect(page.getByRole('tab', { name: 'Layouts' })).toHaveAttribute('aria-selected', 'true')
 
-        await page.goto(`/metahub/${metahub.id}/entities/catalog/instance/${customCatalog.id}/layout/${customLayout.id}`)
+        await page.goto(`/metahub/${metahub.id}/entities/object/instance/${customObject.id}/layout/${customLayout.id}`)
         await expect(page.getByRole('heading', { name: 'Entity runtime behavior' })).toBeVisible()
         await expect(page.getByText('Create form type', { exact: true }).last()).toBeVisible()
         await expect(page.getByText('Edit form type', { exact: true }).last()).toBeVisible()
@@ -369,15 +362,15 @@ test('@flow @combined metahub global and entity-scoped layouts drive runtime wid
 
         await syncApplicationSchema(api, applicationId)
 
-        const fallbackRuntime = await waitForRuntimeState(api, applicationId, fallbackCatalog.id)
-        expect(fallbackRuntime.catalog?.runtimeConfig?.showCreateButton).toBe(false)
+        const fallbackRuntime = await waitForRuntimeState(api, applicationId, fallbackObject.id)
+        expect(fallbackRuntime.object?.runtimeConfig?.showCreateButton).toBe(false)
         expect((fallbackRuntime.zoneWidgets?.center ?? []).some((item) => item.widgetKey === 'detailsTitle')).toBe(true)
         expect((fallbackRuntime.zoneWidgets?.right ?? []).some((item) => item.widgetKey === 'divider')).toBe(false)
 
-        const customRuntime = await waitForRuntimeState(api, applicationId, customCatalog.id)
-        expect(customRuntime.catalog?.runtimeConfig?.createSurface).toBe('page')
-        expect(customRuntime.catalog?.runtimeConfig?.editSurface).toBe('page')
-        expect(customRuntime.catalog?.runtimeConfig?.copySurface).toBe('page')
+        const customRuntime = await waitForRuntimeState(api, applicationId, customObject.id)
+        expect(customRuntime.object?.runtimeConfig?.createSurface).toBe('page')
+        expect(customRuntime.object?.runtimeConfig?.editSurface).toBe('page')
+        expect(customRuntime.object?.runtimeConfig?.copySurface).toBe('page')
         expect((customRuntime.zoneWidgets?.center ?? []).some((item) => item.widgetKey === 'detailsTitle')).toBe(false)
         expect((customRuntime.zoneWidgets?.right ?? []).some((item) => item.widgetKey === 'divider')).toBe(true)
         expect(customRuntime.zoneWidgets?.center?.[0]?.widgetKey).toBe('detailsTable')
@@ -386,10 +379,10 @@ test('@flow @combined metahub global and entity-scoped layouts drive runtime wid
 
         await page.goto(`/a/${applicationId}`)
 
-        await clickCatalogMenuItem(page, fallbackCatalogName)
+        await clickObjectMenuItem(page, fallbackObjectName)
         await expect(page.getByTestId(applicationSelectors.runtimeCreateButton)).toHaveCount(0)
 
-        await clickCatalogMenuItem(page, customCatalogName)
+        await clickObjectMenuItem(page, customObjectName)
         await expect(page.getByTestId(applicationSelectors.runtimeCreateButton)).toBeVisible({ timeout: 30_000 })
 
         const createRequest = page.waitForResponse(
@@ -416,7 +409,7 @@ test('@flow @combined metahub global and entity-scoped layouts drive runtime wid
         await waitForRuntimeDialogToClose(page, 'Create element')
         await expect(page.getByText(createdValue)).toBeVisible({ timeout: 30_000 })
 
-        const persistedCreatedRow = await waitForRuntimeRow(api, applicationId, customCatalog.id, createdRow.id)
+        const persistedCreatedRow = await waitForRuntimeRow(api, applicationId, customObject.id, createdRow.id)
         expect(persistedCreatedRow[runtimeFieldKey]).toBe(createdValue)
 
         await page.getByTestId(buildGridRowActionsTriggerSelector(createdRow.id)).click()
@@ -439,7 +432,7 @@ test('@flow @combined metahub global and entity-scoped layouts drive runtime wid
         await waitForRuntimeDialogToClose(page, 'Edit element')
         await expect(page.getByText(updatedValue)).toBeVisible({ timeout: 30_000 })
 
-        const persistedEditedRow = await waitForRuntimeRow(api, applicationId, customCatalog.id, createdRow.id)
+        const persistedEditedRow = await waitForRuntimeRow(api, applicationId, customObject.id, createdRow.id)
         expect(persistedEditedRow[runtimeFieldKey]).toBe(updatedValue)
 
         await page.getByTestId(buildGridRowActionsTriggerSelector(createdRow.id)).click()
@@ -467,7 +460,7 @@ test('@flow @combined metahub global and entity-scoped layouts drive runtime wid
         await waitForRuntimeDialogToClose(page, 'Copy element')
         await expect(page.getByText(copiedValue)).toBeVisible({ timeout: 30_000 })
 
-        const persistedCopiedRow = await waitForRuntimeRow(api, applicationId, customCatalog.id, copiedRow.id)
+        const persistedCopiedRow = await waitForRuntimeRow(api, applicationId, customObject.id, copiedRow.id)
         expect(persistedCopiedRow[runtimeFieldKey]).toBe(copiedValue)
     } finally {
         await disposeApiContext(api)

@@ -61,7 +61,7 @@ export function createAuthUserProvisioningService({ getDbExecutor, globalAccessS
 
         const rows = await getDbExecutor().query<{ id: string; codename: string }>(
             `SELECT id, ${roleCodenameTextSql('codename')} AS codename
-             FROM admin.cat_roles
+             FROM admin.obj_roles
              WHERE ${roleCodenameTextSql('codename')} = ANY($1::text[])
                AND ${activeAppRowCondition()}`,
             [requested]
@@ -83,7 +83,7 @@ export function createAuthUserProvisioningService({ getDbExecutor, globalAccessS
 
         try {
             await queryable.query(
-                `UPDATE profiles.cat_profiles
+                `UPDATE profiles.obj_profiles
                  SET ${softDeleteSetClause('$2')}
                  WHERE user_id = $1 AND ${activeAppRowCondition()}`,
                 [userId, null]

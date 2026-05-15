@@ -90,16 +90,16 @@ export const getCopyLabelByLocale = (locale: string) => (normalizeUiLocale(local
 export const isLocalizedContentValue = (value: unknown): value is { _primary?: string; locales?: Record<string, { content?: string }> } =>
     Boolean(value && typeof value === 'object' && 'locales' in (value as Record<string, unknown>))
 
-export const applyCopySuffixToFirstStringAttribute = (params: {
+export const applyCopySuffixToFirstStringComponent = (params: {
     sourceData: Record<string, unknown>
-    fieldDefinitions: Array<{ dataType: string; codename: string }>
+    components: Array<{ dataType: string; codename: string }>
     locale: string
 }): Record<string, unknown> => {
-    const { sourceData, fieldDefinitions, locale } = params
-    const firstStringAttribute = fieldDefinitions.find((attribute) => attribute.dataType === 'STRING')
-    if (!firstStringAttribute) return { ...sourceData }
+    const { sourceData, components, locale } = params
+    const firstStringComponent = components.find((component) => component.dataType === 'STRING')
+    if (!firstStringComponent) return { ...sourceData }
 
-    const fieldKey = firstStringAttribute.codename
+    const fieldKey = firstStringComponent.codename
     const rawValue = sourceData[fieldKey]
     const defaultSuffix = getCopySuffixByLocale(locale)
 

@@ -1,10 +1,5 @@
 import { expect, test } from '../../fixtures/test'
-import {
-    createLoggedInApiContext,
-    createRuntimeRow,
-    disposeApiContext,
-    listLayoutZoneWidgets
-} from '../../support/backend/api-session.mjs'
+import { createLoggedInApiContext, createRuntimeRow, disposeApiContext, listLayoutZoneWidgets } from '../../support/backend/api-session.mjs'
 import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublication } from '../../support/backend/run-manifest.mjs'
 import {
     setupPublishedLmsApplication,

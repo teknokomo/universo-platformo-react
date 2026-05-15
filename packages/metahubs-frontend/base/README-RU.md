@@ -44,7 +44,7 @@
 - **Entities Workspace**: Platform-provided standard kinds и пользовательские виды настраиваются из единого entities workspace и публикуются через dynamic metahub menu.
 - **Unified Authoring**: Стандартные и пользовательские типы сущностей разделяют одни и те же workspace actions и generic entity route contract.
 - **Entity-Owned Surfaces**: Standard kinds рендерятся через entity-owned route components, а shared resources остаются на выделенной поверхности `/resources`.
-- **Владение маршрутами**: Detail tabs остаются под `/metahub/:id/entities/:kindKey/...`, а ресурсы метахаба под `/metahub/:id/resources/...`; удалённые top-level authoring routes `/hubs`, `/catalogs`, `/sets` и `/enumerations` больше не входят в shipped frontend contract.
+- **Владение маршрутами**: Detail tabs остаются под `/metahub/:id/entities/:kindKey/...`, а ресурсы метахаба под `/metahub/:id/resources/...`; удалённые top-level authoring routes `/hubs`, `/objects`, `/sets` и `/enumerations` больше не входят в shipped frontend contract.
 - **Runtime Boundary**: Runtime sections материализуются из published entity metadata после publication sync вместо V2-specific compatibility aliases.
 
 ### 📋 Выбор шаблона
@@ -97,7 +97,7 @@ import { metahubsTranslations } from '@universo/metahubs-frontend'
 <Route path="/metahub/:id/resources" element={<MetahubResources />} />
 <Route path="/metahub/:id/entities/:kindKey/instances" element={<StandardEntityCollectionPage />} />
 <Route path="/metahub/:id/entities/:kindKey/instance/:entityId/instances" element={<StandardEntityChildCollectionPage />} />
-<Route path="/metahub/:id/entities/:kindKey/instance/:entityId/field-definitions" element={<FieldDefinitionList />} />
+<Route path="/metahub/:id/entities/:kindKey/instance/:entityId/components" element={<FieldDefinitionList />} />
 <Route path="/metahub/:id/entities/:kindKey/instance/:entityId/records" element={<RecordList />} />
 ```
 
@@ -407,10 +407,10 @@ docs(readme): обновить руководство по установке
 
 ```ts
 const handleError = createDomainErrorHandler({
-    LIMIT_REACHED: (data, t) => t('attributes.limitReached', { limit: data.limit }),
+    LIMIT_REACHED: (data, t) => t('components.limitReached', { limit: data.limit }),
 })
 
-// В мутации: handleError(error, t, enqueueSnackbar, 'attributes.createError')
+// В мутации: handleError(error, t, enqueueSnackbar, 'components.createError')
 ```
 
 ### `createSimpleDeleteMutation()`

@@ -20,107 +20,107 @@ const enforceCoverageThresholds = process.env.VITEST_ENFORCE_COVERAGE === 'true'
 
 // Merge with baseConfig (now uses happy-dom from base)
 export default mergeConfig(
-  baseConfig,
-  defineConfig({
-    root: __dirname,
-    resolve: {
-      alias: [
-        {
-          find: '@universo/template-mui/components/dialogs',
-          replacement: path.resolve(templateMuiSrcDir, 'components/dialogs/index.ts'),
+    baseConfig,
+    defineConfig({
+        root: __dirname,
+        resolve: {
+            alias: [
+                {
+                    find: '@universo/template-mui/components/dialogs',
+                    replacement: path.resolve(templateMuiSrcDir, 'components/dialogs/index.ts')
+                },
+                {
+                    find: '@universo/template-mui',
+                    replacement: path.resolve(templateMuiSrcDir, 'index.ts')
+                },
+                {
+                    find: '@universo/utils/optimistic-crud',
+                    replacement: utilsOptimisticCrudSrcFile
+                },
+                {
+                    find: '@universo/admin-frontend/i18n',
+                    replacement: adminFrontendI18nDir
+                },
+                {
+                    find: '@universo/start-frontend/i18n',
+                    replacement: startFrontendI18nDir
+                },
+                {
+                    find: '@universo/applications-frontend/i18n',
+                    replacement: applicationsFrontendI18nDir
+                },
+                {
+                    find: '@universo/metahubs-frontend',
+                    replacement: path.resolve(__dirname, 'src/index.ts')
+                },
+                {
+                    find: /^@\/views\//,
+                    replacement: `${path.resolve(coreFrontendSrcDir, 'views')}/`
+                },
+                ...Object.entries(tsconfigAliases).map(([find, replacement]) => ({ find, replacement })),
+                {
+                    find: '@',
+                    replacement: srcDir
+                }
+            ]
         },
-        {
-          find: '@universo/template-mui',
-          replacement: path.resolve(templateMuiSrcDir, 'index.ts'),
-        },
-        {
-          find: '@universo/utils/optimistic-crud',
-          replacement: utilsOptimisticCrudSrcFile,
-        },
-        {
-          find: '@universo/admin-frontend/i18n',
-          replacement: adminFrontendI18nDir,
-        },
-        {
-          find: '@universo/start-frontend/i18n',
-          replacement: startFrontendI18nDir,
-        },
-        {
-          find: '@universo/applications-frontend/i18n',
-          replacement: applicationsFrontendI18nDir,
-        },
-        {
-          find: '@universo/metahubs-frontend',
-          replacement: path.resolve(__dirname, 'src/index.ts'),
-        },
-        {
-          find: /^@\/views\//,
-          replacement: `${path.resolve(coreFrontendSrcDir, 'views')}/`,
-        },
-        ...Object.entries(tsconfigAliases).map(([find, replacement]) => ({ find, replacement })),
-        {
-          find: '@',
-          replacement: srcDir,
-        },
-      ],
-    },
-    test: {
-      globals: true,
-      include: ['src/**/*.{test,spec}.{ts,tsx,js,jsx}'],
-      setupFiles: [...sharedSetupFiles, path.resolve(__dirname, 'setupTests.ts')],
-      server: {
-        deps: {
-          inline: [
-            /@universo\/template-mui/,
-            /@mui\/x-data-grid/,
-            /@mui\/x-data-grid-pro/,
-            /@mui\/x-data-grid-generator/,
-            /@mui\/x-internals/,
-            /@mui\/x-virtualizer/,
-          ],
-        },
-      },
-      css: {
-        include: [/.+/],
-      },
-      testTimeout: 30000,
-      coverage: {
-        enabled: coverageEnabled,
-        reporter: ['text', 'json-summary'],
-        reportsDirectory: path.resolve(__dirname, 'coverage'),
-        include: ['src/**/*.{ts,tsx}'],
-        exclude: [
-          'src/**/__tests__/**',
-          'src/**/__mocks__/**',
-          'src/pages/**',
-          'src/components/**',
-          'src/hooks/**',
-          'src/menu-items/**',
-          'src/i18n/**',
-          'src/constants/**',
-          'src/types.ts',
-          'src/domains/entities/metadata/fieldDefinition/**',
-          'src/domains/entities/metadata/record/**',
-          'src/domains/entities/presets/**',
-          'src/domains/publications/**',
-          'src/domains/metahubs/ui/MetahubActions.tsx',
-        ],
-        ...(enforceCoverageThresholds
-          ? {
-              thresholds: {
-                statements: 70,
-                branches: 70,
-                functions: 70,
-                lines: 70,
-              },
+        test: {
+            globals: true,
+            include: ['src/**/*.{test,spec}.{ts,tsx,js,jsx}'],
+            setupFiles: [...sharedSetupFiles, path.resolve(__dirname, 'setupTests.ts')],
+            server: {
+                deps: {
+                    inline: [
+                        /@universo\/template-mui/,
+                        /@mui\/x-data-grid/,
+                        /@mui\/x-data-grid-pro/,
+                        /@mui\/x-data-grid-generator/,
+                        /@mui\/x-internals/,
+                        /@mui\/x-virtualizer/
+                    ]
+                }
+            },
+            css: {
+                include: [/.+/]
+            },
+            testTimeout: 30000,
+            coverage: {
+                enabled: coverageEnabled,
+                reporter: ['text', 'json-summary'],
+                reportsDirectory: path.resolve(__dirname, 'coverage'),
+                include: ['src/**/*.{ts,tsx}'],
+                exclude: [
+                    'src/**/__tests__/**',
+                    'src/**/__mocks__/**',
+                    'src/pages/**',
+                    'src/components/**',
+                    'src/hooks/**',
+                    'src/menu-items/**',
+                    'src/i18n/**',
+                    'src/constants/**',
+                    'src/types.ts',
+                    'src/domains/entities/metadata/fieldDefinition/**',
+                    'src/domains/entities/metadata/record/**',
+                    'src/domains/entities/presets/**',
+                    'src/domains/publications/**',
+                    'src/domains/metahubs/ui/MetahubActions.tsx'
+                ],
+                ...(enforceCoverageThresholds
+                    ? {
+                          thresholds: {
+                              statements: 70,
+                              branches: 70,
+                              functions: 70,
+                              lines: 70
+                          }
+                      }
+                    : {})
             }
-          : {}),
-      },
-    },
-    esbuild: {
-      loader: 'tsx',
-      include: [/src\/.*\.[jt]sx?$/, /tools\/testing\/frontend\/.*\.[jt]sx?$/],
-      jsx: 'automatic',
-    },
-  })
+        },
+        esbuild: {
+            loader: 'tsx',
+            include: [/src\/.*\.[jt]sx?$/, /tools\/testing\/frontend\/.*\.[jt]sx?$/],
+            jsx: 'automatic'
+        }
+    })
 )

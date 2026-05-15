@@ -43,7 +43,7 @@ const TEMPLATE_VERSION_SELECT = (alias: string) =>
 export async function findTemplateById(exec: SqlQueryable, id: string): Promise<TemplateRow | null> {
     const rows = await exec.query<TemplateRow>(
         `SELECT ${TEMPLATE_SELECT('t')}
-         FROM metahubs.cat_templates t
+         FROM metahubs.obj_templates t
          WHERE t.id = $1
            AND t._upl_deleted = false AND t._app_deleted = false
          LIMIT 1`,
@@ -55,7 +55,7 @@ export async function findTemplateById(exec: SqlQueryable, id: string): Promise<
 export async function findTemplateByCodename(exec: SqlQueryable, codename: string): Promise<TemplateRow | null> {
     const rows = await exec.query<TemplateRow>(
         `SELECT ${TEMPLATE_SELECT('t')}
-         FROM metahubs.cat_templates t
+         FROM metahubs.obj_templates t
                  WHERE ${codenamePrimaryTextSql('t.codename')} = $1
            AND t._upl_deleted = false AND t._app_deleted = false
          LIMIT 1`,
@@ -67,7 +67,7 @@ export async function findTemplateByCodename(exec: SqlQueryable, codename: strin
 export async function findTemplateByIdNotDeleted(exec: SqlQueryable, id: string): Promise<TemplateRow | null> {
     const rows = await exec.query<TemplateRow>(
         `SELECT ${TEMPLATE_SELECT('t')}
-         FROM metahubs.cat_templates t
+         FROM metahubs.obj_templates t
          WHERE t.id = $1
            AND t._upl_deleted = false AND t._app_deleted = false
          LIMIT 1`,
@@ -78,7 +78,7 @@ export async function findTemplateByIdNotDeleted(exec: SqlQueryable, id: string)
 
 /**
  * List active, non-deleted templates with their active version info.
- * Used by the read-only templates catalog API.
+ * Used by the read-only templates registry API.
  */
 export interface TemplateCatalogItem extends TemplateRow {
     activeVersionData: {
@@ -115,7 +115,7 @@ export async function listActiveTemplatesForCatalog(
             av.version_number AS "avVersionNumber",
             av.version_label AS "avVersionLabel",
             av.changelog AS "avChangelog"
-         FROM metahubs.cat_templates t
+         FROM metahubs.obj_templates t
          LEFT JOIN metahubs.doc_template_versions av ON av.id = t.active_version_id
          WHERE ${conditions.join(' AND ')}
          ORDER BY t.sort_order ASC, t._upl_created_at ASC`,
@@ -178,7 +178,7 @@ export async function listTemplates(
             COALESCE(vc.count, 0)::int AS "versionsCount",
             av.version_label AS "activeVersionLabel",
             COUNT(*) OVER() AS "windowTotal"
-         FROM metahubs.cat_templates t
+         FROM metahubs.obj_templates t
          LEFT JOIN (
              SELECT template_id, COUNT(*)::int AS count
              FROM metahubs.doc_template_versions
@@ -222,13 +222,13 @@ export async function createTemplate(exec: SqlQueryable, input: CreateTemplateIn
     const auditUserId = normalizeAuditUserId(input.userId)
     const codename = ensureCodenameValue(input.codename)
     const rows = await exec.query<TemplateRow>(
-        `INSERT INTO metahubs.cat_templates (
+        `INSERT INTO metahubs.obj_templates (
             codename, name, description, icon, definition_type,
             is_system, is_active, sort_order,
             _upl_created_by, _upl_updated_by
          )
          VALUES ($1::jsonb, $2, $3, $4, $5, $6, $7, $8, $9, $9)
-         RETURNING ${TEMPLATE_SELECT('metahubs.cat_templates')}`,
+         RETURNING ${TEMPLATE_SELECT('metahubs.obj_templates')}`,
         [
             JSON.stringify(codename),
             JSON.stringify(input.name),
@@ -281,10 +281,10 @@ export async function updateTemplate(
     params.push(id)
 
     const rows = await exec.query<TemplateRow>(
-        `UPDATE metahubs.cat_templates
+        `UPDATE metahubs.obj_templates
          SET ${setClauses.join(', ')}
          WHERE id = $${params.length}
-         RETURNING ${TEMPLATE_SELECT('metahubs.cat_templates')}`,
+         RETURNING ${TEMPLATE_SELECT('metahubs.obj_templates')}`,
         params
     )
     return rows[0] ?? null

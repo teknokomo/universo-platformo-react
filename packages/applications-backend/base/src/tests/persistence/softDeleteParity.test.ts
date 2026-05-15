@@ -19,7 +19,7 @@ describe('Applications backend soft-delete parity', () => {
     it('listApplications excludes soft-deleted applications', async () => {
         const { executor } = createMockDbExecutor()
         executor.query.mockImplementation(async (sql: string) => {
-            if (sql.includes('FROM applications.cat_applications a') && sql.includes('COUNT(*) OVER() AS "windowTotal"')) {
+            if (sql.includes('FROM applications.obj_applications a') && sql.includes('COUNT(*) OVER() AS "windowTotal"')) {
                 const hasFilters = sql.includes('a._upl_deleted = false') && sql.includes('a._app_deleted = false')
 
                 return hasFilters
@@ -101,7 +101,7 @@ describe('Applications backend soft-delete parity', () => {
         expect(txExecutor.query.mock.calls[1][0]).toContain('_upl_version = COALESCE(cp._upl_version, 1) + 1')
         expect(txExecutor.query.mock.calls[1][0]).not.toContain('c._upl_deleted = false AND c._app_deleted = false')
         // Cascade soft-delete connectors
-        expect(txExecutor.query.mock.calls[2][0]).toContain('UPDATE applications.cat_connectors')
+        expect(txExecutor.query.mock.calls[2][0]).toContain('UPDATE applications.obj_connectors')
         expect(txExecutor.query.mock.calls[2][0]).toContain('_upl_deleted = true')
         expect(txExecutor.query.mock.calls[2][0]).toContain('_app_deleted = true')
         // Cascade soft-delete members
@@ -109,7 +109,7 @@ describe('Applications backend soft-delete parity', () => {
         expect(txExecutor.query.mock.calls[3][0]).toContain('_upl_deleted = true')
         expect(txExecutor.query.mock.calls[3][0]).toContain('_app_deleted = true')
         // Soft-delete the application itself
-        expect(txExecutor.query.mock.calls[4][0]).toContain('UPDATE applications.cat_applications')
+        expect(txExecutor.query.mock.calls[4][0]).toContain('UPDATE applications.obj_applications')
         expect(txExecutor.query.mock.calls[4][0]).toContain('_upl_deleted = true')
         expect(txExecutor.query.mock.calls[4][0]).toContain('_app_deleted = true')
         expect(txExecutor.query.mock.calls[4][0]).toContain('_upl_deleted = false AND _app_deleted = false')
@@ -120,7 +120,7 @@ describe('Connectors persistence soft-delete parity', () => {
     it('findConnector ignores soft-deleted connectors', async () => {
         const { executor } = createMockDbExecutor()
         executor.query.mockImplementation(async (sql: string) => {
-            if (sql.includes('FROM applications.cat_connectors') && sql.includes('application_id = $2')) {
+            if (sql.includes('FROM applications.obj_connectors') && sql.includes('application_id = $2')) {
                 const hasFilters = sql.includes('_upl_deleted = false') && sql.includes('_app_deleted = false')
                 return hasFilters
                     ? []
@@ -251,7 +251,7 @@ describe('Applications access guards soft-delete parity', () => {
     it('ensureConnectorAccess rejects soft-deleted connectors', async () => {
         const { executor } = createMockDbExecutor()
         executor.query.mockImplementation(async (sql: string) => {
-            if (sql.includes('FROM applications.cat_connectors')) {
+            if (sql.includes('FROM applications.obj_connectors')) {
                 const hasFilters = sql.includes('_upl_deleted = false') && sql.includes('_app_deleted = false')
                 return hasFilters ? [] : [{ id: 'connector-1', applicationId: 'application-1' }]
             }

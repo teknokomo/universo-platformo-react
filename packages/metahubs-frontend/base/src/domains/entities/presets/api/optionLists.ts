@@ -51,12 +51,12 @@ export interface OptionListWithContainers extends OptionListEntity {
 }
 
 export interface BlockingOptionListReference {
-    sourceLinkedCollectionId: string
-    sourceCatalogCodename: string
-    sourceCatalogName: VersionedLocalizedContent<string> | null
-    fieldDefinitionId: string
-    attributeCodename: string
-    attributeName: VersionedLocalizedContent<string> | null
+    sourceObjectCollectionId: string
+    sourceObjectCodename: string
+    sourceObjectName: VersionedLocalizedContent<string> | null
+    componentId: string
+    componentCodename: string
+    componentName: VersionedLocalizedContent<string> | null
 }
 
 export interface BlockingOptionListReferencesResponse {
@@ -268,7 +268,7 @@ export const deleteOptionListDirect = (metahubId: string, optionListId: string, 
     apiClient.delete<void>(buildOptionListInstancePath(metahubId, optionListId, kindKey))
 
 /**
- * Get cross-enumeration REF fieldDefinitions that block deleting this enumeration.
+ * Get cross-enumeration REF components that block deleting this enumeration.
  */
 export const getBlockingOptionListReferences = async (
     metahubId: string,

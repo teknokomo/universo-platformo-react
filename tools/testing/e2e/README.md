@@ -32,8 +32,8 @@ This directory contains the browser-testing foundation for agent-driven verifica
 -   `specs/flows/codename-mode.spec.ts`: browser coverage for codename UI mode switching at platform-default and per-metahub levels while keeping persisted codenames in VLC shape.
 -   `specs/flows/metahub-create-options-codename.spec.ts`: browser coverage for codename auto-fill UX, manual override reset behavior, and metahub create-options combinations with mandatory branch/layout defaults.
 -   `specs/flows/metahub-branches-migrations.spec.ts`: browser coverage for branch create/copy/default/activate/delete flows plus branch-aware metahub migrations planning through the existing UI.
--   `specs/flows/metahub-domain-entities.spec.ts`: browser coverage for create/copy/delete across hub, catalog, set, enumeration, attribute, element, value, and constant routes using the existing metahub UI surfaces.
--   `specs/flows/metahub-entity-dialog-regressions.spec.ts`: browser coverage for constant edit, enumeration-value edit/copy field completeness, and localized attribute-copy codename generation.
+-   `specs/flows/metahub-domain-entities.spec.ts`: browser coverage for create/copy/delete across hub, object, set, enumeration, component, element, value, and constant routes using the existing metahub UI surfaces.
+-   `specs/flows/metahub-entity-dialog-regressions.spec.ts`: browser coverage for constant edit, enumeration-value edit/copy field completeness, and localized component-copy codename generation.
 -   `specs/flows/metahub-layouts.spec.ts`: browser coverage for layouts list/detail routes and persisted widget-toggle state through the existing layout UI.
 -   `specs/flows/metahub-members-permissions.spec.ts`: browser coverage for metahub member invite flow and negative permission boundaries for non-managing roles.
 -   `specs/flows/application-members-access.spec.ts`: browser coverage for application access invite flow, redirect-away behavior, and admin promotion checks.

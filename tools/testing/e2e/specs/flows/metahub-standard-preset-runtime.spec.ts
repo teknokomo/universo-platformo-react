@@ -105,10 +105,10 @@ test('@flow @combined published standard preset instances surface as runtime sec
     const metahubCodename = `${runManifest.runId}-standard-preset-runtime`
     const publicationName = `E2E ${runManifest.runId} Runtime Publication`
     const applicationName = `E2E ${runManifest.runId} Runtime Application`
-    const catalogKindKey = `custom.catalog-runtime-${suffix}`
-    const catalogTypeName = `Catalogs Runtime ${suffix}`
-    const catalogName = `Runtime Catalog ${suffix}`
-    const catalogCodename = `runtime-catalog-${suffix}`
+    const objectKindKey = `custom.object-runtime-${suffix}`
+    const objectTypeName = `Objects Runtime ${suffix}`
+    const objectName = `Runtime Object ${suffix}`
+    const objectCodename = `runtime-object-${suffix}`
 
     try {
         const metahub = await createMetahub(api, {
@@ -128,28 +128,28 @@ test('@flow @combined published standard preset instances surface as runtime sec
         })
 
         await createPresetEntityTypeViaApi(api, metahub.id, {
-            templateCodename: 'catalog',
-            expectedKindKey: 'catalog',
-            customKindKey: catalogKindKey,
-            customDisplayName: catalogTypeName,
-            customCodename: `CatalogRuntime${suffix}`,
+            templateCodename: 'object',
+            expectedKindKey: 'object',
+            customKindKey: objectKindKey,
+            customDisplayName: objectTypeName,
+            customCodename: `ObjectRuntime${suffix}`,
             published: true
         })
 
-        const createCatalogResponse = await sendWithCsrf(api, 'POST', `/api/v1/metahub/${metahub.id}/entities`, {
-            kind: catalogKindKey,
-            codename: catalogCodename,
-            name: { en: catalogName },
+        const createObjectResponse = await sendWithCsrf(api, 'POST', `/api/v1/metahub/${metahub.id}/entities`, {
+            kind: objectKindKey,
+            codename: objectCodename,
+            name: { en: objectName },
             namePrimaryLocale: 'en'
         })
-        expect(createCatalogResponse.ok).toBe(true)
+        expect(createObjectResponse.ok).toBe(true)
 
-        const createdCatalogPayload = (await createCatalogResponse.json()) as { id?: string }
-        if (!createdCatalogPayload?.id) {
-            throw new Error('Catalog runtime control entity did not return an id')
+        const createdObjectPayload = (await createObjectResponse.json()) as { id?: string }
+        if (!createdObjectPayload?.id) {
+            throw new Error('Object runtime control entity did not return an id')
         }
 
-        const publishedInstanceNames: string[] = [catalogName]
+        const publishedInstanceNames: string[] = [objectName]
 
         for (const preset of RUNTIME_FILTERED_PRESETS) {
             const customKindKey = `custom.${preset.defaultKindKey}-runtime-${suffix}`
@@ -219,23 +219,23 @@ test('@flow @combined published standard preset instances surface as runtime sec
         await syncApplicationSchema(api, applicationId)
 
         let runtimeState: RuntimeState | null = null
-        let catalogSection: RuntimeSectionRecord | undefined
+        let objectSection: RuntimeSectionRecord | undefined
         await expect
             .poll(
                 async () => {
                     runtimeState = (await getApplicationRuntime(api, applicationId)) as RuntimeState
-                    catalogSection = runtimeState.sections?.find((section) => section.name === catalogName)
-                    return typeof catalogSection?.id === 'string'
+                    objectSection = runtimeState.sections?.find((section) => section.name === objectName)
+                    return typeof objectSection?.id === 'string'
                 },
                 {
                     timeout: 60_000,
-                    message: 'Waiting for the catalog runtime section to appear after publication sync'
+                    message: 'Waiting for the object runtime section to appear after publication sync'
                 }
             )
             .toBe(true)
 
-        if (!catalogSection?.id || !runtimeState) {
-            throw new Error('Catalog runtime section did not appear after publication sync')
+        if (!objectSection?.id || !runtimeState) {
+            throw new Error('Object runtime section did not appear after publication sync')
         }
 
         const runtimeSectionNames = runtimeState.sections?.map((section) => section.name).filter(Boolean) ?? []
@@ -243,28 +243,28 @@ test('@flow @combined published standard preset instances surface as runtime sec
             expect(runtimeSectionNames).toContain(publishedName)
         }
 
-        const sectionState = (await getApplicationRuntime(api, applicationId, { catalogId: catalogSection.id })) as RuntimeState
-        expect(sectionState.activeSectionId).toBe(catalogSection.id)
+        const sectionState = (await getApplicationRuntime(api, applicationId, { objectCollectionId: objectSection.id })) as RuntimeState
+        expect(sectionState.activeSectionId).toBe(objectSection.id)
 
         await applyBrowserPreferences(page, { language: 'en' })
-        await page.goto(`/a/${applicationId}?catalogId=${catalogSection.id}`)
+        await page.goto(`/a/${applicationId}?objectCollectionId=${objectSection.id}`)
         await expect
             .poll(
                 async () => {
                     const currentUrl = new URL(page.url())
                     return {
                         pathname: currentUrl.pathname,
-                        catalogId: currentUrl.searchParams.get('catalogId')
+                        objectCollectionId: currentUrl.searchParams.get('objectCollectionId')
                     }
                 },
                 {
                     timeout: 30_000,
-                    message: 'Waiting for runtime navigation to keep the selected catalog section in the URL'
+                    message: 'Waiting for runtime navigation to keep the selected object section in the URL'
                 }
             )
             .toEqual({
                 pathname: `/a/${applicationId}`,
-                catalogId: catalogSection.id
+                objectCollectionId: objectSection.id
             })
         await expect(page.getByTestId(applicationSelectors.runtimeCreateButton)).toBeVisible({ timeout: 30_000 })
     } finally {

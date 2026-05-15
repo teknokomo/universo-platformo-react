@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import type { FieldDefinitionDataType } from './metahubs'
+import type { ComponentDefinitionDataType } from './metahubs'
 
 export const LEDGER_MODES = ['facts', 'balance', 'accounting', 'calculation'] as const
 export type LedgerMode = (typeof LEDGER_MODES)[number]
@@ -14,7 +14,7 @@ export type LedgerPeriodicity = (typeof LEDGER_PERIODICITIES)[number]
 export const LEDGER_SOURCE_POLICIES = ['manual', 'registrar', 'both'] as const
 export type LedgerSourcePolicy = (typeof LEDGER_SOURCE_POLICIES)[number]
 
-export const LEDGER_FIELD_ROLES = ['dimension', 'resource', 'attribute'] as const
+export const LEDGER_FIELD_ROLES = ['dimension', 'resource', 'component'] as const
 export type LedgerFieldRoleKind = (typeof LEDGER_FIELD_ROLES)[number]
 
 export const LEDGER_RESOURCE_AGGREGATES = ['sum', 'count', 'min', 'max', 'latest'] as const
@@ -183,9 +183,14 @@ const buildFieldReferenceKeys = (field: { codename: string; columnName?: string 
 
 export const validateLedgerConfigReferences = (params: {
     config: LedgerConfig
-    fields: Array<{ codename: string; dataType: FieldDefinitionDataType; columnName?: string | null; physicalColumnName?: string | null }>
+    fields: Array<{
+        codename: string
+        dataType: ComponentDefinitionDataType
+        columnName?: string | null
+        physicalColumnName?: string | null
+    }>
 }): LedgerConfigReferenceError[] => {
-    const fieldsByCodename = new Map<string, { codename: string; dataType: FieldDefinitionDataType }>()
+    const fieldsByCodename = new Map<string, { codename: string; dataType: ComponentDefinitionDataType }>()
     params.fields.forEach((field) => {
         buildFieldReferenceKeys(field).forEach((key) => {
             fieldsByCodename.set(key, field)

@@ -1,12 +1,12 @@
 import type { Knex } from 'knex'
 import type { SystemTableCapabilityOptions } from '@universo/migrations-core'
-import { FieldDefinitionDataType } from '@universo/types'
-import type { FieldDefinitionValidationRules } from '@universo/types'
+import { ComponentDefinitionDataType } from '@universo/types'
+import type { ComponentDefinitionValidationRules } from '@universo/types'
 import { buildFkConstraintName, resolveFieldColumnName, resolveEntityTableName } from './naming'
 import { uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from './locking'
 import { calculateSchemaDiff, ChangeType } from './diff'
 import type { SchemaDiff, SchemaChange } from './diff'
-import type { EntityDefinition, FieldDefinition, MigrationResult, SchemaSnapshot } from './types'
+import type { EntityDefinition, Component, MigrationResult, SchemaSnapshot } from './types'
 import { SchemaGenerator } from './SchemaGenerator'
 import { MigrationManager, generateMigrationName } from './MigrationManager'
 import { hasPhysicalRuntimeTable, isStandardEnumerationKind, isStandardSetKind } from './builtinEntityKinds'
@@ -62,12 +62,12 @@ export class SchemaMigrator {
         return calculateSchemaDiff(oldSnapshot, newEntities)
     }
 
-    private static resolveFieldPhysicalType(field: FieldDefinition): string {
+    private static resolveFieldPhysicalType(field: Component): string {
         if (typeof field.physicalDataType === 'string' && field.physicalDataType.trim().length > 0) {
             return field.physicalDataType.trim()
         }
 
-        return SchemaGenerator.mapDataType(field.dataType, field.validationRules as Partial<FieldDefinitionValidationRules> | undefined)
+        return SchemaGenerator.mapDataType(field.dataType, field.validationRules as Partial<ComponentDefinitionValidationRules> | undefined)
     }
 
     public async applyAdditiveChanges(schemaName: string, diff: SchemaDiff, entities: EntityDefinition[]): Promise<MigrationResult> {
@@ -233,7 +233,7 @@ export class SchemaMigrator {
         return latestMigration?.meta?.snapshotAfter ?? null
     }
 
-    private findField(entities: EntityDefinition[], entityId: string, fieldId: string): FieldDefinition {
+    private findField(entities: EntityDefinition[], entityId: string, fieldId: string): Component {
         const entity = entities.find((item) => item.id === entityId)
         if (!entity) {
             throw new Error(`Entity ${entityId} not found`)
@@ -279,7 +279,7 @@ export class SchemaMigrator {
                         return
                     }
                     // BOOLEAN columns default to false to prevent NULL → indeterminate checkbox state
-                    if (field.dataType === FieldDefinitionDataType.BOOLEAN) {
+                    if (field.dataType === ComponentDefinitionDataType.BOOLEAN) {
                         col.defaultTo(false)
                     }
                 })
@@ -306,8 +306,8 @@ export class SchemaMigrator {
                     // Type change - get field to access validationRules for type config
                     const field = change.fieldId && change.entityId ? this.findField(entities, change.entityId, change.fieldId) : null
                     const newType = SchemaGenerator.mapDataType(
-                        change.newValue as FieldDefinitionDataType,
-                        field?.validationRules as Partial<FieldDefinitionValidationRules> | undefined
+                        change.newValue as ComponentDefinitionDataType,
+                        field?.validationRules as Partial<ComponentDefinitionValidationRules> | undefined
                     )
                     await trx.raw(`ALTER TABLE ??.?? ALTER COLUMN ?? TYPE ${newType} USING ??::${newType}`, [
                         schemaName,
@@ -374,19 +374,19 @@ export class SchemaMigrator {
             }
 
             case ChangeType.MODIFY_FIELD: {
-                // MODIFY_FIELD represents metadata-only changes (e.g., isDisplayAttribute, targetEntityId)
+                // MODIFY_FIELD represents metadata-only changes (e.g., isDisplayComponent, targetEntityId)
                 // that don't require DDL operations. We log and skip.
                 console.log(`[SchemaMigrator] Metadata change (no DDL): ${change.description}`)
                 break
             }
 
             case ChangeType.ADD_TABULAR_TABLE: {
-                // Create a new tabular part table for a TABLE attribute
+                // Create a new tabular part table for a TABLE component
                 const entity = entities.find((item) => item.id === change.entityId)
                 if (!entity) throw new Error(`Entity ${change.entityId} not found`)
                 const tableField = entity.fields.find((f) => f.id === change.fieldId)
                 if (!tableField) throw new Error(`TABLE field ${change.fieldId} not found`)
-                const childFields = entity.fields.filter((f) => f.parentAttributeId === tableField.id)
+                const childFields = entity.fields.filter((f) => f.parentComponentId === tableField.id)
                 const parentTableName = resolveEntityTableName(entity)
                 await this.generator.createTabularTable(schemaName, entity, parentTableName, tableField, childFields, trx)
                 break
@@ -413,7 +413,7 @@ export class SchemaMigrator {
                         col.defaultTo(trx.raw(field.defaultSqlExpression))
                         return
                     }
-                    if (field.dataType === FieldDefinitionDataType.BOOLEAN) {
+                    if (field.dataType === ComponentDefinitionDataType.BOOLEAN) {
                         col.defaultTo(false)
                     }
                 })
@@ -433,8 +433,8 @@ export class SchemaMigrator {
                 const entity = entities.find((item) => item.id === change.entityId)
                 const field = entity?.fields.find((f) => f.id === change.fieldId) ?? null
                 const newType = SchemaGenerator.mapDataType(
-                    change.newValue as FieldDefinitionDataType,
-                    field?.validationRules as Partial<FieldDefinitionValidationRules> | undefined
+                    change.newValue as ComponentDefinitionDataType,
+                    field?.validationRules as Partial<ComponentDefinitionValidationRules> | undefined
                 )
                 await trx.raw(`ALTER TABLE ??.?? ALTER COLUMN ?? TYPE ${newType} USING ??::${newType}`, [
                     schemaName,

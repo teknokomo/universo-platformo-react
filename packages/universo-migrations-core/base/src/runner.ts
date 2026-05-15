@@ -4,7 +4,7 @@ import { consoleMigrationLogger } from './logger'
 import { sortPlatformMigrations, validatePlatformMigrations } from './validate'
 import type {
     DdlExecutionBudget,
-    MigrationCatalogRecord,
+    MigrationObjectRecord,
     MigrationExecutionContext,
     MigrationDeliveryStage,
     PlatformMigrationFile,
@@ -194,7 +194,7 @@ const executeMigration = async (
 
 const analyzeExistingMigration = (
     migration: PlatformMigrationFile,
-    existing: MigrationCatalogRecord | null,
+    existing: MigrationObjectRecord | null,
     checksum: string
 ): PlannedPlatformMigration['action'] => {
     if (!existing || existing.status !== 'applied') return 'apply'
@@ -206,7 +206,7 @@ const createPlanEntry = (
     migration: PlatformMigrationFile,
     checksum: string,
     action: PlannedPlatformMigration['action'],
-    existing: MigrationCatalogRecord | null,
+    existing: MigrationObjectRecord | null,
     reason: string | null = null
 ): PlannedPlatformMigration => ({
     id: migration.id,
@@ -227,18 +227,18 @@ const createPlanEntry = (
 export const runPlatformMigrations = async (options: RunPlatformMigrationsOptions): Promise<RunPlatformMigrationsResult> => {
     const logger = options.logger ?? consoleMigrationLogger
     const isDryRun = options.dryRun === true
-    const prepareCatalogStorage = options.prepareCatalogStorage ?? !isDryRun
+    const prepareObjectStorage = options.prepareObjectStorage ?? !isDryRun
     const validation = validatePlatformMigrations(options.migrations)
     if (!validation.ok) {
         const issue = validation.issues.find((entry) => entry.level === 'error')
         throw new Error(issue?.message ?? 'Migration validation failed')
     }
 
-    let catalogStorageReady = true
-    if (prepareCatalogStorage) {
-        await options.catalog.ensureStorage()
-    } else if (options.catalog.isStorageReady) {
-        catalogStorageReady = await options.catalog.isStorageReady()
+    let objectStorageReady = true
+    if (prepareObjectStorage) {
+        await options.object.ensureStorage()
+    } else if (options.object.isStorageReady) {
+        objectStorageReady = await options.object.isStorageReady()
     }
 
     const result: RunPlatformMigrationsResult = {
@@ -281,11 +281,11 @@ export const runPlatformMigrations = async (options: RunPlatformMigrationsOption
         const checksum = calculateMigrationChecksum(migration)
 
         if (isDryRun) {
-            const existing = catalogStorageReady ? await options.catalog.findLatest(migration.scope, migration) : null
+            const existing = objectStorageReady ? await options.object.findLatest(migration.scope, migration) : null
             const action = analyzeExistingMigration(migration, existing, checksum)
             const reason =
-                !catalogStorageReady && !prepareCatalogStorage
-                    ? 'Catalog storage is not bootstrapped yet; plan assumes no prior applied runs'
+                !objectStorageReady && !prepareObjectStorage
+                    ? 'Object storage is not bootstrapped yet; plan assumes no prior applied runs'
                     : action === 'drift'
                     ? 'Applied checksum differs from the registered migration definition'
                     : null
@@ -304,7 +304,7 @@ export const runPlatformMigrations = async (options: RunPlatformMigrationsOption
         }
 
         await withSessionLock(options.knex, `runner:${migration.scope.kind}:${migration.scope.key}:${migration.id}`, async () => {
-            const existing = await options.catalog.findLatest(migration.scope, migration)
+            const existing = await options.object.findLatest(migration.scope, migration)
             const action = analyzeExistingMigration(migration, existing, checksum)
 
             if (action === 'drift') {
@@ -329,7 +329,7 @@ export const runPlatformMigrations = async (options: RunPlatformMigrationsOption
 
             result.planned.push(createPlanEntry(migration, checksum, action, existing))
 
-            const run = await options.catalog.beginRun({
+            const run = await options.object.beginRun({
                 migration,
                 checksum,
                 summary: migration.summary ?? null,
@@ -347,12 +347,12 @@ export const runPlatformMigrations = async (options: RunPlatformMigrationsOption
 
             try {
                 await executeMigration(options.knex, migration, run.id, logger)
-                await options.catalog.completeRun(run.id, {
+                await options.object.completeRun(run.id, {
                     status: 'applied'
                 })
                 result.applied.push(migration.id)
             } catch (error) {
-                await options.catalog.completeRun(run.id, {
+                await options.object.completeRun(run.id, {
                     status: 'failed',
                     error: serializeError(error)
                 })

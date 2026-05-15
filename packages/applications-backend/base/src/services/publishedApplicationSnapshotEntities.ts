@@ -1,8 +1,8 @@
 import { createHash } from 'crypto'
-import type { EntityDefinition, FieldDefinition } from '@universo/schema-ddl'
+import type { EntityDefinition, Component } from '@universo/schema-ddl'
 import { getCodenamePrimary } from '@universo/utils'
-import { FieldDefinitionDataType, type CatalogSystemFieldsSnapshot } from '@universo/types'
-import type { PublishedApplicationSnapshot, SnapshotCodenameValue, SnapshotFieldDefinition } from './applicationSyncContracts'
+import { ComponentDefinitionDataType, type ObjectSystemFieldsSnapshot } from '@universo/types'
+import type { PublishedApplicationSnapshot, SnapshotCodenameValue, SnapshotComponent } from './applicationSyncContracts'
 
 type SnapshotFixedValueRecord = {
     id: string
@@ -39,12 +39,12 @@ const resolveSnapshotCodenameText = (value: SnapshotCodenameValue | null | undef
     return text.length > 0 ? text : null
 }
 
-const resolveSnapshotSystemFields = (snapshot: PublishedApplicationSnapshot): Record<string, CatalogSystemFieldsSnapshot> | null => {
+const resolveSnapshotSystemFields = (snapshot: PublishedApplicationSnapshot): Record<string, ObjectSystemFieldsSnapshot> | null => {
     if (!snapshot.systemFields || typeof snapshot.systemFields !== 'object') {
         return null
     }
 
-    return snapshot.systemFields as Record<string, CatalogSystemFieldsSnapshot>
+    return snapshot.systemFields as Record<string, ObjectSystemFieldsSnapshot>
 }
 
 const buildSetConstantLookups = (
@@ -119,16 +119,16 @@ const toSetFixedValueRefPayload = (
     }
 }
 
-const normalizeSnapshotFieldDefinition = (field: SnapshotFieldDefinition): FieldDefinition => ({
+const normalizeSnapshotComponent = (field: SnapshotComponent): Component => ({
     ...field,
     codename: resolveSnapshotCodenameText(field.codename) ?? '',
-    childFields: field.childFields?.map((child) => normalizeSnapshotFieldDefinition(child))
+    childFields: field.childFields?.map((child) => normalizeSnapshotComponent(child))
 })
 
 const collectDuplicatedFieldIds = (snapshot: PublishedApplicationSnapshot): Set<string> => {
     const ownersByFieldId = new Map<string, Set<string>>()
 
-    const visitFields = (entityId: string, fields: SnapshotFieldDefinition[]): void => {
+    const visitFields = (entityId: string, fields: SnapshotComponent[]): void => {
         for (const field of fields) {
             const fieldId = typeof field.id === 'string' && field.id.length > 0 ? field.id : null
             if (fieldId) {
@@ -148,7 +148,7 @@ const collectDuplicatedFieldIds = (snapshot: PublishedApplicationSnapshot): Set<
             continue
         }
 
-        const fields = Array.isArray(entity.fields) ? (entity.fields as SnapshotFieldDefinition[]) : []
+        const fields = Array.isArray(entity.fields) ? (entity.fields as SnapshotComponent[]) : []
         visitFields(entity.id, fields)
     }
 
@@ -161,16 +161,16 @@ const collectDuplicatedFieldIds = (snapshot: PublishedApplicationSnapshot): Set<
 
 const rewriteDuplicatedFieldIdsForEntity = (
     entityId: string,
-    fields: SnapshotFieldDefinition[],
+    fields: SnapshotComponent[],
     duplicatedFieldIds: Set<string>
-): SnapshotFieldDefinition[] => {
+): SnapshotComponent[] => {
     if (fields.length === 0 || duplicatedFieldIds.size === 0) {
         return fields
     }
 
     const remappedIds = new Map<string, string>()
 
-    const registerIds = (fieldList: SnapshotFieldDefinition[]): void => {
+    const registerIds = (fieldList: SnapshotComponent[]): void => {
         for (const field of fieldList) {
             if (duplicatedFieldIds.has(field.id) && !remappedIds.has(field.id)) {
                 remappedIds.set(field.id, buildDeterministicScopedUuid(`application-runtime-field:${entityId}:${field.id}`))
@@ -188,13 +188,13 @@ const rewriteDuplicatedFieldIdsForEntity = (
         return fields
     }
 
-    const rewriteField = (field: SnapshotFieldDefinition): SnapshotFieldDefinition => ({
+    const rewriteField = (field: SnapshotComponent): SnapshotComponent => ({
         ...field,
         id: remappedIds.get(field.id) ?? field.id,
-        ...(typeof field.parentAttributeId === 'string'
-            ? { parentAttributeId: remappedIds.get(field.parentAttributeId) ?? field.parentAttributeId }
-            : field.parentAttributeId === null
-            ? { parentAttributeId: null }
+        ...(typeof field.parentComponentId === 'string'
+            ? { parentComponentId: remappedIds.get(field.parentComponentId) ?? field.parentComponentId }
+            : field.parentComponentId === null
+            ? { parentComponentId: null }
             : {}),
         ...(Array.isArray(field.childFields) && field.childFields.length > 0
             ? { childFields: field.childFields.map((child) => rewriteField(child)) }
@@ -205,19 +205,19 @@ const rewriteDuplicatedFieldIdsForEntity = (
 }
 
 const enrichFieldWithSetConstantRef = (
-    field: FieldDefinition,
+    field: Component,
     lookups: {
         byValueGroupId: Map<string, Map<string, SnapshotFixedValueRecord>>
         byFixedValueId: Map<string, SnapshotFixedValueRecord>
     }
-): FieldDefinition => {
-    const nextField: FieldDefinition = {
+): Component => {
+    const nextField: Component = {
         ...field,
         ...(field.childFields ? { childFields: field.childFields.map((child) => enrichFieldWithSetConstantRef(child, lookups)) } : {})
     }
 
     if (
-        nextField.dataType !== FieldDefinitionDataType.REF ||
+        nextField.dataType !== ComponentDefinitionDataType.REF ||
         !isSetStandardKind(nextField.targetEntityKind) ||
         typeof nextField.targetConstantId !== 'string' ||
         nextField.targetConstantId.length === 0
@@ -242,16 +242,16 @@ const enrichFieldWithSetConstantRef = (
 }
 
 const normalizeExecutableEntityFields = (
-    fields: SnapshotFieldDefinition[],
+    fields: SnapshotComponent[],
     lookups: {
         byValueGroupId: Map<string, Map<string, SnapshotFixedValueRecord>>
         byFixedValueId: Map<string, SnapshotFixedValueRecord>
     }
-): FieldDefinition[] => {
+): Component[] => {
     const fieldOrder: string[] = []
-    const fieldMap = new Map<string, FieldDefinition>()
+    const fieldMap = new Map<string, Component>()
 
-    const upsertField = (field: FieldDefinition): void => {
+    const upsertField = (field: Component): void => {
         if (!fieldMap.has(field.id)) {
             fieldOrder.push(field.id)
         }
@@ -260,28 +260,28 @@ const normalizeExecutableEntityFields = (
     }
 
     for (const field of fields) {
-        const enrichedField = enrichFieldWithSetConstantRef(normalizeSnapshotFieldDefinition(field), lookups)
+        const enrichedField = enrichFieldWithSetConstantRef(normalizeSnapshotComponent(field), lookups)
         const normalizedChildren = (enrichedField.childFields ?? []).map((child) => ({
             ...child,
-            parentAttributeId: child.parentAttributeId ?? enrichedField.id
+            parentComponentId: child.parentComponentId ?? enrichedField.id
         }))
 
-        const normalizedField: FieldDefinition = {
+        const normalizedField: Component = {
             ...enrichedField,
-            parentAttributeId: enrichedField.parentAttributeId ?? null,
+            parentComponentId: enrichedField.parentComponentId ?? null,
             ...(normalizedChildren.length > 0 ? { childFields: normalizedChildren } : {})
         }
 
         upsertField(normalizedField)
 
-        if (normalizedField.parentAttributeId) {
+        if (normalizedField.parentComponentId) {
             continue
         }
 
         for (const child of normalizedChildren) {
             upsertField({
                 ...child,
-                parentAttributeId: child.parentAttributeId ?? normalizedField.id
+                parentComponentId: child.parentComponentId ?? normalizedField.id
             })
         }
     }
@@ -294,15 +294,15 @@ const assertExecutableEntityContract = (entity: EntityDefinition): void => {
     const fieldsByParent = new Map<string, number>()
 
     for (const field of fields) {
-        if (!field.parentAttributeId) {
+        if (!field.parentComponentId) {
             continue
         }
 
-        fieldsByParent.set(field.parentAttributeId, (fieldsByParent.get(field.parentAttributeId) ?? 0) + 1)
+        fieldsByParent.set(field.parentComponentId, (fieldsByParent.get(field.parentComponentId) ?? 0) + 1)
     }
 
     for (const field of fields) {
-        if (field.dataType !== FieldDefinitionDataType.TABLE || field.parentAttributeId) {
+        if (field.dataType !== ComponentDefinitionDataType.TABLE || field.parentComponentId) {
             continue
         }
 

@@ -28,7 +28,7 @@ describe('application sync predefined seeding', () => {
         const entities = [
             {
                 id: '019ccefc-2f7b-7b36-82f4-85cdb1312268',
-                kind: 'catalog',
+                kind: 'object',
                 codename: 'products',
                 fields: []
             }

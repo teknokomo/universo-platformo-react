@@ -48,7 +48,7 @@ describe('MetahubObjectsService mutation fail-closed behavior', () => {
             ])
             .mockResolvedValueOnce([
                 {
-                    components: {
+                    capabilities: {
                         dataSchema: { enabled: true },
                         records: false,
                         treeAssignment: false,
@@ -135,7 +135,7 @@ describe('MetahubObjectsService mutation fail-closed behavior', () => {
     })
 
     it('fails closed when soft delete touches no active rows', async () => {
-        mockQuery.mockResolvedValueOnce([{ id: 'missing-object', kind: 'catalog' }]).mockResolvedValueOnce([])
+        mockQuery.mockResolvedValueOnce([{ id: 'missing-object', kind: 'object' }]).mockResolvedValueOnce([])
 
         await expect(service.delete('metahub-1', 'missing-object', 'user-1')).rejects.toThrow(MetahubNotFoundError)
     })
@@ -168,7 +168,7 @@ describe('MetahubObjectsService mutation fail-closed behavior', () => {
     })
 
     it('fails closed when permanent delete touches no rows', async () => {
-        mockQuery.mockResolvedValueOnce([{ id: 'missing-object', kind: 'catalog' }]).mockResolvedValueOnce([])
+        mockQuery.mockResolvedValueOnce([{ id: 'missing-object', kind: 'object' }]).mockResolvedValueOnce([])
 
         await expect(service.permanentDelete('metahub-1', 'missing-object', 'user-1')).rejects.toThrow(MetahubNotFoundError)
     })
@@ -181,8 +181,8 @@ describe('MetahubObjectsService mutation fail-closed behavior', () => {
         }
 
         jest.spyOn(service, 'findById').mockResolvedValue({
-            id: 'catalog-1',
-            kind: 'catalog',
+            id: 'object-1',
+            kind: 'object',
             codename: {
                 _schema: 'v1',
                 _primary: 'en',
@@ -204,12 +204,12 @@ describe('MetahubObjectsService mutation fail-closed behavior', () => {
             }
         } as never)
 
-        mockQuery.mockResolvedValueOnce([{ id: 'catalog-1' }])
+        mockQuery.mockResolvedValueOnce([{ id: 'object-1' }])
 
         await service.updateObject(
             'metahub-1',
-            'catalog-1',
-            'catalog',
+            'object-1',
+            'object',
             {
                 name: localizedName,
                 config: {
@@ -232,11 +232,11 @@ describe('MetahubObjectsService mutation fail-closed behavior', () => {
 
     it('filters virtual shared containers out of standard object lists and counts', async () => {
         mockQuery.mockResolvedValueOnce([
-            { id: 'catalog-1', kind: 'catalog', codename: { _primary: 'en', locales: { en: { content: 'catalog' } } } }
+            { id: 'object-1', kind: 'object', codename: { _primary: 'en', locales: { en: { content: 'object' } } } }
         ])
 
-        await service.findAllByKind('metahub-1', 'catalog', 'user-1')
-        await service.countByKind('metahub-1', 'catalog', 'user-1')
+        await service.findAllByKind('metahub-1', 'object', 'user-1')
+        await service.countByKind('metahub-1', 'object', 'user-1')
 
         expect(mockQuery.mock.calls[0][0]).toContain("COALESCE((config->>'isVirtualContainer')::boolean, false) = false")
         expect(mockQuery.mock.calls[1][0]).toContain("COALESCE((config->>'isVirtualContainer')::boolean, false) = false")

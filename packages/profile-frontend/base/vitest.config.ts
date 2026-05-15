@@ -11,29 +11,29 @@ const sharedSetupFiles = (baseConfig.test?.setupFiles ?? []) as string[]
 const tsconfigAliases = loadTsconfigAliases(path.resolve(__dirname, 'tsconfig.json'), __dirname)
 
 export default mergeConfig(
-  baseConfig,
-  defineConfig({
-    root: __dirname,
-    resolve: {
-      alias: {
-        ...tsconfigAliases,
-        '@': srcDir,
-      },
-    },
-    test: {
-      globals: true,
-      include: ['src/**/*.{test,spec}.{ts,tsx,js,jsx}'],
-      setupFiles: [...sharedSetupFiles, path.resolve(__dirname, 'setupTests.ts')],
-      coverage: {
-        enabled: true,
-        reporter: ['text', 'json-summary'],
-        reportsDirectory: path.resolve(__dirname, 'coverage'),
-      },
-    },
-    esbuild: {
-      loader: 'tsx',
-      include: [/src\/.*\.[jt]sx?$/, /tools\/testing\/frontend\/.*\.[jt]sx?$/],
-      jsx: 'automatic',
-    },
-  }),
+    baseConfig,
+    defineConfig({
+        root: __dirname,
+        resolve: {
+            alias: {
+                ...tsconfigAliases,
+                '@': srcDir
+            }
+        },
+        test: {
+            globals: true,
+            include: ['src/**/*.{test,spec}.{ts,tsx,js,jsx}'],
+            setupFiles: [...sharedSetupFiles, path.resolve(__dirname, 'setupTests.ts')],
+            coverage: {
+                enabled: true,
+                reporter: ['text', 'json-summary'],
+                reportsDirectory: path.resolve(__dirname, 'coverage')
+            }
+        },
+        esbuild: {
+            loader: 'tsx',
+            include: [/src\/.*\.[jt]sx?$/, /tools\/testing\/frontend\/.*\.[jt]sx?$/],
+            jsx: 'automatic'
+        }
+    })
 )

@@ -11,7 +11,7 @@ import { createPublicMetahubsController } from '../controllers/publicMetahubsCon
  * Only metahubs with isPublic=true are accessible.
  * All operations are read-only.
  *
- * Hierarchy: Metahub → Hub → Catalog → Attributes/Records
+ * Hierarchy: Metahub → Hub → Object → Components/Records
  */
 export function createPublicMetahubsRoutes(getDbExecutor: () => DbExecutor, readLimiter: RateLimitRequestHandler): Router {
     const router = Router({ mergeParams: true })
@@ -26,24 +26,24 @@ export function createPublicMetahubsRoutes(getDbExecutor: () => DbExecutor, read
     router.get('/:slug', readLimiter, asyncHandler(ctrl.getBySlug))
     router.get('/:slug/tree-entities', readLimiter, asyncHandler(ctrl.listTreeEntities))
     router.get('/:slug/tree-entity/:treeEntityCodename', readLimiter, asyncHandler(ctrl.getTreeEntity))
-    router.get('/:slug/tree-entity/:treeEntityCodename/linked-collections', readLimiter, asyncHandler(ctrl.listLinkedCollections))
+    router.get('/:slug/tree-entity/:treeEntityCodename/objects', readLimiter, asyncHandler(ctrl.listObjectCollections))
     router.get(
-        '/:slug/tree-entity/:treeEntityCodename/linked-collection/:linkedCollectionCodename',
+        '/:slug/tree-entity/:treeEntityCodename/object/:objectCollectionCodename',
         readLimiter,
-        asyncHandler(ctrl.getLinkedCollection)
+        asyncHandler(ctrl.getObjectCollection)
     )
     router.get(
-        '/:slug/tree-entity/:treeEntityCodename/linked-collection/:linkedCollectionCodename/field-definitions',
+        '/:slug/tree-entity/:treeEntityCodename/object/:objectCollectionCodename/components',
         readLimiter,
-        asyncHandler(ctrl.listFieldDefinitions)
+        asyncHandler(ctrl.listComponents)
     )
     router.get(
-        '/:slug/tree-entity/:treeEntityCodename/linked-collection/:linkedCollectionCodename/records',
+        '/:slug/tree-entity/:treeEntityCodename/object/:objectCollectionCodename/records',
         readLimiter,
         asyncHandler(ctrl.listRecords)
     )
     router.get(
-        '/:slug/tree-entity/:treeEntityCodename/linked-collection/:linkedCollectionCodename/record/:recordId',
+        '/:slug/tree-entity/:treeEntityCodename/object/:objectCollectionCodename/record/:recordId',
         readLimiter,
         asyncHandler(ctrl.getRecord)
     )

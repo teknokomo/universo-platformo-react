@@ -2,28 +2,28 @@
 // Keep runtime-safe values for validation and enum-like usage.
 
 import type { VersionedLocalizedContent } from './admin'
-import type { ComponentManifest } from './entityComponents'
+import type { EntityTypeCapabilities } from './entityCapabilities'
 import type { EntityTypeUIConfig } from './entityTypeDefinition'
 import type { SharedBehavior } from './shared'
 import type { ScriptAttachmentKind, ScriptCapability, ScriptModuleRole, ScriptSourceKind } from './scripts'
 
 /**
- * Supported attribute data types.
+ * Supported component data types.
  * Note: DATETIME was removed in favor of DATE with dateComposition setting.
  */
-export const FIELD_DEFINITION_DATA_TYPES = ['STRING', 'NUMBER', 'BOOLEAN', 'DATE', 'REF', 'JSON', 'TABLE'] as const
+export const COMPONENT_DATA_TYPES = ['STRING', 'NUMBER', 'BOOLEAN', 'DATE', 'REF', 'JSON', 'TABLE'] as const
 
-export type FieldDefinitionDataType = (typeof FIELD_DEFINITION_DATA_TYPES)[number]
+export type ComponentDefinitionDataType = (typeof COMPONENT_DATA_TYPES)[number]
 
 // eslint-disable-next-line no-redeclare
-export const FieldDefinitionDataType = FIELD_DEFINITION_DATA_TYPES.reduce((acc, value) => {
+export const ComponentDefinitionDataType = COMPONENT_DATA_TYPES.reduce((acc, value) => {
     acc[value] = value
     return acc
-}, {} as Record<FieldDefinitionDataType, FieldDefinitionDataType>)
+}, {} as Record<ComponentDefinitionDataType, ComponentDefinitionDataType>)
 
 /**
  * Supported constant data types.
- * Constants use a strict subset of attribute types (no REF/JSON/TABLE at this stage).
+ * Constants use a strict subset of component types (no REF/JSON/TABLE at this stage).
  */
 export const FIXED_VALUE_DATA_TYPES = ['STRING', 'NUMBER', 'BOOLEAN', 'DATE'] as const
 export type FixedValueDataType = (typeof FIXED_VALUE_DATA_TYPES)[number]
@@ -51,18 +51,18 @@ export type DialogSizePreset = 'small' | 'medium' | 'large'
 export type DialogCloseBehavior = 'strict-modal' | 'backdrop-close'
 
 /** Entity metadata kinds that expose entity-scoped settings. */
-export const ENTITY_SETTINGS_KINDS = ['hub', 'catalog', 'set', 'enumeration', 'page', 'ledger'] as const
+export const ENTITY_SETTINGS_KINDS = ['hub', 'object', 'set', 'enumeration', 'page', 'ledger'] as const
 export type EntitySettingsKind = (typeof ENTITY_SETTINGS_KINDS)[number]
 
 /** Neutral entity-authoring surface aliases that map to stored builtin kind values. */
-export const ENTITY_SURFACE_KEYS = ['treeEntity', 'linkedCollection', 'valueGroup', 'optionList', 'page', 'ledger'] as const
+export const ENTITY_SURFACE_KEYS = ['treeEntity', 'objectCollection', 'valueGroup', 'optionList', 'page', 'ledger'] as const
 export type EntitySurfaceKey = (typeof ENTITY_SURFACE_KEYS)[number]
 
 export type EntitySettingsScope = EntitySettingsKind | EntitySurfaceKey
 
 const ENTITY_SURFACE_TO_SETTINGS_KIND_MAP: Record<EntitySurfaceKey, EntitySettingsKind> = {
     treeEntity: 'hub',
-    linkedCollection: 'catalog',
+    objectCollection: 'object',
     valueGroup: 'set',
     optionList: 'enumeration',
     page: 'page',
@@ -71,7 +71,7 @@ const ENTITY_SURFACE_TO_SETTINGS_KIND_MAP: Record<EntitySurfaceKey, EntitySettin
 
 const SETTINGS_KIND_TO_ENTITY_SURFACE_MAP: Record<EntitySettingsKind, EntitySurfaceKey> = {
     hub: 'treeEntity',
-    catalog: 'linkedCollection',
+    object: 'objectCollection',
     set: 'valueGroup',
     enumeration: 'optionList',
     page: 'page',
@@ -80,7 +80,7 @@ const SETTINGS_KIND_TO_ENTITY_SURFACE_MAP: Record<EntitySettingsKind, EntitySurf
 
 export const ENTITY_SURFACE_LABELS: Record<EntitySurfaceKey, { singular: string; plural: string }> = {
     treeEntity: { singular: 'Hub', plural: 'Hubs' },
-    linkedCollection: { singular: 'Catalog', plural: 'Catalogs' },
+    objectCollection: { singular: 'Object', plural: 'Objects' },
     valueGroup: { singular: 'Set', plural: 'Sets' },
     optionList: { singular: 'Enumeration', plural: 'Enumerations' },
     page: { singular: 'Page', plural: 'Pages' },
@@ -304,82 +304,82 @@ export const METAHUB_SETTINGS_REGISTRY: readonly SettingDefinition[] = [
         sortOrder: 5
     },
 
-    // ── Catalogs ──
+    // ── Objects ──
     {
-        key: buildEntitySettingKey('catalog', 'allowCopy'),
-        tab: 'catalog',
+        key: buildEntitySettingKey('object', 'allowCopy'),
+        tab: 'object',
         valueType: 'boolean',
         defaultValue: true,
         sortOrder: 1
     },
     {
-        key: buildEntitySettingKey('catalog', 'allowDelete'),
-        tab: 'catalog',
+        key: buildEntitySettingKey('object', 'allowDelete'),
+        tab: 'object',
         valueType: 'boolean',
         defaultValue: true,
         sortOrder: 2
     },
     {
-        key: buildEntitySettingKey('catalog', 'attributeCodenameScope'),
-        tab: 'catalog',
+        key: buildEntitySettingKey('object', 'componentCodenameScope'),
+        tab: 'object',
         valueType: 'select',
         defaultValue: 'per-level',
         options: ['per-level', 'global'] as const,
         sortOrder: 3
     },
     {
-        key: buildEntitySettingKey('catalog', 'allowedAttributeTypes'),
-        tab: 'catalog',
+        key: buildEntitySettingKey('object', 'allowedComponentTypes'),
+        tab: 'object',
         valueType: 'multiselect',
-        defaultValue: [...FIELD_DEFINITION_DATA_TYPES],
-        options: FIELD_DEFINITION_DATA_TYPES,
+        defaultValue: [...COMPONENT_DATA_TYPES],
+        options: COMPONENT_DATA_TYPES,
         sortOrder: 4
     },
     {
-        key: buildEntitySettingKey('catalog', 'allowAttributeCopy'),
-        tab: 'catalog',
+        key: buildEntitySettingKey('object', 'allowComponentCopy'),
+        tab: 'object',
         valueType: 'boolean',
         defaultValue: true,
         sortOrder: 5
     },
     {
-        key: buildEntitySettingKey('catalog', 'allowAttributeDelete'),
-        tab: 'catalog',
+        key: buildEntitySettingKey('object', 'allowComponentDelete'),
+        tab: 'object',
         valueType: 'boolean',
         defaultValue: true,
         sortOrder: 6
     },
     {
-        key: buildEntitySettingKey('catalog', 'allowDeleteLastDisplayAttribute'),
-        tab: 'catalog',
+        key: buildEntitySettingKey('object', 'allowDeleteLastDisplayComponent'),
+        tab: 'object',
         valueType: 'boolean',
         defaultValue: true,
         sortOrder: 7
     },
     {
-        key: buildEntitySettingKey('catalog', 'allowElementCopy'),
-        tab: 'catalog',
+        key: buildEntitySettingKey('object', 'allowElementCopy'),
+        tab: 'object',
         valueType: 'boolean',
         defaultValue: true,
         sortOrder: 8
     },
     {
-        key: buildEntitySettingKey('catalog', 'allowElementDelete'),
-        tab: 'catalog',
+        key: buildEntitySettingKey('object', 'allowElementDelete'),
+        tab: 'object',
         valueType: 'boolean',
         defaultValue: true,
         sortOrder: 9
     },
     {
-        key: buildEntitySettingKey('catalog', 'allowAttributeMoveBetweenRootAndChildren'),
-        tab: 'catalog',
+        key: buildEntitySettingKey('object', 'allowComponentMoveBetweenRootAndChildren'),
+        tab: 'object',
         valueType: 'boolean',
         defaultValue: true,
         sortOrder: 10
     },
     {
-        key: buildEntitySettingKey('catalog', 'allowAttributeMoveBetweenChildLists'),
-        tab: 'catalog',
+        key: buildEntitySettingKey('object', 'allowComponentMoveBetweenChildLists'),
+        tab: 'object',
         valueType: 'boolean',
         defaultValue: true,
         sortOrder: 11
@@ -537,9 +537,9 @@ export interface DateTypeConfig {
 
 /**
  * Combined validation rules with type-specific settings.
- * Stored in attribute's validationRules field.
+ * Stored in component's validationRules field.
  */
-export interface FieldDefinitionValidationRules {
+export interface ComponentDefinitionValidationRules {
     // Generic rules
     required?: boolean
 
@@ -568,14 +568,14 @@ export interface FieldDefinitionValidationRules {
     minRows?: number | null
     /** Maximum number of rows in TABLE child table (leave empty for no limit) */
     maxRows?: number | null
-    /** Maximum number of child attributes allowed inside TABLE (leave empty for no limit) */
-    maxChildAttributes?: number | null
+    /** Maximum number of child components allowed inside TABLE (leave empty for no limit) */
+    maxChildComponents?: number | null
 }
 
 /**
  * Returns default validation rules for a given data type.
  */
-export function getDefaultValidationRules(dataType: FieldDefinitionDataType): Partial<FieldDefinitionValidationRules> {
+export function getDefaultValidationRules(dataType: ComponentDefinitionDataType): Partial<ComponentDefinitionValidationRules> {
     switch (dataType) {
         case 'STRING':
             return { maxLength: null, versioned: false, localized: false }
@@ -609,14 +609,17 @@ export interface PhysicalTypeInfo {
 }
 
 /**
- * Maps logical FieldDefinitionDataType + validation rules to physical PostgreSQL type.
+ * Maps logical ComponentDefinitionDataType + validation rules to physical PostgreSQL type.
  * This mirrors SchemaGenerator.mapDataType() logic but without Knex dependency.
  *
- * @param dataType - Logical data type from FieldDefinitionDataType enum
+ * @param dataType - Logical data type from ComponentDefinitionDataType enum
  * @param rules - Validation rules containing type-specific settings
  * @returns Physical type information for UI display
  */
-export function getPhysicalDataType(dataType: FieldDefinitionDataType, rules?: Partial<FieldDefinitionValidationRules>): PhysicalTypeInfo {
+export function getPhysicalDataType(
+    dataType: ComponentDefinitionDataType,
+    rules?: Partial<ComponentDefinitionValidationRules>
+): PhysicalTypeInfo {
     switch (dataType) {
         case 'STRING': {
             // If versioned or localized, store as JSONB for VLC structure
@@ -689,7 +692,7 @@ export function formatPhysicalType(info: PhysicalTypeInfo): string {
 }
 
 const _META_ENTITY_KIND_MAP = {
-    CATALOG: 'catalog',
+    OBJECT: 'object',
     SET: 'set',
     ENUMERATION: 'enumeration',
     HUB: 'hub',
@@ -700,7 +703,7 @@ const _META_ENTITY_KIND_MAP = {
 export const MetaEntityKind = _META_ENTITY_KIND_MAP
 
 export const BuiltinEntityKinds = {
-    CATALOG: 'catalog',
+    OBJECT: 'object',
     SET: 'set',
     ENUMERATION: 'enumeration',
     HUB: 'hub',
@@ -726,13 +729,13 @@ export interface MetaPresentation {
     description?: VersionedLocalizedContent<string>
 }
 
-export interface MetaFieldDefinition {
+export interface MetaComponentDefinition {
     id: string
     codename: string
-    dataType: FieldDefinitionDataType
+    dataType: ComponentDefinitionDataType
     isRequired: boolean
-    /** Whether this attribute is used to display the element when referenced */
-    isDisplayAttribute?: boolean
+    /** Whether this component is used to display the element when referenced */
+    isDisplayComponent?: boolean
     /** ID of the target entity for REF field type */
     targetEntityId?: string | null
     /** Kind of the target entity for REF field type (polymorphic discriminator) */
@@ -742,10 +745,10 @@ export interface MetaFieldDefinition {
     presentation: MetaPresentation
     validationRules?: Record<string, unknown>
     uiConfig?: Record<string, unknown>
-    /** Parent TABLE attribute ID (for child attributes of tabular parts) */
-    parentAttributeId?: string | null
-    /** Child fields for TABLE attributes (populated in snapshots) */
-    childFields?: MetaFieldDefinition[]
+    /** Parent TABLE component ID (for child components of tabular parts) */
+    parentComponentId?: string | null
+    /** Child fields for TABLE components (populated in snapshots) */
+    childFields?: MetaComponentDefinition[]
 }
 
 export interface MetaEntityDefinition {
@@ -753,7 +756,7 @@ export interface MetaEntityDefinition {
     kind: EntityKind
     codename: string
     presentation: MetaPresentation
-    fields: MetaFieldDefinition[]
+    fields: MetaComponentDefinition[]
 }
 
 /**
@@ -769,7 +772,7 @@ export type EnumPresentationMode = (typeof ENUM_PRESENTATION_MODES)[number]
  * Extended UI config for REF fields.
  * This shape is optional and stored inside generic uiConfig JSON.
  */
-export interface AttributeRefUiConfig {
+export interface ComponentRefUiConfig {
     /** Applies when REF points to an enumeration entity. */
     enumPresentationMode?: EnumPresentationMode
     /** Optional default enum value id used by runtime forms. */
@@ -785,7 +788,7 @@ export interface TableTypeUiConfig {
     showTitle?: boolean
 }
 
-/** Data types allowed as children inside TABLE attributes (no nesting) */
+/** Data types allowed as children inside TABLE components (no nesting) */
 export const TABLE_CHILD_DATA_TYPES = ['STRING', 'NUMBER', 'BOOLEAN', 'DATE', 'REF', 'JSON'] as const
 export type TableChildDataType = (typeof TABLE_CHILD_DATA_TYPES)[number]
 
@@ -881,7 +884,7 @@ export interface MenuWidgetConfigItem {
     icon?: string | null
     href?: string | null
     /** Runtime/application alias for the selected Entity section. */
-    linkedCollectionId?: string | null
+    objectCollectionId?: string | null
     /** Selected Entity section id or codename. */
     sectionId?: string | null
     hubId?: string | null
@@ -972,7 +975,7 @@ export interface MetahubSnapshotVersionEnvelope {
     snapshotFormatVersion: MetahubSnapshotFormatVersion
 }
 
-export const CATALOG_SYSTEM_FIELD_KEYS = [
+export const OBJECT_SYSTEM_FIELD_KEYS = [
     'app.published',
     'app.published_at',
     'app.published_by',
@@ -990,51 +993,51 @@ export const CATALOG_SYSTEM_FIELD_KEYS = [
     'upl.deleted_by'
 ] as const
 
-export type CatalogSystemFieldKey = (typeof CATALOG_SYSTEM_FIELD_KEYS)[number]
-export type CatalogSystemFieldLayer = 'app' | 'upl'
-export type CatalogSystemFieldFamily = 'published' | 'archived' | 'deleted'
-export type CatalogSystemFieldValueType = 'boolean' | 'timestamp' | 'uuid'
+export type ObjectSystemFieldKey = (typeof OBJECT_SYSTEM_FIELD_KEYS)[number]
+export type ObjectSystemFieldLayer = 'app' | 'upl'
+export type ObjectSystemFieldFamily = 'published' | 'archived' | 'deleted'
+export type ObjectSystemFieldValueType = 'boolean' | 'timestamp' | 'uuid'
 
-export interface CatalogSystemFieldDefinition {
-    key: CatalogSystemFieldKey
+export interface ObjectSystemComponent {
+    key: ObjectSystemFieldKey
     columnName: string
-    layer: CatalogSystemFieldLayer
-    family: CatalogSystemFieldFamily
-    valueType: CatalogSystemFieldValueType
-    fieldDefinitionDataType: FieldDefinitionDataType
+    layer: ObjectSystemFieldLayer
+    family: ObjectSystemFieldFamily
+    valueType: ObjectSystemFieldValueType
+    componentDataType: ComponentDefinitionDataType
     physicalType: 'boolean' | 'timestamptz' | 'uuid'
     sortOrder: number
     defaultEnabled: boolean
     canDisable: boolean
-    requires?: CatalogSystemFieldKey[]
+    requires?: ObjectSystemFieldKey[]
 }
 
-export interface CatalogSystemFieldState {
-    key: CatalogSystemFieldKey
+export interface ObjectSystemFieldState {
+    key: ObjectSystemFieldKey
     enabled: boolean
 }
 
-export interface PlatformSystemFieldDefinitionsPolicy {
+export interface PlatformSystemComponentsPolicy {
     allowConfiguration: boolean
     forceCreate: boolean
     ignoreMetahubSettings: boolean
 }
 
-export const PLATFORM_SYSTEM_ATTRIBUTE_ADMIN_KEYS = {
-    allowConfiguration: 'platformSystemFieldDefinitionsConfigurable',
-    forceCreate: 'platformSystemFieldDefinitionsRequired',
-    ignoreMetahubSettings: 'platformSystemFieldDefinitionsIgnoreMetahubSettings'
+export const PLATFORM_SYSTEM_COMPONENT_ADMIN_KEYS = {
+    allowConfiguration: 'platformSystemComponentsConfigurable',
+    forceCreate: 'platformSystemComponentsRequired',
+    ignoreMetahubSettings: 'platformSystemComponentsIgnoreMetahubSettings'
 } as const
 
-export const DEFAULT_PLATFORM_SYSTEM_FIELD_DEFINITIONS_POLICY: PlatformSystemFieldDefinitionsPolicy = {
+export const DEFAULT_PLATFORM_SYSTEM_COMPONENTS_POLICY: PlatformSystemComponentsPolicy = {
     allowConfiguration: false,
     forceCreate: true,
     ignoreMetahubSettings: true
 }
 
-export interface FieldDefinitionSystemMetadata {
+export interface ComponentSystemMetadata {
     isSystem: boolean
-    systemKey: CatalogSystemFieldKey | null
+    systemKey: ObjectSystemFieldKey | null
     isManaged: boolean
     isEnabled: boolean
 }
@@ -1075,8 +1078,8 @@ export interface ApplicationLifecycleContractInput {
     delete?: DeleteLifecycleContractInput
 }
 
-export interface CatalogSystemFieldsSnapshot {
-    fields: CatalogSystemFieldState[]
+export interface ObjectSystemFieldsSnapshot {
+    fields: ObjectSystemFieldState[]
     lifecycleContract: ApplicationLifecycleContract
 }
 
@@ -1123,22 +1126,22 @@ export interface TemplateSeedSetting {
     value: Record<string, unknown> | string | number | boolean
 }
 
-/** Seed entity attribute (uses codenames for REF targets). */
-export interface TemplateSeedAttribute {
+/** Seed entity component (uses codenames for REF targets). */
+export interface TemplateSeedComponent {
     codename: string
-    dataType: FieldDefinitionDataType
+    dataType: ComponentDefinitionDataType
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string>
     isRequired?: boolean
-    isDisplayAttribute?: boolean
+    isDisplayComponent?: boolean
     sortOrder?: number
     targetEntityCodename?: string
     targetEntityKind?: EntityKind
     targetConstantCodename?: string
     validationRules?: Record<string, unknown>
     uiConfig?: Record<string, unknown>
-    /** Child attributes for TABLE data type (no nesting allowed) */
-    childAttributes?: TemplateSeedAttribute[]
+    /** Child components for TABLE data type (no nesting allowed) */
+    childComponents?: TemplateSeedComponent[]
 }
 
 /** Seed set constant definition (uses codename identity inside a set). */
@@ -1165,7 +1168,7 @@ export interface TemplateSeedEntity {
      */
     localizeCodenameFromName?: boolean
     config?: Record<string, unknown>
-    attributes?: TemplateSeedAttribute[]
+    components?: TemplateSeedComponent[]
     /** Constants are supported only for entities with kind = set. */
     fixedValues?: TemplateSeedFixedValue[]
     hubs?: string[]
@@ -1251,7 +1254,7 @@ export interface EntityTypePresetManifest {
     entityType: {
         kindKey: string
         codename?: VersionedLocalizedContent<string>
-        components: ComponentManifest
+        capabilities: EntityTypeCapabilities
         ui: EntityTypeUIConfig
         presentation?: Record<string, unknown>
         config?: Record<string, unknown>
@@ -1266,7 +1269,7 @@ export interface PresetDefaultInstance {
     localizeCodenameFromName?: boolean
     config?: Record<string, unknown>
     hubs?: string[]
-    attributes?: TemplateSeedAttribute[]
+    components?: TemplateSeedComponent[]
     fixedValues?: TemplateSeedFixedValue[]
     elements?: TemplateSeedElement[]
     optionValues?: TemplateSeedEnumerationValue[]
@@ -1297,7 +1300,7 @@ export interface MetahubMenuEntityType {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Template API DTOs — shared response types for template catalog endpoints
+// Template API DTOs — shared response types for template object endpoints
 // ═══════════════════════════════════════════════════════════════════════════
 
 /** Template version summary DTO (GET /templates response element). */

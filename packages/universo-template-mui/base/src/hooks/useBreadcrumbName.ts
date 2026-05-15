@@ -241,27 +241,27 @@ export function useTreeEntityName(metahubId: string | null, treeEntityId: string
 }
 
 /**
- * Hook to fetch LinkedCollection name for breadcrumb display.
- * Requires metahubId, treeEntityId, and linkedCollectionId since LinkedCollection API is nested under TreeEntity.
+ * Hook to fetch ObjectCollection name for breadcrumb display.
+ * Requires metahubId, treeEntityId, and objectCollectionId since ObjectCollection API is nested under TreeEntity.
  */
-export function useLinkedCollectionName(
+export function useObjectCollectionName(
     metahubId: string | null,
     treeEntityId: string | null,
-    linkedCollectionId: string | null
+    objectCollectionId: string | null
 ): string | null {
     const { client, loading: authLoading } = useAuth()
     const language = getCurrentLanguageKey()
     const query = useQuery({
-        queryKey: ['breadcrumb', 'catalog', metahubId, treeEntityId, linkedCollectionId, language],
+        queryKey: ['breadcrumb', 'object', metahubId, treeEntityId, objectCollectionId, language],
         queryFn: async () => {
-            if (!metahubId || !treeEntityId || !linkedCollectionId) return null
+            if (!metahubId || !treeEntityId || !objectCollectionId) return null
             const entity = await loadBreadcrumbEntity(
                 client,
-                `/metahub/${metahubId}/entities/catalog/instance/${treeEntityId}/catalog/${linkedCollectionId}`
+                `/metahub/${metahubId}/entities/object/instance/${treeEntityId}/object/${objectCollectionId}`
             )
             return resolveEntityDisplayName(entity)
         },
-        enabled: Boolean(metahubId && treeEntityId && linkedCollectionId) && !authLoading,
+        enabled: Boolean(metahubId && treeEntityId && objectCollectionId) && !authLoading,
         staleTime: 5 * 60 * 1000,
         retry: shouldRetryBreadcrumbQuery,
         retryOnMount: true,
@@ -273,20 +273,20 @@ export function useLinkedCollectionName(
 }
 
 /**
- * Hook to fetch LinkedCollection name for breadcrumb display in catalog-centric navigation.
- * Uses the standalone catalog endpoint (without hub context).
+ * Hook to fetch ObjectCollection name for breadcrumb display in object-centric navigation.
+ * Uses the standalone object endpoint (without hub context).
  */
-export function useLinkedCollectionNameStandalone(metahubId: string | null, linkedCollectionId: string | null): string | null {
+export function useObjectCollectionNameStandalone(metahubId: string | null, objectCollectionId: string | null): string | null {
     const { client, loading: authLoading } = useAuth()
     const language = getCurrentLanguageKey()
     const query = useQuery({
-        queryKey: ['breadcrumb', 'catalog-standalone', metahubId, linkedCollectionId, language],
+        queryKey: ['breadcrumb', 'object-standalone', metahubId, objectCollectionId, language],
         queryFn: async () => {
-            if (!metahubId || !linkedCollectionId) return null
-            const entity = await loadBreadcrumbEntity(client, `/metahub/${metahubId}/entities/catalog/instance/${linkedCollectionId}`)
+            if (!metahubId || !objectCollectionId) return null
+            const entity = await loadBreadcrumbEntity(client, `/metahub/${metahubId}/entities/object/instance/${objectCollectionId}`)
             return resolveEntityDisplayName(entity)
         },
-        enabled: Boolean(metahubId && linkedCollectionId) && !authLoading,
+        enabled: Boolean(metahubId && objectCollectionId) && !authLoading,
         staleTime: 5 * 60 * 1000,
         retry: shouldRetryBreadcrumbQuery,
         retryOnMount: true,
@@ -456,8 +456,8 @@ export const truncateApplicationName = createTruncateFunction(30)
 /** Truncate publication name with ellipsis (default: 30 chars) */
 export const truncatePublicationName = truncateApplicationName
 
-/** Truncate linked-collection name with ellipsis (default: 30 chars) */
-export const truncateLinkedCollectionName = createTruncateFunction(30)
+/** Truncate object-collection name with ellipsis (default: 30 chars) */
+export const truncateObjectCollectionName = createTruncateFunction(30)
 
 /** Truncate value-group name with ellipsis (default: 30 chars) */
 export const truncateValueGroupName = createTruncateFunction(30)

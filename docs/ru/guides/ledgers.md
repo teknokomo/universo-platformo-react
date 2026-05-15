@@ -13,7 +13,7 @@ description: Runtime-руководство по стандартным Ledger e
 
 Создавайте Регистры в том же Entity workspace, что и другие стандартные типы.
 В меню метахаба Регистры расположены после Перечислений.
-Поля Регистра используют общий UI field definitions, а `config.ledger.fieldRoles` классифицирует каждое поле как dimension, resource, measure, period field, source reference, workspace scope или обычный attribute.
+Поля Регистра используют общий UI field definitions, а `config.ledger.fieldRoles` классифицирует каждое поле как dimension, resource, measure, period field, source reference, workspace scope или обычный component.
 
 В metadata и API используется code-facing термин `ledger`.
 Русская UI-метка: "Регистры".
@@ -37,17 +37,17 @@ description: Runtime-руководство по стандартным Ledger e
 Ledger configuration управляет тем, кто может добавлять или сторнировать факты:
 
 - `manual` разрешает прямые авторизованные API или script calls.
-- `registrar` разрешает platform registrar flows, например Catalog posting.
+- `registrar` разрешает platform registrar flows, например Object posting.
 - `mixed` разрешает оба режима, если у вызывающего есть нужные permission и capability.
 
 Registrar-only Регистры также могут ограничивать разрешённые registrar kinds.
-Catalog posting записывает факты с registrar kind `catalog`.
+Object posting записывает факты с registrar kind `object`.
 
 ## Reversal
 
 Reversal является append-only.
 Runtime создаёт компенсирующий факт вместо изменения или удаления исходного факта.
-Команды unpost и void у транзакционных Catalog используют сохранённую posting movement metadata для безопасного сторнирования прежних движений.
+Команды unpost и void у транзакционных Object используют сохранённую posting movement metadata для безопасного сторнирования прежних движений.
 
 ## Reporting
 

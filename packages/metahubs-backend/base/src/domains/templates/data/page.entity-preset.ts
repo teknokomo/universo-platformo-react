@@ -1,7 +1,7 @@
 import type { EntityTypePresetManifest } from '@universo/types'
 import {
     PAGE_DEFAULT_INSTANCES,
-    PAGE_TYPE_COMPONENTS,
+    PAGE_TYPE_CAPABILITIES,
     PAGE_TYPE_UI,
     STANDARD_PAGE_DESCRIPTION,
     STANDARD_PAGE_NAME
@@ -23,7 +23,7 @@ export const pageEntityPreset: EntityTypePresetManifest = {
     entityType: {
         kindKey: 'page',
         codename: vlc('Page', 'Page'),
-        components: PAGE_TYPE_COMPONENTS,
+        capabilities: PAGE_TYPE_CAPABILITIES,
         ui: PAGE_TYPE_UI,
         presentation: {
             name: STANDARD_PAGE_NAME,

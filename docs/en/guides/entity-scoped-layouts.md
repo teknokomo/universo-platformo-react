@@ -5,7 +5,7 @@ description: How entity-scoped layouts inherit from global layouts, store sparse
 # Entity-Scoped Layouts
 
 Entity-scoped layouts are overlay layouts, not forks.
-Each scoped layout points to a global base layout and stores only the differences for one Entity instance, such as a Page, Catalog, or another Entity type whose constructor enables layout customization.
+Each scoped layout points to a global base layout and stores only the differences for one Entity instance, such as a Page, Object, or another Entity type whose constructor enables layout customization.
 
 ## Overlay Model
 
@@ -27,9 +27,9 @@ Each scoped layout points to a global base layout and stores only the difference
 ## Widget Visibility
 
 The global layout remains the reusable baseline. A scoped layout is created only where the runtime surface needs different widget composition.
-For an LMS configuration this means dashboard charts can stay on the Home Page while Catalog, Knowledge, Development, and Report sections use the same application shell without inheriting Home-only charts.
+For an LMS configuration this means dashboard charts can stay on the Home Page while Object, Knowledge, Development, and Report sections use the same application shell without inheriting Home-only charts.
 
-For Catalog-like Entity types, the scoped layout can also own runtime behavior such as create button visibility, search mode, and create/edit/copy surface type.
+For Object-like Entity types, the scoped layout can also own runtime behavior such as create button visibility, search mode, and create/edit/copy surface type.
 For other Entity types, the same overlay model applies to widget composition and any behavior exposed by that Entity type's component contract.
 
 ## Publication And Runtime

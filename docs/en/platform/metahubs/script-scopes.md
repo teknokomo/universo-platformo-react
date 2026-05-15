@@ -15,7 +15,7 @@ Choose scope first, then choose the compatible module role and runtime behavior.
 | --- | --- | --- | --- |
 | `general` | `library` only | No | Resources workspace shared helpers imported through `@shared/<codename>`. |
 | `metahub` | `module`, `lifecycle`, `widget` | Yes | Metahub-level runtime logic and widgets. |
-| `hub` / `catalog` / `set` / `enumeration` / `attribute` | `module`, `lifecycle`, `widget` | Yes | Object-attached consumers close to one design surface. |
+| `hub` / `object` / `set` / `enumeration` / `component` | `module`, `lifecycle`, `widget` | Yes | Object-attached consumers close to one design surface. |
 
 ## Selection Rules
 

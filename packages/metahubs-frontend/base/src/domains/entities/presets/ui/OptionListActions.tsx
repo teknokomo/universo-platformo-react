@@ -71,10 +71,10 @@ export const buildInitialValues = (ctx: ActionContext<OptionListDisplayWithConta
     let isRequiredHub = false
 
     if (raw && 'treeEntities' in raw && Array.isArray((raw as OptionListWithContainers).treeEntities)) {
-        const catalogWithTreeEntities = raw as OptionListWithContainers
-        treeEntityIds = catalogWithTreeEntities.treeEntities.map((h) => h.id)
-        isSingleHub = Boolean(catalogWithTreeEntities.isSingleHub)
-        isRequiredHub = Boolean(catalogWithTreeEntities.isRequiredHub)
+        const objectWithTreeEntities = raw as OptionListWithContainers
+        treeEntityIds = objectWithTreeEntities.treeEntities.map((h) => h.id)
+        isSingleHub = Boolean(objectWithTreeEntities.isSingleHub)
+        isRequiredHub = Boolean(objectWithTreeEntities.isRequiredHub)
     } else if ((ctx.entity as OptionListDisplayWithContainer).treeEntityId) {
         treeEntityIds = [(ctx.entity as OptionListDisplayWithContainer).treeEntityId as string]
     }

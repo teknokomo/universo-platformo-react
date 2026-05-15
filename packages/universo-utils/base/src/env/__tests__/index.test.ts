@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { getApiBaseURL, getUIBaseURL, getEnv, getGlobalMigrationCatalogConfig, isGlobalMigrationCatalogEnabled } from '../index'
+import { getApiBaseURL, getUIBaseURL, getEnv, getGlobalMigrationObjectConfig, isGlobalMigrationObjectEnabled } from '../index'
 
 const ORIGINAL_PUBLIC_ENV = globalThis.__UNIVERSO_PUBLIC_ENV__
 const ORIGINAL_API_BASE_URL = process.env.VITE_API_BASE_URL
 const ORIGINAL_UI_BASE_URL = process.env.VITE_UI_BASE_URL
 const ORIGINAL_CUSTOM_VALUE = process.env.UNIVERSO_CUSTOM_TEST_VALUE
-const ORIGINAL_GLOBAL_MIGRATION_CATALOG_ENABLED = process.env.UPL_GLOBAL_MIGRATION_CATALOG_ENABLED
+const ORIGINAL_GLOBAL_MIGRATION_OBJECT_ENABLED = process.env.UPL_GLOBAL_MIGRATION_OBJECT_ENABLED
 const ORIGINAL_WINDOW = globalThis.window
 
 describe('env index', () => {
@@ -31,10 +31,10 @@ describe('env index', () => {
             process.env.UNIVERSO_CUSTOM_TEST_VALUE = ORIGINAL_CUSTOM_VALUE
         }
 
-        if (ORIGINAL_GLOBAL_MIGRATION_CATALOG_ENABLED === undefined) {
-            delete process.env.UPL_GLOBAL_MIGRATION_CATALOG_ENABLED
+        if (ORIGINAL_GLOBAL_MIGRATION_OBJECT_ENABLED === undefined) {
+            delete process.env.UPL_GLOBAL_MIGRATION_OBJECT_ENABLED
         } else {
-            process.env.UPL_GLOBAL_MIGRATION_CATALOG_ENABLED = ORIGINAL_GLOBAL_MIGRATION_CATALOG_ENABLED
+            process.env.UPL_GLOBAL_MIGRATION_OBJECT_ENABLED = ORIGINAL_GLOBAL_MIGRATION_OBJECT_ENABLED
         }
 
         if (ORIGINAL_WINDOW === undefined) {
@@ -89,19 +89,19 @@ describe('env index', () => {
         expect(getEnv('UNIVERSO_CUSTOM_TEST_VALUE', 'fallback')).toBe('fallback')
     })
 
-    it('parses the global migration catalog flag through the shared helper', () => {
-        delete process.env.UPL_GLOBAL_MIGRATION_CATALOG_ENABLED
-        expect(getGlobalMigrationCatalogConfig()).toEqual({ enabled: false })
-        expect(isGlobalMigrationCatalogEnabled()).toBe(false)
+    it('parses the global migration object flag through the shared helper', () => {
+        delete process.env.UPL_GLOBAL_MIGRATION_OBJECT_ENABLED
+        expect(getGlobalMigrationObjectConfig()).toEqual({ enabled: false })
+        expect(isGlobalMigrationObjectEnabled()).toBe(false)
 
-        process.env.UPL_GLOBAL_MIGRATION_CATALOG_ENABLED = 'true'
-        expect(getGlobalMigrationCatalogConfig()).toEqual({ enabled: true })
-        expect(isGlobalMigrationCatalogEnabled()).toBe(true)
+        process.env.UPL_GLOBAL_MIGRATION_OBJECT_ENABLED = 'true'
+        expect(getGlobalMigrationObjectConfig()).toEqual({ enabled: true })
+        expect(isGlobalMigrationObjectEnabled()).toBe(true)
 
-        process.env.UPL_GLOBAL_MIGRATION_CATALOG_ENABLED = '1'
-        expect(isGlobalMigrationCatalogEnabled()).toBe(true)
+        process.env.UPL_GLOBAL_MIGRATION_OBJECT_ENABLED = '1'
+        expect(isGlobalMigrationObjectEnabled()).toBe(true)
 
-        process.env.UPL_GLOBAL_MIGRATION_CATALOG_ENABLED = 'false'
-        expect(isGlobalMigrationCatalogEnabled()).toBe(false)
+        process.env.UPL_GLOBAL_MIGRATION_OBJECT_ENABLED = 'false'
+        expect(isGlobalMigrationObjectEnabled()).toBe(false)
     })
 })

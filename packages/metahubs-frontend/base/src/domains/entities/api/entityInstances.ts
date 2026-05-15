@@ -41,7 +41,7 @@ export interface UpdateEntityInstancePayload extends Omit<Partial<EntityInstance
 }
 
 export interface CopyEntityInstancePayload extends Omit<Partial<EntityInstancePayload>, 'kind'> {
-    copyFieldDefinitions?: boolean
+    copyComponents?: boolean
     copyRecords?: boolean
 }
 

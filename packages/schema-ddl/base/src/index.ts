@@ -54,7 +54,7 @@ export { uuidToLockKey, acquireAdvisoryLock, releaseAdvisoryLock } from './locki
 // Type definitions
 export type {
     EntityDefinition,
-    FieldDefinition,
+    Component,
     RuntimeEntityKind,
     SchemaSnapshot,
     SchemaEntitySnapshot,

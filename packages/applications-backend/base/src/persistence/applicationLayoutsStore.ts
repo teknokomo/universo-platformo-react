@@ -201,7 +201,7 @@ export async function getApplicationRuntimeSchemaName(executor: DbExecutor, appl
     const rows = await executor.query<ApplicationSchemaRow>(
         `
         SELECT schema_name AS "schemaName"
-        FROM applications.cat_applications
+        FROM applications.obj_applications
         WHERE id = $1 AND ${activeAppRowCondition()}
         LIMIT 1
         `,
@@ -241,7 +241,7 @@ export async function listApplicationLayoutScopes(
         WHERE _upl_deleted = false
           AND _app_deleted = false
           AND (
-            config->'components'->'layoutConfig'->>'enabled' = 'true'
+            config->'capabilities'->'layoutConfig'->>'enabled' = 'true'
             OR config->'layoutConfig'->>'enabled' = 'true'
           )
         ORDER BY table_name ASC, id ASC
@@ -589,7 +589,7 @@ async function refreshLayoutLocalContentHash(
     )
 }
 
-export const listApplicationLayoutWidgetCatalog = (): Array<{
+export const listApplicationLayoutWidgetObject = (): Array<{
     key: string
     allowedZones: readonly string[]
     multiInstance: boolean

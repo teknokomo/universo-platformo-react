@@ -162,12 +162,8 @@ test('@flow lms public guest runtime completes a class module quiz and records p
         await expect(page.getByText('Plants use sunlight to convert water and carbon dioxide into glucose and oxygen.')).toBeVisible()
 
         const storageKey = `apps-template-mui:guest-session:${lms.applicationId}:${moduleSlug}`
-        await expect
-            .poll(async () => page.evaluate((key) => window.sessionStorage.getItem(key), storageKey))
-            .toContain('sessionToken')
-        await expect
-            .poll(async () => page.evaluate((key) => window.localStorage.getItem(key), storageKey))
-            .toBe(null)
+        await expect.poll(async () => page.evaluate((key) => window.sessionStorage.getItem(key), storageKey)).toContain('sessionToken')
+        await expect.poll(async () => page.evaluate((key) => window.localStorage.getItem(key), storageKey)).toBe(null)
 
         await page.getByRole('button', { name: 'Next' }).click()
         await expect(page.getByText('Knowledge check')).toBeVisible({ timeout: 30_000 })

@@ -1,7 +1,7 @@
 import { writeFile } from 'fs/promises'
 import { resolve } from 'path'
 import { destroyKnex, getKnex } from '@universo/database'
-import { isGlobalMigrationCatalogEnabled } from '@universo/utils'
+import { isGlobalMigrationObjectEnabled } from '@universo/utils'
 import {
     type RegisteredPlatformDoctorResult,
     doctorRegisteredPlatformState,
@@ -9,10 +9,10 @@ import {
     diffRegisteredSystemAppCompiledDefinitions,
     diffRegisteredSystemAppManifestDefinitions,
     diffRegisteredSystemAppSchemaPlanDefinitions,
-    exportCatalogSystemAppCompiledDefinitionBundle,
-    exportCatalogSystemAppManifestDefinitionBundle,
-    exportCatalogSystemAppSchemaPlanDefinitionBundle,
-    exportCatalogPlatformDefinitionBundle,
+    exportObjectSystemAppCompiledDefinitionBundle,
+    exportObjectSystemAppManifestDefinitionBundle,
+    exportObjectSystemAppSchemaPlanDefinitionBundle,
+    exportObjectPlatformDefinitionBundle,
     exportRegisteredPlatformDefinitionBundle,
     exportRegisteredSystemAppCompiledDefinitionBundle,
     exportRegisteredSystemAppManifestDefinitionBundle,
@@ -23,8 +23,8 @@ import {
     lintRegisteredSystemAppManifestDefinitions,
     lintRegisteredSystemAppSchemaPlanDefinitions,
     planRegisteredPlatformMigrations,
-    globalMigrationCatalogDisabledMessage,
-    syncRegisteredPlatformDefinitionsToCatalog,
+    globalMigrationObjectDisabledMessage,
+    syncRegisteredPlatformDefinitionsToObject,
     validateRegisteredPlatformMigrations
 } from './platformMigrations'
 import {
@@ -34,7 +34,7 @@ import {
     planRegisteredSystemAppSchemaGenerationPlans
 } from './systemAppSchemaCompiler'
 
-const isGlobalMigrationCatalogEnabledForCli = (): boolean => isGlobalMigrationCatalogEnabled()
+const isGlobalMigrationObjectEnabledForCli = (): boolean => isGlobalMigrationObjectEnabled()
 
 export type CliCommand =
     | 'status'
@@ -50,13 +50,13 @@ export type CliCommand =
     | 'system-app-schema-apply'
     | 'system-app-schema-bootstrap'
 export type CliSource =
-    | 'catalog-platform'
+    | 'object-platform'
     | 'registered-platform'
-    | 'catalog-system-app-manifests'
+    | 'object-system-app-manifests'
     | 'registered-system-app-manifests'
-    | 'catalog-system-app-schema-plans'
+    | 'object-system-app-schema-plans'
     | 'registered-system-app-schema-plans'
-    | 'catalog-system-app-compiled'
+    | 'object-system-app-compiled'
     | 'registered-system-app-compiled'
 
 export interface CliOptions {
@@ -67,23 +67,23 @@ export interface CliOptions {
     keys: string[] | null
 }
 
-export const definitionDiffSummary = (diff: Array<{ status: 'match' | 'missing_in_catalog' | 'checksum_mismatch' | 'catalog_only' }>) => ({
+export const definitionDiffSummary = (diff: Array<{ status: 'match' | 'missing_in_object' | 'checksum_mismatch' | 'object_only' }>) => ({
     match: diff.filter((entry) => entry.status === 'match').length,
-    missingInCatalog: diff.filter((entry) => entry.status === 'missing_in_catalog').length,
+    missingInObject: diff.filter((entry) => entry.status === 'missing_in_object').length,
     checksumMismatch: diff.filter((entry) => entry.status === 'checksum_mismatch').length,
-    catalogOnly: diff.filter((entry) => entry.status === 'catalog_only').length
+    objectOnly: diff.filter((entry) => entry.status === 'object_only').length
 })
 
 export const isSystemAppManifestSource = (source: CliSource): boolean =>
-    source === 'catalog-system-app-manifests' || source === 'registered-system-app-manifests'
+    source === 'object-system-app-manifests' || source === 'registered-system-app-manifests'
 
 export const isSystemAppSchemaPlanSource = (source: CliSource): boolean =>
-    source === 'catalog-system-app-schema-plans' || source === 'registered-system-app-schema-plans'
+    source === 'object-system-app-schema-plans' || source === 'registered-system-app-schema-plans'
 
 export const isSystemAppCompiledSource = (source: CliSource): boolean =>
-    source === 'catalog-system-app-compiled' || source === 'registered-system-app-compiled'
+    source === 'object-system-app-compiled' || source === 'registered-system-app-compiled'
 
-const isCatalogBackedSource = (source: CliSource): boolean => source.startsWith('catalog-')
+const isObjectBackedSource = (source: CliSource): boolean => source.startsWith('object-')
 
 export const isDoctorResultHealthy = (doctor: RegisteredPlatformDoctorResult): boolean =>
     doctor.systemAppDefinitionsValidation.ok &&
@@ -100,10 +100,10 @@ export const isDoctorResultHealthy = (doctor: RegisteredPlatformDoctorResult): b
     doctor.systemAppManifestDiff.every((entry) => entry.status === 'match') &&
     doctor.systemAppSchemaPlanDiff.every((entry) => entry.status === 'match') &&
     doctor.systemAppCompiledDiff.every((entry) => entry.status === 'match') &&
-    doctor.catalogLifecycle.ok &&
-    doctor.systemAppManifestCatalogLifecycle.ok &&
-    doctor.systemAppSchemaPlanCatalogLifecycle.ok &&
-    doctor.systemAppCompiledCatalogLifecycle.ok
+    doctor.objectLifecycle.ok &&
+    doctor.systemAppManifestObjectLifecycle.ok &&
+    doctor.systemAppSchemaPlanObjectLifecycle.ok &&
+    doctor.systemAppCompiledObjectLifecycle.ok
 
 export const parseArgs = (argv: string[]): { command: CliCommand; options: CliOptions } => {
     const [commandArg, ...rest] = argv
@@ -131,7 +131,7 @@ export const parseArgs = (argv: string[]): { command: CliCommand; options: CliOp
     const options: CliOptions = {
         outFile: null,
         inFile: null,
-        source: 'catalog-platform',
+        source: 'object-platform',
         stage: 'target',
         keys: null
     }
@@ -146,13 +146,13 @@ export const parseArgs = (argv: string[]): { command: CliCommand; options: CliOp
         if (arg.startsWith('--source=')) {
             const source = arg.slice('--source='.length)
             if (
-                source === 'catalog-platform' ||
+                source === 'object-platform' ||
                 source === 'registered-platform' ||
-                source === 'catalog-system-app-manifests' ||
+                source === 'object-system-app-manifests' ||
                 source === 'registered-system-app-manifests' ||
-                source === 'catalog-system-app-schema-plans' ||
+                source === 'object-system-app-schema-plans' ||
                 source === 'registered-system-app-schema-plans' ||
-                source === 'catalog-system-app-compiled' ||
+                source === 'object-system-app-compiled' ||
                 source === 'registered-system-app-compiled'
             ) {
                 options.source = source
@@ -206,19 +206,19 @@ const resolveExportPayload = async (knex: ReturnType<typeof getKnex>, options: C
         return exportRegisteredSystemAppCompiledDefinitionBundle()
     }
 
-    if (options.source === 'catalog-system-app-manifests') {
-        return exportCatalogSystemAppManifestDefinitionBundle(knex, options.outFile ?? 'stdout')
+    if (options.source === 'object-system-app-manifests') {
+        return exportObjectSystemAppManifestDefinitionBundle(knex, options.outFile ?? 'stdout')
     }
 
-    if (options.source === 'catalog-system-app-schema-plans') {
-        return exportCatalogSystemAppSchemaPlanDefinitionBundle(knex, options.outFile ?? 'stdout')
+    if (options.source === 'object-system-app-schema-plans') {
+        return exportObjectSystemAppSchemaPlanDefinitionBundle(knex, options.outFile ?? 'stdout')
     }
 
-    if (options.source === 'catalog-system-app-compiled') {
-        return exportCatalogSystemAppCompiledDefinitionBundle(knex, options.outFile ?? 'stdout')
+    if (options.source === 'object-system-app-compiled') {
+        return exportObjectSystemAppCompiledDefinitionBundle(knex, options.outFile ?? 'stdout')
     }
 
-    return exportCatalogPlatformDefinitionBundle(knex, options.outFile ?? 'stdout')
+    return exportObjectPlatformDefinitionBundle(knex, options.outFile ?? 'stdout')
 }
 
 const resolveDiffEntries = async (knex: ReturnType<typeof getKnex>, source: CliSource) => {
@@ -256,7 +256,7 @@ const resolveLintResult = (source: CliSource) => {
 export const main = async () => {
     const { command, options } = parseArgs(process.argv.slice(2))
     const knex = getKnex()
-    const globalCatalogEnabled = isGlobalMigrationCatalogEnabledForCli()
+    const globalCatalogEnabled = isGlobalMigrationObjectEnabledForCli()
 
     try {
         if (!globalCatalogEnabled) {
@@ -265,9 +265,9 @@ export const main = async () => {
                 await writeOutput(
                     {
                         ok: true,
-                        catalogEnabled: false,
+                        objectEnabled: false,
                         status: 'disabled_by_config',
-                        message: globalMigrationCatalogDisabledMessage,
+                        message: globalMigrationObjectDisabledMessage,
                         migrationPlan
                     },
                     options
@@ -279,9 +279,9 @@ export const main = async () => {
                 command === 'diff' ||
                 command === 'import' ||
                 command === 'sync' ||
-                (command === 'export' && isCatalogBackedSource(options.source))
+                (command === 'export' && isObjectBackedSource(options.source))
             ) {
-                throw new Error(`${globalMigrationCatalogDisabledMessage}. This command requires catalog-backed definition storage.`)
+                throw new Error(`${globalMigrationObjectDisabledMessage}. This command requires object-backed definition storage.`)
             }
         }
 
@@ -358,7 +358,7 @@ export const main = async () => {
         }
 
         if (command === 'sync') {
-            const synced = await syncRegisteredPlatformDefinitionsToCatalog(knex, {
+            const synced = await syncRegisteredPlatformDefinitionsToObject(knex, {
                 source: 'migration-cli-sync',
                 syncCommand: 'migration sync'
             })

@@ -44,7 +44,7 @@ describe('SharedContainerService', () => {
             return []
         })
 
-        const result = await service.resolveContainerObjectId('metahub-1', SHARED_OBJECT_KINDS.SHARED_CATALOG_POOL, undefined, 'user-1')
+        const result = await service.resolveContainerObjectId('metahub-1', SHARED_OBJECT_KINDS.SHARED_OBJECT_POOL, undefined, 'user-1')
 
         expect(result).toBe('shared-container-1')
         expect(mockTxQuery.mock.calls.some((call) => String(call[0]).includes('pg_advisory_xact_lock'))).toBe(true)
@@ -54,8 +54,8 @@ describe('SharedContainerService', () => {
         expect(JSON.parse(String(insertCall?.[1][3]))).toEqual(
             expect.objectContaining({
                 isVirtualContainer: true,
-                sharedEntityKind: 'attribute',
-                targetObjectKind: 'catalog'
+                sharedEntityKind: 'component',
+                targetObjectKind: 'object'
             })
         )
     })
@@ -77,7 +77,7 @@ describe('SharedContainerService', () => {
         mockQuery.mockImplementation((sql: string) => {
             if (sql.includes('SELECT id, kind')) {
                 return [
-                    { id: 'shared-attr-container', kind: SHARED_OBJECT_KINDS.SHARED_CATALOG_POOL },
+                    { id: 'shared-attr-container', kind: SHARED_OBJECT_KINDS.SHARED_OBJECT_POOL },
                     { id: 'shared-value-container', kind: SHARED_OBJECT_KINDS.SHARED_ENUM_POOL }
                 ]
             }
@@ -88,7 +88,7 @@ describe('SharedContainerService', () => {
         const result = await service.findAllContainerObjectIds('metahub-1', 'user-1')
 
         expect(result).toEqual({
-            [SHARED_OBJECT_KINDS.SHARED_CATALOG_POOL]: 'shared-attr-container',
+            [SHARED_OBJECT_KINDS.SHARED_OBJECT_POOL]: 'shared-attr-container',
             [SHARED_OBJECT_KINDS.SHARED_ENUM_POOL]: 'shared-value-container'
         })
         expect(mockExec.transaction).not.toHaveBeenCalled()

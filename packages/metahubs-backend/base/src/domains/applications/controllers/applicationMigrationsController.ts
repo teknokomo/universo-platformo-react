@@ -512,7 +512,7 @@ function snapshotToEntities(snapshot: SchemaSnapshot): import('@universo/schema-
     })
 
     for (const [entityId, entity] of Object.entries(snapshot.entities)) {
-        const fields: import('@universo/schema-ddl').FieldDefinition[] = []
+        const fields: import('@universo/schema-ddl').Component[] = []
 
         for (const [fieldId, field] of Object.entries(entity.fields)) {
             fields.push({
@@ -520,7 +520,7 @@ function snapshotToEntities(snapshot: SchemaSnapshot): import('@universo/schema-
                 codename: field.codename,
                 dataType: field.dataType,
                 isRequired: field.isRequired,
-                isDisplayAttribute: field.isDisplayAttribute ?? false,
+                isDisplayComponent: field.isDisplayComponent ?? false,
                 targetEntityId: field.targetEntityId ?? undefined,
                 targetEntityKind: field.targetEntityKind ?? undefined,
                 presentation: createEmptyPresentation(field.codename)

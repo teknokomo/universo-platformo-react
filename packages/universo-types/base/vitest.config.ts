@@ -10,33 +10,33 @@ const srcDir = path.resolve(__dirname, 'src')
 const tsconfigAliases = loadTsconfigAliases(path.resolve(__dirname, 'tsconfig.json'), __dirname)
 
 const sanitizedBaseConfig = {
-  ...baseConfig,
-  test: {
-    ...(baseConfig.test ?? {}),
-    setupFiles: [],
-  },
+    ...baseConfig,
+    test: {
+        ...(baseConfig.test ?? {}),
+        setupFiles: []
+    }
 }
 
 export default mergeConfig(
-  sanitizedBaseConfig,
-  defineConfig({
-    root: __dirname,
-    resolve: {
-      alias: {
-        ...tsconfigAliases,
-        '@': srcDir,
-      },
-    },
-    test: {
-      environment: 'node',
-      include: ['src/**/*.{test,spec}.{ts,tsx}'],
-      exclude: ['dist/**', 'node_modules/**'],
-      setupFiles: [],
-      coverage: {
-        enabled: false,
-        reporter: ['text', 'json-summary'],
-        reportsDirectory: path.resolve(__dirname, 'coverage'),
-      },
-    },
-  }),
+    sanitizedBaseConfig,
+    defineConfig({
+        root: __dirname,
+        resolve: {
+            alias: {
+                ...tsconfigAliases,
+                '@': srcDir
+            }
+        },
+        test: {
+            environment: 'node',
+            include: ['src/**/*.{test,spec}.{ts,tsx}'],
+            exclude: ['dist/**', 'node_modules/**'],
+            setupFiles: [],
+            coverage: {
+                enabled: false,
+                reporter: ['text', 'json-summary'],
+                reportsDirectory: path.resolve(__dirname, 'coverage')
+            }
+        }
+    })
 )

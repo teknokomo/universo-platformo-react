@@ -15,7 +15,7 @@ export async function waitForSettledMutationResponse(
     const deadline = Date.now() + timeout
     let transientCsrfResponseCount = 0
 
-    while (true) {
+    for (;;) {
         const remaining = deadline - Date.now()
         if (remaining <= 0) {
             throw new Error(

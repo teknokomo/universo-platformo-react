@@ -25,7 +25,7 @@ On platform startup `@universo/core-backend` runs the fixed system-app pipeline 
 1. Platform prelude migrations run the `pre_schema_generation` support SQL for the schema.
 2. `ensureRegisteredSystemAppSchemaGenerationPlans()` builds fixed application-like entities from the manifest and ensures the `metahubs` schema shape.
 3. Platform post-schema migrations run the `post_schema_generation` support SQL and the built-in template seed migration.
-4. `bootstrapRegisteredSystemAppStructureMetadata()` syncs `_app_objects` and `_app_attributes` metadata for the fixed schema.
+4. `bootstrapRegisteredSystemAppStructureMetadata()` syncs `_app_objects` and `_app_components` metadata for the fixed schema.
 5. A deterministic baseline row such as `baseline_metahubs_structure_0_1_0` is stored in `metahubs._app_migrations`.
 
 ## Fixed Schema Surface
@@ -33,12 +33,12 @@ On platform startup `@universo/core-backend` runs the fixed system-app pipeline 
 The fixed `metahubs` schema stores design-time metadata, template registry data, and publication metadata.
 Representative business tables defined by the manifest include:
 
-- `cat_metahubs`
-- `cat_metahub_branches`
+- `obj_metahubs`
+- `obj_metahub_branches`
 - `rel_metahub_users`
-- `cat_templates`
+- `obj_templates`
 - `doc_template_versions`
-- `cat_publications`
+- `doc_publications`
 - `doc_publication_versions`
 
 The fixed-schema system-table surface follows the enabled application-like capabilities for this system app and is tracked through local `_app_*` metadata tables.
@@ -84,7 +84,7 @@ They do not replace the runtime sync ownership of `@universo/applications-backen
 ## Ownership Boundary With Applications
 
 `@universo/metahubs-backend` owns design-time metadata, branch runtime migrations, publication metadata, and the migration-control surface.
-`@universo/applications-backend` owns runtime application schema sync, diff calculation, release-bundle export/apply, and persistence of `installed_release_metadata` in `applications.cat_applications`.
+`@universo/applications-backend` owns runtime application schema sync, diff calculation, release-bundle export/apply, and persistence of `installed_release_metadata` in `applications.obj_applications`.
 Publication-driven application creation crosses this boundary, but the final runtime sync route surface stays in `@universo/applications-backend`.
 
 ## Template Registry And Create Options

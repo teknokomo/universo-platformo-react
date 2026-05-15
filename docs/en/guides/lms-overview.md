@@ -10,10 +10,10 @@ It is not a hardcoded vertical inside `packages/apps-template-mui`, and the ship
 ## What The MVP Covers
 
 - Classes, departments, and student directories as ordinary metahub entities.
-- Learning resources, courses, course sections, modules, and learning-track steps as Catalog-backed metadata.
-- Quiz catalogs, attempts, responses, and progress tracking.
+- Learning resources, courses, course sections, modules, and learning-track steps as Object-backed metadata.
+- Quiz objects, attempts, responses, and progress tracking.
 - Assignment submission/review, training attendance, certificates, knowledge-base bookmarks, and development-plan records.
-- Catalog-backed report definitions stored in `Reports` and executed through generic runtime datasource descriptors.
+- Object-backed report definitions stored in `Reports` and executed through generic runtime datasource descriptors.
 - Workspace-aware collaboration for teachers or operators inside the same application.
 - Public access links that let a guest enter a name, open a module or quiz, and submit progress without a registered platform account.
 - Curated primary navigation that exposes the main product sections directly in the sidebar.

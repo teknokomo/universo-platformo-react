@@ -184,10 +184,10 @@ export const FixedValueListContent = ({
     )
     const dataTypeLabels = useMemo(
         () => ({
-            STRING: t('fieldDefinitions.dataTypeOptions.string', 'String'),
-            NUMBER: t('fieldDefinitions.dataTypeOptions.number', 'Number'),
-            BOOLEAN: t('fieldDefinitions.dataTypeOptions.boolean', 'Boolean'),
-            DATE: t('fieldDefinitions.dataTypeOptions.date', 'Date')
+            STRING: t('components.dataTypeOptions.string', 'String'),
+            NUMBER: t('components.dataTypeOptions.number', 'Number'),
+            BOOLEAN: t('components.dataTypeOptions.boolean', 'Boolean'),
+            DATE: t('components.dataTypeOptions.date', 'Date')
         }),
         [t]
     )
@@ -996,10 +996,10 @@ export const FixedValueListContent = ({
                                         dataType: t('fixedValues.dataType', 'Data Type'),
                                         typeSettings: t('fixedValues.typeSettings.title', 'Type Settings'),
                                         dataTypeOptions: {
-                                            string: t('fieldDefinitions.dataTypeOptions.string', 'String'),
-                                            number: t('fieldDefinitions.dataTypeOptions.number', 'Number'),
-                                            boolean: t('fieldDefinitions.dataTypeOptions.boolean', 'Boolean'),
-                                            date: t('fieldDefinitions.dataTypeOptions.date', 'Date')
+                                            string: t('components.dataTypeOptions.string', 'String'),
+                                            number: t('components.dataTypeOptions.number', 'Number'),
+                                            boolean: t('components.dataTypeOptions.boolean', 'Boolean'),
+                                            date: t('components.dataTypeOptions.date', 'Date')
                                         },
                                         stringMinLength: t('fixedValues.typeSettings.string.minLength', 'Min Length'),
                                         stringMaxLength: t('fixedValues.typeSettings.string.maxLength', 'Max Length'),

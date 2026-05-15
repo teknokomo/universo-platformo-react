@@ -21,8 +21,8 @@ const recordBehavior = {
 const createState = (overrides: Partial<CrudDashboardState> = {}): CrudDashboardState =>
     ({
         appData: {
-            linkedCollection: {
-                id: 'catalog-1',
+            objectCollection: {
+                id: 'object-1',
                 codename: 'documents',
                 tableName: 'documents',
                 name: 'Documents',

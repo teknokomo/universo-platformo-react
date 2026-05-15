@@ -435,7 +435,9 @@ test('@flow imported snapshot publication creates schema on first connector atte
         await expect(diffDialog.getByRole('heading', { name: /The following schema will be created/i })).toBeVisible()
         await expect(diffDialog.getByText('Workspaces', { exact: true })).toBeVisible()
         await diffDialog.getByLabel('Create application workspaces').check()
-        await diffDialog.getByLabel('I understand that workspaces cannot be turned off after they are enabled for this application.').check()
+        await diffDialog
+            .getByLabel('I understand that workspaces cannot be turned off after they are enabled for this application.')
+            .check()
 
         const syncResponsePromise = waitForSettledMutationResponse(
             page,

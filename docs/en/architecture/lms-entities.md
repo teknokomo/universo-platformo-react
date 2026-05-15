@@ -7,7 +7,7 @@ description: Canonical entity model for the LMS metahub template and runtime gue
 The LMS template is intentionally entity-first.
 All primary LMS concepts are represented as ordinary metahub entities.
 
-## Core Catalogs
+## Core Objects
 
 | Entity           | Purpose                                                                            |
 | ---------------- | ---------------------------------------------------------------------------------- |
@@ -43,7 +43,7 @@ All primary LMS concepts are represented as ordinary metahub entities.
 -   `TABLE` fields are used for module content items and quiz questions.
 -   `LearnerHome` is a Page, not a physical runtime table. Its content is carried by metadata blocks and rendered by the shared dashboard details surface.
 -   `ProgressLedger` and `ScoreLedger` are standard Ledger entities, not LMS-specific services. They use the shared Ledger configuration block for dimensions, resources, measures, period fields, and projections.
--   Transactional LMS catalogs use the shared Catalog `behavior` tab for numbering, effective dates, lifecycle states, posting targets, and posting scripts. The LMS fixture stores these settings in `config.recordBehavior`.
+-   Transactional LMS objects use the shared Object `behavior` tab for numbering, effective dates, lifecycle states, posting targets, and posting scripts. The LMS fixture stores these settings in `config.recordBehavior`.
 -   Access links are ordinary runtime rows rather than a separate routing subsystem.
 -   Guest sessions create student rows in the same application schema so progress and quiz statistics remain queryable together.
 

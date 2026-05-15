@@ -1,7 +1,7 @@
 import type { EntityTypePresetManifest } from '@universo/types'
 import {
     HUB_DEFAULT_INSTANCES,
-    HUB_TYPE_COMPONENTS,
+    HUB_TYPE_CAPABILITIES,
     HUB_TYPE_UI,
     STANDARD_HUB_DESCRIPTION,
     STANDARD_HUB_NAME
@@ -23,7 +23,7 @@ export const hubEntityPreset: EntityTypePresetManifest = {
     entityType: {
         kindKey: 'hub',
         codename: vlc('Hub', 'Hub'),
-        components: HUB_TYPE_COMPONENTS,
+        capabilities: HUB_TYPE_CAPABILITIES,
         ui: HUB_TYPE_UI,
         presentation: {
             name: STANDARD_HUB_NAME,

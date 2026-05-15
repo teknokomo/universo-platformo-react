@@ -31,7 +31,7 @@ export const selectRuntimeWidgetScript = (
 export const fetchRuntimeScripts = async (params: {
     apiBaseUrl: string
     applicationId: string
-    attachedToKind: 'metahub' | 'catalog'
+    attachedToKind: 'metahub' | 'object'
     attachedToId?: string | null
 }): Promise<ApplicationScriptDefinition[]> => {
     const baseUrl = params.apiBaseUrl.replace(/\/$/, '')
@@ -97,7 +97,7 @@ export const useRuntimeWidgetClientScript = (params: {
     queryKeyPrefix: string
     apiBaseUrl: string
     applicationId?: string
-    linkedCollectionId?: string | null
+    objectCollectionId?: string | null
     scriptCodename?: string | null
     attachedToKind?: ScriptAttachmentKind
 }) => {
@@ -106,22 +106,22 @@ export const useRuntimeWidgetClientScript = (params: {
             params.queryKeyPrefix,
             'scripts',
             params.applicationId,
-            params.linkedCollectionId,
+            params.objectCollectionId,
             params.scriptCodename,
             params.attachedToKind
         ],
         enabled: Boolean(params.applicationId),
         queryFn: async () => {
-            const shouldQueryCatalog = params.attachedToKind !== 'metahub' && Boolean(params.linkedCollectionId)
-            const shouldQueryMetahub = params.attachedToKind !== 'catalog'
+            const shouldQueryObject = params.attachedToKind !== 'metahub' && Boolean(params.objectCollectionId)
+            const shouldQueryMetahub = params.attachedToKind !== 'object'
 
-            const [catalogScripts, metahubScripts] = await Promise.all([
-                shouldQueryCatalog
+            const [objectScripts, metahubScripts] = await Promise.all([
+                shouldQueryObject
                     ? fetchRuntimeScripts({
                           apiBaseUrl: params.apiBaseUrl,
                           applicationId: params.applicationId!,
-                          attachedToKind: 'catalog',
-                          attachedToId: params.linkedCollectionId
+                          attachedToKind: 'object',
+                          attachedToId: params.objectCollectionId
                       })
                     : Promise.resolve([]),
                 shouldQueryMetahub
@@ -133,7 +133,7 @@ export const useRuntimeWidgetClientScript = (params: {
                     : Promise.resolve([])
             ])
 
-            const items = filterRuntimeWidgetScripts([...catalogScripts, ...metahubScripts])
+            const items = filterRuntimeWidgetScripts([...objectScripts, ...metahubScripts])
             const selected = selectRuntimeWidgetScript(items, params.scriptCodename)
 
             return { items, selected }

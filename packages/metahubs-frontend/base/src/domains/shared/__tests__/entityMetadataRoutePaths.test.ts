@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildLinkedCollectionAuthoringPath } from '../entityMetadataRoutePaths'
+import { buildObjectCollectionAuthoringPath } from '../entityMetadataRoutePaths'
 import {
     buildOptionListAuthoringPath,
     buildTreeEntityAuthoringPath,
@@ -38,14 +38,14 @@ describe('entityMetadataRoutePaths', () => {
 
     it('builds hub-scoped entity-owned child paths without dropping the entity shell', () => {
         expect(
-            buildLinkedCollectionAuthoringPath({
+            buildObjectCollectionAuthoringPath({
                 metahubId: 'metahub-1',
                 treeEntityId: 'hub-1',
-                linkedCollectionId: 'catalog-1',
+                objectCollectionId: 'object-1',
                 kindKey: 'hub',
-                tab: 'fieldDefinitions'
+                tab: 'components'
             })
-        ).toBe('/metahub/metahub-1/entities/catalog/instance/hub-1/instance/catalog-1/field-definitions')
+        ).toBe('/metahub/metahub-1/entities/object/instance/hub-1/instance/object-1/components')
 
         expect(
             buildValueGroupAuthoringPath({
@@ -67,10 +67,10 @@ describe('entityMetadataRoutePaths', () => {
     })
 
     it('resolves compatible child kind keys for delegated hub-owned routes', () => {
-        expect(resolveEntityChildKindKey({ routeKindKey: 'hub', childObjectKind: 'catalog' })).toBe('catalog')
+        expect(resolveEntityChildKindKey({ routeKindKey: 'hub', childObjectKind: 'object' })).toBe('object')
         expect(resolveEntityChildKindKey({ routeKindKey: 'hub', childObjectKind: 'set' })).toBe('set')
         expect(resolveEntityChildKindKey({ routeKindKey: 'hub', childObjectKind: 'enumeration' })).toBe('enumeration')
-        expect(resolveEntityChildKindKey({ routeKindKey: 'catalog', childObjectKind: 'hub' })).toBe('hub')
+        expect(resolveEntityChildKindKey({ routeKindKey: 'object', childObjectKind: 'hub' })).toBe('hub')
         expect(resolveEntityChildKindKey({ routeKindKey: 'set', childObjectKind: 'set' })).toBe('set')
         expect(resolveEntityChildKindKey({ routeKindKey: 'custom.product', childObjectKind: 'set' })).toBe('custom.product')
         expect(resolveEntityChildKindKey({ routeKindKey: undefined, childObjectKind: 'set' })).toBeUndefined()

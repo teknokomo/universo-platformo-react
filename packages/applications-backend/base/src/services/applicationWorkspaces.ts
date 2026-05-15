@@ -6,13 +6,13 @@ import {
     resolveEntityTableName,
     resolveFieldColumnName,
     type EntityDefinition,
-    type FieldDefinition
+    type Component
 } from '@universo/schema-ddl'
 import {
     ApplicationMembershipState,
     isLedgerSchemaCapableEntity,
     normalizeLedgerConfigFromConfig,
-    type ComponentManifest,
+    type EntityTypeCapabilities,
     type LedgerConfig,
     type VersionedLocalizedContent
 } from '@universo/types'
@@ -27,7 +27,7 @@ const WORKSPACE_POLICY_INSERT = 'workspace_insert'
 const WORKSPACE_POLICY_UPDATE = 'workspace_update'
 const WORKSPACE_POLICY_DELETE = 'workspace_delete'
 const WORKSPACE_LIMIT_SCOPE_KIND = 'workspace'
-const WORKSPACE_LIMIT_OBJECT_KIND = 'catalog'
+const WORKSPACE_LIMIT_OBJECT_KIND = 'object'
 const WORKSPACE_LIMIT_METRIC_KEY = 'rows'
 const WORKSPACE_LIMIT_PERIOD_KEY = 'lifetime'
 const WORKSPACE_SEED_TEMPLATE_KEY = 'workspace_seed_template'
@@ -92,12 +92,12 @@ type ApplicationMemberRow = {
     userId: string
 }
 
-type CatalogWorkspaceLimitRow = {
+type ObjectWorkspaceLimitRow = {
     objectId: string
     maxRows: number | null
 }
 
-type CatalogWorkspaceUsageRow = {
+type ObjectWorkspaceUsageRow = {
     total: number
 }
 
@@ -110,16 +110,16 @@ type RuntimeWorkspaceSeedTemplate = {
     elements: Record<string, unknown[]>
 }
 
-type RuntimeCatalogSeedObjectRow = {
+type RuntimeObjectSeedObjectRow = {
     objectId: string
     codename: string
     tableName: string
 }
 
-type RuntimeCatalogSeedAttributeRow = {
+type RuntimeObjectSeedComponentRow = {
     objectId: string
-    attributeId: string
-    parentAttributeId: string | null
+    componentId: string
+    parentComponentId: string | null
     codename: string
     columnName: string
     dataType: string
@@ -153,15 +153,15 @@ type WorkspaceSeedElementRow = {
 
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === 'object' && !Array.isArray(value))
 
-const resolveWorkspaceSeedStandardKind = (kind: string | null | undefined): 'catalog' | 'hub' | 'set' | 'enumeration' | 'page' | null => {
-    if (kind === 'catalog' || kind === 'hub' || kind === 'set' || kind === 'enumeration' || kind === 'page') {
+const resolveWorkspaceSeedStandardKind = (kind: string | null | undefined): 'object' | 'hub' | 'set' | 'enumeration' | 'page' | null => {
+    if (kind === 'object' || kind === 'hub' || kind === 'set' || kind === 'enumeration' || kind === 'page') {
         return kind
     }
 
     return null
 }
 
-const isWorkspaceSeedCatalogLikeTargetKind = (kind: string | null | undefined): boolean =>
+const isWorkspaceSeedObjectLikeTargetKind = (kind: string | null | undefined): boolean =>
     typeof kind === 'string' && !['hub', 'set', 'enumeration', 'page'].includes(resolveWorkspaceSeedStandardKind(kind) ?? '')
 
 const normalizeReferenceId = (value: unknown): string | null => {
@@ -201,8 +201,8 @@ const resolveWorkspaceSeedLegacyObjectIdFromTableName = (tableName: string): str
     return `${compactId.slice(0, 8)}-${compactId.slice(8, 12)}-${compactId.slice(12, 16)}-${compactId.slice(16, 20)}-${compactId.slice(20)}`
 }
 
-const buildChildSeedSourceKey = (parentSeedSourceKey: string, tableAttributeId: string, index: number): string =>
-    `${parentSeedSourceKey}:${tableAttributeId}:${index}`
+const buildChildSeedSourceKey = (parentSeedSourceKey: string, tableComponentId: string, index: number): string =>
+    `${parentSeedSourceKey}:${tableComponentId}:${index}`
 
 const normalizeWorkspaceSeedCodename = (value: string): string => value.trim().toLowerCase()
 
@@ -219,31 +219,31 @@ const getCaseInsensitiveRecordValue = (record: Record<string, unknown>, key: str
 }
 
 const resolveWorkspaceSeedStringReferenceTargetObjectId = (input: {
-    attribute: RuntimeCatalogSeedAttributeRow
+    component: RuntimeObjectSeedComponentRow
     rowData: Record<string, unknown>
     objectIdByCodename: Map<string, string>
 }): string | null => {
-    if (input.attribute.dataType !== 'STRING') {
+    if (input.component.dataType !== 'STRING') {
         return null
     }
 
     const quizzesObjectId = input.objectIdByCodename.get('quizzes')
     const modulesObjectId = input.objectIdByCodename.get('modules')
     if (
-        normalizeWorkspaceSeedCodename(input.attribute.codename) === 'quizid' &&
+        normalizeWorkspaceSeedCodename(input.component.codename) === 'quizid' &&
         quizzesObjectId &&
         modulesObjectId &&
-        input.attribute.objectId === modulesObjectId
+        input.component.objectId === modulesObjectId
     ) {
         return quizzesObjectId
     }
 
-    if (normalizeWorkspaceSeedCodename(input.attribute.codename) !== 'targetid') {
+    if (normalizeWorkspaceSeedCodename(input.component.codename) !== 'targetid') {
         return null
     }
 
     const accessLinksObjectId = input.objectIdByCodename.get('accesslinks')
-    if (!accessLinksObjectId || input.attribute.objectId !== accessLinksObjectId) {
+    if (!accessLinksObjectId || input.component.objectId !== accessLinksObjectId) {
         return null
     }
 
@@ -514,11 +514,11 @@ async function ensureWorkspaceSupportTables(executor: DbExecutor, schemaName: st
         ON ${workspaceUserRolesQt}(workspace_id, user_id)
         WHERE _upl_deleted = false AND _app_deleted = false;
 
-        CREATE UNIQUE INDEX IF NOT EXISTS ${qTable(`${APP_LIMITS_TABLE}_workspace_catalog_global_active_uidx`)}
+        CREATE UNIQUE INDEX IF NOT EXISTS ${qTable(`${APP_LIMITS_TABLE}_workspace_object_global_active_uidx`)}
         ON ${appLimitsQt}(scope_kind, object_kind, object_id, metric_key, period_key)
         WHERE scope_id IS NULL AND _upl_deleted = false AND _app_deleted = false;
 
-        CREATE UNIQUE INDEX IF NOT EXISTS ${qTable(`${APP_LIMITS_TABLE}_workspace_catalog_scoped_active_uidx`)}
+        CREATE UNIQUE INDEX IF NOT EXISTS ${qTable(`${APP_LIMITS_TABLE}_workspace_object_scoped_active_uidx`)}
         ON ${appLimitsQt}(scope_kind, scope_id, object_kind, object_id, metric_key, period_key)
         WHERE scope_id IS NOT NULL AND _upl_deleted = false AND _app_deleted = false;
 
@@ -569,12 +569,12 @@ function resolveLedgerConfig(config: Record<string, unknown> | undefined): Ledge
     return normalizeLedgerConfigFromConfig(config)
 }
 
-function resolveRuntimeComponents(entity: EntityDefinition): ComponentManifest | undefined {
-    if (entity.components) {
-        return entity.components
+function resolveRuntimeComponents(entity: EntityDefinition): EntityTypeCapabilities | undefined {
+    if (entity.capabilities) {
+        return entity.capabilities
     }
-    if (isRecord(entity.config?.components)) {
-        return entity.config.components as unknown as ComponentManifest
+    if (isRecord(entity.config?.capabilities)) {
+        return entity.config.capabilities as unknown as EntityTypeCapabilities
     }
     return undefined
 }
@@ -583,13 +583,13 @@ function isLedgerSchemaRuntimeEntity(entity: EntityDefinition): boolean {
     return isLedgerSchemaCapableEntity(resolveRuntimeComponents(entity))
 }
 
-function findLedgerIdempotencyField(fields: FieldDefinition[], keyField: string): FieldDefinition | null {
+function findLedgerIdempotencyField(fields: Component[], keyField: string): Component | null {
     const normalized = normalizeLedgerFieldKey(keyField)
     const normalizedIdentity = normalizeLedgerFieldIdentity(keyField)
 
     return (
         fields.find((field) => {
-            if (field.dataType === 'TABLE' || field.parentAttributeId) {
+            if (field.dataType === 'TABLE' || field.parentComponentId) {
                 return false
             }
             const columnName = resolveFieldColumnName(field)
@@ -619,7 +619,7 @@ async function ensureLedgerIdempotencyIndex(executor: DbExecutor, schemaName: st
 
     const keyColumns = keyFields
         .map((keyField) => findLedgerIdempotencyField(entity.fields, keyField))
-        .filter((field): field is FieldDefinition => Boolean(field))
+        .filter((field): field is Component => Boolean(field))
         .map((field) => resolveFieldColumnName(field))
 
     if (keyColumns.length !== keyFields.length) {
@@ -876,12 +876,12 @@ async function listActiveWorkspaceIds(executor: SqlQueryable, schemaName: string
     return rows.map((row) => row.id)
 }
 
-const normalizeWorkspaceSeedValue = (value: unknown, attribute: RuntimeCatalogSeedAttributeRow, columnType: string): unknown => {
+const normalizeWorkspaceSeedValue = (value: unknown, component: RuntimeObjectSeedComponentRow, columnType: string): unknown => {
     if (value === undefined || value === null) {
         return null
     }
 
-    if (attribute.dataType === 'REF') {
+    if (component.dataType === 'REF') {
         return normalizeReferenceId(value)
     }
 
@@ -893,17 +893,17 @@ const normalizeWorkspaceSeedValue = (value: unknown, attribute: RuntimeCatalogSe
 }
 
 const resolveWorkspaceSeedStringDependencyObjectIds = (
-    attribute: RuntimeCatalogSeedAttributeRow,
+    component: RuntimeObjectSeedComponentRow,
     objectIdByCodename: Map<string, string>
 ): string[] => {
-    if (normalizeWorkspaceSeedCodename(attribute.codename) !== 'targetid') {
+    if (normalizeWorkspaceSeedCodename(component.codename) !== 'targetid') {
         const quizzesObjectId = objectIdByCodename.get('quizzes')
         const modulesObjectId = objectIdByCodename.get('modules')
         if (
-            normalizeWorkspaceSeedCodename(attribute.codename) === 'quizid' &&
+            normalizeWorkspaceSeedCodename(component.codename) === 'quizid' &&
             quizzesObjectId &&
             modulesObjectId &&
-            attribute.objectId === modulesObjectId
+            component.objectId === modulesObjectId
         ) {
             return [quizzesObjectId]
         }
@@ -912,7 +912,7 @@ const resolveWorkspaceSeedStringDependencyObjectIds = (
     }
 
     const accessLinksObjectId = objectIdByCodename.get('accesslinks')
-    if (!accessLinksObjectId || attribute.objectId !== accessLinksObjectId) {
+    if (!accessLinksObjectId || component.objectId !== accessLinksObjectId) {
         return []
     }
 
@@ -922,14 +922,14 @@ const resolveWorkspaceSeedStringDependencyObjectIds = (
 }
 
 const resolveWorkspaceSeedObjectOrder = (
-    objects: RuntimeCatalogSeedObjectRow[],
-    attributes: RuntimeCatalogSeedAttributeRow[]
-): RuntimeCatalogSeedObjectRow[] => {
+    objects: RuntimeObjectSeedObjectRow[],
+    components: RuntimeObjectSeedComponentRow[]
+): RuntimeObjectSeedObjectRow[] => {
     const objectIds = new Set(objects.map((object) => object.objectId))
-    const tableOwnerObjectIdByAttributeId = new Map(
-        attributes
-            .filter((attribute) => attribute.parentAttributeId === null && attribute.dataType === 'TABLE')
-            .map((attribute) => [attribute.attributeId, attribute.objectId])
+    const tableOwnerObjectIdByComponentId = new Map(
+        components
+            .filter((component) => component.parentComponentId === null && component.dataType === 'TABLE')
+            .map((component) => [component.componentId, component.objectId])
     )
     const objectIdByCodename = new Map(
         objects
@@ -942,25 +942,25 @@ const resolveWorkspaceSeedObjectOrder = (
         dependenciesByObjectId.set(object.objectId, new Set())
     }
 
-    for (const attribute of attributes) {
-        const dependencyOwnerObjectId = objectIds.has(attribute.objectId)
-            ? attribute.objectId
-            : attribute.parentAttributeId
-            ? tableOwnerObjectIdByAttributeId.get(attribute.parentAttributeId)
+    for (const component of components) {
+        const dependencyOwnerObjectId = objectIds.has(component.objectId)
+            ? component.objectId
+            : component.parentComponentId
+            ? tableOwnerObjectIdByComponentId.get(component.parentComponentId)
             : undefined
 
         if (
             dependencyOwnerObjectId &&
-            attribute.dataType === 'REF' &&
-            isWorkspaceSeedCatalogLikeTargetKind(attribute.targetObjectKind) &&
-            typeof attribute.targetObjectId === 'string' &&
-            objectIds.has(attribute.targetObjectId) &&
-            attribute.targetObjectId !== dependencyOwnerObjectId
+            component.dataType === 'REF' &&
+            isWorkspaceSeedObjectLikeTargetKind(component.targetObjectKind) &&
+            typeof component.targetObjectId === 'string' &&
+            objectIds.has(component.targetObjectId) &&
+            component.targetObjectId !== dependencyOwnerObjectId
         ) {
-            dependenciesByObjectId.get(dependencyOwnerObjectId)?.add(attribute.targetObjectId)
+            dependenciesByObjectId.get(dependencyOwnerObjectId)?.add(component.targetObjectId)
         }
 
-        for (const dependencyObjectId of resolveWorkspaceSeedStringDependencyObjectIds(attribute, objectIdByCodename)) {
+        for (const dependencyObjectId of resolveWorkspaceSeedStringDependencyObjectIds(component, objectIdByCodename)) {
             if (!dependencyOwnerObjectId || !objectIds.has(dependencyObjectId) || dependencyObjectId === dependencyOwnerObjectId) {
                 continue
             }
@@ -969,7 +969,7 @@ const resolveWorkspaceSeedObjectOrder = (
         }
     }
 
-    const ordered: RuntimeCatalogSeedObjectRow[] = []
+    const ordered: RuntimeObjectSeedObjectRow[] = []
     const resolved = new Set<string>()
 
     while (ordered.length < objects.length) {
@@ -1007,7 +1007,7 @@ const resolveWorkspaceSeedObjectOrder = (
 
 const normalizeWorkspaceSeedValueWithReferences = (
     value: unknown,
-    attribute: RuntimeCatalogSeedAttributeRow,
+    component: RuntimeObjectSeedComponentRow,
     columnType: string,
     seedRowIdByObjectAndSourceKey: Map<string, Map<string, string>>,
     seedRowIdBySourceKey: Map<string, string>,
@@ -1020,9 +1020,9 @@ const normalizeWorkspaceSeedValueWithReferences = (
     }
 
     if (
-        attribute.dataType === 'REF' &&
-        isWorkspaceSeedCatalogLikeTargetKind(attribute.targetObjectKind) &&
-        typeof attribute.targetObjectId === 'string'
+        component.dataType === 'REF' &&
+        isWorkspaceSeedObjectLikeTargetKind(component.targetObjectKind) &&
+        typeof component.targetObjectId === 'string'
     ) {
         const seedSourceKey = normalizeReferenceId(value)
         if (!seedSourceKey) {
@@ -1030,11 +1030,11 @@ const normalizeWorkspaceSeedValueWithReferences = (
         }
 
         const targetRowId =
-            seedRowIdByObjectAndSourceKey.get(attribute.targetObjectId)?.get(seedSourceKey) ??
+            seedRowIdByObjectAndSourceKey.get(component.targetObjectId)?.get(seedSourceKey) ??
             (!duplicateSeedSourceKeys.has(seedSourceKey) ? seedRowIdBySourceKey.get(seedSourceKey) : undefined)
         if (!targetRowId) {
             throw new WorkspaceSeedReferenceResolutionError(
-                `Failed to resolve workspace seed reference for ${attribute.objectId}.${attribute.codename} -> ${attribute.targetObjectId} (${seedSourceKey})`
+                `Failed to resolve workspace seed reference for ${component.objectId}.${component.codename} -> ${component.targetObjectId} (${seedSourceKey})`
             )
         }
 
@@ -1042,7 +1042,7 @@ const normalizeWorkspaceSeedValueWithReferences = (
     }
 
     const publicRuntimeTargetObjectId = resolveWorkspaceSeedStringReferenceTargetObjectId({
-        attribute,
+        component,
         rowData,
         objectIdByCodename
     })
@@ -1057,14 +1057,14 @@ const normalizeWorkspaceSeedValueWithReferences = (
             (!duplicateSeedSourceKeys.has(seedSourceKey) ? seedRowIdBySourceKey.get(seedSourceKey) : undefined)
         if (!targetRowId) {
             throw new WorkspaceSeedReferenceResolutionError(
-                `Failed to resolve workspace seed runtime target for ${attribute.objectId}.${attribute.codename} -> ${publicRuntimeTargetObjectId} (${seedSourceKey})`
+                `Failed to resolve workspace seed runtime target for ${component.objectId}.${component.codename} -> ${publicRuntimeTargetObjectId} (${seedSourceKey})`
             )
         }
 
         return targetRowId
     }
 
-    return normalizeWorkspaceSeedValue(value, attribute, columnType)
+    return normalizeWorkspaceSeedValue(value, component, columnType)
 }
 
 async function softDeleteWorkspaceSeedRowsByIds(
@@ -1100,26 +1100,26 @@ async function softDeleteWorkspaceSeedRowsByIds(
     )
 }
 
-async function loadRuntimeCatalogSeedMetadata(
+async function loadRuntimeObjectSeedMetadata(
     executor: SqlQueryable,
     schemaName: string
 ): Promise<{
-    objects: RuntimeCatalogSeedObjectRow[]
-    attributes: RuntimeCatalogSeedAttributeRow[]
+    objects: RuntimeObjectSeedObjectRow[]
+    components: RuntimeObjectSeedComponentRow[]
     columnTypes: Map<string, string>
     objectIdByCodename: Map<string, string>
 }> {
     const objectsQt = qSchemaTable(schemaName, '_app_objects')
-    const attributesQt = qSchemaTable(schemaName, '_app_attributes')
+    const componentsQt = qSchemaTable(schemaName, '_app_components')
 
-    const [objects, attributes] = await Promise.all([
-        executor.query<RuntimeCatalogSeedObjectRow>(
+    const [objects, components] = await Promise.all([
+        executor.query<RuntimeObjectSeedObjectRow>(
             `
                         SELECT id AS "objectId", ${runtimeCodenameTextSql('codename')} AS codename, table_name AS "tableName"
             FROM ${objectsQt}
                         WHERE COALESCE(kind, '') NOT IN ('hub', 'set', 'enumeration', 'page', 'ledger')
               AND NOT (
-                COALESCE((config->'components'->'ledgerSchema'->>'enabled')::boolean, false) = true
+                COALESCE((config->'capabilities'->'ledgerSchema'->>'enabled')::boolean, false) = true
                 AND jsonb_typeof(config->'ledger') = 'object'
                 AND COALESCE(config->'ledger'->>'sourcePolicy', '') = 'registrar'
               )
@@ -1128,19 +1128,19 @@ async function loadRuntimeCatalogSeedMetadata(
             ORDER BY ${runtimeCodenameTextSql('codename')} ASC, id ASC
             `
         ),
-        executor.query<RuntimeCatalogSeedAttributeRow>(
+        executor.query<RuntimeObjectSeedComponentRow>(
             `
             SELECT
                 object_id AS "objectId",
-                id AS "attributeId",
-                parent_attribute_id AS "parentAttributeId",
+                id AS "componentId",
+                parent_component_id AS "parentComponentId",
                 ${runtimeCodenameTextSql('codename')} AS codename,
                 column_name AS "columnName",
                 data_type AS "dataType",
                 ui_config AS "uiConfig",
                 target_object_id AS "targetObjectId",
                 target_object_kind AS "targetObjectKind"
-            FROM ${attributesQt}
+            FROM ${componentsQt}
             WHERE ${ACTIVE_ROW_SQL}
             ORDER BY sort_order ASC, _upl_created_at ASC, id ASC
             `
@@ -1148,9 +1148,9 @@ async function loadRuntimeCatalogSeedMetadata(
     ])
 
     const runtimeTableNames = new Set(objects.map((object) => object.tableName).filter((tableName) => tableName.length > 0))
-    for (const attribute of attributes) {
-        if (attribute.parentAttributeId === null && attribute.dataType === 'TABLE') {
-            runtimeTableNames.add(generateChildTableName(attribute.attributeId))
+    for (const component of components) {
+        if (component.parentComponentId === null && component.dataType === 'TABLE') {
+            runtimeTableNames.add(generateChildTableName(component.componentId))
         }
     }
 
@@ -1182,7 +1182,7 @@ async function loadRuntimeCatalogSeedMetadata(
         }
     }
 
-    return { objects, attributes, columnTypes, objectIdByCodename }
+    return { objects, components, columnTypes, objectIdByCodename }
 }
 
 async function upsertWorkspaceSeedRow(
@@ -1289,8 +1289,8 @@ async function syncWorkspaceSeededChildRows(
         workspaceId: string
         parentRowId: string
         parentSeedSourceKey: string
-        tableAttribute: RuntimeCatalogSeedAttributeRow
-        childAttributes: RuntimeCatalogSeedAttributeRow[]
+        tableComponent: RuntimeObjectSeedComponentRow
+        childComponents: RuntimeObjectSeedComponentRow[]
         childRows: unknown[]
         columnTypes: Map<string, string>
         seedRowIdByObjectAndSourceKey: Map<string, Map<string, string>>
@@ -1300,7 +1300,7 @@ async function syncWorkspaceSeededChildRows(
         actorUserId?: string | null
     }
 ): Promise<void> {
-    const childTableName = generateChildTableName(input.tableAttribute.attributeId)
+    const childTableName = generateChildTableName(input.tableComponent.componentId)
     const childTableQt = qSchemaTable(input.schemaName, childTableName)
     const existingRows = await executor.query<WorkspaceSeedExistingRow>(
         `
@@ -1319,22 +1319,22 @@ async function syncWorkspaceSeededChildRows(
 
     for (const [index, rawChildRow] of input.childRows.entries()) {
         const rowData = isRecord(rawChildRow) ? rawChildRow : {}
-        const seedSourceKey = buildChildSeedSourceKey(input.parentSeedSourceKey, input.tableAttribute.attributeId, index)
+        const seedSourceKey = buildChildSeedSourceKey(input.parentSeedSourceKey, input.tableComponent.componentId, index)
         desiredSeedSourceKeys.add(seedSourceKey)
 
-        const values = input.childAttributes.map((attribute) => ({
-            columnName: attribute.columnName,
+        const values = input.childComponents.map((component) => ({
+            columnName: component.columnName,
             value: normalizeWorkspaceSeedValueWithReferences(
-                rowData[attribute.codename],
-                attribute,
-                input.columnTypes.get(`${childTableName}.${attribute.columnName}`) ?? 'text',
+                rowData[component.codename],
+                component,
+                input.columnTypes.get(`${childTableName}.${component.columnName}`) ?? 'text',
                 input.seedRowIdByObjectAndSourceKey,
                 input.seedRowIdBySourceKey,
                 input.duplicateSeedSourceKeys,
                 rowData,
                 input.objectIdByCodename
             ),
-            columnType: input.columnTypes.get(`${childTableName}.${attribute.columnName}`) ?? 'text'
+            columnType: input.columnTypes.get(`${childTableName}.${component.columnName}`) ?? 'text'
         }))
 
         await upsertWorkspaceSeedRow(executor, {
@@ -1369,7 +1369,7 @@ export async function syncWorkspaceSeededElements(
     }
 ): Promise<void> {
     const template = await loadWorkspaceSeedTemplate(executor, input.schemaName)
-    const { objects, attributes, columnTypes, objectIdByCodename } = await loadRuntimeCatalogSeedMetadata(executor, input.schemaName)
+    const { objects, components, columnTypes, objectIdByCodename } = await loadRuntimeObjectSeedMetadata(executor, input.schemaName)
     const seedRowIdByObjectAndSourceKey = new Map<string, Map<string, string>>()
     const seedRowIdBySourceKey = new Map<string, string>()
     const duplicateSeedSourceKeys = new Set<string>()
@@ -1391,12 +1391,12 @@ export async function syncWorkspaceSeededElements(
         }
     }
 
-    const syncObjectSeededElements = async (object: RuntimeCatalogSeedObjectRow): Promise<void> => {
-        const topLevelAttributes = attributes.filter(
-            (attribute) => attribute.objectId === object.objectId && attribute.parentAttributeId === null && attribute.dataType !== 'TABLE'
+    const syncObjectSeededElements = async (object: RuntimeObjectSeedObjectRow): Promise<void> => {
+        const topLevelComponents = components.filter(
+            (component) => component.objectId === object.objectId && component.parentComponentId === null && component.dataType !== 'TABLE'
         )
-        const tableAttributes = attributes.filter(
-            (attribute) => attribute.objectId === object.objectId && attribute.parentAttributeId === null && attribute.dataType === 'TABLE'
+        const tableComponents = components.filter(
+            (component) => component.objectId === object.objectId && component.parentComponentId === null && component.dataType === 'TABLE'
         )
         const legacyObjectId = resolveWorkspaceSeedLegacyObjectIdFromTableName(object.tableName)
         const directRows = template?.elements?.[object.objectId]
@@ -1429,19 +1429,19 @@ export async function syncWorkspaceSeededElements(
 
             desiredSeedSourceKeys.add(seedSourceKey)
             const rowData = isRecord(element.data) ? element.data : {}
-            const values = topLevelAttributes.map((attribute) => ({
-                columnName: attribute.columnName,
+            const values = topLevelComponents.map((component) => ({
+                columnName: component.columnName,
                 value: normalizeWorkspaceSeedValueWithReferences(
-                    rowData[attribute.codename],
-                    attribute,
-                    columnTypes.get(`${object.tableName}.${attribute.columnName}`) ?? 'text',
+                    rowData[component.codename],
+                    component,
+                    columnTypes.get(`${object.tableName}.${component.columnName}`) ?? 'text',
                     seedRowIdByObjectAndSourceKey,
                     seedRowIdBySourceKey,
                     duplicateSeedSourceKeys,
                     rowData,
                     objectIdByCodename
                 ),
-                columnType: columnTypes.get(`${object.tableName}.${attribute.columnName}`) ?? 'text'
+                columnType: columnTypes.get(`${object.tableName}.${component.columnName}`) ?? 'text'
             }))
 
             const rowId = await upsertWorkspaceSeedRow(executor, {
@@ -1455,16 +1455,16 @@ export async function syncWorkspaceSeededElements(
             })
             rememberSeedRowId(object.objectId, seedSourceKey, rowId)
 
-            for (const tableAttribute of tableAttributes) {
-                const childRows = Array.isArray(rowData[tableAttribute.codename]) ? (rowData[tableAttribute.codename] as unknown[]) : []
-                const childAttributes = attributes.filter((attribute) => attribute.parentAttributeId === tableAttribute.attributeId)
+            for (const tableComponent of tableComponents) {
+                const childRows = Array.isArray(rowData[tableComponent.codename]) ? (rowData[tableComponent.codename] as unknown[]) : []
+                const childComponents = components.filter((component) => component.parentComponentId === tableComponent.componentId)
                 await syncWorkspaceSeededChildRows(executor, {
                     schemaName: input.schemaName,
                     workspaceId: input.workspaceId,
                     parentRowId: rowId,
                     parentSeedSourceKey: seedSourceKey,
-                    tableAttribute,
-                    childAttributes,
+                    tableComponent,
+                    childComponents,
                     childRows,
                     columnTypes,
                     seedRowIdByObjectAndSourceKey,
@@ -1478,8 +1478,8 @@ export async function syncWorkspaceSeededElements(
 
         const staleRows = existingRows.filter((row) => !desiredSeedSourceKeys.has(row.seedSourceKey))
         const staleRowIds = staleRows.map((row) => row.id)
-        for (const tableAttribute of tableAttributes) {
-            const childTableName = generateChildTableName(tableAttribute.attributeId)
+        for (const tableComponent of tableComponents) {
+            const childTableName = generateChildTableName(tableComponent.componentId)
             await executor.query(
                 `
                 UPDATE ${qSchemaTable(input.schemaName, childTableName)}
@@ -1507,11 +1507,11 @@ export async function syncWorkspaceSeededElements(
         })
     }
 
-    let pendingObjects = resolveWorkspaceSeedObjectOrder(objects, attributes)
+    let pendingObjects = resolveWorkspaceSeedObjectOrder(objects, components)
     let lastReferenceError: WorkspaceSeedReferenceResolutionError | null = null
 
     while (pendingObjects.length > 0) {
-        const deferredObjects: RuntimeCatalogSeedObjectRow[] = []
+        const deferredObjects: RuntimeObjectSeedObjectRow[] = []
         let progressed = false
 
         for (const object of pendingObjects) {
@@ -1922,7 +1922,7 @@ export async function setRuntimeWorkspaceContext(executor: DbExecutor, workspace
     await executor.query(`SELECT set_config('app.current_workspace_id', $1::text, true)`, [workspaceId ?? ''])
 }
 
-export async function getCatalogWorkspaceLimit(
+export async function getObjectWorkspaceLimit(
     executor: SqlQueryable,
     input: {
         schemaName: string
@@ -1949,16 +1949,16 @@ export async function getCatalogWorkspaceLimit(
     return rows[0]?.maxRows ?? null
 }
 
-export async function listCatalogWorkspaceLimits(
+export async function listObjectWorkspaceLimits(
     executor: SqlQueryable,
     input: {
         schemaName: string
     }
-): Promise<CatalogWorkspaceLimitRow[]> {
+): Promise<ObjectWorkspaceLimitRow[]> {
     const limitsQt = qSchemaTable(input.schemaName, APP_LIMITS_TABLE)
     const objectsQt = qSchemaTable(input.schemaName, '_app_objects')
 
-    return executor.query<CatalogWorkspaceLimitRow>(
+    return executor.query<ObjectWorkspaceLimitRow>(
         `
         SELECT
             o.id AS "objectId",
@@ -1973,7 +1973,7 @@ export async function listCatalogWorkspaceLimits(
          AND l.period_key = '${WORKSPACE_LIMIT_PERIOD_KEY}'
          AND l._upl_deleted = false
          AND l._app_deleted = false
-        WHERE o.kind = 'catalog'
+        WHERE o.kind = 'object'
           AND o._upl_deleted = false
           AND o._app_deleted = false
         ORDER BY o.codename ASC
@@ -1981,7 +1981,7 @@ export async function listCatalogWorkspaceLimits(
     )
 }
 
-export async function upsertCatalogWorkspaceLimits(
+export async function upsertObjectWorkspaceLimits(
     executor: DbExecutor,
     input: {
         schemaName: string
@@ -2090,7 +2090,7 @@ export async function upsertCatalogWorkspaceLimits(
     }
 }
 
-export async function getCatalogWorkspaceUsage(
+export async function getObjectWorkspaceUsage(
     executor: SqlQueryable,
     input: {
         schemaName: string
@@ -2100,7 +2100,7 @@ export async function getCatalogWorkspaceUsage(
     }
 ): Promise<number> {
     const tableIdent = `${qSchema(input.schemaName)}.${qTable(input.tableName)}`
-    const rows = await executor.query<CatalogWorkspaceUsageRow>(
+    const rows = await executor.query<ObjectWorkspaceUsageRow>(
         `
         SELECT COUNT(*)::int AS total
         FROM ${tableIdent}
@@ -2113,7 +2113,7 @@ export async function getCatalogWorkspaceUsage(
     return rows[0]?.total ?? 0
 }
 
-export async function enforceCatalogWorkspaceLimit(
+export async function enforceObjectWorkspaceLimit(
     executor: DbExecutor,
     input: {
         schemaName: string
@@ -2127,13 +2127,13 @@ export async function enforceCatalogWorkspaceLimit(
         return { maxRows: null, currentRows: 0, canCreate: true }
     }
 
-    const maxRows = await getCatalogWorkspaceLimit(executor, {
+    const maxRows = await getObjectWorkspaceLimit(executor, {
         schemaName: input.schemaName,
         objectId: input.objectId
     })
 
     if (maxRows === null) {
-        const currentRows = await getCatalogWorkspaceUsage(executor, {
+        const currentRows = await getObjectWorkspaceUsage(executor, {
             schemaName: input.schemaName,
             tableName: input.tableName,
             workspaceId: input.workspaceId,
@@ -2146,7 +2146,7 @@ export async function enforceCatalogWorkspaceLimit(
         `workspace-limit:${input.schemaName}:${input.objectId}:${input.workspaceId}`
     ])
 
-    const currentRows = await getCatalogWorkspaceUsage(executor, {
+    const currentRows = await getObjectWorkspaceUsage(executor, {
         schemaName: input.schemaName,
         tableName: input.tableName,
         workspaceId: input.workspaceId,

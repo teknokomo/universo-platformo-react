@@ -101,7 +101,7 @@ describe('BranchActions copy options', () => {
             fullCopy: false,
             copyLayouts: true,
             copyTreeEntities: true,
-            copyLinkedCollections: false,
+            copyObjectCollections: false,
             copyValueGroups: true,
             copyOptionLists: true
         })
@@ -113,7 +113,7 @@ describe('BranchActions copy options', () => {
                 fullCopy: false,
                 copyLayouts: true,
                 copyTreeEntities: true,
-                copyLinkedCollections: false,
+                copyObjectCollections: false,
                 copyValueGroups: true,
                 copyOptionLists: true
             })

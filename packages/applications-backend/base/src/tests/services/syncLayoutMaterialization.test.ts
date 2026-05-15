@@ -83,7 +83,7 @@ describe('sync layout materialization helpers', () => {
                 },
                 {
                     id: 'entity-owned-widget-1',
-                    layoutId: 'catalog-layout-1',
+                    layoutId: 'object-layout-1',
                     zone: 'right',
                     widgetKey: 'statsOverview',
                     sortOrder: 1,
@@ -93,11 +93,11 @@ describe('sync layout materialization helpers', () => {
             ],
             scopedLayouts: [
                 {
-                    id: 'catalog-layout-1',
-                    scopeEntityId: 'catalog-1',
+                    id: 'object-layout-1',
+                    scopeEntityId: 'object-1',
                     baseLayoutId: 'global-layout-1',
                     templateKey: 'dashboard',
-                    name: { en: 'Catalog override' },
+                    name: { en: 'Object override' },
                     description: null,
                     config: { showHeader: false },
                     isActive: true,
@@ -107,7 +107,7 @@ describe('sync layout materialization helpers', () => {
             ],
             layoutWidgetOverrides: [
                 {
-                    layoutId: 'catalog-layout-1',
+                    layoutId: 'object-layout-1',
                     baseWidgetId: 'global-widget-1',
                     zone: 'top',
                     sortOrder: 2,
@@ -131,8 +131,8 @@ describe('sync layout materialization helpers', () => {
                     config: expect.objectContaining({ showHeader: true, showSideMenu: true })
                 }),
                 expect.objectContaining({
-                    id: 'catalog-layout-1',
-                    scopeEntityId: 'catalog-1',
+                    id: 'object-layout-1',
+                    scopeEntityId: 'object-1',
                     isDefault: true,
                     config: expect.objectContaining({
                         showHeader: false,
@@ -143,10 +143,10 @@ describe('sync layout materialization helpers', () => {
             ])
         )
 
-        const inheritedCatalogWidget = widgets.find((item) => item.layoutId === 'catalog-layout-1' && item.widgetKey === 'menuWidget')
+        const inheritedCatalogWidget = widgets.find((item) => item.layoutId === 'object-layout-1' && item.widgetKey === 'menuWidget')
         expect(inheritedCatalogWidget).toBeTruthy()
         expect(inheritedCatalogWidget).toMatchObject({
-            layoutId: 'catalog-layout-1',
+            layoutId: 'object-layout-1',
             zone: 'top',
             sortOrder: 2,
             config: { showTitle: false },
@@ -159,7 +159,7 @@ describe('sync layout materialization helpers', () => {
             expect.arrayContaining([
                 expect.objectContaining({
                     id: 'entity-owned-widget-1',
-                    layoutId: 'catalog-layout-1',
+                    layoutId: 'object-layout-1',
                     zone: 'right',
                     widgetKey: 'statsOverview',
                     config: { compact: true }
@@ -195,11 +195,11 @@ describe('sync layout materialization helpers', () => {
             ],
             scopedLayouts: [
                 {
-                    id: 'catalog-layout-1',
-                    scopeEntityId: 'catalog-1',
+                    id: 'object-layout-1',
+                    scopeEntityId: 'object-1',
                     baseLayoutId: 'global-layout-1',
                     templateKey: 'dashboard',
-                    name: { en: 'Catalog override' },
+                    name: { en: 'Object override' },
                     description: null,
                     config: {},
                     isActive: true,
@@ -209,7 +209,7 @@ describe('sync layout materialization helpers', () => {
             ],
             layoutWidgetOverrides: [
                 {
-                    layoutId: 'catalog-layout-1',
+                    layoutId: 'object-layout-1',
                     baseWidgetId: 'global-widget-1',
                     isDeletedOverride: true
                 }
@@ -219,7 +219,7 @@ describe('sync layout materialization helpers', () => {
 
         const widgets = normalizeSnapshotLayoutZoneWidgets(snapshot)
 
-        expect(widgets.some((item) => item.layoutId === 'catalog-layout-1' && item.widgetKey === 'menuWidget')).toBe(false)
+        expect(widgets.some((item) => item.layoutId === 'object-layout-1' && item.widgetKey === 'menuWidget')).toBe(false)
     })
 
     it('preserves inactive widgets and normalizes invalid zones to center', () => {

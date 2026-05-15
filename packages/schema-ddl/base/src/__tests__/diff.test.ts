@@ -6,7 +6,7 @@ describe('DDL Diff Utilities', () => {
         const createTestEntity = (overrides: Partial<EntityDefinition> = {}): EntityDefinition => ({
             id: 'entity-1111-2222-3333-444455556666',
             codename: 'test_entity',
-            kind: 'catalog',
+            kind: 'object',
             fields: [],
             ...overrides
         })
@@ -19,8 +19,8 @@ describe('DDL Diff Utilities', () => {
             entities: {
                 'entity-1111-2222-3333-444455556666': {
                     codename: 'test_entity',
-                    kind: 'catalog',
-                    tableName: 'cat_entity1111222233334444',
+                    kind: 'object',
+                    tableName: 'obj_entity1111222233334444',
                     fields: {}
                 },
                 ...entities
@@ -30,7 +30,7 @@ describe('DDL Diff Utilities', () => {
         describe('when oldSnapshot is null (initial deployment)', () => {
             it('should return all entities as ADD_TABLE changes', () => {
                 const entities: EntityDefinition[] = [
-                    createTestEntity({ id: 'e1-0000-0000-0000-000000000001', codename: 'entity_a', kind: 'catalog' }),
+                    createTestEntity({ id: 'e1-0000-0000-0000-000000000001', codename: 'entity_a', kind: 'object' }),
                     createTestEntity({ id: 'e2-0000-0000-0000-000000000002', codename: 'entity_b', kind: 'hub' })
                 ]
 
@@ -160,7 +160,7 @@ describe('DDL Diff Utilities', () => {
                 snapshotWithField.entities['entity-1111-2222-3333-444455556666'].fields = {
                     'field-to-delete-1111-222233334444': {
                         codename: 'old_field',
-                        columnName: 'attr_fieldtodelete1111222233334444',
+                        columnName: 'cmp_fieldtodelete1111222233334444',
                         dataType: 'text'
                     }
                 }
@@ -179,7 +179,7 @@ describe('DDL Diff Utilities', () => {
             it('should handle entity kind change from physical to non-physical (destructive drop only)', () => {
                 const snapshot = createTestSnapshot()
                 const entities: EntityDefinition[] = [
-                    createTestEntity({ kind: 'hub' }) // changed from 'catalog' to 'hub'
+                    createTestEntity({ kind: 'hub' }) // changed from 'object' to 'hub'
                 ]
 
                 const diff = calculateSchemaDiff(snapshot, entities)
@@ -255,11 +255,11 @@ describe('DDL Diff Utilities', () => {
         })
     })
 
-    describe('tabular (TABLE attribute) diff', () => {
+    describe('tabular (TABLE component) diff', () => {
         const createTestEntity = (overrides: Partial<EntityDefinition> = {}): EntityDefinition => ({
             id: 'entity-1111-2222-3333-444455556666',
             codename: 'test_entity',
-            kind: 'catalog',
+            kind: 'object',
             fields: [],
             ...overrides
         })
@@ -272,21 +272,21 @@ describe('DDL Diff Utilities', () => {
             entities: {
                 'entity-1111-2222-3333-444455556666': {
                     codename: 'test_entity',
-                    kind: 'catalog',
-                    tableName: 'cat_entity11112222333344445555',
+                    kind: 'object',
+                    tableName: 'obj_entity11112222333344445555',
                     fields: {}
                 },
                 ...entities
             }
         })
 
-        it('should detect new TABLE attribute as ADD_TABULAR_TABLE', () => {
+        it('should detect new TABLE component as ADD_TABULAR_TABLE', () => {
             const snapshot = createTestSnapshot()
             const entities: EntityDefinition[] = [
                 createTestEntity({
                     fields: [
                         {
-                            id: 'table-attr-1111-2222-333344445555',
+                            id: 'table-cmp-1111-2222-333344445555',
                             codename: 'order_items',
                             dataType: 'TABLE',
                             isRequired: false
@@ -300,17 +300,17 @@ describe('DDL Diff Utilities', () => {
             expect(diff.hasChanges).toBe(true)
             expect(diff.additive).toHaveLength(1)
             expect(diff.additive[0].type).toBe(ChangeType.ADD_TABULAR_TABLE)
-            expect(diff.additive[0].tableName).toBe('tbl_tableattr11112222333344445555')
+            expect(diff.additive[0].tableName).toBe('tbl_tablecmp11112222333344445555')
             expect(diff.additive[0].fieldCodename).toBe('order_items')
             expect(diff.additive[0].isDestructive).toBe(false)
         })
 
-        it('should detect removed TABLE attribute as DROP_TABULAR_TABLE', () => {
+        it('should detect removed TABLE component as DROP_TABULAR_TABLE', () => {
             const snapshot = createTestSnapshot()
             snapshot.entities['entity-1111-2222-3333-444455556666'].fields = {
-                'table-attr-1111-2222-333344445555': {
+                'table-cmp-1111-2222-333344445555': {
                     codename: 'order_items',
-                    columnName: 'cat_entity11112222333344445555_tp_tableattr1111',
+                    columnName: 'obj_entity11112222333344445555_tp_tableattr1111',
                     dataType: 'TABLE',
                     isRequired: false,
                     childFields: {}
@@ -331,9 +331,9 @@ describe('DDL Diff Utilities', () => {
         it('should detect new child column as ADD_TABULAR_COLUMN', () => {
             const snapshot = createTestSnapshot()
             snapshot.entities['entity-1111-2222-3333-444455556666'].fields = {
-                'table-attr-1111-2222-333344445555': {
+                'table-cmp-1111-2222-333344445555': {
                     codename: 'order_items',
-                    columnName: 'cat_entity11112222333344445555_tp_tableattr1111',
+                    columnName: 'obj_entity11112222333344445555_tp_tableattr1111',
                     dataType: 'TABLE',
                     isRequired: false,
                     childFields: {}
@@ -344,7 +344,7 @@ describe('DDL Diff Utilities', () => {
                 createTestEntity({
                     fields: [
                         {
-                            id: 'table-attr-1111-2222-333344445555',
+                            id: 'table-cmp-1111-2222-333344445555',
                             codename: 'order_items',
                             dataType: 'TABLE',
                             isRequired: false
@@ -354,7 +354,7 @@ describe('DDL Diff Utilities', () => {
                             codename: 'quantity',
                             dataType: 'integer',
                             isRequired: true,
-                            parentAttributeId: 'table-attr-1111-2222-333344445555'
+                            parentComponentId: 'table-cmp-1111-2222-333344445555'
                         }
                     ]
                 })
@@ -372,15 +372,15 @@ describe('DDL Diff Utilities', () => {
         it('should detect removed child column as DROP_TABULAR_COLUMN', () => {
             const snapshot = createTestSnapshot()
             snapshot.entities['entity-1111-2222-3333-444455556666'].fields = {
-                'table-attr-1111-2222-333344445555': {
+                'table-cmp-1111-2222-333344445555': {
                     codename: 'order_items',
-                    columnName: 'cat_entity11112222333344445555_tp_tableattr1111',
+                    columnName: 'obj_entity11112222333344445555_tp_tableattr1111',
                     dataType: 'TABLE',
                     isRequired: false,
                     childFields: {
                         'child-field-aaaa-bbbb-ccccddddeeee': {
                             codename: 'quantity',
-                            columnName: 'attr_childfieldaaaabbbbccccddddeeee',
+                            columnName: 'cmp_childfieldaaaabbbbccccddddeeee',
                             dataType: 'integer',
                             isRequired: true
                         }
@@ -392,12 +392,12 @@ describe('DDL Diff Utilities', () => {
                 createTestEntity({
                     fields: [
                         {
-                            id: 'table-attr-1111-2222-333344445555',
+                            id: 'table-cmp-1111-2222-333344445555',
                             codename: 'order_items',
                             dataType: 'TABLE',
                             isRequired: false
                         }
-                        // child field removed — no child field with parentAttributeId
+                        // child field removed — no child field with parentComponentId
                     ]
                 })
             ]
@@ -411,18 +411,18 @@ describe('DDL Diff Utilities', () => {
             expect(diff.destructive[0].isDestructive).toBe(true)
         })
 
-        it('should detect no changes when TABLE attribute and children are identical', () => {
+        it('should detect no changes when TABLE component and children are identical', () => {
             const snapshot = createTestSnapshot()
             snapshot.entities['entity-1111-2222-3333-444455556666'].fields = {
-                'table-attr-1111-2222-333344445555': {
+                'table-cmp-1111-2222-333344445555': {
                     codename: 'order_items',
-                    columnName: 'cat_entity11112222333344445555_tp_tableattr1111',
+                    columnName: 'obj_entity11112222333344445555_tp_tableattr1111',
                     dataType: 'TABLE',
                     isRequired: false,
                     childFields: {
                         'child-field-aaaa-bbbb-ccccddddeeee': {
                             codename: 'quantity',
-                            columnName: 'attr_childfieldaaaabbbbccccddddeeee',
+                            columnName: 'cmp_childfieldaaaabbbbccccddddeeee',
                             dataType: 'integer',
                             isRequired: true
                         }
@@ -434,7 +434,7 @@ describe('DDL Diff Utilities', () => {
                 createTestEntity({
                     fields: [
                         {
-                            id: 'table-attr-1111-2222-333344445555',
+                            id: 'table-cmp-1111-2222-333344445555',
                             codename: 'order_items',
                             dataType: 'TABLE',
                             isRequired: false
@@ -444,7 +444,7 @@ describe('DDL Diff Utilities', () => {
                             codename: 'quantity',
                             dataType: 'integer',
                             isRequired: true,
-                            parentAttributeId: 'table-attr-1111-2222-333344445555'
+                            parentComponentId: 'table-cmp-1111-2222-333344445555'
                         }
                     ]
                 })
@@ -461,12 +461,12 @@ describe('DDL Diff Utilities', () => {
             const snapshot = createTestSnapshot({
                 'entity-1111-2222-3333-444455556666': {
                     codename: 'test_entity',
-                    kind: 'catalog',
-                    tableName: 'cat_entity11112222333344445555',
+                    kind: 'object',
+                    tableName: 'obj_entity11112222333344445555',
                     fields: {
-                        'table-attr-1111-2222-333344445555': {
+                        'table-cmp-1111-2222-333344445555': {
                             codename: 'order_items',
-                            columnName: 'cat_entity11112222333344445555_tp_tableattr111122223333',
+                            columnName: 'obj_entity11112222333344445555_tp_tableattr111122223333',
                             dataType: 'TABLE',
                             isRequired: false,
                             targetEntityId: null,
@@ -474,7 +474,7 @@ describe('DDL Diff Utilities', () => {
                             childFields: {
                                 'child-field-aaaa-bbbb-ccccddddeeee': {
                                     codename: 'quantity',
-                                    columnName: 'attr_childfieldaaaabbbbccccddddeeee',
+                                    columnName: 'cmp_childfieldaaaabbbbccccddddeeee',
                                     dataType: 'integer',
                                     isRequired: true,
                                     targetEntityId: null,
@@ -490,7 +490,7 @@ describe('DDL Diff Utilities', () => {
                 createTestEntity({
                     fields: [
                         {
-                            id: 'table-attr-1111-2222-333344445555',
+                            id: 'table-cmp-1111-2222-333344445555',
                             codename: 'order_items',
                             dataType: 'TABLE',
                             isRequired: false
@@ -500,7 +500,7 @@ describe('DDL Diff Utilities', () => {
                             codename: 'quantity',
                             dataType: 'decimal',
                             isRequired: true,
-                            parentAttributeId: 'table-attr-1111-2222-333344445555'
+                            parentComponentId: 'table-cmp-1111-2222-333344445555'
                         }
                     ]
                 })
@@ -512,21 +512,21 @@ describe('DDL Diff Utilities', () => {
             const alterOp = diff.destructive.find((op) => op.type === 'ALTER_TABULAR_COLUMN')
             expect(alterOp).toBeDefined()
             // Must use the stored table name from the old snapshot, not a recalculated one
-            expect(alterOp?.tableName).toBe('cat_entity11112222333344445555_tp_tableattr111122223333')
+            expect(alterOp?.tableName).toBe('obj_entity11112222333344445555_tp_tableattr111122223333')
             expect(alterOp?.oldValue).toBe('integer')
             expect(alterOp?.newValue).toBe('decimal')
         })
 
-        it('should add ADD_FK when child REF field is added to existing TABLE attribute', () => {
+        it('should add ADD_FK when child REF field is added to existing TABLE component', () => {
             const snapshot = createTestSnapshot({
                 'entity-1111-2222-3333-444455556666': {
                     codename: 'test_entity',
-                    kind: 'catalog',
-                    tableName: 'cat_entity11112222333344445555',
+                    kind: 'object',
+                    tableName: 'obj_entity11112222333344445555',
                     fields: {
-                        'table-attr-1111-2222-333344445555': {
+                        'table-cmp-1111-2222-333344445555': {
                             codename: 'order_items',
-                            columnName: 'cat_entity11112222333344445555_tp_tableattr111122223333',
+                            columnName: 'obj_entity11112222333344445555_tp_tableattr111122223333',
                             dataType: 'TABLE',
                             isRequired: false,
                             targetEntityId: null,
@@ -541,7 +541,7 @@ describe('DDL Diff Utilities', () => {
                 createTestEntity({
                     fields: [
                         {
-                            id: 'table-attr-1111-2222-333344445555',
+                            id: 'table-cmp-1111-2222-333344445555',
                             codename: 'order_items',
                             dataType: 'TABLE',
                             isRequired: false
@@ -551,9 +551,9 @@ describe('DDL Diff Utilities', () => {
                             codename: 'product_ref',
                             dataType: 'REF',
                             isRequired: false,
-                            parentAttributeId: 'table-attr-1111-2222-333344445555',
+                            parentComponentId: 'table-cmp-1111-2222-333344445555',
                             targetEntityId: 'entity-9999-8888-7777-666655554444',
-                            targetEntityKind: 'catalog'
+                            targetEntityKind: 'object'
                         }
                     ]
                 }),
@@ -571,16 +571,16 @@ describe('DDL Diff Utilities', () => {
             expect(addFkOp?.fieldCodename).toBe('product_ref')
         })
 
-        it('should add DROP_FK when child REF field is removed from TABLE attribute', () => {
+        it('should add DROP_FK when child REF field is removed from TABLE component', () => {
             const snapshot = createTestSnapshot({
                 'entity-1111-2222-3333-444455556666': {
                     codename: 'test_entity',
-                    kind: 'catalog',
-                    tableName: 'cat_entity11112222333344445555',
+                    kind: 'object',
+                    tableName: 'obj_entity11112222333344445555',
                     fields: {
-                        'table-attr-1111-2222-333344445555': {
+                        'table-cmp-1111-2222-333344445555': {
                             codename: 'order_items',
-                            columnName: 'cat_entity11112222333344445555_tp_tableattr111122223333',
+                            columnName: 'obj_entity11112222333344445555_tp_tableattr111122223333',
                             dataType: 'TABLE',
                             isRequired: false,
                             targetEntityId: null,
@@ -588,11 +588,11 @@ describe('DDL Diff Utilities', () => {
                             childFields: {
                                 'child-ref-aaaa-bbbb-ccccddddeeee': {
                                     codename: 'product_ref',
-                                    columnName: 'attr_childrefaaaabbbbccccddddeeee',
+                                    columnName: 'cmp_childrefaaaabbbbccccddddeeee',
                                     dataType: 'REF',
                                     isRequired: false,
                                     targetEntityId: 'entity-9999-8888-7777-666655554444',
-                                    targetEntityKind: 'catalog'
+                                    targetEntityKind: 'object'
                                 }
                             }
                         }
@@ -600,8 +600,8 @@ describe('DDL Diff Utilities', () => {
                 },
                 'entity-9999-8888-7777-666655554444': {
                     codename: 'product',
-                    kind: 'catalog',
-                    tableName: 'cat_entity99998888777766665555',
+                    kind: 'object',
+                    tableName: 'obj_entity99998888777766665555',
                     fields: {}
                 }
             })
@@ -610,7 +610,7 @@ describe('DDL Diff Utilities', () => {
                 createTestEntity({
                     fields: [
                         {
-                            id: 'table-attr-1111-2222-333344445555',
+                            id: 'table-cmp-1111-2222-333344445555',
                             codename: 'order_items',
                             dataType: 'TABLE',
                             isRequired: false

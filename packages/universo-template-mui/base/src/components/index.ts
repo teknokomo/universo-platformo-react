@@ -87,10 +87,10 @@ export { LayoutAuthoringDetails } from './layouts'
 export type {
     LayoutStateChipsProps,
     LayoutChipLabels,
+    LayoutAuthoringAvailableWidgetItem,
     LayoutAuthoringListProps,
     LayoutAuthoringListItem,
     LayoutAuthoringDetailsProps,
     LayoutAuthoringZone,
-    LayoutAuthoringWidgetCatalogItem,
     LayoutAuthoringWidgetRow
 } from './layouts'

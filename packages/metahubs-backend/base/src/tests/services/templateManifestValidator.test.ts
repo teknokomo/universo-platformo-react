@@ -1,7 +1,7 @@
 import { basicTemplate } from '../../domains/templates/data/basic.template'
 import { basicDemoTemplate } from '../../domains/templates/data/basic-demo.template'
 import { emptyTemplate } from '../../domains/templates/data/empty.template'
-import { catalogEntityPreset } from '../../domains/templates/data/linked-collection.entity-preset'
+import { objectEntityPreset } from '../../domains/templates/data/object.entity-preset'
 import { lmsTemplate } from '../../domains/templates/data/lms.template'
 import { enumerationEntityPreset } from '../../domains/templates/data/option-list.entity-preset'
 import { pageEntityPreset } from '../../domains/templates/data/page.entity-preset'
@@ -26,24 +26,24 @@ describe('TemplateManifestValidator', () => {
         expect(() => validateTemplateManifest(cloneTemplate(lmsTemplate))).not.toThrow()
     })
 
-    it('accepts the built-in catalog entity preset', () => {
-        expect(() => validateEntityTypePresetManifest(cloneTemplate(catalogEntityPreset))).not.toThrow()
+    it('accepts the built-in object entity preset', () => {
+        expect(() => validateEntityTypePresetManifest(cloneTemplate(objectEntityPreset))).not.toThrow()
     })
 
-    it('preserves record behavior component flags in the built-in catalog entity preset', () => {
-        const validated = validateEntityTypePresetManifest(cloneTemplate(catalogEntityPreset))
+    it('preserves record behavior component flags in the built-in object entity preset', () => {
+        const validated = validateEntityTypePresetManifest(cloneTemplate(objectEntityPreset))
 
         expect(validated.entityType.ui.tabs).toContain('behavior')
-        expect(validated.entityType.components.identityFields).toEqual({
+        expect(validated.entityType.capabilities.identityFields).toEqual({
             enabled: true,
             allowNumber: true,
             allowEffectiveDate: true
         })
-        expect(validated.entityType.components.recordLifecycle).toEqual({
+        expect(validated.entityType.capabilities.recordLifecycle).toEqual({
             enabled: true,
             allowCustomStates: true
         })
-        expect(validated.entityType.components.posting).toEqual({
+        expect(validated.entityType.capabilities.posting).toEqual({
             enabled: true,
             allowManualPosting: true,
             allowAutomaticPosting: true
@@ -61,7 +61,7 @@ describe('TemplateManifestValidator', () => {
         const orderedKinds = [
             hubEntityPreset,
             pageEntityPreset,
-            catalogEntityPreset,
+            objectEntityPreset,
             setEntityPreset,
             enumerationEntityPreset,
             ledgerEntityPreset
@@ -73,23 +73,23 @@ describe('TemplateManifestValidator', () => {
             .sort((left, right) => Number(left.sidebarOrder ?? 0) - Number(right.sidebarOrder ?? 0))
             .map((item) => item.kindKey)
 
-        expect(orderedKinds).toEqual(['hub', 'page', 'catalog', 'set', 'enumeration', 'ledger'])
-        expect(basicTemplate.presets?.map((preset) => preset.presetCodename)).toEqual(['hub', 'page', 'catalog', 'set', 'enumeration'])
-        expect(basicDemoTemplate.presets?.map((preset) => preset.presetCodename)).toEqual(['hub', 'page', 'catalog', 'set', 'enumeration'])
+        expect(orderedKinds).toEqual(['hub', 'page', 'object', 'set', 'enumeration', 'ledger'])
+        expect(basicTemplate.presets?.map((preset) => preset.presetCodename)).toEqual(['hub', 'page', 'object', 'set', 'enumeration'])
+        expect(basicDemoTemplate.presets?.map((preset) => preset.presetCodename)).toEqual(['hub', 'page', 'object', 'set', 'enumeration'])
     })
 
     it('keeps standard resource surface definitions aligned with component capabilities', () => {
-        const catalogManifest = cloneTemplate(catalogEntityPreset)
+        const objectManifest = cloneTemplate(objectEntityPreset)
         const setManifest = cloneTemplate(setEntityPreset)
         const enumerationManifest = cloneTemplate(enumerationEntityPreset)
 
-        expect(catalogManifest.entityType.ui.resourceSurfaces).toEqual([
+        expect(objectManifest.entityType.ui.resourceSurfaces).toEqual([
             expect.objectContaining({
-                key: 'fieldDefinitions',
+                key: 'components',
                 capability: 'dataSchema',
-                routeSegment: 'field-definitions',
+                routeSegment: 'components',
                 title: expect.objectContaining({ _primary: 'en' }),
-                fallbackTitle: 'Attributes'
+                fallbackTitle: 'Components'
             })
         ])
         expect(setManifest.entityType.ui.resourceSurfaces).toEqual([
@@ -112,22 +112,37 @@ describe('TemplateManifestValidator', () => {
         ])
     })
 
+    it('keeps standard hub assignment labels data-driven for hub-scoped entity types', () => {
+        const objectManifest = cloneTemplate(objectEntityPreset)
+        const setManifest = cloneTemplate(setEntityPreset)
+        const enumerationManifest = cloneTemplate(enumerationEntityPreset)
+
+        for (const manifest of [objectManifest, setManifest, enumerationManifest]) {
+            expect(manifest.entityType.ui.treeAssignmentLabels?.title?.locales.en.content).toBe('Hubs')
+            expect(manifest.entityType.ui.treeAssignmentLabels?.title?.locales.ru.content).toBe('Хабы')
+            expect(manifest.entityType.ui.treeAssignmentLabels?.requiredLabel?.locales.en.content).toBe('Hub required')
+            expect(manifest.entityType.ui.treeAssignmentLabels?.requiredLabel?.locales.ru.content).toBe('Хаб обязателен')
+            expect(manifest.entityType.ui.treeAssignmentLabels?.singleLabel?.locales.en.content).toBe('Single hub only')
+            expect(manifest.entityType.ui.treeAssignmentLabels?.singleLabel?.locales.ru.content).toBe('Только один хаб')
+        }
+    })
+
     it('keeps the standard preset automation uplift enabled for hub, set, and enumeration entity presets', () => {
         const hubManifest = cloneTemplate(hubEntityPreset)
         const setManifest = cloneTemplate(setEntityPreset)
         const enumerationManifest = cloneTemplate(enumerationEntityPreset)
 
-        expect(hubManifest.entityType.components.scripting).toEqual({ enabled: true })
-        expect(hubManifest.entityType.components.actions).toEqual({ enabled: true })
-        expect(hubManifest.entityType.components.events).toEqual({ enabled: true })
+        expect(hubManifest.entityType.capabilities.scripting).toEqual({ enabled: true })
+        expect(hubManifest.entityType.capabilities.actions).toEqual({ enabled: true })
+        expect(hubManifest.entityType.capabilities.events).toEqual({ enabled: true })
 
-        expect(setManifest.entityType.components.scripting).toEqual({ enabled: true })
-        expect(setManifest.entityType.components.actions).toEqual({ enabled: true })
-        expect(setManifest.entityType.components.events).toEqual({ enabled: true })
+        expect(setManifest.entityType.capabilities.scripting).toEqual({ enabled: true })
+        expect(setManifest.entityType.capabilities.actions).toEqual({ enabled: true })
+        expect(setManifest.entityType.capabilities.events).toEqual({ enabled: true })
 
-        expect(enumerationManifest.entityType.components.scripting).toEqual({ enabled: true })
-        expect(enumerationManifest.entityType.components.actions).toEqual({ enabled: true })
-        expect(enumerationManifest.entityType.components.events).toEqual({ enabled: true })
+        expect(enumerationManifest.entityType.capabilities.scripting).toEqual({ enabled: true })
+        expect(enumerationManifest.entityType.capabilities.actions).toEqual({ enabled: true })
+        expect(enumerationManifest.entityType.capabilities.events).toEqual({ enabled: true })
     })
 
     it('keeps the basic template default widgets limited to app navbar, header, details title, and details table', () => {
@@ -197,12 +212,19 @@ describe('TemplateManifestValidator', () => {
         expect(menuItems).toEqual(
             expect.arrayContaining([
                 expect.objectContaining({ id: 'lms-nav-home', kind: 'section', sectionId: 'LearnerHome' }),
-                expect.objectContaining({ id: 'lms-nav-catalog', kind: 'section', sectionId: 'Modules' }),
+                expect.objectContaining({ id: 'lms-nav-modules', kind: 'section', sectionId: 'Modules' }),
                 expect.objectContaining({ id: 'lms-nav-knowledge', kind: 'section', sectionId: 'Quizzes' }),
                 expect.objectContaining({ id: 'lms-nav-development', kind: 'section', sectionId: 'Classes' }),
                 expect.objectContaining({ id: 'lms-nav-reports', kind: 'section', sectionId: 'Reports' })
             ])
         )
+        const modulesMenuItem = menuItems.find((item) => item?.id === 'lms-nav-modules')
+        expect(modulesMenuItem?.title).toMatchObject({
+            locales: {
+                en: { content: 'Modules' },
+                ru: { content: 'Модули' }
+            }
+        })
         expect(entityCodenames).toEqual(
             expect.arrayContaining([
                 'Learning',
@@ -239,7 +261,7 @@ describe('TemplateManifestValidator', () => {
         expect(manifest.presets).toEqual([
             { presetCodename: 'hub', includedByDefault: true },
             { presetCodename: 'page', includedByDefault: false },
-            { presetCodename: 'catalog', includedByDefault: true },
+            { presetCodename: 'object', includedByDefault: true },
             { presetCodename: 'set', includedByDefault: true },
             { presetCodename: 'enumeration', includedByDefault: true }
         ])
@@ -267,35 +289,35 @@ describe('TemplateManifestValidator', () => {
             expect.arrayContaining([
                 expect.objectContaining({
                     codename: 'AutoEnrollmentRuleScript',
-                    attachedToKind: 'catalog',
+                    attachedToKind: 'object',
                     attachedToEntityCodename: 'Students',
                     moduleRole: 'lifecycle',
                     capabilities: expect.arrayContaining(['records.read', 'records.write', 'lifecycle'])
                 }),
                 expect.objectContaining({
                     codename: 'EnrollmentPostingScript',
-                    attachedToKind: 'catalog',
+                    attachedToKind: 'object',
                     attachedToEntityCodename: 'Enrollments',
                     moduleRole: 'lifecycle',
                     capabilities: expect.arrayContaining(['lifecycle', 'posting', 'ledger.write'])
                 }),
                 expect.objectContaining({
                     codename: 'QuizAttemptPostingScript',
-                    attachedToKind: 'catalog',
+                    attachedToKind: 'object',
                     attachedToEntityCodename: 'QuizAttempts',
                     moduleRole: 'lifecycle',
                     capabilities: expect.arrayContaining(['lifecycle', 'posting', 'ledger.write'])
                 }),
                 expect.objectContaining({
                     codename: 'ModuleCompletionPostingScript',
-                    attachedToKind: 'catalog',
+                    attachedToKind: 'object',
                     attachedToEntityCodename: 'ModuleProgress',
                     moduleRole: 'lifecycle',
                     capabilities: expect.arrayContaining(['lifecycle', 'posting', 'ledger.write'])
                 }),
                 expect.objectContaining({
                     codename: 'CertificateIssuePostingScript',
-                    attachedToKind: 'catalog',
+                    attachedToKind: 'object',
                     attachedToEntityCodename: 'CertificateIssues',
                     moduleRole: 'lifecycle',
                     capabilities: expect.arrayContaining(['lifecycle', 'posting', 'ledger.write'])
@@ -359,7 +381,7 @@ describe('TemplateManifestValidator', () => {
         manifest.seed.entities = [
             {
                 codename: 'tags',
-                kind: 'catalog',
+                kind: 'object',
                 name: cloneTemplate(basicTemplate.name)
             }
         ]
@@ -370,28 +392,28 @@ describe('TemplateManifestValidator', () => {
 
         manifest.seed.entities.push({
             ...existingEntity,
-            kind: existingEntity.kind === 'catalog' ? 'hub' : 'catalog'
+            kind: existingEntity.kind === 'object' ? 'hub' : 'object'
         })
 
         expect(() => validateTemplateManifest(manifest)).toThrow(/ambiguous/i)
     })
 
     it('rejects entity presets with invalid component dependency combinations', () => {
-        const manifest = cloneTemplate(catalogEntityPreset)
-        manifest.entityType.components.events = { enabled: true }
-        manifest.entityType.components.actions = false
+        const manifest = cloneTemplate(objectEntityPreset)
+        manifest.entityType.capabilities.events = { enabled: true }
+        manifest.entityType.capabilities.actions = false
 
         expect(() => validateEntityTypePresetManifest(manifest)).toThrow(/actions/i)
     })
 
     it('accepts custom resource surface keys when the capability contract stays valid', () => {
-        const manifest = cloneTemplate(catalogEntityPreset)
+        const manifest = cloneTemplate(objectEntityPreset)
         manifest.entityType.ui.resourceSurfaces = [
             {
-                key: 'attributes',
+                key: 'components',
                 capability: 'dataSchema',
-                routeSegment: 'attributes',
-                fallbackTitle: 'Attributes'
+                routeSegment: 'components',
+                fallbackTitle: 'Components'
             }
         ]
 
@@ -399,21 +421,21 @@ describe('TemplateManifestValidator', () => {
     })
 
     it('rejects resource surfaces that target disabled capabilities', () => {
-        const manifest = cloneTemplate(catalogEntityPreset)
-        manifest.entityType.components.dataSchema = false
+        const manifest = cloneTemplate(objectEntityPreset)
+        manifest.entityType.capabilities.dataSchema = false
 
         expect(() => validateEntityTypePresetManifest(manifest)).toThrow(/requires the matching entity component/i)
     })
 
     it('rejects duplicate resource surface route segments in entity presets', () => {
-        const manifest = cloneTemplate(catalogEntityPreset)
-        manifest.entityType.components.optionValues = { enabled: true }
+        const manifest = cloneTemplate(objectEntityPreset)
+        manifest.entityType.capabilities.optionValues = { enabled: true }
         manifest.entityType.ui.resourceSurfaces = [
             {
-                key: 'attributes',
+                key: 'components',
                 capability: 'dataSchema',
                 routeSegment: 'shared-tab',
-                fallbackTitle: 'Attributes'
+                fallbackTitle: 'Components'
             },
             {
                 key: 'values',

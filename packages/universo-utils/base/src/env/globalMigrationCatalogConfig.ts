@@ -1,4 +1,4 @@
-export interface GlobalMigrationCatalogConfig {
+export interface GlobalMigrationObjectConfig {
     enabled: boolean
 }
 
@@ -11,8 +11,8 @@ const parseEnvBoolean = (value: string | undefined, defaultValue: boolean): bool
     return normalized === 'true' || normalized === '1'
 }
 
-export const getGlobalMigrationCatalogConfig = (): GlobalMigrationCatalogConfig => ({
-    enabled: parseEnvBoolean(typeof process !== 'undefined' ? process.env.UPL_GLOBAL_MIGRATION_CATALOG_ENABLED : undefined, false)
+export const getGlobalMigrationObjectConfig = (): GlobalMigrationObjectConfig => ({
+    enabled: parseEnvBoolean(typeof process !== 'undefined' ? process.env.UPL_GLOBAL_MIGRATION_OBJECT_ENABLED : undefined, false)
 })
 
-export const isGlobalMigrationCatalogEnabled = (): boolean => getGlobalMigrationCatalogConfig().enabled
+export const isGlobalMigrationObjectEnabled = (): boolean => getGlobalMigrationObjectConfig().enabled

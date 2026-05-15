@@ -1,8 +1,8 @@
 import { z } from 'zod'
 import type { RuntimeDatasourceFilter, RuntimeDatasourceSort } from '@universo/types'
 import {
-    catalogRecordBehaviorSchema,
-    linkedCollectionRuntimeViewConfigSchema,
+    objectRecordBehaviorSchema,
+    objectCollectionRuntimeViewConfigSchema,
     dashboardLayoutConfigSchema,
     runtimePageBlockSchema,
     reportDefinitionSchema
@@ -19,12 +19,12 @@ const runtimePermissionsSchema = z
     .object({
         manageMembers: z.boolean().optional().default(false),
         manageApplication: z.boolean().optional().default(false),
-        createContent: z.boolean().optional().default(true),
-        editContent: z.boolean().optional().default(true),
-        deleteContent: z.boolean().optional().default(true),
+        createContent: z.boolean().optional().default(false),
+        editContent: z.boolean().optional().default(false),
+        deleteContent: z.boolean().optional().default(false),
         readReports: z.boolean().optional().default(false)
     })
-    .optional()
+    .default({})
 
 const getSessionStorage = (): Storage | null => {
     try {
@@ -142,19 +142,19 @@ export const appDataResponseSchema = z.object({
             codename: z.string(),
             tableName: z.string().nullable(),
             name: z.string(),
-            runtimeConfig: linkedCollectionRuntimeViewConfigSchema.optional(),
-            recordBehavior: catalogRecordBehaviorSchema.optional(),
+            runtimeConfig: objectCollectionRuntimeViewConfigSchema.optional(),
+            recordBehavior: objectRecordBehaviorSchema.optional(),
             pageBlocks: z.array(runtimePageBlockSchema).optional()
         })
         .optional(),
-    linkedCollection: z.object({
+    objectCollection: z.object({
         id: z.string(),
         kind: z.string().optional(),
         codename: z.string(),
         tableName: z.string().nullable(),
         name: z.string(),
-        runtimeConfig: linkedCollectionRuntimeViewConfigSchema.optional(),
-        recordBehavior: catalogRecordBehaviorSchema.optional(),
+        runtimeConfig: objectCollectionRuntimeViewConfigSchema.optional(),
+        recordBehavior: objectRecordBehaviorSchema.optional(),
         pageBlocks: z.array(runtimePageBlockSchema).optional()
     }),
     sections: z
@@ -165,13 +165,13 @@ export const appDataResponseSchema = z.object({
                 codename: z.string(),
                 tableName: z.string().nullable(),
                 name: z.string(),
-                runtimeConfig: linkedCollectionRuntimeViewConfigSchema.optional(),
-                recordBehavior: catalogRecordBehaviorSchema.optional()
+                runtimeConfig: objectCollectionRuntimeViewConfigSchema.optional(),
+                recordBehavior: objectRecordBehaviorSchema.optional()
             })
         )
         .optional()
         .default([]),
-    linkedCollections: z
+    objectCollections: z
         .array(
             z.object({
                 id: z.string(),
@@ -179,14 +179,14 @@ export const appDataResponseSchema = z.object({
                 codename: z.string(),
                 tableName: z.string().nullable(),
                 name: z.string(),
-                runtimeConfig: linkedCollectionRuntimeViewConfigSchema.optional(),
-                recordBehavior: catalogRecordBehaviorSchema.optional()
+                runtimeConfig: objectCollectionRuntimeViewConfigSchema.optional(),
+                recordBehavior: objectRecordBehaviorSchema.optional()
             })
         )
         .optional()
         .default([]),
     activeSectionId: z.string().optional(),
-    activeLinkedCollectionId: z.string().optional(),
+    activeObjectCollectionId: z.string().optional(),
     columns: z.array(
         z.object({
             id: z.string(),
@@ -195,7 +195,7 @@ export const appDataResponseSchema = z.object({
             dataType: z.enum(['BOOLEAN', 'STRING', 'NUMBER', 'DATE', 'REF', 'JSON', 'TABLE']),
             headerName: z.string(),
             isRequired: z.boolean().optional().default(false),
-            isDisplayAttribute: z.boolean().optional(),
+            isDisplayComponent: z.boolean().optional(),
             validationRules: z.record(z.unknown()).optional().default({}),
             uiConfig: z.record(z.unknown()).optional().default({}),
             refTargetEntityId: z.string().nullable().optional(),
@@ -223,7 +223,7 @@ export const appDataResponseSchema = z.object({
                     })
                 )
                 .optional(),
-            // Child column definitions for TABLE-type attributes
+            // Child column definitions for TABLE-type components
             childColumns: z
                 .array(
                     z.object({
@@ -233,7 +233,7 @@ export const appDataResponseSchema = z.object({
                         dataType: z.string(),
                         headerName: z.string(),
                         isRequired: z.boolean().optional().default(false),
-                        isDisplayAttribute: z.boolean().optional(),
+                        isDisplayComponent: z.boolean().optional(),
                         validationRules: z.record(z.unknown()).optional().default({}),
                         uiConfig: z.record(z.unknown()).optional().default({}),
                         refTargetEntityId: z.string().nullable().optional(),
@@ -343,7 +343,7 @@ export const appDataResponseSchema = z.object({
                         icon: z.string().nullable().optional(),
                         href: z.string().nullable().optional(),
                         sectionId: z.string().nullable().optional(),
-                        linkedCollectionId: z.string().nullable().optional(),
+                        objectCollectionId: z.string().nullable().optional(),
                         treeEntityId: z.string().nullable().optional(),
                         sortOrder: z.number().optional().default(0),
                         isActive: z.boolean().optional().default(true)
@@ -358,7 +358,7 @@ export const appDataResponseSchema = z.object({
                             icon: z.string().nullable().optional(),
                             href: z.string().nullable().optional(),
                             sectionId: z.string().nullable().optional(),
-                            linkedCollectionId: z.string().nullable().optional(),
+                            objectCollectionId: z.string().nullable().optional(),
                             treeEntityId: z.string().nullable().optional(),
                             sortOrder: z.number().optional().default(0),
                             isActive: z.boolean().optional().default(true)
@@ -438,14 +438,14 @@ export async function fetchAppData(options: {
     limit: number
     offset: number
     locale: string
-    linkedCollectionId?: string
+    objectCollectionId?: string
     sectionId?: string
     search?: string
     sort?: RuntimeDatasourceSort[]
     filters?: RuntimeDatasourceFilter[]
 }): Promise<AppDataResponse> {
-    const { apiBaseUrl, applicationId, limit, offset, locale, linkedCollectionId, sectionId, search, sort, filters } = options
-    const resolvedSectionId = sectionId ?? linkedCollectionId
+    const { apiBaseUrl, applicationId, limit, offset, locale, objectCollectionId, sectionId, search, sort, filters } = options
+    const resolvedSectionId = sectionId ?? objectCollectionId
     const normalizedBase = apiBaseUrl.replace(/\/$/, '')
     const runtimePath = `${normalizedBase}/applications/${applicationId}/runtime`
     const isAbsoluteBase = /^https?:\/\//i.test(normalizedBase)
@@ -454,7 +454,7 @@ export async function fetchAppData(options: {
     url.searchParams.set('offset', String(offset))
     url.searchParams.set('locale', locale)
     if (resolvedSectionId) {
-        url.searchParams.set('linkedCollectionId', resolvedSectionId)
+        url.searchParams.set('objectCollectionId', resolvedSectionId)
     }
     if (search?.trim()) {
         url.searchParams.set('search', search.trim())
@@ -622,14 +622,14 @@ export async function fetchAppRow(options: {
     apiBaseUrl: string
     applicationId: string
     rowId: string
-    linkedCollectionId?: string
+    objectCollectionId?: string
     sectionId?: string
 }): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, rowId, linkedCollectionId, sectionId } = options
-    const resolvedSectionId = sectionId ?? linkedCollectionId
+    const { apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId } = options
+    const resolvedSectionId = sectionId ?? objectCollectionId
     let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}`)
     if (resolvedSectionId) {
-        url += `?linkedCollectionId=${encodeURIComponent(resolvedSectionId)}`
+        url += `?objectCollectionId=${encodeURIComponent(resolvedSectionId)}`
     }
 
     const res = await fetch(url, { credentials: 'include' })
@@ -643,16 +643,16 @@ export async function fetchAppRow(options: {
 export async function createAppRow(options: {
     apiBaseUrl: string
     applicationId: string
-    linkedCollectionId?: string
+    objectCollectionId?: string
     sectionId?: string
     data: Record<string, unknown>
 }): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, linkedCollectionId, sectionId, data } = options
-    const resolvedSectionId = sectionId ?? linkedCollectionId
+    const { apiBaseUrl, applicationId, objectCollectionId, sectionId, data } = options
+    const resolvedSectionId = sectionId ?? objectCollectionId
     const url = buildAppApiUrl(apiBaseUrl, applicationId, '/rows')
 
     const body: Record<string, unknown> = { data }
-    if (resolvedSectionId) body.linkedCollectionId = resolvedSectionId
+    if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
 
     const res = await fetchWithCsrf(apiBaseUrl, url, {
         method: 'POST',
@@ -670,16 +670,16 @@ export async function updateAppRow(options: {
     apiBaseUrl: string
     applicationId: string
     rowId: string
-    linkedCollectionId?: string
+    objectCollectionId?: string
     sectionId?: string
     data: Record<string, unknown>
 }): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, rowId, linkedCollectionId, sectionId, data } = options
-    const resolvedSectionId = sectionId ?? linkedCollectionId
+    const { apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId, data } = options
+    const resolvedSectionId = sectionId ?? objectCollectionId
     const url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}`)
 
     const body: Record<string, unknown> = { data }
-    if (resolvedSectionId) body.linkedCollectionId = resolvedSectionId
+    if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
 
     const res = await fetchWithCsrf(apiBaseUrl, url, {
         method: 'PATCH',
@@ -697,14 +697,14 @@ export async function deleteAppRow(options: {
     apiBaseUrl: string
     applicationId: string
     rowId: string
-    linkedCollectionId?: string
+    objectCollectionId?: string
     sectionId?: string
 }): Promise<void> {
-    const { apiBaseUrl, applicationId, rowId, linkedCollectionId, sectionId } = options
-    const resolvedSectionId = sectionId ?? linkedCollectionId
+    const { apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId } = options
+    const resolvedSectionId = sectionId ?? objectCollectionId
     let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}`)
     if (resolvedSectionId) {
-        url += `?linkedCollectionId=${encodeURIComponent(resolvedSectionId)}`
+        url += `?objectCollectionId=${encodeURIComponent(resolvedSectionId)}`
     }
 
     const res = await fetchWithCsrf(apiBaseUrl, url, { method: 'DELETE' })
@@ -718,15 +718,15 @@ export async function copyAppRow(options: {
     apiBaseUrl: string
     applicationId: string
     rowId: string
-    linkedCollectionId?: string
+    objectCollectionId?: string
     sectionId?: string
     copyChildTables?: boolean
 }): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, rowId, linkedCollectionId, sectionId, copyChildTables = true } = options
-    const resolvedSectionId = sectionId ?? linkedCollectionId
+    const { apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId, copyChildTables = true } = options
+    const resolvedSectionId = sectionId ?? objectCollectionId
     const url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}/copy`)
     const body: Record<string, unknown> = { copyChildTables }
-    if (resolvedSectionId) body.linkedCollectionId = resolvedSectionId
+    if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
 
     const res = await fetchWithCsrf(apiBaseUrl, url, {
         method: 'POST',
@@ -744,15 +744,15 @@ export async function runAppRecordCommand(options: {
     applicationId: string
     rowId: string
     command: RuntimeRecordCommand
-    linkedCollectionId?: string
+    objectCollectionId?: string
     sectionId?: string
     expectedVersion?: number
 }): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, rowId, command, linkedCollectionId, sectionId, expectedVersion } = options
-    const resolvedSectionId = sectionId ?? linkedCollectionId
+    const { apiBaseUrl, applicationId, rowId, command, objectCollectionId, sectionId, expectedVersion } = options
+    const resolvedSectionId = sectionId ?? objectCollectionId
     const url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}/${command}`)
     const body: Record<string, unknown> = {}
-    if (resolvedSectionId) body.linkedCollectionId = resolvedSectionId
+    if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
     if (typeof expectedVersion === 'number') body.expectedVersion = expectedVersion
 
     const res = await fetchWithCsrf(apiBaseUrl, url, {
@@ -767,7 +767,7 @@ export async function runAppRecordCommand(options: {
 }
 
 // ---------------------------------------------------------------------------
-// Tabular (TABLE attribute child rows) API helpers
+// Tabular (TABLE component child rows) API helpers
 // ---------------------------------------------------------------------------
 
 /** Zod schema for the tabular child rows API response. */
@@ -778,19 +778,19 @@ export const tabularRowsResponseSchema = z.object({
 
 export type TabularRowsResponse = z.infer<typeof tabularRowsResponseSchema>
 
-/** Fetch child rows for a TABLE attribute. */
+/** Fetch child rows for a TABLE component. */
 export async function fetchTabularRows(options: {
     apiBaseUrl: string
     applicationId: string
     parentRecordId: string
-    attributeId: string
-    linkedCollectionId: string
+    componentId: string
+    objectCollectionId: string
     sectionId?: string
 }): Promise<TabularRowsResponse> {
-    const { apiBaseUrl, applicationId, parentRecordId, attributeId, linkedCollectionId, sectionId } = options
-    const resolvedSectionId = sectionId ?? linkedCollectionId
-    let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${parentRecordId}/tabular/${attributeId}`)
-    url += `?linkedCollectionId=${encodeURIComponent(resolvedSectionId)}`
+    const { apiBaseUrl, applicationId, parentRecordId, componentId, objectCollectionId, sectionId } = options
+    const resolvedSectionId = sectionId ?? objectCollectionId
+    let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${parentRecordId}/tabular/${componentId}`)
+    url += `?objectCollectionId=${encodeURIComponent(resolvedSectionId)}`
 
     const res = await fetch(url, { credentials: 'include' })
     if (!res.ok) {
@@ -804,20 +804,20 @@ export async function fetchTabularRows(options: {
     return parsed.data
 }
 
-/** Create a new child row in a TABLE attribute. */
+/** Create a new child row in a TABLE component. */
 export async function createTabularRow(options: {
     apiBaseUrl: string
     applicationId: string
     parentRecordId: string
-    attributeId: string
-    linkedCollectionId: string
+    componentId: string
+    objectCollectionId: string
     sectionId?: string
     data: Record<string, unknown>
 }): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, parentRecordId, attributeId, linkedCollectionId, sectionId, data } = options
-    const resolvedSectionId = sectionId ?? linkedCollectionId
-    let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${parentRecordId}/tabular/${attributeId}`)
-    url += `?linkedCollectionId=${encodeURIComponent(resolvedSectionId)}`
+    const { apiBaseUrl, applicationId, parentRecordId, componentId, objectCollectionId, sectionId, data } = options
+    const resolvedSectionId = sectionId ?? objectCollectionId
+    let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${parentRecordId}/tabular/${componentId}`)
+    url += `?objectCollectionId=${encodeURIComponent(resolvedSectionId)}`
 
     const res = await fetchWithCsrf(apiBaseUrl, url, {
         method: 'POST',
@@ -830,21 +830,21 @@ export async function createTabularRow(options: {
     return res.json()
 }
 
-/** Update a child row in a TABLE attribute. */
+/** Update a child row in a TABLE component. */
 export async function updateTabularRow(options: {
     apiBaseUrl: string
     applicationId: string
     parentRecordId: string
-    attributeId: string
-    linkedCollectionId: string
+    componentId: string
+    objectCollectionId: string
     sectionId?: string
     childRowId: string
     data: Record<string, unknown>
 }): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, parentRecordId, attributeId, linkedCollectionId, sectionId, childRowId, data } = options
-    const resolvedSectionId = sectionId ?? linkedCollectionId
-    let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${parentRecordId}/tabular/${attributeId}/${encodeURIComponent(childRowId)}`)
-    url += `?linkedCollectionId=${encodeURIComponent(resolvedSectionId)}`
+    const { apiBaseUrl, applicationId, parentRecordId, componentId, objectCollectionId, sectionId, childRowId, data } = options
+    const resolvedSectionId = sectionId ?? objectCollectionId
+    let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${parentRecordId}/tabular/${componentId}/${encodeURIComponent(childRowId)}`)
+    url += `?objectCollectionId=${encodeURIComponent(resolvedSectionId)}`
 
     const res = await fetchWithCsrf(apiBaseUrl, url, {
         method: 'PATCH',
@@ -857,20 +857,20 @@ export async function updateTabularRow(options: {
     return res.json()
 }
 
-/** Delete a child row in a TABLE attribute. */
+/** Delete a child row in a TABLE component. */
 export async function deleteTabularRow(options: {
     apiBaseUrl: string
     applicationId: string
     parentRecordId: string
-    attributeId: string
-    linkedCollectionId: string
+    componentId: string
+    objectCollectionId: string
     sectionId?: string
     childRowId: string
 }): Promise<void> {
-    const { apiBaseUrl, applicationId, parentRecordId, attributeId, linkedCollectionId, sectionId, childRowId } = options
-    const resolvedSectionId = sectionId ?? linkedCollectionId
-    let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${parentRecordId}/tabular/${attributeId}/${encodeURIComponent(childRowId)}`)
-    url += `?linkedCollectionId=${encodeURIComponent(resolvedSectionId)}`
+    const { apiBaseUrl, applicationId, parentRecordId, componentId, objectCollectionId, sectionId, childRowId } = options
+    const resolvedSectionId = sectionId ?? objectCollectionId
+    let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${parentRecordId}/tabular/${componentId}/${encodeURIComponent(childRowId)}`)
+    url += `?objectCollectionId=${encodeURIComponent(resolvedSectionId)}`
 
     const res = await fetchWithCsrf(apiBaseUrl, url, { method: 'DELETE' })
     if (!res.ok) {
@@ -878,24 +878,24 @@ export async function deleteTabularRow(options: {
     }
 }
 
-/** Copy a child row in a TABLE attribute. */
+/** Copy a child row in a TABLE component. */
 export async function copyTabularRow(options: {
     apiBaseUrl: string
     applicationId: string
     parentRecordId: string
-    attributeId: string
-    linkedCollectionId: string
+    componentId: string
+    objectCollectionId: string
     sectionId?: string
     childRowId: string
 }): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, parentRecordId, attributeId, linkedCollectionId, sectionId, childRowId } = options
-    const resolvedSectionId = sectionId ?? linkedCollectionId
+    const { apiBaseUrl, applicationId, parentRecordId, componentId, objectCollectionId, sectionId, childRowId } = options
+    const resolvedSectionId = sectionId ?? objectCollectionId
     let url = buildAppApiUrl(
         apiBaseUrl,
         applicationId,
-        `/rows/${parentRecordId}/tabular/${attributeId}/${encodeURIComponent(childRowId)}/copy`
+        `/rows/${parentRecordId}/tabular/${componentId}/${encodeURIComponent(childRowId)}/copy`
     )
-    url += `?linkedCollectionId=${encodeURIComponent(resolvedSectionId)}`
+    url += `?objectCollectionId=${encodeURIComponent(resolvedSectionId)}`
 
     const res = await fetchWithCsrf(apiBaseUrl, url, { method: 'POST' })
     if (!res.ok) {

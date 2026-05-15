@@ -55,16 +55,20 @@ const fileContent = fs.readFileSync(metahubsRouterPath, 'utf8')
 const importedRouteFactories = extractImportedRouteFactories(fileContent)
 const mountedRouteFiles = extractMountedRouteFiles(fileContent, importedRouteFactories)
 const documentedRouteFiles = new Set(
-    routeSources
-        .map((source) => source.file)
-        .filter((filePath) => filePath.startsWith('packages/metahubs-backend/base/src/domains/'))
+    routeSources.map((source) => source.file).filter((filePath) => filePath.startsWith('packages/metahubs-backend/base/src/domains/'))
 )
 
-const missingInDocs = Array.from(mountedRouteFiles).filter((filePath) => !documentedRouteFiles.has(filePath)).sort()
-const staleInDocs = Array.from(documentedRouteFiles).filter((filePath) => !mountedRouteFiles.has(filePath)).sort()
+const missingInDocs = Array.from(mountedRouteFiles)
+    .filter((filePath) => !documentedRouteFiles.has(filePath))
+    .sort()
+const staleInDocs = Array.from(documentedRouteFiles)
+    .filter((filePath) => !mountedRouteFiles.has(filePath))
+    .sort()
 
 if (missingInDocs.length > 0 || staleInDocs.length > 0) {
-    const lines = ['[verify-route-sources] Metahubs OpenAPI routeSources are out of sync with packages/metahubs-backend/base/src/domains/router.ts']
+    const lines = [
+        '[verify-route-sources] Metahubs OpenAPI routeSources are out of sync with packages/metahubs-backend/base/src/domains/router.ts'
+    ]
 
     if (missingInDocs.length > 0) {
         lines.push('Missing mounted route files in routeSources:')

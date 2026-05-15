@@ -1,5 +1,5 @@
 import type { DbExecutor } from '@universo/utils'
-import type { EntityDefinition, FieldDefinition } from '@universo/schema-ddl'
+import type { EntityDefinition, Component } from '@universo/schema-ddl'
 import type {
     ApplicationScriptDefinition,
     EnumerationValueDefinition,
@@ -10,15 +10,15 @@ import { normalizePublishedApplicationRuntimeSource } from './publishedApplicati
 
 export type SnapshotCodenameValue = string | VersionedLocalizedContent<string>
 
-export interface SnapshotFieldDefinition extends Omit<FieldDefinition, 'codename' | 'childFields'> {
+export interface SnapshotComponent extends Omit<Component, 'codename' | 'childFields'> {
     codename: SnapshotCodenameValue
-    childFields?: SnapshotFieldDefinition[]
+    childFields?: SnapshotComponent[]
 }
 
 export interface SnapshotEntityDefinition extends Omit<EntityDefinition, 'codename' | 'fields'> {
     codename: SnapshotCodenameValue
     tableName?: string
-    fields: SnapshotFieldDefinition[]
+    fields: SnapshotComponent[]
 }
 
 export interface SnapshotEnumerationValueDefinition extends Omit<EnumerationValueDefinition, 'codename'> {
@@ -39,7 +39,7 @@ export interface SnapshotConstantDefinition {
 
 export interface SnapshotSharedEntityOverrideDefinition {
     id: string
-    entityKind: 'attribute' | 'constant' | 'value'
+    entityKind: 'component' | 'constant' | 'value'
     sharedEntityId: string
     targetObjectId: string
     isExcluded: boolean
@@ -58,9 +58,7 @@ export interface PublishedApplicationSnapshot {
     elements?: Record<string, unknown[]>
     optionValues?: Record<string, SnapshotEnumerationValueDefinition[]>
     constants?: Record<string, unknown[]>
-    sharedFieldDefinitions?: SnapshotFieldDefinition[]
-    /** @deprecated use sharedFieldDefinitions */
-    sharedAttributes?: SnapshotFieldDefinition[]
+    sharedComponents?: SnapshotComponent[]
     sharedFixedValues?: SnapshotConstantDefinition[]
     /** @deprecated use sharedFixedValues */
     sharedConstants?: SnapshotConstantDefinition[]

@@ -74,7 +74,7 @@ export interface UpdateMetahubScriptInput {
 
 const ACTIVE_ATTACHMENT_CLAUSE = '_upl_deleted = false AND _mhb_deleted = false'
 const LEGACY_GLOBAL_SCRIPT_ROLE = 'global'
-const CATALOG_COMPATIBLE_KIND_KEY = 'catalog'
+const OBJECT_COMPATIBLE_KIND_KEY = 'object'
 
 const isGeneralAttachmentScope = (attachedToKind: ScriptAttachmentKind, attachedToId: string | null): boolean =>
     attachedToKind === 'general' && attachedToId === null
@@ -224,8 +224,8 @@ const isSharedLibraryScope = (
 const isLegacyGlobalScript = (row: Pick<StoredMetahubScriptRow, 'module_role'>): boolean =>
     String(row.module_role) === LEGACY_GLOBAL_SCRIPT_ROLE
 
-const isCatalogCompatibleEntityType = (entityType: { kindKey: string; config?: Record<string, unknown> | null }): boolean =>
-    entityType.kindKey === CATALOG_COMPATIBLE_KIND_KEY
+const isObjectCompatibleEntityType = (entityType: { kindKey: string; config?: Record<string, unknown> | null }): boolean =>
+    entityType.kindKey === OBJECT_COMPATIBLE_KIND_KEY
 
 const toSharedLibraryDependency = (script: MetahubScriptRecord) => ({
     id: script.id,
@@ -676,10 +676,10 @@ export class MetahubScriptsService {
                  LIMIT 1`,
                 [attachedToId]
             )
-        } else if (attachedToKind === 'attribute') {
+        } else if (attachedToKind === 'component') {
             row = await queryOne<{ id: string }>(
                 this.exec,
-                `SELECT id FROM ${qSchemaTable(schemaName, '_mhb_attributes')}
+                `SELECT id FROM ${qSchemaTable(schemaName, '_mhb_components')}
                  WHERE id = $1 AND ${ACTIVE_ATTACHMENT_CLAUSE}
                  LIMIT 1`,
                 [attachedToId]
@@ -706,13 +706,13 @@ export class MetahubScriptsService {
     }
 
     private async resolveAttachmentObjectKinds(metahubId: string, attachedToKind: ScriptAttachmentKind): Promise<string[]> {
-        if (attachedToKind !== 'catalog') {
+        if (attachedToKind !== 'object') {
             return [attachedToKind]
         }
 
         const entityTypeService = new EntityTypeService(this.exec, this.schemaService)
         const customTypes = await entityTypeService.listEditableTypes(metahubId)
-        const compatibleKinds = customTypes.filter(isCatalogCompatibleEntityType).map((entityType) => entityType.kindKey)
+        const compatibleKinds = customTypes.filter(isObjectCompatibleEntityType).map((entityType) => entityType.kindKey)
 
         return Array.from(new Set([attachedToKind, ...compatibleKinds]))
     }

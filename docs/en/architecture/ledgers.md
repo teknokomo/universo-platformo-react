@@ -13,24 +13,24 @@ Ledgers are authored through the same Entity workspace as other standard kinds.
 The metahub menu places Ledgers after Enumerations, and Ledgers use the shared generic entity list, dialog, search, pagination, and settings surfaces.
 
 Ledger fields are ordinary field definitions.
-The `config.ledger.fieldRoles` block classifies those fields as dimensions, resources, measures, attributes, period fields, source references, or workspace scope.
+The `config.ledger.fieldRoles` block classifies those fields as dimensions, resources, measures, components, period fields, source references, or workspace scope.
 This keeps Ledger authoring compatible with the existing field editor and avoids a parallel Ledger-only schema designer.
 
 ## Snapshot Model
 
 Ledger definitions are metadata, so they are exported in publication snapshots with their entity definition, fields, presentation, and `config.ledger`.
-Operational ledger facts are not normal Catalog records and are not exported as seeded runtime rows by default.
+Operational ledger facts are not normal Object records and are not exported as seeded runtime rows by default.
 
-Catalogs can also carry `config.recordBehavior`.
+Objects can also carry `config.recordBehavior`.
 This block describes reference, transactional, or hybrid behavior, including identity fields, numbering, effective dates, lifecycle states, and posting policy.
 
 ## Runtime Boundary
 
 Ledgers are excluded from generic runtime row CRUD.
-Runtime Catalog rows remain the user-editable operational surface, while Ledgers are intended for posting, reporting, projections, and script-controlled fact append flows.
+Runtime Object rows remain the user-editable operational surface, while Ledgers are intended for posting, reporting, projections, and script-controlled fact append flows.
 
-Transactional Catalog behavior is platform-owned.
-Runtime schema generation adds `_app_record_*` and `_app_post*` columns for Catalogs with enabled `recordBehavior`, plus `_app_record_counters` for atomic numbering.
+Transactional Object behavior is platform-owned.
+Runtime schema generation adds `_app_record_*` and `_app_post*` columns for Objects with enabled `recordBehavior`, plus `_app_record_counters` for atomic numbering.
 The row command API is:
 
 - `POST /api/v1/applications/:applicationId/runtime/rows/:rowId/post`

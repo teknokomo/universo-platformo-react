@@ -4,7 +4,7 @@ import { test, expect } from '../../fixtures/test'
 import {
     createLoggedInApiContext,
     createMetahub,
-    createFieldDefinition,
+    createComponent,
     createLayout,
     createPublication,
     createPublicationLinkedApplication,
@@ -34,7 +34,7 @@ import {
     assertSelfHostedAppEnvelopeContract,
     buildSelfHostedAppLiveMetahubCodename,
     buildSelfHostedAppLiveMetahubName,
-    getSelfHostedAppCatalogAttributes
+    getSelfHostedAppObjectComponents
 } from '../../support/selfHostedAppFixtureContract.mjs'
 
 type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
@@ -113,7 +113,7 @@ async function applyEnhancedLayoutConfig(api: ApiContext, metahubId: string) {
             {
                 config: {
                     ...(primaryMenuWidget.config && typeof primaryMenuWidget.config === 'object' ? primaryMenuWidget.config : {}),
-                    autoShowAllCatalogs: true,
+                    autoShowAllObjects: true,
                     showTitle: true,
                     title: buildVLC(SELF_HOSTED_APP_LAYOUT.menuTitle.en, SELF_HOSTED_APP_LAYOUT.menuTitle.ru)
                 }
@@ -125,7 +125,7 @@ async function applyEnhancedLayoutConfig(api: ApiContext, metahubId: string) {
             zone: 'left',
             widgetKey: 'menuWidget',
             config: {
-                autoShowAllCatalogs: true,
+                autoShowAllObjects: true,
                 showTitle: true,
                 title: buildVLC(SELF_HOSTED_APP_LAYOUT.menuTitle.en, SELF_HOSTED_APP_LAYOUT.menuTitle.ru)
             }
@@ -161,7 +161,7 @@ async function createSettingsScopedLayoutOverride(api: ApiContext, metahubId: st
         descriptionPrimaryLocale: 'en',
         config: {
             ...SELF_HOSTED_APP_SETTINGS_LAYOUT.runtimeConfig,
-            catalogBehavior: SELF_HOSTED_APP_SETTINGS_LAYOUT.catalogBehavior
+            objectBehavior: SELF_HOSTED_APP_SETTINGS_LAYOUT.objectBehavior
         },
         isActive: true,
         isDefault: true
@@ -187,7 +187,7 @@ async function createSettingsScopedLayoutOverride(api: ApiContext, metahubId: st
         showViewToggle: SELF_HOSTED_APP_SETTINGS_LAYOUT.runtimeConfig.showViewToggle,
         defaultViewMode: SELF_HOSTED_APP_SETTINGS_LAYOUT.runtimeConfig.defaultViewMode,
         showFilterBar: SELF_HOSTED_APP_SETTINGS_LAYOUT.runtimeConfig.showFilterBar,
-        catalogBehavior: SELF_HOSTED_APP_SETTINGS_LAYOUT.catalogBehavior
+        objectBehavior: SELF_HOSTED_APP_SETTINGS_LAYOUT.objectBehavior
     })
 
     return settingsLayoutId
@@ -209,7 +209,7 @@ async function apiGet(api: ApiContext, urlPath: string) {
     })
 }
 
-/* ────── Self-hosted fixture catalog definitions ────── */
+/* ────── Self-hosted fixture object definitions ────── */
 
 const buildSectionCreatePayload = (section: SelfHostedAppSection, hubId?: string) => {
     const payload = {
@@ -248,14 +248,11 @@ async function createEnumerationValue(api, metahubId, enumerationId, payload, la
     return expectApiMutationSuccess(response, label)
 }
 
-async function seedSettingsBaseline(api: ApiContext, metahubId: string, catalogId: string) {
+async function seedSettingsBaseline(api: ApiContext, metahubId: string, objectId: string) {
     for (const row of SELF_HOSTED_APP_SETTINGS_BASELINE) {
-        const response = await sendWithCsrf(
-            api,
-            'POST',
-            `/api/v1/metahub/${metahubId}/entities/catalog/instance/${catalogId}/records`,
-            { data: row }
-        )
+        const response = await sendWithCsrf(api, 'POST', `/api/v1/metahub/${metahubId}/entities/object/instance/${objectId}/records`, {
+            data: row
+        })
         expect(response.ok).toBe(true)
     }
 }
@@ -269,24 +266,24 @@ async function ensureSharedContainers(api: ApiContext, metahubId: string) {
 
 async function seedSharedEntities(api: ApiContext, metahubId: string, sectionMap: Record<string, string>) {
     const sharedContainers = await ensureSharedContainers(api, metahubId)
-    const sharedCatalogContainerId = sharedContainers.find((item) => item?.kind === SHARED_OBJECT_KINDS.SHARED_CATALOG_POOL)?.objectId
+    const sharedObjectContainerId = sharedContainers.find((item) => item?.kind === SHARED_OBJECT_KINDS.SHARED_OBJECT_POOL)?.objectId
     const sharedSetContainerId = sharedContainers.find((item) => item?.kind === SHARED_OBJECT_KINDS.SHARED_SET_POOL)?.objectId
     const sharedEnumerationContainerId = sharedContainers.find((item) => item?.kind === SHARED_OBJECT_KINDS.SHARED_ENUM_POOL)?.objectId
 
-    expect(typeof sharedCatalogContainerId).toBe('string')
+    expect(typeof sharedObjectContainerId).toBe('string')
     expect(typeof sharedSetContainerId).toBe('string')
     expect(typeof sharedEnumerationContainerId).toBe('string')
 
-    const sharedAttribute = await createFieldDefinition(api, metahubId, sharedCatalogContainerId, {
-        codename: buildVLC(SELF_HOSTED_APP_SHARED_ENTITIES.attribute.codename.en, SELF_HOSTED_APP_SHARED_ENTITIES.attribute.codename.ru),
-        name: SELF_HOSTED_APP_SHARED_ENTITIES.attribute.name,
+    const sharedComponent = await createComponent(api, metahubId, sharedObjectContainerId, {
+        codename: buildVLC(SELF_HOSTED_APP_SHARED_ENTITIES.component.codename.en, SELF_HOSTED_APP_SHARED_ENTITIES.component.codename.ru),
+        name: SELF_HOSTED_APP_SHARED_ENTITIES.component.name,
         namePrimaryLocale: 'en',
         dataType: 'STRING',
         isRequired: false
     })
 
-    const sharedAttributeId = sharedAttribute?.data?.id ?? sharedAttribute?.id
-    expect(typeof sharedAttributeId).toBe('string')
+    const sharedComponentId = sharedComponent?.data?.id ?? sharedComponent?.id
+    expect(typeof sharedComponentId).toBe('string')
 
     const sharedConstantResponse = await sendWithCsrf(
         api,
@@ -319,9 +316,9 @@ async function seedSharedEntities(api: ApiContext, metahubId: string, sectionMap
     )
 
     const overrideResponse = await sendWithCsrf(api, 'PATCH', `/api/v1/metahub/${metahubId}/shared-entity-overrides`, {
-        entityKind: 'attribute',
-        sharedEntityId: sharedAttributeId,
-        targetObjectId: sectionMap[SELF_HOSTED_APP_SHARED_ENTITIES.attribute.excludedCatalogSectionCodename],
+        entityKind: 'component',
+        sharedEntityId: sharedComponentId,
+        targetObjectId: sectionMap[SELF_HOSTED_APP_SHARED_ENTITIES.component.excludedObjectSectionCodename],
         isExcluded: true
     })
     expect(overrideResponse.status).toBeLessThan(300)
@@ -382,11 +379,11 @@ test.describe('Metahubs Self-Hosted App Export', () => {
                 enumerationSectionId = sectionId
             }
 
-            const attrs = sectionDef.kind === 'catalog' ? getSelfHostedAppCatalogAttributes(sectionDef.codename) : []
+            const attrs = sectionDef.kind === 'object' ? getSelfHostedAppObjectComponents(sectionDef.codename) : []
             if (attrs.length > 0) {
-                const catalogId = sectionId
+                const objectId = sectionId
                 for (const attr of attrs) {
-                    await createFieldDefinition(api, metahubId, catalogId, {
+                    await createComponent(api, metahubId, objectId, {
                         codename: createLocalizedContent('en', attr.codename),
                         name: attr.name,
                         namePrimaryLocale: 'en',
@@ -427,9 +424,9 @@ test.describe('Metahubs Self-Hosted App Export', () => {
             expect(typeof settingsLayoutId).toBe('string')
         }
 
-        /* ── 3. Screenshot: metahub catalogs in UI ── */
+        /* ── 3. Screenshot: metahub objects in UI ── */
         try {
-            await page.goto(`/metahub/${metahubId}/entities/catalog/instances`)
+            await page.goto(`/metahub/${metahubId}/entities/object/instances`)
             await page.waitForLoadState('networkidle', { timeout: 15_000 })
             await page.waitForTimeout(2000)
             await page.screenshot({
@@ -544,13 +541,13 @@ test.describe('Metahubs Self-Hosted App Export', () => {
         const stats = fs.statSync(fixturePath)
         expect(stats.size).toBeGreaterThan(100)
 
-        /* ── 12. Final screenshot: metahub catalogs page ── */
+        /* ── 12. Final screenshot: metahub objects page ── */
         try {
-            await page.goto(`/metahub/${metahubId}/entities/catalog/instances`)
+            await page.goto(`/metahub/${metahubId}/entities/object/instances`)
             await page.waitForLoadState('networkidle', { timeout: 15_000 })
             await page.waitForTimeout(1500)
             await page.screenshot({
-                path: path.join(SCREENSHOTS_DIR, '04-catalogs-page.png'),
+                path: path.join(SCREENSHOTS_DIR, '04-objects-page.png'),
                 fullPage: true
             })
         } catch (e) {

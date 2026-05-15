@@ -24,7 +24,7 @@ export type BranchFormValues = {
     fullCopy?: boolean
     copyLayouts?: boolean
     copyTreeEntities?: boolean
-    copyLinkedCollections?: boolean
+    copyObjectCollections?: boolean
     copyValueGroups?: boolean
     copyOptionLists?: boolean
 }

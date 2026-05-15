@@ -52,8 +52,8 @@ const createSnapshotScript = (overrides: Partial<SnapshotScriptDefinition> = {})
             }
         }
     },
-    attachedToKind: overrides.attachedToKind ?? 'catalog',
-    attachedToId: overrides.attachedToId ?? 'catalog-1',
+    attachedToKind: overrides.attachedToKind ?? 'object',
+    attachedToId: overrides.attachedToId ?? 'object-1',
     moduleRole: overrides.moduleRole ?? 'widget',
     sourceKind: overrides.sourceKind ?? 'embedded',
     sdkApiVersion: overrides.sdkApiVersion ?? '1.0.0',
@@ -85,8 +85,8 @@ const createStoredScriptRow = (overrides: Partial<StoredScriptRow> = {}): Stored
             }
         }
     },
-    attached_to_kind: overrides.attached_to_kind ?? 'catalog',
-    attached_to_id: overrides.attached_to_id ?? 'catalog-1',
+    attached_to_kind: overrides.attached_to_kind ?? 'object',
+    attached_to_id: overrides.attached_to_id ?? 'object-1',
     module_role: overrides.module_role ?? 'widget',
     source_kind: overrides.source_kind ?? 'embedded',
     sdk_api_version: overrides.sdk_api_version ?? '1.0.0',
@@ -285,7 +285,7 @@ describe('syncScriptPersistence', () => {
                 createSnapshotScript({
                     id: 'script-new',
                     codename: createCodenameVlc('score-widget', 'виджет-очки'),
-                    attachedToId: 'catalog-2',
+                    attachedToId: 'object-2',
                     checksum: 'score-checksum'
                 })
             ])
@@ -426,7 +426,7 @@ describe('syncScriptPersistence', () => {
                 createStoredScriptRow({
                     id: 'script-1',
                     codename: 'alpha-widget',
-                    attached_to_id: 'catalog-1',
+                    attached_to_id: 'object-1',
                     checksum: 'alpha-checksum'
                 })
             ]
@@ -438,7 +438,7 @@ describe('syncScriptPersistence', () => {
                 createSnapshotScript({
                     id: 'script-1',
                     codename: 'alpha-widget',
-                    attachedToId: 'catalog-1',
+                    attachedToId: 'object-1',
                     checksum: 'alpha-checksum'
                 }),
                 createSnapshotScript({

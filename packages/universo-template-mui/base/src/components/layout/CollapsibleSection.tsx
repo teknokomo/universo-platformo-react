@@ -14,7 +14,7 @@ export interface CollapsibleSectionProps {
 
 /**
  * Reusable collapsible section with a clickable header.
- * Matches the existing Collapse pattern used in AttributeFormFields.
+ * Matches the existing Collapse pattern used in metadata form fields.
  */
 // eslint-disable-next-line react/prop-types -- Props typed via CollapsibleSectionProps interface
 export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({ label, defaultOpen = false, children }) => {

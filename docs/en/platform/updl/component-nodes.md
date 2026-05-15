@@ -7,7 +7,7 @@ description: Explain the role of component nodes in UPDL.
 Component nodes attach reusable capabilities, fields, behaviors, or metadata to
 other nodes.
 
-![Shared attributes as reusable component-like definitions](../../.gitbook/assets/entities/shared-attributes.png)
+![Shared components as reusable component-like definitions](../../.gitbook/assets/entities/shared-components.png)
 
 ## Typical Responsibilities
 

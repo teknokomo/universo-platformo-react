@@ -54,25 +54,25 @@ export {
 } from './systemFields'
 
 export {
-    getCatalogSystemFieldDefinitions,
-    getCatalogSystemFieldDefinition,
-    getCatalogSystemFieldSeedInputs,
-    buildCatalogSystemFieldDefinitionSeedRecord,
-    getCatalogSystemFieldDefinitionSeedRecords,
-    getReservedCatalogSystemFieldCodenames,
-    getDefaultCatalogSystemFieldStates,
-    validateCatalogSystemFieldToggleSet,
+    getObjectSystemComponents,
+    getObjectSystemComponent,
+    getObjectSystemComponentSeedInputs,
+    buildObjectSystemComponentSeedRecord,
+    getObjectSystemComponentSeedRecords,
+    getReservedObjectSystemFieldCodenames,
+    getDefaultObjectSystemFieldStates,
+    validateObjectSystemFieldToggleSet,
     deriveApplicationLifecycleContract,
     derivePlatformSystemFieldsContract,
     normalizeApplicationLifecycleContract,
     resolveApplicationLifecycleContractFromConfig,
     resolvePlatformSystemFieldsContractFromConfig,
-    type CatalogSystemFieldToggleValidationResult,
-    type CatalogSystemFieldDefinitionSeedInput,
-    type CatalogSystemFieldDefinitionSeedRecord,
+    type ObjectSystemFieldToggleValidationResult,
+    type ObjectSystemComponentSeedInput,
+    type ObjectSystemComponentSeedRecord,
     type PlatformSystemFieldFamilyContract,
     type PlatformSystemFieldsContract
-} from './catalogSystemFields'
+} from './objectSystemFields'
 
 // Soft delete utilities
 export {

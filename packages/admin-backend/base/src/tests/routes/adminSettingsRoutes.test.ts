@@ -40,7 +40,7 @@ function buildApp() {
         createAdminSettingsRoutes({
             globalAccessService: {} as never,
             permissionService: {} as never,
-            getDbExecutor: () => ({ query: jest.fn(), transaction: jest.fn() }) as never
+            getDbExecutor: () => ({ query: jest.fn(), transaction: jest.fn() } as never)
         })
     )
     return app
@@ -95,7 +95,9 @@ describe('adminSettingsRoutes', () => {
     it('bulk-upserts settings', async () => {
         mockBulkUpsertSettings.mockResolvedValue([{ id: '1', category: 'metahubs', key: 'codenameStyle', value: 'kebab-case' }] as never)
 
-        const res = await request(buildApp()).put('/settings/metahubs').send({ values: { codenameStyle: 'kebab-case' } })
+        const res = await request(buildApp())
+            .put('/settings/metahubs')
+            .send({ values: { codenameStyle: 'kebab-case' } })
 
         expect(res.status).toBe(200)
         expect(mockBulkUpsertSettings).toHaveBeenCalledTimes(1)
@@ -107,13 +109,17 @@ describe('adminSettingsRoutes', () => {
     })
 
     it('rejects unknown metahubs setting key', async () => {
-        const res = await request(buildApp()).put('/settings/metahubs').send({ values: { unknownKey: true } })
+        const res = await request(buildApp())
+            .put('/settings/metahubs')
+            .send({ values: { unknownKey: true } })
         expect(res.status).toBe(400)
         expect(res.body.error).toContain('Unknown metahubs setting key')
     })
 
     it('rejects invalid metahubs setting value type', async () => {
-        const res = await request(buildApp()).put('/settings/metahubs').send({ values: { codenameStyle: 'invalid-style' } })
+        const res = await request(buildApp())
+            .put('/settings/metahubs')
+            .send({ values: { codenameStyle: 'invalid-style' } })
         expect(res.status).toBe(400)
     })
 

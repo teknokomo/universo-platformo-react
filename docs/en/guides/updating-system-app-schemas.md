@@ -42,7 +42,7 @@ each system app.
 {
     codename: 'priority',
     physicalColumnName: 'priority',
-    dataType: AttributeDataType.NUMBER,
+    dataType: ComponentDefinitionDataType.NUMBER,
     physicalDataType: 'INTEGER',
     defaultSqlExpression: '0',
     isRequired: true
@@ -68,7 +68,7 @@ pnpm build
 
 1. Add a new entry to the `targetBusinessTables` array with `kind`, `codename`,
    `tableName`, `fields`, and optional `presentation`.
-2. Follow the naming convention: `cat_` for catalogs, `doc_` for documents,
+2. Follow the naming convention: `obj_` for objects, `doc_` for documents,
    `rel_` for relations, `cfg_` for settings.
 3. If the new table has foreign key references to other tables in the same
    system app, set `targetTableCodename` on the `REF` field.
@@ -153,7 +153,7 @@ pnpm migration system-app-schema-plan --keys=admin
 # Apply schema generation plans to the database
 pnpm migration system-app-schema-apply
 
-# Bootstrap structure metadata (_app_objects, _app_attributes)
+# Bootstrap structure metadata (_app_objects, _app_components)
 pnpm migration system-app-schema-bootstrap
 
 # Run full platform health check

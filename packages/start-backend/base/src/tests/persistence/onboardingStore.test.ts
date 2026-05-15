@@ -1,6 +1,6 @@
 import type { DbExecutor } from '@universo/utils/database'
 import {
-    fetchCatalogItems,
+    fetchObjectItems,
     fetchUserSelections,
     fetchAllUserSelections,
     validateItemExists,
@@ -10,28 +10,28 @@ import {
 const createMockExecutor = (queryImpl: jest.Mock): DbExecutor => ({ query: queryImpl, transaction: jest.fn() } as never)
 
 describe('onboardingStore', () => {
-    describe('fetchCatalogItems', () => {
-        it('queries correct table for each catalog kind', async () => {
+    describe('fetchObjectItems', () => {
+        it('queries correct table for each object kind', async () => {
             const query = jest.fn().mockResolvedValue([])
             const exec = createMockExecutor(query)
 
-            await fetchCatalogItems(exec, 'goals')
-            expect(query).toHaveBeenCalledWith(expect.stringContaining('start.cat_goals'), [])
+            await fetchObjectItems(exec, 'goals')
+            expect(query).toHaveBeenCalledWith(expect.stringContaining('start.obj_goals'), [])
 
             query.mockClear()
-            await fetchCatalogItems(exec, 'topics')
-            expect(query).toHaveBeenCalledWith(expect.stringContaining('start.cat_topics'), [])
+            await fetchObjectItems(exec, 'topics')
+            expect(query).toHaveBeenCalledWith(expect.stringContaining('start.obj_topics'), [])
 
             query.mockClear()
-            await fetchCatalogItems(exec, 'features')
-            expect(query).toHaveBeenCalledWith(expect.stringContaining('start.cat_features'), [])
+            await fetchObjectItems(exec, 'features')
+            expect(query).toHaveBeenCalledWith(expect.stringContaining('start.obj_features'), [])
         })
 
         it('filters active and non-deleted rows, orders by sort_order', async () => {
             const query = jest.fn().mockResolvedValue([])
             const exec = createMockExecutor(query)
 
-            await fetchCatalogItems(exec, 'goals')
+            await fetchObjectItems(exec, 'goals')
             const sql = query.mock.calls[0][0] as string
             expect(sql).toContain('is_active = true')
             expect(sql).toContain('_upl_deleted = false')
@@ -41,7 +41,7 @@ describe('onboardingStore', () => {
     })
 
     describe('fetchUserSelections', () => {
-        it('queries with user_id and catalog_kind', async () => {
+        it('queries with user_id and object_kind', async () => {
             const query = jest.fn().mockResolvedValue([])
             const exec = createMockExecutor(query)
 
@@ -53,8 +53,8 @@ describe('onboardingStore', () => {
     describe('fetchAllUserSelections', () => {
         it('queries all selections for a user', async () => {
             const query = jest.fn().mockResolvedValue([
-                { id: 's-1', user_id: 'u-1', catalog_kind: 'goals', item_id: 'g-1' },
-                { id: 's-2', user_id: 'u-1', catalog_kind: 'topics', item_id: 't-1' }
+                { id: 's-1', user_id: 'u-1', object_kind: 'goals', item_id: 'g-1' },
+                { id: 's-2', user_id: 'u-1', object_kind: 'topics', item_id: 't-1' }
             ])
             const exec = createMockExecutor(query)
 
@@ -89,7 +89,7 @@ describe('onboardingStore', () => {
                 // fetchUserSelections returns empty
                 .mockResolvedValueOnce([])
                 // INSERT for item-1
-                .mockResolvedValueOnce([{ id: 's-1', user_id: 'u-1', catalog_kind: 'goals', item_id: 'item-1' }])
+                .mockResolvedValueOnce([{ id: 's-1', user_id: 'u-1', object_kind: 'goals', item_id: 'item-1' }])
 
             const exec = createMockExecutor(query)
             const result = await syncUserSelections(exec, 'u-1', 'goals', ['item-1'])
@@ -105,7 +105,7 @@ describe('onboardingStore', () => {
             const query = jest
                 .fn()
                 // fetchUserSelections returns an existing selection
-                .mockResolvedValueOnce([{ id: 's-1', user_id: 'u-1', catalog_kind: 'goals', item_id: 'item-1' }])
+                .mockResolvedValueOnce([{ id: 's-1', user_id: 'u-1', object_kind: 'goals', item_id: 'item-1' }])
                 // UPDATE (soft delete) RETURNING
                 .mockResolvedValueOnce([{ id: 's-1' }])
 
@@ -124,7 +124,7 @@ describe('onboardingStore', () => {
         })
 
         it('returns zero counts for idempotent sync', async () => {
-            const query = jest.fn().mockResolvedValueOnce([{ id: 's-1', user_id: 'u-1', catalog_kind: 'goals', item_id: 'item-1' }])
+            const query = jest.fn().mockResolvedValueOnce([{ id: 's-1', user_id: 'u-1', object_kind: 'goals', item_id: 'item-1' }])
 
             const exec = createMockExecutor(query)
             const result = await syncUserSelections(exec, 'u-1', 'goals', ['item-1'])
@@ -138,7 +138,7 @@ describe('onboardingStore', () => {
             const query = jest
                 .fn()
                 .mockResolvedValueOnce([])
-                .mockResolvedValueOnce([{ id: 's-1', user_id: 'u-1', catalog_kind: 'goals', item_id: 'item-1' }])
+                .mockResolvedValueOnce([{ id: 's-1', user_id: 'u-1', object_kind: 'goals', item_id: 'item-1' }])
 
             const exec = createMockExecutor(query)
             const result = await syncUserSelections(exec, 'u-1', 'goals', ['item-1', 'item-1'])

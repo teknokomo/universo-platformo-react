@@ -16,7 +16,7 @@ import {
     createLoggedInApiContext,
     createMetahub,
     disposeApiContext,
-    listLinkedCollections,
+    listObjectCollections,
     listTreeEntities,
     listValueGroups,
     listOptionLists
@@ -28,10 +28,7 @@ import { createLocalizedContent } from '@universo/utils'
 
 type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
 
-const SCREENSHOT_DIRECTORIES = [
-    'docs/en/.gitbook/assets/entities',
-    'docs/ru/.gitbook/assets/entities'
-]
+const SCREENSHOT_DIRECTORIES = ['docs/en/.gitbook/assets/entities', 'docs/ru/.gitbook/assets/entities']
 
 function ensureDirectories() {
     for (const dir of SCREENSHOT_DIRECTORIES) {
@@ -57,28 +54,26 @@ const ENTITY_UI_COPY = {
         metahubs: 'Metahubs',
         resources: 'Resources',
         hubs: 'Hubs',
-        attributes: 'Attributes',
-        fieldDefinitions: 'Attributes',
+        components: 'Components',
         records: 'Records',
         constants: 'Constants',
         values: 'Values',
         createEntityType: 'Create Entity',
         selectTemplate: 'Select template',
-        catalogs: 'Catalogs'
+        objects: 'Objects'
     },
     ru: {
         entityTypes: 'Сущности',
         metahubs: 'Метахабы',
         resources: 'Ресурсы',
         hubs: 'Хабы',
-        attributes: 'Атрибуты',
-        fieldDefinitions: 'Атрибуты',
+        components: 'Компоненты',
         records: 'Записи',
         constants: 'Константы',
         values: 'Значения',
         createEntityType: 'Создать сущность',
         selectTemplate: 'Выберите шаблон',
-        catalogs: 'Каталоги'
+        objects: 'Объекты'
     }
 } as const
 
@@ -127,7 +122,7 @@ test('@generator capture entity documentation screenshots for EN and RU locales'
             const templateSelector = entityDialog.getByRole('combobox', { name: uiCopy.selectTemplate })
             await expect(templateSelector).toBeVisible({ timeout: 30_000 })
             await templateSelector.click()
-            await page.getByRole('option', { name: new RegExp(`^${escapeRegExp(uiCopy.catalogs)}`, 'i') }).click()
+            await page.getByRole('option', { name: new RegExp(`^${escapeRegExp(uiCopy.objects)}`, 'i') }).click()
             await expect(entityDialog.getByRole('progressbar')).toHaveCount(0)
             await entityDialog.screenshot({
                 path: path.join(repoRoot, `docs/${locale}/.gitbook/assets/entities/metahub-entities-create-dialog.png`)
@@ -156,12 +151,12 @@ test('@generator capture entity documentation screenshots for EN and RU locales'
             await expect(page.getByTestId(pageSpacingSelectors.metahubResourcesTabs)).toBeVisible({ timeout: 30_000 })
             await captureScreenshot(page, locale, 'resources-workspace')
 
-            await page.getByRole('tab', { name: uiCopy.attributes, exact: true }).click()
-            await expect(page.getByRole('tab', { name: uiCopy.attributes, exact: true, selected: true })).toBeVisible({
+            await page.getByRole('tab', { name: uiCopy.components, exact: true }).click()
+            await expect(page.getByRole('tab', { name: uiCopy.components, exact: true, selected: true })).toBeVisible({
                 timeout: 30_000
             })
             await expect(page.getByTestId(pageSpacingSelectors.metahubResourcesContent)).toBeVisible({ timeout: 30_000 })
-            await captureScreenshot(page, locale, 'shared-attributes')
+            await captureScreenshot(page, locale, 'shared-components')
 
             await page.getByRole('tab', { name: uiCopy.constants, exact: true }).click()
             await expect(page.getByRole('tab', { name: uiCopy.constants, exact: true, selected: true })).toBeVisible({
@@ -179,17 +174,17 @@ test('@generator capture entity documentation screenshots for EN and RU locales'
             if (treeEntities?.items?.length > 0) {
                 const hub = treeEntities.items[0]
 
-                // 5. Catalogs under hub
-                const catalogs = await listLinkedCollections(ctx, metahubId, { limit: 100, offset: 0, treeEntityId: hub.id })
-                if (catalogs?.items?.length > 0) {
-                    const catalog = catalogs.items[0]
-                    await page.goto(`/metahub/${metahubId}/entities/catalog/instance/${catalog.id}/field-definitions`)
-                    await expect(page.getByRole('heading', { name: uiCopy.fieldDefinitions })).toBeVisible({ timeout: 30_000 })
-                    await captureScreenshot(page, locale, 'field-definition-list')
+                // 5. Objects under hub
+                const objects = await listObjectCollections(ctx, metahubId, { limit: 100, offset: 0, treeEntityId: hub.id })
+                if (objects?.items?.length > 0) {
+                    const object = objects.items[0]
+                    await page.goto(`/metahub/${metahubId}/entities/object/instance/${object.id}/components`)
+                    await expect(page.getByRole('heading', { name: uiCopy.components })).toBeVisible({ timeout: 30_000 })
+                    await captureScreenshot(page, locale, 'component-list')
 
-                    await page.goto(`/metahub/${metahubId}/entities/catalog/instance/${catalog.id}/records`)
+                    await page.goto(`/metahub/${metahubId}/entities/object/instance/${object.id}/records`)
                     await expect(page.getByRole('heading', { name: uiCopy.records })).toBeVisible({ timeout: 30_000 })
-                    await captureScreenshot(page, locale, 'catalog-records')
+                    await captureScreenshot(page, locale, 'object-records')
                 }
             }
 

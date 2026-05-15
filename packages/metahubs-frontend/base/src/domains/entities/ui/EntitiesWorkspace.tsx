@@ -26,21 +26,21 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 import DeleteIcon from '@mui/icons-material/Delete'
 import {
-    COMPONENT_DEPENDENCIES,
-    ENTITY_COMPONENT_KEYS,
+    CAPABILITY_DEPENDENCIES,
+    ENTITY_CAPABILITY_KEYS,
     ENTITY_RESOURCE_SURFACE_KEY_PATTERN,
     ENTITY_RESOURCE_SURFACE_CAPABILITIES,
     ENTITY_RESOURCE_SURFACE_ROUTE_PATTERN,
     getDefaultEntityResourceSurfaceDefinition,
-    getEnabledComponentKeys,
+    getEnabledCapabilityKeys,
     isBuiltinEntityKind,
-    isEnabledComponentConfig,
+    isEnabledCapabilityConfig,
     isEntityResourceSurfaceCapability,
     supportsLedgerSchema,
     supportsRecordBehavior,
-    validateComponentDependencies,
-    type ComponentManifest,
-    type EntityComponentKey,
+    validateCapabilityDependencies,
+    type EntityTypeCapabilities,
+    type EntityCapabilityKey,
     type EntityResourceSurfaceCapability,
     type EntityResourceSurfaceDefinition,
     type EntityTypeUIConfig,
@@ -142,7 +142,7 @@ const buildEntityInstancesPath = (metahubId: string, kindKey: string) =>
 
 const shouldTranslateEntityTypeUiText = (kindKey: string) => isBuiltinEntityKind(kindKey)
 
-const DEFAULT_COMPONENTS_TEMPLATE: ComponentManifest = {
+const DEFAULT_COMPONENTS_TEMPLATE: EntityTypeCapabilities = {
     dataSchema: { enabled: true },
     records: false,
     treeAssignment: false,
@@ -276,7 +276,7 @@ const buildDefaultResourceSurface = (capability: EntityResourceSurfaceCapability
     }
 }
 
-const normalizeResourceSurfaceDefinitions = (value: unknown, components?: ComponentManifest): EntityResourceSurfaceDefinition[] => {
+const normalizeResourceSurfaceDefinitions = (value: unknown, capabilities?: EntityTypeCapabilities): EntityResourceSurfaceDefinition[] => {
     const source = Array.isArray(value) ? value : []
     const byCapability = new Map<EntityResourceSurfaceCapability, EntityResourceSurfaceDefinition>()
 
@@ -316,7 +316,7 @@ const normalizeResourceSurfaceDefinitions = (value: unknown, components?: Compon
     }
 
     for (const capability of RESOURCE_SURFACE_CAPABILITY_ORDER) {
-        if (components && !isEnabledComponentConfig(components[capability])) {
+        if (capabilities && !isEnabledCapabilityConfig(capabilities[capability])) {
             byCapability.delete(capability)
             continue
         }
@@ -334,16 +334,16 @@ const updateResourceSurfaceDefinition = (
     value: unknown,
     capability: EntityResourceSurfaceCapability,
     patch: Partial<EntityResourceSurfaceDefinition>,
-    components?: ComponentManifest
+    capabilities?: EntityTypeCapabilities
 ): EntityResourceSurfaceDefinition[] => {
-    const surfaces = normalizeResourceSurfaceDefinitions(value, components)
+    const surfaces = normalizeResourceSurfaceDefinitions(value, capabilities)
     const nextSurfaces = surfaces.map((surface) => (surface.capability === capability ? { ...surface, ...patch } : surface))
 
     if (!nextSurfaces.some((surface) => surface.capability === capability)) {
         nextSurfaces.push({ ...buildDefaultResourceSurface(capability), ...patch })
     }
 
-    return normalizeResourceSurfaceDefinitions(nextSurfaces, components)
+    return normalizeResourceSurfaceDefinitions(nextSurfaces, capabilities)
 }
 
 const parseJsonRecordField = (value: unknown, emptyFallback: Record<string, unknown> = {}): Record<string, unknown> => {
@@ -425,10 +425,10 @@ const normalizeStructuredEntityTabs = (value: unknown): SupportedEntityTab[] => 
     ) as SupportedEntityTab[]
 }
 
-const getDefaultEnabledComponent = (key: keyof ComponentManifest) => {
+const getDefaultEnabledComponent = (key: keyof EntityTypeCapabilities) => {
     switch (key) {
         case 'dataSchema':
-            return { enabled: true, maxAttributes: null }
+            return { enabled: true, maxComponents: null }
         case 'records':
             return { enabled: true, maxElements: null }
         case 'treeAssignment':
@@ -454,73 +454,73 @@ const getDefaultEnabledComponent = (key: keyof ComponentManifest) => {
     }
 }
 
-const normalizeComponentManifestForBuilder = (value: unknown): ComponentManifest => {
+const normalizeEntityTypeCapabilitiesForBuilder = (value: unknown): EntityTypeCapabilities => {
     const source = isRecord(value) ? value : {}
 
-    const dataSchema = isEnabledComponentConfig(source.dataSchema as never)
+    const dataSchema = isEnabledCapabilityConfig(source.dataSchema as never)
         ? {
               enabled: true,
-              maxAttributes: normalizeOptionalInteger((source.dataSchema as Record<string, unknown>).maxAttributes)
+              maxComponents: normalizeOptionalInteger((source.dataSchema as Record<string, unknown>).maxComponents)
           }
         : false
-    const records = isEnabledComponentConfig(source.records as never)
+    const records = isEnabledCapabilityConfig(source.records as never)
         ? {
               enabled: true,
               maxElements: normalizeOptionalInteger((source.records as Record<string, unknown>).maxElements)
           }
         : false
-    const treeAssignment = isEnabledComponentConfig(source.treeAssignment as never)
+    const treeAssignment = isEnabledCapabilityConfig(source.treeAssignment as never)
         ? {
               enabled: true,
               isSingleHub: (source.treeAssignment as Record<string, unknown>).isSingleHub === true,
               isRequiredHub: (source.treeAssignment as Record<string, unknown>).isRequiredHub === true
           }
         : false
-    const hierarchy = isEnabledComponentConfig(source.hierarchy as never)
+    const hierarchy = isEnabledCapabilityConfig(source.hierarchy as never)
         ? {
               enabled: true,
               supportsFolders: (source.hierarchy as Record<string, unknown>).supportsFolders !== false
           }
         : false
-    const nestedCollections = isEnabledComponentConfig(source.nestedCollections as never)
+    const nestedCollections = isEnabledCapabilityConfig(source.nestedCollections as never)
         ? {
               enabled: true,
               maxCollections: normalizeOptionalInteger((source.nestedCollections as Record<string, unknown>).maxCollections)
           }
         : false
-    const relations = isEnabledComponentConfig(source.relations as never)
+    const relations = isEnabledCapabilityConfig(source.relations as never)
         ? {
               enabled: true,
               allowedRelationTypes: normalizeStringArray((source.relations as Record<string, unknown>).allowedRelationTypes)
           }
         : false
-    const physicalTable = isEnabledComponentConfig(source.physicalTable as never)
+    const physicalTable = isEnabledCapabilityConfig(source.physicalTable as never)
         ? {
               enabled: true,
               prefix: String((source.physicalTable as Record<string, unknown>).prefix ?? '').trim() || 'obj'
           }
         : false
-    const identityFields = isEnabledComponentConfig(source.identityFields as never)
+    const identityFields = isEnabledCapabilityConfig(source.identityFields as never)
         ? {
               enabled: true,
               allowNumber: (source.identityFields as Record<string, unknown>).allowNumber !== false,
               allowEffectiveDate: (source.identityFields as Record<string, unknown>).allowEffectiveDate !== false
           }
         : false
-    const recordLifecycle = isEnabledComponentConfig(source.recordLifecycle as never)
+    const recordLifecycle = isEnabledCapabilityConfig(source.recordLifecycle as never)
         ? {
               enabled: true,
               allowCustomStates: (source.recordLifecycle as Record<string, unknown>).allowCustomStates !== false
           }
         : false
-    const posting = isEnabledComponentConfig(source.posting as never)
+    const posting = isEnabledCapabilityConfig(source.posting as never)
         ? {
               enabled: true,
               allowManualPosting: (source.posting as Record<string, unknown>).allowManualPosting !== false,
               allowAutomaticPosting: (source.posting as Record<string, unknown>).allowAutomaticPosting !== false
           }
         : false
-    const ledgerSchema = isEnabledComponentConfig(source.ledgerSchema as never)
+    const ledgerSchema = isEnabledCapabilityConfig(source.ledgerSchema as never)
         ? {
               enabled: true,
               allowProjections: (source.ledgerSchema as Record<string, unknown>).allowProjections !== false,
@@ -529,19 +529,19 @@ const normalizeComponentManifestForBuilder = (value: unknown): ComponentManifest
           }
         : false
 
-    const manifest: ComponentManifest = {
+    const manifest: EntityTypeCapabilities = {
         dataSchema,
         records,
         treeAssignment,
-        optionValues: isEnabledComponentConfig(source.optionValues as never) ? { enabled: true } : false,
-        fixedValues: isEnabledComponentConfig(source.fixedValues as never) ? { enabled: true } : false,
+        optionValues: isEnabledCapabilityConfig(source.optionValues as never) ? { enabled: true } : false,
+        fixedValues: isEnabledCapabilityConfig(source.fixedValues as never) ? { enabled: true } : false,
         hierarchy,
         nestedCollections,
         relations,
-        actions: isEnabledComponentConfig(source.actions as never) ? { enabled: true } : false,
-        events: isEnabledComponentConfig(source.events as never) ? { enabled: true } : false,
-        scripting: isEnabledComponentConfig(source.scripting as never) ? { enabled: true } : false,
-        blockContent: isEnabledComponentConfig(source.blockContent as never)
+        actions: isEnabledCapabilityConfig(source.actions as never) ? { enabled: true } : false,
+        events: isEnabledCapabilityConfig(source.events as never) ? { enabled: true } : false,
+        scripting: isEnabledCapabilityConfig(source.scripting as never) ? { enabled: true } : false,
+        blockContent: isEnabledCapabilityConfig(source.blockContent as never)
             ? {
                   enabled: true,
                   storage: 'objectConfig',
@@ -551,8 +551,8 @@ const normalizeComponentManifestForBuilder = (value: unknown): ComponentManifest
                   maxBlocks: 500
               }
             : false,
-        layoutConfig: isEnabledComponentConfig(source.layoutConfig as never) ? { enabled: true } : false,
-        runtimeBehavior: isEnabledComponentConfig(source.runtimeBehavior as never) ? { enabled: true } : false,
+        layoutConfig: isEnabledCapabilityConfig(source.layoutConfig as never) ? { enabled: true } : false,
+        runtimeBehavior: isEnabledCapabilityConfig(source.runtimeBehavior as never) ? { enabled: true } : false,
         physicalTable,
         identityFields,
         recordLifecycle,
@@ -560,7 +560,7 @@ const normalizeComponentManifestForBuilder = (value: unknown): ComponentManifest
         ledgerSchema
     }
 
-    if (!isEnabledComponentConfig(manifest.dataSchema)) {
+    if (!isEnabledCapabilityConfig(manifest.dataSchema)) {
         manifest.records = false
         manifest.hierarchy = false
         manifest.nestedCollections = false
@@ -568,70 +568,70 @@ const normalizeComponentManifestForBuilder = (value: unknown): ComponentManifest
         manifest.ledgerSchema = false
     }
 
-    if (!isEnabledComponentConfig(manifest.actions)) {
+    if (!isEnabledCapabilityConfig(manifest.actions)) {
         manifest.events = false
     }
 
-    if (!isEnabledComponentConfig(manifest.layoutConfig)) {
+    if (!isEnabledCapabilityConfig(manifest.layoutConfig)) {
         manifest.runtimeBehavior = false
     }
 
-    if (!isEnabledComponentConfig(manifest.records)) {
+    if (!isEnabledCapabilityConfig(manifest.records)) {
         manifest.identityFields = false
         manifest.recordLifecycle = false
         manifest.posting = false
     }
 
-    if (!isEnabledComponentConfig(manifest.recordLifecycle)) {
+    if (!isEnabledCapabilityConfig(manifest.recordLifecycle)) {
         manifest.posting = false
     }
 
-    if (!isEnabledComponentConfig(manifest.physicalTable)) {
+    if (!isEnabledCapabilityConfig(manifest.physicalTable)) {
         manifest.ledgerSchema = false
     }
 
     return manifest
 }
 
-const setComponentEnabledState = (manifestValue: unknown, key: EntityComponentKey, enabled: boolean): ComponentManifest => {
-    let manifest = normalizeComponentManifestForBuilder(manifestValue)
+const setComponentEnabledState = (manifestValue: unknown, key: EntityCapabilityKey, enabled: boolean): EntityTypeCapabilities => {
+    let manifest = normalizeEntityTypeCapabilitiesForBuilder(manifestValue)
 
     if (enabled) {
-        const enableRecursively = (componentKey: EntityComponentKey) => {
-            for (const dependency of COMPONENT_DEPENDENCIES[componentKey]) {
+        const enableRecursively = (componentKey: EntityCapabilityKey) => {
+            for (const dependency of CAPABILITY_DEPENDENCIES[componentKey]) {
                 enableRecursively(dependency)
             }
 
-            if (!isEnabledComponentConfig(manifest[componentKey])) {
+            if (!isEnabledCapabilityConfig(manifest[componentKey])) {
                 ;(manifest as Record<string, unknown>)[componentKey] = getDefaultEnabledComponent(componentKey)
             }
         }
 
         enableRecursively(key)
-        return normalizeComponentManifestForBuilder(manifest)
+        return normalizeEntityTypeCapabilitiesForBuilder(manifest)
     }
 
-    const disableRecursively = (componentKey: EntityComponentKey) => {
+    const disableRecursively = (componentKey: EntityCapabilityKey) => {
         ;(manifest as Record<string, unknown>)[componentKey] = false
 
-        for (const candidate of ENTITY_COMPONENT_KEYS) {
-            if (COMPONENT_DEPENDENCIES[candidate].includes(componentKey) && isEnabledComponentConfig(manifest[candidate])) {
+        for (const candidate of ENTITY_CAPABILITY_KEYS) {
+            if (CAPABILITY_DEPENDENCIES[candidate].includes(componentKey) && isEnabledCapabilityConfig(manifest[candidate])) {
                 disableRecursively(candidate)
             }
         }
     }
 
     disableRecursively(key)
-    return normalizeComponentManifestForBuilder(manifest)
+    return normalizeEntityTypeCapabilitiesForBuilder(manifest)
 }
 
 const patchEnabledComponentConfig = (
     manifestValue: unknown,
-    key: EntityComponentKey,
+    key: EntityCapabilityKey,
     patch: Record<string, unknown>
-): ComponentManifest => {
+): EntityTypeCapabilities => {
     const manifest = setComponentEnabledState(manifestValue, key, true)
-    const currentValue = isEnabledComponentConfig(manifest[key])
+    const currentValue = isEnabledCapabilityConfig(manifest[key])
         ? (manifest[key] as Record<string, unknown>)
         : (getDefaultEnabledComponent(key) as Record<string, unknown>)
 
@@ -641,7 +641,7 @@ const patchEnabledComponentConfig = (
         enabled: true
     }
 
-    return normalizeComponentManifestForBuilder(manifest)
+    return normalizeEntityTypeCapabilitiesForBuilder(manifest)
 }
 
 const resolveEntityTypeText = (
@@ -709,7 +709,7 @@ const buildEntityTypeDisplayRow = (
         resolveEntityTypeText(entityType, entityType.ui.descriptionKey, t) || codename || t('entities.noDescription', 'No description')
     const name = resolveEntityTypePresentationText(entityType, 'name', uiLocale, fallbackName)
     const description = resolveEntityTypePresentationText(entityType, 'description', uiLocale, fallbackDescription)
-    const componentKeys = getEnabledComponentKeys(entityType.components)
+    const componentKeys = getEnabledCapabilityKeys(entityType.capabilities)
 
     return {
         id: entityType.id ?? entityType.kindKey,
@@ -742,8 +742,11 @@ const buildInitialFormValues = (uiLocale: string, entityType?: MetahubEntityType
             customTabsInput: '',
             sidebarSection: 'objects',
             sidebarOrder: '',
-            components: normalizeComponentManifestForBuilder(DEFAULT_COMPONENTS_TEMPLATE),
-            resourceSurfaces: normalizeResourceSurfaceDefinitions([], normalizeComponentManifestForBuilder(DEFAULT_COMPONENTS_TEMPLATE)),
+            capabilities: normalizeEntityTypeCapabilitiesForBuilder(DEFAULT_COMPONENTS_TEMPLATE),
+            resourceSurfaces: normalizeResourceSurfaceDefinitions(
+                [],
+                normalizeEntityTypeCapabilitiesForBuilder(DEFAULT_COMPONENTS_TEMPLATE)
+            ),
             presentationText: stringifyJson(DEFAULT_PRESENTATION_TEMPLATE),
             configText: stringifyJson(DEFAULT_CONFIG_TEMPLATE),
             published: true
@@ -774,10 +777,10 @@ const buildInitialFormValues = (uiLocale: string, entityType?: MetahubEntityType
         customTabsInput: customTabs.join(', '),
         sidebarSection: entityType.ui.sidebarSection === 'admin' ? 'admin' : 'objects',
         sidebarOrder: typeof entityType.ui.sidebarOrder === 'number' ? String(entityType.ui.sidebarOrder) : '',
-        components: normalizeComponentManifestForBuilder(entityType.components),
+        capabilities: normalizeEntityTypeCapabilitiesForBuilder(entityType.capabilities),
         resourceSurfaces: normalizeResourceSurfaceDefinitions(
             entityType.ui.resourceSurfaces,
-            normalizeComponentManifestForBuilder(entityType.components)
+            normalizeEntityTypeCapabilitiesForBuilder(entityType.capabilities)
         ),
         presentationText: stringifyJson(entityType.presentation ?? DEFAULT_PRESENTATION_TEMPLATE),
         configText: stringifyJson(entityType.config ?? DEFAULT_CONFIG_TEMPLATE),
@@ -1050,9 +1053,11 @@ const EntitiesWorkspace = () => {
             const sidebarSection = values.sidebarSection === 'admin' ? 'admin' : 'objects'
             const sidebarOrder = parseSidebarOrderValue(values.sidebarOrder)
             const tabs = normalizeEntityTypeTabs(values.tabs, values.customTabsInput)
-            const normalizedComponents = normalizeComponentManifestForBuilder(lockedStandardEntity?.components ?? values.components)
-            const components = lockedStandardEntity?.components ?? normalizedComponents
-            const resourceSurfaces = normalizeResourceSurfaceDefinitions(values.resourceSurfaces, components)
+            const normalizedComponents = normalizeEntityTypeCapabilitiesForBuilder(
+                lockedStandardEntity?.capabilities ?? values.capabilities
+            )
+            const capabilities = lockedStandardEntity?.capabilities ?? normalizedComponents
+            const resourceSurfaces = normalizeResourceSurfaceDefinitions(values.resourceSurfaces, capabilities)
             const presentation = parseJsonRecordField(values.presentationText, DEFAULT_PRESENTATION_TEMPLATE)
             const config = lockedStandardEntity
                 ? lockedStandardEntity.config
@@ -1082,19 +1087,23 @@ const EntitiesWorkspace = () => {
                       ...lockedStandardEntity.ui,
                       resourceSurfaces:
                           resourceSurfaces.length > 0
-                              ? normalizeResourceSurfaceDefinitions(lockedStandardEntity.ui.resourceSurfaces, components).map((surface) => {
-                                    const editedSurface = resourceSurfaces.find((candidate) => candidate.capability === surface.capability)
-                                    if (!editedSurface) {
-                                        return surface
-                                    }
+                              ? normalizeResourceSurfaceDefinitions(lockedStandardEntity.ui.resourceSurfaces, capabilities).map(
+                                    (surface) => {
+                                        const editedSurface = resourceSurfaces.find(
+                                            (candidate) => candidate.capability === surface.capability
+                                        )
+                                        if (!editedSurface) {
+                                            return surface
+                                        }
 
-                                    return {
-                                        ...surface,
-                                        title: editedSurface.title,
-                                        fallbackTitle: editedSurface.fallbackTitle,
-                                        titleKey: editedSurface.titleKey ?? surface.titleKey
+                                        return {
+                                            ...surface,
+                                            title: editedSurface.title,
+                                            fallbackTitle: editedSurface.fallbackTitle,
+                                            titleKey: editedSurface.titleKey ?? surface.titleKey
+                                        }
                                     }
-                                })
+                                )
                               : lockedStandardEntity.ui.resourceSurfaces
                   }
                 : {
@@ -1111,7 +1120,7 @@ const EntitiesWorkspace = () => {
                 kindKey: lockedStandardEntity?.kindKey ?? kindKey,
                 codename: lockedStandardEntity?.codename ?? codename,
                 presentation: nextPresentation,
-                components,
+                capabilities,
                 ui,
                 config,
                 published: lockedStandardEntity?.published ?? values.published !== false
@@ -1186,13 +1195,13 @@ const EntitiesWorkspace = () => {
             }
 
             try {
-                const components = normalizeComponentManifestForBuilder(values.components)
-                const dependencyErrors = validateComponentDependencies(components)
+                const capabilities = normalizeEntityTypeCapabilitiesForBuilder(values.capabilities)
+                const dependencyErrors = validateCapabilityDependencies(capabilities)
                 if (dependencyErrors.length > 0) {
-                    errors.components = dependencyErrors[0]
+                    errors.capabilities = dependencyErrors[0]
                 }
 
-                const resourceSurfaces = normalizeResourceSurfaceDefinitions(values.resourceSurfaces, components)
+                const resourceSurfaces = normalizeResourceSurfaceDefinitions(values.resourceSurfaces, capabilities)
                 const resourceSurfaceKeys = new Set<string>()
                 const resourceSurfaceRoutes = new Set<string>()
 
@@ -1235,7 +1244,7 @@ const EntitiesWorkspace = () => {
                     resourceSurfaceRoutes.add(surface.routeSegment)
                 }
             } catch {
-                errors.components = t('entities.validation.componentsInvalid', 'Components must be a valid JSON object')
+                errors.capabilities = t('entities.validation.componentsInvalid', 'Capabilities must be a valid JSON object')
             }
 
             try {
@@ -1372,10 +1381,10 @@ const EntitiesWorkspace = () => {
             errors: Record<string, string>
         }): TabConfig[] => {
             const structuredTabs = normalizeStructuredEntityTabs(values.tabs)
-            const components = normalizeComponentManifestForBuilder(values.components)
-            const canExposeBehaviorTab = supportsRecordBehavior(components)
-            const canExposeLedgerSchemaTab = supportsLedgerSchema(components)
-            const resourceSurfaces = normalizeResourceSurfaceDefinitions(values.resourceSurfaces, components)
+            const capabilities = normalizeEntityTypeCapabilitiesForBuilder(values.capabilities)
+            const canExposeBehaviorTab = supportsRecordBehavior(capabilities)
+            const canExposeLedgerSchemaTab = supportsLedgerSchema(capabilities)
+            const resourceSurfaces = normalizeResourceSurfaceDefinitions(values.resourceSurfaces, capabilities)
             const isStandardEntityTypeEdit = editorState.mode === 'edit' && isBuiltinEntityKind(String(values.kindKey ?? ''))
             const isStructureLocked = isStandardEntityTypeEdit
 
@@ -1398,25 +1407,25 @@ const EntitiesWorkspace = () => {
                 )
             }
 
-            const setComponentEnabled = (key: EntityComponentKey, enabled: boolean) => {
+            const setComponentEnabled = (key: EntityCapabilityKey, enabled: boolean) => {
                 if (isStructureLocked) {
                     return
                 }
-                setValue('components', setComponentEnabledState(values.components, key, enabled))
+                setValue('capabilities', setComponentEnabledState(values.capabilities, key, enabled))
             }
 
-            const updateComponentConfig = (key: EntityComponentKey, patch: Record<string, unknown>) => {
+            const updateComponentConfig = (key: EntityCapabilityKey, patch: Record<string, unknown>) => {
                 if (isStructureLocked) {
                     return
                 }
-                setValue('components', patchEnabledComponentConfig(values.components, key, patch))
+                setValue('capabilities', patchEnabledComponentConfig(values.capabilities, key, patch))
             }
 
             const updateResourceSurface = (
                 capability: EntityResourceSurfaceCapability,
                 patch: Partial<EntityResourceSurfaceDefinition>
             ) => {
-                setValue('resourceSurfaces', updateResourceSurfaceDefinition(values.resourceSurfaces, capability, patch, components))
+                setValue('resourceSurfaces', updateResourceSurfaceDefinition(values.resourceSurfaces, capability, patch, capabilities))
             }
 
             return [
@@ -1549,7 +1558,7 @@ const EntitiesWorkspace = () => {
                                             >
                                                 <Stack spacing={1.5}>
                                                     <Typography variant='subtitle2'>
-                                                        {t(`entities.components.${surface.capability}`, surface.fallbackTitle)}
+                                                        {t(`entities.capabilities.${surface.capability}`, surface.fallbackTitle)}
                                                     </Typography>
                                                     <TextField
                                                         label={t('entities.fields.resourceSurfaceKey', 'Resource tab key')}
@@ -1664,17 +1673,17 @@ const EntitiesWorkspace = () => {
                     )
                 },
                 {
-                    id: 'components',
-                    label: t('entities.tabs.components', 'Components'),
+                    id: 'capabilities',
+                    label: t('entities.tabs.capabilities', 'Capabilities'),
                     content: (
                         <Stack spacing={2}>
                             <Alert severity='info'>
                                 {t(
                                     'entities.fields.componentsHelperStructured',
-                                    'Use guided toggles for the current Zerocode scope. Dependency-sensitive components are enabled and pruned automatically.'
+                                    'Use guided toggles for the current Zerocode scope. Dependency-sensitive capabilities are enabled and pruned automatically.'
                                 )}
                             </Alert>
-                            {errors.components ? <Alert severity='error'>{errors.components}</Alert> : null}
+                            {errors.capabilities ? <Alert severity='error'>{errors.capabilities}</Alert> : null}
                             <Box
                                 sx={{
                                     display: 'grid',
@@ -1687,30 +1696,30 @@ const EntitiesWorkspace = () => {
                             >
                                 <Box sx={COMPONENT_SECTION_SX}>
                                     <Stack spacing={1.5}>
-                                        <Typography variant='subtitle2'>{t('entities.components.dataSchema', 'Data schema')}</Typography>
+                                        <Typography variant='subtitle2'>{t('entities.capabilities.dataSchema', 'Data schema')}</Typography>
                                         <Typography variant='body2' color='text.secondary'>
                                             {t(
-                                                'entities.components.dataSchemaHelper',
-                                                'Enables attribute-driven modeling and generated value editors for the entity type.'
+                                                'entities.capabilities.dataSchemaHelper',
+                                                'Enables component-driven modeling and generated value editors for the entity type.'
                                             )}
                                         </Typography>
                                         <FormControlLabel
                                             control={
                                                 <Checkbox
-                                                    checked={isEnabledComponentConfig(components.dataSchema)}
+                                                    checked={isEnabledCapabilityConfig(capabilities.dataSchema)}
                                                     onChange={(event) => setComponentEnabled('dataSchema', event.target.checked)}
                                                     disabled={isLoading || isStructureLocked}
                                                 />
                                             }
-                                            label={t('entities.components.dataSchema', 'Data schema')}
+                                            label={t('entities.capabilities.dataSchema', 'Data schema')}
                                         />
-                                        {isEnabledComponentConfig(components.dataSchema) ? (
+                                        {isEnabledCapabilityConfig(capabilities.dataSchema) ? (
                                             <TextField
-                                                label={t('entities.components.maxAttributes', 'Maximum fieldDefinitions')}
+                                                label={t('entities.capabilities.maxComponents', 'Maximum components')}
                                                 type='number'
-                                                value={components.dataSchema.maxAttributes ?? ''}
+                                                value={capabilities.dataSchema.maxComponents ?? ''}
                                                 onChange={(event) =>
-                                                    updateComponentConfig('dataSchema', { maxAttributes: event.target.value })
+                                                    updateComponentConfig('dataSchema', { maxComponents: event.target.value })
                                                 }
                                                 disabled={isLoading || isStructureLocked}
                                                 inputProps={{ min: 1 }}
@@ -1722,29 +1731,29 @@ const EntitiesWorkspace = () => {
                                 <Box sx={COMPONENT_SECTION_SX}>
                                     <Stack spacing={1.5}>
                                         <Typography variant='subtitle2'>
-                                            {t('entities.components.records', 'Predefined records')}
+                                            {t('entities.capabilities.records', 'Predefined records')}
                                         </Typography>
                                         <Typography variant='body2' color='text.secondary'>
                                             {t(
-                                                'entities.components.recordsHelper',
-                                                'Reuses the existing predefined-element flows for linked-collection presets and other seeded entity types.'
+                                                'entities.capabilities.recordsHelper',
+                                                'Reuses the existing predefined-element flows for object-collection presets and other seeded entity types.'
                                             )}
                                         </Typography>
                                         <FormControlLabel
                                             control={
                                                 <Checkbox
-                                                    checked={isEnabledComponentConfig(components.records)}
+                                                    checked={isEnabledCapabilityConfig(capabilities.records)}
                                                     onChange={(event) => setComponentEnabled('records', event.target.checked)}
                                                     disabled={isLoading || isStructureLocked}
                                                 />
                                             }
-                                            label={t('entities.components.records', 'Predefined records')}
+                                            label={t('entities.capabilities.records', 'Predefined records')}
                                         />
-                                        {isEnabledComponentConfig(components.records) ? (
+                                        {isEnabledCapabilityConfig(capabilities.records) ? (
                                             <TextField
-                                                label={t('entities.components.maxElements', 'Maximum predefined records')}
+                                                label={t('entities.capabilities.maxElements', 'Maximum predefined records')}
                                                 type='number'
-                                                value={components.records.maxElements ?? ''}
+                                                value={capabilities.records.maxElements ?? ''}
                                                 onChange={(event) => updateComponentConfig('records', { maxElements: event.target.value })}
                                                 disabled={isLoading || isStructureLocked}
                                                 inputProps={{ min: 1 }}
@@ -1756,30 +1765,30 @@ const EntitiesWorkspace = () => {
                                 <Box sx={COMPONENT_SECTION_SX}>
                                     <Stack spacing={1.5}>
                                         <Typography variant='subtitle2'>
-                                            {t('entities.components.treeAssignment', 'TreeEntity assignment')}
+                                            {t('entities.capabilities.treeAssignment', 'TreeEntity assignment')}
                                         </Typography>
                                         <Typography variant='body2' color='text.secondary'>
                                             {t(
-                                                'entities.components.treeAssignmentHelper',
-                                                'Allows the entity instances page to reuse the shared hub-assignment controls and Catalogs-style tabs.'
+                                                'entities.capabilities.treeAssignmentHelper',
+                                                'Allows the entity instances page to reuse the shared hub-assignment controls and Objects-style tabs.'
                                             )}
                                         </Typography>
                                         <FormControlLabel
                                             control={
                                                 <Checkbox
-                                                    checked={isEnabledComponentConfig(components.treeAssignment)}
+                                                    checked={isEnabledCapabilityConfig(capabilities.treeAssignment)}
                                                     onChange={(event) => setComponentEnabled('treeAssignment', event.target.checked)}
                                                     disabled={isLoading || isStructureLocked}
                                                 />
                                             }
-                                            label={t('entities.components.treeAssignment', 'TreeEntity assignment')}
+                                            label={t('entities.capabilities.treeAssignment', 'TreeEntity assignment')}
                                         />
-                                        {isEnabledComponentConfig(components.treeAssignment) ? (
+                                        {isEnabledCapabilityConfig(capabilities.treeAssignment) ? (
                                             <FormGroup>
                                                 <FormControlLabel
                                                     control={
                                                         <Checkbox
-                                                            checked={components.treeAssignment.isSingleHub === true}
+                                                            checked={capabilities.treeAssignment.isSingleHub === true}
                                                             onChange={(event) =>
                                                                 updateComponentConfig('treeAssignment', {
                                                                     isSingleHub: event.target.checked
@@ -1788,12 +1797,12 @@ const EntitiesWorkspace = () => {
                                                             disabled={isLoading || isStructureLocked}
                                                         />
                                                     }
-                                                    label={t('entities.components.singleHub', 'Single hub only')}
+                                                    label={t('entities.capabilities.singleHub', 'Single hub only')}
                                                 />
                                                 <FormControlLabel
                                                     control={
                                                         <Checkbox
-                                                            checked={components.treeAssignment.isRequiredHub === true}
+                                                            checked={capabilities.treeAssignment.isRequiredHub === true}
                                                             onChange={(event) =>
                                                                 updateComponentConfig('treeAssignment', {
                                                                     isRequiredHub: event.target.checked
@@ -1802,7 +1811,7 @@ const EntitiesWorkspace = () => {
                                                             disabled={isLoading || isStructureLocked}
                                                         />
                                                     }
-                                                    label={t('entities.components.requiredHub', 'Require at least one hub')}
+                                                    label={t('entities.capabilities.requiredHub', 'Require at least one hub')}
                                                 />
                                             </FormGroup>
                                         ) : null}
@@ -1810,35 +1819,35 @@ const EntitiesWorkspace = () => {
                                 </Box>
                                 <Box sx={COMPONENT_SECTION_SX}>
                                     <Stack spacing={1.5}>
-                                        <Typography variant='subtitle2'>{t('entities.components.hierarchy', 'Hierarchy')}</Typography>
+                                        <Typography variant='subtitle2'>{t('entities.capabilities.hierarchy', 'Hierarchy')}</Typography>
                                         <Typography variant='body2' color='text.secondary'>
                                             {t(
-                                                'entities.components.hierarchyHelper',
+                                                'entities.capabilities.hierarchyHelper',
                                                 'Adds parent-child structure support on top of the entity data schema.'
                                             )}
                                         </Typography>
                                         <FormControlLabel
                                             control={
                                                 <Checkbox
-                                                    checked={isEnabledComponentConfig(components.hierarchy)}
+                                                    checked={isEnabledCapabilityConfig(capabilities.hierarchy)}
                                                     onChange={(event) => setComponentEnabled('hierarchy', event.target.checked)}
                                                     disabled={isLoading || isStructureLocked}
                                                 />
                                             }
-                                            label={t('entities.components.hierarchy', 'Hierarchy')}
+                                            label={t('entities.capabilities.hierarchy', 'Hierarchy')}
                                         />
-                                        {isEnabledComponentConfig(components.hierarchy) ? (
+                                        {isEnabledCapabilityConfig(capabilities.hierarchy) ? (
                                             <FormControlLabel
                                                 control={
                                                     <Checkbox
-                                                        checked={components.hierarchy.supportsFolders !== false}
+                                                        checked={capabilities.hierarchy.supportsFolders !== false}
                                                         onChange={(event) =>
                                                             updateComponentConfig('hierarchy', { supportsFolders: event.target.checked })
                                                         }
                                                         disabled={isLoading || isStructureLocked}
                                                     />
                                                 }
-                                                label={t('entities.components.supportsFolders', 'Allow folders')}
+                                                label={t('entities.capabilities.supportsFolders', 'Allow folders')}
                                             />
                                         ) : null}
                                     </Stack>
@@ -1846,29 +1855,29 @@ const EntitiesWorkspace = () => {
                                 <Box sx={COMPONENT_SECTION_SX}>
                                     <Stack spacing={1.5}>
                                         <Typography variant='subtitle2'>
-                                            {t('entities.components.nestedCollections', 'Nested collections')}
+                                            {t('entities.capabilities.nestedCollections', 'Nested collections')}
                                         </Typography>
                                         <Typography variant='body2' color='text.secondary'>
                                             {t(
-                                                'entities.components.nestedCollectionsHelper',
+                                                'entities.capabilities.nestedCollectionsHelper',
                                                 'Allows the entity schema to define repeating child collections inside the same type.'
                                             )}
                                         </Typography>
                                         <FormControlLabel
                                             control={
                                                 <Checkbox
-                                                    checked={isEnabledComponentConfig(components.nestedCollections)}
+                                                    checked={isEnabledCapabilityConfig(capabilities.nestedCollections)}
                                                     onChange={(event) => setComponentEnabled('nestedCollections', event.target.checked)}
                                                     disabled={isLoading || isStructureLocked}
                                                 />
                                             }
-                                            label={t('entities.components.nestedCollections', 'Nested collections')}
+                                            label={t('entities.capabilities.nestedCollections', 'Nested collections')}
                                         />
-                                        {isEnabledComponentConfig(components.nestedCollections) ? (
+                                        {isEnabledCapabilityConfig(capabilities.nestedCollections) ? (
                                             <TextField
-                                                label={t('entities.components.maxCollections', 'Maximum nested collections')}
+                                                label={t('entities.capabilities.maxCollections', 'Maximum nested collections')}
                                                 type='number'
-                                                value={components.nestedCollections.maxCollections ?? ''}
+                                                value={capabilities.nestedCollections.maxCollections ?? ''}
                                                 onChange={(event) =>
                                                     updateComponentConfig('nestedCollections', { maxCollections: event.target.value })
                                                 }
@@ -1881,33 +1890,33 @@ const EntitiesWorkspace = () => {
                                 </Box>
                                 <Box sx={COMPONENT_SECTION_SX}>
                                     <Stack spacing={1.5}>
-                                        <Typography variant='subtitle2'>{t('entities.components.relations', 'Relations')}</Typography>
+                                        <Typography variant='subtitle2'>{t('entities.capabilities.relations', 'Relations')}</Typography>
                                         <Typography variant='body2' color='text.secondary'>
                                             {t(
-                                                'entities.components.relationsHelper',
-                                                'Enables reference fieldDefinitions and relation-aware runtime behaviors for the entity type.'
+                                                'entities.capabilities.relationsHelper',
+                                                'Enables reference components and relation-aware runtime behaviors for the entity type.'
                                             )}
                                         </Typography>
                                         <FormControlLabel
                                             control={
                                                 <Checkbox
-                                                    checked={isEnabledComponentConfig(components.relations)}
+                                                    checked={isEnabledCapabilityConfig(capabilities.relations)}
                                                     onChange={(event) => setComponentEnabled('relations', event.target.checked)}
                                                     disabled={isLoading || isStructureLocked}
                                                 />
                                             }
-                                            label={t('entities.components.relations', 'Relations')}
+                                            label={t('entities.capabilities.relations', 'Relations')}
                                         />
-                                        {isEnabledComponentConfig(components.relations) ? (
+                                        {isEnabledCapabilityConfig(capabilities.relations) ? (
                                             <TextField
-                                                label={t('entities.components.allowedRelationTypes', 'Allowed relation types')}
-                                                value={components.relations.allowedRelationTypes?.join(', ') ?? ''}
+                                                label={t('entities.capabilities.allowedRelationTypes', 'Allowed relation types')}
+                                                value={capabilities.relations.allowedRelationTypes?.join(', ') ?? ''}
                                                 onChange={(event) =>
                                                     updateComponentConfig('relations', { allowedRelationTypes: event.target.value })
                                                 }
                                                 disabled={isLoading || isStructureLocked}
                                                 helperText={t(
-                                                    'entities.components.allowedRelationTypesHelper',
+                                                    'entities.capabilities.allowedRelationTypesHelper',
                                                     'Comma-separated relation kinds, for example manyToOne.'
                                                 )}
                                                 fullWidth
@@ -1930,185 +1939,185 @@ const EntitiesWorkspace = () => {
                                 <Box sx={COMPONENT_SECTION_SX}>
                                     <Stack spacing={1.5}>
                                         <Typography variant='subtitle2'>
-                                            {t('entities.components.optionValues', 'OptionListEntity values')}
+                                            {t('entities.capabilities.optionValues', 'OptionListEntity values')}
                                         </Typography>
                                         <Typography variant='body2' color='text.secondary'>
                                             {t(
-                                                'entities.components.optionValuesHelper',
+                                                'entities.capabilities.optionValuesHelper',
                                                 'Keeps the type compatible with enumeration-style value registries.'
                                             )}
                                         </Typography>
                                         <FormControlLabel
                                             control={
                                                 <Checkbox
-                                                    checked={isEnabledComponentConfig(components.optionValues)}
+                                                    checked={isEnabledCapabilityConfig(capabilities.optionValues)}
                                                     onChange={(event) => setComponentEnabled('optionValues', event.target.checked)}
                                                     disabled={isLoading || isStructureLocked}
                                                 />
                                             }
-                                            label={t('entities.components.optionValues', 'OptionListEntity values')}
+                                            label={t('entities.capabilities.optionValues', 'OptionListEntity values')}
                                         />
                                     </Stack>
                                 </Box>
                                 <Box sx={COMPONENT_SECTION_SX}>
                                     <Stack spacing={1.5}>
-                                        <Typography variant='subtitle2'>{t('entities.components.fixedValues', 'Constants')}</Typography>
+                                        <Typography variant='subtitle2'>{t('entities.capabilities.fixedValues', 'Constants')}</Typography>
                                         <Typography variant='body2' color='text.secondary'>
                                             {t(
-                                                'entities.components.fixedValuesHelper',
+                                                'entities.capabilities.fixedValuesHelper',
                                                 'Keeps the type compatible with set-style constant registries.'
                                             )}
                                         </Typography>
                                         <FormControlLabel
                                             control={
                                                 <Checkbox
-                                                    checked={isEnabledComponentConfig(components.fixedValues)}
+                                                    checked={isEnabledCapabilityConfig(capabilities.fixedValues)}
                                                     onChange={(event) => setComponentEnabled('fixedValues', event.target.checked)}
                                                     disabled={isLoading || isStructureLocked}
                                                 />
                                             }
-                                            label={t('entities.components.fixedValues', 'Constants')}
+                                            label={t('entities.capabilities.fixedValues', 'Constants')}
                                         />
                                     </Stack>
                                 </Box>
                                 <Box sx={COMPONENT_SECTION_SX}>
                                     <Stack spacing={1.5}>
-                                        <Typography variant='subtitle2'>{t('entities.components.actions', 'Actions')}</Typography>
+                                        <Typography variant='subtitle2'>{t('entities.capabilities.actions', 'Actions')}</Typography>
                                         <Typography variant='body2' color='text.secondary'>
                                             {t(
-                                                'entities.components.actionsHelper',
+                                                'entities.capabilities.actionsHelper',
                                                 'Enables object-scoped actions for ECAE lifecycle orchestration.'
                                             )}
                                         </Typography>
                                         <FormControlLabel
                                             control={
                                                 <Checkbox
-                                                    checked={isEnabledComponentConfig(components.actions)}
+                                                    checked={isEnabledCapabilityConfig(capabilities.actions)}
                                                     onChange={(event) => setComponentEnabled('actions', event.target.checked)}
                                                     disabled={isLoading || isStructureLocked}
                                                 />
                                             }
-                                            label={t('entities.components.actions', 'Actions')}
+                                            label={t('entities.capabilities.actions', 'Actions')}
                                         />
                                     </Stack>
                                 </Box>
                                 <Box sx={COMPONENT_SECTION_SX}>
                                     <Stack spacing={1.5}>
-                                        <Typography variant='subtitle2'>{t('entities.components.events', 'Events')}</Typography>
+                                        <Typography variant='subtitle2'>{t('entities.capabilities.events', 'Events')}</Typography>
                                         <Typography variant='body2' color='text.secondary'>
                                             {t(
-                                                'entities.components.eventsHelper',
+                                                'entities.capabilities.eventsHelper',
                                                 'Allows lifecycle event bindings on top of the action contract.'
                                             )}
                                         </Typography>
                                         <FormControlLabel
                                             control={
                                                 <Checkbox
-                                                    checked={isEnabledComponentConfig(components.events)}
+                                                    checked={isEnabledCapabilityConfig(capabilities.events)}
                                                     onChange={(event) => setComponentEnabled('events', event.target.checked)}
                                                     disabled={isLoading || isStructureLocked}
                                                 />
                                             }
-                                            label={t('entities.components.events', 'Events')}
+                                            label={t('entities.capabilities.events', 'Events')}
                                         />
                                     </Stack>
                                 </Box>
                                 <Box sx={COMPONENT_SECTION_SX}>
                                     <Stack spacing={1.5}>
-                                        <Typography variant='subtitle2'>{t('entities.components.scripting', 'Scripting')}</Typography>
+                                        <Typography variant='subtitle2'>{t('entities.capabilities.scripting', 'Scripting')}</Typography>
                                         <Typography variant='body2' color='text.secondary'>
                                             {t(
-                                                'entities.components.scriptingHelper',
+                                                'entities.capabilities.scriptingHelper',
                                                 'Exposes the existing EntityScriptsTab for script attachments and reuse.'
                                             )}
                                         </Typography>
                                         <FormControlLabel
                                             control={
                                                 <Checkbox
-                                                    checked={isEnabledComponentConfig(components.scripting)}
+                                                    checked={isEnabledCapabilityConfig(capabilities.scripting)}
                                                     onChange={(event) => setComponentEnabled('scripting', event.target.checked)}
                                                     disabled={isLoading || isStructureLocked}
                                                 />
                                             }
-                                            label={t('entities.components.scripting', 'Scripting')}
+                                            label={t('entities.capabilities.scripting', 'Scripting')}
                                         />
                                     </Stack>
                                 </Box>
                                 <Box sx={COMPONENT_SECTION_SX}>
                                     <Stack spacing={1.5}>
                                         <Typography variant='subtitle2'>
-                                            {t('entities.components.layoutConfig', 'Layout config')}
+                                            {t('entities.capabilities.layoutConfig', 'Layout config')}
                                         </Typography>
                                         <Typography variant='body2' color='text.secondary'>
                                             {t(
-                                                'entities.components.layoutConfigHelper',
-                                                'Enables LinkedCollectionEntity-compatible layout configuration and the dedicated layout authoring tab.'
+                                                'entities.capabilities.layoutConfigHelper',
+                                                'Enables Object-compatible layout configuration and the dedicated layout authoring tab.'
                                             )}
                                         </Typography>
                                         <FormControlLabel
                                             control={
                                                 <Checkbox
-                                                    checked={isEnabledComponentConfig(components.layoutConfig)}
+                                                    checked={isEnabledCapabilityConfig(capabilities.layoutConfig)}
                                                     onChange={(event) => setComponentEnabled('layoutConfig', event.target.checked)}
                                                     disabled={isLoading || isStructureLocked}
                                                 />
                                             }
-                                            label={t('entities.components.layoutConfig', 'Layout config')}
+                                            label={t('entities.capabilities.layoutConfig', 'Layout config')}
                                         />
                                     </Stack>
                                 </Box>
                                 <Box sx={COMPONENT_SECTION_SX}>
                                     <Stack spacing={1.5}>
                                         <Typography variant='subtitle2'>
-                                            {t('entities.components.runtimeBehavior', 'Runtime behavior')}
+                                            {t('entities.capabilities.runtimeBehavior', 'Runtime behavior')}
                                         </Typography>
                                         <Typography variant='body2' color='text.secondary'>
                                             {t(
-                                                'entities.components.runtimeBehaviorHelper',
+                                                'entities.capabilities.runtimeBehaviorHelper',
                                                 'Publishes layout-aware runtime behavior so the generic application surfaces can render this entity type.'
                                             )}
                                         </Typography>
                                         <FormControlLabel
                                             control={
                                                 <Checkbox
-                                                    checked={isEnabledComponentConfig(components.runtimeBehavior)}
+                                                    checked={isEnabledCapabilityConfig(capabilities.runtimeBehavior)}
                                                     onChange={(event) => setComponentEnabled('runtimeBehavior', event.target.checked)}
                                                     disabled={isLoading || isStructureLocked}
                                                 />
                                             }
-                                            label={t('entities.components.runtimeBehavior', 'Runtime behavior')}
+                                            label={t('entities.capabilities.runtimeBehavior', 'Runtime behavior')}
                                         />
                                     </Stack>
                                 </Box>
                                 <Box sx={COMPONENT_SECTION_SX}>
                                     <Stack spacing={1.5}>
                                         <Typography variant='subtitle2'>
-                                            {t('entities.components.physicalTable', 'Physical table')}
+                                            {t('entities.capabilities.physicalTable', 'Physical table')}
                                         </Typography>
                                         <Typography variant='body2' color='text.secondary'>
                                             {t(
-                                                'entities.components.physicalTableHelper',
+                                                'entities.capabilities.physicalTableHelper',
                                                 'Creates a dedicated runtime table for publication and application sync pipelines.'
                                             )}
                                         </Typography>
                                         <FormControlLabel
                                             control={
                                                 <Checkbox
-                                                    checked={isEnabledComponentConfig(components.physicalTable)}
+                                                    checked={isEnabledCapabilityConfig(capabilities.physicalTable)}
                                                     onChange={(event) => setComponentEnabled('physicalTable', event.target.checked)}
                                                     disabled={isLoading || isStructureLocked}
                                                 />
                                             }
-                                            label={t('entities.components.physicalTable', 'Physical table')}
+                                            label={t('entities.capabilities.physicalTable', 'Physical table')}
                                         />
-                                        {isEnabledComponentConfig(components.physicalTable) ? (
+                                        {isEnabledCapabilityConfig(capabilities.physicalTable) ? (
                                             <TextField
-                                                label={t('entities.components.tablePrefix', 'Table prefix')}
-                                                value={components.physicalTable.prefix ?? ''}
+                                                label={t('entities.capabilities.tablePrefix', 'Table prefix')}
+                                                value={capabilities.physicalTable.prefix ?? ''}
                                                 onChange={(event) => updateComponentConfig('physicalTable', { prefix: event.target.value })}
                                                 disabled={isLoading || isStructureLocked}
                                                 helperText={t(
-                                                    'entities.components.tablePrefixHelper',
+                                                    'entities.capabilities.tablePrefixHelper',
                                                     'Prefix used when the runtime DDL pipeline generates a physical table name.'
                                                 )}
                                                 fullWidth
@@ -2119,30 +2128,30 @@ const EntitiesWorkspace = () => {
                                 <Box sx={COMPONENT_SECTION_SX}>
                                     <Stack spacing={1.5}>
                                         <Typography variant='subtitle2'>
-                                            {t('entities.components.identityFields', 'Identity fields')}
+                                            {t('entities.capabilities.identityFields', 'Identity fields')}
                                         </Typography>
                                         <Typography variant='body2' color='text.secondary'>
                                             {t(
-                                                'entities.components.identityFieldsHelper',
+                                                'entities.capabilities.identityFieldsHelper',
                                                 'Enables system record number and effective date settings for entity instances.'
                                             )}
                                         </Typography>
                                         <FormControlLabel
                                             control={
                                                 <Checkbox
-                                                    checked={isEnabledComponentConfig(components.identityFields)}
+                                                    checked={isEnabledCapabilityConfig(capabilities.identityFields)}
                                                     onChange={(event) => setComponentEnabled('identityFields', event.target.checked)}
                                                     disabled={isLoading || isStructureLocked}
                                                 />
                                             }
-                                            label={t('entities.components.identityFields', 'Identity fields')}
+                                            label={t('entities.capabilities.identityFields', 'Identity fields')}
                                         />
-                                        {isEnabledComponentConfig(components.identityFields) ? (
+                                        {isEnabledCapabilityConfig(capabilities.identityFields) ? (
                                             <FormGroup>
                                                 <FormControlLabel
                                                     control={
                                                         <Checkbox
-                                                            checked={components.identityFields.allowNumber !== false}
+                                                            checked={capabilities.identityFields.allowNumber !== false}
                                                             onChange={(event) =>
                                                                 updateComponentConfig('identityFields', {
                                                                     allowNumber: event.target.checked
@@ -2151,12 +2160,12 @@ const EntitiesWorkspace = () => {
                                                             disabled={isLoading || isStructureLocked}
                                                         />
                                                     }
-                                                    label={t('entities.components.allowRecordNumber', 'Allow record number')}
+                                                    label={t('entities.capabilities.allowRecordNumber', 'Allow record number')}
                                                 />
                                                 <FormControlLabel
                                                     control={
                                                         <Checkbox
-                                                            checked={components.identityFields.allowEffectiveDate !== false}
+                                                            checked={capabilities.identityFields.allowEffectiveDate !== false}
                                                             onChange={(event) =>
                                                                 updateComponentConfig('identityFields', {
                                                                     allowEffectiveDate: event.target.checked
@@ -2165,7 +2174,7 @@ const EntitiesWorkspace = () => {
                                                             disabled={isLoading || isStructureLocked}
                                                         />
                                                     }
-                                                    label={t('entities.components.allowEffectiveDate', 'Allow effective date')}
+                                                    label={t('entities.capabilities.allowEffectiveDate', 'Allow effective date')}
                                                 />
                                             </FormGroup>
                                         ) : null}
@@ -2174,29 +2183,29 @@ const EntitiesWorkspace = () => {
                                 <Box sx={COMPONENT_SECTION_SX}>
                                     <Stack spacing={1.5}>
                                         <Typography variant='subtitle2'>
-                                            {t('entities.components.recordLifecycle', 'Record lifecycle')}
+                                            {t('entities.capabilities.recordLifecycle', 'Record lifecycle')}
                                         </Typography>
                                         <Typography variant='body2' color='text.secondary'>
                                             {t(
-                                                'entities.components.recordLifecycleHelper',
+                                                'entities.capabilities.recordLifecycleHelper',
                                                 'Enables lifecycle states for transactional or hybrid entity records.'
                                             )}
                                         </Typography>
                                         <FormControlLabel
                                             control={
                                                 <Checkbox
-                                                    checked={isEnabledComponentConfig(components.recordLifecycle)}
+                                                    checked={isEnabledCapabilityConfig(capabilities.recordLifecycle)}
                                                     onChange={(event) => setComponentEnabled('recordLifecycle', event.target.checked)}
                                                     disabled={isLoading || isStructureLocked}
                                                 />
                                             }
-                                            label={t('entities.components.recordLifecycle', 'Record lifecycle')}
+                                            label={t('entities.capabilities.recordLifecycle', 'Record lifecycle')}
                                         />
-                                        {isEnabledComponentConfig(components.recordLifecycle) ? (
+                                        {isEnabledCapabilityConfig(capabilities.recordLifecycle) ? (
                                             <FormControlLabel
                                                 control={
                                                     <Checkbox
-                                                        checked={components.recordLifecycle.allowCustomStates !== false}
+                                                        checked={capabilities.recordLifecycle.allowCustomStates !== false}
                                                         onChange={(event) =>
                                                             updateComponentConfig('recordLifecycle', {
                                                                 allowCustomStates: event.target.checked
@@ -2205,36 +2214,36 @@ const EntitiesWorkspace = () => {
                                                         disabled={isLoading || isStructureLocked}
                                                     />
                                                 }
-                                                label={t('entities.components.allowCustomStates', 'Allow custom states')}
+                                                label={t('entities.capabilities.allowCustomStates', 'Allow custom states')}
                                             />
                                         ) : null}
                                     </Stack>
                                 </Box>
                                 <Box sx={COMPONENT_SECTION_SX}>
                                     <Stack spacing={1.5}>
-                                        <Typography variant='subtitle2'>{t('entities.components.posting', 'Posting')}</Typography>
+                                        <Typography variant='subtitle2'>{t('entities.capabilities.posting', 'Posting')}</Typography>
                                         <Typography variant='body2' color='text.secondary'>
                                             {t(
-                                                'entities.components.postingHelper',
+                                                'entities.capabilities.postingHelper',
                                                 'Enables record posting settings and ledger movement scripts.'
                                             )}
                                         </Typography>
                                         <FormControlLabel
                                             control={
                                                 <Checkbox
-                                                    checked={isEnabledComponentConfig(components.posting)}
+                                                    checked={isEnabledCapabilityConfig(capabilities.posting)}
                                                     onChange={(event) => setComponentEnabled('posting', event.target.checked)}
                                                     disabled={isLoading || isStructureLocked}
                                                 />
                                             }
-                                            label={t('entities.components.posting', 'Posting')}
+                                            label={t('entities.capabilities.posting', 'Posting')}
                                         />
-                                        {isEnabledComponentConfig(components.posting) ? (
+                                        {isEnabledCapabilityConfig(capabilities.posting) ? (
                                             <FormGroup>
                                                 <FormControlLabel
                                                     control={
                                                         <Checkbox
-                                                            checked={components.posting.allowManualPosting !== false}
+                                                            checked={capabilities.posting.allowManualPosting !== false}
                                                             onChange={(event) =>
                                                                 updateComponentConfig('posting', {
                                                                     allowManualPosting: event.target.checked
@@ -2243,12 +2252,12 @@ const EntitiesWorkspace = () => {
                                                             disabled={isLoading || isStructureLocked}
                                                         />
                                                     }
-                                                    label={t('entities.components.allowManualPosting', 'Allow manual posting')}
+                                                    label={t('entities.capabilities.allowManualPosting', 'Allow manual posting')}
                                                 />
                                                 <FormControlLabel
                                                     control={
                                                         <Checkbox
-                                                            checked={components.posting.allowAutomaticPosting !== false}
+                                                            checked={capabilities.posting.allowAutomaticPosting !== false}
                                                             onChange={(event) =>
                                                                 updateComponentConfig('posting', {
                                                                     allowAutomaticPosting: event.target.checked
@@ -2257,7 +2266,7 @@ const EntitiesWorkspace = () => {
                                                             disabled={isLoading || isStructureLocked}
                                                         />
                                                     }
-                                                    label={t('entities.components.allowAutomaticPosting', 'Allow automatic posting')}
+                                                    label={t('entities.capabilities.allowAutomaticPosting', 'Allow automatic posting')}
                                                 />
                                             </FormGroup>
                                         ) : null}
@@ -2266,30 +2275,30 @@ const EntitiesWorkspace = () => {
                                 <Box sx={COMPONENT_SECTION_SX}>
                                     <Stack spacing={1.5}>
                                         <Typography variant='subtitle2'>
-                                            {t('entities.components.ledgerSchema', 'Ledger schema')}
+                                            {t('entities.capabilities.ledgerSchema', 'Ledger schema')}
                                         </Typography>
                                         <Typography variant='body2' color='text.secondary'>
                                             {t(
-                                                'entities.components.ledgerSchemaHelper',
+                                                'entities.capabilities.ledgerSchemaHelper',
                                                 'Enables append-only ledger schema settings and projection metadata.'
                                             )}
                                         </Typography>
                                         <FormControlLabel
                                             control={
                                                 <Checkbox
-                                                    checked={isEnabledComponentConfig(components.ledgerSchema)}
+                                                    checked={isEnabledCapabilityConfig(capabilities.ledgerSchema)}
                                                     onChange={(event) => setComponentEnabled('ledgerSchema', event.target.checked)}
                                                     disabled={isLoading || isStructureLocked}
                                                 />
                                             }
-                                            label={t('entities.components.ledgerSchema', 'Ledger schema')}
+                                            label={t('entities.capabilities.ledgerSchema', 'Ledger schema')}
                                         />
-                                        {isEnabledComponentConfig(components.ledgerSchema) ? (
+                                        {isEnabledCapabilityConfig(capabilities.ledgerSchema) ? (
                                             <FormGroup>
                                                 <FormControlLabel
                                                     control={
                                                         <Checkbox
-                                                            checked={components.ledgerSchema.allowProjections !== false}
+                                                            checked={capabilities.ledgerSchema.allowProjections !== false}
                                                             onChange={(event) =>
                                                                 updateComponentConfig('ledgerSchema', {
                                                                     allowProjections: event.target.checked
@@ -2298,12 +2307,12 @@ const EntitiesWorkspace = () => {
                                                             disabled={isLoading || isStructureLocked}
                                                         />
                                                     }
-                                                    label={t('entities.components.allowLedgerProjections', 'Allow projections')}
+                                                    label={t('entities.capabilities.allowLedgerProjections', 'Allow projections')}
                                                 />
                                                 <FormControlLabel
                                                     control={
                                                         <Checkbox
-                                                            checked={components.ledgerSchema.allowRegistrarPolicy !== false}
+                                                            checked={capabilities.ledgerSchema.allowRegistrarPolicy !== false}
                                                             onChange={(event) =>
                                                                 updateComponentConfig('ledgerSchema', {
                                                                     allowRegistrarPolicy: event.target.checked
@@ -2312,12 +2321,12 @@ const EntitiesWorkspace = () => {
                                                             disabled={isLoading || isStructureLocked}
                                                         />
                                                     }
-                                                    label={t('entities.components.allowLedgerRegistrarPolicy', 'Allow registrar policy')}
+                                                    label={t('entities.capabilities.allowLedgerRegistrarPolicy', 'Allow registrar policy')}
                                                 />
                                                 <FormControlLabel
                                                     control={
                                                         <Checkbox
-                                                            checked={components.ledgerSchema.allowManualFacts === true}
+                                                            checked={capabilities.ledgerSchema.allowManualFacts === true}
                                                             onChange={(event) =>
                                                                 updateComponentConfig('ledgerSchema', {
                                                                     allowManualFacts: event.target.checked
@@ -2326,7 +2335,7 @@ const EntitiesWorkspace = () => {
                                                             disabled={isLoading || isStructureLocked}
                                                         />
                                                     }
-                                                    label={t('entities.components.allowLedgerManualFacts', 'Allow manual facts')}
+                                                    label={t('entities.capabilities.allowLedgerManualFacts', 'Allow manual facts')}
                                                 />
                                             </FormGroup>
                                         ) : null}
@@ -2443,8 +2452,8 @@ const EntitiesWorkspace = () => {
                 )
             },
             {
-                id: 'components',
-                label: t('entities.columns.components', 'Components'),
+                id: 'capabilities',
+                label: t('entities.columns.capabilities', 'Capabilities'),
                 width: '22%',
                 sortable: true,
                 sortAccessor: (row: EntityTypeDisplayRow) => row.componentCount,
@@ -2601,7 +2610,7 @@ const EntitiesWorkspace = () => {
                                         <Typography variant='caption' color='text.secondary'>
                                             {t('entities.componentsCount', {
                                                 count: row.componentCount,
-                                                defaultValue: '{{count}} components'
+                                                defaultValue: '{{count}} capabilities'
                                             })}
                                         </Typography>
                                     }

@@ -19,16 +19,16 @@ import type {
     TreeEntity,
     TreeEntityDisplay,
     TreeEntityRef,
-    LinkedCollectionEntity,
-    LinkedCollectionDisplay,
+    ObjectCollectionEntity,
+    ObjectCollectionDisplay,
     ValueGroupEntity,
     ValueGroupDisplay,
     OptionListEntity,
     OptionListDisplay,
     OptionValue,
     OptionValueDisplay,
-    FieldDefinition,
-    FieldDefinitionDisplay,
+    Component,
+    ComponentDisplay,
     FixedValue,
     FixedValueDisplay,
     RecordItem,
@@ -91,10 +91,10 @@ export function toTreeEntityDisplay(hub: TreeEntity, locale = 'en'): TreeEntityD
 
 // ============ HUB-MAPPING CONVERTERS ============
 
-/** Convert LinkedCollectionEntity to LinkedCollectionDisplay for table rendering */
-export function toLinkedCollectionDisplay(catalog: LinkedCollectionEntity, locale = 'en'): LinkedCollectionDisplay {
-    const base = mapBaseVlcFields(catalog, locale)
-    return { ...base, name: base.name || base.codename, treeEntities: mapHubRefs(catalog.treeEntities, locale) }
+/** Convert ObjectCollectionEntity to ObjectCollectionDisplay for table rendering */
+export function toObjectCollectionDisplay(objectCollection: ObjectCollectionEntity, locale = 'en'): ObjectCollectionDisplay {
+    const base = mapBaseVlcFields(objectCollection, locale)
+    return { ...base, name: base.name || base.codename, treeEntities: mapHubRefs(objectCollection.treeEntities, locale) }
 }
 
 /** Convert Set to ValueGroupDisplay for table rendering. */
@@ -111,18 +111,18 @@ export function toOptionListDisplay(enumeration: OptionListEntity, locale = 'en'
 
 // ============ SPECIAL CONVERTERS ============
 
-/** Convert FieldDefinition to FieldDefinitionDisplay for table rendering */
-export function toFieldDefinitionDisplay(attr: FieldDefinition, locale = 'en'): FieldDefinitionDisplay {
+/** Convert Component to ComponentDisplay for table rendering */
+export function toComponentDisplay(component: Component, locale = 'en'): ComponentDisplay {
     return {
-        ...attr,
-        sortOrder: attr.effectiveSortOrder ?? attr.sortOrder,
-        effectiveSortOrder: attr.effectiveSortOrder,
-        codename: getLocalizedContentText(ensureEntityCodenameContent(attr, locale, attr.codename), locale, attr.codename),
-        name: getVLCString(attr.name, locale),
-        isShared: attr.isShared,
-        isActive: attr.isActive,
-        isExcluded: attr.isExcluded,
-        sharedBehavior: attr.sharedBehavior
+        ...component,
+        sortOrder: component.effectiveSortOrder ?? component.sortOrder,
+        effectiveSortOrder: component.effectiveSortOrder,
+        codename: getLocalizedContentText(ensureEntityCodenameContent(component, locale, component.codename), locale, component.codename),
+        name: getVLCString(component.name, locale),
+        isShared: component.isShared,
+        isActive: component.isActive,
+        isExcluded: component.isExcluded,
+        sharedBehavior: component.sharedBehavior
     }
 }
 
@@ -142,13 +142,13 @@ export function toFixedValueDisplay(constant: FixedValue, locale = 'en'): FixedV
 }
 
 /** Convert RecordItem to RecordItemDisplay for table rendering */
-export function toRecordItemDisplay(element: RecordItem, fieldDefinitions: FieldDefinition[] = [], locale = 'en'): RecordItemDisplay {
-    const displayAttr = fieldDefinitions.find((a) => a.isDisplayAttribute)
-    const fallbackAttr = fieldDefinitions.find((a) => a.dataType === 'STRING')
-    const selectedAttr = displayAttr || fallbackAttr
-    const rawValue = selectedAttr ? element.data[selectedAttr.codename] : undefined
+export function toRecordItemDisplay(element: RecordItem, components: Component[] = [], locale = 'en'): RecordItemDisplay {
+    const displayComponent = components.find((component) => component.isDisplayComponent)
+    const fallbackComponent = components.find((component) => component.dataType === 'STRING')
+    const selectedComponent = displayComponent || fallbackComponent
+    const rawValue = selectedComponent ? element.data[selectedComponent.codename] : undefined
     const nameValue =
-        selectedAttr && rawValue !== undefined && rawValue !== null
+        selectedComponent && rawValue !== undefined && rawValue !== null
             ? getVLCString(rawValue as VersatileLocalizedContent, locale) || String(rawValue)
             : `Element ${element.id.slice(0, 8)}`
 

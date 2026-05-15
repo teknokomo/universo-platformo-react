@@ -13,10 +13,10 @@ export const STORAGE_KEYS = {
     BRANCH_DISPLAY_STYLE: 'metahubsBranchDisplayStyle',
     /** Display style for Publications (Information Bases) list (card/table) */
     PUBLICATION_DISPLAY_STYLE: 'metahubsPublicationDisplayStyle',
-    /** Display style for linked-collection lists inside a tree-entity scope (card/table) */
-    LINKED_COLLECTION_DISPLAY_STYLE: 'metahubsLinkedCollectionDisplayStyle',
-    /** Display style for linked-collection lists across all scopes (card/table) */
-    ALL_LINKED_COLLECTIONS_DISPLAY_STYLE: 'metahubsAllLinkedCollectionsDisplayStyle',
+    /** Display style for object-collection lists inside a tree-entity scope (card/table) */
+    LINKED_COLLECTION_DISPLAY_STYLE: 'metahubsObjectCollectionDisplayStyle',
+    /** Display style for object-collection lists across all scopes (card/table) */
+    ALL_LINKED_COLLECTIONS_DISPLAY_STYLE: 'metahubsAllObjectCollectionsDisplayStyle',
     /** Display style for value-group lists inside a tree-entity scope (card/table) */
     VALUE_GROUP_DISPLAY_STYLE: 'metahubsValueGroupDisplayStyle',
     /** Display style for value-group lists across all scopes (card/table) */
@@ -39,8 +39,6 @@ export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS]
 
 const LEGACY_STORAGE_KEY_ALIASES: Record<string, readonly string[]> = {
     [STORAGE_KEYS.TREE_ENTITY_DISPLAY_STYLE]: ['metahubsHubDisplayStyle'],
-    [STORAGE_KEYS.LINKED_COLLECTION_DISPLAY_STYLE]: ['metahubsCatalogDisplayStyle'],
-    [STORAGE_KEYS.ALL_LINKED_COLLECTIONS_DISPLAY_STYLE]: ['metahubsAllCatalogsDisplayStyle'],
     [STORAGE_KEYS.VALUE_GROUP_DISPLAY_STYLE]: ['metahubsSetDisplayStyle'],
     [STORAGE_KEYS.ALL_VALUE_GROUPS_DISPLAY_STYLE]: ['metahubsAllSetsDisplayStyle'],
     [STORAGE_KEYS.OPTION_LIST_DISPLAY_STYLE]: ['metahubsEnumerationDisplayStyle'],

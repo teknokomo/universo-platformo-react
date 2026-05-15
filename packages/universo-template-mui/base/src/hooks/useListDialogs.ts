@@ -57,7 +57,7 @@ export interface UseListDialogsReturn<TEntity> {
  *
  * @example
  * ```tsx
- * const { dialogs, openCreate, openEdit, openDelete, close } = useListDialogs<CatalogDisplay>()
+ * const { dialogs, openCreate, openEdit, openDelete, close } = useListDialogs<ObjectDisplay>()
  *
  * <Button onClick={openCreate}>Add</Button>
  * <CreateDialog open={dialogs.create.open} onClose={() => close('create')} />

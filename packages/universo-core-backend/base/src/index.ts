@@ -31,7 +31,7 @@ import {
     inspectRegisteredSystemAppStructureMetadata,
     runRegisteredPlatformPostSchemaMigrations,
     runRegisteredPlatformPreludeMigrations,
-    syncRegisteredPlatformDefinitionsToCatalog,
+    syncRegisteredPlatformDefinitionsToObject,
     validateRegisteredPlatformMigrations,
     validateRegisteredSystemAppDefinitions,
     validateRegisteredSystemAppSchemaGenerationPlans,
@@ -39,7 +39,7 @@ import {
 } from '@universo/migrations-platform'
 import { initializeRateLimiters as initializeStartRateLimiters } from '@universo/start-backend'
 import errorHandlerMiddleware from './middlewares/errors'
-import { API_WHITELIST_URLS, isGlobalMigrationCatalogEnabled, parsePositiveInt, resolveRateLimitKey } from '@universo/utils'
+import { API_WHITELIST_URLS, isGlobalMigrationObjectEnabled, parsePositiveInt, resolveRateLimitKey } from '@universo/utils'
 import 'global-agent/bootstrap'
 import { bootstrapStartupSuperuser } from './bootstrap/bootstrapSuperuser'
 import { executeStartupFullReset } from './bootstrap/startupReset'
@@ -86,7 +86,7 @@ export class App {
             logger.info('📦 [server]: Knex is initializing...')
             await assertIsolatedVmRuntimeAvailable()
             logger.info('[server]: Scripting runtime compatibility verified')
-            const globalMigrationCatalogEnabled = isGlobalMigrationCatalogEnabled()
+            const globalMigrationObjectEnabled = isGlobalMigrationObjectEnabled()
 
             const validation = validateRegisteredPlatformMigrations()
             if (!validation.ok) {
@@ -156,13 +156,13 @@ export class App {
                 )
             }
 
-            if (globalMigrationCatalogEnabled) {
-                const definitionSyncResult = await syncRegisteredPlatformDefinitionsToCatalog(getKnex(), {
+            if (globalMigrationObjectEnabled) {
+                const definitionSyncResult = await syncRegisteredPlatformDefinitionsToObject(getKnex(), {
                     source: 'core-backend-initDatabase'
                 })
-                logger.info('[server]: Registered platform definitions synchronized to catalog', definitionSyncResult)
+                logger.info('[server]: Registered platform definitions synchronized to object', definitionSyncResult)
             } else {
-                logger.info('[server]: Global migration catalog is disabled; skipping catalog definition sync')
+                logger.info('[server]: Global migration object is disabled; skipping object definition sync')
             }
 
             await seedTemplates(getPoolExecutor(), {

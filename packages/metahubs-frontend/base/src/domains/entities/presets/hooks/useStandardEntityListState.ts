@@ -3,7 +3,7 @@ import { useConfirm, useListDialogs } from '@universo/template-mui'
 import { useViewPreference } from '../../../../hooks/useViewPreference'
 
 /**
- * Combines common list state hooks used across all standard entity list components:
+ * Combines common list state hooks used across all standard entity list capabilities:
  * - Dialog management (create/edit/copy/delete/conflict)
  * - View preference (card/table toggle with localStorage persistence)
  * - Imperative confirm dialog
@@ -39,8 +39,8 @@ export function useStandardEntityListState<TEntity>(storageKey: string) {
 }
 
 /**
- * Factory for the standard `copyEntity` callback used by all standard entity list components.
- * Eliminates duplicated copy dispatch pattern across TreeEntityList, LinkedCollectionList,
+ * Factory for the standard `copyEntity` callback used by all standard entity list capabilities.
+ * Eliminates duplicated copy dispatch pattern across TreeEntityList, ObjectCollectionList,
  * ValueGroupList, and OptionListList.
  */
 export function createEntityCopyCallback<TPayload extends Record<string, unknown>>(options: {

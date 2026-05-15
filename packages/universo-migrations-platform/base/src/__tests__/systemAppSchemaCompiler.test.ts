@@ -23,7 +23,7 @@ const MockSchemaMigrator = jest.fn().mockImplementation(() => ({
     applyAllChanges: mockApplyAllChanges
 }))
 type MockSystemTableCapabilityOptions = {
-    includeAttributes?: boolean
+    includeComponents?: boolean
     includeValues?: boolean
     includeLayouts?: boolean
     includeWidgets?: boolean
@@ -32,8 +32,8 @@ type MockSystemTableCapabilityOptions = {
 const mockResolveSystemTableNames = jest.fn((options?: MockSystemTableCapabilityOptions) => {
     const tableNames = ['_app_migrations', '_app_settings', '_app_objects']
 
-    if (options?.includeAttributes !== false) {
-        tableNames.push('_app_attributes')
+    if (options?.includeComponents !== false) {
+        tableNames.push('_app_components')
     }
 
     if (options?.includeValues !== false) {
@@ -124,8 +124,8 @@ const createSyntheticCodenameVlc = (value: string) => ({
 
 const mapBusinessTableKindToRuntimeEntityKind = (kind: string): string => {
     switch (kind) {
-        case 'catalog':
-            return 'catalog'
+        case 'object':
+            return 'object'
         case 'document':
             return 'document'
         case 'relation':
@@ -180,7 +180,7 @@ const buildProfilesStructureRows = () => {
                 column_name: field.physicalColumnName,
                 data_type: field.dataType,
                 is_required: field.isRequired ?? false,
-                is_display_attribute: field.isDisplayAttribute ?? false,
+                is_display_component: field.isDisplayComponent ?? false,
                 target_object_id: targetObjectId,
                 target_object_kind: targetTable ? mapBusinessTableKindToRuntimeEntityKind(targetTable.kind) : null,
                 presentation_json: JSON.stringify(field.presentation ?? createSyntheticPresentation(field.codename)),
@@ -203,7 +203,7 @@ const createStructureInspectionKnex = (options: { fingerprintDrift?: boolean; js
                         { table_name: '_app_migrations' },
                         { table_name: '_app_settings' },
                         { table_name: '_app_objects' },
-                        { table_name: '_app_attributes' }
+                        { table_name: '_app_components' }
                     ]
                 }
             }
@@ -231,7 +231,7 @@ const createStructureInspectionKnex = (options: { fingerprintDrift?: boolean; js
             }
         }
 
-        if (sql.includes('validation_rules::text as validation_rules_json') && sql.includes('._app_attributes')) {
+        if (sql.includes('validation_rules::text as validation_rules_json') && sql.includes('._app_components')) {
             return {
                 rows: attributeRows.map((row) =>
                     options.jsonbCodenames
@@ -244,7 +244,7 @@ const createStructureInspectionKnex = (options: { fingerprintDrift?: boolean; js
             }
         }
 
-        if (sql.includes('._app_attributes')) {
+        if (sql.includes('._app_components')) {
             return {
                 rows: attributeRows.map(({ object_codename, codename, column_name }) => ({
                     object_codename: options.jsonbCodenames ? createSyntheticCodenameVlc(String(object_codename)) : object_codename,
@@ -307,7 +307,7 @@ describe('systemAppSchemaCompiler', () => {
             recordMigration: true,
             migrationDescription: 'system-app-cutover',
             systemTableCapabilities: {
-                includeAttributes: true,
+                includeComponents: true,
                 includeValues: false,
                 includeLayouts: false,
                 includeWidgets: false
@@ -329,13 +329,13 @@ describe('systemAppSchemaCompiler', () => {
             expect.arrayContaining([
                 expect.objectContaining({
                     codename: 'metahubs',
-                    kind: 'catalog',
-                    physicalTableName: 'cat_metahubs',
+                    kind: 'object',
+                    physicalTableName: 'obj_metahubs',
                     fields: expect.arrayContaining([
                         expect.objectContaining({
                             codename: 'codename',
                             physicalColumnName: 'codename',
-                            dataType: 'STRING',
+                            dataType: 'JSON',
                             isRequired: true
                         })
                     ])
@@ -373,7 +373,7 @@ describe('systemAppSchemaCompiler', () => {
                 migrationName: buildExpectedBaselineMigrationName('metahubs'),
                 migrationManager: expect.objectContaining({ tag: 'migration-manager' }),
                 systemTableCapabilities: {
-                    includeAttributes: true,
+                    includeComponents: true,
                     includeValues: false,
                     includeLayouts: false,
                     includeWidgets: false
@@ -396,8 +396,8 @@ describe('systemAppSchemaCompiler', () => {
             [
                 expect.objectContaining({
                     codename: 'profiles',
-                    kind: 'catalog',
-                    physicalTableName: 'cat_profiles',
+                    kind: 'object',
+                    physicalTableName: 'obj_profiles',
                     presentation: expect.objectContaining({
                         name: expect.objectContaining({
                             locales: expect.objectContaining({
@@ -412,7 +412,7 @@ describe('systemAppSchemaCompiler', () => {
                             codename: 'nickname',
                             physicalColumnName: 'nickname',
                             dataType: 'STRING',
-                            isDisplayAttribute: true,
+                            isDisplayComponent: true,
                             presentation: expect.objectContaining({
                                 name: expect.objectContaining({
                                     locales: expect.objectContaining({
@@ -444,7 +444,7 @@ describe('systemAppSchemaCompiler', () => {
                 migrationDescription: 'profiles fixed-system baseline schema',
                 migrationManager: expect.objectContaining({ tag: 'migration-manager' }),
                 systemTableCapabilities: {
-                    includeAttributes: true,
+                    includeComponents: true,
                     includeValues: false,
                     includeLayouts: false,
                     includeWidgets: false
@@ -461,7 +461,7 @@ describe('systemAppSchemaCompiler', () => {
             expect.arrayContaining([
                 expect.objectContaining({
                     codename: 'roles',
-                    physicalTableName: 'cat_roles',
+                    physicalTableName: 'obj_roles',
                     presentation: expect.objectContaining({
                         name: expect.objectContaining({
                             locales: expect.objectContaining({
@@ -475,18 +475,14 @@ describe('systemAppSchemaCompiler', () => {
                         expect.objectContaining({
                             codename: 'codename',
                             physicalColumnName: 'codename',
-                            dataType: 'STRING',
-                            isRequired: true,
-                            validationRules: {
-                                maxLength: 50,
-                                pattern: '^[a-z0-9:_-]+$'
-                            }
+                            dataType: 'JSON',
+                            isRequired: true
                         }),
                         expect.objectContaining({
                             codename: 'name',
                             physicalColumnName: 'name',
                             dataType: 'JSON',
-                            isDisplayAttribute: true,
+                            isDisplayComponent: true,
                             presentation: expect.objectContaining({
                                 name: expect.objectContaining({
                                     locales: expect.objectContaining({
@@ -523,7 +519,7 @@ describe('systemAppSchemaCompiler', () => {
                             physicalColumnName: 'role_id',
                             dataType: 'REF',
                             isRequired: true,
-                            targetEntityKind: 'catalog',
+                            targetEntityKind: 'object',
                             targetEntityId: expect.any(String)
                         })
                     ])
@@ -535,7 +531,7 @@ describe('systemAppSchemaCompiler', () => {
                 migrationDescription: 'admin fixed-system baseline schema',
                 migrationManager: expect.objectContaining({ tag: 'migration-manager' }),
                 systemTableCapabilities: {
-                    includeAttributes: true,
+                    includeComponents: true,
                     includeValues: false,
                     includeLayouts: false,
                     includeWidgets: false
@@ -552,7 +548,7 @@ describe('systemAppSchemaCompiler', () => {
             expect.arrayContaining([
                 expect.objectContaining({
                     codename: 'applications',
-                    physicalTableName: 'cat_applications',
+                    physicalTableName: 'obj_applications',
                     presentation: expect.objectContaining({
                         name: expect.objectContaining({
                             locales: expect.objectContaining({
@@ -568,7 +564,7 @@ describe('systemAppSchemaCompiler', () => {
                             physicalColumnName: 'name',
                             dataType: 'JSON',
                             isRequired: true,
-                            isDisplayAttribute: true,
+                            isDisplayComponent: true,
                             presentation: expect.objectContaining({
                                 name: expect.objectContaining({
                                     locales: expect.objectContaining({
@@ -591,14 +587,14 @@ describe('systemAppSchemaCompiler', () => {
                 }),
                 expect.objectContaining({
                     codename: 'connectors',
-                    physicalTableName: 'cat_connectors',
+                    physicalTableName: 'obj_connectors',
                     fields: expect.arrayContaining([
                         expect.objectContaining({
                             codename: 'application_id',
                             physicalColumnName: 'application_id',
                             dataType: 'REF',
                             isRequired: true,
-                            targetEntityKind: 'catalog',
+                            targetEntityKind: 'object',
                             targetEntityId: expect.any(String)
                         })
                     ])
@@ -622,7 +618,7 @@ describe('systemAppSchemaCompiler', () => {
                 migrationDescription: 'applications fixed-system baseline schema',
                 migrationManager: expect.objectContaining({ tag: 'migration-manager' }),
                 systemTableCapabilities: {
-                    includeAttributes: true,
+                    includeComponents: true,
                     includeValues: false,
                     includeLayouts: false,
                     includeWidgets: false
@@ -639,7 +635,7 @@ describe('systemAppSchemaCompiler', () => {
             expect.arrayContaining([
                 expect.objectContaining({
                     codename: 'metahubs',
-                    physicalTableName: 'cat_metahubs',
+                    physicalTableName: 'obj_metahubs',
                     presentation: expect.objectContaining({
                         name: expect.objectContaining({
                             locales: expect.objectContaining({
@@ -653,7 +649,7 @@ describe('systemAppSchemaCompiler', () => {
                         expect.objectContaining({
                             codename: 'codename',
                             physicalColumnName: 'codename',
-                            dataType: 'STRING',
+                            dataType: 'JSON',
                             isRequired: true
                         }),
                         expect.objectContaining({
@@ -715,7 +711,7 @@ describe('systemAppSchemaCompiler', () => {
                 migrationDescription: 'metahubs fixed-system baseline schema',
                 migrationManager: expect.objectContaining({ tag: 'migration-manager' }),
                 systemTableCapabilities: {
-                    includeAttributes: true,
+                    includeComponents: true,
                     includeValues: false,
                     includeLayouts: false,
                     includeWidgets: false
@@ -753,7 +749,7 @@ describe('systemAppSchemaCompiler', () => {
                 migrationDescription: 'public fixed-system baseline schema',
                 migrationManager: expect.objectContaining({ tag: 'migration-manager' }),
                 systemTableCapabilities: {
-                    includeAttributes: false,
+                    includeComponents: false,
                     includeValues: false,
                     includeLayouts: false,
                     includeWidgets: false
@@ -766,8 +762,8 @@ describe('systemAppSchemaCompiler', () => {
             [
                 expect.objectContaining({
                     codename: 'profiles',
-                    kind: 'catalog',
-                    physicalTableName: 'cat_profiles'
+                    kind: 'object',
+                    physicalTableName: 'obj_profiles'
                 })
             ],
             expect.objectContaining({
@@ -776,7 +772,7 @@ describe('systemAppSchemaCompiler', () => {
                 migrationDescription: 'profiles fixed-system baseline schema',
                 migrationManager: expect.objectContaining({ tag: 'migration-manager' }),
                 systemTableCapabilities: {
-                    includeAttributes: true,
+                    includeComponents: true,
                     includeValues: false,
                     includeLayouts: false,
                     includeWidgets: false
@@ -833,7 +829,7 @@ describe('systemAppSchemaCompiler', () => {
         expect(artifactSet).toBeDefined()
 
         const brokenArtifacts = artifactSet!.artifacts.map((artifact) => {
-            if (artifact.schemaQualifiedName !== 'system_app_compiled.object.target.applications.applications.cat_applications') {
+            if (artifact.schemaQualifiedName !== 'system_app_compiled.object.target.applications.applications.obj_applications') {
                 return artifact
             }
 
@@ -851,7 +847,7 @@ describe('systemAppSchemaCompiler', () => {
                 ...artifactSet!,
                 artifacts: brokenArtifacts
             })
-        ).toContain('applications: compiled object artifact cat_applications must preserve manifest presentation metadata')
+        ).toContain('applications: compiled object artifact obj_applications must preserve manifest presentation metadata')
     })
 
     it('rejects compiled attribute artifacts that lose explicit manifest validation/ui metadata', () => {
@@ -860,7 +856,7 @@ describe('systemAppSchemaCompiler', () => {
         expect(artifactSet).toBeDefined()
 
         const brokenArtifacts = artifactSet!.artifacts.map((artifact) => {
-            if (artifact.schemaQualifiedName !== 'system_app_compiled.attribute.target.profiles.profiles.cat_profiles.nickname') {
+            if (artifact.schemaQualifiedName !== 'system_app_compiled.attribute.target.profiles.profiles.obj_profiles.nickname') {
                 return artifact
             }
 
@@ -878,7 +874,7 @@ describe('systemAppSchemaCompiler', () => {
                 ...artifactSet!,
                 artifacts: brokenArtifacts
             })
-        ).toContain('profiles: compiled attribute artifact cat_profiles.nickname must preserve manifest metadata')
+        ).toContain('profiles: compiled attribute artifact obj_profiles.nickname must preserve manifest metadata')
     })
 
     it('bootstraps fixed system app metadata without recreating business tables', async () => {
@@ -897,7 +893,7 @@ describe('systemAppSchemaCompiler', () => {
             [
                 expect.objectContaining({
                     codename: 'profiles',
-                    physicalTableName: 'cat_profiles',
+                    physicalTableName: 'obj_profiles',
                     fields: expect.arrayContaining([
                         expect.objectContaining({
                             codename: 'nickname',
@@ -912,7 +908,7 @@ describe('systemAppSchemaCompiler', () => {
                 userId: null,
                 removeMissing: true,
                 systemTableCapabilities: {
-                    includeAttributes: true,
+                    includeComponents: true,
                     includeValues: false,
                     includeLayouts: false,
                     includeWidgets: false
@@ -926,7 +922,7 @@ describe('systemAppSchemaCompiler', () => {
             storageModel: 'application_like',
             metadataObjectCount: 1,
             metadataAttributeCount: 12,
-            systemTables: ['_app_migrations', '_app_settings', '_app_objects', '_app_attributes'],
+            systemTables: ['_app_migrations', '_app_settings', '_app_objects', '_app_components'],
             syncStrategy: 'full_sync'
         })
         expect(mockGenerateFullSchema).not.toHaveBeenCalled()
@@ -946,7 +942,7 @@ describe('systemAppSchemaCompiler', () => {
             storageModel: 'application_like',
             metadataObjectCount: 1,
             metadataAttributeCount: 12,
-            systemTables: ['_app_migrations', '_app_settings', '_app_objects', '_app_attributes'],
+            systemTables: ['_app_migrations', '_app_settings', '_app_objects', '_app_components'],
             syncStrategy: 'noop'
         })
     })
@@ -1064,28 +1060,28 @@ describe('systemAppSchemaCompiler', () => {
                     schemaQualifiedName: 'system_app_compiled.table.target.profiles.profiles._app_objects'
                 }),
                 expect.objectContaining({
-                    name: 'profiles._app_attributes',
-                    schemaQualifiedName: 'system_app_compiled.table.target.profiles.profiles._app_attributes'
+                    name: 'profiles._app_components',
+                    schemaQualifiedName: 'system_app_compiled.table.target.profiles.profiles._app_components'
                 }),
                 expect.objectContaining({
-                    name: 'profiles.cat_profiles',
-                    schemaQualifiedName: 'system_app_compiled.table.target.profiles.profiles.cat_profiles',
+                    name: 'profiles.obj_profiles',
+                    schemaQualifiedName: 'system_app_compiled.table.target.profiles.profiles.obj_profiles',
                     dependencies: expect.arrayContaining(['system_app_compiled.table.target.profiles.profiles._app_objects::custom'])
                 }),
                 expect.objectContaining({
-                    name: 'profiles.cat_profiles.__object__',
-                    schemaQualifiedName: 'system_app_compiled.object.target.profiles.profiles.cat_profiles',
+                    name: 'profiles.obj_profiles.__object__',
+                    schemaQualifiedName: 'system_app_compiled.object.target.profiles.profiles.obj_profiles',
                     dependencies: expect.arrayContaining([
                         'system_app_compiled.table.target.profiles.profiles._app_objects::custom',
-                        'system_app_compiled.table.target.profiles.profiles.cat_profiles::custom'
+                        'system_app_compiled.table.target.profiles.profiles.obj_profiles::custom'
                     ])
                 }),
                 expect.objectContaining({
-                    name: 'profiles.cat_profiles.__attr__.nickname',
-                    schemaQualifiedName: 'system_app_compiled.attribute.target.profiles.profiles.cat_profiles.nickname',
+                    name: 'profiles.obj_profiles.__attr__.nickname',
+                    schemaQualifiedName: 'system_app_compiled.attribute.target.profiles.profiles.obj_profiles.nickname',
                     dependencies: expect.arrayContaining([
-                        'system_app_compiled.table.target.profiles.profiles._app_attributes::custom',
-                        'system_app_compiled.object.target.profiles.profiles.cat_profiles::custom'
+                        'system_app_compiled.table.target.profiles.profiles._app_components::custom',
+                        'system_app_compiled.object.target.profiles.profiles.obj_profiles::custom'
                     ])
                 })
             ])
@@ -1095,18 +1091,18 @@ describe('systemAppSchemaCompiler', () => {
             'system_app_compiled.table.target.profiles.profiles._app_migrations',
             'system_app_compiled.table.target.profiles.profiles._app_settings',
             'system_app_compiled.table.target.profiles.profiles._app_objects',
-            'system_app_compiled.table.target.profiles.profiles._app_attributes',
-            'system_app_compiled.table.target.profiles.profiles.cat_profiles'
+            'system_app_compiled.table.target.profiles.profiles._app_components',
+            'system_app_compiled.table.target.profiles.profiles.obj_profiles'
         ])
-        expect(schemaQualifiedNames.indexOf('system_app_compiled.object.target.profiles.profiles.cat_profiles')).toBeGreaterThan(
-            schemaQualifiedNames.indexOf('system_app_compiled.table.target.profiles.profiles.cat_profiles')
+        expect(schemaQualifiedNames.indexOf('system_app_compiled.object.target.profiles.profiles.obj_profiles')).toBeGreaterThan(
+            schemaQualifiedNames.indexOf('system_app_compiled.table.target.profiles.profiles.obj_profiles')
         )
         expect(
-            schemaQualifiedNames.indexOf('system_app_compiled.attribute.target.profiles.profiles.cat_profiles.nickname')
-        ).toBeGreaterThan(schemaQualifiedNames.indexOf('system_app_compiled.object.target.profiles.profiles.cat_profiles'))
+            schemaQualifiedNames.indexOf('system_app_compiled.attribute.target.profiles.profiles.obj_profiles.nickname')
+        ).toBeGreaterThan(schemaQualifiedNames.indexOf('system_app_compiled.object.target.profiles.profiles.obj_profiles'))
 
         const profileNicknameArtifact = artifacts.find(
-            (artifact) => artifact.schemaQualifiedName === 'system_app_compiled.attribute.target.profiles.profiles.cat_profiles.nickname'
+            (artifact) => artifact.schemaQualifiedName === 'system_app_compiled.attribute.target.profiles.profiles.obj_profiles.nickname'
         )
         expect(profileNicknameArtifact).toBeDefined()
         expect(JSON.parse(profileNicknameArtifact!.sql)).toEqual(
@@ -1132,7 +1128,7 @@ describe('systemAppSchemaCompiler', () => {
         )
 
         const profileObjectArtifact = artifacts.find(
-            (artifact) => artifact.schemaQualifiedName === 'system_app_compiled.object.target.profiles.profiles.cat_profiles'
+            (artifact) => artifact.schemaQualifiedName === 'system_app_compiled.object.target.profiles.profiles.obj_profiles'
         )
         expect(profileObjectArtifact).toBeDefined()
         expect(JSON.parse(profileObjectArtifact!.sql)).toEqual(
@@ -1162,13 +1158,13 @@ describe('systemAppSchemaCompiler', () => {
             'system_app_compiled.table.target.profiles.profiles._app_migrations',
             'system_app_compiled.table.target.profiles.profiles._app_settings',
             'system_app_compiled.table.target.profiles.profiles._app_objects',
-            'system_app_compiled.table.target.profiles.profiles._app_attributes',
-            'system_app_compiled.table.target.profiles.profiles.cat_profiles'
+            'system_app_compiled.table.target.profiles.profiles._app_components',
+            'system_app_compiled.table.target.profiles.profiles.obj_profiles'
         ])
         expect(profileNames).toEqual(
             expect.arrayContaining([
-                'system_app_compiled.object.target.profiles.profiles.cat_profiles',
-                'system_app_compiled.attribute.target.profiles.profiles.cat_profiles.nickname'
+                'system_app_compiled.object.target.profiles.profiles.obj_profiles',
+                'system_app_compiled.attribute.target.profiles.profiles.obj_profiles.nickname'
             ])
         )
         expect(metahubNames.slice(0, 12)).toEqual([
@@ -1176,18 +1172,18 @@ describe('systemAppSchemaCompiler', () => {
             'system_app_compiled.table.target.metahubs.metahubs._app_migrations',
             'system_app_compiled.table.target.metahubs.metahubs._app_settings',
             'system_app_compiled.table.target.metahubs.metahubs._app_objects',
-            'system_app_compiled.table.target.metahubs.metahubs._app_attributes',
-            'system_app_compiled.table.target.metahubs.metahubs.cat_metahubs',
-            'system_app_compiled.table.target.metahubs.metahubs.cat_metahub_branches',
+            'system_app_compiled.table.target.metahubs.metahubs._app_components',
+            'system_app_compiled.table.target.metahubs.metahubs.obj_metahubs',
+            'system_app_compiled.table.target.metahubs.metahubs.obj_metahub_branches',
             'system_app_compiled.table.target.metahubs.metahubs.rel_metahub_users',
-            'system_app_compiled.table.target.metahubs.metahubs.cat_templates',
+            'system_app_compiled.table.target.metahubs.metahubs.obj_templates',
             'system_app_compiled.table.target.metahubs.metahubs.doc_template_versions',
             'system_app_compiled.table.target.metahubs.metahubs.doc_publications',
             'system_app_compiled.table.target.metahubs.metahubs.doc_publication_versions'
         ])
         expect(metahubNames).toEqual(
             expect.arrayContaining([
-                'system_app_compiled.object.target.metahubs.metahubs.cat_metahubs',
+                'system_app_compiled.object.target.metahubs.metahubs.obj_metahubs',
                 'system_app_compiled.object.target.metahubs.metahubs.doc_publications',
                 'system_app_compiled.attribute.target.metahubs.metahubs.doc_publications.access_mode',
                 'system_app_compiled.attribute.target.metahubs.metahubs.doc_publication_versions.snapshot_json'
@@ -1231,7 +1227,7 @@ describe('systemAppSchemaCompiler', () => {
             returning: jest.fn().mockResolvedValue([])
         }
         const knex = {
-            raw: jest.fn(async () => ({ rows: [{ table_name: '_app_migrations' }, { table_name: 'cat_profiles' }] })),
+            raw: jest.fn(async () => ({ rows: [{ table_name: '_app_migrations' }, { table_name: 'obj_profiles' }] })),
             transaction: jest.fn(async (callback: (trx: unknown) => Promise<unknown>) =>
                 callback({
                     withSchema: jest.fn(() => transactionChain)
@@ -1251,8 +1247,8 @@ describe('systemAppSchemaCompiler', () => {
                     entities: {
                         'entity-1': {
                             codename: 'profiles',
-                            kind: 'catalog',
-                            tableName: 'cat_profiles',
+                            kind: 'object',
+                            tableName: 'obj_profiles',
                             fields: {}
                         }
                     }
@@ -1261,7 +1257,7 @@ describe('systemAppSchemaCompiler', () => {
         })
         mockCalculateDiff.mockReturnValue({
             hasChanges: true,
-            additive: [{ type: 'ADD_COLUMN', tableName: 'cat_profiles', columnName: 'timezone' }],
+            additive: [{ type: 'ADD_COLUMN', tableName: 'obj_profiles', columnName: 'timezone' }],
             destructive: [],
             summary: 'Add timezone column'
         })
@@ -1280,7 +1276,7 @@ describe('systemAppSchemaCompiler', () => {
             [
                 expect.objectContaining({
                     codename: 'profiles',
-                    physicalTableName: 'cat_profiles'
+                    physicalTableName: 'obj_profiles'
                 })
             ],
             true,
@@ -1288,7 +1284,7 @@ describe('systemAppSchemaCompiler', () => {
                 recordMigration: true,
                 migrationDescription: 'profiles fixed-system schema upgrade',
                 systemTableCapabilities: {
-                    includeAttributes: true,
+                    includeComponents: true,
                     includeValues: false,
                     includeLayouts: false,
                     includeWidgets: false
@@ -1319,7 +1315,7 @@ describe('systemAppSchemaCompiler', () => {
             returning: jest.fn().mockResolvedValue([{ id: 'baseline-row' }])
         }
         const knex = {
-            raw: jest.fn(async () => ({ rows: [{ table_name: '_app_migrations' }, { table_name: 'cat_profiles' }] })),
+            raw: jest.fn(async () => ({ rows: [{ table_name: '_app_migrations' }, { table_name: 'obj_profiles' }] })),
             transaction: jest.fn(async (callback: (trx: unknown) => Promise<unknown>) =>
                 callback({
                     withSchema: jest.fn(() => transactionChain)
@@ -1355,7 +1351,7 @@ describe('systemAppSchemaCompiler', () => {
             returning: jest.fn().mockResolvedValue([])
         }
         const knex = {
-            raw: jest.fn(async () => ({ rows: [{ table_name: '_app_migrations' }, { table_name: 'cat_profiles' }] })),
+            raw: jest.fn(async () => ({ rows: [{ table_name: '_app_migrations' }, { table_name: 'obj_profiles' }] })),
             transaction: jest.fn(async (callback: (trx: unknown) => Promise<unknown>) =>
                 callback({
                     withSchema: jest.fn(() => transactionChain)
@@ -1375,8 +1371,8 @@ describe('systemAppSchemaCompiler', () => {
                     entities: {
                         'entity-1': {
                             codename: 'profiles',
-                            kind: 'catalog',
-                            tableName: 'cat_profiles',
+                            kind: 'object',
+                            tableName: 'obj_profiles',
                             fields: {}
                         }
                     }
@@ -1405,7 +1401,7 @@ describe('systemAppSchemaCompiler', () => {
 
     it('fails loudly when an application-like fixed system app is only partially bootstrapped', async () => {
         const knex = {
-            raw: jest.fn(async () => ({ rows: [{ table_name: 'cat_roles' }, { table_name: '_app_migrations' }] }))
+            raw: jest.fn(async () => ({ rows: [{ table_name: 'obj_roles' }, { table_name: '_app_migrations' }] }))
         }
 
         await expect(

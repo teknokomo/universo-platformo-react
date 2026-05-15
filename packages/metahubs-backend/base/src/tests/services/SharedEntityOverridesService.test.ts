@@ -37,11 +37,11 @@ describe('SharedEntityOverridesService', () => {
 
     it('rejects target exclusion when sharedBehavior.canExclude is false', async () => {
         mockTxQuery.mockImplementation((sql: string, params: unknown[]) => {
-            if (sql.includes(`FROM "${schemaName}"."_mhb_attributes" entity`)) {
+            if (sql.includes(`FROM "${schemaName}"."_mhb_components" entity`)) {
                 return [{ id: 'attr-1', object_id: 'shared-pool-1', shared_behavior: { canExclude: false } }]
             }
-            if (sql.includes(`FROM "${schemaName}"."_mhb_objects"`) && params[1] === 'catalog') {
-                return [{ id: 'catalog-1' }]
+            if (sql.includes(`FROM "${schemaName}"."_mhb_objects"`) && params[1] === 'object') {
+                return [{ id: 'object-1' }]
             }
             return []
         })
@@ -49,9 +49,9 @@ describe('SharedEntityOverridesService', () => {
         await expect(
             service.upsertOverride({
                 metahubId: 'metahub-1',
-                entityKind: 'attribute',
+                entityKind: 'component',
                 sharedEntityId: 'attr-1',
-                targetObjectId: 'catalog-1',
+                targetObjectId: 'object-1',
                 isExcluded: true,
                 userId: 'user-1'
             })
@@ -103,11 +103,11 @@ describe('SharedEntityOverridesService', () => {
 
     it('reuses an explicit runner instead of opening a nested transaction', async () => {
         const explicitRunnerQuery = jest.fn((sql: string, params: unknown[]) => {
-            if (sql.includes(`FROM "${schemaName}"."_mhb_attributes" entity`)) {
+            if (sql.includes(`FROM "${schemaName}"."_mhb_components" entity`)) {
                 return [{ id: 'attr-2', object_id: 'shared-pool-1', shared_behavior: {} }]
             }
-            if (sql.includes(`FROM "${schemaName}"."_mhb_objects"`) && params[1] === 'catalog') {
-                return [{ id: 'catalog-2' }]
+            if (sql.includes(`FROM "${schemaName}"."_mhb_objects"`) && params[1] === 'object') {
+                return [{ id: 'object-2' }]
             }
             if (sql.includes(`FROM "${schemaName}"."_mhb_shared_entity_overrides"`) && sql.includes('LIMIT 1')) {
                 return []
@@ -116,9 +116,9 @@ describe('SharedEntityOverridesService', () => {
                 return [
                     {
                         id: 'override-2',
-                        entity_kind: 'attribute',
+                        entity_kind: 'component',
                         shared_entity_id: 'attr-2',
-                        target_object_id: 'catalog-2',
+                        target_object_id: 'object-2',
                         is_excluded: true,
                         is_active: null,
                         sort_order: null,
@@ -131,9 +131,9 @@ describe('SharedEntityOverridesService', () => {
 
         const result = await service.upsertOverride({
             metahubId: 'metahub-1',
-            entityKind: 'attribute',
+            entityKind: 'component',
             sharedEntityId: 'attr-2',
-            targetObjectId: 'catalog-2',
+            targetObjectId: 'object-2',
             isExcluded: true,
             userId: 'user-1',
             db: { query: explicitRunnerQuery } as { query: typeof explicitRunnerQuery }

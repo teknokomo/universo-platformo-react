@@ -56,8 +56,8 @@ const datasourceBaseSchema = z
 export const recordsListDatasourceSchema = datasourceBaseSchema
     .extend({
         kind: z.literal('records.list'),
-        linkedCollectionId: z.string().uuid().nullable().optional(),
-        linkedCollectionCodename: z.string().min(1).max(128).nullable().optional(),
+        objectCollectionId: z.string().uuid().nullable().optional(),
+        objectCollectionCodename: z.string().min(1).max(128).nullable().optional(),
         sectionId: z.string().uuid().nullable().optional(),
         sectionCodename: z.string().min(1).max(128).nullable().optional(),
         query: runtimeDatasourceListQuerySchema.optional()
@@ -96,8 +96,8 @@ export const recordsCountMetricDatasourceSchema = metricDatasourceSchema
         metricKey: z.literal('records.count'),
         params: z
             .object({
-                linkedCollectionId: z.string().uuid().optional(),
-                linkedCollectionCodename: z.string().min(1).max(128).optional(),
+                objectCollectionId: z.string().uuid().optional(),
+                objectCollectionCodename: z.string().min(1).max(128).optional(),
                 sectionId: z.string().uuid().optional(),
                 sectionCodename: z.string().min(1).max(128).optional(),
                 search: z.string().trim().max(200).optional()

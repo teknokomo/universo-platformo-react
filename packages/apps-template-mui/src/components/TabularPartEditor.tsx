@@ -24,7 +24,7 @@ export interface TabularPartEditorProps {
     value: Record<string, unknown>[]
     /** Called when rows change. */
     onChange: (rows: Record<string, unknown>[]) => void
-    /** Child field definitions. */
+    /** Child components. */
     childFields: FieldConfig[]
     /** Whether to show the label above the table. */
     showTitle?: boolean
@@ -42,7 +42,7 @@ function getRowId(row: Record<string, unknown>, index: number): string {
 }
 
 /**
- * Inline editor for TABLE attribute child rows during CREATE mode.
+ * Inline editor for TABLE component child rows during CREATE mode.
  *
  * Manages local state (no API calls). Rows produced here are submitted
  * as part of the parent record's create payload.

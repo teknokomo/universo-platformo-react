@@ -4,18 +4,18 @@ description: Practical guide for creating and publishing custom entity types.
 
 # Custom Entity Types
 
-Custom entity types let a metahub define new authoring and runtime sections on top of the shared entity pipeline. The entity system is a fully generic constructor—Hubs, Catalogs, Sets, and Enumerations are entity type presets defined in metahub templates, not hardcoded types.
+Custom entity types let a metahub define new authoring and runtime sections on top of the shared entity pipeline. The entity system is a fully generic constructor—Hubs, Objects, Sets, and Enumerations are entity type presets defined in metahub templates, not hardcoded types.
 
 ## When To Use Them
 
 - Use a custom entity type when the object is metahub-specific and should not become a new fixed platform module.
 - Use a reusable preset when the shape should stay consistent across metahubs.
-- Use the standard presets for Hubs, Catalogs, Sets, and Enumerations when creating well-known resource types.
+- Use the standard presets for Hubs, Objects, Sets, and Enumerations when creating well-known resource types.
 
 ## Typical Flow
 
 1. Open the Entities workspace from the metahub sidebar.
-2. Start from a preset such as Hubs, Catalogs, Sets, Enumerations, or from an empty type.
+2. Start from a preset such as Hubs, Objects, Sets, Enumerations, or from an empty type.
 3. Fill the kind key, codename, name, tab configuration, and resource-tab titles when the type exposes shared Resources capabilities.
 4. Enable only the components that match the intended behavior.
 5. Save the type, open its instances page, and create the first instance before opening automation tabs.
@@ -25,11 +25,11 @@ Custom entity types let a metahub define new authoring and runtime sections on t
 ## Standard Presets
 
 - Hubs reuse the delegated hub surface, nested entity-route ownership, and save-first automation tabs.
-- Catalogs reuse the catalog authoring surface and remain the runtime-visible control case after publication sync.
+- Objects reuse the object authoring surface and remain the runtime-visible control case after publication sync.
 - Sets keep fixed-value authoring plus automation on the shared entity-owned routes.
 - Enumerations keep option-value authoring plus action/event automation on the shared entity-owned routes.
 - Standard preset definitions are seeded into `_mhb_entity_type_definitions`; services do not create synthetic standard definitions if a row is missing.
-- Resource tab titles such as catalog attributes, set constants, and enumeration values are localized metadata on the preset resource surface, not frontend constants.
+- Resource tab titles such as object components, set constants, and enumeration values are localized metadata on the preset resource surface, not frontend constants.
 
 ## Current Component Set
 

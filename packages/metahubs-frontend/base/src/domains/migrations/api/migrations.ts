@@ -5,7 +5,7 @@ export type TemplateCleanupMode = 'keep' | 'dry_run' | 'confirm'
 
 export interface TemplateCleanupSummary {
     entitiesDeleted: number
-    attributesDeleted: number
+    componentsDeleted: number
     elementsDeleted: number
     settingsDeleted: number
 }
@@ -69,7 +69,7 @@ export interface MetahubMigrationsPlanResponse {
             settingsAdded: number
             entitiesAdded: number
             constantsAdded: number
-            attributesAdded: number
+            componentsAdded: number
             elementsAdded: number
             skipped: string[]
             hasChanges: boolean

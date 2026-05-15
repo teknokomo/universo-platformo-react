@@ -138,11 +138,11 @@ test('@flow empty metahub template supports manual entity-type authoring from th
 
         const resourceSurfaceKeyInput = createTypeDialog.getByLabel('Resource tab key')
         if ((await resourceSurfaceKeyInput.count()) > 0) {
-            await resourceSurfaceKeyInput.fill('attributes')
-            await createTypeDialog.getByLabel('Resource tab route segment').fill('attributes')
-            await createTypeDialog.getByLabel('Resource tab title').fill('Attributes')
+            await resourceSurfaceKeyInput.fill('components')
+            await createTypeDialog.getByLabel('Resource tab route segment').fill('components')
+            await createTypeDialog.getByLabel('Resource tab title').fill('Components')
         } else {
-            await createTypeDialog.getByLabel('Attributes').fill('Attributes')
+            await createTypeDialog.getByLabel('Components').fill('Components')
         }
 
         await createTypeDialog.getByTestId(entityDialogSelectors.submitButton).click()
@@ -154,7 +154,9 @@ test('@flow empty metahub template supports manual entity-type authoring from th
         await expect
             .poll(async () => {
                 const payload = await listMetahubEntityTypes(api, persistedMetahub.id, { limit: 100, offset: 0 })
-                const item = (payload.items ?? []).find((entry: { kindKey?: string; ui?: { resourceSurfaces?: unknown[] } }) => entry.kindKey === entityTypeKindKey)
+                const item = (payload.items ?? []).find(
+                    (entry: { kindKey?: string; ui?: { resourceSurfaces?: unknown[] } }) => entry.kindKey === entityTypeKindKey
+                )
                 const resourceSurface = item?.ui?.resourceSurfaces?.[0] as
                     | { key?: string; capability?: string; routeSegment?: string; fallbackTitle?: string }
                     | undefined
@@ -163,7 +165,7 @@ test('@flow empty metahub template supports manual entity-type authoring from th
                     ? `${resourceSurface.key}|${resourceSurface.capability}|${resourceSurface.routeSegment}|${resourceSurface.fallbackTitle}`
                     : null
             })
-            .toBe('attributes|dataSchema|attributes|Attributes')
+            .toBe('components|dataSchema|components|Components')
     } finally {
         await disposeApiContext(api)
     }

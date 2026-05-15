@@ -4,7 +4,7 @@ import { SYSTEM_TABLE_VERSIONS, type SystemTableDef } from '../../domains/metahu
 
 const mockMirrorToGlobalCatalog = jest.fn().mockResolvedValue('019ccefc-2f7b-7b36-82f4-85cdb1312268')
 let mockHasRuntimeHistoryTable = false
-const mockIsGlobalMigrationCatalogEnabled = jest.fn(() => true)
+const mockIsGlobalMigrationObjectEnabled = jest.fn(() => true)
 
 jest.mock('@universo/migrations-catalog', () => ({
     mirrorToGlobalCatalog: (...args: unknown[]) => mockMirrorToGlobalCatalog(...args)
@@ -15,7 +15,7 @@ jest.mock('@universo/migrations-core', () => ({
 }))
 
 jest.mock('@universo/utils', () => ({
-    isGlobalMigrationCatalogEnabled: (...args: unknown[]) => mockIsGlobalMigrationCatalogEnabled(...args)
+    isGlobalMigrationObjectEnabled: (...args: unknown[]) => mockIsGlobalMigrationObjectEnabled(...args)
 }))
 
 describe('SystemTableMigrator', () => {
@@ -23,7 +23,7 @@ describe('SystemTableMigrator', () => {
         jest.clearAllMocks()
         mockMirrorToGlobalCatalog.mockResolvedValue('019ccefc-2f7b-7b36-82f4-85cdb1312268')
         mockHasRuntimeHistoryTable = false
-        mockIsGlobalMigrationCatalogEnabled.mockReturnValue(true)
+        mockIsGlobalMigrationObjectEnabled.mockReturnValue(true)
     })
 
     it('blocks automatic migration when destructive diff is detected', async () => {
@@ -329,7 +329,7 @@ describe('SystemTableMigrator', () => {
             } as unknown as Knex
 
             mockHasRuntimeHistoryTable = true
-            mockIsGlobalMigrationCatalogEnabled.mockReturnValue(false)
+            mockIsGlobalMigrationObjectEnabled.mockReturnValue(false)
             mockMirrorToGlobalCatalog.mockResolvedValueOnce(null)
 
             const migrator = new SystemTableMigrator(mockKnex, 'mhb_test_schema')
@@ -426,7 +426,7 @@ describe('SystemTableMigrator', () => {
             } as unknown as Knex
 
             mockHasRuntimeHistoryTable = true
-            mockIsGlobalMigrationCatalogEnabled.mockReturnValue(true)
+            mockIsGlobalMigrationObjectEnabled.mockReturnValue(true)
             mockMirrorToGlobalCatalog.mockRejectedValueOnce(new Error('catalog unavailable'))
 
             const migrator = new SystemTableMigrator(mockKnex, 'mhb_test_schema')

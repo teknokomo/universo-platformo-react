@@ -8,11 +8,11 @@ const asDescriptors = (value: unknown): readonly DescriptorLike[] => value as un
 const asDialogDescriptors = (value: unknown): readonly (DescriptorLike & { dialog?: { buildProps?: (ctx: any) => any } })[] =>
     value as unknown as readonly (DescriptorLike & { dialog?: { buildProps?: (ctx: any) => any } })[]
 
-const buildLinkedCollectionDisplay = () => ({
-    id: 'catalog-1',
+const buildObjectCollectionDisplay = () => ({
+    id: 'object-1',
     metahubId: 'metahub-1',
-    name: 'LinkedCollectionEntity 1',
-    codename: 'CatalogOne',
+    name: 'ObjectCollectionEntity 1',
+    codename: 'ObjectOne',
     description: '',
     isSingleHub: false,
     isRequiredHub: false,
@@ -155,14 +155,14 @@ describe('Metahubs page action factories', () => {
         expect(del?.dialog || del?.onSelect).toBeTruthy()
     }, 20000)
 
-    it('LinkedCollectionActions exports edit/copy/delete descriptors for localized forms', async () => {
-        const mod = await import('../../../entities/presets/ui/LinkedCollectionActions')
+    it('ObjectCollectionActions exports edit/copy/delete descriptors for localized forms', async () => {
+        const mod = await import('../../../entities/presets/ui/ObjectCollectionActions')
 
-        // LinkedCollectionActions exports an array of ActionDescriptors directly (not via createEntityActions)
+        // ObjectCollectionActions exports an array of ActionDescriptors directly (not via createEntityActions)
         const descriptors = asDescriptors(mod.default)
         expect(Array.isArray(descriptors)).toBe(true)
         expect(mod.buildInitialValues).toBeTypeOf('function')
-        expect(mod.validateLinkedCollectionForm).toBeTypeOf('function')
+        expect(mod.validateObjectCollectionForm).toBeTypeOf('function')
 
         const edit = descriptors.find((d) => d.id === 'edit')
         const copy = descriptors.find((d) => d.id === 'copy')
@@ -176,17 +176,17 @@ describe('Metahubs page action factories', () => {
         expect(del?.dialog || del?.onSelect).toBeTruthy()
     }, 30000)
 
-    it('LinkedCollectionEntity edit dialog passes metahub and entity scope context into the layout tab', async () => {
-        const mod = await import('../../../entities/presets/ui/LinkedCollectionActions')
+    it('ObjectCollectionEntity edit dialog passes metahub and entity scope context into the layout tab', async () => {
+        const mod = await import('../../../entities/presets/ui/ObjectCollectionActions')
 
         const descriptors = asDialogDescriptors(mod.default)
         const edit = descriptors.find((d) => d.id === 'edit')
         expect(edit?.dialog?.buildProps).toBeTypeOf('function')
 
         const props = edit!.dialog!.buildProps!({
-            entity: buildLinkedCollectionDisplay(),
-            entityKind: 'linkedCollection',
-            catalogMap: new Map(),
+            entity: buildObjectCollectionDisplay(),
+            entityKind: 'objectCollection',
+            objectMap: new Map(),
             treeEntities: [],
             metahubId: 'metahub-1',
             uiLocale: 'en',
@@ -195,9 +195,9 @@ describe('Metahubs page action factories', () => {
 
         expect(
             mod.buildInitialValues({
-                entity: buildLinkedCollectionDisplay(),
-                entityKind: 'linkedCollection',
-                catalogMap: new Map(),
+                entity: buildObjectCollectionDisplay(),
+                entityKind: 'objectCollection',
+                objectMap: new Map(),
                 treeEntities: [],
                 metahubId: 'metahub-1',
                 uiLocale: 'en',
@@ -220,20 +220,20 @@ describe('Metahubs page action factories', () => {
 
         expect(layoutTab).toBeTruthy()
         expect(layoutTab.content.props.metahubId).toBe('metahub-1')
-        expect(layoutTab.content.props.scopeEntityId).toBe('catalog-1')
+        expect(layoutTab.content.props.scopeEntityId).toBe('object-1')
     })
 
-    it('LinkedCollectionEntity copy dialog build props remain callable for fire-and-forget copy flows', async () => {
-        const mod = await import('../../../entities/presets/ui/LinkedCollectionActions')
+    it('ObjectCollectionEntity copy dialog build props remain callable for fire-and-forget copy flows', async () => {
+        const mod = await import('../../../entities/presets/ui/ObjectCollectionActions')
 
         const descriptors = asDialogDescriptors(mod.default)
         const copy = descriptors.find((d) => d.id === 'copy')
         expect(copy?.dialog?.buildProps).toBeTypeOf('function')
 
         const props = copy!.dialog!.buildProps!({
-            entity: buildLinkedCollectionDisplay(),
-            entityKind: 'linkedCollection',
-            catalogMap: new Map(),
+            entity: buildObjectCollectionDisplay(),
+            entityKind: 'objectCollection',
+            objectMap: new Map(),
             treeEntities: [],
             metahubId: 'metahub-1',
             uiLocale: 'en',

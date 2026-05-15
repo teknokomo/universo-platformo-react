@@ -38,7 +38,7 @@ import {
     MetahubValidationError,
     MetahubSchemaSyncError
 } from '../../shared/domainErrors'
-import { isGlobalMigrationCatalogEnabled } from '@universo/utils'
+import { isGlobalMigrationObjectEnabled } from '@universo/utils'
 import { ensureCodenameValue } from '../../shared/codename'
 import { createLogger } from '../../../utils/logger'
 
@@ -135,11 +135,11 @@ interface EnsureSchemaOptions {
  * MetahubSchemaService - Manages isolated schemas for Metahubs.
  *
  * Each Metahub has its own PostgreSQL schema (mhb_<uuid>) containing:
- * - _mhb_objects: Registry of all objects (Catalogs, Hubs, Documents, etc.)
- * - _mhb_attributes: Attribute definitions for objects
- * - _mhb_elements: Predefined data for catalogs
+ * - _mhb_objects: Registry of all objects (Objects, Hubs, Documents, etc.)
+ * - _mhb_components: Component definitions for objects
+ * - _mhb_elements: Predefined data for objects
  *
- * Note: This is Design-Time storage. Physical data tables (cat_*, doc_*)
+ * Note: This is Design-Time storage. Physical data tables (obj_*, doc_*)
  * are only created in Application schemas (app_*) during publication.
  */
 export class MetahubSchemaService {
@@ -701,7 +701,7 @@ export class MetahubSchemaService {
                     description: instance.description,
                     localizeCodenameFromName: instance.localizeCodenameFromName,
                     config: instance.config,
-                    attributes: instance.attributes,
+                    components: instance.components,
                     fixedValues: instance.fixedValues,
                     hubs: instance.hubs
                 })
@@ -869,7 +869,7 @@ export class MetahubSchemaService {
                     id: string
                     codename: unknown
                     presentation: unknown
-                    components: unknown
+                    capabilities: unknown
                     ui_config: unknown
                     config: unknown
                 }>()
@@ -878,7 +878,7 @@ export class MetahubSchemaService {
                 !existing ||
                 JSON.stringify(existing.codename ?? null) !== JSON.stringify(codename) ||
                 JSON.stringify(existing.presentation ?? {}) !== JSON.stringify(presentation) ||
-                JSON.stringify(existing.components ?? {}) !== JSON.stringify(preset.entityType.components) ||
+                JSON.stringify(existing.capabilities ?? {}) !== JSON.stringify(preset.entityType.capabilities) ||
                 JSON.stringify(existing.ui_config ?? {}) !== JSON.stringify(preset.entityType.ui) ||
                 JSON.stringify(existing.config ?? {}) !== JSON.stringify(config)
 
@@ -892,7 +892,7 @@ export class MetahubSchemaService {
                     kind_key: preset.entityType.kindKey,
                     codename,
                     presentation,
-                    components: preset.entityType.components,
+                    capabilities: preset.entityType.capabilities,
                     ui_config: preset.entityType.ui,
                     config,
                     _upl_created_at: now,
@@ -917,7 +917,7 @@ export class MetahubSchemaService {
                 .update({
                     codename,
                     presentation,
-                    components: preset.entityType.components,
+                    capabilities: preset.entityType.capabilities,
                     ui_config: preset.entityType.ui,
                     config,
                     _mhb_published: true,
@@ -1049,7 +1049,7 @@ export class MetahubSchemaService {
 
             const globalRunId = await mirrorToGlobalCatalog({
                 knex: trx,
-                globalCatalogEnabled: isGlobalMigrationCatalogEnabled(),
+                globalCatalogEnabled: isGlobalMigrationObjectEnabled(),
                 scopeKind: 'runtime_schema',
                 scopeKey: schemaName,
                 sourceKind: 'system_sync',
@@ -1107,7 +1107,7 @@ export class MetahubSchemaService {
             seedResult.settingsAdded > 0 ||
             seedResult.entitiesAdded > 0 ||
             seedResult.fixedValuesAdded > 0 ||
-            seedResult.attributesAdded > 0 ||
+            seedResult.componentsAdded > 0 ||
             seedResult.enumValuesAdded > 0 ||
             seedResult.elementsAdded > 0
 
@@ -1119,7 +1119,7 @@ export class MetahubSchemaService {
             `Seed sync for ${schemaName}: ` +
                 `+${entityTypesSynced} entity types, +${seedResult.layoutsAdded} layouts, +${seedResult.zoneWidgetsAdded} zoneWidgets, ` +
                 `+${seedResult.settingsAdded} settings, +${seedResult.entitiesAdded} entities, ` +
-                `+${seedResult.fixedValuesAdded} constants, +${seedResult.attributesAdded} attributes, ` +
+                `+${seedResult.fixedValuesAdded} constants, +${seedResult.componentsAdded} components, ` +
                 `+${seedResult.enumValuesAdded} enum values, +${seedResult.elementsAdded} elements`
         )
         return true
@@ -1135,7 +1135,7 @@ export class MetahubSchemaService {
             settingsAdded: number
             entitiesAdded: number
             fixedValuesAdded: number
-            attributesAdded: number
+            componentsAdded: number
             enumValuesAdded: number
             elementsAdded: number
             skipped: string[]
@@ -1153,7 +1153,7 @@ export class MetahubSchemaService {
             settingsAdded: seedResult.settingsAdded,
             entitiesAdded: seedResult.entitiesAdded,
             fixedValuesAdded: seedResult.fixedValuesAdded,
-            attributesAdded: seedResult.attributesAdded,
+            componentsAdded: seedResult.componentsAdded,
             enumValuesAdded: seedResult.enumValuesAdded,
             elementsAdded: seedResult.elementsAdded
         }
@@ -1161,7 +1161,7 @@ export class MetahubSchemaService {
         await this.knex.transaction(async (trx) => {
             const globalRunId = await mirrorToGlobalCatalog({
                 knex: trx,
-                globalCatalogEnabled: isGlobalMigrationCatalogEnabled(),
+                globalCatalogEnabled: isGlobalMigrationObjectEnabled(),
                 scopeKind: 'runtime_schema',
                 scopeKey: schemaName,
                 sourceKind: 'template_seed',

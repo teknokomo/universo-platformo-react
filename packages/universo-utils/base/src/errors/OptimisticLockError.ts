@@ -10,14 +10,14 @@ export interface ConflictInfo {
         | 'branch'
         | 'publication'
         | 'hub'
-        | 'catalog'
+        | 'object'
         | 'set'
         | 'page'
         | 'ledger'
         | 'document'
         | 'enumeration'
         | 'enumeration_value'
-        | 'attribute'
+        | 'component'
         | 'constant'
         | 'element'
         | 'layout'
@@ -50,7 +50,7 @@ export interface ConflictInfo {
  * @example
  * ```typescript
  * try {
- *     await updateCatalog(id, data, { expectedVersion: 1 })
+ *     await updateObject(id, data, { expectedVersion: 1 })
  * } catch (error) {
  *     if (error instanceof OptimisticLockError) {
  *         // Show conflict resolution dialog

@@ -49,7 +49,7 @@ test('@flow metahub settings persist codename style updates from the browser set
         )
 
         await page.getByLabel('Codename Style').click()
-        await page.getByRole('option', { name: 'kebab-case (my-catalog-name)' }).click()
+        await page.getByRole('option', { name: 'kebab-case (my-object-name)' }).click()
 
         const saveButton = page.getByRole('button', { name: 'Save' })
         await expect(saveButton).toBeVisible()
@@ -66,7 +66,7 @@ test('@flow metahub settings persist codename style updates from the browser set
         const saveResponse = await saveRequest
         expect(saveResponse.ok()).toBe(true)
         await expect(saveButton).toHaveCount(0)
-        await expect(page.getByText('kebab-case (my-catalog-name)')).toBeVisible()
+        await expect(page.getByText('kebab-case (my-object-name)')).toBeVisible()
 
         const settingsResponse = await listMetahubSettings(api, metahub.id)
         const codenameStyleSetting = (settingsResponse?.settings ?? []).find(
@@ -185,8 +185,8 @@ test('@flow metahub settings persist entity-scoped controls across managed metad
         await expect(page.getByRole('heading', { name: 'Allow Hub Nesting' })).toBeVisible()
         await page.getByRole('switch').nth(2).click()
 
-        await page.getByRole('tab', { name: 'Catalogs' }).click()
-        await expect(page.getByRole('heading', { name: 'Allow Attribute Delete' })).toBeVisible()
+        await page.getByRole('tab', { name: 'Objects' }).click()
+        await expect(page.getByRole('heading', { name: 'Allow Component Delete' })).toBeVisible()
         await page.getByRole('switch').nth(3).click()
 
         await page.getByRole('tab', { name: 'Sets' }).click()
@@ -217,7 +217,7 @@ test('@flow metahub settings persist entity-scoped controls across managed metad
         const settingsMap = new Map((settingsResponse?.settings ?? []).map((setting: { key?: string }) => [setting.key, setting]))
 
         expect(extractWrappedValue(settingsMap.get('entity.hub.allowNesting'))).toBe(false)
-        expect(extractWrappedValue(settingsMap.get('entity.catalog.allowAttributeDelete'))).toBe(false)
+        expect(extractWrappedValue(settingsMap.get('entity.objectCollection.allowAttributeDelete'))).toBe(false)
         expect(extractWrappedValue(settingsMap.get('entity.set.allowConstantDelete'))).toBe(false)
         expect(extractWrappedValue(settingsMap.get('entity.enumeration.allowDelete'))).toBe(false)
     } finally {

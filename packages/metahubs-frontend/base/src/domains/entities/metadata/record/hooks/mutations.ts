@@ -27,30 +27,30 @@ import type {
 const invalidateElementScopes = async (queryClient: ReturnType<typeof useQueryClient>, variables: BaseElementScope): Promise<void> => {
     if (variables.treeEntityId) {
         await queryClient.invalidateQueries({
-            queryKey: metahubsQueryKeys.records(variables.metahubId, variables.treeEntityId, variables.linkedCollectionId),
+            queryKey: metahubsQueryKeys.records(variables.metahubId, variables.treeEntityId, variables.objectCollectionId),
             refetchType: 'inactive'
         })
         await queryClient.invalidateQueries({
-            queryKey: metahubsQueryKeys.linkedCollections(variables.metahubId, variables.treeEntityId),
+            queryKey: metahubsQueryKeys.objectCollections(variables.metahubId, variables.treeEntityId),
             refetchType: 'inactive'
         })
     } else {
         await queryClient.invalidateQueries({
-            queryKey: metahubsQueryKeys.recordsDirect(variables.metahubId, variables.linkedCollectionId),
+            queryKey: metahubsQueryKeys.recordsDirect(variables.metahubId, variables.objectCollectionId),
             refetchType: 'inactive'
         })
     }
     await queryClient.invalidateQueries({
-        queryKey: metahubsQueryKeys.linkedCollectionDetail(variables.metahubId, variables.linkedCollectionId),
+        queryKey: metahubsQueryKeys.objectCollectionDetail(variables.metahubId, variables.objectCollectionId),
         refetchType: 'inactive'
     })
-    await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allLinkedCollections(variables.metahubId), refetchType: 'inactive' })
+    await queryClient.invalidateQueries({ queryKey: metahubsQueryKeys.allObjectCollections(variables.metahubId), refetchType: 'inactive' })
 }
 
 const getElementQueryKeyPrefix = (variables: BaseElementScope) =>
     variables.treeEntityId
-        ? metahubsQueryKeys.records(variables.metahubId, variables.treeEntityId, variables.linkedCollectionId)
-        : metahubsQueryKeys.recordsDirect(variables.metahubId, variables.linkedCollectionId)
+        ? metahubsQueryKeys.records(variables.metahubId, variables.treeEntityId, variables.objectCollectionId)
+        : metahubsQueryKeys.recordsDirect(variables.metahubId, variables.objectCollectionId)
 
 export function useCreateRecord() {
     const queryClient = useQueryClient()
@@ -59,12 +59,12 @@ export function useCreateRecord() {
 
     return useMutation({
         mutationKey: ['records', 'create'],
-        mutationFn: async ({ metahubId, treeEntityId, linkedCollectionId, data }: CreateRecordParams) => {
+        mutationFn: async ({ metahubId, treeEntityId, objectCollectionId, data }: CreateRecordParams) => {
             if (treeEntityId) {
-                const response = await recordsApi.createRecord(metahubId, treeEntityId, linkedCollectionId, data)
+                const response = await recordsApi.createRecord(metahubId, treeEntityId, objectCollectionId, data)
                 return response.data
             }
-            const response = await recordsApi.createRecordDirect(metahubId, linkedCollectionId, data)
+            const response = await recordsApi.createRecordDirect(metahubId, objectCollectionId, data)
             return response.data
         },
         onMutate: async (variables) => {
@@ -75,7 +75,7 @@ export function useCreateRecord() {
                 queryKeyPrefix,
                 optimisticEntity: {
                     id: generateOptimisticId(),
-                    linkedCollectionId: variables.linkedCollectionId,
+                    objectCollectionId: variables.objectCollectionId,
                     data: variables.data.data,
                     ownerId: null,
                     sortOrder: optimisticSortOrder,
@@ -114,12 +114,12 @@ export function useUpdateRecord() {
 
     return useMutation({
         mutationKey: ['records', 'update'],
-        mutationFn: async ({ metahubId, treeEntityId, linkedCollectionId, recordId, data }: UpdateRecordParams) => {
+        mutationFn: async ({ metahubId, treeEntityId, objectCollectionId, recordId, data }: UpdateRecordParams) => {
             if (treeEntityId) {
-                const response = await recordsApi.updateRecord(metahubId, treeEntityId, linkedCollectionId, recordId, data)
+                const response = await recordsApi.updateRecord(metahubId, treeEntityId, objectCollectionId, recordId, data)
                 return response.data
             }
-            const response = await recordsApi.updateRecordDirect(metahubId, linkedCollectionId, recordId, data)
+            const response = await recordsApi.updateRecordDirect(metahubId, objectCollectionId, recordId, data)
             return response.data
         },
         onMutate: async (variables) => {
@@ -161,11 +161,11 @@ export function useDeleteRecord() {
 
     return useMutation({
         mutationKey: ['records', 'delete'],
-        mutationFn: async ({ metahubId, treeEntityId, linkedCollectionId, recordId }: DeleteRecordParams) => {
+        mutationFn: async ({ metahubId, treeEntityId, objectCollectionId, recordId }: DeleteRecordParams) => {
             if (treeEntityId) {
-                await recordsApi.deleteRecord(metahubId, treeEntityId, linkedCollectionId, recordId)
+                await recordsApi.deleteRecord(metahubId, treeEntityId, objectCollectionId, recordId)
             } else {
-                await recordsApi.deleteRecordDirect(metahubId, linkedCollectionId, recordId)
+                await recordsApi.deleteRecordDirect(metahubId, objectCollectionId, recordId)
             }
         },
         onMutate: async (variables) => {
@@ -196,12 +196,12 @@ export function useMoveRecord() {
 
     return useMutation({
         mutationKey: ['records', 'move'],
-        mutationFn: async ({ metahubId, treeEntityId, linkedCollectionId, recordId, direction }: MoveRecordParams) => {
+        mutationFn: async ({ metahubId, treeEntityId, objectCollectionId, recordId, direction }: MoveRecordParams) => {
             if (treeEntityId) {
-                const response = await recordsApi.moveRecord(metahubId, treeEntityId, linkedCollectionId, recordId, direction)
+                const response = await recordsApi.moveRecord(metahubId, treeEntityId, objectCollectionId, recordId, direction)
                 return response.data
             }
-            const response = await recordsApi.moveRecordDirect(metahubId, linkedCollectionId, recordId, direction)
+            const response = await recordsApi.moveRecordDirect(metahubId, objectCollectionId, recordId, direction)
             return response.data
         },
         onSettled: async (_data, _error, variables) => {
@@ -217,12 +217,12 @@ export function useReorderRecord() {
 
     return useMutation({
         mutationKey: ['records', 'reorder'],
-        mutationFn: async ({ metahubId, treeEntityId, linkedCollectionId, recordId, newSortOrder }: ReorderRecordParams) => {
+        mutationFn: async ({ metahubId, treeEntityId, objectCollectionId, recordId, newSortOrder }: ReorderRecordParams) => {
             if (treeEntityId) {
-                const response = await recordsApi.reorderRecord(metahubId, treeEntityId, linkedCollectionId, recordId, newSortOrder)
+                const response = await recordsApi.reorderRecord(metahubId, treeEntityId, objectCollectionId, recordId, newSortOrder)
                 return response.data
             }
-            const response = await recordsApi.reorderRecordDirect(metahubId, linkedCollectionId, recordId, newSortOrder)
+            const response = await recordsApi.reorderRecordDirect(metahubId, objectCollectionId, recordId, newSortOrder)
             return response.data
         },
         onMutate: async (variables) => {
@@ -230,13 +230,13 @@ export function useReorderRecord() {
                 variables.treeEntityId != null
                     ? await applyOptimisticReorder(
                           queryClient,
-                          metahubsQueryKeys.records(variables.metahubId, variables.treeEntityId, variables.linkedCollectionId),
+                          metahubsQueryKeys.records(variables.metahubId, variables.treeEntityId, variables.objectCollectionId),
                           variables.recordId,
                           variables.newSortOrder
                       )
                     : await applyOptimisticReorder(
                           queryClient,
-                          metahubsQueryKeys.recordsDirect(variables.metahubId, variables.linkedCollectionId),
+                          metahubsQueryKeys.recordsDirect(variables.metahubId, variables.objectCollectionId),
                           variables.recordId,
                           variables.newSortOrder
                       )
@@ -261,12 +261,12 @@ export function useCopyRecord() {
 
     return useMutation({
         mutationKey: ['records', 'copy'],
-        mutationFn: async ({ metahubId, treeEntityId, linkedCollectionId, recordId, data }: CopyRecordParams) => {
+        mutationFn: async ({ metahubId, treeEntityId, objectCollectionId, recordId, data }: CopyRecordParams) => {
             if (treeEntityId) {
-                const response = await recordsApi.copyRecord(metahubId, treeEntityId, linkedCollectionId, recordId, data)
+                const response = await recordsApi.copyRecord(metahubId, treeEntityId, objectCollectionId, recordId, data)
                 return response.data
             }
-            const response = await recordsApi.copyRecordDirect(metahubId, linkedCollectionId, recordId, data)
+            const response = await recordsApi.copyRecordDirect(metahubId, objectCollectionId, recordId, data)
             return response.data
         },
         onMutate: async (variables) => {
@@ -282,7 +282,7 @@ export function useCopyRecord() {
                 optimisticEntity: {
                     ...(existingElement ?? {}),
                     id: generateOptimisticId(),
-                    linkedCollectionId: variables.linkedCollectionId,
+                    objectCollectionId: variables.objectCollectionId,
                     createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString(),
                     ...makePendingMarkers('copy')
@@ -298,7 +298,7 @@ export function useCopyRecord() {
             }
             console.info('[optimistic-copy:records] onSuccess', {
                 metahubId: _variables.metahubId,
-                linkedCollectionId: _variables.linkedCollectionId,
+                objectCollectionId: _variables.objectCollectionId,
                 recordId: _variables.recordId,
                 optimisticId: context?.optimisticId,
                 realId: data?.id ?? null
@@ -315,7 +315,7 @@ export function useCopyRecord() {
             }
             console.info('[optimistic-copy:records] onSettled', {
                 metahubId: variables.metahubId,
-                linkedCollectionId: variables.linkedCollectionId,
+                objectCollectionId: variables.objectCollectionId,
                 recordId: variables.recordId,
                 hasError: Boolean(_error)
             })

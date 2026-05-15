@@ -3,7 +3,7 @@ import { normalizeSystemTableCapabilities, resolveSystemTableNames } from '../sy
 describe('systemTables helpers', () => {
     it('normalizes capability options with full application-like defaults', () => {
         expect(normalizeSystemTableCapabilities()).toEqual({
-            includeAttributes: true,
+            includeComponents: true,
             includeValues: true,
             includeLayouts: true,
             includeWidgets: true
@@ -22,7 +22,7 @@ describe('systemTables helpers', () => {
     it('resolves the deterministic system-table preview for minimal fixed schemas', () => {
         expect(
             resolveSystemTableNames({
-                includeAttributes: false,
+                includeComponents: false,
                 includeValues: false,
                 includeLayouts: false,
                 includeWidgets: false
@@ -33,7 +33,7 @@ describe('systemTables helpers', () => {
     it('resolves the deterministic system-table preview for capability-rich fixed schemas', () => {
         expect(
             resolveSystemTableNames({
-                includeAttributes: true,
+                includeComponents: true,
                 includeValues: true,
                 includeLayouts: true,
                 includeWidgets: true
@@ -43,7 +43,7 @@ describe('systemTables helpers', () => {
             '_app_settings',
             '_app_objects',
             '_app_record_counters',
-            '_app_attributes',
+            '_app_components',
             '_app_values',
             '_app_scripts',
             '_app_layouts',

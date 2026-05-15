@@ -56,35 +56,35 @@ function createDeferred<T>() {
 function createAppData(): AppDataResponse {
     return {
         section: {
-            id: 'catalog-1',
+            id: 'object-1',
             codename: 'products',
             tableName: 'products',
             name: 'Products'
         },
-        linkedCollection: {
-            id: 'catalog-1',
+        objectCollection: {
+            id: 'object-1',
             codename: 'products',
             tableName: 'products',
             name: 'Products'
         },
         sections: [
             {
-                id: 'catalog-1',
+                id: 'object-1',
                 codename: 'products',
                 tableName: 'products',
                 name: 'Products'
             }
         ],
-        linkedCollections: [
+        objectCollections: [
             {
-                id: 'catalog-1',
+                id: 'object-1',
                 codename: 'products',
                 tableName: 'products',
                 name: 'Products'
             }
         ],
-        activeSectionId: 'catalog-1',
-        activeLinkedCollectionId: 'catalog-1',
+        activeSectionId: 'object-1',
+        activeObjectCollectionId: 'object-1',
         columns: [
             {
                 id: 'col-1',
@@ -175,11 +175,11 @@ describe('useCrudDashboard optimistic mutations', () => {
             .mockResolvedValueOnce({
                 ...createAppData(),
                 section: accessLinksSection,
-                linkedCollection: accessLinksSection,
+                objectCollection: accessLinksSection,
                 sections: [accessLinksSection, welcomeSection],
-                linkedCollections: [accessLinksSection, welcomeSection],
+                objectCollections: [accessLinksSection, welcomeSection],
                 activeSectionId: 'access-links',
-                activeLinkedCollectionId: 'access-links',
+                activeObjectCollectionId: 'access-links',
                 columns: [
                     {
                         id: 'access-slug',
@@ -206,7 +206,7 @@ describe('useCrudDashboard optimistic mutations', () => {
                                 id: 'home',
                                 kind: 'section',
                                 title: 'Home',
-                                linkedCollectionId: 'welcome-page',
+                                objectCollectionId: 'welcome-page',
                                 sectionId: 'welcome-page',
                                 isActive: true
                             },
@@ -214,7 +214,7 @@ describe('useCrudDashboard optimistic mutations', () => {
                                 id: 'access',
                                 kind: 'section',
                                 title: 'Access Links',
-                                linkedCollectionId: 'access-links',
+                                objectCollectionId: 'access-links',
                                 sectionId: 'access-links',
                                 isActive: true
                             }
@@ -235,7 +235,7 @@ describe('useCrudDashboard optimistic mutations', () => {
 
         expect(fetchList).toHaveBeenLastCalledWith(
             expect.objectContaining({
-                linkedCollectionId: 'welcome-page',
+                objectCollectionId: 'welcome-page',
                 sectionId: 'welcome-page'
             })
         )
@@ -247,11 +247,11 @@ describe('useCrudDashboard optimistic mutations', () => {
             secondList.resolve({
                 ...createAppData(),
                 section: welcomeSection,
-                linkedCollection: welcomeSection,
+                objectCollection: welcomeSection,
                 sections: [accessLinksSection, welcomeSection],
-                linkedCollections: [accessLinksSection, welcomeSection],
+                objectCollections: [accessLinksSection, welcomeSection],
                 activeSectionId: 'welcome-page',
-                activeLinkedCollectionId: 'welcome-page',
+                activeObjectCollectionId: 'welcome-page',
                 columns: [],
                 rows: [],
                 pagination: { total: 0, limit: 20, offset: 0 },
@@ -267,7 +267,7 @@ describe('useCrudDashboard optimistic mutations', () => {
                                 id: 'home',
                                 kind: 'section',
                                 title: 'Home',
-                                linkedCollectionId: 'welcome-page',
+                                objectCollectionId: 'welcome-page',
                                 sectionId: 'welcome-page',
                                 isActive: true
                             }
@@ -282,7 +282,7 @@ describe('useCrudDashboard optimistic mutations', () => {
         await waitFor(() => {
             expect(getState().isLoading).toBe(false)
             expect(getState().appData?.activeSectionId).toBe('welcome-page')
-            expect(getState().selectedLinkedCollectionId).toBe('welcome-page')
+            expect(getState().selectedObjectCollectionId).toBe('welcome-page')
         })
     })
 
@@ -301,8 +301,8 @@ describe('useCrudDashboard optimistic mutations', () => {
                                 id: 'item-1',
                                 kind: 'section',
                                 title: 'Products',
-                                linkedCollectionId: 'catalog-1',
-                                sectionId: 'catalog-1',
+                                objectCollectionId: 'object-1',
+                                sectionId: 'object-1',
                                 isActive: true
                             }
                         ],
@@ -324,19 +324,19 @@ describe('useCrudDashboard optimistic mutations', () => {
         const { getState } = renderCrudDashboard(adapter)
 
         await waitFor(() => {
-            expect(getState().activeSectionId).toBe('catalog-1')
-            expect(getState().selectedSectionId).toBe('catalog-1')
+            expect(getState().activeSectionId).toBe('object-1')
+            expect(getState().selectedSectionId).toBe('object-1')
         })
 
         expect(getState().dashboardMenuItems[0]).toMatchObject({
             kind: 'section',
-            sectionId: 'catalog-1',
-            linkedCollectionId: 'catalog-1',
+            sectionId: 'object-1',
+            objectCollectionId: 'object-1',
             selected: true
         })
         expect(getState().menuSlot).toMatchObject({
-            activeSectionId: 'catalog-1',
-            activeLinkedCollectionId: 'catalog-1',
+            activeSectionId: 'object-1',
+            activeObjectCollectionId: 'object-1',
             overflowLabel: 'More',
             overflowItems: [expect.objectContaining({ id: 'item-2', kind: 'link', href: '/knowledge' })]
         })
@@ -348,7 +348,7 @@ describe('useCrudDashboard optimistic mutations', () => {
         const { getState } = renderCrudDashboard(adapter)
 
         await waitFor(() => {
-            expect(getState().selectedLinkedCollectionId).toBe('catalog-1')
+            expect(getState().selectedObjectCollectionId).toBe('object-1')
         })
 
         await act(async () => {
@@ -362,8 +362,8 @@ describe('useCrudDashboard optimistic mutations', () => {
         await waitFor(() => {
             expect(fetchList).toHaveBeenLastCalledWith(
                 expect.objectContaining({
-                    linkedCollectionId: 'catalog-1',
-                    sectionId: 'catalog-1',
+                    objectCollectionId: 'object-1',
+                    sectionId: 'object-1',
                     search: 'Alpha',
                     sort: [{ field: 'score', direction: 'desc' }],
                     filters: [{ field: 'name', operator: 'contains', value: 'Alpha' }],
@@ -374,21 +374,21 @@ describe('useCrudDashboard optimistic mutations', () => {
     })
 
     it('resets section-scoped sort and filters when switching runtime sections', async () => {
-        const secondarySection = createRuntimeSection('catalog-2', 'Lessons')
-        const fetchList = vi.fn().mockImplementation(async ({ linkedCollectionId }: { linkedCollectionId?: string }) => ({
+        const secondarySection = createRuntimeSection('object-2', 'Lessons')
+        const fetchList = vi.fn().mockImplementation(async ({ objectCollectionId }: { objectCollectionId?: string }) => ({
             ...createAppData(),
-            section: linkedCollectionId === 'catalog-2' ? secondarySection : createRuntimeSection('catalog-1', 'Products'),
-            linkedCollection: linkedCollectionId === 'catalog-2' ? secondarySection : createRuntimeSection('catalog-1', 'Products'),
-            sections: [createRuntimeSection('catalog-1', 'Products'), secondarySection],
-            linkedCollections: [createRuntimeSection('catalog-1', 'Products'), secondarySection],
-            activeSectionId: linkedCollectionId ?? 'catalog-1',
-            activeLinkedCollectionId: linkedCollectionId ?? 'catalog-1'
+            section: objectCollectionId === 'object-2' ? secondarySection : createRuntimeSection('object-1', 'Products'),
+            objectCollection: objectCollectionId === 'object-2' ? secondarySection : createRuntimeSection('object-1', 'Products'),
+            sections: [createRuntimeSection('object-1', 'Products'), secondarySection],
+            objectCollections: [createRuntimeSection('object-1', 'Products'), secondarySection],
+            activeSectionId: objectCollectionId ?? 'object-1',
+            activeObjectCollectionId: objectCollectionId ?? 'object-1'
         }))
         const adapter = createAdapter({ fetchList })
         const { getState } = renderCrudDashboard(adapter)
 
         await waitFor(() => {
-            expect(getState().selectedLinkedCollectionId).toBe('catalog-1')
+            expect(getState().selectedObjectCollectionId).toBe('object-1')
         })
 
         await act(async () => {
@@ -401,7 +401,7 @@ describe('useCrudDashboard optimistic mutations', () => {
         await waitFor(() => {
             expect(fetchList).toHaveBeenLastCalledWith(
                 expect.objectContaining({
-                    linkedCollectionId: 'catalog-1',
+                    objectCollectionId: 'object-1',
                     sort: [{ field: 'CompletedAt', direction: 'desc' }],
                     filters: [{ field: 'SubmittedAt', operator: 'isNotEmpty' }]
                 })
@@ -409,14 +409,14 @@ describe('useCrudDashboard optimistic mutations', () => {
         })
 
         await act(async () => {
-            getState().onSelectLinkedCollection('catalog-2')
+            getState().onSelectObjectCollection('object-2')
         })
 
         await waitFor(() => {
             expect(fetchList).toHaveBeenLastCalledWith(
                 expect.objectContaining({
-                    linkedCollectionId: 'catalog-2',
-                    sectionId: 'catalog-2',
+                    objectCollectionId: 'object-2',
+                    sectionId: 'object-2',
                     sort: [],
                     filters: [],
                     offset: 0
@@ -457,7 +457,7 @@ describe('useCrudDashboard optimistic mutations', () => {
         const { getState } = renderCrudDashboard(adapter)
 
         await waitFor(() => {
-            expect(getState().selectedLinkedCollectionId).toBe('catalog-1')
+            expect(getState().selectedObjectCollectionId).toBe('object-1')
         })
 
         await act(async () => {
@@ -620,7 +620,7 @@ describe('useCrudDashboard optimistic mutations', () => {
         const { getState } = renderCrudDashboard(adapter)
 
         await waitFor(() => {
-            expect(getState().selectedLinkedCollectionId).toBe('catalog-1')
+            expect(getState().selectedObjectCollectionId).toBe('object-1')
         })
 
         await act(async () => {
@@ -723,8 +723,8 @@ describe('useCrudDashboard optimistic mutations', () => {
     it('runs record lifecycle commands through the adapter and refreshes runtime data', async () => {
         const fetchList = vi.fn().mockResolvedValue({
             ...createAppData(),
-            linkedCollection: {
-                ...createAppData().linkedCollection,
+            objectCollection: {
+                ...createAppData().objectCollection,
                 recordBehavior: {
                     mode: 'transactional',
                     numbering: { enabled: true, scope: 'workspace', periodicity: 'none', minLength: 6 },
@@ -742,7 +742,7 @@ describe('useCrudDashboard optimistic mutations', () => {
 
         await waitFor(() => {
             expect(getState().handleRecordCommand).toBeDefined()
-            expect(getState().selectedLinkedCollectionId).toBe('catalog-1')
+            expect(getState().selectedObjectCollectionId).toBe('object-1')
         })
 
         await act(async () => {
@@ -750,8 +750,8 @@ describe('useCrudDashboard optimistic mutations', () => {
         })
 
         expect(recordCommand).toHaveBeenCalledWith('row-1', 'post', {
-            linkedCollectionId: 'catalog-1',
-            sectionId: 'catalog-1'
+            objectCollectionId: 'object-1',
+            sectionId: 'object-1'
         })
         expect(enqueueSnackbar).toHaveBeenCalledWith('Record posted.', { variant: 'success' })
         await waitFor(() => {
@@ -766,7 +766,7 @@ describe('useCrudDashboard optimistic mutations', () => {
 
         await waitFor(() => {
             expect(getState().handleRecordCommand).toBeDefined()
-            expect(getState().selectedLinkedCollectionId).toBe('catalog-1')
+            expect(getState().selectedObjectCollectionId).toBe('object-1')
         })
 
         await act(async () => {

@@ -624,7 +624,12 @@ const findDefaultLayout = (envelope: Record<string, any>) => {
     const layouts = Array.isArray(envelope?.snapshot?.layouts) ? envelope.snapshot.layouts : []
     const defaultLayoutId = envelope?.snapshot?.defaultLayoutId
 
-    return layouts.find((layout: Record<string, any>) => layout?.id === defaultLayoutId) ?? layouts.find((layout: Record<string, any>) => layout?.isDefault) ?? layouts[0] ?? null
+    return (
+        layouts.find((layout: Record<string, any>) => layout?.id === defaultLayoutId) ??
+        layouts.find((layout: Record<string, any>) => layout?.isDefault) ??
+        layouts[0] ??
+        null
+    )
 }
 
 const QUIZ_REMOVED_LAYOUT_WIDGET_KEY_SET = new Set<string>(QUIZ_REMOVED_LAYOUT_WIDGET_KEYS)
@@ -694,7 +699,11 @@ export function assertQuizFixtureEnvelopeContract(envelope: Record<string, any>)
         errors.push('Quiz fixture metahub codename must be exported as a localized codename object')
     }
 
-    if ([metahubNameEn, metahubNameRu, metahubCodenameEn, metahubCodenameRu].some((value) => typeof value === 'string' && /e2e|runid|imported-/i.test(value))) {
+    if (
+        [metahubNameEn, metahubNameRu, metahubCodenameEn, metahubCodenameRu].some(
+            (value) => typeof value === 'string' && /e2e|runid|imported-/i.test(value)
+        )
+    ) {
         errors.push('Quiz fixture identity still contains run-specific markers')
     }
 
@@ -714,7 +723,9 @@ export function assertQuizFixtureEnvelopeContract(envelope: Record<string, any>)
     const optionValues = Object.values(envelope?.snapshot?.optionValues ?? {}) as Array<Array<Record<string, any>>>
     for (const value of optionValues.flat()) {
         if (!isLocalizedCodenameObject(value?.codename) || !readCodenameText(value?.codename, 'en')) {
-            errors.push(`Quiz fixture enumeration value ${String(value?.id ?? '<unknown>')} must keep codename as a localized snapshot object`)
+            errors.push(
+                `Quiz fixture enumeration value ${String(value?.id ?? '<unknown>')} must keep codename as a localized snapshot object`
+            )
         }
     }
 
@@ -788,7 +799,8 @@ export function assertQuizFixtureEnvelopeContract(envelope: Record<string, any>)
         }
     }
 
-    const snapshotLayoutConfig = envelope?.snapshot?.layoutConfig && typeof envelope.snapshot.layoutConfig === 'object' ? envelope.snapshot.layoutConfig : {}
+    const snapshotLayoutConfig =
+        envelope?.snapshot?.layoutConfig && typeof envelope.snapshot.layoutConfig === 'object' ? envelope.snapshot.layoutConfig : {}
     if (snapshotLayoutConfig.showSideMenu !== false) {
         errors.push('Quiz fixture snapshot layoutConfig must disable the left side menu')
     }
@@ -820,7 +832,9 @@ export function assertQuizFixtureEnvelopeContract(envelope: Record<string, any>)
     const defaultLayoutWidgets = Array.isArray(envelope?.snapshot?.layoutZoneWidgets)
         ? envelope.snapshot.layoutZoneWidgets.filter((widget: Record<string, any>) => widget?.layoutId === defaultLayout?.id)
         : []
-    const removedWidgets = defaultLayoutWidgets.filter((widget: Record<string, any>) => QUIZ_REMOVED_LAYOUT_WIDGET_KEY_SET.has(String(widget?.widgetKey ?? '')))
+    const removedWidgets = defaultLayoutWidgets.filter((widget: Record<string, any>) =>
+        QUIZ_REMOVED_LAYOUT_WIDGET_KEY_SET.has(String(widget?.widgetKey ?? ''))
+    )
     if (removedWidgets.length > 0) {
         errors.push(`Quiz fixture default layout must not keep legacy menu/details widgets, received ${removedWidgets.length}`)
     }
@@ -835,7 +849,10 @@ export function assertQuizFixtureEnvelopeContract(envelope: Record<string, any>)
     if (questionCountEn !== 10 || questionCountRu !== 10) {
         errors.push(`Quiz contract must keep 10 questions per locale, received en=${questionCountEn}, ru=${questionCountRu}`)
     }
-    if (QUIZ_CONTENT.en.questions.some((question) => question.options.length !== 4) || QUIZ_CONTENT.ru.questions.some((question) => question.options.length !== 4)) {
+    if (
+        QUIZ_CONTENT.en.questions.some((question) => question.options.length !== 4) ||
+        QUIZ_CONTENT.ru.questions.some((question) => question.options.length !== 4)
+    ) {
         errors.push('Quiz contract must keep exactly 4 answers per question in both locales')
     }
 

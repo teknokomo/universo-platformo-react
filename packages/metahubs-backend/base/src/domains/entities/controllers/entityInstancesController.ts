@@ -88,14 +88,14 @@ export function createEntityInstancesController(createHandler: ReturnType<typeof
         listNestedStandardInstances: dispatchStandardRouteKind({
             handlers: {
                 hub: nested.listNestedTreeEntities,
-                catalog: nested.listNestedLinkedCollections,
+                object: nested.listNestedObjectCollections,
                 set: nested.listNestedSets,
                 enumeration: nested.listNestedOptionLists
             }
         }),
         createNestedStandardInstances: dispatchStandardRouteKind({
             handlers: {
-                catalog: nested.createNestedLinkedCollection,
+                object: nested.createNestedObjectCollection,
                 set: nested.createNestedSet,
                 enumeration: nested.createNestedOptionList
             },
@@ -103,14 +103,14 @@ export function createEntityInstancesController(createHandler: ReturnType<typeof
         }),
         reorderNestedStandardInstances: dispatchStandardRouteKind({
             handlers: {
-                catalog: nested.reorderNestedLinkedCollections,
+                object: nested.reorderNestedObjectCollections,
                 set: nested.reorderNestedSets,
                 enumeration: nested.reorderNestedOptionLists
             }
         }),
         getNestedStandardInstanceById: dispatchStandardRouteKind({
             handlers: {
-                catalog: nested.getNestedLinkedCollectionById,
+                object: nested.getNestedObjectCollectionById,
                 set: nested.getNestedSetById,
                 enumeration: nested.getNestedOptionListById
             },
@@ -118,7 +118,7 @@ export function createEntityInstancesController(createHandler: ReturnType<typeof
         }),
         updateNestedStandardInstance: dispatchStandardRouteKind({
             handlers: {
-                catalog: nested.updateNestedLinkedCollection,
+                object: nested.updateNestedObjectCollection,
                 set: nested.updateNestedSet,
                 enumeration: nested.updateNestedOptionList
             },
@@ -126,7 +126,7 @@ export function createEntityInstancesController(createHandler: ReturnType<typeof
         }),
         deleteNestedStandardInstance: dispatchStandardRouteKind({
             handlers: {
-                catalog: nested.deleteNestedLinkedCollection,
+                object: nested.deleteNestedObjectCollection,
                 set: nested.deleteNestedSet,
                 enumeration: nested.deleteNestedOptionList
             },

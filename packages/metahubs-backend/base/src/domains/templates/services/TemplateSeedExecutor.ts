@@ -18,7 +18,7 @@ import { buildDashboardLayoutConfig } from '../../shared'
 import { toJsonbValue } from '../../shared/jsonb'
 import { codenamePrimaryTextSql, ensureCodenameValue } from '../../shared/codename'
 import { resolveWidgetTableName } from './widgetTableResolver'
-import { ensureCatalogSystemFieldDefinitionsSeed, readPlatformSystemFieldDefinitionsPolicyWithKnex } from './systemFieldDefinitionSeed'
+import { ensureObjectSystemComponentsSeed, readPlatformSystemComponentsPolicyWithKnex } from './systemComponentSeed'
 import { createLogger } from '../../../utils/logger'
 
 const log = createLogger('TemplateSeedExecutor')
@@ -427,8 +427,8 @@ export class TemplateSeedExecutor {
         const entityIdMap = new Map<string, string>()
         const fixedValueIdMap = new Map<string, string>()
         const now = new Date()
-        const platformSystemFieldDefinitionsPolicy = entities.some((entity) => entity.kind === 'catalog')
-            ? await readPlatformSystemFieldDefinitionsPolicyWithKnex(qb)
+        const platformSystemComponentsPolicy = entities.some((entity) => entity.kind === 'object')
+            ? await readPlatformSystemComponentsPolicyWithKnex(qb)
             : undefined
 
         // Track per-kind sort order counters (1-based)
@@ -446,9 +446,9 @@ export class TemplateSeedExecutor {
 
             if (existing) {
                 entityIdMap.set(buildEntityMapKey(entity.kind, entity.codename), existing.id)
-                if (entity.kind === 'catalog') {
-                    await ensureCatalogSystemFieldDefinitionsSeed(qb, this.schemaName, existing.id, null, {
-                        policy: platformSystemFieldDefinitionsPolicy
+                if (entity.kind === 'object') {
+                    await ensureObjectSystemComponentsSeed(qb, this.schemaName, existing.id, null, {
+                        policy: platformSystemComponentsPolicy
                     })
                 }
                 continue
@@ -490,9 +490,9 @@ export class TemplateSeedExecutor {
 
             entityIdMap.set(buildEntityMapKey(entity.kind, entity.codename), inserted.id)
 
-            if (entity.kind === 'catalog') {
-                await ensureCatalogSystemFieldDefinitionsSeed(qb, this.schemaName, inserted.id, null, {
-                    policy: platformSystemFieldDefinitionsPolicy
+            if (entity.kind === 'object') {
+                await ensureObjectSystemComponentsSeed(qb, this.schemaName, inserted.id, null, {
+                    policy: platformSystemComponentsPolicy
                 })
             }
         }
@@ -567,47 +567,47 @@ export class TemplateSeedExecutor {
             return fixedValueIdMap.get(buildFixedValueMapKey(targetEntityCodename, targetConstantCodename)) ?? null
         }
 
-        // ── Pass 3: Insert attributes using the complete entity + constants maps ──
+        // ── Pass 3: Insert components using the complete entity + constants maps ──
         for (const entity of entities) {
             const entityId = entityIdMap.get(buildEntityMapKey(entity.kind, entity.codename))
-            if (!entityId || !entity.attributes?.length) continue
+            if (!entityId || !entity.components?.length) continue
 
-            for (let i = 0; i < entity.attributes.length; i++) {
-                const attr = entity.attributes[i]
+            for (let i = 0; i < entity.components.length; i++) {
+                const cmp = entity.components[i]
                 const attrExists = await qb
                     .withSchema(this.schemaName)
-                    .from('_mhb_attributes')
+                    .from('_mhb_components')
                     .where({
                         object_id: entityId,
                         _upl_deleted: false,
                         _mhb_deleted: false
                     })
-                    .whereRaw(`${codenamePrimaryTextSql('codename')} = ?`, [attr.codename])
+                    .whereRaw(`${codenamePrimaryTextSql('codename')} = ?`, [cmp.codename])
                     .first()
 
-                let parentAttributeId: string | null = attrExists?.id ?? null
+                let parentComponentId: string | null = attrExists?.id ?? null
                 if (!attrExists) {
                     const [inserted] = await qb
                         .withSchema(this.schemaName)
-                        .into('_mhb_attributes')
+                        .into('_mhb_components')
                         .insert({
                             object_id: entityId,
-                            codename: ensureCodenameValue(attr.codename),
-                            data_type: attr.dataType,
-                            presentation: { name: attr.name, description: attr.description },
-                            validation_rules: attr.validationRules ?? {},
-                            ui_config: attr.uiConfig ?? {},
-                            sort_order: attr.sortOrder ?? i,
-                            is_required: attr.isRequired ?? false,
-                            is_display_attribute: attr.isDisplayAttribute ?? false,
-                            target_object_id: attr.targetEntityCodename
-                                ? resolveEntityIdByCodename(entityIdMap, attr.targetEntityCodename, attr.targetEntityKind)
+                            codename: ensureCodenameValue(cmp.codename),
+                            data_type: cmp.dataType,
+                            presentation: { name: cmp.name, description: cmp.description },
+                            validation_rules: cmp.validationRules ?? {},
+                            ui_config: cmp.uiConfig ?? {},
+                            sort_order: cmp.sortOrder ?? i,
+                            is_required: cmp.isRequired ?? false,
+                            is_display_component: cmp.isDisplayComponent ?? false,
+                            target_object_id: cmp.targetEntityCodename
+                                ? resolveEntityIdByCodename(entityIdMap, cmp.targetEntityCodename, cmp.targetEntityKind)
                                 : null,
-                            target_object_kind: attr.targetEntityKind ?? null,
+                            target_object_kind: cmp.targetEntityKind ?? null,
                             target_constant_id: resolveTargetFixedValueId(
-                                attr.targetEntityKind,
-                                attr.targetEntityCodename,
-                                attr.targetConstantCodename
+                                cmp.targetEntityKind,
+                                cmp.targetEntityCodename,
+                                cmp.targetConstantCodename
                             ),
                             _upl_created_at: now,
                             _upl_created_by: null,
@@ -622,21 +622,21 @@ export class TemplateSeedExecutor {
                             _mhb_deleted: false
                         })
                         .returning('id')
-                    parentAttributeId = inserted?.id ?? null
+                    parentComponentId = inserted?.id ?? null
                 }
 
-                // Insert child attributes for TABLE data type
-                const childAttributes = (attr as unknown as Record<string, unknown>).childAttributes as
+                // Insert child components for TABLE data type
+                const childComponents = (cmp as unknown as Record<string, unknown>).childComponents as
                     | Array<Record<string, unknown>>
                     | undefined
-                if (attr.dataType === 'TABLE' && childAttributes?.length && parentAttributeId) {
-                    for (let ci = 0; ci < childAttributes.length; ci++) {
-                        const child = childAttributes[ci]
+                if (cmp.dataType === 'TABLE' && childComponents?.length && parentComponentId) {
+                    for (let ci = 0; ci < childComponents.length; ci++) {
+                        const child = childComponents[ci]
                         const childExists = await qb
                             .withSchema(this.schemaName)
-                            .from('_mhb_attributes')
+                            .from('_mhb_components')
                             .where({
-                                parent_attribute_id: parentAttributeId,
+                                parent_component_id: parentComponentId,
                                 _upl_deleted: false,
                                 _mhb_deleted: false
                             })
@@ -647,10 +647,10 @@ export class TemplateSeedExecutor {
 
                         await qb
                             .withSchema(this.schemaName)
-                            .into('_mhb_attributes')
+                            .into('_mhb_components')
                             .insert({
                                 object_id: entityId,
-                                parent_attribute_id: parentAttributeId,
+                                parent_component_id: parentComponentId,
                                 codename: ensureCodenameValue(child.codename as string),
                                 data_type: child.dataType as string,
                                 presentation: {
@@ -661,7 +661,7 @@ export class TemplateSeedExecutor {
                                 ui_config: (child.uiConfig as Record<string, unknown>) ?? {},
                                 sort_order: (child.sortOrder as number) ?? ci,
                                 is_required: (child.isRequired as boolean) ?? false,
-                                is_display_attribute: false,
+                                is_display_component: false,
                                 target_object_id:
                                     typeof child.targetEntityCodename === 'string'
                                         ? resolveEntityIdByCodename(

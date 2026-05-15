@@ -11,7 +11,7 @@ const mockEnsureSchema = jest.fn(async () => 'mhb_test_schema')
 const mockListEntityTypes = jest.fn(async () => [
     { kindKey: 'hub' },
     { kindKey: 'page' },
-    { kindKey: 'catalog' },
+    { kindKey: 'object' },
     { kindKey: 'set' },
     { kindKey: 'enumeration' },
     { kindKey: 'ledger' }
@@ -85,7 +85,7 @@ describe('Settings Routes', () => {
         mockListEntityTypes.mockResolvedValue([
             { kindKey: 'hub' },
             { kindKey: 'page' },
-            { kindKey: 'catalog' },
+            { kindKey: 'object' },
             { kindKey: 'set' },
             { kindKey: 'enumeration' },
             { kindKey: 'ledger' }

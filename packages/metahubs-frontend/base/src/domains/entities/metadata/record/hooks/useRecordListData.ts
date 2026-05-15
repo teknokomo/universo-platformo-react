@@ -5,9 +5,9 @@ import { useQuery } from '@tanstack/react-query'
 import { usePaginated, useDebouncedSearch } from '@universo/template-mui'
 
 import * as recordsApi from '../api'
-import * as fieldDefinitionsApi from '../../fieldDefinition/api'
+import * as componentsApi from '../../component/api'
 import * as fixedValuesApi from '../../fixedValue/api'
-import { getLinkedCollectionById } from '../../../presets/api/linkedCollections'
+import { getObjectCollectionById } from '../../../presets/api/objectCollections'
 import { listOptionValues } from '../../../presets/api/optionLists'
 import { getEntityInstance } from '../../../api/entityInstances'
 import { metahubsQueryKeys } from '../../../../shared'
@@ -22,67 +22,67 @@ export function useRecordListData() {
     const {
         metahubId,
         treeEntityId: hubIdParam,
-        linkedCollectionId,
+        objectCollectionId,
         kindKey: routeKindKey
     } = useParams<{
         metahubId: string
         treeEntityId?: string
-        linkedCollectionId: string
+        objectCollectionId: string
         kindKey?: string
     }>()
     const { i18n } = useTranslation()
-    const entityKindKey = resolveEntityChildKindKey({ routeKindKey, childObjectKind: 'catalog' })
+    const entityKindKey = resolveEntityChildKindKey({ routeKindKey, childObjectKind: 'object' })
 
-    // Resolve treeEntityId from catalog when treeEntityId is not in the URL (catalog-centric routes)
+    // Resolve treeEntityId from object when treeEntityId is not in the URL (object-centric routes)
     const {
-        data: catalogForHubResolution,
-        isLoading: isCatalogResolutionLoading,
-        error: catalogResolutionError
+        data: objectForHubResolution,
+        isLoading: isObjectResolutionLoading,
+        error: objectResolutionError
     } = useQuery({
         queryKey:
-            metahubId && linkedCollectionId
-                ? metahubsQueryKeys.linkedCollectionDetail(metahubId, linkedCollectionId, entityKindKey)
-                : ['metahubs', 'linkedCollections', 'detail', 'empty'],
+            metahubId && objectCollectionId
+                ? metahubsQueryKeys.objectCollectionDetail(metahubId, objectCollectionId, entityKindKey)
+                : ['metahubs', 'objectCollections', 'detail', 'empty'],
         queryFn: async () => {
-            if (!metahubId || !linkedCollectionId) throw new Error('metahubId and linkedCollectionId are required')
-            return getLinkedCollectionById(metahubId, linkedCollectionId, entityKindKey)
+            if (!metahubId || !objectCollectionId) throw new Error('metahubId and objectCollectionId are required')
+            return getObjectCollectionById(metahubId, objectCollectionId, entityKindKey)
         },
-        enabled: !!metahubId && !!linkedCollectionId && !hubIdParam
+        enabled: !!metahubId && !!objectCollectionId && !hubIdParam
     })
 
-    const effectiveTreeEntityId = hubIdParam || catalogForHubResolution?.treeEntities?.[0]?.id
+    const effectiveTreeEntityId = hubIdParam || objectForHubResolution?.treeEntities?.[0]?.id
 
     // Hubs (shared hook — staleTime: 5min, deduplication via same queryKey)
     const treeEntities = useTreeEntities(metahubId)
 
-    const canLoadData = !!metahubId && !!linkedCollectionId && (!hubIdParam || !isCatalogResolutionLoading)
+    const canLoadData = !!metahubId && !!objectCollectionId && (!hubIdParam || !isObjectResolutionLoading)
 
-    // Attributes for this catalog
-    const { data: attributesData } = useQuery({
+    // Components for this object
+    const { data: componentsData } = useQuery({
         queryKey:
-            metahubId && linkedCollectionId
+            metahubId && objectCollectionId
                 ? effectiveTreeEntityId
-                    ? metahubsQueryKeys.fieldDefinitionsList(metahubId, effectiveTreeEntityId, linkedCollectionId, {
+                    ? metahubsQueryKeys.componentsList(metahubId, effectiveTreeEntityId, objectCollectionId, {
                           limit: 100,
                           locale: i18n.language,
                           includeShared: true
                       })
-                    : metahubsQueryKeys.fieldDefinitionsListDirect(metahubId, linkedCollectionId, {
+                    : metahubsQueryKeys.componentsListDirect(metahubId, objectCollectionId, {
                           limit: 100,
                           locale: i18n.language,
                           includeShared: true
                       })
                 : ['empty'],
         queryFn:
-            metahubId && linkedCollectionId
+            metahubId && objectCollectionId
                 ? () =>
                       effectiveTreeEntityId
-                          ? fieldDefinitionsApi.listFieldDefinitions(metahubId, effectiveTreeEntityId, linkedCollectionId, {
+                          ? componentsApi.listComponents(metahubId, effectiveTreeEntityId, objectCollectionId, {
                                 limit: 100,
                                 locale: i18n.language,
                                 includeShared: true
                             })
-                          : fieldDefinitionsApi.listFieldDefinitionsDirect(metahubId, linkedCollectionId, {
+                          : componentsApi.listComponentsDirect(metahubId, objectCollectionId, {
                                 limit: 100,
                                 locale: i18n.language,
                                 includeShared: true
@@ -90,37 +90,32 @@ export function useRecordListData() {
                 : async () => ({ items: [], pagination: { limit: 100, offset: 0, count: 0, total: 0, hasMore: false } }),
         enabled: canLoadData
     })
-    const fieldDefinitions = useMemo(() => attributesData?.items ?? [], [attributesData])
+    const components = useMemo(() => componentsData?.items ?? [], [componentsData])
 
     // Settings
-    const allowElementCopy = useSettingValue<boolean>('entity.catalog.allowElementCopy')
-    const allowElementDelete = useSettingValue<boolean>('entity.catalog.allowElementDelete')
+    const allowElementCopy = useSettingValue<boolean>('entity.object.allowElementCopy')
+    const allowElementDelete = useSettingValue<boolean>('entity.object.allowElementDelete')
 
-    // TABLE fieldDefinitions → child fieldDefinitions (batch endpoint eliminates N+1)
-    const tableAttributes = useMemo(() => fieldDefinitions.filter((a) => a.dataType === 'TABLE'), [fieldDefinitions])
-    const tableParentIds = useMemo(() => tableAttributes.map((a) => a.id), [tableAttributes])
+    // TABLE components → child components (batch endpoint eliminates N+1)
+    const tableComponents = useMemo(() => components.filter((a) => a.dataType === 'TABLE'), [components])
+    const tableParentIds = useMemo(() => tableComponents.map((a) => a.id), [tableComponents])
 
-    const { data: childAttributesMap } = useQuery({
-        queryKey: ['metahubs', 'childAttributesForElements', metahubId, linkedCollectionId, tableParentIds.join(',')],
+    const { data: childComponentsMap } = useQuery({
+        queryKey: ['metahubs', 'childComponentsForElements', metahubId, objectCollectionId, tableParentIds.join(',')],
         queryFn: async () => {
-            if (!metahubId || !linkedCollectionId || tableParentIds.length === 0) return {}
+            if (!metahubId || !objectCollectionId || tableParentIds.length === 0) return {}
             return effectiveTreeEntityId
-                ? await fieldDefinitionsApi.listChildFieldDefinitionsBatch(
-                      metahubId,
-                      effectiveTreeEntityId,
-                      linkedCollectionId,
-                      tableParentIds
-                  )
-                : await fieldDefinitionsApi.listChildFieldDefinitionsBatchDirect(metahubId, linkedCollectionId, tableParentIds)
+                ? await componentsApi.listChildComponentsBatch(metahubId, effectiveTreeEntityId, objectCollectionId, tableParentIds)
+                : await componentsApi.listChildComponentsBatchDirect(metahubId, objectCollectionId, tableParentIds)
         },
         enabled: canLoadData && tableParentIds.length > 0
     })
 
     // Child REF → enumeration values
     const childEnumTargetIds = useMemo(() => {
-        if (!childAttributesMap) return [] as string[]
+        if (!childComponentsMap) return [] as string[]
         const ids = new Set<string>()
-        Object.values(childAttributesMap).forEach((children) => {
+        Object.values(childComponentsMap).forEach((children) => {
             children.forEach((child) => {
                 if (child.dataType !== 'REF') return
                 const kind = child.targetEntityKind ?? null
@@ -129,7 +124,7 @@ export function useRecordListData() {
             })
         })
         return Array.from(ids)
-    }, [childAttributesMap])
+    }, [childComponentsMap])
 
     const { data: childEnumValuesMap } = useQuery({
         queryKey: ['metahubs', 'childEnumValues', metahubId, [...childEnumTargetIds].sort().join(','), i18n.language],
@@ -164,31 +159,31 @@ export function useRecordListData() {
         enabled: Boolean(metahubId) && childEnumTargetIds.length > 0
     })
 
-    // Ordered fieldDefinitions
-    const orderedAttributes = useMemo(
+    // Ordered components
+    const orderedComponents = useMemo(
         () =>
-            fieldDefinitions
-                .map((attr, index) => ({ attr, index }))
+            components
+                .map((cmp, index) => ({ cmp, index }))
                 .sort((a, b) => {
-                    const orderA = a.attr.sortOrder ?? 0
-                    const orderB = b.attr.sortOrder ?? 0
+                    const orderA = a.cmp.sortOrder ?? 0
+                    const orderB = b.cmp.sortOrder ?? 0
                     return orderA - orderB || a.index - b.index
                 })
-                .map((item) => item.attr),
-        [fieldDefinitions]
+                .map((item) => item.cmp),
+        [components]
     )
 
     // Set constant targets
     const setConstantTargets = useMemo(() => {
         const pairs = new Set<string>()
-        orderedAttributes.forEach((attribute) => {
-            if (attribute.dataType !== 'REF') return
-            if (attribute.targetEntityKind !== 'set') return
-            if (!attribute.targetEntityId || !attribute.targetConstantId) return
-            pairs.add(`${attribute.targetEntityId}:${attribute.targetConstantId}`)
+        orderedComponents.forEach((component) => {
+            if (component.dataType !== 'REF') return
+            if (component.targetEntityKind !== 'set') return
+            if (!component.targetEntityId || !component.targetConstantId) return
+            pairs.add(`${component.targetEntityId}:${component.targetConstantId}`)
         })
-        if (childAttributesMap) {
-            Object.values(childAttributesMap).forEach((children) => {
+        if (childComponentsMap) {
+            Object.values(childComponentsMap).forEach((children) => {
                 children.forEach((child) => {
                     if (child.dataType !== 'REF') return
                     if (child.targetEntityKind !== 'set') return
@@ -204,7 +199,7 @@ export function useRecordListData() {
             })
             .filter((pair) => pair.valueGroupId && pair.fixedValueId)
             .sort((a, b) => a.valueGroupId.localeCompare(b.valueGroupId) || a.fixedValueId.localeCompare(b.fixedValueId))
-    }, [childAttributesMap, orderedAttributes])
+    }, [childComponentsMap, orderedComponents])
 
     const { data: setConstantsMap } = useQuery({
         queryKey: [
@@ -236,18 +231,18 @@ export function useRecordListData() {
     // Pagination for records list
     const paginationResult = usePaginated<RecordItem, 'created' | 'updated' | 'sortOrder'>({
         queryKeyFn:
-            metahubId && linkedCollectionId
+            metahubId && objectCollectionId
                 ? (params) =>
                       effectiveTreeEntityId
-                          ? metahubsQueryKeys.recordsList(metahubId, effectiveTreeEntityId, linkedCollectionId, params)
-                          : metahubsQueryKeys.recordsListDirect(metahubId, linkedCollectionId, params)
+                          ? metahubsQueryKeys.recordsList(metahubId, effectiveTreeEntityId, objectCollectionId, params)
+                          : metahubsQueryKeys.recordsListDirect(metahubId, objectCollectionId, params)
                 : () => ['empty'],
         queryFn:
-            metahubId && linkedCollectionId
+            metahubId && objectCollectionId
                 ? (params) =>
                       effectiveTreeEntityId
-                          ? recordsApi.listRecords(metahubId, effectiveTreeEntityId, linkedCollectionId, params)
-                          : recordsApi.listRecordsDirect(metahubId, linkedCollectionId, params)
+                          ? recordsApi.listRecords(metahubId, effectiveTreeEntityId, objectCollectionId, params)
+                          : recordsApi.listRecordsDirect(metahubId, objectCollectionId, params)
                 : async () => ({ items: [], pagination: { limit: 20, offset: 0, count: 0, total: 0, hasMore: false } }),
         initialLimit: 20,
         sortBy: 'sortOrder',
@@ -297,30 +292,30 @@ export function useRecordListData() {
         return map
     }, [sortedElements])
 
-    // Visible attribute columns (first 4)
-    const visibleAttributesForColumns = useMemo(() => orderedAttributes.slice(0, 4), [orderedAttributes])
+    // Visible component columns (first 4)
+    const visibleComponentsForColumns = useMemo(() => orderedComponents.slice(0, 4), [orderedComponents])
 
-    const visibleRefAttributesForColumns = useMemo(
+    const visibleRefComponentsForColumns = useMemo(
         () =>
-            visibleAttributesForColumns.filter((attr) => {
-                const targetKind = attr.targetEntityKind ?? null
-                const targetId = attr.targetEntityId ?? null
-                return attr.dataType === 'REF' && Boolean(targetKind && targetId)
+            visibleComponentsForColumns.filter((cmp) => {
+                const targetKind = cmp.targetEntityKind ?? null
+                const targetId = cmp.targetEntityId ?? null
+                return cmp.dataType === 'REF' && Boolean(targetKind && targetId)
             }),
-        [visibleAttributesForColumns]
+        [visibleComponentsForColumns]
     )
 
-    const refAttributesForColumns = useMemo(
+    const refComponentsForColumns = useMemo(
         () =>
-            visibleRefAttributesForColumns.filter((attr) => {
-                const targetKind = attr.targetEntityKind ?? null
+            visibleRefComponentsForColumns.filter((cmp) => {
+                const targetKind = cmp.targetEntityKind ?? null
                 return Boolean(targetKind && targetKind !== 'set')
             }),
-        [visibleRefAttributesForColumns]
+        [visibleRefComponentsForColumns]
     )
 
     // Ref target display map
-    const refTargetByAttribute = useMemo(() => {
+    const refTargetByComponent = useMemo(() => {
         const map: Record<
             string,
             {
@@ -330,17 +325,17 @@ export function useRecordListData() {
                 setConstantLabel?: string | null
             }
         > = {}
-        visibleRefAttributesForColumns.forEach((attr) => {
-            const targetKind = attr.targetEntityKind ?? null
-            const targetId = attr.targetEntityId ?? null
+        visibleRefComponentsForColumns.forEach((cmp) => {
+            const targetKind = cmp.targetEntityKind ?? null
+            const targetId = cmp.targetEntityId ?? null
             if (!targetId || !targetKind) return
             if (targetKind === 'set') {
-                const targetConstantId = attr.targetConstantId ?? null
+                const targetConstantId = cmp.targetConstantId ?? null
                 const targetConstant =
                     targetConstantId && targetId
                         ? (setConstantsMap?.[targetId] ?? []).find((constant) => constant.id === targetConstantId) ?? null
                         : null
-                map[attr.codename] = {
+                map[cmp.codename] = {
                     kind: targetKind,
                     targetId,
                     targetConstantId,
@@ -348,23 +343,23 @@ export function useRecordListData() {
                 }
                 return
             }
-            map[attr.codename] = { kind: targetKind, targetId }
+            map[cmp.codename] = { kind: targetKind, targetId }
         })
         return map
-    }, [visibleRefAttributesForColumns, setConstantsMap, i18n.language])
+    }, [visibleRefComponentsForColumns, setConstantsMap, i18n.language])
 
     // Ref IDs by target (for batch display resolution)
     const refIdsByTarget = useMemo(() => {
         const map: Record<string, Set<string>> = {}
-        if (!Array.isArray(records) || refAttributesForColumns.length === 0) return map
-        refAttributesForColumns.forEach((attr) => {
-            const targetKind = attr.targetEntityKind ?? null
-            const targetId = attr.targetEntityId ?? null
+        if (!Array.isArray(records) || refComponentsForColumns.length === 0) return map
+        refComponentsForColumns.forEach((cmp) => {
+            const targetKind = cmp.targetEntityKind ?? null
+            const targetId = cmp.targetEntityId ?? null
             if (!targetId || !targetKind || targetKind === 'set') return
             const mapKey = `${targetKind}:${targetId}`
             if (!map[mapKey]) map[mapKey] = new Set()
             records.forEach((element) => {
-                const rawValue = element.data?.[attr.codename]
+                const rawValue = element.data?.[cmp.codename]
                 const resolvedId =
                     typeof rawValue === 'string' && rawValue.length > 0
                         ? rawValue
@@ -377,7 +372,7 @@ export function useRecordListData() {
             })
         })
         return map
-    }, [records, refAttributesForColumns])
+    }, [records, refComponentsForColumns])
 
     const refIdsKey = useMemo(
         () =>
@@ -401,13 +396,13 @@ export function useRecordListData() {
                 const [targetKind, targetId] = entry.targetKey.split(':')
                 if (!targetId || !targetKind || targetKind === 'set') continue
 
-                if (targetKind === 'catalog') {
-                    const attributesResponse = await fieldDefinitionsApi.listFieldDefinitionsDirect(metahubId, targetId, {
+                if (targetKind === 'object') {
+                    const componentsResponse = await componentsApi.listComponentsDirect(metahubId, targetId, {
                         limit: 100,
                         locale: i18n.language,
                         includeShared: true
                     })
-                    const targetAttrs = attributesResponse?.items ?? []
+                    const targetAttrs = componentsResponse?.items ?? []
 
                     const elementsResponse = await Promise.all(
                         entry.ids.map(async (id) => {
@@ -468,16 +463,16 @@ export function useRecordListData() {
     return {
         metahubId,
         hubIdParam,
-        linkedCollectionId,
+        objectCollectionId,
         effectiveTreeEntityId,
         treeEntities,
-        catalogForHubResolution,
-        isCatalogResolutionLoading,
-        catalogResolutionError,
+        objectForHubResolution,
+        isObjectResolutionLoading,
+        objectResolutionError,
         canLoadData,
-        fieldDefinitions,
-        orderedAttributes,
-        childAttributesMap,
+        components,
+        orderedComponents,
+        childComponentsMap,
         childEnumValuesMap,
         setConstantsMap,
         allowElementCopy,
@@ -491,8 +486,8 @@ export function useRecordListData() {
         images,
         elementMap,
         elementOrderMap,
-        visibleAttributesForColumns,
-        refTargetByAttribute,
+        visibleComponentsForColumns,
+        refTargetByComponent,
         refDisplayMap,
         isFetchingRefDisplayMap,
         refIdsKey

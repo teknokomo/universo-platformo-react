@@ -4,10 +4,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { ReactNode } from 'react'
 
-const { getLayout, listLayoutZoneWidgets, getLayoutZoneWidgetsCatalog } = vi.hoisted(() => ({
+const { getLayout, listLayoutZoneWidgets, getLayoutZoneWidgetObjects } = vi.hoisted(() => ({
     getLayout: vi.fn(),
     listLayoutZoneWidgets: vi.fn(),
-    getLayoutZoneWidgetsCatalog: vi.fn()
+    getLayoutZoneWidgetObjects: vi.fn()
 }))
 const mockUseMetahubDetails = vi.fn()
 
@@ -78,7 +78,7 @@ vi.mock('notistack', () => ({
 vi.mock('../../api', () => ({
     getLayout,
     listLayoutZoneWidgets,
-    getLayoutZoneWidgetsCatalog,
+    getLayoutZoneWidgetObjects,
     updateLayout: vi.fn(),
     assignLayoutZoneWidget: vi.fn(),
     moveLayoutZoneWidget: vi.fn(),
@@ -116,13 +116,13 @@ describe('LayoutDetails inherited widget contract', () => {
         getLayout.mockResolvedValue({
             data: {
                 id: 'layout-1',
-                scopeEntityId: 'catalog-1',
+                scopeEntityId: 'object-1',
                 templateKey: 'dashboard',
                 name: {
                     _schema: 'v1',
                     _primary: 'en',
                     locales: {
-                        en: { content: 'LinkedCollectionEntity layout' }
+                        en: { content: 'ObjectCollectionEntity layout' }
                     }
                 },
                 description: null,
@@ -144,7 +144,7 @@ describe('LayoutDetails inherited widget contract', () => {
                 widgetKey: 'menuWidget',
                 sortOrder: 1,
                 config: {
-                    title: 'Catalogs',
+                    title: 'Objects',
                     sharedBehavior: {
                         canDeactivate: false,
                         canExclude: false,
@@ -176,7 +176,7 @@ describe('LayoutDetails inherited widget contract', () => {
             }
         ])
 
-        getLayoutZoneWidgetsCatalog.mockResolvedValue([
+        getLayoutZoneWidgetObjects.mockResolvedValue([
             { key: 'menuWidget', allowedZones: ['left', 'right'], multiInstance: false },
             { key: 'header', allowedZones: ['top'], multiInstance: false },
             { key: 'columnsContainer', allowedZones: ['left', 'center', 'right'], multiInstance: true }
@@ -193,7 +193,7 @@ describe('LayoutDetails inherited widget contract', () => {
 
         render(
             <QueryClientProvider client={queryClient}>
-                <MemoryRouter initialEntries={['/metahub/metahub-1/entities/catalog/instance/catalog-1/layout/layout-1']}>
+                <MemoryRouter initialEntries={['/metahub/metahub-1/entities/object/instance/object-1/layout/layout-1']}>
                     <Routes>
                         <Route
                             path='/metahub/:metahubId/entities/:kindKey/instance/:scopeEntityId/layout/:layoutId'
@@ -238,7 +238,7 @@ describe('LayoutDetails inherited widget contract', () => {
 
         render(
             <QueryClientProvider client={queryClient}>
-                <MemoryRouter initialEntries={['/metahub/metahub-1/entities/catalog/instance/catalog-1/layout/layout-1']}>
+                <MemoryRouter initialEntries={['/metahub/metahub-1/entities/object/instance/object-1/layout/layout-1']}>
                     <Routes>
                         <Route
                             path='/metahub/:metahubId/entities/:kindKey/instance/:scopeEntityId/layout/:layoutId'

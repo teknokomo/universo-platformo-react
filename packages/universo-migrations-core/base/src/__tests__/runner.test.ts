@@ -1,7 +1,7 @@
 import type { Knex } from 'knex'
 import { calculateMigrationChecksum } from '../checksum'
 import { runPlatformMigrations } from '../runner'
-import type { MigrationCatalogRecord, MigrationCatalogRepository, PlatformMigrationFile } from '../types'
+import type { MigrationObjectRecord, MigrationObjectRepository, PlatformMigrationFile } from '../types'
 
 const createMigration = (overrides: Partial<PlatformMigrationFile> = {}): PlatformMigrationFile => ({
     id: 'CreateMetahubsSchema1766351182000',
@@ -17,7 +17,7 @@ const createMigration = (overrides: Partial<PlatformMigrationFile> = {}): Platfo
     ...overrides
 })
 
-const createCatalog = (latest: MigrationCatalogRecord | null = null): jest.Mocked<MigrationCatalogRepository> => ({
+const createObject = (latest: MigrationObjectRecord | null = null): jest.Mocked<MigrationObjectRepository> => ({
     ensureStorage: jest.fn().mockResolvedValue(undefined),
     findLatest: jest.fn().mockResolvedValue(latest),
     beginRun: jest.fn().mockImplementation(async ({ migration, checksum, summary, meta, status }) => ({
@@ -100,30 +100,30 @@ const createConnectionAwareKnex = (
 
 describe('runPlatformMigrations', () => {
     it('applies pending migrations under a coordination lock and records completion', async () => {
-        const catalog = createCatalog()
+        const object = createObject()
         const { knex, trx, raw } = createConnectionAwareKnex()
         const up = jest.fn().mockResolvedValue(undefined)
 
         const result = await runPlatformMigrations({
             knex,
             migrations: [createMigration({ up })],
-            catalog
+            object
         })
 
         expect(result.applied).toEqual(['CreateMetahubsSchema1766351182000'])
         expect(result.skipped).toEqual([])
-        expect(catalog.ensureStorage).toHaveBeenCalledTimes(1)
-        expect(catalog.beginRun).toHaveBeenCalledTimes(1)
-        expect(catalog.completeRun).toHaveBeenCalledWith('run-1', { status: 'applied' })
+        expect(object.ensureStorage).toHaveBeenCalledTimes(1)
+        expect(object.beginRun).toHaveBeenCalledTimes(1)
+        expect(object.completeRun).toHaveBeenCalledWith('run-1', { status: 'applied' })
         expect(trx.raw).toHaveBeenCalledWith(expect.stringContaining('pg_advisory_xact_lock'), expect.any(Array))
         expect(raw).toHaveBeenCalledWith(expect.stringContaining('pg_try_advisory_xact_lock'), expect.any(Array))
-        expect(catalog.findLatest.mock.invocationCallOrder[0]).toBeGreaterThan(raw.mock.invocationCallOrder[0] ?? 0)
+        expect(object.findLatest.mock.invocationCallOrder[0]).toBeGreaterThan(raw.mock.invocationCallOrder[0] ?? 0)
         expect(up).toHaveBeenCalledTimes(1)
     })
 
     it('skips already applied migrations with matching checksum', async () => {
         const migration = createMigration()
-        const catalog = createCatalog({
+        const object = createObject({
             id: 'existing-run',
             scopeKind: migration.scope.kind,
             scopeKey: migration.scope.key,
@@ -148,7 +148,7 @@ describe('runPlatformMigrations', () => {
         const result = await runPlatformMigrations({
             knex,
             migrations: [migration],
-            catalog
+            object
         })
 
         expect(result.applied).toEqual([])
@@ -159,12 +159,12 @@ describe('runPlatformMigrations', () => {
                 action: 'skip'
             })
         ])
-        expect(catalog.beginRun).not.toHaveBeenCalled()
+        expect(object.beginRun).not.toHaveBeenCalled()
     })
 
     it('fails on checksum drift', async () => {
         const migration = createMigration()
-        const catalog = createCatalog({
+        const object = createObject({
             id: 'existing-run',
             scopeKind: migration.scope.kind,
             scopeKey: migration.scope.key,
@@ -190,23 +190,23 @@ describe('runPlatformMigrations', () => {
             runPlatformMigrations({
                 knex,
                 migrations: [migration],
-                catalog
+                object
             })
         ).rejects.toThrow('Migration drift detected')
 
-        expect(catalog.beginRun).not.toHaveBeenCalled()
+        expect(object.beginRun).not.toHaveBeenCalled()
     })
 
     it('returns a non-mutating apply plan in dry-run mode', async () => {
-        const catalog = createCatalog()
-        catalog.isStorageReady = jest.fn().mockResolvedValue(true)
+        const object = createObject()
+        object.isStorageReady = jest.fn().mockResolvedValue(true)
         const { knex } = createConnectionAwareKnex()
         const up = jest.fn().mockResolvedValue(undefined)
 
         const result = await runPlatformMigrations({
             knex,
             migrations: [createMigration({ up })],
-            catalog,
+            object,
             dryRun: true
         })
 
@@ -220,14 +220,14 @@ describe('runPlatformMigrations', () => {
                 executionBudget: null
             })
         ])
-        expect(catalog.ensureStorage).not.toHaveBeenCalled()
-        expect(catalog.beginRun).not.toHaveBeenCalled()
+        expect(object.ensureStorage).not.toHaveBeenCalled()
+        expect(object.beginRun).not.toHaveBeenCalled()
         expect(up).not.toHaveBeenCalled()
     })
 
     it('reports drift without throwing in dry-run mode', async () => {
         const migration = createMigration()
-        const catalog = createCatalog({
+        const object = createObject({
             id: 'existing-run',
             scopeKind: migration.scope.kind,
             scopeKey: migration.scope.key,
@@ -247,13 +247,13 @@ describe('runPlatformMigrations', () => {
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         })
-        catalog.isStorageReady = jest.fn().mockResolvedValue(true)
+        object.isStorageReady = jest.fn().mockResolvedValue(true)
         const { knex } = createConnectionAwareKnex()
 
         const result = await runPlatformMigrations({
             knex,
             migrations: [migration],
-            catalog,
+            object,
             dryRun: true
         })
 
@@ -267,14 +267,14 @@ describe('runPlatformMigrations', () => {
     })
 
     it('marks destructive migrations as blocked in dry-run mode', async () => {
-        const catalog = createCatalog()
-        catalog.isStorageReady = jest.fn().mockResolvedValue(true)
+        const object = createObject()
+        object.isStorageReady = jest.fn().mockResolvedValue(true)
         const { knex } = createConnectionAwareKnex()
 
         const result = await runPlatformMigrations({
             knex,
             migrations: [createMigration({ id: 'DangerousMigration1', version: '1', isDestructive: true })],
-            catalog,
+            object,
             dryRun: true
         })
 
@@ -288,7 +288,7 @@ describe('runPlatformMigrations', () => {
     })
 
     it('uses dedicated session advisory locks for session-scoped migrations', async () => {
-        const catalog = createCatalog()
+        const object = createObject()
         const { knex, boundQueryCalls, client, connection } = createConnectionAwareKnex()
         const up = jest.fn().mockResolvedValue(undefined)
 
@@ -302,7 +302,7 @@ describe('runPlatformMigrations', () => {
                     up
                 })
             ],
-            catalog
+            object
         })
 
         // Session lock now uses BEGIN + pg_try_advisory_xact_lock + COMMIT pattern
@@ -316,7 +316,7 @@ describe('runPlatformMigrations', () => {
     })
 
     it('applies execution budget timeouts inside transactional migration execution', async () => {
-        const catalog = createCatalog()
+        const object = createObject()
         const { knex, trx } = createConnectionAwareKnex()
 
         await runPlatformMigrations({
@@ -332,7 +332,7 @@ describe('runPlatformMigrations', () => {
                     }
                 })
             ],
-            catalog
+            object
         })
 
         expect(trx.raw).toHaveBeenCalledWith("SET LOCAL lock_timeout TO '1000ms'")
@@ -340,7 +340,7 @@ describe('runPlatformMigrations', () => {
     })
 
     it('rolls back and releases connection on migration error with session lock', async () => {
-        const catalog = createCatalog()
+        const object = createObject()
         const { knex, boundQueryCalls, client } = createConnectionAwareKnex((sql) => {
             if (sql.includes('pg_try_advisory_xact_lock')) {
                 return { rows: [{ acquired: true }] }
@@ -357,11 +357,11 @@ describe('runPlatformMigrations', () => {
                         up: jest.fn().mockRejectedValue(new Error('boom'))
                     })
                 ],
-                catalog
+                object
             })
         ).rejects.toThrow('boom')
 
-        expect(catalog.completeRun).toHaveBeenCalledWith(
+        expect(object.completeRun).toHaveBeenCalledWith(
             'run-1',
             expect.objectContaining({
                 status: 'failed',

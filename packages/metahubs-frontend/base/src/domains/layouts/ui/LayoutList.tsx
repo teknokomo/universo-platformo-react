@@ -45,7 +45,7 @@ import { ConfirmDeleteDialog, EntityFormDialog } from '@universo/template-mui/co
 import { STORAGE_KEYS } from '../../../view-preferences/storage'
 import { useViewPreference } from '../../../hooks/useViewPreference'
 import { ensureLocalizedContent, extractLocalizedInput, hasPrimaryContent, normalizeLocale } from '../../../utils/localizedInput'
-import { buildLinkedCollectionAuthoringPath } from '../../shared/entityMetadataRoutePaths'
+import { buildObjectCollectionAuthoringPath } from '../../shared/entityMetadataRoutePaths'
 import { metahubsQueryKeys } from '../../shared'
 import { useMetahubDetails } from '../../metahubs/hooks'
 import * as layoutsApi from '../api'
@@ -168,17 +168,17 @@ export const LayoutListContent = ({
     const {
         metahubId: routeMetahubId,
         scopeEntityId: routeScopeEntityId,
-        linkedCollectionId: routeLinkedCollectionId,
+        objectCollectionId: routeObjectCollectionId,
         kindKey: routeKindKey,
         treeEntityId: routeTreeEntityId
-    } = useParams<{ metahubId: string; scopeEntityId?: string; linkedCollectionId?: string; kindKey?: string; treeEntityId?: string }>()
+    } = useParams<{ metahubId: string; scopeEntityId?: string; objectCollectionId?: string; kindKey?: string; treeEntityId?: string }>()
     const { t, i18n } = useTranslation(['metahubs', 'common', 'flowList'])
     const { t: tc } = useCommonTranslations()
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
 
     const metahubId = metahubIdProp ?? routeMetahubId
-    const scopeEntityId = normalizeScopeEntityId(scopeEntityIdProp ?? routeScopeEntityId ?? routeLinkedCollectionId)
+    const scopeEntityId = normalizeScopeEntityId(scopeEntityIdProp ?? routeScopeEntityId ?? routeObjectCollectionId)
     const metahubDetailsQuery = useMetahubDetails(metahubId ?? '', { enabled: Boolean(metahubId) })
     const cachedMetahub = metahubId ? queryClient.getQueryData<Metahub>(metahubsQueryKeys.detail(metahubId)) : undefined
     const canManageLayouts = (metahubDetailsQuery.data?.permissions ?? cachedMetahub?.permissions)?.manageMetahub === true
@@ -187,13 +187,13 @@ export const LayoutListContent = ({
         detailBasePathProp ??
         (metahubId
             ? scopeEntityId
-                ? buildLinkedCollectionAuthoringPath({
+                ? buildObjectCollectionAuthoringPath({
                       metahubId,
-                      linkedCollectionId: scopeEntityId,
+                      objectCollectionId: scopeEntityId,
                       treeEntityId: routeTreeEntityId ?? null,
                       kindKey: routeKindKey ?? null,
-                      tab: 'fieldDefinitions'
-                  }).replace(/\/field-definitions$/, '/layout')
+                      tab: 'components'
+                  }).replace(/\/components$/, '/layout')
                 : `/metahub/${metahubId}/layouts`
             : '')
 

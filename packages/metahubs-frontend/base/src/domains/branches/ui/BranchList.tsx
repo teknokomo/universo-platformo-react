@@ -301,12 +301,12 @@ const BranchCopyOptionsFields = ({ values, setValue, isLoading, t }: BranchCopyO
             <FormControlLabel
                 control={
                     <Checkbox
-                        checked={options.copyLinkedCollections}
-                        onChange={(event) => toggleBranchCopyChild(setValue, 'copyLinkedCollections', event.target.checked, values)}
+                        checked={options.copyObjectCollections}
+                        onChange={(event) => toggleBranchCopyChild(setValue, 'copyObjectCollections', event.target.checked, values)}
                         disabled={controlDisabled}
                     />
                 }
-                label={t('metahubs:branches.copy.options.copyLinkedCollections', 'Catalogs')}
+                label={t('metahubs:branches.copy.options.copyObjectCollections', 'Objects')}
             />
             <FormControlLabel
                 control={
@@ -587,7 +587,7 @@ const BranchList = () => {
                         fullCopy?: boolean
                         copyLayouts?: boolean
                         copyTreeEntities?: boolean
-                        copyLinkedCollections?: boolean
+                        copyObjectCollections?: boolean
                         copyValueGroups?: boolean
                         copyOptionLists?: boolean
                     }

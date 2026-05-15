@@ -16,7 +16,7 @@ import {
     BuiltinEntityCollectionPage as BuiltinEntityCollectionPageComponent
 } from './domains/entities/ui/BuiltinEntityCollectionPage'
 import SelectableOptionListComponent from './domains/entities/metadata/optionValue/ui/SelectableOptionList'
-import FieldDefinitionListComponent from './domains/entities/metadata/fieldDefinition/ui/FieldDefinitionList'
+import ComponentListComponent from './domains/entities/metadata/component/ui/ComponentList'
 import RecordListComponent from './domains/entities/metadata/record/ui/RecordList'
 import FixedValueListComponent from './domains/entities/metadata/fixedValue/ui/FixedValueList'
 import SharedResourcesPageComponent from './domains/entities/shared/ui/SharedResourcesPage'
@@ -47,7 +47,7 @@ export const StandardEntityChildCollectionPage = withMetahubDialogSettings(Stand
 
 // Entity metadata pages
 export const SelectableOptionList = withMetahubDialogSettings(SelectableOptionListComponent)
-export const FieldDefinitionList = withMetahubDialogSettings(FieldDefinitionListComponent)
+export const ComponentList = withMetahubDialogSettings(ComponentListComponent)
 export const RecordList = withMetahubDialogSettings(RecordListComponent)
 export const FixedValueList = withMetahubDialogSettings(FixedValueListComponent)
 export const MetahubResources = withMetahubDialogSettings(SharedResourcesPageComponent)
@@ -71,17 +71,17 @@ export type {
     TreeEntity,
     TreeEntityDisplay,
     TreeEntityRef,
-    LinkedCollectionEntity,
-    LinkedCollectionDisplay,
+    ObjectCollectionEntity,
+    ObjectCollectionDisplay,
     ValueGroupEntity,
     ValueGroupDisplay,
     OptionListEntity,
     OptionListDisplay,
     OptionValue,
     OptionValueDisplay,
-    FieldDefinition,
-    FieldDefinitionDisplay,
-    FieldDefinitionDataType,
+    Component,
+    ComponentDisplay,
+    ComponentDefinitionDataType,
     FixedValue,
     FixedValueDisplay,
     FixedValueDataType,
@@ -93,11 +93,11 @@ export type {
 export type {
     MetahubLocalizedPayload,
     TreeEntityLocalizedPayload,
-    LinkedCollectionLocalizedPayload,
+    ObjectCollectionLocalizedPayload,
     ValueGroupLocalizedPayload,
     OptionListLocalizedPayload,
     OptionValueLocalizedPayload,
-    FieldDefinitionLocalizedPayload,
+    ComponentLocalizedPayload,
     FixedValueLocalizedPayload
 } from './types'
 export type { BranchLocalizedPayload } from './types'
@@ -113,11 +113,11 @@ export {
     toMetahubDisplay,
     toBranchDisplay,
     toTreeEntityDisplay,
-    toLinkedCollectionDisplay,
+    toObjectCollectionDisplay,
     toValueGroupDisplay,
     toOptionListDisplay,
     toOptionValueDisplay,
-    toFieldDefinitionDisplay,
+    toComponentDisplay,
     toFixedValueDisplay,
     toRecordItemDisplay
 } from './types'

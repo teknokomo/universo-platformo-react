@@ -45,11 +45,11 @@ const createPoolExecutor = (): MockPoolExecutor => ({
                     sort_order: 1
                 },
                 {
-                    id: 'layout-catalog-active',
-                    scope_entity_id: 'catalog-1',
+                    id: 'layout-object-active',
+                    scope_entity_id: 'object-1',
                     base_layout_id: 'layout-global-active',
                     template_key: 'dashboard',
-                    name: { en: 'Catalog active' },
+                    name: { en: 'Object active' },
                     description: null,
                     config: { showHeader: false },
                     is_active: true,
@@ -57,11 +57,11 @@ const createPoolExecutor = (): MockPoolExecutor => ({
                     sort_order: 0
                 },
                 {
-                    id: 'layout-catalog-inactive',
-                    scope_entity_id: 'catalog-2',
+                    id: 'layout-object-inactive',
+                    scope_entity_id: 'object-2',
                     base_layout_id: 'layout-global-inactive',
                     template_key: 'dashboard',
-                    name: { en: 'Catalog inactive' },
+                    name: { en: 'Object inactive' },
                     description: null,
                     config: { showHeader: true },
                     is_active: false,
@@ -96,8 +96,8 @@ const createPoolExecutor = (): MockPoolExecutor => ({
                     is_active: true
                 },
                 {
-                    id: 'widget-catalog-active',
-                    layout_id: 'layout-catalog-active',
+                    id: 'widget-object-active',
+                    layout_id: 'layout-object-active',
                     zone: 'top',
                     widget_key: 'statsOverview',
                     sort_order: 1,
@@ -105,8 +105,8 @@ const createPoolExecutor = (): MockPoolExecutor => ({
                     is_active: true
                 },
                 {
-                    id: 'widget-catalog-inactive',
-                    layout_id: 'layout-catalog-inactive',
+                    id: 'widget-object-inactive',
+                    layout_id: 'layout-object-inactive',
                     zone: 'bottom',
                     widget_key: 'infoCard',
                     sort_order: 2,
@@ -124,7 +124,7 @@ const createPoolExecutor = (): MockPoolExecutor => ({
             return [
                 {
                     id: 'override-active',
-                    layout_id: 'layout-catalog-active',
+                    layout_id: 'layout-object-active',
                     base_widget_id: 'widget-global-active',
                     zone: 'center',
                     sort_order: 2,
@@ -134,7 +134,7 @@ const createPoolExecutor = (): MockPoolExecutor => ({
                 },
                 {
                     id: 'override-inactive',
-                    layout_id: 'layout-catalog-inactive',
+                    layout_id: 'layout-object-inactive',
                     base_widget_id: 'widget-global-inactive',
                     zone: 'left',
                     sort_order: 1,
@@ -189,10 +189,10 @@ describe('attachLayoutsToSnapshot', () => {
         ])
 
         expect(snapshot.scopedLayouts).toEqual([
-            expect.objectContaining({ id: 'layout-catalog-active', scopeEntityId: 'catalog-1', baseLayoutId: 'layout-global-active' }),
+            expect.objectContaining({ id: 'layout-object-active', scopeEntityId: 'object-1', baseLayoutId: 'layout-global-active' }),
             expect.objectContaining({
-                id: 'layout-catalog-inactive',
-                scopeEntityId: 'catalog-2',
+                id: 'layout-object-inactive',
+                scopeEntityId: 'object-2',
                 baseLayoutId: 'layout-global-inactive'
             })
         ])
@@ -204,21 +204,21 @@ describe('attachLayoutsToSnapshot', () => {
             expect.arrayContaining([
                 expect.objectContaining({ id: 'widget-global-active', layoutId: 'layout-global-active' }),
                 expect.objectContaining({ id: 'widget-global-inactive', layoutId: 'layout-global-inactive' }),
-                expect.objectContaining({ id: 'widget-catalog-active', layoutId: 'layout-catalog-active' }),
-                expect.objectContaining({ id: 'widget-catalog-inactive', layoutId: 'layout-catalog-inactive', isActive: false })
+                expect.objectContaining({ id: 'widget-object-active', layoutId: 'layout-object-active' }),
+                expect.objectContaining({ id: 'widget-object-inactive', layoutId: 'layout-object-inactive', isActive: false })
             ])
         )
 
         expect(snapshot.layoutWidgetOverrides).toEqual([
             expect.objectContaining({
                 id: 'override-active',
-                layoutId: 'layout-catalog-active',
+                layoutId: 'layout-object-active',
                 baseWidgetId: 'widget-global-active',
                 config: null
             }),
             expect.objectContaining({
                 id: 'override-inactive',
-                layoutId: 'layout-catalog-inactive',
+                layoutId: 'layout-object-inactive',
                 baseWidgetId: 'widget-global-inactive',
                 isActive: false
             })

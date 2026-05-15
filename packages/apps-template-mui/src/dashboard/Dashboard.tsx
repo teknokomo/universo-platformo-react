@@ -19,10 +19,10 @@ export interface DashboardDetailsSlot {
     applicationId?: string
     sectionId?: string | null
     sectionCodename?: string | null
-    linkedCollectionId?: string | null
-    linkedCollectionCodename?: string | null
+    objectCollectionId?: string | null
+    objectCollectionCodename?: string | null
     sections?: Array<{ id: string; codename: string }>
-    linkedCollections?: Array<{ id: string; codename: string }>
+    objectCollections?: Array<{ id: string; codename: string }>
     apiBaseUrl?: string
     locale?: string
     currentWorkspaceId?: string | null
@@ -49,9 +49,9 @@ export interface DashboardDetailsSlot {
     navigate?: (href: string) => void
     /** MUI DataGrid locale text overrides (e.g. from @mui/x-data-grid/locales) */
     localeText?: Partial<GridLocaleText>
-    /** Search scope contract for the current catalog runtime. */
+    /** Search scope contract for the current object runtime. */
     searchMode?: 'server' | 'page-local'
-    /** Optional persisted row-reorder contract for the current catalog runtime. */
+    /** Optional persisted row-reorder contract for the current object runtime. */
     rowReorder?: {
         onReorder: (orderedRowIds: string[]) => Promise<void>
         isPending?: boolean
@@ -66,7 +66,7 @@ export interface DashboardMenuItem {
     icon?: string | null
     kind: 'section' | 'hub' | 'link'
     sectionId?: string | null
-    linkedCollectionId?: string | null
+    objectCollectionId?: string | null
     treeEntityId?: string | null
     href?: string | null
     selected?: boolean
@@ -80,8 +80,8 @@ export interface DashboardMenuSlot {
     overflowLabel?: string | null
     activeSectionId?: string | null
     onSelectSection?: (sectionId: string) => void
-    activeLinkedCollectionId?: string | null
-    onSelectLinkedCollection?: (linkedCollectionId: string) => void
+    activeObjectCollectionId?: string | null
+    onSelectObjectCollection?: (objectCollectionId: string) => void
 }
 
 /** Map of menus keyed by widget ID. Each menuWidget resolves its menu via widget.id lookup. */
