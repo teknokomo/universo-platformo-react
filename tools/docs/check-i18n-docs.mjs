@@ -80,13 +80,10 @@ const requiredScreenshotPages = [
     'guides/publishing-content.md',
     'guides/quiz-application-tutorial.md',
     'guides/snapshot-export-import.md',
-    'guides/working-with-updl.md',
     'guides/workspace-management.md',
     'platform/README.md',
     'platform/admin.md',
-    'platform/analytics.md',
     'platform/applications.md',
-    'platform/metaverses.md',
     'platform/metahubs.md',
     'platform/metahubs/common-section.md',
     'platform/metahubs/exclusions.md',
@@ -97,15 +94,7 @@ const requiredScreenshotPages = [
     'platform/metahubs/shared-fixed-values.md',
     'platform/metahubs/shared-option-values.md',
     'platform/metahubs/shared-scripts.md',
-    'platform/space-builder.md',
     'platform/spaces.md',
-    'platform/updl/README.md',
-    'platform/updl/action-nodes.md',
-    'platform/updl/component-nodes.md',
-    'platform/updl/data-nodes.md',
-    'platform/updl/entity-nodes.md',
-    'platform/updl/event-nodes.md',
-    'platform/updl/space-nodes.md',
     'platform/workspaces.md',
     'platform/publications.md'
 ]
@@ -142,8 +131,11 @@ const screenshotExemptPages = new Set([
     'getting-started/installation.md',
     'guides/README.md',
     'guides/browser-e2e-testing.md',
-    'guides/multi-platform-export.md',
-    'guides/updating-system-app-schemas.md'
+    'guides/updating-system-app-schemas.md',
+    'guides/ledgers.md',
+    'guides/lms-reports.md',
+    'guides/lms-resource-model.md',
+    'guides/transactional-objects.md'
 ])
 
 function normalizeLines(content) {

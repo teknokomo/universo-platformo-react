@@ -17,6 +17,21 @@ They are not just folders: each metahub owns the authoring model that later beco
 - scripts attached at resources, metahub, or entity scope;
 - publications that package the current approved state.
 
+## Entity Types
+
+Metahubs support multiple entity types for different use cases:
+
+| Entity Type | Purpose | Key Features |
+| --- | --- | --- |
+| **Hubs** | Hierarchical tree structures | Parent-child relationships, tree navigation |
+| **Objects** | Universal data entities | Fields, records, transactional behavior, ledger posting |
+| **Sets** | Configuration collections | Fixed values (constants), key-value pairs |
+| **Enumerations** | Option lists | Option values, dropdown choices |
+| **Pages** | Rich content authoring | Editor.js integration, multilingual blocks, structured content |
+| **Ledgers** | Operational fact storage | Append-only facts, dimensions, measures, projections |
+
+Each entity type is enabled through capabilities in the entity type definition. See [Pages Entity Type](../guides/pages-entity-type.md) for detailed Pages documentation and [Ledgers Guide](../guides/ledgers.md) for Ledgers usage.
+
 ## Main Authoring Surfaces
 
 | Surface | Purpose |

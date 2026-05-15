@@ -27,16 +27,6 @@
 * [Applications](platform/applications.md)
 * [Admin](platform/admin.md)
 * [Publications](platform/publications.md)
-* [UPDL](platform/updl/README.md)
-  * [Space Nodes](platform/updl/space-nodes.md)
-  * [Entity Nodes](platform/updl/entity-nodes.md)
-  * [Component Nodes](platform/updl/component-nodes.md)
-  * [Action Nodes](platform/updl/action-nodes.md)
-  * [Event Nodes](platform/updl/event-nodes.md)
-  * [Data Nodes](platform/updl/data-nodes.md)
-* [Builder Flows](platform/space-builder.md)
-* [Analytics and Observability](platform/analytics.md)
-* [Simulation and Virtual Worlds](platform/metaverses.md)
 
 ## Architecture
 
@@ -83,6 +73,7 @@
 * [LMS Resource Model](guides/lms-resource-model.md)
 * [LMS Reports](guides/lms-reports.md)
 * [LMS Guest Access](guides/lms-guest-access.md)
+* [Pages Entity Type](guides/pages-entity-type.md)
 * [Transactional Objects](guides/transactional-objects.md)
 * [Ledgers Guide](guides/ledgers.md)
 * [Workspace Management](guides/workspace-management.md)
@@ -93,8 +84,6 @@
 * [Metahub Scripting](guides/metahub-scripting.md)
 * [Creating Applications](guides/creating-application.md)
 * [Publishing Content](guides/publishing-content.md)
-* [Working with UPDL](guides/working-with-updl.md)
-* [Multi-Platform Export](guides/multi-platform-export.md)
 * [Quiz Application Tutorial](guides/quiz-application-tutorial.md)
 * [Browser E2E Testing](guides/browser-e2e-testing.md)
 * [Updating System App Schemas](guides/updating-system-app-schemas.md)

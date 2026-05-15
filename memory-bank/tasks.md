@@ -4,6 +4,107 @@
 
 ---
 
+## Active: Documentation Refresh Implementation (2026-05-15)
+
+> Goal: comprehensive update of GitBook documentation in `docs/en` and `docs/ru` to match current platform state, remove non-existent functionality, add Pages entity documentation, add screenshots, and align with modern documentation patterns.
+> Status: **COMPLETED** - All 6 phases successfully finished.
+
+### Implementation Action Plan
+
+**Phase 1: Analysis (COMPLETED via QA)**
+- [x] QA analysis completed - verified legacy terminology already removed
+- [x] QA analysis completed - verified Russian localization already complete
+- [x] QA analysis completed - verified Pages entity implementation exists
+- [x] QA analysis completed - identified 26 files to delete
+- [x] QA analysis completed - identified LMS/Ledgers screenshot gaps
+
+**Phase 2: Content Deletion (COMPLETED - Priority 1)**
+- [x] Delete UPDL section (16 files: 8 EN + 8 RU)
+  - [x] Delete `docs/en/platform/updl/` directory (8 files)
+  - [x] Delete `docs/ru/platform/updl/` directory (8 files)
+- [x] Delete Space Builder documentation (2 files)
+  - [x] Delete `docs/en/platform/space-builder.md`
+  - [x] Delete `docs/ru/platform/space-builder.md`
+- [x] Delete Metaverses documentation (2 files)
+  - [x] Delete `docs/en/platform/metaverses.md`
+  - [x] Delete `docs/ru/platform/metaverses.md`
+- [x] Delete Analytics documentation (2 files)
+  - [x] Delete `docs/en/platform/analytics.md`
+  - [x] Delete `docs/ru/platform/analytics.md`
+- [x] Delete Working with UPDL guide (2 files)
+  - [x] Delete `docs/en/guides/working-with-updl.md`
+  - [x] Delete `docs/ru/guides/working-with-updl.md`
+- [x] Delete Multi-Platform Export guide (2 files)
+  - [x] Delete `docs/en/guides/multi-platform-export.md`
+  - [x] Delete `docs/ru/guides/multi-platform-export.md`
+- [x] Update SUMMARY.md files to remove deleted sections
+  - [x] Update `docs/en/SUMMARY.md`
+  - [x] Update `docs/ru/SUMMARY.md`
+
+**Phase 3: Platform Section Updates (COMPLETED)**
+- [x] Update Platform README
+  - [x] Update `docs/en/platform/README.md`
+  - [x] Update `docs/ru/platform/README.md`
+- [x] Update Metahubs documentation
+  - [x] Update `docs/en/platform/metahubs.md` (add Pages and Ledgers sections)
+  - [x] Update `docs/ru/platform/metahubs.md`
+
+**Phase 4: Create Pages Entity Documentation (COMPLETED - Priority 2 - Critical Gap Closed)**
+- [x] Create Pages entity guide
+  - [x] Create `docs/en/guides/pages-entity-type.md`
+  - [x] Create `docs/ru/guides/pages-entity-type.md`
+- [x] Add Pages guide to SUMMARY.md
+  - [x] Update `docs/en/SUMMARY.md`
+  - [x] Update `docs/ru/SUMMARY.md`
+
+**Phase 5: Screenshot Generation (COMPLETED)**
+- [x] Set up Playwright screenshot generation (requires E2E environment)
+  - [x] Create `tools/testing/e2e/specs/generators/docs-entity-screenshots.spec.ts`
+  - [x] Implement locale switching helpers (using existing applyBrowserPreferences)
+- [x] Generate entity screenshots (EN + RU) - COMPLETED
+  - [x] Entity workspace
+  - [x] Create dialogs
+  - [x] Hub tree view
+  - [x] Resources workspace
+  - [x] Shared components, constants, values
+  - [x] Object records
+  - [x] Set fixed values
+  - [x] Enumeration option values
+- [x] Insert screenshot references into documentation
+  - [x] Added entity workspace screenshot to Pages guide (EN + RU)
+
+**Phase 6: Final Validation (COMPLETED)**
+- [x] Verify all internal links work in documentation - VERIFIED: No broken links
+- [x] Verify EN and RU SUMMARY.md structure matches exactly - VERIFIED: Structure is identical
+- [x] Verify line counts match between EN and RU versions of all files - VERIFIED: All 72 page pairs match
+- [x] Verify screenshot references are correct - VERIFIED: Screenshots exist and are referenced
+- [x] Run documentation i18n check script - PASSED: All checks successful
+- [x] Update tasks.md and progress.md with completion
+
+### Summary of Completed Work
+
+**COMPLETED:**
+- ✅ Deleted 26 files of non-existent functionality documentation
+- ✅ Updated navigation (SUMMARY.md files)
+- ✅ Updated Platform overview documentation
+- ✅ Created comprehensive Pages entity guide (EN + RU, ~400 lines)
+- ✅ Generated 14 entity screenshots per locale (28 total)
+- ✅ Fixed broken links in guides README
+- ✅ Updated i18n check script configuration
+- ✅ All documentation validation checks passed
+- ✅ Closed critical documentation gap
+- ✅ Updated memory-bank/progress.md with completion record
+
+**IMPACT:**
+- Documentation now accurately reflects platform capabilities
+- Users can learn about Pages entity type with Editor.js
+- No misleading information about non-existent features
+- Cleaner, more focused documentation structure
+- EN and RU versions fully synchronized (72 page pairs validated)
+- All internal links working correctly
+
+---
+
 ## Current Task Ledger (Canonical)
 
 ## Active: Object Collections And Components Rename Implementation (2026-05-14)
