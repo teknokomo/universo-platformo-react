@@ -1,5 +1,14 @@
 # Current Research
 
+## 2026-05-16: Research gate before PLAN workflow
+
+- Research outcome implemented: link-driven and current-information tasks now have a dedicated `RESEARCH` / `RPLAN` custom mode that creates a cited Memory Bank artifact before implementation planning.
+- Workflow decision: `VAN` recommends `RESEARCH` / `RPLAN` before PLAN when user-provided links or current external facts are part of the decision input. `PLAN` no longer blocks when research is missing; it performs the needed research inline or through a research-capable subagent when available, then continues planning.
+- PLAN persistence decision: PLAN mode now saves a Markdown plan into `memory-bank/plan/` by default unless the user explicitly requests chat-only output or another destination.
+- Cross-agent sync: the same RESEARCH mode and PLAN research handling are mirrored for Gemini, GitHub Copilot custom agents, Claude Code subagents, Qoder agents, and Kiro steering.
+- Skill decision: `agents-best-practices` was imported as a complete project-local skill; the AI Research repository was added only as a curated subset; `autoresearch` remains disabled by default to preserve the project's explicit approval-gated mode sequence.
+- Durable references: implementation plan lives in `memory-bank/plan/agent-research-before-plan-mode-plan-2026-05-16.md`; future research artifacts live in `memory-bank/research/`.
+
 ## 2026-04-13: Standard-kind contract cleanup and validation sync
 
 - Research outcome implemented: the remaining legacy-removal drift was a shared contract problem, not a single-controller bug. The stale assumptions lived in `@universo/types`, dynamic menu/breadcrumb consumers, self-hosted fixture generation, and the touched runtime/browser proofs that still expected builtin/source or `custom.*-v2` behavior.
