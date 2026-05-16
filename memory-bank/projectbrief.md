@@ -13,8 +13,8 @@ Universo Platformo is a comprehensive platform for creating 3D/AR/VR application
 -   **Kiberplano Integration**: Digital planning → robotic implementation → real world deployment
 -   **Shared Runtime DDL**: Extracted schema generation/migration into `@universo/schema-ddl` to avoid backend coupling
 
-> **Detailed Functionality:**  
-> • [Universo MMOOMM Features](https://github.com/teknokomo/universo-platformo-godot/wiki/Functionality-expected-in-Universo-MMOOMM)  
+> **Detailed Functionality:**
+> • [Universo MMOOMM Features](https://github.com/teknokomo/universo-platformo-godot/wiki/Functionality-expected-in-Universo-MMOOMM)
 > • [Universo Platformo Features](https://github.com/teknokomo/universo-platformo-godot/wiki/Functionality-expected-in-Universo-Platformo)
 
 ## Current Status: Alpha Achieved (v0.21.0-alpha, July 2025)
@@ -54,8 +54,8 @@ Universo Platformo is a comprehensive platform for creating 3D/AR/VR application
 
 ### Core Technologies
 
--   **Node.js** (>=18.15.0 <19.0.0 || ^20)
--   **PNPM** (>=9) - **IMPORTANT: Use PNPM, not npm!**
+-   **Node.js** (>=22.6.0; 22.22.2 recommended)
+-   **PNPM** (>=10; 10.33.2 pinned) - **IMPORTANT: Use PNPM, not npm!**
 -   **React** with Material-UI components
 -   **Supabase** for authentication and data storage
 -   **Legacy upstream shell 2.2.8** as base framework

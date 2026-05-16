@@ -3,7 +3,7 @@ import { createLoggedInApiContext, createRuntimeRow, disposeApiContext } from '.
 import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublication } from '../../support/backend/run-manifest.mjs'
 import {
     setupPublishedLmsApplication,
-    waitForApplicationCatalogId,
+    waitForApplicationObjectId,
     waitForApplicationRuntimeRow,
     waitForApplicationRuntimeRowCount,
     waitForMetahubEnumerationId,
@@ -41,13 +41,13 @@ test('@flow lms public guest runtime completes a class module quiz and records p
             slug: lms.applicationSlug
         })
 
-        const classesCatalogId = await waitForApplicationCatalogId(api, lms.applicationId, 'Classes')
-        const studentsCatalogId = await waitForApplicationCatalogId(api, lms.applicationId, 'Students')
-        const modulesCatalogId = await waitForApplicationCatalogId(api, lms.applicationId, 'Modules')
-        const quizzesCatalogId = await waitForApplicationCatalogId(api, lms.applicationId, 'Quizzes')
-        const quizResponsesCatalogId = await waitForApplicationCatalogId(api, lms.applicationId, 'Quiz Responses')
-        const moduleProgressCatalogId = await waitForApplicationCatalogId(api, lms.applicationId, 'Module Progress')
-        const accessLinksCatalogId = await waitForApplicationCatalogId(api, lms.applicationId, 'Access Links')
+        const classesObjectId = await waitForApplicationObjectId(api, lms.applicationId, 'Classes')
+        const studentsObjectId = await waitForApplicationObjectId(api, lms.applicationId, 'Students')
+        const modulesObjectId = await waitForApplicationObjectId(api, lms.applicationId, 'Modules')
+        const quizzesObjectId = await waitForApplicationObjectId(api, lms.applicationId, 'Quizzes')
+        const quizResponsesObjectId = await waitForApplicationObjectId(api, lms.applicationId, 'Quiz Responses')
+        const moduleProgressObjectId = await waitForApplicationObjectId(api, lms.applicationId, 'Module Progress')
+        const accessLinksObjectId = await waitForApplicationObjectId(api, lms.applicationId, 'Access Links')
 
         const contentTypeEnumerationId = await waitForMetahubEnumerationId(api, lms.metahub.id, 'Content Type')
         const moduleStatusEnumerationId = await waitForMetahubEnumerationId(api, lms.metahub.id, 'Module Status')
@@ -58,16 +58,16 @@ test('@flow lms public guest runtime completes a class module quiz and records p
         const singleChoiceValueId = await waitForOptionValueId(api, lms.metahub.id, questionTypeEnumerationId, 'SingleChoice')
 
         const classRow = await createRuntimeRow(api, lms.applicationId, {
-            linkedCollectionId: classesCatalogId,
+            objectCollectionId: classesObjectId,
             data: {
                 Name: `Biology Class ${runManifest.runId}`,
                 Description: 'Public LMS class for browser verification'
             }
         })
-        await waitForApplicationRuntimeRow(api, lms.applicationId, classesCatalogId, classRow.id)
+        await waitForApplicationRuntimeRow(api, lms.applicationId, classesObjectId, classRow.id)
 
         const quizRow = await createRuntimeRow(api, lms.applicationId, {
-            linkedCollectionId: quizzesCatalogId,
+            objectCollectionId: quizzesObjectId,
             data: {
                 Title: `Photosynthesis Quiz ${runManifest.runId}`,
                 Description: 'Two-question guest quiz',
@@ -101,13 +101,14 @@ test('@flow lms public guest runtime completes a class module quiz and records p
                 ]
             }
         })
-        await waitForApplicationRuntimeRow(api, lms.applicationId, quizzesCatalogId, quizRow.id)
+        await waitForApplicationRuntimeRow(api, lms.applicationId, quizzesObjectId, quizRow.id)
 
         const moduleSlug = `journey-module-${runManifest.runId}`
         const moduleRow = await createRuntimeRow(api, lms.applicationId, {
-            linkedCollectionId: modulesCatalogId,
+            objectCollectionId: modulesObjectId,
             data: {
                 Title: `Photosynthesis Module ${runManifest.runId}`,
+                Slug: moduleSlug,
                 Description: 'Guest LMS lesson with embedded quiz hand-off',
                 Status: publishedModuleStatusValueId,
                 EstimatedDurationMinutes: 10,
@@ -128,10 +129,10 @@ test('@flow lms public guest runtime completes a class module quiz and records p
                 ]
             }
         })
-        await waitForApplicationRuntimeRow(api, lms.applicationId, modulesCatalogId, moduleRow.id)
+        await waitForApplicationRuntimeRow(api, lms.applicationId, modulesObjectId, moduleRow.id)
 
         const accessLinkRow = await createRuntimeRow(api, lms.applicationId, {
-            linkedCollectionId: accessLinksCatalogId,
+            objectCollectionId: accessLinksObjectId,
             data: {
                 Slug: moduleSlug,
                 TargetType: 'module',
@@ -143,7 +144,7 @@ test('@flow lms public guest runtime completes a class module quiz and records p
                 LinkTitle: 'Photosynthesis journey'
             }
         })
-        await waitForApplicationRuntimeRow(api, lms.applicationId, accessLinksCatalogId, accessLinkRow.id)
+        await waitForApplicationRuntimeRow(api, lms.applicationId, accessLinksObjectId, accessLinkRow.id)
 
         const guestSessionResponsePromise = page.waitForResponse(
             (response) =>
@@ -179,13 +180,13 @@ test('@flow lms public guest runtime completes a class module quiz and records p
         await page.getByRole('button', { name: 'Complete module' }).click()
         await expect(page.getByText('Module complete. Progress has been recorded for this session.')).toBeVisible({ timeout: 30_000 })
 
-        const studentRows = await waitForApplicationRuntimeRowCount(api, lms.applicationId, studentsCatalogId, 1)
+        const studentRows = await waitForApplicationRuntimeRowCount(api, lms.applicationId, studentsObjectId, 1)
         expect(studentRows).toHaveLength(1)
 
-        const quizResponseRows = await waitForApplicationRuntimeRowCount(api, lms.applicationId, quizResponsesCatalogId, 2)
+        const quizResponseRows = await waitForApplicationRuntimeRowCount(api, lms.applicationId, quizResponsesObjectId, 2)
         expect(quizResponseRows).toHaveLength(2)
 
-        const moduleProgressRows = await waitForApplicationRuntimeRowCount(api, lms.applicationId, moduleProgressCatalogId, 1)
+        const moduleProgressRows = await waitForApplicationRuntimeRowCount(api, lms.applicationId, moduleProgressObjectId, 1)
         expect(moduleProgressRows).toHaveLength(1)
     } finally {
         await disposeApiContext(api)

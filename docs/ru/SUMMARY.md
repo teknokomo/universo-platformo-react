@@ -72,6 +72,7 @@
 * [Настройка LMS](guides/lms-setup.md)
 * [Модель ресурсов LMS](guides/lms-resource-model.md)
 * [Отчёты LMS](guides/lms-reports.md)
+* [Геймификация LMS](guides/lms-gamification.md)
 * [Гостевой доступ LMS](guides/lms-guest-access.md)
 * [Тип Сущности Страницы](guides/pages-entity-type.md)
 * [Транзакционные объекты](guides/transactional-objects.md)

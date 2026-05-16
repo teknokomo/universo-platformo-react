@@ -21,6 +21,8 @@ export interface RuntimeReportRecordsListParams {
     activeCondition?: string
     limit?: number
     offset?: number
+    maxLimit?: number
+    defaultLimit?: number
 }
 
 export interface RuntimeReportRecordsListResult {
@@ -154,6 +156,52 @@ const assertUniqueAggregationAlias = (seenAliases: Set<string>, alias: string, c
     })
 }
 
+const normalizeLimit = (value: unknown, fallback: number, maxLimit: number): number => {
+    const numericValue = typeof value === 'number' ? value : Number(value)
+    const candidate = Number.isFinite(numericValue) ? numericValue : fallback
+    return Math.max(1, Math.min(maxLimit, Math.trunc(candidate)))
+}
+
+const readLocalizedReportText = (value: unknown, locale = 'en'): string | undefined => {
+    if (typeof value === 'string') return value.trim() || undefined
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+
+    const record = value as { _primary?: string; locales?: Record<string, { content?: string }>; en?: string; ru?: string }
+    const normalizedLocale = locale.split(/[-_]/)[0]?.toLowerCase() || 'en'
+    const direct = record[normalizedLocale as 'en' | 'ru']
+    if (typeof direct === 'string' && direct.trim()) return direct.trim()
+
+    const primaryLocale = record._primary ?? 'en'
+    return (
+        record.locales?.[normalizedLocale]?.content?.trim() ||
+        record.locales?.[primaryLocale]?.content?.trim() ||
+        record.locales?.en?.content?.trim() ||
+        undefined
+    )
+}
+
+const stringifyCsvValue = (value: unknown): string => {
+    if (value === null || value === undefined) return ''
+    if (typeof value === 'string') return value
+    if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return String(value)
+    return JSON.stringify(value) ?? String(value)
+}
+
+const escapeCsvValue = (value: unknown): string => {
+    const text = stringifyCsvValue(value)
+    if (!/[",\r\n]/.test(text)) return text
+    return `"${text.replace(/"/g, '""')}"`
+}
+
+export const serializeRuntimeReportCsv = (result: RuntimeReportRecordsListResult, locale = 'en'): string => {
+    const headers = result.definition.columns.map((column) => readLocalizedReportText(column.label, locale) ?? column.field)
+    const lines = [
+        headers.map(escapeCsvValue).join(','),
+        ...result.rows.map((row) => result.definition.columns.map((column) => escapeCsvValue(row[column.field])).join(','))
+    ]
+    return `${lines.join('\r\n')}\r\n`
+}
+
 export class RuntimeReportsService {
     async runRecordsListReport(params: RuntimeReportRecordsListParams): Promise<RuntimeReportRecordsListResult> {
         if (params.permissions.readReports !== true) {
@@ -221,7 +269,9 @@ export class RuntimeReportsService {
             }
         })
 
-        const limit = Math.max(1, Math.min(500, Math.trunc(params.limit ?? 100)))
+        const maxLimit = normalizeLimit(params.maxLimit, 500, 5000)
+        const defaultLimit = normalizeLimit(params.defaultLimit, 100, maxLimit)
+        const limit = normalizeLimit(params.limit, defaultLimit, maxLimit)
         const offset = Math.max(0, Math.trunc(params.offset ?? 0))
         const limitPlaceholder = `$${values.length + 1}`
         const offsetPlaceholder = `$${values.length + 2}`

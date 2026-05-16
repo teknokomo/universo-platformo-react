@@ -5,7 +5,7 @@ jest.mock('@universo/admin-backend', () => ({
     hasSubjectPermission: jest.fn(async () => false)
 }))
 
-import { resolveEffectiveRolePermissions } from '../../routes/guards'
+import { resolveEffectiveRoleCapabilities, resolveEffectiveRolePermissions } from '../../routes/guards'
 
 describe('application access guards', () => {
     it('resolves default application permissions for existing roles', () => {
@@ -89,5 +89,80 @@ describe('application access guards', () => {
                 }
             })
         ).toMatchObject({ readReports: false })
+    })
+
+    it('exposes exact workflow capabilities from supported application and workspace role-policy scopes only', () => {
+        const capabilities = resolveEffectiveRoleCapabilities('member', {
+            rolePolicies: {
+                templates: [
+                    {
+                        codename: 'memberPolicy',
+                        title: { en: 'Member permissions' },
+                        rules: [
+                            { capability: 'records.edit', effect: 'allow', scope: 'workspace' },
+                            { capability: 'assignment.review', effect: 'allow', scope: 'workspace' },
+                            { capability: 'certificate.issue', effect: 'allow', scope: 'application' },
+                            { capability: 'department:assignment.review', effect: 'allow', scope: 'department' }
+                        ]
+                    }
+                ]
+            }
+        })
+
+        expect(capabilities).toMatchObject({
+            editContent: true,
+            'records.edit': true,
+            'assignment.review': true,
+            'certificate.issue': true
+        })
+        expect(capabilities['workflow.execute']).toBeUndefined()
+        expect((capabilities as Record<string, boolean>)['department:assignment.review']).toBeUndefined()
+    })
+
+    it('allows exact workflow capabilities without granting broad edit content permission', () => {
+        const settings = {
+            rolePolicies: {
+                templates: [
+                    {
+                        codename: 'memberPolicy',
+                        title: { en: 'Member permissions' },
+                        rules: [{ capability: 'assignment.review', effect: 'allow', scope: 'workspace' }]
+                    }
+                ]
+            }
+        }
+
+        expect(resolveEffectiveRolePermissions('member', settings)).toMatchObject({ editContent: false })
+        expect(resolveEffectiveRoleCapabilities('member', settings)).toMatchObject({
+            editContent: false,
+            'records.edit': false,
+            'assignment.review': true
+        })
+        expect(resolveEffectiveRoleCapabilities('member', settings)['workflow.execute']).toBeUndefined()
+    })
+
+    it('lets deny role-policy rules revoke exact workflow capabilities', () => {
+        const capabilities = resolveEffectiveRoleCapabilities('editor', {
+            rolePolicies: {
+                templates: [
+                    {
+                        codename: 'editorPolicy',
+                        title: { en: 'Editor permissions' },
+                        rules: [
+                            { capability: 'workflow.execute', effect: 'deny', scope: 'workspace' },
+                            { capability: 'records.edit', effect: 'deny', scope: 'workspace' },
+                            { capability: 'assignment.review', effect: 'deny', scope: 'workspace' }
+                        ]
+                    }
+                ]
+            }
+        })
+
+        expect(capabilities).toMatchObject({
+            editContent: false,
+            'records.edit': false,
+            'workflow.execute': false,
+            'assignment.review': false
+        })
     })
 })

@@ -23,9 +23,12 @@ LMS fixture моделирует учебный контент как обычн
 - `pageCodename` для авторских Page entities.
 - `url` для ссылок, видео, аудио и embedded content.
 - `storageKey` для будущих файлов в хранилище.
-- `packageDescriptor` или `storageKey` для будущих SCORM-like пакетов.
+- `packageDescriptor` или `storageKey` для будущих SCORM и xAPI пакетов.
 
-V1 fixture намеренно не реализует загрузку файлов, извлечение пакетов и SCORM player. Эти возможности должны добавляться через generic storage/runtime primitives, а не через LMS-specific frontend code.
+V1 fixture намеренно не реализует загрузку файлов, извлечение пакетов, xAPI launch tracking и SCORM player.
+SCORM, xAPI, storage-backed video/audio/document/file resources и предпросмотр office documents представлены как настроенные, но deferred resources.
+Опубликованные приложения показывают локализованное deferred runtime state вместо имитации готового player/import pipeline.
+Эти возможности должны добавляться через generic storage/runtime primitives, а не через LMS-specific frontend code.
 
 ## Runtime-поведение
 

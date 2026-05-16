@@ -58,8 +58,8 @@
 ### Предварительные требования
 ```bash
 # Системные требования
-Node.js >= 18.0.0
-PNPM >= 8.0.0
+Node.js >= 22.6.0
+PNPM >= 10.0.0
 ```
 
 ### Установка
@@ -77,15 +77,15 @@ pnpm --filter @universo/metahubs-frontend dev
 ### Интеграция
 ```tsx
 // Импорт компонентов в ваше React-приложение
-import { 
-  MetahubList, 
-  MetahubBoard, 
+import {
+  MetahubList,
+  MetahubBoard,
   MetahubResources,
   StandardEntityCollectionPage,
   StandardEntityChildCollectionPage,
   FieldDefinitionList,
   RecordList,
-  metahubsDashboard 
+  metahubsDashboard
 } from '@universo/metahubs-frontend'
 
 // Импорт i18n ресурсов
@@ -295,8 +295,8 @@ function useMetahubs() {
 ## Разработка
 
 ### Предварительные требования
-- Node.js 18+
-- pnpm 8+
+- Node.js 22.22.2 recommended (>=22.6.0 required)
+- pnpm 10.x
 - TypeScript 5+
 
 ### Доступные скрипты

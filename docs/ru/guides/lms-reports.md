@@ -21,8 +21,9 @@ description: Object-backed определения отчётов LMS и безо
 - агрегации,
 - сохранённые наборы фильтров.
 
-Текущий fixture содержит определения `LearnerProgress` и `CourseProgress`.
-Оба используют datasources `records.list`, поэтому могут отображаться существующими `detailsTable`, chart и overview-card widgets.
+Текущий fixture содержит определения `LearnerProgress`, `CourseProgress`, `Leaderboard` и `Achievements`.
+Они используют datasources `records.list`, поэтому могут отображаться существующими `detailsTable`, chart и overview-card widgets.
+Отчёты по геймификации читают обычные Object rows, например `LeaderboardSnapshots` и `BadgeIssues`; факты движения баллов остаются в `PointsLedger` и выводятся через настроенные objects и reports, а не через hardcoded LMS dashboard.
 
 ## Безопасный runner
 
@@ -36,3 +37,9 @@ API payload может ссылаться на сохранённые запис
 SQL values параметризуются, dynamic identifiers проходят через identifier helpers, неизвестные поля fail closed, а JSON/TABLE поля не используются в SQL для фильтров, сортировки и колонок отчёта.
 Registrar-only ledger Objects исключаются из поиска target для отчётов, поэтому отчёты работают с обычными runtime record Objects, а не с внутренними fact ledgers.
 Настроенные aggregations выполняются через ту же безопасную карту полей и возвращаются в объекте `aggregations` с alias из definition отчёта.
+
+## Runtime-использование
+
+Существующий `detailsTable` widget может отображать сохранённый отчёт по `reportCodename` и запрашивать CSV export для того же сохранённого definition.
+Overview stat cards также могут использовать generic datasource метрики `report.aggregation`, чтобы показывать настроенный aggregation alias.
+Оба пути переиспользуют saved report runner, scope текущего workspace, CSRF protection и разрешение published metadata.

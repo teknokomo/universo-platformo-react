@@ -581,6 +581,14 @@ describe('SchemaGenerator', () => {
             expect(scopedIndexSql).toContain('codename')
         })
 
+        it('creates workflow action audit facts as a generic runtime system table', async () => {
+            await generator.ensureSystemTables('metahubs')
+
+            const createdTables = mockSchemaBuilder.createTable.mock.calls.map((call) => call[0])
+
+            expect(createdTables).toContain('_app_workflow_action_audit')
+        })
+
         it('widens runtime kind-bearing columns for custom entity kinds', async () => {
             await generator.ensureSystemTables('metahubs')
 

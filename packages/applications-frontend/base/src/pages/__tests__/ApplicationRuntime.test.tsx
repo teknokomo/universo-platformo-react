@@ -124,18 +124,46 @@ vi.mock('@universo/apps-template-mui', async () => {
         useCrudDashboard: (options: any) => {
             runtimeMocks.capturedCrudOptions = options
             runtimeMocks.capturedCellRenderers = options.cellRenderers
-            return {
-                appData: {
-                    zoneWidgets: { left: [], right: [], center: [] },
-                    menus: [],
-                    activeMenuId: null,
-                    settings: { sectionLinksEnabled: true },
-                    workspacesEnabled: true,
-                    section: { name: 'Details', codename: 'details' },
-                    sections: [{ id: 'object-1', codename: 'details' }],
-                    objectCollection: { name: 'Details' },
-                    objectCollections: [{ id: 'object-1', codename: 'details' }]
+            const overrides = runtimeMocks.dashboardStateOverrides as any
+            const baseAppData = {
+                zoneWidgets: { left: [], right: [], center: [] },
+                menus: [],
+                activeMenuId: null,
+                settings: { sectionLinksEnabled: true },
+                permissions: {
+                    manageMembers: true,
+                    manageApplication: true,
+                    createContent: true,
+                    editContent: true,
+                    deleteContent: true,
+                    readReports: true
                 },
+                workspacesEnabled: true,
+                section: { name: 'Details', codename: 'details' },
+                sections: [{ id: 'object-1', codename: 'details' }],
+                objectCollection: { name: 'Details' },
+                objectCollections: [{ id: 'object-1', codename: 'details' }]
+            }
+            const overrideAppData = overrides.appData as Record<string, unknown> | null | undefined
+            const mergedAppData =
+                overrideAppData === null
+                    ? null
+                    : overrideAppData === undefined
+                    ? baseAppData
+                    : {
+                          ...overrideAppData,
+                          permissions: Object.prototype.hasOwnProperty.call(overrideAppData, 'permissions')
+                              ? overrideAppData.permissions
+                              : baseAppData.permissions,
+                          settings: Object.prototype.hasOwnProperty.call(overrideAppData, 'settings')
+                              ? overrideAppData.settings
+                              : baseAppData.settings,
+                          workspacesEnabled: Object.prototype.hasOwnProperty.call(overrideAppData, 'workspacesEnabled')
+                              ? overrideAppData.workspacesEnabled
+                              : baseAppData.workspacesEnabled
+                      }
+
+            return {
                 isLoading: false,
                 isFetching: false,
                 isError: false,
@@ -188,7 +216,8 @@ vi.mock('@universo/apps-template-mui', async () => {
                 menuRowId: null,
                 handleOpenMenu: vi.fn(),
                 handleCloseMenu: vi.fn(),
-                ...runtimeMocks.dashboardStateOverrides
+                ...overrides,
+                appData: mergedAppData
             }
         }
     }
@@ -500,6 +529,67 @@ describe('ApplicationRuntime pending interaction safety', () => {
         })
         expect(runtimeMocks.handleOpenCreate).not.toHaveBeenCalled()
         expect(screen.getByTestId('runtime-location-search')).toBeEmptyDOMElement()
+    })
+
+    it.each([
+        ['missing', undefined],
+        ['null', null],
+        ['malformed', { createContent: 'true', editContent: 1, deleteContent: true }]
+    ])('fails closed for %s runtime permissions', async (_caseName, permissions) => {
+        runtimeMocks.dashboardStateOverrides = {
+            appData: {
+                zoneWidgets: { left: [], right: [], center: [] },
+                menus: [],
+                activeMenuId: null,
+                objectCollection: {
+                    name: 'Details',
+                    runtimeConfig: { createSurface: 'page' }
+                },
+                permissions
+            }
+        }
+
+        renderRuntimePageAt('/applications/app-1/runtime?surface=page&mode=create')
+
+        await waitFor(() => {
+            expect(screen.queryByRole('button', { name: 'Create' })).not.toBeInTheDocument()
+        })
+        expect(runtimeMocks.handleOpenCreate).not.toHaveBeenCalled()
+        expect(screen.getByTestId('runtime-location-search')).toBeEmptyDOMElement()
+    })
+
+    it('disables inline boolean editing when editContent is not explicitly allowed', async () => {
+        runtimeMocks.dashboardStateOverrides = {
+            appData: {
+                zoneWidgets: { left: [], right: [], center: [] },
+                menus: [],
+                activeMenuId: null,
+                section: { name: 'Orders', codename: 'orders' },
+                objectCollection: { name: 'Orders' },
+                permissions: {
+                    manageMembers: false,
+                    manageApplication: false,
+                    createContent: true,
+                    editContent: false,
+                    deleteContent: false
+                }
+            },
+            activeSectionId: 'section-9',
+            selectedSectionId: 'section-9'
+        }
+
+        renderRuntimePage()
+
+        await waitFor(() => {
+            expect(runtimeMocks.capturedCellRenderers?.BOOLEAN).toBeTypeOf('function')
+        })
+
+        renderBooleanCell('row-2')
+
+        const checkbox = screen.getByRole('checkbox')
+        expect(checkbox).toBeDisabled()
+
+        expect(runtimeMocks.mutate).not.toHaveBeenCalled()
     })
 
     it('renders page-surface forms inside dashboard content when createSurface is configured as page', async () => {

@@ -128,6 +128,7 @@
             "generalSaved": "Настройки приложения сохранены",
             "generalSaveError": "Не удалось сохранить настройки приложения",
             "accessHint": "Настройте универсальные права приложения и рабочих пространств для каждой роли приложения. Эти правила применяются runtime API.",
+            "unsupportedScopeWarning": "Некоторые импортированные разрешающие правила ролей используют области, которые ещё не реализованы. При сохранении они будут записаны как запрещающие правила до появления проверенных предикатов областей.",
             "capabilityColumn": "Право",
             "roles": {
                 "owner": "Владелец",
@@ -207,6 +208,153 @@
                 "title": "Поведение виджета",
                 "description": "Настройте, как унаследованные макеты могут переопределять этот виджет."
             },
+            "resourcePreview": {
+                "title": "Превью ресурса",
+                "displayTitle": "Заголовок",
+                "description": "Описание",
+                "type": "Тип ресурса",
+                "launchMode": "Режим запуска",
+                "pageCodename": "Код страницы",
+                "url": "URL",
+                "storageKey": "Ключ хранилища",
+                "mimeType": "MIME-тип",
+                "types": {
+                    "page": "Страница",
+                    "url": "URL",
+                    "video": "Видео",
+                    "audio": "Аудио",
+                    "document": "Документ",
+                    "scorm": "SCORM-заглушка",
+                    "embed": "Встраивание",
+                    "file": "Файл-заглушка"
+                },
+                "launchModes": {
+                    "inline": "Встроенно",
+                    "newTab": "Новая вкладка",
+                    "download": "Скачивание"
+                },
+                "validation": {
+                    "missingSource": "Для превью ресурса нужен валидный источник.",
+                    "invalidSource": "Невалидный источник ресурса будет удалён при сохранении.",
+                    "deferredSource": "Ресурсы из хранилища, файлы и SCORM сохраняются как заглушки до реализации runtime-плееров."
+                }
+            },
+            "sequencePolicy": {
+                "title": "Политика последовательности",
+                "mode": "Режим",
+                "orderFieldCodename": "Код поля порядка",
+                "availableFromFieldCodename": "Код поля доступно с",
+                "availableToFieldCodename": "Код поля доступно до",
+                "dueAtFieldCodename": "Код поля срока",
+                "prerequisiteFieldCodename": "Код поля предусловий",
+                "retryLimit": "Лимит повторов",
+                "maxAttempts": "Максимум попыток",
+                "completionConditions": "Условия завершения",
+                "completionCondition": "Условие",
+                "conditionKind": "Тип условия",
+                "conditionField": "Поле условия",
+                "conditionValue": "Значение условия",
+                "modes": {
+                    "free": "Свободный",
+                    "sequential": "Последовательный",
+                    "scheduled": "По расписанию",
+                    "prerequisite": "По предусловиям"
+                },
+                "conditionKinds": {
+                    "manual": "Ручное поле",
+                    "progressPercent": "Процент прогресса",
+                    "scoreAtLeast": "Минимальный балл",
+                    "allStepsCompleted": "Все шаги завершены",
+                    "attendanceMarked": "Посещаемость отмечена",
+                    "certificateIssued": "Сертификат выдан"
+                },
+                "validation": {
+                    "invalidPolicy": "Невалидная политика последовательности будет удалена при сохранении.",
+                    "sequentialOrder": "Для последовательного режима нужен код поля порядка.",
+                    "scheduledFields": "Для режима расписания нужно хотя бы одно поле доступности или срока.",
+                    "prerequisiteField": "Для режима предусловий нужен код поля предусловий.",
+                    "emptyCompletion": "В политике последовательности пока нет условий завершения."
+                }
+            },
+            "reportDefinition": {
+                "title": "Определение отчёта",
+                "codename": "Код отчёта",
+                "displayTitle": "Заголовок отчёта",
+                "description": "Описание отчёта",
+                "columns": "Выходные колонки",
+                "column": "Колонка",
+                "columnField": "Поле колонки",
+                "columnLabel": "Заголовок колонки",
+                "columnType": "Тип колонки",
+                "filters": "Фильтры",
+                "filter": "Фильтр",
+                "filterField": "Поле фильтра",
+                "filterOperator": "Оператор фильтра",
+                "filterValue": "Значение фильтра",
+                "aggregations": "Агрегации",
+                "aggregation": "Агрегация",
+                "aggregationField": "Поле агрегации",
+                "aggregationFunction": "Функция агрегации",
+                "aggregationAlias": "Псевдоним агрегации",
+                "columnTypes": {
+                    "text": "Текст",
+                    "number": "Число",
+                    "date": "Дата",
+                    "status": "Статус",
+                    "boolean": "Булево"
+                },
+                "filterOperators": {
+                    "contains": "Содержит",
+                    "equals": "Равно",
+                    "startsWith": "Начинается с",
+                    "endsWith": "Заканчивается на",
+                    "isEmpty": "Пусто",
+                    "isNotEmpty": "Не пусто",
+                    "greaterThan": "Больше",
+                    "greaterThanOrEqual": "Больше или равно",
+                    "lessThan": "Меньше",
+                    "lessThanOrEqual": "Меньше или равно"
+                },
+                "aggregationFunctions": {
+                    "count": "Количество",
+                    "sum": "Сумма",
+                    "avg": "Среднее",
+                    "min": "Минимум",
+                    "max": "Максимум"
+                },
+                "validation": {
+                    "codename": "Для определения отчёта нужен код.",
+                    "title": "Для определения отчёта нужен заголовок.",
+                    "datasource": "Для определения отчёта нужен валидный источник данных.",
+                    "columns": "Для определения отчёта нужна минимум одна выходная колонка.",
+                    "invalidDefinition": "Невалидное определение отчёта будет удалено при сохранении."
+                }
+            },
+            "workflowActions": {
+                "title": "Действия workflow",
+                "action": "Действие",
+                "codename": "Код действия",
+                "displayTitle": "Заголовок действия",
+                "fromStatuses": "Исходные статусы",
+                "toStatus": "Целевой статус",
+                "requiredCapabilities": "Необходимые права",
+                "statusFieldCodename": "Код поля статуса",
+                "statusColumnName": "Имя колонки статуса",
+                "scriptCodename": "Код скрипта",
+                "postingCommand": "Команда проведения",
+                "confirmationRequired": "Требовать подтверждение",
+                "confirmationTitle": "Заголовок подтверждения",
+                "confirmationMessage": "Сообщение подтверждения",
+                "postingCommands": {
+                    "none": "Без команды проведения",
+                    "post": "Провести",
+                    "unpost": "Отменить проведение",
+                    "void": "Аннулировать"
+                },
+                "validation": {
+                    "invalidActions": "Невалидные действия workflow будут удалены при сохранении."
+                }
+            },
             "datasource": {
                 "title": "Источник данных",
                 "kind": "Источник данных",
@@ -228,9 +376,15 @@
                 "cardValue": "Значение по умолчанию",
                 "cardInterval": "Период",
                 "cardTrend": "Тренд",
+                "cardMetricType": "Тип метрики",
+                "cardMetricRecordsCount": "Количество записей",
+                "cardMetricReportAggregation": "Агрегация отчета",
                 "cardSectionId": "ID раздела метрики",
                 "cardSectionCodename": "Код раздела метрики",
                 "cardSearch": "Поиск метрики",
+                "cardReportId": "ID отчета",
+                "cardReportCodename": "Код отчета",
+                "cardAggregationAlias": "Псевдоним агрегации",
                 "trend": {
                     "up": "Рост",
                     "down": "Снижение",
@@ -239,7 +393,16 @@
                 "ledgerId": "Идентификатор регистра",
                 "ledgerCodename": "Код регистра",
                 "projectionCodename": "Код проекции",
-                "metricKey": "Ключ метрики"
+                "metricKey": "Ключ метрики",
+                "validation": {
+                    "recordsListTarget": "Для источника списка записей нужен идентификатор или код раздела.",
+                    "ledgerTarget": "Для источника регистра нужен идентификатор или код регистра.",
+                    "projectionCodename": "Для источника проекции регистра нужен код проекции.",
+                    "chartXField": "Для источника графика нужно поле оси X.",
+                    "chartSeriesField": "Для источника графика нужно поле ряда.",
+                    "reportAggregationMetric": "Для метрики агрегации отчета нужна ссылка на отчет и псевдоним агрегации.",
+                    "unsupportedOverviewMetric": "Неподдерживаемые метрики обзорных карточек будут удалены при сохранении."
+                }
             },
             "columnsEditor": {
                 "title": "Контейнер колонок",
@@ -349,6 +512,7 @@
                 "detailsTable": "Таблица деталей",
                 "columnsContainer": "Контейнер колонок",
                 "quizWidget": "Виджет квиза",
+                "resourcePreview": "Превью ресурса",
                 "detailsSidePanel": "Боковая панель деталей",
                 "productTree": "Дерево продуктов",
                 "usersByCountryChart": "График пользователей по странам",

@@ -4,6 +4,142 @@
 
 ---
 
+## Active: iSpring-like LMS Platform Implementation (2026-05-15)
+
+> Goal: implement the roadmap in `memory-bank/plan/ispring-like-lms-next-platform-roadmap-2026-05-15.md` without hardcoded LMS runtime forks, with generic platform primitives, fail-closed permissions, app-side content authoring, realistic LMS fixture generation, tests, and docs.
+> Status: completed after final QA gap closure and Node 22 local Supabase E2E validation.
+
+### Final QA Gap Closure Action Plan
+
+- [x] Restore backend fail-closed permission checks for runtime record posting commands before runtime table access.
+- [x] Extend the LMS acceptance matrix contract with explicit phase gates and include every declared acceptance area.
+- [x] Harden LMS fixture contract checks so unfinished scope/format areas stay explicit instead of looking complete.
+- [x] Fix the published runtime rows E2E setup so it reuses the seeded Title component instead of creating a duplicate.
+- [x] Expand LMS browser workflow coverage so every operational workflow transition uses the published UI path where the UI exposes the action.
+- [x] Add a published-app rich-content authoring browser proof through the existing generic CRUD UI.
+- [x] Refresh stale E2E documentation inventory and memory-bank traceability.
+- [x] Rerun focused backend/shared/frontend tests, lint, docs checks, and the local Supabase LMS Playwright flow under Node 22.
+
+### QA Follow-up Remediation Action Plan
+
+- [x] Decouple metadata workflow actions from broad `editContent` permission in published runtime UI and backend, while preserving exact capability fail-closed checks.
+- [x] Replace native workflow confirmations with the existing MUI runtime surface and add focused component coverage.
+- [x] Extend LMS browser E2E workflow coverage with additional UI-click walkthroughs instead of API-only operational transitions.
+- [x] Align remaining Node 22 / PNPM 10 metadata and documentation references, including workspace catalog type metadata.
+- [x] Update roadmap/tasks/progress traceability after remediation and rerun focused lint/test validation.
+
+### QA Remediation Action Plan
+
+- [x] Fix the red `@universo/applications-backend` route coverage for runtime scripts listing and public RPC denial semantics.
+- [x] Add Playwright browser/API proof that LMS workflow actions are hidden and rejected without role-policy capabilities, then become available after the generic capability grant.
+- [x] Re-run focused backend, shared type, published-app, block-editor, docs, and E2E validation; record the local E2E environment blocker separately from code failures.
+- [x] Update `memory-bank/progress.md` with the final QA remediation evidence.
+
+---
+
+## Active: Node 22 Environment And E2E Validation Remediation (2026-05-16)
+
+> Goal: remove obsolete nvm Node versions where safe, align documentation with the current Node 22 / PNPM 10 requirement, and rerun the LMS E2E flow that was previously blocked by Node 20.
+
+- [x] Remove non-22 Node versions managed by nvm and confirm the active nvm/default version is Node 22.
+- [x] Audit documentation and workspace metadata for stale Node 18/20 and PNPM 9 requirements; update them to Node 22 and PNPM 10.
+- [x] Rebuild and rerun the previously blocked LMS Playwright E2E flow with Node 22 explicitly active.
+- [x] Record the validation result in `memory-bank/progress.md`.
+
+---
+
+## Active: LMS Final QA Remediation Follow-up (2026-05-16)
+
+> Goal: close the latest QA findings without adding LMS-only runtime forks: keep every LMS primary section directly visible, remove stale Playwright Node 20 examples, localize generic runtime UI fallbacks, and keep workflow execution capabilities exact.
+
+- [x] Keep LMS Reports in the primary published-app menu and update fixture/E2E contracts.
+- [x] Remove stale Node 20 Playwright provider examples.
+- [x] Replace generic runtime UI hardcoded English fallbacks with localized keys.
+- [x] Remove broad workflow execution from the edit-content alias and update guard coverage.
+- [x] Run focused lint, unit, fixture, docs, and LMS E2E validation under Node 22.
+
+### IMPLEMENT Action Plan
+
+- [x] Phase 0.5: remove `packages/apps-template-mui` runtime dependency on `@universo/template-mui` by moving required runtime UI primitives locally and adding a boundary test.
+- [x] Phase 0.6: align published runtime permissions to fail closed across wrapper/runtime/backend tests.
+- [x] Phase 1: add app-side rich block content authoring groundwork for JSON content fields without raw JSON-only authoring.
+  - [x] Extract the duplicated Editor.js implementation into a neutral shared workspace package.
+  - [x] Reuse the shared Editor.js package from both administrative and published-app UI layers without cross-package relative imports.
+- [x] Phase 2: harden shared resource URL/source validation and preview contracts for safe early formats.
+  - [x] Add shared safe URL/resource source contracts in `@universo/types`.
+  - [x] Reuse the shared URL contract from page block validation and LMS resource contracts.
+  - [x] Add a generic published-app `ResourcePreview` component with localized unsupported/deferred states.
+  - [x] Validate runtime JSON fields configured as block content or resource source on backend writes.
+  - [x] Extend LMS fixture contract coverage for realistic resource source types and unsafe/deferred boundaries.
+- [x] Phase 3: add generic sequence/completion engine groundwork and deterministic tests.
+  - [x] Extract sequence policy and completion condition contracts into a neutral shared module.
+  - [x] Add deterministic weighted progress calculation for mixed completion items.
+  - [x] Add generic completion condition evaluation for records and step collections.
+  - [x] Add generic sequence availability evaluation for free, sequential, scheduled, and prerequisite modes.
+  - [x] Reuse the shared progress helper in the existing guest module runtime path.
+  - [x] Add focused tests for progress, completion conditions, locking, and schema compatibility.
+- [x] Phase 4: add generic workflow action service groundwork with scoped permission checks, optimistic locking, audit, and direct mutation tests.
+  - [x] Extract workflow action and scoped capability contracts into a neutral shared module.
+  - [x] Add fail-closed workflow action availability evaluation for status, capabilities, and unsupported scopes.
+  - [x] Add SQL-first backend workflow action mutation with current-version requirement and workspace gating.
+  - [x] Persist workflow action audit facts in a generic runtime system table.
+  - [x] Add direct tests for safe mutation, missing capabilities, stale versions, unsupported scopes, and schema generation.
+- [x] Phase 5: replace the current LMS surrogate Knowledge/Development navigation targets with real page/object targets and fixture contract gates.
+  - [x] Add real `KnowledgeHome` and `DevelopmentHome` Page entities to the LMS template.
+  - [x] Route primary Knowledge and Development LMS menu entries to those portal pages instead of surrogate object collections.
+  - [x] Strengthen the LMS fixture contract to reject surrogate Knowledge/Development primary navigation targets.
+- [x] Phase 6: extend existing app control panel editors instead of creating duplicate UI.
+  - [x] Reuse the existing Access settings tab for role-policy validation previews.
+  - [x] Sanitize unsupported scoped active role-policy grants to fail closed settings before persistence.
+  - [x] Add TanStack Query optimistic update with rollback for general/application access settings saves.
+  - [x] Add datasource validation previews to the existing widget behavior editor.
+  - [x] Add a generic resource preview layout widget and resource display settings to the existing widget behavior editor.
+  - [x] Add validation previews for resource display settings before saving.
+  - [x] Add generic sequence-policy settings to the existing detailsTable widget behavior editor.
+  - [x] Add validation previews for sequence-policy settings before saving.
+  - [x] Add typed inline report-definition settings to the existing detailsTable widget behavior editor.
+  - [x] Add validation previews for report-definition settings before saving.
+  - [x] Run inline report definitions through the existing published-app detailsTable and reports endpoint.
+  - [x] Extend existing layout/widget dialogs for workflow actions.
+  - [x] Add validation previews for workflow settings before saving.
+- [x] Phase 7: expand operational LMS modules, including assignments, events, certificates, knowledge, development, gamification, and notifications.
+  - [x] Add a trusted runtime workflow action endpoint that resolves actions from server-side object metadata.
+  - [x] Expose metadata-backed workflow actions in the published app row actions menu.
+  - [x] Filter workflow actions through effective application/workspace capability policy.
+  - [x] Add LMS template workflow actions for assignment review, attendance, certificate issue/revoke, development tasks, and notifications.
+  - [x] Add LMS fixture contract gates for required operational workflow metadata.
+  - [x] Add Playwright runtime flows for each operational workflow.
+  - [x] Add gamification and achievement Objects, workflow actions, and deterministic fixture contract coverage.
+  - [x] Seed gamification settings, point rules, manual point adjustments, badge definitions/issues, leaderboard rows, and achievement report definitions through the LMS Playwright generator.
+- [x] Phase 8: expand generic reports, analytics, and export coverage.
+  - [x] Add generic saved-report CSV export without accepting arbitrary inline report definitions from the browser.
+  - [x] Add a published-app export helper and reuse the existing detailsTable report widget surface.
+  - [x] Add backend route, service, API, and widget tests for saved report export.
+  - [x] Add generic report aggregation metric datasources for overview cards without LMS-specific widgets.
+  - [x] Extend the existing widget behavior editor to configure saved-report aggregation metrics.
+  - [x] Add shared schema, published dashboard, and control-panel tests for report aggregation metrics.
+- [x] Phase 9: restore `packages/apps-template-mui` dashboard visual parity using existing template components and screenshot checks.
+  - [x] Align runtime record card view with the dashboard card grid by stretching `ItemCard` inside configured grid columns.
+  - [x] Align workspace dashboard metric cards with the original outlined MUI dashboard card surface.
+  - [x] Add a Playwright screenshot gate for workspace dashboard metric cards.
+- [x] Phase 10: regenerate `tools/fixtures/metahubs-lms-app-snapshot.json` only through Playwright generator for the current portal-navigation and workflow-metadata template slices.
+- [x] Phase 11: add focused unit, integration, and Playwright coverage for all implemented contracts.
+  - [x] Add committed LMS fixture unit coverage for gamification, achievements, and report rows.
+  - [x] Cover workspace dashboard metric card parity in the LMS workspace Playwright flow.
+  - [x] Replace stale LMS Playwright flow imports that still use removed Catalog helper names.
+- [x] Phase 12: update package READMEs and root `docs/` GitBook pages after implementation.
+  - [x] Update LMS resource and report GitBook pages for deferred xAPI/broad-file resources, saved report rendering, CSV export, report aggregation widgets, leaderboard reports, and achievement reports.
+  - [x] Update Ledger architecture GitBook pages so the LMS ledger set matches the current operational template.
+  - [x] Add GitBook LMS gamification and achievements guide.
+  - [x] Update `packages/apps-template-mui` package READMEs for the independent published-runtime architecture and new runtime authoring/reporting surfaces.
+  - [x] Add `@universo/block-editor` package READMEs and register the shared package in `packages/README.md`.
+- [x] Phase 13: keep SCORM/xAPI/broad file/messenger capabilities hidden or clearly unsupported until complete.
+  - [x] Model xAPI as an explicit deferred package resource type.
+  - [x] Keep storage-backed video, audio, document, and file resources valid but deferred until runtime players/importers exist.
+  - [x] Extend the LMS fixture contract and regenerate the committed fixture with a deferred xAPI placeholder.
+
+---
+
 ## Active: Documentation Refresh Implementation (2026-05-15)
 
 > Goal: comprehensive update of GitBook documentation in `docs/en` and `docs/ru` to match current platform state, remove non-existent functionality, add Pages entity documentation, add screenshots, and align with modern documentation patterns.
@@ -915,3 +1051,21 @@ All phases of the entity-first final migration completed:
 -   [x] Fix formatting/lint quality gate issues reported by `git diff --check`.
 -   [x] Run targeted unit and E2E contract validations for the remediation.
 -   [x] Record the completed QA remediation in `memory-bank/progress.md`.
+
+## Active: iSpring-like LMS Platform Implementation (2026-05-15)
+
+-   [x] Expose metadata-backed workflow actions in published app row actions without adding LMS-specific UI.
+-   [x] Resolve workflow `statusFieldCodename` to runtime column names in both frontend availability checks and backend execution.
+-   [x] Keep workflow execution behind the trusted backend endpoint with CSRF, edit permission, optimistic row version checks, and server-side metadata validation.
+-   [x] Add effective workflow capability maps from application role-policy rules and expose them to published runtime data.
+-   [x] Filter published app workflow actions by exact `requiredCapabilities`, not only by base `editContent`.
+-   [x] Cover the published app row action menu, dashboard hook workflow execution, and backend workflow route with focused tests.
+-   [x] Extract the shared Editor.js runtime package and remove duplicated implementations before declaring the LMS implementation roadmap complete.
+
+## Active: LMS Product QA Remediation (2026-05-16)
+
+-   [x] Expose real published-app content-authoring entry points for LMS administrators instead of leaving Knowledge and Development on informational-only portal pages.
+-   [x] Add Editor.js-backed runtime content fields to the LMS template and generated snapshot so app-side authors can create and edit block content without raw JSON.
+-   [x] Re-align isolated `apps-template-mui` runtime cards, tables, and pagination with the original MUI/template surfaces while keeping the package boundary independent.
+-   [x] Replace shallow LMS/workspace acceptance coverage with browser flows that prove authoring, block-editor persistence, and the real workspace list surfaces.
+-   [x] Regenerate `tools/fixtures/metahubs-lms-app-snapshot.json` through the Playwright generator and run focused lint/build/unit/E2E validation on local minimal Supabase.

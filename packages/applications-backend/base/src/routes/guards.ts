@@ -2,7 +2,7 @@ import { activeAppRowCondition, type DbExecutor } from '@universo/utils'
 import * as httpErrors from 'http-errors'
 import { createAccessGuards } from '@universo/auth-backend'
 import { isSuperuser, getGlobalRoleCodename, hasSubjectPermission } from '@universo/admin-backend'
-import { applicationRolePolicySettingsSchema, type RoleCapabilityRule } from '@universo/types'
+import { applicationRolePolicySettingsSchema, type RoleCapabilityRule, type WorkflowCapabilityMap } from '@universo/types'
 import type { ApplicationMembershipRecord, ConnectorAccessRecord } from '../persistence/contracts'
 
 // Handle both ESM and CJS imports
@@ -62,7 +62,7 @@ const ROLE_PERMISSION_CAPABILITY_ALIASES: Record<RolePermission, readonly string
     manageMembers: ['manageMembers', 'members.manage', 'workspace.members.manage'],
     manageApplication: ['manageApplication', 'application.manage', 'settings.manage'],
     createContent: ['createContent', 'content.create', 'records.create'],
-    editContent: ['editContent', 'content.edit', 'records.edit', 'workflow.execute'],
+    editContent: ['editContent', 'content.edit', 'records.edit'],
     deleteContent: ['deleteContent', 'content.delete', 'records.delete'],
     readReports: ['readReports', 'reports.read', 'report.read']
 }
@@ -79,25 +79,33 @@ const ruleMatchesPermission = (rule: RoleCapabilityRule, permission: RolePermiss
     return aliases.includes(rule.capability)
 }
 
+const isSupportedRuntimeCapabilityScope = (rule: RoleCapabilityRule): boolean => rule.scope === 'application' || rule.scope === 'workspace'
+
+const rolePolicyAppliesToRole = (template: { baseRole?: string; codename: string }, role: ApplicationRole): boolean =>
+    template.baseRole === role || template.codename === role || template.codename === `${role}Policy`
+
+const parseRolePolicySettings = (settings?: Record<string, unknown> | null) => {
+    const rawRolePolicies = isRecord(settings) ? settings.rolePolicies : undefined
+    return applicationRolePolicySettingsSchema.safeParse(rawRolePolicies)
+}
+
 export const resolveEffectiveRolePermissions = (
     role: ApplicationRole,
     settings?: Record<string, unknown> | null
 ): Record<RolePermission, boolean> => {
     const permissions = cloneRolePermissions(role)
-    const rawRolePolicies = isRecord(settings) ? settings.rolePolicies : undefined
-    const parsed = applicationRolePolicySettingsSchema.safeParse(rawRolePolicies)
+    const parsed = parseRolePolicySettings(settings)
     if (!parsed.success) {
         return permissions
     }
 
     for (const template of parsed.data.templates) {
-        const appliesToRole = template.baseRole === role || template.codename === role || template.codename === `${role}Policy`
-        if (!appliesToRole) {
+        if (!rolePolicyAppliesToRole(template, role)) {
             continue
         }
 
         for (const rule of template.rules) {
-            if (rule.scope !== 'application' && rule.scope !== 'workspace') {
+            if (!isSupportedRuntimeCapabilityScope(rule)) {
                 continue
             }
 
@@ -110,6 +118,40 @@ export const resolveEffectiveRolePermissions = (
     }
 
     return permissions
+}
+
+export const resolveEffectiveRoleCapabilities = (
+    role: ApplicationRole,
+    settings?: Record<string, unknown> | null
+): WorkflowCapabilityMap => {
+    const permissions = resolveEffectiveRolePermissions(role, settings)
+    const capabilities: Record<string, boolean> = {}
+
+    for (const permission of ROLE_PERMISSION_KEYS) {
+        for (const alias of ROLE_PERMISSION_CAPABILITY_ALIASES[permission]) {
+            capabilities[alias] = permissions[permission] === true
+        }
+    }
+
+    const parsed = parseRolePolicySettings(settings)
+    if (!parsed.success) {
+        return capabilities
+    }
+
+    for (const template of parsed.data.templates) {
+        if (!rolePolicyAppliesToRole(template, role)) {
+            continue
+        }
+
+        for (const rule of template.rules) {
+            if (!isSupportedRuntimeCapabilityScope(rule)) {
+                continue
+            }
+            capabilities[rule.capability] = rule.effect === 'allow'
+        }
+    }
+
+    return capabilities
 }
 
 export interface ApplicationMembershipContext {

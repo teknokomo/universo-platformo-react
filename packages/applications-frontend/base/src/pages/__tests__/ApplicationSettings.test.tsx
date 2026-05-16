@@ -474,6 +474,107 @@ describe('ApplicationSettings', () => {
         })
     })
 
+    it('previews and downgrades unsupported scoped role policy grants before saving', async () => {
+        mockedUseApplicationDetails.mockReturnValue({
+            data: {
+                id: 'app-1',
+                name: {
+                    _schema: 'v1',
+                    _primary: 'en',
+                    locales: {
+                        en: { content: 'Workspace Demo' }
+                    }
+                },
+                description: null,
+                slug: 'workspace-demo',
+                isPublic: false,
+                workspacesEnabled: true,
+                schemaName: 'app_workspace_demo',
+                schemaStatus: 'synced',
+                schemaSyncedAt: null,
+                schemaError: null,
+                connectorsCount: 0,
+                membersCount: 1,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                version: 1,
+                settings: {
+                    rolePolicies: {
+                        templates: [
+                            {
+                                codename: 'reviewerPolicy',
+                                title: 'Reviewer permissions',
+                                baseRole: 'editor',
+                                rules: [
+                                    {
+                                        capability: 'assignment.review',
+                                        effect: 'allow',
+                                        scope: 'recordOwner'
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }
+            } as never,
+            isLoading: false,
+            isError: false
+        } as never)
+
+        const queryClient = new QueryClient({
+            defaultOptions: {
+                queries: { retry: false },
+                mutations: { retry: false }
+            }
+        })
+        const i18n = getI18nInstance()
+
+        render(
+            <I18nextProvider i18n={i18n}>
+                <SnackbarProvider>
+                    <QueryClientProvider client={queryClient}>
+                        <MemoryRouter initialEntries={['/applications/app-1/settings']}>
+                            <Routes>
+                                <Route path='/applications/:applicationId/settings' element={<ApplicationSettings />} />
+                            </Routes>
+                        </MemoryRouter>
+                    </QueryClientProvider>
+                </SnackbarProvider>
+            </I18nextProvider>
+        )
+
+        await userEvent.click(screen.getByRole('tab', { name: 'Access' }))
+
+        expect(screen.getByTestId('application-settings-unsupported-scope-warning')).toBeInTheDocument()
+
+        await userEvent.click(screen.getByRole('checkbox', { name: 'member readReports' }))
+        await userEvent.click(screen.getByTestId('application-settings-access-save'))
+
+        await waitFor(() => {
+            expect(mockedUpdateApplication).toHaveBeenCalledWith(
+                'app-1',
+                expect.objectContaining({
+                    settings: expect.objectContaining({
+                        rolePolicies: expect.objectContaining({
+                            templates: expect.arrayContaining([
+                                expect.objectContaining({
+                                    codename: 'reviewerPolicy',
+                                    rules: expect.arrayContaining([
+                                        expect.objectContaining({
+                                            capability: 'assignment.review',
+                                            effect: 'deny',
+                                            scope: 'recordOwner'
+                                        })
+                                    ])
+                                })
+                            ])
+                        })
+                    })
+                })
+            )
+        })
+    })
+
     it('does not send server-managed public runtime settings from the general settings form', async () => {
         mockedUseApplicationDetails.mockReturnValue({
             data: {

@@ -51,6 +51,30 @@ const DEFAULT_LABELS: Required<EditorJsBlockEditorLabels> = {
 
 const EDITOR_HOLDER_MIN_HEIGHT = 280
 
+function buildEditableEditorJsData(
+    value: PageBlockContent,
+    locale: string,
+    allowedBlockTypes: readonly string[],
+    maxBlocks?: number | null
+): Record<string, unknown> {
+    const data = toEditorJsOutputData(value, locale)
+    const blocks = Array.isArray(data.blocks) ? data.blocks : []
+
+    if (blocks.length > 0 || maxBlocks === 0 || !allowedBlockTypes.includes('paragraph')) {
+        return data
+    }
+
+    return {
+        ...data,
+        blocks: [
+            {
+                type: 'paragraph',
+                data: { text: '' }
+            }
+        ]
+    }
+}
+
 function stableSerializeEditorValue(input: unknown): string {
     const seen = new WeakSet<object>()
 
@@ -189,6 +213,10 @@ function buildEditorJsI18n(locale?: string): Record<string, unknown> | undefined
     }
 }
 
+function buildAllowedBlockTypesKey(allowedBlockTypes?: readonly string[]): string {
+    return allowedBlockTypes?.join('\u001f') ?? ''
+}
+
 export function EditorJsBlockEditor({
     value,
     allowedBlockTypes,
@@ -213,8 +241,13 @@ export function EditorJsBlockEditor({
     const [fallbackText, setFallbackText] = useState(() => JSON.stringify(value, null, 2))
     const mergedLabels = { ...DEFAULT_LABELS, ...labels }
     const resolvedContentLocale = (contentLocale ?? locale ?? 'en').split(/[-_]/)[0].toLowerCase() || 'en'
-    const normalizedAllowedBlockTypes = useMemo(() => normalizeAllowedBlockTypes(allowedBlockTypes), [allowedBlockTypes])
+    const allowedBlockTypesKey = buildAllowedBlockTypesKey(allowedBlockTypes)
+    const normalizedAllowedBlockTypes = useMemo(() => {
+        const source = allowedBlockTypesKey ? allowedBlockTypesKey.split('\u001f') : undefined
+        return normalizeAllowedBlockTypes(source)
+    }, [allowedBlockTypesKey])
     const normalizedAllowedBlockTypesKey = normalizedAllowedBlockTypes.join('|')
+    const defaultBlockType = normalizedAllowedBlockTypes.includes('paragraph') ? 'paragraph' : normalizedAllowedBlockTypes[0] ?? 'paragraph'
     const validationOptions = useMemo<PageBlockContentValidationOptions>(
         () => ({
             allowedBlockTypes: normalizedAllowedBlockTypes,
@@ -248,7 +281,7 @@ export function EditorJsBlockEditor({
         }
 
         void editor.isReady
-            .then(() => editor.render?.(toEditorJsOutputData(value, resolvedContentLocale)))
+            .then(() => editor.render?.(buildEditableEditorJsData(value, resolvedContentLocale, normalizedAllowedBlockTypes, maxBlocks)))
             .then(() => {
                 lastAppliedValueJsonRef.current = nextValueJson
             })
@@ -256,7 +289,7 @@ export function EditorJsBlockEditor({
                 const message = error instanceof Error ? error.message : mergedLabels.validationError
                 onValidationErrorRef.current?.(message)
             })
-    }, [mergedLabels.validationError, resolvedContentLocale, value])
+    }, [maxBlocks, mergedLabels.validationError, normalizedAllowedBlockTypes, resolvedContentLocale, value])
 
     useEffect(() => {
         let cancelled = false
@@ -275,12 +308,18 @@ export function EditorJsBlockEditor({
                     return
                 }
 
-                const initialEditorData = toEditorJsOutputData(initialValueRef.current, resolvedContentLocale)
+                const initialEditorData = buildEditableEditorJsData(
+                    initialValueRef.current,
+                    resolvedContentLocale,
+                    normalizedAllowedBlockTypes,
+                    maxBlocks
+                )
                 const initialEditorValueJson = buildEditorValueSignature(initialValueRef.current, resolvedContentLocale)
 
                 const editor = new EditorJS({
                     holder: holderRef.current,
                     data: initialEditorData,
+                    defaultBlock: defaultBlockType,
                     tools: buildEditorJsTools(toolBundle, normalizedAllowedBlockTypes),
                     readOnly,
                     i18n: buildEditorJsI18n(locale),
@@ -320,7 +359,9 @@ export function EditorJsBlockEditor({
                 editorRef.current = editor
                 const currentValueJson = buildEditorValueSignature(initialValueRef.current, resolvedContentLocale)
                 if (currentValueJson !== initialEditorValueJson) {
-                    await editor.render?.(toEditorJsOutputData(initialValueRef.current, resolvedContentLocale))
+                    await editor.render?.(
+                        buildEditableEditorJsData(initialValueRef.current, resolvedContentLocale, normalizedAllowedBlockTypes, maxBlocks)
+                    )
                 }
                 lastAppliedValueJsonRef.current = currentValueJson
                 setIsLoading(false)
@@ -352,7 +393,9 @@ export function EditorJsBlockEditor({
             }
         }
     }, [
+        defaultBlockType,
         locale,
+        maxBlocks,
         mergedLabels.loadError,
         mergedLabels.validationError,
         normalizedAllowedBlockTypes,

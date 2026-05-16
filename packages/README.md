@@ -20,6 +20,7 @@ This directory contains the runtime applications, shared libraries, templates, a
 | `apps-template-mui` | `@universo/apps-template-mui` | Shared MUI application scaffolding for newer frontend packages. |
 | `auth-backend` | `@universo/auth-backend` | Passport and Supabase-based authentication toolkit for the backend. |
 | `auth-frontend` | `@universo/auth-frontend` | Shared authentication UI primitives and session-aware frontend helpers. |
+| `universo-block-editor` | `@universo/block-editor` | Shared Editor.js block-content authoring primitives reused by administrative and published-app UIs. |
 | `metahubs-backend` | `@universo/metahubs-backend` | Backend for metahubs, branches, publications, and related domain flows. |
 | `metahubs-frontend` | `@universo/metahubs-frontend` | Frontend module for metahub management interfaces. |
 | `migration-guard-shared` | `@universo/migration-guard-shared` | Shared migration-status helpers and guard shell components. |

@@ -177,6 +177,87 @@ describe('widgetRenderer detailsTable datasource', () => {
         expect(requestedUrl.searchParams.get('offset')).toBe('0')
     })
 
+    it('renders inline report definitions through the shared data grid contract', async () => {
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = String(input)
+            if (url.endsWith('/auth/csrf')) {
+                return new Response(JSON.stringify({ csrfToken: 'csrf-token' }), {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' }
+                })
+            }
+
+            return new Response(
+                JSON.stringify({
+                    rows: [{ ProgressPercent: 75 }],
+                    total: 1,
+                    definition: {
+                        codename: 'LearnerProgress',
+                        title: 'Learner progress',
+                        datasource: {
+                            kind: 'records.list',
+                            sectionCodename: 'ModuleProgress'
+                        },
+                        columns: [{ field: 'ProgressPercent', label: 'Progress', type: 'number' }]
+                    }
+                }),
+                {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' }
+                }
+            )
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <DashboardDetailsProvider
+                    value={{
+                        title: 'Details',
+                        applicationId: '017f22e2-79b0-7cc3-98c4-dc0c0c073993',
+                        apiBaseUrl: '/api/v1',
+                        locale: 'en',
+                        currentWorkspaceId: 'workspace-1',
+                        rows: [],
+                        columns: []
+                    }}
+                >
+                    {renderWidget({
+                        id: 'report-widget',
+                        widgetKey: 'detailsTable',
+                        sortOrder: 0,
+                        config: {
+                            reportDefinition: {
+                                codename: 'LearnerProgress',
+                                title: 'Learner progress',
+                                datasource: {
+                                    kind: 'records.list',
+                                    sectionCodename: 'ModuleProgress'
+                                },
+                                columns: [{ field: 'ProgressPercent', label: 'Progress', type: 'number' }]
+                            }
+                        }
+                    })}
+                </DashboardDetailsProvider>
+            </QueryClientProvider>
+        )
+
+        await waitFor(() => expect(screen.getByTestId('customized-grid')).toHaveAttribute('data-rows', '1'))
+        expect(screen.getByTestId('customized-grid')).toHaveAttribute('data-row-count', '1')
+
+        const requestedUrl = new URL(fetchMock.mock.calls[1][0] as string)
+        expect(requestedUrl.pathname).toBe('/api/v1/applications/017f22e2-79b0-7cc3-98c4-dc0c0c073993/runtime/reports/run')
+        expect(requestedUrl.searchParams.get('workspaceId')).toBe('workspace-1')
+        expect(fetchMock.mock.calls[1][1]).toMatchObject({
+            method: 'POST',
+            body: JSON.stringify({
+                reportCodename: 'LearnerProgress',
+                limit: 20,
+                offset: 0
+            })
+        })
+    })
+
     it('does not render columnsContainer when all child widgets are inactive or missing', () => {
         const { container } = render(
             <>
@@ -206,5 +287,31 @@ describe('widgetRenderer detailsTable datasource', () => {
         )
 
         expect(container).toBeEmptyDOMElement()
+    })
+
+    it('renders resourcePreview widgets through the generic resource preview component', () => {
+        render(
+            <DashboardDetailsProvider value={{ locale: 'en' } as never}>
+                {renderWidget({
+                    id: 'resource-widget',
+                    widgetKey: 'resourcePreview',
+                    sortOrder: 0,
+                    config: {
+                        title: 'Intro video',
+                        description: 'Watch before the course.',
+                        source: {
+                            type: 'video',
+                            url: 'https://cdn.example.com/intro.mp4',
+                            mimeType: 'video/mp4'
+                        }
+                    }
+                })}
+            </DashboardDetailsProvider>
+        )
+
+        expect(screen.getByTestId('resource-preview')).toBeInTheDocument()
+        expect(screen.getByText('Intro video')).toBeInTheDocument()
+        expect(screen.getByText('Watch before the course.')).toBeInTheDocument()
+        expect(screen.getByText('video')).toBeInTheDocument()
     })
 })

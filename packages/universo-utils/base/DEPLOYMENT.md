@@ -19,9 +19,9 @@ Complete guide for deploying the rate limiting system with Redis to production e
 
 ### System Requirements
 
-- **Node.js**: 20.18.1 or higher
+- **Node.js**: 22.22.2 recommended (>=22.6.0 required)
 - **Redis**: 6.0+ (recommended: 7.0+)
-- **pnpm**: 8.0+ (workspace manager)
+- **pnpm**: 10.x (workspace manager; 10.33.2 pinned)
 - **Operating System**: Linux (recommended), macOS, Windows with WSL2
 
 ### Knowledge Requirements
@@ -190,7 +190,7 @@ services:
       - redis
     deploy:
       replicas: 3  # Multi-instance requires Redis
-      
+
   redis:
     image: redis:7-alpine
     volumes:
@@ -420,10 +420,10 @@ Error: command start not found
 ```typescript
 async config() {
     // ... other initialization
-    
+
     // ✅ CORRECT: Call before router creation
     await initializeRateLimiters()
-    
+
     // ... router setup
 }
 ```
@@ -734,5 +734,5 @@ For issues or questions:
 
 ---
 
-**Last Updated:** 2025-10-30  
+**Last Updated:** 2025-10-30
 **Version:** 1.0.0

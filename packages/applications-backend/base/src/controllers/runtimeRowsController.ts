@@ -7,9 +7,11 @@ import {
     normalizeRuntimePageBlocks,
     runtimeDatasourceFilterSchema,
     runtimeDatasourceSortSchema,
+    workflowActionSchema,
     type BuiltinEntityKind,
     type RuntimeDatasourceFilter,
-    type RuntimeDatasourceSort
+    type RuntimeDatasourceSort,
+    type WorkflowAction
 } from '@universo/types'
 import {
     normalizeObjectCollectionRuntimeViewConfig,
@@ -27,6 +29,7 @@ import {
 } from '../services/runtimeRecordBehavior'
 import { RuntimeScriptsService } from '../services/runtimeScriptsService'
 import { RuntimePostingMovementService } from '../services/runtimePostingMovements'
+import { applyWorkflowAction } from '../services/runtimeWorkflowActions'
 import type { RolePermission } from '../routes/guards'
 import {
     UpdateFailure,
@@ -51,6 +54,7 @@ import {
     buildRuntimeSoftDeleteSetClause,
     RUNTIME_WRITABLE_TYPES,
     coerceRuntimeValue,
+    normalizeConfiguredRuntimeJsonValue,
     normalizeRuntimeTableChildInsertValue,
     normalizeRuntimeTableChildInsertValueByMeta,
     getTableRowLimits,
@@ -128,6 +132,18 @@ const runtimeRecordCommandBodySchema = z.object({
     objectCollectionId: z.string().uuid().optional(),
     expectedVersion: z.number().int().positive().optional()
 })
+
+const runtimeWorkflowActionBodySchema = z.object({
+    objectCollectionId: z.string().uuid().optional(),
+    expectedVersion: z.number().int().positive()
+})
+
+const runtimeWorkflowActionParamSchema = z
+    .string()
+    .trim()
+    .min(1)
+    .max(128)
+    .regex(/^[A-Za-z_][A-Za-z0-9_]*$/)
 
 const RUNTIME_RECORD_SYSTEM_FIELDS = [
     '_app_record_number',
@@ -246,6 +262,26 @@ const resolveRuntimeObjectCollection = async (manager: DbExecutor, schemaIdent: 
     }>
 
     return { objectCollection, attrs, error: null } as const
+}
+
+const readConfiguredWorkflowActions = (config: Record<string, unknown> | null | undefined): WorkflowAction[] => {
+    const rawActions = Array.isArray(config?.workflowActions) ? config.workflowActions : []
+    return rawActions.flatMap((rawAction) => {
+        const parsed = workflowActionSchema.safeParse(rawAction)
+        return parsed.success ? [parsed.data] : []
+    })
+}
+
+const resolveWorkflowStatusColumnName = (
+    action: WorkflowAction,
+    attrs: Array<{ codename: unknown; column_name: string }>
+): string | null => {
+    if (action.statusColumnName) return action.statusColumnName
+    if (!action.statusFieldCodename) return '_app_record_state'
+
+    const target = action.statusFieldCodename.trim()
+    const attr = attrs.find((candidate) => candidate.column_name === target || resolveRuntimeCodenameText(candidate.codename) === target)
+    return attr?.column_name ?? null
 }
 
 const resolveRuntimeReorderField = (
@@ -931,6 +967,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         }
         const activeRecordBehavior = normalizeRuntimeRecordBehavior(activeObjectCollection.config)
         const activeRecordBehaviorEnabled = !isActivePage && isRuntimeRecordBehaviorEnabled(activeRecordBehavior)
+        const activeWorkflowActions = isActivePage ? [] : readConfiguredWorkflowActions(activeObjectCollection.config)
+        const includeRuntimeRowVersion = activeWorkflowActions.length > 0
 
         const components = isActivePage
             ? []
@@ -1206,6 +1244,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             const selectColumns = [
                 'id',
                 ...(activeRecordBehaviorEnabled ? RUNTIME_RECORD_SYSTEM_FIELDS.map((field) => quoteIdentifier(field)) : []),
+                ...(includeRuntimeRowVersion ? [quoteIdentifier('_upl_version')] : []),
                 ...physicalComponents.map((cmp) => quoteIdentifier(cmp.column_name))
             ]
 
@@ -1263,6 +1302,9 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     for (const field of RUNTIME_RECORD_SYSTEM_FIELDS) {
                         mappedRow[field] = row[field] ?? null
                     }
+                }
+                if (includeRuntimeRowVersion) {
+                    mappedRow._upl_version = row._upl_version ?? null
                 }
 
                 for (const component of safeComponents) {
@@ -1359,6 +1401,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     : normalizeObjectCollectionRuntimeViewConfig(undefined),
             recordBehavior:
                 resolveRuntimeStandardKind(objectRow.kind) === 'page' ? undefined : normalizeRuntimeRecordBehavior(objectRow.config),
+            workflowActions: resolveRuntimeStandardKind(objectRow.kind) === 'page' ? [] : readConfiguredWorkflowActions(objectRow.config),
             name: resolvePresentationName(objectRow.presentation, requestedLocale, resolveRuntimeCodenameText(objectRow.codename))
         }))
 
@@ -1881,7 +1924,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
             return {
                 id: component.id,
-                codename: component.codename,
+                codename: resolveRuntimeCodenameText(component.codename),
                 field: component.column_name,
                 dataType: component.data_type,
                 isRequired: component.is_required ?? false,
@@ -1922,6 +1965,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 enableRowReordering: canPersistRowReordering
             },
             recordBehavior: isActivePage ? undefined : activeRecordBehavior,
+            workflowActions: activeWorkflowActions,
             name: resolvePresentationName(
                 activeObjectCollection.presentation,
                 requestedLocale,
@@ -1950,6 +1994,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             workspacesEnabled: runtimeContext.workspacesEnabled,
             currentWorkspaceId: runtimeContext.currentWorkspaceId,
             permissions: runtimeContext.permissions,
+            workflowCapabilities: runtimeContext.workflowCapabilities,
             layoutConfig,
             zoneWidgets,
             menus,
@@ -2031,7 +2076,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
         let coerced: unknown
         try {
-            coerced = coerceRuntimeValue(rawValue, cmp.data_type, cmp.validation_rules)
+            coerced = normalizeConfiguredRuntimeJsonValue(coerceRuntimeValue(rawValue, cmp.data_type, cmp.validation_rules), cmp)
         } catch (e) {
             return res.status(400).json({ error: (e as Error).message })
         }
@@ -2231,7 +2276,10 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             }
 
             try {
-                const coerced = coerceRuntimeValue(normalizedRaw, cmp.data_type, cmp.validation_rules)
+                const coerced = normalizeConfiguredRuntimeJsonValue(
+                    coerceRuntimeValue(normalizedRaw, cmp.data_type, cmp.validation_rules),
+                    cmp
+                )
                 if (cmp.is_required && cmp.data_type !== 'BOOLEAN' && coerced === null) {
                     return res.status(400).json({
                         error: `Required field cannot be set to null: ${attrLabel}`
@@ -2398,7 +2446,10 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     }
 
                     try {
-                        const cCoerced = coerceRuntimeValue(cRaw, cAttr.data_type, cAttr.validation_rules)
+                        const cCoerced = normalizeConfiguredRuntimeJsonValue(
+                            coerceRuntimeValue(cRaw, cAttr.data_type, cAttr.validation_rules),
+                            cAttr
+                        )
 
                         if (isEnumRef && typeof cAttr.target_object_id === 'string' && cCoerced) {
                             await ensureEnumerationValueBelongsToTarget(
@@ -2728,7 +2779,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 continue
             }
             try {
-                const coerced = coerceRuntimeValue(raw, cmp.data_type, cmp.validation_rules)
+                const coerced = normalizeConfiguredRuntimeJsonValue(coerceRuntimeValue(raw, cmp.data_type, cmp.validation_rules), cmp)
                 if (cmp.is_required && cmp.data_type !== 'BOOLEAN' && coerced === null) {
                     return res.status(400).json({
                         error: `Required field cannot be set to null: ${attrLabel}`
@@ -2909,7 +2960,10 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                         }
 
                         try {
-                            const cCoerced = coerceRuntimeValue(cRaw, cAttr.data_type, cAttr.validation_rules)
+                            const cCoerced = normalizeConfiguredRuntimeJsonValue(
+                                coerceRuntimeValue(cRaw, cAttr.data_type, cAttr.validation_rules),
+                                cAttr
+                            )
                             if (isEnumRef && typeof cAttr.target_object_id === 'string' && cCoerced) {
                                 await ensureEnumerationValueBelongsToTarget(
                                     ctx.manager,
@@ -3377,8 +3431,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
         const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
         if (!ctx) return
-        if (!ensureRuntimePermission(res, ctx, 'editContent')) return
         if (!ctx.userId) return res.status(401).json({ error: 'Current user is required' })
+        if (!ensureRuntimePermission(res, ctx, 'editContent')) return
 
         const { objectCollection, error: objectCollectionError } = await resolveRuntimeObjectCollection(
             ctx.manager,
@@ -3542,6 +3596,79 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
     const postRow = async (req: Request, res: Response) => runRecordStateCommand(req, res, 'post')
     const unpostRow = async (req: Request, res: Response) => runRecordStateCommand(req, res, 'unpost')
     const voidRow = async (req: Request, res: Response) => runRecordStateCommand(req, res, 'void')
+
+    const runWorkflowAction = async (req: Request, res: Response) => {
+        const { applicationId, rowId } = req.params
+        if (!UUID_REGEX.test(rowId)) return res.status(400).json({ error: 'Invalid row ID format' })
+
+        const parsedActionCodename = runtimeWorkflowActionParamSchema.safeParse(req.params.actionCodename)
+        if (!parsedActionCodename.success) {
+            return res.status(400).json({ error: 'Invalid workflow action codename' })
+        }
+
+        const parsedBody = runtimeWorkflowActionBodySchema.safeParse(req.body ?? {})
+        if (!parsedBody.success) {
+            return res.status(400).json({ error: 'Invalid body', details: parsedBody.error.flatten() })
+        }
+
+        const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
+        if (!ctx) return
+        if (!ctx.userId) return res.status(401).json({ error: 'Current user is required' })
+
+        const {
+            objectCollection,
+            attrs,
+            error: objectCollectionError
+        } = await resolveRuntimeObjectCollection(ctx.manager, ctx.schemaIdent, parsedBody.data.objectCollectionId)
+        if (!objectCollection) return res.status(404).json({ error: objectCollectionError })
+
+        const action = readConfiguredWorkflowActions(objectCollection.config).find(
+            (candidate) => candidate.codename === parsedActionCodename.data
+        )
+        if (!action) {
+            return res.status(404).json({
+                error: 'Workflow action is not configured for this record collection',
+                code: 'WORKFLOW_ACTION_NOT_CONFIGURED'
+            })
+        }
+        const statusColumnName = resolveWorkflowStatusColumnName(action, attrs)
+        if (!statusColumnName) {
+            return res.status(400).json({
+                error: 'Workflow action status field is not configured for this record collection',
+                code: 'WORKFLOW_STATUS_FIELD_NOT_CONFIGURED'
+            })
+        }
+
+        try {
+            const result = await ctx.manager.transaction((txManager) =>
+                applyWorkflowAction({
+                    executor: txManager,
+                    schemaName: ctx.schemaName,
+                    tableName: objectCollection.table_name,
+                    objectId: objectCollection.id,
+                    rowId,
+                    action,
+                    capabilities: ctx.workflowCapabilities,
+                    userId: ctx.userId,
+                    statusColumnName,
+                    expectedVersion: parsedBody.data.expectedVersion,
+                    workspaceId: ctx.currentWorkspaceId,
+                    hasWorkspaceColumn: ctx.workspacesEnabled,
+                    auditMetadata: {
+                        source: 'runtime.rows.workflowAction',
+                        applicationId
+                    }
+                })
+            )
+
+            return res.json(result)
+        } catch (error) {
+            if (error instanceof UpdateFailure) {
+                return res.status(error.statusCode).json(error.body)
+            }
+            throw error
+        }
+    }
 
     // ============ GET SINGLE ROW (raw for edit) ============
     const getRow = async (req: Request, res: Response) => {
@@ -3838,6 +3965,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         postRow,
         unpostRow,
         voidRow,
+        runWorkflowAction,
         getRow,
         deleteRow,
         reorderRows

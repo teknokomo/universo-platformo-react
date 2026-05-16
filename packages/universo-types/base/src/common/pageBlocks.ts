@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { safeEmbedUrlSchema, safeExternalUrlSchema } from './resourceSources'
 
 const UNSAFE_CONTROL_CHAR_RE = new RegExp(String.raw`[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]`)
 const HTML_TAG_RE = /<\/?[a-z][\s\S]*>/i
@@ -65,19 +66,6 @@ const pageBlockIdSchema = z
     .min(1)
     .max(128)
     .regex(/^[A-Za-z0-9_-]+$/)
-
-const safePageBlockUrlSchema = z
-    .string()
-    .url()
-    .max(2048)
-    .refine((value) => {
-        try {
-            const protocol = new URL(value).protocol
-            return protocol === 'http:' || protocol === 'https:'
-        } catch {
-            return false
-        }
-    }, 'Only http and https URLs are supported.')
 
 const paragraphBlockSchema = z
     .object({
@@ -150,7 +138,7 @@ const imageBlockSchema = z
         type: z.literal('image'),
         data: z
             .object({
-                url: safePageBlockUrlSchema,
+                url: safeExternalUrlSchema,
                 caption: pageBlockLocalizedTextSchema.optional(),
                 alt: pageBlockLocalizedTextSchema.optional()
             })
@@ -164,7 +152,7 @@ const embedBlockSchema = z
         type: z.literal('embed'),
         data: z
             .object({
-                url: safePageBlockUrlSchema,
+                url: safeEmbedUrlSchema,
                 caption: pageBlockLocalizedTextSchema.optional()
             })
             .strict()
@@ -238,9 +226,18 @@ const normalizeOptionalText = (value: unknown): string | undefined =>
     typeof value === 'string' && value.trim() ? normalizePlainBlockText(value) : undefined
 
 const normalizeSafeUrl = (value: unknown): string => {
-    const parsed = safePageBlockUrlSchema.safeParse(value)
+    const parsed = safeExternalUrlSchema.safeParse(value)
     if (!parsed.success) {
         throw new Error('Block URL must be a valid http or https URL.')
+    }
+
+    return parsed.data
+}
+
+const normalizeSafeEmbedUrl = (value: unknown): string => {
+    const parsed = safeEmbedUrlSchema.safeParse(value)
+    if (!parsed.success) {
+        throw new Error('Embed block URL must be allowed by the runtime embed policy.')
     }
 
     return parsed.data
@@ -389,7 +386,7 @@ const adaptEmbedBlock = (raw: UnknownRecord): RuntimePageBlock => {
         id: maybeBlockId(raw.id),
         type: 'embed',
         data: {
-            url: normalizeSafeUrl(url),
+            url: normalizeSafeEmbedUrl(url),
             ...(caption ? { caption } : {})
         }
     }

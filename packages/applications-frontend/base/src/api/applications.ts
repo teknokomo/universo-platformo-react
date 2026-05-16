@@ -261,6 +261,25 @@ export const runApplicationRuntimeRecordCommand = async (params: {
     return response.data
 }
 
+export const runApplicationRuntimeWorkflowAction = async (params: {
+    applicationId: string
+    rowId: string
+    actionCodename: string
+    objectCollectionId?: string
+    sectionId?: string
+    expectedVersion: number
+}): Promise<Record<string, unknown>> => {
+    const { applicationId, rowId, actionCodename, objectCollectionId, sectionId, expectedVersion } = params
+    const resolvedSectionId = sectionId ?? objectCollectionId
+    const body: Record<string, unknown> = { expectedVersion }
+    if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
+    const response = await apiClient.post<Record<string, unknown>>(
+        `/applications/${applicationId}/runtime/rows/${rowId}/workflow/${encodeURIComponent(actionCodename)}`,
+        body
+    )
+    return response.data
+}
+
 export const reorderApplicationRuntimeRows = async (params: {
     applicationId: string
     orderedRowIds: string[]

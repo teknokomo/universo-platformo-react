@@ -2,7 +2,7 @@
 
 > 🎨 **Современный пакет** — TypeScript-first шаблон дашборда с Material-UI v7
 
-Рантайм-шаблон дашборда для опубликованных приложений в экосистеме Universo Platformo. Предоставляет зонную систему виджетов, управляемый данными рендеринг сетки и переиспользуемые CRUD UI-компоненты.
+Рантайм-шаблон дашборда для опубликованных приложений в экосистеме Universo Platformo. Предоставляет зонную систему виджетов, управляемый данными рендеринг сетки, создание контента на стороне приложения и переиспользуемые CRUD UI-компоненты без зависимости от легаси-пакета `@universo/template-mui`.
 
 ## Информация о пакете
 
@@ -32,6 +32,7 @@
 - **Общий рендерер**: `renderWidget()` маппит ключи виджетов в конкретные React-компоненты
 - **Поддерживаемые виджеты**: `brandSelector`, `divider`, `menuWidget`, `spacer`, `infoCard`, `userProfile`, `productTree`, `usersByCountryChart`, `detailsTable`, `columnsContainer`
 - **Резолвинг меню**: 2-уровневый фолбэк — ID виджета → карта menus → легаси одиночный menu проп
+- **Общие runtime-поверхности**: Агрегации сохранённых отчётов, предпросмотр ресурсов, политики последовательностей и workflow-действия задаются через общие метаданные, а не через LMS-специфичные форки виджетов
 
 ### 📝 CRUD-компоненты
 - **FormDialog**: Универсальный модальный диалог с настраиваемыми полями, правилами валидации и интеграцией Zod
@@ -39,6 +40,21 @@
 - **CrudDialogs**: Объединённый компонент диалогов создания/редактирования/удаления
 - **RowActionsMenu**: Меню действий для каждой строки с опциями редактирования/удаления
 - **useCrudDashboard**: Headless-хук контроллера, управляющий состоянием CRUD и вызовами API
+- **Workflow-действия**: Метаданные действий строк отображаются только при явно разрешённых runtime-capabilities
+- **Создание блочного контента**: JSON-поля с `editorjsBlockContent` используют общий пакет `@universo/block-editor` вместо сырого JSON и отдельной runtime-копии редактора
+- **ResourcePreview**: Общий безопасный предпросмотр ресурсов с локализованными состояниями deferred/unsupported
+- **Отчёты и экспорт**: Опубликованный runtime умеет показывать сохранённые отчёты через общие details-виджеты и экспортировать серверно определённые CSV-отчёты
+
+### 🧱 Runtime UI-примитивы
+- **Локальные примитивы**: `ViewHeaderMUI`, `ToolbarControls`, `ItemCard`, `FlowListTable`, `PaginationControls` и `useViewPreference` находятся в `src/components/runtime-ui`
+- **Граница пакета**: Исходники runtime защищены тестом, который запрещает импорты из `@universo/template-mui`
+- **Визуальная согласованность**: Таблицы, карточки записей, карточки рабочих пространств и карточки метрик сохраняют исходные отступы и outlined-поверхности MUI dashboard
+
+### 🧑‍🤝‍🧑 Runtime Workspaces
+- **WorkspaceSwitcher**: Быстрое переключение текущего рабочего пространства в desktop/mobile shell
+- **RuntimeWorkspacesPage**: Полноценный раздел управления рабочими пространствами в существующей области details
+- **Workspace APIs**: Типизированные helper-ы и query keys для списков, участников, default workspace и shared workspace операций
+- **Размещение навигации**: Пункт рабочих пространств может быть основным, скрытым или перенесённым в overflow без отдельного LMS-only компонента
 
 ### 🔌 Фабрика маршрутов
 - **createAppRuntimeRoute()**: Создаёт маршрут react-router-dom v6 для рантайм-представления приложения
@@ -201,9 +217,12 @@ packages/apps-template-mui/
 │   │   ├── adapters.ts   # Фабрика createStandaloneAdapter
 │   │   └── mutations.ts  # appQueryKeys, утилиты React Query
 │   ├── components/       # Переиспользуемые UI-компоненты
+│   │   ├── block-editor/             # Editor.js authoring в опубликованном приложении
 │   │   ├── dialogs/
 │   │   │   ├── FormDialog.tsx          # Универсальный настраиваемый диалог формы
 │   │   │   └── ConfirmDeleteDialog.tsx # Диалог подтверждения удаления
+│   │   ├── resource-preview/         # Общие безопасные состояния предпросмотра ресурсов
+│   │   ├── runtime-ui/               # Локальные runtime-примитивы списков и карточек
 │   │   ├── CrudDialogs.tsx             # Объединённый компонент CRUD-диалогов
 │   │   └── RowActionsMenu.tsx          # Выпадающий список действий строки
 │   ├── dashboard/        # Ядро дашборда
@@ -229,6 +248,8 @@ packages/apps-template-mui/
 │   │   └── createAppRoutes.tsx         # Фабричная функция маршрутов
 │   ├── standalone/       # Точка входа автономного приложения
 │   │   └── DashboardApp.tsx            # Самодостаточное приложение дашборда
+│   ├── workspaces/       # Runtime-экраны управления рабочими пространствами
+│   │   └── RuntimeWorkspacesPage.tsx
 │   ├── utils/            # Вспомогательные функции
 │   │   ├── columns.ts    # toGridColumns, toFieldConfigs
 │   │   └── getDataGridLocale.ts        # Хелпер локали MUI DataGrid
@@ -299,8 +320,8 @@ interface DashboardLayoutConfig {
 ```
 
 Когда `showViewToggle` или `showFilterBar` установлены, секция деталей рендерит
-**EnhancedDetailsSection**, которая интегрирует компоненты из `@universo/template-mui`
-(ViewHeaderMUI, ToolbarControls, ItemCard, PaginationControls) вместе с DataGrid.
+**EnhancedDetailsSection**, которая использует локальные runtime UI-примитивы пакета
+(`ViewHeaderMUI`, `ToolbarControls`, `ItemCard`, `PaginationControls`) вместе с DataGrid.
 
 Эти настройки валидируются во время выполнения Zod-схемой `dashboardLayoutConfigSchema`
 в `api/api.ts`.
@@ -326,7 +347,8 @@ pnpm lint                        # Запуск ESLint
 - [`@universo/metahubs-frontend`](../metahubs-frontend/base/README-RU.md) — UI управления метахабами
 - [`@universo/metahubs-backend`](../metahubs-backend/base/README-RU.md) — Бэкенд-сервис
 - [`@universo/types`](../universo-types/base/README-RU.md) — Общие TypeScript-типы
-- [`@universo/template-mui`](../universo-template-mui/base/README-RU.md) — Базовые MUI-компоненты шаблона
+- [`@universo/i18n`](../universo-i18n/base/README-RU.md) — Общие ресурсы локализации
+- [`@universo/utils`](../universo-utils/base/README-RU.md) — Общие runtime-хелперы и нормализация
 
 ---
 *Часть [Universo Platformo](../../README-RU.md) — Пакетная платформа бизнес-приложений*

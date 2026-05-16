@@ -59,8 +59,8 @@ export {
     renameEditorJsContentLocale,
     resolveEditorJsContentPrimaryLocale,
     setEditorJsContentPrimaryLocale
-} from './block-editor'
-export type { EditorJsBlockEditorLabels, EditorJsBlockEditorProps } from './block-editor'
+} from '@universo/block-editor'
+export type { EditorJsBlockEditorLabels, EditorJsBlockEditorProps } from '@universo/block-editor'
 
 // Routing components
 export { Loadable, AuthGuard, AdminGuard, RegisteredUserGuard, StartAccessGuard, HomeRouteResolver, ResourceGuard } from './routing'

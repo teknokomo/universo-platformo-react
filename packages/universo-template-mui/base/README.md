@@ -12,6 +12,7 @@ It is the shared presentation layer for the current React shell, not a standalon
 - `MainLayoutMUI` and `MainRoutesMUI` provide the shared layout and route shell.
 - Dashboard exports such as `Dashboard`, `StatCard`, and `HighlightedCard` provide common page composition primitives.
 - Dialog, table, selection, pagination, and card components are re-exported from the package root.
+- Editor.js block-content authoring is re-exported from the neutral `@universo/block-editor` package so administrative and published-app flows share one implementation.
 - Layout presentation helpers such as `LayoutStateChips` and `LayoutAuthoringDetails` keep metahub and application layout screens aligned while leaving routing, labels, data loading, and widget-specific dialogs in consumer packages.
 - Factory helpers such as `createEntityActions()` and `createMemberActions()` reduce repeated CRUD-action wiring.
 - Hooks such as `usePaginated()`, `useDebouncedSearch()`, `useUserSettings()`, `useListDialogs()`, and optimistic CRUD helpers support common frontend flows.
@@ -19,7 +20,7 @@ It is the shared presentation layer for the current React shell, not a standalon
 ## Integration Role
 
 - The package is consumed by frontend modules such as auth, onboarding, admin, profile, metahubs, and applications.
-- It depends on shared frontend contracts from `@universo/i18n`, `@universo/types`, `@universo/utils`, and `@universo/store`.
+- It depends on shared frontend contracts from `@universo/block-editor`, `@universo/i18n`, `@universo/types`, `@universo/utils`, and `@universo/store`.
 - It is built as a reusable package with dual JavaScript output and generated type declarations.
 - It should remain domain-neutral: business wording and route semantics belong in consumer packages, not in the shared template layer.
 

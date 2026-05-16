@@ -68,7 +68,7 @@ Website: [https://universo.pro](https://universo.pro)
 ## Tech Stack
 
 -   Node.js (>=22.6.0)
--   PNPM (>=9)
+-   PNPM (>=10)
 -   React
 -   Express.js
 -   Supabase (PostgreSQL)
@@ -139,7 +139,7 @@ Each implementation shares the same strategic direction, and the high-level abst
 ### Prerequisites
 
 -   Node.js (>=22.6.0)
--   PNPM (>=9)
+-   PNPM (>=10)
 -   A Supabase/PostgreSQL environment. You can use either a hosted Supabase project or the local Supabase profile described below.
 -   Docker, when you use local Supabase. Install Docker Desktop or Docker Engine, start the Docker daemon, and verify `docker ps` works from your terminal before running local Supabase commands.
 

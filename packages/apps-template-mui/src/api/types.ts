@@ -64,6 +64,13 @@ export interface CrudDataAdapter {
         data?: { objectCollectionId?: string; sectionId?: string; expectedVersion?: number }
     ): Promise<Record<string, unknown>>
 
+    /** Execute a metadata-defined workflow transition on a runtime row. */
+    workflowAction?(
+        rowId: string,
+        actionCodename: string,
+        data: { objectCollectionId?: string; sectionId?: string; expectedVersion: number }
+    ): Promise<Record<string, unknown>>
+
     /** Persist a complete runtime row order for objects that explicitly support reordering. */
     reorderRows?(params: { objectCollectionId?: string; sectionId?: string; orderedRowIds: string[] }): Promise<void>
 }

@@ -110,7 +110,14 @@ const buildInitialWidgetConfig = (widgetKey: string): Record<string, unknown> =>
     return {}
 }
 
-const STRUCTURED_BEHAVIOR_WIDGET_KEYS = new Set(['detailsTable', 'detailsTitle', 'overviewCards', 'sessionsChart', 'pageViewsChart'])
+const STRUCTURED_BEHAVIOR_WIDGET_KEYS = new Set([
+    'detailsTable',
+    'detailsTitle',
+    'overviewCards',
+    'sessionsChart',
+    'pageViewsChart',
+    'resourcePreview'
+])
 
 type LayoutMenuState = {
     anchorEl: HTMLElement | null

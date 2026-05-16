@@ -58,8 +58,8 @@ Frontend application for managing applications and connectors in the Universo Pl
 ### Prerequisites
 ```bash
 # System requirements
-Node.js >= 18.0.0
-PNPM >= 8.0.0
+Node.js >= 22.6.0
+PNPM >= 10.0.0
 ```
 
 ### Installation
@@ -77,9 +77,9 @@ pnpm --filter @universo/applications-frontend test
 ### Integration
 ```tsx
 // Import components in your React application
-import { 
-  ApplicationList, 
-  ApplicationBoard, 
+import {
+  ApplicationList,
+  ApplicationBoard,
   ConnectorList,
   ApplicationLayouts,
   ApplicationMembers

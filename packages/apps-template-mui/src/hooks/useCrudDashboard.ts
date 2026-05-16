@@ -179,6 +179,13 @@ const stripReadOnlyEnumerationLabelFields = (params: {
     return result
 }
 
+const readRuntimeRowVersion = (row: Record<string, unknown> | null | undefined): number | null => {
+    const rawValue = row?._upl_version
+    const value =
+        typeof rawValue === 'number' ? rawValue : typeof rawValue === 'string' && rawValue.trim().length > 0 ? Number(rawValue) : Number.NaN
+    return Number.isInteger(value) && value > 0 ? value : null
+}
+
 // ---------------------------------------------------------------------------
 //  Helper: convert menu items to DashboardMenuItem[]
 // ---------------------------------------------------------------------------
@@ -348,6 +355,8 @@ export interface CrudDashboardState {
     handleCloseMenu: () => void
     handleRecordCommand?: (rowId: string, command: RuntimeRecordCommand) => Promise<void>
     isRecordCommandPending?: boolean
+    handleWorkflowAction?: (rowId: string, actionCodename: string) => Promise<void>
+    isWorkflowActionPending?: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -578,6 +587,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             .join(',')
     }, [displayAppData?.columns])
     const fieldConfigs = useMemo(() => (displayAppData ? toFieldConfigs(displayAppData) : []), [displayAppData])
+    const rows = useMemo(() => (displayAppData ? displayAppData.rows : []), [displayAppData])
     const canPersistRowReorder = Boolean(adapter?.reorderRows)
 
     // Initialize section from the menu (fallback: backend active section)
@@ -752,6 +762,25 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             return adapter.recordCommand(params.rowId, params.command, {
                 objectCollectionId: selectedObjectCollectionId ?? activeObjectCollectionId,
                 sectionId: selectedObjectCollectionId ?? activeSectionId
+            })
+        },
+        onSettled: (_data, _error, variables) => {
+            safeInvalidateQueries(queryClient, queryKeyPrefix, queryKeyPrefix)
+            queryClient.invalidateQueries({ queryKey: [...queryKeyPrefix, 'row', variables.rowId] })
+        }
+    })
+
+    const workflowActionMutation = useMutation({
+        mutationKey: [...queryKeyPrefix, 'workflow-action'],
+        mutationFn: async (params: { rowId: string; actionCodename: string; expectedVersion: number }) => {
+            if (!adapter?.workflowAction) {
+                throw new Error('Workflow actions are not available for this runtime adapter')
+            }
+
+            return adapter.workflowAction(params.rowId, params.actionCodename, {
+                objectCollectionId: selectedObjectCollectionId ?? activeObjectCollectionId,
+                sectionId: selectedObjectCollectionId ?? activeSectionId,
+                expectedVersion: params.expectedVersion
             })
         },
         onSettled: (_data, _error, variables) => {
@@ -1002,6 +1031,39 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         [enqueueSnackbar, guardPendingRowInteraction, recordCommandMutation, t]
     )
 
+    const handleWorkflowAction = useCallback(
+        async (rowId: string, actionCodename: string) => {
+            if (guardPendingRowInteraction(rowId)) return
+
+            const row = rows.find((candidate) => candidate.id === rowId) ?? null
+            const expectedVersion = readRuntimeRowVersion(row)
+            if (!expectedVersion) {
+                enqueueSnackbar(
+                    t('app.errorWorkflowVersionRequired', {
+                        defaultValue: 'Workflow action requires a current row version. Please reload and try again.'
+                    }),
+                    { variant: 'error' }
+                )
+                return
+            }
+
+            try {
+                await workflowActionMutation.mutateAsync({ rowId, actionCodename, expectedVersion })
+                enqueueSnackbar(t('app.workflowActionCompleted', 'Workflow action completed.'), { variant: 'success' })
+            } catch (err) {
+                const msg = extractApiErrorMessage(err)
+                enqueueSnackbar(
+                    t('app.errorWorkflowAction', {
+                        defaultValue: 'Workflow action failed: {{message}}',
+                        message: msg
+                    }),
+                    { variant: 'error' }
+                )
+            }
+        },
+        [enqueueSnackbar, guardPendingRowInteraction, rows, t, workflowActionMutation]
+    )
+
     // ----- Row actions menu -----
     const handleOpenMenu = useCallback(
         (event: React.MouseEvent<HTMLElement>, rowId: string) => {
@@ -1045,8 +1107,6 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         })
     }, [displayAppData, t, handleOpenMenu, cellRenderers, locale])
 
-    const rows = useMemo(() => (displayAppData ? displayAppData.rows : []), [displayAppData])
-
     const rowCount = displayAppData?.pagination.total
     const layoutConfig = useMemo(() => normalizeDashboardLayoutConfig(displayAppData?.layoutConfig), [displayAppData?.layoutConfig])
     const localeText = useMemo(() => getDataGridLocaleText(locale), [locale])
@@ -1077,9 +1137,9 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
                 overflowItems: mapMenuItems(menu.overflowItems ?? [], sections, activeSectionId),
                 overflowLabel:
                     menu.overflowLabelKey === 'runtime.menu.more'
-                        ? t('runtime.menu.more', 'More')
+                        ? t('runtime.menu.more')
                         : menu.overflowLabelKey
-                        ? t(menu.overflowLabelKey, 'More')
+                        ? t(menu.overflowLabelKey)
                         : null,
                 activeSectionId: activeSectionId ?? null,
                 onSelectSection,
@@ -1106,9 +1166,9 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
                 : [],
             overflowLabel:
                 activeMenu?.overflowLabelKey === 'runtime.menu.more'
-                    ? t('runtime.menu.more', 'More')
+                    ? t('runtime.menu.more')
                     : activeMenu?.overflowLabelKey
-                    ? t(activeMenu.overflowLabelKey, 'More')
+                    ? t(activeMenu.overflowLabelKey)
                     : null,
             activeSectionId: activeSectionId ?? null,
             onSelectSection,
@@ -1230,6 +1290,8 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         handleOpenMenu,
         handleCloseMenu,
         handleRecordCommand: adapter?.recordCommand ? handleRecordCommand : undefined,
-        isRecordCommandPending: recordCommandMutation.isPending
+        isRecordCommandPending: recordCommandMutation.isPending,
+        handleWorkflowAction: adapter?.workflowAction ? handleWorkflowAction : undefined,
+        isWorkflowActionPending: workflowActionMutation.isPending
     }
 }

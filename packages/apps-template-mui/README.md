@@ -2,7 +2,7 @@
 
 > 🎨 **Modern Package** — TypeScript-first dashboard template with Material-UI v7
 
-Runtime dashboard template for published applications in the Universo Platformo ecosystem. Provides a zone-based widget system, data-driven grid rendering, and reusable CRUD UI components.
+Runtime dashboard template for published applications in the Universo Platformo ecosystem. Provides a zone-based widget system, data-driven grid rendering, app-side content authoring, and reusable CRUD UI components without depending on the legacy `@universo/template-mui` package.
 
 ## Package Information
 
@@ -35,6 +35,7 @@ Runtime dashboard template for published applications in the Universo Platformo 
 - **Menu resolution**: 2-level fallback — widget ID → menus map → legacy single menu prop
 - **Curated menu contract**: Runtime menus support primary item limits, overflow items, start-page selection, and workspace entry placement without requiring LMS-only components.
 - **LMS fixture rule**: LMS published layouts use the shared MUI dashboard shell and generic data-driven widgets. Demo-only surfaces such as `brandSelector`, `productTree`, and `usersByCountryChart` are blocked by the LMS fixture contract unless they become real runtime-data surfaces.
+- **Generic runtime data surfaces**: Saved-report aggregations, resource previews, sequence policies, and workflow actions are configured through shared widget/Object metadata instead of LMS-specific widget forks.
 
 ### 📝 CRUD Components
 - **FormDialog**: Generic modal form with configurable fields, validation rules, and Zod integration
@@ -42,6 +43,15 @@ Runtime dashboard template for published applications in the Universo Platformo 
 - **CrudDialogs**: Combined create/edit/delete dialog component
 - **RowActionsMenu**: Per-row action menu with edit/delete options
 - **useCrudDashboard**: Headless controller hook managing CRUD state and API calls
+- **Workflow actions**: Metadata-backed row actions rendered only when effective runtime capabilities explicitly allow them
+- **Block-content authoring**: JSON fields configured with `editorjsBlockContent` reuse the shared `@universo/block-editor` package instead of exposing raw JSON or carrying a runtime-local editor fork
+- **ResourcePreview**: Generic safe preview component for supported resource source types with localized deferred/unsupported states
+- **Reports and export**: Published runtime can render saved reports through generic details widgets and export server-defined CSV reports
+
+### 🧱 Runtime UI Primitives
+- **Local primitives**: `ViewHeaderMUI`, `ToolbarControls`, `ItemCard`, `FlowListTable`, `PaginationControls`, and `useViewPreference` live in `src/components/runtime-ui`
+- **Package boundary**: Published-app runtime source is guarded by a test that rejects imports from `@universo/template-mui`
+- **Dashboard parity**: Runtime tables, record cards, workspace cards, and metric cards preserve the original MUI dashboard spacing and outlined card surfaces
 
 ### 🧑‍🤝‍🧑 Runtime Workspaces
 - **WorkspaceSwitcher**: Header/mobile quick switch for the user's current workspace.
@@ -210,9 +220,12 @@ packages/apps-template-mui/
 │   │   ├── adapters.ts   # createStandaloneAdapter factory
 │   │   └── mutations.ts  # appQueryKeys, React Query utilities
 │   ├── components/       # Reusable UI components
+│   │   ├── block-editor/             # Published-app Editor.js authoring surface
 │   │   ├── dialogs/
 │   │   │   ├── FormDialog.tsx          # Generic configurable form dialog
 │   │   │   └── ConfirmDeleteDialog.tsx # Delete confirmation dialog
+│   │   ├── resource-preview/         # Generic safe resource preview states
+│   │   ├── runtime-ui/               # Local runtime view/list/card primitives
 │   │   ├── CrudDialogs.tsx             # Combined CRUD dialog component
 │   │   └── RowActionsMenu.tsx          # Per-row actions dropdown
 │   ├── dashboard/        # Dashboard core
@@ -238,6 +251,8 @@ packages/apps-template-mui/
 │   │   └── createAppRoutes.tsx         # Route factory function
 │   ├── standalone/       # Standalone app entry
 │   │   └── DashboardApp.tsx            # Self-contained dashboard app
+│   ├── workspaces/       # Runtime workspace management screens
+│   │   └── RuntimeWorkspacesPage.tsx
 │   ├── utils/            # Utility functions
 │   │   ├── columns.ts    # toGridColumns, toFieldConfigs
 │   │   └── getDataGridLocale.ts        # MUI DataGrid locale helper
@@ -308,8 +323,8 @@ interface DashboardLayoutConfig {
 ```
 
 When `showViewToggle` or `showFilterBar` is set, the details section renders an
-**EnhancedDetailsSection** that integrates `@universo/template-mui` components
-(ViewHeaderMUI, ToolbarControls, ItemCard, PaginationControls) alongside the DataGrid.
+**EnhancedDetailsSection** that uses the package-local runtime UI primitives
+(`ViewHeaderMUI`, `ToolbarControls`, `ItemCard`, `PaginationControls`) alongside the DataGrid.
 
 These settings are validated at runtime by the `dashboardLayoutConfigSchema` Zod schema
 in `api/api.ts`.
@@ -335,7 +350,8 @@ Source files are consumed directly by other workspace packages via `main`/`modul
 - [`@universo/metahubs-frontend`](../metahubs-frontend/base/README.md) — Metahub management UI
 - [`@universo/metahubs-backend`](../metahubs-backend/base/README.md) — Backend service
 - [`@universo/types`](../universo-types/base/README.md) — Shared TypeScript types
-- [`@universo/template-mui`](../universo-template-mui/base/README.md) — Base MUI template components
+- [`@universo/i18n`](../universo-i18n/base/README.md) — Shared localization resources
+- [`@universo/utils`](../universo-utils/base/README.md) — Shared runtime normalization and utility helpers
 
 ---
 *Part of [Universo Platformo](../../README.md) — A package-based business platform*

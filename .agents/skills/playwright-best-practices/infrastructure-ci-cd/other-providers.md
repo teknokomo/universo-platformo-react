@@ -303,7 +303,7 @@ variables:
 steps:
   - task: NodeTool@0
     inputs:
-      versionSpec: "20.x"
+      versionSpec: "22.x"
     displayName: "Install Node.js"
 
   - task: Cache@2
@@ -377,7 +377,7 @@ stages:
         steps:
           - task: NodeTool@0
             inputs:
-              versionSpec: "20.x"
+              versionSpec: "22.x"
 
           - script: npm ci
             displayName: "Install dependencies"
@@ -405,7 +405,7 @@ stages:
         steps:
           - task: NodeTool@0
             inputs:
-              versionSpec: "20.x"
+              versionSpec: "22.x"
 
           - script: npm ci
             displayName: "Install dependencies"

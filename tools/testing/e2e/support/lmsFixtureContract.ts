@@ -1,5 +1,12 @@
 import { buildVLC, computeSnapshotHash } from '@universo/utils'
-import { lmsAcceptanceMatrixSchema, reportDefinitionSchema, resourceDefinitionSchema } from '@universo/types'
+import {
+    isDeferredResourceSource,
+    LMS_ACCEPTANCE_AREAS,
+    lmsAcceptanceMatrixSchema,
+    reportDefinitionSchema,
+    resourceDefinitionSchema,
+    workflowActionSchema
+} from '@universo/types'
 
 export const LMS_FIXTURE_FILENAME = 'metahubs-lms-app-snapshot.json'
 const LMS_EXPECTED_BUNDLE_VERSION = 1
@@ -436,53 +443,202 @@ export const LMS_DEMO_MODULES = [
     }
 ] as const
 
+const acceptanceGates = (
+    gates: Partial<{
+        seeded: boolean
+        visible: boolean
+        actionable: boolean
+        audited: boolean
+        'workspace-isolated': boolean
+        'covered-by-e2e': boolean
+    }> = {}
+) => ({
+    seeded: false,
+    visible: false,
+    actionable: false,
+    audited: false,
+    'workspace-isolated': false,
+    'covered-by-e2e': false,
+    ...gates
+})
+
 export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
     {
         area: 'learnerHome',
+        gates: acceptanceGates({
+            seeded: true,
+            visible: true,
+            actionable: true,
+            'workspace-isolated': true,
+            'covered-by-e2e': true
+        }),
         requiredEntities: ['LearnerHome', 'LearningResources', 'Courses', 'ModuleProgress'],
-        requiredStatuses: ['NotStarted', 'InProgress', 'Completed']
+        requiredStatuses: ['NotStarted', 'InProgress', 'Completed'],
+        evidence: ['snapshot-import-lms-runtime flow opens learner home and public module progress'],
+        gaps: ['Learner-home activity is not yet written to a dedicated audit ledger']
     },
     {
         area: 'contentLibrary',
-        requiredEntities: ['LearningResources', 'Courses', 'CourseSections', 'Modules'],
-        requiredStatuses: ['Published']
+        gates: acceptanceGates({
+            seeded: true,
+            visible: true,
+            actionable: true,
+            'workspace-isolated': true,
+            'covered-by-e2e': true
+        }),
+        requiredEntities: ['LearningResources', 'Courses', 'CourseSections', 'Modules', 'KnowledgeArticles'],
+        requiredStatuses: ['Published'],
+        evidence: ['resource source contract, app-side block authoring, and runtime preview tests cover early safe resource types'],
+        gaps: ['Broad package ingestion remains deferred for SCORM, xAPI, Office, and advanced media']
+    },
+    {
+        area: 'courseDetail',
+        gates: acceptanceGates({
+            seeded: true,
+            visible: true,
+            actionable: true,
+            'workspace-isolated': true,
+            'covered-by-e2e': true
+        }),
+        requiredEntities: ['CourseOverview', 'Courses', 'CourseSections', 'Modules', 'LearningResources'],
+        requiredStatuses: ['Published'],
+        evidence: ['course overview page and published-app authoring flows create modules/resources through the LMS fixture'],
+        gaps: ['Nested course-section orchestration remains a generic object flow instead of a dedicated course builder']
     },
     {
         area: 'learningTrackProgression',
+        gates: acceptanceGates({
+            seeded: true,
+            visible: true,
+            actionable: true,
+            audited: true,
+            'workspace-isolated': true,
+            'covered-by-e2e': true
+        }),
         requiredEntities: ['LearningTracks', 'TrackSteps', 'Enrollments', 'ProgressLedger'],
-        requiredStatuses: ['NotStarted', 'InProgress', 'Completed', 'Overdue', 'Expired']
+        requiredStatuses: ['NotStarted', 'InProgress', 'Completed', 'Overdue', 'Expired'],
+        evidence: ['guest module flow writes progress and direct ledger facts are verified in LMS runtime E2E']
     },
     {
         area: 'assignmentSubmissionAndGrading',
+        gates: acceptanceGates({
+            seeded: true,
+            visible: true,
+            actionable: true,
+            audited: true,
+            'workspace-isolated': true,
+            'covered-by-e2e': true
+        }),
         requiredEntities: ['Assignments', 'AssignmentSubmissions'],
-        requiredStatuses: ['NotStarted', 'PendingReview', 'Declined', 'Accepted']
+        requiredStatuses: ['NotStarted', 'PendingReview', 'Declined', 'Accepted'],
+        evidence: ['published runtime workflow UI covers review, accept, and decline transitions']
     },
     {
         area: 'trainingAttendance',
+        gates: acceptanceGates({
+            seeded: true,
+            visible: true,
+            actionable: true,
+            audited: true,
+            'workspace-isolated': true,
+            'covered-by-e2e': true
+        }),
         requiredEntities: ['TrainingEvents', 'TrainingAttendance', 'AttendanceLedger'],
-        requiredStatuses: ['Registered', 'Attended', 'NoShow', 'Cancelled']
+        requiredStatuses: ['Registered', 'Attended', 'NoShow', 'Cancelled'],
+        evidence: ['published runtime workflow UI covers attended, no-show, and cancellation transitions']
     },
     {
         area: 'certificateIssue',
+        gates: acceptanceGates({
+            seeded: true,
+            visible: true,
+            actionable: true,
+            audited: true,
+            'workspace-isolated': true,
+            'covered-by-e2e': true
+        }),
         requiredEntities: ['Certificates', 'CertificateIssues', 'CertificateLedger'],
-        requiredStatuses: ['Eligible', 'Issued', 'Revoked', 'Expired']
+        requiredStatuses: ['Eligible', 'Issued', 'Revoked', 'Expired'],
+        evidence: ['published runtime workflow UI covers certificate issue and revoke transitions']
     },
     {
         area: 'reports',
+        gates: acceptanceGates({
+            seeded: true,
+            visible: true,
+            actionable: true,
+            'workspace-isolated': true,
+            'covered-by-e2e': true
+        }),
         requiredEntities: ['Reports'],
-        requiredReports: ['LearnerProgress', 'CourseProgress']
+        requiredReports: ['LearnerProgress', 'CourseProgress'],
+        evidence: ['generic saved report definitions execute through runtime reports API in LMS E2E'],
+        gaps: ['Saved-filter management and scheduled report delivery remain deferred']
     },
     {
         area: 'knowledgeBase',
-        requiredEntities: ['KnowledgeSpaces', 'KnowledgeFolders', 'KnowledgeBookmarks', 'KnowledgeArticle']
+        gates: acceptanceGates({
+            seeded: true,
+            visible: true,
+            'workspace-isolated': true,
+            'covered-by-e2e': true
+        }),
+        requiredEntities: ['KnowledgeHome', 'KnowledgeSpaces', 'KnowledgeFolders', 'KnowledgeArticles', 'KnowledgeBookmarks', 'KnowledgeArticle'],
+        evidence: ['Knowledge navigation targets the authored KnowledgeArticles object surface and no longer points to surrogate collections'],
+        gaps: ['Bookmark, trash, and permission-limited knowledge search are not yet full published-app browser flows']
     },
     {
         area: 'developmentPlan',
-        requiredEntities: ['DevelopmentPlans', 'DevelopmentPlanStages', 'DevelopmentPlanTasks']
+        gates: acceptanceGates({
+            seeded: true,
+            visible: true,
+            actionable: true,
+            audited: true,
+            'workspace-isolated': true,
+            'covered-by-e2e': true
+        }),
+        requiredEntities: ['DevelopmentHome', 'DevelopmentPlans', 'DevelopmentPlanStages', 'DevelopmentPlanTasks'],
+        evidence: ['published runtime workflow UI covers development task start, complete, and reopen transitions'],
+        gaps: ['Mentor comments and export remain deferred to generic scoped collaboration primitives']
+    },
+    {
+        area: 'roleVisibility',
+        gates: acceptanceGates({
+            seeded: true,
+            visible: true,
+            'workspace-isolated': true,
+            'covered-by-e2e': true
+        }),
+        requiredEntities: ['Students', 'Departments', 'Classes'],
+        evidence: ['unsupported scoped role-policy rules are sanitized and tested fail-closed'],
+        gaps: ['recordOwner, department, class, and group predicates are not yet implemented as active grants']
     },
     {
         area: 'workspaceIsolation',
-        requiredEntities: ['Students', 'Departments', 'Classes']
+        gates: acceptanceGates({
+            seeded: true,
+            visible: true,
+            actionable: true,
+            audited: true,
+            'workspace-isolated': true,
+            'covered-by-e2e': true
+        }),
+        requiredEntities: ['Students', 'Departments', 'Classes'],
+        evidence: ['runtime workspaces and imported LMS runtime rows are verified with workspace context']
+    },
+    {
+        area: 'publicGuestAccess',
+        gates: acceptanceGates({
+            seeded: true,
+            visible: true,
+            actionable: true,
+            audited: true,
+            'workspace-isolated': true,
+            'covered-by-e2e': true
+        }),
+        requiredEntities: ['AccessLinks', 'Modules', 'QuizAttempts', 'ProgressLedger'],
+        requiredStatuses: ['Completed'],
+        evidence: ['public guest session, progress, quiz submit, and completion flow pass in LMS runtime E2E']
     }
 ])
 
@@ -499,6 +655,62 @@ export const LMS_DEMO_RESOURCES = [
         title: buildVLC('Safety intro video', 'Вводное видео по безопасности'),
         source: { type: 'video', url: 'https://example.test/lms/safety-intro.mp4', mimeType: 'video/mp4' },
         estimatedTimeMinutes: 8,
+        language: 'en'
+    }),
+    resourceDefinitionSchema.parse({
+        codename: 'LearningPortalLinkResource',
+        title: buildVLC('Learning portal web link', 'Веб-ссылка учебного портала'),
+        source: { type: 'url', url: 'https://example.test/lms/portal-guide', launchMode: 'newTab' },
+        estimatedTimeMinutes: 3,
+        language: 'en'
+    }),
+    resourceDefinitionSchema.parse({
+        codename: 'SafetyAudioBriefingResource',
+        title: buildVLC('Safety audio briefing', 'Аудиобрифинг по безопасности'),
+        source: { type: 'audio', url: 'https://example.test/lms/safety-briefing.mp3', mimeType: 'audio/mpeg' },
+        estimatedTimeMinutes: 4,
+        language: 'en'
+    }),
+    resourceDefinitionSchema.parse({
+        codename: 'CertificatePolicyDocumentResource',
+        title: buildVLC('Certificate policy PDF', 'PDF политики сертификатов'),
+        source: { type: 'document', url: 'https://example.test/lms/certificate-policy.pdf', mimeType: 'application/pdf' },
+        estimatedTimeMinutes: 6,
+        language: 'en'
+    }),
+    resourceDefinitionSchema.parse({
+        codename: 'EmbeddedOrientationResource',
+        title: buildVLC('Embedded orientation video', 'Встроенное вводное видео'),
+        source: { type: 'embed', url: 'https://www.youtube.com/embed/dQw4w9WgXcQ' },
+        estimatedTimeMinutes: 5,
+        language: 'en'
+    }),
+    resourceDefinitionSchema.parse({
+        codename: 'ScormPlaceholderResource',
+        title: buildVLC('SCORM package placeholder', 'Заполнитель SCORM-пакета'),
+        source: {
+            type: 'scorm',
+            packageDescriptor: {
+                standard: 'SCORM 2004',
+                status: 'deferred',
+                manifest: 'imsmanifest.xml'
+            }
+        },
+        estimatedTimeMinutes: 15,
+        language: 'en'
+    }),
+    resourceDefinitionSchema.parse({
+        codename: 'XapiPlaceholderResource',
+        title: buildVLC('xAPI package placeholder', 'Заполнитель пакета xAPI'),
+        source: {
+            type: 'xapi',
+            packageDescriptor: {
+                standard: 'xAPI',
+                status: 'deferred',
+                launch: 'index.html'
+            }
+        },
+        estimatedTimeMinutes: 12,
         language: 'en'
     }),
     resourceDefinitionSchema.parse({
@@ -531,12 +743,164 @@ export const LMS_DEMO_KNOWLEDGE_SPACE = {
     description: { en: 'Shared articles for daily learning support.', ru: 'Общие статьи для ежедневной поддержки обучения.' }
 } as const
 
+export const LMS_DEMO_KNOWLEDGE_ARTICLE = {
+    key: 'getting-started',
+    title: { en: 'Getting started with learning', ru: 'Как начать обучение' },
+    body: {
+        en: 'Open your assigned module, review the brief, and complete the readiness check.',
+        ru: 'Откройте назначенный модуль, изучите брифинг и завершите проверку готовности.'
+    }
+} as const
+
 export const LMS_DEMO_DEVELOPMENT_PLAN = {
     key: 'ava-onboarding-plan',
     title: { en: 'Ava onboarding plan', ru: 'План адаптации Авы' },
     stageTitle: { en: 'First week', ru: 'Первая неделя' },
     taskTitle: { en: 'Complete the learner onboarding course', ru: 'Завершить курс адаптации учащегося' }
 } as const
+
+export const LMS_DEMO_GAMIFICATION_SETTINGS = [
+    {
+        key: 'application-default',
+        scope: 'application',
+        workspaceKey: null,
+        enabled: true,
+        leaderboardPeriodDays: 30,
+        rules: {
+            leaderboard: { period: 'rolling_30_days', tieBreaker: 'completed_at' },
+            achievementsPage: { showCertificates: true, showBadges: true, showRank: true }
+        }
+    }
+] as const
+
+export const LMS_DEMO_POINT_AWARD_RULES = [
+    {
+        key: 'module-completed',
+        ruleCode: 'module.completed',
+        name: { en: 'Module completed', ru: 'Модуль завершён' },
+        sourceType: 'Course',
+        points: 25,
+        isActive: true,
+        conditions: { completionStatus: 'Completed' }
+    },
+    {
+        key: 'assignment-accepted',
+        ruleCode: 'assignment.accepted',
+        name: { en: 'Assignment accepted', ru: 'Задание принято' },
+        sourceType: 'Assignment',
+        points: 15,
+        isActive: true,
+        conditions: { status: 'Accepted' }
+    },
+    {
+        key: 'manual-adjustment',
+        ruleCode: 'manual.adjustment',
+        name: { en: 'Manual adjustment', ru: 'Ручная корректировка' },
+        sourceType: 'Manual',
+        points: 10,
+        isActive: true,
+        conditions: { requiresApproval: true }
+    }
+] as const
+
+export const LMS_DEMO_POINT_TRANSACTIONS = [
+    {
+        key: 'ava-module-completion',
+        studentKey: 'ava-solaris',
+        sourceType: 'Course',
+        sourceObjectKey: 'learning-path',
+        pointsDelta: 25,
+        reason: { en: 'Completed Learning Path 101', ru: 'Завершён Учебный маршрут 101' },
+        awardedAt: '2061-02-01T10:05:00.000Z',
+        status: 'Approved'
+    },
+    {
+        key: 'ava-manual-bonus',
+        studentKey: 'ava-solaris',
+        sourceType: 'Manual',
+        sourceObjectKey: 'manual-adjustment',
+        pointsDelta: 10,
+        reason: { en: 'Instructor bonus for early completion', ru: 'Бонус преподавателя за раннее завершение' },
+        awardedAt: '2061-02-01T10:10:00.000Z',
+        status: 'Pending'
+    },
+    {
+        key: 'maksim-assignment-credit',
+        studentKey: 'maksim-vega',
+        sourceType: 'Assignment',
+        sourceObjectKey: 'assignment-accepted',
+        pointsDelta: 15,
+        reason: { en: 'Accepted assignment submission', ru: 'Принятая сдача задания' },
+        awardedAt: '2061-02-01T11:00:00.000Z',
+        status: 'Approved'
+    }
+] as const
+
+export const LMS_DEMO_BADGES = [
+    {
+        key: 'first-module',
+        badgeCode: 'first.module',
+        name: { en: 'First module completed', ru: 'Первый модуль завершён' },
+        description: { en: 'Awarded after the first completed module.', ru: 'Выдаётся после первого завершённого модуля.' },
+        requiredPoints: 25,
+        icon: 'WorkspacePremium',
+        isActive: true
+    },
+    {
+        key: 'fast-starter',
+        badgeCode: 'fast.starter',
+        name: { en: 'Fast starter', ru: 'Быстрый старт' },
+        description: {
+            en: 'Awarded for early completion or instructor bonus.',
+            ru: 'Выдаётся за раннее завершение или бонус преподавателя.'
+        },
+        requiredPoints: 35,
+        icon: 'Bolt',
+        isActive: true
+    }
+] as const
+
+export const LMS_DEMO_BADGE_ISSUES = [
+    {
+        key: 'ava-first-module',
+        studentKey: 'ava-solaris',
+        badgeKey: 'first-module',
+        issuedAt: '2061-02-01T10:15:00.000Z',
+        revokedAt: null,
+        status: 'Issued',
+        reason: { en: 'Completed the first module.', ru: 'Завершён первый модуль.' }
+    },
+    {
+        key: 'ava-fast-starter',
+        studentKey: 'ava-solaris',
+        badgeKey: 'fast-starter',
+        issuedAt: '2061-02-01T10:20:00.000Z',
+        revokedAt: null,
+        status: 'Eligible',
+        reason: { en: 'Pending manual bonus approval.', ru: 'Ожидается подтверждение ручного бонуса.' }
+    }
+] as const
+
+export const LMS_DEMO_LEADERBOARD = [
+    {
+        key: 'ava-current',
+        studentKey: 'ava-solaris',
+        period: 'current',
+        totalPoints: 35,
+        rank: 1,
+        badgeCount: 1,
+        calculatedAt: '2061-02-01T12:00:00.000Z'
+    },
+    {
+        key: 'maksim-current',
+        studentKey: 'maksim-vega',
+        period: 'current',
+        totalPoints: 15,
+        rank: 2,
+        badgeCount: 0,
+        calculatedAt: '2061-02-01T12:00:00.000Z'
+    }
+] as const
 
 export const LMS_DEMO_REPORTS = [
     reportDefinitionSchema.parse({
@@ -570,6 +934,40 @@ export const LMS_DEMO_REPORTS = [
         ],
         filters: [],
         aggregations: [{ field: 'Score', function: 'avg', alias: 'AverageScore' }]
+    }),
+    reportDefinitionSchema.parse({
+        codename: 'Leaderboard',
+        title: buildVLC('Leaderboard', 'Рейтинг'),
+        datasource: {
+            kind: 'records.list',
+            sectionCodename: 'LeaderboardSnapshots',
+            query: { sort: [{ field: 'Rank', direction: 'asc' }] }
+        },
+        columns: [
+            { field: 'StudentId', label: buildVLC('Learner', 'Учащийся'), type: 'text' },
+            { field: 'Period', label: buildVLC('Period', 'Период'), type: 'text' },
+            { field: 'TotalPoints', label: buildVLC('Points', 'Баллы'), type: 'number' },
+            { field: 'Rank', label: buildVLC('Rank', 'Место'), type: 'number' },
+            { field: 'BadgeCount', label: buildVLC('Badges', 'Бейджи'), type: 'number' }
+        ],
+        filters: [],
+        aggregations: [{ field: 'TotalPoints', function: 'sum', alias: 'TotalAwardedPoints' }]
+    }),
+    reportDefinitionSchema.parse({
+        codename: 'Achievements',
+        title: buildVLC('Achievements', 'Достижения'),
+        datasource: {
+            kind: 'records.list',
+            sectionCodename: 'BadgeIssues',
+            query: { sort: [{ field: 'IssuedAt', direction: 'desc' }] }
+        },
+        columns: [
+            { field: 'StudentId', label: buildVLC('Learner', 'Учащийся'), type: 'text' },
+            { field: 'BadgeId', label: buildVLC('Badge', 'Бейдж'), type: 'text' },
+            { field: 'Status', label: buildVLC('Status', 'Статус'), type: 'status' }
+        ],
+        filters: [],
+        aggregations: []
     })
 ] as const
 
@@ -697,8 +1095,6 @@ export const LMS_DEMO_STUDENT = LMS_DEMO_STUDENTS[0]
 export const LMS_DEMO_MODULE = LMS_DEMO_MODULES[0]
 export const LMS_DEMO_QUIZ = LMS_DEMO_QUIZZES[0]
 
-const normalizeLocaleScript = (locale: string) => (typeof locale === 'string' && locale.toLowerCase().startsWith('ru') ? 'ru' : 'en')
-
 type SnapshotEntity = {
     id?: string
     codename?: unknown
@@ -747,7 +1143,9 @@ type SnapshotEnvelope = Record<string, unknown> & {
 const REQUIRED_ENTITY_CODENAMES = [
     'LearnerHome',
     'CourseOverview',
+    'KnowledgeHome',
     'KnowledgeArticle',
+    'DevelopmentHome',
     'AssignmentInstructions',
     'CertificatePolicy',
     'Classes',
@@ -781,12 +1179,19 @@ const REQUIRED_ENTITY_CODENAMES = [
     'CertificateIssues',
     'KnowledgeSpaces',
     'KnowledgeFolders',
+    'KnowledgeArticles',
     'KnowledgeBookmarks',
     'DevelopmentPlans',
     'DevelopmentPlanStages',
     'DevelopmentPlanTasks',
     'NotificationRules',
     'NotificationOutbox',
+    'GamificationSettings',
+    'PointAwardRules',
+    'PointTransactions',
+    'BadgeDefinitions',
+    'BadgeIssues',
+    'LeaderboardSnapshots',
     'Reports',
     'ResourceType',
     'CompletionStatus',
@@ -796,8 +1201,162 @@ const REQUIRED_ENTITY_CODENAMES = [
     'AssignmentStatus',
     'TrainingEventType',
     'CertificateStatus',
+    'PointSourceType',
     'ReportType'
 ]
+
+type RequiredWorkflowAction = {
+    entityCodename: string
+    actionCodename: string
+    from: string[]
+    to: string
+    requiredCapabilities: string[]
+    postingCommand?: 'post' | 'unpost' | 'void'
+    scriptCodename?: string
+}
+
+const REQUIRED_WORKFLOW_ACTIONS: RequiredWorkflowAction[] = [
+    {
+        entityCodename: 'AssignmentSubmissions',
+        actionCodename: 'StartSubmissionReview',
+        from: ['Submitted'],
+        to: 'PendingReview',
+        requiredCapabilities: ['assignment.review']
+    },
+    {
+        entityCodename: 'AssignmentSubmissions',
+        actionCodename: 'AcceptSubmission',
+        from: ['PendingReview'],
+        to: 'Accepted',
+        requiredCapabilities: ['assignment.review'],
+        postingCommand: 'post'
+    },
+    {
+        entityCodename: 'AssignmentSubmissions',
+        actionCodename: 'DeclineSubmission',
+        from: ['PendingReview'],
+        to: 'Declined',
+        requiredCapabilities: ['assignment.review']
+    },
+    {
+        entityCodename: 'TrainingAttendance',
+        actionCodename: 'MarkAttendanceAttended',
+        from: ['Registered'],
+        to: 'Attended',
+        requiredCapabilities: ['attendance.mark'],
+        postingCommand: 'post'
+    },
+    {
+        entityCodename: 'TrainingAttendance',
+        actionCodename: 'MarkAttendanceNoShow',
+        from: ['Registered'],
+        to: 'NoShow',
+        requiredCapabilities: ['attendance.mark'],
+        postingCommand: 'post'
+    },
+    {
+        entityCodename: 'TrainingAttendance',
+        actionCodename: 'CancelAttendance',
+        from: ['Registered', 'Attended', 'NoShow'],
+        to: 'Cancelled',
+        requiredCapabilities: ['attendance.manage'],
+        postingCommand: 'void'
+    },
+    {
+        entityCodename: 'CertificateIssues',
+        actionCodename: 'IssueCertificate',
+        from: ['Eligible'],
+        to: 'Issued',
+        requiredCapabilities: ['certificate.issue'],
+        postingCommand: 'post',
+        scriptCodename: 'CertificateIssuePostingScript'
+    },
+    {
+        entityCodename: 'CertificateIssues',
+        actionCodename: 'RevokeCertificate',
+        from: ['Issued'],
+        to: 'Revoked',
+        requiredCapabilities: ['certificate.revoke'],
+        postingCommand: 'post',
+        scriptCodename: 'CertificateIssuePostingScript'
+    },
+    {
+        entityCodename: 'DevelopmentPlanTasks',
+        actionCodename: 'StartDevelopmentTask',
+        from: ['NotStarted'],
+        to: 'InProgress',
+        requiredCapabilities: ['development.task.update']
+    },
+    {
+        entityCodename: 'DevelopmentPlanTasks',
+        actionCodename: 'CompleteDevelopmentTask',
+        from: ['InProgress'],
+        to: 'Completed',
+        requiredCapabilities: ['development.task.update']
+    },
+    {
+        entityCodename: 'DevelopmentPlanTasks',
+        actionCodename: 'ReopenDevelopmentTask',
+        from: ['Completed'],
+        to: 'InProgress',
+        requiredCapabilities: ['development.task.update']
+    },
+    {
+        entityCodename: 'NotificationOutbox',
+        actionCodename: 'MarkNotificationSent',
+        from: ['Queued', 'Failed'],
+        to: 'Sent',
+        requiredCapabilities: ['notification.deliver'],
+        postingCommand: 'post'
+    },
+    {
+        entityCodename: 'NotificationOutbox',
+        actionCodename: 'MarkNotificationFailed',
+        from: ['Queued'],
+        to: 'Failed',
+        requiredCapabilities: ['notification.deliver']
+    },
+    {
+        entityCodename: 'NotificationOutbox',
+        actionCodename: 'CancelNotification',
+        from: ['Queued', 'Failed'],
+        to: 'Cancelled',
+        requiredCapabilities: ['notification.manage'],
+        postingCommand: 'void'
+    },
+    {
+        entityCodename: 'PointTransactions',
+        actionCodename: 'ApprovePointAdjustment',
+        from: ['Pending'],
+        to: 'Approved',
+        requiredCapabilities: ['gamification.points.adjust'],
+        postingCommand: 'post',
+        scriptCodename: 'PointTransactionPostingScript'
+    },
+    {
+        entityCodename: 'PointTransactions',
+        actionCodename: 'ReversePointAdjustment',
+        from: ['Approved'],
+        to: 'Reversed',
+        requiredCapabilities: ['gamification.points.adjust'],
+        postingCommand: 'void',
+        scriptCodename: 'PointTransactionPostingScript'
+    },
+    {
+        entityCodename: 'BadgeIssues',
+        actionCodename: 'IssueBadge',
+        from: ['Eligible'],
+        to: 'Issued',
+        requiredCapabilities: ['badge.issue']
+    },
+    {
+        entityCodename: 'BadgeIssues',
+        actionCodename: 'RevokeBadge',
+        from: ['Issued'],
+        to: 'Revoked',
+        requiredCapabilities: ['badge.revoke']
+    }
+] as const
 
 const REQUIRED_BASIC_BASELINE_ENTITIES = [
     { kind: 'hub', name: 'Main' },
@@ -984,12 +1543,44 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         }
     }
 
+    for (const [entityCodename, fieldCodename] of [
+        ['LearningResources', 'Body'],
+        ['Modules', 'Body'],
+        ['KnowledgeArticles', 'Body']
+    ] as const) {
+        const field = entityByCodename
+            .get(entityCodename)
+            ?.fields?.find((candidate) => readLocalizedText(candidate.codename, 'en') === fieldCodename)
+        const uiConfig =
+            field?.uiConfig && typeof field.uiConfig === 'object' && !Array.isArray(field.uiConfig)
+                ? (field.uiConfig as Record<string, unknown>)
+                : null
+        if (!field || field.dataType !== 'JSON' || uiConfig?.widget !== 'editorjsBlockContent') {
+            errors.push(`LMS ${entityCodename}.${fieldCodename} must expose the shared Editor.js block-content runtime field`)
+        }
+    }
+
     const findEntityByKindAndName = (kind: string, name: string) =>
         entities.find((entity) => entity?.kind === kind && readLocalizedText(entity?.presentation?.name, 'en') === name)
 
     for (const codename of REQUIRED_ENTITY_CODENAMES) {
         if (!entityByCodename.has(codename)) {
             errors.push(`LMS fixture is missing entity ${codename}`)
+        }
+    }
+    const acceptanceAreas = new Set(LMS_PRODUCT_ACCEPTANCE_MATRIX.map((area) => area.area))
+    for (const expectedArea of LMS_ACCEPTANCE_AREAS) {
+        if (!acceptanceAreas.has(expectedArea)) {
+            errors.push(`LMS acceptance matrix is missing declared area ${expectedArea}`)
+        }
+    }
+    for (const acceptanceArea of LMS_PRODUCT_ACCEPTANCE_MATRIX) {
+        const gatesComplete = Object.values(acceptanceArea.gates).every((value) => value === true)
+        if (!gatesComplete && acceptanceArea.gaps.length === 0) {
+            errors.push(`LMS acceptance area ${acceptanceArea.area} has incomplete phase gates without explicit gaps`)
+        }
+        if (acceptanceArea.gates.seeded && acceptanceArea.requiredEntities.length === 0) {
+            errors.push(`LMS acceptance area ${acceptanceArea.area} is marked seeded without required entities`)
         }
     }
     for (const acceptanceArea of LMS_PRODUCT_ACCEPTANCE_MATRIX) {
@@ -1069,8 +1660,29 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         if (activeItems.length < 4) {
             errors.push('LMS menuWidget must include product-facing primary navigation items')
         }
+        const sectionTargets = new Set(
+            activeItems
+                .map((item) =>
+                    item && typeof item === 'object' && typeof (item as Record<string, unknown>).sectionId === 'string'
+                        ? String((item as Record<string, unknown>).sectionId)
+                        : null
+                )
+                .filter((value): value is string => Boolean(value))
+        )
+        for (const requiredSectionTarget of ['Courses', 'Modules', 'LearningResources', 'KnowledgeArticles', 'DevelopmentPlans', 'Reports']) {
+            if (!sectionTargets.has(requiredSectionTarget)) {
+                errors.push(`LMS menuWidget must expose ${requiredSectionTarget} as a direct product-facing section`)
+            }
+        }
         for (const item of activeItems) {
             const normalizedItem = item as Record<string, unknown>
+            const itemLabel = readLocalizedText(normalizedItem.label ?? normalizedItem.title ?? normalizedItem.name, 'en')
+            const targetSectionCodename =
+                typeof normalizedItem.sectionId === 'string'
+                    ? normalizedItem.sectionId
+                    : typeof normalizedItem.linkedCollectionId === 'string'
+                    ? normalizedItem.linkedCollectionId
+                    : null
             if (normalizedItem.kind === 'hub') {
                 errors.push(`LMS menuWidget item ${String(normalizedItem.id ?? '<unknown>')} must not render an inert hub label`)
             }
@@ -1080,16 +1692,26 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
             if (normalizedItem.kind !== 'section' && normalizedItem.kind !== 'link') {
                 errors.push(`LMS menuWidget item ${String(normalizedItem.id ?? '<unknown>')} must use section or link kind`)
             }
-            if (
-                normalizedItem.kind === 'section' &&
-                typeof normalizedItem.sectionId !== 'string' &&
-                typeof normalizedItem.linkedCollectionId !== 'string'
-            ) {
+            if (normalizedItem.kind === 'section' && targetSectionCodename === null) {
                 errors.push(`LMS menuWidget section item ${String(normalizedItem.id ?? '<unknown>')} must target a real section`)
             }
+            if (normalizedItem.kind === 'section' && itemLabel === 'Knowledge' && targetSectionCodename === 'Quizzes') {
+                errors.push('LMS Knowledge primary navigation must target a knowledge page or knowledge object, not Quizzes')
+            }
+            if (normalizedItem.kind === 'section' && itemLabel === 'Knowledge' && targetSectionCodename !== 'KnowledgeArticles') {
+                errors.push('LMS Knowledge primary navigation must target the KnowledgeArticles authoring object')
+            }
+            if (normalizedItem.kind === 'section' && itemLabel === 'Development' && targetSectionCodename === 'Classes') {
+                errors.push('LMS Development primary navigation must target a development page or development object, not Classes')
+            }
+            if (normalizedItem.kind === 'section' && itemLabel === 'Development' && targetSectionCodename !== 'DevelopmentPlans') {
+                errors.push('LMS Development primary navigation must target the DevelopmentPlans authoring object')
+            }
         }
-        if (config.maxPrimaryItems !== 6) {
-            errors.push('LMS menuWidget must keep maxPrimaryItems=6 for stable primary navigation')
+        if (config.maxPrimaryItems !== 8) {
+            errors.push(
+                'LMS menuWidget must keep maxPrimaryItems=8 so every primary authoring surface and the workspace entry stay directly reachable'
+            )
         }
         if (config.overflowLabelKey !== 'runtime.menu.more') {
             errors.push('LMS menuWidget must use the shared runtime.menu.more overflow label key')
@@ -1177,7 +1799,14 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
             errors.push('LMS LearnerHome page must include the full Russian onboarding text')
         }
     }
-    for (const pageCodename of ['CourseOverview', 'KnowledgeArticle', 'AssignmentInstructions', 'CertificatePolicy']) {
+    for (const pageCodename of [
+        'CourseOverview',
+        'KnowledgeHome',
+        'KnowledgeArticle',
+        'DevelopmentHome',
+        'AssignmentInstructions',
+        'CertificatePolicy'
+    ]) {
         const pageEntity = entityByCodename.get(pageCodename)
         if (pageEntity?.kind !== 'page') {
             errors.push(`LMS fixture must include ${pageCodename} as a Page entity`)
@@ -1242,6 +1871,10 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         'TrainingAttendance',
         'Certificates',
         'CertificateIssues',
+        'DevelopmentPlanTasks',
+        'NotificationOutbox',
+        'PointTransactions',
+        'BadgeIssues',
         'Enrollments'
     ]) {
         const objectEntity = entityByCodename.get(transactionalObjectCodename)
@@ -1253,6 +1886,63 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
                 : null
         if (recordBehavior?.mode !== 'transactional') {
             errors.push(`LMS ${transactionalObjectCodename} object must use transactional record behavior`)
+        }
+    }
+    for (const expectedWorkflowAction of REQUIRED_WORKFLOW_ACTIONS) {
+        const objectEntity = entityByCodename.get(expectedWorkflowAction.entityCodename)
+        const actions = Array.isArray(objectEntity?.config?.workflowActions) ? objectEntity.config.workflowActions : []
+        const action = actions.find(
+            (candidate) =>
+                candidate &&
+                typeof candidate === 'object' &&
+                (candidate as Record<string, unknown>).codename === expectedWorkflowAction.actionCodename
+        )
+        if (!action) {
+            errors.push(
+                `LMS ${expectedWorkflowAction.entityCodename} must configure workflow action ${expectedWorkflowAction.actionCodename}`
+            )
+            continue
+        }
+        const parsedAction = workflowActionSchema.safeParse(action)
+        if (!parsedAction.success) {
+            errors.push(
+                `LMS ${expectedWorkflowAction.entityCodename}.${expectedWorkflowAction.actionCodename} must match the generic workflow action contract`
+            )
+            continue
+        }
+        if (parsedAction.data.statusFieldCodename !== 'Status') {
+            errors.push(
+                `LMS ${expectedWorkflowAction.entityCodename}.${expectedWorkflowAction.actionCodename} must use the Status field as workflow state`
+            )
+        }
+        if (JSON.stringify(parsedAction.data.from) !== JSON.stringify(expectedWorkflowAction.from)) {
+            errors.push(
+                `LMS ${expectedWorkflowAction.entityCodename}.${
+                    expectedWorkflowAction.actionCodename
+                } must keep from=${expectedWorkflowAction.from.join(',')}`
+            )
+        }
+        if (parsedAction.data.to !== expectedWorkflowAction.to) {
+            errors.push(
+                `LMS ${expectedWorkflowAction.entityCodename}.${expectedWorkflowAction.actionCodename} must transition to ${expectedWorkflowAction.to}`
+            )
+        }
+        for (const requiredCapability of expectedWorkflowAction.requiredCapabilities) {
+            if (!parsedAction.data.requiredCapabilities.includes(requiredCapability)) {
+                errors.push(
+                    `LMS ${expectedWorkflowAction.entityCodename}.${expectedWorkflowAction.actionCodename} must require ${requiredCapability}`
+                )
+            }
+        }
+        if (expectedWorkflowAction.postingCommand && parsedAction.data.postingCommand !== expectedWorkflowAction.postingCommand) {
+            errors.push(
+                `LMS ${expectedWorkflowAction.entityCodename}.${expectedWorkflowAction.actionCodename} must declare postingCommand=${expectedWorkflowAction.postingCommand}`
+            )
+        }
+        if (expectedWorkflowAction.scriptCodename && parsedAction.data.scriptCodename !== expectedWorkflowAction.scriptCodename) {
+            errors.push(
+                `LMS ${expectedWorkflowAction.entityCodename}.${expectedWorkflowAction.actionCodename} must bind script ${expectedWorkflowAction.scriptCodename}`
+            )
         }
     }
     const enrollmentEntity = entityByCodename.get('Enrollments')
@@ -1283,6 +1973,11 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         {
             codename: 'CertificateIssuePostingScript',
             attachedTo: 'CertificateIssues',
+            capabilities: ['lifecycle', 'posting', 'ledger.write']
+        },
+        {
+            codename: 'PointTransactionPostingScript',
+            attachedTo: 'PointTransactions',
             capabilities: ['lifecycle', 'posting', 'ledger.write']
         }
     ]) {
@@ -1340,7 +2035,15 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
     const exportedOptionValues = Object.values(envelope.snapshot?.optionValues ?? {}).flat()
     const fixedValueCodenames = new Set(exportedFixedValues.map((value) => readLocalizedText(value?.codename, 'en')).filter(Boolean))
     const optionValueCodenames = new Set(exportedOptionValues.map((value) => readLocalizedText(value?.codename, 'en')).filter(Boolean))
-    for (const codename of ['AppName', 'DefaultPassingScore', 'CertificateValidityDays', 'AutoEnrollEnabled', 'SupportEmail']) {
+    for (const codename of [
+        'AppName',
+        'DefaultPassingScore',
+        'CertificateValidityDays',
+        'AutoEnrollEnabled',
+        'SupportEmail',
+        'GamificationEnabled',
+        'DefaultPointAward'
+    ]) {
         if (!fixedValueCodenames.has(codename)) {
             errors.push(`LMS fixture is missing Set/Constants fixed value ${codename}`)
         }
@@ -1369,10 +2072,17 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
     const enrollmentRows = getSeededRows(elementsByEntityId, entityByCodename.get('Enrollments')?.id)
     const knowledgeSpaceRows = getSeededRows(elementsByEntityId, entityByCodename.get('KnowledgeSpaces')?.id)
     const knowledgeFolderRows = getSeededRows(elementsByEntityId, entityByCodename.get('KnowledgeFolders')?.id)
+    const knowledgeArticleRows = getSeededRows(elementsByEntityId, entityByCodename.get('KnowledgeArticles')?.id)
     const knowledgeBookmarkRows = getSeededRows(elementsByEntityId, entityByCodename.get('KnowledgeBookmarks')?.id)
     const developmentPlanRows = getSeededRows(elementsByEntityId, entityByCodename.get('DevelopmentPlans')?.id)
     const developmentPlanStageRows = getSeededRows(elementsByEntityId, entityByCodename.get('DevelopmentPlanStages')?.id)
     const developmentPlanTaskRows = getSeededRows(elementsByEntityId, entityByCodename.get('DevelopmentPlanTasks')?.id)
+    const gamificationSettingRows = getSeededRows(elementsByEntityId, entityByCodename.get('GamificationSettings')?.id)
+    const pointAwardRuleRows = getSeededRows(elementsByEntityId, entityByCodename.get('PointAwardRules')?.id)
+    const pointTransactionRows = getSeededRows(elementsByEntityId, entityByCodename.get('PointTransactions')?.id)
+    const badgeDefinitionRows = getSeededRows(elementsByEntityId, entityByCodename.get('BadgeDefinitions')?.id)
+    const badgeIssueRows = getSeededRows(elementsByEntityId, entityByCodename.get('BadgeIssues')?.id)
+    const leaderboardRows = getSeededRows(elementsByEntityId, entityByCodename.get('LeaderboardSnapshots')?.id)
     const reportRows = getSeededRows(elementsByEntityId, entityByCodename.get('Reports')?.id)
 
     const expectedCounts = [
@@ -1391,10 +2101,17 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         ['enrollment', enrollmentRows.length, LMS_DEMO_ENROLLMENTS.length],
         ['knowledge space', knowledgeSpaceRows.length, 1],
         ['knowledge folder', knowledgeFolderRows.length, 1],
+        ['knowledge article', knowledgeArticleRows.length, 1],
         ['knowledge bookmark', knowledgeBookmarkRows.length, 1],
         ['development plan', developmentPlanRows.length, 1],
         ['development plan stage', developmentPlanStageRows.length, 1],
         ['development plan task', developmentPlanTaskRows.length, 1],
+        ['gamification setting', gamificationSettingRows.length, LMS_DEMO_GAMIFICATION_SETTINGS.length],
+        ['point award rule', pointAwardRuleRows.length, LMS_DEMO_POINT_AWARD_RULES.length],
+        ['point transaction', pointTransactionRows.length, LMS_DEMO_POINT_TRANSACTIONS.length],
+        ['badge definition', badgeDefinitionRows.length, LMS_DEMO_BADGES.length],
+        ['badge issue', badgeIssueRows.length, LMS_DEMO_BADGE_ISSUES.length],
+        ['leaderboard snapshot', leaderboardRows.length, LMS_DEMO_LEADERBOARD.length],
         ['report', reportRows.length, LMS_DEMO_REPORTS.length]
     ] as const
 
@@ -1404,6 +2121,54 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         }
     }
 
+    if (resourceRows.some((row) => !row.data?.Body)) {
+        errors.push('LMS fixture must seed authored LearningResources.Body content for direct app-side editing')
+    }
+    if (moduleRows.some((row) => !row.data?.Body)) {
+        errors.push('LMS fixture must seed authored Modules.Body content for direct app-side editing')
+    }
+    if (!knowledgeArticleRows[0]?.data?.Body) {
+        errors.push('LMS fixture must seed at least one authored KnowledgeArticles.Body document')
+    }
+    if (!knowledgeBookmarkRows[0]?.data?.ArticleId || knowledgeBookmarkRows[0]?.data?.FolderId) {
+        errors.push('LMS fixture knowledge bookmarks must point at KnowledgeArticles instead of folders')
+    }
+
+    const enabledGamificationSetting = gamificationSettingRows.find((row) => row.data?.Scope === 'application')
+    if (enabledGamificationSetting?.data?.Enabled !== true) {
+        errors.push('LMS fixture must seed enabled application-level gamification settings')
+    }
+    const pointRuleCodes = new Set(pointAwardRuleRows.map((row) => row.data?.RuleCode).filter(Boolean))
+    for (const requiredRuleCode of ['module.completed', 'assignment.accepted', 'manual.adjustment']) {
+        if (!pointRuleCodes.has(requiredRuleCode)) {
+            errors.push(`LMS fixture must seed point award rule ${requiredRuleCode}`)
+        }
+    }
+    const approvedPoints = pointTransactionRows.reduce((sum, row) => {
+        if (row.data?.Status !== 'Approved') return sum
+        const value = typeof row.data?.PointsDelta === 'number' ? row.data.PointsDelta : Number(row.data?.PointsDelta)
+        return Number.isFinite(value) ? sum + value : sum
+    }, 0)
+    const currentLeaderboardTotal = leaderboardRows.reduce((sum, row) => {
+        if (row.data?.Period !== 'current') return sum
+        const value = typeof row.data?.TotalPoints === 'number' ? row.data.TotalPoints : Number(row.data?.TotalPoints)
+        return Number.isFinite(value) ? sum + value : sum
+    }, 0)
+    if (approvedPoints !== 40 || currentLeaderboardTotal !== 50) {
+        errors.push('LMS fixture must keep deterministic approved points and current leaderboard totals for achievements')
+    }
+    const issuedBadgeCount = badgeIssueRows.filter((row) => row.data?.Status === 'Issued').length
+    if (issuedBadgeCount < 1) {
+        errors.push('LMS fixture must seed at least one issued learner badge')
+    }
+    const topLeaderboardRow = leaderboardRows.find((row) => row.data?.Rank === 1)
+    if (!topLeaderboardRow || topLeaderboardRow.data?.TotalPoints !== 35 || topLeaderboardRow.data?.BadgeCount !== 1) {
+        errors.push('LMS fixture must seed the deterministic top leaderboard achievement row')
+    }
+
+    const exportedResourceSourceTypes = new Set<string>()
+    let hasDeferredScormPlaceholder = false
+    let hasDeferredXapiPlaceholder = false
     for (const expectedResource of LMS_DEMO_RESOURCES) {
         const resourceRow = resourceRows.find(
             (row) => readLocalizedText(row?.data?.Title, 'en') === readLocalizedText(expectedResource.title, 'en')
@@ -1421,7 +2186,31 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         })
         if (!resourceDefinition.success) {
             errors.push(`LMS learning resource ${expectedResource.codename} must match the generic resource contract`)
+            continue
         }
+        exportedResourceSourceTypes.add(resourceDefinition.data.source.type)
+        if (resourceDefinition.data.source.type === 'scorm' && isDeferredResourceSource(resourceDefinition.data.source)) {
+            hasDeferredScormPlaceholder = true
+        }
+        if (resourceDefinition.data.source.type === 'xapi' && isDeferredResourceSource(resourceDefinition.data.source)) {
+            hasDeferredXapiPlaceholder = true
+        }
+        if (resourceDefinition.data.source.type !== expectedResource.source.type) {
+            errors.push(
+                `LMS learning resource ${expectedResource.codename} must keep source type ${expectedResource.source.type}, received ${resourceDefinition.data.source.type}`
+            )
+        }
+    }
+    for (const requiredResourceType of ['page', 'url', 'video', 'audio', 'document', 'embed', 'scorm', 'xapi']) {
+        if (!exportedResourceSourceTypes.has(requiredResourceType)) {
+            errors.push(`LMS fixture must seed a realistic ${requiredResourceType} learning resource source`)
+        }
+    }
+    if (!hasDeferredScormPlaceholder) {
+        errors.push('LMS fixture must keep SCORM as an explicit deferred placeholder, not a silently supported runtime player')
+    }
+    if (!hasDeferredXapiPlaceholder) {
+        errors.push('LMS fixture must keep xAPI as an explicit deferred placeholder, not a silently supported runtime player')
     }
 
     const reportRowsByCodename = new Map<string, SnapshotElement>()

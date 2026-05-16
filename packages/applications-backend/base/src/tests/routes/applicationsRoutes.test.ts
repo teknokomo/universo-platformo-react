@@ -48,6 +48,10 @@ describe('Applications Routes', () => {
               }
             : null
 
+    const buildRuntimeSchemaName = (applicationId: string) => `app_${applicationId.replace(/-/g, '')}`
+
+    const runtimeScriptsTableFragment = (schemaName: string) => `FROM "${schemaName}"."_app_scripts"`
+
     const ensureAuth = (req: Request, _res: Response, next: NextFunction) => {
         ;(req as Request & { user?: { id: string } }).user = { id: 'test-user-id' }
         next()
@@ -116,7 +120,9 @@ describe('Applications Routes', () => {
                     ? [
                           {
                               id: application.id,
-                              schemaName: (application as Record<string, unknown>).schemaName ?? null
+                              schemaName: (application as Record<string, unknown>).schemaName ?? null,
+                              workspacesEnabled: (application as Record<string, unknown>).workspacesEnabled === true,
+                              settings: ((application as Record<string, unknown>).settings as Record<string, unknown> | null) ?? null
                           }
                       ]
                     : []
@@ -474,6 +480,14 @@ describe('Applications Routes', () => {
                 .expect(200)
 
             expect(response.body.rows).toEqual([expect.objectContaining({ id: 'row-1', name: 'Alice Example', score: 95 })])
+            expect(response.body.columns).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        codename: 'CompletedAt',
+                        field: 'completed_at'
+                    })
+                ])
+            )
             const dataQuery = listQueries.find((entry) => entry.sql.includes('ORDER BY'))
             expect(dataQuery?.sql).toContain('"completed_at" ASC NULLS LAST')
             expect(dataQuery?.sql).toContain('"score" DESC NULLS LAST')
@@ -553,13 +567,14 @@ describe('Applications Routes', () => {
     describe('GET /applications/:applicationId/runtime/scripts', () => {
         it('filters runtime scripts by attachment and strips bundle bodies from the list surface', async () => {
             const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334479'
+            const runtimeSchemaName = buildRuntimeSchemaName(runtimeApplicationId)
             const runtimeLinkedCollectionId = '018f8a78-7b8f-7c1d-a111-22223333447a'
             const otherLinkedCollectionId = '018f8a78-7b8f-7c1d-a111-22223333447b'
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
 
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: runtimeSchemaName,
                 workspacesEnabled: false
             })
 
@@ -573,10 +588,10 @@ describe('Applications Routes', () => {
             const originalManagerQueryImpl = (dataSource.manager.query as jest.Mock).getMockImplementation()
             const runtimeQueryImpl = async (sql: string, params?: unknown[]) => {
                 if (sql.includes('SELECT to_regclass($1) AS table_name')) {
-                    return [{ table_name: 'app_runtime_test._app_scripts' }]
+                    return [{ table_name: `${runtimeSchemaName}._app_scripts` }]
                 }
 
-                if (sql.includes('FROM "app_runtime_test"._app_scripts')) {
+                if (sql.includes(runtimeScriptsTableFragment(runtimeSchemaName))) {
                     return [
                         {
                             id: 'script-1',
@@ -698,10 +713,10 @@ describe('Applications Routes', () => {
 
             const runtimeManagerQueryImpl = async (sql: string, params?: unknown[]) => {
                 if (sql.includes('SELECT to_regclass($1) AS table_name')) {
-                    return [{ table_name: 'app_runtime_test._app_scripts' }]
+                    return [{ table_name: `${runtimeSchemaName}._app_scripts` }]
                 }
 
-                if (sql.includes('FROM "app_runtime_test"._app_scripts')) {
+                if (sql.includes(runtimeScriptsTableFragment(runtimeSchemaName))) {
                     return [
                         {
                             id: 'script-server-only',
@@ -762,11 +777,12 @@ describe('Applications Routes', () => {
     describe('GET /applications/:applicationId/runtime/scripts/:scriptId/client', () => {
         it('returns the client bundle body with cache validators', async () => {
             const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334480'
+            const runtimeSchemaName = buildRuntimeSchemaName(runtimeApplicationId)
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
 
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: runtimeSchemaName,
                 workspacesEnabled: false
             })
 
@@ -793,11 +809,12 @@ describe('Applications Routes', () => {
 
         it('returns 304 when the client bundle checksum matches if-none-match', async () => {
             const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334481'
+            const runtimeSchemaName = buildRuntimeSchemaName(runtimeApplicationId)
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
 
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: runtimeSchemaName,
                 workspacesEnabled: false
             })
 
@@ -825,12 +842,13 @@ describe('Applications Routes', () => {
 
     describe('POST /applications/:applicationId/runtime/scripts/:scriptId/call', () => {
         const buildRuntimeScriptsRouteDataSource = (applicationId: string, scriptRow: Record<string, unknown>) => {
+            const runtimeSchemaName = buildRuntimeSchemaName(applicationId)
             const managerQuery = jest.fn(async (sql: string) => {
                 if (sql.includes('SELECT to_regclass($1) AS table_name')) {
-                    return [{ table_name: 'app_runtime_test._app_scripts' }]
+                    return [{ table_name: `${runtimeSchemaName}._app_scripts` }]
                 }
 
-                if (sql.includes('FROM "app_runtime_test"._app_scripts')) {
+                if (sql.includes(runtimeScriptsTableFragment(runtimeSchemaName))) {
                     return [scriptRow]
                 }
 
@@ -858,7 +876,7 @@ describe('Applications Routes', () => {
                     }
 
                     if (sql.includes('schema_name AS "schemaName"') && sql.includes('FROM applications.obj_applications')) {
-                        return [{ id: applicationId, schemaName: 'app_runtime_test' }]
+                        return [{ id: applicationId, schemaName: runtimeSchemaName }]
                     }
 
                     return managerQuery(sql, params)
@@ -875,11 +893,12 @@ describe('Applications Routes', () => {
 
         it('maps capability failures to HTTP 403', async () => {
             const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334482'
+            const runtimeSchemaName = buildRuntimeSchemaName(runtimeApplicationId)
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
 
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
-                schemaName: 'app_runtime_test',
+                schemaName: runtimeSchemaName,
                 workspacesEnabled: false
             })
 
@@ -1771,6 +1790,134 @@ describe('Applications Routes', () => {
                         objects: { students: 'TamperedStudents' }
                     }
                 }
+            })
+        })
+
+        it('downgrades unsupported scoped active role policy grants when settings are saved', async () => {
+            const { dataSource, applicationUserRepo } = buildDataSource()
+            applicationUserRepo.findOne.mockResolvedValue({
+                user_id: 'test-user-id',
+                role: 'owner'
+            })
+
+            let savedSettings: Record<string, unknown> | null = null
+
+            ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('SELECT *') && sql.includes('FROM applications.rel_application_users')) {
+                    return [
+                        {
+                            id: 'membership-id',
+                            userId: 'test-user-id',
+                            applicationId: 'application-1',
+                            role: 'owner',
+                            _uplCreatedAt: new Date()
+                        }
+                    ]
+                }
+
+                if (sql.includes('UPDATE applications.obj_applications')) {
+                    savedSettings = JSON.parse(String(params?.[0] ?? '{}'))
+
+                    return [
+                        {
+                            id: 'application-1',
+                            name: {
+                                _schema: 'v1',
+                                _primary: 'en',
+                                locales: { en: { content: 'Existing App' } }
+                            },
+                            description: null,
+                            settings: savedSettings,
+                            slug: 'test-app',
+                            isPublic: false,
+                            workspacesEnabled: false,
+                            schemaName: 'app_123',
+                            schemaStatus: 'draft',
+                            schemaSyncedAt: null,
+                            schemaError: null,
+                            version: 2,
+                            createdAt: new Date(),
+                            updatedAt: new Date(),
+                            updatedBy: 'test-user-id'
+                        }
+                    ]
+                }
+
+                return [
+                    {
+                        id: 'application-1',
+                        name: {
+                            _schema: 'v1',
+                            _primary: 'en',
+                            locales: { en: { content: 'Existing App' } }
+                        },
+                        description: null,
+                        settings: {},
+                        slug: 'test-app',
+                        isPublic: false,
+                        workspacesEnabled: false,
+                        schemaName: 'app_123',
+                        schemaStatus: 'draft',
+                        schemaSyncedAt: null,
+                        schemaError: null,
+                        version: 1,
+                        createdAt: new Date(),
+                        updatedAt: new Date(),
+                        updatedBy: 'test-user-id',
+                        connectorsCount: 0,
+                        membersCount: 1
+                    }
+                ]
+            })
+
+            const app = buildApp(dataSource)
+
+            await request(app)
+                .patch('/applications/application-1')
+                .send({
+                    settings: {
+                        rolePolicies: {
+                            templates: [
+                                {
+                                    codename: 'reviewerPolicy',
+                                    title: 'Reviewer permissions',
+                                    baseRole: 'editor',
+                                    rules: [
+                                        {
+                                            capability: 'assignment.review',
+                                            effect: 'allow',
+                                            scope: 'recordOwner'
+                                        },
+                                        {
+                                            capability: 'reports.read',
+                                            effect: 'allow',
+                                            scope: 'workspace'
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    }
+                })
+                .expect(200)
+
+            expect(savedSettings?.rolePolicies).toMatchObject({
+                templates: [
+                    {
+                        rules: [
+                            {
+                                capability: 'assignment.review',
+                                effect: 'deny',
+                                scope: 'recordOwner'
+                            },
+                            {
+                                capability: 'reports.read',
+                                effect: 'allow',
+                                scope: 'workspace'
+                            }
+                        ]
+                    }
+                ]
             })
         })
 
@@ -3393,7 +3540,8 @@ describe('Applications Routes', () => {
             applicationRepo: ReturnType<typeof buildDataSource>['applicationRepo'],
             applicationUserRepo: ReturnType<typeof buildDataSource>['applicationUserRepo'],
             role: 'owner' | 'admin' | 'editor' | 'member',
-            workspacesEnabled = false
+            workspacesEnabled = false,
+            settings: Record<string, unknown> = {}
         ) => {
             applicationUserRepo.findOne.mockResolvedValue({
                 userId: 'test-user-id',
@@ -3403,7 +3551,8 @@ describe('Applications Routes', () => {
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
                 schemaName: 'app_runtime_test',
-                workspacesEnabled
+                workspacesEnabled,
+                settings
             })
         }
 
@@ -3444,6 +3593,182 @@ describe('Applications Routes', () => {
                 return []
             })
         }
+
+        it('runs configured workflow actions from trusted object metadata with optimistic locking', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+            const runtimeSchemaName = 'app_018f8a787b8f7c1da111222233334570'
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'member', false, {
+                rolePolicies: {
+                    templates: [
+                        {
+                            codename: 'memberPolicy',
+                            title: { en: 'Member permissions' },
+                            rules: [
+                                { capability: 'records.edit', effect: 'allow', scope: 'workspace' },
+                                { capability: 'assignment.review', effect: 'allow', scope: 'workspace' }
+                            ]
+                        }
+                    ]
+                }
+            })
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: runtimeSchemaName,
+                workspacesEnabled: false,
+                settings: {
+                    rolePolicies: {
+                        templates: [
+                            {
+                                codename: 'memberPolicy',
+                                title: { en: 'Member permissions' },
+                                rules: [
+                                    { capability: 'records.edit', effect: 'allow', scope: 'workspace' },
+                                    { capability: 'assignment.review', effect: 'allow', scope: 'workspace' }
+                                ]
+                            }
+                        ]
+                    }
+                }
+            })
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes(`FROM "${runtimeSchemaName}"._app_objects`)) {
+                    return [
+                        {
+                            id: runtimeLinkedCollectionId,
+                            kind: 'object',
+                            codename: 'documents',
+                            table_name: 'documents',
+                            config: {
+                                workflowActions: [
+                                    {
+                                        codename: 'AcceptSubmission',
+                                        title: 'Accept submission',
+                                        from: ['Submitted'],
+                                        to: 'Accepted',
+                                        statusFieldCodename: 'SubmissionStatus',
+                                        requiredCapabilities: ['assignment.review']
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+                if (sql.includes(`FROM "${runtimeSchemaName}"._app_components`)) {
+                    return [
+                        {
+                            id: '018f8a78-7b8f-7c1d-a111-222233334579',
+                            codename: 'SubmissionStatus',
+                            column_name: 'status',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {},
+                            target_object_id: null,
+                            target_object_kind: null,
+                            ui_config: {}
+                        }
+                    ]
+                }
+                if (sql.includes('SELECT "id", "status", "_upl_version", "_upl_locked"')) {
+                    return [
+                        {
+                            id: runtimeRowId,
+                            status: 'Submitted',
+                            _upl_version: 2,
+                            _upl_locked: false
+                        }
+                    ]
+                }
+                if (sql.includes(`UPDATE "${runtimeSchemaName}"."documents"`)) {
+                    return [
+                        {
+                            id: runtimeRowId,
+                            status: 'Accepted',
+                            _upl_version: 3
+                        }
+                    ]
+                }
+                if (sql.includes(`INSERT INTO "${runtimeSchemaName}"."_app_workflow_action_audit"`)) {
+                    return []
+                }
+                return []
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}/workflow/AcceptSubmission`)
+                .send({ objectCollectionId: runtimeLinkedCollectionId, expectedVersion: 2 })
+                .expect(200)
+
+            expect(response.body).toMatchObject({
+                id: runtimeRowId,
+                actionCodename: 'AcceptSubmission',
+                fromStatus: 'Submitted',
+                toStatus: 'Accepted',
+                version: 3
+            })
+
+            const updateCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
+                String(call[0]).includes(`UPDATE "${runtimeSchemaName}"."documents"`)
+            )
+            expect(updateCall?.[1]).toEqual([runtimeRowId, 'Accepted', 'test-user-id', 2, ['Submitted']])
+            const auditCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
+                String(call[0]).includes(`INSERT INTO "${runtimeSchemaName}"."_app_workflow_action_audit"`)
+            )
+            expect(auditCall?.[1]).toEqual([
+                runtimeLinkedCollectionId,
+                'documents',
+                runtimeRowId,
+                null,
+                'AcceptSubmission',
+                'Submitted',
+                'Accepted',
+                null,
+                JSON.stringify({ source: 'runtime.rows.workflowAction', applicationId: runtimeApplicationId }),
+                'test-user-id'
+            ])
+        })
+
+        it('rejects workflow actions that are not configured in server-side object metadata', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+            const runtimeSchemaName = 'app_018f8a787b8f7c1da111222233334570'
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: runtimeSchemaName,
+                workspacesEnabled: false
+            })
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes(`FROM "${runtimeSchemaName}"._app_objects`)) {
+                    return [
+                        {
+                            id: runtimeLinkedCollectionId,
+                            kind: 'object',
+                            codename: 'documents',
+                            table_name: 'documents',
+                            config: { workflowActions: [] }
+                        }
+                    ]
+                }
+                if (sql.includes(`FROM "${runtimeSchemaName}"._app_components`)) {
+                    return []
+                }
+                return []
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}/workflow/AcceptSubmission`)
+                .send({ objectCollectionId: runtimeLinkedCollectionId, expectedVersion: 2 })
+                .expect(404)
+
+            expect(response.body.code).toBe('WORKFLOW_ACTION_NOT_CONFIGURED')
+            const rowSelectCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
+                String(call[0]).includes(`FROM "${runtimeSchemaName}"."documents"`)
+            )
+            expect(rowSelectCall).toBeUndefined()
+        })
 
         it('posts draft records with atomic numbering and posting metadata', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
@@ -4415,6 +4740,80 @@ describe('Applications Routes', () => {
                 aggregations: { AverageProgress: 75 },
                 definition: { codename: 'LearnerProgress' }
             })
+        })
+
+        it('exports a saved records.list report as CSV for report-capable roles', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+            const baseQuery = (dataSource.query as jest.Mock).getMockImplementation()
+
+            ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes(`FROM "${runtimeSchemaName}"._app_objects`)) {
+                    if (params?.[0] === 'Reports') {
+                        return [
+                            {
+                                id: '018f8a78-7b8f-7c1d-a111-2222333346b1',
+                                codename: 'Reports',
+                                table_name: 'reports',
+                                config: {}
+                            }
+                        ]
+                    }
+                    expect(params).toEqual(['ModuleProgress'])
+                    return [
+                        {
+                            id: '018f8a78-7b8f-7c1d-a111-2222333346a1',
+                            codename: 'ModuleProgress',
+                            table_name: 'module_progress',
+                            config: {}
+                        }
+                    ]
+                }
+                if (sql.includes(`FROM "${runtimeSchemaName}"._app_components`)) {
+                    if (params?.[0] === '018f8a78-7b8f-7c1d-a111-2222333346b1') {
+                        return [
+                            {
+                                codename: 'Definition',
+                                column_name: 'definition',
+                                data_type: 'JSON'
+                            }
+                        ]
+                    }
+                    return [
+                        {
+                            codename: 'ProgressPercent',
+                            column_name: 'progress_percent',
+                            data_type: 'NUMBER'
+                        }
+                    ]
+                }
+                if (sql.includes(`FROM "${runtimeSchemaName}"."reports"`)) {
+                    expect(params).toEqual(['LearnerProgress'])
+                    return [{ definition: reportDefinition }]
+                }
+                if (sql.includes('SELECT "progress_percent"') && sql.includes(`FROM "${runtimeSchemaName}"."module_progress"`)) {
+                    expect(params).toEqual([5000, 0])
+                    return [{ progress_percent: 75 }]
+                }
+                if (sql.includes('SELECT count(*) AS total') && sql.includes(`FROM "${runtimeSchemaName}"."module_progress"`)) {
+                    return [{ total: '1' }]
+                }
+                if (sql.includes('SELECT AVG("progress_percent") AS "average_progress"')) {
+                    return [{ average_progress: '75' }]
+                }
+
+                return baseQuery?.(sql, params) ?? []
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/reports/export`)
+                .send({ reportCodename: 'LearnerProgress', locale: 'en' })
+                .expect(200)
+
+            expect(response.headers['content-type']).toContain('text/csv')
+            expect(response.headers['content-disposition']).toContain('Learner-Progress.csv')
+            expect(response.text).toBe('Progress\r\n75\r\n')
         })
     })
 

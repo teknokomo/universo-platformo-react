@@ -103,6 +103,7 @@ const ApplicationRuntime = () => {
     pendingCellValuesRef.current = pendingCellValues
     const sectionIdRef = useRef<string | undefined>(undefined)
     const pendingInteractionRef = useRef<(rowId: string) => boolean>(() => false)
+    const canEditContentRef = useRef(false)
 
     // Cell renderer overrides: interactive BOOLEAN checkboxes with per-cell optimistic state
     const cellRenderers = useMemo<CellRendererOverrides>(
@@ -119,9 +120,13 @@ const ApplicationRuntime = () => {
                         disableRipple
                         checked={Boolean(displayValue)}
                         indeterminate={false}
-                        disabled={false}
+                        disabled={!canEditContentRef.current}
                         onClick={(e) => e.stopPropagation()}
                         onChange={(_, checked) => {
+                            if (!canEditContentRef.current) {
+                                return
+                            }
+
                             if (pendingInteractionRef.current(params.rowId)) {
                                 return
                             }
@@ -156,9 +161,10 @@ const ApplicationRuntime = () => {
     const currentSectionId =
         state.selectedSectionId ?? state.activeSectionId ?? state.selectedObjectCollectionId ?? state.activeObjectCollectionId
     const contentPermissions = state.appData?.permissions
-    const canCreateContent = contentPermissions?.createContent !== false
-    const canEditContent = contentPermissions?.editContent !== false
-    const canDeleteContent = contentPermissions?.deleteContent !== false
+    const canCreateContent = contentPermissions?.createContent === true
+    const canEditContent = contentPermissions?.editContent === true
+    const canDeleteContent = contentPermissions?.deleteContent === true
+    canEditContentRef.current = canEditContent
     const showCreateButton = activeRuntimeConfig?.showCreateButton !== false && canCreateContent
     const resolveFormSurface = useCallback(
         (mode: 'create' | 'edit' | 'copy') => {

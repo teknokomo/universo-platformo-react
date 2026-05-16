@@ -113,7 +113,7 @@
         }
     },
     "devDependencies": {
-        "@types/node": "^20.11.17",
+        "@types/node": "catalog:",
         "eslint": "catalog:",
         "rimraf": "^5.0.5",
         "tsdown": "catalog:",

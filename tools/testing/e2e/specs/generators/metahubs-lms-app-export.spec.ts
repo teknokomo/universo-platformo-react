@@ -12,13 +12,20 @@ import {
     buildLmsLiveMetahubName,
     LMS_CANONICAL_METAHUB,
     LMS_DEMO_ACCESS_LINKS,
+    LMS_DEMO_BADGE_ISSUES,
+    LMS_DEMO_BADGES,
     LMS_DEMO_CLASSES,
     LMS_DEMO_COURSES,
     LMS_DEMO_DEVELOPMENT_PLAN,
     LMS_DEMO_ENROLLMENTS,
+    LMS_DEMO_GAMIFICATION_SETTINGS,
+    LMS_DEMO_KNOWLEDGE_ARTICLE,
     LMS_DEMO_KNOWLEDGE_SPACE,
+    LMS_DEMO_LEADERBOARD,
     LMS_DEMO_MODULE_PROGRESS,
     LMS_DEMO_MODULES,
+    LMS_DEMO_POINT_AWARD_RULES,
+    LMS_DEMO_POINT_TRANSACTIONS,
     LMS_DEMO_QUIZ_RESPONSES,
     LMS_DEMO_QUIZZES,
     LMS_DEMO_REPORTS,
@@ -30,6 +37,12 @@ import {
 type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
 
 const FIXTURES_DIR = path.resolve(repoRoot, 'tools', 'fixtures')
+
+const buildEditorBlockContent = (blocks: Array<Record<string, unknown>>) => ({
+    format: 'editorjs',
+    version: '2.29.0',
+    blocks
+})
 
 async function apiGet(api: ApiContext, urlPath: string) {
     const cookieHeader = Array.from((api.cookies as Map<string, string>).entries())
@@ -62,10 +75,17 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
         enrollmentsObjectId,
         knowledgeSpacesObjectId,
         knowledgeFoldersObjectId,
+        knowledgeArticlesObjectId,
         knowledgeBookmarksObjectId,
         developmentPlansObjectId,
         developmentPlanStagesObjectId,
         developmentPlanTasksObjectId,
+        gamificationSettingsObjectId,
+        pointAwardRulesObjectId,
+        pointTransactionsObjectId,
+        badgeDefinitionsObjectId,
+        badgeIssuesObjectId,
+        leaderboardSnapshotsObjectId,
         reportsObjectId,
         contentTypeEnumerationId,
         resourceTypeEnumerationId,
@@ -73,6 +93,7 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
         questionTypeEnumerationId,
         enrollmentStatusEnumerationId,
         completionStatusEnumerationId,
+        pointSourceTypeEnumerationId,
         reportTypeEnumerationId
     ] = await Promise.all([
         waitForMetahubObjectId(api, metahubId, 'Classes'),
@@ -90,10 +111,17 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
         waitForMetahubObjectId(api, metahubId, 'Enrollments'),
         waitForMetahubObjectId(api, metahubId, 'Knowledge Spaces'),
         waitForMetahubObjectId(api, metahubId, 'Knowledge Folders'),
+        waitForMetahubObjectId(api, metahubId, 'Knowledge Articles'),
         waitForMetahubObjectId(api, metahubId, 'Knowledge Bookmarks'),
         waitForMetahubObjectId(api, metahubId, 'Development Plans'),
         waitForMetahubObjectId(api, metahubId, 'Development Plan Stages'),
         waitForMetahubObjectId(api, metahubId, 'Development Plan Tasks'),
+        waitForMetahubObjectId(api, metahubId, 'Gamification Settings'),
+        waitForMetahubObjectId(api, metahubId, 'Point Award Rules'),
+        waitForMetahubObjectId(api, metahubId, 'Point Transactions'),
+        waitForMetahubObjectId(api, metahubId, 'Badge Definitions'),
+        waitForMetahubObjectId(api, metahubId, 'Badge Issues'),
+        waitForMetahubObjectId(api, metahubId, 'Leaderboard Snapshots'),
         waitForMetahubObjectId(api, metahubId, 'Reports'),
         waitForMetahubEnumerationId(api, metahubId, 'Content Type'),
         waitForMetahubEnumerationId(api, metahubId, 'Resource Type'),
@@ -101,30 +129,63 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
         waitForMetahubEnumerationId(api, metahubId, 'Question Type'),
         waitForMetahubEnumerationId(api, metahubId, 'Enrollment Status'),
         waitForMetahubEnumerationId(api, metahubId, 'Completion Status'),
+        waitForMetahubEnumerationId(api, metahubId, 'Point Source Type'),
         waitForMetahubEnumerationId(api, metahubId, 'Report Type')
     ])
 
     const [
         textValueId,
         quizRefValueId,
-        pageResourceTypeValueId,
-        videoResourceTypeValueId,
+        resourceTypeValueIds,
         publishedModuleStatusValueId,
         singleChoiceValueId,
         activeEnrollmentStatusValueId,
-        notStartedCompletionStatusValueId,
         inProgressCompletionStatusValueId,
+        pointSourceTypeValueIds,
         progressReportTypeValueId
     ] = await Promise.all([
         waitForOptionValueId(api, metahubId, contentTypeEnumerationId, 'Text'),
         waitForOptionValueId(api, metahubId, contentTypeEnumerationId, 'QuizRef'),
-        waitForOptionValueId(api, metahubId, resourceTypeEnumerationId, 'Page'),
-        waitForOptionValueId(api, metahubId, resourceTypeEnumerationId, 'Video'),
+        Promise.all([
+            waitForOptionValueId(api, metahubId, resourceTypeEnumerationId, 'Page'),
+            waitForOptionValueId(api, metahubId, resourceTypeEnumerationId, 'Url'),
+            waitForOptionValueId(api, metahubId, resourceTypeEnumerationId, 'Video'),
+            waitForOptionValueId(api, metahubId, resourceTypeEnumerationId, 'Audio'),
+            waitForOptionValueId(api, metahubId, resourceTypeEnumerationId, 'Document'),
+            waitForOptionValueId(api, metahubId, resourceTypeEnumerationId, 'Scorm'),
+            waitForOptionValueId(api, metahubId, resourceTypeEnumerationId, 'Xapi'),
+            waitForOptionValueId(api, metahubId, resourceTypeEnumerationId, 'Embed'),
+            waitForOptionValueId(api, metahubId, resourceTypeEnumerationId, 'File')
+        ]).then(([page, url, video, audio, document, scorm, xapi, embed, file]) => ({
+            page,
+            url,
+            video,
+            audio,
+            document,
+            scorm,
+            xapi,
+            embed,
+            file
+        })),
         waitForOptionValueId(api, metahubId, moduleStatusEnumerationId, 'Published'),
         waitForOptionValueId(api, metahubId, questionTypeEnumerationId, 'SingleChoice'),
         waitForOptionValueId(api, metahubId, enrollmentStatusEnumerationId, 'Active'),
-        waitForOptionValueId(api, metahubId, completionStatusEnumerationId, 'NotStarted'),
         waitForOptionValueId(api, metahubId, completionStatusEnumerationId, 'InProgress'),
+        Promise.all([
+            waitForOptionValueId(api, metahubId, pointSourceTypeEnumerationId, 'Course'),
+            waitForOptionValueId(api, metahubId, pointSourceTypeEnumerationId, 'Track'),
+            waitForOptionValueId(api, metahubId, pointSourceTypeEnumerationId, 'Assignment'),
+            waitForOptionValueId(api, metahubId, pointSourceTypeEnumerationId, 'TrainingEvent'),
+            waitForOptionValueId(api, metahubId, pointSourceTypeEnumerationId, 'Certificate'),
+            waitForOptionValueId(api, metahubId, pointSourceTypeEnumerationId, 'Manual')
+        ]).then(([course, track, assignment, trainingEvent, certificate, manual]) => ({
+            Course: course,
+            Track: track,
+            Assignment: assignment,
+            TrainingEvent: trainingEvent,
+            Certificate: certificate,
+            Manual: manual
+        })),
         waitForOptionValueId(api, metahubId, reportTypeEnumerationId, 'Progress')
     ])
 
@@ -156,12 +217,27 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
 
     const resourceRowsByCodename = new Map<string, Awaited<ReturnType<typeof createRecord>>>()
     for (const seededResource of LMS_DEMO_RESOURCES) {
-        const resourceTypeValueId = seededResource.source.type === 'video' ? videoResourceTypeValueId : pageResourceTypeValueId
+        const resourceTypeValueId = resourceTypeValueIds[seededResource.source.type]
         const resourceRow = await createRecord(api, metahubId, learningResourcesObjectId, {
             data: {
                 Title: seededResource.title,
                 ResourceType: resourceTypeValueId,
                 Source: seededResource.source,
+                Body: buildEditorBlockContent([
+                    {
+                        type: 'header',
+                        data: { text: seededResource.title, level: 2 }
+                    },
+                    {
+                        type: 'paragraph',
+                        data: {
+                            text:
+                                seededResource.source.type === 'Page'
+                                    ? 'This page resource is authored inside the published application.'
+                                    : `Use this ${seededResource.source.type.toLowerCase()} resource inside learning flows.`
+                        }
+                    }
+                ]),
                 EstimatedTimeMinutes: seededResource.estimatedTimeMinutes ?? 0,
                 Language: seededResource.language ?? 'en'
             }
@@ -214,6 +290,16 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
                 Status: publishedModuleStatusValueId,
                 EstimatedDurationMinutes: seededModule.estimatedDurationMinutes,
                 AccessLinkSlug: seededModule.accessLinkSlug,
+                Body: buildEditorBlockContent([
+                    {
+                        type: 'header',
+                        data: { text: seededModule.title.en, level: 2 }
+                    },
+                    {
+                        type: 'paragraph',
+                        data: { text: seededModule.description.en }
+                    }
+                ]),
                 ContentItems: seededModule.contentItems.en.map((item, index) => {
                     const localizedItem = seededModule.contentItems.ru[index]
                     const isQuizRef = item.itemType === 'QuizRef'
@@ -401,14 +487,30 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
         data: {
             SpaceId: knowledgeSpaceRow.id,
             Title: buildVLC('Getting started articles', 'Статьи для старта'),
-            ArticlePageCodename: 'KnowledgeArticle',
             SortOrder: 1
+        }
+    })
+    const knowledgeArticleRow = await createRecord(api, metahubId, knowledgeArticlesObjectId, {
+        data: {
+            FolderId: knowledgeFolderRow.id,
+            Title: buildVLC(LMS_DEMO_KNOWLEDGE_ARTICLE.title.en, LMS_DEMO_KNOWLEDGE_ARTICLE.title.ru),
+            Body: buildEditorBlockContent([
+                {
+                    type: 'header',
+                    data: { text: LMS_DEMO_KNOWLEDGE_ARTICLE.title.en, level: 2 }
+                },
+                {
+                    type: 'paragraph',
+                    data: { text: LMS_DEMO_KNOWLEDGE_ARTICLE.body.en }
+                }
+            ]),
+            Status: publishedModuleStatusValueId
         }
     })
     await createRecord(api, metahubId, knowledgeBookmarksObjectId, {
         data: {
             StudentId: studentRowsByKey.get('ava-solaris')?.id ?? null,
-            FolderId: knowledgeFolderRow.id,
+            ArticleId: knowledgeArticleRow.id,
             CreatedAt: '2061-02-01T09:00:00.000Z'
         }
     })
@@ -433,9 +535,89 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
             StageId: developmentStageRow.id,
             Title: buildVLC(LMS_DEMO_DEVELOPMENT_PLAN.taskTitle.en, LMS_DEMO_DEVELOPMENT_PLAN.taskTitle.ru),
             ResourceId: overviewResource?.id ?? null,
-            Status: notStartedCompletionStatusValueId
+            Status: 'NotStarted'
         }
     })
+
+    for (const setting of LMS_DEMO_GAMIFICATION_SETTINGS) {
+        await createRecord(api, metahubId, gamificationSettingsObjectId, {
+            data: {
+                Scope: setting.scope,
+                WorkspaceKey: setting.workspaceKey,
+                Enabled: setting.enabled,
+                LeaderboardPeriodDays: setting.leaderboardPeriodDays,
+                Rules: setting.rules
+            }
+        })
+    }
+
+    for (const rule of LMS_DEMO_POINT_AWARD_RULES) {
+        await createRecord(api, metahubId, pointAwardRulesObjectId, {
+            data: {
+                RuleCode: rule.ruleCode,
+                Name: buildVLC(rule.name.en, rule.name.ru),
+                SourceType: pointSourceTypeValueIds[rule.sourceType],
+                Points: rule.points,
+                IsActive: rule.isActive,
+                Conditions: rule.conditions
+            }
+        })
+    }
+
+    for (const transaction of LMS_DEMO_POINT_TRANSACTIONS) {
+        await createRecord(api, metahubId, pointTransactionsObjectId, {
+            data: {
+                StudentId: studentRowsByKey.get(transaction.studentKey)?.id ?? null,
+                SourceType: pointSourceTypeValueIds[transaction.sourceType],
+                SourceObjectId: moduleRowsByKey.get(transaction.sourceObjectKey)?.id ?? transaction.sourceObjectKey,
+                PointsDelta: transaction.pointsDelta,
+                Reason: buildVLC(transaction.reason.en, transaction.reason.ru),
+                AwardedAt: transaction.awardedAt,
+                Status: transaction.status
+            }
+        })
+    }
+
+    const badgeRowsByKey = new Map<string, Awaited<ReturnType<typeof createRecord>>>()
+    for (const badge of LMS_DEMO_BADGES) {
+        const badgeRow = await createRecord(api, metahubId, badgeDefinitionsObjectId, {
+            data: {
+                BadgeCode: badge.badgeCode,
+                Name: buildVLC(badge.name.en, badge.name.ru),
+                Description: buildVLC(badge.description.en, badge.description.ru),
+                RequiredPoints: badge.requiredPoints,
+                Icon: badge.icon,
+                IsActive: badge.isActive
+            }
+        })
+        badgeRowsByKey.set(badge.key, badgeRow)
+    }
+
+    for (const issue of LMS_DEMO_BADGE_ISSUES) {
+        await createRecord(api, metahubId, badgeIssuesObjectId, {
+            data: {
+                StudentId: studentRowsByKey.get(issue.studentKey)?.id ?? null,
+                BadgeId: badgeRowsByKey.get(issue.badgeKey)?.id ?? null,
+                IssuedAt: issue.issuedAt,
+                RevokedAt: issue.revokedAt,
+                Status: issue.status,
+                Reason: buildVLC(issue.reason.en, issue.reason.ru)
+            }
+        })
+    }
+
+    for (const leaderboardRow of LMS_DEMO_LEADERBOARD) {
+        await createRecord(api, metahubId, leaderboardSnapshotsObjectId, {
+            data: {
+                StudentId: studentRowsByKey.get(leaderboardRow.studentKey)?.id ?? null,
+                Period: leaderboardRow.period,
+                TotalPoints: leaderboardRow.totalPoints,
+                Rank: leaderboardRow.rank,
+                BadgeCount: leaderboardRow.badgeCount,
+                CalculatedAt: leaderboardRow.calculatedAt
+            }
+        })
+    }
 
     for (const reportDefinition of LMS_DEMO_REPORTS) {
         await createRecord(api, metahubId, reportsObjectId, {

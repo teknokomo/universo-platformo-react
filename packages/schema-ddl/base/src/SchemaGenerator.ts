@@ -972,6 +972,35 @@ export class SchemaGenerator {
             console.log(`[SchemaGenerator] _app_record_counters created`)
         }
 
+        const hasWorkflowActionAudit = await knex.schema.withSchema(schemaName).hasTable('_app_workflow_action_audit')
+        console.log(`[SchemaGenerator] _app_workflow_action_audit exists: ${hasWorkflowActionAudit}`)
+
+        if (!hasWorkflowActionAudit) {
+            console.log(`[SchemaGenerator] Creating _app_workflow_action_audit...`)
+            await knex.schema.withSchema(schemaName).createTable('_app_workflow_action_audit', (table) => {
+                table.uuid('id').primary().defaultTo(knex.raw('public.uuid_generate_v7()'))
+                table.uuid('object_id').notNullable().references('id').inTable(`${schemaName}._app_objects`).onDelete('CASCADE')
+                table.string('table_name', 255).notNullable()
+                table.uuid('row_id').notNullable()
+                table.uuid('workspace_id').nullable()
+                table.string('action_codename', 128).notNullable()
+                table.string('from_status', 128).notNullable()
+                table.string('to_status', 128).notNullable()
+                table.string('posting_command', 32).nullable()
+                table.jsonb('metadata').notNullable().defaultTo('{}')
+
+                table.timestamp('_upl_created_at', { useTz: true }).notNullable().defaultTo(knex.fn.now())
+                table.uuid('_upl_created_by').nullable()
+                table.timestamp('_upl_updated_at', { useTz: true }).notNullable().defaultTo(knex.fn.now())
+                table.uuid('_upl_updated_by').nullable()
+                table.integer('_upl_version').notNullable().defaultTo(1)
+
+                table.index(['object_id', 'row_id'], 'idx_app_workflow_audit_object_row')
+                table.index(['workspace_id', 'action_codename'], 'idx_app_workflow_audit_workspace_action')
+            })
+            console.log(`[SchemaGenerator] _app_workflow_action_audit created`)
+        }
+
         const hasSettings = await knex.schema.withSchema(schemaName).hasTable('_app_settings')
         console.log(`[SchemaGenerator] _app_settings exists: ${hasSettings}`)
 

@@ -1,4 +1,4 @@
-import { RuntimeReportsService } from '../../services/runtimeReportsService'
+import { RuntimeReportsService, serializeRuntimeReportCsv } from '../../services/runtimeReportsService'
 import { UpdateFailure } from '../../shared/runtimeHelpers'
 import { createMockDbExecutor } from '../utils/dbMocks'
 
@@ -209,5 +209,22 @@ describe('RuntimeReportsService', () => {
         ).rejects.toThrow(UpdateFailure)
 
         expect(executor.query).not.toHaveBeenCalled()
+    })
+
+    it('serializes report rows to CSV using configured columns and escaping', () => {
+        const csv = serializeRuntimeReportCsv({
+            rows: [{ Learner: 'Ava, "One"', ProgressPercent: 100, Ignored: 'not exported' }],
+            total: 1,
+            aggregations: {},
+            definition: {
+                ...definition,
+                columns: [
+                    { field: 'Learner', label: 'Learner, Name', type: 'text' },
+                    { field: 'ProgressPercent', label: 'Progress', type: 'number' }
+                ]
+            }
+        })
+
+        expect(csv).toBe('"Learner, Name",Progress\r\n"Ava, ""One""",100\r\n')
     })
 })

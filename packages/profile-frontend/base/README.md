@@ -95,11 +95,11 @@ import { useAuth } from '@universo/auth-frontend'
 
 function ProtectedProfile() {
   const { user, isAuthenticated } = useAuth()
-  
+
   if (!isAuthenticated) {
     return <div>Please log in to view your profile</div>
   }
-  
+
   return <ProfilePage />
 }
 ```
@@ -151,11 +151,11 @@ Content-Type: application/json
 // API response handling with proper error management
 const handleApiResponse = async (response: Response) => {
   const data = await response.json()
-  
+
   if (!response.ok) {
     throw new Error(data.error || data.message || 'Operation failed')
   }
-  
+
   return data
 }
 
@@ -183,11 +183,11 @@ const Profile = () => {
     first_name: '',
     last_name: ''
   })
-  
+
   // Authentication integration
   const { user, getAccessToken } = useAuth()
   const { t } = useTranslation('profile')
-  
+
   // Form sections
   return (
     <MainCard title={t('title')}>
@@ -204,19 +204,19 @@ const Profile = () => {
 // Client-side validation logic
 const validateProfile = (data) => {
   const errors = {}
-  
+
   if (!data.nickname?.trim()) {
     errors.nickname = 'Nickname is required'
   }
-  
+
   if (data.email && !/\S+@\S+\.\S+/.test(data.email)) {
     errors.email = 'Invalid email format'
   }
-  
+
   if (data.newPassword && data.newPassword.length < 6) {
     errors.password = 'Password must be at least 6 characters'
   }
-  
+
   return { isValid: Object.keys(errors).length === 0, errors }
 }
 ```
@@ -224,8 +224,8 @@ const validateProfile = (data) => {
 ## Development
 
 ### Prerequisites
-- Node.js 18+
-- pnpm 8+
+- Node.js 22.22.2 recommended (>=22.6.0 required)
+- pnpm 10.x
 - TypeScript 5+
 
 ### Available Scripts
@@ -282,18 +282,18 @@ import { Profile } from '../Profile'
 describe('Profile Component', () => {
   test('renders profile form fields', () => {
     render(<Profile />)
-    
+
     expect(screen.getByLabelText(/nickname/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /update/i })).toBeInTheDocument()
   })
-  
+
   test('validates required fields', async () => {
     render(<Profile />)
-    
+
     const submitButton = screen.getByRole('button', { name: /update/i })
     fireEvent.click(submitButton)
-    
+
     expect(await screen.findByText(/nickname is required/i)).toBeInTheDocument()
   })
 })

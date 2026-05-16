@@ -26,7 +26,8 @@ import {
     TextField,
     Typography
 } from '@mui/material'
-import type { VersionedLocalizedContent } from '@universo/types'
+import type { PageBlockContent, PageBlockContentValidationOptions, VersionedLocalizedContent } from '@universo/types'
+import { normalizePageBlockContentForStorage } from '@universo/types'
 import { buildTableConstraintText, createLocalizedContent, NUMBER_DEFAULTS, toNumberRules, validateNumber } from '@universo/utils'
 import { useTranslation } from 'react-i18next'
 import { LocalizedInlineField } from '../forms/LocalizedInlineField'
@@ -34,6 +35,7 @@ import { TabularPartEditor } from '../TabularPartEditor'
 import { RuntimeInlineTabularEditor } from '../RuntimeInlineTabularEditor'
 import { normalizeTabularRowValues } from '../../utils/tabularCellValues'
 import PageContainer from '../../crud-dashboard/components/PageContainer'
+import { EditorJsBlockEditor } from '@universo/block-editor'
 
 export type FieldType = 'STRING' | 'NUMBER' | 'BOOLEAN' | 'DATE' | 'REF' | 'JSON' | 'TABLE'
 
@@ -113,6 +115,8 @@ export interface FieldConfig {
     childFields?: FieldConfig[]
     /** UI configuration for TABLE-type components. */
     tableUiConfig?: Record<string, unknown>
+    /** Generic UI configuration copied from the metadata component definition. */
+    uiConfig?: Record<string, unknown>
     /** Original component UUID — used for TABLE-type API calls (tabular part endpoint). */
     componentId?: string
 }
@@ -201,6 +205,43 @@ const isValidDateTimeString = (value: string) => {
     return !Number.isNaN(date.getTime())
 }
 
+const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === 'object' && !Array.isArray(value))
+
+const isEditorJsBlockContentField = (field: FieldConfig): boolean => {
+    const uiConfig = field.uiConfig ?? {}
+    return (
+        field.type === 'JSON' &&
+        (uiConfig.widget === 'editorjsBlockContent' || uiConfig.editor === 'editorjs' || uiConfig.blockContent === true)
+    )
+}
+
+const readStringArray = (value: unknown): string[] | undefined =>
+    Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0) : undefined
+
+const readFiniteInteger = (value: unknown): number | null => {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return null
+    return Math.max(0, Math.trunc(value))
+}
+
+const normalizeBlockEditorValue = (value: unknown, options: PageBlockContentValidationOptions): PageBlockContent => {
+    const parsedValue =
+        typeof value === 'string' && value.trim().length > 0
+            ? (() => {
+                  try {
+                      return JSON.parse(value)
+                  } catch {
+                      return value
+                  }
+              })()
+            : value
+
+    try {
+        return normalizePageBlockContentForStorage(parsedValue ?? { format: 'editorjs', data: { blocks: [] } }, options)
+    } catch {
+        return normalizePageBlockContentForStorage({ format: 'editorjs', data: { blocks: [] } }, options)
+    }
+}
+
 /**
  * Normalize date/datetime input to ensure year has max 4 digits.
  * Browser native date inputs allow typing 5+ digit years which breaks validation.
@@ -249,6 +290,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
     editRowId
 }) => {
     const [formData, setFormData] = useState<Record<string, unknown>>({})
+    const [blockEditorErrors, setBlockEditorErrors] = useState<Record<string, string | null>>({})
     const [isReady, setReady] = useState(false)
     const wasOpenRef = useRef(false)
     // Track NUMBER input refs and last cursor zone for zone-aware steppers
@@ -293,10 +335,12 @@ export const FormDialog: React.FC<FormDialogProps> = ({
 
         if (open && !wasOpen) {
             setReady(false)
+            setBlockEditorErrors({})
             setFormData(applyFieldDefaults(initialData ?? {}))
             setReady(true)
         } else if (!open && wasOpen) {
             setReady(false)
+            setBlockEditorErrors({})
         }
 
         wasOpenRef.current = open
@@ -308,6 +352,13 @@ export const FormDialog: React.FC<FormDialogProps> = ({
 
     const handleFieldChange = useCallback((id: string, value: unknown) => {
         setFormData((prev) => ({ ...prev, [id]: value }))
+    }, [])
+
+    const handleBlockEditorValidationError = useCallback((id: string, message: string | null) => {
+        setBlockEditorErrors((prev) => {
+            if (prev[id] === message) return prev
+            return { ...prev, [id]: message }
+        })
     }, [])
 
     const resolveValuePresent = useCallback(
@@ -486,8 +537,8 @@ export const FormDialog: React.FC<FormDialogProps> = ({
     )
 
     const hasValidationErrors = useMemo(
-        () => fields.some((field) => Boolean(getFieldError(field, formData[field.id]))),
-        [fields, formData, getFieldError]
+        () => fields.some((field) => Boolean(getFieldError(field, formData[field.id])) || Boolean(blockEditorErrors[field.id])),
+        [blockEditorErrors, fields, formData, getFieldError]
     )
 
     const buildPayload = useCallback(() => {
@@ -998,6 +1049,53 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                 )
             }
             case 'JSON': {
+                if (isEditorJsBlockContentField(field)) {
+                    const blockEditorConfig = isRecord(field.uiConfig?.blockEditor) ? field.uiConfig.blockEditor : field.uiConfig ?? {}
+                    const allowedBlockTypes = readStringArray(blockEditorConfig.allowedBlockTypes)
+                    const maxBlocks = readFiniteInteger(blockEditorConfig.maxBlocks)
+                    const validationOptions = {
+                        allowedBlockTypes,
+                        maxBlocks
+                    } satisfies PageBlockContentValidationOptions
+                    const blockEditorValue = normalizeBlockEditorValue(value, validationOptions)
+                    const blockEditorError = blockEditorErrors[field.id] ?? null
+
+                    return (
+                        <Stack spacing={1}>
+                            <Typography variant='body2' color='text.secondary'>
+                                {field.label}
+                                {field.required ? ' *' : ''}
+                            </Typography>
+                            <EditorJsBlockEditor
+                                value={blockEditorValue}
+                                allowedBlockTypes={allowedBlockTypes}
+                                maxBlocks={maxBlocks}
+                                readOnly={disabled}
+                                locale={locale}
+                                contentLocale={normalizedLocale}
+                                labels={{
+                                    loading: t('blockEditor.loading', 'Loading editor...'),
+                                    loadError: t('blockEditor.loadError', 'The block editor could not be loaded.'),
+                                    validationError: t('blockEditor.validationError', 'The editor content is not valid.'),
+                                    fallbackLabel: t('blockEditor.fallbackLabel', 'Editor.js blocks JSON'),
+                                    fallbackHelper: t(
+                                        'blockEditor.fallbackHelper',
+                                        'Fallback JSON editor for recovery when the visual editor cannot be loaded.'
+                                    ),
+                                    retry: t('blockEditor.retry', 'Retry')
+                                }}
+                                onChange={(nextValue) => handleFieldChange(field.id, nextValue)}
+                                onValidationError={(message) => handleBlockEditorValidationError(field.id, message)}
+                            />
+                            {blockEditorError || helperText ? (
+                                <FormHelperText error={Boolean(blockEditorError || fieldError)}>
+                                    {blockEditorError ?? helperText}
+                                </FormHelperText>
+                            ) : null}
+                        </Stack>
+                    )
+                }
+
                 const stringValue =
                     typeof value === 'string' ? value : value && typeof value === 'object' ? JSON.stringify(value, null, 2) : ''
                 return (

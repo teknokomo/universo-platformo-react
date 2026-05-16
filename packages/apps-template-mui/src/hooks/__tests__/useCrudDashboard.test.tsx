@@ -14,6 +14,12 @@ vi.mock('notistack', () => ({
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
         t: (_key: string, options?: string | { defaultValue?: string; message?: string }) => {
+            const translations: Record<string, string> = {
+                'runtime.menu.more': 'More'
+            }
+            if (translations[_key]) {
+                return translations[_key]
+            }
             if (typeof options === 'string') {
                 return options
             }
@@ -756,6 +762,68 @@ describe('useCrudDashboard optimistic mutations', () => {
         expect(enqueueSnackbar).toHaveBeenCalledWith('Record posted.', { variant: 'success' })
         await waitFor(() => {
             expect(fetchList.mock.calls.length).toBeGreaterThanOrEqual(2)
+        })
+    })
+
+    it('runs metadata workflow actions with optimistic concurrency and refreshes runtime data', async () => {
+        const fetchList = vi.fn().mockResolvedValue({
+            ...createAppData(),
+            objectCollection: {
+                ...createAppData().objectCollection,
+                workflowActions: [
+                    {
+                        codename: 'AcceptSubmission',
+                        title: 'Accept submission',
+                        from: ['submitted'],
+                        to: 'accepted',
+                        statusColumnName: 'Status',
+                        requiredCapabilities: ['assignment.review']
+                    }
+                ]
+            },
+            rows: [{ id: 'row-1', name: 'Original', Status: 'submitted', _upl_version: 2 }]
+        } satisfies AppDataResponse)
+        const workflowAction = vi.fn().mockResolvedValue({ id: 'row-1', Status: 'accepted' })
+        const adapter = createAdapter({ fetchList, workflowAction })
+        const { getState } = renderCrudDashboard(adapter)
+
+        await waitFor(() => {
+            expect(getState().handleWorkflowAction).toBeDefined()
+            expect(getState().selectedObjectCollectionId).toBe('object-1')
+        })
+
+        await act(async () => {
+            await getState().handleWorkflowAction?.('row-1', 'AcceptSubmission')
+        })
+
+        expect(workflowAction).toHaveBeenCalledWith('row-1', 'AcceptSubmission', {
+            objectCollectionId: 'object-1',
+            sectionId: 'object-1',
+            expectedVersion: 2
+        })
+        expect(enqueueSnackbar).toHaveBeenCalledWith('Workflow action completed.', { variant: 'success' })
+        await waitFor(() => {
+            expect(fetchList.mock.calls.length).toBeGreaterThanOrEqual(2)
+        })
+    })
+
+    it('blocks workflow actions when the runtime row version is missing', async () => {
+        const workflowAction = vi.fn().mockResolvedValue({ id: 'row-1', Status: 'accepted' })
+        const adapter = createAdapter({ workflowAction })
+        const { getState } = renderCrudDashboard(adapter)
+
+        await waitFor(() => {
+            expect(getState().handleWorkflowAction).toBeDefined()
+            expect(getState().rows).toHaveLength(1)
+        })
+
+        await act(async () => {
+            await getState().handleWorkflowAction?.('row-1', 'AcceptSubmission')
+        })
+
+        expect(workflowAction).not.toHaveBeenCalled()
+        expect(enqueueSnackbar).toHaveBeenCalledWith('Workflow action requires a current row version. Please reload and try again.', {
+            variant: 'error'
         })
     })
 

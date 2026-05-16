@@ -1,75 +1,16 @@
 import { z } from 'zod'
 import { runtimeDatasourceDescriptorSchema } from './runtimeDataSources'
+import { resourceSourceSchema } from './resourceSources'
+import { roleCapabilityRuleSchema } from './workflowActions'
+
+export { RESOURCE_LAUNCH_MODES, RESOURCE_TYPES, resourceSourceSchema } from './resourceSources'
+export type { ResourceLaunchMode, ResourceSource, ResourceType } from './resourceSources'
 
 export const localizedContractTextSchema = z.union([z.string().trim().min(1).max(240), z.record(z.string(), z.unknown())])
 export type LocalizedContractText = z.infer<typeof localizedContractTextSchema>
 
-export const RESOURCE_TYPES = ['page', 'url', 'video', 'audio', 'document', 'scorm', 'embed', 'file'] as const
-export type ResourceType = (typeof RESOURCE_TYPES)[number]
-
-export const RESOURCE_LAUNCH_MODES = ['inline', 'newTab', 'download'] as const
-export type ResourceLaunchMode = (typeof RESOURCE_LAUNCH_MODES)[number]
-
 const codenameSchema = z.string().trim().min(1).max(128)
 const isoDateStringSchema = z.string().datetime()
-
-export const resourceSourceSchema = z
-    .object({
-        type: z.enum(RESOURCE_TYPES),
-        url: z.string().url().optional(),
-        pageCodename: codenameSchema.optional(),
-        storageKey: z.string().trim().min(1).max(512).optional(),
-        packageDescriptor: z.record(z.string(), z.unknown()).optional(),
-        mimeType: z.string().trim().min(1).max(128).optional(),
-        launchMode: z.enum(RESOURCE_LAUNCH_MODES).default('inline')
-    })
-    .strict()
-    .superRefine((value, ctx) => {
-        const hasUrl = typeof value.url === 'string'
-        const hasPage = typeof value.pageCodename === 'string'
-        const hasStorage = typeof value.storageKey === 'string'
-        const hasPackage = Boolean(value.packageDescriptor)
-        const sourceCount = [hasUrl, hasPage, hasStorage, hasPackage].filter(Boolean).length
-
-        if (sourceCount !== 1) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: 'Resource source must define exactly one source locator',
-                path: ['source']
-            })
-            return
-        }
-
-        if (value.type === 'page' && !hasPage) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: 'Page resources must use pageCodename',
-                path: ['pageCodename']
-            })
-        }
-        if ((value.type === 'url' || value.type === 'video' || value.type === 'audio' || value.type === 'embed') && !hasUrl) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: `${value.type} resources must use url`,
-                path: ['url']
-            })
-        }
-        if ((value.type === 'document' || value.type === 'file') && !hasUrl && !hasStorage) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: `${value.type} resources must use url or storageKey`,
-                path: ['storageKey']
-            })
-        }
-        if (value.type === 'scorm' && !hasPackage && !hasStorage) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: 'SCORM resources must use packageDescriptor or storageKey',
-                path: ['packageDescriptor']
-            })
-        }
-    })
-export type ResourceSource = z.infer<typeof resourceSourceSchema>
 
 export const resourceDefinitionSchema = z
     .object({
@@ -85,33 +26,6 @@ export const resourceDefinitionSchema = z
     })
     .strict()
 export type ResourceDefinition = z.infer<typeof resourceDefinitionSchema>
-
-export const SEQUENCE_POLICY_MODES = ['free', 'sequential', 'scheduled', 'prerequisite'] as const
-export type SequencePolicyMode = (typeof SEQUENCE_POLICY_MODES)[number]
-
-export const completionConditionSchema = z
-    .object({
-        kind: z.enum(['manual', 'progressPercent', 'scoreAtLeast', 'allStepsCompleted', 'attendanceMarked', 'certificateIssued']),
-        field: codenameSchema.optional(),
-        value: z.unknown().optional()
-    })
-    .strict()
-export type CompletionCondition = z.infer<typeof completionConditionSchema>
-
-export const sequencePolicySchema = z
-    .object({
-        mode: z.enum(SEQUENCE_POLICY_MODES).default('free'),
-        prerequisiteFieldCodename: codenameSchema.optional(),
-        orderFieldCodename: codenameSchema.optional(),
-        availableFromFieldCodename: codenameSchema.optional(),
-        availableToFieldCodename: codenameSchema.optional(),
-        dueAtFieldCodename: codenameSchema.optional(),
-        retryLimit: z.number().int().min(0).max(100).optional(),
-        maxAttempts: z.number().int().min(1).max(100).optional(),
-        completion: z.array(completionConditionSchema).max(16).default([])
-    })
-    .strict()
-export type SequencePolicy = z.infer<typeof sequencePolicySchema>
 
 export const LMS_STATUS_GROUPS = [
     'content',
@@ -137,31 +51,6 @@ export const normalizedLifecycleStatusSchema = z
     .strict()
 export type NormalizedLifecycleStatus = z.infer<typeof normalizedLifecycleStatusSchema>
 
-export const workflowActionSchema = z
-    .object({
-        codename: codenameSchema,
-        title: localizedContractTextSchema,
-        from: z.array(codenameSchema).max(32).default([]),
-        to: codenameSchema,
-        requiredCapabilities: z.array(codenameSchema).max(32).default([]),
-        scriptCodename: codenameSchema.optional()
-    })
-    .strict()
-export type WorkflowAction = z.infer<typeof workflowActionSchema>
-
-export const capabilityScopeSchema = z.enum(['application', 'workspace', 'recordOwner', 'department', 'class', 'group'])
-export type CapabilityScope = z.infer<typeof capabilityScopeSchema>
-
-export const roleCapabilityRuleSchema = z
-    .object({
-        capability: codenameSchema,
-        effect: z.enum(['allow', 'deny']),
-        scope: capabilityScopeSchema.default('workspace'),
-        condition: z.record(z.string(), z.unknown()).optional()
-    })
-    .strict()
-export type RoleCapabilityRule = z.infer<typeof roleCapabilityRuleSchema>
-
 export const rolePolicyTemplateSchema = z
     .object({
         codename: codenameSchema,
@@ -178,6 +67,54 @@ export const applicationRolePolicySettingsSchema = z
     })
     .strict()
 export type ApplicationRolePolicySettings = z.infer<typeof applicationRolePolicySettingsSchema>
+
+export const SUPPORTED_ACTIVE_CAPABILITY_SCOPES = ['application', 'workspace'] as const
+export type SupportedActiveCapabilityScope = (typeof SUPPORTED_ACTIVE_CAPABILITY_SCOPES)[number]
+
+const supportedActiveCapabilityScopeSet = new Set<string>(SUPPORTED_ACTIVE_CAPABILITY_SCOPES)
+
+export type UnsupportedActiveCapabilityRule = {
+    templateCodename: string
+    capability: string
+    scope: string
+}
+
+export const collectUnsupportedActiveCapabilityRules = (
+    rolePolicies: ApplicationRolePolicySettings | null | undefined
+): UnsupportedActiveCapabilityRule[] => {
+    const parsed = applicationRolePolicySettingsSchema.safeParse(rolePolicies)
+    if (!parsed.success) return []
+
+    return parsed.data.templates.flatMap((template) =>
+        template.rules
+            .filter((rule) => rule.effect === 'allow' && !supportedActiveCapabilityScopeSet.has(rule.scope))
+            .map((rule) => ({
+                templateCodename: template.codename,
+                capability: rule.capability,
+                scope: rule.scope
+            }))
+    )
+}
+
+export const sanitizeApplicationRolePolicySettingsForSupportedScopes = (
+    rolePolicies: ApplicationRolePolicySettings
+): ApplicationRolePolicySettings => {
+    const parsed = applicationRolePolicySettingsSchema.parse(rolePolicies)
+
+    return {
+        templates: parsed.templates.map((template) => ({
+            ...template,
+            rules: template.rules.map((rule) =>
+                rule.effect === 'allow' && !supportedActiveCapabilityScopeSet.has(rule.scope)
+                    ? {
+                          ...rule,
+                          effect: 'deny' as const
+                      }
+                    : rule
+            )
+        }))
+    }
+}
 
 export const reportFilterSchema = z
     .object({
@@ -231,7 +168,7 @@ export const reportDefinitionSchema = z
     .strict()
 export type ReportDefinition = z.infer<typeof reportDefinitionSchema>
 
-export const lmsAcceptanceAreaSchema = z.enum([
+export const LMS_ACCEPTANCE_AREAS = [
     'learnerHome',
     'contentLibrary',
     'courseDetail',
@@ -245,17 +182,33 @@ export const lmsAcceptanceAreaSchema = z.enum([
     'roleVisibility',
     'workspaceIsolation',
     'publicGuestAccess'
-])
+] as const
+export const lmsAcceptanceAreaSchema = z.enum(LMS_ACCEPTANCE_AREAS)
 export type LmsAcceptanceArea = z.infer<typeof lmsAcceptanceAreaSchema>
+
+export const lmsAcceptancePhaseGatesSchema = z
+    .object({
+        seeded: z.boolean(),
+        visible: z.boolean(),
+        actionable: z.boolean(),
+        audited: z.boolean(),
+        'workspace-isolated': z.boolean(),
+        'covered-by-e2e': z.boolean()
+    })
+    .strict()
+export type LmsAcceptancePhaseGates = z.infer<typeof lmsAcceptancePhaseGatesSchema>
 
 export const lmsAcceptanceMatrixSchema = z
     .array(
         z
             .object({
                 area: lmsAcceptanceAreaSchema,
+                gates: lmsAcceptancePhaseGatesSchema,
                 requiredEntities: z.array(codenameSchema).max(32).default([]),
                 requiredReports: z.array(codenameSchema).max(32).default([]),
-                requiredStatuses: z.array(codenameSchema).max(32).default([])
+                requiredStatuses: z.array(codenameSchema).max(32).default([]),
+                evidence: z.array(z.string().trim().min(1).max(160)).max(16).default([]),
+                gaps: z.array(z.string().trim().min(1).max(240)).max(16).default([])
             })
             .strict()
     )

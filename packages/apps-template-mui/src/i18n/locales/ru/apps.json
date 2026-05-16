@@ -28,12 +28,15 @@
         "errorSchemaChanged": "Схема изменилась с момента открытия формы. Пожалуйста, закройте и попробуйте снова.",
         "errorReorder": "Ошибка изменения порядка: {{message}}",
         "errorRecordCommand": "Ошибка команды записи: {{message}}",
+        "errorWorkflowAction": "Ошибка действия процесса: {{message}}",
+        "errorWorkflowVersionRequired": "Для действия процесса нужна текущая версия строки. Перезагрузите данные и попробуйте снова.",
         "postRecord": "Провести",
         "unpostRecord": "Отменить проведение",
         "voidRecord": "Аннулировать",
         "recordPosted": "Запись проведена.",
         "recordUnposted": "Проведение записи отменено.",
         "recordVoided": "Запись аннулирована.",
+        "workflowActionCompleted": "Действие процесса выполнено.",
         "recordStateDraft": "Черновик",
         "recordStatePosted": "Проведена",
         "recordStateVoided": "Аннулирована",
@@ -66,6 +69,24 @@
     },
     "table": {
         "editAfterSave": "Табличные данные можно редактировать после сохранения элемента."
+    },
+    "blockEditor": {
+        "loading": "Загрузка редактора...",
+        "loadError": "Не удалось загрузить блочный редактор.",
+        "validationError": "Содержимое редактора некорректно.",
+        "fallbackLabel": "JSON блоков Editor.js",
+        "fallbackHelper": "Резервный JSON-редактор для восстановления, если визуальный редактор не загрузился.",
+        "retry": "Повторить"
+    },
+    "resourcePreview": {
+        "defaultTitle": "Ресурс",
+        "unknownType": "Неизвестный тип",
+        "invalidSource": "Источник ресурса некорректен.",
+        "deferredSource": "Этот тип ресурса настроен, но runtime-плеер пока недоступен.",
+        "openExternal": "Открыть",
+        "openPage": "Открыть страницу",
+        "documentFrameTitle": "Предпросмотр документа",
+        "embedFrameTitle": "Встроенный ресурс"
     },
     "validation": {
         "vlcMinLength": "Язык \"{{locale}}\": минимальная длина {{min}}",
@@ -103,6 +124,17 @@
     "cards": {
         "noData": "Нет элементов для отображения",
         "loading": "Загрузка…"
+    },
+    "pagination": {
+        "rowsPerPage": "Строк на странице:",
+        "displayedRows": "{{from}}–{{to}} из {{count}}",
+        "moreThan": "больше чем"
+    },
+    "reports": {
+        "exportCsv": "Экспорт CSV",
+        "exporting": "Экспорт…",
+        "exportError": "Ошибка экспорта: {{message}}",
+        "exportUnsupported": "Скачивание CSV не поддерживается в этом браузере."
     },
     "workspace": {
         "title": "Рабочие пространства",
@@ -218,6 +250,13 @@
         "copyLink": "Копировать ссылку"
     },
     "runtime": {
+        "table": {
+            "name": "Название",
+            "description": "Описание",
+            "noRecords": "Нет записей",
+            "moveUp": "Переместить вверх",
+            "moveDown": "Переместить вниз"
+        },
         "menu": {
             "more": "Ещё"
         }

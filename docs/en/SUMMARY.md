@@ -72,6 +72,7 @@
 * [LMS Setup](guides/lms-setup.md)
 * [LMS Resource Model](guides/lms-resource-model.md)
 * [LMS Reports](guides/lms-reports.md)
+* [LMS Gamification](guides/lms-gamification.md)
 * [LMS Guest Access](guides/lms-guest-access.md)
 * [Pages Entity Type](guides/pages-entity-type.md)
 * [Transactional Objects](guides/transactional-objects.md)

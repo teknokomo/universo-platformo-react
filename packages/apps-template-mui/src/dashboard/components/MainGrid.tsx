@@ -12,7 +12,7 @@ import {
     type RecordsSeriesChartWidgetConfig,
     type StatCardWidgetConfig
 } from '@universo/types'
-import { fetchAppData, fetchRuntimeLedgerProjection } from '../../api/api'
+import { fetchAppData, fetchRuntimeLedgerProjection, runRuntimeReport } from '../../api/api'
 import Copyright from '../internals/components/Copyright'
 import CustomizedDataGrid from './CustomizedDataGrid'
 import HighlightedCard from './HighlightedCard'
@@ -35,7 +35,7 @@ import {
     type PaginationState,
     type PaginationActions,
     useViewPreference
-} from '@universo/template-mui'
+} from '../../components/runtime-ui'
 
 const noopSetSort = () => undefined
 
@@ -141,6 +141,16 @@ const formatMetricValue = (value: number, locale: string): string =>
         maximumFractionDigits: 1
     }).format(value)
 
+const formatMetricDisplayValue = (value: unknown, locale: string): string => {
+    if (typeof value === 'number' && Number.isFinite(value)) return formatMetricValue(value, locale)
+    if (typeof value === 'string' && value.trim()) {
+        const parsed = Number(value)
+        return Number.isFinite(parsed) ? formatMetricValue(parsed, locale) : value.trim()
+    }
+    if (typeof value === 'boolean') return value ? '1' : '0'
+    return '0'
+}
+
 const readOptionalId = (value: string | null | undefined): string | undefined => (value?.trim() ? value.trim() : undefined)
 
 const toFiniteNumber = (value: unknown): number => {
@@ -175,14 +185,16 @@ function RuntimeStatCard({ config, fallback }: { config: StatCardWidgetConfig; f
     const base = toStatCardProps(config, fallback, details?.locale)
     const datasource = config.datasource
     const hasMetricDatasource = datasource?.kind === 'metric' && datasource.metricKey === 'records.count'
-    const runtimeBase = hasMetricDatasource
-        ? {
-              ...base,
-              trend: 'neutral' as const,
-              trendLabel: ZERO_TREND_LABEL,
-              data: config.data?.length ? config.data : DEFAULT_SPARKLINE_DATA
-          }
-        : base
+    const hasReportAggregationDatasource = datasource?.kind === 'metric' && datasource.metricKey === 'report.aggregation'
+    const runtimeBase =
+        hasMetricDatasource || hasReportAggregationDatasource
+            ? {
+                  ...base,
+                  trend: 'neutral' as const,
+                  trendLabel: ZERO_TREND_LABEL,
+                  data: config.data?.length ? config.data : DEFAULT_SPARKLINE_DATA
+              }
+            : base
     const params = isRecord(datasource?.params) ? datasource.params : undefined
     const explicitTargetSectionId =
         readStringParam(params, 'sectionId') ??
@@ -192,13 +204,16 @@ function RuntimeStatCard({ config, fallback }: { config: StatCardWidgetConfig; f
             readStringParam(params, 'sectionCodename') ?? readStringParam(params, 'objectCollectionCodename')
         )
     const hasExplicitTarget =
-        hasTextValue(params?.sectionId) ||
-        hasTextValue(params?.objectCollectionId) ||
-        hasTextValue(params?.sectionCodename) ||
-        hasTextValue(params?.objectCollectionCodename)
+        Boolean(readStringParam(params, 'sectionId')) ||
+        Boolean(readStringParam(params, 'objectCollectionId')) ||
+        Boolean(readStringParam(params, 'sectionCodename')) ||
+        Boolean(readStringParam(params, 'objectCollectionCodename'))
     const targetSectionId =
         explicitTargetSectionId ?? (!hasExplicitTarget ? details?.sectionId ?? details?.objectCollectionId ?? undefined : undefined)
     const search = readStringParam(params, 'search')
+    const reportId = readStringParam(params, 'reportId')
+    const reportCodename = readStringParam(params, 'reportCodename')
+    const aggregationAlias = readStringParam(params, 'aggregationAlias')
     const metricQuery = useQuery({
         queryKey: [
             ...(details?.runtimeQueryKeyPrefix ?? []),
@@ -222,10 +237,43 @@ function RuntimeStatCard({ config, fallback }: { config: StatCardWidgetConfig; f
         ),
         placeholderData: (previous) => previous
     })
+    const reportMetricQuery = useQuery({
+        queryKey: [
+            ...(details?.runtimeQueryKeyPrefix ?? []),
+            'report-metric',
+            {
+                reportId,
+                reportCodename,
+                aggregationAlias,
+                locale: details?.locale ?? 'en',
+                workspaceId: details?.currentWorkspaceId ?? null
+            }
+        ],
+        queryFn: () =>
+            runRuntimeReport({
+                apiBaseUrl: details!.apiBaseUrl!,
+                applicationId: details!.applicationId!,
+                reportId,
+                reportCodename,
+                limit: 1,
+                offset: 0,
+                workspaceId: details?.currentWorkspaceId
+            }),
+        enabled: Boolean(
+            hasReportAggregationDatasource &&
+                details?.apiBaseUrl &&
+                details?.applicationId &&
+                aggregationAlias &&
+                (reportId || reportCodename)
+        ),
+        placeholderData: (previous) => previous
+    })
 
     const value =
         hasMetricDatasource && metricQuery.data
             ? formatMetricValue(metricQuery.data.pagination.total, details?.locale ?? 'en')
+            : hasReportAggregationDatasource && reportMetricQuery.data && aggregationAlias
+            ? formatMetricDisplayValue(reportMetricQuery.data.aggregations[aggregationAlias], details?.locale ?? 'en')
             : runtimeBase.value
 
     return <StatCard {...runtimeBase} value={value} />
@@ -640,7 +688,7 @@ function EnhancedDetailsSection({ layoutConfig, showTitle = true }: { layoutConf
             ) : null}
 
             {viewMode === 'card' ? (
-                <Grid container spacing={2}>
+                <Grid container spacing={2} data-testid='dashboard-details-card-view'>
                     {visibleRows.map((row) => {
                         const displayCol = details?.columns?.find((c) => c.field !== 'id' && c.field !== 'actions')
                         const descCol = details?.columns?.find(
@@ -652,7 +700,7 @@ function EnhancedDetailsSection({ layoutConfig, showTitle = true }: { layoutConf
                         }
                         return (
                             <Grid key={row.id} size={{ xs: 12, sm: 6, md: 12 / (layoutConfig?.cardColumns ?? 3) }}>
-                                <ItemCard data={cardData} />
+                                <ItemCard data={cardData} allowStretch />
                             </Grid>
                         )
                     })}

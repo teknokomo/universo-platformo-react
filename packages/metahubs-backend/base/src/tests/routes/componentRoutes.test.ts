@@ -387,6 +387,78 @@ describe('Field Definition Routes', () => {
             expect(response.body).toMatchObject({ id: 'attr-1', codename: 'Title' })
         })
 
+        it('accepts JSON block content widget configuration for application-side authoring', async () => {
+            mockComponentsService.create.mockResolvedValueOnce({
+                id: 'attr-content',
+                objectCollectionId: 'object-1',
+                codename: 'ArticleContent',
+                dataType: 'JSON',
+                isRequired: false,
+                isDisplayComponent: false,
+                uiConfig: {
+                    widget: 'editorjsBlockContent',
+                    blockEditor: {
+                        allowedBlockTypes: ['paragraph', 'header'],
+                        maxBlocks: 5
+                    }
+                },
+                validationRules: {}
+            })
+
+            const app = buildApp()
+            const response = await request(app)
+                .post('/metahub/metahub-1/entities/object/instance/object-1/components')
+                .send({
+                    codename: testCodenameVlc('ArticleContent'),
+                    dataType: 'JSON',
+                    name: { en: 'Article content' },
+                    uiConfig: {
+                        widget: 'editorjsBlockContent',
+                        blockEditor: {
+                            allowedBlockTypes: ['paragraph', 'header'],
+                            maxBlocks: 5
+                        }
+                    }
+                })
+                .expect(201)
+
+            expect(mockComponentsService.create).toHaveBeenCalledWith(
+                'metahub-1',
+                expect.objectContaining({
+                    objectCollectionId: 'object-1',
+                    dataType: 'JSON',
+                    uiConfig: {
+                        widget: 'editorjsBlockContent',
+                        blockEditor: {
+                            allowedBlockTypes: ['paragraph', 'header'],
+                            maxBlocks: 5
+                        }
+                    }
+                }),
+                'test-user-id',
+                expect.any(Object)
+            )
+            expect(response.body).toMatchObject({ id: 'attr-content', dataType: 'JSON' })
+        })
+
+        it('rejects JSON editor widget configuration on non-JSON components', async () => {
+            const app = buildApp()
+            const response = await request(app)
+                .post('/metahub/metahub-1/entities/object/instance/object-1/components')
+                .send({
+                    codename: testCodenameVlc('ArticleContent'),
+                    dataType: 'STRING',
+                    name: { en: 'Article content' },
+                    uiConfig: {
+                        widget: 'editorjsBlockContent'
+                    }
+                })
+                .expect(400)
+
+            expect(response.body.error).toBe('JSON editor widgets are supported only for JSON components')
+            expect(mockComponentsService.create).not.toHaveBeenCalled()
+        })
+
         it('accepts REF targets backed by generic entity kinds with dataSchema enabled', async () => {
             const invoiceId = '33333333-3333-4333-8333-333333333333'
             mockObjectsService.findById

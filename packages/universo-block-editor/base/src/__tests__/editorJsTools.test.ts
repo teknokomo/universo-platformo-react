@@ -1,4 +1,5 @@
 import type { PageBlockContent } from '@universo/types'
+import { describe, expect, it, vi } from 'vitest'
 
 import {
     addEditorJsContentLocale,
@@ -26,7 +27,7 @@ const mockBundle: EditorJsToolBundle = {
 
 describe('editorJsTools', () => {
     it('normalizes allowed block types and falls back to paragraph for invalid configs', () => {
-        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined)
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
 
         expect(normalizeAllowedBlockTypes(['header', 'unknown', 'list'])).toEqual(['header', 'list'])
         expect(normalizeAllowedBlockTypes(['unknown'])).toEqual(['paragraph'])

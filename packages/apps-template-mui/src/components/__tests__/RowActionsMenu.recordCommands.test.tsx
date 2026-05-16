@@ -93,6 +93,186 @@ describe('RowActionsMenu record commands', () => {
         expect(screen.getByRole('menuitem', { name: /^void$/i })).toBeEnabled()
     })
 
+    it('shows metadata workflow actions from exact capabilities without broad edit permission', async () => {
+        const handleWorkflowAction = vi.fn().mockResolvedValue(undefined)
+        const handleCloseMenu = vi.fn()
+        const appData = createState().appData!
+        const row = { id: 'row-1', status: 'submitted', _upl_version: 2 }
+        const state = createState({
+            rows: [row],
+            appData: {
+                ...appData,
+                columns: [
+                    {
+                        id: 'status-column',
+                        codename: 'SubmissionStatus',
+                        field: 'status',
+                        dataType: 'STRING',
+                        headerName: 'Status'
+                    }
+                ],
+                rows: [row],
+                workflowCapabilities: {
+                    'assignment.review': true
+                },
+                objectCollection: {
+                    ...appData.objectCollection,
+                    workflowActions: [
+                        {
+                            codename: 'AcceptSubmission',
+                            title: 'Accept submission',
+                            from: ['submitted'],
+                            to: 'accepted',
+                            statusFieldCodename: 'SubmissionStatus',
+                            requiredCapabilities: ['assignment.review']
+                        }
+                    ]
+                }
+            },
+            handleWorkflowAction,
+            handleCloseMenu
+        })
+
+        render(<RowActionsMenu state={state} labels={labels} permissions={{ canEdit: false, canCopy: false, canDelete: false }} />)
+
+        await userEvent.click(screen.getByRole('menuitem', { name: /^accept submission$/i }))
+
+        expect(handleWorkflowAction).toHaveBeenCalledWith('row-1', 'AcceptSubmission')
+        expect(handleCloseMenu).toHaveBeenCalledTimes(1)
+    })
+
+    it('uses a MUI confirmation dialog for metadata workflow confirmations', async () => {
+        const handleWorkflowAction = vi.fn().mockResolvedValue(undefined)
+        const handleCloseMenu = vi.fn()
+        const appData = createState().appData!
+        const row = { id: 'row-1', status: 'submitted', _upl_version: 2 }
+        const state = createState({
+            rows: [row],
+            appData: {
+                ...appData,
+                columns: [
+                    {
+                        id: 'status-column',
+                        codename: 'SubmissionStatus',
+                        field: 'status',
+                        dataType: 'STRING',
+                        headerName: 'Status'
+                    }
+                ],
+                rows: [row],
+                workflowCapabilities: {
+                    'assignment.review': true
+                },
+                objectCollection: {
+                    ...appData.objectCollection,
+                    workflowActions: [
+                        {
+                            codename: 'AcceptSubmission',
+                            title: 'Accept submission',
+                            from: ['submitted'],
+                            to: 'accepted',
+                            statusFieldCodename: 'SubmissionStatus',
+                            requiredCapabilities: ['assignment.review'],
+                            confirmation: {
+                                required: true,
+                                title: 'Confirm review',
+                                message: 'Accept this submission?',
+                                confirmLabel: 'Accept now'
+                            }
+                        }
+                    ]
+                }
+            },
+            handleWorkflowAction,
+            handleCloseMenu
+        })
+
+        render(
+            <RowActionsMenu
+                state={state}
+                labels={{ ...labels, cancelText: 'Cancel', confirmText: 'Confirm' }}
+                permissions={{ canEdit: false, canCopy: false, canDelete: false }}
+            />
+        )
+
+        await userEvent.click(screen.getByRole('menuitem', { name: /^accept submission$/i }))
+
+        expect(handleWorkflowAction).not.toHaveBeenCalled()
+        expect(handleCloseMenu).toHaveBeenCalledTimes(1)
+        expect(screen.getByRole('dialog', { name: 'Confirm review' })).toBeInTheDocument()
+        expect(screen.getByText('Accept this submission?')).toBeInTheDocument()
+
+        await userEvent.click(screen.getByRole('button', { name: 'Accept now' }))
+
+        expect(handleWorkflowAction).toHaveBeenCalledWith('row-1', 'AcceptSubmission')
+    })
+
+    it('hides metadata workflow actions without a current row version', () => {
+        const appData = createState().appData!
+        const row = { id: 'row-1', Status: 'submitted' }
+        const state = createState({
+            rows: [row],
+            appData: {
+                ...appData,
+                rows: [row],
+                workflowCapabilities: {
+                    'assignment.review': true
+                },
+                objectCollection: {
+                    ...appData.objectCollection,
+                    workflowActions: [
+                        {
+                            codename: 'AcceptSubmission',
+                            title: 'Accept submission',
+                            from: ['submitted'],
+                            to: 'accepted',
+                            statusColumnName: 'Status',
+                            requiredCapabilities: ['assignment.review']
+                        }
+                    ]
+                }
+            },
+            handleWorkflowAction: vi.fn().mockResolvedValue(undefined)
+        })
+
+        render(<RowActionsMenu state={state} labels={labels} permissions={{ canEdit: true, canCopy: true, canDelete: true }} />)
+
+        expect(screen.queryByRole('menuitem', { name: /^accept submission$/i })).not.toBeInTheDocument()
+    })
+
+    it('hides metadata workflow actions without the required runtime capability', () => {
+        const appData = createState().appData!
+        const row = { id: 'row-1', Status: 'submitted', _upl_version: 2 }
+        const state = createState({
+            rows: [row],
+            appData: {
+                ...appData,
+                rows: [row],
+                workflowCapabilities: {
+                    'assignment.review': false
+                },
+                objectCollection: {
+                    ...appData.objectCollection,
+                    workflowActions: [
+                        {
+                            codename: 'AcceptSubmission',
+                            title: 'Accept submission',
+                            from: ['submitted'],
+                            to: 'accepted',
+                            statusColumnName: 'Status',
+                            requiredCapabilities: ['assignment.review']
+                        }
+                    ]
+                }
+            },
+            handleWorkflowAction: vi.fn().mockResolvedValue(undefined)
+        })
+
+        render(<RowActionsMenu state={state} labels={labels} permissions={{ canEdit: true, canCopy: true, canDelete: true }} />)
+
+        expect(screen.queryByRole('menuitem', { name: /^accept submission$/i })).not.toBeInTheDocument()
+    })
+
     it('does not show record commands when editing is denied', () => {
         render(<RowActionsMenu state={createState()} labels={labels} permissions={{ canEdit: false, canCopy: true, canDelete: true }} />)
 

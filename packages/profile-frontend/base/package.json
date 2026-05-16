@@ -37,7 +37,7 @@
         "typescript": "catalog:"
     },
     "devDependencies": {
-        "@types/node": "^20.11.17",
+        "@types/node": "catalog:",
         "@types/react": "^18.2.55",
         "@testing-library/jest-dom": "^6.4.5",
         "@testing-library/react": "^14.1.2",

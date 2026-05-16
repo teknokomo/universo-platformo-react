@@ -3,7 +3,7 @@ import { createLoggedInApiContext, createRuntimeRow, disposeApiContext, listLayo
 import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublication } from '../../support/backend/run-manifest.mjs'
 import {
     setupPublishedLmsApplication,
-    waitForApplicationCatalogId,
+    waitForApplicationObjectId,
     waitForApplicationRuntimeRow,
     waitForMetahubEnumerationId,
     waitForOptionValueId
@@ -40,8 +40,8 @@ test('@flow lms contextual access link enables guest journey without legacy QR w
             slug: lms.applicationSlug
         })
 
-        const modulesCatalogId = await waitForApplicationCatalogId(api, lms.applicationId, 'Modules')
-        const accessLinksCatalogId = await waitForApplicationCatalogId(api, lms.applicationId, 'Access Links')
+        const modulesObjectId = await waitForApplicationObjectId(api, lms.applicationId, 'Modules')
+        const accessLinksObjectId = await waitForApplicationObjectId(api, lms.applicationId, 'Access Links')
         const contentTypeEnumerationId = await waitForMetahubEnumerationId(api, lms.metahub.id, 'Content Type')
         const moduleStatusEnumerationId = await waitForMetahubEnumerationId(api, lms.metahub.id, 'Module Status')
         const textValueId = await waitForOptionValueId(api, lms.metahub.id, contentTypeEnumerationId, 'Text')
@@ -49,9 +49,10 @@ test('@flow lms contextual access link enables guest journey without legacy QR w
 
         const accessSlug = `access-${runManifest.runId}`
         const moduleRow = await createRuntimeRow(api, lms.applicationId, {
-            linkedCollectionId: modulesCatalogId,
+            objectCollectionId: modulesObjectId,
             data: {
                 Title: `Access Link Module ${runManifest.runId}`,
+                Slug: accessSlug,
                 Description: 'Module opened through contextual access link',
                 Status: publishedModuleStatusValueId,
                 AccessLinkSlug: accessSlug,
@@ -65,10 +66,10 @@ test('@flow lms contextual access link enables guest journey without legacy QR w
                 ]
             }
         })
-        await waitForApplicationRuntimeRow(api, lms.applicationId, modulesCatalogId, moduleRow.id)
+        await waitForApplicationRuntimeRow(api, lms.applicationId, modulesObjectId, moduleRow.id)
 
         const accessLinkRow = await createRuntimeRow(api, lms.applicationId, {
-            linkedCollectionId: accessLinksCatalogId,
+            objectCollectionId: accessLinksObjectId,
             data: {
                 Slug: accessSlug,
                 TargetType: 'module',
@@ -79,7 +80,7 @@ test('@flow lms contextual access link enables guest journey without legacy QR w
                 LinkTitle: 'Access link module test'
             }
         })
-        await waitForApplicationRuntimeRow(api, lms.applicationId, accessLinksCatalogId, accessLinkRow.id)
+        await waitForApplicationRuntimeRow(api, lms.applicationId, accessLinksObjectId, accessLinkRow.id)
 
         const widgetPayload = await listLayoutZoneWidgets(api, lms.metahub.id, lms.layoutId)
         const widgetKeys = (widgetPayload.items ?? []).map((item: { widgetKey?: string }) => item.widgetKey)
