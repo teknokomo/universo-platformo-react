@@ -2,6 +2,30 @@
 
 > Reusable architectural patterns and best practices. Completed implementation history belongs in progress.md. Active work belongs in tasks.md.
 
+## Research-Aware Planning Pattern (IMPORTANT)
+
+**Rule**: tasks that depend on user-provided links or current external information should be flagged in VAN for research, and PLAN must obtain cited research findings before finalizing the implementation plan.
+
+**Required**:
+- VAN mode should recommend `RESEARCH` or `RPLAN` before PLAN when the task includes links, current/latest/up-to-date information, external APIs/tools/libraries/models/pricing/security/legal guidance, or third-party documentation.
+- Use standalone `RESEARCH` or `RPLAN` mode when the user asks to research, search, look up, verify, or use current/latest/up-to-date information before planning.
+- Open every user-provided URL and prefer primary sources such as official docs, repositories, standards, release notes, and papers.
+- Write the research artifact in English under `memory-bank/research/<topic-slug>-research-YYYY-MM-DD.md`.
+- Include source inventory, key findings, conflicts/uncertainty, project implications, recommended decision, and open questions for PLAN.
+- Keep `PLAN` planning-only for implementation changes, but do not block PLAN just because a research artifact is missing.
+- If PLAN includes links/current external facts and no fresh research artifact exists, PLAN must conduct the necessary research inline or delegate it to a research-capable subagent when available, require a complete research artifact contract, save the research artifact unless chat-only was requested, and then continue planning.
+- PLAN mode must save a Markdown plan to `memory-bank/plan/<topic-slug>-plan-YYYY-MM-DD.md` by default unless the user explicitly requests chat-only output or another destination.
+- Use `.agents/skills/research-before-plan` for the reusable template/rubric and keep `.gemini/rules/custom_modes/research_mode.md` authoritative for mode behavior.
+- Mirror the same RESEARCH mode and PLAN research handling across agent-specific rule systems when they exist: `.github/agents`, `.claude/agents`, `.qoder/agents`, and `.kiro/steering/custom_modes`.
+
+**Freshness**:
+- Same-day research is preferred for unstable topics: APIs, AI model behavior, package versions, pricing, security guidance, legal/compliance claims, and current product capabilities.
+- Stable architecture research can be reused for up to 30 days if the artifact records no freshness concerns.
+
+**Detection**: `rg "RESEARCH|RPLAN|research artifact|memory-bank/research" AGENTS.md .gemini .github/agents .claude/agents .qoder/agents .kiro/steering/custom_modes .agents/skills/research-before-plan memory-bank`
+
+**Why**: the 2026-05-16 research workflow separates external truth-finding from implementation changes while still allowing PLAN to complete user requests when the user skipped standalone RESEARCH.
+
 ## Shared Runtime Widget Script Hook Pattern (IMPORTANT)
 
 **Rule**: dashboard runtime widgets that load client-capable scripts from application runtime metadata must reuse the shared script-selection + client-bundle hook instead of duplicating the catalog/metahub fetch logic per widget.

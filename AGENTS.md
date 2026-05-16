@@ -3,17 +3,18 @@ ATTENTION!!! These are your basic rules of work, always take them into account !
 # Custom Modes
 
 1. If the user message starts with **VAN** command → `.gemini/rules/custom_modes/van_mode.md`
-2. If the user message starts with **PLAN** command → `.gemini/rules/custom_modes/plan_mode.md`
-3. If the user message starts with **CREATIVE** or **DESIGN** command → `.gemini/rules/custom_modes/creative_mode.md`
-4. If the user message starts with **IMPLEMENT** or **IMP** command → `.gemini/rules/custom_modes/implement_mode.md`
-5. If the user message starts with **QA** command → `.gemini/rules/custom_modes/qa_mode.md`
-6. If the user message starts with **REFLECT** or **REF** command → `.gemini/rules/custom_modes/reflect_mode.md`
-7. If the user message starts with **ARCHIVE** or **ARC** or **ARH** command → `.gemini/rules/custom_modes/archive_mode.md`
-8. If the user message starts with **DOCS** or **DOC** command → `.gemini/rules/custom_modes/docs_mode.md`
-9. If the user message starts with **GIT PULL** or **PULL** command → `.gemini/rules/custom_modes/git_pull_mode.md`
-10. If the user message starts with **GIT PUSH** or **PUSH** command → `.gemini/rules/custom_modes/git_push_mode.md`
-11. If the user message starts with **MB** command → `.gemini/rules/custom_modes/mb_mode.md`
-12. If the user message starts with **DEVOPS** or **DEPLOY** command → `.gemini/rules/custom_modes/devops_mode.md`
+2. If the user message starts with **RESEARCH** or **RPLAN** command → `.gemini/rules/custom_modes/research_mode.md`
+3. If the user message starts with **PLAN** command → `.gemini/rules/custom_modes/plan_mode.md`
+4. If the user message starts with **CREATIVE** or **DESIGN** command → `.gemini/rules/custom_modes/creative_mode.md`
+5. If the user message starts with **IMPLEMENT** or **IMP** command → `.gemini/rules/custom_modes/implement_mode.md`
+6. If the user message starts with **QA** command → `.gemini/rules/custom_modes/qa_mode.md`
+7. If the user message starts with **REFLECT** or **REF** command → `.gemini/rules/custom_modes/reflect_mode.md`
+8. If the user message starts with **ARCHIVE** or **ARC** or **ARH** command → `.gemini/rules/custom_modes/archive_mode.md`
+9. If the user message starts with **DOCS** or **DOC** command → `.gemini/rules/custom_modes/docs_mode.md`
+10. If the user message starts with **GIT PULL** or **PULL** command → `.gemini/rules/custom_modes/git_pull_mode.md`
+11. If the user message starts with **GIT PUSH** or **PUSH** command → `.gemini/rules/custom_modes/git_push_mode.md`
+12. If the user message starts with **MB** command → `.gemini/rules/custom_modes/mb_mode.md`
+13. If the user message starts with **DEVOPS** or **DEPLOY** command → `.gemini/rules/custom_modes/devops_mode.md`
 
 All these Custom Modes use the rules that are in `.gemini/rules/`
 

@@ -53,6 +53,30 @@
 
 ---
 
+## Completed: Research-Aware Planning Workflow (2026-05-16)
+
+The agent workflow now has a dedicated research-aware path for link-driven and current-information planning.
+
+### Changes Made
+
+- Added `RESEARCH` / `RPLAN` custom mode rules in `.gemini/rules/custom_modes/research_mode.md`.
+- Updated `AGENTS.md` routing so the new research mode is part of the repository mode sequence.
+- Updated `VAN` mode so it recommends `RESEARCH` / `RPLAN` before PLAN when the task includes links or current external facts.
+- Updated `PLAN` mode so missing research no longer blocks planning; PLAN now completes required research inline or through a research-capable subagent when available, saves findings to `memory-bank/research/`, and continues planning.
+- Updated PLAN behavior so agents save Markdown plans into `memory-bank/plan/` by default unless the user explicitly requests another destination or chat-only output.
+- Mirrored the same research mode and PLAN research handling across `.github/agents`, `.claude/agents`, `.qoder/agents`, and `.kiro/steering/custom_modes`.
+- Updated `.gemini/GEMINI.md` so Gemini CLI context routing includes `RESEARCH` / `RPLAN`.
+- Added durable research artifact storage under `memory-bank/research/`.
+- Imported `agents-best-practices` as a complete project-local skill.
+- Imported a curated AI Research skill subset: `brainstorming-research-ideas`, `creative-thinking-for-research`, `instructor`, `dspy`, `langsmith`, and `ml-paper-writing`.
+- Added the local `research-before-plan` skill with research artifact, source quality, and PLAN handoff references.
+- Added `.agents/skills/SOURCES.md` to preserve source and license attribution for imported Skills.
+
+### Validation
+
+- Manual structure validation performed with `find`/`sed`/`rg`.
+- No package build or test run was needed because the change only affects repository workflow rules, Memory Bank documentation, and agent skill files.
+
 ## Completed: LMS Platform Implementation Slice 7F - Operational Workflow Playwright Proof (2026-05-15)
 
 Phase 7 now has browser/API E2E proof for the operational LMS workflow metadata generated from the snapshot fixture.
