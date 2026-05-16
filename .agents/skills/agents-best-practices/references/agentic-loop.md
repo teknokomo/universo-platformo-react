@@ -11,8 +11,8 @@ while not done:
   receive final answer or tool requests
   validate every tool request
   check permission and approval policy
-  execute or deny each tool request
-  append structured tool results
+  execute, deny, or pause before each tool request
+  append structured tool results or return a durable approval pause
   compact or retrieve context if needed
   stop on completion or budget
 ```
@@ -23,13 +23,14 @@ The model never executes a tool directly. It emits a structured request. The har
 
 Enforce these invariants in code:
 
-1. Every tool call receives exactly one corresponding result.
-2. Tool arguments are parsed and validated before execution.
-3. A permission decision happens before every side effect.
-4. Tool results are bounded, structured, and traceable.
-5. The loop has hard step, time, token, cost, and tool-call budgets.
-6. The final answer is based on observations, not assumed tool success.
-7. Errors, denials, cancellations, and timeouts become structured observations.
+1. Every completed, denied, failed, or cancelled tool call receives exactly one corresponding result.
+2. An approval-required tool call is not a result. It creates a durable pause record and suspends the run before later tool calls execute.
+3. Tool arguments are parsed and validated before execution.
+4. A permission decision happens before every side effect.
+5. Tool results are bounded, structured, and traceable.
+6. The loop has hard step, time, token, cost, and tool-call budgets.
+7. The final answer is based on observations, not assumed tool success.
+8. Errors, denials, cancellations, and timeouts become structured observations.
 
 ## Simple pseudocode
 
@@ -61,6 +62,9 @@ def run_agent(task, session):
 
         for call in scheduler.order(output.tool_calls):
             result = handle_tool_call(call, session)
+            if is_approval_pause(result):
+                session.record_pending_approval(call.id, result)
+                return pause(result, session)
             session.add_tool_result(call.id, result)
 
     return stop("step_limit_reached", session)

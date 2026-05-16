@@ -189,7 +189,7 @@ def run_agent(task, session):
     return stop("Step budget reached", session)
 ```
 
-Every tool call receives a result. Denials, malformed arguments, timeouts, missing tools, and aborted calls are returned as structured observations.
+Every completed, denied, failed, or cancelled tool call receives a result. Approval-required calls suspend the run with a durable approval record before execution; after approval or rejection, the resumed run records the corresponding structured observation.
 
 ## Minimal tool registry pattern
 
