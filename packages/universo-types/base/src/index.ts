@@ -3,6 +3,7 @@
 
 export * from './protocol/version'
 export * from './common/branding'
+export * from './common/localizedText'
 export * from './common/objectCollectionRuntimeConfig'
 export * from './common/workflowActions'
 export * from './common/lmsPlatform'

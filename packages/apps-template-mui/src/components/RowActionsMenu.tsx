@@ -15,7 +15,7 @@ import CheckCircleOutlineRoundedIcon from '@mui/icons-material/CheckCircleOutlin
 import UndoRoundedIcon from '@mui/icons-material/UndoRounded'
 import BlockRoundedIcon from '@mui/icons-material/BlockRounded'
 import { useState, type MouseEvent } from 'react'
-import type { WorkflowAction } from '@universo/types'
+import { evaluateWorkflowActionAvailability, readLocalizedTextValue, type WorkflowAction } from '@universo/types'
 import type { CrudDashboardState } from '../hooks/useCrudDashboard'
 import { RuntimeRecordStateChip, canRunRuntimeRecordCommand, isRuntimeRecordBehaviorCommandable } from './RuntimeRecordState'
 
@@ -55,27 +55,7 @@ type PendingWorkflowConfirmation = {
     confirmLabel: string
 }
 
-const readLocalizedWorkflowText = (value: unknown): string | undefined => {
-    if (typeof value === 'string') return value.trim() || undefined
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
-
-    const record = value as {
-        _primary?: string
-        locales?: Record<string, { content?: string }>
-        en?: string
-        ru?: string
-    }
-    const primaryLocale = typeof record._primary === 'string' && record._primary.trim() ? record._primary.trim() : 'en'
-    const primaryContent = record.locales?.[primaryLocale]?.content
-    if (typeof primaryContent === 'string' && primaryContent.trim()) return primaryContent.trim()
-    const englishContent = record.locales?.en?.content
-    if (typeof englishContent === 'string' && englishContent.trim()) return englishContent.trim()
-    const russianContent = record.locales?.ru?.content
-    if (typeof russianContent === 'string' && russianContent.trim()) return russianContent.trim()
-    if (typeof record.en === 'string' && record.en.trim()) return record.en.trim()
-    if (typeof record.ru === 'string' && record.ru.trim()) return record.ru.trim()
-    return undefined
-}
+const readLocalizedWorkflowText = (value: unknown): string | undefined => readLocalizedTextValue(value)
 
 type RuntimeColumn = NonNullable<CrudDashboardState['appData']>['columns'][number]
 
@@ -101,23 +81,21 @@ const hasRuntimeRowVersion = (row: Record<string, unknown> | null): boolean => {
     return Number.isInteger(value) && value > 0
 }
 
-const isWorkflowActionVisible = (row: Record<string, unknown> | null, action: WorkflowAction, columns: RuntimeColumn[]): boolean => {
+const isWorkflowActionVisible = (
+    row: Record<string, unknown> | null,
+    action: WorkflowAction,
+    columns: RuntimeColumn[],
+    capabilities: Record<string, boolean> | undefined
+): boolean => {
     if (!row || !hasRuntimeRowVersion(row)) return false
     const statusValue = readWorkflowStatusValue(row, action, columns)
     if (!statusValue) return false
-    return action.from.some((status) => status.trim().toLowerCase() === statusValue)
+    return evaluateWorkflowActionAvailability({
+        action,
+        currentStatus: statusValue,
+        capabilities
+    }).available
 }
-
-const hasWorkflowCapability = (capabilities: Record<string, boolean> | undefined, capability: string): boolean => {
-    const normalizedCapability = capability.trim().toLowerCase()
-    if (!normalizedCapability || !capabilities) return false
-    const entry = Object.entries(capabilities).find(([key]) => key.trim().toLowerCase() === normalizedCapability)
-    return entry?.[1] === true
-}
-
-const canRunWorkflowAction = (capabilities: Record<string, boolean> | undefined, action: WorkflowAction): boolean =>
-    action.requiredCapabilities.length > 0 &&
-    action.requiredCapabilities.every((capability) => hasWorkflowCapability(capabilities, capability))
 
 /**
  * Shared row-actions dropdown menu (Edit / Delete).
@@ -137,10 +115,8 @@ export function RowActionsMenu({ state, labels, permissions }: RowActionsMenuPro
     const canShowWorkflowActions = Boolean(state.handleWorkflowAction && selectedRow)
     const workflowCapabilities = state.appData?.workflowCapabilities
     const workflowActions = canShowWorkflowActions
-        ? (state.appData?.objectCollection.workflowActions ?? []).filter(
-              (action) =>
-                  isWorkflowActionVisible(selectedRow, action, state.appData?.columns ?? []) &&
-                  canRunWorkflowAction(workflowCapabilities, action)
+        ? (state.appData?.objectCollection.workflowActions ?? []).filter((action) =>
+              isWorkflowActionVisible(selectedRow, action, state.appData?.columns ?? [], workflowCapabilities)
           )
         : []
     const isWorkflowActionPending = Boolean(state.isWorkflowActionPending)

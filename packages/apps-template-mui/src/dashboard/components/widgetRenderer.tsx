@@ -13,6 +13,7 @@ import FileDownloadRoundedIcon from '@mui/icons-material/FileDownloadRounded'
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded'
 import {
     detailsTableWidgetConfigSchema,
+    readLocalizedTextValue,
     type ColumnsContainerConfig,
     type ReportDefinition,
     type RuntimeDatasourceDescriptor
@@ -62,23 +63,8 @@ export function resolveMenuForWidget(
 const MAX_CONTAINER_DEPTH = 1
 const DATASOURCE_TABLE_PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
 
-const readLocalizedWidgetText = (value: unknown, locale: string | undefined): string | undefined => {
-    if (typeof value === 'string') return value.trim() || undefined
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
-
-    const record = value as { _primary?: string; locales?: Record<string, { content?: string }>; en?: string; ru?: string }
-    const normalizedLocale = locale ? locale.split(/[-_]/)[0].toLowerCase() : 'en'
-    const direct = record[normalizedLocale as 'en' | 'ru']
-    if (typeof direct === 'string' && direct.trim()) return direct.trim()
-
-    const primaryLocale = record._primary ?? 'en'
-    return (
-        record.locales?.[normalizedLocale]?.content?.trim() ||
-        record.locales?.[primaryLocale]?.content?.trim() ||
-        record.locales?.en?.content?.trim() ||
-        undefined
-    )
-}
+const readLocalizedWidgetText = (value: unknown, locale: string | undefined): string | undefined =>
+    readLocalizedTextValue(value, locale ?? 'en')
 
 const findRuntimeSectionIdByCodename = (
     details: DashboardDetailsSlot | undefined,

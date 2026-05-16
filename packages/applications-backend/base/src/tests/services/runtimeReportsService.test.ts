@@ -227,4 +227,33 @@ describe('RuntimeReportsService', () => {
 
         expect(csv).toBe('"Learner, Name",Progress\r\n"Ava, ""One""",100\r\n')
     })
+
+    it('serializes localized report labels and values as user-facing text', () => {
+        const localizedTitle = {
+            _schema: '1',
+            _primary: 'en',
+            locales: {
+                en: { content: 'Title' },
+                ru: { content: 'Заголовок' }
+            }
+        }
+
+        const csv = serializeRuntimeReportCsv(
+            {
+                rows: [{ Title: localizedTitle, Payload: { id: 'payload-1', name: 'Raw JSON' } }],
+                total: 1,
+                aggregations: {},
+                definition: {
+                    ...definition,
+                    columns: [
+                        { field: 'Title', label: localizedTitle, type: 'text' },
+                        { field: 'Payload', label: 'Payload', type: 'json' }
+                    ]
+                }
+            },
+            'ru'
+        )
+
+        expect(csv).toBe('Заголовок,Payload\r\nЗаголовок,"{""id"":""payload-1"",""name"":""Raw JSON""}"\r\n')
+    })
 })

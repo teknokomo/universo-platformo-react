@@ -588,25 +588,35 @@ export function ToolbarControls({
 
 export function useViewPreference<TMode extends string>(key: string, defaultMode: TMode) {
     const storageKey = `apps-template.view.${key}`
-    const [mode, setModeState] = useState<TMode>(() => {
-        if (typeof window === 'undefined') return defaultMode
-        const stored = window.localStorage.getItem(storageKey)
-        return stored ? (stored as TMode) : defaultMode
-    })
+    const [mode, setModeState] = useState<TMode>(defaultMode)
 
     const setMode = useCallback(
         (next: TMode) => {
             setModeState(next)
             if (typeof window !== 'undefined') {
-                window.localStorage.setItem(storageKey, next)
+                try {
+                    window.localStorage.setItem(storageKey, next)
+                } catch {
+                    // Ignore storage failures; the visible runtime state remains authoritative.
+                }
             }
         },
         [storageKey]
     )
 
     useEffect(() => {
-        setModeState((current) => current || defaultMode)
-    }, [defaultMode])
+        if (typeof window === 'undefined') {
+            setModeState(defaultMode)
+            return
+        }
+
+        try {
+            const stored = window.localStorage.getItem(storageKey)
+            setModeState(stored ? (stored as TMode) : defaultMode)
+        } catch {
+            setModeState(defaultMode)
+        }
+    }, [defaultMode, storageKey])
 
     return useMemo(() => [mode, setMode] as const, [mode, setMode])
 }

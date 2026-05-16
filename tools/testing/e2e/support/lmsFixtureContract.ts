@@ -583,8 +583,17 @@ export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
             'workspace-isolated': true,
             'covered-by-e2e': true
         }),
-        requiredEntities: ['KnowledgeHome', 'KnowledgeSpaces', 'KnowledgeFolders', 'KnowledgeArticles', 'KnowledgeBookmarks', 'KnowledgeArticle'],
-        evidence: ['Knowledge navigation targets the authored KnowledgeArticles object surface and no longer points to surrogate collections'],
+        requiredEntities: [
+            'KnowledgeHome',
+            'KnowledgeSpaces',
+            'KnowledgeFolders',
+            'KnowledgeArticles',
+            'KnowledgeBookmarks',
+            'KnowledgeArticle'
+        ],
+        evidence: [
+            'Knowledge navigation targets the authored KnowledgeArticles object surface and no longer points to surrogate collections'
+        ],
         gaps: ['Bookmark, trash, and permission-limited knowledge search are not yet full published-app browser flows']
     },
     {
@@ -1669,7 +1678,14 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
                 )
                 .filter((value): value is string => Boolean(value))
         )
-        for (const requiredSectionTarget of ['Courses', 'Modules', 'LearningResources', 'KnowledgeArticles', 'DevelopmentPlans', 'Reports']) {
+        for (const requiredSectionTarget of [
+            'Courses',
+            'Modules',
+            'LearningResources',
+            'KnowledgeArticles',
+            'DevelopmentPlans',
+            'Reports'
+        ]) {
             if (!sectionTargets.has(requiredSectionTarget)) {
                 errors.push(`LMS menuWidget must expose ${requiredSectionTarget} as a direct product-facing section`)
             }

@@ -46,12 +46,7 @@ function ensureDirectories() {
     }
 }
 
-async function captureScreenshot(
-    page: import('@playwright/test').Page,
-    locale: string,
-    category: string,
-    name: string
-) {
+async function captureScreenshot(page: import('@playwright/test').Page, locale: string, category: string, name: string) {
     const dir = path.join(repoRoot, `docs/${locale}/.gitbook/assets/${category}`)
     await page.screenshot({ path: path.join(dir, `${name}.png`), fullPage: true })
 }
@@ -77,10 +72,7 @@ const UI_COPY = {
     }
 } as const
 
-test('@generator capture Pages and LMS documentation screenshots for EN and RU locales', async ({
-    page,
-    runManifest
-}) => {
+test('@generator capture Pages and LMS documentation screenshots for EN and RU locales', async ({ page, runManifest }) => {
     test.setTimeout(300_000)
     ensureDirectories()
 

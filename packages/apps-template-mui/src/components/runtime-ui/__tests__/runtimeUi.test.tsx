@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
-import { FlowListTable, ItemCard, PaginationControls } from '..'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { FlowListTable, ItemCard, PaginationControls, useViewPreference } from '..'
 
 vi.mock('react-i18next', async (importOriginal) => {
     const actual = await importOriginal<typeof import('react-i18next')>()
@@ -27,6 +27,10 @@ vi.mock('react-i18next', async (importOriginal) => {
             }
         })
     }
+})
+
+afterEach(() => {
+    window.localStorage.removeItem('apps-template.view.runtime-test')
 })
 
 describe('runtime UI primitives', () => {
@@ -69,5 +73,18 @@ describe('runtime UI primitives', () => {
         expect(screen.getByTestId('runtime-pagination-surface')).toBeVisible()
         expect(screen.getByText('1-20 of 35')).toBeVisible()
         expect(screen.getByRole('combobox')).toBeVisible()
+    })
+
+    it('loads persisted view preference after mount instead of during the initial render', async () => {
+        window.localStorage.setItem('apps-template.view.runtime-test', 'card')
+
+        const PreferenceProbe = () => {
+            const [mode] = useViewPreference<'list' | 'card'>('runtime-test', 'list')
+            return <span>{mode}</span>
+        }
+
+        render(<PreferenceProbe />)
+
+        expect(await screen.findByText('card')).toBeVisible()
     })
 })
