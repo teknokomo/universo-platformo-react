@@ -15,7 +15,7 @@ import {
     runtimeCodenameTextSql,
     UpdateFailure
 } from '../shared/runtimeHelpers'
-import { RuntimeReportsService, type RuntimeReportFieldMetadata } from '../services/runtimeReportsService'
+import { RuntimeReportsService, serializeRuntimeReportCsv, type RuntimeReportFieldMetadata } from '../services/runtimeReportsService'
 
 const reportRunBodySchema = z
     .object({
@@ -35,6 +35,28 @@ const reportRunBodySchema = z
             })
         }
     })
+
+const reportExportBodySchema = z
+    .object({
+        reportId: z.string().trim().min(1).max(128).optional(),
+        reportCodename: z.string().trim().min(1).max(128).optional(),
+        limit: z.coerce.number().int().positive().max(5000).optional(),
+        offset: z.coerce.number().int().min(0).optional(),
+        locale: z.string().trim().min(2).max(16).optional().default('en')
+    })
+    .strict()
+    .superRefine((value, ctx) => {
+        const references = [value.reportId, value.reportCodename].filter((item) => typeof item === 'string' && item.trim().length > 0)
+        if (references.length !== 1) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'Provide exactly one report reference',
+                path: ['reportId']
+            })
+        }
+    })
+
+type RuntimeSchemaContext = NonNullable<Awaited<ReturnType<typeof resolveRuntimeSchema>>>
 
 type RuntimeReportTarget = {
     id: string
@@ -284,9 +306,46 @@ const loadSavedReportDefinition = async (params: {
     return parsed.data
 }
 
+const buildCsvAttachmentFilename = (codename: string): string => {
+    const normalized = codename
+        .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+        .replace(/[^a-zA-Z0-9._-]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 80)
+    return `${normalized || 'runtime-report'}.csv`
+}
+
 export function createRuntimeReportsController(getDbExecutor: () => DbExecutor) {
     const query = createQueryHelper(getDbExecutor)
     const service = new RuntimeReportsService()
+
+    const resolveSavedReportExecution = async (ctx: RuntimeSchemaContext, reference: { reportId?: string; reportCodename?: string }) => {
+        const reportsObject = await resolveReportsObjectTarget({
+            executor: ctx.manager,
+            schemaIdent: ctx.schemaIdent
+        })
+        const reportsLifecycleContract = resolveApplicationLifecycleContractFromConfig(reportsObject.config)
+        const definition = await loadSavedReportDefinition({
+            executor: ctx.manager,
+            schemaName: ctx.schemaName,
+            reportObject: reportsObject,
+            reportId: reference.reportId,
+            reportCodename: reference.reportCodename,
+            activeCondition: buildRuntimeActiveRowCondition(
+                reportsLifecycleContract,
+                reportsObject.config,
+                undefined,
+                ctx.currentWorkspaceId
+            )
+        })
+        const target = await resolveReportTarget({
+            executor: ctx.manager,
+            schemaIdent: ctx.schemaIdent,
+            definition
+        })
+
+        return { definition, target }
+    }
 
     const runReport = async (req: Request, res: Response) => {
         const parsed = reportRunBodySchema.safeParse(req.body ?? {})
@@ -300,29 +359,7 @@ export function createRuntimeReportsController(getDbExecutor: () => DbExecutor) 
         if (!ensureRuntimePermission(res, ctx, 'readReports')) return
 
         try {
-            const reportsObject = await resolveReportsObjectTarget({
-                executor: ctx.manager,
-                schemaIdent: ctx.schemaIdent
-            })
-            const reportsLifecycleContract = resolveApplicationLifecycleContractFromConfig(reportsObject.config)
-            const definition = await loadSavedReportDefinition({
-                executor: ctx.manager,
-                schemaName: ctx.schemaName,
-                reportObject: reportsObject,
-                reportId: parsed.data.reportId,
-                reportCodename: parsed.data.reportCodename,
-                activeCondition: buildRuntimeActiveRowCondition(
-                    reportsLifecycleContract,
-                    reportsObject.config,
-                    undefined,
-                    ctx.currentWorkspaceId
-                )
-            })
-            const target = await resolveReportTarget({
-                executor: ctx.manager,
-                schemaIdent: ctx.schemaIdent,
-                definition
-            })
+            const { definition, target } = await resolveSavedReportExecution(ctx, parsed.data)
             const lifecycleContract = resolveApplicationLifecycleContractFromConfig(target.config)
             const result = await service.runRecordsListReport({
                 executor: ctx.manager,
@@ -346,7 +383,50 @@ export function createRuntimeReportsController(getDbExecutor: () => DbExecutor) 
         }
     }
 
+    const exportReport = async (req: Request, res: Response) => {
+        const parsed = reportExportBodySchema.safeParse(req.body ?? {})
+        if (!parsed.success) {
+            res.status(400).json({ error: 'Invalid report export payload', details: parsed.error.flatten() })
+            return
+        }
+
+        const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, req.params.applicationId)
+        if (!ctx) return
+        if (!ensureRuntimePermission(res, ctx, 'readReports')) return
+
+        try {
+            const { definition, target } = await resolveSavedReportExecution(ctx, parsed.data)
+            const lifecycleContract = resolveApplicationLifecycleContractFromConfig(target.config)
+            const result = await service.runRecordsListReport({
+                executor: ctx.manager,
+                schemaName: ctx.schemaName,
+                tableName: target.tableName,
+                fields: target.fields,
+                definition,
+                permissions: ctx.permissions,
+                activeCondition: buildRuntimeActiveRowCondition(lifecycleContract, target.config, undefined, ctx.currentWorkspaceId),
+                limit: parsed.data.limit,
+                offset: parsed.data.offset,
+                maxLimit: 5000,
+                defaultLimit: 5000
+            })
+            const csv = serializeRuntimeReportCsv(result, parsed.data.locale)
+            const filename = buildCsvAttachmentFilename(definition.codename)
+
+            res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+            res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+            res.status(200).send(csv)
+        } catch (error) {
+            if (error instanceof UpdateFailure) {
+                res.status(error.statusCode).json(error.body)
+                return
+            }
+            throw error
+        }
+    }
+
     return {
-        runReport
+        runReport,
+        exportReport
     }
 }

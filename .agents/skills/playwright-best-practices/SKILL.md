@@ -16,6 +16,7 @@ This skill provides comprehensive guidance for all aspects of Playwright test de
 These repository-specific rules override the generic Playwright guidance below when working in `upstream-universo-platformo-react`.
 
 -   Use Playwright CLI wrapper commands by default; do not run `pnpm dev` for browser E2E testing.
+-   Before running E2E wrappers, verify the shell uses the repository-supported Node runtime. If the non-interactive shell can resolve an older system Node, activate Node 22 explicitly, for example: `export NVM_DIR="$HOME/.nvm"; . "$NVM_DIR/nvm.sh"; nvm use --silent 22; node -v`.
 -   The E2E application runs on `http://127.0.0.1:3100`, not port `3000`.
 -   The normal manual application can run on port `3000`; do not confuse it with E2E.
 -   For screenshots and browser CLI checks, target `http://127.0.0.1:3100` unless the user explicitly asks for the manual app.

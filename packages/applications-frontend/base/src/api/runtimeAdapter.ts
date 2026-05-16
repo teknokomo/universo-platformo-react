@@ -8,6 +8,7 @@ import {
     deleteApplicationRuntimeRow,
     copyApplicationRuntimeRow,
     runApplicationRuntimeRecordCommand,
+    runApplicationRuntimeWorkflowAction,
     reorderApplicationRuntimeRows
 } from './applications'
 import { applicationsQueryKeys } from './queryKeys'
@@ -75,6 +76,16 @@ export function createRuntimeAdapter(applicationId: string): CrudDataAdapter {
                 objectCollectionId: data?.objectCollectionId,
                 sectionId: data?.sectionId ?? data?.objectCollectionId,
                 expectedVersion: data?.expectedVersion
+            }),
+
+        workflowAction: (rowId, actionCodename, data) =>
+            runApplicationRuntimeWorkflowAction({
+                applicationId,
+                rowId,
+                actionCodename,
+                objectCollectionId: data.objectCollectionId,
+                sectionId: data.sectionId ?? data.objectCollectionId,
+                expectedVersion: data.expectedVersion
             }),
 
         reorderRows: ({ objectCollectionId, sectionId, orderedRowIds }) =>

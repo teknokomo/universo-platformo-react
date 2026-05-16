@@ -128,6 +128,7 @@
             "generalSaved": "Application settings saved",
             "generalSaveError": "Failed to save application settings",
             "accessHint": "Configure generic application and workspace capabilities for each application role. These rules are enforced by the runtime API.",
+            "unsupportedScopeWarning": "Some imported role policy grants use scopes that are not implemented yet. They will be saved as deny rules until scoped predicates are available.",
             "capabilityColumn": "Capability",
             "roles": {
                 "owner": "Owner",
@@ -207,6 +208,153 @@
                 "title": "Widget behavior",
                 "description": "Configure how inherited layouts can override this widget."
             },
+            "resourcePreview": {
+                "title": "Resource preview",
+                "displayTitle": "Display title",
+                "description": "Description",
+                "type": "Resource type",
+                "launchMode": "Launch mode",
+                "pageCodename": "Page codename",
+                "url": "URL",
+                "storageKey": "Storage key",
+                "mimeType": "MIME type",
+                "types": {
+                    "page": "Page",
+                    "url": "URL",
+                    "video": "Video",
+                    "audio": "Audio",
+                    "document": "Document",
+                    "scorm": "SCORM placeholder",
+                    "embed": "Embed",
+                    "file": "File placeholder"
+                },
+                "launchModes": {
+                    "inline": "Inline",
+                    "newTab": "New tab",
+                    "download": "Download"
+                },
+                "validation": {
+                    "missingSource": "Resource preview needs a valid resource source.",
+                    "invalidSource": "Invalid resource source will be removed when saved.",
+                    "deferredSource": "Storage, file, and SCORM resources are saved as placeholders until runtime players are implemented."
+                }
+            },
+            "sequencePolicy": {
+                "title": "Sequence policy",
+                "mode": "Mode",
+                "orderFieldCodename": "Order field codename",
+                "availableFromFieldCodename": "Available from field codename",
+                "availableToFieldCodename": "Available to field codename",
+                "dueAtFieldCodename": "Due-at field codename",
+                "prerequisiteFieldCodename": "Prerequisite field codename",
+                "retryLimit": "Retry limit",
+                "maxAttempts": "Max attempts",
+                "completionConditions": "Completion conditions",
+                "completionCondition": "Condition",
+                "conditionKind": "Condition kind",
+                "conditionField": "Condition field",
+                "conditionValue": "Condition value",
+                "modes": {
+                    "free": "Free",
+                    "sequential": "Sequential",
+                    "scheduled": "Scheduled",
+                    "prerequisite": "Prerequisite"
+                },
+                "conditionKinds": {
+                    "manual": "Manual field",
+                    "progressPercent": "Progress percent",
+                    "scoreAtLeast": "Score at least",
+                    "allStepsCompleted": "All steps completed",
+                    "attendanceMarked": "Attendance marked",
+                    "certificateIssued": "Certificate issued"
+                },
+                "validation": {
+                    "invalidPolicy": "Invalid sequence policy will be removed when saved.",
+                    "sequentialOrder": "Sequential mode needs an order field codename.",
+                    "scheduledFields": "Scheduled mode needs at least one availability or due-date field.",
+                    "prerequisiteField": "Prerequisite mode needs a prerequisite field codename.",
+                    "emptyCompletion": "Sequence policy has no completion conditions yet."
+                }
+            },
+            "reportDefinition": {
+                "title": "Report definition",
+                "codename": "Report codename",
+                "displayTitle": "Report title",
+                "description": "Report description",
+                "columns": "Output columns",
+                "column": "Column",
+                "columnField": "Column field",
+                "columnLabel": "Column label",
+                "columnType": "Column type",
+                "filters": "Filters",
+                "filter": "Filter",
+                "filterField": "Filter field",
+                "filterOperator": "Filter operator",
+                "filterValue": "Filter value",
+                "aggregations": "Aggregations",
+                "aggregation": "Aggregation",
+                "aggregationField": "Aggregation field",
+                "aggregationFunction": "Aggregation function",
+                "aggregationAlias": "Aggregation alias",
+                "columnTypes": {
+                    "text": "Text",
+                    "number": "Number",
+                    "date": "Date",
+                    "status": "Status",
+                    "boolean": "Boolean"
+                },
+                "filterOperators": {
+                    "contains": "Contains",
+                    "equals": "Equals",
+                    "startsWith": "Starts with",
+                    "endsWith": "Ends with",
+                    "isEmpty": "Is empty",
+                    "isNotEmpty": "Is not empty",
+                    "greaterThan": "Greater than",
+                    "greaterThanOrEqual": "Greater than or equal",
+                    "lessThan": "Less than",
+                    "lessThanOrEqual": "Less than or equal"
+                },
+                "aggregationFunctions": {
+                    "count": "Count",
+                    "sum": "Sum",
+                    "avg": "Average",
+                    "min": "Minimum",
+                    "max": "Maximum"
+                },
+                "validation": {
+                    "codename": "Report definition needs a codename.",
+                    "title": "Report definition needs a title.",
+                    "datasource": "Report definition needs a valid datasource.",
+                    "columns": "Report definition needs at least one output column.",
+                    "invalidDefinition": "Invalid report definition will be removed when saved."
+                }
+            },
+            "workflowActions": {
+                "title": "Workflow actions",
+                "action": "Action",
+                "codename": "Action codename",
+                "displayTitle": "Action title",
+                "fromStatuses": "Source statuses",
+                "toStatus": "Target status",
+                "requiredCapabilities": "Required capabilities",
+                "statusFieldCodename": "Status field codename",
+                "statusColumnName": "Status column name",
+                "scriptCodename": "Script codename",
+                "postingCommand": "Posting command",
+                "confirmationRequired": "Confirmation required",
+                "confirmationTitle": "Confirmation title",
+                "confirmationMessage": "Confirmation message",
+                "postingCommands": {
+                    "none": "No posting command",
+                    "post": "Post",
+                    "unpost": "Unpost",
+                    "void": "Void"
+                },
+                "validation": {
+                    "invalidActions": "Invalid workflow actions will be removed when saved."
+                }
+            },
             "datasource": {
                 "title": "Datasource",
                 "kind": "Datasource",
@@ -228,9 +376,15 @@
                 "cardValue": "Fallback value",
                 "cardInterval": "Interval",
                 "cardTrend": "Trend",
+                "cardMetricType": "Metric type",
+                "cardMetricRecordsCount": "Records count",
+                "cardMetricReportAggregation": "Report aggregation",
                 "cardSectionId": "Metric section ID",
                 "cardSectionCodename": "Metric section codename",
                 "cardSearch": "Metric search",
+                "cardReportId": "Report ID",
+                "cardReportCodename": "Report codename",
+                "cardAggregationAlias": "Aggregation alias",
                 "trend": {
                     "up": "Up",
                     "down": "Down",
@@ -239,7 +393,16 @@
                 "ledgerId": "Ledger ID",
                 "ledgerCodename": "Ledger codename",
                 "projectionCodename": "Projection codename",
-                "metricKey": "Metric key"
+                "metricKey": "Metric key",
+                "validation": {
+                    "recordsListTarget": "Records list datasource needs a section reference or section codename.",
+                    "ledgerTarget": "Ledger datasource needs a ledger reference or ledger codename.",
+                    "projectionCodename": "Ledger projection datasource needs a projection codename.",
+                    "chartXField": "Chart datasource needs an X-axis field.",
+                    "chartSeriesField": "Chart datasource needs a series field.",
+                    "reportAggregationMetric": "Report aggregation metrics need a report reference and aggregation alias.",
+                    "unsupportedOverviewMetric": "Unsupported overview card metrics will be removed when saved."
+                }
             },
             "columnsEditor": {
                 "title": "Columns container",
@@ -349,6 +512,7 @@
                 "detailsTable": "Details table",
                 "columnsContainer": "Columns container",
                 "quizWidget": "Quiz widget",
+                "resourcePreview": "Resource preview",
                 "detailsSidePanel": "Details side panel",
                 "productTree": "Product tree",
                 "usersByCountryChart": "Users by country chart",

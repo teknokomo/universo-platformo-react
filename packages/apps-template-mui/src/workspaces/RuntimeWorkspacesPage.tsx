@@ -5,6 +5,8 @@ import {
     Alert,
     Box,
     Button,
+    Card,
+    CardContent,
     Chip,
     CircularProgress,
     Dialog,
@@ -37,7 +39,7 @@ import {
     ViewHeaderMUI as ViewHeader,
     type FlowListTableData,
     type TableColumn
-} from '@universo/template-mui'
+} from '../components/runtime-ui'
 import { FormDialog, type FieldConfig } from '../components/dialogs/FormDialog'
 import { ConfirmDeleteDialog } from '../components/dialogs/ConfirmDeleteDialog'
 import {
@@ -1023,23 +1025,25 @@ export function RuntimeWorkspacesPage({
 
 function WorkspaceMetricCard({ title, value }: { title: string; value: string }) {
     return (
-        <Box
+        <Card
+            variant='outlined'
+            data-testid='runtime-workspace-metric-card'
             sx={{
-                border: 1,
-                borderColor: 'divider',
                 borderRadius: 1,
-                p: 2,
+                height: '100%',
                 minHeight: 112,
-                bgcolor: 'background.paper'
+                flexGrow: 1
             }}
         >
-            <Typography variant='body2' color='text.secondary'>
-                {title}
-            </Typography>
-            <Typography variant='h5' sx={{ mt: 1, overflowWrap: 'anywhere' }}>
-                {value}
-            </Typography>
-        </Box>
+            <CardContent>
+                <Typography component='h2' variant='subtitle2' color='text.secondary' gutterBottom>
+                    {title}
+                </Typography>
+                <Typography variant='h5' component='p' sx={{ overflowWrap: 'anywhere' }}>
+                    {value}
+                </Typography>
+            </CardContent>
+        </Card>
     )
 }
 

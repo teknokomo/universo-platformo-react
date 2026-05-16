@@ -58,8 +58,8 @@ React context provider that globally manages authentication state.
 ```tsx
 import { createAuthClient, AuthProvider } from '@universo/auth-frontend'
 
-const authClient = createAuthClient({ 
-  baseURL: `${window.location.origin}/api/v1` 
+const authClient = createAuthClient({
+  baseURL: `${window.location.origin}/api/v1`
 })
 
 <AuthProvider client={authClient}>
@@ -100,7 +100,7 @@ import { AuthView } from '@universo/auth-frontend'
 ```
 
 **Features:**
-- Toggle between login/registration modes  
+- Toggle between login/registration modes
 - Material-UI TextField integration with icons
 - Comprehensive error handling and display
 - Customizable styling with slots/slotProps
@@ -114,9 +114,9 @@ import { LoginForm } from '@universo/auth-frontend'
 
 <LoginForm
   client={authClient}
-  labels={{ 
-    submit: 'Log In', 
-    submitting: 'Logging in…' 
+  labels={{
+    submit: 'Log In',
+    submitting: 'Logging in…'
   }}
   onSuccess={(user) => console.log('Logged in:', user)}
   onError={(message) => showToast(message)}
@@ -129,9 +129,9 @@ Manages session state and provides authentication methods.
 ```tsx
 import { useSession } from '@universo/auth-frontend'
 
-const { user, loading, error, refresh, logout } = useSession({ 
+const { user, loading, error, refresh, logout } = useSession({
   client: authClient,
-  fetchOnMount: true 
+  fetchOnMount: true
 })
 
 // Current user data
@@ -190,7 +190,7 @@ return <AuthenticatedContent user={user} />
 Automatic CSRF token fetching and inclusion in requests.
 
 ```typescript
-const client = createAuthClient({ 
+const client = createAuthClient({
   baseURL: '/api/v1',
   csrfPath: 'auth/csrf',  // Default
   csrfStorageKey: 'up.auth.csrf'  // Default
@@ -220,8 +220,8 @@ const client = createAuthClient({ baseURL: '/api/v1' })
 ## Development
 
 ### Prerequisites
-- Node.js 18+
-- PNPM workspace environment  
+- Node.js 22.22.2 recommended (>=22.6.0 required)
+- PNPM 10 workspace environment
 - Material-UI peer dependencies
 
 ### Commands
@@ -240,7 +240,7 @@ pnpm --filter @universo/auth-frontend lint
 ```
 
 ### Build Output
-- **CommonJS**: `dist/index.js` + `dist/index.d.ts`  
+- **CommonJS**: `dist/index.js` + `dist/index.d.ts`
 - **ES Modules**: `dist/index.mjs` + `dist/index.d.ts`
 - **TypeScript**: Full type definitions included
 
@@ -257,8 +257,8 @@ pnpm --filter @universo/auth-frontend lint
 import { createAuthClient, AuthProvider, useAuth } from '@universo/auth-frontend'
 import { Routes, Route, Navigate } from 'react-router-dom'
 
-const authClient = createAuthClient({ 
-  baseURL: process.env.REACT_APP_API_URL 
+const authClient = createAuthClient({
+  baseURL: process.env.REACT_APP_API_URL
 })
 
 function App() {
@@ -271,9 +271,9 @@ function App() {
 
 function AppRoutes() {
   const { isAuthenticated, loading } = useAuth()
-  
+
   if (loading) return <LoadingScreen />
-  
+
   return (
     <Routes>
       <Route path="/auth" element={
@@ -315,12 +315,12 @@ export const translateError = (error: string): string => {
     'User not found': 'Account with this email not found',
     'Email already exists': 'Account with this email already exists'
   }
-  
+
   return errorMap[error] || error
 }
 
 // Usage in component
-<AuthView 
+<AuthView
   onLogin={handleLogin}
   onRegister={handleRegister}
   errorMapper={translateError}
@@ -336,7 +336,7 @@ export const translateError = (error: string): string => {
 - Automatically included in all requests
 - Invalid tokens trigger re-fetch (status 419)
 
-### Session Management  
+### Session Management
 - HTTP-only cookies recommended for production
 - Automatic session refresh on app load
 - Secure logout with server-side cleanup

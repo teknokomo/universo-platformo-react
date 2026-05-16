@@ -15,6 +15,7 @@ import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { calculateWeightedProgress, type CompletionItem } from '@universo/types'
 import AppMainLayout from '../layouts/AppMainLayout'
 
 const PUBLIC_CSRF_STORAGE_KEY_PREFIX = 'apps-template-mui:public-csrf'
@@ -101,6 +102,15 @@ type GuestRuntimeQuiz = {
 }
 
 type GuestRuntimePayload = GuestRuntimeModule | GuestRuntimeQuiz
+
+const calculateGuestModuleProgress = (contentItems: GuestRuntimeModule['contentItems'], completedThroughIndex: number): number => {
+    const items: CompletionItem[] = contentItems.map((item, index) => ({
+        id: item.id,
+        status: index <= completedThroughIndex ? 'completed' : 'notStarted'
+    }))
+
+    return calculateWeightedProgress(items)
+}
 
 const normalizeGuestSession = (value: unknown): GuestSession | null => {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -370,7 +380,7 @@ export default function GuestApp(props: GuestAppProps) {
         setModuleCompleted(false)
         setCurrentItemIndex(boundedIndex)
         if (session) {
-            const progressPercent = runtime.contentItems.length > 0 ? ((boundedIndex + 1) / runtime.contentItems.length) * 100 : 0
+            const progressPercent = calculateGuestModuleProgress(runtime.contentItems, boundedIndex)
             progressMutation.mutate({
                 moduleId: runtime.id,
                 progressPercent,

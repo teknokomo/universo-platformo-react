@@ -20,6 +20,8 @@ import AppsRoundedIcon from '@mui/icons-material/AppsRounded'
 import MoreHorizRoundedIcon from '@mui/icons-material/MoreHorizRounded'
 import SchoolRoundedIcon from '@mui/icons-material/SchoolRounded'
 import { sanitizeMenuHref } from '@universo/utils'
+import { useTranslation } from 'react-i18next'
+import i18n from '@universo/i18n'
 import type { DashboardMenuSlot } from '../Dashboard'
 
 export const sanitizeHref = sanitizeMenuHref
@@ -96,8 +98,10 @@ interface MenuContentProps {
 
 export default function MenuContent({ menu }: MenuContentProps) {
     const [overflowAnchor, setOverflowAnchor] = useState<HTMLElement | null>(null)
+    const { t } = useTranslation('apps', { i18n })
     const items = menu?.items ?? []
     const overflowItems = menu?.overflowItems ?? []
+    const overflowLabel = menu?.overflowLabel || t('runtime.menu.more')
     const isWorkspaceRootItem = (item: DashboardMenuSlot['items'][number]) =>
         item.id === 'runtime-workspaces' || item.id === 'workspaces' || /\/workspaces(?:$|\?)/.test(item.href ?? '')
     const firstWorkspaceRootIndex = items.findIndex(isWorkspaceRootItem)
@@ -179,7 +183,7 @@ export default function MenuContent({ menu }: MenuContentProps) {
                 <ListItem disablePadding sx={{ display: 'block' }}>
                     <ListItemButton onClick={(event) => setOverflowAnchor(event.currentTarget)}>
                         <ListItemIcon>{resolveIcon('more')}</ListItemIcon>
-                        <ListItemText primary={menu?.overflowLabel || 'More'} />
+                        <ListItemText primary={overflowLabel} />
                     </ListItemButton>
                     <Menu anchorEl={overflowAnchor} open={Boolean(overflowAnchor)} onClose={() => setOverflowAnchor(null)}>
                         {overflowItems.map((item) => (

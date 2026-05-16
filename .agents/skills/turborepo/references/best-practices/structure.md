@@ -28,7 +28,7 @@ packages:
 {
   "name": "my-monorepo",
   "private": true,
-  "packageManager": "pnpm@9.0.0",
+  "packageManager": "pnpm@10.0.0",
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",

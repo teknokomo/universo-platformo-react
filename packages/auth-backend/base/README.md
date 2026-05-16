@@ -110,7 +110,7 @@ CREATE POLICY "Users can only access their own data" ON app.items
 ### Authentication Middleware
 - **ensureAuth**: Basic authentication validation
 - **ensureAuthenticated**: Session validation middleware
-- **ensureAndRefresh**: Automatic token refresh middleware  
+- **ensureAndRefresh**: Automatic token refresh middleware
 - **createEnsureAuthWithRls**: Advanced RLS-enabled authentication middleware
 
 ### Session Services
@@ -128,8 +128,8 @@ CREATE POLICY "Users can only access their own data" ON app.items
 ## Development
 
 ### Prerequisites
-- Node.js 18+
-- PNPM workspace environment
+- Node.js 22.22.2 recommended (>=22.6.0 required)
+- PNPM 10 workspace environment
 - Access to Supabase project credentials
 - PostgreSQL database with RLS policies (for RLS features)
 
@@ -312,7 +312,7 @@ If migrating from simple authentication to RLS-enabled authentication:
 // Before: Basic authentication
 router.use('/api/v1/metahubs', ensureAuth, metahubsRouter)
 
-// After: RLS-enabled authentication  
+// After: RLS-enabled authentication
 const ensureAuthWithRls = createEnsureAuthWithRls({ getKnex })
 router.use('/api/v1/metahubs', ensureAuthWithRls, metahubsRouter)
 ```
@@ -336,7 +336,7 @@ describe('RLS Context', () => {
             isReleased: () => false
         })
         await applyRlsContext(session, mockJwtToken)
-        
+
         expect(session.query).toHaveBeenCalledWith(
             "SELECT set_config('request.jwt.claims', $1::text, false)",
             [expect.stringContaining('"sub":"test-user-id"')]

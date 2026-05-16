@@ -5,7 +5,8 @@ import {
     objectCollectionRuntimeViewConfigSchema,
     dashboardLayoutConfigSchema,
     runtimePageBlockSchema,
-    reportDefinitionSchema
+    reportDefinitionSchema,
+    workflowActionSchema
 } from '@universo/types'
 import type { RuntimeRecordCommand } from './types'
 
@@ -134,57 +135,23 @@ async function extractErrorMessage(res: Response, fallbackPrefix: string): Promi
     return `${fallbackPrefix} (${res.status}): ${res.statusText}`
 }
 
+const runtimeObjectCollectionSchema = z.object({
+    id: z.string(),
+    kind: z.string().optional(),
+    codename: z.string(),
+    tableName: z.string().nullable(),
+    name: z.string(),
+    runtimeConfig: objectCollectionRuntimeViewConfigSchema.optional(),
+    recordBehavior: objectRecordBehaviorSchema.optional(),
+    pageBlocks: z.array(runtimePageBlockSchema).optional(),
+    workflowActions: z.array(workflowActionSchema).optional()
+})
+
 export const appDataResponseSchema = z.object({
-    section: z
-        .object({
-            id: z.string(),
-            kind: z.string().optional(),
-            codename: z.string(),
-            tableName: z.string().nullable(),
-            name: z.string(),
-            runtimeConfig: objectCollectionRuntimeViewConfigSchema.optional(),
-            recordBehavior: objectRecordBehaviorSchema.optional(),
-            pageBlocks: z.array(runtimePageBlockSchema).optional()
-        })
-        .optional(),
-    objectCollection: z.object({
-        id: z.string(),
-        kind: z.string().optional(),
-        codename: z.string(),
-        tableName: z.string().nullable(),
-        name: z.string(),
-        runtimeConfig: objectCollectionRuntimeViewConfigSchema.optional(),
-        recordBehavior: objectRecordBehaviorSchema.optional(),
-        pageBlocks: z.array(runtimePageBlockSchema).optional()
-    }),
-    sections: z
-        .array(
-            z.object({
-                id: z.string(),
-                kind: z.string().optional(),
-                codename: z.string(),
-                tableName: z.string().nullable(),
-                name: z.string(),
-                runtimeConfig: objectCollectionRuntimeViewConfigSchema.optional(),
-                recordBehavior: objectRecordBehaviorSchema.optional()
-            })
-        )
-        .optional()
-        .default([]),
-    objectCollections: z
-        .array(
-            z.object({
-                id: z.string(),
-                kind: z.string().optional(),
-                codename: z.string(),
-                tableName: z.string().nullable(),
-                name: z.string(),
-                runtimeConfig: objectCollectionRuntimeViewConfigSchema.optional(),
-                recordBehavior: objectRecordBehaviorSchema.optional()
-            })
-        )
-        .optional()
-        .default([]),
+    section: runtimeObjectCollectionSchema.optional(),
+    objectCollection: runtimeObjectCollectionSchema,
+    sections: z.array(runtimeObjectCollectionSchema).optional().default([]),
+    objectCollections: z.array(runtimeObjectCollectionSchema).optional().default([]),
     activeSectionId: z.string().optional(),
     activeObjectCollectionId: z.string().optional(),
     columns: z.array(
@@ -283,6 +250,7 @@ export const appDataResponseSchema = z.object({
     workspacesEnabled: z.boolean().optional().default(false),
     currentWorkspaceId: z.string().nullable().optional(),
     permissions: runtimePermissionsSchema,
+    workflowCapabilities: z.record(z.boolean()).optional(),
     // Added by backend for dashboard rendering; optional for backward compatibility.
     layoutConfig: dashboardLayoutConfigSchema,
     zoneWidgets: z
@@ -612,6 +580,35 @@ export async function runRuntimeReport(options: {
     return parsed.data
 }
 
+export async function exportRuntimeReportCsv(options: {
+    apiBaseUrl: string
+    applicationId: string
+    reportId?: string
+    reportCodename?: string
+    limit?: number
+    offset?: number
+    locale?: string
+    workspaceId?: string | null
+}): Promise<Blob> {
+    const { apiBaseUrl, applicationId, reportId, reportCodename, limit, offset, locale, workspaceId } = options
+    const normalizedBase = apiBaseUrl.replace(/\/$/, '')
+    const url = new URL(buildApiUrl(normalizedBase, `/applications/${applicationId}/runtime/reports/export`))
+    if (workspaceId?.trim()) {
+        url.searchParams.set('workspaceId', workspaceId.trim())
+    }
+
+    const res = await fetchWithCsrf(apiBaseUrl, url.toString(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reportId, reportCodename, limit, offset, locale })
+    })
+    if (!res.ok) {
+        throw new Error(await extractErrorMessage(res, 'Runtime report export failed'))
+    }
+
+    return res.blob()
+}
+
 /** Build the base API URL for a given application's runtime endpoint. */
 function buildAppApiUrl(apiBaseUrl: string, applicationId: string, path = ''): string {
     return buildApiUrl(apiBaseUrl, `/applications/${applicationId}/runtime${path}`)
@@ -762,6 +759,32 @@ export async function runAppRecordCommand(options: {
     })
     if (!res.ok) {
         throw new Error(await extractErrorMessage(res, 'Record command failed'))
+    }
+    return res.json()
+}
+
+export async function runAppWorkflowAction(options: {
+    apiBaseUrl: string
+    applicationId: string
+    rowId: string
+    actionCodename: string
+    objectCollectionId?: string
+    sectionId?: string
+    expectedVersion: number
+}): Promise<Record<string, unknown>> {
+    const { apiBaseUrl, applicationId, rowId, actionCodename, objectCollectionId, sectionId, expectedVersion } = options
+    const resolvedSectionId = sectionId ?? objectCollectionId
+    const url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}/workflow/${encodeURIComponent(actionCodename)}`)
+    const body: Record<string, unknown> = { expectedVersion }
+    if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
+
+    const res = await fetchWithCsrf(apiBaseUrl, url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    })
+    if (!res.ok) {
+        throw new Error(await extractErrorMessage(res, 'Workflow action failed'))
     }
     return res.json()
 }

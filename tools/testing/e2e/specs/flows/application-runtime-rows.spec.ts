@@ -61,6 +61,24 @@ async function fillRuntimeStringField(dialog: Locator, label: string, value: str
     await dialog.getByLabel(label).first().fill(value)
 }
 
+async function fillRuntimeBlockEditorField(page: Page, dialog: Locator, value: string) {
+    const editorRoot = dialog.getByTestId('editorjs-block-editor')
+    await expect(editorRoot).toBeVisible({ timeout: 20_000 })
+    await expect(dialog.getByTestId('editorjs-block-editor-loading')).toHaveCount(0, { timeout: 20_000 })
+    await editorRoot.click({ position: { x: 24, y: 24 } })
+
+    const editableBlock = editorRoot.locator('[contenteditable="true"]').first()
+    await expect(editableBlock).toBeVisible({ timeout: 20_000 })
+    await editableBlock.click()
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A')
+    await page.keyboard.type(value)
+    await expect(editorRoot.getByText(value)).toBeVisible()
+    await expect.poll(async () => editableBlock.innerText()).toContain(value)
+
+    // Editor.js publishes changes through a debounced saver callback.
+    await page.waitForTimeout(800)
+}
+
 async function waitForRuntimeState(
     api: Awaited<ReturnType<typeof createLoggedInApiContext>>,
     applicationId: string,
@@ -124,6 +142,29 @@ function resolveRuntimeFieldKey(runtimeState: RuntimeState, expectedLabel: strin
     }
 
     return matchingColumn.field
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return Boolean(value && typeof value === 'object' && !Array.isArray(value))
+}
+
+function extractRuntimeBlockTexts(value: unknown): string[] {
+    const root = isRecord(value) ? value : null
+    const data = isRecord(root?.data) ? root.data : null
+    const blocks = Array.isArray(root?.blocks) ? root.blocks : Array.isArray(data?.blocks) ? data.blocks : []
+
+    return blocks.flatMap((block) => {
+        const blockRecord = isRecord(block) ? block : null
+        const blockData = isRecord(blockRecord?.data) ? blockRecord.data : null
+        const text = blockData?.text
+        if (typeof text === 'string') return [text]
+        if (!isRecord(text) || !isRecord(text.locales)) return []
+
+        return Object.values(text.locales).flatMap((entry) => {
+            if (!isRecord(entry) || typeof entry.content !== 'string') return []
+            return [entry.content]
+        })
+    })
 }
 
 async function waitForRuntimeRow(
@@ -190,9 +231,13 @@ test('@flow @combined application runtime rows support browser create, edit, cop
     const applicationName = `E2E ${runManifest.runId} Runtime App`
     const attributeLabel = 'Title'
     const attributeCodename = 'title'
+    const contentLabel = 'Article Content'
+    const contentCodename = 'articleContent'
     const createdValue = `Created row ${runManifest.runId}`
     const updatedValue = `Updated row ${runManifest.runId}`
     const copiedValue = `Copied row ${runManifest.runId}`
+    const createdContentValue = `Created block content ${runManifest.runId}`
+    const updatedContentValue = `Updated block content ${runManifest.runId}`
 
     try {
         const metahub = await createMetahub(api, {
@@ -213,16 +258,23 @@ test('@flow @combined application runtime rows support browser create, edit, cop
 
         const objectCollectionId = await waitForObjectId(api, metahub.id)
 
-        const component = await createComponent(api, metahub.id, objectCollectionId, {
-            name: { en: attributeLabel },
+        const contentComponent = await createComponent(api, metahub.id, objectCollectionId, {
+            name: { en: contentLabel },
             namePrimaryLocale: 'en',
-            codename: createLocalizedContent('en', attributeCodename),
-            dataType: 'STRING',
-            isRequired: false
+            codename: createLocalizedContent('en', contentCodename),
+            dataType: 'JSON',
+            isRequired: false,
+            uiConfig: {
+                widget: 'editorjsBlockContent',
+                blockEditor: {
+                    allowedBlockTypes: ['paragraph', 'header'],
+                    maxBlocks: 5
+                }
+            }
         })
 
-        if (!component?.id) {
-            throw new Error('Component creation did not return an id for runtime row coverage')
+        if (!contentComponent?.id) {
+            throw new Error('Block content component creation did not return an id for runtime row coverage')
         }
 
         const publication = await createPublication(api, metahub.id, {
@@ -268,6 +320,7 @@ test('@flow @combined application runtime rows support browser create, edit, cop
 
         const runtimeState = await waitForRuntimeState(api, applicationId, objectCollectionId)
         const runtimeFieldKey = resolveRuntimeFieldKey(runtimeState, attributeLabel, attributeCodename)
+        const contentRuntimeFieldKey = resolveRuntimeFieldKey(runtimeState, contentLabel, contentCodename)
 
         await page.goto(`/a/${applicationId}`)
         await expect(page.getByTestId(applicationSelectors.runtimeCreateButton)).toBeEnabled({ timeout: 30_000 })
@@ -277,6 +330,7 @@ test('@flow @combined application runtime rows support browser create, edit, cop
         const createDialog = page.getByRole('dialog', { name: 'Create element' })
         await expect(createDialog).toBeVisible()
         await fillRuntimeStringField(createDialog, attributeLabel, createdValue)
+        await fillRuntimeBlockEditorField(page, createDialog, createdContentValue)
 
         const createRequest = waitForSettledMutationResponse(
             page,
@@ -296,6 +350,7 @@ test('@flow @combined application runtime rows support browser create, edit, cop
 
         const persistedCreatedRow = await waitForRuntimeRow(api, applicationId, objectCollectionId, createdRow.id)
         expect(persistedCreatedRow[runtimeFieldKey]).toBe(createdValue)
+        expect(extractRuntimeBlockTexts(persistedCreatedRow[contentRuntimeFieldKey])).toContain(createdContentValue)
 
         await page.getByTestId(buildGridRowActionsTriggerSelector(createdRow.id)).click()
         await page.getByRole('menuitem', { name: 'Edit' }).click()
@@ -303,6 +358,7 @@ test('@flow @combined application runtime rows support browser create, edit, cop
         const editDialog = page.getByRole('dialog', { name: 'Edit element' })
         await expect(editDialog).toBeVisible()
         await fillRuntimeStringField(editDialog, attributeLabel, updatedValue)
+        await fillRuntimeBlockEditorField(page, editDialog, updatedContentValue)
 
         const editRequest = waitForSettledMutationResponse(
             page,
@@ -318,6 +374,7 @@ test('@flow @combined application runtime rows support browser create, edit, cop
 
         const persistedEditedRow = await waitForRuntimeRow(api, applicationId, objectCollectionId, createdRow.id)
         expect(persistedEditedRow[runtimeFieldKey]).toBe(updatedValue)
+        expect(extractRuntimeBlockTexts(persistedEditedRow[contentRuntimeFieldKey])).toContain(updatedContentValue)
         await ensureRuntimeRowVisible(page, createdRow.id, updatedValue)
 
         await page.getByTestId(buildGridRowActionsTriggerSelector(createdRow.id)).click()
@@ -344,6 +401,7 @@ test('@flow @combined application runtime rows support browser create, edit, cop
         const runtimeAfterCopy = await waitForRuntimeRowCount(api, applicationId, objectCollectionId, 2)
         const persistedCopiedRow = runtimeAfterCopy?.rows?.find((row) => row.id === copiedRow.id)
         expect(persistedCopiedRow?.[runtimeFieldKey]).toBe(copiedValue)
+        expect(extractRuntimeBlockTexts(persistedCopiedRow?.[contentRuntimeFieldKey])).toContain(updatedContentValue)
         await ensureRuntimeRowVisible(page, copiedRow.id, copiedValue)
 
         await page.getByTestId(buildGridRowActionsTriggerSelector(copiedRow.id)).click()

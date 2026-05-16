@@ -60,8 +60,8 @@ Frontend package for entity-first metahub authoring, shared resources, and dynam
 ### Prerequisites
 ```bash
 # System requirements
-Node.js >= 18.0.0
-PNPM >= 8.0.0
+Node.js >= 22.6.0
+PNPM >= 10.0.0
 ```
 
 ### Installation
@@ -79,15 +79,15 @@ pnpm --filter @universo/metahubs-frontend dev
 ### Integration
 ```tsx
 // Import components in your React application
-import { 
-  MetahubList, 
-  MetahubBoard, 
+import {
+  MetahubList,
+  MetahubBoard,
   MetahubResources,
   StandardEntityCollectionPage,
   StandardEntityChildCollectionPage,
   FieldDefinitionList,
   RecordList,
-  metahubsDashboard 
+  metahubsDashboard
 } from '@universo/metahubs-frontend'
 
 // Import i18n resources
@@ -298,8 +298,8 @@ function useMetahubs() {
 ## Development
 
 ### Prerequisites
-- Node.js 18+
-- pnpm 8+
+- Node.js 22.22.2 recommended (>=22.6.0 required)
+- pnpm 10.x
 - TypeScript 5+
 
 ### Available Scripts

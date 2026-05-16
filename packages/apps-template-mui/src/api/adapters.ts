@@ -6,7 +6,8 @@ import {
     deleteAppRow,
     copyAppRow,
     fetchTabularRows,
-    runAppRecordCommand
+    runAppRecordCommand,
+    runAppWorkflowAction
 } from './api'
 import { appQueryKeys } from './mutations'
 import type { CrudDataAdapter } from './types'
@@ -71,6 +72,17 @@ export function createStandaloneAdapter(params: { apiBaseUrl: string; applicatio
                 objectCollectionId: data?.objectCollectionId,
                 sectionId: data?.sectionId ?? data?.objectCollectionId,
                 expectedVersion: data?.expectedVersion
+            }),
+
+        workflowAction: (rowId, actionCodename, data) =>
+            runAppWorkflowAction({
+                apiBaseUrl,
+                applicationId,
+                rowId,
+                actionCodename,
+                objectCollectionId: data.objectCollectionId,
+                sectionId: data.sectionId ?? data.objectCollectionId,
+                expectedVersion: data.expectedVersion
             })
     }
 }

@@ -51,8 +51,8 @@
 ### Предварительные требования
 ```bash
 # Системные требования
-Node.js >= 18.0.0
-PNPM >= 8.0.0
+Node.js >= 22.6.0
+PNPM >= 10.0.0
 ```
 
 ### Установка
@@ -70,9 +70,9 @@ pnpm --filter @universo/applications-frontend test
 ### Интеграция
 ```tsx
 // Импорт компонентов в React приложении
-import { 
-  ApplicationList, 
-  ApplicationBoard, 
+import {
+  ApplicationList,
+  ApplicationBoard,
   ConnectorList,
   ApplicationLayouts,
   ApplicationMembers

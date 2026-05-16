@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express'
 import { z } from 'zod'
 import type { VersionedLocalizedContent } from '@universo/types'
-import { applicationRolePolicySettingsSchema } from '@universo/types'
+import { applicationRolePolicySettingsSchema, sanitizeApplicationRolePolicySettingsForSupportedScopes } from '@universo/types'
 import { ApplicationMembershipState } from '@universo/types'
 import type { DbExecutor } from '@universo/utils'
 import { database, normalizeApplicationCopyOptions, OptimisticLockError } from '@universo/utils'
@@ -177,6 +177,13 @@ const applicationSettingsUpdateSchema = applicationDialogSettingsSchema
     .strict()
 
 const SERVER_MANAGED_APPLICATION_SETTING_KEYS = ['publicRuntime', 'guestRuntime'] as const
+
+const sanitizeApplicationSettingsUpdate = (
+    settings: z.infer<typeof applicationSettingsUpdateSchema>
+): z.infer<typeof applicationSettingsUpdateSchema> => ({
+    ...settings,
+    ...(settings.rolePolicies ? { rolePolicies: sanitizeApplicationRolePolicySettingsForSupportedScopes(settings.rolePolicies) } : {})
+})
 
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === 'object' && !Array.isArray(value))
 
@@ -764,8 +771,11 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
             nextSlug = slug ?? null
         }
 
+        const sanitizedSettings = settings !== undefined ? sanitizeApplicationSettingsUpdate(settings) : undefined
         const nextSettings =
-            settings !== undefined ? mergeApplicationSettingsForUpdate(application.settings ?? {}, settings) : application.settings ?? {}
+            sanitizedSettings !== undefined
+                ? mergeApplicationSettingsForUpdate(application.settings ?? {}, sanitizedSettings)
+                : application.settings ?? {}
 
         let saved = await updateApplication(
             {
@@ -775,7 +785,7 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
                 applicationId,
                 name: name !== undefined ? nextName : undefined,
                 description: description !== undefined ? nextDescription : undefined,
-                settings: settings !== undefined ? nextSettings : undefined,
+                settings: sanitizedSettings !== undefined ? nextSettings : undefined,
                 slug: slug !== undefined ? nextSlug : undefined,
                 isPublic,
                 userId,

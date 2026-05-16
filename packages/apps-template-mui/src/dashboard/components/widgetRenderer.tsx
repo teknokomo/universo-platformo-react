@@ -1,15 +1,31 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import type { GridColDef, GridFilterModel, GridPaginationModel, GridSortModel } from '@mui/x-data-grid'
 import Avatar from '@mui/material/Avatar'
 import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
 import Divider from '@mui/material/Divider'
 import Grid from '@mui/material/Grid'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
+import FileDownloadRoundedIcon from '@mui/icons-material/FileDownloadRounded'
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded'
-import { detailsTableWidgetConfigSchema, type ColumnsContainerConfig, type RuntimeDatasourceDescriptor } from '@universo/types'
-import { fetchAppData, fetchRuntimeLedgerFacts, fetchRuntimeLedgerProjection } from '../../api/api'
+import {
+    detailsTableWidgetConfigSchema,
+    readLocalizedTextValue,
+    type ColumnsContainerConfig,
+    type ReportDefinition,
+    type RuntimeDatasourceDescriptor
+} from '@universo/types'
+import {
+    exportRuntimeReportCsv,
+    fetchAppData,
+    fetchRuntimeLedgerFacts,
+    fetchRuntimeLedgerProjection,
+    runRuntimeReport
+} from '../../api/api'
+import { ResourcePreview } from '../../components/resource-preview'
 import { toGridColumns } from '../../utils/columns'
 import { formatRuntimeValue } from '../../utils/displayValue'
 import { mapGridFilterModel, mapGridSortModel } from '../../utils/runtimeListQuery'
@@ -46,6 +62,9 @@ export function resolveMenuForWidget(
  */
 const MAX_CONTAINER_DEPTH = 1
 const DATASOURCE_TABLE_PAGE_SIZE_OPTIONS = [10, 20, 50, 100]
+
+const readLocalizedWidgetText = (value: unknown, locale: string | undefined): string | undefined =>
+    readLocalizedTextValue(value, locale ?? 'en')
 
 const findRuntimeSectionIdByCodename = (
     details: DashboardDetailsSlot | undefined,
@@ -284,8 +303,148 @@ function CurrentDetailsTableWidget() {
     )
 }
 
+const toReportGridRows = (rows: Array<Record<string, unknown>>): Array<Record<string, unknown> & { id: string }> =>
+    rows.map((row, index) => ({
+        id: typeof row.id === 'string' ? row.id : `report-row-${index}`,
+        ...row
+    }))
+
+const toReportGridColumns = (definition: ReportDefinition, locale: string): GridColDef[] =>
+    definition.columns.map((column) => ({
+        field: column.field,
+        headerName: readLocalizedWidgetText(column.label, locale) ?? column.field,
+        flex: 1,
+        minWidth: column.type === 'number' ? 120 : 160,
+        type: column.type === 'number' || column.type === 'boolean' ? column.type : 'string',
+        renderCell: (params) => formatRuntimeValue(params.value, locale)
+    }))
+
+function ReportDetailsTableWidget({ definition }: { definition: ReportDefinition }) {
+    const details = useDashboardDetails()
+    const { t } = useTranslation('apps')
+    const [paginationModel, setPaginationModelState] = useState<GridPaginationModel>({ page: 0, pageSize: 20 })
+    const [isExporting, setIsExporting] = useState(false)
+    const [exportError, setExportError] = useState<string | null>(null)
+    const limit = paginationModel.pageSize
+    const offset = paginationModel.page * paginationModel.pageSize
+    const canFetch = Boolean(details?.apiBaseUrl && details.applicationId)
+    const reportCodename = definition.codename
+
+    const query = useQuery({
+        queryKey: [
+            ...(details?.runtimeQueryKeyPrefix ?? []),
+            'report-definition',
+            reportCodename,
+            { limit, offset, workspaceId: details?.currentWorkspaceId ?? null }
+        ],
+        queryFn: () =>
+            runRuntimeReport({
+                apiBaseUrl: details!.apiBaseUrl!,
+                applicationId: details!.applicationId!,
+                reportCodename,
+                limit,
+                offset,
+                workspaceId: details?.currentWorkspaceId
+            }),
+        enabled: canFetch,
+        placeholderData: (previous) => previous
+    })
+
+    const rows = useMemo(() => toReportGridRows(query.data?.rows ?? []), [query.data?.rows])
+    const columns = useMemo(
+        () => toReportGridColumns(query.data?.definition ?? definition, details?.locale ?? 'en'),
+        [definition, details?.locale, query.data?.definition]
+    )
+
+    const handleExport = async () => {
+        if (!details?.apiBaseUrl || !details.applicationId) return
+
+        setIsExporting(true)
+        setExportError(null)
+        try {
+            const blob = await exportRuntimeReportCsv({
+                apiBaseUrl: details.apiBaseUrl,
+                applicationId: details.applicationId,
+                reportCodename,
+                limit: 5000,
+                offset: 0,
+                locale: details.locale ?? 'en',
+                workspaceId: details.currentWorkspaceId
+            })
+            if (typeof URL.createObjectURL !== 'function') {
+                throw new Error(t('reports.exportUnsupported'))
+            }
+
+            const objectUrl = URL.createObjectURL(blob)
+            const link = document.createElement('a')
+            link.href = objectUrl
+            link.download = `${reportCodename.replace(/[^a-zA-Z0-9._-]+/g, '-') || 'runtime-report'}.csv`
+            document.body.appendChild(link)
+            link.click()
+            link.remove()
+            URL.revokeObjectURL(objectUrl)
+        } catch (error) {
+            setExportError(error instanceof Error ? error.message : String(error))
+        } finally {
+            setIsExporting(false)
+        }
+    }
+
+    if (!canFetch) {
+        return <CurrentDetailsTableWidget />
+    }
+
+    return (
+        <Stack spacing={1.5}>
+            <Stack direction='row' justifyContent='flex-end'>
+                <Button
+                    type='button'
+                    size='small'
+                    variant='outlined'
+                    startIcon={<FileDownloadRoundedIcon fontSize='small' />}
+                    disabled={isExporting}
+                    onClick={handleExport}
+                >
+                    {isExporting ? t('reports.exporting') : t('reports.exportCsv')}
+                </Button>
+            </Stack>
+            {exportError ? (
+                <Typography variant='body2' color='error'>
+                    {t('reports.exportError', { message: exportError })}
+                </Typography>
+            ) : null}
+            <CustomizedDataGrid
+                rows={rows}
+                columns={columns}
+                loading={query.isLoading || query.isFetching}
+                rowCount={query.data?.total ?? 0}
+                paginationModel={paginationModel}
+                onPaginationModelChange={setPaginationModelState}
+                pageSizeOptions={DATASOURCE_TABLE_PAGE_SIZE_OPTIONS}
+                localeText={details?.localeText}
+            />
+        </Stack>
+    )
+}
+
+function ResourcePreviewWidget({ config }: { config?: Record<string, unknown> }) {
+    const details = useDashboardDetails()
+
+    return (
+        <ResourcePreview
+            source={config?.source}
+            title={readLocalizedWidgetText(config?.title, details?.locale)}
+            description={readLocalizedWidgetText(config?.description, details?.locale)}
+        />
+    )
+}
+
 function DetailsTableWidget({ config }: { config?: Record<string, unknown> }) {
     const parsed = detailsTableWidgetConfigSchema.safeParse(config ?? {})
+    const reportDefinition = parsed.success ? parsed.data.reportDefinition : undefined
+    if (reportDefinition) {
+        return <ReportDetailsTableWidget definition={reportDefinition} />
+    }
     const datasource = parsed.success ? parsed.data.datasource : undefined
     if (datasource?.kind === 'records.list') {
         return <RecordsListDetailsTableWidget datasource={datasource} />
@@ -357,6 +516,8 @@ export function renderWidget(widget: ZoneWidgetItem, menus?: DashboardMenusMap, 
             return <DetailsTableWidget key={widget.id} config={widget.config} />
         case 'quizWidget':
             return <QuizWidget key={widget.id} config={widget.config} />
+        case 'resourcePreview':
+            return <ResourcePreviewWidget key={widget.id} config={widget.config} />
         case 'columnsContainer': {
             // Guard against infinite recursion if a columnsContainer nests another
             if (depth >= MAX_CONTAINER_DEPTH) return null

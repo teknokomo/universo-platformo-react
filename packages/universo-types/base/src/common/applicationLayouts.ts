@@ -3,11 +3,15 @@ import { dashboardLayoutConfigSchema } from './dashboardLayout'
 import { DASHBOARD_LAYOUT_WIDGETS, DASHBOARD_LAYOUT_ZONES } from './metahubs'
 import {
     ledgerProjectionDatasourceSchema,
-    recordsCountMetricDatasourceSchema,
     recordsListDatasourceSchema,
-    runtimeDatasourceDescriptorSchema
+    runtimeDatasourceDescriptorSchema,
+    statCardMetricDatasourceSchema
 } from './runtimeDataSources'
+import { resourceSourceSchema } from './resourceSources'
 import { SCRIPT_ATTACHMENT_KIND_PATTERN } from './scripts'
+import { sequencePolicySchema } from './sequenceCompletion'
+import { reportDefinitionSchema } from './lmsPlatform'
+import { workflowActionSchema } from './workflowActions'
 
 export const APPLICATION_LAYOUT_SOURCE_KINDS = ['metahub', 'application'] as const
 export type ApplicationLayoutSourceKind = (typeof APPLICATION_LAYOUT_SOURCE_KINDS)[number]
@@ -140,6 +144,9 @@ export const detailsTableWidgetConfigSchema = z
         datasource: runtimeDatasourceDescriptorSchema.optional(),
         enableRowReordering: z.boolean().optional(),
         showViewToggle: z.boolean().optional(),
+        sequencePolicy: sequencePolicySchema.optional(),
+        reportDefinition: reportDefinitionSchema.optional(),
+        workflowActions: z.array(workflowActionSchema).max(16).optional(),
         sharedBehavior: sharedBehaviorSchema.optional()
     })
     .strict()
@@ -151,7 +158,7 @@ export const statCardWidgetConfigSchema = z
         interval: localizedWidgetTextSchema.optional(),
         trend: z.enum(['up', 'down', 'neutral']).optional(),
         data: z.array(z.number()).max(120).optional(),
-        datasource: recordsCountMetricDatasourceSchema.optional()
+        datasource: statCardMetricDatasourceSchema.optional()
     })
     .strict()
 
@@ -192,6 +199,17 @@ export const recordsSeriesChartWidgetConfigSchema = z
 
 export type RecordsSeriesChartWidgetConfig = z.infer<typeof recordsSeriesChartWidgetConfigSchema>
 
+export const resourcePreviewWidgetConfigSchema = z
+    .object({
+        title: localizedWidgetTextSchema.optional(),
+        description: localizedWidgetTextSchema.optional(),
+        source: resourceSourceSchema.optional(),
+        sharedBehavior: sharedBehaviorSchema.optional()
+    })
+    .strict()
+
+export type ResourcePreviewWidgetConfig = z.infer<typeof resourcePreviewWidgetConfigSchema>
+
 const widgetConfigSchemaByKey = {
     menuWidget: menuWidgetConfigSchema,
     columnsContainer: columnsContainerWidgetConfigSchema,
@@ -199,7 +217,8 @@ const widgetConfigSchemaByKey = {
     detailsTable: detailsTableWidgetConfigSchema,
     overviewCards: overviewCardsWidgetConfigSchema,
     sessionsChart: recordsSeriesChartWidgetConfigSchema,
-    pageViewsChart: recordsSeriesChartWidgetConfigSchema
+    pageViewsChart: recordsSeriesChartWidgetConfigSchema,
+    resourcePreview: resourcePreviewWidgetConfigSchema
 } as const
 
 export const applicationLayoutWidgetConfigSchema = genericWidgetConfigSchema

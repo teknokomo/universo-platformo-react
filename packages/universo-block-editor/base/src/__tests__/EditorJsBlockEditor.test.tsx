@@ -1,41 +1,43 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { PageBlockContent } from '@universo/types'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { EditorJsBlockEditor } from '../EditorJsBlockEditor'
 import { loadEditorJsToolBundle } from '../editorJsTools'
 
-const mockEditorInstances: Array<{
-    isReady: Promise<void>
-    destroy: jest.Mock
-    render: jest.Mock
-    config: Record<string, unknown>
-}> = []
+const mockState = vi.hoisted(() => ({
+    editorInstances: [] as Array<{
+        isReady: Promise<void>
+        destroy: ReturnType<typeof vi.fn>
+        render: ReturnType<typeof vi.fn>
+        config: Record<string, unknown>
+    }>,
+    nextEditorReadyPromise: null as Promise<void> | null,
+    editorConstructor: vi.fn()
+}))
 
-let nextEditorReadyPromise: Promise<void> | null = null
-
-const mockEditorConstructor = jest.fn().mockImplementation((config: Record<string, unknown>) => {
+mockState.editorConstructor.mockImplementation((config: Record<string, unknown>) => {
     const instance = {
-        isReady: nextEditorReadyPromise ?? Promise.resolve(),
-        destroy: jest.fn(),
-        render: jest.fn(),
+        isReady: mockState.nextEditorReadyPromise ?? Promise.resolve(),
+        destroy: vi.fn(),
+        render: vi.fn(),
         config
     }
-    nextEditorReadyPromise = null
-    mockEditorInstances.push(instance)
+    mockState.nextEditorReadyPromise = null
+    mockState.editorInstances.push(instance)
     return instance
 })
 
-jest.mock('@editorjs/editorjs', () => ({
-    __esModule: true,
-    default: mockEditorConstructor
+vi.mock('@editorjs/editorjs', () => ({
+    default: mockState.editorConstructor
 }))
 
-jest.mock('../editorJsTools', () => {
-    const actual = jest.requireActual('../editorJsTools')
+vi.mock('../editorJsTools', async () => {
+    const actual = await vi.importActual<typeof import('../editorJsTools')>('../editorJsTools')
     return {
         ...actual,
-        buildEditorJsTools: jest.fn(() => ({ paragraph: { class: class ParagraphTool {} } })),
-        loadEditorJsToolBundle: jest.fn(async () => ({
+        buildEditorJsTools: vi.fn(() => ({ paragraph: { class: class ParagraphTool {} } })),
+        loadEditorJsToolBundle: vi.fn(async () => ({
             Header: class HeaderTool {},
             List: class ListTool {},
             Quote: class QuoteTool {},
@@ -78,12 +80,17 @@ const makeLocalizedContent = (): PageBlockContent => ({
     ]
 })
 
+const makeEmptyContent = (): PageBlockContent => ({
+    format: 'editorjs',
+    blocks: []
+})
+
 describe('EditorJsBlockEditor', () => {
     beforeEach(() => {
-        jest.clearAllMocks()
-        mockEditorInstances.length = 0
-        nextEditorReadyPromise = null
-        jest.mocked(loadEditorJsToolBundle).mockImplementation(async () => ({
+        vi.clearAllMocks()
+        mockState.editorInstances.length = 0
+        mockState.nextEditorReadyPromise = null
+        vi.mocked(loadEditorJsToolBundle).mockImplementation(async () => ({
             Header: class HeaderTool {},
             List: class ListTool {},
             Quote: class QuoteTool {},
@@ -95,11 +102,11 @@ describe('EditorJsBlockEditor', () => {
     })
 
     it('renders external value changes into an already mounted Editor.js instance', async () => {
-        const onChange = jest.fn()
+        const onChange = vi.fn()
         const { rerender } = render(<EditorJsBlockEditor value={makeContent('First')} onChange={onChange} />)
 
-        await waitFor(() => expect(mockEditorConstructor).toHaveBeenCalledTimes(1))
-        const instance = mockEditorInstances[0]
+        await waitFor(() => expect(mockState.editorConstructor).toHaveBeenCalledTimes(1))
+        const instance = mockState.editorInstances[0]
 
         expect((instance.config.data as { blocks: Array<{ data: { text: string } }> }).blocks[0].data.text).toBe('First')
 
@@ -109,17 +116,51 @@ describe('EditorJsBlockEditor', () => {
         expect((instance.render.mock.calls[0][0] as { blocks: Array<{ data: { text: string } }> }).blocks[0].data.text).toBe('Second')
     })
 
+    it('seeds an editable paragraph for empty authoring content without mutating storage eagerly', async () => {
+        const onChange = vi.fn()
+
+        render(<EditorJsBlockEditor value={makeEmptyContent()} allowedBlockTypes={['paragraph', 'header']} onChange={onChange} />)
+
+        await waitFor(() => expect(mockState.editorConstructor).toHaveBeenCalledTimes(1))
+        const instance = mockState.editorInstances[0]
+        const data = instance.config.data as { blocks: Array<{ type: string; data: { text: string } }> }
+
+        expect(data.blocks).toEqual([{ type: 'paragraph', data: { text: '' } }])
+        expect(instance.config.defaultBlock).toBe('paragraph')
+        expect(onChange).not.toHaveBeenCalled()
+    })
+
+    it('keeps the Editor.js instance stable when equivalent block constraints are recreated', async () => {
+        const onChange = vi.fn()
+        const value = makeEmptyContent()
+        const { rerender } = render(
+            <EditorJsBlockEditor value={value} allowedBlockTypes={['paragraph', 'header']} maxBlocks={5} onChange={onChange} />
+        )
+
+        await waitFor(() => expect(mockState.editorConstructor).toHaveBeenCalledTimes(1))
+        const instance = mockState.editorInstances[0]
+
+        rerender(<EditorJsBlockEditor value={value} allowedBlockTypes={['paragraph', 'header']} maxBlocks={5} onChange={onChange} />)
+
+        await act(async () => {
+            await Promise.resolve()
+        })
+
+        expect(mockState.editorConstructor).toHaveBeenCalledTimes(1)
+        expect(instance.destroy).not.toHaveBeenCalled()
+    })
+
     it('renders entity content that arrives while Editor.js is still mounting', async () => {
-        const onChange = jest.fn()
+        const onChange = vi.fn()
         let resolveEditorReady: (() => void) | undefined
-        nextEditorReadyPromise = new Promise<void>((resolve) => {
+        mockState.nextEditorReadyPromise = new Promise<void>((resolve) => {
             resolveEditorReady = resolve
         })
 
         const { rerender } = render(<EditorJsBlockEditor value={makeContent('')} onChange={onChange} />)
 
-        await waitFor(() => expect(mockEditorConstructor).toHaveBeenCalledTimes(1))
-        const instance = mockEditorInstances[0]
+        await waitFor(() => expect(mockState.editorConstructor).toHaveBeenCalledTimes(1))
+        const instance = mockState.editorInstances[0]
 
         rerender(<EditorJsBlockEditor value={makeContent('LoadedEntityContent')} onChange={onChange} />)
 
@@ -133,8 +174,8 @@ describe('EditorJsBlockEditor', () => {
     })
 
     it('normalizes raw Editor.js output in the fallback JSON editor', async () => {
-        jest.mocked(loadEditorJsToolBundle).mockRejectedValueOnce(new Error('tools unavailable'))
-        const onChange = jest.fn()
+        vi.mocked(loadEditorJsToolBundle).mockRejectedValueOnce(new Error('tools unavailable'))
+        const onChange = vi.fn()
 
         render(
             <EditorJsBlockEditor
@@ -167,12 +208,12 @@ describe('EditorJsBlockEditor', () => {
     })
 
     it('initializes Editor.js with the selected content locale and a complete Russian menu dictionary', async () => {
-        const onChange = jest.fn()
+        const onChange = vi.fn()
 
         render(<EditorJsBlockEditor value={makeLocalizedContent()} locale='ru' contentLocale='ru' onChange={onChange} />)
 
-        await waitFor(() => expect(mockEditorConstructor).toHaveBeenCalledTimes(1))
-        const config = mockEditorInstances[0].config
+        await waitFor(() => expect(mockState.editorConstructor).toHaveBeenCalledTimes(1))
+        const config = mockState.editorInstances[0].config
         const data = config.data as { blocks: Array<{ data: { text: string } }> }
         const i18n = config.i18n as {
             messages: {
@@ -190,9 +231,9 @@ describe('EditorJsBlockEditor', () => {
     })
 
     it('applies configured block constraints in the fallback JSON editor', async () => {
-        jest.mocked(loadEditorJsToolBundle).mockRejectedValueOnce(new Error('tools unavailable'))
-        const onChange = jest.fn()
-        const onValidationError = jest.fn()
+        vi.mocked(loadEditorJsToolBundle).mockRejectedValueOnce(new Error('tools unavailable'))
+        const onChange = vi.fn()
+        const onValidationError = vi.fn()
 
         render(
             <EditorJsBlockEditor

@@ -1,7 +1,304 @@
-import type { MetahubTemplateManifest, TemplateSeedZoneWidget } from '@universo/types'
+import type { MetahubTemplateManifest, TemplateSeedZoneWidget, WorkflowAction } from '@universo/types'
 import { vlc, enrichConfigWithVlcTimestamps } from './basic.template'
 
 type LmsTemplateEntity = NonNullable<MetahubTemplateManifest['seed']['entities']>[number]
+
+type LmsWorkflowActionOptions = {
+    codename: string
+    titleEn: string
+    titleRu: string
+    from: string[]
+    to: string
+    statusFieldCodename?: string
+    requiredCapabilities: string[]
+    postingCommand?: WorkflowAction['postingCommand']
+    scriptCodename?: string
+    confirmation?: {
+        titleEn: string
+        titleRu: string
+        messageEn: string
+        messageRu: string
+        confirmLabelEn: string
+        confirmLabelRu: string
+    }
+}
+
+const workflowText = (en: string, ru: string): WorkflowAction['title'] => vlc(en, ru) as unknown as WorkflowAction['title']
+
+const buildLmsWorkflowAction = ({
+    codename,
+    titleEn,
+    titleRu,
+    from,
+    to,
+    statusFieldCodename = 'Status',
+    requiredCapabilities,
+    postingCommand,
+    scriptCodename,
+    confirmation
+}: LmsWorkflowActionOptions): WorkflowAction => ({
+    codename,
+    title: workflowText(titleEn, titleRu),
+    from,
+    to,
+    statusFieldCodename,
+    requiredCapabilities,
+    ...(postingCommand ? { postingCommand } : {}),
+    ...(scriptCodename ? { scriptCodename } : {}),
+    ...(confirmation
+        ? {
+              confirmation: {
+                  required: true,
+                  title: workflowText(confirmation.titleEn, confirmation.titleRu),
+                  message: workflowText(confirmation.messageEn, confirmation.messageRu),
+                  confirmLabel: workflowText(confirmation.confirmLabelEn, confirmation.confirmLabelRu)
+              }
+          }
+        : {})
+})
+
+const LMS_ASSIGNMENT_SUBMISSION_WORKFLOW_ACTIONS: WorkflowAction[] = [
+    buildLmsWorkflowAction({
+        codename: 'StartSubmissionReview',
+        titleEn: 'Start review',
+        titleRu: 'Начать проверку',
+        from: ['Submitted'],
+        to: 'PendingReview',
+        requiredCapabilities: ['assignment.review']
+    }),
+    buildLmsWorkflowAction({
+        codename: 'AcceptSubmission',
+        titleEn: 'Accept submission',
+        titleRu: 'Принять сдачу',
+        from: ['PendingReview'],
+        to: 'Accepted',
+        requiredCapabilities: ['assignment.review'],
+        postingCommand: 'post',
+        confirmation: {
+            titleEn: 'Accept submission',
+            titleRu: 'Принять сдачу',
+            messageEn: 'Accept this submission and make the result available for reports?',
+            messageRu: 'Принять эту сдачу и сделать результат доступным для отчетов?',
+            confirmLabelEn: 'Accept',
+            confirmLabelRu: 'Принять'
+        }
+    }),
+    buildLmsWorkflowAction({
+        codename: 'DeclineSubmission',
+        titleEn: 'Decline submission',
+        titleRu: 'Отклонить сдачу',
+        from: ['PendingReview'],
+        to: 'Declined',
+        requiredCapabilities: ['assignment.review'],
+        confirmation: {
+            titleEn: 'Decline submission',
+            titleRu: 'Отклонить сдачу',
+            messageEn: 'Decline this submission and keep it visible for learner feedback?',
+            messageRu: 'Отклонить эту сдачу и оставить ее доступной для обратной связи учащегося?',
+            confirmLabelEn: 'Decline',
+            confirmLabelRu: 'Отклонить'
+        }
+    })
+]
+
+const LMS_TRAINING_ATTENDANCE_WORKFLOW_ACTIONS: WorkflowAction[] = [
+    buildLmsWorkflowAction({
+        codename: 'MarkAttendanceAttended',
+        titleEn: 'Mark attended',
+        titleRu: 'Отметить посещение',
+        from: ['Registered'],
+        to: 'Attended',
+        requiredCapabilities: ['attendance.mark'],
+        postingCommand: 'post'
+    }),
+    buildLmsWorkflowAction({
+        codename: 'MarkAttendanceNoShow',
+        titleEn: 'Mark no-show',
+        titleRu: 'Отметить неявку',
+        from: ['Registered'],
+        to: 'NoShow',
+        requiredCapabilities: ['attendance.mark'],
+        postingCommand: 'post'
+    }),
+    buildLmsWorkflowAction({
+        codename: 'CancelAttendance',
+        titleEn: 'Cancel attendance',
+        titleRu: 'Отменить посещаемость',
+        from: ['Registered', 'Attended', 'NoShow'],
+        to: 'Cancelled',
+        requiredCapabilities: ['attendance.manage'],
+        postingCommand: 'void'
+    })
+]
+
+const LMS_CERTIFICATE_ISSUE_WORKFLOW_ACTIONS: WorkflowAction[] = [
+    buildLmsWorkflowAction({
+        codename: 'IssueCertificate',
+        titleEn: 'Issue certificate',
+        titleRu: 'Выдать сертификат',
+        from: ['Eligible'],
+        to: 'Issued',
+        requiredCapabilities: ['certificate.issue'],
+        postingCommand: 'post',
+        scriptCodename: 'CertificateIssuePostingScript',
+        confirmation: {
+            titleEn: 'Issue certificate',
+            titleRu: 'Выдать сертификат',
+            messageEn: 'Issue this certificate and record the auditable certificate fact?',
+            messageRu: 'Выдать этот сертификат и записать проверяемый факт сертификата?',
+            confirmLabelEn: 'Issue',
+            confirmLabelRu: 'Выдать'
+        }
+    }),
+    buildLmsWorkflowAction({
+        codename: 'RevokeCertificate',
+        titleEn: 'Revoke certificate',
+        titleRu: 'Отозвать сертификат',
+        from: ['Issued'],
+        to: 'Revoked',
+        requiredCapabilities: ['certificate.revoke'],
+        postingCommand: 'post',
+        scriptCodename: 'CertificateIssuePostingScript',
+        confirmation: {
+            titleEn: 'Revoke certificate',
+            titleRu: 'Отозвать сертификат',
+            messageEn: 'Revoke this certificate and record the revocation fact?',
+            messageRu: 'Отозвать этот сертификат и записать факт отзыва?',
+            confirmLabelEn: 'Revoke',
+            confirmLabelRu: 'Отозвать'
+        }
+    })
+]
+
+const LMS_DEVELOPMENT_TASK_WORKFLOW_ACTIONS: WorkflowAction[] = [
+    buildLmsWorkflowAction({
+        codename: 'StartDevelopmentTask',
+        titleEn: 'Start task',
+        titleRu: 'Начать задачу',
+        from: ['NotStarted'],
+        to: 'InProgress',
+        requiredCapabilities: ['development.task.update']
+    }),
+    buildLmsWorkflowAction({
+        codename: 'CompleteDevelopmentTask',
+        titleEn: 'Complete task',
+        titleRu: 'Завершить задачу',
+        from: ['InProgress'],
+        to: 'Completed',
+        requiredCapabilities: ['development.task.update']
+    }),
+    buildLmsWorkflowAction({
+        codename: 'ReopenDevelopmentTask',
+        titleEn: 'Reopen task',
+        titleRu: 'Вернуть задачу',
+        from: ['Completed'],
+        to: 'InProgress',
+        requiredCapabilities: ['development.task.update']
+    })
+]
+
+const LMS_NOTIFICATION_OUTBOX_WORKFLOW_ACTIONS: WorkflowAction[] = [
+    buildLmsWorkflowAction({
+        codename: 'MarkNotificationSent',
+        titleEn: 'Mark sent',
+        titleRu: 'Отметить отправленным',
+        from: ['Queued', 'Failed'],
+        to: 'Sent',
+        requiredCapabilities: ['notification.deliver'],
+        postingCommand: 'post'
+    }),
+    buildLmsWorkflowAction({
+        codename: 'MarkNotificationFailed',
+        titleEn: 'Mark failed',
+        titleRu: 'Отметить ошибку',
+        from: ['Queued'],
+        to: 'Failed',
+        requiredCapabilities: ['notification.deliver']
+    }),
+    buildLmsWorkflowAction({
+        codename: 'CancelNotification',
+        titleEn: 'Cancel notification',
+        titleRu: 'Отменить уведомление',
+        from: ['Queued', 'Failed'],
+        to: 'Cancelled',
+        requiredCapabilities: ['notification.manage'],
+        postingCommand: 'void'
+    })
+]
+
+const LMS_POINT_TRANSACTION_WORKFLOW_ACTIONS: WorkflowAction[] = [
+    buildLmsWorkflowAction({
+        codename: 'ApprovePointAdjustment',
+        titleEn: 'Approve points',
+        titleRu: 'Подтвердить баллы',
+        from: ['Pending'],
+        to: 'Approved',
+        requiredCapabilities: ['gamification.points.adjust'],
+        postingCommand: 'post',
+        scriptCodename: 'PointTransactionPostingScript',
+        confirmation: {
+            titleEn: 'Approve point adjustment',
+            titleRu: 'Подтвердить изменение баллов',
+            messageEn: 'Approve this point adjustment and append an auditable Points Ledger fact?',
+            messageRu: 'Подтвердить изменение баллов и добавить проверяемый факт в регистр баллов?',
+            confirmLabelEn: 'Approve',
+            confirmLabelRu: 'Подтвердить'
+        }
+    }),
+    buildLmsWorkflowAction({
+        codename: 'ReversePointAdjustment',
+        titleEn: 'Reverse points',
+        titleRu: 'Сторнировать баллы',
+        from: ['Approved'],
+        to: 'Reversed',
+        requiredCapabilities: ['gamification.points.adjust'],
+        postingCommand: 'void',
+        scriptCodename: 'PointTransactionPostingScript',
+        confirmation: {
+            titleEn: 'Reverse point adjustment',
+            titleRu: 'Сторнировать изменение баллов',
+            messageEn: 'Reverse this point adjustment with an append-only compensating fact?',
+            messageRu: 'Сторнировать изменение баллов через append-only компенсирующий факт?',
+            confirmLabelEn: 'Reverse',
+            confirmLabelRu: 'Сторнировать'
+        }
+    })
+]
+
+const LMS_BADGE_ISSUE_WORKFLOW_ACTIONS: WorkflowAction[] = [
+    buildLmsWorkflowAction({
+        codename: 'IssueBadge',
+        titleEn: 'Issue badge',
+        titleRu: 'Выдать бейдж',
+        from: ['Eligible'],
+        to: 'Issued',
+        requiredCapabilities: ['badge.issue'],
+        confirmation: {
+            titleEn: 'Issue badge',
+            titleRu: 'Выдать бейдж',
+            messageEn: 'Issue this achievement badge to the learner?',
+            messageRu: 'Выдать этот бейдж достижения учащемуся?',
+            confirmLabelEn: 'Issue',
+            confirmLabelRu: 'Выдать'
+        }
+    }),
+    buildLmsWorkflowAction({
+        codename: 'RevokeBadge',
+        titleEn: 'Revoke badge',
+        titleRu: 'Отозвать бейдж',
+        from: ['Issued'],
+        to: 'Revoked',
+        requiredCapabilities: ['badge.revoke'],
+        confirmation: {
+            titleEn: 'Revoke badge',
+            titleRu: 'Отозвать бейдж',
+            messageEn: 'Revoke this learner badge while keeping the history visible?',
+            messageRu: 'Отозвать бейдж учащегося, сохранив историю?',
+            confirmLabelEn: 'Revoke',
+            confirmLabelRu: 'Отозвать'
+        }
+    })
+]
 
 const LMS_PUBLIC_GUEST_RUNTIME_CONFIG = {
     objects: {
@@ -95,7 +392,7 @@ function buildLmsBaseSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                 autoShowAllSections: false,
                 bindToHub: false,
                 boundTreeEntityId: null,
-                maxPrimaryItems: 6,
+                maxPrimaryItems: 8,
                 overflowLabelKey: 'runtime.menu.more',
                 startPage: 'LearnerHome',
                 workspacePlacement: 'primary',
@@ -135,6 +432,40 @@ function buildLmsBaseSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                         isActive: true
                     },
                     {
+                        id: 'lms-nav-courses',
+                        kind: 'section',
+                        title: {
+                            _schema: '1',
+                            _primary: 'en',
+                            locales: {
+                                en: { content: 'Courses', version: 1, isActive: true },
+                                ru: { content: 'Курсы', version: 1, isActive: true }
+                            }
+                        },
+                        icon: 'object',
+                        href: null,
+                        sectionId: 'Courses',
+                        sortOrder: 2,
+                        isActive: true
+                    },
+                    {
+                        id: 'lms-nav-resources',
+                        kind: 'section',
+                        title: {
+                            _schema: '1',
+                            _primary: 'en',
+                            locales: {
+                                en: { content: 'Resources', version: 1, isActive: true },
+                                ru: { content: 'Материалы', version: 1, isActive: true }
+                            }
+                        },
+                        icon: 'folder',
+                        href: null,
+                        sectionId: 'LearningResources',
+                        sortOrder: 3,
+                        isActive: true
+                    },
+                    {
                         id: 'lms-nav-knowledge',
                         kind: 'section',
                         title: {
@@ -147,8 +478,8 @@ function buildLmsBaseSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                         },
                         icon: 'folder',
                         href: null,
-                        sectionId: 'Quizzes',
-                        sortOrder: 2,
+                        sectionId: 'KnowledgeArticles',
+                        sortOrder: 4,
                         isActive: true
                     },
                     {
@@ -164,8 +495,8 @@ function buildLmsBaseSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                         },
                         icon: 'tasks',
                         href: null,
-                        sectionId: 'Classes',
-                        sortOrder: 3,
+                        sectionId: 'DevelopmentPlans',
+                        sortOrder: 5,
                         isActive: true
                     },
                     {
@@ -182,7 +513,7 @@ function buildLmsBaseSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                         icon: 'analytics',
                         href: null,
                         sectionId: 'Reports',
-                        sortOrder: 4,
+                        sortOrder: 6,
                         isActive: true
                     }
                 ]
@@ -317,6 +648,12 @@ const buildEditorParagraphBlock = (id: string, en: string, ru: string) => ({
     }
 })
 
+const buildEditorBlockContent = (blocks: Array<Record<string, unknown>>) => ({
+    format: 'editorjs',
+    version: '2.29.0',
+    blocks
+})
+
 const buildLmsPageEntity = ({
     codename,
     nameEn,
@@ -340,11 +677,7 @@ const buildLmsPageEntity = ({
     description: vlc(descriptionEn, descriptionRu),
     hubs: ['Learning'],
     config: enrichConfigWithVlcTimestamps({
-        blockContent: {
-            format: 'editorjs',
-            version: '2.29.0',
-            blocks
-        },
+        blockContent: buildEditorBlockContent(blocks),
         runtime: {
             menuVisibility: 'secondary',
             routeSegment
@@ -517,13 +850,15 @@ const buildTransactionalObjectConfig = ({
     effectiveDateField,
     stateField,
     states = [],
-    targetLedgers = []
+    targetLedgers = [],
+    workflowActions = []
 }: {
     prefix: string
     effectiveDateField: string
     stateField?: string
     states?: Array<{ codename: string; title: string; isInitial?: boolean; isFinal?: boolean }>
     targetLedgers?: string[]
+    workflowActions?: WorkflowAction[]
 }) => ({
     recordBehavior: {
         mode: 'transactional',
@@ -549,7 +884,8 @@ const buildTransactionalObjectConfig = ({
             targetLedgers
         },
         immutability: 'posted'
-    }
+    },
+    ...(workflowActions.length > 0 ? { workflowActions } : {})
 })
 
 const LMS_ENROLLMENT_POSTING_SCRIPT_SOURCE = `import { ExtensionScript, OnEvent } from '@universo/extension-sdk'
@@ -857,6 +1193,64 @@ export default class CertificateIssuePostingScript extends ExtensionScript {
 }
 `
 
+const LMS_POINT_TRANSACTION_POSTING_SCRIPT_SOURCE = `import { ExtensionScript, OnEvent } from '@universo/extension-sdk'
+
+const readRecordValue = (record, ...keys) => {
+    if (!record || typeof record !== 'object') {
+        return null
+    }
+
+    for (const key of keys) {
+        if (Object.prototype.hasOwnProperty.call(record, key)) {
+            return record[key]
+        }
+    }
+
+    return null
+}
+
+const toNumber = (value, fallback = 0) => {
+    const numeric = typeof value === 'number' ? value : Number(value)
+    return Number.isFinite(numeric) ? numeric : fallback
+}
+
+export default class PointTransactionPostingScript extends ExtensionScript {
+    @OnEvent('beforePost')
+    async buildPointMovements(payload) {
+        const row = payload?.previousRow ?? {}
+        const rowId = typeof row.id === 'string' ? row.id : 'unknown'
+        const learner = readRecordValue(row, 'StudentId', 'student_id')
+        const source = readRecordValue(row, 'SourceType', 'source_type') ?? 'Manual'
+        const sourceObjectId = readRecordValue(row, 'SourceObjectId', 'source_object_id') ?? 'PointTransactions'
+        const occurredAt = readRecordValue(row, 'AwardedAt', 'awarded_at') ?? new Date().toISOString()
+        const pointsDelta = toNumber(readRecordValue(row, 'PointsDelta', 'points_delta'), 0)
+        const status = readRecordValue(row, 'Status', 'status') ?? 'Approved'
+
+        return {
+            movements: [
+                {
+                    ledgerCodename: 'PointsLedger',
+                    facts: [
+                        {
+                            data: {
+                                Learner: String(learner ?? 'unknown'),
+                                Subject: String(source),
+                                PointsDelta: status === 'Reversed' ? -pointsDelta : pointsDelta,
+                                Status: String(status),
+                                OccurredAt: String(occurredAt),
+                                SourceObjectId: String(sourceObjectId),
+                                SourceRowId: rowId,
+                                SourceLineId: 'points'
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}
+`
+
 export const lmsTemplate: MetahubTemplateManifest = {
     $schema: 'metahub-template/v1',
     codename: 'lms',
@@ -955,6 +1349,20 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         name: vlc('Support Email', 'Email поддержки'),
                         sortOrder: 4,
                         value: ''
+                    },
+                    {
+                        codename: 'GamificationEnabled',
+                        dataType: 'BOOLEAN',
+                        name: vlc('Gamification Enabled', 'Геймификация включена'),
+                        sortOrder: 5,
+                        value: true
+                    },
+                    {
+                        codename: 'DefaultPointAward',
+                        dataType: 'NUMBER',
+                        name: vlc('Default Point Award', 'Баллы по умолчанию'),
+                        sortOrder: 6,
+                        value: 10
                     }
                 ]
             },
@@ -1168,6 +1576,28 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 ]
             }),
             buildLmsPageEntity({
+                codename: 'KnowledgeHome',
+                nameEn: 'Knowledge Home',
+                nameRu: 'Раздел знаний',
+                descriptionEn: 'Portal page for knowledge-base spaces, folders, articles, and learner bookmarks.',
+                descriptionRu: 'Портальная страница для пространств знаний, папок, статей и закладок учащихся.',
+                routeSegment: 'knowledge',
+                blocks: [
+                    buildEditorHeaderBlock('knowledge-home-title', 2, 'Knowledge base', 'База знаний'),
+                    buildEditorParagraphBlock(
+                        'knowledge-home-purpose',
+                        'Use this page as the learner-facing entry point for approved reference materials. Knowledge spaces, folders, article bindings, and bookmarks are stored as records so they can be filtered by workspace and role policy.',
+                        'Используйте эту страницу как вход учащегося в утвержденные справочные материалы. Пространства знаний, папки, привязки статей и закладки хранятся как записи, поэтому их можно фильтровать по рабочему пространству и политике ролей.'
+                    ),
+                    buildEditorHeaderBlock('knowledge-home-structure-title', 3, 'Structure', 'Структура'),
+                    buildEditorParagraphBlock(
+                        'knowledge-home-structure',
+                        'KnowledgeSpaces define ownership and visibility, KnowledgeFolders organize article pages, and KnowledgeBookmarks preserve each learner’s saved references without duplicating article content.',
+                        'KnowledgeSpaces задают владение и видимость, KnowledgeFolders организуют страницы статей, а KnowledgeBookmarks сохраняют личные ссылки учащегося без дублирования содержимого статей.'
+                    )
+                ]
+            }),
+            buildLmsPageEntity({
                 codename: 'KnowledgeArticle',
                 nameEn: 'Knowledge Article',
                 nameRu: 'Статья базы знаний',
@@ -1186,6 +1616,28 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         'knowledge-article-maintenance',
                         'Versioned localized content makes it possible to update the article without changing learner progress, assignment history, or certificate facts.',
                         'Версионируемый локализованный контент позволяет обновлять статью без изменения прогресса учащихся, истории назначений или фактов сертификатов.'
+                    )
+                ]
+            }),
+            buildLmsPageEntity({
+                codename: 'DevelopmentHome',
+                nameEn: 'Development Home',
+                nameRu: 'Раздел развития',
+                descriptionEn: 'Portal page for development plans, stages, tasks, mentors, and monitors.',
+                descriptionRu: 'Портальная страница для планов развития, этапов, задач, наставников и наблюдателей.',
+                routeSegment: 'development',
+                blocks: [
+                    buildEditorHeaderBlock('development-home-title', 2, 'Development plans', 'Планы развития'),
+                    buildEditorParagraphBlock(
+                        'development-home-purpose',
+                        'Use this page as the employee-facing entry point for individual development plans. Plan records define ownership and status, stages group milestones, and tasks hold actionable work with workflow status changes.',
+                        'Используйте эту страницу как вход сотрудника в индивидуальные планы развития. Записи планов задают владельца и состояние, этапы группируют вехи, а задачи содержат практическую работу со сменой статусов процесса.'
+                    ),
+                    buildEditorHeaderBlock('development-home-operations-title', 3, 'Operations', 'Операции'),
+                    buildEditorParagraphBlock(
+                        'development-home-operations',
+                        'Development plan progress should be calculated from DevelopmentPlans, DevelopmentPlanStages, and DevelopmentPlanTasks instead of custom LMS screens, so reports and dashboards can reuse generic runtime datasources.',
+                        'Прогресс плана развития должен рассчитываться по DevelopmentPlans, DevelopmentPlanStages и DevelopmentPlanTasks вместо специальных LMS-экранов, чтобы отчеты и панели использовали универсальные runtime-источники данных.'
                     )
                 ]
             }),
@@ -1496,8 +1948,8 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 kind: 'object',
                 name: vlc('Learning Resources', 'Учебные ресурсы'),
                 description: vlc(
-                    'Reusable content resources such as pages, links, videos, documents, embeds, and SCORM-like packages.',
-                    'Переиспользуемые учебные ресурсы: страницы, ссылки, видео, документы, встраивания и SCORM-подобные пакеты.'
+                    'Reusable content resources such as pages, links, videos, documents, embeds, and deferred package standards.',
+                    'Переиспользуемые учебные ресурсы: страницы, ссылки, видео, документы, встраивания и отложенные пакетные стандарты.'
                 ),
                 components: [
                     {
@@ -1523,20 +1975,36 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         dataType: 'JSON',
                         name: vlc('Source', 'Источник'),
                         isRequired: true,
-                        sortOrder: 3
+                        sortOrder: 3,
+                        uiConfig: {
+                            widget: 'resourceSource'
+                        }
+                    },
+                    {
+                        codename: 'Body',
+                        dataType: 'JSON',
+                        name: vlc('Body', 'Содержимое'),
+                        sortOrder: 4,
+                        uiConfig: {
+                            widget: 'editorjsBlockContent',
+                            blockEditor: {
+                                allowedBlockTypes: ['paragraph', 'header', 'list', 'quote', 'table', 'image', 'embed', 'delimiter'],
+                                maxBlocks: 200
+                            }
+                        }
                     },
                     {
                         codename: 'EstimatedTimeMinutes',
                         dataType: 'NUMBER',
                         name: vlc('Estimated Time, min', 'Оценочное время, мин'),
-                        sortOrder: 4,
+                        sortOrder: 5,
                         validationRules: { min: 0 }
                     },
                     {
                         codename: 'Language',
                         dataType: 'STRING',
                         name: vlc('Language', 'Язык'),
-                        sortOrder: 5,
+                        sortOrder: 6,
                         validationRules: { maxLength: 16 }
                     }
                 ]
@@ -1802,10 +2270,23 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         validationRules: { maxLength: 255 }
                     },
                     {
+                        codename: 'Body',
+                        dataType: 'JSON',
+                        name: vlc('Body', 'Содержимое'),
+                        sortOrder: 7,
+                        uiConfig: {
+                            widget: 'editorjsBlockContent',
+                            blockEditor: {
+                                allowedBlockTypes: ['paragraph', 'header', 'list', 'quote', 'table', 'image', 'embed', 'delimiter'],
+                                maxBlocks: 200
+                            }
+                        }
+                    },
+                    {
                         codename: 'ContentItems',
                         dataType: 'TABLE',
                         name: vlc('Content Items', 'Элементы контента'),
-                        sortOrder: 7,
+                        sortOrder: 8,
                         childComponents: [
                             {
                                 codename: 'ItemType',
@@ -2425,11 +2906,12 @@ export const lmsTemplate: MetahubTemplateManifest = {
                     stateField: 'Status',
                     states: [
                         { codename: 'Submitted', title: 'Submitted', isInitial: true },
-                        { codename: 'InReview', title: 'In Review' },
+                        { codename: 'PendingReview', title: 'Pending Review' },
                         { codename: 'Accepted', title: 'Accepted', isFinal: true },
                         { codename: 'Declined', title: 'Declined', isFinal: true }
                     ],
-                    targetLedgers: ['ScoreLedger', 'LearningActivityLedger']
+                    targetLedgers: ['ScoreLedger', 'LearningActivityLedger'],
+                    workflowActions: LMS_ASSIGNMENT_SUBMISSION_WORKFLOW_ACTIONS
                 }),
                 components: [
                     {
@@ -2558,7 +3040,8 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         { codename: 'NoShow', title: 'No-show', isFinal: true },
                         { codename: 'Cancelled', title: 'Cancelled', isFinal: true }
                     ],
-                    targetLedgers: ['AttendanceLedger', 'LearningActivityLedger']
+                    targetLedgers: ['AttendanceLedger', 'LearningActivityLedger'],
+                    workflowActions: LMS_TRAINING_ATTENDANCE_WORKFLOW_ACTIONS
                 }),
                 components: [
                     {
@@ -2683,7 +3166,8 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         { codename: 'Revoked', title: 'Revoked', isFinal: true },
                         { codename: 'Expired', title: 'Expired', isFinal: true }
                     ],
-                    targetLedgers: ['CertificateLedger', 'NotificationLedger']
+                    targetLedgers: ['CertificateLedger', 'NotificationLedger'],
+                    workflowActions: LMS_CERTIFICATE_ISSUE_WORKFLOW_ACTIONS
                 }),
                 components: [
                     {
@@ -2730,12 +3214,11 @@ export const lmsTemplate: MetahubTemplateManifest = {
                     },
                     {
                         codename: 'Status',
-                        dataType: 'REF',
+                        dataType: 'STRING',
                         name: vlc('Status', 'Статус'),
                         isRequired: true,
                         sortOrder: 6,
-                        targetEntityCodename: 'CertificateStatus',
-                        targetEntityKind: 'enumeration'
+                        validationRules: { maxLength: 30 }
                     }
                 ]
             },
@@ -2774,10 +3257,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 codename: 'KnowledgeFolders',
                 kind: 'object',
                 name: vlc('Knowledge Folders', 'Папки знаний'),
-                description: vlc(
-                    'Folders and article bindings inside knowledge spaces.',
-                    'Папки и привязки статей внутри пространств знаний.'
-                ),
+                description: vlc('Folders inside knowledge spaces.', 'Папки внутри пространств знаний.'),
                 components: [
                     {
                         codename: 'SpaceId',
@@ -2798,18 +3278,62 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         validationRules: { maxLength: 500, localized: true, versioned: true }
                     },
                     {
-                        codename: 'ArticlePageCodename',
-                        dataType: 'STRING',
-                        name: vlc('Article Page Codename', 'Код статьи-страницы'),
-                        sortOrder: 3,
-                        validationRules: { maxLength: 128 }
-                    },
-                    {
                         codename: 'SortOrder',
                         dataType: 'NUMBER',
                         name: vlc('Sort Order', 'Порядок'),
-                        sortOrder: 4,
+                        sortOrder: 3,
                         validationRules: { min: 0 }
+                    }
+                ]
+            },
+            {
+                codename: 'KnowledgeArticles',
+                kind: 'object',
+                name: vlc('Knowledge Articles', 'Статьи базы знаний'),
+                description: vlc(
+                    'Workspace-scoped articles authored directly inside the published application.',
+                    'Статьи рабочего пространства, создаваемые прямо в опубликованном приложении.'
+                ),
+                components: [
+                    {
+                        codename: 'FolderId',
+                        dataType: 'REF',
+                        name: vlc('Knowledge Folder', 'Папка знаний'),
+                        isRequired: true,
+                        sortOrder: 1,
+                        targetEntityCodename: 'KnowledgeFolders',
+                        targetEntityKind: 'object'
+                    },
+                    {
+                        codename: 'Title',
+                        dataType: 'STRING',
+                        name: vlc('Title', 'Заголовок'),
+                        isRequired: true,
+                        isDisplayComponent: true,
+                        sortOrder: 2,
+                        validationRules: { maxLength: 500, localized: true, versioned: true }
+                    },
+                    {
+                        codename: 'Body',
+                        dataType: 'JSON',
+                        name: vlc('Body', 'Содержимое'),
+                        isRequired: true,
+                        sortOrder: 3,
+                        uiConfig: {
+                            widget: 'editorjsBlockContent',
+                            blockEditor: {
+                                allowedBlockTypes: ['paragraph', 'header', 'list', 'quote', 'table', 'image', 'embed', 'delimiter'],
+                                maxBlocks: 200
+                            }
+                        }
+                    },
+                    {
+                        codename: 'Status',
+                        dataType: 'REF',
+                        name: vlc('Status', 'Статус'),
+                        sortOrder: 4,
+                        targetEntityCodename: 'ModuleStatus',
+                        targetEntityKind: 'enumeration'
                     }
                 ]
             },
@@ -2829,12 +3353,12 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         targetEntityKind: 'object'
                     },
                     {
-                        codename: 'FolderId',
+                        codename: 'ArticleId',
                         dataType: 'REF',
-                        name: vlc('Knowledge Folder', 'Папка знаний'),
+                        name: vlc('Knowledge Article', 'Статья базы знаний'),
                         isRequired: true,
                         sortOrder: 2,
-                        targetEntityCodename: 'KnowledgeFolders',
+                        targetEntityCodename: 'KnowledgeArticles',
                         targetEntityKind: 'object'
                     },
                     {
@@ -2926,6 +3450,18 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 kind: 'object',
                 name: vlc('Development Plan Tasks', 'Задачи плана развития'),
                 description: vlc('Actionable tasks inside development plan stages.', 'Практические задачи внутри этапов плана развития.'),
+                config: buildTransactionalObjectConfig({
+                    prefix: 'DPT-',
+                    effectiveDateField: 'UpdatedAt',
+                    stateField: 'Status',
+                    states: [
+                        { codename: 'NotStarted', title: 'Not started', isInitial: true },
+                        { codename: 'InProgress', title: 'In progress' },
+                        { codename: 'Completed', title: 'Completed', isFinal: true },
+                        { codename: 'Overdue', title: 'Overdue' }
+                    ],
+                    workflowActions: LMS_DEVELOPMENT_TASK_WORKFLOW_ACTIONS
+                }),
                 components: [
                     {
                         codename: 'StageId',
@@ -2955,11 +3491,16 @@ export const lmsTemplate: MetahubTemplateManifest = {
                     },
                     {
                         codename: 'Status',
-                        dataType: 'REF',
+                        dataType: 'STRING',
                         name: vlc('Status', 'Статус'),
                         sortOrder: 4,
-                        targetEntityCodename: 'CompletionStatus',
-                        targetEntityKind: 'enumeration'
+                        validationRules: { maxLength: 30 }
+                    },
+                    {
+                        codename: 'UpdatedAt',
+                        dataType: 'DATE',
+                        name: vlc('Updated At', 'Обновлено'),
+                        sortOrder: 5
                     }
                 ]
             },
@@ -3008,7 +3549,15 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 config: buildTransactionalObjectConfig({
                     prefix: 'NTF-',
                     effectiveDateField: 'CreatedAt',
-                    targetLedgers: ['NotificationLedger']
+                    stateField: 'Status',
+                    states: [
+                        { codename: 'Queued', title: 'Queued', isInitial: true },
+                        { codename: 'Sent', title: 'Sent', isFinal: true },
+                        { codename: 'Failed', title: 'Failed' },
+                        { codename: 'Cancelled', title: 'Cancelled', isFinal: true }
+                    ],
+                    targetLedgers: ['NotificationLedger'],
+                    workflowActions: LMS_NOTIFICATION_OUTBOX_WORKFLOW_ACTIONS
                 }),
                 components: [
                     {
@@ -3039,6 +3588,369 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         dataType: 'DATE',
                         name: vlc('Created At', 'Создано'),
                         sortOrder: 4
+                    },
+                    {
+                        codename: 'Status',
+                        dataType: 'STRING',
+                        name: vlc('Status', 'Статус'),
+                        sortOrder: 5,
+                        validationRules: { maxLength: 30 }
+                    }
+                ]
+            },
+            {
+                codename: 'GamificationSettings',
+                kind: 'object',
+                name: vlc('Gamification Settings', 'Настройки геймификации'),
+                description: vlc(
+                    'Application and workspace-level gamification switches and leaderboard policy.',
+                    'Настройки геймификации уровня приложения и рабочего пространства, включая политику рейтинга.'
+                ),
+                components: [
+                    {
+                        codename: 'Scope',
+                        dataType: 'STRING',
+                        name: vlc('Scope', 'Область'),
+                        isRequired: true,
+                        isDisplayComponent: true,
+                        sortOrder: 1,
+                        validationRules: { maxLength: 64 }
+                    },
+                    {
+                        codename: 'WorkspaceKey',
+                        dataType: 'STRING',
+                        name: vlc('Workspace Key', 'Ключ рабочего пространства'),
+                        sortOrder: 2,
+                        validationRules: { maxLength: 128 }
+                    },
+                    {
+                        codename: 'Enabled',
+                        dataType: 'BOOLEAN',
+                        name: vlc('Enabled', 'Включено'),
+                        sortOrder: 3
+                    },
+                    {
+                        codename: 'LeaderboardPeriodDays',
+                        dataType: 'NUMBER',
+                        name: vlc('Leaderboard Period Days', 'Период рейтинга в днях'),
+                        sortOrder: 4,
+                        validationRules: { min: 1, max: 366 }
+                    },
+                    {
+                        codename: 'Rules',
+                        dataType: 'JSON',
+                        name: vlc('Rules', 'Правила'),
+                        sortOrder: 5
+                    }
+                ]
+            },
+            {
+                codename: 'PointAwardRules',
+                kind: 'object',
+                name: vlc('Point Award Rules', 'Правила начисления баллов'),
+                description: vlc(
+                    'Declarative point award rules for modules, assignments, events, certificates, and manual adjustments.',
+                    'Декларативные правила начисления баллов за модули, задания, мероприятия, сертификаты и ручные корректировки.'
+                ),
+                components: [
+                    {
+                        codename: 'RuleCode',
+                        dataType: 'STRING',
+                        name: vlc('Rule Code', 'Код правила'),
+                        isRequired: true,
+                        isDisplayComponent: true,
+                        sortOrder: 1,
+                        validationRules: { maxLength: 128 }
+                    },
+                    {
+                        codename: 'Name',
+                        dataType: 'STRING',
+                        name: vlc('Name', 'Название'),
+                        isRequired: true,
+                        sortOrder: 2,
+                        validationRules: { maxLength: 255, localized: true, versioned: true }
+                    },
+                    {
+                        codename: 'SourceType',
+                        dataType: 'REF',
+                        name: vlc('Source Type', 'Тип источника'),
+                        isRequired: true,
+                        sortOrder: 3,
+                        targetEntityCodename: 'PointSourceType',
+                        targetEntityKind: 'enumeration'
+                    },
+                    {
+                        codename: 'Points',
+                        dataType: 'NUMBER',
+                        name: vlc('Points', 'Баллы'),
+                        isRequired: true,
+                        sortOrder: 4
+                    },
+                    {
+                        codename: 'IsActive',
+                        dataType: 'BOOLEAN',
+                        name: vlc('Is Active', 'Активно'),
+                        sortOrder: 5
+                    },
+                    {
+                        codename: 'Conditions',
+                        dataType: 'JSON',
+                        name: vlc('Conditions', 'Условия'),
+                        sortOrder: 6
+                    }
+                ]
+            },
+            {
+                codename: 'PointTransactions',
+                kind: 'object',
+                name: vlc('Point Transactions', 'Операции с баллами'),
+                description: vlc(
+                    'Auditable point awards and manual adjustments posted to the Points Ledger.',
+                    'Проверяемые начисления и ручные корректировки баллов, проводимые в регистр баллов.'
+                ),
+                config: buildTransactionalObjectConfig({
+                    prefix: 'PTS-',
+                    effectiveDateField: 'AwardedAt',
+                    stateField: 'Status',
+                    states: [
+                        { codename: 'Pending', title: 'Pending', isInitial: true },
+                        { codename: 'Approved', title: 'Approved' },
+                        { codename: 'Reversed', title: 'Reversed', isFinal: true }
+                    ],
+                    targetLedgers: ['PointsLedger'],
+                    workflowActions: LMS_POINT_TRANSACTION_WORKFLOW_ACTIONS
+                }),
+                components: [
+                    {
+                        codename: 'StudentId',
+                        dataType: 'REF',
+                        name: vlc('Student', 'Студент'),
+                        isRequired: true,
+                        sortOrder: 1,
+                        targetEntityCodename: 'Students',
+                        targetEntityKind: 'object'
+                    },
+                    {
+                        codename: 'SourceType',
+                        dataType: 'REF',
+                        name: vlc('Source Type', 'Тип источника'),
+                        isRequired: true,
+                        sortOrder: 2,
+                        targetEntityCodename: 'PointSourceType',
+                        targetEntityKind: 'enumeration'
+                    },
+                    {
+                        codename: 'SourceObjectId',
+                        dataType: 'STRING',
+                        name: vlc('Source Object ID', 'ID объекта-источника'),
+                        sortOrder: 3,
+                        validationRules: { maxLength: 255 }
+                    },
+                    {
+                        codename: 'PointsDelta',
+                        dataType: 'NUMBER',
+                        name: vlc('Points Delta', 'Изменение баллов'),
+                        isRequired: true,
+                        sortOrder: 4
+                    },
+                    {
+                        codename: 'Reason',
+                        dataType: 'STRING',
+                        name: vlc('Reason', 'Причина'),
+                        sortOrder: 5,
+                        validationRules: { localized: true, versioned: true }
+                    },
+                    {
+                        codename: 'AwardedAt',
+                        dataType: 'DATE',
+                        name: vlc('Awarded At', 'Начислено'),
+                        isRequired: true,
+                        sortOrder: 6
+                    },
+                    {
+                        codename: 'Status',
+                        dataType: 'STRING',
+                        name: vlc('Status', 'Статус'),
+                        isRequired: true,
+                        sortOrder: 7,
+                        validationRules: { maxLength: 30 }
+                    }
+                ]
+            },
+            {
+                codename: 'BadgeDefinitions',
+                kind: 'object',
+                name: vlc('Badge Definitions', 'Определения бейджей'),
+                description: vlc(
+                    'Reusable badge definitions and eligibility thresholds.',
+                    'Переиспользуемые определения бейджей и пороги получения.'
+                ),
+                components: [
+                    {
+                        codename: 'BadgeCode',
+                        dataType: 'STRING',
+                        name: vlc('Badge Code', 'Код бейджа'),
+                        isRequired: true,
+                        isDisplayComponent: true,
+                        sortOrder: 1,
+                        validationRules: { maxLength: 128 }
+                    },
+                    {
+                        codename: 'Name',
+                        dataType: 'STRING',
+                        name: vlc('Name', 'Название'),
+                        isRequired: true,
+                        sortOrder: 2,
+                        validationRules: { maxLength: 255, localized: true, versioned: true }
+                    },
+                    {
+                        codename: 'Description',
+                        dataType: 'STRING',
+                        name: vlc('Description', 'Описание'),
+                        sortOrder: 3,
+                        validationRules: { localized: true, versioned: true }
+                    },
+                    {
+                        codename: 'RequiredPoints',
+                        dataType: 'NUMBER',
+                        name: vlc('Required Points', 'Требуемые баллы'),
+                        sortOrder: 4,
+                        validationRules: { min: 0 }
+                    },
+                    {
+                        codename: 'Icon',
+                        dataType: 'STRING',
+                        name: vlc('Icon', 'Иконка'),
+                        sortOrder: 5,
+                        validationRules: { maxLength: 64 }
+                    },
+                    {
+                        codename: 'IsActive',
+                        dataType: 'BOOLEAN',
+                        name: vlc('Is Active', 'Активно'),
+                        sortOrder: 6
+                    }
+                ]
+            },
+            {
+                codename: 'BadgeIssues',
+                kind: 'object',
+                name: vlc('Badge Issues', 'Выдачи бейджей'),
+                description: vlc('Learner badge issue and revocation records.', 'Записи выдачи и отзыва бейджей учащихся.'),
+                config: buildTransactionalObjectConfig({
+                    prefix: 'BDG-',
+                    effectiveDateField: 'IssuedAt',
+                    stateField: 'Status',
+                    states: [
+                        { codename: 'Eligible', title: 'Eligible', isInitial: true },
+                        { codename: 'Issued', title: 'Issued' },
+                        { codename: 'Revoked', title: 'Revoked', isFinal: true }
+                    ],
+                    workflowActions: LMS_BADGE_ISSUE_WORKFLOW_ACTIONS
+                }),
+                components: [
+                    {
+                        codename: 'StudentId',
+                        dataType: 'REF',
+                        name: vlc('Student', 'Студент'),
+                        isRequired: true,
+                        sortOrder: 1,
+                        targetEntityCodename: 'Students',
+                        targetEntityKind: 'object'
+                    },
+                    {
+                        codename: 'BadgeId',
+                        dataType: 'REF',
+                        name: vlc('Badge', 'Бейдж'),
+                        isRequired: true,
+                        sortOrder: 2,
+                        targetEntityCodename: 'BadgeDefinitions',
+                        targetEntityKind: 'object'
+                    },
+                    {
+                        codename: 'IssuedAt',
+                        dataType: 'DATE',
+                        name: vlc('Issued At', 'Выдан'),
+                        isRequired: true,
+                        sortOrder: 3
+                    },
+                    {
+                        codename: 'RevokedAt',
+                        dataType: 'DATE',
+                        name: vlc('Revoked At', 'Отозван'),
+                        sortOrder: 4
+                    },
+                    {
+                        codename: 'Status',
+                        dataType: 'STRING',
+                        name: vlc('Status', 'Статус'),
+                        isRequired: true,
+                        sortOrder: 5,
+                        validationRules: { maxLength: 30 }
+                    },
+                    {
+                        codename: 'Reason',
+                        dataType: 'STRING',
+                        name: vlc('Reason', 'Причина'),
+                        sortOrder: 6,
+                        validationRules: { localized: true, versioned: true }
+                    }
+                ]
+            },
+            {
+                codename: 'LeaderboardSnapshots',
+                kind: 'object',
+                name: vlc('Leaderboard Snapshots', 'Снимки рейтинга'),
+                description: vlc(
+                    'Deterministic leaderboard rows derived from point facts for learner-facing achievement pages.',
+                    'Детерминированные строки рейтинга на основе фактов баллов для страниц достижений учащегося.'
+                ),
+                components: [
+                    {
+                        codename: 'StudentId',
+                        dataType: 'REF',
+                        name: vlc('Student', 'Студент'),
+                        isRequired: true,
+                        sortOrder: 1,
+                        targetEntityCodename: 'Students',
+                        targetEntityKind: 'object'
+                    },
+                    {
+                        codename: 'Period',
+                        dataType: 'STRING',
+                        name: vlc('Period', 'Период'),
+                        isRequired: true,
+                        isDisplayComponent: true,
+                        sortOrder: 2,
+                        validationRules: { maxLength: 64 }
+                    },
+                    {
+                        codename: 'TotalPoints',
+                        dataType: 'NUMBER',
+                        name: vlc('Total Points', 'Всего баллов'),
+                        isRequired: true,
+                        sortOrder: 3
+                    },
+                    {
+                        codename: 'Rank',
+                        dataType: 'NUMBER',
+                        name: vlc('Rank', 'Место'),
+                        isRequired: true,
+                        sortOrder: 4,
+                        validationRules: { min: 1 }
+                    },
+                    {
+                        codename: 'BadgeCount',
+                        dataType: 'NUMBER',
+                        name: vlc('Badge Count', 'Количество бейджей'),
+                        sortOrder: 5,
+                        validationRules: { min: 0 }
+                    },
+                    {
+                        codename: 'CalculatedAt',
+                        dataType: 'DATE',
+                        name: vlc('Calculated At', 'Рассчитано'),
+                        sortOrder: 6
                     }
                 ]
             },
@@ -3167,6 +4079,15 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 description: vlc('Status values for issued certificates.', 'Значения статуса выданных сертификатов.')
             },
             {
+                codename: 'PointSourceType',
+                kind: 'enumeration',
+                name: vlc('Point Source Type', 'Тип источника баллов'),
+                description: vlc(
+                    'Source categories for gamification point rules and point transactions.',
+                    'Категории источников для правил начисления и операций с баллами.'
+                )
+            },
+            {
                 codename: 'ReportType',
                 kind: 'enumeration',
                 name: vlc('Report Type', 'Тип отчета'),
@@ -3202,8 +4123,9 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 { codename: 'Audio', name: vlc('Audio', 'Аудио'), sortOrder: 4 },
                 { codename: 'Document', name: vlc('Document', 'Документ'), sortOrder: 5 },
                 { codename: 'Scorm', name: vlc('SCORM-like package', 'SCORM-подобный пакет'), sortOrder: 6 },
-                { codename: 'Embed', name: vlc('Embed', 'Встраивание'), sortOrder: 7 },
-                { codename: 'File', name: vlc('File', 'Файл'), sortOrder: 8 }
+                { codename: 'Xapi', name: vlc('xAPI package', 'Пакет xAPI'), sortOrder: 7 },
+                { codename: 'Embed', name: vlc('Embed', 'Встраивание'), sortOrder: 8 },
+                { codename: 'File', name: vlc('File', 'Файл'), sortOrder: 9 }
             ],
             CompletionStatus: [
                 { codename: 'NotStarted', name: vlc('Not started', 'Не начато'), sortOrder: 1, isDefault: true },
@@ -3247,10 +4169,19 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 { codename: 'Revoked', name: vlc('Revoked', 'Отозван'), sortOrder: 3 },
                 { codename: 'Expired', name: vlc('Expired', 'Истек'), sortOrder: 4 }
             ],
+            PointSourceType: [
+                { codename: 'Course', name: vlc('Course', 'Курс'), sortOrder: 1 },
+                { codename: 'Track', name: vlc('Track', 'Трек'), sortOrder: 2 },
+                { codename: 'Assignment', name: vlc('Assignment', 'Задание'), sortOrder: 3 },
+                { codename: 'TrainingEvent', name: vlc('Training Event', 'Учебное мероприятие'), sortOrder: 4 },
+                { codename: 'Certificate', name: vlc('Certificate', 'Сертификат'), sortOrder: 5 },
+                { codename: 'Manual', name: vlc('Manual Adjustment', 'Ручная корректировка'), sortOrder: 6, isDefault: true }
+            ],
             ReportType: [
                 { codename: 'Progress', name: vlc('Progress', 'Прогресс'), sortOrder: 1, isDefault: true },
                 { codename: 'Enrollment', name: vlc('Enrollment', 'Записи'), sortOrder: 2 },
-                { codename: 'QuizResults', name: vlc('Quiz Results', 'Результаты тестов'), sortOrder: 3 }
+                { codename: 'QuizResults', name: vlc('Quiz Results', 'Результаты тестов'), sortOrder: 3 },
+                { codename: 'Gamification', name: vlc('Gamification', 'Геймификация'), sortOrder: 4 }
             ]
         },
         scripts: [
@@ -3328,6 +4259,21 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 sdkApiVersion: '1.0.0',
                 capabilities: ['records.read', 'metadata.read', 'lifecycle', 'posting', 'ledger.write'],
                 sourceCode: LMS_CERTIFICATE_ISSUE_POSTING_SCRIPT_SOURCE
+            },
+            {
+                codename: 'PointTransactionPostingScript',
+                name: vlc('Point Transaction Posting Script', 'Скрипт проведения операций с баллами'),
+                description: vlc(
+                    'Posts manual point adjustments into the generic Points Ledger.',
+                    'Проводит ручные корректировки баллов в универсальный регистр баллов.'
+                ),
+                attachedToKind: 'object',
+                attachedToEntityCodename: 'PointTransactions',
+                moduleRole: 'lifecycle',
+                sourceKind: 'embedded',
+                sdkApiVersion: '1.0.0',
+                capabilities: ['records.read', 'metadata.read', 'lifecycle', 'posting', 'ledger.write'],
+                sourceCode: LMS_POINT_TRANSACTION_POSTING_SCRIPT_SOURCE
             }
         ],
         settings: [

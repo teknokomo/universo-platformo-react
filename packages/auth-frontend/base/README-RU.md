@@ -58,8 +58,8 @@ src/
 ```tsx
 import { createAuthClient, AuthProvider } from '@universo/auth-frontend'
 
-const authClient = createAuthClient({ 
-  baseURL: `${window.location.origin}/api/v1` 
+const authClient = createAuthClient({
+  baseURL: `${window.location.origin}/api/v1`
 })
 
 <AuthProvider client={authClient}>
@@ -100,7 +100,7 @@ import { AuthView } from '@universo/auth-frontend'
 ```
 
 **Возможности:**
-- Переключение между режимами входа/регистрации  
+- Переключение между режимами входа/регистрации
 - Интеграция с Material-UI TextField с иконками
 - Комплексная обработка и отображение ошибок
 - Настраиваемый стиль с slots/slotProps
@@ -114,9 +114,9 @@ import { LoginForm } from '@universo/auth-frontend'
 
 <LoginForm
   client={authClient}
-  labels={{ 
-    submit: 'Войти', 
-    submitting: 'Выполняется вход…' 
+  labels={{
+    submit: 'Войти',
+    submitting: 'Выполняется вход…'
   }}
   onSuccess={(user) => console.log('Вошел:', user)}
   onError={(message) => showToast(message)}
@@ -129,9 +129,9 @@ import { LoginForm } from '@universo/auth-frontend'
 ```tsx
 import { useSession } from '@universo/auth-frontend'
 
-const { user, loading, error, refresh, logout } = useSession({ 
+const { user, loading, error, refresh, logout } = useSession({
   client: authClient,
-  fetchOnMount: true 
+  fetchOnMount: true
 })
 
 // Данные текущего пользователя
@@ -190,7 +190,7 @@ return <AuthenticatedContent user={user} />
 Автоматическое получение и включение CSRF-токена в запросы.
 
 ```typescript
-const client = createAuthClient({ 
+const client = createAuthClient({
   baseURL: '/api/v1',
   csrfPath: 'auth/csrf',  // По умолчанию
   csrfStorageKey: 'up.auth.csrf'  // По умолчанию
@@ -220,8 +220,8 @@ const client = createAuthClient({ baseURL: '/api/v1' })
 ## Разработка
 
 ### Предварительные требования
-- Node.js 18+
-- Среда рабочего пространства PNPM  
+- Node.js 22.22.2 recommended (>=22.6.0 required)
+- Среда рабочего пространства PNPM
 - Peer-зависимости Material-UI
 
 ### Команды
@@ -240,7 +240,7 @@ pnpm --filter @universo/auth-frontend lint
 ```
 
 ### Вывод сборки
-- **CommonJS**: `dist/index.js` + `dist/index.d.ts`  
+- **CommonJS**: `dist/index.js` + `dist/index.d.ts`
 - **ES Модули**: `dist/index.mjs` + `dist/index.d.ts`
 - **TypeScript**: Включены полные определения типов
 
@@ -257,8 +257,8 @@ pnpm --filter @universo/auth-frontend lint
 import { createAuthClient, AuthProvider, useAuth } from '@universo/auth-frontend'
 import { Routes, Route, Navigate } from 'react-router-dom'
 
-const authClient = createAuthClient({ 
-  baseURL: process.env.REACT_APP_API_URL 
+const authClient = createAuthClient({
+  baseURL: process.env.REACT_APP_API_URL
 })
 
 function App() {
@@ -271,9 +271,9 @@ function App() {
 
 function AppRoutes() {
   const { isAuthenticated, loading } = useAuth()
-  
+
   if (loading) return <LoadingScreen />
-  
+
   return (
     <Routes>
       <Route path="/auth" element={
@@ -315,12 +315,12 @@ export const translateError = (error: string): string => {
     'User not found': 'Аккаунт с таким email не найден',
     'Email already exists': 'Аккаунт с таким email уже существует'
   }
-  
+
   return errorMap[error] || error
 }
 
 // Использование в компоненте
-<AuthView 
+<AuthView
   onLogin={handleLogin}
   onRegister={handleRegister}
   errorMapper={translateError}
@@ -336,7 +336,7 @@ export const translateError = (error: string): string => {
 - Автоматически включены во все запросы
 - Недействительные токены запускают повторное получение (статус 419)
 
-### Управление сессиями  
+### Управление сессиями
 - HTTP-only cookie рекомендованы для продакшена
 - Автоматическое обновление сессии при загрузке приложения
 - Безопасный выход с очисткой на стороне сервера

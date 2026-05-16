@@ -76,6 +76,6 @@ Invalid movement shape, undeclared ledgers, unknown Ledger fields, or Ledger app
 
 ## LMS Usage
 
-The canonical LMS template defines `ProgressLedger` and `ScoreLedger`.
-They model progress and assessment facts while keeping LMS behavior as configuration, not a runtime fork.
+The canonical LMS template defines `ProgressLedger`, `ScoreLedger`, `EnrollmentLedger`, `AttendanceLedger`, `CertificateLedger`, `PointsLedger`, and `NotificationLedger`.
+They model progress, assessment, assignment, attendance, certificate, gamification, and notification facts while keeping LMS behavior as configuration, not a runtime fork.
 Generic dashboard widgets and reports should read ledger projections through shared datasource contracts rather than LMS-specific widgets.

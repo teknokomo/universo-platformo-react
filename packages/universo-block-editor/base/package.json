@@ -1,0 +1,50 @@
+{
+    "name": "@universo/block-editor",
+    "version": "0.1.0",
+    "description": "Shared Editor.js authoring primitives for Universo frontend packages",
+    "private": true,
+    "main": "dist/index.js",
+    "module": "dist/index.mjs",
+    "types": "dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.js"
+        }
+    },
+    "sideEffects": false,
+    "scripts": {
+        "clean": "rimraf dist",
+        "build": "tsdown",
+        "dev": "tsdown --watch",
+        "lint": "eslint --ext .ts,.tsx src/",
+        "test": "vitest run --config vitest.config.ts"
+    },
+    "dependencies": {
+        "@editorjs/delimiter": "catalog:",
+        "@editorjs/editorjs": "catalog:",
+        "@editorjs/embed": "catalog:",
+        "@editorjs/header": "catalog:",
+        "@editorjs/image": "catalog:",
+        "@editorjs/list": "catalog:",
+        "@editorjs/quote": "catalog:",
+        "@editorjs/table": "catalog:",
+        "@mui/material": "catalog:",
+        "@universo/types": "workspace:*"
+    },
+    "devDependencies": {
+        "@testing-library/react": "catalog:",
+        "@types/node": "catalog:",
+        "@types/react": "catalog:",
+        "eslint": "catalog:",
+        "rimraf": "^5.0.5",
+        "tsdown": "catalog:",
+        "typescript": "catalog:",
+        "vitest": "catalog:"
+    },
+    "peerDependencies": {
+        "react": ">=18",
+        "react-dom": ">=18"
+    }
+}

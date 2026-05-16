@@ -20,6 +20,7 @@ import {
     Typography
 } from '@mui/material'
 import SaveIcon from '@mui/icons-material/Save'
+import { collectUnsupportedActiveCapabilityRules } from '@universo/types'
 import type { ApplicationRolePolicySettings, RoleCapabilityRule } from '@universo/types'
 import { useSnackbar } from 'notistack'
 import { useTranslation } from 'react-i18next'
@@ -282,6 +283,10 @@ const ApplicationSettings = () => {
         () => resolveRolePolicyMatrix(effectiveGeneralSettings.rolePolicies),
         [effectiveGeneralSettings.rolePolicies]
     )
+    const unsupportedActiveRoleRules = useMemo(
+        () => collectUnsupportedActiveCapabilityRules(effectiveGeneralSettings.rolePolicies),
+        [effectiveGeneralSettings.rolePolicies]
+    )
 
     const updateRoleCapability = (role: ApplicationRole, capability: ApplicationCapabilityKey, checked: boolean) => {
         const nextMatrix = resolveRolePolicyMatrix(effectiveGeneralSettings.rolePolicies)
@@ -298,12 +303,28 @@ const ApplicationSettings = () => {
     const saveGeneralMutation = useMutation({
         mutationKey: ['applications', 'settings', 'general', 'update'],
         mutationFn: async (input: { settings: ApplicationDialogSettings; isPublic?: boolean }) => {
+            const settings = sanitizeApplicationDialogSettingsForSave(input.settings)
             const response = await updateApplication(applicationId!, {
-                settings: sanitizeApplicationDialogSettingsForSave(input.settings),
+                settings,
                 ...(input.isPublic !== undefined ? { isPublic: input.isPublic } : {}),
                 expectedVersion: applicationQuery.data?.version ?? 1
             })
             return response.data
+        },
+        onMutate: async (input) => {
+            if (!applicationId) return { previousApplication: undefined }
+
+            await queryClient.cancelQueries({ queryKey: applicationsQueryKeys.detail(applicationId) })
+            const previousApplication = queryClient.getQueryData(applicationsQueryKeys.detail(applicationId))
+            if (previousApplication && typeof previousApplication === 'object') {
+                queryClient.setQueryData(applicationsQueryKeys.detail(applicationId), {
+                    ...previousApplication,
+                    settings: sanitizeApplicationDialogSettingsForSave(input.settings),
+                    ...(input.isPublic !== undefined ? { isPublic: input.isPublic } : {})
+                })
+            }
+
+            return { previousApplication }
         },
         onSuccess: async (saved) => {
             if (!applicationId) return
@@ -317,7 +338,10 @@ const ApplicationSettings = () => {
             setGeneralChanges({})
             setVisibilityChange(undefined)
         },
-        onError: (error: Error) => {
+        onError: (error: Error, _input, context) => {
+            if (applicationId && context?.previousApplication) {
+                queryClient.setQueryData(applicationsQueryKeys.detail(applicationId), context.previousApplication)
+            }
             enqueueSnackbar(error.message || t('settings.generalSaveError', 'Failed to save application settings'), {
                 variant: 'error'
             })
@@ -799,6 +823,14 @@ const ApplicationSettings = () => {
                                 'Configure generic application and workspace capabilities for each application role. These rules are enforced by the runtime API.'
                             )}
                         </Alert>
+                        {unsupportedActiveRoleRules.length > 0 ? (
+                            <Alert severity='warning' data-testid='application-settings-unsupported-scope-warning'>
+                                {t(
+                                    'settings.unsupportedScopeWarning',
+                                    'Some imported role policy grants use scopes that are not implemented yet. They will be saved as deny rules until scoped predicates are available.'
+                                )}
+                            </Alert>
+                        ) : null}
 
                         <Box sx={{ overflowX: 'auto' }}>
                             <Box

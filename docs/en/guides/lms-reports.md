@@ -21,8 +21,9 @@ Each report record stores:
 - aggregations,
 - saved filter presets.
 
-The current fixture includes `LearnerProgress` and `CourseProgress` definitions.
-Both use `records.list` datasources so they can be rendered by existing `detailsTable`, chart, and overview-card widgets.
+The current fixture includes `LearnerProgress`, `CourseProgress`, `Leaderboard`, and `Achievements` definitions.
+They use `records.list` datasources so they can be rendered by existing `detailsTable`, chart, and overview-card widgets.
+Gamification reports read ordinary Object rows such as `LeaderboardSnapshots` and `BadgeIssues`; score movement facts remain in `PointsLedger` and are surfaced through configured objects and reports instead of a hardcoded LMS dashboard.
 
 ## Safe Runner
 
@@ -36,3 +37,9 @@ API payloads may reference saved report records, but they must not provide raw S
 SQL values are parameterized, dynamic identifiers go through identifier helpers, unsupported fields fail closed, and JSON/TABLE fields are not exposed to filter/sort/report column SQL.
 Registrar-only ledger Objects are excluded from report target discovery, so reports operate on ordinary runtime record Objects and not on internal fact ledgers.
 Configured aggregations are executed by the same safe field map and are returned in the `aggregations` object using the report definition aliases.
+
+## Runtime Usage
+
+The existing `detailsTable` widget can render a saved report by `reportCodename` and request a CSV export for the same saved definition.
+Overview stat cards can also use the generic `report.aggregation` metric datasource to display a configured aggregation alias.
+Both paths reuse the saved report runner, current workspace scope, CSRF protection, and published metadata resolution.

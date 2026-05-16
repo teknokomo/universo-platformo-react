@@ -835,6 +835,7 @@ export const DASHBOARD_LAYOUT_WIDGETS = [
     { key: 'detailsTable', allowedZones: ['center'] as const, multiInstance: false },
     { key: 'columnsContainer', allowedZones: ['center'] as const, multiInstance: true },
     { key: 'quizWidget', allowedZones: ['center', 'right'] as const, multiInstance: true },
+    { key: 'resourcePreview', allowedZones: ['center', 'right'] as const, multiInstance: true },
     // Right zone widgets
     { key: 'detailsSidePanel', allowedZones: ['right'] as const, multiInstance: false },
     { key: 'productTree', allowedZones: ['center', 'right'] as const, multiInstance: false },

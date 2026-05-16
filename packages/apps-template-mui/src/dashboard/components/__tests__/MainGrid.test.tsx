@@ -17,6 +17,7 @@ interface MockViewHeaderProps {
 
 interface MockItemCardProps {
     data: { name?: ReactNode }
+    allowStretch?: boolean
 }
 
 interface MockTableColumn {
@@ -126,7 +127,7 @@ vi.mock('react-i18next', () => ({
     })
 }))
 
-vi.mock('@universo/template-mui', async () => {
+vi.mock('../../../components/runtime-ui', async () => {
     const React = await import('react')
 
     return {
@@ -138,7 +139,11 @@ vi.mock('@universo/template-mui', async () => {
             </div>
         ),
         ToolbarControls: () => <div data-testid='toolbar-controls' />,
-        ItemCard: (props: MockItemCardProps) => <div data-testid='item-card'>{props.data.name}</div>,
+        ItemCard: (props: MockItemCardProps) => (
+            <div data-testid='item-card' data-allow-stretch={String(Boolean(props.allowStretch))}>
+                {props.data.name}
+            </div>
+        ),
         FlowListTable: (props: MockFlowListTableProps) => (
             <div
                 data-testid='flow-list-table'
@@ -239,6 +244,19 @@ describe('MainGrid enhanced runtime details', () => {
         expect(screen.getByTestId('customized-grid')).toHaveAttribute('data-hide-footer', 'false')
     })
 
+    it('stretches runtime record cards inside the dashboard card grid', () => {
+        render(
+            <DashboardDetailsProvider value={details}>
+                <MainGrid layoutConfig={{ ...baseLayoutConfig, defaultViewMode: 'card', showViewToggle: true, cardColumns: 3 }} />
+            </DashboardDetailsProvider>
+        )
+
+        expect(screen.getByTestId('dashboard-details-card-view')).toBeInTheDocument()
+        const cards = screen.getAllByTestId('item-card')
+        expect(cards).toHaveLength(2)
+        expect(cards.every((card) => card.getAttribute('data-allow-stretch') === 'true')).toBe(true)
+    })
+
     it('resolves localized overview card labels and records.count metrics through the runtime list API', async () => {
         const fetchMock = vi.fn().mockResolvedValue({
             ok: true,
@@ -326,6 +344,87 @@ describe('MainGrid enhanced runtime details', () => {
         expect(requestedUrl.searchParams.get('objectCollectionId')).toBe('017f22e2-79b0-7cc3-98c4-dc0c0c073990')
         expect(requestedUrl.searchParams.get('search')).toBe('safety')
         expect(requestedUrl.searchParams.get('locale')).toBe('ru')
+    })
+
+    it('resolves overview card report aggregation metrics through the runtime reports API', async () => {
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = String(input)
+            if (url.endsWith('/auth/csrf')) {
+                return new Response(JSON.stringify({ csrfToken: 'csrf-token' }), {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' }
+                })
+            }
+
+            expect(url).toBe('http://localhost:3000/api/v1/applications/app-1/runtime/reports/run?workspaceId=workspace-1')
+            return new Response(
+                JSON.stringify({
+                    rows: [],
+                    total: 0,
+                    aggregations: { AverageProgress: 87.5 },
+                    definition: {
+                        codename: 'LearnerProgress',
+                        title: 'Learner progress',
+                        datasource: { kind: 'records.list', sectionCodename: 'ModuleProgress' },
+                        columns: [{ field: 'ProgressPercent', label: 'Progress', type: 'number' }],
+                        filters: [],
+                        aggregations: [{ field: 'ProgressPercent', function: 'avg', alias: 'AverageProgress' }]
+                    }
+                }),
+                { status: 200, headers: { 'Content-Type': 'application/json' } }
+            )
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <DashboardDetailsProvider
+                    value={{
+                        ...details,
+                        applicationId: 'app-1',
+                        apiBaseUrl: '/api/v1',
+                        locale: 'en',
+                        currentWorkspaceId: 'workspace-1'
+                    }}
+                >
+                    <MainGrid
+                        layoutConfig={{ ...baseLayoutConfig, showOverviewCards: true, showDetailsTable: false }}
+                        centerWidgets={[
+                            {
+                                id: 'overview-cards',
+                                widgetKey: 'overviewCards',
+                                sortOrder: 1,
+                                config: {
+                                    cards: [
+                                        {
+                                            title: 'Average progress',
+                                            value: '0',
+                                            interval: 'Current workspace',
+                                            datasource: {
+                                                kind: 'metric',
+                                                metricKey: 'report.aggregation',
+                                                params: {
+                                                    reportCodename: 'LearnerProgress',
+                                                    aggregationAlias: 'AverageProgress'
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        ]}
+                    />
+                </DashboardDetailsProvider>
+            </QueryClientProvider>
+        )
+
+        await waitFor(() => expect(screen.getByTestId('stat-card')).toHaveTextContent('Average progress:87.5'))
+        expect(screen.getByTestId('stat-card')).toHaveAttribute('data-trend-label', '0%')
+        expect(fetchMock).toHaveBeenCalledTimes(2)
+        const reportRequest = fetchMock.mock.calls[1]?.[1] as RequestInit
+        expect(reportRequest.method).toBe('POST')
+        expect(reportRequest.body).toBe(JSON.stringify({ reportCodename: 'LearnerProgress', limit: 1, offset: 0 }))
+        expect(new Headers(reportRequest.headers).get('X-CSRF-Token')).toBe('csrf-token')
     })
 
     it('resolves records.list datasource rows into localized chart series props', async () => {

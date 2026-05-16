@@ -61,7 +61,7 @@ vi.mock('react-i18next', () => ({
     })
 }))
 
-vi.mock('@universo/template-mui', () => ({
+vi.mock('../../components/runtime-ui', () => ({
     ViewHeaderMUI: ({
         title,
         children,
@@ -507,6 +507,7 @@ describe('RuntimeWorkspacesPage', () => {
         expect(screen.getByText('Shared')).toBeInTheDocument()
         expect(screen.getByText('Owner')).toBeInTheDocument()
         expect(screen.getByText('2')).toBeInTheDocument()
+        expect(screen.getAllByTestId('runtime-workspace-metric-card')).toHaveLength(3)
         expect(screen.queryByRole('button', { name: 'Add' })).not.toBeInTheDocument()
     })
 

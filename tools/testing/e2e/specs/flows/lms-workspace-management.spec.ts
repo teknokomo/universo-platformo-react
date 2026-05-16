@@ -20,7 +20,7 @@ import {
     recordCreatedPublication
 } from '../../support/backend/run-manifest.mjs'
 import { applicationSelectors, entityDialogSelectors } from '../../support/selectors/contracts'
-import { setupPublishedLmsApplication, waitForApplicationCatalogId } from '../../support/lmsRuntime'
+import { setupPublishedLmsApplication, waitForApplicationObjectId } from '../../support/lmsRuntime'
 
 function resolveGlobalRoleIds(roles: Array<{ id?: string; codename?: string }>, roleCodenames: string[]) {
     const roleMap = new Map(roles.map((role) => [String(role.codename).toLowerCase(), role.id]))
@@ -142,6 +142,11 @@ async function switchWorkspace(page: Page, workspace: WorkspaceTarget | string) 
     await expect(switcher).toContainText(workspaceName, { timeout: 30_000 })
 }
 
+async function assertNoHorizontalOverflow(page: Page, label: string): Promise<void> {
+    const overflowPx = await page.evaluate(() => Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth))
+    expect(overflowPx, `${label} must not create horizontal page overflow`).toBeLessThanOrEqual(1)
+}
+
 test('@flow lms workspace management isolates module runtime rows across personal and shared workspaces', async ({
     browser,
     page,
@@ -226,7 +231,7 @@ test('@flow lms workspace management isolates module runtime rows across persona
             (workspace) => (workspace.workspaceType ?? workspace.type) === 'personal',
             'owner personal workspace'
         )
-        const modulesCatalogId = await waitForApplicationCatalogId(ownerApi, lms.applicationId, 'Modules')
+        const modulesObjectId = await waitForApplicationObjectId(ownerApi, lms.applicationId, 'Modules')
 
         await applyBrowserPreferences(page, { language: 'en' })
         await page.goto(`/a/${lms.applicationId}/workspaces`)
@@ -238,9 +243,9 @@ test('@flow lms workspace management isolates module runtime rows across persona
         await expect(page.getByText('Plan about to expire', { exact: true })).toHaveCount(0)
         await expect(page.getByText('Riley Carter', { exact: true })).toHaveCount(0)
         await expect(page.getByText('Sitemark-web', { exact: true })).toHaveCount(0)
-        await expect(page.getByText('Object', { exact: true }).first()).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByRole('link', { name: 'Modules', exact: true })).toBeVisible({ timeout: 30_000 })
         await expect(page.getByText('Workspaces', { exact: true }).first()).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByText(/Rows per page/i).first()).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByTestId('runtime-workspaces-card-view')).toBeVisible({ timeout: 30_000 })
         await expect(page.getByText(memberEmail, { exact: true })).toHaveCount(0)
         await page.screenshot({ path: testInfo.outputPath('runtime-workspaces-page.png'), fullPage: true })
         await applyBrowserPreferences(page, { language: 'ru' })
@@ -261,8 +266,8 @@ test('@flow lms workspace management isolates module runtime rows across persona
         await expect(page.getByRole('option', { name: /Manage workspaces/ })).toBeVisible({ timeout: 30_000 })
         await page.screenshot({ path: testInfo.outputPath('runtime-workspace-switcher-menu.png'), fullPage: true })
         await page.keyboard.press('Escape')
-        await page.getByText('Object', { exact: true }).first().click()
-        await expect(page).toHaveURL(new RegExp(`/a/${lms.applicationId}/${modulesCatalogId}`))
+        await page.getByRole('link', { name: 'Modules', exact: true }).click()
+        await expect(page).toHaveURL(new RegExp(`/a/${lms.applicationId}/${modulesObjectId}`))
         await expect(page.getByRole('heading', { name: 'Modules' })).toBeVisible({ timeout: 30_000 })
         await expect(page.getByTestId('runtime-workspace-switcher')).toHaveCount(1)
         await page.goto(`/a/${lms.applicationId}/workspaces`)
@@ -299,15 +304,18 @@ test('@flow lms workspace management isolates module runtime rows across persona
         )
         await expect(page.getByRole('heading', { name: sharedWorkspaceName })).toBeVisible({ timeout: 30_000 })
         await expect(page.getByRole('link', { name: 'Access', exact: true })).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByTestId('runtime-workspace-metric-card')).toHaveCount(3, { timeout: 30_000 })
+        await assertNoHorizontalOverflow(page, 'LMS workspace dashboard metric cards')
+        await page.screenshot({ path: testInfo.outputPath('runtime-workspace-dashboard-metric-cards.png'), fullPage: true })
 
         await page.goto(`/a/${lms.applicationId}/workspaces`)
         const workspacePage = page.getByTestId('runtime-workspaces-page')
         const sharedWorkspaceLocator = workspacePage.getByText(sharedWorkspaceName, { exact: true }).first()
         await expect(sharedWorkspaceLocator).toBeVisible({ timeout: 30_000 })
         const sharedWorkspaceCard = workspacePage.getByTestId('runtime-workspace-card').filter({ hasText: sharedWorkspaceName }).first()
-        await expect(sharedWorkspaceCard.getByRole('button', { name: 'Workspace actions' })).toBeVisible({ timeout: 30_000 })
+        await expect(sharedWorkspaceCard.getByLabel('Workspace actions')).toBeVisible({ timeout: 30_000 })
 
-        await sharedWorkspaceCard.getByRole('button', { name: 'Workspace actions' }).click()
+        await sharedWorkspaceCard.getByLabel('Workspace actions').click()
         await page.getByRole('menuitem', { name: 'Copy' }).click()
         const copyWorkspaceDialog = page.getByRole('dialog', { name: 'Copy workspace' })
         const copiedWorkspaceName = `${sharedWorkspaceName} (copy)`
@@ -323,7 +331,7 @@ test('@flow lms workspace management isolates module runtime rows across persona
             .filter({ hasText: copiedWorkspaceName })
             .first()
         await expect(copiedWorkspaceCard).toBeVisible({ timeout: 30_000 })
-        await copiedWorkspaceCard.getByRole('button', { name: 'Workspace actions' }).click()
+        await copiedWorkspaceCard.getByLabel('Workspace actions').click()
         await page.getByRole('menuitem', { name: 'Edit' }).click()
         const editWorkspaceDialog = page.getByRole('dialog', { name: 'Edit workspace' })
         const renamedCopyWorkspaceName = `${sharedWorkspaceName} Copy Edited`
@@ -337,24 +345,24 @@ test('@flow lms workspace management isolates module runtime rows across persona
             .getByTestId('runtime-workspace-card')
             .filter({ hasText: renamedCopyWorkspaceName })
             .first()
-        await renamedCopyWorkspaceCard.getByRole('button', { name: 'Workspace actions' }).click()
+        await renamedCopyWorkspaceCard.getByLabel('Workspace actions').click()
         await page.getByRole('menuitem', { name: 'Delete' }).click()
         const deleteWorkspaceDialog = page.getByRole('dialog', { name: 'Delete workspace' })
         await deleteWorkspaceDialog.getByRole('button', { name: 'Delete' }).click()
         await expect(page.getByText(renamedCopyWorkspaceName, { exact: true })).toHaveCount(0, { timeout: 30_000 })
 
-        await page.locator('button[title="Table view"]').click()
+        await page.getByRole('button', { name: 'Table view', exact: true }).click()
         const sharedWorkspaceRow = workspacePage.getByRole('row', {
             name: new RegExp(escapeRegex(sharedWorkspaceName))
         })
         await expect(sharedWorkspaceRow).toBeVisible({ timeout: 30_000 })
         await expect(sharedWorkspaceRow.getByRole('button', { name: 'Open' })).toHaveCount(0)
-        await expect(sharedWorkspaceRow.getByRole('button', { name: 'Workspace actions' })).toBeVisible()
+        await expect(sharedWorkspaceRow.getByLabel('Workspace actions')).toBeVisible()
         await page.getByPlaceholder('Search workspaces').fill(`missing-${runManifest.runId}`)
         await expect(sharedWorkspaceRow).toHaveCount(0)
         await page.getByPlaceholder('Search workspaces').fill(sharedWorkspaceName)
         await expect(sharedWorkspaceRow).toBeVisible({ timeout: 30_000 })
-        await page.locator('button[title="Card view"]').click()
+        await page.getByRole('button', { name: 'Card view', exact: true }).click()
 
         await sharedWorkspaceLocator.first().click()
         await expect(page).toHaveURL(new RegExp(`/a/${lms.applicationId}/workspaces/${sharedWorkspace.id}`), { timeout: 30_000 })
@@ -375,14 +383,14 @@ test('@flow lms workspace management isolates module runtime rows across persona
         await inviteDialog.getByRole('button', { name: 'Add' }).click()
         await expect(page.getByText(memberEmail, { exact: true })).toBeVisible({ timeout: 30_000 })
         await expect(page.getByTestId('runtime-workspace-members-card-view')).toBeVisible({ timeout: 30_000 })
-        await page.locator('button[title="Member list view"]').click()
+        await page.getByRole('button', { name: 'Member list view', exact: true }).click()
         await expect(
             workspacePage.getByRole('row', {
                 name: new RegExp(escapeRegex(memberEmail))
             })
         ).toBeVisible({ timeout: 30_000 })
         await page.screenshot({ path: testInfo.outputPath('runtime-workspace-members-list.png'), fullPage: true })
-        await page.locator('button[title="Member card view"]').click()
+        await page.getByRole('button', { name: 'Member card view', exact: true }).click()
         await expect(page.getByTestId('runtime-workspace-members-card-view')).toBeVisible({ timeout: 30_000 })
         await page.screenshot({ path: testInfo.outputPath('runtime-workspace-members.png'), fullPage: true })
 
@@ -401,7 +409,7 @@ test('@flow lms workspace management isolates module runtime rows across persona
         await setApplicationDefaultWorkspace(ownerApi, lms.applicationId, ownerPersonalWorkspace.id)
         await setApplicationDefaultWorkspace(memberApi, lms.applicationId, memberPersonalWorkspace.id)
 
-        await page.goto(`/a/${lms.applicationId}/${modulesCatalogId}`)
+        await page.goto(`/a/${lms.applicationId}/${modulesObjectId}`)
         await expect(page.getByRole('heading', { name: 'Modules' })).toBeVisible({ timeout: 30_000 })
 
         await switchWorkspace(page, sharedWorkspace)
@@ -416,7 +424,7 @@ test('@flow lms workspace management isolates module runtime rows across persona
         await memberPage.goto(`/a/${lms.applicationId}/workspaces`)
         await expect(memberPage.getByTestId('runtime-workspaces-page')).toBeVisible({ timeout: 30_000 })
         await expect(memberPage.getByRole('heading', { name: 'Overview' })).toHaveCount(0)
-        await expect(memberPage.getByText('Object', { exact: true }).first()).toBeVisible({ timeout: 30_000 })
+        await expect(memberPage.getByRole('link', { name: 'Modules', exact: true })).toBeVisible({ timeout: 30_000 })
         await memberPage.getByText(sharedWorkspaceName, { exact: true }).first().click()
         await expect(memberPage).toHaveURL(new RegExp(`/a/${lms.applicationId}/workspaces/${sharedWorkspace.id}`), { timeout: 30_000 })
         await memberPage.getByRole('link', { name: 'Access', exact: true }).click()
@@ -426,7 +434,7 @@ test('@flow lms workspace management isolates module runtime rows across persona
         await expect(memberPage.getByRole('button', { name: 'Add' })).toHaveCount(0, { timeout: 30_000 })
         await expect(memberPage.getByRole('button', { name: 'Remove member' })).toHaveCount(0)
 
-        await memberPage.goto(`/a/${lms.applicationId}/${modulesCatalogId}`)
+        await memberPage.goto(`/a/${lms.applicationId}/${modulesObjectId}`)
         await expect(memberPage.getByRole('heading', { name: 'Modules' })).toBeVisible({ timeout: 30_000 })
         await expect(memberPage.getByText(sharedModuleTitle, { exact: true })).toHaveCount(0)
 

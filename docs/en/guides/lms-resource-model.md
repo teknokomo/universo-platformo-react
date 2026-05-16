@@ -23,9 +23,12 @@ Each resource uses exactly one source locator:
 - `pageCodename` for authored Page entities.
 - `url` for URL, video, audio, and embedded content.
 - `storageKey` for future stored files.
-- `packageDescriptor` or `storageKey` for future SCORM-like packages.
+- `packageDescriptor` or `storageKey` for future SCORM and xAPI packages.
 
-The V1 fixture intentionally does not implement file upload, package extraction, or a SCORM player. Those should be added through generic storage/runtime primitives, not LMS-specific frontend code.
+The V1 fixture intentionally does not implement file upload, package extraction, xAPI launch tracking, or a SCORM player.
+SCORM, xAPI, storage-backed video/audio/document/file resources, and office document previews are represented as configured-but-deferred resources.
+Published applications show a localized deferred runtime state instead of pretending that the player/import pipeline already exists.
+Those capabilities should be added through generic storage/runtime primitives, not LMS-specific frontend code.
 
 ## Runtime Behavior
 

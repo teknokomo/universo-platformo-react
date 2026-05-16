@@ -53,6 +53,386 @@
 
 ---
 
+## Completed: LMS Platform Implementation Slice 7F - Operational Workflow Playwright Proof (2026-05-15)
+
+Phase 7 now has browser/API E2E proof for the operational LMS workflow metadata generated from the snapshot fixture.
+
+### Changes Made
+
+- Extended `snapshot-import-lms-runtime.spec.ts` to exercise every configured LMS workflow action after snapshot import, linked application creation, schema sync, workspace runtime initialization, and role-policy capability grants.
+- Covered assignment submission review actions, training attendance actions, certificate issue/revoke actions, development task actions, and notification outbox actions through the trusted runtime workflow endpoint.
+- Verified optimistic version advancement and trusted response metadata for each action instead of relying on client-provided action JSON.
+- Updated the runtime flow assertions to match the current LMS dashboard, Knowledge page, and Development page contracts.
+- Fixed the shared published-app `ItemCard` primitive so clickable cards with inline action buttons do not render invalid nested `<button>` elements. Cards with inline actions now use a keyboard-accessible `div role="button"` wrapper while simple cards continue using `CardActionArea`.
+
+### Validation
+
+- `pnpm exec eslint --fix packages/apps-template-mui/src/components/runtime-ui/index.tsx tools/testing/e2e/specs/flows/snapshot-import-lms-runtime.spec.ts`
+- `pnpm --filter @universo/apps-template-mui test -- RuntimeWorkspacesPage`
+- `pnpm --filter @universo/apps-template-mui build`
+- `pnpm exec cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/base/.env.e2e.local-supabase pnpm run build:e2e`
+- `pnpm exec cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/base/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/snapshot-import-lms-runtime.spec.ts --project=chromium --grep "lms snapshot fixture imports"`
+
+---
+
+## Completed: LMS Platform Implementation Slice 7A - Trusted Runtime Workflow Action Endpoint (2026-05-15)
+
+The first Phase 7 operational workflow slice from `memory-bank/plan/ispring-like-lms-next-platform-roadmap-2026-05-15.md` is complete.
+
+### Changes Made
+
+- Added `POST /applications/:applicationId/runtime/rows/:rowId/workflow/:actionCodename`.
+  - The request accepts only `objectCollectionId` and a required `expectedVersion`.
+  - The server resolves the workflow action from the selected Object metadata, not from client-provided JSON.
+  - The existing runtime workflow action service applies status transitions with optimistic locking, workspace gating, capability checks, and audit facts.
+- Reused existing runtime access checks.
+  - The route requires `editContent`.
+  - The workflow capability map includes the same aliases used by effective role-policy resolution, including `workflow.execute` for edit-capable roles.
+- Added focused route coverage.
+  - A configured action transitions the row and writes audit metadata.
+  - An unconfigured action fails before any runtime row table is touched.
+
+### Validation
+
+- `pnpm --dir packages/applications-backend/base exec eslint --fix src/controllers/runtimeRowsController.ts src/routes/applicationsRoutes.ts src/tests/routes/applicationsRoutes.test.ts`
+- `pnpm --filter @universo/applications-backend lint`
+- `pnpm --filter @universo/applications-backend build`
+- `pnpm --filter @universo/applications-backend test -- runtimeWorkflowActions applicationsRoutes.test.ts -t "workflow actions" --runInBand`
+
+---
+
+## Completed: LMS Platform Implementation Slice 6F - Details Table Workflow Action Editor (2026-05-15)
+
+Phase 6 from `memory-bank/plan/ispring-like-lms-next-platform-roadmap-2026-05-15.md` is complete.
+
+### Changes Made
+
+- Added typed `workflowActions` support to the generic `detailsTable` widget config contract.
+  - The contract reuses the neutral workflow action schema from `@universo/types`.
+  - Invalid workflow actions fail schema validation instead of being stored as arbitrary widget JSON.
+- Extended the existing Application Layout widget behavior editor instead of adding a duplicate LMS-specific workflow screen.
+  - Admins can configure action codename, title, source statuses, target status, required capabilities, status field metadata, optional script hook, posting command, and confirmation copy.
+  - Workflow action settings are normalized before save and incomplete action slots are removed.
+  - Missing or incomplete workflow settings show localized warning previews before save.
+- Added English and Russian i18n labels for workflow action settings and warning copy.
+- Added focused regression coverage for shared widget config contracts and editor normalization/warnings.
+- Kept runtime mutation execution on the existing trusted backend workflow action service.
+  - The published runtime must not execute actions directly from client-provided widget JSON.
+  - A future runtime action button surface should resolve action contracts from trusted application metadata before calling the workflow mutation service.
+
+### Validation
+
+- `pnpm --filter @universo/types lint`
+- `VITEST_COVERAGE=false pnpm --dir packages/universo-types/base exec vitest run --config vitest.config.ts src/__tests__/applicationLayouts.test.ts`
+- `pnpm --filter @universo/types build`
+- `pnpm --filter @universo/applications-frontend lint`
+- `VITEST_COVERAGE=false pnpm --dir packages/applications-frontend/base exec vitest run --config vitest.config.ts src/components/layouts/__tests__/ApplicationWidgetBehaviorEditorDialog.test.tsx`
+- `pnpm --filter @universo/applications-frontend build`
+
+Note: the editor test still logs the existing MUI Select `anchorEl` JSDOM warning when opening menus. The test assertions pass.
+
+---
+
+## Completed: LMS Platform Implementation Slice 6E - Inline Report Definitions For Details Tables (2026-05-15)
+
+Another Phase 6 slice from `memory-bank/plan/ispring-like-lms-next-platform-roadmap-2026-05-15.md` is complete. Phase 6 remains open for workflow action settings editors.
+
+### Changes Made
+
+- Added typed inline `reportDefinition` support to the generic `detailsTable` widget config contract.
+  - The contract reuses the existing neutral report definition schema.
+  - Invalid inline reports fail schema validation instead of being accepted as arbitrary widget JSON.
+- Extended the existing Application Layout widget behavior editor instead of adding a report-specific screen.
+  - Admins can configure report codename, title, description, output columns, filters, and aggregations.
+  - The editor can reuse the existing detailsTable datasource as the report datasource.
+  - Incomplete or invalid report definitions show localized warning previews before save.
+- Extended the published-app runtime table path.
+  - `detailsTable` widgets with an inline report definition run through the existing runtime reports endpoint.
+  - Runtime report rows are displayed through the existing shared data grid contract.
+  - The runtime report API helper now accepts either saved report references or inline report definitions.
+- Added English and Russian i18n labels for report definition settings and warnings.
+- Added focused regression coverage for shared widget config contracts, editor normalization/warnings, API requests, and runtime rendering.
+
+### Validation
+
+- `pnpm --filter @universo/types lint`
+- `VITEST_COVERAGE=false pnpm --dir packages/universo-types/base exec vitest run --config vitest.config.ts src/__tests__/applicationLayouts.test.ts`
+- `pnpm --filter @universo/types build`
+- `pnpm --filter @universo/applications-frontend lint`
+- `VITEST_COVERAGE=false pnpm --dir packages/applications-frontend/base exec vitest run --config vitest.config.ts src/components/layouts/__tests__/ApplicationWidgetBehaviorEditorDialog.test.tsx`
+- `pnpm --filter @universo/applications-frontend build`
+- `pnpm --filter @universo/apps-template-mui lint`
+- `VITEST_COVERAGE=false pnpm --dir packages/apps-template-mui exec vitest run --config vitest.config.ts src/api/__tests__/runtimeReports.test.ts src/dashboard/components/__tests__/widgetRenderer.test.tsx`
+- `pnpm --filter @universo/apps-template-mui build`
+
+Note: the editor test still logs the existing MUI Select `anchorEl` JSDOM warning, and the runtime widget test still logs the existing missing i18next test-instance warning. The assertions pass.
+
+---
+
+## Completed: LMS Platform Implementation Slice 6D - Details Table Sequence Policy Editor (2026-05-15)
+
+Another Phase 6 slice from `memory-bank/plan/ispring-like-lms-next-platform-roadmap-2026-05-15.md` is complete. Phase 6 remains open for report definition and workflow action settings editors.
+
+### Changes Made
+
+- Added typed `sequencePolicy` support to the generic `detailsTable` widget config contract.
+  - The contract reuses the neutral sequence/completion schema from `@universo/types`.
+  - Invalid policies fail schema validation instead of being accepted as arbitrary widget JSON.
+- Extended the existing Application Layout widget behavior editor instead of adding an LMS-specific sequence UI.
+  - Admins can configure free, sequential, scheduled, and prerequisite modes.
+  - Sequential, scheduled, prerequisite, retry, attempt, and completion-condition settings are normalized before save.
+  - Empty or incomplete non-free sequence policies show localized warning previews.
+- Added English and Russian i18n labels for sequence policy settings and warnings.
+- Added focused regression coverage for shared widget config contracts and editor normalization/warnings.
+
+### Validation
+
+- `pnpm --filter @universo/types lint`
+- `VITEST_COVERAGE=false pnpm --dir packages/universo-types/base exec vitest run --config vitest.config.ts src/__tests__/applicationLayouts.test.ts`
+- `pnpm --filter @universo/types build`
+- `pnpm --filter @universo/applications-frontend lint`
+- `VITEST_COVERAGE=false pnpm --dir packages/applications-frontend/base exec vitest run --config vitest.config.ts src/components/layouts/__tests__/ApplicationWidgetBehaviorEditorDialog.test.tsx`
+- `pnpm --filter @universo/applications-frontend build`
+
+Note: the editor test still logs the existing MUI Select `anchorEl` JSDOM warning when opening menus. The test assertions pass.
+
+---
+
+## Completed: LMS Platform Implementation Slice 6C - Generic Resource Preview Layout Widget (2026-05-15)
+
+Another Phase 6 slice from `memory-bank/plan/ispring-like-lms-next-platform-roadmap-2026-05-15.md` is complete. Phase 6 remains open for report, workflow, and sequence settings editors.
+
+### Changes Made
+
+- Added a generic `resourcePreview` dashboard layout widget.
+  - Registered it in shared dashboard widget metadata.
+  - Added a typed `resourcePreviewWidgetConfigSchema` in `@universo/types`.
+  - Reused the existing `ResourcePreview` runtime component in `packages/apps-template-mui`.
+- Extended the existing Application Layout widget behavior editor instead of adding a new LMS-specific UI.
+  - Admins can configure title, description, resource type, launch mode, URL, page codename, storage key, and MIME type.
+  - The editor keeps valid resource source settings and drops invalid sources during normalized saves.
+  - Invalid, missing, and deferred resource sources now show localized warning previews.
+- Added English and Russian i18n labels for resource preview widget settings.
+- Added regression coverage for shared widget config contracts, the structured editor, and runtime widget rendering.
+
+### Validation
+
+- `pnpm --filter @universo/types lint`
+- `VITEST_COVERAGE=false pnpm --dir packages/universo-types/base exec vitest run --config vitest.config.ts src/__tests__/applicationLayouts.test.ts`
+- `pnpm --filter @universo/types build`
+- `pnpm --filter @universo/applications-frontend lint`
+- `VITEST_COVERAGE=false pnpm --dir packages/applications-frontend/base exec vitest run --config vitest.config.ts src/components/layouts/__tests__/ApplicationWidgetBehaviorEditorDialog.test.tsx`
+- `pnpm --filter @universo/applications-frontend build`
+- `pnpm --filter @universo/apps-template-mui lint`
+- `VITEST_COVERAGE=false pnpm --dir packages/apps-template-mui exec vitest run --config vitest.config.ts src/dashboard/components/__tests__/widgetRenderer.test.tsx`
+- `pnpm --filter @universo/apps-template-mui build`
+
+Note: an early parallel test attempt overlapped with `@universo/types` build cleaning `dist`, so Vite temporarily could not resolve `@universo/types`. The sequential rerun after the build passed.
+
+## Completed: LMS Platform Implementation Slice 6B - Widget Datasource Validation Preview (2026-05-15)
+
+Another Phase 6 slice from `memory-bank/plan/ispring-like-lms-next-platform-roadmap-2026-05-15.md` is complete. Phase 6 remains open for report, workflow, sequence, and resource settings editors.
+
+### Changes Made
+
+- Reused the existing `ApplicationWidgetBehaviorEditorDialog` instead of adding a new LMS-specific editor.
+- Added a localized warning preview for incomplete widget datasource settings:
+  - records list datasources without a section target
+  - ledger datasources without a ledger target
+  - ledger projections without a projection codename
+  - chart datasources without X-axis or series fields
+  - unsupported overview card metrics that will be removed on save
+- Kept the existing fail-closed normalization behavior, so invalid datasource settings are still stripped or reduced before persistence.
+- Added English and Russian i18n keys for the new validation warnings.
+- Added regression coverage for incomplete datasource previews and unsupported overview metric previews.
+
+### Validation
+
+- `pnpm --filter @universo/applications-frontend lint`
+- `VITEST_COVERAGE=false pnpm --dir packages/applications-frontend/base exec vitest run --config vitest.config.ts src/components/layouts/__tests__/ApplicationWidgetBehaviorEditorDialog.test.tsx`
+- `pnpm --filter @universo/applications-frontend build`
+
+Note: package-script Vitest runs that attempted to pass filename or `-t` filters still executed the broader suite in this workspace. Those broad runs reported existing timeout flakes in `ApplicationSettings` and `ApplicationLayouts`, plus one coverage temp-file collision when two broad runs overlapped. The direct single-file Vitest run for this slice passed.
+
+## Completed: LMS Platform Implementation Slice 6A - Control Panel Role Policy Safety (2026-05-15)
+
+The first Phase 6 slice from `memory-bank/plan/ispring-like-lms-next-platform-roadmap-2026-05-15.md` is complete. Phase 6 remains open for the broader widget, report, workflow, sequence, and resource settings editors.
+
+### Changes Made
+
+- Added shared role-policy safety helpers in `@universo/types`:
+  - `collectUnsupportedActiveCapabilityRules()` reports active grants that use unsupported scopes.
+  - `sanitizeApplicationRolePolicySettingsForSupportedScopes()` downgrades unsupported active grants to deny rules.
+- Reused the existing Application Settings Access tab instead of adding a parallel UI surface.
+  - Imported unsupported scoped active grants now show a localized warning preview.
+  - Saving settings sanitizes unsupported grants before persistence.
+- Added frontend save safety:
+  - General/access settings saves now update the application detail query optimistically.
+  - Failed saves roll back to the previous TanStack Query cache state.
+- Added backend fail-closed persistence:
+  - Application settings updates sanitize `rolePolicies` before merge and storage.
+  - API bypasses cannot persist unsupported scoped active grants.
+- Added localized English and Russian warning copy.
+- Added focused regression coverage for shared helpers, frontend settings saves, and backend route updates.
+
+### Validation
+
+- `pnpm --filter @universo/types lint`
+- `pnpm --filter @universo/types test -- lmsPlatform workflowActions --runInBand`
+- `pnpm --filter @universo/types build`
+- `pnpm --filter @universo/applications-frontend lint`
+- `pnpm --filter @universo/applications-frontend test -- ApplicationSettings.test.tsx --runInBand`
+- `pnpm --filter @universo/applications-frontend build`
+- `pnpm --filter @universo/applications-backend lint`
+- `pnpm --filter @universo/applications-backend build`
+- `pnpm --filter @universo/applications-backend test -- applicationsRoutes.test.ts -t "downgrades unsupported scoped active role policy grants" --runInBand`
+
+Note: the broader `applicationsRoutes.test.ts guards.test.ts` backend test pattern still reports pre-existing runtime-script route failures unrelated to this slice. The new targeted backend route regression passes.
+
+## Completed: LMS Platform Implementation Slice 4 - Generic Workflow Actions (2026-05-15)
+
+Phase 4 from `memory-bank/plan/ispring-like-lms-next-platform-roadmap-2026-05-15.md` is complete.
+
+### Changes Made
+
+- Added neutral workflow action contracts in `@universo/types`
+  - `workflowActionSchema` now supports action codename, source statuses, target status, status field metadata, required capabilities, confirmation metadata, script hook codename, and optional posting command
+  - Scoped capability contracts moved out of the LMS-specific platform file
+- Added fail-closed workflow action availability evaluation
+  - Actions require explicit source statuses and explicit capabilities
+  - Missing capabilities deny execution
+  - `recordOwner`, `department`, `class`, and `group` scoped capabilities deny execution until their predicates are implemented
+- Added SQL-first runtime workflow action mutation service
+  - Uses `qSchemaTable()` and `qColumn()` for dynamic identifiers
+  - Requires a current positive `_upl_version`
+  - Checks row lock, workspace context, current status, and current version before mutation
+  - Uses `RETURNING` and fails closed on zero-row update results
+- Added generic workflow action audit persistence
+  - Runtime schemas now include `_app_workflow_action_audit`
+  - Audit facts store object, table, row, workspace, action, from/to statuses, posting command, metadata, and audit user fields
+- Added direct regression coverage
+  - Workflow action contract parsing and availability rules
+  - Backend mutation, audit insert, missing capability denial, version requirement, and unsupported scope denial
+  - Schema generator creation of the audit system table
+
+### Validation
+
+- `pnpm --filter @universo/types lint` - PASSED
+- `pnpm --filter @universo/types test -- workflowActions lmsPlatform --runInBand` - PASSED
+- `pnpm --filter @universo/types build` - PASSED
+- `pnpm --filter @universo/applications-backend lint` - PASSED
+- `pnpm --filter @universo/applications-backend test -- runtimeWorkflowActions.test.ts runtimeRecordBehavior.test.ts --runInBand` - PASSED
+- `pnpm --filter @universo/schema-ddl test -- SchemaGenerator --runInBand` - PASSED
+- `pnpm --filter @universo/schema-ddl build` - PASSED
+- `pnpm --filter @universo/schema-ddl lint` - PASSED with existing warnings only
+- `pnpm --filter @universo/applications-backend build` - PASSED after the concurrent `schema-ddl build` finished
+- `git diff --check` - PASSED
+
+## Completed: LMS Platform Implementation Slice 3 - Generic Sequence And Completion Engine (2026-05-15)
+
+Phase 3 from `memory-bank/plan/ispring-like-lms-next-platform-roadmap-2026-05-15.md` is complete.
+
+### Changes Made
+
+- Added neutral sequence and completion contracts in `@universo/types`
+  - `sequencePolicySchema` and `completionConditionSchema` now live in a shared module instead of the LMS-specific platform contract file
+  - Sequence availability supports free, sequential, scheduled, and prerequisite-gated modes
+  - Completion conditions support progress percentage, score percentage, attendance, certificate, manual, and all-steps-completed rules
+- Added deterministic progress helpers
+  - `calculateWeightedProgress()` handles mixed completion items with optional weights, partial progress, and scored pass/fail results
+  - `isCompletionItemComplete()` gives runtime code one consistent completion predicate
+- Reused the shared progress helper from the standalone guest LMS runtime path
+  - Guest module progress now goes through the shared completion engine instead of an inline local formula
+- Added focused regression tests
+  - Weighted progress, completion conditions, sequential locking, scheduled locking, prerequisite locking, and LMS schema compatibility are covered
+
+### Validation
+
+- `pnpm --filter @universo/types lint` - PASSED
+- `pnpm --filter @universo/types test -- sequenceCompletion lmsPlatform --runInBand` - PASSED
+- `pnpm --filter @universo/types build` - PASSED
+- `pnpm --filter @universo/apps-template-mui lint` - PASSED
+- `pnpm --filter @universo/apps-template-mui test -- src/standalone/__tests__/GuestApp.test.tsx --runInBand` - PASSED
+- `pnpm --filter @universo/apps-template-mui build` - PASSED
+- `git diff --check` - PASSED
+
+## Completed: LMS Platform Implementation Slice 2 - Generic Resource Engine (2026-05-15)
+
+Phase 2 from `memory-bank/plan/ispring-like-lms-next-platform-roadmap-2026-05-15.md` is complete.
+
+### Changes Made
+
+- Added shared safe resource source contracts in `@universo/types`
+  - `parseSafeExternalUrl()` and `normalizeSafeExternalUrl()` allow only absolute `http`/`https` URLs
+  - URL credentials, control characters, relative URLs, unsupported protocols, unsupported early MIME types, and unapproved embed hosts fail closed
+  - `resourceSourceSchema` now covers `page`, `url`, `video`, `audio`, `document`, `embed`, `file`, and deferred `scorm`
+- Reused shared resource contracts from LMS resource definitions and Page block validation
+  - Image blocks use the safe external URL schema
+  - Embed blocks use the explicit runtime embed allowlist
+- Added generic published-app `ResourcePreview`
+  - Renders page, URL, video, audio, document, and embed sources without LMS-specific screens
+  - Shows explicit deferred state for SCORM, file, and storage-backed resources
+  - Uses sandboxed iframes for allowed embeds
+- Added backend write validation for configured JSON fields
+  - `uiConfig.widget = "editorjsBlockContent"` normalizes through canonical block content validation
+  - `uiConfig.widget = "resourceSource"` normalizes through `resourceSourceSchema`
+  - Runtime row create/update paths now reject invalid configured JSON payloads even when bypassing the UI
+- Expanded the LMS resource fixture contract and seeded current fixture coverage
+  - Fixture now includes page, URL, video, audio, document, embed, and deferred SCORM resource sources
+  - `LearningResources.Source` carries `uiConfig.widget = "resourceSource"`
+  - Generator maps every resource source type to the matching `ResourceType` enumeration value
+
+### Validation
+
+- `pnpm --filter @universo/types build` - PASSED
+- `pnpm --filter @universo/types lint` - PASSED
+- `pnpm --filter @universo/types test -- resourceSources pageBlocks lmsPlatform --runInBand` - PASSED
+- `pnpm --filter @universo/apps-template-mui lint` - PASSED
+- `pnpm --filter @universo/apps-template-mui test -- src/components/resource-preview/__tests__/ResourcePreview.test.tsx --runInBand` - PASSED
+- `pnpm --filter @universo/apps-template-mui build` - PASSED
+- `pnpm --filter @universo/applications-backend lint` - PASSED
+- `pnpm --filter @universo/applications-backend test -- runtimeHelpers.test.ts runtimeRowsController.test.ts --runInBand` - PASSED
+- `pnpm --filter @universo/applications-backend build` - PASSED
+- `pnpm --filter @universo/metahubs-backend test -- templateManifestValidator.test.ts --runInBand` - PASSED
+- `pnpm --filter @universo/metahubs-backend build` - PASSED
+- Manual Node fixture assertion verified snapshot hash, `LearningResources.Source` UI config, required resource source types, and deferred SCORM placeholder
+
+## Completed: LMS Platform Implementation Slice 1 (2026-05-15)
+
+The first implementation slice from `memory-bank/plan/ispring-like-lms-next-platform-roadmap-2026-05-15.md` is complete.
+
+### Changes Made
+
+- Isolated `packages/apps-template-mui` from `@universo/template-mui`
+  - Added local runtime UI primitives and `useListDialogs`
+  - Removed the package dependency
+  - Added a package-boundary regression test
+- Hardened published application runtime permissions
+  - `createContent`, `editContent`, and `deleteContent` now fail closed unless explicitly `true`
+  - Inline BOOLEAN editing is disabled when edit permission is not explicitly granted
+  - Added regression coverage for missing, null, malformed, and denied permissions
+- Added metadata-driven app-side block content authoring
+  - Added an isolated Editor.js block editor to `packages/apps-template-mui`
+  - Propagated component `uiConfig` into runtime `FieldConfig`
+  - Added `JSON` field support for `uiConfig.widget = "editorjsBlockContent"`
+  - Added localized block editor labels
+- Replaced current LMS surrogate menu targets
+  - Knowledge now targets `KnowledgeArticle`
+  - Development now targets `DevelopmentPlans`
+  - Added fixture contract gates preventing Knowledge -> Quizzes and Development -> Classes regressions
+  - Updated the current LMS snapshot fixture and runtime E2E expectations
+
+### Validation
+
+- `pnpm --filter @universo/apps-template-mui build` - PASSED
+- `pnpm --filter @universo/apps-template-mui lint` - PASSED
+- `pnpm --filter @universo/apps-template-mui test -- src/components/dialogs/__tests__/FormDialog.blockEditor.test.tsx src/utils/__tests__/columns.test.tsx src/__tests__/packageBoundary.test.ts --runInBand` - PASSED
+- `pnpm --filter @universo/applications-frontend lint` - PASSED
+- `pnpm --filter @universo/applications-frontend test -- src/pages/__tests__/ApplicationRuntime.test.tsx --runInBand` - PASSED
+- `pnpm --filter @universo/metahubs-backend build` - PASSED
+- `pnpm --filter @universo/metahubs-backend test -- templateManifestValidator.test.ts --runInBand` - PASSED
+- Manual Node fixture assertion verified LMS menu targets in `tools/fixtures/metahubs-lms-app-snapshot.json`
+
 ## Completed: Documentation Refresh - Final Validation (2026-05-15)
 
 Phase 6 final validation completed successfully. All documentation checks passed.
@@ -1228,3 +1608,600 @@ Eliminated all top-level legacy `domains/` folders. Neutralized metadata route s
 3. Verify all internal links work
 4. Run GitBook build test
 5. Update this progress entry with screenshot completion
+
+## 2026-05-15 - LMS Platform Implementation Slice 7B: Published Runtime Workflow Actions
+
+### Summary
+
+Completed the published-application runtime layer for metadata-backed workflow actions. Object collection workflow actions are now returned in runtime app data, visible in the existing row actions menu when the selected row status matches the configured transition, and executed through the trusted backend workflow endpoint with optimistic concurrency.
+
+### Implemented
+
+- Added workflow actions to the apps-template runtime response schema for `section`, `objectCollection`, `sections`, and `objectCollections`.
+- Added `runAppWorkflowAction()` and the corresponding `CrudDataAdapter.workflowAction()` contract.
+- Extended `useCrudDashboard()` with `handleWorkflowAction()` and `isWorkflowActionPending`.
+- Reused the existing `RowActionsMenu` instead of introducing a new LMS-specific action surface.
+- Resolved workflow `statusFieldCodename` to physical runtime column names in the frontend menu and backend route, while keeping `statusColumnName` available for explicit low-level configuration.
+- Returned `_upl_version` in runtime rows only when the active object collection has configured workflow actions, so the UI can fail closed before submitting stale actions.
+- Added localized workflow action success/error messages in EN/RU.
+
+### Safety Notes
+
+- Workflow actions remain server-trusted: the browser can request an action codename, but the backend loads the action from object collection metadata and rejects unconfigured actions.
+- The backend requires `editContent`, a current user id, CSRF-protected POST, a positive `expectedVersion`, safe identifiers, row locking, and workspace scoping where applicable.
+- The frontend hides workflow actions without a current `_upl_version` and sends the version read from the current runtime row.
+
+### Validation
+
+- `pnpm --filter @universo/apps-template-mui lint`
+- `VITEST_COVERAGE=false pnpm --dir packages/apps-template-mui exec vitest run --config vitest.config.ts src/components/__tests__/RowActionsMenu.recordCommands.test.tsx src/hooks/__tests__/useCrudDashboard.test.tsx`
+- `pnpm --filter @universo/apps-template-mui build`
+- `pnpm --filter @universo/applications-backend lint`
+- `pnpm --filter @universo/applications-backend test -- runtimeWorkflowActions applicationsRoutes.test.ts -t "workflow actions" --runInBand`
+- `pnpm --filter @universo/applications-backend build`
+- `git diff --check`
+
+## 2026-05-15 - LMS Platform Implementation Slice 7C: Workflow Capability Policy
+
+### Summary
+
+Added an effective workflow capability map for runtime requests so metadata-backed workflow actions can use exact LMS capabilities such as `assignment.review` and `certificate.issue` instead of being limited to base permissions like `editContent`.
+
+### Implemented
+
+- Added `resolveEffectiveRoleCapabilities()` in application access guards.
+- The capability map starts from effective base permissions and their aliases, then applies exact role-policy rules for supported `application` and `workspace` scopes.
+- Unsupported scoped role-policy rules such as `department`, `class`, `group`, and `recordOwner` remain fail-closed until their predicates are implemented.
+- Runtime schema context now carries `workflowCapabilities`.
+- Published runtime app data now exposes `workflowCapabilities`.
+- `RowActionsMenu` now filters metadata workflow actions by exact `requiredCapabilities` before showing them.
+- Backend workflow execution now uses `ctx.workflowCapabilities`, so the browser and server evaluate the same effective capability set while the server remains authoritative.
+
+### Validation
+
+- `pnpm --filter @universo/applications-backend test -- guards.test.ts runtimeWorkflowActions applicationsRoutes.test.ts -t "role|workflow actions|configured workflow" --runInBand`
+- `VITEST_COVERAGE=false pnpm --dir packages/apps-template-mui exec vitest run --config vitest.config.ts src/components/__tests__/RowActionsMenu.recordCommands.test.tsx src/hooks/__tests__/useCrudDashboard.test.tsx`
+- `pnpm --filter @universo/applications-backend lint`
+- `pnpm --filter @universo/apps-template-mui lint`
+- `pnpm --filter @universo/applications-backend build`
+- `pnpm --filter @universo/apps-template-mui build`
+
+## 2026-05-15 - LMS Platform Implementation Slice 7D: Knowledge and Development Portal Navigation
+
+### Summary
+
+Completed the LMS portal-navigation correction that was called out by the product roadmap: Knowledge and Development now open real portal Page entities instead of surrogate operational collections. The canonical LMS fixture was regenerated through the Playwright generator, so the committed snapshot matches the template and fixture contract.
+
+### Implemented
+
+- Added `KnowledgeHome` as a Page entity with EN/RU Editor.js blocks describing knowledge spaces, folders, articles, and bookmarks.
+- Added `DevelopmentHome` as a Page entity with EN/RU Editor.js blocks describing development plans, stages, tasks, mentors, and monitors.
+- Updated primary LMS menu seed data so `lms-nav-knowledge` targets `KnowledgeHome` and `lms-nav-development` targets `DevelopmentHome`.
+- Extended backend template manifest tests for the new Page entities and menu targets.
+- Extended the LMS fixture contract acceptance matrix and page checks for `KnowledgeHome` and `DevelopmentHome`.
+- Added explicit fixture contract guards that reject Knowledge/Development primary navigation when it points to old surrogate collection targets.
+- Regenerated `tools/fixtures/metahubs-lms-app-snapshot.json` only through the Playwright LMS generator.
+
+### Validation
+
+- `pnpm --filter @universo/metahubs-backend test -- templateManifestValidator.test.ts --runInBand`
+- `pnpm --dir packages/metahubs-backend/base exec eslint --fix src/domains/templates/data/lms.template.ts src/tests/services/templateManifestValidator.test.ts`
+- `pnpm exec eslint --fix tools/testing/e2e/support/lmsFixtureContract.ts`
+- `pnpm supabase:e2e:start:minimal && pnpm env:e2e:local-supabase && pnpm doctor:e2e:local-supabase`
+- `pnpm exec cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/base/.env.e2e.local-supabase pnpm run build:e2e`
+- `pnpm exec cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/base/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/generators/metahubs-lms-app-export.spec.ts --project=generators --grep "canonical lms"`
+- `pnpm supabase:e2e:stop`
+- `git diff --check -- packages/metahubs-backend/base/src/domains/templates/data/lms.template.ts packages/metahubs-backend/base/src/tests/services/templateManifestValidator.test.ts tools/testing/e2e/support/lmsFixtureContract.ts`
+
+## 2026-05-15 - LMS Platform Implementation Slice 7E: LMS Workflow Metadata
+
+### Summary
+
+Added product-level LMS workflow actions as generic object metadata rather than new LMS-specific runtime screens. The published app can now receive action definitions for assignment review, attendance, certificate issue/revoke, development tasks, and notification delivery through the existing runtime workflow action pipeline.
+
+### Implemented
+
+- Added reusable LMS workflow action builders in the LMS template.
+- Added `workflowActions` support to the LMS transactional object config helper.
+- Added assignment submission actions: `StartSubmissionReview`, `AcceptSubmission`, and `DeclineSubmission`.
+- Added training attendance actions: `MarkAttendanceAttended`, `MarkAttendanceNoShow`, and `CancelAttendance`.
+- Added certificate issue actions: `IssueCertificate` and `RevokeCertificate`, bound to `CertificateIssuePostingScript`.
+- Added development task actions: `StartDevelopmentTask`, `CompleteDevelopmentTask`, and `ReopenDevelopmentTask`.
+- Added notification outbox actions: `MarkNotificationSent`, `MarkNotificationFailed`, and `CancelNotification`.
+- Normalized executable workflow status fields to string lifecycle states where the current generic workflow engine compares status codenames directly.
+- Extended backend template manifest tests with workflow action contract checks.
+- Extended the LMS fixture contract to require every operational workflow action and capability.
+- Updated the LMS Playwright generator seed for `DevelopmentPlanTasks.Status`.
+- Regenerated `tools/fixtures/metahubs-lms-app-snapshot.json` through the official Playwright LMS generator.
+
+### Validation
+
+- `pnpm --dir packages/metahubs-backend/base exec eslint --fix src/domains/templates/data/lms.template.ts src/tests/services/templateManifestValidator.test.ts`
+- `pnpm exec eslint --fix tools/testing/e2e/support/lmsFixtureContract.ts tools/testing/e2e/specs/generators/metahubs-lms-app-export.spec.ts`
+- `pnpm --filter @universo/metahubs-backend test -- templateManifestValidator.test.ts --runInBand`
+- `pnpm --filter @universo/metahubs-backend build`
+- `pnpm supabase:e2e:start:minimal && pnpm env:e2e:local-supabase && pnpm doctor:e2e:local-supabase`
+- `pnpm exec cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/base/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/generators/metahubs-lms-app-export.spec.ts --project=generators --grep "canonical lms"`
+- `pnpm supabase:e2e:stop`
+- Snapshot sanity check for required workflow action metadata.
+- `git diff --check -- packages/metahubs-backend/base/src/domains/templates/data/lms.template.ts packages/metahubs-backend/base/src/tests/services/templateManifestValidator.test.ts tools/testing/e2e/support/lmsFixtureContract.ts tools/testing/e2e/specs/generators/metahubs-lms-app-export.spec.ts tools/fixtures/metahubs-lms-app-snapshot.json`
+
+## 2026-05-15 - LMS Platform Implementation Slice 8A: Saved Runtime Report CSV Export
+
+### Summary
+
+Added the first generic reporting export slice for published applications. Runtime report widgets now execute and export saved report definitions by `reportCodename`, while arbitrary browser-supplied inline report definitions remain rejected by the backend before runtime metadata lookup.
+
+### Implemented
+
+- Added `POST /applications/:applicationId/runtime/reports/export` for CSV export of saved `records.list` reports.
+- Reused the existing runtime reports resolution path for Reports object lookup, target metadata resolution, workspace scoping, lifecycle filtering, and `readReports` permission checks.
+- Added bounded export limits with a 5,000-row maximum and CSV serialization that uses configured report columns only.
+- Added a typed `exportRuntimeReportCsv()` published-app API helper with CSRF protection and workspace-aware URLs.
+- Updated the existing detailsTable report widget to call saved reports by codename and expose a small localized CSV export action instead of inventing an LMS-specific report screen.
+- Added EN/RU localization keys for report export states.
+
+### Validation
+
+- `pnpm exec eslint --fix packages/applications-backend/base/src/controllers/runtimeReportsController.ts packages/applications-backend/base/src/services/runtimeReportsService.ts packages/applications-backend/base/src/routes/applicationsRoutes.ts packages/applications-backend/base/src/tests/routes/applicationsRoutes.test.ts packages/apps-template-mui/src/api/api.ts packages/apps-template-mui/src/api/index.ts packages/apps-template-mui/src/api/__tests__/runtimeReports.test.ts packages/apps-template-mui/src/dashboard/components/widgetRenderer.tsx packages/apps-template-mui/src/dashboard/components/__tests__/widgetRenderer.test.tsx`
+- `pnpm --filter @universo/apps-template-mui test -- runtimeReports widgetRenderer`
+- `pnpm --filter @universo/applications-backend test -- applicationsRoutes.test.ts -t "Runtime reports route contract"`
+- `pnpm --filter @universo/applications-backend test -- runtimeReportsService.test.ts`
+- `pnpm --filter @universo/applications-backend build`
+- `pnpm --filter @universo/apps-template-mui build`
+- `git diff --check -- packages/applications-backend/base/src/controllers/runtimeReportsController.ts packages/applications-backend/base/src/services/runtimeReportsService.ts packages/applications-backend/base/src/routes/applicationsRoutes.ts packages/applications-backend/base/src/tests/routes/applicationsRoutes.test.ts packages/applications-backend/base/src/tests/services/runtimeReportsService.test.ts packages/apps-template-mui/src/api/api.ts packages/apps-template-mui/src/api/index.ts packages/apps-template-mui/src/api/__tests__/runtimeReports.test.ts packages/apps-template-mui/src/dashboard/components/widgetRenderer.tsx packages/apps-template-mui/src/dashboard/components/__tests__/widgetRenderer.test.tsx packages/apps-template-mui/src/i18n/locales/en/apps.json packages/apps-template-mui/src/i18n/locales/ru/apps.json`
+
+## 2026-05-15 - LMS Platform Implementation Slice 8B: Report Aggregation Overview Metrics
+
+### Summary
+
+Extended generic analytics widgets so overview cards can display aggregations from saved runtime reports. This keeps LMS dashboard/report homes configurable through existing layout widgets instead of adding hardcoded LMS React surfaces.
+
+### Implemented
+
+- Added a typed `report.aggregation` metric datasource for stat cards.
+- Kept `records.count` behavior unchanged and limited overview cards to implemented metric keys.
+- Updated the published-app `RuntimeStatCard` path to call the saved runtime report endpoint and display a configured aggregation alias.
+- Extended the existing Application Widget Behavior editor for overview cards with a metric type selector and report aggregation fields.
+- Added validation warnings for incomplete report aggregation metric configuration.
+- Added EN/RU localization keys for the new overview card metric controls.
+
+### Validation
+
+- `pnpm exec eslint --fix packages/universo-types/base/src/common/runtimeDataSources.ts packages/universo-types/base/src/common/applicationLayouts.ts packages/universo-types/base/src/__tests__/applicationLayouts.test.ts packages/apps-template-mui/src/dashboard/components/MainGrid.tsx packages/apps-template-mui/src/dashboard/components/__tests__/MainGrid.test.tsx packages/applications-frontend/base/src/components/layouts/ApplicationWidgetBehaviorEditorDialog.tsx packages/applications-frontend/base/src/components/layouts/__tests__/ApplicationWidgetBehaviorEditorDialog.test.tsx`
+- `pnpm --filter @universo/types test -- applicationLayouts.test.ts`
+- `pnpm --filter @universo/types build`
+- `pnpm --filter @universo/apps-template-mui test -- MainGrid`
+- `pnpm --filter @universo/applications-frontend test -- ApplicationWidgetBehaviorEditorDialog.test.tsx`
+- `pnpm --filter @universo/applications-frontend build`
+- `pnpm --filter @universo/apps-template-mui build`
+
+## 2026-05-15 - LMS Platform Implementation Slice 13A: Deferred xAPI And Broad File Resources
+
+### Summary
+
+Extended the generic learning resource contract so xAPI and storage-backed broad file formats are represented honestly as configured-but-deferred resources. This keeps the LMS fixture close to iSpring-like content coverage without pretending that xAPI, SCORM, office documents, MOV/FLV, or uploaded media players are already implemented.
+
+### Implemented
+
+- Added `xapi` to the shared `ResourceSource` type contract.
+- Kept `scorm`, `xapi`, `file`, and any storage-backed resource behind `isDeferredResourceSource()`.
+- Allowed storage-backed video, audio, and document resources while keeping URL-backed runtime players limited to safe supported MIME types.
+- Updated the published app `ResourcePreview` icon and tests so xAPI and storage-backed office documents show the deferred runtime state.
+- Added xAPI resource acceptance to LMS platform and resource preview widget schema tests.
+- Added `Xapi` to the LMS ResourceType enumeration template.
+- Updated the LMS Playwright generator and fixture contract to seed and validate an explicit deferred xAPI placeholder.
+- Updated the committed LMS snapshot fixture and recomputed its integrity hash.
+
+### Validation
+
+- `pnpm exec eslint --fix packages/universo-types/base/src/common/resourceSources.ts packages/universo-types/base/src/__tests__/resourceSources.test.ts packages/universo-types/base/src/__tests__/lmsPlatform.test.ts packages/universo-types/base/src/__tests__/applicationLayouts.test.ts packages/apps-template-mui/src/components/resource-preview/ResourcePreview.tsx packages/apps-template-mui/src/components/resource-preview/__tests__/ResourcePreview.test.tsx packages/metahubs-backend/base/src/domains/templates/data/lms.template.ts tools/testing/e2e/specs/generators/metahubs-lms-app-export.spec.ts tools/testing/e2e/support/lmsFixtureContract.ts`
+- `pnpm --filter @universo/types test -- resourceSources.test.ts lmsPlatform.test.ts applicationLayouts.test.ts`
+- `pnpm --filter @universo/types build`
+- `pnpm --filter @universo/apps-template-mui test -- ResourcePreview`
+- `pnpm --filter @universo/metahubs-backend test -- templateManifestValidator.test.ts --runInBand`
+- `pnpm --filter @universo/apps-template-mui build`
+- `pnpm --filter @universo/metahubs-backend build`
+- `pnpm --filter @universo/utils test -- snapshotFixtures.test.ts`
+- `pnpm supabase:e2e:start:minimal`
+- `pnpm env:e2e:local-supabase`
+- `pnpm doctor:e2e:local-supabase`
+- `pnpm exec cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/base/.env.e2e.local-supabase pnpm run build:e2e`
+- `pnpm exec cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/base/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/generators/metahubs-lms-app-export.spec.ts --project=generators --grep "canonical lms"`
+- `pnpm supabase:e2e:stop`
+- Snapshot hash and resource-type sanity checks for the regenerated LMS fixture.
+
+## 2026-05-15 - LMS Platform Implementation Slice 9A: Runtime Dashboard Card Grid Parity
+
+### Summary
+
+Restored one concrete part of `packages/apps-template-mui` dashboard visual parity by making runtime record cards fill the configured dashboard grid columns. This keeps record card views aligned with the existing workspace card behavior and the original MUI dashboard card layout without adding LMS-specific UI.
+
+### Implemented
+
+- Updated the runtime details card grid to expose a stable test target for visual and unit checks.
+- Passed `allowStretch` to the shared `ItemCard` when dashboard records are rendered in card mode.
+- Added a focused `MainGrid` test that locks the stretched-card contract for configured card grids.
+
+### Validation
+
+- `pnpm exec eslint --fix packages/apps-template-mui/src/dashboard/components/MainGrid.tsx packages/apps-template-mui/src/dashboard/components/__tests__/MainGrid.test.tsx`
+- `pnpm --filter @universo/apps-template-mui test -- MainGrid`
+- `pnpm --filter @universo/apps-template-mui build`
+- `git diff --check -- packages/apps-template-mui/src/dashboard/components/MainGrid.tsx packages/apps-template-mui/src/dashboard/components/__tests__/MainGrid.test.tsx memory-bank/tasks.md memory-bank/progress.md`
+
+## 2026-05-15 - LMS Platform Implementation Slice 12A: LMS Resource And Report Docs
+
+### Summary
+
+Updated GitBook LMS documentation to match the implemented resource and report runtime contracts. The docs now describe xAPI and broad storage-backed formats as deferred resources, and explain saved report rendering, CSV export, and report aggregation metrics through existing generic widgets.
+
+### Implemented
+
+- Updated `docs/en/guides/lms-resource-model.md` and `docs/ru/guides/lms-resource-model.md` for xAPI, SCORM, storage-backed media, documents, and office-format deferred states.
+- Updated `docs/en/guides/lms-reports.md` and `docs/ru/guides/lms-reports.md` for saved `detailsTable` report rendering, CSV export, and `report.aggregation` stat-card metrics.
+- Updated `docs/en/architecture/ledgers.md` and `docs/ru/architecture/ledgers.md` so the LMS ledger list matches the current operational template.
+- Recorded the Phase 12 documentation slice in the active task ledger.
+
+### Validation
+
+- `git diff --check -- docs/en/guides/lms-resource-model.md docs/ru/guides/lms-resource-model.md docs/en/guides/lms-reports.md docs/ru/guides/lms-reports.md docs/en/architecture/ledgers.md docs/ru/architecture/ledgers.md memory-bank/tasks.md memory-bank/progress.md`
+- `pnpm docs:i18n:check`
+
+## 2026-05-15 - LMS Platform Implementation Slice 7G: Gamification And Achievements
+
+### Summary
+
+Completed the operational gamification slice for the canonical LMS configuration without adding LMS-specific runtime UI. Points, badges, achievements, leaderboard snapshots, and achievement reports are modeled as ordinary Objects, workflow metadata, scripts, and saved report definitions.
+
+### Implemented
+
+- Added `GamificationSettings`, `PointAwardRules`, `PointTransactions`, `BadgeDefinitions`, `BadgeIssues`, and `LeaderboardSnapshots` Objects to the LMS template.
+- Added `PointSourceType` enumeration values for course, track, assignment, training event, certificate, and manual point sources.
+- Added `GamificationEnabled` and `DefaultPointAward` app configuration constants.
+- Added metadata-backed workflow actions for approving/reversing point transactions and issuing/revoking badges.
+- Added `PointTransactionPostingScript` so approved point transactions can post movement facts into `PointsLedger`.
+- Extended the LMS Playwright generator to seed gamification settings, deterministic point rules, point transactions, badges, badge issues, leaderboard snapshots, and the `Leaderboard` and `Achievements` report definitions.
+- Strengthened the LMS fixture contract and template manifest tests for gamification entities, workflow metadata, fixed values, transactional behavior, script attachment, report definitions, and deterministic seeded row counts.
+- Updated LMS report GitBook pages so saved leaderboard and achievement reports are documented alongside progress/course reports.
+- Regenerated `tools/fixtures/metahubs-lms-app-snapshot.json` through the Playwright generator; the new snapshot hash is `ac024a08166da02149930284fd7b1640f38abf4f8aa5b1028745191d89de2bf0`.
+
+### Validation
+
+- `pnpm exec eslint --fix packages/metahubs-backend/base/src/domains/templates/data/lms.template.ts packages/metahubs-backend/base/src/tests/services/templateManifestValidator.test.ts tools/testing/e2e/support/lmsFixtureContract.ts tools/testing/e2e/specs/generators/metahubs-lms-app-export.spec.ts`
+- `pnpm --filter @universo/metahubs-backend test -- templateManifestValidator.test.ts --runInBand`
+- `pnpm --filter @universo/metahubs-backend build`
+- `pnpm --filter @universo/utils test -- snapshotFixtures.test.ts`
+- `pnpm supabase:e2e:start:minimal`
+- `pnpm env:e2e:local-supabase`
+- `pnpm doctor:e2e:local-supabase`
+- `pnpm exec cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/base/.env.e2e.local-supabase pnpm run build:e2e`
+- `pnpm exec cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/base/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/generators/metahubs-lms-app-export.spec.ts --project=generators --grep "canonical lms"`
+- Snapshot sanity check for gamification object row counts, leaderboard totals, and point transaction status totals.
+- `pnpm supabase:e2e:stop`
+
+## 2026-05-15 - LMS Platform Implementation Slice 11A: Committed LMS Fixture Contract
+
+### Summary
+
+Added a focused committed-fixture unit contract for the canonical LMS snapshot so gamification, achievements, leaderboard rows, and saved report definitions are protected outside the Playwright generator path.
+
+### Implemented
+
+- Extended `packages/universo-utils/base/src/snapshot/__tests__/snapshotFixtures.test.ts` with a deterministic LMS fixture test.
+- Added local snapshot helpers for localized entity codenames and Object row lookup without importing E2E support code into `@universo/utils`.
+- Locked committed snapshot row counts for `GamificationSettings`, `PointAwardRules`, `PointTransactions`, `BadgeDefinitions`, `BadgeIssues`, and `LeaderboardSnapshots`.
+- Locked deterministic totals for approved point transactions, current leaderboard totals, issued badges, and the top leaderboard row.
+- Locked saved report codenames for `LearnerProgress`, `CourseProgress`, `Leaderboard`, and `Achievements`.
+
+### Validation
+
+- `pnpm exec eslint --fix packages/universo-utils/base/src/snapshot/__tests__/snapshotFixtures.test.ts`
+- `pnpm --filter @universo/utils test -- snapshotFixtures.test.ts`
+
+## 2026-05-15 - LMS Platform Implementation Slice 12B: Gamification Guide
+
+### Summary
+
+Added a dedicated GitBook guide for LMS gamification and achievements so the new template entities, workflows, posting script, ledger boundary, and saved reports are documented as generic platform configuration.
+
+### Implemented
+
+- Added `docs/en/guides/lms-gamification.md`.
+- Added `docs/ru/guides/lms-gamification.md`.
+- Linked both pages from the EN/RU GitBook summaries next to the LMS reports guide.
+- Reused the existing Object records screenshot because gamification settings, badges, issues, point transactions, and leaderboard snapshots are Object-backed rows.
+
+### Validation
+
+- `pnpm docs:i18n:check`
+- `git diff --check -- docs/en/guides/lms-gamification.md docs/ru/guides/lms-gamification.md docs/en/SUMMARY.md docs/ru/SUMMARY.md memory-bank/tasks.md memory-bank/progress.md packages/universo-utils/base/src/snapshot/__tests__/snapshotFixtures.test.ts`
+
+## 2026-05-15 - LMS Platform Implementation Slice 9B: Workspace Metric Card Parity
+
+### Summary
+
+Aligned the workspace dashboard summary cards with the original MUI dashboard card surface by using the standard outlined Card/CardContent pattern instead of a custom bordered Box.
+
+### Implemented
+
+- Replaced the custom `WorkspaceMetricCard` Box surface in `packages/apps-template-mui` with `Card variant="outlined"` and `CardContent`.
+- Preserved stable dimensions, text wrapping, and existing data-driven workspace dashboard behavior.
+- Added a focused runtime workspace test assertion for the three metric cards rendered on the workspace dashboard route.
+
+### Validation
+
+- `pnpm exec eslint --fix packages/apps-template-mui/src/workspaces/RuntimeWorkspacesPage.tsx packages/apps-template-mui/src/workspaces/__tests__/RuntimeWorkspacesPage.test.tsx`
+- `pnpm --filter @universo/apps-template-mui test -- RuntimeWorkspacesPage`
+- `pnpm --filter @universo/apps-template-mui build`
+
+## 2026-05-16 - LMS Platform Implementation Slice 9C/11B: Workspace Metric Screenshot Gate And LMS Flow Cleanup
+
+### Summary
+
+Added a real Playwright screenshot gate for workspace dashboard metric cards and brought stale LMS flow tests back onto the current Object-based runtime API.
+
+### Implemented
+
+- Extended `lms-workspace-management.spec.ts` with dashboard metric-card coverage, a no-horizontal-overflow assertion, and the `runtime-workspace-dashboard-metric-cards.png` screenshot artifact.
+- Updated the workspace flow to use the current published-app navigation contract (`Modules`) and role/label-based Playwright locators instead of stale `Object` and title-attribute selectors.
+- Replaced removed `waitForApplicationCatalogId` imports with `waitForApplicationObjectId` in the workspace, class/module/quiz, and QR access-link LMS flows.
+- Migrated the affected runtime-row setup payloads from legacy `linkedCollectionId` to `objectCollectionId`, so tests now target the intended LMS Objects under the current API contract.
+- Added required `Slug` data to module rows created by the class/module/quiz and QR access-link flows.
+
+### Validation
+
+- `pnpm exec eslint --fix tools/testing/e2e/specs/flows/lms-workspace-management.spec.ts tools/testing/e2e/specs/flows/lms-class-module-quiz.spec.ts tools/testing/e2e/specs/flows/lms-qr-code.spec.ts`
+- `pnpm supabase:e2e:start:minimal`
+- `pnpm env:e2e:local-supabase`
+- `pnpm doctor:e2e:local-supabase`
+- `pnpm exec cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/base/.env.e2e.local-supabase pnpm run build:e2e`
+- `pnpm exec cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/base/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/lms-workspace-management.spec.ts --project=chromium`
+- `pnpm exec cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/base/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/lms-class-module-quiz.spec.ts --project=chromium`
+- `pnpm exec cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/base/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/lms-qr-code.spec.ts --project=chromium`
+
+## 2026-05-16 - LMS Platform Implementation Slice 9D/12C: Published Runtime README Alignment
+
+### Summary
+
+Closed the remaining visual-parity and documentation checklist drift by documenting the current independent published-app runtime architecture instead of the removed legacy package dependency.
+
+### Implemented
+
+- Confirmed Phase 9 acceptance coverage already exists through runtime record-card unit coverage plus workspace/workspace-dashboard Playwright screenshot gates.
+- Updated `packages/apps-template-mui/README.md` and `README-RU.md` to describe package-local runtime UI primitives, app-side Editor.js content authoring, generic resource preview states, workflow actions, saved-report rendering/export, and runtime workspace surfaces.
+- Removed stale README guidance that still described `EnhancedDetailsSection` as consuming `@universo/template-mui` components.
+- Replaced the obsolete related-package reference to `@universo/template-mui` with the actual published-runtime dependencies on `@universo/i18n` and `@universo/utils`.
+- Marked Phases 9, 11, and 12 complete after all tracked sub-items had concrete implementation and validation artifacts.
+
+### Validation
+
+- `pnpm --filter @universo/apps-template-mui test -- MainGrid RuntimeWorkspacesPage packageBoundary`
+- `git diff --check -- packages/apps-template-mui/README.md packages/apps-template-mui/README-RU.md memory-bank/tasks.md memory-bank/progress.md`
+
+## 2026-05-16 - LMS Platform Implementation Slice 1B/12D: Shared Block Editor Package
+
+### Summary
+
+Removed the remaining duplicated Editor.js implementation by extracting a neutral shared package that is reused by both administrative authoring and published-app content creation flows.
+
+### Implemented
+
+- Added `@universo/block-editor` with the shared `EditorJsBlockEditor`, locale-aware Editor.js helpers, package-local Editor.js type declarations, Vitest coverage, and EN/RU package READMEs.
+- Moved Editor.js tool dependencies to the new package owner instead of keeping duplicate dependencies in `@universo/template-mui` and `@universo/apps-template-mui`.
+- Replaced both consumer-local editor implementations with workspace-package imports while preserving the existing public re-export surface from `@universo/template-mui` and `@universo/apps-template-mui`.
+- Removed the duplicated editor source files and duplicate Editor.js declaration files from both consumers.
+- Updated package documentation and `packages/README.md` so the package map reflects the real shared authoring boundary.
+
+### Validation
+
+- `pnpm install --lockfile-only`
+- `pnpm install`
+- `pnpm --filter @universo/block-editor lint`
+- `pnpm --filter @universo/block-editor test`
+- `pnpm --filter @universo/block-editor build`
+- `pnpm --filter @universo/template-mui lint`
+- `pnpm --filter @universo/template-mui build`
+- `pnpm --filter @universo/template-mui test --runInBand`
+- `pnpm --filter @universo/apps-template-mui lint`
+- `pnpm --filter @universo/apps-template-mui build`
+- `pnpm --filter @universo/apps-template-mui test -- FormDialog.blockEditor packageBoundary`
+- `pnpm --filter @universo/metahubs-frontend build`
+- `pnpm supabase:e2e:start:minimal`
+- `pnpm env:e2e:local-supabase`
+- `pnpm doctor:e2e:local-supabase`
+- `pnpm exec cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/base/.env.e2e.local-supabase pnpm run build:e2e`
+- `pnpm exec cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/base/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/metahub-basic-pages-ux.spec.ts --project=chromium`
+- `git diff --check -- packages/universo-block-editor packages/apps-template-mui packages/universo-template-mui packages/README.md memory-bank/tasks.md pnpm-lock.yaml`
+
+## 2026-05-16 - LMS QA Remediation: Runtime Scripts And Workflow Capability Gate
+
+### Summary
+
+Closed the QA findings from the LMS implementation pass by fixing stale runtime script route fixtures and adding browser-level workflow permission proof to the LMS import flow.
+
+### Implemented
+
+- Updated runtime script route tests to use canonical application schema names (`app_<uuid without dashes>`) and the current SQL identifier format (`"schema"."_app_scripts"`), so route coverage now matches the production schema guard.
+- Kept public runtime script RPC denial semantics fail-closed: missing `rpc.client` and lifecycle public RPC calls now remain covered by the route test suite with HTTP 403 expectations.
+- Extended the LMS snapshot import Playwright flow with a real published-app row-action permission gate:
+  - before role-policy grants, the `StartSubmissionReview` workflow action is hidden from the row actions menu;
+  - the trusted backend workflow endpoint rejects the same action with `WORKFLOW_ACTION_UNAVAILABLE`, `missingCapability`, and `assignment.review`;
+  - after the generic owner role-policy grant, the same workflow action becomes visible in the browser and succeeds through the UI.
+- Added screenshots for the hidden and visible workflow-action menu states.
+
+### Validation
+
+- `pnpm --filter @universo/applications-backend test -- applicationsRoutes --runInBand -t "runtime/scripts"`
+- `pnpm exec eslint tools/testing/e2e/specs/flows/snapshot-import-lms-runtime.spec.ts`
+- `pnpm --filter @universo/applications-backend test -- runtimeWorkflowActions runtimeReportsService guards applicationsRoutes --runInBand`
+- `pnpm --filter @universo/types test -- workflowActions lmsPlatform resourceSources pageBlocks`
+- `pnpm --filter @universo/types lint`
+- `pnpm --filter @universo/types build`
+- `pnpm --filter @universo/block-editor test`
+- `pnpm --filter @universo/block-editor lint`
+- `pnpm --filter @universo/block-editor build`
+- `pnpm --filter @universo/apps-template-mui test -- RowActionsMenu useCrudDashboard ResourcePreview`
+- `pnpm --filter @universo/apps-template-mui lint`
+- `pnpm --filter @universo/apps-template-mui build`
+- `pnpm docs:i18n:check`
+- `pnpm exec cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/base/.env.e2e.local-supabase pnpm run build:e2e`
+- `git diff --check`
+
+### E2E Environment Blocker
+
+- Started and checked the minimal local Supabase E2E stack with `pnpm supabase:e2e:start:minimal`, `pnpm env:e2e:local-supabase`, and `pnpm doctor:e2e:local-supabase`.
+- The LMS Playwright wrapper run did not reach test execution because the backend failed during startup: `isolated-vm` has no native build for the current local runtime (`node=20.19.4`, while the repository requires `>=22.6.0`; the error also reports Electron ABI 115).
+- `pnpm rebuild isolated-vm` completed but did not repair the local native module mismatch.
+- The local Supabase E2E stack was stopped with `pnpm supabase:e2e:stop`.
+
+## 2026-05-16 - Node 22 Environment And LMS E2E Remediation
+
+### Summary
+
+Resolved the local Node runtime mismatch that blocked the LMS Playwright validation and reran the previously blocked browser flow against the minimal local Supabase E2E stack.
+
+### Implemented
+
+- Removed obsolete nvm-managed Node versions and set the nvm default runtime to Node 22.22.2.
+- Left the system `/usr/bin/node` package untouched because it is managed by the OS package manager, not nvm.
+- Updated repository and package documentation from stale Node 18/20 and PNPM 9 requirements to the current Node 22 and PNPM 10 requirement.
+- Added a repository-specific Playwright skill rule to activate Node 22 explicitly before E2E wrapper runs when a non-interactive shell can resolve an older system Node.
+- Fixed the published application runtime workflow path exposed by the Node 22 Playwright run:
+  - backend runtime columns now expose normalized string codenames for localized component metadata;
+  - the authenticated published-app runtime adapter now wires metadata-backed workflow actions;
+  - LMS E2E runtime row helpers map physical runtime fields back to stable component codenames for assertions.
+
+### Validation
+
+- `node -v` after `nvm use --silent 22`: `v22.22.2`
+- `pnpm docs:i18n:check`
+- `git diff --check`
+- `pnpm --filter @universo/applications-backend test -- --runTestsByPath src/tests/routes/applicationsRoutes.test.ts --runInBand`
+- `pnpm --filter @universo/applications-frontend test -- src/api/__tests__/apiWrappers.test.ts --runInBand`
+- `pnpm exec cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/base/.env.e2e.local-supabase pnpm run build:e2e`
+- `pnpm exec cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/base/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/snapshot-import-lms-runtime.spec.ts --project=chromium --grep "lms snapshot fixture imports"`: 2 passed.
+
+## 2026-05-16 - LMS QA Follow-up Remediation Complete
+
+### Summary
+
+Closed the remaining QA findings from the implemented iSpring-like LMS roadmap by tightening workflow capability boundaries, replacing native confirmations, expanding browser walkthrough coverage, and aligning Node 22 / PNPM 10 workspace metadata.
+
+### Implemented
+
+- Decoupled published-app metadata workflow actions from broad `editContent` permission in both UI visibility and backend route gating; exact metadata workflow capabilities remain fail-closed.
+- Replaced `window.confirm` workflow prompts with the existing MUI runtime dialog surface and added focused component coverage for confirmed workflow actions.
+- Expanded the LMS Playwright runtime flow so operational actions for submissions, attendance, certificates, development tasks, and notifications are exercised through real browser row-action clicks before assertions.
+- Aligned remaining workspace Node type metadata and root documentation with the current Node 22 / PNPM 10 baseline.
+- Marked the LMS roadmap status as implemented with QA follow-up remediation.
+
+### Validation
+
+- `pnpm --filter @universo/apps-template-mui test -- RowActionsMenu`
+- `pnpm --filter @universo/applications-backend test -- guards runtimeWorkflowActions --runInBand`
+- `pnpm --filter @universo/apps-template-mui lint`
+- `pnpm --filter @universo/applications-backend lint`
+- `pnpm docs:i18n:check`
+- `git diff --check`
+- `pnpm supabase:e2e:start:minimal`
+- `pnpm env:e2e:local-supabase`
+- `pnpm doctor:e2e:local-supabase`
+- `pnpm exec cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/base/.env.e2e.local-supabase pnpm run build:e2e`
+- `pnpm exec cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/base/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/snapshot-import-lms-runtime.spec.ts --project=chromium --grep "lms snapshot fixture imports"`: 2 passed.
+
+## 2026-05-16 - Final LMS QA Gap Closure
+
+### Summary
+
+Closed the final implementation gaps found by the last QA pass: the published runtime rows browser flow now reuses the seeded Title component, app-side Editor.js authoring is stable in production builds, persisted block-content JSON strings are parsed before edit dialogs open, and the full LMS snapshot browser flow was rerun under Node 22 against the minimal local Supabase E2E stack.
+
+### Implemented
+
+- Updated `application-runtime-rows.spec.ts` so the test reuses the seeded `Title` component and creates only the additional metadata-driven Editor.js content component required for the rich-content browser proof.
+- Hardened `EditorJsBlockEditor` so empty authoring values seed an editable paragraph without mutating storage eagerly.
+- Stabilized the Editor.js lifecycle by deriving dependency keys from block-editor constraints rather than array identity, preventing remount loops when parent forms recreate equivalent `allowedBlockTypes` arrays.
+- Updated published-app `FormDialog` JSON block-content normalization to parse persisted JSON strings before passing values to the shared Editor.js editor.
+- Added focused regression coverage for empty Editor.js authoring, stable block-editor lifecycle, and persisted JSON-string edit values.
+
+### Validation
+
+- `node -v` after `nvm use --silent 22`: `v22.22.2`
+- `pnpm --filter @universo/block-editor test`: 12 passed.
+- `pnpm --filter @universo/block-editor lint`
+- `pnpm --filter @universo/block-editor build`
+- `pnpm --filter @universo/apps-template-mui test -- FormDialog.blockEditor`: 134 passed in the package run.
+- `pnpm --filter @universo/apps-template-mui lint`
+- `pnpm --filter @universo/apps-template-mui build`
+- `pnpm docs:i18n:check`: GitBook documentation OK, 73 EN/RU page pairs checked.
+- `git diff --check`
+- `pnpm run build:e2e:local-supabase`: 31 workspace build tasks passed.
+- `pnpm exec cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/base/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/application-runtime-rows.spec.ts --project=chromium`: 2 passed.
+- `pnpm exec cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/base/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/snapshot-import-lms-runtime.spec.ts --project=chromium --grep "lms snapshot fixture imports"`: 2 passed.
+- `pnpm supabase:e2e:stop`: local E2E Supabase profile stopped.
+
+## 2026-05-16 - Published LMS Authoring and Workspace UI Closure
+
+### Summary
+
+Closed the user-visible LMS gaps found after importing `tools/fixtures/metahubs-lms-app-snapshot.json`: the published application now exposes real metadata-driven content authoring surfaces for LMS content, Editor.js block content is created and edited inside the published app, and workspace cards/tables/pagination use isolated `apps-template-mui` MUI surfaces aligned with the original dashboard/template style.
+
+### Implemented
+
+- Changed the LMS template navigation so primary published-app sections open operational object surfaces for Courses, Modules, Learning Resources, Knowledge Articles, and Development Plans instead of informational-only portal pages.
+- Added metadata-level Editor.js JSON body fields and seeded block content for runtime-authored LMS content, including Knowledge Articles linked through folders and bookmarks.
+- Regenerated `tools/fixtures/metahubs-lms-app-snapshot.json` through the Playwright generator and tightened the fixture contract so regressions in menu targets, block-editor fields, or stale knowledge links fail fast.
+- Reworked isolated runtime UI primitives in `packages/apps-template-mui` for cards, list tables, and `TablePagination`-based pagination without importing from `packages/universo-template-mui`.
+- Expanded browser coverage to create and edit a Knowledge Article through the published app block editor, assert persisted Editor.js JSON through the runtime API, and verify real workspace card/table/pagination surfaces with screenshots.
+
+### Validation
+
+- `node -v` after `nvm use --silent 22`: `v22.22.2`
+- `pnpm --filter @universo/metahubs-backend test -- --runInBand packages/metahubs-backend/base/src/tests/services/templateManifestValidator.test.ts`: 18 passed.
+- `pnpm --filter @universo/apps-template-mui test -- src/components/runtime-ui/__tests__/runtimeUi.test.tsx src/workspaces/__tests__/RuntimeWorkspacesPage.test.tsx`: 135 passed in the package run.
+- `pnpm --filter @universo/utils test -- src/snapshot/__tests__/snapshotFixtures.test.ts`: 311 passed in the package run.
+- `pnpm --filter @universo/apps-template-mui lint`
+- `pnpm --filter @universo/metahubs-backend lint`
+- `pnpm exec eslint tools/testing/e2e/specs/flows/snapshot-import-lms-runtime.spec.ts`
+- `pnpm --filter @universo/apps-template-mui build`
+- `pnpm --filter @universo/metahubs-backend build`
+- `pnpm run build:e2e:local-supabase`
+- `pnpm supabase:e2e:start:minimal`
+- `pnpm env:e2e:local-supabase`
+- `pnpm doctor:e2e:local-supabase`
+- `pnpm exec cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/base/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs --project=generators specs/generators/metahubs-lms-app-export.spec.ts`: 2 passed.
+- `pnpm exec cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/base/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs --project=chromium specs/flows/snapshot-import-lms-runtime.spec.ts`: 2 passed.
+- `pnpm exec cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/base/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs --project=chromium specs/flows/lms-workspace-management.spec.ts`: 2 passed.
+- `pnpm supabase:e2e:stop`: local E2E Supabase profile stopped.
+
+## 2026-05-16 - LMS Final QA Follow-up Closure
+
+### Summary
+
+Closed the latest published LMS QA follow-up: Reports remains a direct primary navigation item instead of moving under More, generic runtime UI fallbacks are localized, workflow execution no longer rides on the broad edit-content alias, and stale Playwright/Turborepo skill references no longer point agents at Node 20 or PNPM 9 examples.
+
+### Implemented
+
+- Raised the LMS runtime menu `maxPrimaryItems` contract to 8 in the template, fixture, snapshot hash, manifest tests, and E2E contract so Home, Modules, Courses, Resources, Knowledge, Development, Reports, and Workspaces stay directly reachable.
+- Tightened the LMS browser flow to assert that Reports is visible as a direct navigation item and that no More overflow item is rendered for this LMS menu.
+- Replaced hardcoded generic runtime strings such as `More`, `Search`, table column fallbacks, empty state, and sort controls with `apps` namespace i18n keys.
+- Removed `workflow.execute` from the broad `editContent` capability alias and updated guard/unit coverage to keep workflow actions exact and fail closed.
+- Updated Playwright and Turborepo skill references from Node 20 / PNPM 9 examples to Node 22 / PNPM 10 guidance.
+
+### Validation
+
+- `node -v` after `nvm use --silent 22`: `v22.22.2`
+- `pnpm --filter @universo/applications-backend test -- guards runtimeRowsController --runInBand`: 20 passed.
+- `pnpm --filter @universo/apps-template-mui test -- src/components/runtime-ui/__tests__/runtimeUi.test.tsx src/hooks/__tests__/useCrudDashboard.test.tsx src/dashboard/components/__tests__/MenuContent.test.tsx --runInBand`: apps-template focused suite passed.
+- `pnpm --filter @universo/metahubs-backend test -- templateManifestValidator --runInBand`: 18 passed.
+- `pnpm --filter @universo/utils test -- src/snapshot/__tests__/snapshotFixtures.test.ts --runInBand`: 311 passed in the package run.
+- `pnpm --filter @universo/apps-template-mui lint`
+- `pnpm --filter @universo/applications-backend lint`
+- `pnpm --filter @universo/metahubs-backend lint`
+- `pnpm docs:i18n:check`: 73 EN/RU page pairs checked.
+- `git diff --check`
+- `pnpm supabase:e2e:start:minimal`
+- `pnpm env:e2e:local-supabase`
+- `pnpm doctor:e2e:local-supabase`
+- `pnpm exec cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/base/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs --project=chromium specs/flows/snapshot-import-lms-runtime.spec.ts`: 2 passed.
+- `pnpm supabase:e2e:stop`: local E2E Supabase profile stopped.

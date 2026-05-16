@@ -1,5 +1,5 @@
 import { qColumn, qSchemaTable } from '@universo/database'
-import { reportDefinitionSchema, type ReportDefinition, type ReportFilter } from '@universo/types'
+import { readLocalizedTextValue, reportDefinitionSchema, type ReportDefinition, type ReportFilter } from '@universo/types'
 import type { DbExecutor } from '@universo/utils'
 import { UpdateFailure } from '../shared/runtimeHelpers'
 
@@ -21,6 +21,8 @@ export interface RuntimeReportRecordsListParams {
     activeCondition?: string
     limit?: number
     offset?: number
+    maxLimit?: number
+    defaultLimit?: number
 }
 
 export interface RuntimeReportRecordsListResult {
@@ -154,6 +156,36 @@ const assertUniqueAggregationAlias = (seenAliases: Set<string>, alias: string, c
     })
 }
 
+const normalizeLimit = (value: unknown, fallback: number, maxLimit: number): number => {
+    const numericValue = typeof value === 'number' ? value : Number(value)
+    const candidate = Number.isFinite(numericValue) ? numericValue : fallback
+    return Math.max(1, Math.min(maxLimit, Math.trunc(candidate)))
+}
+
+const stringifyCsvValue = (value: unknown, locale: string): string => {
+    if (value === null || value === undefined) return ''
+    if (typeof value === 'string') return value
+    if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return String(value)
+    const localizedText = readLocalizedTextValue(value, locale)
+    if (localizedText) return localizedText
+    return JSON.stringify(value) ?? String(value)
+}
+
+const escapeCsvValue = (value: unknown, locale: string): string => {
+    const text = stringifyCsvValue(value, locale)
+    if (!/[",\r\n]/.test(text)) return text
+    return `"${text.replace(/"/g, '""')}"`
+}
+
+export const serializeRuntimeReportCsv = (result: RuntimeReportRecordsListResult, locale = 'en'): string => {
+    const headers = result.definition.columns.map((column) => readLocalizedTextValue(column.label, locale) ?? column.field)
+    const lines = [
+        headers.map((header) => escapeCsvValue(header, locale)).join(','),
+        ...result.rows.map((row) => result.definition.columns.map((column) => escapeCsvValue(row[column.field], locale)).join(','))
+    ]
+    return `${lines.join('\r\n')}\r\n`
+}
+
 export class RuntimeReportsService {
     async runRecordsListReport(params: RuntimeReportRecordsListParams): Promise<RuntimeReportRecordsListResult> {
         if (params.permissions.readReports !== true) {
@@ -221,7 +253,9 @@ export class RuntimeReportsService {
             }
         })
 
-        const limit = Math.max(1, Math.min(500, Math.trunc(params.limit ?? 100)))
+        const maxLimit = normalizeLimit(params.maxLimit, 500, 5000)
+        const defaultLimit = normalizeLimit(params.defaultLimit, 100, maxLimit)
+        const limit = normalizeLimit(params.limit, defaultLimit, maxLimit)
         const offset = Math.max(0, Math.trunc(params.offset ?? 0))
         const limitPlaceholder = `$${values.length + 1}`
         const offsetPlaceholder = `$${values.length + 2}`

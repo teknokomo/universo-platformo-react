@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest'
 
 import {
     applicationRolePolicySettingsSchema,
+    collectUnsupportedActiveCapabilityRules,
     lmsAcceptanceMatrixSchema,
     reportDefinitionSchema,
     resourceDefinitionSchema,
     resourceSourceSchema,
     rolePolicyTemplateSchema,
+    sanitizeApplicationRolePolicySettingsForSupportedScopes,
     sequencePolicySchema,
     workflowActionSchema
 } from '../index'
@@ -40,6 +42,26 @@ describe('LMS platform primitive contracts', () => {
             type: 'page',
             pageCodename: 'CourseOverview',
             launchMode: 'inline'
+        })
+
+        expect(
+            resourceDefinitionSchema.parse({
+                codename: 'XapiPlaceholder',
+                title: { en: 'xAPI package', ru: 'Пакет xAPI' },
+                source: {
+                    type: 'xapi',
+                    packageDescriptor: {
+                        standard: 'xAPI',
+                        status: 'deferred',
+                        launch: 'index.html'
+                    }
+                },
+                estimatedTimeMinutes: 12,
+                language: 'en'
+            })
+        ).toMatchObject({
+            codename: 'XapiPlaceholder',
+            source: { type: 'xapi', launchMode: 'inline' }
         })
     })
 
@@ -125,6 +147,50 @@ describe('LMS platform primitive contracts', () => {
         })
     })
 
+    it('downgrades unsupported scoped active role policy grants to fail closed settings', () => {
+        const rolePolicies = {
+            templates: [
+                {
+                    codename: 'reviewerPolicy',
+                    title: 'Reviewer permissions',
+                    baseRole: 'editor' as const,
+                    rules: [
+                        {
+                            capability: 'assignment.review',
+                            effect: 'allow' as const,
+                            scope: 'recordOwner' as const
+                        },
+                        {
+                            capability: 'reports.read',
+                            effect: 'allow' as const,
+                            scope: 'workspace' as const
+                        }
+                    ]
+                }
+            ]
+        }
+
+        expect(collectUnsupportedActiveCapabilityRules(rolePolicies)).toEqual([
+            {
+                templateCodename: 'reviewerPolicy',
+                capability: 'assignment.review',
+                scope: 'recordOwner'
+            }
+        ])
+        expect(sanitizeApplicationRolePolicySettingsForSupportedScopes(rolePolicies).templates[0].rules).toEqual([
+            expect.objectContaining({
+                capability: 'assignment.review',
+                effect: 'deny',
+                scope: 'recordOwner'
+            }),
+            expect.objectContaining({
+                capability: 'reports.read',
+                effect: 'allow',
+                scope: 'workspace'
+            })
+        ])
+    })
+
     it('validates Object-backed report definitions over runtime datasource descriptors', () => {
         const definition = reportDefinitionSchema.parse({
             codename: 'LearnerProgress',
@@ -155,15 +221,34 @@ describe('LMS platform primitive contracts', () => {
             lmsAcceptanceMatrixSchema.parse([
                 {
                     area: 'learnerHome',
+                    gates: {
+                        seeded: true,
+                        visible: true,
+                        actionable: true,
+                        audited: false,
+                        'workspace-isolated': true,
+                        'covered-by-e2e': true
+                    },
                     requiredEntities: ['LearnerHome', 'LearningResources'],
                     requiredReports: [],
-                    requiredStatuses: ['NotStarted', 'InProgress', 'Completed']
+                    requiredStatuses: ['NotStarted', 'InProgress', 'Completed'],
+                    gaps: ['Dedicated learner-home audit is not required for the MVP gate']
                 },
                 {
                     area: 'reports',
+                    gates: {
+                        seeded: true,
+                        visible: true,
+                        actionable: true,
+                        audited: false,
+                        'workspace-isolated': true,
+                        'covered-by-e2e': true
+                    },
                     requiredEntities: ['Reports'],
                     requiredReports: ['LearnerProgress'],
-                    requiredStatuses: []
+                    requiredStatuses: [],
+                    evidence: ['runtime reports execute through the generic report runner'],
+                    gaps: ['Scheduled report delivery is deferred']
                 }
             ])
         ).toHaveLength(2)

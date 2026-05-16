@@ -1,14 +1,15 @@
 import type { DbExecutor } from '@universo/utils'
-import type { ApplicationLifecycleContract } from '@universo/types'
+import type { ApplicationLifecycleContract, PageBlockContentValidationOptions, WorkflowCapabilityMap } from '@universo/types'
 import { getVLCString } from '@universo/utils/vlc'
 import {
     createLocalizedContent,
     resolveApplicationLifecycleContractFromConfig,
     resolvePlatformSystemFieldsContractFromConfig
 } from '@universo/utils'
+import { normalizePageBlockContentForStorage, normalizeResourceSourceForStorage } from '@universo/types'
 import type { Request, Response } from 'express'
 import type { ApplicationRole, RolePermission } from '../routes/guards'
-import { ensureApplicationAccess, resolveEffectiveRolePermissions } from '../routes/guards'
+import { ensureApplicationAccess, resolveEffectiveRoleCapabilities, resolveEffectiveRolePermissions } from '../routes/guards'
 import { findApplicationSchemaInfo } from '../persistence/applicationsStore'
 import type { RuntimeWorkspaceAccess } from '../services/applicationWorkspaces'
 import { resolveRuntimeWorkspaceAccess, setRuntimeWorkspaceContext } from '../services/applicationWorkspaces'
@@ -408,6 +409,66 @@ export const coerceRuntimeValue = (value: unknown, dataType: string, validationR
     }
 }
 
+type RuntimeJsonComponentMeta = {
+    data_type?: string | null
+    ui_config?: Record<string, unknown> | null
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === 'object' && !Array.isArray(value))
+
+const readStringArray = (value: unknown): string[] | undefined => {
+    if (!Array.isArray(value)) return undefined
+    const result = value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0).map((item) => item.trim())
+    return result.length > 0 ? result : undefined
+}
+
+const readNonNegativeInteger = (value: unknown): number | undefined =>
+    typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : undefined
+
+const parseConfiguredJsonValue = (value: unknown): unknown => {
+    if (typeof value !== 'string') return value
+
+    try {
+        return JSON.parse(value)
+    } catch {
+        return value
+    }
+}
+
+const isBlockContentUiConfig = (uiConfig: Record<string, unknown>): boolean =>
+    uiConfig.widget === 'editorjsBlockContent' || uiConfig.editor === 'editorjs' || uiConfig.blockContent === true
+
+const isResourceSourceUiConfig = (uiConfig: Record<string, unknown>): boolean =>
+    uiConfig.widget === 'resourceSource' || uiConfig.resourceSource === true || uiConfig.resource === true
+
+const readBlockContentValidationOptions = (uiConfig: Record<string, unknown>): PageBlockContentValidationOptions => {
+    const blockEditorConfig = isRecord(uiConfig.blockEditor) ? uiConfig.blockEditor : uiConfig
+
+    return {
+        allowedBlockTypes: readStringArray(blockEditorConfig.allowedBlockTypes),
+        maxBlocks: readNonNegativeInteger(blockEditorConfig.maxBlocks)
+    }
+}
+
+export function normalizeConfiguredRuntimeJsonValue(value: unknown, component: RuntimeJsonComponentMeta): unknown {
+    if (component.data_type !== 'JSON' || value === null || value === undefined) {
+        return value
+    }
+
+    const uiConfig = component.ui_config ?? {}
+    const parsedValue = parseConfiguredJsonValue(value)
+
+    if (isBlockContentUiConfig(uiConfig)) {
+        return normalizePageBlockContentForStorage(parsedValue, readBlockContentValidationOptions(uiConfig))
+    }
+
+    if (isResourceSourceUiConfig(uiConfig)) {
+        return normalizeResourceSourceForStorage(parsedValue)
+    }
+
+    return value
+}
+
 export type RuntimeTableChildComponentMeta = {
     column_name: string
     data_type?: string | null
@@ -609,6 +670,7 @@ export interface RuntimeSchemaContext {
     userId: string
     role: ApplicationRole
     permissions: Record<RolePermission, boolean>
+    workflowCapabilities: WorkflowCapabilityMap
     currentWorkspaceId: string | null
     workspacesEnabled: boolean
     applicationSettings: Record<string, unknown>
@@ -863,6 +925,7 @@ export const resolveRuntimeSchema = async (
         return null
     }
     const permissions = resolveEffectiveRolePermissions(role, application.settings ?? {})
+    const workflowCapabilities = resolveEffectiveRoleCapabilities(role, application.settings ?? {})
 
     const schemaName = application.schemaName
     if (!IDENTIFIER_REGEX.test(schemaName)) {
@@ -910,6 +973,7 @@ export const resolveRuntimeSchema = async (
         userId,
         role,
         permissions,
+        workflowCapabilities,
         currentWorkspaceId,
         workspacesEnabled: application.workspacesEnabled,
         applicationSettings: application.settings ?? {}

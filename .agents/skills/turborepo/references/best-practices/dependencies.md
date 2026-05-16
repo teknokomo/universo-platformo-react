@@ -144,7 +144,7 @@ pnpm up --recursive typescript@latest
 npm install typescript@latest --workspaces
 ```
 
-### Option 3: pnpm Catalogs (pnpm 9.5+)
+### Option 3: pnpm Catalogs (available in pnpm 10)
 
 ```yaml
 # pnpm-workspace.yaml

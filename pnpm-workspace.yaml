@@ -88,7 +88,7 @@ catalog:
     notistack: ^3.0.1
     
     # TypeScript types
-    '@types/node': ^20.12.12
+    '@types/node': ^22.19.18
     
     # Linting and formatting
     eslint: ^8.57.1

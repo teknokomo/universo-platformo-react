@@ -95,11 +95,11 @@ import { useAuth } from '@universo/auth-frontend'
 
 function ProtectedProfile() {
   const { user, isAuthenticated } = useAuth()
-  
+
   if (!isAuthenticated) {
     return <div>Пожалуйста, войдите в систему для просмотра профиля</div>
   }
-  
+
   return <ProfilePage />
 }
 ```
@@ -151,11 +151,11 @@ Content-Type: application/json
 // Обработка API ответов с правильным управлением ошибками
 const handleApiResponse = async (response: Response) => {
   const data = await response.json()
-  
+
   if (!response.ok) {
     throw new Error(data.error || data.message || 'Операция не удалась')
   }
-  
+
   return data
 }
 
@@ -183,11 +183,11 @@ const Profile = () => {
     first_name: '',
     last_name: ''
   })
-  
+
   // Интеграция аутентификации
   const { user, getAccessToken } = useAuth()
   const { t } = useTranslation('profile')
-  
+
   // Секции формы
   return (
     <MainCard title={t('title')}>
@@ -204,19 +204,19 @@ const Profile = () => {
 // Логика клиентской валидации
 const validateProfile = (data) => {
   const errors = {}
-  
+
   if (!data.nickname?.trim()) {
     errors.nickname = 'Никнейм обязателен'
   }
-  
+
   if (data.email && !/\S+@\S+\.\S+/.test(data.email)) {
     errors.email = 'Некорректный формат email'
   }
-  
+
   if (data.newPassword && data.newPassword.length < 6) {
     errors.password = 'Пароль должен содержать минимум 6 символов'
   }
-  
+
   return { isValid: Object.keys(errors).length === 0, errors }
 }
 ```
@@ -224,8 +224,8 @@ const validateProfile = (data) => {
 ## Разработка
 
 ### Предварительные требования
-- Node.js 18+
-- pnpm 8+
+- Node.js 22.22.2 recommended (>=22.6.0 required)
+- pnpm 10.x
 - TypeScript 5+
 
 ### Доступные скрипты
@@ -282,18 +282,18 @@ import { Profile } from '../Profile'
 describe('Profile Component', () => {
   test('отображает поля формы профиля', () => {
     render(<Profile />)
-    
+
     expect(screen.getByLabelText(/никнейм/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /обновить/i })).toBeInTheDocument()
   })
-  
+
   test('валидирует обязательные поля', async () => {
     render(<Profile />)
-    
+
     const submitButton = screen.getByRole('button', { name: /обновить/i })
     fireEvent.click(submitButton)
-    
+
     expect(await screen.findByText(/никнейм обязателен/i)).toBeInTheDocument()
   })
 })

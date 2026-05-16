@@ -1,3 +1,5 @@
+/// <reference path="./types/editorjs-tools.d.ts" />
+
 import type { PageBlockContent, PageBlockContentValidationOptions, RuntimePageBlock, SupportedPageBlockType } from '@universo/types'
 import {
     adaptEditorJsBlock,

@@ -8,7 +8,7 @@ import { pageEntityPreset } from '../../domains/templates/data/page.entity-prese
 import { ledgerEntityPreset } from '../../domains/templates/data/ledger.entity-preset'
 import { hubEntityPreset } from '../../domains/templates/data/tree-entity.entity-preset'
 import { setEntityPreset } from '../../domains/templates/data/value-group.entity-preset'
-import { parseApplicationLayoutWidgetConfig } from '@universo/types'
+import { parseApplicationLayoutWidgetConfig, workflowActionSchema } from '@universo/types'
 import { validateEntityTypePresetManifest, validateTemplateManifest } from '../../domains/templates/services/TemplateManifestValidator'
 
 const cloneTemplate = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
@@ -201,7 +201,7 @@ describe('TemplateManifestValidator', () => {
         expect(menuWidget?.config).toMatchObject(
             expect.objectContaining({
                 autoShowAllSections: false,
-                maxPrimaryItems: 6,
+                maxPrimaryItems: 8,
                 overflowLabelKey: 'runtime.menu.more',
                 startPage: 'LearnerHome',
                 workspacePlacement: 'primary'
@@ -212,9 +212,11 @@ describe('TemplateManifestValidator', () => {
         expect(menuItems).toEqual(
             expect.arrayContaining([
                 expect.objectContaining({ id: 'lms-nav-home', kind: 'section', sectionId: 'LearnerHome' }),
+                expect.objectContaining({ id: 'lms-nav-courses', kind: 'section', sectionId: 'Courses' }),
                 expect.objectContaining({ id: 'lms-nav-modules', kind: 'section', sectionId: 'Modules' }),
-                expect.objectContaining({ id: 'lms-nav-knowledge', kind: 'section', sectionId: 'Quizzes' }),
-                expect.objectContaining({ id: 'lms-nav-development', kind: 'section', sectionId: 'Classes' }),
+                expect.objectContaining({ id: 'lms-nav-resources', kind: 'section', sectionId: 'LearningResources' }),
+                expect.objectContaining({ id: 'lms-nav-knowledge', kind: 'section', sectionId: 'KnowledgeArticles' }),
+                expect.objectContaining({ id: 'lms-nav-development', kind: 'section', sectionId: 'DevelopmentPlans' }),
                 expect.objectContaining({ id: 'lms-nav-reports', kind: 'section', sectionId: 'Reports' })
             ])
         )
@@ -231,7 +233,10 @@ describe('TemplateManifestValidator', () => {
                 'LmsConfiguration',
                 'LearnerHome',
                 'CourseOverview',
+                'KnowledgeHome',
                 'KnowledgeArticle',
+                'KnowledgeArticles',
+                'DevelopmentHome',
                 'AssignmentInstructions',
                 'CertificatePolicy',
                 'Classes',
@@ -253,9 +258,16 @@ describe('TemplateManifestValidator', () => {
                 'AssignmentSubmissions',
                 'TrainingAttendance',
                 'CertificateIssues',
+                'GamificationSettings',
+                'PointAwardRules',
+                'PointTransactions',
+                'BadgeDefinitions',
+                'BadgeIssues',
+                'LeaderboardSnapshots',
                 'ModuleStatus',
                 'QuestionType',
-                'ContentType'
+                'ContentType',
+                'PointSourceType'
             ])
         )
         expect(manifest.presets).toEqual([
@@ -275,6 +287,10 @@ describe('TemplateManifestValidator', () => {
             'TrainingAttendance',
             'Certificates',
             'CertificateIssues',
+            'DevelopmentPlanTasks',
+            'NotificationOutbox',
+            'PointTransactions',
+            'BadgeIssues',
             'Enrollments'
         ]) {
             expect(entityByCodename.get(codename)?.config?.recordBehavior).toEqual(
@@ -284,6 +300,187 @@ describe('TemplateManifestValidator', () => {
                     posting: expect.objectContaining({ mode: 'manual' })
                 })
             )
+        }
+        const workflowExpectations = [
+            {
+                entityCodename: 'AssignmentSubmissions',
+                actions: [
+                    {
+                        codename: 'StartSubmissionReview',
+                        from: ['Submitted'],
+                        to: 'PendingReview',
+                        requiredCapabilities: ['assignment.review']
+                    },
+                    {
+                        codename: 'AcceptSubmission',
+                        from: ['PendingReview'],
+                        to: 'Accepted',
+                        requiredCapabilities: ['assignment.review'],
+                        postingCommand: 'post'
+                    },
+                    {
+                        codename: 'DeclineSubmission',
+                        from: ['PendingReview'],
+                        to: 'Declined',
+                        requiredCapabilities: ['assignment.review']
+                    }
+                ]
+            },
+            {
+                entityCodename: 'TrainingAttendance',
+                actions: [
+                    {
+                        codename: 'MarkAttendanceAttended',
+                        from: ['Registered'],
+                        to: 'Attended',
+                        requiredCapabilities: ['attendance.mark'],
+                        postingCommand: 'post'
+                    },
+                    {
+                        codename: 'MarkAttendanceNoShow',
+                        from: ['Registered'],
+                        to: 'NoShow',
+                        requiredCapabilities: ['attendance.mark'],
+                        postingCommand: 'post'
+                    },
+                    {
+                        codename: 'CancelAttendance',
+                        from: ['Registered', 'Attended', 'NoShow'],
+                        to: 'Cancelled',
+                        requiredCapabilities: ['attendance.manage'],
+                        postingCommand: 'void'
+                    }
+                ]
+            },
+            {
+                entityCodename: 'CertificateIssues',
+                actions: [
+                    {
+                        codename: 'IssueCertificate',
+                        from: ['Eligible'],
+                        to: 'Issued',
+                        requiredCapabilities: ['certificate.issue'],
+                        postingCommand: 'post',
+                        scriptCodename: 'CertificateIssuePostingScript'
+                    },
+                    {
+                        codename: 'RevokeCertificate',
+                        from: ['Issued'],
+                        to: 'Revoked',
+                        requiredCapabilities: ['certificate.revoke'],
+                        postingCommand: 'post',
+                        scriptCodename: 'CertificateIssuePostingScript'
+                    }
+                ]
+            },
+            {
+                entityCodename: 'DevelopmentPlanTasks',
+                actions: [
+                    {
+                        codename: 'StartDevelopmentTask',
+                        from: ['NotStarted'],
+                        to: 'InProgress',
+                        requiredCapabilities: ['development.task.update']
+                    },
+                    {
+                        codename: 'CompleteDevelopmentTask',
+                        from: ['InProgress'],
+                        to: 'Completed',
+                        requiredCapabilities: ['development.task.update']
+                    },
+                    {
+                        codename: 'ReopenDevelopmentTask',
+                        from: ['Completed'],
+                        to: 'InProgress',
+                        requiredCapabilities: ['development.task.update']
+                    }
+                ]
+            },
+            {
+                entityCodename: 'NotificationOutbox',
+                actions: [
+                    {
+                        codename: 'MarkNotificationSent',
+                        from: ['Queued', 'Failed'],
+                        to: 'Sent',
+                        requiredCapabilities: ['notification.deliver'],
+                        postingCommand: 'post'
+                    },
+                    {
+                        codename: 'MarkNotificationFailed',
+                        from: ['Queued'],
+                        to: 'Failed',
+                        requiredCapabilities: ['notification.deliver']
+                    },
+                    {
+                        codename: 'CancelNotification',
+                        from: ['Queued', 'Failed'],
+                        to: 'Cancelled',
+                        requiredCapabilities: ['notification.manage'],
+                        postingCommand: 'void'
+                    }
+                ]
+            },
+            {
+                entityCodename: 'PointTransactions',
+                actions: [
+                    {
+                        codename: 'ApprovePointAdjustment',
+                        from: ['Pending'],
+                        to: 'Approved',
+                        requiredCapabilities: ['gamification.points.adjust'],
+                        postingCommand: 'post',
+                        scriptCodename: 'PointTransactionPostingScript'
+                    },
+                    {
+                        codename: 'ReversePointAdjustment',
+                        from: ['Approved'],
+                        to: 'Reversed',
+                        requiredCapabilities: ['gamification.points.adjust'],
+                        postingCommand: 'void',
+                        scriptCodename: 'PointTransactionPostingScript'
+                    }
+                ]
+            },
+            {
+                entityCodename: 'BadgeIssues',
+                actions: [
+                    {
+                        codename: 'IssueBadge',
+                        from: ['Eligible'],
+                        to: 'Issued',
+                        requiredCapabilities: ['badge.issue']
+                    },
+                    {
+                        codename: 'RevokeBadge',
+                        from: ['Issued'],
+                        to: 'Revoked',
+                        requiredCapabilities: ['badge.revoke']
+                    }
+                ]
+            }
+        ]
+        for (const { entityCodename, actions } of workflowExpectations) {
+            const workflowActions = entityByCodename.get(entityCodename)?.config?.workflowActions
+            expect(Array.isArray(workflowActions)).toBe(true)
+            for (const expectedAction of actions) {
+                expect(workflowActions).toEqual(
+                    expect.arrayContaining([
+                        expect.objectContaining({
+                            codename: expectedAction.codename,
+                            from: expectedAction.from,
+                            to: expectedAction.to,
+                            statusFieldCodename: 'Status',
+                            requiredCapabilities: expectedAction.requiredCapabilities,
+                            ...(expectedAction.postingCommand ? { postingCommand: expectedAction.postingCommand } : {}),
+                            ...(expectedAction.scriptCodename ? { scriptCodename: expectedAction.scriptCodename } : {})
+                        })
+                    ])
+                )
+            }
+            for (const action of workflowActions ?? []) {
+                expect(() => workflowActionSchema.parse(action)).not.toThrow()
+            }
         }
         expect(manifest.seed.scripts).toEqual(
             expect.arrayContaining([
@@ -321,6 +518,13 @@ describe('TemplateManifestValidator', () => {
                     attachedToEntityCodename: 'CertificateIssues',
                     moduleRole: 'lifecycle',
                     capabilities: expect.arrayContaining(['lifecycle', 'posting', 'ledger.write'])
+                }),
+                expect.objectContaining({
+                    codename: 'PointTransactionPostingScript',
+                    attachedToKind: 'object',
+                    attachedToEntityCodename: 'PointTransactions',
+                    moduleRole: 'lifecycle',
+                    capabilities: expect.arrayContaining(['lifecycle', 'posting', 'ledger.write'])
                 })
             ])
         )
@@ -335,7 +539,14 @@ describe('TemplateManifestValidator', () => {
                 })
             })
         )
-        for (const codename of ['CourseOverview', 'KnowledgeArticle', 'AssignmentInstructions', 'CertificatePolicy']) {
+        for (const codename of [
+            'CourseOverview',
+            'KnowledgeHome',
+            'KnowledgeArticle',
+            'DevelopmentHome',
+            'AssignmentInstructions',
+            'CertificatePolicy'
+        ]) {
             const pageEntity = entityByCodename.get(codename)
             expect(pageEntity).toEqual(
                 expect.objectContaining({
@@ -361,7 +572,9 @@ describe('TemplateManifestValidator', () => {
                 fixedValues: expect.arrayContaining([
                     expect.objectContaining({ codename: 'DefaultPassingScore', value: 80 }),
                     expect.objectContaining({ codename: 'CertificateValidityDays', value: 365 }),
-                    expect.objectContaining({ codename: 'SupportEmail', value: '' })
+                    expect.objectContaining({ codename: 'SupportEmail', value: '' }),
+                    expect.objectContaining({ codename: 'GamificationEnabled', value: true }),
+                    expect.objectContaining({ codename: 'DefaultPointAward', value: 10 })
                 ])
             })
         )

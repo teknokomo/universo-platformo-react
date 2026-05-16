@@ -191,7 +191,7 @@ describe('page block content schema', () => {
                         id: 'embed-1',
                         type: 'embed',
                         data: {
-                            source: 'https://example.test/video',
+                            source: 'https://www.youtube.com/embed/demo',
                             caption: 'Video'
                         }
                     }
@@ -210,10 +210,19 @@ describe('page block content schema', () => {
                 id: 'embed-1',
                 type: 'embed',
                 data: {
-                    url: 'https://example.test/video',
+                    url: 'https://www.youtube.com/embed/demo',
                     caption: 'Video'
                 }
             }
         ])
+    })
+
+    it('rejects embed URLs outside the shared runtime embed policy', () => {
+        expect(() =>
+            normalizePageBlockContentForStorage({
+                format: 'editorjs',
+                blocks: [{ id: 'embed-1', type: 'embed', data: { url: 'https://example.test/video' } }]
+            })
+        ).toThrow('embed policy')
     })
 })

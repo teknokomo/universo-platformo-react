@@ -108,6 +108,26 @@ export const recordsCountMetricDatasourceSchema = metricDatasourceSchema
     .strict()
 export type RecordsCountMetricDatasource = z.infer<typeof recordsCountMetricDatasourceSchema>
 
+export const reportAggregationMetricDatasourceSchema = metricDatasourceSchema
+    .extend({
+        metricKey: z.literal('report.aggregation'),
+        params: z
+            .object({
+                reportId: z.string().min(1).max(128).optional(),
+                reportCodename: z.string().min(1).max(128).optional(),
+                aggregationAlias: z.string().min(1).max(128)
+            })
+            .strict()
+    })
+    .strict()
+export type ReportAggregationMetricDatasource = z.infer<typeof reportAggregationMetricDatasourceSchema>
+
+export const statCardMetricDatasourceSchema = z.discriminatedUnion('metricKey', [
+    recordsCountMetricDatasourceSchema,
+    reportAggregationMetricDatasourceSchema
+])
+export type StatCardMetricDatasource = z.infer<typeof statCardMetricDatasourceSchema>
+
 export const runtimeDatasourceDescriptorSchema = z.discriminatedUnion('kind', [
     recordsListDatasourceSchema,
     ledgerFactsDatasourceSchema,

@@ -129,6 +129,20 @@ describe('applications-frontend api wrappers', () => {
         })
         expect(postedRow).toEqual({ id: 'row-1', _app_record_state: 'posted' })
 
+        post.mockResolvedValueOnce({ data: { id: 'row-1', Status: 'PendingReview' } })
+        const workflowRow = await api.runApplicationRuntimeWorkflowAction({
+            applicationId: 'app-1',
+            rowId: 'row-1',
+            actionCodename: 'StartSubmissionReview',
+            objectCollectionId: 'object-1',
+            expectedVersion: 8
+        })
+        expect(post).toHaveBeenCalledWith('/applications/app-1/runtime/rows/row-1/workflow/StartSubmissionReview', {
+            objectCollectionId: 'object-1',
+            expectedVersion: 8
+        })
+        expect(workflowRow).toEqual({ id: 'row-1', Status: 'PendingReview' })
+
         const members = await api.listApplicationMembers('m1', { limit: 10, offset: 0, sortBy: 'updated', sortOrder: 'desc', search: 'a' })
         expect(get).toHaveBeenCalledWith('/applications/m1/members', {
             params: { limit: 10, offset: 0, sortBy: 'updated', sortOrder: 'desc', search: 'a' }

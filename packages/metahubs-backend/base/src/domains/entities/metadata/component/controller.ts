@@ -141,12 +141,36 @@ const validationRulesSchema = z
 
 const uiConfigSchema = z
     .object({
-        widget: z.enum(['text', 'textarea', 'number', 'select', 'checkbox', 'date', 'datetime', 'reference']).optional(),
+        widget: z
+            .enum([
+                'text',
+                'textarea',
+                'number',
+                'select',
+                'checkbox',
+                'date',
+                'datetime',
+                'reference',
+                'editorjsBlockContent',
+                'resourceSource'
+            ])
+            .optional(),
         rows: z.number().int().min(2).max(12).optional(),
         placeholder: z.record(z.string()).optional(),
         helpText: z.record(z.string()).optional(),
         hidden: z.boolean().optional(),
         width: z.number().optional(),
+        editor: z.enum(['editorjs']).optional(),
+        blockContent: z.boolean().optional(),
+        blockEditor: z
+            .object({
+                allowedBlockTypes: z.array(z.string().trim().min(1)).optional(),
+                maxBlocks: z.number().int().min(0).optional()
+            })
+            .passthrough()
+            .optional(),
+        resourceSource: z.boolean().optional(),
+        resource: z.boolean().optional(),
         headerAsCheckbox: z.boolean().optional(),
         sharedBehavior: z
             .object({
@@ -278,6 +302,21 @@ const normalizeMultilineUiConfig = (
     sourceUiConfig: Record<string, unknown>
 ): { uiConfig: Record<string, unknown>; error?: string } => {
     const nextUiConfig = { ...sourceUiConfig }
+    const jsonWidget =
+        nextUiConfig.widget === 'editorjsBlockContent' ||
+        nextUiConfig.widget === 'resourceSource' ||
+        nextUiConfig.editor === 'editorjs' ||
+        nextUiConfig.blockContent === true ||
+        nextUiConfig.resourceSource === true ||
+        nextUiConfig.resource === true ||
+        nextUiConfig.blockEditor !== undefined
+
+    if (jsonWidget && dataType !== ComponentDefinitionDataType.JSON) {
+        return {
+            uiConfig: nextUiConfig,
+            error: 'JSON editor widgets are supported only for JSON components'
+        }
+    }
 
     if (nextUiConfig.widget === 'textarea' && dataType !== ComponentDefinitionDataType.STRING) {
         return {

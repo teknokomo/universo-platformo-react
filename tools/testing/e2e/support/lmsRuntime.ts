@@ -182,7 +182,9 @@ export async function waitForApplicationRuntimeRow(api: ApiContext, applicationI
         .poll(
             async () => {
                 const runtime = await getApplicationRuntime(api, applicationId, { objectId })
-                row = (runtime.rows ?? []).find((item: { id?: string }) => item?.id === rowId) ?? null
+                const runtimeColumns = Array.isArray(runtime.columns) ? runtime.columns : []
+                const foundRow = (runtime.rows ?? []).find((item: { id?: string }) => item?.id === rowId) ?? null
+                row = foundRow ? withRuntimeCodenameAliases(foundRow, runtimeColumns) : null
                 return row && typeof row.id === 'string' ? row.id : null
             },
             { timeout: 30_000, intervals: [500, 1_000, 2_000] }
@@ -190,6 +192,27 @@ export async function waitForApplicationRuntimeRow(api: ApiContext, applicationI
         .toBe(rowId)
 
     return row
+}
+
+function withRuntimeCodenameAliases(
+    row: Record<string, unknown>,
+    columns: Array<{ field?: unknown; codename?: unknown }>
+): Record<string, unknown> {
+    const mappedRow = { ...row }
+
+    for (const column of columns) {
+        if (typeof column.field !== 'string' || typeof column.codename !== 'string') {
+            continue
+        }
+
+        if (Object.prototype.hasOwnProperty.call(mappedRow, column.codename)) {
+            continue
+        }
+
+        mappedRow[column.codename] = row[column.field]
+    }
+
+    return mappedRow
 }
 
 export async function waitForApplicationRuntimeRowCount(

@@ -1,5 +1,5 @@
 import { renderHook, act } from '@testing-library/react'
-import { useListDialogs } from '@universo/template-mui'
+import { useListDialogs } from '../useListDialogs'
 
 interface TestEntity {
     id: string
