@@ -622,13 +622,35 @@ const matchesRuntimeFieldCondition = (
 
 const parseRuntimeDateValue = (value: unknown): number | null => {
     if (value === null || value === undefined || value === '') return null
-    const raw = value instanceof Date ? value.toISOString() : typeof value === 'string' || typeof value === 'number' ? String(value) : ''
+    if (value instanceof Date) {
+        return Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate())
+    }
+    if (typeof value !== 'string' && typeof value !== 'number') return Number.NaN
+
+    const raw = String(value).trim()
     if (!raw) return Number.NaN
-    const time = Date.parse(raw)
-    return Number.isNaN(time) ? Number.NaN : time
+    const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw)
+    if (dateOnlyMatch) {
+        const year = Number(dateOnlyMatch[1])
+        const month = Number(dateOnlyMatch[2])
+        const day = Number(dateOnlyMatch[3])
+        const time = Date.UTC(year, month - 1, day)
+        const date = new Date(time)
+        return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day ? time : Number.NaN
+    }
+
+    const dateTime = new Date(raw)
+    if (Number.isNaN(dateTime.getTime())) return Number.NaN
+    return Date.UTC(dateTime.getUTCFullYear(), dateTime.getUTCMonth(), dateTime.getUTCDate())
 }
 
 const formatRuntimeDateOnly = (time: number): string => new Date(time).toISOString().slice(0, 10)
+
+const addRuntimeDateOnlyDays = (time: number, days: number): string => {
+    const date = new Date(time)
+    date.setUTCDate(date.getUTCDate() + days)
+    return formatRuntimeDateOnly(date.getTime())
+}
 
 const readRuntimeOffsetDays = (value: unknown): number | null => {
     const numeric = typeof value === 'number' ? value : typeof value === 'string' && value.trim().length > 0 ? Number(value) : Number.NaN
@@ -694,7 +716,7 @@ const applyRuntimeDateOffsetDerivations = ({
             return { row, error: `Runtime date derivation requires valid day offset: ${formatRuntimeFieldLabel(offsetAttr.codename)}` }
         }
 
-        nextRow[targetAttr.column_name] = formatRuntimeDateOnly(startValue + offsetDays * 24 * 60 * 60 * 1000)
+        nextRow[targetAttr.column_name] = addRuntimeDateOnlyDays(startValue, offsetDays)
     }
 
     return { row: nextRow, error: null }

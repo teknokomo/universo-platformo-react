@@ -981,6 +981,177 @@ describe('widgetRenderer detailsTable datasource', () => {
         expect(screen.getByLabelText('Due Date')).toBeInTheDocument()
     }, 10_000)
 
+    it('uses an authoritative max sort-order probe before creating relation-builder rows', async () => {
+        window.localStorage.clear()
+        const courseSectionId = '017f22e2-79b0-7cc3-98c4-dc0c0c073986'
+        const courseItemsSectionId = '017f22e2-79b0-7cc3-98c4-dc0c0c073987'
+        const courseId = '017f22e2-79b0-7cc3-98c4-dc0c0c073988'
+        const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+            const url = new URL(String(input), 'http://localhost')
+            if (url.pathname.endsWith('/auth/csrf')) {
+                return new Response(JSON.stringify({ csrfToken: 'csrf-token' }), {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' }
+                })
+            }
+            if (init?.method === 'POST' && url.pathname.endsWith('/runtime/rows')) {
+                return new Response(JSON.stringify({ id: 'new-course-item' }), {
+                    status: 201,
+                    headers: { 'Content-Type': 'application/json' }
+                })
+            }
+
+            const objectCollectionId = url.searchParams.get('objectCollectionId')
+            if (objectCollectionId === courseSectionId) {
+                return new Response(
+                    JSON.stringify({
+                        ...createAppDataResponse(),
+                        section: { id: courseSectionId, codename: 'Courses', tableName: 'courses', name: 'Courses' },
+                        objectCollection: { id: courseSectionId, codename: 'Courses', tableName: 'courses', name: 'Courses' },
+                        columns: [
+                            {
+                                id: 'title-column',
+                                codename: 'Title',
+                                field: 'Title',
+                                dataType: 'STRING',
+                                headerName: 'Title',
+                                isRequired: true,
+                                validationRules: {},
+                                uiConfig: {}
+                            }
+                        ],
+                        rows: [{ id: courseId, Title: 'Course with many items' }],
+                        pagination: { total: 1, limit: 100, offset: 0 }
+                    }),
+                    { status: 200, headers: { 'Content-Type': 'application/json' } }
+                )
+            }
+
+            const isMaxSortProbe = url.searchParams.get('limit') === '1' && url.searchParams.get('sort')?.includes('"desc"')
+            return new Response(
+                JSON.stringify({
+                    ...createAppDataResponse(),
+                    section: { id: courseItemsSectionId, codename: 'CourseItems', tableName: 'course_items', name: 'Course Items' },
+                    objectCollection: {
+                        id: courseItemsSectionId,
+                        codename: 'CourseItems',
+                        tableName: 'course_items',
+                        name: 'Course Items'
+                    },
+                    columns: [
+                        {
+                            id: 'course-id-column',
+                            codename: 'CourseId',
+                            field: 'CourseId',
+                            dataType: 'REF',
+                            headerName: 'Course',
+                            isRequired: true,
+                            validationRules: {},
+                            uiConfig: {}
+                        },
+                        {
+                            id: 'title-column',
+                            codename: 'Title',
+                            field: 'Title',
+                            dataType: 'STRING',
+                            headerName: 'Title',
+                            isRequired: true,
+                            validationRules: {},
+                            uiConfig: {}
+                        },
+                        {
+                            id: 'sort-order-column',
+                            codename: 'SortOrder',
+                            field: 'SortOrder',
+                            dataType: 'NUMBER',
+                            headerName: 'Sort Order',
+                            isRequired: true,
+                            validationRules: {},
+                            uiConfig: {}
+                        }
+                    ],
+                    rows: isMaxSortProbe
+                        ? [{ id: 'last-loaded-item', CourseId: courseId, Title: 'Last item', SortOrder: 250 }]
+                        : [{ id: 'visible-item', CourseId: courseId, Title: 'Visible item', SortOrder: 100 }],
+                    pagination: { total: 250, limit: isMaxSortProbe ? 1 : 100, offset: 0 }
+                }),
+                { status: 200, headers: { 'Content-Type': 'application/json' } }
+            )
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <DashboardDetailsProvider
+                    value={{
+                        title: 'Courses',
+                        applicationId: '017f22e2-79b0-7cc3-98c4-dc0c0c073993',
+                        apiBaseUrl: '/api/v1',
+                        locale: 'en',
+                        sections: [
+                            { id: courseSectionId, codename: 'Courses' },
+                            { id: courseItemsSectionId, codename: 'CourseItems' }
+                        ],
+                        objectCollections: [
+                            { id: courseSectionId, codename: 'Courses' },
+                            { id: courseItemsSectionId, codename: 'CourseItems' }
+                        ],
+                        rows: [],
+                        columns: []
+                    }}
+                >
+                    {renderWidget({
+                        id: 'widget-relation-builder-sort-order',
+                        widgetKey: 'relationBuilder',
+                        sortOrder: 0,
+                        config: {
+                            parentDatasource: {
+                                kind: 'records.list',
+                                sectionCodename: 'Courses'
+                            },
+                            parentLabel: 'Course',
+                            parentTitleFieldCodename: 'Title',
+                            panels: [
+                                {
+                                    id: 'course-items',
+                                    title: 'Items',
+                                    datasource: {
+                                        kind: 'records.list',
+                                        sectionCodename: 'CourseItems',
+                                        query: { sort: [{ field: 'SortOrder', direction: 'asc' }] }
+                                    },
+                                    parentFieldCodename: 'CourseId',
+                                    sortOrderFieldCodename: 'SortOrder'
+                                }
+                            ]
+                        }
+                    })}
+                </DashboardDetailsProvider>
+            </QueryClientProvider>
+        )
+
+        expect(await screen.findByText('Visible item')).toBeInTheDocument()
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Create' })).toBeEnabled())
+        await userEvent.click(screen.getByRole('button', { name: 'Create' }))
+        await userEvent.type(screen.getByRole('textbox', { name: 'Title' }), 'New item')
+        await userEvent.click(screen.getByTestId('entity-form-submit'))
+
+        await waitFor(() => {
+            const createCall = fetchMock.mock.calls.find(
+                ([input, init]) => String(input).includes('/runtime/rows') && init?.method === 'POST'
+            )
+            expect(createCall).toBeDefined()
+            expect(JSON.parse(String(createCall?.[1]?.body))).toMatchObject({
+                objectCollectionId: courseItemsSectionId,
+                data: {
+                    CourseId: courseId,
+                    Title: 'New item',
+                    SortOrder: 251
+                }
+            })
+        })
+    }, 10_000)
+
     it('resolves relation builder parents from the active runtime section without case-sensitive codename matching', async () => {
         const courseSectionId = '017f22e2-79b0-7cc3-98c4-dc0c0c073986'
         const courseItemsSectionId = '017f22e2-79b0-7cc3-98c4-dc0c0c073987'
@@ -1608,6 +1779,71 @@ describe('widgetRenderer detailsTable datasource', () => {
             'starred',
             'starred'
         ])
+    })
+
+    it('slices records.union rows locally to keep table pagination unified across targets', async () => {
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = new URL(String(input))
+            const targetId = url.searchParams.get('objectCollectionId') ?? 'target'
+            const response = createAppDataResponse()
+
+            return new Response(
+                JSON.stringify({
+                    ...response,
+                    rows: Array.from({ length: 20 }, (_, index) => ({
+                        id: `${targetId}-${index}`,
+                        title: `${targetId.endsWith('3991') ? 'Resource' : 'Course'} ${index + 1}`
+                    })),
+                    pagination: { total: 25, limit: Number(url.searchParams.get('limit')), offset: Number(url.searchParams.get('offset')) }
+                }),
+                {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' }
+                }
+            )
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <DashboardDetailsProvider
+                    value={{
+                        title: 'Details',
+                        applicationId: '017f22e2-79b0-7cc3-98c4-dc0c0c073993',
+                        apiBaseUrl: '/api/v1',
+                        locale: 'en',
+                        sections: [
+                            { id: '017f22e2-79b0-7cc3-98c4-dc0c0c073991', codename: 'LearningResources' },
+                            { id: '017f22e2-79b0-7cc3-98c4-dc0c0c073992', codename: 'Courses' }
+                        ],
+                        objectCollections: [],
+                        rows: [],
+                        columns: []
+                    }}
+                >
+                    {renderWidget({
+                        id: 'widget-union-paginated',
+                        widgetKey: 'detailsTable',
+                        sortOrder: 0,
+                        config: {
+                            datasource: {
+                                kind: 'records.union',
+                                targets: [
+                                    { sectionCodename: 'LearningResources', displayType: 'page' },
+                                    { sectionCodename: 'Courses', displayType: 'course' }
+                                ]
+                            }
+                        }
+                    })}
+                </DashboardDetailsProvider>
+            </QueryClientProvider>
+        )
+
+        await waitFor(() => expect(screen.getByTestId('customized-grid')).toHaveAttribute('data-rows', '20'))
+        expect(screen.getByTestId('customized-grid')).toHaveAttribute('data-row-count', '50')
+        expect(fetchMock).toHaveBeenCalledTimes(2)
+        expect(fetchMock.mock.calls.map((call) => new URL(call[0] as string).searchParams.get('limit'))).toEqual(['20', '20'])
+        expect(fetchMock.mock.calls.map((call) => new URL(call[0] as string).searchParams.get('offset'))).toEqual(['0', '0'])
     })
 
     it('adds a restore action for deleted records.union rows', async () => {

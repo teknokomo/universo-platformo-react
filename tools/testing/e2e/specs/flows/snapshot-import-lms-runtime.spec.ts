@@ -645,7 +645,12 @@ async function expectPublishedBuilderTabs(options: {
     await page.screenshot({ path: screenshotPath, fullPage: true })
 }
 
-async function expectPublishedLearningContentView(options: { page: Page; navigationItem: string; label: string; screenshotPath: string }): Promise<void> {
+async function expectPublishedLearningContentView(options: {
+    page: Page
+    navigationItem: string
+    label: string
+    screenshotPath: string
+}): Promise<void> {
     const { page, navigationItem, label, screenshotPath } = options
     await clickRuntimeNavigationItem(page, navigationItem)
     await expectRuntimeNavigationItemSelected(page, navigationItem)

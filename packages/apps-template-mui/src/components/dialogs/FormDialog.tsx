@@ -396,6 +396,34 @@ const readOffsetDays = (value: unknown): number | null => {
     return numeric
 }
 
+const parseDateOnlyUtcTime = (value: unknown): number => {
+    if (value instanceof Date) {
+        return Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate())
+    }
+    if (typeof value !== 'string') return Number.NaN
+
+    const trimmed = value.trim()
+    const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed)
+    if (dateOnlyMatch) {
+        const year = Number(dateOnlyMatch[1])
+        const month = Number(dateOnlyMatch[2])
+        const day = Number(dateOnlyMatch[3])
+        const time = Date.UTC(year, month - 1, day)
+        const date = new Date(time)
+        return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day ? time : Number.NaN
+    }
+
+    const dateTime = new Date(trimmed)
+    if (Number.isNaN(dateTime.getTime())) return Number.NaN
+    return Date.UTC(dateTime.getUTCFullYear(), dateTime.getUTCMonth(), dateTime.getUTCDate())
+}
+
+const addUtcDateOnlyDays = (time: number, days: number): string => {
+    const date = new Date(time)
+    date.setUTCDate(date.getUTCDate() + days)
+    return date.toISOString().slice(0, 10)
+}
+
 const deriveDateOffsetValue = (derivation: FieldDateOffsetDerivation, formData: Record<string, unknown>): string | null | undefined => {
     if (derivation.clearWhen && matchesFieldVisibilityCondition(derivation.clearWhen, formData)) {
         return null
@@ -406,14 +434,9 @@ const deriveDateOffsetValue = (derivation: FieldDateOffsetDerivation, formData: 
 
     const startValue = formData[derivation.startFieldId]
     const offsetDays = readOffsetDays(formData[derivation.offsetDaysFieldId])
-    const startTime =
-        typeof startValue === 'string' && startValue.trim().length > 0
-            ? Date.parse(startValue)
-            : startValue instanceof Date
-            ? startValue.getTime()
-            : Number.NaN
+    const startTime = parseDateOnlyUtcTime(startValue)
     if (!Number.isFinite(startTime) || offsetDays === null) return undefined
-    return new Date(startTime + offsetDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    return addUtcDateOnlyDays(startTime, offsetDays)
 }
 
 const readFieldRequirementCondition = (field: FieldConfig): FieldVisibilityCondition | null => {

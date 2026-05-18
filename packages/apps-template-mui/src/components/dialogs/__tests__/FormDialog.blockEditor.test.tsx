@@ -661,6 +661,59 @@ describe('FormDialog block editor fields', () => {
         })
     })
 
+    it('derives date offsets from UTC date-only values without daylight-saving arithmetic', async () => {
+        const onSubmit = vi.fn().mockResolvedValue(undefined)
+        const fields: FieldConfig[] = [
+            {
+                id: 'StartDate',
+                label: 'Start Date',
+                type: 'DATE',
+                required: true,
+                validationRules: { dateComposition: 'date' }
+            },
+            {
+                id: 'DueDate',
+                label: 'Due Date',
+                type: 'DATE',
+                validationRules: { dateComposition: 'date' },
+                uiConfig: {
+                    hidden: true,
+                    derivedDateOffset: {
+                        startField: 'StartDate',
+                        offsetDaysField: 'OffsetDays'
+                    }
+                }
+            },
+            {
+                id: 'OffsetDays',
+                label: 'Offset Days',
+                type: 'NUMBER',
+                required: true
+            }
+        ]
+
+        render(
+            <FormDialog
+                open
+                title='Create enrollment'
+                fields={fields}
+                locale='en'
+                initialData={{ StartDate: '2026-03-28', OffsetDays: 2 }}
+                onClose={vi.fn()}
+                onSubmit={onSubmit}
+            />
+        )
+
+        const user = userEvent.setup()
+        await user.click(screen.getByTestId('entity-form-submit'))
+
+        expect(onSubmit).toHaveBeenCalledWith({
+            StartDate: '2026-03-28',
+            DueDate: '2026-03-30',
+            OffsetDays: 2
+        })
+    })
+
     it('syncs metadata-declared title fields into name fields until the name is manually edited', async () => {
         const onSubmit = vi.fn().mockResolvedValue(undefined)
         const fields: FieldConfig[] = [

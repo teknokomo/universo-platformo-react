@@ -4868,9 +4868,9 @@ describe('Applications Routes', () => {
                 .send({
                     objectCollectionId: runtimeLinkedCollectionId,
                     data: {
-                        EnrolledAt: '2026-06-01',
+                        EnrolledAt: '2026-03-28',
                         DueDateMode: 'ForPeriod',
-                        DuePeriodDays: 14
+                        DuePeriodDays: 2
                     }
                 })
                 .expect(201)
@@ -4878,7 +4878,7 @@ describe('Applications Routes', () => {
             const insertCall = (dataSource.manager.query as jest.Mock).mock.calls.find(([sql]) =>
                 String(sql).includes('INSERT INTO "app_runtime_test"."enrollments"')
             )
-            expect(insertCall?.[1]).toEqual(expect.arrayContaining(['2026-06-15']))
+            expect(insertCall?.[1]).toEqual(expect.arrayContaining(['2026-03-30']))
         })
 
         it('rejects enrollment due-date updates that would move DueDate before EnrolledAt', async () => {

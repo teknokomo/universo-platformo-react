@@ -93,6 +93,16 @@ const readNextSortOrder = (rows: RuntimeRow[], field: string): number => {
     return max + 1
 }
 
+const readMaxSortOrder = (rows: RuntimeRow[], field: string): number | null => {
+    let max: number | null = null
+    for (const row of rows) {
+        const value = row[field]
+        const numeric = typeof value === 'number' ? value : typeof value === 'string' && value.trim() ? Number(value) : Number.NaN
+        if (Number.isFinite(numeric)) max = max === null ? numeric : Math.max(max, numeric)
+    }
+    return max
+}
+
 const buildRelationBuilderWizardSteps = (
     panel: RelationBuilderPanelConfig,
     columns: AppDataResponse['columns'] | undefined,
@@ -208,11 +218,35 @@ function RelationBuilderPanel({ panel, selectedParentId }: { panel: RelationBuil
             }),
         enabled: Boolean(canFetch && editRowId)
     })
+    const maxSortOrderQuery = useQuery({
+        queryKey: [...queryKey, 'max-sort-order', panel.sortOrderFieldCodename],
+        queryFn: () =>
+            fetchAppData({
+                apiBaseUrl: details!.apiBaseUrl!,
+                applicationId: details!.applicationId!,
+                locale: details?.locale ?? 'en',
+                limit: 1,
+                offset: 0,
+                objectCollectionId: targetSectionId,
+                sectionId: targetSectionId,
+                workspaceId: details?.currentWorkspaceId ?? null,
+                lifecycleState: panel.datasource.query?.lifecycleState,
+                search: panel.datasource.query?.search,
+                sort: [{ field: panel.sortOrderFieldCodename!, direction: 'desc' }],
+                filters: runtimeFilters
+            }),
+        enabled: Boolean(canFetch && panel.sortOrderFieldCodename)
+    })
     const createInitialData = useMemo(() => {
         const initial: Record<string, unknown> = { ...(panel.createDefaults ?? {}), [parentField]: selectedParentId }
-        if (sortOrderField) initial[sortOrderField] = readNextSortOrder(orderedRows, sortOrderField)
+        if (sortOrderField) {
+            const authoritativeMax = maxSortOrderQuery.data
+                ? readMaxSortOrder(maxSortOrderQuery.data.rows as RuntimeRow[], sortOrderField)
+                : null
+            initial[sortOrderField] = (authoritativeMax ?? readNextSortOrder(orderedRows, sortOrderField) - 1) + 1
+        }
         return initial
-    }, [orderedRows, panel.createDefaults, parentField, selectedParentId, sortOrderField])
+    }, [maxSortOrderQuery.data, orderedRows, panel.createDefaults, parentField, selectedParentId, sortOrderField])
     const columns = useMemo(
         () => buildFlowListColumns(query.data, details?.locale ?? 'en', hiddenFields),
         [details?.locale, hiddenFields, query.data]
@@ -271,6 +305,8 @@ function RelationBuilderPanel({ panel, selectedParentId }: { panel: RelationBuil
     })
     const totalRows = query.data?.pagination.total ?? 0
     const hasSearch = Boolean(panel.datasource.query?.search?.trim())
+    const requiresAuthoritativeSortOrder = Boolean(sortOrderField && totalRows > orderedRows.length)
+    const createDisabled = requiresAuthoritativeSortOrder && !maxSortOrderQuery.data
     const canPersistRowReordering =
         panel.enableRowReordering === true &&
         !hasSearch &&
@@ -310,10 +346,13 @@ function RelationBuilderPanel({ panel, selectedParentId }: { panel: RelationBuil
         if (!canPersistRowReordering || reorderMutation.isPending) return
         const activeId = String(event.active.id)
         const overId = event.over ? String(event.over.id) : null
-        setOrderedRows((rows) => {
-            const nextRows = reorderRowsByIds(rows, activeId, overId)
-            void reorderMutation.mutateAsync(nextRows.map((row) => row.id)).catch(() => setOrderedRows(rows))
-            return nextRows
+        const previousRows = orderedRows
+        const nextRows = reorderRowsByIds(previousRows, activeId, overId)
+        if (nextRows === previousRows) return
+
+        setOrderedRows(nextRows)
+        void reorderMutation.mutateAsync(nextRows.map((row) => row.id)).catch(() => {
+            setOrderedRows(previousRows)
         })
     }
 
@@ -323,7 +362,7 @@ function RelationBuilderPanel({ panel, selectedParentId }: { panel: RelationBuil
         <Stack spacing={1.25} data-testid={`runtime-relation-panel-${panel.id}`} sx={{ minWidth: 0 }}>
             <Stack direction='row' justifyContent='space-between' alignItems='center' gap={1} sx={{ minWidth: 0 }}>
                 <Typography variant='subtitle2'>{readLocalizedWidgetText(panel.title, details?.locale) ?? panel.id}</Typography>
-                <Button size='small' startIcon={<AddRoundedIcon />} onClick={() => setCreateOpen(true)}>
+                <Button size='small' startIcon={<AddRoundedIcon />} disabled={createDisabled} onClick={() => setCreateOpen(true)}>
                     {t('relationBuilder.create', 'Create')}
                 </Button>
             </Stack>

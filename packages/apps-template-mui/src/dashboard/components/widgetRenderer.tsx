@@ -35,6 +35,7 @@ import {
     type ReportDefinition,
     type RuntimePageBlock,
     type RuntimeDatasourceDescriptor,
+    type RuntimeDatasourceSort,
     type SequencePolicy,
     type SequenceStep
 } from '@universo/types'
@@ -171,6 +172,28 @@ const buildFlowListColumns = (
             label: column.headerName || column.codename || column.field,
             render: (row) => formatRuntimeValue(row[column.field], locale)
         }))
+
+const compareRuntimeValues = (left: unknown, right: unknown): number => {
+    const leftNumber = typeof left === 'number' ? left : typeof left === 'string' && left.trim() ? Number(left) : Number.NaN
+    const rightNumber = typeof right === 'number' ? right : typeof right === 'string' && right.trim() ? Number(right) : Number.NaN
+    if (Number.isFinite(leftNumber) && Number.isFinite(rightNumber)) {
+        return leftNumber - rightNumber
+    }
+    return String(left ?? '').localeCompare(String(right ?? ''), undefined, { numeric: true, sensitivity: 'base' })
+}
+
+const sortRuntimeRows = <T extends Record<string, unknown>>(rows: T[], sort: RuntimeDatasourceSort[] | undefined): T[] => {
+    if (!Array.isArray(sort) || sort.length === 0) return rows
+
+    return [...rows].sort((left, right) => {
+        for (const descriptor of sort) {
+            if (!descriptor || typeof descriptor.field !== 'string') continue
+            const result = compareRuntimeValues(left[descriptor.field], right[descriptor.field])
+            if (result !== 0) return descriptor.direction === 'desc' ? -result : result
+        }
+        return 0
+    })
+}
 
 const readSequenceNumber = (row: Record<string, unknown>, field: string | undefined): number | undefined => {
     if (!field) return undefined
@@ -533,6 +556,7 @@ function RecordsUnionDetailsTableWidget({ datasource }: { datasource: Extract<Ru
     )
     const limit = paginationModel.pageSize
     const offset = paginationModel.page * paginationModel.pageSize
+    const requestLimit = offset + limit
     const queryKey = useMemo(
         () =>
             [
@@ -553,8 +577,8 @@ function RecordsUnionDetailsTableWidget({ datasource }: { datasource: Extract<Ru
                         apiBaseUrl: details!.apiBaseUrl!,
                         applicationId: details!.applicationId!,
                         locale: details?.locale ?? 'en',
-                        limit,
-                        offset,
+                        limit: requestLimit,
+                        offset: 0,
                         objectCollectionId: target.sectionId,
                         sectionId: target.sectionId,
                         workspaceId: details?.currentWorkspaceId ?? null,
@@ -568,17 +592,20 @@ function RecordsUnionDetailsTableWidget({ datasource }: { datasource: Extract<Ru
             )
 
             return {
-                rows: responses.flatMap(({ target, response }) =>
-                    response.rows.map((row) => ({
-                        ...row,
-                        id: `${target.sectionId}:${row.id}`,
-                        __runtimeObjectCollectionId: target.sectionId,
-                        __runtimeSourceRowId: row.id,
-                        __runtimeDisplayType: target.displayType
-                    }))
-                ),
                 columns: responses[0]?.response.columns ?? [],
-                total: responses.reduce((sum, item) => sum + (item.response.pagination.total ?? item.response.rows.length), 0)
+                total: responses.reduce((sum, item) => sum + (item.response.pagination.total ?? item.response.rows.length), 0),
+                rows: sortRuntimeRows(
+                    responses.flatMap(({ target, response }) =>
+                        response.rows.map((row) => ({
+                            ...row,
+                            id: `${target.sectionId}:${row.id}`,
+                            __runtimeObjectCollectionId: target.sectionId,
+                            __runtimeSourceRowId: row.id,
+                            __runtimeDisplayType: target.displayType
+                        }))
+                    ),
+                    runtimeSort
+                ).slice(offset, offset + limit)
             }
         },
         enabled: Boolean(details?.apiBaseUrl && details?.applicationId && targets.length > 0),
