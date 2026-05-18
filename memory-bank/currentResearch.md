@@ -1,5 +1,13 @@
 # Current Research
 
+## 2026-05-19: AI agent workflow for user-friendly MUI runtime UI
+
+-   Research artifact created: `memory-bank/research/ai-agent-mui-ux-workflow-research-2026-05-19.md`.
+-   Root finding: the LMS UI defects were not MUI limitations; they were missing UX semantics and missing test oracles. A raw owner ID input, raw JSON cover cell, and single-line Description can all pass functional tests unless the workflow explicitly forbids them.
+-   Workflow decision candidate: keep root agent instructions short, add project-local MUI runtime UX and runtime UX QA skills, and require UI plans/implementations/QA to include field-control contracts, DataGrid display contracts, localized validation checks, responsive browser proof, and anti-technical-leakage assertions.
+-   Cross-agent decision candidate: use `.agents/skills` as the portable workflow layer and `.agents/agent-profiles` as the shared authoring layer, but create full self-contained native subagent/custom-agent files for actively used tools (`.codex/agents`, `.gemini/agents`, `.claude/agents`, `.github/agents`) instead of thin wrappers that only link back to shared files.
+-   Testing implication: focused Playwright helpers should assert no raw user-facing IDs, no raw JSON/object cells, multiline semantic long-text fields, localized error messages, and no page-level horizontal overflow across realistic viewports.
+
 ## 2026-05-18: LMS runtime copy UI integration
 
 -   Implementation outcome: published-app Copy actions now call the generic runtime copy endpoint instead of recreating copied rows through `createRow`.

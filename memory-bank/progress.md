@@ -53,6 +53,52 @@
 
 ---
 
+## 2026-05-19 - Runtime UI UX Viewport Matrix Closure
+
+### Summary
+
+Closed the QA gap where the Runtime UI UX Quality Gate required responsive proof in guidance but only checked the current Playwright viewport mechanically. The reusable runtime UX helper now validates the shared viewport matrix and the LMS runtime canary uses that helper.
+
+### Implemented
+
+-   Added `RUNTIME_UX_VIEWPORT_MATRIX` and `expectRuntimeUxViewportMatrix` for `1920x1080`, `768x1024`, and mobile `390x844`.
+-   Rewired the LMS snapshot runtime canary to use the shared viewport matrix for page-level horizontal overflow checks.
+-   Updated runtime UX oracle documentation, reviewer profiles, and GitBook documentation to make the viewport matrix explicit.
+-   Extended `check:runtime-ux-agents` so the matrix helper, docs, and LMS canary usage cannot silently drift away.
+
+### Validation
+
+-   `pnpm check:runtime-ux-agents`
+-   `pnpm docs:i18n:check`
+-   `pnpm exec eslint tools/agents/check-runtime-ux-agent-invariants.mjs tools/testing/e2e/support/browser/runtimeUx.ts tools/testing/e2e/specs/flows/snapshot-import-lms-runtime.spec.ts`
+-   `python3 - <<'PY' ... tomllib.loads(...) ... PY`
+-   `git diff --check`
+
+## 2026-05-19 - Runtime UI UX Quality Gate
+
+### Summary
+
+Implemented the cross-agent Runtime UI UX Quality Gate so future agent-driven MUI runtime work has explicit reusable contracts, reviewer profiles, drift checks, Playwright UX oracles, LMS fixture canaries, and GitBook documentation.
+
+### Implemented
+
+-   Added portable `mui-runtime-ux-patterns` and `runtime-ux-qa` skills with focused references and evaluation fixtures for raw ID, raw JSON, long-text, localization, responsive, and browser-proof defects.
+-   Added shared reviewer profiles plus self-contained native reviewer files for Codex, Gemini, Claude, GitHub Copilot, Qoder, and Kiro.
+-   Wired the Runtime UI UX Quality Gate into PLAN, IMPLEMENT, and QA mode instructions while keeping root files concise.
+-   Added `tools/agents/check-runtime-ux-agent-invariants.mjs` and the root `check:runtime-ux-agents` script to catch reviewer-instruction drift and unsafe reviewer permissions.
+-   Added reusable Playwright runtime UX helpers and connected the LMS runtime flow to raw technical-leakage and horizontal-overflow checks.
+-   Strengthened the LMS fixture contract so the generated snapshot rejects editable owner/user ID fields, single-line descriptions, raw resource-source grid columns, and non-resource widgets for cover/source fields.
+-   Added EN/RU GitBook documentation for the quality gate and updated documentation summaries.
+
+### Validation
+
+-   `pnpm check:runtime-ux-agents`
+-   `pnpm docs:i18n:check`
+-   `pnpm exec eslint tools/agents/check-runtime-ux-agent-invariants.mjs tools/testing/e2e/support/browser/runtimeUx.ts tools/testing/e2e/support/lmsFixtureContract.ts tools/testing/e2e/specs/flows/snapshot-import-lms-runtime.spec.ts`
+-   `pnpm exec prettier --check .agents/skills/mui-runtime-ux-patterns/SKILL.md .agents/skills/mui-runtime-ux-patterns/references/*.md .agents/skills/runtime-ux-qa/SKILL.md .agents/skills/runtime-ux-qa/references/*.md .agents/agent-profiles/*.md .gemini/agents/*.md .claude/agents/*reviewer.md .github/agents/*reviewer.agent.md .qoder/agents/*reviewer.md .kiro/steering/agent_profiles/*.md docs/en/contributing/runtime-ui-ux-quality-gate.md docs/ru/contributing/runtime-ui-ux-quality-gate.md memory-bank/plan/ai-agent-mui-ux-workflow-plan-2026-05-19.md memory-bank/research/ai-agent-mui-ux-workflow-research-2026-05-19.md tools/agents/check-runtime-ux-agent-invariants.mjs tools/testing/e2e/support/browser/runtimeUx.ts`
+-   `python3 - <<'PY' ... tomllib.loads(...) ... PY`
+-   `git diff --check`
+
 ## 2026-05-18 - LMS Learning Content Product UX Remediation
 
 ### Summary

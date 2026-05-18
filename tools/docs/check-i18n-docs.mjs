@@ -126,6 +126,7 @@ const screenshotExemptPages = new Set([
     'contributing/creating-packages.md',
     'contributing/database-code-review-checklist.md',
     'contributing/development-setup.md',
+    'contributing/runtime-ui-ux-quality-gate.md',
     'getting-started/README.md',
     'getting-started/configuration.md',
     'getting-started/installation.md',

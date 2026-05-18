@@ -35,3 +35,12 @@ Continue following your **base prompt**, and augment with the instructions below
 8. Conclude by advising on next steps:
     - If issues were found, suggest addressing them (and offer to switch back to the appropriate mode if the user wants).
     - If no issues, confirm that the project can move to the reflection phase (REFLECT mode).
+
+## Runtime UI UX Quality Gate
+
+For any QA of MUI runtime screens, app-template dashboards, metahub UI metadata, CRUD dialogs, DataGrid/table/card displays, relation builders, resource-source fields, or UI E2E flows:
+
+- Load or inline `.agents/skills/runtime-ux-qa`.
+- Explicitly answer whether a normal user can complete the workflow without hidden technical knowledge.
+- Fail QA on raw user-facing IDs, raw JSON or object cells, single-line long text, unlocalized/internal validation, page-level horizontal overflow, missing keyboard path, or unnecessary one-off UI instead of existing MUI dashboard primitives.
+- Require browser evidence for implemented UI unless the QA target is plan-only or documentation-only.

@@ -14,6 +14,7 @@
         "build-force": "pnpm clean && turbo run build --force",
         "dev": "turbo run dev --parallel",
         "check:catalog-versions": "node tools/check-catalog-versions.mjs",
+        "check:runtime-ux-agents": "node tools/agents/check-runtime-ux-agent-invariants.mjs",
         "docs:i18n:check": "node tools/docs/check-i18n-docs.mjs",
         "migration:status": "pnpm --filter @universo/migrations-platform exec node ./dist/cli.js status",
         "migration:plan": "pnpm --filter @universo/migrations-platform exec node ./dist/cli.js plan",

@@ -4,6 +4,32 @@
 
 ---
 
+## Active: Runtime UI UX Quality Gate (2026-05-19)
+
+> Goal: implement `memory-bank/plan/ai-agent-mui-ux-workflow-plan-2026-05-19.md` so agent-driven UI work gets a reusable MUI/runtime UX contract, self-contained reviewer profiles, drift checks, Playwright UX helpers, LMS canary coverage, and GitBook documentation.
+> Status: completed.
+
+### IMPLEMENT Action Plan
+
+-   [x] Create portable `mui-runtime-ux-patterns` and `runtime-ux-qa` skills with focused references and evaluation fixtures.
+-   [x] Add shared reviewer role profiles and self-contained native reviewer files for the active agent ecosystems.
+-   [x] Wire the Runtime UI UX Quality Gate into PLAN, IMPLEMENT, and QA mode files without bloating root instructions.
+-   [x] Add drift-control tooling and a root validation script for duplicated reviewer instructions.
+-   [x] Add reusable Playwright runtime UX helpers and connect them to the LMS runtime flow.
+-   [x] Strengthen LMS fixture-contract checks for the reported raw ID, raw JSON, long-text, and optional resource-source defect class.
+-   [x] Add GitBook EN/RU documentation and update summaries.
+-   [x] Run focused validation and update Memory Bank progress.
+
+### QA Responsive Closure
+
+-   [x] Add a reusable runtime UX viewport matrix helper for `1920x1080`, `768x1024`, and mobile `390x844`.
+-   [x] Connect the LMS runtime canary flow to the shared viewport matrix instead of checking only the default `1440x900` viewport.
+-   [x] Update runtime UX skills, reviewer profiles, and GitBook docs to require the explicit viewport matrix.
+-   [x] Extend drift validation so the helper, documentation, and LMS canary cannot silently drop the viewport matrix.
+-   [x] Re-run focused validation.
+
+---
+
 ## Active: LMS Learning Content V2 Implementation (2026-05-17)
 
 > Goal: implement `memory-bank/plan/lms-learning-content-implementation-plan-2026-05-17-v2.md` as a real workspace-authored Learning Content subsystem without LMS-only runtime forks, using generic contracts, app-template MUI primitives, safe backend boundaries, Playwright-generated fixtures, tests, and GitBook documentation.

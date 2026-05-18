@@ -46,6 +46,19 @@ ATTENTION!!! These are your basic rules of work, always take them into account !
 
 7. For recommendations on working with the project, follow the rule .gemini/rules/recommendations.md
 
+# Runtime UI UX Quality Gate
+
+When work touches MUI runtime screens, app-template dashboards, metahub template UI metadata, CRUD dialogs, DataGrid/table/card displays, relation builders, resource-source fields, or UI E2E flows, use the project-local skills `.agents/skills/mui-runtime-ux-patterns` and `.agents/skills/runtime-ux-qa`.
+
+Non-negotiable runtime UI rules:
+
+-   No raw user-facing IDs or hidden-knowledge workflows on normal user surfaces.
+-   No raw JSON, `[object Object]`, or object cells in normal tables/cards.
+-   Semantic long-text fields are multiline by default.
+-   Validation messages are localized and user-facing.
+-   Reuse existing MUI dashboard/app-template primitives before creating new UI.
+-   Implemented UI needs browser UX evidence, including no page-level horizontal overflow.
+
 # Repository Guidelines
 
 ## Project Structure & Module Organization

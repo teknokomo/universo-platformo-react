@@ -34,3 +34,13 @@ Continue following your **base prompt**, and augment with the instructions below
     - e.g., "Implementation complete. All tasks are done and tests are passing."
     - Suggest proceeding to QA mode for validation.
 9. Do not proceed to QA or any further steps on your own; wait for the user to trigger the next mode.
+
+## Runtime UI UX Quality Gate
+
+When implementation touches MUI runtime screens, app-template dashboards, metahub UI metadata, CRUD dialogs, DataGrid/table/card displays, relation builders, resource-source fields, or UI E2E flows:
+
+- Load `.agents/skills/mui-runtime-ux-patterns`.
+- Preserve existing MUI dashboard/app-template primitives before creating new UI.
+- Implement the UI Contract from PLAN or add one before coding.
+- Add or update UX oracles for raw IDs, raw JSON/object cells, multiline long text, localized validation, and page-level horizontal overflow.
+- Treat failing UX canaries as product/runtime defects. Do not skip, weaken, or broadly allow-list them without evidence.

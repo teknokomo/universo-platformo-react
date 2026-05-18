@@ -64,6 +64,7 @@
 * [Стандарты кода](contributing/coding-guidelines.md)
 * [Создание пакетов](contributing/creating-packages.md)
 * [Чеклист ревью кода базы данных](contributing/database-code-review-checklist.md)
+* [Runtime UI UX Quality Gate](contributing/runtime-ui-ux-quality-gate.md)
 
 ## Руководства
 

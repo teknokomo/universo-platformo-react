@@ -1787,6 +1787,51 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
             errors.push(`LMS fixture is missing entity ${codename}`)
         }
     }
+
+    const findFieldByCodename = (entityCodename: string, fieldCodename: string) =>
+        entityByCodename.get(entityCodename)?.fields?.find((field) => readLocalizedText(field?.codename, 'en') === fieldCodename)
+
+    const readFieldUiConfig = (entityCodename: string, fieldCodename: string) => {
+        const field = findFieldByCodename(entityCodename, fieldCodename)
+        return field?.uiConfig && typeof field.uiConfig === 'object' && !Array.isArray(field.uiConfig)
+            ? (field.uiConfig as Record<string, unknown>)
+            : null
+    }
+
+    const assertTextareaField = (entityCodename: string, fieldCodename: string) => {
+        const uiConfig = readFieldUiConfig(entityCodename, fieldCodename)
+        if (uiConfig?.widget !== 'textarea' || Number(uiConfig.rows ?? 0) < 2) {
+            errors.push(`LMS ${entityCodename}.${fieldCodename} must be a textarea with at least 2 rows`)
+        }
+    }
+
+    const assertResourceSourceField = (entityCodename: string, fieldCodename: string) => {
+        const uiConfig = readFieldUiConfig(entityCodename, fieldCodename)
+        if (uiConfig?.widget !== 'resourceSource' || uiConfig.gridHidden !== true) {
+            errors.push(`LMS ${entityCodename}.${fieldCodename} must use resourceSource and stay hidden from default grids`)
+        }
+    }
+
+    const assertNoEditableOwnerIdField = (entityCodename: string) => {
+        const entity = entityByCodename.get(entityCodename)
+        const forbiddenField = entity?.fields?.find((field) =>
+            /^(OwnerId|UserId|AssignedUserId|CreatedByUserId)$/i.test(readLocalizedText(field?.codename, 'en') ?? '')
+        )
+        if (forbiddenField) {
+            errors.push(
+                `LMS ${entityCodename} must not expose editable owner/user ID field ${readLocalizedText(forbiddenField.codename, 'en')}`
+            )
+        }
+    }
+
+    assertTextareaField('ContentProjects', 'Description')
+    assertResourceSourceField('ContentProjects', 'Cover')
+    assertNoEditableOwnerIdField('ContentProjects')
+    assertTextareaField('Courses', 'Description')
+    assertResourceSourceField('Courses', 'Cover')
+    assertResourceSourceField('LearningResources', 'Source')
+    assertResourceSourceField('LearningResources', 'Thumbnail')
+
     const acceptanceAreas = new Set(LMS_PRODUCT_ACCEPTANCE_MATRIX.map((area) => area.area))
     for (const expectedArea of LMS_ACCEPTANCE_AREAS) {
         if (!acceptanceAreas.has(expectedArea)) {
