@@ -14,7 +14,7 @@ The same generic primitives can be reused by another metahub that needs points, 
 The LMS template defines these Objects:
 
 - `GamificationSettings` stores application or workspace gamification rules.
-- `PointAwardRules` stores deterministic point award policies such as completed modules, accepted assignments, and manual adjustments.
+- `PointAwardRules` stores deterministic point award policies such as completed learning content, accepted assignments, and manual adjustments.
 - `PointTransactions` stores operational point changes and uses workflow actions for approval and reversal.
 - `BadgeDefinitions` stores badge metadata and issue criteria.
 - `BadgeIssues` stores badge issue records and uses workflow actions for issue and revoke flows.

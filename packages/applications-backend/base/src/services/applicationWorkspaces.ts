@@ -105,6 +105,11 @@ type WorkspaceScopedTableRow = {
     tableName: string
 }
 
+type ActiveWorkspaceSeedRow = {
+    id: string
+    personalUserId: string | null
+}
+
 type RuntimeWorkspaceSeedTemplate = {
     version: 1
     elements: Record<string, unknown[]>
@@ -218,6 +223,42 @@ const getCaseInsensitiveRecordValue = (record: Record<string, unknown>, key: str
     return undefined
 }
 
+const WORKSPACE_SEED_CURRENT_USER_ID_TOKEN = '{{runtime.currentUserId}}'
+
+const resolveWorkspaceSeedRuntimeToken = (value: unknown, currentUserId?: string | null): unknown => {
+    if (typeof value === 'string' && value.trim() === WORKSPACE_SEED_CURRENT_USER_ID_TOKEN) {
+        return currentUserId ?? null
+    }
+
+    if (isRecord(value) && value.runtime === 'currentUserId') {
+        return currentUserId ?? null
+    }
+
+    return value
+}
+
+const WORKSPACE_SEED_POLYMORPHIC_TARGET_OBJECT_CODENAME_BY_TYPE: Record<string, string> = {
+    content: 'learningresources',
+    quiz: 'quizzes',
+    course: 'courses',
+    track: 'learningtracks'
+}
+
+const readWorkspaceSeedRuntimeRecordPickerConfig = (component: RuntimeObjectSeedComponentRow): Record<string, unknown> | null => {
+    if (!isRecord(component.uiConfig)) return null
+    const config = component.uiConfig.runtimeRecordPicker
+    return isRecord(config) ? config : null
+}
+
+const readWorkspaceSeedRecordPickerTargetObjectCodenames = (component: RuntimeObjectSeedComponentRow): string[] => {
+    const config = readWorkspaceSeedRuntimeRecordPickerConfig(component)
+    const allowed = config?.allowedObjectCodenames
+    if (!Array.isArray(allowed)) return []
+    return allowed
+        .filter((codename): codename is string => typeof codename === 'string' && codename.trim().length > 0)
+        .map(normalizeWorkspaceSeedCodename)
+}
+
 const resolveWorkspaceSeedStringReferenceTargetObjectId = (input: {
     component: RuntimeObjectSeedComponentRow
     rowData: Record<string, unknown>
@@ -228,23 +269,33 @@ const resolveWorkspaceSeedStringReferenceTargetObjectId = (input: {
     }
 
     const quizzesObjectId = input.objectIdByCodename.get('quizzes')
-    const modulesObjectId = input.objectIdByCodename.get('modules')
+    const learningResourcesObjectId = input.objectIdByCodename.get('learningresources')
     if (
         normalizeWorkspaceSeedCodename(input.component.codename) === 'quizid' &&
         quizzesObjectId &&
-        modulesObjectId &&
-        input.component.objectId === modulesObjectId
+        learningResourcesObjectId &&
+        input.component.objectId === learningResourcesObjectId
     ) {
         return quizzesObjectId
     }
 
     if (normalizeWorkspaceSeedCodename(input.component.codename) !== 'targetid') {
-        return null
-    }
+        if (normalizeWorkspaceSeedCodename(input.component.codename) !== 'targetrecordid') {
+            return null
+        }
 
-    const accessLinksObjectId = input.objectIdByCodename.get('accesslinks')
-    if (!accessLinksObjectId || input.component.objectId !== accessLinksObjectId) {
-        return null
+        const recordPickerConfig = readWorkspaceSeedRuntimeRecordPickerConfig(input.component)
+        const discriminatorField =
+            typeof recordPickerConfig?.targetObjectCodenameField === 'string' &&
+            recordPickerConfig.targetObjectCodenameField.trim().length > 0
+                ? recordPickerConfig.targetObjectCodenameField
+                : 'TargetObjectCodename'
+        const targetObjectCodename = getCaseInsensitiveRecordValue(input.rowData, discriminatorField)
+        if (typeof targetObjectCodename !== 'string') {
+            return null
+        }
+
+        return input.objectIdByCodename.get(normalizeWorkspaceSeedCodename(targetObjectCodename)) ?? null
     }
 
     const targetTypeValue = getCaseInsensitiveRecordValue(input.rowData, 'TargetType')
@@ -252,11 +303,7 @@ const resolveWorkspaceSeedStringReferenceTargetObjectId = (input: {
         return null
     }
 
-    const targetObjectCodenameByType: Record<string, string> = {
-        module: 'modules',
-        quiz: 'quizzes'
-    }
-    const targetObjectCodename = targetObjectCodenameByType[normalizeWorkspaceSeedCodename(targetTypeValue)]
+    const targetObjectCodename = WORKSPACE_SEED_POLYMORPHIC_TARGET_OBJECT_CODENAME_BY_TYPE[normalizeWorkspaceSeedCodename(targetTypeValue)]
     if (!targetObjectCodename) {
         return null
     }
@@ -861,11 +908,11 @@ async function loadWorkspaceSeedTemplate(executor: SqlQueryable, schemaName: str
     }
 }
 
-async function listActiveWorkspaceIds(executor: SqlQueryable, schemaName: string): Promise<string[]> {
+async function listActiveWorkspaceSeedRows(executor: SqlQueryable, schemaName: string): Promise<ActiveWorkspaceSeedRow[]> {
     const workspacesQt = qSchemaTable(schemaName, WORKSPACES_TABLE)
-    const rows = await executor.query<{ id: string }>(
+    const rows = await executor.query<ActiveWorkspaceSeedRow>(
         `
-        SELECT id
+        SELECT id, personal_user_id AS "personalUserId"
         FROM ${workspacesQt}
         WHERE ${ACTIVE_ROW_SQL}
           AND COALESCE(status, 'active') = 'active'
@@ -873,7 +920,7 @@ async function listActiveWorkspaceIds(executor: SqlQueryable, schemaName: string
         `
     )
 
-    return rows.map((row) => row.id)
+    return rows
 }
 
 const normalizeWorkspaceSeedValue = (value: unknown, component: RuntimeObjectSeedComponentRow, columnType: string): unknown => {
@@ -897,13 +944,19 @@ const resolveWorkspaceSeedStringDependencyObjectIds = (
     objectIdByCodename: Map<string, string>
 ): string[] => {
     if (normalizeWorkspaceSeedCodename(component.codename) !== 'targetid') {
+        if (normalizeWorkspaceSeedCodename(component.codename) === 'targetrecordid') {
+            return readWorkspaceSeedRecordPickerTargetObjectCodenames(component)
+                .map((codename) => objectIdByCodename.get(codename) ?? null)
+                .filter((objectId): objectId is string => typeof objectId === 'string' && objectId.length > 0)
+        }
+
         const quizzesObjectId = objectIdByCodename.get('quizzes')
-        const modulesObjectId = objectIdByCodename.get('modules')
+        const learningResourcesObjectId = objectIdByCodename.get('learningresources')
         if (
             normalizeWorkspaceSeedCodename(component.codename) === 'quizid' &&
             quizzesObjectId &&
-            modulesObjectId &&
-            component.objectId === modulesObjectId
+            learningResourcesObjectId &&
+            component.objectId === learningResourcesObjectId
         ) {
             return [quizzesObjectId]
         }
@@ -911,12 +964,7 @@ const resolveWorkspaceSeedStringDependencyObjectIds = (
         return []
     }
 
-    const accessLinksObjectId = objectIdByCodename.get('accesslinks')
-    if (!accessLinksObjectId || component.objectId !== accessLinksObjectId) {
-        return []
-    }
-
-    return ['modules', 'quizzes']
+    return Object.values(WORKSPACE_SEED_POLYMORPHIC_TARGET_OBJECT_CODENAME_BY_TYPE)
         .map((codename) => objectIdByCodename.get(codename) ?? null)
         .filter((objectId): objectId is string => typeof objectId === 'string' && objectId.length > 0)
 }
@@ -1013,9 +1061,12 @@ const normalizeWorkspaceSeedValueWithReferences = (
     seedRowIdBySourceKey: Map<string, string>,
     duplicateSeedSourceKeys: Set<string>,
     rowData: Record<string, unknown>,
-    objectIdByCodename: Map<string, string>
+    objectIdByCodename: Map<string, string>,
+    currentUserId?: string | null
 ): unknown => {
-    if (value === undefined || value === null) {
+    const resolvedValue = resolveWorkspaceSeedRuntimeToken(value, currentUserId)
+
+    if (resolvedValue === undefined || resolvedValue === null) {
         return null
     }
 
@@ -1024,7 +1075,7 @@ const normalizeWorkspaceSeedValueWithReferences = (
         isWorkspaceSeedObjectLikeTargetKind(component.targetObjectKind) &&
         typeof component.targetObjectId === 'string'
     ) {
-        const seedSourceKey = normalizeReferenceId(value)
+        const seedSourceKey = normalizeReferenceId(resolvedValue)
         if (!seedSourceKey) {
             return null
         }
@@ -1047,7 +1098,7 @@ const normalizeWorkspaceSeedValueWithReferences = (
         objectIdByCodename
     })
     if (publicRuntimeTargetObjectId) {
-        const seedSourceKey = normalizeReferenceId(value)
+        const seedSourceKey = normalizeReferenceId(resolvedValue)
         if (!seedSourceKey) {
             return null
         }
@@ -1064,7 +1115,7 @@ const normalizeWorkspaceSeedValueWithReferences = (
         return targetRowId
     }
 
-    return normalizeWorkspaceSeedValue(value, component, columnType)
+    return normalizeWorkspaceSeedValue(resolvedValue, component, columnType)
 }
 
 async function softDeleteWorkspaceSeedRowsByIds(
@@ -1298,6 +1349,7 @@ async function syncWorkspaceSeededChildRows(
         duplicateSeedSourceKeys: Set<string>
         objectIdByCodename: Map<string, string>
         actorUserId?: string | null
+        currentUserId?: string | null
     }
 ): Promise<void> {
     const childTableName = generateChildTableName(input.tableComponent.componentId)
@@ -1332,7 +1384,8 @@ async function syncWorkspaceSeededChildRows(
                 input.seedRowIdBySourceKey,
                 input.duplicateSeedSourceKeys,
                 rowData,
-                input.objectIdByCodename
+                input.objectIdByCodename,
+                input.currentUserId
             ),
             columnType: input.columnTypes.get(`${childTableName}.${component.columnName}`) ?? 'text'
         }))
@@ -1366,6 +1419,7 @@ export async function syncWorkspaceSeededElements(
         schemaName: string
         workspaceId: string
         actorUserId?: string | null
+        currentUserId?: string | null
     }
 ): Promise<void> {
     const template = await loadWorkspaceSeedTemplate(executor, input.schemaName)
@@ -1439,7 +1493,8 @@ export async function syncWorkspaceSeededElements(
                     seedRowIdBySourceKey,
                     duplicateSeedSourceKeys,
                     rowData,
-                    objectIdByCodename
+                    objectIdByCodename,
+                    input.currentUserId
                 ),
                 columnType: columnTypes.get(`${object.tableName}.${component.columnName}`) ?? 'text'
             }))
@@ -1471,7 +1526,8 @@ export async function syncWorkspaceSeededElements(
                     seedRowIdBySourceKey,
                     duplicateSeedSourceKeys,
                     objectIdByCodename,
-                    actorUserId: input.actorUserId
+                    actorUserId: input.actorUserId,
+                    currentUserId: input.currentUserId
                 })
             }
         }
@@ -1544,12 +1600,13 @@ export async function syncWorkspaceSeededElementsForAllActiveWorkspaces(
         actorUserId?: string | null
     }
 ): Promise<void> {
-    const workspaceIds = await listActiveWorkspaceIds(executor, input.schemaName)
-    for (const workspaceId of workspaceIds) {
+    const workspaceRows = await listActiveWorkspaceSeedRows(executor, input.schemaName)
+    for (const workspace of workspaceRows) {
         await syncWorkspaceSeededElements(executor, {
             schemaName: input.schemaName,
-            workspaceId,
-            actorUserId: input.actorUserId
+            workspaceId: workspace.id,
+            actorUserId: input.actorUserId,
+            currentUserId: workspace.personalUserId
         })
     }
 }
@@ -1705,7 +1762,8 @@ export async function ensurePersonalWorkspaceForUser(
         await syncWorkspaceSeededElements(executor, {
             schemaName,
             workspaceId,
-            actorUserId
+            actorUserId,
+            currentUserId: userId
         })
     }
 

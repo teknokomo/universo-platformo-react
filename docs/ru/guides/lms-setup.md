@@ -18,15 +18,26 @@ description: Пошаговая настройка канонического LM
 
 Канонический fixture поставляет двуязычный набор данных Learning Portal со следующими сущностями:
 
-- `LearnerHome` Page
-- `Classes`
-- `Students`
-- `Modules`
-- `Quizzes`
-- `QuizResponses`
-- `ModuleProgress`
-- `AccessLinks`
-- `Enrollments`
+-   `LearnerHome` Page
+-   `Classes`
+-   `Students`
+-   `ContentProjects`
+-   `LearningResources`
+-   `Courses`
+-   `CourseSections`
+-   `CourseItems`
+-   `LearningTracks`
+-   `TrackStages`
+-   `TrackSteps`
+-   `ContentStars`
+-   `RecentContentViews`
+-   `ContentAccessEntries`
+-   `TrashEntries`
+-   `Quizzes`
+-   `QuizResponses`
+-   `ContentProgress`
+-   `AccessLinks`
+-   `Enrollments`
 
 Также он поставляет LMS-перечисления, выверенное рабочее меню рантайма, Editor.js-совместимые блоки стартовой страницы, workspace-aware seeded rows и несколько маршрутов гостевого доступа.
 
@@ -34,13 +45,13 @@ description: Пошаговая настройка канонического LM
 
 Импортированный LMS-макет должен оставаться без старых глобальных dashboard widgets и старых widget scripts метахаба:
 
-- без `moduleViewerWidget`
-- без `statsViewerWidget`
-- без `qrCodeWidget`
-- без script `lms-module-viewer`
-- без script `lms-stats-viewer`
+-   без `moduleViewerWidget`
+-   без `statsViewerWidget`
+-   без `qrCodeWidget`
+-   без script `lms-module-viewer`
+-   без script `lms-stats-viewer`
 
-Не редактируйте payload-ы экспортированного snapshot вручную. Обновляйте генератор или контракт fixture, затем выполняйте повторный экспорт или механически пересобирайте snapshot с пересчитанным `snapshotHash`.
+Не редактируйте payload-ы экспортированного snapshot вручную. Обновляйте генератор или контракт fixture, затем выполняйте повторный экспорт через Playwright или механически пересобирайте snapshot с пересчитанным `snapshotHash` только для deterministic fixture maintenance tasks.
 
 ## 4. Опубликуйте импортированный или сгенерированный метахаб
 
@@ -56,14 +67,14 @@ description: Пошаговая настройка канонического LM
 
 После привязки коннектора к публикации откройте синхронизацию схемы:
 
-- `Требовать рабочие пространства` создаёт или сохраняет рабочие пространства приложения и требует подтверждения необратимости.
-- `Рабочие пространства по выбору` позволяет выбрать режим в диалоге синхронизации схемы коннектора.
+-   `Требовать рабочие пространства` создаёт или сохраняет рабочие пространства приложения и требует подтверждения необратимости.
+-   `Рабочие пространства по выбору` позволяет выбрать режим в диалоге синхронизации схемы коннектора.
 
 После синхронизации связанное приложение клонирует заполненные LMS-строки в рабочее пространство Main текущего пользователя, если эффективный режим рабочих пространств включён.
 
 ## 6. Не пересобирайте демо-строки вручную
 
-Поставляемый fixture уже содержит классы, модули, тесты, ссылки доступа, строки прогресса и workspace seed data, необходимые для MVP-сценария.
+Поставляемый fixture уже содержит классы, учебные ресурсы, тесты, ссылки доступа, строки прогресса и workspace seed data, необходимые для MVP-сценария.
 
 Если набор данных нужно изменить, сначала обновите генератор и контракт fixture, а не пересеивайте рантайм-таблицы вручную.
 
@@ -76,6 +87,7 @@ description: Пошаговая настройка канонического LM
 
 ## Дополнительно
 
-- [Обзор LMS](lms-overview.md)
-- [Гостевой доступ LMS](lms-guest-access.md)
-- [Туториал по приложению-квизу](quiz-application-tutorial.md)
+-   [Обзор LMS](lms-overview.md)
+-   [Учебный контент LMS](lms-learning-content.md)
+-   [Гостевой доступ LMS](lms-guest-access.md)
+-   [Туториал по приложению-квизу](quiz-application-tutorial.md)

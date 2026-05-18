@@ -110,6 +110,62 @@ describe('runtimeWorkflowActions', () => {
         expect(executor.query).toHaveBeenCalledTimes(1)
     })
 
+    it('maps metadata workflow statuses to stored enum values before mutating', async () => {
+        const { executor } = createMockDbExecutor()
+        executor.query
+            .mockResolvedValueOnce([
+                {
+                    id: baseParams.rowId,
+                    publication_status_id: '018f8a78-7b8f-7c1d-a111-222233334510',
+                    _upl_version: 4,
+                    _upl_locked: false
+                }
+            ])
+            .mockResolvedValueOnce([
+                { id: baseParams.rowId, publication_status_id: '018f8a78-7b8f-7c1d-a111-222233334511', _upl_version: 5 }
+            ])
+            .mockResolvedValueOnce([])
+
+        await expect(
+            applyWorkflowAction({
+                executor,
+                ...baseParams,
+                action: {
+                    ...action,
+                    from: ['Draft'],
+                    to: 'Published',
+                    statusColumnName: 'publication_status_id'
+                },
+                statusColumnName: 'publication_status_id',
+                statusValueMap: {
+                    statusByStoredValue: {
+                        '018f8a78-7b8f-7c1d-a111-222233334510': 'Draft',
+                        '018f8a78-7b8f-7c1d-a111-222233334511': 'Published'
+                    },
+                    storedValueByStatus: {
+                        draft: '018f8a78-7b8f-7c1d-a111-222233334510',
+                        published: '018f8a78-7b8f-7c1d-a111-222233334511'
+                    }
+                }
+            })
+        ).resolves.toMatchObject({
+            fromStatus: 'Draft',
+            toStatus: 'Published',
+            version: 5
+        })
+
+        expect(executor.query.mock.calls[1][1]).toEqual([
+            baseParams.rowId,
+            '018f8a78-7b8f-7c1d-a111-222233334511',
+            baseParams.userId,
+            4,
+            baseParams.workspaceId,
+            ['018f8a78-7b8f-7c1d-a111-222233334510']
+        ])
+        expect(executor.query.mock.calls[2][1]).toContain('Draft')
+        expect(executor.query.mock.calls[2][1]).toContain('Published')
+    })
+
     it('requires the current row version before mutating', async () => {
         const { executor } = createMockDbExecutor()
 

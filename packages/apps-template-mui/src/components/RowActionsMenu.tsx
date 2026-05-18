@@ -68,10 +68,34 @@ const resolveWorkflowStatusColumnName = (action: WorkflowAction, columns: Runtim
     return column?.field ?? target
 }
 
+const readRefOptionStatusCodename = (value: unknown, column: RuntimeColumn | undefined): string | null => {
+    if (!column || column.dataType !== 'REF') return null
+
+    const refId =
+        typeof value === 'string'
+            ? value.trim()
+            : value && typeof value === 'object' && typeof (value as Record<string, unknown>).id === 'string'
+            ? String((value as Record<string, unknown>).id).trim()
+            : ''
+    const inlineCodename =
+        value && typeof value === 'object' && typeof (value as Record<string, unknown>).codename === 'string'
+            ? String((value as Record<string, unknown>).codename).trim()
+            : ''
+    if (inlineCodename) return inlineCodename
+    if (!refId) return null
+
+    const options = [...(column.refOptions ?? []), ...(column.enumOptions ?? [])]
+    const match = options.find((option) => option.id === refId)
+    return typeof match?.codename === 'string' && match.codename.trim().length > 0 ? match.codename.trim() : null
+}
+
 const readWorkflowStatusValue = (row: Record<string, unknown> | null, action: WorkflowAction, columns: RuntimeColumn[]): string => {
     const statusColumnName = resolveWorkflowStatusColumnName(action, columns)
+    const statusColumn = columns.find((column) => column.field === statusColumnName)
     const value = row?.[statusColumnName]
-    return typeof value === 'string' ? value.trim().toLowerCase() : ''
+    const refCodename = readRefOptionStatusCodename(value, statusColumn)
+    const statusValue = refCodename ?? (typeof value === 'string' ? value.trim() : '')
+    return statusValue.toLowerCase()
 }
 
 const hasRuntimeRowVersion = (row: Record<string, unknown> | null): boolean => {

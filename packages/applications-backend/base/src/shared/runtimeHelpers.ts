@@ -127,7 +127,7 @@ export const resolvePresentationCodename = (presentation: unknown, locale: strin
 // ---------------------------------------------------------------------------
 
 export const runtimeCodenameTextSql = (columnRef: string): string =>
-    `COALESCE(${columnRef}->'locales'->(${columnRef}->>'_primary')->>'content', ${columnRef}->'locales'->'en'->>'content', '')`
+    `COALESCE(${columnRef}->'locales'->(${columnRef}->>'_primary')->>'content', ${columnRef}->'locales'->'en'->>'content', ${columnRef} #>> '{}', '')`
 
 export const runtimeStandardKindSql = (kindColumn = 'kind'): string => `COALESCE(${kindColumn}, '')`
 
@@ -300,6 +300,31 @@ export const buildRuntimeActiveRowCondition = (
     return clauses.length > 0 ? clauses.join(' AND ') : 'TRUE'
 }
 
+export const buildRuntimeDeletedRowCondition = (
+    contract: ApplicationLifecycleContract,
+    platformConfig?: unknown,
+    alias?: string,
+    workspaceId?: string | null
+): string => {
+    if (!isSoftDeleteLifecycle(contract)) {
+        return 'FALSE'
+    }
+
+    const prefix = alias ? `${alias}.` : ''
+    const platformContract = resolvePlatformSystemFieldsContractFromConfig(platformConfig)
+    const clauses: string[] = [`${prefix}_app_deleted = true`]
+
+    if (platformContract.delete.enabled) {
+        clauses.unshift(`${prefix}_upl_deleted = true`)
+    }
+
+    if (workspaceId) {
+        clauses.push(`${prefix}workspace_id = ${quoteUuidLiteral(workspaceId)}`)
+    }
+
+    return clauses.join(' AND ')
+}
+
 export const buildRuntimeSoftDeleteSetClause = (
     deletedByParam: string,
     contract: ApplicationLifecycleContract,
@@ -327,6 +352,37 @@ export const buildRuntimeSoftDeleteSetClause = (
     }
     if (contract.delete.trackBy) {
         clauses.push(`_app_deleted_by = ${deletedByParam}`)
+    }
+
+    return clauses.join(', ')
+}
+
+export const buildRuntimeRestoreSetClause = (
+    updatedByParam: string,
+    contract: ApplicationLifecycleContract,
+    platformConfig?: unknown
+): string => {
+    if (!isSoftDeleteLifecycle(contract)) {
+        throw new Error('Restore clause requested for hard-delete lifecycle')
+    }
+
+    const platformContract = resolvePlatformSystemFieldsContractFromConfig(platformConfig)
+    const clauses = ['_upl_updated_at = now()', `_upl_updated_by = ${updatedByParam}`, '_app_deleted = false']
+
+    if (platformContract.delete.enabled) {
+        clauses.unshift('_upl_deleted = false')
+        if (platformContract.delete.trackAt) {
+            clauses.push('_upl_deleted_at = NULL')
+        }
+        if (platformContract.delete.trackBy) {
+            clauses.push('_upl_deleted_by = NULL')
+        }
+    }
+    if (contract.delete.trackAt) {
+        clauses.push('_app_deleted_at = NULL')
+    }
+    if (contract.delete.trackBy) {
+        clauses.push('_app_deleted_by = NULL')
     }
 
     return clauses.join(', ')
@@ -658,7 +714,7 @@ export const ensureEnumerationValueBelongsToTarget = async (
 export type RuntimeRefOption = {
     id: string
     label: string
-    codename?: unknown
+    codename?: string
     isDefault?: boolean
     sortOrder?: number
 }

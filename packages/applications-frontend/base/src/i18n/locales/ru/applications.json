@@ -64,6 +64,7 @@
             "title": "Настройки приложения",
             "tabs": {
                 "general": "Общие",
+                "learningContent": "Учебный контент",
                 "connectors": "Коннекторы",
                 "access": "Доступ",
                 "limits": "Лимиты"
@@ -150,6 +151,70 @@
             "limitsLoadError": "Не удалось загрузить лимиты",
             "limitsSaved": "Лимиты сохранены",
             "limitsSaveError": "Не удалось сохранить лимиты",
+            "learningContentHint": "Настройте поведение учебного контента по умолчанию для опубликованных рабочих пространств. Авторы в рабочих пространствах смогут уточнять отдельные записи при наличии прав.",
+            "learningContent": {
+                "defaultView": "Вид контента по умолчанию",
+                "defaultViewDescription": "Выберите начальный режим отображения библиотек учебного контента в проектах.",
+                "views": {
+                    "table": "Таблица",
+                    "cards": "Карточки"
+                },
+                "resourceTypes": "Типы ресурсов",
+                "resourceTypesDescription": "Включайте только типы ресурсов с безопасным runtime-поведением. Отложенные типы остаются видимыми как неподдерживаемые заготовки.",
+                "enabled": "Включён",
+                "deferred": "Отложен",
+                "resourceTypeLabels": {
+                    "page": "Страница",
+                    "url": "Ссылка",
+                    "video": "Видео",
+                    "audio": "Аудио",
+                    "document": "Документ",
+                    "scorm": "Пакет SCORM",
+                    "xapi": "Пакет xAPI",
+                    "embed": "Встраивание",
+                    "file": "Файл"
+                },
+                "coursePolicy": "Политика завершения курса",
+                "coursePolicyDescription": "Настройки по умолчанию для навигации по курсу, расчёта завершения и отображения статуса.",
+                "navigationMode": "Навигация",
+                "navigationModes": {
+                    "free": "Свободная",
+                    "sequential": "Последовательная"
+                },
+                "completionCondition": "Завершение",
+                "completionConditions": {
+                    "allItems": "Все элементы",
+                    "selectedItems": "Выбранные элементы"
+                },
+                "statusFormat": "Статус",
+                "statusFormats": {
+                    "completeIncomplete": "Завершено / не завершено",
+                    "passedFailed": "Пройдено / не пройдено"
+                },
+                "trackPolicy": "Порядок учебного трека",
+                "trackPolicyDescription": "Поведение порядка по умолчанию при создании нового учебного трека.",
+                "restrictAfterDueDate": "Ограничивать после срока",
+                "orderMode": "Порядок",
+                "orderModes": {
+                    "byDays": "По дням",
+                    "sequential": "Последовательный",
+                    "free": "Свободный"
+                },
+                "player": "Пресет плеера",
+                "playerDescription": "Управляет стандартным интерфейсом плеера учащегося для страниц, ссылок, курсов и треков.",
+                "showOutline": "План",
+                "showProgressHeader": "Прогресс",
+                "columns": "Колонки по умолчанию",
+                "columnsDescription": "Выберите колонки, видимые по умолчанию в таблицах библиотеки учебного контента.",
+                "columnLabels": {
+                    "Title": "Название",
+                    "ResourceType": "Тип",
+                    "PublicationStatus": "Статус",
+                    "ProjectId": "Проект",
+                    "UpdatedAt": "Обновлено",
+                    "CreatedBy": "Создал"
+                }
+            },
             "missingApplicationId": "В URL отсутствует ID приложения",
             "loadError": "Не удалось загрузить настройки приложения",
             "maxRows": "Максимум строк",

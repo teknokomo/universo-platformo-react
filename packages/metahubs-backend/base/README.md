@@ -34,10 +34,11 @@ It combines SQL-first domain services with isolated DDL boundaries, template see
 
 ## LMS Template Contract
 
-- The built-in `lms` template is entity-first: classes, students, resources, courses, course sections, learning tracks, track steps, modules, quizzes, assignments, events, certificates, reports, knowledge spaces, development plans, access links, progress, enrollments, supporting enumerations, and Object-backed ledgers are ordinary seeded metadata entities.
+- The built-in `lms` template is entity-first: classes, students, content projects, resources, courses, course sections, course items, learning tracks, track stages, track steps, modules, quizzes, assignments, events, certificates, reports, knowledge spaces, development plans, access links, progress, enrollments, sharing/star/recent/trash projections, supporting enumerations, and Object-backed ledgers are ordinary seeded metadata entities.
 - LMS ledgers are exported as metadata with `config.ledger`; operational ledger facts are not exported as normal Object runtime rows.
 - The default LMS layout uses the shared dashboard shell (`menuWidget`, `appNavbar`, `header`, `detailsTitle`, `detailsTable`) instead of binding global LMS-only module, statistics, or QR widgets.
 - The LMS menu disables `autoShowAllSections`, exposes curated primary sections directly in the sidebar, and starts from the Learner Home Page via `startPage`.
+- Learning Content layouts use generic runtime widgets and datasource contracts, including `records.union` for unified libraries and deleted-row queries for trash views.
 - Snapshot export/import tests assert that the committed LMS fixture does not reintroduce removed global dashboard widgets, demo dashboard surfaces, or metahub-level widget scripts.
 
 ## Main Responsibilities

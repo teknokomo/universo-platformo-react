@@ -592,7 +592,7 @@ describe('applicationWorkspaces service', () => {
         expect(accessInsertCall?.[1]).not.toEqual(expect.arrayContaining(['class-seed-row']))
     })
 
-    it('remaps public access-link target ids to workspace-scoped module rows', async () => {
+    it('remaps public access-link target ids to workspace-scoped learning resource rows', async () => {
         const { executor } = createMockDbExecutor()
         const schemaName = 'app_018f8a787b8f7c1da111222233334850'
         const generatedIds = [
@@ -631,9 +631,9 @@ describe('applicationWorkspaces service', () => {
                         value: {
                             version: 1,
                             elements: {
-                                moduleObject: [
+                                contentObject: [
                                     {
-                                        id: 'module-seed-row',
+                                        id: 'content-seed-row',
                                         data: {
                                             Title: 'Learning Portal Basics'
                                         }
@@ -643,8 +643,8 @@ describe('applicationWorkspaces service', () => {
                                     {
                                         id: 'access-seed-row',
                                         data: {
-                                            TargetType: 'module',
-                                            TargetId: 'module-seed-row'
+                                            TargetType: 'content',
+                                            TargetId: 'content-seed-row'
                                         }
                                     }
                                 ]
@@ -662,9 +662,9 @@ describe('applicationWorkspaces service', () => {
                         tableName: 'obj_access_object'
                     },
                     {
-                        objectId: 'moduleObject',
-                        codename: 'Modules',
-                        tableName: 'obj_module_object'
+                        objectId: 'contentObject',
+                        codename: 'LearningResources',
+                        tableName: 'obj_content_object'
                     }
                 ]
             }
@@ -694,8 +694,8 @@ describe('applicationWorkspaces service', () => {
                         targetObjectKind: null
                     },
                     {
-                        objectId: 'moduleObject',
-                        componentId: 'module-title-cmp',
+                        objectId: 'contentObject',
+                        componentId: 'content-title-cmp',
                         parentComponentId: null,
                         codename: 'Title',
                         columnName: 'col_title',
@@ -720,7 +720,7 @@ describe('applicationWorkspaces service', () => {
                         udtName: 'text'
                     },
                     {
-                        tableName: 'obj_module_object',
+                        tableName: 'obj_content_object',
                         columnName: 'col_title',
                         udtName: 'text'
                     }
@@ -741,24 +741,380 @@ describe('applicationWorkspaces service', () => {
             defaultRoleCodename: 'owner'
         })
 
-        const moduleInsertCall = executor.query.mock.calls.find(([sql]) =>
-            String(sql).includes(`INSERT INTO "${schemaName}"."obj_module_object"`)
+        const contentInsertCall = executor.query.mock.calls.find(([sql]) =>
+            String(sql).includes(`INSERT INTO "${schemaName}"."obj_content_object"`)
         )
         const accessInsertCall = executor.query.mock.calls.find(([sql]) =>
             String(sql).includes(`INSERT INTO "${schemaName}"."obj_access_object"`)
         )
 
-        expect(moduleInsertCall).toBeDefined()
+        expect(contentInsertCall).toBeDefined()
         expect(accessInsertCall).toBeDefined()
-        expect(accessInsertCall?.[1]).toEqual(
-            expect.arrayContaining([
-                '018f8a78-7b8f-7c1d-a111-222233334854',
-                'access-seed-row',
-                'module',
-                '018f8a78-7b8f-7c1d-a111-222233334853'
-            ])
+        const contentRowId = contentInsertCall?.[1]?.[0]
+        expect(accessInsertCall?.[1]).toEqual(expect.arrayContaining(['access-seed-row', 'content', contentRowId]))
+        expect(accessInsertCall?.[1]).not.toEqual(expect.arrayContaining(['content-seed-row']))
+    })
+
+    it('remaps polymorphic course enrollment target ids to workspace-scoped course rows', async () => {
+        const { executor } = createMockDbExecutor()
+        const schemaName = 'app_018f8a787b8f7c1da111222233334870'
+        const generatedIds = [
+            '018f8a78-7b8f-7c1d-a111-222233334871',
+            '018f8a78-7b8f-7c1d-a111-222233334872',
+            '018f8a78-7b8f-7c1d-a111-222233334873',
+            '018f8a78-7b8f-7c1d-a111-222233334874'
+        ]
+
+        executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
+                const id = generatedIds.shift()
+                return id ? [{ id }] : []
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
+                return []
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspace_roles"`)) {
+                if (params?.[0] === 'owner') {
+                    return [{ id: '018f8a78-7b8f-7c1d-a111-222233334875', codename: 'owner' }]
+                }
+                if (params?.[0] === 'member') {
+                    return [{ id: '018f8a78-7b8f-7c1d-a111-222233334876', codename: 'member' }]
+                }
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspace_user_roles"`)) {
+                return []
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_settings"`)) {
+                return [
+                    {
+                        value: {
+                            version: 1,
+                            elements: {
+                                courseObject: [
+                                    {
+                                        id: 'course-seed-row',
+                                        data: {
+                                            Title: 'Compliance Refresh Course'
+                                        }
+                                    }
+                                ],
+                                enrollmentObject: [
+                                    {
+                                        id: 'enrollment-seed-row',
+                                        data: {
+                                            TargetType: 'course',
+                                            TargetId: 'course-seed-row',
+                                            AssignedUserId: '{{runtime.currentUserId}}'
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                ]
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
+                return [
+                    {
+                        objectId: 'enrollmentObject',
+                        codename: 'Enrollments',
+                        tableName: 'obj_enrollment_object'
+                    },
+                    {
+                        objectId: 'courseObject',
+                        codename: 'Courses',
+                        tableName: 'obj_course_object'
+                    }
+                ]
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
+                return [
+                    {
+                        objectId: 'enrollmentObject',
+                        componentId: 'enrollment-target-type-cmp',
+                        parentComponentId: null,
+                        codename: 'TargetType',
+                        columnName: 'col_target_type',
+                        dataType: 'STRING',
+                        uiConfig: null,
+                        targetObjectId: null,
+                        targetObjectKind: null
+                    },
+                    {
+                        objectId: 'enrollmentObject',
+                        componentId: 'enrollment-target-id-cmp',
+                        parentComponentId: null,
+                        codename: 'TargetId',
+                        columnName: 'col_target_id',
+                        dataType: 'STRING',
+                        uiConfig: null,
+                        targetObjectId: null,
+                        targetObjectKind: null
+                    },
+                    {
+                        objectId: 'enrollmentObject',
+                        componentId: 'enrollment-assigned-user-cmp',
+                        parentComponentId: null,
+                        codename: 'AssignedUserId',
+                        columnName: 'col_assigned_user_id',
+                        dataType: 'STRING',
+                        uiConfig: null,
+                        targetObjectId: null,
+                        targetObjectKind: null
+                    },
+                    {
+                        objectId: 'courseObject',
+                        componentId: 'course-title-cmp',
+                        parentComponentId: null,
+                        codename: 'Title',
+                        columnName: 'col_title',
+                        dataType: 'STRING',
+                        uiConfig: null,
+                        targetObjectId: null,
+                        targetObjectKind: null
+                    }
+                ]
+            }
+
+            if (sql.includes('FROM information_schema.columns')) {
+                return [
+                    {
+                        tableName: 'obj_enrollment_object',
+                        columnName: 'col_target_type',
+                        udtName: 'text'
+                    },
+                    {
+                        tableName: 'obj_enrollment_object',
+                        columnName: 'col_target_id',
+                        udtName: 'text'
+                    },
+                    {
+                        tableName: 'obj_enrollment_object',
+                        columnName: 'col_assigned_user_id',
+                        udtName: 'text'
+                    },
+                    {
+                        tableName: 'obj_course_object',
+                        columnName: 'col_title',
+                        udtName: 'text'
+                    }
+                ]
+            }
+
+            if (sql.includes('SELECT id, _seed_source_key AS "seedSourceKey"')) {
+                return []
+            }
+
+            return []
+        })
+
+        await ensurePersonalWorkspaceForUser(executor, {
+            schemaName,
+            userId: '018f8a78-7b8f-7c1d-a111-222233334877',
+            actorUserId: '018f8a78-7b8f-7c1d-a111-222233334878',
+            defaultRoleCodename: 'owner'
+        })
+
+        const courseInsertCall = executor.query.mock.calls.find(([sql]) =>
+            String(sql).includes(`INSERT INTO "${schemaName}"."obj_course_object"`)
         )
-        expect(accessInsertCall?.[1]).not.toEqual(expect.arrayContaining(['module-seed-row']))
+        const enrollmentInsertCall = executor.query.mock.calls.find(([sql]) =>
+            String(sql).includes(`INSERT INTO "${schemaName}"."obj_enrollment_object"`)
+        )
+
+        expect(courseInsertCall).toBeDefined()
+        expect(enrollmentInsertCall).toBeDefined()
+        expect(enrollmentInsertCall?.[1]).toEqual(expect.arrayContaining(['018f8a78-7b8f-7c1d-a111-222233334873', 'course']))
+        expect(enrollmentInsertCall?.[1]).toEqual(expect.arrayContaining(['018f8a78-7b8f-7c1d-a111-222233334877']))
+        expect(enrollmentInsertCall?.[1]).not.toEqual(expect.arrayContaining(['course-seed-row']))
+        expect(enrollmentInsertCall?.[1]).not.toEqual(expect.arrayContaining(['{{runtime.currentUserId}}']))
+    })
+
+    it('remaps runtime record picker target ids to workspace-scoped content rows', async () => {
+        const { executor } = createMockDbExecutor()
+        const schemaName = 'app_018f8a787b8f7c1da111222233334900'
+        const generatedIds = [
+            '018f8a78-7b8f-7c1d-a111-222233334901',
+            '018f8a78-7b8f-7c1d-a111-222233334902',
+            '018f8a78-7b8f-7c1d-a111-222233334903',
+            '018f8a78-7b8f-7c1d-a111-222233334904'
+        ]
+
+        executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
+                const id = generatedIds.shift()
+                return id ? [{ id }] : []
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
+                return []
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspace_roles"`)) {
+                if (params?.[0] === 'owner') {
+                    return [{ id: '018f8a78-7b8f-7c1d-a111-222233334905', codename: 'owner' }]
+                }
+                if (params?.[0] === 'member') {
+                    return [{ id: '018f8a78-7b8f-7c1d-a111-222233334906', codename: 'member' }]
+                }
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_workspace_user_roles"`)) {
+                return []
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_settings"`)) {
+                return [
+                    {
+                        value: {
+                            version: 1,
+                            elements: {
+                                learningResourceObject: [
+                                    {
+                                        id: 'resource-seed-row',
+                                        data: {
+                                            Title: 'Course overview page'
+                                        }
+                                    }
+                                ],
+                                courseItemObject: [
+                                    {
+                                        id: 'course-item-seed-row',
+                                        data: {
+                                            Title: 'Start with the course overview',
+                                            TargetObjectCodename: 'LearningResources',
+                                            TargetRecordId: 'resource-seed-row'
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                ]
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
+                return [
+                    {
+                        objectId: 'learningResourceObject',
+                        codename: 'LearningResources',
+                        tableName: 'obj_learning_resource_object'
+                    },
+                    {
+                        objectId: 'courseItemObject',
+                        codename: 'CourseItems',
+                        tableName: 'obj_course_item_object'
+                    }
+                ]
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
+                return [
+                    {
+                        objectId: 'learningResourceObject',
+                        componentId: 'resource-title-cmp',
+                        parentComponentId: null,
+                        codename: 'Title',
+                        columnName: 'col_resource_title',
+                        dataType: 'STRING',
+                        uiConfig: null,
+                        targetObjectId: null,
+                        targetObjectKind: null
+                    },
+                    {
+                        objectId: 'courseItemObject',
+                        componentId: 'item-title-cmp',
+                        parentComponentId: null,
+                        codename: 'Title',
+                        columnName: 'col_item_title',
+                        dataType: 'STRING',
+                        uiConfig: null,
+                        targetObjectId: null,
+                        targetObjectKind: null
+                    },
+                    {
+                        objectId: 'courseItemObject',
+                        componentId: 'item-target-object-cmp',
+                        parentComponentId: null,
+                        codename: 'TargetObjectCodename',
+                        columnName: 'col_target_object',
+                        dataType: 'STRING',
+                        uiConfig: null,
+                        targetObjectId: null,
+                        targetObjectKind: null
+                    },
+                    {
+                        objectId: 'courseItemObject',
+                        componentId: 'item-target-record-cmp',
+                        parentComponentId: null,
+                        codename: 'TargetRecordId',
+                        columnName: 'col_target_record',
+                        dataType: 'STRING',
+                        uiConfig: {
+                            widget: 'runtimeRecordPicker',
+                            runtimeRecordPicker: {
+                                targetObjectCodenameField: 'TargetObjectCodename',
+                                allowedObjectCodenames: ['LearningResources']
+                            }
+                        },
+                        targetObjectId: null,
+                        targetObjectKind: null
+                    }
+                ]
+            }
+
+            if (sql.includes('FROM information_schema.columns')) {
+                return [
+                    {
+                        tableName: 'obj_learning_resource_object',
+                        columnName: 'col_resource_title',
+                        udtName: 'text'
+                    },
+                    {
+                        tableName: 'obj_course_item_object',
+                        columnName: 'col_item_title',
+                        udtName: 'text'
+                    },
+                    {
+                        tableName: 'obj_course_item_object',
+                        columnName: 'col_target_object',
+                        udtName: 'text'
+                    },
+                    {
+                        tableName: 'obj_course_item_object',
+                        columnName: 'col_target_record',
+                        udtName: 'text'
+                    }
+                ]
+            }
+
+            if (sql.includes('SELECT id, _seed_source_key AS "seedSourceKey"')) {
+                return []
+            }
+
+            return []
+        })
+
+        await ensurePersonalWorkspaceForUser(executor, {
+            schemaName,
+            userId: '018f8a78-7b8f-7c1d-a111-222233334907',
+            actorUserId: '018f8a78-7b8f-7c1d-a111-222233334908',
+            defaultRoleCodename: 'owner'
+        })
+
+        const courseItemInsertCall = executor.query.mock.calls.find(([sql]) =>
+            String(sql).includes(`INSERT INTO "${schemaName}"."obj_course_item_object"`)
+        )
+
+        expect(courseItemInsertCall).toBeDefined()
+        expect(courseItemInsertCall?.[1]).toEqual(expect.arrayContaining(['018f8a78-7b8f-7c1d-a111-222233334903']))
+        expect(courseItemInsertCall?.[1]).not.toEqual(expect.arrayContaining(['resource-seed-row']))
     })
 
     it('does not re-promote the personal workspace to default when another workspace is already default', async () => {
@@ -825,7 +1181,7 @@ describe('applicationWorkspaces service', () => {
         expect(promotedPersonalWorkspaceCall).toBeUndefined()
     })
 
-    it('remaps module content-item quiz ids to workspace-scoped quiz rows', async () => {
+    it('remaps learning resource content-item quiz ids to workspace-scoped quiz rows', async () => {
         const { executor } = createMockDbExecutor()
         const schemaName = 'app_018f8a787b8f7c1da111222233334950'
         const generatedIds = [
@@ -865,9 +1221,9 @@ describe('applicationWorkspaces service', () => {
                         value: {
                             version: 1,
                             elements: {
-                                moduleObject: [
+                                contentObject: [
                                     {
-                                        id: 'module-seed-row',
+                                        id: 'content-seed-row',
                                         data: {
                                             Title: 'Learning Portal Basics',
                                             ContentItems: [
@@ -897,9 +1253,9 @@ describe('applicationWorkspaces service', () => {
             if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
                 return [
                     {
-                        objectId: 'moduleObject',
-                        codename: 'Modules',
-                        tableName: 'obj_module_object'
+                        objectId: 'contentObject',
+                        codename: 'LearningResources',
+                        tableName: 'obj_content_object'
                     },
                     {
                         objectId: 'quizObject',
@@ -912,8 +1268,8 @@ describe('applicationWorkspaces service', () => {
             if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
                 return [
                     {
-                        objectId: 'moduleObject',
-                        componentId: 'module-title-cmp',
+                        objectId: 'contentObject',
+                        componentId: 'content-title-cmp',
                         parentComponentId: null,
                         codename: 'Title',
                         columnName: 'col_title',
@@ -923,8 +1279,8 @@ describe('applicationWorkspaces service', () => {
                         targetObjectKind: null
                     },
                     {
-                        objectId: 'moduleObject',
-                        componentId: 'module-content-items-cmp',
+                        objectId: 'contentObject',
+                        componentId: 'content-items-cmp',
                         parentComponentId: null,
                         codename: 'ContentItems',
                         columnName: 'col_content_items',
@@ -934,9 +1290,9 @@ describe('applicationWorkspaces service', () => {
                         targetObjectKind: null
                     },
                     {
-                        objectId: 'moduleObject',
-                        componentId: 'module-content-item-quiz-cmp',
-                        parentComponentId: 'module-content-items-cmp',
+                        objectId: 'contentObject',
+                        componentId: 'content-item-quiz-cmp',
+                        parentComponentId: 'content-items-cmp',
                         codename: 'QuizId',
                         columnName: 'col_quiz_id',
                         dataType: 'STRING',
@@ -945,9 +1301,9 @@ describe('applicationWorkspaces service', () => {
                         targetObjectKind: null
                     },
                     {
-                        objectId: 'moduleObject',
-                        componentId: 'module-content-item-title-cmp',
-                        parentComponentId: 'module-content-items-cmp',
+                        objectId: 'contentObject',
+                        componentId: 'content-item-title-cmp',
+                        parentComponentId: 'content-items-cmp',
                         codename: 'ItemTitle',
                         columnName: 'col_item_title',
                         dataType: 'STRING',
@@ -956,9 +1312,9 @@ describe('applicationWorkspaces service', () => {
                         targetObjectKind: null
                     },
                     {
-                        objectId: 'moduleObject',
-                        componentId: 'module-content-item-metadata-cmp',
-                        parentComponentId: 'module-content-items-cmp',
+                        objectId: 'contentObject',
+                        componentId: 'content-item-metadata-cmp',
+                        parentComponentId: 'content-items-cmp',
                         codename: 'Metadata',
                         columnName: 'col_metadata',
                         dataType: 'JSON',
@@ -981,10 +1337,10 @@ describe('applicationWorkspaces service', () => {
             }
 
             if (sql.includes('FROM information_schema.columns')) {
-                expect(params?.[1]).toEqual(expect.arrayContaining(['obj_module_object', 'obj_quiz_object', 'tbl_modulecontentitemscmp']))
+                expect(params?.[1]).toEqual(expect.arrayContaining(['obj_content_object', 'obj_quiz_object', 'tbl_contentitemscmp']))
                 return [
                     {
-                        tableName: 'obj_module_object',
+                        tableName: 'obj_content_object',
                         columnName: 'col_title',
                         udtName: 'text'
                     },
@@ -994,17 +1350,17 @@ describe('applicationWorkspaces service', () => {
                         udtName: 'text'
                     },
                     {
-                        tableName: 'tbl_modulecontentitemscmp',
+                        tableName: 'tbl_contentitemscmp',
                         columnName: 'col_quiz_id',
                         udtName: 'text'
                     },
                     {
-                        tableName: 'tbl_modulecontentitemscmp',
+                        tableName: 'tbl_contentitemscmp',
                         columnName: 'col_item_title',
                         udtName: 'text'
                     },
                     {
-                        tableName: 'tbl_modulecontentitemscmp',
+                        tableName: 'tbl_contentitemscmp',
                         columnName: 'col_metadata',
                         udtName: 'jsonb'
                     }
@@ -1029,16 +1385,16 @@ describe('applicationWorkspaces service', () => {
             String(sql).includes(`INSERT INTO "${schemaName}"."obj_quiz_object"`)
         )
         const childInsertCall = executor.query.mock.calls.find(([sql]) =>
-            String(sql).includes(`INSERT INTO "${schemaName}"."tbl_modulecontentitemscmp"`)
+            String(sql).includes(`INSERT INTO "${schemaName}"."tbl_contentitemscmp"`)
         )
 
         expect(quizInsertCall).toBeDefined()
         expect(childInsertCall).toBeDefined()
+        const quizRowId = quizInsertCall?.[1]?.[0]
         expect(childInsertCall?.[1]).toEqual(
             expect.arrayContaining([
-                '018f8a78-7b8f-7c1d-a111-222233334955',
-                'module-seed-row:module-content-items-cmp:0',
-                '018f8a78-7b8f-7c1d-a111-222233334953',
+                'content-seed-row:content-items-cmp:0',
+                quizRowId,
                 'Readiness check',
                 JSON.stringify({ weight: 1, required: true })
             ])
@@ -1094,16 +1450,16 @@ describe('applicationWorkspaces service', () => {
                                             Title: 'Onboarding track',
                                             TrackItems: [
                                                 {
-                                                    ModuleId: 'module-seed-row',
+                                                    ContentNodeId: 'content-seed-row',
                                                     Required: true
                                                 }
                                             ]
                                         }
                                     }
                                 ],
-                                moduleObject: [
+                                contentObject: [
                                     {
-                                        id: 'module-seed-row',
+                                        id: 'content-seed-row',
                                         data: {
                                             Title: 'Learning Path 101'
                                         }
@@ -1123,9 +1479,9 @@ describe('applicationWorkspaces service', () => {
                         tableName: 'obj_track_object'
                     },
                     {
-                        objectId: 'moduleObject',
-                        codename: 'Modules',
-                        tableName: 'obj_module_object'
+                        objectId: 'contentObject',
+                        codename: 'LearningResources',
+                        tableName: 'obj_content_object'
                     }
                 ]
             }
@@ -1156,13 +1512,13 @@ describe('applicationWorkspaces service', () => {
                     },
                     {
                         objectId: 'trackItemsObject',
-                        componentId: 'track-item-module-cmp',
+                        componentId: 'track-item-content-cmp',
                         parentComponentId: 'track-items-cmp',
-                        codename: 'ModuleId',
-                        columnName: 'col_module_id',
+                        codename: 'ContentNodeId',
+                        columnName: 'col_content_node_id',
                         dataType: 'REF',
                         uiConfig: null,
-                        targetObjectId: 'moduleObject',
+                        targetObjectId: 'contentObject',
                         targetObjectKind: 'object'
                     },
                     {
@@ -1177,8 +1533,8 @@ describe('applicationWorkspaces service', () => {
                         targetObjectKind: null
                     },
                     {
-                        objectId: 'moduleObject',
-                        componentId: 'module-title-cmp',
+                        objectId: 'contentObject',
+                        componentId: 'content-title-cmp',
                         parentComponentId: null,
                         codename: 'Title',
                         columnName: 'col_title',
@@ -1198,13 +1554,13 @@ describe('applicationWorkspaces service', () => {
                         udtName: 'text'
                     },
                     {
-                        tableName: 'obj_module_object',
+                        tableName: 'obj_content_object',
                         columnName: 'col_title',
                         udtName: 'text'
                     },
                     {
                         tableName: 'tbl_trackitemscmp',
-                        columnName: 'col_module_id',
+                        columnName: 'col_content_node_id',
                         udtName: 'uuid'
                     },
                     {
@@ -1230,16 +1586,18 @@ describe('applicationWorkspaces service', () => {
         })
 
         const insertCalls = executor.query.mock.calls.filter(([sql]) => String(sql).includes('INSERT INTO'))
-        const moduleInsertIndex = insertCalls.findIndex(([sql]) => String(sql).includes(`INSERT INTO "${schemaName}"."obj_module_object"`))
+        const contentInsertIndex = insertCalls.findIndex(([sql]) =>
+            String(sql).includes(`INSERT INTO "${schemaName}"."obj_content_object"`)
+        )
         const trackInsertIndex = insertCalls.findIndex(([sql]) => String(sql).includes(`INSERT INTO "${schemaName}"."obj_track_object"`))
         const childInsertCall = insertCalls.find(([sql]) => String(sql).includes(`INSERT INTO "${schemaName}"."tbl_trackitemscmp"`))
 
-        expect(moduleInsertIndex).toBeGreaterThanOrEqual(0)
+        expect(contentInsertIndex).toBeGreaterThanOrEqual(0)
         expect(trackInsertIndex).toBeGreaterThanOrEqual(0)
-        expect(moduleInsertIndex).toBeLessThan(trackInsertIndex)
+        expect(contentInsertIndex).toBeLessThan(trackInsertIndex)
         expect(childInsertCall?.[1]).toEqual(
             expect.arrayContaining(['track-seed-row:track-items-cmp:0', '018f8a78-7b8f-7c1d-a111-222233335053', true])
         )
-        expect(childInsertCall?.[1]).not.toEqual(expect.arrayContaining(['module-seed-row']))
+        expect(childInsertCall?.[1]).not.toEqual(expect.arrayContaining(['content-seed-row']))
     })
 })

@@ -37,7 +37,7 @@ const createGuestSessionSchema = z.object({
 const publicRuntimeQuerySchema = z
     .object({
         slug: z.string().trim().min(1).max(255),
-        targetType: z.enum(['content', 'assessment', 'module', 'quiz']).optional(),
+        targetType: z.enum(['content', 'assessment', 'quiz']).optional(),
         targetId: z.string().uuid().optional(),
         locale: z.string().trim().min(2).max(32).optional()
     })
@@ -99,8 +99,7 @@ const guestProgressSchema = z
         participantId: z.string().uuid().optional(),
         studentId: z.string().uuid().optional(),
         sessionToken: z.string().trim().min(1).max(MAX_GUEST_SESSION_TOKEN_LENGTH),
-        contentNodeId: z.string().uuid().optional(),
-        moduleId: z.string().uuid().optional(),
+        contentNodeId: z.string().uuid(),
         progressPercent: z.number().min(0).max(100).default(0),
         lastAccessedItemIndex: z.number().int().min(0).default(0),
         status: z.string().trim().min(1).max(64).default('in_progress')
@@ -112,17 +111,11 @@ const guestProgressSchema = z
         if (value.participantId && value.studentId && value.participantId !== value.studentId) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['studentId'], message: 'studentId alias must match participantId' })
         }
-        if (!value.contentNodeId && !value.moduleId) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['contentNodeId'], message: 'contentNodeId is required' })
-        }
-        if (value.contentNodeId && value.moduleId && value.contentNodeId !== value.moduleId) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['moduleId'], message: 'moduleId alias must match contentNodeId' })
-        }
     })
     .transform((value) => ({
         participantId: value.participantId ?? value.studentId!,
         sessionToken: value.sessionToken,
-        contentNodeId: value.contentNodeId ?? value.moduleId!,
+        contentNodeId: value.contentNodeId,
         progressPercent: value.progressPercent,
         lastAccessedItemIndex: value.lastAccessedItemIndex,
         status: value.status
@@ -134,6 +127,7 @@ type AccessLinkRecord = {
     title: unknown
     targetType: string
     targetId: string
+    contentNodeIdRef: string | null
     isActive: boolean
     expiresAt: string | null
     maxUses: number | null
@@ -145,6 +139,7 @@ type AccessLinkRecord = {
         slug: string
         targetType: string
         targetId: string
+        contentNodeIdRef: string | null
         isActive: string
         expiresAt: string | null
         maxUses: string | null
@@ -181,6 +176,7 @@ type PublicGuestRuntimeConfig = {
             slug: string
             targetType: string
             targetId: string
+            contentNodeIdRef?: string
             isActive: string
             expiresAt: string
             maxUses: string
@@ -230,7 +226,7 @@ type PublicGuestRuntimeConfig = {
         }
         contentProgress: {
             studentId: string
-            moduleId: string
+            contentNodeId: string
             status: string
             progressPercent: string
             startedAt: string
@@ -244,9 +240,9 @@ const PUBLIC_GUEST_RUNTIME_OBJECT_ALIASES = {
     accessLinks: ['accessLinks'],
     participants: ['participants', 'students'],
     assessments: ['assessments', 'quizzes'],
-    contentNodes: ['contentNodes', 'modules'],
+    contentNodes: ['contentNodes'],
     assessmentResponses: ['assessmentResponses', 'quizResponses'],
-    contentProgress: ['contentProgress', 'moduleProgress']
+    contentProgress: ['contentProgress']
 } as const
 const PUBLIC_GUEST_RUNTIME_FIELD_KEYS = {
     accessLink: ['slug', 'targetType', 'targetId', 'isActive', 'expiresAt', 'maxUses', 'useCount', 'title', 'classId'],
@@ -256,17 +252,17 @@ const PUBLIC_GUEST_RUNTIME_FIELD_KEYS = {
     assessment: ['title', 'description', 'passingScorePercent', 'questions'],
     assessmentQuestion: ['prompt', 'description', 'questionType', 'explanation', 'sortOrder', 'options'],
     assessmentResponse: ['studentId', 'quizId', 'questionId', 'selectedOptionIds', 'isCorrect', 'attemptNumber', 'submittedAt'],
-    contentProgress: ['studentId', 'moduleId', 'status', 'progressPercent', 'startedAt', 'completedAt', 'lastAccessedItemIndex']
+    contentProgress: ['studentId', 'contentNodeId', 'status', 'progressPercent', 'startedAt', 'completedAt', 'lastAccessedItemIndex']
 } as const
 const PUBLIC_GUEST_RUNTIME_FIELD_ALIASES = {
     accessLink: ['accessLink'],
     participant: ['participant', 'student'],
-    contentNode: ['contentNode', 'module'],
-    contentPart: ['contentPart', 'moduleContentItem'],
+    contentNode: ['contentNode'],
+    contentPart: ['contentPart'],
     assessment: ['assessment', 'quiz'],
     assessmentQuestion: ['assessmentQuestion', 'quizQuestion'],
     assessmentResponse: ['assessmentResponse', 'quizResponse'],
-    contentProgress: ['contentProgress', 'moduleProgress']
+    contentProgress: ['contentProgress']
 } as const
 
 const isPlainRecord = (value: unknown): value is Record<string, unknown> =>
@@ -319,6 +315,20 @@ const readFieldMapByAliases = <K extends keyof typeof PUBLIC_GUEST_RUNTIME_FIELD
     return null
 }
 
+const readOptionalFieldByAliases = <K extends keyof typeof PUBLIC_GUEST_RUNTIME_FIELD_ALIASES>(
+    rawFields: Record<string, unknown>,
+    fieldKey: K,
+    fieldName: string
+): string | undefined => {
+    for (const alias of PUBLIC_GUEST_RUNTIME_FIELD_ALIASES[fieldKey]) {
+        const source = rawFields[alias]
+        if (!isPlainRecord(source)) continue
+        const value = readConfiguredString(source[fieldName])
+        if (value) return value
+    }
+    return undefined
+}
+
 const resolvePublicGuestRuntimeConfig = (settings: Record<string, unknown>): PublicGuestRuntimeConfig | null => {
     const publicRuntime = isPlainRecord(settings.publicRuntime) ? settings.publicRuntime : {}
     const rawConfig = isPlainRecord(publicRuntime.guest)
@@ -354,10 +364,12 @@ const resolvePublicGuestRuntimeConfig = (settings: Record<string, unknown>): Pub
         return null
     }
 
+    const contentNodeIdRef = readOptionalFieldByAliases(rawFields, 'accessLink', 'contentNodeIdRef')
+
     return {
         objects,
         fields: {
-            accessLink: accessLinkFields,
+            accessLink: contentNodeIdRef ? { ...accessLinkFields, contentNodeIdRef } : accessLinkFields,
             participant: participantFields,
             contentNode: contentNodeFields,
             contentPart: contentPartFields,
@@ -579,11 +591,11 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
         resolvePublicRuntimeObject(executor, schemaName, config.objects.participants)
     const resolveQuizBinding = async (executor: DbExecutor, schemaName: string, config: PublicGuestRuntimeConfig) =>
         resolvePublicRuntimeObject(executor, schemaName, config.objects.assessments)
-    const resolveModuleBinding = async (executor: DbExecutor, schemaName: string, config: PublicGuestRuntimeConfig) =>
+    const resolveContentNodeBinding = async (executor: DbExecutor, schemaName: string, config: PublicGuestRuntimeConfig) =>
         resolvePublicRuntimeObject(executor, schemaName, config.objects.contentNodes)
     const resolveQuizResponsesBinding = async (executor: DbExecutor, schemaName: string, config: PublicGuestRuntimeConfig) =>
         resolvePublicRuntimeObject(executor, schemaName, config.objects.assessmentResponses)
-    const resolveModuleProgressBinding = async (executor: DbExecutor, schemaName: string, config: PublicGuestRuntimeConfig) =>
+    const resolveContentProgressBinding = async (executor: DbExecutor, schemaName: string, config: PublicGuestRuntimeConfig) =>
         resolvePublicRuntimeObject(executor, schemaName, config.objects.contentProgress)
 
     const loadAccessLinkRecordBy = async (
@@ -602,6 +614,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
         const slugColumn = attrByCodename[fields.slug]?.column_name
         const targetTypeColumn = attrByCodename[fields.targetType]?.column_name
         const targetIdColumn = attrByCodename[fields.targetId]?.column_name
+        const contentNodeIdRefColumn = fields.contentNodeIdRef ? attrByCodename[fields.contentNodeIdRef]?.column_name : undefined
         const isActiveColumn = attrByCodename[fields.isActive]?.column_name
         const expiresAtColumn = attrByCodename[fields.expiresAt]?.column_name
         const maxUsesColumn = attrByCodename[fields.maxUses]?.column_name
@@ -615,6 +628,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
             slug: slugColumn,
             targetType: targetTypeColumn,
             targetId: targetIdColumn,
+            contentNodeIdRef: contentNodeIdRefColumn,
             isActive: isActiveColumn,
             expiresAt: expiresAtColumn,
             maxUses: maxUsesColumn,
@@ -634,6 +648,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                    "${safeColumns.slug}" AS slug,
                    "${safeColumns.targetType}" AS target_type,
                    "${safeColumns.targetId}" AS target_id,
+                   ${safeColumns.contentNodeIdRef ? `"${safeColumns.contentNodeIdRef}"` : 'NULL'} AS content_node_id_ref,
                    "${safeColumns.isActive}" AS is_active,
                    ${safeColumns.expiresAt ? `"${safeColumns.expiresAt}"` : 'NULL'} AS expires_at,
                    ${safeColumns.maxUses ? `"${safeColumns.maxUses}"` : 'NULL'} AS max_uses,
@@ -657,6 +672,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
             title: row.title ?? null,
             targetType: String(row.target_type ?? ''),
             targetId: String(row.target_id ?? ''),
+            contentNodeIdRef: typeof row.content_node_id_ref === 'string' ? row.content_node_id_ref : null,
             isActive: row.is_active === true,
             expiresAt: typeof row.expires_at === 'string' ? row.expires_at : null,
             maxUses: typeof row.max_uses === 'number' ? row.max_uses : null,
@@ -668,6 +684,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                 slug: safeColumns.slug,
                 targetType: safeColumns.targetType,
                 targetId: safeColumns.targetId,
+                contentNodeIdRef: safeColumns.contentNodeIdRef ?? null,
                 isActive: safeColumns.isActive,
                 expiresAt: safeColumns.expiresAt ?? null,
                 maxUses: safeColumns.maxUses ?? null,
@@ -863,37 +880,37 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
         return { isValid: false, accessLinkId: null, workspaceId: null }
     }
 
-    const buildModulePayload = async (
+    const buildContentPayload = async (
         executor: DbExecutor,
         schemaName: string,
         config: PublicGuestRuntimeConfig,
-        moduleId: string,
+        contentNodeId: string,
         locale: string
     ) => {
-        const binding = await resolveModuleBinding(executor, schemaName, config)
+        const binding = await resolveContentNodeBinding(executor, schemaName, config)
         if (!binding) return null
 
-        const row = await loadPublicRuntimeRecord(executor, schemaName, binding, moduleId)
+        const row = await loadPublicRuntimeRecord(executor, schemaName, binding, contentNodeId)
         if (!row) return null
 
         const attrs = resolveTopLevelComponents(binding)
         const attrByCodename = indexByCodename(attrs)
-        const moduleFields = config.fields.contentNode
+        const contentFields = config.fields.contentNode
         const contentItemFields = config.fields.contentPart
-        const contentTable = attrByCodename[moduleFields.contentItems]
+        const contentTable = attrByCodename[contentFields.contentItems]
         const contentAttrs = resolveChildComponents(binding, contentTable?.id ?? '')
         const contentAttrByCodename = indexByCodename(contentAttrs)
-        const childRows = contentTable ? await loadPublicTableRows(executor, schemaName, contentTable, contentAttrs, moduleId) : []
+        const childRows = contentTable ? await loadPublicTableRows(executor, schemaName, contentTable, contentAttrs, contentNodeId) : []
         const enumValueCodeMaps = await loadEnumerationValueCodeMaps(executor, schemaName, contentAttrs)
 
         const columns = Object.fromEntries(contentAttrs.map((cmp) => [resolveRuntimeCodenameText(cmp.codename), cmp.column_name]))
 
         return {
-            type: 'module' as const,
-            id: moduleId,
-            title: resolveLocalizedContent(readAttrValue(row, attrByCodename[moduleFields.title]?.column_name ?? 'title'), locale, ''),
+            type: 'content' as const,
+            id: contentNodeId,
+            title: resolveLocalizedContent(readAttrValue(row, attrByCodename[contentFields.title]?.column_name ?? 'title'), locale, ''),
             description: resolveLocalizedContent(
-                readAttrValue(row, attrByCodename[moduleFields.description]?.column_name ?? 'description'),
+                readAttrValue(row, attrByCodename[contentFields.description]?.column_name ?? 'description'),
                 locale,
                 ''
             ),
@@ -981,13 +998,12 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
         schemaName: string,
         config: PublicGuestRuntimeConfig,
         link: AccessLinkRecord,
-        requestedTargetType?: 'content' | 'assessment' | 'module' | 'quiz',
+        requestedTargetType?: 'content' | 'assessment' | 'quiz',
         requestedTargetId?: string
-    ): Promise<{ type: 'module' | 'quiz'; id: string } | null> => {
-        const baseTargetType = link.targetType === 'quiz' || link.targetType === 'assessment' ? 'quiz' : 'module'
-        const normalizedRequestedTargetType =
-            requestedTargetType === 'assessment' ? 'quiz' : requestedTargetType === 'content' ? 'module' : requestedTargetType
-        const baseTargetId = link.targetId
+    ): Promise<{ type: 'content' | 'quiz'; id: string } | null> => {
+        const baseTargetType = link.targetType === 'quiz' || link.targetType === 'assessment' ? 'quiz' : 'content'
+        const normalizedRequestedTargetType = requestedTargetType === 'assessment' ? 'quiz' : requestedTargetType
+        const baseTargetId = baseTargetType === 'content' && link.contentNodeIdRef ? link.contentNodeIdRef : link.targetId
         if (!UUID_REGEX.test(baseTargetId)) {
             return null
         }
@@ -1001,17 +1017,17 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
         if (normalizedRequestedTargetType === baseTargetType && requestedTargetId === baseTargetId) {
             return { type: baseTargetType, id: baseTargetId }
         }
-        if (baseTargetType !== 'module' || normalizedRequestedTargetType !== 'quiz') {
+        if (baseTargetType !== 'content' || normalizedRequestedTargetType !== 'quiz') {
             return null
         }
 
-        const modulePayload = await buildModulePayload(executor, schemaName, config, baseTargetId, 'en')
-        if (!modulePayload) {
+        const contentPayload = await buildContentPayload(executor, schemaName, config, baseTargetId, 'en')
+        if (!contentPayload) {
             return null
         }
 
         const linkedQuizIds = new Set(
-            modulePayload.contentItems
+            contentPayload.contentItems
                 .map((item) => (typeof item.quizId === 'string' ? item.quizId : ''))
                 .filter((quizId) => UUID_REGEX.test(quizId))
         )
@@ -1086,7 +1102,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                 slug: link.slug,
                 title: resolveLocalizedContent(link.title, locale, ''),
                 targetType: link.targetType,
-                targetId: link.targetId,
+                targetId: link.targetType === 'content' && link.contentNodeIdRef ? link.contentNodeIdRef : link.targetId,
                 classId: link.classId
             })
         })
@@ -1301,7 +1317,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
             const payload =
                 resolvedTarget.type === 'quiz'
                     ? await buildQuizPayload(ctx.manager, ctx.schemaName, runtimeConfig, resolvedTarget.id, false, locale)
-                    : await buildModulePayload(ctx.manager, ctx.schemaName, runtimeConfig, resolvedTarget.id, locale)
+                    : await buildContentPayload(ctx.manager, ctx.schemaName, runtimeConfig, resolvedTarget.id, locale)
             if (!payload) {
                 res.status(404).json({ error: 'Runtime target not found' })
                 return
@@ -1552,7 +1568,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                 return
             }
 
-            const allowedModuleTarget = await resolveAllowedRuntimeTarget(
+            const allowedContentTarget = await resolveAllowedRuntimeTarget(
                 ctx.manager,
                 ctx.schemaName,
                 runtimeConfig,
@@ -1560,12 +1576,12 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                 'content',
                 parsed.data.contentNodeId
             )
-            if (!allowedModuleTarget || allowedModuleTarget.type !== 'module') {
-                res.status(403).json({ error: 'Module is not available for this guest session' })
+            if (!allowedContentTarget || allowedContentTarget.type !== 'content') {
+                res.status(403).json({ error: 'Content is not available for this guest session' })
                 return
             }
 
-            const progressBinding = await resolveModuleProgressBinding(ctx.manager, ctx.schemaName, runtimeConfig)
+            const progressBinding = await resolveContentProgressBinding(ctx.manager, ctx.schemaName, runtimeConfig)
             if (!progressBinding) {
                 res.status(500).json({ error: 'Content progress object is not available' })
                 return
@@ -1576,7 +1592,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
             const progressFields = runtimeConfig.fields.contentProgress
             const columns = {
                 studentId: attrByCodename[progressFields.studentId]?.column_name,
-                moduleId: attrByCodename[progressFields.moduleId]?.column_name,
+                contentNodeId: attrByCodename[progressFields.contentNodeId]?.column_name,
                 status: attrByCodename[progressFields.status]?.column_name,
                 progressPercent: attrByCodename[progressFields.progressPercent]?.column_name,
                 startedAt: attrByCodename[progressFields.startedAt]?.column_name,
@@ -1596,7 +1612,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
             }
             const qColumns = {
                 studentId: qColumn(columns.studentId as string),
-                moduleId: qColumn(columns.moduleId as string),
+                contentNodeId: qColumn(columns.contentNodeId as string),
                 status: qColumn(columns.status as string),
                 progressPercent: qColumn(columns.progressPercent as string),
                 completedAt: qColumn(columns.completedAt as string),
@@ -1611,7 +1627,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                     SELECT id
                     FROM ${tableQt}
                     WHERE ${qColumns.studentId} = $1
-                      AND ${qColumns.moduleId} = $2
+                      AND ${qColumns.contentNodeId} = $2
                       AND ${ACTIVE_ROW_SQL}
                     LIMIT 1
                     `,
@@ -1643,7 +1659,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                     const insertColumns = [
                         'id',
                         qColumn(columns.studentId),
-                        qColumn(columns.moduleId),
+                        qColumn(columns.contentNodeId),
                         qColumn(columns.status),
                         qColumn(columns.progressPercent),
                         qColumn(columns.startedAt),

@@ -367,18 +367,18 @@ describe('MetahubSchemaService create options', () => {
         })
         expect(entityCodenames).toEqual(
             expect.arrayContaining([
-                'MainHub',
-                'LearnerHome',
-                'MainObject',
-                'MainSet',
-                'MainEnumeration',
                 'Learning',
                 'LmsConfiguration',
-                'Modules',
-                'ModuleStatus',
+                'LearningContentDefaults',
+                'LearningResources',
+                'ContentProjects',
+                'Courses',
+                'LearningTracks',
+                'LearningResourceStatus',
                 'QuestionType'
             ])
         )
+        expect(entityCodenames).not.toContain('Modules')
     })
 
     it('resolves the public structure version from the baseline migration row', async () => {

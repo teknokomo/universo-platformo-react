@@ -637,7 +637,7 @@ describe('applicationSyncRoutes', () => {
                 },
                 'enum-status': {
                     id: 'enum-status',
-                    codename: 'ModuleStatus',
+                    codename: 'LearningResourceStatus',
                     kind: 'enumeration',
                     fields: [],
                     presentation: { name: {} },

@@ -13,6 +13,7 @@ import {
     CrudDialogs,
     RowActionsMenu,
     RuntimeWorkspacesPage,
+    updateLearningContentProgress,
     type CellRendererOverrides,
     type DashboardDetailsSlot,
     type DashboardLayoutConfig,
@@ -20,6 +21,7 @@ import {
     type DashboardMenuSlot,
     type DashboardMenusMap
 } from '@universo/apps-template-mui'
+import { sanitizeApplicationLearningContentSettings } from '@universo/types'
 import { createRuntimeAdapter } from '../api/runtimeAdapter'
 import {
     buildPendingRuntimeCellMap,
@@ -166,6 +168,11 @@ const ApplicationRuntime = () => {
     const canDeleteContent = contentPermissions?.deleteContent === true
     canEditContentRef.current = canEditContent
     const showCreateButton = activeRuntimeConfig?.showCreateButton !== false && canCreateContent
+    const currentWorkspaceId = state.appData?.currentWorkspaceId ?? null
+    const learningContentSettings = useMemo(
+        () => sanitizeApplicationLearningContentSettings(state.appData?.settings?.learningContent as Record<string, unknown> | undefined),
+        [state.appData?.settings?.learningContent]
+    )
     const resolveFormSurface = useCallback(
         (mode: 'create' | 'edit' | 'copy') => {
             if (mode === 'create') return activeRuntimeConfig?.createSurface ?? 'dialog'
@@ -441,6 +448,20 @@ const ApplicationRuntime = () => {
             ) : null,
         [applicationId, i18n.language, isWorkspacesRoute, navigate, routeWorkspaceId, workspaceRouteSection]
     )
+    const handlePageProgressChange = useCallback(
+        async (payload: { progressPercent: number; status: string }) => {
+            if (!applicationId || !activeRuntimeSection?.codename || !currentSectionId) return
+            await updateLearningContentProgress({
+                apiBaseUrl: '/api/v1',
+                applicationId,
+                targetObjectCodename: activeRuntimeSection.codename,
+                targetRecordId: currentSectionId,
+                progressPercent: payload.progressPercent,
+                status: payload.status
+            })
+        },
+        [activeRuntimeSection?.codename, applicationId, currentSectionId]
+    )
 
     const pageSurfaceContent = useMemo(
         () =>
@@ -491,13 +512,14 @@ const ApplicationRuntime = () => {
             objectCollections: state.appData?.objectCollections ?? [],
             apiBaseUrl: '/api/v1',
             locale: i18n.language,
-            currentWorkspaceId: state.appData?.currentWorkspaceId ?? null,
+            currentWorkspaceId,
             runtimeQueryKeyPrefix: adapter?.queryKeyPrefix,
             workspacesEnabled: state.appData?.workspacesEnabled ?? false,
             banner: workspaceLimitBanner,
             content: pageSurfaceContent,
             rows: state.rows,
             columns: state.columns,
+            runtimeColumns: state.appData?.columns,
             loading: state.isFetching,
             rowCount: state.rowCount,
             paginationModel: state.paginationModel,
@@ -513,17 +535,35 @@ const ApplicationRuntime = () => {
                       isPending: state.isReordering
                   }
                 : undefined,
-            pageBlocks: activeRuntimeSection?.pageBlocks
+            pageBlocks: activeRuntimeSection?.pageBlocks,
+            pagePlayer: {
+                showOutline: learningContentSettings.playerPreset?.showOutline !== false,
+                showProgressHeader: learningContentSettings.playerPreset?.showProgressHeader !== false,
+                completeButtonMode: learningContentSettings.playerPreset?.completeButtonMode ?? 'manual',
+                progressStorageKey: [
+                    'learning-content-progress',
+                    applicationId,
+                    currentWorkspaceId ?? 'global',
+                    currentSectionId ?? 'unknown'
+                ].join(':'),
+                onProgressChange: handlePageProgressChange
+            }
         }),
         [
             activeRuntimeConfig?.searchMode,
             activeRuntimeSection?.codename,
             activeRuntimeSection?.pageBlocks,
             applicationId,
+            currentWorkspaceId,
             currentSectionId,
             detailsTitle,
+            handlePageProgressChange,
+            learningContentSettings.playerPreset?.completeButtonMode,
+            learningContentSettings.playerPreset?.showOutline,
+            learningContentSettings.playerPreset?.showProgressHeader,
             state.rows,
             state.columns,
+            state.appData?.columns,
             state.isFetching,
             state.canPersistRowReorder,
             state.handlePersistRowReorder,
@@ -540,7 +580,6 @@ const ApplicationRuntime = () => {
             navigate,
             pageSurfaceContent,
             adapter?.queryKeyPrefix,
-            state.appData?.currentWorkspaceId,
             state.appData?.workspacesEnabled,
             workspaceLimitBanner
         ]

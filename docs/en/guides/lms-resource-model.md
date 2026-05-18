@@ -6,14 +6,18 @@ description: Generic LMS resource model used by the metahub fixture and publishe
 
 ![Resources workspace used by the LMS resource model](../.gitbook/assets/entities/resources-workspace.png)
 
-The LMS fixture models learning content as ordinary Object records, not as a dedicated LMS runtime module.
+The LMS fixture models learning content as ordinary Object records, not as a dedicated LMS runtime content type.
+The Learning Content implementation moves the product model from a content-first surrogate to workspace-authored projects, standalone resources, course items, and track stages.
 
 ## Entities
 
-- `LearningResources` stores reusable resource metadata: type, source descriptor, estimated time, language, and launch mode.
-- `Courses` groups resources and modules into a product-facing course shell.
-- `CourseSections` orders resources and modules inside a course.
-- `LearningTracks` and `TrackSteps` define guided sequences and prerequisites.
+- `ContentProjects` groups workspace-authored content without replacing application workspaces.
+- `LearningResources` stores reusable resource metadata: project, type, source descriptor, body blocks, estimated time, language, publication status, and launch mode.
+- `Courses` stores a product-facing course shell with project, navigation, completion, status-format, catalog visibility, cover, instructor, and tags.
+- `CourseSections` groups course content.
+- `CourseItems` orders resource, quiz, assignment, or future training references inside course sections.
+- `LearningTracks`, `TrackStages`, and `TrackSteps` define course-centered learning paths.
+- `ContentStars`, `RecentContentViews`, `ContentAccessEntries`, and `TrashEntries` support library navigation and collaboration affordances.
 - Page content remains in Page entities such as `CourseOverview`, `KnowledgeArticle`, and `CertificatePolicy`.
 
 ## Resource Source Contract
@@ -33,4 +37,6 @@ Those capabilities should be added through generic storage/runtime primitives, n
 ## Runtime Behavior
 
 Published applications render resources through existing dashboard widgets, Page navigation, runtime rows, and scripts.
+The unified content library uses a generic `records.union` datasource over resources, courses, and tracks.
+Trash views use the same datasource shape with `lifecycleState=deleted`.
 Progress is stored in Object records and Object-backed ledgers such as `ProgressLedger` and `LearningActivityLedger`.

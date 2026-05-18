@@ -1,5 +1,6 @@
 import type {
     ApplicationMembershipState,
+    ApplicationLearningContentSettings,
     ApplicationRolePolicySettings,
     DialogCloseBehavior,
     DialogSizePreset,
@@ -46,6 +47,7 @@ export interface ApplicationDialogSettings {
     workspaceOpenBehavior: 'last-used' | 'default-workspace'
     schemaDiffLocalizedLabels: boolean
     rolePolicies?: ApplicationRolePolicySettings
+    learningContent?: ApplicationLearningContentSettings
 }
 
 export interface ApplicationMember {

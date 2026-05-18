@@ -10,7 +10,7 @@ import {
     waitForOptionValueId
 } from '../../support/lmsRuntime'
 
-test('@flow lms public guest runtime completes a class module quiz and records progress rows', async ({ page, runManifest }) => {
+test('@flow lms public guest runtime completes a class learning resource quiz and records progress rows', async ({ page, runManifest }) => {
     test.setTimeout(300_000)
 
     const api = await createLoggedInApiContext({
@@ -43,18 +43,25 @@ test('@flow lms public guest runtime completes a class module quiz and records p
 
         const classesObjectId = await waitForApplicationObjectId(api, lms.applicationId, 'Classes')
         const studentsObjectId = await waitForApplicationObjectId(api, lms.applicationId, 'Students')
-        const modulesObjectId = await waitForApplicationObjectId(api, lms.applicationId, 'Modules')
+        const learningResourcesObjectId = await waitForApplicationObjectId(api, lms.applicationId, 'Learning Resources')
         const quizzesObjectId = await waitForApplicationObjectId(api, lms.applicationId, 'Quizzes')
         const quizResponsesObjectId = await waitForApplicationObjectId(api, lms.applicationId, 'Quiz Responses')
-        const moduleProgressObjectId = await waitForApplicationObjectId(api, lms.applicationId, 'Module Progress')
+        const contentProgressObjectId = await waitForApplicationObjectId(api, lms.applicationId, 'Content Progress')
         const accessLinksObjectId = await waitForApplicationObjectId(api, lms.applicationId, 'Access Links')
 
         const contentTypeEnumerationId = await waitForMetahubEnumerationId(api, lms.metahub.id, 'Content Type')
-        const moduleStatusEnumerationId = await waitForMetahubEnumerationId(api, lms.metahub.id, 'Module Status')
+        const resourceTypeEnumerationId = await waitForMetahubEnumerationId(api, lms.metahub.id, 'Resource Type')
+        const publicationStatusEnumerationId = await waitForMetahubEnumerationId(api, lms.metahub.id, 'Publication Status')
         const questionTypeEnumerationId = await waitForMetahubEnumerationId(api, lms.metahub.id, 'Question Type')
         const textValueId = await waitForOptionValueId(api, lms.metahub.id, contentTypeEnumerationId, 'Text')
         const quizRefValueId = await waitForOptionValueId(api, lms.metahub.id, contentTypeEnumerationId, 'QuizRef')
-        const publishedModuleStatusValueId = await waitForOptionValueId(api, lms.metahub.id, moduleStatusEnumerationId, 'Published')
+        const pageResourceTypeValueId = await waitForOptionValueId(api, lms.metahub.id, resourceTypeEnumerationId, 'Page')
+        const publishedPublicationStatusValueId = await waitForOptionValueId(
+            api,
+            lms.metahub.id,
+            publicationStatusEnumerationId,
+            'Published'
+        )
         const singleChoiceValueId = await waitForOptionValueId(api, lms.metahub.id, questionTypeEnumerationId, 'SingleChoice')
 
         const classRow = await createRuntimeRow(api, lms.applicationId, {
@@ -103,16 +110,16 @@ test('@flow lms public guest runtime completes a class module quiz and records p
         })
         await waitForApplicationRuntimeRow(api, lms.applicationId, quizzesObjectId, quizRow.id)
 
-        const moduleSlug = `journey-module-${runManifest.runId}`
-        const moduleRow = await createRuntimeRow(api, lms.applicationId, {
-            objectCollectionId: modulesObjectId,
+        const contentSlug = `journey-content-${runManifest.runId}`
+        const contentRow = await createRuntimeRow(api, lms.applicationId, {
+            objectCollectionId: learningResourcesObjectId,
             data: {
-                Title: `Photosynthesis Module ${runManifest.runId}`,
-                Slug: moduleSlug,
+                Title: `Photosynthesis Learning Resource ${runManifest.runId}`,
                 Description: 'Guest LMS lesson with embedded quiz hand-off',
-                Status: publishedModuleStatusValueId,
-                EstimatedDurationMinutes: 10,
-                AccessLinkSlug: moduleSlug,
+                ResourceType: pageResourceTypeValueId,
+                Source: { type: 'page', pageCodename: 'LearnerHome' },
+                PublicationStatus: publishedPublicationStatusValueId,
+                EstimatedTimeMinutes: 10,
                 ContentItems: [
                     {
                         ItemType: textValueId,
@@ -129,14 +136,15 @@ test('@flow lms public guest runtime completes a class module quiz and records p
                 ]
             }
         })
-        await waitForApplicationRuntimeRow(api, lms.applicationId, modulesObjectId, moduleRow.id)
+        await waitForApplicationRuntimeRow(api, lms.applicationId, learningResourcesObjectId, contentRow.id)
 
         const accessLinkRow = await createRuntimeRow(api, lms.applicationId, {
             objectCollectionId: accessLinksObjectId,
             data: {
-                Slug: moduleSlug,
-                TargetType: 'module',
-                TargetId: moduleRow.id,
+                Slug: contentSlug,
+                TargetType: 'content',
+                TargetId: contentRow.id,
+                ContentNodeIdRef: contentRow.id,
                 LinkClassId: classRow.id,
                 IsActive: true,
                 MaxUses: 20,
@@ -151,7 +159,7 @@ test('@flow lms public guest runtime completes a class module quiz and records p
                 response.request().method() === 'POST' && response.url().endsWith(`/api/v1/public/a/${lms.applicationId}/guest-session`)
         )
 
-        await page.goto(`/public/a/${lms.applicationId}/links/${moduleSlug}`)
+        await page.goto(`/public/a/${lms.applicationId}/links/${contentSlug}`)
         await expect(page.getByLabel('Your name')).toBeVisible({ timeout: 30_000 })
         await page.getByLabel('Your name').fill('Guest learner journey')
         await page.getByRole('button', { name: 'Start learning' }).click()
@@ -159,10 +167,10 @@ test('@flow lms public guest runtime completes a class module quiz and records p
         const guestSessionResponse = await guestSessionResponsePromise
         expect(guestSessionResponse.status()).toBe(201)
 
-        await expect(page.getByText(`Photosynthesis Module ${runManifest.runId}`)).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByText(`Photosynthesis Learning Resource ${runManifest.runId}`)).toBeVisible({ timeout: 30_000 })
         await expect(page.getByText('Plants use sunlight to convert water and carbon dioxide into glucose and oxygen.')).toBeVisible()
 
-        const storageKey = `apps-template-mui:guest-session:${lms.applicationId}:${moduleSlug}`
+        const storageKey = `apps-template-mui:guest-session:${lms.applicationId}:${contentSlug}`
         await expect.poll(async () => page.evaluate((key) => window.sessionStorage.getItem(key), storageKey)).toContain('sessionToken')
         await expect.poll(async () => page.evaluate((key) => window.localStorage.getItem(key), storageKey)).toBe(null)
 
@@ -176,9 +184,9 @@ test('@flow lms public guest runtime completes a class module quiz and records p
         await page.getByRole('button', { name: 'Submit quiz' }).click()
         await expect(page.getByText('Score 2 / 2')).toBeVisible({ timeout: 30_000 })
 
-        await page.getByRole('button', { name: 'Back to module' }).click()
-        await page.getByRole('button', { name: 'Complete module' }).click()
-        await expect(page.getByText('Module complete. Progress has been recorded for this session.')).toBeVisible({ timeout: 30_000 })
+        await page.getByRole('button', { name: 'Back to content' }).click()
+        await page.getByRole('button', { name: 'Complete content' }).click()
+        await expect(page.getByText('Content complete. Progress has been recorded for this session.')).toBeVisible({ timeout: 30_000 })
 
         const studentRows = await waitForApplicationRuntimeRowCount(api, lms.applicationId, studentsObjectId, 1)
         expect(studentRows).toHaveLength(1)
@@ -186,8 +194,8 @@ test('@flow lms public guest runtime completes a class module quiz and records p
         const quizResponseRows = await waitForApplicationRuntimeRowCount(api, lms.applicationId, quizResponsesObjectId, 2)
         expect(quizResponseRows).toHaveLength(2)
 
-        const moduleProgressRows = await waitForApplicationRuntimeRowCount(api, lms.applicationId, moduleProgressObjectId, 1)
-        expect(moduleProgressRows).toHaveLength(1)
+        const contentProgressRows = await waitForApplicationRuntimeRowCount(api, lms.applicationId, contentProgressObjectId, 1)
+        expect(contentProgressRows).toHaveLength(1)
     } finally {
         await disposeApiContext(api)
     }

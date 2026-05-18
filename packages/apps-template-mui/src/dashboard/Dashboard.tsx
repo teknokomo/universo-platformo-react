@@ -11,6 +11,7 @@ import MainGrid from './components/MainGrid'
 import SideMenu from './components/SideMenu'
 import SideMenuRight from './components/SideMenuRight'
 import { DashboardDetailsProvider } from './DashboardDetailsContext'
+import type { AppDataResponse } from '../api/api'
 
 export type { DashboardLayoutConfig } from '@universo/types'
 
@@ -32,6 +33,7 @@ export interface DashboardDetailsSlot {
     content?: React.ReactNode
     rows: Array<Record<string, unknown> & { id: string }>
     columns: GridColDef[]
+    runtimeColumns?: AppDataResponse['columns']
     loading?: boolean
     rowCount?: number
     paginationModel?: GridPaginationModel
@@ -58,6 +60,14 @@ export interface DashboardDetailsSlot {
     }
     /** Structured Page metadata blocks, compatible with the Editor.js block shape. */
     pageBlocks?: RuntimePageBlock[]
+    /** Runtime learner page/player display settings. */
+    pagePlayer?: {
+        showOutline?: boolean
+        showProgressHeader?: boolean
+        completeButtonMode?: 'manual' | 'autoAfterOpen' | 'hidden'
+        progressStorageKey?: string
+        onProgressChange?: (payload: { progressPercent: number; status: string }) => Promise<void> | void
+    }
 }
 
 export interface DashboardMenuItem {

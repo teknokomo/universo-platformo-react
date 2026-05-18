@@ -15,13 +15,13 @@ describe('runtimeWidgetHelpers', () => {
         const filtered = filterRuntimeWidgetScripts([
             {
                 id: 'script-1',
-                codename: 'module-a',
+                codename: 'widget-a',
                 moduleRole: 'widget',
                 manifest: { methods: [{ name: 'mount', target: 'client' }] }
             },
             {
                 id: 'script-1',
-                codename: 'module-a-duplicate',
+                codename: 'widget-a-duplicate',
                 moduleRole: 'widget',
                 manifest: { methods: [{ name: 'mount', target: 'client' }] }
             },
@@ -40,16 +40,16 @@ describe('runtimeWidgetHelpers', () => {
         ] as never)
 
         expect(filtered).toHaveLength(1)
-        expect(filtered[0]?.codename).toBe('module-a')
+        expect(filtered[0]?.codename).toBe('widget-a')
     })
 
     it('selects a named runtime widget script or falls back to the first one', () => {
         const scripts = [
-            { id: 'script-1', codename: 'module-a' },
-            { id: 'script-2', codename: 'module-b' }
+            { id: 'script-1', codename: 'widget-a' },
+            { id: 'script-2', codename: 'widget-b' }
         ] as never
 
-        expect(selectRuntimeWidgetScript(scripts, 'module-b')?.id).toBe('script-2')
+        expect(selectRuntimeWidgetScript(scripts, 'widget-b')?.id).toBe('script-2')
         expect(selectRuntimeWidgetScript(scripts, null)?.id).toBe('script-1')
     })
 
@@ -97,6 +97,6 @@ describe('runtimeWidgetHelpers', () => {
             kind: 'object',
             id: 'object-1'
         })
-        await expect(context.callServerMethod('mount', [])).rejects.toThrow('Script capability "rpc.client" is not enabled for this module')
+        await expect(context.callServerMethod('mount', [])).rejects.toThrow('Script capability "rpc.client" is not enabled for this script')
     })
 })

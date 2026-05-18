@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+    extractPageBlockOutline,
     normalizeEditorJsOutputData,
     normalizePageBlockContentForStorage,
     normalizeRuntimePageBlocks,
@@ -224,5 +225,53 @@ describe('page block content schema', () => {
                 blocks: [{ id: 'embed-1', type: 'embed', data: { url: 'https://example.test/video' } }]
             })
         ).toThrow('embed policy')
+    })
+
+    it('extracts a localized page outline from header blocks only', () => {
+        expect(
+            extractPageBlockOutline(
+                {
+                    format: 'editorjs',
+                    blocks: [
+                        {
+                            id: 'intro',
+                            type: 'header',
+                            data: {
+                                level: 2,
+                                text: {
+                                    _primary: 'en',
+                                    locales: {
+                                        en: { content: 'Introduction' },
+                                        ru: { content: 'Введение' }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            id: 'body',
+                            type: 'paragraph',
+                            data: {
+                                text: 'Body'
+                            }
+                        },
+                        {
+                            id: 'deep',
+                            type: 'header',
+                            data: {
+                                level: 4,
+                                text: 'Details'
+                            }
+                        }
+                    ]
+                },
+                { locale: 'ru', maxLevel: 3 }
+            )
+        ).toEqual([
+            {
+                id: 'intro',
+                text: 'Введение',
+                level: 2
+            }
+        ])
     })
 })

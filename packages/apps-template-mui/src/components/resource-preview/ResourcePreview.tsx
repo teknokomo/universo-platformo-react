@@ -22,15 +22,12 @@ export type ResourcePreviewProps = {
     onOpenPage?: (pageCodename: string) => void
 }
 
-type ParsedResourceState =
-    | { kind: 'invalid'; message: string }
-    | { kind: 'deferred'; source: ResourceSource }
-    | { kind: 'ready'; source: ResourceSource }
+type ParsedResourceState = { kind: 'invalid' } | { kind: 'deferred'; source: ResourceSource } | { kind: 'ready'; source: ResourceSource }
 
 const parseResourceSource = (source: unknown): ParsedResourceState => {
     const parsed = resourceSourceSchema.safeParse(source)
     if (!parsed.success) {
-        return { kind: 'invalid', message: parsed.error.issues[0]?.message ?? 'Invalid resource source.' }
+        return { kind: 'invalid' }
     }
 
     if (isDeferredResourceSource(parsed.data)) {
@@ -188,7 +185,7 @@ export function ResourcePreview({ source, title, description, onOpenPage }: Reso
 
             {parsed.kind === 'invalid' ? (
                 <Typography role='alert' variant='body2' color='error'>
-                    {t('resourcePreview.invalidSource', 'This resource source is not valid.')}: {parsed.message}
+                    {t('resourcePreview.invalidSource', 'This resource source is not valid.')}
                 </Typography>
             ) : parsed.kind === 'deferred' ? (
                 <Typography role='status' variant='body2' color='text.secondary'>

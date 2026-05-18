@@ -19,8 +19,9 @@ import HighlightedCard from './HighlightedCard'
 import PageViewsBarChart from './PageViewsBarChart'
 import SessionsChart from './SessionsChart'
 import StatCard, { StatCardProps } from './StatCard'
-import type { ZoneWidgetItem, DashboardLayoutConfig, DashboardDetailsSlot } from '../Dashboard'
+import type { ZoneWidgetItem, DashboardLayoutConfig } from '../Dashboard'
 import { useDashboardDetails } from '../DashboardDetailsContext'
+import { findRuntimeSectionIdByCodename } from '../../utils/runtimeSections'
 import { renderWidget } from './widgetRenderer'
 import PageBlocksView from './PageBlocksView'
 import {
@@ -125,16 +126,6 @@ const readLocalizedConfigText = (value: unknown, locale: string | undefined): st
     return undefined
 }
 
-const findRuntimeSectionIdByCodename = (details: DashboardDetailsSlot | undefined, codename: string | undefined): string | undefined => {
-    if (!details || !codename) return undefined
-    const normalized = codename.trim()
-    return (
-        details.sections?.find((section) => section.codename === normalized)?.id ??
-        details.objectCollections?.find((section) => section.codename === normalized)?.id ??
-        undefined
-    )
-}
-
 const formatMetricValue = (value: number, locale: string): string =>
     new Intl.NumberFormat(locale || 'en', {
         notation: 'compact',
@@ -230,6 +221,7 @@ function RuntimeStatCard({ config, fallback }: { config: StatCardWidgetConfig; f
                 offset: 0,
                 objectCollectionId: targetSectionId,
                 sectionId: targetSectionId,
+                workspaceId: details?.currentWorkspaceId ?? null,
                 search
             }),
         enabled: Boolean(
@@ -356,6 +348,7 @@ function RuntimeRecordsSeriesChart({ config, variant }: { config: RecordsSeriesC
                 offset: 0,
                 objectCollectionId: targetSectionId,
                 sectionId: targetSectionId,
+                workspaceId: details?.currentWorkspaceId ?? null,
                 search: listQuery?.search,
                 sort: listQuery?.sort,
                 filters: listQuery?.filters
@@ -796,7 +789,12 @@ export default function MainGrid({
                 ].includes(widget.widgetKey)
         ) ?? []
     const showCenterContent =
-        hasCustomDetailsContent || showDetailsTitle || showColumnsContainer || showDetailsTable || standaloneCenterWidgets.length > 0
+        hasCustomDetailsContent ||
+        hasPageBlocks ||
+        showDetailsTitle ||
+        showColumnsContainer ||
+        showDetailsTable ||
+        standaloneCenterWidgets.length > 0
 
     return (
         <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' } }}>
@@ -844,8 +842,6 @@ export default function MainGrid({
 
                     {hasCustomDetailsContent ? (
                         <Box data-testid='dashboard-custom-details-content'>{details?.content}</Box>
-                    ) : hasPageBlocks ? (
-                        <PageBlocksView blocks={details?.pageBlocks ?? []} />
                     ) : (
                         <>
                             {/* Data-driven: columnsContainer(s) from center zone widgets */}
@@ -875,7 +871,18 @@ export default function MainGrid({
                                 </Box>
                             ) : null}
 
-                            {showDetailsTable ? <EnhancedDetailsSection layoutConfig={layoutConfig} showTitle={showDetailsTitle} /> : null}
+                            {hasPageBlocks ? (
+                                <PageBlocksView
+                                    blocks={details?.pageBlocks ?? []}
+                                    showOutline={details?.pagePlayer?.showOutline}
+                                    showProgressHeader={details?.pagePlayer?.showProgressHeader}
+                                    completeButtonMode={details?.pagePlayer?.completeButtonMode}
+                                    progressStorageKey={details?.pagePlayer?.progressStorageKey}
+                                    onProgressChange={details?.pagePlayer?.onProgressChange}
+                                />
+                            ) : showDetailsTable ? (
+                                <EnhancedDetailsSection layoutConfig={layoutConfig} showTitle={showDetailsTitle} />
+                            ) : null}
                         </>
                     )}
                 </>

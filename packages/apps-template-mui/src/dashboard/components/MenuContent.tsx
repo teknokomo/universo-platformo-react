@@ -19,6 +19,9 @@ import TableRowsRoundedIcon from '@mui/icons-material/TableRowsRounded'
 import AppsRoundedIcon from '@mui/icons-material/AppsRounded'
 import MoreHorizRoundedIcon from '@mui/icons-material/MoreHorizRounded'
 import SchoolRoundedIcon from '@mui/icons-material/SchoolRounded'
+import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded'
+import StarRoundedIcon from '@mui/icons-material/StarRounded'
+import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import { sanitizeMenuHref } from '@universo/utils'
 import { useTranslation } from 'react-i18next'
 import i18n from '@universo/i18n'
@@ -50,6 +53,15 @@ const resolveIcon = (iconName?: string | null) => {
         case 'school':
         case 'learning':
             return <SchoolRoundedIcon />
+        case 'recent':
+        case 'history':
+            return <HistoryRoundedIcon />
+        case 'star':
+        case 'starred':
+            return <StarRoundedIcon />
+        case 'delete':
+        case 'trash':
+            return <DeleteRoundedIcon />
         case 'more':
             return <MoreHorizRoundedIcon />
         default:

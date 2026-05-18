@@ -660,6 +660,67 @@ describe('ApplicationSettings', () => {
         })
     })
 
+    it('saves typed Learning Content defaults through the existing settings page', async () => {
+        const queryClient = new QueryClient({
+            defaultOptions: {
+                queries: { retry: false },
+                mutations: { retry: false }
+            }
+        })
+        const i18n = getI18nInstance()
+
+        render(
+            <I18nextProvider i18n={i18n}>
+                <SnackbarProvider>
+                    <QueryClientProvider client={queryClient}>
+                        <MemoryRouter initialEntries={['/applications/app-1/settings']}>
+                            <Routes>
+                                <Route path='/applications/:applicationId/settings' element={<ApplicationSettings />} />
+                            </Routes>
+                        </MemoryRouter>
+                    </QueryClientProvider>
+                </SnackbarProvider>
+            </I18nextProvider>
+        )
+
+        await userEvent.click(screen.getByRole('tab', { name: 'Learning Content' }))
+
+        expect(screen.getByTestId('application-setting-learning-content-resource-types')).toBeInTheDocument()
+
+        await userEvent.click(screen.getByTestId('application-settings-learning-content-resource-xapi-enabled'))
+        await userEvent.click(screen.getByTestId('application-settings-learning-content-column-CreatedBy'))
+        await userEvent.click(screen.getByTestId('application-settings-learning-content-save'))
+
+        await waitFor(() => {
+            expect(mockedUpdateApplication).toHaveBeenCalledWith(
+                'app-1',
+                expect.objectContaining({
+                    expectedVersion: 1,
+                    settings: expect.objectContaining({
+                        learningContent: expect.objectContaining({
+                            defaultView: 'table',
+                            supportedResourceTypes: expect.arrayContaining([
+                                expect.objectContaining({
+                                    resourceType: 'xapi',
+                                    enabled: false,
+                                    deferred: true
+                                })
+                            ]),
+                            columnPreset: expect.objectContaining({
+                                columns: expect.arrayContaining([
+                                    expect.objectContaining({
+                                        field: 'CreatedBy',
+                                        visible: true
+                                    })
+                                ])
+                            })
+                        })
+                    })
+                })
+            )
+        })
+    })
+
     it('does not load limits while schema provisioning is still pending', async () => {
         mockedUseApplicationDetails.mockReturnValue({
             data: {

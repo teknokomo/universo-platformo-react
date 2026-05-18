@@ -172,7 +172,7 @@ export const createClientScriptContext = (params: {
     script: ApplicationScriptDefinition
 }): Record<string, unknown> => {
     const denyCapability = async (capability: string): Promise<never> => {
-        throw new Error(`Script capability "${capability}" is not enabled for this module`)
+        throw new Error(`Script capability "${capability}" is not enabled for this script`)
     }
 
     return {

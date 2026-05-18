@@ -53,7 +53,12 @@ describe('publicRuntimeAccess helpers', () => {
         executor.query.mockImplementation(async (sql: string) => {
             if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
                 return [
-                    { id: 'object-1', codename: { locales: { en: { content: 'Modules' } } }, kind: 'object', table_name: 'modules_table' }
+                    {
+                        id: 'object-1',
+                        codename: { locales: { en: { content: 'LearningResources' } } },
+                        kind: 'object',
+                        table_name: 'learning_resources_table'
+                    }
                 ]
             }
 
@@ -83,25 +88,25 @@ describe('publicRuntimeAccess helpers', () => {
             return []
         })
 
-        const binding = await resolvePublicRuntimeObject(executor, schemaName, 'Modules')
+        const binding = await resolvePublicRuntimeObject(executor, schemaName, 'LearningResources')
 
         expect(binding).toMatchObject({
             id: 'object-1',
             kind: 'object',
-            tableName: 'modules_table'
+            tableName: 'learning_resources_table'
         })
         expect(binding?.attrs).toHaveLength(2)
     })
 
-    it('loads top-level records and child table rows for public module content', async () => {
+    it('loads top-level records and child table rows for public learning resource content', async () => {
         const { executor } = createMockDbExecutor()
 
         executor.query.mockImplementation(async (sql: string) => {
-            if (sql.includes(`FROM "${schemaName}"."modules_table"`)) {
+            if (sql.includes(`FROM "${schemaName}"."learning_resources_table"`)) {
                 return [
                     {
                         id: '8f1c1880-2b67-4d79-b02b-a53db0a85453',
-                        title: 'Demo module',
+                        title: 'Demo learning resource',
                         description: 'Intro lesson'
                     }
                 ]
@@ -131,9 +136,9 @@ describe('publicRuntimeAccess helpers', () => {
             schemaName,
             {
                 id: 'object-1',
-                codename: 'Modules',
+                codename: 'LearningResources',
                 kind: 'object',
-                tableName: 'modules_table',
+                tableName: 'learning_resources_table',
                 attrs: [
                     { id: 'attr-title', codename: 'Title', column_name: 'title', data_type: 'STRING', parent_component_id: null },
                     {
@@ -186,7 +191,7 @@ describe('publicRuntimeAccess helpers', () => {
 
         expect(record).toMatchObject({
             id: '8f1c1880-2b67-4d79-b02b-a53db0a85453',
-            title: 'Demo module'
+            title: 'Demo learning resource'
         })
         expect(childRows).toEqual([
             expect.objectContaining({
@@ -262,14 +267,14 @@ describe('publicRuntimeAccess helpers', () => {
         const { executor } = createMockDbExecutor()
 
         executor.query.mockImplementation(async (sql: string) => {
-            if (sql.includes(`FROM "${schemaName}"."modules_table"`)) {
+            if (sql.includes(`FROM "${schemaName}"."learning_resources_table"`)) {
                 expect(sql).toContain('SELECT id, "title", "description"')
                 expect(sql).not.toContain('"content_items"')
 
                 return [
                     {
                         id: '8f1c1880-2b67-4d79-b02b-a53db0a85453',
-                        title: 'Demo module',
+                        title: 'Demo learning resource',
                         description: 'Intro lesson'
                     }
                 ]
@@ -283,9 +288,9 @@ describe('publicRuntimeAccess helpers', () => {
             schemaName,
             {
                 id: 'object-1',
-                codename: 'Modules',
+                codename: 'LearningResources',
                 kind: 'object',
-                tableName: 'modules_table',
+                tableName: 'learning_resources_table',
                 attrs: [
                     { id: 'attr-title', codename: 'Title', column_name: 'title', data_type: 'STRING', parent_component_id: null },
                     {
@@ -309,7 +314,7 @@ describe('publicRuntimeAccess helpers', () => {
 
         expect(record).toMatchObject({
             id: '8f1c1880-2b67-4d79-b02b-a53db0a85453',
-            title: 'Demo module',
+            title: 'Demo learning resource',
             description: 'Intro lesson'
         })
     })

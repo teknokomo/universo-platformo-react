@@ -13,6 +13,7 @@ const runtimeMocks = vi.hoisted(() => ({
     handlePendingInteractionAttempt: vi.fn(() => false),
     handleOpenCreate: vi.fn(),
     handleCloseForm: vi.fn(),
+    updateLearningContentProgress: vi.fn().mockResolvedValue({ persisted: true }),
     setPaginationModel: vi.fn(),
     dashboardStateOverrides: {} as Record<string, unknown>,
     triggerRerender: undefined as undefined | (() => void)
@@ -62,6 +63,13 @@ vi.mock('@universo/apps-template-mui', async () => {
                 locale?: string
                 sections?: Array<{ id: string; codename: string }>
                 objectCollections?: Array<{ id: string; codename: string }>
+                pagePlayer?: {
+                    showOutline?: boolean
+                    showProgressHeader?: boolean
+                    completeButtonMode?: string
+                    progressStorageKey?: string
+                    onProgressChange?: (payload: { progressPercent: number; status: string }) => Promise<void> | void
+                }
             }
             layoutConfig?: Record<string, unknown>
             menu?: { items?: Array<{ label: string; selected?: boolean; href?: string | null }> }
@@ -77,9 +85,25 @@ vi.mock('@universo/apps-template-mui', async () => {
                     {JSON.stringify({
                         locale: details?.locale,
                         sections: details?.sections,
-                        objectCollections: details?.objectCollections
+                        objectCollections: details?.objectCollections,
+                        pagePlayer: details?.pagePlayer
+                            ? {
+                                  showOutline: details.pagePlayer.showOutline,
+                                  showProgressHeader: details.pagePlayer.showProgressHeader,
+                                  completeButtonMode: details.pagePlayer.completeButtonMode,
+                                  progressStorageKey: details.pagePlayer.progressStorageKey,
+                                  hasProgressHandler: typeof details.pagePlayer.onProgressChange === 'function'
+                              }
+                            : null
                     })}
                 </div>
+                <button
+                    data-testid='apps-dashboard-complete-page'
+                    onClick={() => void details?.pagePlayer?.onProgressChange?.({ progressPercent: 100, status: 'completed' })}
+                    type='button'
+                >
+                    complete
+                </button>
                 <div data-testid='apps-dashboard-actions'>{details?.actions}</div>
                 <div data-testid='apps-dashboard-content'>{details?.content}</div>
             </div>
@@ -108,6 +132,7 @@ vi.mock('@universo/apps-template-mui', async () => {
             </>
         ),
         RowActionsMenu: () => null,
+        updateLearningContentProgress: runtimeMocks.updateLearningContentProgress,
         RuntimeWorkspacesPage: ({
             applicationId,
             routeWorkspaceId,
@@ -303,6 +328,7 @@ describe('ApplicationRuntime pending interaction safety', () => {
         runtimeMocks.capturedCrudOptions = null
         runtimeMocks.handlePendingInteractionAttempt.mockReturnValue(false)
         runtimeMocks.handleCloseForm.mockReset()
+        runtimeMocks.updateLearningContentProgress.mockClear()
         runtimeMocks.dashboardStateOverrides = {}
         runtimeMocks.triggerRerender = undefined
     })
@@ -344,6 +370,73 @@ describe('ApplicationRuntime pending interaction safety', () => {
         await user.click(screen.getByRole('button', { name: 'Create' }))
 
         expect(runtimeMocks.handleOpenCreate).toHaveBeenCalledTimes(1)
+    })
+
+    it('passes Learning Content page player progress settings to the dashboard runtime surface', async () => {
+        runtimeMocks.dashboardStateOverrides = {
+            activeSectionId: 'page-1',
+            selectedSectionId: 'page-1',
+            activeObjectCollectionId: 'page-1',
+            selectedObjectCollectionId: 'page-1',
+            appData: {
+                zoneWidgets: { left: [], right: [], center: [] },
+                menus: [],
+                activeMenuId: null,
+                currentWorkspaceId: 'workspace-1',
+                settings: {
+                    sectionLinksEnabled: true,
+                    learningContent: {
+                        playerPreset: {
+                            codename: 'reader',
+                            title: { en: 'Reader', ru: 'Читалка' },
+                            showOutline: false,
+                            showProgressHeader: true,
+                            allowResume: true,
+                            allowResourcePreview: true,
+                            completeButtonMode: 'manual'
+                        }
+                    }
+                },
+                permissions: {
+                    manageMembers: true,
+                    manageApplication: true,
+                    createContent: true,
+                    editContent: true,
+                    deleteContent: true,
+                    readReports: true
+                },
+                workspacesEnabled: true,
+                section: {
+                    id: 'page-1',
+                    name: 'Welcome',
+                    codename: 'LearnerHome',
+                    pageBlocks: [{ id: 'body', type: 'paragraph', data: { text: 'Read' } }]
+                },
+                sections: [{ id: 'page-1', codename: 'LearnerHome' }],
+                objectCollection: { id: 'page-1', name: 'Welcome', codename: 'LearnerHome' },
+                objectCollections: [{ id: 'page-1', codename: 'LearnerHome' }]
+            }
+        }
+
+        renderRuntimePage()
+
+        expect(screen.getByTestId('apps-dashboard-details')).toHaveTextContent('"showOutline":false')
+        expect(screen.getByTestId('apps-dashboard-details')).toHaveTextContent('"showProgressHeader":true')
+        expect(screen.getByTestId('apps-dashboard-details')).toHaveTextContent(
+            '"progressStorageKey":"learning-content-progress:app-1:workspace-1:page-1"'
+        )
+
+        const user = userEvent.setup()
+        await user.click(screen.getByTestId('apps-dashboard-complete-page'))
+
+        expect(runtimeMocks.updateLearningContentProgress).toHaveBeenCalledWith({
+            apiBaseUrl: '/api/v1',
+            applicationId: 'app-1',
+            targetObjectCodename: 'LearnerHome',
+            targetRecordId: 'page-1',
+            progressPercent: 100,
+            status: 'completed'
+        })
     })
 
     it('renders the workspaces route with runtime navigation and no demo dashboard layout', () => {

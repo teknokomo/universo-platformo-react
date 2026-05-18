@@ -369,4 +369,95 @@ describe('syncLayoutPersistence', () => {
         expect(inheritedWidget?.id).toEqual(expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/))
         expect(inheritedWidget?.id).not.toBe('base-widget')
     })
+
+    it('lets scoped owned single-instance widgets replace inherited widgets in the same zone', async () => {
+        currentKnex = createMockSyncKnex({
+            layoutRows: [
+                {
+                    id: 'layout-main',
+                    scope_entity_id: null,
+                    source_kind: 'metahub',
+                    sync_state: 'clean',
+                    is_source_excluded: false,
+                    _upl_deleted: false,
+                    _app_deleted: false
+                },
+                {
+                    id: 'layout-course',
+                    scope_entity_id: 'course-object',
+                    source_kind: 'metahub',
+                    sync_state: 'clean',
+                    is_source_excluded: false,
+                    _upl_deleted: false,
+                    _app_deleted: false
+                }
+            ]
+        })
+
+        const snapshot: PublishedApplicationSnapshot = {
+            entities: {},
+            layouts: [
+                {
+                    id: 'layout-main',
+                    scopeEntityId: null,
+                    templateKey: 'dashboard',
+                    name: { en: 'Main' },
+                    description: null,
+                    config: { showDetailsTable: true },
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0
+                }
+            ],
+            scopedLayouts: [
+                {
+                    id: 'layout-course',
+                    scopeEntityId: 'course-object',
+                    baseLayoutId: 'layout-main',
+                    templateKey: 'dashboard',
+                    name: { en: 'Course' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0
+                }
+            ],
+            layoutZoneWidgets: [
+                {
+                    id: 'base-details-table',
+                    layoutId: 'layout-main',
+                    zone: 'center',
+                    widgetKey: 'detailsTable',
+                    sortOrder: 10,
+                    config: { datasource: { kind: 'records.list', sectionCodename: 'LearningResources' } },
+                    isActive: true
+                },
+                {
+                    id: 'course-details-table',
+                    layoutId: 'layout-course',
+                    zone: 'center',
+                    widgetKey: 'detailsTable',
+                    sortOrder: 20,
+                    config: { datasource: { kind: 'records.list', sectionCodename: 'CourseItems' } },
+                    isActive: true
+                }
+            ],
+            defaultLayoutId: 'layout-main'
+        }
+
+        await persistPublishedWidgets({
+            schemaName: 'app_schema',
+            snapshot,
+            userId: 'user-1'
+        })
+
+        const scopedDetailsTables = currentKnex.widgetRows.filter(
+            (row) => row.layout_id === 'layout-course' && row.zone === 'center' && row.widget_key === 'detailsTable'
+        )
+        expect(scopedDetailsTables).toHaveLength(1)
+        expect(scopedDetailsTables[0]?.id).toBe('course-details-table')
+        expect(scopedDetailsTables[0]?.source_base_widget_id).toBeNull()
+        expect(scopedDetailsTables[0]?.config).toEqual({ datasource: { kind: 'records.list', sectionCodename: 'CourseItems' } })
+    })
 })

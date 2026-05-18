@@ -1,5 +1,5 @@
 ---
-description: Public guest runtime access for LMS modules and quizzes, including direct links and QR codes.
+description: Public guest runtime access for LMS learning content and quizzes, including direct links and QR codes.
 ---
 
 # LMS Guest Access
@@ -11,7 +11,7 @@ The LMS MVP supports guest access without platform registration.
 ![LMS guest entry screen](../.gitbook/assets/quiz-tutorial/runtime-quiz.png)
 
 1. An operator creates an `AccessLinks` runtime row.
-2. The row points to a module or quiz target.
+2. The row points to a learning-content or quiz target.
 3. The guest opens `/public/a/:applicationId/links/:slug`.
 4. The public runtime asks only for a display name.
 5. The backend creates a student row with `is_guest = true` and a guest session token.

@@ -26,6 +26,9 @@ export interface ToGridColumnsOptions {
 
 const buildGridRowActionsTriggerTestId = (rowId: string) => `grid-row-actions-trigger-${rowId}`
 
+const isHiddenColumn = (column: AppDataResponse['columns'][number]): boolean =>
+    column.uiConfig?.hidden === true || column.uiConfig?.gridHidden === true
+
 /**
  * Convert API column definitions into MUI DataGrid `GridColDef[]`.
  *
@@ -34,84 +37,86 @@ const buildGridRowActionsTriggerTestId = (rowId: string) => `grid-row-actions-tr
  */
 export function toGridColumns(response: AppDataResponse, options?: ToGridColumnsOptions): GridColDef[] {
     const locale = options?.locale ?? 'en'
-    const cols: GridColDef[] = response.columns.map((c) => {
-        // TABLE columns are virtual — not sortable/filterable, show chip
-        if (c.dataType === 'TABLE') {
+    const cols: GridColDef[] = response.columns
+        .filter((c) => !isHiddenColumn(c))
+        .map((c) => {
+            // TABLE columns are virtual — not sortable/filterable, show chip
+            if (c.dataType === 'TABLE') {
+                return {
+                    field: c.field,
+                    headerName: c.headerName,
+                    width: 140,
+                    sortable: false,
+                    filterable: false,
+                    renderCell: (params) => {
+                        const count = typeof params.value === 'number' ? params.value : 0
+                        return <Chip label={`${count}`} size='small' variant='outlined' icon={<TableRowsIcon fontSize='small' />} />
+                    }
+                }
+            }
+
+            const refOptionLabels =
+                c.dataType === 'REF' && Array.isArray(c.refOptions) && c.refOptions.length > 0
+                    ? new Map(c.refOptions.map((option) => [option.id, option.label]))
+                    : c.dataType === 'REF' && Array.isArray(c.enumOptions) && c.enumOptions.length > 0
+                    ? new Map(c.enumOptions.map((option) => [option.id, option.label]))
+                    : null
+
             return {
                 field: c.field,
                 headerName: c.headerName,
-                width: 140,
-                sortable: false,
-                filterable: false,
+                flex: 1,
+                minWidth: 140,
+                sortable: true,
+                filterable: true,
+                renderHeader:
+                    c.dataType === 'BOOLEAN' && c.uiConfig?.headerAsCheckbox
+                        ? () => <Checkbox size='small' disabled checked={false} indeterminate={false} sx={{ p: 0 }} title={c.headerName} />
+                        : undefined,
                 renderCell: (params) => {
-                    const count = typeof params.value === 'number' ? params.value : 0
-                    return <Chip label={`${count}`} size='small' variant='outlined' icon={<TableRowsIcon fontSize='small' />} />
-                }
-            }
-        }
-
-        const refOptionLabels =
-            c.dataType === 'REF' && Array.isArray(c.refOptions) && c.refOptions.length > 0
-                ? new Map(c.refOptions.map((option) => [option.id, option.label]))
-                : c.dataType === 'REF' && Array.isArray(c.enumOptions) && c.enumOptions.length > 0
-                ? new Map(c.enumOptions.map((option) => [option.id, option.label]))
-                : null
-
-        return {
-            field: c.field,
-            headerName: c.headerName,
-            flex: 1,
-            minWidth: 140,
-            sortable: true,
-            filterable: true,
-            renderHeader:
-                c.dataType === 'BOOLEAN' && c.uiConfig?.headerAsCheckbox
-                    ? () => <Checkbox size='small' disabled checked={false} indeterminate={false} sx={{ p: 0 }} title={c.headerName} />
-                    : undefined,
-            renderCell: (params) => {
-                // Check for consumer-provided cell renderer override
-                if (options?.cellRenderers?.[c.dataType]) {
-                    return options.cellRenderers[c.dataType]({
-                        value: params.value,
-                        rowId: String(params.id),
-                        field: c.field,
-                        column: c
-                    })
-                }
-                // Default rendering
-                if (c.dataType === 'BOOLEAN') {
-                    return <Checkbox size='small' disabled checked={params.value === true} indeterminate={false} />
-                }
-                if (c.dataType === 'STRING' && c.uiConfig?.widget === 'textarea') {
-                    if (params.value === null || params.value === undefined) return ''
-                    return (
-                        <Box sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', lineHeight: 1.5 }}>
-                            {formatRuntimeValue(params.value, locale)}
-                        </Box>
-                    )
-                }
-                if (c.dataType === 'REF' && refOptionLabels) {
-                    let value = ''
-                    if (typeof params.value === 'string') {
-                        value = params.value
-                    } else if (params.value && typeof params.value === 'object') {
-                        const refObject = params.value as Record<string, unknown>
-                        let objectLabel = ''
-                        objectLabel = formatRuntimeValue(refObject.label ?? refObject.name, locale)
-                        if (objectLabel) {
-                            return objectLabel
-                        }
-                        value = String(refObject.id ?? '')
+                    // Check for consumer-provided cell renderer override
+                    if (options?.cellRenderers?.[c.dataType]) {
+                        return options.cellRenderers[c.dataType]({
+                            value: params.value,
+                            rowId: String(params.id),
+                            field: c.field,
+                            column: c
+                        })
                     }
-                    if (!value) return ''
+                    // Default rendering
+                    if (c.dataType === 'BOOLEAN') {
+                        return <Checkbox size='small' disabled checked={params.value === true} indeterminate={false} />
+                    }
+                    if (c.dataType === 'STRING' && c.uiConfig?.widget === 'textarea') {
+                        if (params.value === null || params.value === undefined) return ''
+                        return (
+                            <Box sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', lineHeight: 1.5 }}>
+                                {formatRuntimeValue(params.value, locale)}
+                            </Box>
+                        )
+                    }
+                    if (c.dataType === 'REF' && refOptionLabels) {
+                        let value = ''
+                        if (typeof params.value === 'string') {
+                            value = params.value
+                        } else if (params.value && typeof params.value === 'object') {
+                            const refObject = params.value as Record<string, unknown>
+                            let objectLabel = ''
+                            objectLabel = formatRuntimeValue(refObject.label ?? refObject.name, locale)
+                            if (objectLabel) {
+                                return objectLabel
+                            }
+                            value = String(refObject.id ?? '')
+                        }
+                        if (!value) return ''
 
-                    return refOptionLabels.get(value) ?? ''
+                        return refOptionLabels.get(value) ?? ''
+                    }
+                    if (params.value === null || params.value === undefined) return ''
+                    return formatRuntimeValue(params.value, locale)
                 }
-                if (params.value === null || params.value === undefined) return ''
-                return formatRuntimeValue(params.value, locale)
             }
-        }
-    })
+        })
 
     if (options?.onMenuOpen) {
         const onMenuOpen = options.onMenuOpen

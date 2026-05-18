@@ -1648,9 +1648,36 @@ export async function listConnectorPublicationLinks(api, applicationId, connecto
 }
 
 export async function createRuntimeRow(api, applicationId, payload) {
-    const response = await sendWithCsrf(api, 'POST', `/api/v1/applications/${applicationId}/runtime/rows`, payload)
+    const { workspaceId, ...body } = payload ?? {}
+    const query = new URLSearchParams()
+    if (workspaceId) {
+        query.set('workspaceId', String(workspaceId))
+    }
+    const suffix = query.size > 0 ? `?${query.toString()}` : ''
+    const response = await sendWithCsrf(api, 'POST', `/api/v1/applications/${applicationId}/runtime/rows${suffix}`, body)
     if (!response.ok) {
         throw await buildError(response, `Creating runtime row in application ${applicationId}`)
+    }
+
+    return response.json()
+}
+
+export async function getRuntimeRow(api, applicationId, rowId, params = {}) {
+    const query = new URLSearchParams()
+    const objectCollectionId = params.objectCollectionId ?? params.sectionId ?? params.objectId ?? null
+    if (objectCollectionId) {
+        query.set('objectCollectionId', String(objectCollectionId))
+    }
+    if (params.workspaceId) {
+        query.set('workspaceId', String(params.workspaceId))
+    }
+    const suffix = query.size > 0 ? `?${query.toString()}` : ''
+    const response = await fetchFromApi(api, `/api/v1/applications/${applicationId}/runtime/rows/${rowId}${suffix}`, { method: 'GET' })
+    if (response.status === 404) {
+        return null
+    }
+    if (!response.ok) {
+        throw await buildError(response, `Fetching runtime row ${rowId} in application ${applicationId}`)
     }
 
     return response.json()

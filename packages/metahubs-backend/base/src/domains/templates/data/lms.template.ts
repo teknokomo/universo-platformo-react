@@ -101,6 +101,52 @@ const LMS_ASSIGNMENT_SUBMISSION_WORKFLOW_ACTIONS: WorkflowAction[] = [
     })
 ]
 
+const LMS_LEARNING_RESOURCE_PUBLICATION_WORKFLOW_ACTIONS: WorkflowAction[] = [
+    buildLmsWorkflowAction({
+        codename: 'PublishLearningResource',
+        titleEn: 'Publish',
+        titleRu: 'Опубликовать',
+        from: ['Draft', 'UnpublishedChanges'],
+        to: 'Published',
+        statusFieldCodename: 'PublicationStatus',
+        requiredCapabilities: ['workflow.execute'],
+        confirmation: {
+            titleEn: 'Publish learning resource',
+            titleRu: 'Опубликовать учебный ресурс',
+            messageEn: 'Publish this resource for use in courses, tracks, and learner-facing views?',
+            messageRu: 'Опубликовать этот ресурс для использования в курсах, треках и витринах учащихся?',
+            confirmLabelEn: 'Publish',
+            confirmLabelRu: 'Опубликовать'
+        }
+    }),
+    buildLmsWorkflowAction({
+        codename: 'ReturnLearningResourceToDraft',
+        titleEn: 'Return to draft',
+        titleRu: 'Вернуть в черновик',
+        from: ['Published', 'UnpublishedChanges'],
+        to: 'Draft',
+        statusFieldCodename: 'PublicationStatus',
+        requiredCapabilities: ['workflow.execute'],
+        confirmation: {
+            titleEn: 'Return learning resource to draft',
+            titleRu: 'Вернуть учебный ресурс в черновик',
+            messageEn: 'Move this resource back to draft so it is hidden from learner-facing views until it is published again?',
+            messageRu: 'Вернуть ресурс в черновик, чтобы скрыть его из витрин учащихся до повторной публикации?',
+            confirmLabelEn: 'Return to draft',
+            confirmLabelRu: 'Вернуть в черновик'
+        }
+    }),
+    buildLmsWorkflowAction({
+        codename: 'MarkLearningResourceChanged',
+        titleEn: 'Mark unpublished changes',
+        titleRu: 'Отметить изменения',
+        from: ['Published'],
+        to: 'UnpublishedChanges',
+        statusFieldCodename: 'PublicationStatus',
+        requiredCapabilities: ['workflow.execute']
+    })
+]
+
 const LMS_TRAINING_ATTENDANCE_WORKFLOW_ACTIONS: WorkflowAction[] = [
     buildLmsWorkflowAction({
         codename: 'MarkAttendanceAttended',
@@ -305,15 +351,16 @@ const LMS_PUBLIC_GUEST_RUNTIME_CONFIG = {
         accessLinks: 'AccessLinks',
         participants: 'Students',
         assessments: 'Quizzes',
-        contentNodes: 'Modules',
+        contentNodes: 'LearningResources',
         assessmentResponses: 'QuizResponses',
-        contentProgress: 'ModuleProgress'
+        contentProgress: 'ContentProgress'
     },
     fields: {
         accessLink: {
             slug: 'Slug',
             targetType: 'TargetType',
             targetId: 'TargetId',
+            contentNodeIdRef: 'ContentNodeIdRef',
             isActive: 'IsActive',
             expiresAt: 'ExpiresAt',
             maxUses: 'MaxUses',
@@ -363,7 +410,7 @@ const LMS_PUBLIC_GUEST_RUNTIME_CONFIG = {
         },
         contentProgress: {
             studentId: 'ProgressStudentId',
-            moduleId: 'ModuleId',
+            contentNodeId: 'ContentNodeId',
             status: 'ProgressStatus',
             progressPercent: 'ProgressPercent',
             startedAt: 'StartedAt',
@@ -392,7 +439,7 @@ function buildLmsBaseSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                 autoShowAllSections: false,
                 bindToHub: false,
                 boundTreeEntityId: null,
-                maxPrimaryItems: 8,
+                maxPrimaryItems: 12,
                 overflowLabelKey: 'runtime.menu.more',
                 startPage: 'LearnerHome',
                 workspacePlacement: 'primary',
@@ -415,19 +462,19 @@ function buildLmsBaseSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                         isActive: true
                     },
                     {
-                        id: 'lms-nav-modules',
+                        id: 'lms-nav-learning-content',
                         kind: 'section',
                         title: {
                             _schema: '1',
                             _primary: 'en',
                             locales: {
-                                en: { content: 'Modules', version: 1, isActive: true },
-                                ru: { content: 'Модули', version: 1, isActive: true }
+                                en: { content: 'Learning Content', version: 1, isActive: true },
+                                ru: { content: 'Учебный контент', version: 1, isActive: true }
                             }
                         },
-                        icon: 'object',
+                        icon: 'folder',
                         href: null,
-                        sectionId: 'Modules',
+                        sectionId: 'ContentProjects',
                         sortOrder: 1,
                         isActive: true
                     },
@@ -445,24 +492,92 @@ function buildLmsBaseSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                         icon: 'object',
                         href: null,
                         sectionId: 'Courses',
-                        sortOrder: 2,
+                        sortOrder: 5,
                         isActive: true
                     },
                     {
-                        id: 'lms-nav-resources',
+                        id: 'lms-nav-tracks',
                         kind: 'section',
                         title: {
                             _schema: '1',
                             _primary: 'en',
                             locales: {
-                                en: { content: 'Resources', version: 1, isActive: true },
-                                ru: { content: 'Материалы', version: 1, isActive: true }
+                                en: { content: 'Tracks', version: 1, isActive: true },
+                                ru: { content: 'Треки', version: 1, isActive: true }
                             }
                         },
-                        icon: 'folder',
+                        icon: 'object',
                         href: null,
-                        sectionId: 'LearningResources',
+                        sectionId: 'LearningTracks',
+                        sortOrder: 6,
+                        isActive: true
+                    },
+                    {
+                        id: 'lms-nav-recent-content',
+                        kind: 'section',
+                        title: {
+                            _schema: '1',
+                            _primary: 'en',
+                            locales: {
+                                en: { content: 'Recent', version: 1, isActive: true },
+                                ru: { content: 'Недавние', version: 1, isActive: true }
+                            }
+                        },
+                        icon: 'recent',
+                        href: null,
+                        sectionId: 'RecentContentViews',
+                        sortOrder: 2,
+                        isActive: true
+                    },
+                    {
+                        id: 'lms-nav-starred-content',
+                        kind: 'section',
+                        title: {
+                            _schema: '1',
+                            _primary: 'en',
+                            locales: {
+                                en: { content: 'Starred', version: 1, isActive: true },
+                                ru: { content: 'Избранное', version: 1, isActive: true }
+                            }
+                        },
+                        icon: 'star',
+                        href: null,
+                        sectionId: 'ContentStars',
                         sortOrder: 3,
+                        isActive: true
+                    },
+                    {
+                        id: 'lms-nav-shared-content',
+                        kind: 'section',
+                        title: {
+                            _schema: '1',
+                            _primary: 'en',
+                            locales: {
+                                en: { content: 'Shared with me', version: 1, isActive: true },
+                                ru: { content: 'Доступные мне', version: 1, isActive: true }
+                            }
+                        },
+                        icon: 'users',
+                        href: null,
+                        sectionId: 'ContentAccessEntries',
+                        sortOrder: 4,
+                        isActive: true
+                    },
+                    {
+                        id: 'lms-nav-trash-content',
+                        kind: 'section',
+                        title: {
+                            _schema: '1',
+                            _primary: 'en',
+                            locales: {
+                                en: { content: 'Trash', version: 1, isActive: true },
+                                ru: { content: 'Корзина', version: 1, isActive: true }
+                            }
+                        },
+                        icon: 'delete',
+                        href: null,
+                        sectionId: 'TrashEntries',
+                        sortOrder: 7,
                         isActive: true
                     },
                     {
@@ -479,7 +594,7 @@ function buildLmsBaseSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                         icon: 'folder',
                         href: null,
                         sectionId: 'KnowledgeArticles',
-                        sortOrder: 4,
+                        sortOrder: 8,
                         isActive: true
                     },
                     {
@@ -496,7 +611,7 @@ function buildLmsBaseSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                         icon: 'tasks',
                         href: null,
                         sectionId: 'DevelopmentPlans',
-                        sortOrder: 5,
+                        sortOrder: 9,
                         isActive: true
                     },
                     {
@@ -513,7 +628,7 @@ function buildLmsBaseSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                         icon: 'analytics',
                         href: null,
                         sectionId: 'Reports',
-                        sortOrder: 6,
+                        sortOrder: 10,
                         isActive: true
                     }
                 ]
@@ -546,14 +661,14 @@ function buildLmsHomeSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                         }
                     },
                     {
-                        title: vlc('Modules', 'Модули'),
+                        title: vlc('Projects', 'Проекты'),
                         value: '0',
-                        interval: vlc('Published module', 'Опубликованный модуль'),
+                        interval: vlc('Workspace content', 'Контент пространства'),
                         trend: 'neutral',
                         datasource: {
                             kind: 'metric',
                             metricKey: 'records.count',
-                            params: { sectionCodename: 'Modules' }
+                            params: { sectionCodename: 'ContentProjects' }
                         }
                     },
                     {
@@ -587,10 +702,10 @@ function buildLmsHomeSeedZoneWidgets(): TemplateSeedZoneWidget[] {
             sortOrder: 6,
             config: {
                 title: vlc('Department Progress', 'Прогресс подразделений'),
-                interval: vlc('By module progress records', 'По записям прогресса модулей'),
+                interval: vlc('By content progress records', 'По записям прогресса контента'),
                 datasource: {
                     kind: 'records.list',
-                    sectionCodename: 'ModuleProgress',
+                    sectionCodename: 'ContentProgress',
                     query: {
                         sort: [{ field: 'CompletedAt', direction: 'asc' }]
                     }
@@ -617,6 +732,797 @@ function buildLmsHomeSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                 xField: 'SubmittedAt',
                 maxRows: 12,
                 series: [{ field: 'Score', label: vlc('Score', 'Балл') }]
+            }
+        },
+        {
+            zone: 'center' as const,
+            widgetKey: 'detailsTabs',
+            sortOrder: 8,
+            config: {
+                tabs: [
+                    {
+                        id: 'my-courses',
+                        label: vlc('My Courses', 'Мои курсы'),
+                        widgets: [
+                            {
+                                widgetKey: 'detailsTable',
+                                config: {
+                                    datasource: {
+                                        kind: 'records.list',
+                                        sectionCodename: 'Enrollments',
+                                        query: {
+                                            filters: [
+                                                { field: 'AssignedUserId', operator: 'equals', value: { runtime: 'currentUserId' } },
+                                                { field: 'TargetType', operator: 'equals', value: 'course' }
+                                            ],
+                                            sort: [{ field: 'DueDate', direction: 'asc' }]
+                                        }
+                                    }
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        id: 'my-tracks',
+                        label: vlc('My Tracks', 'Мои треки'),
+                        widgets: [
+                            {
+                                widgetKey: 'detailsTable',
+                                config: {
+                                    datasource: {
+                                        kind: 'records.list',
+                                        sectionCodename: 'Enrollments',
+                                        query: {
+                                            filters: [
+                                                { field: 'AssignedUserId', operator: 'equals', value: { runtime: 'currentUserId' } },
+                                                { field: 'TargetType', operator: 'equals', value: 'track' }
+                                            ],
+                                            sort: [{ field: 'DueDate', direction: 'asc' }]
+                                        }
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+    ]
+}
+
+function buildLmsLearningContentSeedZoneWidgets(libraryView: 'all' | 'recent' | 'starred' | 'shared' = 'all'): TemplateSeedZoneWidget[] {
+    return [
+        {
+            zone: 'center' as const,
+            widgetKey: 'overviewCards',
+            sortOrder: 4,
+            config: {
+                cards: [
+                    {
+                        title: vlc('Projects', 'Проекты'),
+                        value: '0',
+                        interval: vlc('Current workspace', 'Текущее рабочее пространство'),
+                        trend: 'neutral',
+                        datasource: {
+                            kind: 'metric',
+                            metricKey: 'records.count',
+                            params: { sectionCodename: 'ContentProjects' }
+                        }
+                    },
+                    {
+                        title: vlc('Pages and links', 'Страницы и ссылки'),
+                        value: '0',
+                        interval: vlc('Standalone content', 'Самостоятельный контент'),
+                        trend: 'neutral',
+                        datasource: {
+                            kind: 'metric',
+                            metricKey: 'records.count',
+                            params: { sectionCodename: 'LearningResources' }
+                        }
+                    },
+                    {
+                        title: vlc('Courses', 'Курсы'),
+                        value: '0',
+                        interval: vlc('Course builder records', 'Записи конструктора курсов'),
+                        trend: 'neutral',
+                        datasource: {
+                            kind: 'metric',
+                            metricKey: 'records.count',
+                            params: { sectionCodename: 'Courses' }
+                        }
+                    },
+                    {
+                        title: vlc('Tracks', 'Треки'),
+                        value: '0',
+                        interval: vlc('Learning track records', 'Записи учебных треков'),
+                        trend: 'neutral',
+                        datasource: {
+                            kind: 'metric',
+                            metricKey: 'records.count',
+                            params: { sectionCodename: 'LearningTracks' }
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            zone: 'center' as const,
+            widgetKey: 'detailsTable',
+            sortOrder: 9,
+            config: {
+                datasource: {
+                    kind: 'records.union',
+                    targets: [
+                        { sectionCodename: 'LearningResources', displayType: 'resource' },
+                        { sectionCodename: 'Courses', displayType: 'course' },
+                        { sectionCodename: 'LearningTracks', displayType: 'track' }
+                    ],
+                    query: {
+                        lifecycleState: 'active',
+                        libraryView,
+                        sort: [{ field: 'Title', direction: 'asc' }]
+                    }
+                },
+                showViewToggle: true
+            }
+        }
+    ]
+}
+
+function buildLmsTrashSeedZoneWidgets(): TemplateSeedZoneWidget[] {
+    return [
+        {
+            zone: 'center' as const,
+            widgetKey: 'detailsTable',
+            sortOrder: 9,
+            config: {
+                datasource: {
+                    kind: 'records.union',
+                    targets: [
+                        { sectionCodename: 'LearningResources', displayType: 'resource' },
+                        { sectionCodename: 'Courses', displayType: 'course' },
+                        { sectionCodename: 'LearningTracks', displayType: 'track' }
+                    ],
+                    query: {
+                        lifecycleState: 'deleted',
+                        sort: [{ field: 'Title', direction: 'asc' }]
+                    }
+                }
+            }
+        }
+    ]
+}
+
+function buildLmsCourseBuilderSeedZoneWidgets(): TemplateSeedZoneWidget[] {
+    return [
+        {
+            zone: 'center' as const,
+            widgetKey: 'overviewCards',
+            sortOrder: 4,
+            config: {
+                cards: [
+                    {
+                        title: vlc('Sections', 'Разделы'),
+                        value: '0',
+                        interval: vlc('Course outline groups', 'Группы структуры курса'),
+                        trend: 'neutral',
+                        datasource: {
+                            kind: 'metric',
+                            metricKey: 'records.count',
+                            params: { sectionCodename: 'CourseSections' }
+                        }
+                    },
+                    {
+                        title: vlc('Items', 'Элементы'),
+                        value: '0',
+                        interval: vlc('Course content references', 'Ссылки на контент курса'),
+                        trend: 'neutral',
+                        datasource: {
+                            kind: 'metric',
+                            metricKey: 'records.count',
+                            params: { sectionCodename: 'CourseItems' }
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            zone: 'center' as const,
+            widgetKey: 'detailsTabs',
+            sortOrder: 9,
+            config: {
+                tabs: [
+                    {
+                        id: 'outline',
+                        label: vlc('Outline', 'Структура'),
+                        widgets: [
+                            {
+                                widgetKey: 'relationBuilder',
+                                config: {
+                                    parentDatasource: {
+                                        kind: 'records.list',
+                                        sectionCodename: 'Courses',
+                                        query: { sort: [{ field: 'Title', direction: 'asc' }] }
+                                    },
+                                    parentLabel: vlc('Course', 'Курс'),
+                                    parentTitleFieldCodename: 'Title',
+                                    emptyParentMessage: vlc(
+                                        'Create a course before adding sections and content items.',
+                                        'Создайте курс перед добавлением разделов и элементов контента.'
+                                    ),
+                                    panels: [
+                                        {
+                                            id: 'course-sections',
+                                            width: 5,
+                                            title: vlc('Sections', 'Разделы'),
+                                            datasource: {
+                                                kind: 'records.list',
+                                                sectionCodename: 'CourseSections',
+                                                query: { sort: [{ field: 'SortOrder', direction: 'asc' }] }
+                                            },
+                                            parentFieldCodename: 'CourseId',
+                                            sortOrderFieldCodename: 'SortOrder',
+                                            enableRowReordering: true
+                                        },
+                                        {
+                                            id: 'course-items',
+                                            width: 7,
+                                            title: vlc('Items', 'Элементы'),
+                                            datasource: {
+                                                kind: 'records.list',
+                                                sectionCodename: 'CourseItems',
+                                                query: { sort: [{ field: 'SortOrder', direction: 'asc' }] }
+                                            },
+                                            parentFieldCodename: 'CourseId',
+                                            sortOrderFieldCodename: 'SortOrder',
+                                            enableRowReordering: true,
+                                            rowCountWarning: {
+                                                threshold: 100,
+                                                message: vlc(
+                                                    'Large course outline: review navigation, search, and completion policies before publishing.',
+                                                    'Большая структура курса: перед публикацией проверьте навигацию, поиск и политики завершения.'
+                                                )
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        id: 'general',
+                        label: vlc('General', 'Общее'),
+                        widgets: [
+                            {
+                                widgetKey: 'detailsTable',
+                                config: { showViewToggle: true }
+                            }
+                        ]
+                    },
+                    {
+                        id: 'completion',
+                        label: vlc('Completion', 'Завершение'),
+                        widgets: [
+                            {
+                                widgetKey: 'detailsTable',
+                                config: {
+                                    datasource: {
+                                        kind: 'records.list',
+                                        sectionCodename: 'CourseItems',
+                                        query: { sort: [{ field: 'SortOrder', direction: 'asc' }] }
+                                    },
+                                    sequencePolicy: {
+                                        mode: 'sequential',
+                                        scopeFieldCodename: 'CourseId',
+                                        orderFieldCodename: 'SortOrder'
+                                    }
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        id: 'player',
+                        label: vlc('Player', 'Проигрыватель'),
+                        widgets: [
+                            {
+                                widgetKey: 'learnerPlayer',
+                                config: {
+                                    parentDatasource: {
+                                        kind: 'records.list',
+                                        sectionCodename: 'Courses',
+                                        query: { sort: [{ field: 'Title', direction: 'asc' }] }
+                                    },
+                                    itemsDatasource: {
+                                        kind: 'records.list',
+                                        sectionCodename: 'CourseItems',
+                                        query: { sort: [{ field: 'SortOrder', direction: 'asc' }] }
+                                    },
+                                    parentLabel: vlc('Course', 'Курс'),
+                                    parentFieldCodename: 'CourseId',
+                                    itemTitleFieldCodename: 'Title',
+                                    targetObjectCodenameField: 'TargetObjectCodename',
+                                    targetRecordIdField: 'TargetRecordId',
+                                    completionTargetObjectCodename: 'CourseItems',
+                                    sequencePolicy: {
+                                        mode: 'sequential',
+                                        scopeFieldCodename: 'CourseId',
+                                        orderFieldCodename: 'SortOrder'
+                                    },
+                                    targetContent: {
+                                        titleFieldCodename: 'Title',
+                                        descriptionFieldCodename: 'Description',
+                                        sourceFieldCodename: 'Source',
+                                        bodyFieldCodename: 'Body'
+                                    }
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        id: 'enrollments',
+                        label: vlc('Enrollments', 'Назначения'),
+                        widgets: [
+                            {
+                                widgetKey: 'relationBuilder',
+                                config: {
+                                    parentDatasource: {
+                                        kind: 'records.list',
+                                        sectionCodename: 'Courses',
+                                        query: { sort: [{ field: 'Title', direction: 'asc' }] }
+                                    },
+                                    parentLabel: vlc('Course', 'Курс'),
+                                    parentTitleFieldCodename: 'Title',
+                                    emptyParentMessage: vlc(
+                                        'Create a course before enrolling learners.',
+                                        'Создайте курс перед назначением учащихся.'
+                                    ),
+                                    panels: [
+                                        {
+                                            id: 'course-enrollments',
+                                            title: vlc('Course enrollments', 'Назначения курса'),
+                                            datasource: {
+                                                kind: 'records.list',
+                                                sectionCodename: 'Enrollments',
+                                                query: {
+                                                    sort: [{ field: 'DueDate', direction: 'asc' }],
+                                                    filters: [{ field: 'TargetType', operator: 'equals', value: 'course' }]
+                                                }
+                                            },
+                                            parentFieldCodename: 'TargetId',
+                                            createDefaults: { TargetType: 'course', DueDateMode: 'ByDate' },
+                                            createWizard: {
+                                                steps: [
+                                                    {
+                                                        id: 'content',
+                                                        label: vlc('Content', 'Контент'),
+                                                        helperText: vlc(
+                                                            'The selected course is used as the enrollment target.',
+                                                            'Выбранный курс используется как цель назначения.'
+                                                        ),
+                                                        fieldCodenames: ['TargetTitle']
+                                                    },
+                                                    {
+                                                        id: 'learners',
+                                                        label: vlc('Learners', 'Учащиеся'),
+                                                        helperText: vlc(
+                                                            'Select the learner and class context for this enrollment.',
+                                                            'Выберите учащегося и класс для этого назначения.'
+                                                        ),
+                                                        fieldCodenames: ['EnrollmentStudentId', 'EnrollmentClassId']
+                                                    },
+                                                    {
+                                                        id: 'parameters',
+                                                        label: vlc('Parameters', 'Параметры'),
+                                                        helperText: vlc(
+                                                            'Set the start, due-date mode, due date or period, and access restriction.',
+                                                            'Задайте дату начала, режим срока, дату или период срока и ограничение доступа.'
+                                                        ),
+                                                        fieldCodenames: [
+                                                            'EnrolledAt',
+                                                            'DueDateMode',
+                                                            'DueDate',
+                                                            'DuePeriodDays',
+                                                            'RestrictAfterDueDate',
+                                                            'EnrollmentStatus'
+                                                        ]
+                                                    }
+                                                ]
+                                            },
+                                            rowCountWarning: {
+                                                threshold: 1,
+                                                message: vlc(
+                                                    'This course already has enrollments. Review learner impact before changing the outline.',
+                                                    'У этого курса уже есть назначения. Перед изменением структуры проверьте влияние на учащихся.'
+                                                )
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                widgetKey: 'detailsTable',
+                                config: {
+                                    datasource: {
+                                        kind: 'records.list',
+                                        sectionCodename: 'Enrollments',
+                                        query: {
+                                            sort: [{ field: 'DueDate', direction: 'asc' }],
+                                            filters: [{ field: 'TargetType', operator: 'equals', value: 'course' }]
+                                        }
+                                    },
+                                    showViewToggle: true
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        id: 'reports',
+                        label: vlc('Reports', 'Отчеты'),
+                        widgets: [
+                            {
+                                widgetKey: 'detailsTable',
+                                config: {
+                                    reportDefinition: {
+                                        codename: 'CourseBuilderOutline',
+                                        title: vlc('Course outline report', 'Отчет по структуре курса'),
+                                        datasource: {
+                                            kind: 'records.list',
+                                            sectionCodename: 'CourseItems'
+                                        },
+                                        columns: [
+                                            { field: 'Title', label: vlc('Title', 'Название'), type: 'text' },
+                                            { field: 'ItemType', label: vlc('Type', 'Тип'), type: 'text' },
+                                            { field: 'IsRequired', label: vlc('Required', 'Обязательный'), type: 'boolean' },
+                                            { field: 'CompletionWeight', label: vlc('Weight', 'Вес'), type: 'number' }
+                                        ]
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+    ]
+}
+
+function buildLmsOrderingSeedZoneWidgets(sectionCodename: string): TemplateSeedZoneWidget[] {
+    return [
+        {
+            zone: 'center' as const,
+            widgetKey: 'columnsContainer',
+            sortOrder: 9,
+            config: {
+                columns: [
+                    {
+                        id: `${sectionCodename}-ordering-column`,
+                        width: 12,
+                        widgets: [
+                            {
+                                widgetKey: 'detailsTable',
+                                config: {
+                                    datasource: {
+                                        kind: 'records.list',
+                                        sectionCodename,
+                                        query: { sort: [{ field: 'SortOrder', direction: 'asc' }] }
+                                    },
+                                    enableRowReordering: true,
+                                    showViewToggle: false
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+    ]
+}
+
+const lmsNavigationLayoutConfig = {
+    showSideMenu: true,
+    showAppNavbar: true,
+    showHeader: true
+}
+
+const orderingLayoutConfig = {
+    ...lmsNavigationLayoutConfig,
+    showOverviewTitle: false,
+    showOverviewCards: false,
+    showSessionsChart: false,
+    showPageViewsChart: false,
+    showDetailsTitle: false,
+    showDetailsTable: false,
+    showColumnsContainer: true,
+    objectBehavior: {
+        useLayoutOverrides: true,
+        enableRowReordering: true,
+        reorderPersistenceField: 'SortOrder'
+    }
+}
+
+function buildLmsTrackBuilderSeedZoneWidgets(): TemplateSeedZoneWidget[] {
+    return [
+        {
+            zone: 'center' as const,
+            widgetKey: 'overviewCards',
+            sortOrder: 4,
+            config: {
+                cards: [
+                    {
+                        title: vlc('Stages', 'Этапы'),
+                        value: '0',
+                        interval: vlc('Track outline groups', 'Группы структуры трека'),
+                        trend: 'neutral',
+                        datasource: {
+                            kind: 'metric',
+                            metricKey: 'records.count',
+                            params: { sectionCodename: 'TrackStages' }
+                        }
+                    },
+                    {
+                        title: vlc('Steps', 'Шаги'),
+                        value: '0',
+                        interval: vlc('Course steps in tracks', 'Шаги курсов в треках'),
+                        trend: 'neutral',
+                        datasource: {
+                            kind: 'metric',
+                            metricKey: 'records.count',
+                            params: { sectionCodename: 'TrackSteps' }
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            zone: 'center' as const,
+            widgetKey: 'detailsTabs',
+            sortOrder: 9,
+            config: {
+                tabs: [
+                    {
+                        id: 'outline',
+                        label: vlc('Outline', 'Структура'),
+                        widgets: [
+                            {
+                                widgetKey: 'relationBuilder',
+                                config: {
+                                    parentDatasource: {
+                                        kind: 'records.list',
+                                        sectionCodename: 'LearningTracks',
+                                        query: { sort: [{ field: 'Title', direction: 'asc' }] }
+                                    },
+                                    parentLabel: vlc('Learning Track', 'Учебный трек'),
+                                    parentTitleFieldCodename: 'Title',
+                                    emptyParentMessage: vlc(
+                                        'Create a learning track before adding stages and course steps.',
+                                        'Создайте учебный трек перед добавлением этапов и шагов курсов.'
+                                    ),
+                                    panels: [
+                                        {
+                                            id: 'track-stages',
+                                            width: 5,
+                                            title: vlc('Stages', 'Этапы'),
+                                            datasource: {
+                                                kind: 'records.list',
+                                                sectionCodename: 'TrackStages',
+                                                query: { sort: [{ field: 'SortOrder', direction: 'asc' }] }
+                                            },
+                                            parentFieldCodename: 'TrackId',
+                                            sortOrderFieldCodename: 'SortOrder',
+                                            enableRowReordering: true
+                                        },
+                                        {
+                                            id: 'track-steps',
+                                            width: 7,
+                                            title: vlc('Steps', 'Шаги'),
+                                            datasource: {
+                                                kind: 'records.list',
+                                                sectionCodename: 'TrackSteps',
+                                                query: { sort: [{ field: 'SortOrder', direction: 'asc' }] }
+                                            },
+                                            parentFieldCodename: 'TrackId',
+                                            sortOrderFieldCodename: 'SortOrder',
+                                            enableRowReordering: true
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        id: 'general',
+                        label: vlc('General', 'Общее'),
+                        widgets: [
+                            {
+                                widgetKey: 'detailsTable',
+                                config: { showViewToggle: true }
+                            }
+                        ]
+                    },
+                    {
+                        id: 'completion',
+                        label: vlc('Completion', 'Завершение'),
+                        widgets: [
+                            {
+                                widgetKey: 'detailsTable',
+                                config: {
+                                    datasource: {
+                                        kind: 'records.list',
+                                        sectionCodename: 'TrackSteps',
+                                        query: { sort: [{ field: 'SortOrder', direction: 'asc' }] }
+                                    },
+                                    sequencePolicy: {
+                                        mode: 'sequential',
+                                        scopeFieldCodename: 'TrackId',
+                                        orderFieldCodename: 'SortOrder'
+                                    }
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        id: 'player',
+                        label: vlc('Player', 'Проигрыватель'),
+                        widgets: [
+                            {
+                                widgetKey: 'learnerPlayer',
+                                config: {
+                                    parentDatasource: {
+                                        kind: 'records.list',
+                                        sectionCodename: 'LearningTracks',
+                                        query: { sort: [{ field: 'Title', direction: 'asc' }] }
+                                    },
+                                    itemsDatasource: {
+                                        kind: 'records.list',
+                                        sectionCodename: 'TrackSteps',
+                                        query: { sort: [{ field: 'SortOrder', direction: 'asc' }] }
+                                    },
+                                    parentLabel: vlc('Learning Track', 'Учебный трек'),
+                                    parentFieldCodename: 'TrackId',
+                                    itemTitleFieldCodename: 'Title',
+                                    targetObjectCodename: 'Courses',
+                                    targetRecordIdField: 'CourseId',
+                                    completionTargetObjectCodename: 'TrackSteps',
+                                    sequencePolicy: {
+                                        mode: 'sequential',
+                                        scopeFieldCodename: 'TrackId',
+                                        orderFieldCodename: 'SortOrder'
+                                    },
+                                    targetContent: {
+                                        titleFieldCodename: 'Title',
+                                        descriptionFieldCodename: 'Description'
+                                    }
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        id: 'enrollments',
+                        label: vlc('Enrollments', 'Назначения'),
+                        widgets: [
+                            {
+                                widgetKey: 'relationBuilder',
+                                config: {
+                                    parentDatasource: {
+                                        kind: 'records.list',
+                                        sectionCodename: 'LearningTracks',
+                                        query: { sort: [{ field: 'Title', direction: 'asc' }] }
+                                    },
+                                    parentLabel: vlc('Learning Track', 'Учебный трек'),
+                                    parentTitleFieldCodename: 'Title',
+                                    emptyParentMessage: vlc(
+                                        'Create a learning track before enrolling learners.',
+                                        'Создайте учебный трек перед назначением учащихся.'
+                                    ),
+                                    panels: [
+                                        {
+                                            id: 'track-enrollments',
+                                            title: vlc('Track enrollments', 'Назначения трека'),
+                                            datasource: {
+                                                kind: 'records.list',
+                                                sectionCodename: 'Enrollments',
+                                                query: {
+                                                    sort: [{ field: 'DueDate', direction: 'asc' }],
+                                                    filters: [{ field: 'TargetType', operator: 'equals', value: 'track' }]
+                                                }
+                                            },
+                                            parentFieldCodename: 'TargetId',
+                                            createDefaults: { TargetType: 'track', DueDateMode: 'ByDate' },
+                                            createWizard: {
+                                                steps: [
+                                                    {
+                                                        id: 'content',
+                                                        label: vlc('Content', 'Контент'),
+                                                        helperText: vlc(
+                                                            'The selected learning track is used as the enrollment target.',
+                                                            'Выбранный учебный трек используется как цель назначения.'
+                                                        ),
+                                                        fieldCodenames: ['TargetTitle']
+                                                    },
+                                                    {
+                                                        id: 'learners',
+                                                        label: vlc('Learners', 'Учащиеся'),
+                                                        helperText: vlc(
+                                                            'Select the learner and class context for this enrollment.',
+                                                            'Выберите учащегося и класс для этого назначения.'
+                                                        ),
+                                                        fieldCodenames: ['EnrollmentStudentId', 'EnrollmentClassId']
+                                                    },
+                                                    {
+                                                        id: 'parameters',
+                                                        label: vlc('Parameters', 'Параметры'),
+                                                        helperText: vlc(
+                                                            'Set the start, due-date mode, due date or period, and access restriction.',
+                                                            'Задайте дату начала, режим срока, дату или период срока и ограничение доступа.'
+                                                        ),
+                                                        fieldCodenames: [
+                                                            'EnrolledAt',
+                                                            'DueDateMode',
+                                                            'DueDate',
+                                                            'DuePeriodDays',
+                                                            'RestrictAfterDueDate',
+                                                            'EnrollmentStatus'
+                                                        ]
+                                                    }
+                                                ]
+                                            },
+                                            rowCountWarning: {
+                                                threshold: 1,
+                                                message: vlc(
+                                                    'This track already has enrollments. Review learner impact before changing stages or steps.',
+                                                    'У этого трека уже есть назначения. Перед изменением этапов или шагов проверьте влияние на учащихся.'
+                                                )
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                widgetKey: 'detailsTable',
+                                config: {
+                                    datasource: {
+                                        kind: 'records.list',
+                                        sectionCodename: 'Enrollments',
+                                        query: {
+                                            sort: [{ field: 'DueDate', direction: 'asc' }],
+                                            filters: [{ field: 'TargetType', operator: 'equals', value: 'track' }]
+                                        }
+                                    },
+                                    showViewToggle: true
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        id: 'reports',
+                        label: vlc('Reports', 'Отчеты'),
+                        widgets: [
+                            {
+                                widgetKey: 'detailsTable',
+                                config: {
+                                    reportDefinition: {
+                                        codename: 'TrackBuilderOutline',
+                                        title: vlc('Track outline report', 'Отчет по структуре трека'),
+                                        datasource: {
+                                            kind: 'records.list',
+                                            sectionCodename: 'TrackSteps'
+                                        },
+                                        columns: [
+                                            { field: 'Title', label: vlc('Title', 'Название'), type: 'text' },
+                                            { field: 'CourseId', label: vlc('Course', 'Курс'), type: 'text' },
+                                            {
+                                                field: 'EnrollmentOffsetDays',
+                                                label: vlc('Start offset', 'Смещение старта'),
+                                                type: 'number'
+                                            },
+                                            { field: 'DueOffsetDays', label: vlc('Due offset', 'Смещение срока'), type: 'number' }
+                                        ]
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                ]
             }
         }
     ]
@@ -916,7 +1822,8 @@ export default class EnrollmentPostingScript extends ExtensionScript {
         const rowId = typeof row.id === 'string' ? row.id : 'unknown'
         const entityCodename = typeof payload?.entityCodename === 'string' ? payload.entityCodename : 'Enrollments'
         const learner = readRecordValue(row, 'EnrollmentStudentId', 'enrollment_student_id')
-        const learningItem = readRecordValue(row, 'ModuleIdRef', 'module_id_ref')
+        const learningItem =
+            readRecordValue(row, 'TargetId', 'target_id') ?? readRecordValue(row, 'ContentNodeIdRef', 'content_node_id_ref')
         const status = readRecordValue(row, 'EnrollmentStatus', 'enrollment_status')
         const occurredAt =
             readRecordValue(row, 'CompletedAt', 'completed_at') ?? readRecordValue(row, 'EnrolledAt', 'enrolled_at') ?? new Date().toISOString()
@@ -942,56 +1849,6 @@ export default class EnrollmentPostingScript extends ExtensionScript {
                 }
             ]
         }
-    }
-}
-`
-
-const LMS_AUTO_ENROLLMENT_SCRIPT_SOURCE = `import { ExtensionScript, OnEvent } from '@universo/extension-sdk'
-
-const readRecordValue = (record, ...keys) => {
-    if (!record || typeof record !== 'object') {
-        return null
-    }
-
-    for (const key of keys) {
-        if (Object.prototype.hasOwnProperty.call(record, key)) {
-            return record[key]
-        }
-    }
-
-    return null
-}
-
-export default class AutoEnrollmentRuleScript extends ExtensionScript {
-    @OnEvent('afterCreate')
-    async enrollStudent(payload) {
-        const row = payload?.currentRow ?? {}
-        const studentId = readRecordValue(row, 'id', 'Id')
-        const classId = readRecordValue(row, 'ClassId', 'class_id')
-
-        if (!studentId || !classId) {
-            return null
-        }
-
-        const existing = await this.ctx.records.list('Enrollments', {
-            EnrollmentStudentId: String(studentId),
-            ClassId: String(classId),
-            limit: 1
-        })
-
-        if (Array.isArray(existing) && existing.length > 0) {
-            return { skipped: true }
-        }
-
-        await this.ctx.records.create('Enrollments', {
-            EnrollmentStudentId: String(studentId),
-            ClassId: String(classId),
-            ModuleIdRef: 'default',
-            EnrollmentStatus: 'Active',
-            EnrolledAt: new Date().toISOString()
-        })
-
-        return { created: true }
     }
 }
 `
@@ -1068,7 +1925,7 @@ export default class QuizAttemptPostingScript extends ExtensionScript {
 }
 `
 
-const LMS_MODULE_COMPLETION_POSTING_SCRIPT_SOURCE = `import { ExtensionScript, OnEvent } from '@universo/extension-sdk'
+const LMS_CONTENT_COMPLETION_POSTING_SCRIPT_SOURCE = `import { ExtensionScript, OnEvent } from '@universo/extension-sdk'
 
 const readRecordValue = (record, ...keys) => {
     if (!record || typeof record !== 'object') {
@@ -1089,13 +1946,13 @@ const toNumber = (value, fallback = 0) => {
     return Number.isFinite(numeric) ? numeric : fallback
 }
 
-export default class ModuleCompletionPostingScript extends ExtensionScript {
+export default class ContentCompletionPostingScript extends ExtensionScript {
     @OnEvent('beforePost')
-    async buildModuleProgressMovement(payload) {
+    async buildContentProgressMovement(payload) {
         const row = payload?.previousRow ?? {}
         const rowId = typeof row.id === 'string' ? row.id : 'unknown'
         const learner = readRecordValue(row, 'ProgressStudentId', 'progress_student_id') ?? rowId
-        const moduleId = readRecordValue(row, 'ModuleId', 'module_id') ?? 'module'
+        const contentNodeId = readRecordValue(row, 'ContentNodeId', 'content_node_id') ?? 'content'
         const occurredAt =
             readRecordValue(row, 'CompletedAt', 'completed_at') ?? readRecordValue(row, 'StartedAt', 'started_at') ?? new Date().toISOString()
 
@@ -1107,13 +1964,13 @@ export default class ModuleCompletionPostingScript extends ExtensionScript {
                         {
                             data: {
                                 Learner: String(learner),
-                                LearningItem: String(moduleId),
+                                LearningItem: String(contentNodeId),
                                 ProgressDelta: toNumber(readRecordValue(row, 'ProgressPercent', 'progress_percent'), 0),
                                 Status: String(readRecordValue(row, 'ProgressStatus', 'progress_status') ?? 'posted'),
                                 OccurredAt: occurredAt,
-                                SourceObjectId: 'ModuleProgress',
+                                SourceObjectId: 'ContentProgress',
                                 SourceRowId: rowId,
-                                SourceLineId: 'module-progress'
+                                SourceLineId: 'content-progress'
                             }
                         }
                     ]
@@ -1258,8 +2115,8 @@ export const lmsTemplate: MetahubTemplateManifest = {
     minStructureVersion: '0.1.0',
     name: vlc('LMS', 'LMS'),
     description: vlc(
-        'Learning Management System template with classes, modules, quizzes, and student tracking.',
-        'Шаблон системы управления обучением с классами, модулями, тестами и отслеживанием студентов.'
+        'Learning Management System template with classes, learning content, quizzes, and student tracking.',
+        'Шаблон системы управления обучением с классами, учебным контентом, тестами и отслеживанием студентов.'
     ),
     meta: {
         author: 'universo-platformo',
@@ -1299,12 +2156,200 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 ),
                 isDefault: true,
                 isActive: true,
-                sortOrder: 0
+                sortOrder: 0,
+                config: lmsNavigationLayoutConfig
+            },
+            {
+                codename: 'learningContent',
+                templateKey: 'dashboard',
+                baseLayoutCodename: 'main',
+                scopeEntityCodename: 'ContentProjects',
+                scopeEntityKind: 'object',
+                name: vlc('Learning Content Library', 'Библиотека учебного контента'),
+                description: vlc(
+                    'Workspace Learning Content layout with project metrics and a unified active content table.',
+                    'Макет учебного контента рабочего пространства с метриками проектов и единой таблицей активного контента.'
+                ),
+                isDefault: true,
+                isActive: true,
+                sortOrder: 1,
+                config: lmsNavigationLayoutConfig
+            },
+            {
+                codename: 'learningContentRecent',
+                templateKey: 'dashboard',
+                baseLayoutCodename: 'main',
+                scopeEntityCodename: 'RecentContentViews',
+                scopeEntityKind: 'object',
+                name: vlc('Recent Learning Content', 'Недавний учебный контент'),
+                description: vlc(
+                    'Recent Learning Content records resolved through metadata-defined view facts.',
+                    'Недавние записи учебного контента, собранные через метаданные фактов просмотра.'
+                ),
+                isDefault: true,
+                isActive: true,
+                sortOrder: 2,
+                config: lmsNavigationLayoutConfig
+            },
+            {
+                codename: 'learningContentStarred',
+                templateKey: 'dashboard',
+                baseLayoutCodename: 'main',
+                scopeEntityCodename: 'ContentStars',
+                scopeEntityKind: 'object',
+                name: vlc('Starred Learning Content', 'Избранный учебный контент'),
+                description: vlc(
+                    'Starred Learning Content records resolved through metadata-defined star facts.',
+                    'Избранные записи учебного контента, собранные через метаданные фактов избранного.'
+                ),
+                isDefault: true,
+                isActive: true,
+                sortOrder: 3,
+                config: lmsNavigationLayoutConfig
+            },
+            {
+                codename: 'learningContentShared',
+                templateKey: 'dashboard',
+                baseLayoutCodename: 'main',
+                scopeEntityCodename: 'ContentAccessEntries',
+                scopeEntityKind: 'object',
+                name: vlc('Shared Learning Content', 'Доступный учебный контент'),
+                description: vlc(
+                    'Learning Content records shared with the current workspace member.',
+                    'Записи учебного контента, доступные текущему участнику рабочего пространства.'
+                ),
+                isDefault: true,
+                isActive: true,
+                sortOrder: 4,
+                config: lmsNavigationLayoutConfig
+            },
+            {
+                codename: 'learningContentTrash',
+                templateKey: 'dashboard',
+                baseLayoutCodename: 'main',
+                scopeEntityCodename: 'TrashEntries',
+                scopeEntityKind: 'object',
+                name: vlc('Learning Content Trash', 'Корзина учебного контента'),
+                description: vlc(
+                    'Trash layout backed by deleted Learning Content runtime rows.',
+                    'Макет корзины на основе удаленных runtime-записей учебного контента.'
+                ),
+                isDefault: true,
+                isActive: true,
+                sortOrder: 5,
+                config: lmsNavigationLayoutConfig
+            },
+            {
+                codename: 'courseBuilder',
+                templateKey: 'dashboard',
+                baseLayoutCodename: 'main',
+                scopeEntityCodename: 'Courses',
+                scopeEntityKind: 'object',
+                name: vlc('Course Builder', 'Конструктор курса'),
+                description: vlc(
+                    'Course layout with sections and ordered CourseItems rendered through generic runtime tables.',
+                    'Макет курса с разделами и упорядоченными CourseItems через универсальные runtime-таблицы.'
+                ),
+                isDefault: true,
+                isActive: true,
+                sortOrder: 3,
+                config: lmsNavigationLayoutConfig
+            },
+            {
+                codename: 'courseSectionsOrdering',
+                templateKey: 'dashboard',
+                baseLayoutCodename: 'main',
+                scopeEntityCodename: 'CourseSections',
+                scopeEntityKind: 'object',
+                name: vlc('Course Section Ordering', 'Упорядочивание разделов курса'),
+                description: vlc(
+                    'Generic runtime ordering layout for course sections.',
+                    'Универсальный runtime-макет упорядочивания разделов курса.'
+                ),
+                isDefault: true,
+                isActive: true,
+                sortOrder: 4,
+                config: orderingLayoutConfig
+            },
+            {
+                codename: 'courseItemsOrdering',
+                templateKey: 'dashboard',
+                baseLayoutCodename: 'main',
+                scopeEntityCodename: 'CourseItems',
+                scopeEntityKind: 'object',
+                name: vlc('Course Item Ordering', 'Упорядочивание элементов курса'),
+                description: vlc(
+                    'Generic runtime ordering layout for course content references.',
+                    'Универсальный runtime-макет упорядочивания ссылок на контент курса.'
+                ),
+                isDefault: true,
+                isActive: true,
+                sortOrder: 5,
+                config: orderingLayoutConfig
+            },
+            {
+                codename: 'trackBuilder',
+                templateKey: 'dashboard',
+                baseLayoutCodename: 'main',
+                scopeEntityCodename: 'LearningTracks',
+                scopeEntityKind: 'object',
+                name: vlc('Learning Track Builder', 'Конструктор учебного трека'),
+                description: vlc(
+                    'Learning Track layout with stages and course steps rendered through generic runtime tables.',
+                    'Макет учебного трека с этапами и шагами курсов через универсальные runtime-таблицы.'
+                ),
+                isDefault: true,
+                isActive: true,
+                sortOrder: 6,
+                config: lmsNavigationLayoutConfig
+            },
+            {
+                codename: 'trackStagesOrdering',
+                templateKey: 'dashboard',
+                baseLayoutCodename: 'main',
+                scopeEntityCodename: 'TrackStages',
+                scopeEntityKind: 'object',
+                name: vlc('Track Stage Ordering', 'Упорядочивание этапов трека'),
+                description: vlc(
+                    'Generic runtime ordering layout for learning track stages.',
+                    'Универсальный runtime-макет упорядочивания этапов учебного трека.'
+                ),
+                isDefault: true,
+                isActive: true,
+                sortOrder: 7,
+                config: orderingLayoutConfig
+            },
+            {
+                codename: 'trackStepsOrdering',
+                templateKey: 'dashboard',
+                baseLayoutCodename: 'main',
+                scopeEntityCodename: 'TrackSteps',
+                scopeEntityKind: 'object',
+                name: vlc('Track Step Ordering', 'Упорядочивание шагов трека'),
+                description: vlc(
+                    'Generic runtime ordering layout for learning track course steps.',
+                    'Универсальный runtime-макет упорядочивания шагов курсов в учебном треке.'
+                ),
+                isDefault: true,
+                isActive: true,
+                sortOrder: 8,
+                config: orderingLayoutConfig
             }
         ],
         layoutZoneWidgets: {
             main: buildLmsBaseSeedZoneWidgets(),
-            learnerHome: buildLmsHomeSeedZoneWidgets()
+            learnerHome: buildLmsHomeSeedZoneWidgets(),
+            learningContent: buildLmsLearningContentSeedZoneWidgets(),
+            learningContentRecent: buildLmsLearningContentSeedZoneWidgets('recent'),
+            learningContentStarred: buildLmsLearningContentSeedZoneWidgets('starred'),
+            learningContentShared: buildLmsLearningContentSeedZoneWidgets('shared'),
+            learningContentTrash: buildLmsTrashSeedZoneWidgets(),
+            courseBuilder: buildLmsCourseBuilderSeedZoneWidgets(),
+            courseSectionsOrdering: buildLmsOrderingSeedZoneWidgets('CourseSections'),
+            courseItemsOrdering: buildLmsOrderingSeedZoneWidgets('CourseItems'),
+            trackBuilder: buildLmsTrackBuilderSeedZoneWidgets(),
+            trackStagesOrdering: buildLmsOrderingSeedZoneWidgets('TrackStages'),
+            trackStepsOrdering: buildLmsOrderingSeedZoneWidgets('TrackSteps')
         },
         entities: [
             {
@@ -1367,6 +2412,156 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 ]
             },
             {
+                codename: 'LearningContentDefaults',
+                kind: 'set',
+                name: vlc('Learning Content Defaults', 'Настройки учебного контента'),
+                description: vlc(
+                    'Default workspace authoring behavior for Learning Content projects, resources, courses, and tracks.',
+                    'Поведение по умолчанию для проектов, ресурсов, курсов и треков учебного контента в рабочем пространстве.'
+                ),
+                fixedValues: [
+                    {
+                        codename: 'DefaultContentView',
+                        dataType: 'STRING',
+                        name: vlc('Default Content View', 'Представление по умолчанию'),
+                        sortOrder: 1,
+                        value: 'table'
+                    },
+                    {
+                        codename: 'DefaultPublicationStatus',
+                        dataType: 'STRING',
+                        name: vlc('Default Publication Status', 'Статус публикации по умолчанию'),
+                        sortOrder: 2,
+                        value: 'Draft'
+                    },
+                    {
+                        codename: 'AllowWorkspaceAuthorsToCreateProjects',
+                        dataType: 'BOOLEAN',
+                        name: vlc('Allow Workspace Authors to Create Projects', 'Разрешить авторам создавать проекты'),
+                        sortOrder: 3,
+                        value: true
+                    }
+                ]
+            },
+            {
+                codename: 'SupportedResourceTypes',
+                kind: 'set',
+                name: vlc('Supported Resource Types', 'Поддерживаемые типы ресурсов'),
+                description: vlc(
+                    'Resource type support policy for early Learning Content authoring.',
+                    'Политика поддержки типов ресурсов для раннего создания учебного контента.'
+                ),
+                fixedValues: [
+                    {
+                        codename: 'EnabledTypes',
+                        dataType: 'STRING',
+                        name: vlc('Enabled Types', 'Включенные типы'),
+                        sortOrder: 1,
+                        value: 'Page,Url,Embed'
+                    },
+                    {
+                        codename: 'DeferredTypes',
+                        dataType: 'STRING',
+                        name: vlc('Deferred Types', 'Отложенные типы'),
+                        sortOrder: 2,
+                        value: 'Scorm,Xapi,File,Video,Audio,Document'
+                    }
+                ]
+            },
+            {
+                codename: 'PlayerPresets',
+                kind: 'set',
+                name: vlc('Player Presets', 'Пресеты плеера'),
+                description: vlc(
+                    'Default learner player behavior reused by courses and learning tracks.',
+                    'Поведение плеера учащегося по умолчанию, используемое курсами и учебными треками.'
+                ),
+                fixedValues: [
+                    {
+                        codename: 'DefaultCoursePlayer',
+                        dataType: 'STRING',
+                        name: vlc('Default Course Player', 'Плеер курса по умолчанию'),
+                        sortOrder: 1,
+                        value: 'showOutline=true;allowSearch=true;showProgress=true;allowManualComplete=true'
+                    }
+                ]
+            },
+            {
+                codename: 'LearningContentColumnPresets',
+                kind: 'set',
+                name: vlc('Learning Content Column Presets', 'Пресеты колонок учебного контента'),
+                description: vlc(
+                    'Reusable metadata-driven column presets for Learning Content list surfaces.',
+                    'Переиспользуемые metadata-driven пресеты колонок для списков учебного контента.'
+                ),
+                fixedValues: [
+                    {
+                        codename: 'DefaultLibraryColumns',
+                        dataType: 'STRING',
+                        name: vlc('Default Library Columns', 'Колонки библиотеки по умолчанию'),
+                        sortOrder: 1,
+                        value: 'Title,ResourceType,PublicationStatus,ProjectId,CreatedBy'
+                    }
+                ]
+            },
+            {
+                codename: 'EnrollmentDefaults',
+                kind: 'set',
+                name: vlc('Enrollment Defaults', 'Настройки назначений'),
+                description: vlc(
+                    'Default manual enrollment parameters for courses and tracks.',
+                    'Параметры ручных назначений по умолчанию для курсов и треков.'
+                ),
+                fixedValues: [
+                    {
+                        codename: 'DefaultDueDateMode',
+                        dataType: 'STRING',
+                        name: vlc('Default Due Date Mode', 'Режим срока по умолчанию'),
+                        sortOrder: 1,
+                        value: 'NoDueDate'
+                    },
+                    {
+                        codename: 'RestrictAfterDueDate',
+                        dataType: 'BOOLEAN',
+                        name: vlc('Restrict After Due Date', 'Ограничить после срока'),
+                        sortOrder: 2,
+                        value: false
+                    }
+                ]
+            },
+            {
+                codename: 'CompletionDefaults',
+                kind: 'set',
+                name: vlc('Completion Defaults', 'Настройки завершения'),
+                description: vlc(
+                    'Default completion policies for courses and learning tracks.',
+                    'Политики завершения по умолчанию для курсов и учебных треков.'
+                ),
+                fixedValues: [
+                    {
+                        codename: 'CourseNavigationMode',
+                        dataType: 'STRING',
+                        name: vlc('Course Navigation Mode', 'Режим навигации курса'),
+                        sortOrder: 1,
+                        value: 'free'
+                    },
+                    {
+                        codename: 'CourseCompletionCondition',
+                        dataType: 'STRING',
+                        name: vlc('Course Completion Condition', 'Условие завершения курса'),
+                        sortOrder: 2,
+                        value: 'allItems'
+                    },
+                    {
+                        codename: 'TrackOrderMode',
+                        dataType: 'STRING',
+                        name: vlc('Track Order Mode', 'Режим порядка трека'),
+                        sortOrder: 3,
+                        value: 'sequential'
+                    }
+                ]
+            },
+            {
                 codename: 'LearnerHome',
                 kind: 'page',
                 name: vlc('Welcome', 'Добро пожаловать'),
@@ -1405,13 +2600,13 @@ export const lmsTemplate: MetahubTemplateManifest = {
                                         locales: {
                                             en: {
                                                 content:
-                                                    'This portal brings together the learning paths, modules, assignments, tests, and progress indicators that learners need every day. Start with your assigned modules, continue from the last opened activity, and use the module library to find approved materials for independent study.',
+                                                    'This portal brings together the learning paths, content resources, assignments, tests, and progress indicators that learners need every day. Start with your assigned content, continue from the last opened activity, and use the content library to find approved materials for independent study.',
                                                 version: 1,
                                                 isActive: true
                                             },
                                             ru: {
                                                 content:
-                                                    'Этот портал объединяет учебные траектории, модули, задания, тесты и показатели прогресса, которые нужны учащимся каждый день. Начните с назначенных модулей, продолжите обучение с последнего открытого материала и используйте библиотеку модулей для самостоятельного изучения утвержденных материалов.',
+                                                    'Этот портал объединяет учебные траектории, учебные ресурсы, задания, тесты и показатели прогресса, которые нужны учащимся каждый день. Начните с назначенного контента, продолжите обучение с последнего открытого материала и используйте библиотеку контента для самостоятельного изучения утвержденных материалов.',
                                                 version: 1,
                                                 isActive: true
                                             }
@@ -1446,13 +2641,13 @@ export const lmsTemplate: MetahubTemplateManifest = {
                                             locales: {
                                                 en: {
                                                     content:
-                                                        'Open Modules to review available courses, modules, and knowledge-base materials.',
+                                                        'Open Learning Content to review available courses, resources, and knowledge-base materials.',
                                                     version: 1,
                                                     isActive: true
                                                 },
                                                 ru: {
                                                     content:
-                                                        'Откройте Модули, чтобы посмотреть доступные курсы, модули и материалы базы знаний.',
+                                                        'Откройте учебный контент, чтобы посмотреть доступные курсы, ресурсы и материалы базы знаний.',
                                                     version: 1,
                                                     isActive: true
                                                 }
@@ -1482,19 +2677,34 @@ export const lmsTemplate: MetahubTemplateManifest = {
                                             locales: {
                                                 en: {
                                                     content:
-                                                        'Complete tests and practical tasks inside modules so that managers can track learning outcomes.',
+                                                        'Complete tests and practical tasks inside learning resources so that managers can track learning outcomes.',
                                                     version: 1,
                                                     isActive: true
                                                 },
                                                 ru: {
                                                     content:
-                                                        'Проходите тесты и практические задания внутри модулей, чтобы руководители могли отслеживать результаты обучения.',
+                                                        'Проходите тесты и практические задания в учебных ресурсах, чтобы руководители могли отслеживать результаты обучения.',
                                                     version: 1,
                                                     isActive: true
                                                 }
                                             }
                                         }
                                     ]
+                                }
+                            },
+                            {
+                                id: 'welcome-workspaces-title',
+                                type: 'header',
+                                data: {
+                                    level: 3,
+                                    text: {
+                                        _schema: '1',
+                                        _primary: 'en',
+                                        locales: {
+                                            en: { content: 'Workspaces', version: 1, isActive: true },
+                                            ru: { content: 'Рабочие пространства', version: 1, isActive: true }
+                                        }
+                                    }
                                 }
                             },
                             {
@@ -1531,13 +2741,13 @@ export const lmsTemplate: MetahubTemplateManifest = {
                                         locales: {
                                             en: {
                                                 content:
-                                                    'If you cannot find an assigned module, check the knowledge section first and then contact the learning administrator. The support address and common LMS rules are stored in the shared configuration set, so they can be updated without changing page content.',
+                                                    'If you cannot find an assigned content, check the knowledge section first and then contact the learning administrator. The support address and common LMS rules are stored in the shared configuration set, so they can be updated without changing page content.',
                                                 version: 1,
                                                 isActive: true
                                             },
                                             ru: {
                                                 content:
-                                                    'Если назначенный модуль не найден, сначала проверьте раздел знаний, а затем обратитесь к администратору обучения. Адрес поддержки и общие правила LMS хранятся в общем наборе настроек, поэтому их можно обновлять без изменения контента страницы.',
+                                                    'Если назначенный контент не найден, сначала проверьте раздел знаний, а затем обратитесь к администратору обучения. Адрес поддержки и общие правила LMS хранятся в общем наборе настроек, поэтому их можно обновлять без изменения контента страницы.',
                                                 version: 1,
                                                 isActive: true
                                             }
@@ -1570,8 +2780,8 @@ export const lmsTemplate: MetahubTemplateManifest = {
                     buildEditorHeaderBlock('course-overview-path-title', 3, 'Learning path', 'Учебная траектория'),
                     buildEditorParagraphBlock(
                         'course-overview-path',
-                        'Course structure should be driven by Modules, Learning Tracks, Assignments, Quizzes, and transactional progress records. The page stays informational while completion state is calculated from module records and Ledgers.',
-                        'Структура курса должна задаваться модулями, учебными треками, назначениями, тестами и транзакционными записями прогресса. Страница остается информационной, а состояние прохождения рассчитывается по записям модулей и регистрам.'
+                        'Course structure should be driven by Learning Resources, Learning Tracks, Assignments, Quizzes, and transactional progress records. The page stays informational while completion state is calculated from Learning Content records and Ledgers.',
+                        'Структура курса должна задаваться учебными ресурсами, учебными треками, назначениями, тестами и транзакционными записями прогресса. Страница остается информационной, а состояние прохождения рассчитывается по записям контента и регистрам.'
                     )
                 ]
             }),
@@ -1608,8 +2818,8 @@ export const lmsTemplate: MetahubTemplateManifest = {
                     buildEditorHeaderBlock('knowledge-article-title', 2, 'Knowledge article', 'Статья базы знаний'),
                     buildEditorParagraphBlock(
                         'knowledge-article-summary',
-                        'Use this page for reference material that supports modules, assignments, and instructor-led events. Keep facts, examples, and source links in the article, and keep operational state in module records and Ledgers.',
-                        'Используйте эту страницу для справочных материалов, которые поддерживают модули, задания и учебные мероприятия. Факты, примеры и ссылки на источники храните в статье, а операционное состояние — в записях модулей и регистрах.'
+                        'Use this page for reference material that supports learning resources, assignments, and instructor-led events. Keep facts, examples, and source links in the article, and keep operational state in content records and Ledgers.',
+                        'Используйте эту страницу для справочных материалов, которые поддерживают учебные ресурсы, задания и учебные мероприятия. Факты, примеры и ссылки на источники храните в статье, а операционное состояние — в записях контента и регистрах.'
                     ),
                     buildEditorHeaderBlock('knowledge-article-maintenance-title', 3, 'Maintenance', 'Сопровождение'),
                     buildEditorParagraphBlock(
@@ -1674,8 +2884,8 @@ export const lmsTemplate: MetahubTemplateManifest = {
                     buildEditorHeaderBlock('certificate-policy-title', 2, 'Certificate policy', 'Правила сертификатов'),
                     buildEditorParagraphBlock(
                         'certificate-policy-eligibility',
-                        'Certificates should be issued only after required modules, assignments, and quiz attempts meet the configured completion thresholds. The policy text explains the rule; CertificateIssues and CertificateLedger store the auditable facts.',
-                        'Сертификаты следует выдавать только после того, как обязательные модули, задания и попытки тестов достигли настроенных порогов завершения. Текст правил объясняет условие, а CertificateIssues и CertificateLedger хранят проверяемые факты.'
+                        'Certificates should be issued only after required learning resources, assignments, and quiz attempts meet the configured completion thresholds. The policy text explains the rule; CertificateIssues and CertificateLedger store the auditable facts.',
+                        'Сертификаты следует выдавать только после того, как обязательные учебные ресурсы, задания и попытки тестов достигли настроенных порогов завершения. Текст правил объясняет условие, а CertificateIssues и CertificateLedger хранят проверяемые факты.'
                     ),
                     buildEditorHeaderBlock('certificate-policy-lifecycle-title', 3, 'Lifecycle', 'Жизненный цикл'),
                     buildEditorParagraphBlock(
@@ -1944,78 +3154,12 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 ]
             },
             {
-                codename: 'LearningResources',
+                codename: 'ContentProjects',
                 kind: 'object',
-                name: vlc('Learning Resources', 'Учебные ресурсы'),
+                name: vlc('Content Projects', 'Проекты контента'),
                 description: vlc(
-                    'Reusable content resources such as pages, links, videos, documents, embeds, and deferred package standards.',
-                    'Переиспользуемые учебные ресурсы: страницы, ссылки, видео, документы, встраивания и отложенные пакетные стандарты.'
-                ),
-                components: [
-                    {
-                        codename: 'Title',
-                        dataType: 'STRING',
-                        name: vlc('Title', 'Заголовок'),
-                        isRequired: true,
-                        isDisplayComponent: true,
-                        sortOrder: 1,
-                        validationRules: { maxLength: 500, localized: true, versioned: true }
-                    },
-                    {
-                        codename: 'ResourceType',
-                        dataType: 'REF',
-                        name: vlc('Resource Type', 'Тип ресурса'),
-                        isRequired: true,
-                        sortOrder: 2,
-                        targetEntityCodename: 'ResourceType',
-                        targetEntityKind: 'enumeration'
-                    },
-                    {
-                        codename: 'Source',
-                        dataType: 'JSON',
-                        name: vlc('Source', 'Источник'),
-                        isRequired: true,
-                        sortOrder: 3,
-                        uiConfig: {
-                            widget: 'resourceSource'
-                        }
-                    },
-                    {
-                        codename: 'Body',
-                        dataType: 'JSON',
-                        name: vlc('Body', 'Содержимое'),
-                        sortOrder: 4,
-                        uiConfig: {
-                            widget: 'editorjsBlockContent',
-                            blockEditor: {
-                                allowedBlockTypes: ['paragraph', 'header', 'list', 'quote', 'table', 'image', 'embed', 'delimiter'],
-                                maxBlocks: 200
-                            }
-                        }
-                    },
-                    {
-                        codename: 'EstimatedTimeMinutes',
-                        dataType: 'NUMBER',
-                        name: vlc('Estimated Time, min', 'Оценочное время, мин'),
-                        sortOrder: 5,
-                        validationRules: { min: 0 }
-                    },
-                    {
-                        codename: 'Language',
-                        dataType: 'STRING',
-                        name: vlc('Language', 'Язык'),
-                        sortOrder: 6,
-                        validationRules: { maxLength: 16 }
-                    }
-                ]
-            },
-            {
-                codename: 'Courses',
-                kind: 'object',
-                name: vlc('Courses', 'Курсы'),
-                description: vlc(
-                    'Course shells that group sections, resources, assignments, and quizzes.',
-                    'Оболочки курсов, объединяющие разделы, ресурсы, задания и тесты.'
+                    'Workspace-scoped Learning Content projects for grouping authored resources, courses, and tracks.',
+                    'Проекты учебного контента внутри рабочего пространства для группировки ресурсов, курсов и треков.'
                 ),
                 components: [
                     {
@@ -2032,21 +3176,768 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         dataType: 'STRING',
                         name: vlc('Description', 'Описание'),
                         sortOrder: 2,
-                        validationRules: { localized: true, versioned: true }
+                        validationRules: { localized: true, versioned: true },
+                        uiConfig: { widget: 'textarea', rows: 2 }
                     },
                     {
-                        codename: 'Status',
-                        dataType: 'REF',
-                        name: vlc('Status', 'Статус'),
+                        codename: 'AccessMode',
+                        dataType: 'STRING',
+                        name: vlc('Access Mode', 'Режим доступа'),
                         sortOrder: 3,
-                        targetEntityCodename: 'ModuleStatus',
+                        validationRules: { maxLength: 32 },
+                        uiConfig: {
+                            widget: 'select',
+                            defaultValue: 'workspace',
+                            stringOptions: [
+                                { value: 'workspace', label: vlc('Workspace', 'Рабочее пространство') },
+                                { value: 'restricted', label: vlc('Restricted', 'Ограниченный') },
+                                { value: 'private', label: vlc('Private', 'Личный') }
+                            ]
+                        }
+                    },
+                    {
+                        codename: 'Cover',
+                        dataType: 'JSON',
+                        name: vlc('Cover', 'Обложка'),
+                        sortOrder: 4,
+                        uiConfig: {
+                            widget: 'resourceSource',
+                            gridHidden: true
+                        }
+                    },
+                    {
+                        codename: 'SortOrder',
+                        dataType: 'NUMBER',
+                        name: vlc('Sort Order', 'Порядок'),
+                        sortOrder: 5,
+                        validationRules: { min: 0 }
+                    },
+                    {
+                        codename: 'ArchivedAt',
+                        dataType: 'DATE',
+                        name: vlc('Archived At', 'Дата архивации'),
+                        sortOrder: 6,
+                        validationRules: { dateComposition: 'datetime' },
+                        uiConfig: { formHidden: true }
+                    }
+                ]
+            },
+            {
+                codename: 'ContentAccessEntries',
+                kind: 'object',
+                name: vlc('Content Access Entries', 'Записи доступа к контенту'),
+                description: vlc(
+                    'Generic sharing entries for Learning Content records inside the current workspace.',
+                    'Универсальные записи совместного доступа к учебному контенту внутри текущего рабочего пространства.'
+                ),
+                config: {
+                    runtimeAccessEntry: {
+                        principalTypeFieldCodename: 'PrincipalType',
+                        principalIdFieldCodename: 'PrincipalId',
+                        supportedPrincipalTypes: ['workspaceMember', 'user']
+                    }
+                },
+                components: [
+                    {
+                        codename: 'TargetObjectCodename',
+                        dataType: 'STRING',
+                        name: vlc('Target Object', 'Целевой объект'),
+                        isRequired: true,
+                        sortOrder: 1,
+                        validationRules: { maxLength: 128 }
+                    },
+                    {
+                        codename: 'TargetRecordId',
+                        dataType: 'STRING',
+                        name: vlc('Target Record', 'Целевая запись'),
+                        isRequired: true,
+                        sortOrder: 2,
+                        validationRules: { maxLength: 128 }
+                    },
+                    {
+                        codename: 'PrincipalType',
+                        dataType: 'STRING',
+                        name: vlc('Principal Type', 'Тип субъекта'),
+                        isRequired: true,
+                        sortOrder: 3,
+                        validationRules: { maxLength: 64 }
+                    },
+                    {
+                        codename: 'PrincipalId',
+                        dataType: 'STRING',
+                        name: vlc('Principal ID', 'ID субъекта'),
+                        isRequired: true,
+                        sortOrder: 4,
+                        validationRules: { maxLength: 128 }
+                    },
+                    {
+                        codename: 'AccessLevel',
+                        dataType: 'STRING',
+                        name: vlc('Access Level', 'Уровень доступа'),
+                        isRequired: true,
+                        sortOrder: 5,
+                        validationRules: { maxLength: 32 }
+                    },
+                    {
+                        codename: 'InvitedBy',
+                        dataType: 'STRING',
+                        name: vlc('Invited By', 'Пригласил'),
+                        sortOrder: 6,
+                        validationRules: { maxLength: 128 }
+                    },
+                    {
+                        codename: 'InvitedAt',
+                        dataType: 'DATE',
+                        name: vlc('Invited At', 'Дата приглашения'),
+                        sortOrder: 7,
+                        validationRules: { dateComposition: 'datetime' }
+                    }
+                ]
+            },
+            {
+                codename: 'ContentStars',
+                kind: 'object',
+                name: vlc('Content Stars', 'Избранный контент'),
+                description: vlc('User stars for Learning Content records.', 'Пользовательское избранное для учебного контента.'),
+                components: [
+                    {
+                        codename: 'TargetObjectCodename',
+                        dataType: 'STRING',
+                        name: vlc('Target Object', 'Целевой объект'),
+                        isRequired: true,
+                        sortOrder: 1,
+                        validationRules: { maxLength: 128 }
+                    },
+                    {
+                        codename: 'TargetRecordId',
+                        dataType: 'STRING',
+                        name: vlc('Target Record', 'Целевая запись'),
+                        isRequired: true,
+                        sortOrder: 2,
+                        validationRules: { maxLength: 128 }
+                    },
+                    {
+                        codename: 'UserId',
+                        dataType: 'STRING',
+                        name: vlc('User ID', 'ID пользователя'),
+                        isRequired: true,
+                        sortOrder: 3,
+                        validationRules: { maxLength: 128 }
+                    },
+                    {
+                        codename: 'StarredAt',
+                        dataType: 'DATE',
+                        name: vlc('Starred At', 'Дата добавления'),
+                        isRequired: true,
+                        sortOrder: 4,
+                        validationRules: { dateComposition: 'datetime' }
+                    }
+                ]
+            },
+            {
+                codename: 'RecentContentViews',
+                kind: 'object',
+                name: vlc('Recent Content Views', 'Недавние просмотры контента'),
+                description: vlc('Recent Learning Content view facts by user.', 'Недавние просмотры учебного контента по пользователям.'),
+                components: [
+                    {
+                        codename: 'TargetObjectCodename',
+                        dataType: 'STRING',
+                        name: vlc('Target Object', 'Целевой объект'),
+                        isRequired: true,
+                        sortOrder: 1,
+                        validationRules: { maxLength: 128 }
+                    },
+                    {
+                        codename: 'TargetRecordId',
+                        dataType: 'STRING',
+                        name: vlc('Target Record ID', 'ID целевой записи'),
+                        isRequired: true,
+                        sortOrder: 2,
+                        validationRules: { maxLength: 128 }
+                    },
+                    {
+                        codename: 'UserId',
+                        dataType: 'STRING',
+                        name: vlc('User ID', 'ID пользователя'),
+                        isRequired: true,
+                        sortOrder: 3,
+                        validationRules: { maxLength: 128 }
+                    },
+                    {
+                        codename: 'ViewedAt',
+                        dataType: 'DATE',
+                        name: vlc('Viewed At', 'Дата просмотра'),
+                        isRequired: true,
+                        sortOrder: 4,
+                        validationRules: { dateComposition: 'datetime' }
+                    }
+                ]
+            },
+            {
+                codename: 'ContentProgress',
+                kind: 'object',
+                name: vlc('Content Progress', 'Прогресс по контенту'),
+                description: vlc(
+                    'Server-owned Learning Content page/resource progress by runtime user.',
+                    'Серверный прогресс по страницам и ресурсам учебного контента для runtime-пользователей.'
+                ),
+                config: buildTransactionalObjectConfig({
+                    prefix: 'CPR-',
+                    effectiveDateField: 'CompletedAt',
+                    stateField: 'ProgressStatus',
+                    states: [
+                        { codename: 'NotStarted', title: 'Not Started', isInitial: true },
+                        { codename: 'InProgress', title: 'In Progress' },
+                        { codename: 'Completed', title: 'Completed', isFinal: true }
+                    ],
+                    targetLedgers: ['ProgressLedger']
+                }),
+                components: [
+                    {
+                        codename: 'TargetObjectCodename',
+                        dataType: 'STRING',
+                        name: vlc('Target Object', 'Целевой объект'),
+                        sortOrder: 1,
+                        validationRules: { maxLength: 128 }
+                    },
+                    {
+                        codename: 'TargetRecordId',
+                        dataType: 'STRING',
+                        name: vlc('Target Record ID', 'ID целевой записи'),
+                        sortOrder: 2,
+                        validationRules: { maxLength: 128 }
+                    },
+                    {
+                        codename: 'UserId',
+                        dataType: 'STRING',
+                        name: vlc('User ID', 'ID пользователя'),
+                        sortOrder: 3,
+                        validationRules: { maxLength: 128 }
+                    },
+                    {
+                        codename: 'ProgressStudentId',
+                        dataType: 'REF',
+                        name: vlc('Student', 'Студент'),
+                        sortOrder: 4,
+                        targetEntityCodename: 'Students',
+                        targetEntityKind: 'object'
+                    },
+                    {
+                        codename: 'ContentNodeId',
+                        dataType: 'REF',
+                        name: vlc('Learning Resource', 'Учебный ресурс'),
+                        sortOrder: 5,
+                        targetEntityCodename: 'LearningResources',
+                        targetEntityKind: 'object'
+                    },
+                    {
+                        codename: 'DepartmentId',
+                        dataType: 'REF',
+                        name: vlc('Department', 'Подразделение'),
+                        sortOrder: 6,
+                        targetEntityCodename: 'Departments',
+                        targetEntityKind: 'object'
+                    },
+                    {
+                        codename: 'ProgressStatus',
+                        dataType: 'STRING',
+                        name: vlc('Status', 'Статус'),
+                        isRequired: true,
+                        sortOrder: 7,
+                        validationRules: { maxLength: 64 }
+                    },
+                    {
+                        codename: 'ProgressPercent',
+                        dataType: 'NUMBER',
+                        name: vlc('Progress %', 'Прогресс %'),
+                        isRequired: true,
+                        sortOrder: 8,
+                        validationRules: { min: 0, max: 100 }
+                    },
+                    {
+                        codename: 'StartedAt',
+                        dataType: 'DATE',
+                        name: vlc('Started At', 'Начато'),
+                        sortOrder: 9,
+                        validationRules: { dateComposition: 'datetime' }
+                    },
+                    {
+                        codename: 'CompletedAt',
+                        dataType: 'DATE',
+                        name: vlc('Completed At', 'Завершено'),
+                        sortOrder: 10,
+                        validationRules: { dateComposition: 'datetime' }
+                    },
+                    {
+                        codename: 'LastViewedAt',
+                        dataType: 'DATE',
+                        name: vlc('Last Viewed At', 'Последний просмотр'),
+                        sortOrder: 11,
+                        validationRules: { dateComposition: 'datetime' }
+                    },
+                    {
+                        codename: 'LastAccessedItemIndex',
+                        dataType: 'NUMBER',
+                        name: vlc('Last Accessed Item', 'Последний элемент'),
+                        sortOrder: 12
+                    }
+                ]
+            },
+            {
+                codename: 'TrashEntries',
+                kind: 'object',
+                name: vlc('Trash Entries', 'Корзина'),
+                description: vlc(
+                    'Object projection for deleted Learning Content records that can be restored from the workspace Trash.',
+                    'Объектная проекция удаленного учебного контента для восстановления из корзины рабочего пространства.'
+                ),
+                components: [
+                    {
+                        codename: 'TargetObjectCodename',
+                        dataType: 'STRING',
+                        name: vlc('Target Object', 'Целевой объект'),
+                        isRequired: true,
+                        sortOrder: 1,
+                        validationRules: { maxLength: 128 }
+                    },
+                    {
+                        codename: 'TargetRecordId',
+                        dataType: 'STRING',
+                        name: vlc('Target Record ID', 'ID целевой записи'),
+                        isRequired: true,
+                        sortOrder: 2,
+                        validationRules: { maxLength: 128 }
+                    },
+                    {
+                        codename: 'DeletedBy',
+                        dataType: 'STRING',
+                        name: vlc('Deleted By', 'Удалил'),
+                        sortOrder: 3,
+                        validationRules: { maxLength: 128 }
+                    },
+                    {
+                        codename: 'DeletedAt',
+                        dataType: 'DATE',
+                        name: vlc('Deleted At', 'Дата удаления'),
+                        isRequired: true,
+                        sortOrder: 4,
+                        validationRules: { dateComposition: 'datetime' }
+                    },
+                    {
+                        codename: 'ExpiresAt',
+                        dataType: 'DATE',
+                        name: vlc('Expires At', 'Истекает'),
+                        sortOrder: 5,
+                        validationRules: { dateComposition: 'datetime' }
+                    },
+                    {
+                        codename: 'RestoreState',
+                        dataType: 'STRING',
+                        name: vlc('Restore State', 'Состояние восстановления'),
+                        sortOrder: 6,
+                        validationRules: { maxLength: 64 }
+                    }
+                ]
+            },
+            {
+                codename: 'LearningResources',
+                kind: 'object',
+                name: vlc('Learning Resources', 'Учебные ресурсы'),
+                description: vlc(
+                    'Reusable content resources such as pages, links, videos, documents, embeds, and deferred package standards.',
+                    'Переиспользуемые учебные ресурсы: страницы, ссылки, видео, документы, встраивания и отложенные пакетные стандарты.'
+                ),
+                config: {
+                    workflowActions: LMS_LEARNING_RESOURCE_PUBLICATION_WORKFLOW_ACTIONS,
+                    runtimeLibrary: {
+                        recent: {
+                            objectCodename: 'RecentContentViews',
+                            targetObjectFieldCodename: 'TargetObjectCodename',
+                            targetRecordFieldCodename: 'TargetRecordId',
+                            actorFieldCodename: 'UserId'
+                        },
+                        starred: {
+                            objectCodename: 'ContentStars',
+                            targetObjectFieldCodename: 'TargetObjectCodename',
+                            targetRecordFieldCodename: 'TargetRecordId',
+                            actorFieldCodename: 'UserId'
+                        },
+                        shared: {
+                            objectCodename: 'ContentAccessEntries',
+                            targetObjectFieldCodename: 'TargetObjectCodename',
+                            targetRecordFieldCodename: 'TargetRecordId',
+                            principalTypeFieldCodename: 'PrincipalType',
+                            principalIdFieldCodename: 'PrincipalId',
+                            allowedPrincipalTypes: ['workspaceMember', 'user']
+                        }
+                    },
+                    runtimeRecordAccess: {
+                        mode: 'ownerOrShared',
+                        ownerColumnName: '_upl_created_by',
+                        sharedRelationKey: 'shared'
+                    }
+                },
+                components: [
+                    {
+                        codename: 'ProjectId',
+                        dataType: 'REF',
+                        name: vlc('Project', 'Проект'),
+                        sortOrder: 1,
+                        targetEntityCodename: 'ContentProjects',
+                        targetEntityKind: 'object'
+                    },
+                    {
+                        codename: 'Title',
+                        dataType: 'STRING',
+                        name: vlc('Title', 'Заголовок'),
+                        isRequired: true,
+                        isDisplayComponent: true,
+                        sortOrder: 2,
+                        validationRules: { maxLength: 500, localized: true, versioned: true },
+                        uiConfig: {
+                            syncTargets: [{ fieldId: 'Name', manualFlagFieldId: 'NameManuallyEdited' }]
+                        }
+                    },
+                    {
+                        codename: 'Name',
+                        dataType: 'STRING',
+                        name: vlc('Name', 'Название страницы'),
+                        sortOrder: 3,
+                        validationRules: { maxLength: 500 }
+                    },
+                    {
+                        codename: 'NameManuallyEdited',
+                        dataType: 'BOOLEAN',
+                        name: vlc('Name Manually Edited', 'Название изменено вручную'),
+                        sortOrder: 4,
+                        uiConfig: {
+                            hidden: true
+                        }
+                    },
+                    {
+                        codename: 'ResourceType',
+                        dataType: 'REF',
+                        name: vlc('Resource Type', 'Тип ресурса'),
+                        isRequired: true,
+                        sortOrder: 5,
+                        targetEntityCodename: 'ResourceType',
+                        targetEntityKind: 'enumeration'
+                    },
+                    {
+                        codename: 'Source',
+                        dataType: 'JSON',
+                        name: vlc('Source', 'Источник'),
+                        isRequired: true,
+                        sortOrder: 6,
+                        uiConfig: {
+                            widget: 'resourceSource',
+                            gridHidden: true
+                        }
+                    },
+                    {
+                        codename: 'Body',
+                        dataType: 'JSON',
+                        name: vlc('Body', 'Содержимое'),
+                        sortOrder: 7,
+                        uiConfig: {
+                            gridHidden: true,
+                            widget: 'editorjsBlockContent',
+                            blockEditor: {
+                                allowedBlockTypes: ['paragraph', 'header', 'list', 'quote', 'table', 'image', 'embed', 'delimiter'],
+                                maxBlocks: 200
+                            }
+                        }
+                    },
+                    {
+                        codename: 'PublicationStatus',
+                        dataType: 'REF',
+                        name: vlc('Publication Status', 'Статус публикации'),
+                        sortOrder: 8,
+                        targetEntityCodename: 'PublicationStatus',
                         targetEntityKind: 'enumeration'
                     },
                     {
                         codename: 'EstimatedTimeMinutes',
                         dataType: 'NUMBER',
                         name: vlc('Estimated Time, min', 'Оценочное время, мин'),
+                        sortOrder: 9,
+                        validationRules: { min: 0 }
+                    },
+                    {
+                        codename: 'Language',
+                        dataType: 'STRING',
+                        name: vlc('Language', 'Язык'),
+                        sortOrder: 10,
+                        validationRules: { maxLength: 16 }
+                    },
+                    {
+                        codename: 'Version',
+                        dataType: 'STRING',
+                        name: vlc('Version', 'Версия'),
+                        sortOrder: 11,
+                        validationRules: { maxLength: 64 }
+                    },
+                    {
+                        codename: 'Thumbnail',
+                        dataType: 'JSON',
+                        name: vlc('Thumbnail', 'Миниатюра'),
+                        sortOrder: 12,
+                        uiConfig: {
+                            widget: 'resourceSource',
+                            gridHidden: true
+                        }
+                    },
+                    {
+                        codename: 'CreatedBy',
+                        dataType: 'STRING',
+                        name: vlc('Created By', 'Создал'),
+                        sortOrder: 13,
+                        validationRules: { maxLength: 128 }
+                    },
+                    {
+                        codename: 'ContentItems',
+                        dataType: 'TABLE',
+                        name: vlc('Content Items', 'Элементы контента'),
+                        sortOrder: 14,
+                        childComponents: [
+                            {
+                                codename: 'ItemType',
+                                dataType: 'REF',
+                                name: vlc('Item Type', 'Тип элемента'),
+                                isRequired: true,
+                                sortOrder: 1,
+                                targetEntityCodename: 'ContentType',
+                                targetEntityKind: 'enumeration'
+                            },
+                            {
+                                codename: 'ItemTitle',
+                                dataType: 'STRING',
+                                name: vlc('Item Title', 'Заголовок элемента'),
+                                sortOrder: 2,
+                                validationRules: { maxLength: 500, localized: true, versioned: true }
+                            },
+                            {
+                                codename: 'ItemContent',
+                                dataType: 'STRING',
+                                name: vlc('Item Content', 'Содержимое элемента'),
+                                sortOrder: 3,
+                                validationRules: { localized: true, versioned: true }
+                            },
+                            {
+                                codename: 'QuizId',
+                                dataType: 'REF',
+                                name: vlc('Quiz', 'Тест'),
+                                sortOrder: 4,
+                                targetEntityCodename: 'Quizzes',
+                                targetEntityKind: 'object'
+                            },
+                            {
+                                codename: 'SortOrder',
+                                dataType: 'NUMBER',
+                                name: vlc('Sort Order', 'Порядок'),
+                                sortOrder: 5
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                codename: 'Courses',
+                kind: 'object',
+                name: vlc('Courses', 'Курсы'),
+                description: vlc(
+                    'Courses that group ordered sections and Learning Content items.',
+                    'Курсы, объединяющие упорядоченные разделы и элементы учебного контента.'
+                ),
+                config: {
+                    runtimeLibrary: {
+                        recent: {
+                            objectCodename: 'RecentContentViews',
+                            targetObjectFieldCodename: 'TargetObjectCodename',
+                            targetRecordFieldCodename: 'TargetRecordId',
+                            actorFieldCodename: 'UserId'
+                        },
+                        starred: {
+                            objectCodename: 'ContentStars',
+                            targetObjectFieldCodename: 'TargetObjectCodename',
+                            targetRecordFieldCodename: 'TargetRecordId',
+                            actorFieldCodename: 'UserId'
+                        },
+                        shared: {
+                            objectCodename: 'ContentAccessEntries',
+                            targetObjectFieldCodename: 'TargetObjectCodename',
+                            targetRecordFieldCodename: 'TargetRecordId',
+                            principalTypeFieldCodename: 'PrincipalType',
+                            principalIdFieldCodename: 'PrincipalId',
+                            allowedPrincipalTypes: ['workspaceMember', 'user']
+                        }
+                    },
+                    runtimeRecordAccess: {
+                        mode: 'ownerOrShared',
+                        ownerColumnName: '_upl_created_by',
+                        sharedRelationKey: 'shared'
+                    },
+                    runtimeCopy: {
+                        relations: [
+                            {
+                                objectCodename: 'CourseSections',
+                                parentFieldCodename: 'CourseId',
+                                orderFieldCodename: 'SortOrder'
+                            },
+                            {
+                                objectCodename: 'CourseItems',
+                                parentFieldCodename: 'CourseId',
+                                orderFieldCodename: 'SortOrder',
+                                refRemaps: [
+                                    {
+                                        fieldCodename: 'SectionId',
+                                        sourceObjectCodename: 'CourseSections'
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                },
+                components: [
+                    {
+                        codename: 'ProjectId',
+                        dataType: 'REF',
+                        name: vlc('Project', 'Проект'),
+                        sortOrder: 1,
+                        targetEntityCodename: 'ContentProjects',
+                        targetEntityKind: 'object'
+                    },
+                    {
+                        codename: 'Title',
+                        dataType: 'STRING',
+                        name: vlc('Title', 'Заголовок'),
+                        isRequired: true,
+                        isDisplayComponent: true,
+                        sortOrder: 2,
+                        validationRules: { maxLength: 500, localized: true, versioned: true }
+                    },
+                    {
+                        codename: 'Description',
+                        dataType: 'STRING',
+                        name: vlc('Description', 'Описание'),
+                        sortOrder: 3,
+                        validationRules: { localized: true, versioned: true },
+                        uiConfig: { widget: 'textarea', rows: 2 }
+                    },
+                    {
+                        codename: 'Status',
+                        dataType: 'REF',
+                        name: vlc('Status', 'Статус'),
                         sortOrder: 4,
+                        targetEntityCodename: 'LearningResourceStatus',
+                        targetEntityKind: 'enumeration'
+                    },
+                    {
+                        codename: 'NavigationMode',
+                        dataType: 'STRING',
+                        name: vlc('Navigation Mode', 'Режим навигации'),
+                        sortOrder: 5,
+                        validationRules: { maxLength: 32 },
+                        uiConfig: {
+                            widget: 'select',
+                            stringOptions: [
+                                { value: 'free', label: vlc('Free', 'Свободная') },
+                                { value: 'sequential', label: vlc('Sequential', 'Последовательная') }
+                            ]
+                        }
+                    },
+                    {
+                        codename: 'CompletionCondition',
+                        dataType: 'STRING',
+                        name: vlc('Completion Condition', 'Условие завершения'),
+                        sortOrder: 6,
+                        validationRules: { maxLength: 64 },
+                        uiConfig: {
+                            widget: 'select',
+                            stringOptions: [
+                                { value: 'allItems', label: vlc('All items', 'Все элементы') },
+                                { value: 'selectedItems', label: vlc('Selected items', 'Выбранные элементы') }
+                            ]
+                        }
+                    },
+                    {
+                        codename: 'StatusFormat',
+                        dataType: 'STRING',
+                        name: vlc('Status Format', 'Формат статуса'),
+                        sortOrder: 7,
+                        validationRules: { maxLength: 64 },
+                        uiConfig: {
+                            widget: 'select',
+                            stringOptions: [
+                                { value: 'completeIncomplete', label: vlc('Complete / Incomplete', 'Завершен / Не завершен') },
+                                { value: 'passedFailed', label: vlc('Passed / Failed', 'Пройден / Не пройден') }
+                            ]
+                        }
+                    },
+                    {
+                        codename: 'Cover',
+                        dataType: 'JSON',
+                        name: vlc('Cover', 'Обложка'),
+                        sortOrder: 8,
+                        uiConfig: {
+                            widget: 'resourceSource',
+                            gridHidden: true
+                        }
+                    },
+                    {
+                        codename: 'Instructor',
+                        dataType: 'STRING',
+                        name: vlc('Instructor', 'Преподаватель'),
+                        sortOrder: 9,
+                        validationRules: { maxLength: 255 }
+                    },
+                    {
+                        codename: 'Tags',
+                        dataType: 'STRING',
+                        name: vlc('Tags', 'Теги'),
+                        sortOrder: 10,
+                        validationRules: { maxLength: 500 }
+                    },
+                    {
+                        codename: 'CatalogVisible',
+                        dataType: 'BOOLEAN',
+                        name: vlc('Catalog Visible', 'Показывать в каталоге'),
+                        sortOrder: 11
+                    },
+                    {
+                        codename: 'CatalogCategory',
+                        dataType: 'STRING',
+                        name: vlc('Catalog Category', 'Категория каталога'),
+                        sortOrder: 12,
+                        validationRules: { maxLength: 255, localized: true, versioned: true }
+                    },
+                    {
+                        codename: 'CatalogAudience',
+                        dataType: 'STRING',
+                        name: vlc('Catalog Audience', 'Аудитория каталога'),
+                        sortOrder: 13,
+                        validationRules: { maxLength: 255, localized: true, versioned: true }
+                    },
+                    {
+                        codename: 'SelfEnrollmentMode',
+                        dataType: 'STRING',
+                        name: vlc('Self-Enrollment Mode', 'Режим самостоятельной записи'),
+                        sortOrder: 14,
+                        validationRules: { maxLength: 32 },
+                        uiConfig: {
+                            widget: 'select',
+                            stringOptions: [
+                                { value: 'disabled', label: vlc('Disabled', 'Отключена') },
+                                { value: 'open', label: vlc('Open', 'Открытая') }
+                            ]
+                        }
+                    },
+                    {
+                        codename: 'EstimatedTimeMinutes',
+                        dataType: 'NUMBER',
+                        name: vlc('Estimated Time, min', 'Оценочное время, мин'),
+                        sortOrder: 15,
                         validationRules: { min: 0 }
                     }
                 ]
@@ -2076,26 +3967,149 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         validationRules: { maxLength: 500, localized: true, versioned: true }
                     },
                     {
-                        codename: 'ResourceId',
-                        dataType: 'REF',
-                        name: vlc('Resource', 'Ресурс'),
+                        codename: 'Description',
+                        dataType: 'STRING',
+                        name: vlc('Description', 'Описание'),
                         sortOrder: 3,
-                        targetEntityCodename: 'LearningResources',
-                        targetEntityKind: 'object'
-                    },
-                    {
-                        codename: 'ModuleId',
-                        dataType: 'REF',
-                        name: vlc('Module', 'Модуль'),
-                        sortOrder: 4,
-                        targetEntityCodename: 'Modules',
-                        targetEntityKind: 'object'
+                        validationRules: { localized: true, versioned: true },
+                        uiConfig: { widget: 'textarea', rows: 2 }
                     },
                     {
                         codename: 'SortOrder',
                         dataType: 'NUMBER',
                         name: vlc('Sort Order', 'Порядок'),
+                        sortOrder: 4,
+                        validationRules: { min: 0 }
+                    }
+                ]
+            },
+            {
+                codename: 'CourseItems',
+                kind: 'object',
+                name: vlc('Course Items', 'Элементы курса'),
+                description: vlc(
+                    'Ordered polymorphic content references inside course sections.',
+                    'Упорядоченные полиморфные ссылки на контент внутри разделов курса.'
+                ),
+                config: {
+                    runtimeProgress: {
+                        sequencePolicy: {
+                            mode: 'sequential',
+                            scopeFieldCodename: 'CourseId',
+                            orderFieldCodename: 'SortOrder'
+                        },
+                        aggregateParents: [
+                            {
+                                parentObjectCodename: 'Courses',
+                                parentIdFieldCodename: 'CourseId',
+                                itemWeightFieldCodename: 'CompletionWeight',
+                                itemRequiredFieldCodename: 'IsRequired',
+                                requiredOnly: true
+                            }
+                        ]
+                    }
+                },
+                components: [
+                    {
+                        codename: 'CourseId',
+                        dataType: 'REF',
+                        name: vlc('Course', 'Курс'),
+                        isRequired: true,
+                        sortOrder: 1,
+                        targetEntityCodename: 'Courses',
+                        targetEntityKind: 'object'
+                    },
+                    {
+                        codename: 'SectionId',
+                        dataType: 'REF',
+                        name: vlc('Section', 'Раздел'),
+                        sortOrder: 2,
+                        targetEntityCodename: 'CourseSections',
+                        targetEntityKind: 'object',
+                        uiConfig: { gridHidden: true }
+                    },
+                    {
+                        codename: 'Title',
+                        dataType: 'STRING',
+                        name: vlc('Title', 'Заголовок'),
+                        isRequired: true,
+                        isDisplayComponent: true,
+                        sortOrder: 3,
+                        validationRules: { maxLength: 500, localized: true, versioned: true }
+                    },
+                    {
+                        codename: 'TargetObjectCodename',
+                        dataType: 'STRING',
+                        name: vlc('Target Object', 'Целевой объект'),
+                        isRequired: true,
+                        sortOrder: 4,
+                        validationRules: { maxLength: 128 },
+                        uiConfig: {
+                            widget: 'select',
+                            stringOptions: [
+                                { value: 'LearningResources', label: vlc('Learning Resources', 'Учебные ресурсы') },
+                                { value: 'Quizzes', label: vlc('Quizzes', 'Тесты') }
+                            ]
+                        }
+                    },
+                    {
+                        codename: 'TargetRecordId',
+                        dataType: 'STRING',
+                        name: vlc('Target Record', 'Целевая запись'),
+                        isRequired: true,
                         sortOrder: 5,
+                        validationRules: { maxLength: 128 },
+                        uiConfig: {
+                            gridHidden: true,
+                            widget: 'runtimeRecordPicker',
+                            runtimeRecordPicker: {
+                                targetObjectCodenameField: 'TargetObjectCodename',
+                                allowedObjectCodenames: ['LearningResources', 'Quizzes'],
+                                labelFields: ['Title', 'Name'],
+                                limit: 100
+                            }
+                        }
+                    },
+                    {
+                        codename: 'ItemType',
+                        dataType: 'STRING',
+                        name: vlc('Item Type', 'Тип элемента'),
+                        isRequired: true,
+                        sortOrder: 6,
+                        validationRules: { maxLength: 64 }
+                    },
+                    {
+                        codename: 'SortOrder',
+                        dataType: 'NUMBER',
+                        name: vlc('Sort Order', 'Порядок'),
+                        isRequired: true,
+                        sortOrder: 7,
+                        validationRules: { min: 0 }
+                    },
+                    {
+                        codename: 'IsRequired',
+                        dataType: 'BOOLEAN',
+                        name: vlc('Required', 'Обязательно'),
+                        sortOrder: 8
+                    },
+                    {
+                        codename: 'CompletionWeight',
+                        dataType: 'NUMBER',
+                        name: vlc('Completion Weight', 'Вес завершения'),
+                        sortOrder: 9,
+                        validationRules: { min: 0 }
+                    },
+                    {
+                        codename: 'AvailabilityOverride',
+                        dataType: 'JSON',
+                        name: vlc('Availability Override', 'Переопределение доступности'),
+                        sortOrder: 10
+                    },
+                    {
+                        codename: 'EstimatedTimeMinutes',
+                        dataType: 'NUMBER',
+                        name: vlc('Estimated Time, min', 'Оценочное время, мин'),
+                        sortOrder: 11,
                         validationRules: { min: 0 }
                     }
                 ]
@@ -2105,64 +4119,172 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 kind: 'object',
                 name: vlc('Learning Tracks', 'Учебные треки'),
                 description: vlc(
-                    'Ordered programs that combine modules, quizzes, and assignments.',
-                    'Последовательные программы из модулей, тестов и назначений.'
+                    'Ordered programs that combine courses into stages.',
+                    'Последовательные программы, объединяющие курсы по этапам.'
                 ),
+                config: {
+                    runtimeLibrary: {
+                        recent: {
+                            objectCodename: 'RecentContentViews',
+                            targetObjectFieldCodename: 'TargetObjectCodename',
+                            targetRecordFieldCodename: 'TargetRecordId',
+                            actorFieldCodename: 'UserId'
+                        },
+                        starred: {
+                            objectCodename: 'ContentStars',
+                            targetObjectFieldCodename: 'TargetObjectCodename',
+                            targetRecordFieldCodename: 'TargetRecordId',
+                            actorFieldCodename: 'UserId'
+                        },
+                        shared: {
+                            objectCodename: 'ContentAccessEntries',
+                            targetObjectFieldCodename: 'TargetObjectCodename',
+                            targetRecordFieldCodename: 'TargetRecordId',
+                            principalTypeFieldCodename: 'PrincipalType',
+                            principalIdFieldCodename: 'PrincipalId',
+                            allowedPrincipalTypes: ['workspaceMember', 'user']
+                        }
+                    },
+                    runtimeRecordAccess: {
+                        mode: 'ownerOrShared',
+                        ownerColumnName: '_upl_created_by',
+                        sharedRelationKey: 'shared'
+                    },
+                    runtimeCopy: {
+                        relations: [
+                            {
+                                objectCodename: 'TrackStages',
+                                parentFieldCodename: 'TrackId',
+                                orderFieldCodename: 'SortOrder'
+                            },
+                            {
+                                objectCodename: 'TrackSteps',
+                                parentFieldCodename: 'TrackId',
+                                orderFieldCodename: 'SortOrder',
+                                refRemaps: [
+                                    {
+                                        fieldCodename: 'StageId',
+                                        sourceObjectCodename: 'TrackStages'
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                },
                 components: [
+                    {
+                        codename: 'ProjectId',
+                        dataType: 'REF',
+                        name: vlc('Project', 'Проект'),
+                        sortOrder: 1,
+                        targetEntityCodename: 'ContentProjects',
+                        targetEntityKind: 'object'
+                    },
                     {
                         codename: 'Title',
                         dataType: 'STRING',
                         name: vlc('Title', 'Заголовок'),
                         isRequired: true,
                         isDisplayComponent: true,
-                        sortOrder: 1,
+                        sortOrder: 2,
                         validationRules: { maxLength: 500, localized: true, versioned: true }
                     },
                     {
                         codename: 'Description',
                         dataType: 'STRING',
                         name: vlc('Description', 'Описание'),
-                        sortOrder: 2,
-                        validationRules: { localized: true, versioned: true }
+                        sortOrder: 3,
+                        validationRules: { localized: true, versioned: true },
+                        uiConfig: { widget: 'textarea', rows: 2 }
                     },
                     {
-                        codename: 'TrackItems',
-                        dataType: 'TABLE',
-                        name: vlc('Track Items', 'Элементы трека'),
-                        sortOrder: 3,
-                        childComponents: [
-                            {
-                                codename: 'ModuleId',
-                                dataType: 'REF',
-                                name: vlc('Module', 'Модуль'),
-                                sortOrder: 1,
-                                targetEntityCodename: 'Modules',
-                                targetEntityKind: 'object'
-                            },
-                            {
-                                codename: 'Required',
-                                dataType: 'BOOLEAN',
-                                name: vlc('Required', 'Обязательно'),
-                                sortOrder: 2
-                            },
-                            {
-                                codename: 'SortOrder',
-                                dataType: 'NUMBER',
-                                name: vlc('Sort Order', 'Порядок'),
-                                sortOrder: 3
-                            }
-                        ]
+                        codename: 'Status',
+                        dataType: 'REF',
+                        name: vlc('Status', 'Статус'),
+                        sortOrder: 4,
+                        targetEntityCodename: 'LearningResourceStatus',
+                        targetEntityKind: 'enumeration'
+                    },
+                    {
+                        codename: 'OrderMode',
+                        dataType: 'STRING',
+                        name: vlc('Order Mode', 'Режим порядка'),
+                        sortOrder: 5,
+                        validationRules: { maxLength: 32 },
+                        uiConfig: {
+                            widget: 'select',
+                            stringOptions: [
+                                { value: 'byDays', label: vlc('By days', 'По дням') },
+                                { value: 'sequential', label: vlc('Sequential', 'Последовательно') },
+                                { value: 'free', label: vlc('Free', 'Свободно') }
+                            ]
+                        }
+                    },
+                    {
+                        codename: 'Cover',
+                        dataType: 'JSON',
+                        name: vlc('Cover', 'Обложка'),
+                        sortOrder: 6,
+                        uiConfig: {
+                            widget: 'resourceSource',
+                            gridHidden: true
+                        }
+                    },
+                    {
+                        codename: 'Instructor',
+                        dataType: 'STRING',
+                        name: vlc('Instructor', 'Преподаватель'),
+                        sortOrder: 7,
+                        validationRules: { maxLength: 255 }
+                    },
+                    {
+                        codename: 'Tags',
+                        dataType: 'STRING',
+                        name: vlc('Tags', 'Теги'),
+                        sortOrder: 8,
+                        validationRules: { maxLength: 500 }
+                    },
+                    {
+                        codename: 'CatalogVisible',
+                        dataType: 'BOOLEAN',
+                        name: vlc('Catalog Visible', 'Показывать в каталоге'),
+                        sortOrder: 9
+                    },
+                    {
+                        codename: 'CatalogCategory',
+                        dataType: 'STRING',
+                        name: vlc('Catalog Category', 'Категория каталога'),
+                        sortOrder: 10,
+                        validationRules: { maxLength: 255, localized: true, versioned: true }
+                    },
+                    {
+                        codename: 'CatalogAudience',
+                        dataType: 'STRING',
+                        name: vlc('Catalog Audience', 'Аудитория каталога'),
+                        sortOrder: 11,
+                        validationRules: { maxLength: 255, localized: true, versioned: true }
+                    },
+                    {
+                        codename: 'SelfEnrollmentMode',
+                        dataType: 'STRING',
+                        name: vlc('Self-Enrollment Mode', 'Режим самостоятельной записи'),
+                        sortOrder: 12,
+                        validationRules: { maxLength: 32 },
+                        uiConfig: {
+                            widget: 'select',
+                            stringOptions: [
+                                { value: 'disabled', label: vlc('Disabled', 'Отключена') },
+                                { value: 'open', label: vlc('Open', 'Открытая') }
+                            ]
+                        }
                     }
                 ]
             },
             {
-                codename: 'TrackSteps',
+                codename: 'TrackStages',
                 kind: 'object',
-                name: vlc('Track Steps', 'Шаги трека'),
-                description: vlc(
-                    'Reusable ordered steps for learning track progression and prerequisite checks.',
-                    'Переиспользуемые упорядоченные шаги учебных треков и проверок prerequisites.'
-                ),
+                name: vlc('Track Stages', 'Этапы трека'),
+                description: vlc('Ordered stage headers inside learning tracks.', 'Упорядоченные этапы внутри учебных треков.'),
                 components: [
                     {
                         codename: 'TrackId',
@@ -2183,20 +4305,84 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         validationRules: { maxLength: 500, localized: true, versioned: true }
                     },
                     {
-                        codename: 'ModuleId',
-                        dataType: 'REF',
-                        name: vlc('Module', 'Модуль'),
+                        codename: 'Description',
+                        dataType: 'STRING',
+                        name: vlc('Description', 'Описание'),
                         sortOrder: 3,
-                        targetEntityCodename: 'Modules',
+                        validationRules: { localized: true, versioned: true }
+                    },
+                    {
+                        codename: 'SortOrder',
+                        dataType: 'NUMBER',
+                        name: vlc('Sort Order', 'Порядок'),
+                        isRequired: true,
+                        sortOrder: 4,
+                        validationRules: { min: 0 }
+                    }
+                ]
+            },
+            {
+                codename: 'TrackSteps',
+                kind: 'object',
+                name: vlc('Track Steps', 'Шаги трека'),
+                description: vlc(
+                    'Reusable ordered steps for learning track progression and prerequisite checks.',
+                    'Переиспользуемые упорядоченные шаги учебных треков и проверок prerequisites.'
+                ),
+                config: {
+                    runtimeProgress: {
+                        sequencePolicy: {
+                            mode: 'sequential',
+                            scopeFieldCodename: 'TrackId',
+                            orderFieldCodename: 'SortOrder'
+                        },
+                        aggregateParents: [
+                            {
+                                parentObjectCodename: 'LearningTracks',
+                                parentIdFieldCodename: 'TrackId',
+                                itemRequiredFieldCodename: 'IsRequired',
+                                requiredOnly: true
+                            }
+                        ]
+                    }
+                },
+                components: [
+                    {
+                        codename: 'TrackId',
+                        dataType: 'REF',
+                        name: vlc('Learning Track', 'Учебный трек'),
+                        isRequired: true,
+                        sortOrder: 1,
+                        targetEntityCodename: 'LearningTracks',
                         targetEntityKind: 'object'
                     },
                     {
-                        codename: 'ResourceId',
+                        codename: 'StageId',
                         dataType: 'REF',
-                        name: vlc('Resource', 'Ресурс'),
+                        name: vlc('Stage', 'Этап'),
+                        sortOrder: 2,
+                        targetEntityCodename: 'TrackStages',
+                        targetEntityKind: 'object',
+                        uiConfig: { gridHidden: true }
+                    },
+                    {
+                        codename: 'CourseId',
+                        dataType: 'REF',
+                        name: vlc('Course', 'Курс'),
+                        isRequired: true,
+                        sortOrder: 3,
+                        targetEntityCodename: 'Courses',
+                        targetEntityKind: 'object',
+                        uiConfig: { gridHidden: true }
+                    },
+                    {
+                        codename: 'Title',
+                        dataType: 'STRING',
+                        name: vlc('Title', 'Заголовок'),
+                        isRequired: true,
+                        isDisplayComponent: true,
                         sortOrder: 4,
-                        targetEntityCodename: 'LearningResources',
-                        targetEntityKind: 'object'
+                        validationRules: { maxLength: 500, localized: true, versioned: true }
                     },
                     {
                         codename: 'SortOrder',
@@ -2207,123 +4393,30 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         validationRules: { min: 0 }
                     },
                     {
-                        codename: 'Required',
+                        codename: 'EnrollmentOffsetDays',
+                        dataType: 'NUMBER',
+                        name: vlc('Enrollment Offset Days', 'Смещение зачисления, дни'),
+                        sortOrder: 6,
+                        validationRules: { min: 0 }
+                    },
+                    {
+                        codename: 'DueOffsetDays',
+                        dataType: 'NUMBER',
+                        name: vlc('Due Offset Days', 'Срок выполнения, дни'),
+                        sortOrder: 7,
+                        validationRules: { min: 0 }
+                    },
+                    {
+                        codename: 'RestrictAfterDueDate',
+                        dataType: 'BOOLEAN',
+                        name: vlc('Restrict After Due Date', 'Ограничить после срока'),
+                        sortOrder: 8
+                    },
+                    {
+                        codename: 'IsRequired',
                         dataType: 'BOOLEAN',
                         name: vlc('Required', 'Обязательно'),
-                        sortOrder: 6
-                    }
-                ]
-            },
-            {
-                codename: 'Modules',
-                kind: 'object',
-                name: vlc('Modules', 'Модули'),
-                description: vlc(
-                    'Learning content modules with structured content items.',
-                    'Учебные модули со структурированными элементами контента.'
-                ),
-                components: [
-                    {
-                        codename: 'Title',
-                        dataType: 'STRING',
-                        name: vlc('Title', 'Заголовок'),
-                        isRequired: true,
-                        isDisplayComponent: true,
-                        sortOrder: 1,
-                        validationRules: { maxLength: 500, localized: true, versioned: true }
-                    },
-                    {
-                        codename: 'Description',
-                        dataType: 'STRING',
-                        name: vlc('Description', 'Описание'),
-                        sortOrder: 2,
-                        validationRules: { localized: true, versioned: true }
-                    },
-                    {
-                        codename: 'Status',
-                        dataType: 'REF',
-                        name: vlc('Status', 'Статус'),
-                        isRequired: true,
-                        sortOrder: 3,
-                        targetEntityCodename: 'ModuleStatus',
-                        targetEntityKind: 'enumeration'
-                    },
-                    {
-                        codename: 'CoverImageUrl',
-                        dataType: 'STRING',
-                        name: vlc('Cover Image URL', 'URL обложки'),
-                        sortOrder: 4,
-                        validationRules: { maxLength: 2048 }
-                    },
-                    {
-                        codename: 'EstimatedDurationMinutes',
-                        dataType: 'NUMBER',
-                        name: vlc('Estimated Duration (min)', 'Ожидаемая длительность (мин)'),
-                        sortOrder: 5,
-                        validationRules: { min: 1 }
-                    },
-                    {
-                        codename: 'AccessLinkSlug',
-                        dataType: 'STRING',
-                        name: vlc('Access Link Slug', 'Слаг ссылки доступа'),
-                        sortOrder: 6,
-                        validationRules: { maxLength: 255 }
-                    },
-                    {
-                        codename: 'Body',
-                        dataType: 'JSON',
-                        name: vlc('Body', 'Содержимое'),
-                        sortOrder: 7,
-                        uiConfig: {
-                            widget: 'editorjsBlockContent',
-                            blockEditor: {
-                                allowedBlockTypes: ['paragraph', 'header', 'list', 'quote', 'table', 'image', 'embed', 'delimiter'],
-                                maxBlocks: 200
-                            }
-                        }
-                    },
-                    {
-                        codename: 'ContentItems',
-                        dataType: 'TABLE',
-                        name: vlc('Content Items', 'Элементы контента'),
-                        sortOrder: 8,
-                        childComponents: [
-                            {
-                                codename: 'ItemType',
-                                dataType: 'REF',
-                                name: vlc('Item Type', 'Тип элемента'),
-                                isRequired: true,
-                                sortOrder: 1,
-                                targetEntityCodename: 'ContentType',
-                                targetEntityKind: 'enumeration'
-                            },
-                            {
-                                codename: 'ItemTitle',
-                                dataType: 'STRING',
-                                name: vlc('Item Title', 'Заголовок элемента'),
-                                sortOrder: 2,
-                                validationRules: { maxLength: 500, localized: true, versioned: true }
-                            },
-                            {
-                                codename: 'ItemContent',
-                                dataType: 'STRING',
-                                name: vlc('Item Content', 'Содержимое элемента'),
-                                sortOrder: 3,
-                                validationRules: { localized: true, versioned: true }
-                            },
-                            {
-                                codename: 'QuizId',
-                                dataType: 'STRING',
-                                name: vlc('Quiz ID', 'ID теста'),
-                                sortOrder: 4
-                            },
-                            {
-                                codename: 'SortOrder',
-                                dataType: 'NUMBER',
-                                name: vlc('Sort Order', 'Порядок'),
-                                sortOrder: 5
-                            }
-                        ]
+                        sortOrder: 9
                     }
                 ]
             },
@@ -2570,90 +4663,12 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 ]
             },
             {
-                codename: 'ModuleProgress',
-                kind: 'object',
-                name: vlc('Module Progress', 'Прогресс по модулям'),
-                description: vlc('Per-student module completion tracking.', 'Отслеживание прохождения модулей по студентам.'),
-                config: buildTransactionalObjectConfig({
-                    prefix: 'MPR-',
-                    effectiveDateField: 'CompletedAt',
-                    stateField: 'ProgressStatus',
-                    states: [
-                        { codename: 'NotStarted', title: 'Not Started', isInitial: true },
-                        { codename: 'InProgress', title: 'In Progress' },
-                        { codename: 'Completed', title: 'Completed', isFinal: true }
-                    ],
-                    targetLedgers: ['ProgressLedger']
-                }),
-                components: [
-                    {
-                        codename: 'ProgressStudentId',
-                        dataType: 'REF',
-                        name: vlc('Student', 'Студент'),
-                        isRequired: true,
-                        sortOrder: 1,
-                        targetEntityCodename: 'Students',
-                        targetEntityKind: 'object'
-                    },
-                    {
-                        codename: 'ModuleId',
-                        dataType: 'REF',
-                        name: vlc('Module', 'Модуль'),
-                        isRequired: true,
-                        sortOrder: 2,
-                        targetEntityCodename: 'Modules',
-                        targetEntityKind: 'object'
-                    },
-                    {
-                        codename: 'DepartmentId',
-                        dataType: 'REF',
-                        name: vlc('Department', 'Подразделение'),
-                        sortOrder: 3,
-                        targetEntityCodename: 'Departments',
-                        targetEntityKind: 'object'
-                    },
-                    {
-                        codename: 'ProgressStatus',
-                        dataType: 'STRING',
-                        name: vlc('Status', 'Статус'),
-                        isRequired: true,
-                        sortOrder: 4,
-                        validationRules: { maxLength: 30 }
-                    },
-                    {
-                        codename: 'ProgressPercent',
-                        dataType: 'NUMBER',
-                        name: vlc('Progress %', 'Прогресс %'),
-                        sortOrder: 5,
-                        validationRules: { min: 0, max: 100 }
-                    },
-                    {
-                        codename: 'StartedAt',
-                        dataType: 'DATE',
-                        name: vlc('Started At', 'Начато'),
-                        sortOrder: 6
-                    },
-                    {
-                        codename: 'CompletedAt',
-                        dataType: 'DATE',
-                        name: vlc('Completed At', 'Завершено'),
-                        sortOrder: 7
-                    },
-                    {
-                        codename: 'LastAccessedItemIndex',
-                        dataType: 'NUMBER',
-                        name: vlc('Last Accessed Item', 'Последний элемент'),
-                        sortOrder: 8
-                    }
-                ]
-            },
-            {
                 codename: 'AccessLinks',
                 kind: 'object',
                 name: vlc('Access Links', 'Ссылки доступа'),
                 description: vlc(
-                    'Direct access links and QR codes for modules and quizzes.',
-                    'Прямые ссылки и QR-коды для модулей и тестов.'
+                    'Direct access links and QR codes for learning content and quizzes.',
+                    'Прямые ссылки и QR-коды для учебного контента и тестов.'
                 ),
                 components: [
                     {
@@ -2681,10 +4696,19 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         sortOrder: 3
                     },
                     {
+                        codename: 'ContentNodeIdRef',
+                        dataType: 'REF',
+                        name: vlc('Learning Content', 'Учебный контент'),
+                        sortOrder: 4,
+                        targetEntityCodename: 'LearningResources',
+                        targetEntityKind: 'object',
+                        uiConfig: { hidden: true }
+                    },
+                    {
                         codename: 'LinkClassId',
                         dataType: 'REF',
                         name: vlc('Class', 'Класс'),
-                        sortOrder: 4,
+                        sortOrder: 5,
                         targetEntityCodename: 'Classes',
                         targetEntityKind: 'object'
                     },
@@ -2692,33 +4716,33 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         codename: 'IsActive',
                         dataType: 'BOOLEAN',
                         name: vlc('Is Active', 'Активна'),
-                        sortOrder: 5
+                        sortOrder: 6
                     },
                     {
                         codename: 'ExpiresAt',
                         dataType: 'DATE',
                         name: vlc('Expires At', 'Истекает'),
-                        sortOrder: 6
+                        sortOrder: 7
                     },
                     {
                         codename: 'MaxUses',
                         dataType: 'NUMBER',
                         name: vlc('Max Uses', 'Макс. использований'),
-                        sortOrder: 7,
+                        sortOrder: 8,
                         validationRules: { min: 1 }
                     },
                     {
                         codename: 'UseCount',
                         dataType: 'NUMBER',
                         name: vlc('Use Count', 'Счётчик'),
-                        sortOrder: 8,
+                        sortOrder: 9,
                         validationRules: { min: 0 }
                     },
                     {
                         codename: 'LinkTitle',
                         dataType: 'STRING',
                         name: vlc('Title', 'Заголовок'),
-                        sortOrder: 9,
+                        sortOrder: 10,
                         validationRules: { maxLength: 500, localized: true, versioned: true }
                     }
                 ]
@@ -2727,7 +4751,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 codename: 'Enrollments',
                 kind: 'object',
                 name: vlc('Enrollments', 'Записи'),
-                description: vlc('Class-student-module enrollment bridge.', 'Связь класс-студент-модуль.'),
+                description: vlc('Class-student-learning item enrollment bridge.', 'Связь класса, учащегося и учебного объекта.'),
                 config: {
                     recordBehavior: {
                         mode: 'transactional',
@@ -2758,6 +4782,39 @@ export const lmsTemplate: MetahubTemplateManifest = {
                             scriptCodename: 'EnrollmentPostingScript'
                         },
                         immutability: 'posted'
+                    },
+                    runtimeValidations: {
+                        requiredWhen: [
+                            {
+                                field: 'DueDate',
+                                when: { field: 'DueDateMode', equals: 'ByDate' },
+                                message: 'Due Date is required when Due Date Mode is Due by date'
+                            },
+                            {
+                                field: 'DuePeriodDays',
+                                when: { field: 'DueDateMode', equals: 'ForPeriod' },
+                                message: 'Due Period is required when Due Date Mode is Due for period'
+                            }
+                        ],
+                        dateOrder: [
+                            {
+                                startField: 'EnrolledAt',
+                                endField: 'DueDate',
+                                allowEqual: true,
+                                message: 'Due Date must be on or after Enrolled At'
+                            }
+                        ]
+                    },
+                    runtimeDerivations: {
+                        dateOffset: [
+                            {
+                                targetField: 'DueDate',
+                                startField: 'EnrolledAt',
+                                offsetDaysField: 'DuePeriodDays',
+                                when: { field: 'DueDateMode', equals: 'ForPeriod' },
+                                clearWhen: { field: 'DueDateMode', equals: 'NoDueDate' }
+                            }
+                        ]
                     }
                 },
                 components: [
@@ -2780,18 +4837,62 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         targetEntityKind: 'object'
                     },
                     {
-                        codename: 'ModuleIdRef',
+                        codename: 'AssignedUserId',
                         dataType: 'STRING',
-                        name: vlc('Module ID', 'ID модуля'),
+                        name: vlc('Assigned User ID', 'ID назначенного пользователя'),
+                        sortOrder: 3,
+                        validationRules: { maxLength: 128 },
+                        uiConfig: { hidden: true }
+                    },
+                    {
+                        codename: 'TargetTitle',
+                        dataType: 'STRING',
+                        name: vlc('Learning Item', 'Учебный объект'),
+                        isDisplayComponent: true,
+                        sortOrder: 4,
+                        validationRules: { maxLength: 500, localized: true, versioned: true }
+                    },
+                    {
+                        codename: 'TargetType',
+                        dataType: 'STRING',
+                        name: vlc('Target Type', 'Тип цели'),
                         isRequired: true,
-                        sortOrder: 3
+                        sortOrder: 5,
+                        validationRules: { maxLength: 30 },
+                        uiConfig: {
+                            hidden: true,
+                            widget: 'select',
+                            stringOptions: [
+                                { value: 'course', label: vlc('Course', 'Курс') },
+                                { value: 'track', label: vlc('Learning Track', 'Учебный трек') },
+                                { value: 'content', label: vlc('Learning Content', 'Учебный контент') }
+                            ]
+                        }
+                    },
+                    {
+                        codename: 'TargetId',
+                        dataType: 'STRING',
+                        name: vlc('Target ID', 'ID цели'),
+                        isRequired: true,
+                        sortOrder: 6,
+                        validationRules: { maxLength: 80 },
+                        uiConfig: {
+                            hidden: true
+                        }
+                    },
+                    {
+                        codename: 'ContentNodeIdRef',
+                        dataType: 'STRING',
+                        name: vlc('Content Node ID', 'ID узла контента'),
+                        sortOrder: 7,
+                        uiConfig: { hidden: true }
                     },
                     {
                         codename: 'EnrollmentStatus',
                         dataType: 'REF',
                         name: vlc('Status', 'Статус'),
                         isRequired: true,
-                        sortOrder: 4,
+                        sortOrder: 8,
                         targetEntityCodename: 'EnrollmentStatus',
                         targetEntityKind: 'enumeration'
                     },
@@ -2800,19 +4901,68 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         dataType: 'DATE',
                         name: vlc('Enrolled At', 'Записан'),
                         isRequired: true,
-                        sortOrder: 5
+                        sortOrder: 9
+                    },
+                    {
+                        codename: 'DueDateMode',
+                        dataType: 'STRING',
+                        name: vlc('Due Date Mode', 'Режим срока'),
+                        isRequired: true,
+                        sortOrder: 10,
+                        validationRules: { maxLength: 32 },
+                        uiConfig: {
+                            widget: 'select',
+                            stringOptions: [
+                                { value: 'ByDate', label: vlc('Due by date', 'До даты') },
+                                { value: 'ForPeriod', label: vlc('Due for period', 'В течение периода') },
+                                { value: 'NoDueDate', label: vlc('No due date', 'Без срока') }
+                            ]
+                        }
+                    },
+                    {
+                        codename: 'DueDate',
+                        dataType: 'DATE',
+                        name: vlc('Due Date', 'Срок'),
+                        sortOrder: 11,
+                        uiConfig: {
+                            visibleWhen: { field: 'DueDateMode', equals: 'ByDate' },
+                            requiredWhen: { field: 'DueDateMode', equals: 'ByDate' },
+                            derivedDateOffset: {
+                                startField: 'EnrolledAt',
+                                offsetDaysField: 'DuePeriodDays',
+                                when: { field: 'DueDateMode', equals: 'ForPeriod' },
+                                clearWhen: { field: 'DueDateMode', equals: 'NoDueDate' }
+                            }
+                        }
+                    },
+                    {
+                        codename: 'DuePeriodDays',
+                        dataType: 'NUMBER',
+                        name: vlc('Due Period, Days', 'Период срока, дни'),
+                        sortOrder: 12,
+                        validationRules: { min: 0, max: 3650 },
+                        uiConfig: {
+                            visibleWhen: { field: 'DueDateMode', equals: 'ForPeriod' },
+                            requiredWhen: { field: 'DueDateMode', equals: 'ForPeriod' }
+                        }
+                    },
+                    {
+                        codename: 'RestrictAfterDueDate',
+                        dataType: 'BOOLEAN',
+                        name: vlc('Restrict After Due Date', 'Ограничить после срока'),
+                        sortOrder: 13
                     },
                     {
                         codename: 'CompletedAt',
                         dataType: 'DATE',
                         name: vlc('Completed At', 'Завершено'),
-                        sortOrder: 6
+                        sortOrder: 14
                     },
                     {
                         codename: 'Score',
                         dataType: 'NUMBER',
                         name: vlc('Score', 'Балл'),
-                        sortOrder: 7
+                        sortOrder: 15
                     }
                 ]
             },
@@ -2861,11 +5011,11 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         sortOrder: 3
                     },
                     {
-                        codename: 'ModuleId',
+                        codename: 'ContentNodeId',
                         dataType: 'REF',
-                        name: vlc('Module', 'Модуль'),
+                        name: vlc('Learning Resource', 'Учебный ресурс'),
                         sortOrder: 4,
-                        targetEntityCodename: 'Modules',
+                        targetEntityCodename: 'LearningResources',
                         targetEntityKind: 'object'
                     },
                     {
@@ -3125,11 +5275,11 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         targetEntityKind: 'object'
                     },
                     {
-                        codename: 'ModuleId',
+                        codename: 'ContentNodeId',
                         dataType: 'REF',
-                        name: vlc('Module', 'Модуль'),
+                        name: vlc('Learning Resource', 'Учебный ресурс'),
                         sortOrder: 3,
-                        targetEntityCodename: 'Modules',
+                        targetEntityCodename: 'LearningResources',
                         targetEntityKind: 'object'
                     },
                     {
@@ -3198,11 +5348,11 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         targetEntityKind: 'object'
                     },
                     {
-                        codename: 'ModuleId',
+                        codename: 'ContentNodeId',
                         dataType: 'REF',
-                        name: vlc('Module', 'Модуль'),
+                        name: vlc('Learning Resource', 'Учебный ресурс'),
                         sortOrder: 4,
-                        targetEntityCodename: 'Modules',
+                        targetEntityCodename: 'LearningResources',
                         targetEntityKind: 'object'
                     },
                     {
@@ -3332,7 +5482,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         dataType: 'REF',
                         name: vlc('Status', 'Статус'),
                         sortOrder: 4,
-                        targetEntityCodename: 'ModuleStatus',
+                        targetEntityCodename: 'LearningResourceStatus',
                         targetEntityKind: 'enumeration'
                     }
                 ]
@@ -3649,8 +5799,8 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 kind: 'object',
                 name: vlc('Point Award Rules', 'Правила начисления баллов'),
                 description: vlc(
-                    'Declarative point award rules for modules, assignments, events, certificates, and manual adjustments.',
-                    'Декларативные правила начисления баллов за модули, задания, мероприятия, сертификаты и ручные корректировки.'
+                    'Declarative point award rules for learning resources, assignments, events, certificates, and manual adjustments.',
+                    'Декларативные правила начисления баллов за учебные ресурсы, задания, мероприятия, сертификаты и ручные корректировки.'
                 ),
                 components: [
                     {
@@ -4001,10 +6151,10 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 ]
             },
             {
-                codename: 'ModuleStatus',
+                codename: 'LearningResourceStatus',
                 kind: 'enumeration',
-                name: vlc('Module Status', 'Статус модуля'),
-                description: vlc('Status values for learning modules.', 'Значения статуса учебных модулей.')
+                name: vlc('Learning Resource Status', 'Статус учебного ресурса'),
+                description: vlc('Status values for learning resources.', 'Значения статуса учебных ресурсов.')
             },
             {
                 codename: 'EnrollmentStatus',
@@ -4022,13 +6172,22 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 codename: 'ContentType',
                 kind: 'enumeration',
                 name: vlc('Content Type', 'Тип контента'),
-                description: vlc('Types of content items in modules.', 'Типы элементов контента в модулях.')
+                description: vlc('Types of content items in learning resources.', 'Типы элементов контента в учебных ресурсах.')
             },
             {
                 codename: 'ResourceType',
                 kind: 'enumeration',
                 name: vlc('Resource Type', 'Тип ресурса'),
                 description: vlc('Generic resource types for learning content.', 'Универсальные типы ресурсов для учебного контента.')
+            },
+            {
+                codename: 'PublicationStatus',
+                kind: 'enumeration',
+                name: vlc('Publication Status', 'Статус публикации'),
+                description: vlc(
+                    'Draft, published, unpublished-changes, and archived states for authored Learning Content.',
+                    'Черновик, опубликовано, неопубликованные изменения и архив для авторского учебного контента.'
+                )
             },
             {
                 codename: 'CompletionStatus',
@@ -4095,7 +6254,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
             }
         ],
         optionValues: {
-            ModuleStatus: [
+            LearningResourceStatus: [
                 { codename: 'Draft', name: vlc('Draft', 'Черновик'), sortOrder: 1 },
                 { codename: 'Published', name: vlc('Published', 'Опубликовано'), sortOrder: 2, isDefault: true },
                 { codename: 'Archived', name: vlc('Archived', 'Архив'), sortOrder: 3 }
@@ -4126,6 +6285,16 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 { codename: 'Xapi', name: vlc('xAPI package', 'Пакет xAPI'), sortOrder: 7 },
                 { codename: 'Embed', name: vlc('Embed', 'Встраивание'), sortOrder: 8 },
                 { codename: 'File', name: vlc('File', 'Файл'), sortOrder: 9 }
+            ],
+            PublicationStatus: [
+                { codename: 'Draft', name: vlc('Draft', 'Черновик'), sortOrder: 1, isDefault: true },
+                { codename: 'Published', name: vlc('Published', 'Опубликовано'), sortOrder: 2 },
+                {
+                    codename: 'UnpublishedChanges',
+                    name: vlc('Unpublished Changes', 'Неопубликованные изменения'),
+                    sortOrder: 3
+                },
+                { codename: 'Archived', name: vlc('Archived', 'Архив'), sortOrder: 4 }
             ],
             CompletionStatus: [
                 { codename: 'NotStarted', name: vlc('Not started', 'Не начато'), sortOrder: 1, isDefault: true },
@@ -4186,21 +6355,6 @@ export const lmsTemplate: MetahubTemplateManifest = {
         },
         scripts: [
             {
-                codename: 'AutoEnrollmentRuleScript',
-                name: vlc('Auto Enrollment Rule Script', 'Скрипт правила автозачисления'),
-                description: vlc(
-                    'Creates an enrollment for a new student when the student record carries enough assignment context.',
-                    'Создает запись на обучение для нового студента, если запись студента содержит достаточный контекст назначения.'
-                ),
-                attachedToKind: 'object',
-                attachedToEntityCodename: 'Students',
-                moduleRole: 'lifecycle',
-                sourceKind: 'embedded',
-                sdkApiVersion: '1.0.0',
-                capabilities: ['records.read', 'records.write', 'metadata.read', 'lifecycle'],
-                sourceCode: LMS_AUTO_ENROLLMENT_SCRIPT_SOURCE
-            },
-            {
                 codename: 'EnrollmentPostingScript',
                 name: vlc('Enrollment Posting Script', 'Скрипт проведения записи'),
                 description: vlc(
@@ -4231,19 +6385,19 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 sourceCode: LMS_QUIZ_ATTEMPT_POSTING_SCRIPT_SOURCE
             },
             {
-                codename: 'ModuleCompletionPostingScript',
-                name: vlc('Module Completion Posting Script', 'Скрипт проведения завершения модуля'),
+                codename: 'ContentCompletionPostingScript',
+                name: vlc('Content Completion Posting Script', 'Скрипт проведения завершения контента'),
                 description: vlc(
-                    'Posts module completion progress records into the progress Ledger.',
-                    'Проводит записи прогресса модулей в регистр прогресса.'
+                    'Posts content completion progress records into the progress Ledger.',
+                    'Проводит записи прогресса контента в регистр прогресса.'
                 ),
                 attachedToKind: 'object',
-                attachedToEntityCodename: 'ModuleProgress',
+                attachedToEntityCodename: 'ContentProgress',
                 moduleRole: 'lifecycle',
                 sourceKind: 'embedded',
                 sdkApiVersion: '1.0.0',
                 capabilities: ['records.read', 'metadata.read', 'lifecycle', 'posting', 'ledger.write'],
-                sourceCode: LMS_MODULE_COMPLETION_POSTING_SCRIPT_SOURCE
+                sourceCode: LMS_CONTENT_COMPLETION_POSTING_SCRIPT_SOURCE
             },
             {
                 codename: 'CertificateIssuePostingScript',

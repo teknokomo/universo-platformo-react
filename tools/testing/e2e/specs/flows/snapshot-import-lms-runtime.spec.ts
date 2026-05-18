@@ -9,6 +9,7 @@ import {
     createPublicationLinkedApplication,
     createRuntimeRow,
     disposeApiContext,
+    getApplicationRuntime,
     listObjectCollections,
     listMetahubEntityTypes,
     listLayouts,
@@ -28,9 +29,9 @@ import {
 import {
     assertLmsFixtureEnvelopeContract,
     LMS_DEMO_ENROLLMENTS,
-    LMS_DEMO_MODULE,
-    LMS_DEMO_MODULE_PROGRESS,
-    LMS_DEMO_MODULES,
+    LMS_DEMO_CONTENT_NODE,
+    LMS_DEMO_CONTENT_PROGRESS,
+    LMS_DEMO_CONTENT_NODES,
     LMS_DEMO_QUIZ,
     LMS_DEMO_QUIZZES,
     LMS_DEMO_QUIZ_RESPONSES,
@@ -109,15 +110,10 @@ async function checkQuizOption(page: Page, value: unknown, locale: string): Prom
 }
 
 async function clickRuntimeNavigationItem(page: Page, name: string): Promise<void> {
-    const directItem = page.getByRole('link', { name }).or(page.getByRole('button', { name })).first()
-    try {
-        await expect(directItem).toBeVisible({ timeout: 30_000 })
+    const directItem = await waitForVisibleRuntimeNavigationItem(page, name, 30_000)
+    if (directItem) {
         await directItem.click()
         return
-    } catch (error) {
-        if ((await directItem.count()) > 0) {
-            throw error
-        }
     }
 
     const overflowButton = page.getByRole('button', { name: 'More' })
@@ -130,15 +126,10 @@ async function clickRuntimeNavigationItem(page: Page, name: string): Promise<voi
 }
 
 async function expectRuntimeNavigationItemSelected(page: Page, name: string): Promise<void> {
-    const directItem = page.getByRole('link', { name }).or(page.getByRole('button', { name })).first()
-    try {
-        await expect(directItem).toBeVisible({ timeout: 5_000 })
-        await expect(directItem).toHaveAttribute('aria-current', 'page')
+    const directItem = await waitForVisibleRuntimeNavigationItem(page, name, 30_000)
+    if (directItem) {
+        await expect(directItem).toHaveAttribute('aria-current', 'page', { timeout: 30_000 })
         return
-    } catch (error) {
-        if ((await directItem.count()) > 0) {
-            throw error
-        }
     }
 
     const overflowButton = page.getByRole('button', { name: 'More' })
@@ -148,6 +139,32 @@ async function expectRuntimeNavigationItemSelected(page: Page, name: string): Pr
     const overflowItem = page.getByRole('menuitem', { name })
     await expect(overflowItem).toHaveClass(/Mui-selected/)
     await page.keyboard.press('Escape')
+}
+
+async function findVisibleRuntimeNavigationItem(page: Page, name: string): Promise<Locator | null> {
+    const items = page.getByRole('link', { name, exact: true }).or(page.getByRole('button', { name, exact: true }))
+    const count = await items.count()
+    for (let index = 0; index < count; index += 1) {
+        const item = items.nth(index)
+        if (await item.isVisible()) {
+            return item
+        }
+    }
+    return null
+}
+
+async function waitForVisibleRuntimeNavigationItem(page: Page, name: string, timeout: number): Promise<Locator | null> {
+    try {
+        await expect
+            .poll(async () => Boolean(await findVisibleRuntimeNavigationItem(page, name)), {
+                timeout,
+                message: `runtime navigation item "${name}" should become visible`
+            })
+            .toBe(true)
+        return findVisibleRuntimeNavigationItem(page, name)
+    } catch {
+        return null
+    }
 }
 
 async function parseJsonResponse<T>(response: Response, label: string): Promise<T> {
@@ -207,6 +224,34 @@ async function assertElementFitsViewport(page: Page, testId: string, label: stri
     expect(box.x + box.width, `${label} must fit inside the viewport`).toBeLessThanOrEqual(viewport.width + 1)
 }
 
+async function revealRuntimeGridRowActions(page: Page): Promise<void> {
+    const grid = page.getByRole('grid').first()
+    await expect(grid).toBeVisible({ timeout: 30_000 })
+    await grid.evaluate((node) => {
+        const scroller = node.querySelector('.MuiDataGrid-virtualScroller')
+        if (scroller instanceof HTMLElement) {
+            scroller.scrollLeft = scroller.scrollWidth
+            scroller.dispatchEvent(new Event('scroll', { bubbles: true }))
+        }
+    })
+}
+
+async function getVisibleRuntimeRowActions(page: Page, rowId: string): Promise<Locator> {
+    const trigger = page.getByTestId(`grid-row-actions-trigger-${rowId}`)
+    if ((await trigger.count()) > 0) {
+        try {
+            await expect(trigger).toBeVisible({ timeout: 1_000 })
+            return trigger
+        } catch {
+            // The actions column can be horizontally virtualized in wide LMS tables.
+        }
+    }
+
+    await revealRuntimeGridRowActions(page)
+    await expect(trigger).toBeVisible({ timeout: 30_000 })
+    return trigger
+}
+
 function watchBrowserRuntimeIssues(page: Page): BrowserRuntimeIssue[] {
     const issues: BrowserRuntimeIssue[] = []
     page.on('console', (message) => {
@@ -258,8 +303,7 @@ function expectNoBrowserRuntimeIssues(issues: BrowserRuntimeIssue[], label: stri
 }
 
 async function runRuntimeRecordCommandFromRow(page: Page, rowId: string, command: 'post' | 'unpost'): Promise<void> {
-    const trigger = page.getByTestId(`grid-row-actions-trigger-${rowId}`)
-    await expect(trigger).toBeVisible({ timeout: 30_000 })
+    const trigger = await getVisibleRuntimeRowActions(page, rowId)
     await trigger.click()
 
     const commandItemByTestId = page.getByTestId(`runtime-record-command-${command}`).first()
@@ -463,7 +507,8 @@ function buildLmsOwnerWorkflowRolePolicies() {
         'certificate.revoke',
         'development.task.update',
         'notification.deliver',
-        'notification.manage'
+        'notification.manage',
+        'workflow.execute'
     ]
 
     return {
@@ -509,13 +554,368 @@ function requireRuntimeRowId(row: Record<string, unknown>, label: string): strin
     return row.id
 }
 
+async function readSortedRuntimeRowIds(
+    api: ApiContext,
+    applicationId: string,
+    objectId: string,
+    workspaceId: string,
+    label: string
+): Promise<string[]> {
+    const runtime = await getApplicationRuntime(api, applicationId, {
+        objectId,
+        workspaceId,
+        limit: 100,
+        offset: 0,
+        sort: JSON.stringify([{ field: 'SortOrder', direction: 'asc' }])
+    })
+    const rows = Array.isArray(runtime.rows) ? (runtime.rows as Array<Record<string, unknown>>) : []
+    return rows.map((row, index) => requireRuntimeRowId(row, `${label} row ${index + 1}`))
+}
+
+async function expectPublishedOutlineReorder(options: {
+    page: Page
+    api: ApiContext
+    applicationId: string
+    objectId: string
+    workspaceId: string
+    label: string
+    screenshotPath: string
+}): Promise<void> {
+    const { page, api, applicationId, objectId, workspaceId, label, screenshotPath } = options
+    const beforeOrder = await readSortedRuntimeRowIds(api, applicationId, objectId, workspaceId, label)
+    expect(beforeOrder.length, `${label} must have at least two rows for ordering proof`).toBeGreaterThanOrEqual(2)
+
+    await page.goto(`/a/${applicationId}/${encodeURIComponent(objectId)}`)
+    const surface = page.getByTestId('runtime-list-surface').first()
+    await expect(surface, `${label} ordering table must use the generic runtime list surface`).toBeVisible({ timeout: 30_000 })
+
+    const isReorderResponse = (response: Response) =>
+        response.request().method() === 'POST' && response.url().includes(`/api/v1/applications/${applicationId}/runtime/rows/reorder`)
+    const reorderResponsePromise = page.waitForResponse(isReorderResponse, { timeout: 30_000 })
+    await surface.getByTestId(`runtime-row-move-down-${beforeOrder[0]}`).click()
+    const reorderResponse = await reorderResponsePromise
+    expect(reorderResponse.ok(), `${label} row reorder must succeed from the published app`).toBe(true)
+    await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
+
+    await expect
+        .poll(
+            async () => {
+                const afterOrder = await readSortedRuntimeRowIds(api, applicationId, objectId, workspaceId, label)
+                return afterOrder.slice(0, 2)
+            },
+            { timeout: 30_000, intervals: [500, 1_000, 2_000] }
+        )
+        .toEqual([beforeOrder[1], beforeOrder[0]])
+
+    await page.screenshot({ path: screenshotPath, fullPage: true })
+}
+
+async function expectPublishedBuilderTabs(options: {
+    page: Page
+    navigationItem: string
+    label: string
+    screenshotPath: string
+    tabNames?: string[]
+}): Promise<void> {
+    const {
+        page,
+        navigationItem,
+        label,
+        screenshotPath,
+        tabNames = ['Outline', 'General', 'Completion', 'Enrollments', 'Reports']
+    } = options
+    await clickRuntimeNavigationItem(page, navigationItem)
+    await expectRuntimeNavigationItemSelected(page, navigationItem)
+
+    const tabs = page.getByTestId('runtime-details-tabs').first()
+    await expect(tabs, `${label} must render the generic detailsTabs surface`).toBeVisible({ timeout: 30_000 })
+    for (const tabName of tabNames) {
+        await expect(page.getByRole('tab', { name: tabName }), `${label} tab ${tabName} must be visible`).toBeVisible({ timeout: 30_000 })
+    }
+
+    await page.getByRole('tab', { name: 'Completion' }).click()
+    await expect(page.getByRole('tab', { name: 'Completion' })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByRole('columnheader', { name: 'Availability', exact: true })).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByText('Available').first(), `${label} sequence policy must mark the first step as available`).toBeVisible({
+        timeout: 30_000
+    })
+    await expect(page.getByText('Locked').first(), `${label} sequence policy must mark later sequential steps as locked`).toBeVisible({
+        timeout: 30_000
+    })
+    await page.screenshot({ path: screenshotPath, fullPage: true })
+}
+
+async function expectPublishedLearningContentView(options: {
+    page: Page
+    navigationItem: string
+    label: string
+    screenshotPath: string
+}): Promise<void> {
+    const { page, navigationItem, label, screenshotPath } = options
+    await clickRuntimeNavigationItem(page, navigationItem)
+    await expectRuntimeNavigationItemSelected(page, navigationItem)
+
+    const genericRuntimeSurface = page
+        .getByTestId('widget-datasource-union')
+        .or(page.getByTestId('runtime-list-surface'))
+        .or(page.getByRole('grid'))
+        .first()
+    await expect(genericRuntimeSurface, `${label} must render a generic runtime data surface`).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
+    await assertNoHorizontalOverflow(page, label)
+    await page.screenshot({ path: screenshotPath, fullPage: true })
+}
+
+async function expectPublishedLearnerPlayer(options: { page: Page; applicationId: string; screenshotPath: string }): Promise<void> {
+    const { page, applicationId, screenshotPath } = options
+    await clickRuntimeNavigationItem(page, 'Courses')
+    await expectRuntimeNavigationItemSelected(page, 'Courses')
+    await page.getByRole('tab', { name: 'Player' }).click()
+    await expect(page.getByRole('tab', { name: 'Player' })).toHaveAttribute('aria-selected', 'true')
+
+    const player = page.getByTestId('learner-player')
+    await expect(player, 'Course Builder must render the generic learner player').toBeVisible({ timeout: 30_000 })
+    await expect(player.getByTestId('learner-player-parent-select'), 'Learner player must expose a generic parent selector').toBeVisible({
+        timeout: 30_000
+    })
+    await player.getByTestId('learner-player-parent-select').click()
+    await page.getByRole('option', { name: 'Learner Onboarding Course' }).click()
+    await expect(player.getByTestId('learner-player-parent-select')).toContainText('Learner Onboarding Course', { timeout: 30_000 })
+    const outline = player.getByTestId('learner-player-outline')
+    const content = player.getByTestId('learner-player-content')
+    await expect(
+        outline.getByRole('button', { name: /Start with the course overview/ }),
+        'Learner player must show the first course item in the outline'
+    ).toBeVisible({
+        timeout: 30_000
+    })
+    await expect(
+        content.getByRole('heading', { name: /Start with the course overview/ }),
+        'Learner player must show the current course item in the content pane'
+    ).toBeVisible({
+        timeout: 30_000
+    })
+    await expect(
+        outline.getByRole('button', { name: /Watch the safety intro/ }),
+        'Learner player must show later course items'
+    ).toBeVisible({
+        timeout: 30_000
+    })
+    await expect(outline.getByText('Locked').first(), 'Learner player must show sequential lock state').toBeVisible({ timeout: 30_000 })
+    await expect(player.getByTestId('resource-preview'), 'Learner player must render the target resource preview').toBeVisible({
+        timeout: 30_000
+    })
+
+    const progressResponsePromise = page.waitForResponse(
+        (response) =>
+            response.request().method() === 'POST' &&
+            response.url().includes(`/api/v1/applications/${applicationId}/runtime/progress/content`),
+        { timeout: 30_000 }
+    )
+    await player.getByRole('button', { name: 'Complete' }).click()
+    const progressResponse = await progressResponsePromise
+    expect(progressResponse.ok(), 'Course item progress persistence must succeed from the generic learner player').toBe(true)
+    await expect(progressResponse.json()).resolves.toMatchObject({
+        persisted: true,
+        targetObjectCodename: 'CourseItems',
+        progressPercent: 100,
+        status: 'completed'
+    })
+    await expect(player.getByText('1 of 2 completed'), 'Learner player must update local completion progress').toBeVisible({
+        timeout: 30_000
+    })
+
+    await page.screenshot({ path: screenshotPath, fullPage: true })
+}
+
+async function expectPublishedTrackLearnerPlayer(options: { page: Page; applicationId: string; screenshotPath: string }): Promise<void> {
+    const { page, applicationId, screenshotPath } = options
+    await clickRuntimeNavigationItem(page, 'Tracks')
+    await expectRuntimeNavigationItemSelected(page, 'Tracks')
+    await page.getByRole('tab', { name: 'Player' }).click()
+    await expect(page.getByRole('tab', { name: 'Player' })).toHaveAttribute('aria-selected', 'true')
+
+    const player = page.getByTestId('learner-player')
+    await expect(player, 'Track Builder must render the generic learner player').toBeVisible({ timeout: 30_000 })
+    await player.getByTestId('learner-player-parent-select').click()
+    await page.getByRole('option', { name: 'New learner onboarding track' }).click()
+    await expect(player.getByTestId('learner-player-parent-select')).toContainText('New learner onboarding track', { timeout: 30_000 })
+
+    const outline = player.getByTestId('learner-player-outline')
+    const content = player.getByTestId('learner-player-content')
+    await expect(
+        outline.getByRole('button', { name: /Start onboarding/ }),
+        'Track player must show the first track step in the outline'
+    ).toBeVisible({
+        timeout: 30_000
+    })
+    await expect(
+        content.getByRole('heading', { name: /Start onboarding/ }),
+        'Track player must show the current track step in the content pane'
+    ).toBeVisible({
+        timeout: 30_000
+    })
+    await expect(outline.getByRole('button', { name: /Compliance essentials/ }), 'Track player must show later track steps').toBeVisible({
+        timeout: 30_000
+    })
+    await expect(outline.getByText('Locked').first(), 'Track player must show sequential lock state').toBeVisible({ timeout: 30_000 })
+    await expect(
+        player.getByText('This content item does not have a previewable source yet.'),
+        'Track player must safely handle course targets without a direct media source'
+    ).toBeVisible({
+        timeout: 30_000
+    })
+
+    const progressResponsePromise = page.waitForResponse(
+        (response) =>
+            response.request().method() === 'POST' &&
+            response.url().includes(`/api/v1/applications/${applicationId}/runtime/progress/content`),
+        { timeout: 30_000 }
+    )
+    await player.getByRole('button', { name: 'Complete' }).click()
+    const progressResponse = await progressResponsePromise
+    expect(progressResponse.ok(), 'Track step progress persistence must succeed from the generic learner player').toBe(true)
+    await expect(progressResponse.json()).resolves.toMatchObject({
+        persisted: true,
+        targetObjectCodename: 'TrackSteps',
+        progressPercent: 100,
+        status: 'completed'
+    })
+    await expect(player.getByText('1 of 2 completed'), 'Track player must update local completion progress').toBeVisible({
+        timeout: 30_000
+    })
+
+    await page.screenshot({ path: screenshotPath, fullPage: true })
+}
+
+async function expectPublishedBuilderRelationScope(options: {
+    page: Page
+    navigationItem: string
+    label: string
+    initialParent: string
+    initialChildren: string[]
+    nextParent: string
+    nextChildren: string[]
+    screenshotPath: string
+}): Promise<void> {
+    const { page, navigationItem, label, initialParent, initialChildren, nextParent, nextChildren, screenshotPath } = options
+    await clickRuntimeNavigationItem(page, navigationItem)
+    await expectRuntimeNavigationItemSelected(page, navigationItem)
+    await page.getByRole('tab', { name: 'Outline' }).click()
+
+    const builder = page.getByTestId('runtime-relation-builder')
+    await expect(builder, `${label} must render the generic relationBuilder outline`).toBeVisible({ timeout: 30_000 })
+    await expect(builder.getByTestId('runtime-relation-builder-parent-select')).toContainText(initialParent, { timeout: 30_000 })
+    for (const child of initialChildren) {
+        await expect(builder.getByText(child).first(), `${label} must show ${child} for ${initialParent}`).toBeVisible({
+            timeout: 30_000
+        })
+    }
+
+    await builder.getByTestId('runtime-relation-builder-parent-select').click()
+    await page.getByRole('option', { name: nextParent }).click()
+    await expect(builder.getByTestId('runtime-relation-builder-parent-select')).toContainText(nextParent, { timeout: 30_000 })
+    for (const child of nextChildren) {
+        await expect(builder.getByText(child).first(), `${label} must show ${child} for ${nextParent}`).toBeVisible({ timeout: 30_000 })
+    }
+    for (const child of initialChildren) {
+        await expect(builder.getByText(child), `${label} must hide ${child} after switching to ${nextParent}`).toHaveCount(0)
+    }
+
+    await page.screenshot({ path: screenshotPath, fullPage: true })
+}
+
+async function expectPublishedBuilderEnrollmentWarning(options: {
+    page: Page
+    navigationItem: string
+    label: string
+    parentName: string
+    warningText: string
+    screenshotPath: string
+}): Promise<void> {
+    const { page, navigationItem, label, parentName, warningText, screenshotPath } = options
+    await clickRuntimeNavigationItem(page, navigationItem)
+    await expectRuntimeNavigationItemSelected(page, navigationItem)
+    await page.getByRole('tab', { name: 'Enrollments' }).click()
+
+    const builder = page.getByTestId('runtime-relation-builder')
+    await expect(builder, `${label} enrollments must render the generic relationBuilder surface`).toBeVisible({ timeout: 30_000 })
+    await expect(builder.getByTestId('runtime-relation-builder-parent-select')).toContainText(parentName, { timeout: 30_000 })
+    await expect(builder.getByText(warningText), `${label} must warn about active enrollments`).toBeVisible({ timeout: 30_000 })
+    await expect(
+        page.getByRole('grid').filter({ hasText: parentName }).last(),
+        `${label} enrollments must render a generic detailsTable list`
+    ).toBeVisible({
+        timeout: 30_000
+    })
+    await page.screenshot({ path: screenshotPath, fullPage: true })
+}
+
+async function expectPublishedEnrollmentWizard(options: {
+    page: Page
+    navigationItem: string
+    label: string
+    panelId: string
+    screenshotPath: string
+}): Promise<void> {
+    const { page, navigationItem, label, panelId, screenshotPath } = options
+    await clickRuntimeNavigationItem(page, navigationItem)
+    await expectRuntimeNavigationItemSelected(page, navigationItem)
+    await page.getByRole('tab', { name: 'Enrollments' }).click()
+
+    const panel = page.getByTestId(`runtime-relation-panel-${panelId}`)
+    await expect(panel, `${label} enrollments must expose a metadata-driven relation panel`).toBeVisible({ timeout: 30_000 })
+    await panel.getByRole('button', { name: 'Create' }).click()
+
+    const dialog = page.getByRole('dialog', { name: 'Create related record' })
+    await expect(dialog, `${label} enrollment wizard dialog must open from the generic create action`).toBeVisible({
+        timeout: 30_000
+    })
+    await expect(dialog.getByText('Content'), `${label} enrollment wizard must include the content step`).toBeVisible()
+    await expect(dialog.getByText('Learners'), `${label} enrollment wizard must include the learners step`).toBeVisible()
+    await expect(dialog.getByText('Parameters'), `${label} enrollment wizard must include the parameters step`).toBeVisible()
+    await expect(dialog.getByText(/selected .* is used as the enrollment target/i)).toBeVisible()
+
+    await dialog.getByRole('button', { name: 'Next' }).click()
+    await expect(dialog.getByText('Select the learner and class context for this enrollment.')).toBeVisible()
+    await dialog.screenshot({ path: screenshotPath })
+    await dialog.getByRole('button', { name: 'Cancel' }).click()
+    await expect(dialog).toHaveCount(0)
+}
+
+function readRuntimeRowValue(
+    row: Record<string, unknown>,
+    columns: Array<{ field?: unknown; codename?: unknown }>,
+    ...keys: string[]
+): unknown {
+    for (const key of keys) {
+        if (Object.prototype.hasOwnProperty.call(row, key)) {
+            return row[key]
+        }
+    }
+
+    for (const column of columns) {
+        if (typeof column.field !== 'string' || typeof column.codename !== 'string' || !keys.includes(column.codename)) {
+            continue
+        }
+
+        if (Object.prototype.hasOwnProperty.call(row, column.field)) {
+            return row[column.field]
+        }
+    }
+
+    return undefined
+}
+
 async function createWorkflowRuntimeRow(
     api: ApiContext,
     applicationId: string,
+    workspaceId: string,
     objectCollectionId: string,
     data: Record<string, unknown>
 ): Promise<Record<string, unknown>> {
     const created = await createRuntimeRow(api, applicationId, {
+        workspaceId,
         objectCollectionId,
         data
     })
@@ -523,7 +923,12 @@ async function createWorkflowRuntimeRow(
         throw new Error(`Runtime row creation did not return an id for ${objectCollectionId}`)
     }
 
-    return waitForApplicationRuntimeRow(api, applicationId, objectCollectionId, created.id)
+    const version = Number(created.version ?? created._upl_version ?? 1)
+    return {
+        id: created.id,
+        ...data,
+        ...(Number.isInteger(version) && version > 0 ? { _upl_version: version } : { _upl_version: 1 })
+    }
 }
 
 async function runLmsWorkflowActionThroughUi(
@@ -541,8 +946,7 @@ async function runLmsWorkflowActionThroughUi(
     const expectedVersion = requireRuntimeRowVersion(row, `${objectCollectionId}/${rowId}`)
 
     await page.goto(`/a/${applicationId}/${encodeURIComponent(objectCollectionId)}`)
-    const rowActions = page.getByTestId(`grid-row-actions-trigger-${rowId}`)
-    await expect(rowActions).toBeVisible({ timeout: 30_000 })
+    const rowActions = await getVisibleRuntimeRowActions(page, rowId)
     await rowActions.click()
 
     const action = page.getByTestId(`runtime-workflow-action-${actionCodename}`).first()
@@ -578,7 +982,7 @@ async function runLmsWorkflowActionThroughUi(
     })
     expect(Number(payload.version), `${actionCodename} must advance the row version through UI`).toBe(expectedVersion + 1)
 
-    const updatedRow = await waitForApplicationRuntimeRow(api, applicationId, objectCollectionId, rowId)
+    const updatedRow = await waitForApplicationRuntimeRow(api, applicationId, objectCollectionId, rowId, { workspaceId })
     expect(requireRuntimeRowVersion(updatedRow, `${objectCollectionId}/${rowId}`)).toBe(expectedVersion + 1)
     await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
     return updatedRow
@@ -597,7 +1001,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         page,
         runManifest
     }, testInfo) => {
-        test.setTimeout(720_000)
+        test.setTimeout(1_500_000)
         const browserIssues = watchBrowserRuntimeIssues(page)
 
         const fixture = await loadLmsFixture()
@@ -656,7 +1060,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         const menuWidget = (layoutWidgets.items ?? []).find((item: Record<string, unknown>) => item?.widgetKey === 'menuWidget')
         const menuWidgetConfig = menuWidget?.config && typeof menuWidget.config === 'object' ? menuWidget.config : {}
         expect((menuWidgetConfig as Record<string, unknown>).autoShowAllSections).toBe(false)
-        expect((menuWidgetConfig as Record<string, unknown>).maxPrimaryItems).toBe(8)
+        expect((menuWidgetConfig as Record<string, unknown>).maxPrimaryItems).toBe(12)
         expect((menuWidgetConfig as Record<string, unknown>).startPage).toBe('LearnerHome')
 
         await applyBrowserPreferences(page, { language: 'ru' })
@@ -869,7 +1273,6 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         const [
             studentsObjectId,
             quizResponsesObjectId,
-            moduleProgressObjectId,
             enrollmentsObjectId,
             assignmentsObjectId,
             assignmentSubmissionsObjectId,
@@ -880,11 +1283,14 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             developmentPlanStagesObjectId,
             developmentPlanTasksObjectId,
             notificationOutboxObjectId,
+            contentProgressObjectId,
+            courseItemsObjectId,
+            trackStepsObjectId,
+            learnerHomePageId,
             progressLedgerId
         ] = await Promise.all([
             waitForApplicationObjectId(api, applicationId, 'Students'),
             waitForApplicationObjectId(api, applicationId, 'Quiz Responses'),
-            waitForApplicationObjectId(api, applicationId, 'Module Progress'),
             waitForApplicationObjectId(api, applicationId, 'Enrollments'),
             waitForApplicationObjectId(api, applicationId, 'Assignments'),
             waitForApplicationObjectId(api, applicationId, 'AssignmentSubmissions'),
@@ -895,8 +1301,22 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             waitForApplicationObjectId(api, applicationId, 'DevelopmentPlanStages'),
             waitForApplicationObjectId(api, applicationId, 'DevelopmentPlanTasks'),
             waitForApplicationObjectId(api, applicationId, 'NotificationOutbox'),
+            waitForApplicationObjectId(api, applicationId, 'ContentProgress'),
+            waitForApplicationObjectId(api, applicationId, 'CourseItems'),
+            waitForApplicationObjectId(api, applicationId, 'TrackSteps'),
+            waitForApplicationObjectId(api, applicationId, 'LearnerHome'),
             waitForApplicationLedgerId(api, applicationId, 'ProgressLedger')
         ])
+
+        const workspaces = await listApplicationWorkspaces(api, applicationId)
+        const workspaceItems = Array.isArray(workspaces?.items) ? workspaces.items : []
+        expect(workspaceItems.filter((workspace) => workspace?.workspaceType === 'shared' || workspace?.type === 'shared')).toHaveLength(0)
+        const mainWorkspaceId = workspaceItems.find(
+            (workspace) => workspace?.isDefault === true || workspace?.workspaceType === 'personal' || workspace?.type === 'personal'
+        )?.id
+        if (typeof mainWorkspaceId !== 'string' || mainWorkspaceId.length === 0) {
+            throw new Error('Main application workspace was not found for runtime verification')
+        }
 
         await applyBrowserPreferences(page, { language: 'en' })
         await page.goto(`/a/${applicationId}`)
@@ -906,27 +1326,195 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await expect(page.getByRole('button', { name: 'Learning' })).toHaveCount(0)
         await expect(page.getByRole('button', { name: 'More' })).toHaveCount(0)
         await expect(page.getByTestId('runtime-page-blocks')).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByText(LMS_WELCOME_PAGE.title.en, { exact: true })).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByRole('heading', { name: LMS_WELCOME_PAGE.title.en })).toBeVisible({ timeout: 30_000 })
         await expect(page.getByText(LMS_WELCOME_PAGE.intro.en)).toBeVisible({
             timeout: 30_000
         })
-        await expect(page.getByText(LMS_WELCOME_PAGE.howToStartTitle.en, { exact: true })).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByRole('heading', { name: LMS_WELCOME_PAGE.howToStartTitle.en })).toBeVisible({ timeout: 30_000 })
         await expect(page.getByText(LMS_WELCOME_PAGE.workspaceGuidance.en)).toBeVisible({ timeout: 30_000 })
         await expect(page.getByRole('heading', { name: 'Learners' })).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByRole('heading', { name: 'Modules' })).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByRole('heading', { name: 'Projects' })).toBeVisible({ timeout: 30_000 })
         await expect(page.getByRole('heading', { name: 'Enrollments' })).toBeVisible({ timeout: 30_000 })
         await expect(page.getByRole('heading', { name: 'Certificates' })).toBeVisible({ timeout: 30_000 })
         await expect(page.getByRole('heading', { name: 'Department Progress' })).toBeVisible({ timeout: 30_000 })
         await expect(page.getByRole('heading', { name: 'Assignment Scores' })).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByRole('link', { name: 'Workspaces' })).toHaveCount(1)
+        await expect(page.getByRole('tab', { name: 'My Courses' })).toBeVisible({ timeout: 30_000 })
+        await page.getByRole('tab', { name: 'My Courses' }).click()
+        await expect(page.getByText('Compliance Refresh Course')).toBeVisible({ timeout: 30_000 })
+        await page.getByRole('tab', { name: 'My Tracks' }).click()
+        await expect(page.getByText('Compliance refresh track')).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByRole('link', { name: 'Workspaces' }).first()).toBeVisible()
         await expect(page.getByText('Module access QR')).toHaveCount(0)
         await expect(page.getByText('Learning portal stats')).toHaveCount(0)
         await expect(page.getByText('Dashboard preview of the canonical learning lesson')).toHaveCount(0)
         await expect(page.getByRole('button', { name: 'Copy link' })).toHaveCount(0)
-        await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
+        await expect(page.getByTestId('runtime-page-progress')).toContainText('Reading progress 0%', { timeout: 30_000 })
+        const pageProgressResponsePromise = page.waitForResponse(
+            (response) =>
+                response.request().method() === 'POST' &&
+                response.url().includes(`/api/v1/applications/${applicationId}/runtime/progress/content`),
+            { timeout: 30_000 }
+        )
+        await page.getByRole('button', { name: 'Mark complete' }).click()
+        const pageProgressResponse = await pageProgressResponsePromise
+        expect(pageProgressResponse.ok(), 'Page progress persistence must succeed from the published app page player').toBe(true)
+        await expect(pageProgressResponse.json()).resolves.toMatchObject({
+            persisted: true,
+            targetObjectCodename: 'LearnerHome',
+            targetRecordId: learnerHomePageId,
+            progressPercent: 100,
+            status: 'completed'
+        })
+        await expect(page.getByTestId('runtime-page-progress')).toContainText('Reading progress 100%', { timeout: 30_000 })
+        await expect
+            .poll(
+                async () => {
+                    const runtime = await getApplicationRuntime(api, applicationId, {
+                        objectId: contentProgressObjectId,
+                        workspaceId: mainWorkspaceId
+                    })
+                    const columns = Array.isArray(runtime.columns)
+                        ? (runtime.columns as Array<{ field?: unknown; codename?: unknown }>)
+                        : []
+                    const rows = Array.isArray(runtime.rows) ? (runtime.rows as Array<Record<string, unknown>>) : []
+                    return rows.some((row) => {
+                        const targetObjectCodename = readRuntimeRowValue(row, columns, 'TargetObjectCodename', 'target_object_codename')
+                        const targetRecordId = readRuntimeRowValue(row, columns, 'TargetRecordId', 'target_record_id')
+                        const progressStatus = readRuntimeRowValue(row, columns, 'ProgressStatus', 'progress_status')
+                        const progressPercent = Number(readRuntimeRowValue(row, columns, 'ProgressPercent', 'progress_percent'))
+                        return (
+                            targetObjectCodename === 'LearnerHome' &&
+                            targetRecordId === learnerHomePageId &&
+                            progressStatus === 'completed' &&
+                            progressPercent === 100
+                        )
+                    })
+                },
+                { timeout: 30_000, intervals: [500, 1_000, 2_000] }
+            )
+            .toBe(true)
         await assertNoHorizontalOverflow(page, 'LMS dashboard')
         await assertElementFitsViewport(page, 'runtime-page-blocks', 'LMS dashboard page block surface')
+        await page.screenshot({ path: testInfo.outputPath('lms-page-player-progress-complete-en.png'), fullPage: true })
         await page.screenshot({ path: testInfo.outputPath('lms-dashboard-en.png'), fullPage: true })
+
+        await expectPublishedLearningContentView({
+            page,
+            navigationItem: 'Learning Content',
+            label: 'Learning Content library',
+            screenshotPath: testInfo.outputPath('lms-learning-content-library-en.png')
+        })
+        await expectPublishedLearningContentView({
+            page,
+            navigationItem: 'Recent',
+            label: 'Recent Learning Content',
+            screenshotPath: testInfo.outputPath('lms-learning-content-recent-en.png')
+        })
+        await expectPublishedLearningContentView({
+            page,
+            navigationItem: 'Starred',
+            label: 'Starred Learning Content',
+            screenshotPath: testInfo.outputPath('lms-learning-content-starred-en.png')
+        })
+        await expectPublishedLearningContentView({
+            page,
+            navigationItem: 'Shared with me',
+            label: 'Shared Learning Content',
+            screenshotPath: testInfo.outputPath('lms-learning-content-shared-en.png')
+        })
+        await expectPublishedLearningContentView({
+            page,
+            navigationItem: 'Trash',
+            label: 'Learning Content Trash',
+            screenshotPath: testInfo.outputPath('lms-learning-content-trash-en.png')
+        })
+
+        await expectPublishedBuilderTabs({
+            page,
+            navigationItem: 'Courses',
+            label: 'Course Builder',
+            tabNames: ['Outline', 'General', 'Completion', 'Player', 'Enrollments', 'Reports'],
+            screenshotPath: testInfo.outputPath('lms-course-builder-tabs-en.png')
+        })
+        await expectPublishedLearnerPlayer({
+            page,
+            applicationId,
+            screenshotPath: testInfo.outputPath('lms-course-builder-learner-player-en.png')
+        })
+        await expectPublishedBuilderRelationScope({
+            page,
+            navigationItem: 'Courses',
+            label: 'Course Builder',
+            initialParent: 'Compliance Refresh Course',
+            initialChildren: ['Read the certificate policy'],
+            nextParent: 'Learner Onboarding Course',
+            nextChildren: ['Start with the course overview', 'Watch the safety intro'],
+            screenshotPath: testInfo.outputPath('lms-course-builder-outline-scope-en.png')
+        })
+        await expectPublishedBuilderEnrollmentWarning({
+            page,
+            navigationItem: 'Courses',
+            label: 'Course Builder',
+            parentName: 'Compliance Refresh Course',
+            warningText: 'This course already has enrollments. Review learner impact before changing the outline.',
+            screenshotPath: testInfo.outputPath('lms-course-builder-enrollments-warning-en.png')
+        })
+        await expectPublishedEnrollmentWizard({
+            page,
+            navigationItem: 'Courses',
+            label: 'Course Builder',
+            panelId: 'course-enrollments',
+            screenshotPath: testInfo.outputPath('lms-course-builder-enrollment-wizard-en.png')
+        })
+        await expectPublishedBuilderTabs({
+            page,
+            navigationItem: 'Tracks',
+            label: 'Learning Track Builder',
+            tabNames: ['Outline', 'General', 'Completion', 'Player', 'Enrollments', 'Reports'],
+            screenshotPath: testInfo.outputPath('lms-track-builder-tabs-en.png')
+        })
+        await expectPublishedTrackLearnerPlayer({
+            page,
+            applicationId,
+            screenshotPath: testInfo.outputPath('lms-track-builder-learner-player-en.png')
+        })
+        await expectPublishedBuilderRelationScope({
+            page,
+            navigationItem: 'Tracks',
+            label: 'Learning Track Builder',
+            initialParent: 'Compliance refresh track',
+            initialChildren: ['Refresh compliance'],
+            nextParent: 'New learner onboarding track',
+            nextChildren: ['Start onboarding', 'Compliance essentials'],
+            screenshotPath: testInfo.outputPath('lms-track-builder-outline-scope-en.png')
+        })
+        await expectPublishedBuilderEnrollmentWarning({
+            page,
+            navigationItem: 'Tracks',
+            label: 'Learning Track Builder',
+            parentName: 'Compliance refresh track',
+            warningText: 'This track already has enrollments. Review learner impact before changing stages or steps.',
+            screenshotPath: testInfo.outputPath('lms-track-builder-enrollments-warning-en.png')
+        })
+
+        await expectPublishedOutlineReorder({
+            page,
+            api,
+            applicationId,
+            objectId: courseItemsObjectId,
+            workspaceId: mainWorkspaceId,
+            label: 'CourseItems outline',
+            screenshotPath: testInfo.outputPath('lms-course-items-outline-ordering-en.png')
+        })
+        await expectPublishedOutlineReorder({
+            page,
+            api,
+            applicationId,
+            objectId: trackStepsObjectId,
+            workspaceId: mainWorkspaceId,
+            label: 'TrackSteps outline',
+            screenshotPath: testInfo.outputPath('lms-track-steps-outline-ordering-en.png')
+        })
 
         await page.getByRole('link', { name: 'Workspaces' }).first().click()
         await expect(page.getByTestId('runtime-workspaces-page')).toBeVisible({ timeout: 30_000 })
@@ -1024,14 +1612,14 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await expect(page.getByRole('button', { name: 'Обучение' })).toHaveCount(0)
         await expect(page.getByRole('button', { name: 'More' })).toHaveCount(0)
         await expect(page.getByTestId('runtime-page-blocks')).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByText(LMS_WELCOME_PAGE.title.ru, { exact: true })).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByRole('heading', { name: LMS_WELCOME_PAGE.title.ru })).toBeVisible({ timeout: 30_000 })
         await expect(page.getByText(LMS_WELCOME_PAGE.intro.ru)).toBeVisible({
             timeout: 30_000
         })
-        await expect(page.getByText(LMS_WELCOME_PAGE.howToStartTitle.ru, { exact: true })).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByRole('heading', { name: LMS_WELCOME_PAGE.howToStartTitle.ru })).toBeVisible({ timeout: 30_000 })
         await expect(page.getByText(LMS_WELCOME_PAGE.workspaceGuidance.ru)).toBeVisible({ timeout: 30_000 })
         await expect(page.getByRole('heading', { name: 'Учащиеся' })).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByRole('heading', { name: 'Модули' })).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByRole('heading', { name: 'Проекты' })).toBeVisible({ timeout: 30_000 })
         await expect(page.getByRole('heading', { name: 'Назначения' })).toBeVisible({ timeout: 30_000 })
         await expect(page.getByRole('heading', { name: 'Сертификаты' })).toBeVisible({ timeout: 30_000 })
         await expect(page.getByRole('heading', { name: 'Прогресс подразделений' })).toBeVisible({ timeout: 30_000 })
@@ -1039,10 +1627,10 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await expect(page.getByText('Нет данных для отображения', { exact: true }).first()).toBeVisible({ timeout: 30_000 })
         await expect(page.getByText('Learners', { exact: true })).toHaveCount(0)
         await expect(page.getByText('No data to display', { exact: true })).toHaveCount(0)
-        await expect(page.getByRole('link', { name: 'Рабочие пространства' })).toHaveCount(1)
+        await expect(page.getByRole('link', { name: 'Рабочие пространства' }).first()).toBeVisible()
         await expect(page.getByText('Module access QR')).toHaveCount(0)
         await expect(page.getByText('Статистика учебного портала')).toHaveCount(0)
-        await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
+        await expect(page.getByTestId('runtime-page-progress')).toContainText('Прогресс чтения 100%', { timeout: 30_000 })
         await page.screenshot({ path: testInfo.outputPath('lms-dashboard-ru.png'), fullPage: true })
 
         await applyBrowserPreferences(page, { language: 'en' })
@@ -1052,10 +1640,10 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await page.getByLabel('Your name').fill('Learning guest learner')
         await page.getByRole('button', { name: 'Start learning' }).click()
 
-        await expect(page.getByText(LMS_DEMO_MODULE.title.en)).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByText(LMS_DEMO_MODULE.contentItems.en[0].itemContent)).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByText(LMS_DEMO_CONTENT_NODE.title.en)).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByText(LMS_DEMO_CONTENT_NODE.contentItems.en[0].itemContent)).toBeVisible({ timeout: 30_000 })
         await page.getByRole('button', { name: 'Next' }).click()
-        await expect(page.getByText(LMS_DEMO_MODULE.contentItems.en[1].itemTitle)).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByText(LMS_DEMO_CONTENT_NODE.contentItems.en[1].itemTitle)).toBeVisible({ timeout: 30_000 })
         await page.getByRole('button', { name: 'Open quiz' }).click()
 
         await expect(page.getByText(LMS_DEMO_QUIZ.questions.en[0].prompt)).toBeVisible({ timeout: 30_000 })
@@ -1063,9 +1651,9 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await checkQuizOption(page, LMS_DEMO_QUIZ.questions.en[1].options[0].label, 'en')
         await page.getByRole('button', { name: 'Submit quiz' }).click()
         await expect(page.getByText('Score 2 / 2')).toBeVisible({ timeout: 30_000 })
-        await page.getByRole('button', { name: 'Back to module' }).click()
-        await page.getByRole('button', { name: 'Complete module' }).click()
-        await expect(page.getByText('Module complete. Progress has been recorded for this session.')).toBeVisible({ timeout: 30_000 })
+        await page.getByRole('button', { name: 'Back to content' }).click()
+        await page.getByRole('button', { name: 'Complete content' }).click()
+        await expect(page.getByText('Content complete. Progress has been recorded for this session.')).toBeVisible({ timeout: 30_000 })
         await page.screenshot({ path: testInfo.outputPath('lms-guest-journey.png'), fullPage: true })
 
         await applyBrowserPreferences(page, { language: 'ru' })
@@ -1075,15 +1663,15 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await page.getByLabel('Ваше имя').fill('Русский гость')
         await page.getByRole('button', { name: 'Начать обучение' }).click()
 
-        const secondaryModule = LMS_DEMO_MODULES.find((module) => module.accessLinkSlug === LMS_SECONDARY_LINK.slug)
-        if (!secondaryModule) {
-            throw new Error('LMS fixture contract is missing the secondary public module definition')
+        const secondaryContent = LMS_DEMO_CONTENT_NODES.find((content) => content.accessLinkSlug === LMS_SECONDARY_LINK.slug)
+        if (!secondaryContent) {
+            throw new Error('LMS fixture contract is missing the secondary public content definition')
         }
 
-        await expect(page.getByText(secondaryModule.title.ru)).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByText(secondaryModule.contentItems.ru[0].itemContent ?? '')).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByText(secondaryContent.title.ru)).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByText(secondaryContent.contentItems.ru[0].itemContent ?? '')).toBeVisible({ timeout: 30_000 })
         await page.getByRole('button', { name: 'Далее' }).click()
-        await expect(page.getByText(secondaryModule.contentItems.ru[1].itemTitle)).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByText(secondaryContent.contentItems.ru[1].itemTitle)).toBeVisible({ timeout: 30_000 })
         await page.getByRole('button', { name: 'Открыть тест' }).click()
 
         const secondaryQuiz = LMS_DEMO_QUIZZES.find((quiz) => quiz.key === 'docking-corridor')
@@ -1096,21 +1684,11 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await checkQuizOption(page, secondaryQuiz.questions.ru[1].options[0].label, 'ru')
         await page.getByRole('button', { name: 'Отправить тест' }).click()
         await expect(page.getByText('Результат 2 / 2')).toBeVisible({ timeout: 30_000 })
-        await page.getByRole('button', { name: 'Назад к модулю' }).click()
-        await expect(page.getByRole('button', { name: 'Завершить модуль' })).toBeVisible({ timeout: 30_000 })
-        await page.getByRole('button', { name: 'Завершить модуль' }).click()
-        await expect(page.getByText('Модуль завершён. Прогресс записан для этой сессии.')).toBeVisible({ timeout: 30_000 })
+        await page.getByRole('button', { name: 'Назад к контенту' }).click()
+        await expect(page.getByRole('button', { name: 'Завершить контент' })).toBeVisible({ timeout: 30_000 })
+        await page.getByRole('button', { name: 'Завершить контент' }).click()
+        await expect(page.getByText('Контент завершён. Прогресс записан для этой сессии.')).toBeVisible({ timeout: 30_000 })
         await page.screenshot({ path: testInfo.outputPath('lms-guest-journey-ru.png'), fullPage: true })
-
-        const workspaces = await listApplicationWorkspaces(api, applicationId)
-        const workspaceItems = Array.isArray(workspaces?.items) ? workspaces.items : []
-        expect(workspaceItems.filter((workspace) => workspace?.workspaceType === 'shared' || workspace?.type === 'shared')).toHaveLength(0)
-        const mainWorkspaceId = workspaceItems.find(
-            (workspace) => workspace?.isDefault === true || workspace?.workspaceType === 'personal' || workspace?.type === 'personal'
-        )?.id
-        if (typeof mainWorkspaceId !== 'string' || mainWorkspaceId.length === 0) {
-            throw new Error('Main application workspace was not found for final runtime verification')
-        }
 
         await expectPublicRuntimeSecurityEdges(page, applicationId)
         await expectRegistrarOnlyLedgerRejectsManualWrite(api, applicationId, progressLedgerId, mainWorkspaceId)
@@ -1119,7 +1697,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             api,
             applicationId,
             enrollmentsObjectId,
-            LMS_DEMO_ENROLLMENTS.length,
+            LMS_DEMO_ENROLLMENTS.length + 2,
             {
                 workspaceId: mainWorkspaceId
             }
@@ -1130,7 +1708,6 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         }
 
         await page.goto(`/a/${applicationId}/${encodeURIComponent(enrollmentsObjectId)}`)
-        await expect(page.getByTestId(`grid-row-actions-trigger-${enrollmentToPost.id}`)).toBeVisible({ timeout: 30_000 })
         await runRuntimeRecordCommandFromRow(page, enrollmentToPost.id, 'post')
 
         const progressFacts = await waitForApplicationLedgerFactCount(api, applicationId, progressLedgerId, 1, {
@@ -1159,21 +1736,29 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             expect(progressDeltas.every((delta) => delta === 0)).toBe(true)
         }
 
-        const [studentRows, quizResponseRows, moduleProgressRows] = await Promise.all([
+        const expectedContentProgressRuntimeRows =
+            LMS_DEMO_CONTENT_PROGRESS.length +
+            1 + // page completion progress
+            2 + // course item progress plus course aggregate
+            2 + // track step progress plus track aggregate
+            2 // two public guest content sessions
+
+        const [studentRows, quizResponseRows, contentProgressRows] = await Promise.all([
             waitForApplicationRuntimeRowCount(api, applicationId, studentsObjectId, LMS_DEMO_STUDENTS.length + 2, {
                 workspaceId: mainWorkspaceId
             }),
             waitForApplicationRuntimeRowCount(api, applicationId, quizResponsesObjectId, LMS_DEMO_QUIZ_RESPONSES.length + 4, {
                 workspaceId: mainWorkspaceId
             }),
-            waitForApplicationRuntimeRowCount(api, applicationId, moduleProgressObjectId, LMS_DEMO_MODULE_PROGRESS.length + 2, {
+            waitForApplicationRuntimeRowCount(api, applicationId, contentProgressObjectId, expectedContentProgressRuntimeRows, {
                 workspaceId: mainWorkspaceId
             })
         ])
 
         expect(studentRows).toHaveLength(LMS_DEMO_STUDENTS.length + 2)
         expect(quizResponseRows).toHaveLength(LMS_DEMO_QUIZ_RESPONSES.length + 4)
-        expect(moduleProgressRows).toHaveLength(LMS_DEMO_MODULE_PROGRESS.length + 2)
+        expect(contentProgressRows).toHaveLength(expectedContentProgressRuntimeRows)
+        expect(new Set(contentProgressRows.map((row) => requireRuntimeRowId(row, 'ContentProgress'))).size).toBe(contentProgressRows.length)
         const primaryStudentId = studentRows.find((row) => typeof row?.id === 'string')?.id
         if (typeof primaryStudentId !== 'string') {
             throw new Error('LMS workflow proof could not find a student runtime row')
@@ -1187,17 +1772,17 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             throw new Error('LMS workflow proof could not find a development stage runtime row')
         }
 
-        const assignmentRow = await createWorkflowRuntimeRow(api, applicationId, assignmentsObjectId, {
+        const assignmentRow = await createWorkflowRuntimeRow(api, applicationId, mainWorkspaceId, assignmentsObjectId, {
             Title: 'Operational workflow assignment',
-            TargetType: 'module'
+            TargetType: 'content'
         })
-        const trainingEventRow = await createWorkflowRuntimeRow(api, applicationId, trainingEventsObjectId, {
+        const trainingEventRow = await createWorkflowRuntimeRow(api, applicationId, mainWorkspaceId, trainingEventsObjectId, {
             Title: 'Operational workflow training event',
             StartsAt: '2026-05-15T09:00:00.000Z',
             EndsAt: '2026-05-15T10:00:00.000Z',
             Capacity: 12
         })
-        const certificateRow = await createWorkflowRuntimeRow(api, applicationId, certificatesObjectId, {
+        const certificateRow = await createWorkflowRuntimeRow(api, applicationId, mainWorkspaceId, certificatesObjectId, {
             CertificateNumber: 'CERT-E2E-WORKFLOW',
             StudentId: primaryStudentId,
             IssuedAt: '2026-05-15T10:00:00.000Z'
@@ -1206,7 +1791,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         const trainingEventRowId = requireRuntimeRowId(trainingEventRow, 'Operational workflow training event')
         const certificateRowId = requireRuntimeRowId(certificateRow, 'Operational workflow certificate')
 
-        let browserGatedSubmissionRow = await createWorkflowRuntimeRow(api, applicationId, assignmentSubmissionsObjectId, {
+        let browserGatedSubmissionRow = await createWorkflowRuntimeRow(api, applicationId, mainWorkspaceId, assignmentSubmissionsObjectId, {
             AssignmentId: assignmentRowId,
             StudentId: primaryStudentId,
             SubmittedAt: '2026-05-15T10:30:00.000Z',
@@ -1217,8 +1802,8 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         const browserGatedSubmissionVersion = requireRuntimeRowVersion(browserGatedSubmissionRow, 'Browser-gated workflow submission')
 
         await page.goto(`/a/${applicationId}/${encodeURIComponent(assignmentSubmissionsObjectId)}`)
-        await expect(page.getByTestId(`grid-row-actions-trigger-${browserGatedSubmissionRowId}`)).toBeVisible({ timeout: 30_000 })
-        await page.getByTestId(`grid-row-actions-trigger-${browserGatedSubmissionRowId}`).click()
+        const hiddenCapabilityRowActions = await getVisibleRuntimeRowActions(page, browserGatedSubmissionRowId)
+        await hiddenCapabilityRowActions.click()
         await expect(page.getByTestId('runtime-workflow-action-StartSubmissionReview')).toHaveCount(0)
         await page.screenshot({ path: testInfo.outputPath('lms-workflow-action-hidden-without-capability-en.png'), fullPage: true })
         await page.keyboard.press('Escape')
@@ -1243,8 +1828,8 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
 
         await grantLmsOwnerWorkflowCapabilities(api, applicationId)
         await page.goto(`/a/${applicationId}/${encodeURIComponent(assignmentSubmissionsObjectId)}`)
-        await expect(page.getByTestId(`grid-row-actions-trigger-${browserGatedSubmissionRowId}`)).toBeVisible({ timeout: 30_000 })
-        await page.getByTestId(`grid-row-actions-trigger-${browserGatedSubmissionRowId}`).click()
+        const visibleCapabilityRowActions = await getVisibleRuntimeRowActions(page, browserGatedSubmissionRowId)
+        await visibleCapabilityRowActions.click()
         const startReviewAction = page.getByTestId('runtime-workflow-action-StartSubmissionReview').first()
         await expect(startReviewAction).toBeVisible({ timeout: 30_000 })
         await page.screenshot({ path: testInfo.outputPath('lms-workflow-action-visible-with-capability-en.png'), fullPage: true })
@@ -1261,12 +1846,13 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             api,
             applicationId,
             assignmentSubmissionsObjectId,
-            browserGatedSubmissionRowId
+            browserGatedSubmissionRowId,
+            { workspaceId: mainWorkspaceId }
         )
         expect(browserGatedSubmissionRow.Status).toBe('PendingReview')
         await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
 
-        let acceptedSubmissionRow = await createWorkflowRuntimeRow(api, applicationId, assignmentSubmissionsObjectId, {
+        let acceptedSubmissionRow = await createWorkflowRuntimeRow(api, applicationId, mainWorkspaceId, assignmentSubmissionsObjectId, {
             AssignmentId: assignmentRowId,
             StudentId: primaryStudentId,
             SubmittedAt: '2026-05-15T11:00:00.000Z',
@@ -1295,7 +1881,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             'post'
         )
 
-        let declinedSubmissionRow = await createWorkflowRuntimeRow(api, applicationId, assignmentSubmissionsObjectId, {
+        let declinedSubmissionRow = await createWorkflowRuntimeRow(api, applicationId, mainWorkspaceId, assignmentSubmissionsObjectId, {
             AssignmentId: assignmentRowId,
             StudentId: primaryStudentId,
             SubmittedAt: '2026-05-15T11:30:00.000Z',
@@ -1323,7 +1909,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             'Declined'
         )
 
-        let attendedRow = await createWorkflowRuntimeRow(api, applicationId, trainingAttendanceObjectId, {
+        let attendedRow = await createWorkflowRuntimeRow(api, applicationId, mainWorkspaceId, trainingAttendanceObjectId, {
             TrainingEventId: trainingEventRowId,
             StudentId: primaryStudentId,
             CheckedInAt: '2026-05-15T09:05:00.000Z',
@@ -1353,7 +1939,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             'void'
         )
 
-        const noShowRow = await createWorkflowRuntimeRow(api, applicationId, trainingAttendanceObjectId, {
+        const noShowRow = await createWorkflowRuntimeRow(api, applicationId, mainWorkspaceId, trainingAttendanceObjectId, {
             TrainingEventId: trainingEventRowId,
             StudentId: primaryStudentId,
             CheckedInAt: '2026-05-15T09:10:00.000Z',
@@ -1372,7 +1958,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             'post'
         )
 
-        let certificateIssueRow = await createWorkflowRuntimeRow(api, applicationId, certificateIssuesObjectId, {
+        let certificateIssueRow = await createWorkflowRuntimeRow(api, applicationId, mainWorkspaceId, certificateIssuesObjectId, {
             CertificateId: certificateRowId,
             CertificateNumber: 'CERT-E2E-ISSUE-001',
             StudentId: primaryStudentId,
@@ -1402,7 +1988,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             'post'
         )
 
-        let developmentTaskRow = await createWorkflowRuntimeRow(api, applicationId, developmentPlanTasksObjectId, {
+        let developmentTaskRow = await createWorkflowRuntimeRow(api, applicationId, mainWorkspaceId, developmentPlanTasksObjectId, {
             StageId: primaryDevelopmentStageId,
             Title: 'Operational workflow task',
             Status: 'NotStarted',
@@ -1439,7 +2025,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             'InProgress'
         )
 
-        const sentNotificationRow = await createWorkflowRuntimeRow(api, applicationId, notificationOutboxObjectId, {
+        const sentNotificationRow = await createWorkflowRuntimeRow(api, applicationId, mainWorkspaceId, notificationOutboxObjectId, {
             Recipient: 'learner@example.test',
             Payload: { template: 'assignment-review-completed' },
             CreatedAt: '2026-05-15T14:00:00.000Z',
@@ -1457,7 +2043,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             'post'
         )
 
-        let failedNotificationRow = await createWorkflowRuntimeRow(api, applicationId, notificationOutboxObjectId, {
+        let failedNotificationRow = await createWorkflowRuntimeRow(api, applicationId, mainWorkspaceId, notificationOutboxObjectId, {
             Recipient: 'ops@example.test',
             Payload: { template: 'attendance-follow-up' },
             CreatedAt: '2026-05-15T14:15:00.000Z',
@@ -1507,7 +2093,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         const reportPayload = await reportResponse.json()
         expect(reportPayload.definition?.codename).toBe(learnerProgressReport.codename)
         expect(Array.isArray(reportPayload.rows)).toBe(true)
-        expect(Number(reportPayload.total)).toBeGreaterThanOrEqual(LMS_DEMO_MODULE_PROGRESS.length)
+        expect(Number(reportPayload.total)).toBeGreaterThanOrEqual(LMS_DEMO_CONTENT_PROGRESS.length)
         expect(typeof reportPayload.aggregations?.AverageProgress).toBe('number')
 
         expectNoBrowserRuntimeIssues(browserIssues, 'LMS snapshot runtime flow')

@@ -14,6 +14,7 @@ import type { EntityDefinition, SchemaSnapshot } from '@universo/schema-ddl'
 import {
     ApplicationSchemaStatus,
     ComponentDefinitionDataType,
+    DASHBOARD_LAYOUT_WIDGETS,
     type ApplicationLifecycleContract,
     type ApplicationLayoutWidget,
     type ComponentDefinitionValidationRules,
@@ -86,7 +87,7 @@ export const asyncHandler = (fn: (req: Request, res: Response) => Promise<Respon
 }
 
 export const runtimeCodenameTextSql = (columnRef: string): string =>
-    `COALESCE(${columnRef}->'locales'->(${columnRef}->>'_primary')->>'content', ${columnRef}->'locales'->'en'->>'content', '')`
+    `COALESCE(${columnRef}->'locales'->(${columnRef}->>'_primary')->>'content', ${columnRef}->'locales'->'en'->>'content', ${columnRef} #>> '{}', '')`
 
 export const buildDynamicRuntimeActiveRowSql = (contract: ApplicationLifecycleContract, platformConfig?: unknown): string => {
     const platformContract = resolvePlatformSystemFieldsContractFromConfig(platformConfig)
@@ -182,6 +183,87 @@ export function normalizeSnapshotCodenameValue(value: unknown, context: string):
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null
+}
+
+const resolveSnapshotEntityCodenameText = (value: unknown): string | null => {
+    if (!isRecord(value)) return null
+    const codename = getCodenamePrimary(value.codename as VersionedLocalizedContent<string> | string | undefined).trim()
+    return codename.length > 0 ? codename : null
+}
+
+const resolveEntityDefinitionCodenameText = (entity: EntityDefinition): string | null => {
+    const codename = getCodenamePrimary(entity.codename as VersionedLocalizedContent<string> | string | undefined).trim()
+    return codename.length > 0 ? codename : null
+}
+
+export const remapSnapshotLayoutScopeEntityIds = (
+    snapshot: PublishedApplicationSnapshot,
+    entities: EntityDefinition[]
+): PublishedApplicationSnapshot => {
+    const snapshotEntities = isRecord(snapshot.entities) ? snapshot.entities : {}
+    const snapshotCodenameById = new Map<string, string>()
+
+    for (const [entityId, entity] of Object.entries(snapshotEntities)) {
+        const codename = resolveSnapshotEntityCodenameText(entity)
+        if (codename) {
+            snapshotCodenameById.set(entityId, codename)
+        }
+    }
+
+    if (snapshotCodenameById.size === 0) {
+        return snapshot
+    }
+
+    const targetIdByCodename = new Map<string, string>()
+    for (const entity of entities) {
+        const codename = resolveEntityDefinitionCodenameText(entity)
+        if (codename && typeof entity.id === 'string' && entity.id.length > 0) {
+            targetIdByCodename.set(codename, entity.id)
+        }
+    }
+
+    if (targetIdByCodename.size === 0) {
+        return snapshot
+    }
+
+    const remapScopeEntityId = (scopeEntityId: unknown): unknown => {
+        if (typeof scopeEntityId !== 'string' || scopeEntityId.length === 0) {
+            return scopeEntityId
+        }
+
+        const codename = snapshotCodenameById.get(scopeEntityId)
+        if (!codename) {
+            return scopeEntityId
+        }
+
+        return targetIdByCodename.get(codename) ?? scopeEntityId
+    }
+
+    const remapLayoutRows = (rows: unknown): unknown => {
+        if (!Array.isArray(rows)) return rows
+        let changed = false
+        const nextRows = rows.map((row) => {
+            if (!isRecord(row)) return row
+            const nextScopeEntityId = remapScopeEntityId(row.scopeEntityId)
+            if (nextScopeEntityId === row.scopeEntityId) return row
+            changed = true
+            return { ...row, scopeEntityId: nextScopeEntityId }
+        })
+        return changed ? nextRows : rows
+    }
+
+    const nextLayouts = remapLayoutRows(snapshot.layouts)
+    const nextScopedLayouts = remapLayoutRows(snapshot.scopedLayouts)
+
+    if (nextLayouts === snapshot.layouts && nextScopedLayouts === snapshot.scopedLayouts) {
+        return snapshot
+    }
+
+    return {
+        ...snapshot,
+        layouts: nextLayouts as PublishedApplicationSnapshot['layouts'],
+        scopedLayouts: nextScopedLayouts as PublishedApplicationSnapshot['scopedLayouts']
+    }
 }
 
 export function compareStableValues(left: unknown, right: unknown): boolean {
@@ -390,6 +472,9 @@ type NormalizedLayoutWidgetOverride = {
 const SCOPED_LAYOUT_WIDGET_NAMESPACE = 'scoped-layout-widget'
 const WORKSPACE_SWITCHER_WIDGET_NAMESPACE = 'workspace-switcher-widget'
 const WORKSPACE_SWITCHER_DIVIDER_NAMESPACE = 'workspace-switcher-divider-widget'
+const SINGLE_INSTANCE_DASHBOARD_WIDGET_KEYS = new Set<string>(
+    DASHBOARD_LAYOUT_WIDGETS.filter((widget) => widget.multiInstance === false).map((widget) => widget.key)
+)
 
 const buildSyntheticUuid = (namespace: string, left: string, right: string): string => {
     const digest = createHash('sha1').update(`${namespace}:${left}:${right}`).digest('hex').slice(0, 32).split('')
@@ -621,22 +706,36 @@ const materializeSnapshotLayoutsAndWidgets = (
             ...item,
             layoutId: scopedLayout.id
         }))
+        const ownedActiveSingleInstanceKeys = new Set(
+            ownedWidgets
+                .filter((item) => item.isActive !== false && SINGLE_INSTANCE_DASHBOARD_WIDGET_KEYS.has(item.widgetKey))
+                .map((item) => `${normalizeLayoutZone(item.zone)}:${item.widgetKey}`)
+        )
 
         for (const baseWidget of baseWidgets) {
             const override = overrideMap.get(`${scopedLayout.id}:${baseWidget.id}`)
             if (override?.isDeletedOverride) {
                 continue
             }
+            const inheritedZone = normalizeLayoutZone(override?.zone ?? baseWidget.zone)
+            const inheritedIsActive = override?.isActive ?? baseWidget.isActive
+            if (
+                inheritedIsActive !== false &&
+                SINGLE_INSTANCE_DASHBOARD_WIDGET_KEYS.has(baseWidget.widgetKey) &&
+                ownedActiveSingleInstanceKeys.has(`${inheritedZone}:${baseWidget.widgetKey}`)
+            ) {
+                continue
+            }
 
             materializedScopedWidgets.push({
                 id: buildSyntheticUuid(SCOPED_LAYOUT_WIDGET_NAMESPACE, scopedLayout.id, baseWidget.id),
                 layoutId: scopedLayout.id,
-                zone: normalizeLayoutZone(override?.zone ?? baseWidget.zone),
+                zone: inheritedZone,
                 widgetKey: baseWidget.widgetKey,
                 sortOrder: override?.sortOrder ?? baseWidget.sortOrder,
                 config: override?.config ?? baseWidget.config,
                 sourceBaseWidgetId: baseWidget.id,
-                isActive: override?.isActive ?? baseWidget.isActive
+                isActive: inheritedIsActive
             })
         }
 
@@ -648,12 +747,12 @@ const materializeSnapshotLayoutsAndWidgets = (
             description: scopedLayout.description ?? baseLayout.description,
             config: {
                 ...baseLayout.config,
-                ...scopedLayout.config,
                 ...buildDashboardWidgetVisibilityConfig(
                     [...materializedScopedWidgets, ...ownedWidgets]
                         .filter((item) => item.isActive !== false)
                         .map((item) => ({ widgetKey: item.widgetKey, zone: item.zone }))
-                )
+                ),
+                ...scopedLayout.config
             },
             isActive: scopedLayout.isActive,
             isDefault: scopedLayout.isDefault,

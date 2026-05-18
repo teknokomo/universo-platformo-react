@@ -24,9 +24,10 @@ Backend-пакет для design-time ресурсов metahub, metadata publica
 
 ## LMS Template Contract
 
-- Встроенный `lms` template остаётся entity-first: classes, students, modules, quizzes, access links, progress, enrollments, supporting enumerations и progress/score ledgers являются обычными metadata entities.
+- Встроенный `lms` template остаётся entity-first: classes, students, content projects, resources, courses, course sections, course items, learning tracks, track stages, track steps, modules, quizzes, assignments, events, certificates, reports, knowledge spaces, development plans, access links, progress, enrollments, sharing/star/recent/trash projections, supporting enumerations и Object-backed ledgers являются обычными metadata entities.
 - LMS ledgers экспортируются как metadata с `config.ledger`; operational ledger facts не экспортируются как обычные Object runtime rows.
 - Default LMS layout использует shared dashboard shell (`menuWidget`, `appNavbar`, `header`, `detailsTitle`, `detailsTable`) вместо глобальных LMS-only widgets.
+- Learning Content layouts используют generic runtime widgets и datasource contracts, включая `records.union` для unified libraries и deleted-row queries для trash views.
 
 ## Main Responsibilities
 

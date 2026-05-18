@@ -7,6 +7,7 @@ import {
     createPublicationLinkedApplication,
     createPublicationVersion,
     getApplicationRuntime,
+    getRuntimeRow,
     listRuntimeLedgerFacts,
     listRuntimeLedgers,
     listLayouts,
@@ -175,15 +176,32 @@ export async function waitForApplicationLedgerFactCount(
     return facts
 }
 
-export async function waitForApplicationRuntimeRow(api: ApiContext, applicationId: string, objectId: string, rowId: string) {
+export async function waitForApplicationRuntimeRow(
+    api: ApiContext,
+    applicationId: string,
+    objectId: string,
+    rowId: string,
+    params: { workspaceId?: string } = {}
+) {
     let row: Record<string, unknown> | null = null
 
     await expect
         .poll(
             async () => {
-                const runtime = await getApplicationRuntime(api, applicationId, { objectId })
+                const runtime = await getApplicationRuntime(api, applicationId, { objectId, limit: 100, ...params })
                 const runtimeColumns = Array.isArray(runtime.columns) ? runtime.columns : []
-                const foundRow = (runtime.rows ?? []).find((item: { id?: string }) => item?.id === rowId) ?? null
+                const runtimeRows = Array.isArray(runtime.rows) ? runtime.rows : []
+                const found = await getRuntimeRow(api, applicationId, rowId, { objectId, ...params })
+                const listedRow = runtimeRows.find((candidate: Record<string, unknown>) => candidate.id === rowId) ?? null
+                const foundVersion = Number(found?.version ?? found?.data?._upl_version ?? listedRow?._upl_version ?? listedRow?.version)
+                const foundRow = found?.id
+                    ? {
+                          id: found.id,
+                          ...(listedRow ?? {}),
+                          ...(found.data ?? {}),
+                          ...(Number.isInteger(foundVersion) && foundVersion > 0 ? { _upl_version: foundVersion } : {})
+                      }
+                    : null
                 row = foundRow ? withRuntimeCodenameAliases(foundRow, runtimeColumns) : null
                 return row && typeof row.id === 'string' ? row.id : null
             },

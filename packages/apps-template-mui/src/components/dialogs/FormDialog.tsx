@@ -23,11 +23,20 @@ import {
     RadioGroup,
     Select,
     Stack,
+    Step,
+    StepLabel,
+    Stepper,
     TextField,
     Typography
 } from '@mui/material'
-import type { PageBlockContent, PageBlockContentValidationOptions, VersionedLocalizedContent } from '@universo/types'
-import { normalizePageBlockContentForStorage } from '@universo/types'
+import type {
+    PageBlockContent,
+    PageBlockContentValidationOptions,
+    ResourceSource,
+    ResourceType,
+    VersionedLocalizedContent
+} from '@universo/types'
+import { normalizePageBlockContentForStorage, RESOURCE_TYPES, resourceSourceSchema } from '@universo/types'
 import { buildTableConstraintText, createLocalizedContent, NUMBER_DEFAULTS, toNumberRules, validateNumber } from '@universo/utils'
 import { useTranslation } from 'react-i18next'
 import { LocalizedInlineField } from '../forms/LocalizedInlineField'
@@ -36,6 +45,8 @@ import { RuntimeInlineTabularEditor } from '../RuntimeInlineTabularEditor'
 import { normalizeTabularRowValues } from '../../utils/tabularCellValues'
 import PageContainer from '../../crud-dashboard/components/PageContainer'
 import { EditorJsBlockEditor } from '@universo/block-editor'
+import { ResourcePreview } from '../resource-preview'
+import { fetchAppData } from '../../api'
 
 export type FieldType = 'STRING' | 'NUMBER' | 'BOOLEAN' | 'DATE' | 'REF' | 'JSON' | 'TABLE'
 
@@ -121,6 +132,56 @@ export interface FieldConfig {
     componentId?: string
 }
 
+export interface RuntimeObjectCollectionOption {
+    id: string
+    codename: string
+    name?: string | null
+}
+
+type FieldSyncMode = 'untilTargetEdited' | 'whenTargetEmpty'
+type FieldSyncTransform = 'plainText'
+
+interface FieldSyncTarget {
+    fieldId: string
+    mode: FieldSyncMode
+    manualFlagFieldId?: string
+    transform: FieldSyncTransform
+}
+
+interface RuntimeRecordPickerConfig {
+    targetObjectCodenameField: string
+    labelFields: string[]
+    limit: number
+    allowedObjectCodenames?: string[]
+}
+
+interface RuntimeRecordPickerOption {
+    id: string
+    label: string
+}
+
+interface StringSelectOption {
+    value: string
+    label: string
+}
+
+interface FieldVisibilityCondition {
+    fieldId: string
+    equals?: unknown
+    notEquals?: unknown
+    in?: unknown[]
+    notIn?: unknown[]
+}
+
+interface FieldDateOffsetDerivation {
+    startFieldId: string
+    offsetDaysFieldId: string
+    when?: FieldVisibilityCondition
+    clearWhen?: FieldVisibilityCondition
+}
+
+const EMPTY_OBJECT_COLLECTIONS: RuntimeObjectCollectionOption[] = []
+
 export interface FormDialogProps {
     open: boolean
     title: string
@@ -150,6 +211,8 @@ export interface FormDialogProps {
     objectCollectionId?: string
     /** Row being edited (null = create mode) — used for TABLE rendering. */
     editRowId?: string | null
+    /** Copy mode keeps TABLE children immutable because the runtime copies them atomically from the source row. */
+    copyMode?: boolean
     renderField?: (params: {
         field: FieldConfig
         value: unknown
@@ -159,6 +222,17 @@ export interface FormDialogProps {
         helperText?: string
         locale: string
     }) => React.ReactNode | undefined
+    /** Runtime object registry used by metadata-driven record picker fields. */
+    objectCollections?: RuntimeObjectCollectionOption[]
+    /** Current workspace scope for runtime record picker fields. */
+    currentWorkspaceId?: string | null
+    /** Optional metadata-defined wizard steps for guided create/edit forms. */
+    wizardSteps?: Array<{
+        id: string
+        label: string
+        helperText?: string
+        fieldIds: string[]
+    }>
 }
 
 const normalizeLocale = (locale?: string) => (locale ? locale.split(/[-_]/)[0].toLowerCase() : 'en')
@@ -215,8 +289,277 @@ const isEditorJsBlockContentField = (field: FieldConfig): boolean => {
     )
 }
 
-const readStringArray = (value: unknown): string[] | undefined =>
-    Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0) : undefined
+const isResourceSourceField = (field: FieldConfig): boolean => {
+    const uiConfig = field.uiConfig ?? {}
+    return field.type === 'JSON' && (uiConfig.widget === 'resourceSource' || uiConfig.resourceSource === true || uiConfig.resource === true)
+}
+
+const isStaticallyHiddenField = (field: FieldConfig): boolean => {
+    const uiConfig = field.uiConfig ?? {}
+    return uiConfig.hidden === true || uiConfig.formHidden === true
+}
+
+const readFieldVisibilityCondition = (field: FieldConfig): FieldVisibilityCondition | null => {
+    const uiConfig = field.uiConfig ?? {}
+    const rawCondition = uiConfig.visibleWhen ?? uiConfig.showWhen
+    if (!isRecord(rawCondition)) return null
+
+    const rawFieldId = rawCondition.fieldId ?? rawCondition.field ?? rawCondition.codename
+    if (typeof rawFieldId !== 'string' || rawFieldId.trim().length === 0) return null
+
+    const condition: FieldVisibilityCondition = { fieldId: rawFieldId.trim() }
+
+    if ('equals' in rawCondition) {
+        condition.equals = rawCondition.equals
+    } else if ('value' in rawCondition) {
+        condition.equals = rawCondition.value
+    }
+
+    if ('notEquals' in rawCondition) {
+        condition.notEquals = rawCondition.notEquals
+    }
+
+    if (Array.isArray(rawCondition.in)) {
+        condition.in = rawCondition.in
+    }
+
+    if (Array.isArray(rawCondition.notIn)) {
+        condition.notIn = rawCondition.notIn
+    }
+
+    return condition
+}
+
+const readFieldDateOffsetDerivation = (field: FieldConfig): FieldDateOffsetDerivation | null => {
+    const uiConfig = field.uiConfig ?? {}
+    const rawDerivation = uiConfig.derivedDateOffset ?? uiConfig.dateOffset
+    if (!isRecord(rawDerivation)) return null
+
+    const rawStartField = rawDerivation.startFieldId ?? rawDerivation.startField ?? rawDerivation.fromField
+    const rawOffsetField = rawDerivation.offsetDaysFieldId ?? rawDerivation.offsetDaysField ?? rawDerivation.daysField
+    const startFieldId = typeof rawStartField === 'string' && rawStartField.trim().length > 0 ? rawStartField.trim() : ''
+    const offsetDaysFieldId = typeof rawOffsetField === 'string' && rawOffsetField.trim().length > 0 ? rawOffsetField.trim() : ''
+    if (!startFieldId || !offsetDaysFieldId) return null
+
+    return {
+        startFieldId,
+        offsetDaysFieldId,
+        when: readFieldVisibilityCondition({ ...field, uiConfig: { visibleWhen: rawDerivation.when } }) ?? undefined,
+        clearWhen: readFieldVisibilityCondition({ ...field, uiConfig: { visibleWhen: rawDerivation.clearWhen } }) ?? undefined
+    }
+}
+
+const valuesEqual = (left: unknown, right: unknown): boolean => {
+    if (Object.is(left, right)) return true
+    if (left == null || right == null) return false
+    return String(left) === String(right)
+}
+
+const matchesFieldVisibilityCondition = (condition: FieldVisibilityCondition, formData: Record<string, unknown>): boolean => {
+    const currentValue = formData[condition.fieldId]
+    let hasOperator = false
+
+    if ('equals' in condition) {
+        hasOperator = true
+        if (!valuesEqual(currentValue, condition.equals)) return false
+    }
+
+    if ('notEquals' in condition) {
+        hasOperator = true
+        if (valuesEqual(currentValue, condition.notEquals)) return false
+    }
+
+    if (condition.in) {
+        hasOperator = true
+        if (!condition.in.some((candidate) => valuesEqual(currentValue, candidate))) return false
+    }
+
+    if (condition.notIn) {
+        hasOperator = true
+        if (condition.notIn.some((candidate) => valuesEqual(currentValue, candidate))) return false
+    }
+
+    return hasOperator ? true : Boolean(currentValue)
+}
+
+const isConditionallyHiddenField = (field: FieldConfig, formData: Record<string, unknown>): boolean => {
+    const condition = readFieldVisibilityCondition(field)
+    return condition ? !matchesFieldVisibilityCondition(condition, formData) : false
+}
+
+const isHiddenField = (field: FieldConfig, formData: Record<string, unknown>): boolean =>
+    isStaticallyHiddenField(field) || isConditionallyHiddenField(field, formData)
+
+const readOffsetDays = (value: unknown): number | null => {
+    const numeric = typeof value === 'number' ? value : typeof value === 'string' && value.trim().length > 0 ? Number(value) : Number.NaN
+    if (!Number.isFinite(numeric) || !Number.isInteger(numeric) || numeric < 0 || numeric > 3650) return null
+    return numeric
+}
+
+const parseDateOnlyUtcTime = (value: unknown): number => {
+    if (value instanceof Date) {
+        return Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate())
+    }
+    if (typeof value !== 'string') return Number.NaN
+
+    const trimmed = value.trim()
+    const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed)
+    if (dateOnlyMatch) {
+        const year = Number(dateOnlyMatch[1])
+        const month = Number(dateOnlyMatch[2])
+        const day = Number(dateOnlyMatch[3])
+        const time = Date.UTC(year, month - 1, day)
+        const date = new Date(time)
+        return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day ? time : Number.NaN
+    }
+
+    const dateTime = new Date(trimmed)
+    if (Number.isNaN(dateTime.getTime())) return Number.NaN
+    return Date.UTC(dateTime.getUTCFullYear(), dateTime.getUTCMonth(), dateTime.getUTCDate())
+}
+
+const addUtcDateOnlyDays = (time: number, days: number): string => {
+    const date = new Date(time)
+    date.setUTCDate(date.getUTCDate() + days)
+    return date.toISOString().slice(0, 10)
+}
+
+const deriveDateOffsetValue = (derivation: FieldDateOffsetDerivation, formData: Record<string, unknown>): string | null | undefined => {
+    if (derivation.clearWhen && matchesFieldVisibilityCondition(derivation.clearWhen, formData)) {
+        return null
+    }
+    if (derivation.when && !matchesFieldVisibilityCondition(derivation.when, formData)) {
+        return undefined
+    }
+
+    const startValue = formData[derivation.startFieldId]
+    const offsetDays = readOffsetDays(formData[derivation.offsetDaysFieldId])
+    const startTime = parseDateOnlyUtcTime(startValue)
+    if (!Number.isFinite(startTime) || offsetDays === null) return undefined
+    return addUtcDateOnlyDays(startTime, offsetDays)
+}
+
+const readFieldRequirementCondition = (field: FieldConfig): FieldVisibilityCondition | null => {
+    const uiConfig = field.uiConfig ?? {}
+    const rawCondition = uiConfig.requiredWhen ?? uiConfig.requireWhen
+    if (!isRecord(rawCondition)) return null
+
+    const rawFieldId = rawCondition.fieldId ?? rawCondition.field ?? rawCondition.codename
+    if (typeof rawFieldId !== 'string' || rawFieldId.trim().length === 0) return null
+
+    const condition: FieldVisibilityCondition = { fieldId: rawFieldId.trim() }
+    if ('equals' in rawCondition) {
+        condition.equals = rawCondition.equals
+    } else if ('value' in rawCondition) {
+        condition.equals = rawCondition.value
+    }
+    if ('notEquals' in rawCondition) condition.notEquals = rawCondition.notEquals
+    if (Array.isArray(rawCondition.in)) condition.in = rawCondition.in
+    if (Array.isArray(rawCondition.notIn)) condition.notIn = rawCondition.notIn
+    return condition
+}
+
+const isFieldRequired = (field: FieldConfig, formData: Record<string, unknown>): boolean => {
+    if (field.required) return true
+    const condition = readFieldRequirementCondition(field)
+    return condition ? matchesFieldVisibilityCondition(condition, formData) : false
+}
+
+const readStringArray = (value: unknown): string[] | undefined => {
+    if (!Array.isArray(value)) return undefined
+    const values = value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    return values.length > 0 ? values : undefined
+}
+
+const readRuntimeRecordPickerConfig = (field: FieldConfig): RuntimeRecordPickerConfig | null => {
+    const uiConfig = field.uiConfig ?? {}
+    const rawPicker = uiConfig.runtimeRecordPicker
+    const pickerConfig = isRecord(rawPicker) ? rawPicker : {}
+    const widget =
+        typeof uiConfig.widget === 'string' ? uiConfig.widget : typeof pickerConfig.widget === 'string' ? pickerConfig.widget : null
+    const enabled = rawPicker === true || widget === 'runtimeRecordPicker' || widget === 'recordPicker'
+
+    if (!enabled) return null
+
+    const targetObjectCodenameField =
+        typeof pickerConfig.targetObjectCodenameField === 'string' && pickerConfig.targetObjectCodenameField.trim().length > 0
+            ? pickerConfig.targetObjectCodenameField.trim()
+            : typeof uiConfig.targetObjectCodenameField === 'string' && uiConfig.targetObjectCodenameField.trim().length > 0
+            ? uiConfig.targetObjectCodenameField.trim()
+            : null
+
+    if (!targetObjectCodenameField) return null
+
+    const configuredLimit =
+        typeof pickerConfig.limit === 'number' && Number.isFinite(pickerConfig.limit)
+            ? pickerConfig.limit
+            : typeof uiConfig.runtimeRecordPickerLimit === 'number' && Number.isFinite(uiConfig.runtimeRecordPickerLimit)
+            ? uiConfig.runtimeRecordPickerLimit
+            : 50
+
+    return {
+        targetObjectCodenameField,
+        labelFields: readStringArray(pickerConfig.labelFields ?? uiConfig.recordLabelFields) ?? ['Title', 'Name'],
+        limit: Math.min(Math.max(Math.trunc(configuredLimit), 1), 100),
+        allowedObjectCodenames: readStringArray(pickerConfig.allowedObjectCodenames ?? uiConfig.allowedObjectCodenames)
+    }
+}
+
+const readStringSelectOptions = (field: FieldConfig, locale: string): StringSelectOption[] => {
+    const uiConfig = field.uiConfig ?? {}
+    const rawOptions = uiConfig.stringOptions ?? uiConfig.options
+    if (!Array.isArray(rawOptions)) return []
+
+    return rawOptions.flatMap((option): StringSelectOption[] => {
+        if (typeof option === 'string' && option.trim().length > 0) {
+            return [{ value: option, label: option }]
+        }
+        if (!isRecord(option) || typeof option.value !== 'string' || option.value.trim().length === 0) return []
+        const localizedLabel = getLocalizedStringValue(option.label, locale)
+        const plainLabel = typeof option.label === 'string' && option.label.trim().length > 0 ? option.label : null
+        return [{ value: option.value, label: localizedLabel ?? plainLabel ?? option.value }]
+    })
+}
+
+const getRuntimeRecordPickerLabel = (row: Record<string, unknown>, labelFields: readonly string[], locale: string): string => {
+    for (const field of labelFields) {
+        const value = row[field]
+        const localizedValue = getLocalizedStringValue(value, locale)
+        if (localizedValue && localizedValue.trim().length > 0) return localizedValue
+        if (typeof value === 'string' && value.trim().length > 0) return value
+        if (typeof value === 'number' && Number.isFinite(value)) return String(value)
+    }
+
+    return typeof row.id === 'string' ? row.id : '—'
+}
+
+const isLocalizedStringField = (field: FieldConfig): boolean => Boolean(field.validationRules?.localized ?? field.localized)
+
+const readFieldSyncTargets = (field: FieldConfig): FieldSyncTarget[] => {
+    const rawTargets = field.uiConfig?.syncTargets ?? field.uiConfig?.syncTo
+    const candidates = Array.isArray(rawTargets) ? rawTargets : rawTargets ? [rawTargets] : []
+
+    return candidates.flatMap((candidate): FieldSyncTarget[] => {
+        if (typeof candidate === 'string') {
+            return [{ fieldId: candidate, mode: 'untilTargetEdited', transform: 'plainText' }]
+        }
+        if (!isRecord(candidate) || typeof candidate.fieldId !== 'string' || candidate.fieldId.trim().length === 0) {
+            return []
+        }
+
+        return [
+            {
+                fieldId: candidate.fieldId.trim(),
+                mode: candidate.mode === 'whenTargetEmpty' ? 'whenTargetEmpty' : 'untilTargetEdited',
+                manualFlagFieldId:
+                    typeof candidate.manualFlagFieldId === 'string' && candidate.manualFlagFieldId.trim().length > 0
+                        ? candidate.manualFlagFieldId.trim()
+                        : undefined,
+                transform: 'plainText'
+            }
+        ]
+    })
+}
 
 const readFiniteInteger = (value: unknown): number | null => {
     if (typeof value !== 'number' || !Number.isFinite(value)) return null
@@ -239,6 +582,106 @@ const normalizeBlockEditorValue = (value: unknown, options: PageBlockContentVali
         return normalizePageBlockContentForStorage(parsedValue ?? { format: 'editorjs', data: { blocks: [] } }, options)
     } catch {
         return normalizePageBlockContentForStorage({ format: 'editorjs', data: { blocks: [] } }, options)
+    }
+}
+
+const parseJsonStringValue = (value: unknown): unknown => {
+    if (typeof value !== 'string') return value
+    if (value.trim().length === 0) return undefined
+    try {
+        return JSON.parse(value)
+    } catch {
+        return value
+    }
+}
+
+const readNonEmptyString = (value: unknown): string | null => (typeof value === 'string' && value.trim().length > 0 ? value.trim() : null)
+
+const isTextareaField = (field: FieldConfig): boolean => field.widget === 'textarea' || field.uiConfig?.widget === 'textarea'
+
+const getTextareaRows = (field: FieldConfig): number => {
+    if (typeof field.multilineRows === 'number' && Number.isInteger(field.multilineRows) && field.multilineRows > 0) {
+        return field.multilineRows
+    }
+    const rows = field.uiConfig?.rows
+    return typeof rows === 'number' && Number.isInteger(rows) && rows > 0 ? rows : 4
+}
+
+const hasResourceSourceLocator = (value: unknown): boolean => {
+    const parsedValue = parseJsonStringValue(value)
+    if (!parsedValue || typeof parsedValue !== 'object' || Array.isArray(parsedValue)) return false
+
+    const record = parsedValue as Record<string, unknown>
+    if (readNonEmptyString(record.url)) return true
+    if (readNonEmptyString(record.pageCodename)) return true
+    if (readNonEmptyString(record.storageKey)) return true
+
+    const packageDescriptor = record.packageDescriptor
+    if (packageDescriptor && typeof packageDescriptor === 'object' && !Array.isArray(packageDescriptor)) {
+        return Object.values(packageDescriptor as Record<string, unknown>).some((entry) => readNonEmptyString(entry))
+    }
+
+    return false
+}
+
+const normalizeResourceSourceValue = (value: unknown): ResourceSource | Record<string, unknown> => {
+    const parsedValue = parseJsonStringValue(value)
+    const parsed = resourceSourceSchema.safeParse(parsedValue)
+    if (parsed.success) return parsed.data
+    if (parsedValue && typeof parsedValue === 'object' && !Array.isArray(parsedValue)) {
+        return parsedValue as Record<string, unknown>
+    }
+    return { type: 'url', url: '' }
+}
+
+const getResourceSourceErrorKey = (value: unknown): string => {
+    const parsed = resourceSourceSchema.safeParse(parseJsonStringValue(value))
+    if (parsed.success) return ''
+
+    const issue = parsed.error.issues[0]
+    const firstPath = typeof issue?.path?.[0] === 'string' ? issue.path[0] : ''
+    const message = issue?.message ?? ''
+
+    if (firstPath === 'url' || message.includes('http and https') || message.includes('absolute')) return 'url'
+    if (firstPath === 'pageCodename') return 'pageCodename'
+    if (firstPath === 'storageKey') return 'storageKey'
+    if (firstPath === 'packageDescriptor') return 'packageDescriptor'
+    if (firstPath === 'mimeType') return 'mimeType'
+    if (firstPath === 'source' || message.includes('exactly one source locator')) return 'singleLocator'
+    if (message.includes('Embed URL host')) return 'embedHost'
+    return 'invalid'
+}
+
+const getResourceSourceType = (value: ResourceSource | Record<string, unknown>): ResourceType =>
+    RESOURCE_TYPES.includes(value.type as ResourceType) ? (value.type as ResourceType) : 'url'
+
+const buildResourceSourceCandidate = (
+    current: ResourceSource | Record<string, unknown>,
+    patch: Partial<ResourceSource> | Record<string, unknown>
+): ResourceSource | Record<string, unknown> => {
+    const next = { ...current, ...patch } as Record<string, unknown>
+    const parsed = resourceSourceSchema.safeParse(next)
+    return parsed.success ? parsed.data : next
+}
+
+const getPackageDescriptorLabel = (value: unknown): string => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return ''
+    const record = value as Record<string, unknown>
+    const candidate = record.codename ?? record.name ?? record.id
+    return typeof candidate === 'string' ? candidate : ''
+}
+
+const buildDefaultResourceSourceForType = (resourceType: ResourceType): ResourceSource | Record<string, unknown> => {
+    switch (resourceType) {
+        case 'page':
+            return { type: resourceType, pageCodename: '' }
+        case 'scorm':
+        case 'xapi':
+            return { type: resourceType, packageDescriptor: { codename: '' } }
+        case 'file':
+            return { type: resourceType, storageKey: '' }
+        default:
+            return { type: resourceType, url: '' }
     }
 }
 
@@ -287,22 +730,59 @@ export const FormDialog: React.FC<FormDialogProps> = ({
     apiBaseUrl,
     applicationId,
     objectCollectionId,
-    editRowId
+    editRowId,
+    copyMode = false,
+    objectCollections = EMPTY_OBJECT_COLLECTIONS,
+    currentWorkspaceId = null,
+    wizardSteps
 }) => {
     const [formData, setFormData] = useState<Record<string, unknown>>({})
     const [blockEditorErrors, setBlockEditorErrors] = useState<Record<string, string | null>>({})
     const [isReady, setReady] = useState(false)
+    const [activeWizardStep, setActiveWizardStep] = useState(0)
     const wasOpenRef = useRef(false)
+    const manuallyChangedFieldIdsRef = useRef<Set<string>>(new Set())
     // Track NUMBER input refs and last cursor zone for zone-aware steppers
     const numberInputRefsRef = useRef<Map<string, HTMLInputElement>>(new Map())
     const numberCursorZoneRef = useRef<Map<string, 'integer' | 'decimal'>>(new Map())
+    const fieldById = useMemo(() => new Map(fields.map((field) => [field.id, field])), [fields])
+    const syncTargetsBySourceId = useMemo(
+        () =>
+            new Map(
+                fields.map((field) => [field.id, readFieldSyncTargets(field)] as const).filter(([, syncTargets]) => syncTargets.length > 0)
+            ),
+        [fields]
+    )
+    const syncTargetsByTargetId = useMemo(() => {
+        const targets = new Map<string, FieldSyncTarget[]>()
+        for (const field of fields) {
+            for (const syncTarget of readFieldSyncTargets(field)) {
+                const current = targets.get(syncTarget.fieldId) ?? []
+                current.push(syncTarget)
+                targets.set(syncTarget.fieldId, current)
+            }
+        }
+        return targets
+    }, [fields])
 
     const applyFieldDefaults = useCallback(
         (seed: Record<string, unknown>) => {
             const next = { ...seed }
 
+            for (const syncTargets of syncTargetsBySourceId.values()) {
+                for (const syncTarget of syncTargets) {
+                    if (syncTarget.manualFlagFieldId && next[syncTarget.manualFlagFieldId] === undefined) {
+                        next[syncTarget.manualFlagFieldId] = false
+                    }
+                }
+            }
+
             for (const field of fields) {
                 if (next[field.id] !== undefined) continue
+                if (Object.prototype.hasOwnProperty.call(field.uiConfig ?? {}, 'defaultValue')) {
+                    next[field.id] = field.uiConfig?.defaultValue
+                    continue
+                }
                 if (field.type !== 'REF') continue
                 if (field.refTargetEntityKind === 'enumeration') {
                     const defaultFromConfig = field.defaultEnumValueId ?? null
@@ -327,7 +807,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
 
             return next
         },
-        [fields]
+        [fields, syncTargetsBySourceId]
     )
 
     useEffect(() => {
@@ -335,12 +815,16 @@ export const FormDialog: React.FC<FormDialogProps> = ({
 
         if (open && !wasOpen) {
             setReady(false)
+            manuallyChangedFieldIdsRef.current = new Set()
             setBlockEditorErrors({})
             setFormData(applyFieldDefaults(initialData ?? {}))
+            setActiveWizardStep(0)
             setReady(true)
         } else if (!open && wasOpen) {
             setReady(false)
+            manuallyChangedFieldIdsRef.current = new Set()
             setBlockEditorErrors({})
+            setActiveWizardStep(0)
         }
 
         wasOpenRef.current = open
@@ -350,9 +834,216 @@ export const FormDialog: React.FC<FormDialogProps> = ({
 
     const { t } = useTranslation('apps')
 
-    const handleFieldChange = useCallback((id: string, value: unknown) => {
-        setFormData((prev) => ({ ...prev, [id]: value }))
+    const recordPickerFields = useMemo(
+        () =>
+            fields
+                .map((field) => ({ field, config: readRuntimeRecordPickerConfig(field) }))
+                .filter((item): item is { field: FieldConfig; config: RuntimeRecordPickerConfig } => Boolean(item.config)),
+        [fields]
+    )
+
+    const recordPickerFieldIdsByTargetId = useMemo(() => {
+        const result = new Map<string, string[]>()
+        for (const { field, config } of recordPickerFields) {
+            const existing = result.get(config.targetObjectCodenameField) ?? []
+            existing.push(field.id)
+            result.set(config.targetObjectCodenameField, existing)
+        }
+        return result
+    }, [recordPickerFields])
+
+    const objectCollectionByCodename = useMemo(
+        () => new Map(objectCollections.map((item) => [item.codename, item] as const)),
+        [objectCollections]
+    )
+
+    const recordPickerRequestKey = useMemo(
+        () =>
+            recordPickerFields
+                .map(({ field, config }) => {
+                    const targetCodename =
+                        typeof formData[config.targetObjectCodenameField] === 'string'
+                            ? String(formData[config.targetObjectCodenameField]).trim()
+                            : ''
+                    const isAllowed = !config.allowedObjectCodenames || config.allowedObjectCodenames.includes(targetCodename)
+                    const targetObjectCollectionId = isAllowed ? objectCollectionByCodename.get(targetCodename)?.id ?? '' : ''
+                    return [field.id, targetCodename, targetObjectCollectionId, config.labelFields.join(','), String(config.limit)].join(
+                        ':'
+                    )
+                })
+                .join('|'),
+        [formData, objectCollectionByCodename, recordPickerFields]
+    )
+
+    const [recordPickerOptionsByFieldId, setRecordPickerOptionsByFieldId] = useState<
+        Record<string, { targetCodename: string; loading: boolean; error: string | null; options: RuntimeRecordPickerOption[] }>
+    >({})
+
+    useEffect(() => {
+        if (!open || !apiBaseUrl || !applicationId || recordPickerFields.length === 0) {
+            setRecordPickerOptionsByFieldId({})
+            return
+        }
+
+        let isCancelled = false
+
+        for (const { field, config } of recordPickerFields) {
+            const targetCodename =
+                typeof formData[config.targetObjectCodenameField] === 'string'
+                    ? String(formData[config.targetObjectCodenameField]).trim()
+                    : ''
+            const isAllowed = !config.allowedObjectCodenames || config.allowedObjectCodenames.includes(targetCodename)
+            const targetObjectCollectionId = isAllowed ? objectCollectionByCodename.get(targetCodename)?.id ?? null : null
+
+            if (!targetCodename || !targetObjectCollectionId) {
+                setRecordPickerOptionsByFieldId((current) => ({
+                    ...current,
+                    [field.id]: { targetCodename, loading: false, error: null, options: [] }
+                }))
+                continue
+            }
+
+            setRecordPickerOptionsByFieldId((current) => ({
+                ...current,
+                [field.id]: { targetCodename, loading: true, error: null, options: current[field.id]?.options ?? [] }
+            }))
+
+            fetchAppData({
+                apiBaseUrl,
+                applicationId,
+                objectCollectionId: targetObjectCollectionId,
+                workspaceId: currentWorkspaceId,
+                limit: config.limit,
+                offset: 0,
+                locale: normalizedLocale
+            })
+                .then((response) => {
+                    if (isCancelled) return
+                    setRecordPickerOptionsByFieldId((current) => ({
+                        ...current,
+                        [field.id]: {
+                            targetCodename,
+                            loading: false,
+                            error: null,
+                            options: response.rows.map((row) => ({
+                                id: row.id,
+                                label: getRuntimeRecordPickerLabel(row, config.labelFields, normalizedLocale)
+                            }))
+                        }
+                    }))
+                })
+                .catch((error: unknown) => {
+                    if (isCancelled) return
+                    setRecordPickerOptionsByFieldId((current) => ({
+                        ...current,
+                        [field.id]: {
+                            targetCodename,
+                            loading: false,
+                            error: error instanceof Error ? error.message : t('recordPicker.loadFailed', 'Unable to load records.'),
+                            options: []
+                        }
+                    }))
+                })
+        }
+
+        return () => {
+            isCancelled = true
+        }
+    }, [
+        open,
+        apiBaseUrl,
+        applicationId,
+        currentWorkspaceId,
+        normalizedLocale,
+        objectCollectionByCodename,
+        recordPickerFields,
+        recordPickerRequestKey,
+        formData,
+        t
+    ])
+
+    const resolvePlainTextForSync = useCallback(
+        (value: unknown): string => {
+            if (typeof value === 'string') return value
+            const localizedValue = getLocalizedStringValue(value, normalizedLocale)
+            if (typeof localizedValue === 'string') return localizedValue
+            if (value === null || value === undefined) return ''
+            return String(value)
+        },
+        [normalizedLocale]
+    )
+
+    const buildSyncedFieldValue = useCallback(
+        (sourceValue: unknown, targetField: FieldConfig, syncTarget: FieldSyncTarget): unknown => {
+            if (syncTarget.transform !== 'plainText') return sourceValue
+            if (targetField.type === 'STRING' && isLocalizedStringField(targetField)) {
+                if (isLocalizedContent(sourceValue)) return sourceValue
+                return createLocalizedContent(normalizedLocale, resolvePlainTextForSync(sourceValue))
+            }
+            return resolvePlainTextForSync(sourceValue)
+        },
+        [normalizedLocale, resolvePlainTextForSync]
+    )
+
+    const isTargetValuePresentForSync = useCallback((targetField: FieldConfig, value: unknown) => {
+        if (value === null || value === undefined) return false
+        if (targetField.type === 'STRING' && isLocalizedContent(value)) return hasAnyLocalizedContent(value)
+        if (typeof value === 'string') return value.trim().length > 0
+        return true
     }, [])
+
+    const handleFieldChange = useCallback(
+        (id: string, value: unknown) => {
+            manuallyChangedFieldIdsRef.current.add(id)
+
+            setFormData((prev) => {
+                const next = { ...prev, [id]: value }
+
+                if (prev[id] !== value) {
+                    const dependentRecordPickerFieldIds = recordPickerFieldIdsByTargetId.get(id) ?? []
+                    for (const dependentFieldId of dependentRecordPickerFieldIds) {
+                        next[dependentFieldId] = null
+                    }
+                }
+
+                const targetSyncRules = syncTargetsByTargetId.get(id) ?? []
+                for (const syncTarget of targetSyncRules) {
+                    if (syncTarget.manualFlagFieldId) {
+                        next[syncTarget.manualFlagFieldId] = true
+                    }
+                }
+
+                const syncTargets = syncTargetsBySourceId.get(id) ?? []
+                for (const syncTarget of syncTargets) {
+                    if (syncTarget.fieldId === id) continue
+                    const targetField = fieldById.get(syncTarget.fieldId)
+                    if (!targetField) continue
+
+                    const targetWasEdited =
+                        manuallyChangedFieldIdsRef.current.has(syncTarget.fieldId) ||
+                        (syncTarget.manualFlagFieldId ? next[syncTarget.manualFlagFieldId] === true : false)
+                    if (syncTarget.mode === 'untilTargetEdited' && targetWasEdited) continue
+                    if (syncTarget.mode === 'whenTargetEmpty' && isTargetValuePresentForSync(targetField, next[syncTarget.fieldId]))
+                        continue
+
+                    next[syncTarget.fieldId] = buildSyncedFieldValue(value, targetField, syncTarget)
+                    if (syncTarget.manualFlagFieldId && next[syncTarget.manualFlagFieldId] === undefined) {
+                        next[syncTarget.manualFlagFieldId] = false
+                    }
+                }
+
+                return next
+            })
+        },
+        [
+            buildSyncedFieldValue,
+            fieldById,
+            isTargetValuePresentForSync,
+            recordPickerFieldIdsByTargetId,
+            syncTargetsBySourceId,
+            syncTargetsByTargetId
+        ]
+    )
 
     const handleBlockEditorValidationError = useCallback((id: string, message: string | null) => {
         setBlockEditorErrors((prev) => {
@@ -381,6 +1072,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                 return value !== undefined
             }
             if (field.type === 'JSON') {
+                if (isResourceSourceField(field)) return hasResourceSourceLocator(value)
                 if (typeof value === 'string') return value.trim() !== ''
                 if (value && typeof value === 'object') return Object.keys(value as Record<string, unknown>).length > 0
                 return true
@@ -508,6 +1200,32 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                 return isValidDateTimeString(value) ? null : t('validation.datetimeFormat', 'Expected date & time format: YYYY-MM-DD HH:MM')
             }
 
+            if (isResourceSourceField(field)) {
+                if (!hasResourceSourceLocator(value)) return null
+                const parsed = resourceSourceSchema.safeParse(parseJsonStringValue(value))
+                if (!parsed.success) {
+                    const errorKey = getResourceSourceErrorKey(value)
+                    switch (errorKey) {
+                        case 'url':
+                            return t('resourceSource.errors.url', 'Enter an absolute http or https URL.')
+                        case 'pageCodename':
+                            return t('resourceSource.errors.pageCodename', 'Select or enter a page codename.')
+                        case 'storageKey':
+                            return t('resourceSource.errors.storageKey', 'Enter a storage key.')
+                        case 'packageDescriptor':
+                            return t('resourceSource.errors.packageDescriptor', 'Enter a package descriptor.')
+                        case 'mimeType':
+                            return t('resourceSource.errors.mimeType', 'The MIME type is not supported for this resource.')
+                        case 'singleLocator':
+                            return t('resourceSource.errors.singleLocator', 'Define exactly one source locator.')
+                        case 'embedHost':
+                            return t('resourceSource.errors.embedHost', 'This embed host is not allowed.')
+                        default:
+                            return t('resourceSource.invalid', 'Resource source is not valid.')
+                    }
+                }
+            }
+
             return null
         },
         [t, getStringValueForValidation, getVlcMinLengthError, resolveValuePresent]
@@ -521,7 +1239,9 @@ export const FormDialog: React.FC<FormDialogProps> = ({
     const hasMissingRequired = useMemo(
         () =>
             fields.some((field) => {
-                if (field.type === 'TABLE' && field.required) {
+                if (isHiddenField(field, formData)) return false
+                const required = isFieldRequired(field, formData)
+                if (field.type === 'TABLE' && required) {
                     // TABLE required: must have at least max(1, minRows) rows
                     const rows = formData[field.id]
                     const rowCount = Array.isArray(rows) ? rows.length : 0
@@ -530,20 +1250,60 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                     if (rowCount < minRequired) return true
                     return false
                 }
-                if (field.required && !resolveValuePresent(field, formData[field.id])) return true
+                if (required && !resolveValuePresent(field, formData[field.id])) return true
                 return false
             }),
         [fields, formData, resolveValuePresent]
     )
 
     const hasValidationErrors = useMemo(
-        () => fields.some((field) => Boolean(getFieldError(field, formData[field.id])) || Boolean(blockEditorErrors[field.id])),
+        () =>
+            fields.some(
+                (field) =>
+                    !isHiddenField(field, formData) &&
+                    (Boolean(getFieldError(field, formData[field.id])) || Boolean(blockEditorErrors[field.id]))
+            ),
         [blockEditorErrors, fields, formData, getFieldError]
+    )
+
+    const hasMissingRequiredForFields = useCallback(
+        (candidateFields: FieldConfig[]) =>
+            candidateFields.some((field) => {
+                const required = isFieldRequired(field, formData)
+                if (field.type === 'TABLE') {
+                    const value = formData[field.id]
+                    const rowCount = Array.isArray(value) ? value.length : 0
+                    const minRequired =
+                        typeof field.validationRules?.minRows === 'number' && Number.isInteger(field.validationRules.minRows)
+                            ? field.validationRules.minRows
+                            : required
+                            ? 1
+                            : 0
+                    if (rowCount < minRequired) return true
+                    return false
+                }
+                if (required && !resolveValuePresent(field, formData[field.id])) return true
+                return false
+            }),
+        [formData, resolveValuePresent]
+    )
+
+    const hasValidationErrorsForFields = useCallback(
+        (candidateFields: FieldConfig[]) =>
+            candidateFields.some((field) => Boolean(getFieldError(field, formData[field.id])) || Boolean(blockEditorErrors[field.id])),
+        [blockEditorErrors, formData, getFieldError]
     )
 
     const buildPayload = useCallback(() => {
         const payload: Record<string, unknown> = {}
         fields.forEach((field) => {
+            const dateOffsetDerivation = readFieldDateOffsetDerivation(field)
+            const derivedValue = dateOffsetDerivation ? deriveDateOffsetValue(dateOffsetDerivation, formData) : undefined
+            if (derivedValue !== undefined) {
+                payload[field.id] = derivedValue
+                return
+            }
+            if (isConditionallyHiddenField(field, formData)) return
             const value = formData[field.id]
             if (!resolveValuePresent(field, value)) return
             // Strip internal-only properties from TABLE row arrays before sending to the API
@@ -590,6 +1350,8 @@ export const FormDialog: React.FC<FormDialogProps> = ({
             case 'STRING': {
                 const isLocalized = rules?.localized ?? field.localized
                 const isVersioned = rules?.versioned
+                const isMultiline = isTextareaField(field)
+                const multilineRows = getTextareaRows(field)
 
                 const vlcErrorLocale = isLocalizedContent(value) && rules?.minLength ? getVlcMinLengthError(value, rules.minLength) : null
 
@@ -606,6 +1368,8 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                             error={fieldError}
                             errorLocale={vlcErrorLocale}
                             helperText={field.helperText}
+                            multiline={isMultiline}
+                            rows={isMultiline ? multilineRows : undefined}
                             maxLength={rules?.maxLength}
                             minLength={rules?.minLength}
                         />
@@ -625,18 +1389,98 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                             error={fieldError}
                             errorLocale={vlcErrorLocale}
                             helperText={field.helperText}
+                            multiline={isMultiline}
+                            rows={isMultiline ? multilineRows : undefined}
                             maxLength={rules?.maxLength}
                             minLength={rules?.minLength}
                         />
                     )
                 }
 
-                const isMultiline = field.widget === 'textarea'
+                const stringOptions = readStringSelectOptions(field, normalizedLocale)
+                if (stringOptions.length > 0) {
+                    const stringValue = typeof value === 'string' ? value : ''
+                    return (
+                        <FormControl fullWidth error={Boolean(fieldError)}>
+                            <InputLabel id={`${field.id}-string-select-label`}>{field.label}</InputLabel>
+                            <Select
+                                labelId={`${field.id}-string-select-label`}
+                                value={stringOptions.some((option) => option.value === stringValue) ? stringValue : ''}
+                                label={field.label}
+                                onChange={(event) => handleFieldChange(field.id, event.target.value || null)}
+                                required={field.required}
+                                disabled={disabled}
+                                sx={{ bgcolor: 'background.default' }}
+                                MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { minHeight: 40 } } } }}
+                            >
+                                {!field.required && <MenuItem value=''> </MenuItem>}
+                                {stringOptions.map((option) => (
+                                    <MenuItem key={option.value} value={option.value}>
+                                        {option.label}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                            {helperText ? <FormHelperText>{helperText}</FormHelperText> : null}
+                        </FormControl>
+                    )
+                }
+
+                const recordPickerConfig = readRuntimeRecordPickerConfig(field)
+                if (recordPickerConfig) {
+                    const targetCodename =
+                        typeof formData[recordPickerConfig.targetObjectCodenameField] === 'string'
+                            ? String(formData[recordPickerConfig.targetObjectCodenameField]).trim()
+                            : ''
+                    const isAllowed =
+                        !recordPickerConfig.allowedObjectCodenames || recordPickerConfig.allowedObjectCodenames.includes(targetCodename)
+                    const pickerState = recordPickerOptionsByFieldId[field.id]
+                    const pickerOptions = pickerState?.targetCodename === targetCodename ? pickerState.options : []
+                    const stringValue = typeof value === 'string' ? value : ''
+                    const hasSelectedOption = pickerOptions.some((option) => option.id === stringValue)
+                    const selectValue = hasSelectedOption ? stringValue : ''
+                    const pickerHelperText =
+                        fieldError ??
+                        pickerState?.error ??
+                        field.helperText ??
+                        (!targetCodename
+                            ? t('recordPicker.selectTargetObjectFirst', 'Select the target object first.')
+                            : !isAllowed
+                            ? t('recordPicker.unsupportedTargetObject', 'This target object is not available for selection.')
+                            : pickerState?.loading
+                            ? t('recordPicker.loading', 'Loading records...')
+                            : undefined)
+
+                    return (
+                        <FormControl fullWidth error={Boolean(fieldError || pickerState?.error)}>
+                            <InputLabel id={`${field.id}-runtime-record-picker-label`}>{field.label}</InputLabel>
+                            <Select
+                                labelId={`${field.id}-runtime-record-picker-label`}
+                                value={selectValue}
+                                label={field.label}
+                                onChange={(event) => handleFieldChange(field.id, event.target.value || null)}
+                                required={field.required}
+                                disabled={disabled || !targetCodename || !isAllowed || pickerState?.loading}
+                                sx={{ bgcolor: 'background.default' }}
+                                MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { minHeight: 40 } } } }}
+                            >
+                                {!field.required && <MenuItem value=''> </MenuItem>}
+                                {!hasSelectedOption && stringValue ? <MenuItem value={stringValue}>{stringValue}</MenuItem> : null}
+                                {pickerOptions.map((option) => (
+                                    <MenuItem key={option.id} value={option.id}>
+                                        {option.label}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                            {pickerHelperText ? <FormHelperText>{pickerHelperText}</FormHelperText> : null}
+                        </FormControl>
+                    )
+                }
+
                 return (
                     <TextField
                         fullWidth
                         multiline={isMultiline}
-                        rows={isMultiline ? field.multilineRows ?? 4 : undefined}
+                        rows={isMultiline ? multilineRows : undefined}
                         label={field.label}
                         value={typeof value === 'string' ? value : value == null ? '' : String(value)}
                         onChange={(event) => handleFieldChange(field.id, event.target.value)}
@@ -1049,6 +1893,121 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                 )
             }
             case 'JSON': {
+                if (isResourceSourceField(field)) {
+                    const resourceValue = normalizeResourceSourceValue(value)
+                    const resourceType = getResourceSourceType(resourceValue)
+                    const updateResourceSource = (patch: Partial<ResourceSource> | Record<string, unknown>) => {
+                        handleFieldChange(field.id, buildResourceSourceCandidate(resourceValue, patch))
+                    }
+
+                    const locatorField =
+                        resourceType === 'page' ? (
+                            <TextField
+                                fullWidth
+                                size='small'
+                                label={t('resourceSource.pageCodename', 'Page codename')}
+                                value={typeof resourceValue.pageCodename === 'string' ? resourceValue.pageCodename : ''}
+                                onChange={(event) => updateResourceSource({ pageCodename: event.target.value })}
+                                required={field.required}
+                                disabled={disabled}
+                                error={Boolean(fieldError)}
+                            />
+                        ) : resourceType === 'scorm' || resourceType === 'xapi' ? (
+                            <TextField
+                                fullWidth
+                                size='small'
+                                label={t('resourceSource.packageDescriptor', 'Package descriptor')}
+                                value={getPackageDescriptorLabel(resourceValue.packageDescriptor)}
+                                onChange={(event) =>
+                                    updateResourceSource({
+                                        packageDescriptor: {
+                                            codename: event.target.value
+                                        }
+                                    })
+                                }
+                                required={field.required}
+                                disabled={disabled}
+                                error={Boolean(fieldError)}
+                            />
+                        ) : resourceType === 'file' || typeof resourceValue.storageKey === 'string' ? (
+                            <TextField
+                                fullWidth
+                                size='small'
+                                label={t('resourceSource.storageKey', 'Storage key')}
+                                value={typeof resourceValue.storageKey === 'string' ? resourceValue.storageKey : ''}
+                                onChange={(event) => updateResourceSource({ storageKey: event.target.value })}
+                                required={field.required}
+                                disabled={disabled}
+                                error={Boolean(fieldError)}
+                            />
+                        ) : (
+                            <TextField
+                                fullWidth
+                                size='small'
+                                label={t('resourceSource.url', 'Source URL')}
+                                value={typeof resourceValue.url === 'string' ? resourceValue.url : ''}
+                                onChange={(event) => updateResourceSource({ url: event.target.value })}
+                                required={field.required}
+                                disabled={disabled}
+                                error={Boolean(fieldError)}
+                                placeholder='https://'
+                            />
+                        )
+
+                    return (
+                        <Stack spacing={1.25}>
+                            <Typography variant='body2' color='text.secondary'>
+                                {field.label}
+                                {field.required ? ' *' : ''}
+                            </Typography>
+                            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                                <FormControl size='small' sx={{ minWidth: { xs: '100%', sm: 180 } }} error={Boolean(fieldError)}>
+                                    <InputLabel id={`${field.id}-resource-type-label`}>
+                                        {t('resourceSource.type', 'Resource type')}
+                                    </InputLabel>
+                                    <Select
+                                        labelId={`${field.id}-resource-type-label`}
+                                        value={resourceType}
+                                        label={t('resourceSource.type', 'Resource type')}
+                                        onChange={(event) =>
+                                            handleFieldChange(
+                                                field.id,
+                                                buildDefaultResourceSourceForType(event.target.value as ResourceType)
+                                            )
+                                        }
+                                        disabled={disabled}
+                                    >
+                                        {RESOURCE_TYPES.map((type) => (
+                                            <MenuItem key={type} value={type}>
+                                                {t(`resourceSource.types.${type}`, type)}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                                <Box sx={{ flex: 1 }}>{locatorField}</Box>
+                            </Stack>
+                            <FormControl size='small' sx={{ maxWidth: { xs: '100%', sm: 220 } }}>
+                                <InputLabel id={`${field.id}-launch-mode-label`}>{t('resourceSource.launchMode', 'Launch')}</InputLabel>
+                                <Select
+                                    labelId={`${field.id}-launch-mode-label`}
+                                    value={typeof resourceValue.launchMode === 'string' ? resourceValue.launchMode : 'inline'}
+                                    label={t('resourceSource.launchMode', 'Launch')}
+                                    onChange={(event) => updateResourceSource({ launchMode: event.target.value })}
+                                    disabled={disabled}
+                                >
+                                    <MenuItem value='inline'>{t('resourceSource.launchModes.inline', 'Inline')}</MenuItem>
+                                    <MenuItem value='newTab'>{t('resourceSource.launchModes.newTab', 'New tab')}</MenuItem>
+                                    <MenuItem value='download'>{t('resourceSource.launchModes.download', 'Download')}</MenuItem>
+                                </Select>
+                            </FormControl>
+                            {fieldError || helperText ? <FormHelperText error={Boolean(fieldError)}>{helperText}</FormHelperText> : null}
+                            {hasResourceSourceLocator(resourceValue) && !fieldError ? (
+                                <ResourcePreview source={resourceValue} title={field.label} />
+                            ) : null}
+                        </Stack>
+                    )
+                }
+
                 if (isEditorJsBlockContentField(field)) {
                     const blockEditorConfig = isRecord(field.uiConfig?.blockEditor) ? field.uiConfig.blockEditor : field.uiConfig ?? {}
                     const allowedBlockTypes = readStringArray(blockEditorConfig.allowedBlockTypes)
@@ -1263,6 +2222,16 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                 })
                 const tableMissing = checkMissing(rowCount)
 
+                if (copyMode) {
+                    return (
+                        <Box sx={{ py: 1, px: 1, borderRadius: 1, bgcolor: 'action.hover' }}>
+                            <Typography variant='body2' color='text.secondary'>
+                                {t('table.copiedUnchanged', 'Table rows are copied unchanged from the source record.')}
+                            </Typography>
+                        </Box>
+                    )
+                }
+
                 // EDIT mode: inline editor with deferred persistence (commit on form Save)
                 if (editRowId && apiBaseUrl && applicationId && objectCollectionId) {
                     return (
@@ -1343,23 +2312,66 @@ export const FormDialog: React.FC<FormDialogProps> = ({
         }
     }
 
+    const visibleFields = useMemo(() => fields.filter((field) => !isHiddenField(field, formData)), [fields, formData])
+    const normalizedWizardSteps = useMemo(() => {
+        const fieldIds = new Set(visibleFields.map((field) => field.id))
+        return (wizardSteps ?? [])
+            .map((step) => ({
+                ...step,
+                fieldIds: step.fieldIds.filter((fieldId) => fieldIds.has(fieldId))
+            }))
+            .filter((step) => step.fieldIds.length > 0)
+    }, [visibleFields, wizardSteps])
+    const hasWizard = normalizedWizardSteps.length > 1
+    const wizardFieldIds = useMemo(() => new Set(normalizedWizardSteps.flatMap((step) => step.fieldIds)), [normalizedWizardSteps])
+    const currentWizardStep = hasWizard ? normalizedWizardSteps[Math.min(activeWizardStep, normalizedWizardSteps.length - 1)] : null
+    const fieldsForActiveStep = currentWizardStep
+        ? visibleFields.filter((field) => currentWizardStep.fieldIds.includes(field.id))
+        : visibleFields
+    const unassignedWizardFields = hasWizard
+        ? visibleFields.filter((field) => !wizardFieldIds.has(field.id) && activeWizardStep === normalizedWizardSteps.length - 1)
+        : []
+    const renderedFields = hasWizard ? [...fieldsForActiveStep, ...unassignedWizardFields] : visibleFields
+    const currentStepHasErrors = hasWizard
+        ? hasMissingRequiredForFields(renderedFields) || hasValidationErrorsForFields(renderedFields)
+        : false
+    const isLastWizardStep = !hasWizard || activeWizardStep >= normalizedWizardSteps.length - 1
     const isSubmitDisabled =
         isSubmitting || !isReady || fields.length === 0 || hasMissingRequired || hasValidationErrors || (requireAnyValue && !hasAnyValue)
-
-    const hasTableFields = fields.some((f) => f.type === 'TABLE')
+    const hasTableFields = visibleFields.some((f) => f.type === 'TABLE')
     const dialogMaxWidth = hasTableFields ? 'md' : 'sm'
 
     const formBody = (
         <Stack spacing={2} sx={surface === 'page' ? undefined : { mt: 1 }}>
             {error && <Alert severity='error'>{error}</Alert>}
+            {hasWizard ? (
+                <Stack spacing={1}>
+                    <Stepper activeStep={activeWizardStep} alternativeLabel sx={{ mb: 0.5 }}>
+                        {normalizedWizardSteps.map((step) => (
+                            <Step key={step.id}>
+                                <StepLabel>{step.label}</StepLabel>
+                            </Step>
+                        ))}
+                    </Stepper>
+                    {currentWizardStep?.helperText ? (
+                        <Typography variant='body2' color='text.secondary'>
+                            {currentWizardStep.helperText}
+                        </Typography>
+                    ) : null}
+                </Stack>
+            ) : null}
             {!isReady ? (
                 <Stack alignItems='center' justifyContent='center' sx={{ py: 3 }}>
                     <CircularProgress size={20} />
                 </Stack>
-            ) : fields.length === 0 ? (
+            ) : visibleFields.length === 0 || renderedFields.length === 0 ? (
                 <Typography color='text.secondary'>{emptyStateText}</Typography>
             ) : (
-                fields.map((field) => <React.Fragment key={field.id}>{renderField(field)}</React.Fragment>)
+                renderedFields.map((field) => {
+                    const required = isFieldRequired(field, formData)
+                    const renderedField = required === field.required ? field : { ...field, required }
+                    return <React.Fragment key={field.id}>{renderField(renderedField)}</React.Fragment>
+                })
             )}
         </Stack>
     )
@@ -1382,11 +2394,31 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                 <Button data-testid='entity-form-cancel' onClick={onClose} disabled={isSubmitting}>
                     {cancelButtonText}
                 </Button>
+                {hasWizard && activeWizardStep > 0 ? (
+                    <Button
+                        data-testid='entity-form-back'
+                        onClick={() => setActiveWizardStep((current) => Math.max(0, current - 1))}
+                        disabled={isSubmitting}
+                    >
+                        {t('formWizard.back', 'Back')}
+                    </Button>
+                ) : null}
+                {hasWizard && !isLastWizardStep ? (
+                    <Button
+                        data-testid='entity-form-next'
+                        onClick={() => setActiveWizardStep((current) => Math.min(normalizedWizardSteps.length - 1, current + 1))}
+                        variant='contained'
+                        disabled={isSubmitting || !isReady || currentStepHasErrors}
+                    >
+                        {t('formWizard.next', 'Next')}
+                    </Button>
+                ) : null}
                 <Button
                     data-testid='entity-form-submit'
                     onClick={handleSubmit}
                     variant='contained'
                     disabled={isSubmitDisabled}
+                    sx={{ display: hasWizard && !isLastWizardStep ? 'none' : undefined }}
                     startIcon={isSubmitting ? <CircularProgress size={16} /> : null}
                 >
                     {isSubmitting ? savingButtonText ?? saveButtonText : saveButtonText}

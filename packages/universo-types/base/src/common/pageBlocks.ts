@@ -206,6 +206,11 @@ export const pageBlockContentSchema = z
 
 export type RuntimePageBlock = z.infer<typeof runtimePageBlockSchema>
 export type PageBlockContent = z.infer<typeof pageBlockContentSchema>
+export type PageBlockOutlineItem = {
+    id: string
+    text: string
+    level: number
+}
 
 type UnknownRecord = Record<string, unknown>
 
@@ -516,4 +521,71 @@ export function normalizeRuntimePageBlocks(value: unknown): RuntimePageBlock[] {
     }
 
     return parsed.data.blocks ?? parsed.data.data?.blocks ?? []
+}
+
+const resolvePageBlockLocalizedText = (value: unknown, locale?: string): string => {
+    if (typeof value === 'string') return value.trim()
+
+    const record = asRecord(value)
+    if (!record) return ''
+
+    const locales = asRecord(record.locales)
+    if (!locales) return ''
+
+    const normalizedLocale = typeof locale === 'string' && locale.trim() ? locale.trim().split(/[-_]/)[0]?.toLowerCase() : null
+    const primary = typeof record._primary === 'string' && record._primary.trim() ? record._primary.trim().toLowerCase() : null
+    const candidates = [normalizedLocale, locale, primary, 'en', 'ru'].filter((candidate): candidate is string => Boolean(candidate))
+
+    for (const candidate of candidates) {
+        const localeRecord = asRecord(locales[candidate])
+        const content = localeRecord?.content
+        if (typeof content === 'string' && content.trim()) {
+            return content.trim()
+        }
+    }
+
+    return ''
+}
+
+const readRuntimeBlocksInput = (value: unknown): RuntimePageBlock[] => {
+    if (Array.isArray(value)) {
+        return value.flatMap((block) => {
+            const parsed = runtimePageBlockSchema.safeParse(block)
+            return parsed.success ? [parsed.data] : []
+        })
+    }
+
+    return normalizeRuntimePageBlocks(value)
+}
+
+const normalizeOutlineLevel = (value: unknown, fallback: number): number => {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return fallback
+    return Math.max(1, Math.min(6, Math.trunc(value)))
+}
+
+export function extractPageBlockOutline(
+    value: unknown,
+    options?: { locale?: string; minLevel?: number; maxLevel?: number }
+): PageBlockOutlineItem[] {
+    const blocks = readRuntimeBlocksInput(value)
+    const minLevel = normalizeOutlineLevel(options?.minLevel, 1)
+    const maxLevel = Math.max(minLevel, normalizeOutlineLevel(options?.maxLevel, 6))
+
+    return blocks.flatMap((block, index) => {
+        if (block.type !== 'header') return []
+
+        const level = Math.max(1, Math.min(6, block.data.level ?? 2))
+        if (level < minLevel || level > maxLevel) return []
+
+        const text = resolvePageBlockLocalizedText(block.data.text, options?.locale)
+        if (!text) return []
+
+        return [
+            {
+                id: block.id ?? `runtime-page-heading-${index}`,
+                text,
+                level
+            }
+        ]
+    })
 }

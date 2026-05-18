@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createAppRow, deleteAppRow, fetchAppRow, updateAppRow } from './api'
+import { createAppRow, deleteAppRow, fetchAppRow, restoreAppRow, updateAppRow } from './api'
 import type { RuntimeWorkspaceListParams, RuntimeWorkspaceMemberListParams } from './workspaces'
 
 /** Query key factory for application data. */
@@ -79,9 +79,28 @@ export function useDeleteAppRow(options: { apiBaseUrl: string; applicationId: st
     const queryClient = useQueryClient()
 
     return useMutation({
-        mutationFn: (rowId: string) => deleteAppRow({ apiBaseUrl, applicationId, rowId, objectCollectionId }),
+        mutationFn: (params: string | { rowId: string; expectedVersion?: number }) => {
+            const rowId = typeof params === 'string' ? params : params.rowId
+            const expectedVersion = typeof params === 'string' ? undefined : params.expectedVersion
+            return deleteAppRow({ apiBaseUrl, applicationId, rowId, objectCollectionId, expectedVersion })
+        },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: appQueryKeys.list(applicationId) })
+        }
+    })
+}
+
+/** Restore a soft-deleted row and invalidate list queries. */
+export function useRestoreAppRow(options: { apiBaseUrl: string; applicationId: string; objectCollectionId?: string }) {
+    const { apiBaseUrl, applicationId, objectCollectionId } = options
+    const queryClient = useQueryClient()
+
+    return useMutation({
+        mutationFn: (params: { rowId: string; expectedVersion?: number }) =>
+            restoreAppRow({ apiBaseUrl, applicationId, rowId: params.rowId, objectCollectionId, expectedVersion: params.expectedVersion }),
+        onSuccess: (_data, variables) => {
+            queryClient.invalidateQueries({ queryKey: appQueryKeys.list(applicationId) })
+            queryClient.invalidateQueries({ queryKey: appQueryKeys.row(applicationId, variables.rowId) })
         }
     })
 }

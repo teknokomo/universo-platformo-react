@@ -70,6 +70,7 @@
 * [Обзор](guides/README.md)
 * [Обзор LMS](guides/lms-overview.md)
 * [Настройка LMS](guides/lms-setup.md)
+* [Учебный контент LMS](guides/lms-learning-content.md)
 * [Модель ресурсов LMS](guides/lms-resource-model.md)
 * [Отчёты LMS](guides/lms-reports.md)
 * [Геймификация LMS](guides/lms-gamification.md)

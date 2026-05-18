@@ -4,6 +4,7 @@ import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import AddIcon from '@mui/icons-material/Add'
 import { useTranslation } from 'react-i18next'
+import { sanitizeApplicationLearningContentSettings } from '@universo/types'
 import Dashboard from '../dashboard/Dashboard'
 import type {
     DashboardDetailsSlot,
@@ -14,6 +15,7 @@ import type {
 } from '../dashboard/Dashboard'
 import AppMainLayout from '../layouts/AppMainLayout'
 import { createStandaloneAdapter } from '../api/adapters'
+import { updateLearningContentProgress } from '../api/api'
 import { useCrudDashboard } from '../hooks/useCrudDashboard'
 import { CrudDialogs } from '../components/CrudDialogs'
 import { RowActionsMenu } from '../components/RowActionsMenu'
@@ -113,6 +115,10 @@ export default function DashboardApp(props: DashboardAppProps) {
     const showCreateButton = state.appData?.objectCollection.runtimeConfig?.showCreateButton !== false && canCreateContent
     const activeObjectCollectionRuntimeConfig = state.appData?.objectCollection.runtimeConfig
     const currentWorkspaceId = state.appData?.currentWorkspaceId ?? null
+    const learningContentSettings = useMemo(
+        () => sanitizeApplicationLearningContentSettings(state.appData?.settings?.learningContent as Record<string, unknown> | undefined),
+        [state.appData?.settings?.learningContent]
+    )
     const workspacesEnabled = state.appData?.workspacesEnabled ?? false
     const activeFormSurface = !state.formOpen
         ? 'dialog'
@@ -151,6 +157,23 @@ export default function DashboardApp(props: DashboardAppProps) {
             ) : null,
         [isWorkspacesRoute, navigate, props.apiBaseUrl, props.applicationId, props.locale, routeWorkspaceId, workspaceRouteSection]
     )
+    const pageProgressTargetObjectCodename = state.appData?.objectCollection.codename ?? state.appData?.section?.codename ?? null
+    const pageProgressTargetRecordId =
+        state.appData?.activeObjectCollectionId ?? state.selectedObjectCollectionId ?? state.activeObjectCollectionId ?? null
+    const handlePageProgressChange = useCallback(
+        async (payload: { progressPercent: number; status: string }) => {
+            if (!pageProgressTargetObjectCodename || !pageProgressTargetRecordId) return
+            await updateLearningContentProgress({
+                apiBaseUrl: props.apiBaseUrl,
+                applicationId: props.applicationId,
+                targetObjectCodename: pageProgressTargetObjectCodename,
+                targetRecordId: pageProgressTargetRecordId,
+                progressPercent: payload.progressPercent,
+                status: payload.status
+            })
+        },
+        [pageProgressTargetObjectCodename, pageProgressTargetRecordId, props.apiBaseUrl, props.applicationId]
+    )
 
     const details = useMemo<DashboardDetailsSlot>(
         () => ({
@@ -171,6 +194,7 @@ export default function DashboardApp(props: DashboardAppProps) {
             content: workspacePageContent,
             rows: state.rows,
             columns: state.columns,
+            runtimeColumns: state.appData?.columns,
             loading: state.isLoading,
             rowCount: state.rowCount,
             paginationModel: state.paginationModel,
@@ -182,6 +206,22 @@ export default function DashboardApp(props: DashboardAppProps) {
             searchValue: state.searchValue,
             onSearchValueChange: state.setSearchValue,
             pageSizeOptions: state.pageSizeOptions,
+            pageBlocks: state.appData?.objectCollection.pageBlocks ?? state.appData?.section?.pageBlocks,
+            pagePlayer: {
+                showOutline: learningContentSettings.playerPreset?.showOutline !== false,
+                showProgressHeader: learningContentSettings.playerPreset?.showProgressHeader !== false,
+                completeButtonMode: learningContentSettings.playerPreset?.completeButtonMode ?? 'manual',
+                progressStorageKey: [
+                    'learning-content-progress',
+                    props.applicationId,
+                    currentWorkspaceId ?? 'global',
+                    state.appData?.activeObjectCollectionId ??
+                        state.selectedObjectCollectionId ??
+                        state.activeObjectCollectionId ??
+                        'unknown'
+                ].join(':'),
+                onProgressChange: handlePageProgressChange
+            },
             localeText: state.localeText,
             actions: createActions,
             navigate,
@@ -209,6 +249,7 @@ export default function DashboardApp(props: DashboardAppProps) {
             state.canPersistRowReorder,
             state.rows,
             state.columns,
+            state.appData?.columns,
             state.isLoading,
             state.handlePersistRowReorder,
             state.isReordering,
@@ -222,6 +263,12 @@ export default function DashboardApp(props: DashboardAppProps) {
             state.searchValue,
             state.setSearchValue,
             state.pageSizeOptions,
+            state.appData?.objectCollection.pageBlocks,
+            state.appData?.section?.pageBlocks,
+            learningContentSettings.playerPreset?.showOutline,
+            learningContentSettings.playerPreset?.showProgressHeader,
+            learningContentSettings.playerPreset?.completeButtonMode,
+            handlePageProgressChange,
             state.localeText,
             createActions,
             adapter?.queryKeyPrefix,
@@ -338,6 +385,8 @@ export default function DashboardApp(props: DashboardAppProps) {
                         apiBaseUrl={props.apiBaseUrl}
                         applicationId={props.applicationId}
                         objectCollectionId={state.selectedObjectCollectionId ?? state.activeObjectCollectionId}
+                        objectCollections={state.appData?.objectCollections ?? []}
+                        currentWorkspaceId={currentWorkspaceId}
                         surface={activeFormSurface}
                         labels={{
                             editTitle: t('app.editRow', 'Edit element'),

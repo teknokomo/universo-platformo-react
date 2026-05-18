@@ -22,8 +22,8 @@ import {
     LMS_DEMO_KNOWLEDGE_ARTICLE,
     LMS_DEMO_KNOWLEDGE_SPACE,
     LMS_DEMO_LEADERBOARD,
-    LMS_DEMO_MODULE_PROGRESS,
-    LMS_DEMO_MODULES,
+    LMS_DEMO_CONTENT_PROGRESS,
+    LMS_DEMO_CONTENT_NODES,
     LMS_DEMO_POINT_AWARD_RULES,
     LMS_DEMO_POINT_TRANSACTIONS,
     LMS_DEMO_QUIZ_RESPONSES,
@@ -31,6 +31,7 @@ import {
     LMS_DEMO_REPORTS,
     LMS_DEMO_RESOURCES,
     LMS_DEMO_STUDENTS,
+    LMS_RUNTIME_CURRENT_USER_ID_TOKEN,
     LMS_FIXTURE_FILENAME
 } from '../../support/lmsFixtureContract'
 
@@ -62,15 +63,20 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
     const [
         classesObjectId,
         studentsObjectId,
+        contentProjectsObjectId,
+        contentAccessEntriesObjectId,
+        contentStarsObjectId,
+        recentContentViewsObjectId,
         learningResourcesObjectId,
         coursesObjectId,
         courseSectionsObjectId,
+        courseItemsObjectId,
         learningTracksObjectId,
+        trackStagesObjectId,
         trackStepsObjectId,
-        modulesObjectId,
         quizzesObjectId,
         quizResponsesObjectId,
-        moduleProgressObjectId,
+        contentProgressObjectId,
         accessLinksObjectId,
         enrollmentsObjectId,
         knowledgeSpacesObjectId,
@@ -89,24 +95,30 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
         reportsObjectId,
         contentTypeEnumerationId,
         resourceTypeEnumerationId,
-        moduleStatusEnumerationId,
+        learningResourceStatusEnumerationId,
         questionTypeEnumerationId,
         enrollmentStatusEnumerationId,
         completionStatusEnumerationId,
+        publicationStatusEnumerationId,
         pointSourceTypeEnumerationId,
         reportTypeEnumerationId
     ] = await Promise.all([
         waitForMetahubObjectId(api, metahubId, 'Classes'),
         waitForMetahubObjectId(api, metahubId, 'Students'),
+        waitForMetahubObjectId(api, metahubId, 'Content Projects'),
+        waitForMetahubObjectId(api, metahubId, 'Content Access Entries'),
+        waitForMetahubObjectId(api, metahubId, 'Content Stars'),
+        waitForMetahubObjectId(api, metahubId, 'Recent Content Views'),
         waitForMetahubObjectId(api, metahubId, 'Learning Resources'),
         waitForMetahubObjectId(api, metahubId, 'Courses'),
         waitForMetahubObjectId(api, metahubId, 'Course Sections'),
+        waitForMetahubObjectId(api, metahubId, 'Course Items'),
         waitForMetahubObjectId(api, metahubId, 'Learning Tracks'),
+        waitForMetahubObjectId(api, metahubId, 'Track Stages'),
         waitForMetahubObjectId(api, metahubId, 'Track Steps'),
-        waitForMetahubObjectId(api, metahubId, 'Modules'),
         waitForMetahubObjectId(api, metahubId, 'Quizzes'),
         waitForMetahubObjectId(api, metahubId, 'Quiz Responses'),
-        waitForMetahubObjectId(api, metahubId, 'Module Progress'),
+        waitForMetahubObjectId(api, metahubId, 'Content Progress'),
         waitForMetahubObjectId(api, metahubId, 'Access Links'),
         waitForMetahubObjectId(api, metahubId, 'Enrollments'),
         waitForMetahubObjectId(api, metahubId, 'Knowledge Spaces'),
@@ -125,10 +137,11 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
         waitForMetahubObjectId(api, metahubId, 'Reports'),
         waitForMetahubEnumerationId(api, metahubId, 'Content Type'),
         waitForMetahubEnumerationId(api, metahubId, 'Resource Type'),
-        waitForMetahubEnumerationId(api, metahubId, 'Module Status'),
+        waitForMetahubEnumerationId(api, metahubId, 'Learning Resource Status'),
         waitForMetahubEnumerationId(api, metahubId, 'Question Type'),
         waitForMetahubEnumerationId(api, metahubId, 'Enrollment Status'),
         waitForMetahubEnumerationId(api, metahubId, 'Completion Status'),
+        waitForMetahubEnumerationId(api, metahubId, 'Publication Status'),
         waitForMetahubEnumerationId(api, metahubId, 'Point Source Type'),
         waitForMetahubEnumerationId(api, metahubId, 'Report Type')
     ])
@@ -137,10 +150,11 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
         textValueId,
         quizRefValueId,
         resourceTypeValueIds,
-        publishedModuleStatusValueId,
+        publishedLearningResourceStatusValueId,
         singleChoiceValueId,
         activeEnrollmentStatusValueId,
         inProgressCompletionStatusValueId,
+        publishedPublicationStatusValueId,
         pointSourceTypeValueIds,
         progressReportTypeValueId
     ] = await Promise.all([
@@ -167,10 +181,11 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
             embed,
             file
         })),
-        waitForOptionValueId(api, metahubId, moduleStatusEnumerationId, 'Published'),
+        waitForOptionValueId(api, metahubId, learningResourceStatusEnumerationId, 'Published'),
         waitForOptionValueId(api, metahubId, questionTypeEnumerationId, 'SingleChoice'),
         waitForOptionValueId(api, metahubId, enrollmentStatusEnumerationId, 'Active'),
         waitForOptionValueId(api, metahubId, completionStatusEnumerationId, 'InProgress'),
+        waitForOptionValueId(api, metahubId, publicationStatusEnumerationId, 'Published'),
         Promise.all([
             waitForOptionValueId(api, metahubId, pointSourceTypeEnumerationId, 'Course'),
             waitForOptionValueId(api, metahubId, pointSourceTypeEnumerationId, 'Track'),
@@ -215,11 +230,44 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
         studentRowsByKey.set(seededStudent.key, studentRow)
     }
 
+    const contentProjectRowsByKey = new Map<string, Awaited<ReturnType<typeof createRecord>>>()
+    const onboardingProject = await createRecord(api, metahubId, contentProjectsObjectId, {
+        data: {
+            Title: buildVLC('Onboarding library', 'Библиотека адаптации'),
+            Description: buildVLC(
+                'Workspace project for onboarding pages, links, courses, and tracks.',
+                'Проект рабочего пространства для страниц, ссылок, курсов и треков адаптации.'
+            ),
+            AccessMode: 'workspace',
+            SortOrder: 1,
+            ArchivedAt: null
+        }
+    })
+    contentProjectRowsByKey.set('onboarding-project', onboardingProject)
+    const complianceProject = await createRecord(api, metahubId, contentProjectsObjectId, {
+        data: {
+            Title: buildVLC('Compliance library', 'Библиотека требований'),
+            Description: buildVLC(
+                'Workspace project for compliance and certificate policy content.',
+                'Проект рабочего пространства для требований и политики сертификатов.'
+            ),
+            AccessMode: 'restricted',
+            SortOrder: 2,
+            ArchivedAt: null
+        }
+    })
+    contentProjectRowsByKey.set('compliance-project', complianceProject)
+
     const resourceRowsByCodename = new Map<string, Awaited<ReturnType<typeof createRecord>>>()
     for (const seededResource of LMS_DEMO_RESOURCES) {
         const resourceTypeValueId = resourceTypeValueIds[seededResource.source.type]
+        const projectRow =
+            seededResource.codename === 'CertificatePolicyResource'
+                ? contentProjectRowsByKey.get('compliance-project')
+                : contentProjectRowsByKey.get('onboarding-project')
         const resourceRow = await createRecord(api, metahubId, learningResourcesObjectId, {
             data: {
+                ProjectId: projectRow?.id ?? null,
                 Title: seededResource.title,
                 ResourceType: resourceTypeValueId,
                 Source: seededResource.source,
@@ -238,20 +286,68 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
                         }
                     }
                 ]),
+                PublicationStatus: publishedPublicationStatusValueId,
                 EstimatedTimeMinutes: seededResource.estimatedTimeMinutes ?? 0,
-                Language: seededResource.language ?? 'en'
+                Language: seededResource.language ?? 'en',
+                Version: '1.0',
+                CreatedBy: '{{runtime.currentUserId}}'
             }
         })
         resourceRowsByCodename.set(seededResource.codename, resourceRow)
     }
 
+    const firstResource = resourceRowsByCodename.values().next().value as Awaited<ReturnType<typeof createRecord>> | undefined
+    if (firstResource) {
+        await createRecord(api, metahubId, contentStarsObjectId, {
+            data: {
+                TargetObjectCodename: 'LearningResources',
+                TargetRecordId: firstResource.id,
+                UserId: '{{runtime.currentUserId}}',
+                StarredAt: '2061-02-01T07:45:00.000Z'
+            }
+        })
+        await createRecord(api, metahubId, recentContentViewsObjectId, {
+            data: {
+                TargetObjectCodename: 'LearningResources',
+                TargetRecordId: firstResource.id,
+                UserId: '{{runtime.currentUserId}}',
+                ViewedAt: '2061-02-01T08:00:00.000Z'
+            }
+        })
+        await createRecord(api, metahubId, contentAccessEntriesObjectId, {
+            data: {
+                TargetObjectCodename: 'LearningResources',
+                TargetRecordId: firstResource.id,
+                PrincipalType: 'workspaceMember',
+                PrincipalId: '{{runtime.currentUserId}}',
+                AccessLevel: 'CanEdit',
+                InvitedBy: '{{runtime.currentUserId}}',
+                InvitedAt: '2061-02-01T08:05:00.000Z'
+            }
+        })
+    }
+
     const courseRowsByKey = new Map<string, Awaited<ReturnType<typeof createRecord>>>()
     for (const seededCourse of LMS_DEMO_COURSES) {
+        const projectRow =
+            seededCourse.key === 'compliance-course'
+                ? contentProjectRowsByKey.get('compliance-project')
+                : contentProjectRowsByKey.get('onboarding-project')
         const courseRow = await createRecord(api, metahubId, coursesObjectId, {
             data: {
+                ProjectId: projectRow?.id ?? null,
                 Title: buildVLC(seededCourse.title.en, seededCourse.title.ru),
                 Description: buildVLC(seededCourse.description.en, seededCourse.description.ru),
-                Status: publishedModuleStatusValueId,
+                Status: publishedLearningResourceStatusValueId,
+                NavigationMode: 'free',
+                CompletionCondition: 'allItems',
+                StatusFormat: 'completeIncomplete',
+                Instructor: 'Training Team',
+                Tags: seededCourse.key === 'compliance-course' ? 'compliance,certificate' : 'onboarding,start',
+                CatalogVisible: true,
+                CatalogCategory: buildVLC(seededCourse.catalogCategory.en, seededCourse.catalogCategory.ru),
+                CatalogAudience: buildVLC(seededCourse.catalogAudience.en, seededCourse.catalogAudience.ru),
+                SelfEnrollmentMode: seededCourse.selfEnrollmentMode,
                 EstimatedTimeMinutes: seededCourse.estimatedTimeMinutes
             }
         })
@@ -281,27 +377,29 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
         quizRowsByKey.set(seededQuiz.key, quizRow)
     }
 
-    const moduleRowsByKey = new Map<string, Awaited<ReturnType<typeof createRecord>>>()
-    for (const seededModule of LMS_DEMO_MODULES) {
-        const moduleRow = await createRecord(api, metahubId, modulesObjectId, {
+    const guestContentRowsByKey = new Map<string, Awaited<ReturnType<typeof createRecord>>>()
+    for (const seededContent of LMS_DEMO_CONTENT_NODES) {
+        const contentRow = await createRecord(api, metahubId, learningResourcesObjectId, {
             data: {
-                Title: buildVLC(seededModule.title.en, seededModule.title.ru),
-                Description: buildVLC(seededModule.description.en, seededModule.description.ru),
-                Status: publishedModuleStatusValueId,
-                EstimatedDurationMinutes: seededModule.estimatedDurationMinutes,
-                AccessLinkSlug: seededModule.accessLinkSlug,
+                Title: buildVLC(seededContent.title.en, seededContent.title.ru),
+                Name: buildVLC(seededContent.title.en, seededContent.title.ru),
+                Description: buildVLC(seededContent.description.en, seededContent.description.ru),
+                ResourceType: resourceTypeValueIds.page,
+                Source: { type: 'page', pageCodename: 'CourseOverview' },
+                EstimatedTimeMinutes: seededContent.estimatedDurationMinutes,
+                PublicationStatus: publishedPublicationStatusValueId,
                 Body: buildEditorBlockContent([
                     {
                         type: 'header',
-                        data: { text: seededModule.title.en, level: 2 }
+                        data: { text: seededContent.title.en, level: 2 }
                     },
                     {
                         type: 'paragraph',
-                        data: { text: seededModule.description.en }
+                        data: { text: seededContent.description.en }
                     }
                 ]),
-                ContentItems: seededModule.contentItems.en.map((item, index) => {
-                    const localizedItem = seededModule.contentItems.ru[index]
+                ContentItems: seededContent.contentItems.en.map((item, index) => {
+                    const localizedItem = seededContent.contentItems.ru[index]
                     const isQuizRef = item.itemType === 'QuizRef'
                     return {
                         ItemType: isQuizRef ? quizRefValueId : textValueId,
@@ -309,13 +407,13 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
                         ...(item.itemContent
                             ? { ItemContent: buildVLC(item.itemContent, localizedItem.itemContent ?? localizedItem.itemTitle) }
                             : {}),
-                        ...(isQuizRef ? { QuizId: quizRowsByKey.get(seededModule.linkedQuizKey)?.id ?? null } : {}),
+                        ...(isQuizRef ? { QuizId: quizRowsByKey.get(seededContent.linkedQuizKey)?.id ?? null } : {}),
                         SortOrder: item.sortOrder
                     }
                 })
             }
         })
-        moduleRowsByKey.set(seededModule.key, moduleRow)
+        guestContentRowsByKey.set(seededContent.key, contentRow)
     }
 
     const onboardingCourse = courseRowsByKey.get('onboarding-course')
@@ -328,34 +426,53 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
         {
             course: onboardingCourse,
             title: buildVLC('Start with the course overview', 'Начните с обзора курса'),
+            description: buildVLC(
+                'Read the overview page and complete the first content item.',
+                'Прочитайте обзорную страницу и завершите первый элемент контента.'
+            ),
             resource: overviewResource,
-            module: moduleRowsByKey.get('learning-path'),
             sortOrder: 1
         },
         {
             course: onboardingCourse,
             title: buildVLC('Watch the safety intro', 'Посмотрите вводное видео по безопасности'),
+            description: buildVLC(
+                'Open the safety resource and continue to the course content.',
+                'Откройте ресурс по безопасности и перейдите к контенту курса.'
+            ),
             resource: safetyVideoResource,
-            module: moduleRowsByKey.get('docking-corridor'),
             sortOrder: 2
         },
         {
             course: complianceCourse,
             title: buildVLC('Read the certificate policy', 'Изучите политику сертификатов'),
+            description: buildVLC('Review the certificate policy resource.', 'Изучите ресурс с политикой сертификатов.'),
             resource: certificatePolicyResource,
-            module: moduleRowsByKey.get('lunar-logistics'),
             sortOrder: 1
         }
     ]
 
     for (const section of courseSections) {
-        await createRecord(api, metahubId, courseSectionsObjectId, {
+        const sectionRow = await createRecord(api, metahubId, courseSectionsObjectId, {
             data: {
                 CourseId: section.course?.id ?? null,
                 Title: section.title,
-                ResourceId: section.resource?.id ?? null,
-                ModuleId: section.module?.id ?? null,
+                Description: section.description,
                 SortOrder: section.sortOrder
+            }
+        })
+        await createRecord(api, metahubId, courseItemsObjectId, {
+            data: {
+                CourseId: section.course?.id ?? null,
+                SectionId: sectionRow.id,
+                Title: section.title,
+                TargetObjectCodename: 'LearningResources',
+                TargetRecordId: section.resource?.id ?? null,
+                ItemType: 'Page',
+                SortOrder: section.sortOrder,
+                IsRequired: true,
+                CompletionWeight: 1,
+                EstimatedTimeMinutes: 10
             }
         })
     }
@@ -363,45 +480,75 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
     const trackRowsByKey = new Map<string, Awaited<ReturnType<typeof createRecord>>>()
     const onboardingTrack = await createRecord(api, metahubId, learningTracksObjectId, {
         data: {
+            ProjectId: contentProjectRowsByKey.get('onboarding-project')?.id ?? null,
             Title: buildVLC('New learner onboarding track', 'Трек адаптации нового учащегося'),
             Description: buildVLC('A guided sequence for the first learning week.', 'Последовательный маршрут на первую учебную неделю.'),
-            TrackItems: [
-                { ModuleId: moduleRowsByKey.get('learning-path')?.id ?? null, Required: true, SortOrder: 1 },
-                { ModuleId: moduleRowsByKey.get('docking-corridor')?.id ?? null, Required: true, SortOrder: 2 }
-            ]
+            Status: publishedLearningResourceStatusValueId,
+            OrderMode: 'sequential',
+            Instructor: 'Training Team',
+            Tags: 'onboarding,start',
+            CatalogVisible: true,
+            CatalogCategory: buildVLC('Onboarding', 'Адаптация'),
+            CatalogAudience: buildVLC('New learners', 'Новые учащиеся'),
+            SelfEnrollmentMode: 'open'
         }
     })
     trackRowsByKey.set('onboarding-track', onboardingTrack)
 
     const complianceTrack = await createRecord(api, metahubId, learningTracksObjectId, {
         data: {
+            ProjectId: contentProjectRowsByKey.get('compliance-project')?.id ?? null,
             Title: buildVLC('Compliance refresh track', 'Трек обновления требований'),
             Description: buildVLC('A short periodic compliance route.', 'Короткий периодический маршрут по требованиям.'),
-            TrackItems: [{ ModuleId: moduleRowsByKey.get('lunar-logistics')?.id ?? null, Required: true, SortOrder: 1 }]
+            Status: publishedLearningResourceStatusValueId,
+            OrderMode: 'sequential',
+            Instructor: 'Compliance Team',
+            Tags: 'compliance,certificate',
+            CatalogVisible: true,
+            CatalogCategory: buildVLC('Compliance', 'Соответствие'),
+            CatalogAudience: buildVLC('All learners', 'Все учащиеся'),
+            SelfEnrollmentMode: 'disabled'
         }
     })
     trackRowsByKey.set('compliance-track', complianceTrack)
 
+    const onboardingStage = await createRecord(api, metahubId, trackStagesObjectId, {
+        data: {
+            TrackId: onboardingTrack.id,
+            Title: buildVLC('Week 1', 'Неделя 1'),
+            Description: buildVLC('Required first-week onboarding courses.', 'Обязательные курсы первой недели адаптации.'),
+            SortOrder: 1
+        }
+    })
+    const complianceStage = await createRecord(api, metahubId, trackStagesObjectId, {
+        data: {
+            TrackId: complianceTrack.id,
+            Title: buildVLC('Refresh', 'Повторение'),
+            Description: buildVLC('Periodic compliance refresh courses.', 'Периодическое повторение требований.'),
+            SortOrder: 1
+        }
+    })
+
     const trackSteps = [
         {
             track: onboardingTrack,
-            title: buildVLC('Complete Learning Path 101', 'Завершить учебный маршрут 101'),
-            module: moduleRowsByKey.get('learning-path'),
-            resource: overviewResource,
+            stage: onboardingStage,
+            course: onboardingCourse,
+            title: buildVLC('Start onboarding', 'Начало адаптации'),
             sortOrder: 1
         },
         {
             track: onboardingTrack,
-            title: buildVLC('Complete Docking Corridor Basics', 'Завершить основы стыковочного коридора'),
-            module: moduleRowsByKey.get('docking-corridor'),
-            resource: safetyVideoResource,
+            stage: onboardingStage,
+            course: complianceCourse,
+            title: buildVLC('Compliance essentials', 'Основы требований'),
             sortOrder: 2
         },
         {
             track: complianceTrack,
-            title: buildVLC('Complete Lunar Supply Windows', 'Завершить окна лунных поставок'),
-            module: moduleRowsByKey.get('lunar-logistics'),
-            resource: certificatePolicyResource,
+            stage: complianceStage,
+            course: complianceCourse,
+            title: buildVLC('Refresh compliance', 'Повторение требований'),
             sortOrder: 1
         }
     ]
@@ -410,11 +557,14 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
         await createRecord(api, metahubId, trackStepsObjectId, {
             data: {
                 TrackId: step.track.id,
+                StageId: step.stage.id,
+                CourseId: step.course?.id ?? null,
                 Title: step.title,
-                ModuleId: step.module?.id ?? null,
-                ResourceId: step.resource?.id ?? null,
                 SortOrder: step.sortOrder,
-                Required: true
+                EnrollmentOffsetDays: step.sortOrder - 1,
+                DueOffsetDays: 7,
+                RestrictAfterDueDate: false,
+                IsRequired: true
             }
         })
     }
@@ -423,8 +573,9 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
         await createRecord(api, metahubId, accessLinksObjectId, {
             data: {
                 Slug: seededLink.slug,
-                TargetType: 'module',
-                TargetId: moduleRowsByKey.get(seededLink.moduleKey)?.id ?? null,
+                TargetType: 'content',
+                TargetId: guestContentRowsByKey.get(seededLink.contentKey)?.id ?? null,
+                ContentNodeIdRef: guestContentRowsByKey.get(seededLink.contentKey)?.id ?? null,
                 LinkClassId: classRowsByKey.get(seededLink.classKey)?.id ?? null,
                 IsActive: true,
                 MaxUses: 50,
@@ -435,24 +586,71 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
     }
 
     for (const seededEnrollment of LMS_DEMO_ENROLLMENTS) {
+        const seededContent = LMS_DEMO_CONTENT_NODES.find((content) => content.key === seededEnrollment.contentKey)
         await createRecord(api, metahubId, enrollmentsObjectId, {
             data: {
                 EnrollmentStudentId: studentRowsByKey.get(seededEnrollment.studentKey)?.id ?? null,
                 EnrollmentClassId: classRowsByKey.get(seededEnrollment.classKey)?.id ?? null,
-                ModuleIdRef: moduleRowsByKey.get(seededEnrollment.moduleKey)?.id ?? null,
+                AssignedUserId: LMS_RUNTIME_CURRENT_USER_ID_TOKEN,
+                TargetTitle: seededContent ? buildVLC(seededContent.title.en, seededContent.title.ru) : null,
+                TargetType: 'content',
+                TargetId: guestContentRowsByKey.get(seededEnrollment.contentKey)?.id ?? null,
+                ContentNodeIdRef: guestContentRowsByKey.get(seededEnrollment.contentKey)?.id ?? null,
                 EnrollmentStatus: activeEnrollmentStatusValueId,
                 EnrolledAt: '2061-02-01T08:00:00.000Z',
-                CompletedAt: seededEnrollment.moduleKey === 'docking-corridor' ? null : '2061-02-01T10:00:00.000Z',
-                Score: seededEnrollment.moduleKey === 'docking-corridor' ? 50 : 100
+                DueDateMode: 'ByDate',
+                DueDate: '2061-02-07T18:00:00.000Z',
+                DuePeriodDays: 7,
+                RestrictAfterDueDate: false,
+                CompletedAt: seededEnrollment.contentKey === 'docking-corridor' ? null : '2061-02-01T10:00:00.000Z',
+                Score: seededEnrollment.contentKey === 'docking-corridor' ? 50 : 100
             }
         })
     }
 
-    for (const seededProgress of LMS_DEMO_MODULE_PROGRESS) {
-        await createRecord(api, metahubId, moduleProgressObjectId, {
+    await createRecord(api, metahubId, enrollmentsObjectId, {
+        data: {
+            EnrollmentStudentId: studentRowsByKey.get('ava-solaris')?.id ?? null,
+            EnrollmentClassId: classRowsByKey.get('learning-path')?.id ?? null,
+            AssignedUserId: LMS_RUNTIME_CURRENT_USER_ID_TOKEN,
+            TargetTitle: buildVLC('Compliance Refresh Course', 'Курс обновления требований'),
+            TargetType: 'course',
+            TargetId: complianceCourse?.id ?? null,
+            EnrollmentStatus: activeEnrollmentStatusValueId,
+            EnrolledAt: '2061-02-01T08:00:00.000Z',
+            DueDateMode: 'ByDate',
+            DueDate: '2061-02-14T18:00:00.000Z',
+            DuePeriodDays: 14,
+            RestrictAfterDueDate: true,
+            CompletedAt: null,
+            Score: 0
+        }
+    })
+
+    await createRecord(api, metahubId, enrollmentsObjectId, {
+        data: {
+            EnrollmentStudentId: studentRowsByKey.get('ava-solaris')?.id ?? null,
+            EnrollmentClassId: classRowsByKey.get('learning-path')?.id ?? null,
+            AssignedUserId: LMS_RUNTIME_CURRENT_USER_ID_TOKEN,
+            TargetTitle: buildVLC('Compliance refresh track', 'Трек повторения требований'),
+            TargetType: 'track',
+            TargetId: complianceTrack?.id ?? null,
+            EnrollmentStatus: activeEnrollmentStatusValueId,
+            EnrolledAt: '2061-02-01T08:00:00.000Z',
+            DueDateMode: 'ForPeriod',
+            DueDate: '2061-02-21T18:00:00.000Z',
+            DuePeriodDays: 20,
+            RestrictAfterDueDate: true,
+            CompletedAt: null,
+            Score: 0
+        }
+    })
+
+    for (const seededProgress of LMS_DEMO_CONTENT_PROGRESS) {
+        await createRecord(api, metahubId, contentProgressObjectId, {
             data: {
                 ProgressStudentId: studentRowsByKey.get(seededProgress.studentKey)?.id ?? null,
-                ModuleId: moduleRowsByKey.get(seededProgress.moduleKey)?.id ?? null,
+                ContentNodeId: guestContentRowsByKey.get(seededProgress.contentKey)?.id ?? null,
                 ProgressStatus: seededProgress.status,
                 ProgressPercent: seededProgress.progressPercent,
                 StartedAt: '2061-02-01T08:15:00.000Z',
@@ -504,7 +702,7 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
                     data: { text: LMS_DEMO_KNOWLEDGE_ARTICLE.body.en }
                 }
             ]),
-            Status: publishedModuleStatusValueId
+            Status: publishedLearningResourceStatusValueId
         }
     })
     await createRecord(api, metahubId, knowledgeBookmarksObjectId, {
@@ -569,7 +767,7 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
             data: {
                 StudentId: studentRowsByKey.get(transaction.studentKey)?.id ?? null,
                 SourceType: pointSourceTypeValueIds[transaction.sourceType],
-                SourceObjectId: moduleRowsByKey.get(transaction.sourceObjectKey)?.id ?? transaction.sourceObjectKey,
+                SourceObjectId: guestContentRowsByKey.get(transaction.sourceObjectKey)?.id ?? transaction.sourceObjectKey,
                 PointsDelta: transaction.pointsDelta,
                 Reason: buildVLC(transaction.reason.en, transaction.reason.ru),
                 AwardedAt: transaction.awardedAt,
@@ -642,7 +840,7 @@ test.describe('Metahubs LMS App Export', () => {
     })
 
     test('@generator create canonical lms metahub and export snapshot fixture', async ({ runManifest }) => {
-        test.setTimeout(300_000)
+        test.setTimeout(600_000)
 
         api = await createLoggedInApiContext({
             email: runManifest.testUser.email,

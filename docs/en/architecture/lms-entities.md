@@ -9,30 +9,36 @@ All primary LMS concepts are represented as ordinary metahub entities.
 
 ## Core Objects
 
-| Entity           | Purpose                                                                            |
-| ---------------- | ---------------------------------------------------------------------------------- |
-| `LearnerHome`    | Non-physical Page with Editor.js-compatible blocks for the learner landing surface |
-| `Classes`        | Student groups or cohorts                                                          |
-| `Students`       | Registered learners and guest learners                                             |
-| `Modules`        | Learning content and structured content items                                      |
-| `Quizzes`        | Quiz definitions with question tables                                              |
-| `QuizResponses`  | Per-question response persistence                                                  |
-| `ModuleProgress` | Per-student module progress                                                        |
-| `AccessLinks`    | Guest-access routing records                                                       |
-| `Enrollments`    | Class-student-module bridge                                                        |
+| Entity              | Purpose                                                                             |
+| ------------------- | ----------------------------------------------------------------------------------- |
+| `LearnerHome`       | Non-physical Page with Editor.js-compatible blocks for the learner landing surface  |
+| `Classes`           | Student groups or cohorts                                                           |
+| `Students`          | Registered learners and guest learners                                              |
+| `LearningResources` | Standalone pages, structured guest lessons, links, and other authored resources     |
+| `Courses`           | Sequenced course shells built from sections and course items                        |
+| `CourseSections`    | Course outline sections with persisted ordering                                     |
+| `CourseItems`       | Parent-scoped course content links with completion and availability metadata        |
+| `LearningTracks`    | Multi-course learning paths                                                         |
+| `TrackStages`       | Learning-track stages with persisted ordering                                       |
+| `TrackSteps`        | Parent-scoped track steps linked to courses or resources                            |
+| `Quizzes`           | Quiz definitions with question tables                                               |
+| `QuizResponses`     | Per-question response persistence                                                   |
+| `ContentProgress`   | Per-student progress for Learning Resources and public guest-flow progress          |
+| `AccessLinks`       | Guest-access routing records                                                        |
+| `Enrollments`       | Polymorphic assignment rows for resources, courses, and tracks                      |
 
 ## Operational Ledgers
 
-| Ledger           | Purpose                                                                                         |
-| ---------------- | ----------------------------------------------------------------------------------------------- |
-| `ProgressLedger` | Append-oriented learning progress movements keyed by learner, module, workspace, and attempt    |
-| `ScoreLedger`    | Append-oriented quiz and assessment score movements with score, max score, and percent measures |
+| Ledger           | Purpose                                                                                             |
+| ---------------- | --------------------------------------------------------------------------------------------------- |
+| `ProgressLedger` | Append-oriented learning progress movements keyed by learner, learning item, workspace, and attempt |
+| `ScoreLedger`    | Append-oriented quiz and assessment score movements with score, max score, and percent measures     |
 
 ## Supporting Enumerations
 
 | Enumeration        | Purpose                                   |
 | ------------------ | ----------------------------------------- |
-| `ModuleStatus`     | draft / published / archived              |
+| `LearningResourceStatus` | draft / published / archived       |
 | `EnrollmentStatus` | invited / active / completed / dropped    |
 | `QuestionType`     | single choice / multiple choice           |
 | `ContentType`      | text / image / video URL / quiz reference |
@@ -40,7 +46,7 @@ All primary LMS concepts are represented as ordinary metahub entities.
 ## Important Modeling Decisions
 
 -   Quiz options are stored in a JSON field inside each question row.
--   `TABLE` fields are used for module content items and quiz questions.
+-   `TABLE` fields are used for structured Learning Resource content items and quiz questions.
 -   `LearnerHome` is a Page, not a physical runtime table. Its content is carried by metadata blocks and rendered by the shared dashboard details surface.
 -   `ProgressLedger` and `ScoreLedger` are standard Ledger entities, not LMS-specific services. They use the shared Ledger configuration block for dimensions, resources, measures, period fields, and projections.
 -   Transactional LMS objects use the shared Object `behavior` tab for numbering, effective dates, lifecycle states, posting targets, and posting scripts. The LMS fixture stores these settings in `config.recordBehavior`.
@@ -65,5 +71,5 @@ The LMS layout uses the same generic dashboard widgets as other published applic
 -   `appNavbar`, `header`, `detailsTitle`, and `detailsTable` for the runtime shell and data surfaces.
 -   `columnsContainer` when a layout needs composed dashboard content while preserving nested widget configuration.
 
-The platform still supports script-backed widgets and QR widgets as generic capabilities, but the LMS fixture does not bind global module/statistics/QR widgets into the default application layout.
+The platform still supports script-backed widgets and QR widgets as generic capabilities, but the LMS fixture does not bind global content/statistics/QR widgets into the default application layout.
 LMS-specific behavior comes from metahub configuration, entity data, scripts attached to the relevant metadata surface, and public runtime links.

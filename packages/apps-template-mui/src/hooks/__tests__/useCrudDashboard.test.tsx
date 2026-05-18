@@ -198,7 +198,7 @@ describe('useCrudDashboard optimistic mutations', () => {
                         uiConfig: {}
                     }
                 ],
-                rows: [{ id: 'access-row-1', slug: 'demo-module' }],
+                rows: [{ id: 'access-row-1', slug: 'demo-content' }],
                 pagination: { total: 1, limit: 20, offset: 0 },
                 menus: [
                     {
@@ -493,9 +493,10 @@ describe('useCrudDashboard optimistic mutations', () => {
     })
 
     it('marks copied rows with the copy pending action and closes the form right away', async () => {
-        const deferredCreate = createDeferred<Record<string, unknown>>()
+        const deferredCopy = createDeferred<Record<string, unknown>>()
+        const copyRow = vi.fn().mockImplementation(() => deferredCopy.promise)
         const adapter = createAdapter({
-            createRow: vi.fn().mockImplementation(() => deferredCreate.promise)
+            copyRow
         })
         const { getState } = renderCrudDashboard(adapter)
 
@@ -514,6 +515,13 @@ describe('useCrudDashboard optimistic mutations', () => {
             await Promise.resolve()
         })
 
+        expect(copyRow).toHaveBeenCalledWith('row-1', {
+            objectCollectionId: 'object-1',
+            sectionId: 'object-1',
+            copyChildTables: true,
+            data: { name: 'Copied optimistic' },
+            expectedVersion: undefined
+        })
         expect(getState().formOpen).toBe(false)
         expect(getState().copyRowId).toBe('row-1')
 
@@ -524,13 +532,44 @@ describe('useCrudDashboard optimistic mutations', () => {
             expect(pendingRow.__pendingAction).toBe('copy')
         })
 
-        deferredCreate.resolve({ id: 'row-3', name: 'Copied optimistic' })
+        deferredCopy.resolve({ id: 'row-3', name: 'Copied optimistic' })
         await act(async () => {
             await Promise.resolve()
         })
         await waitFor(() => {
             expect(getState().formOpen).toBe(false)
             expect(getState().copyRowId).toBe(null)
+        })
+    })
+
+    it('passes runtime row version and copy overrides to copy mutations', async () => {
+        const copyRow = vi.fn().mockResolvedValue({ id: 'row-3', name: 'Copied optimistic' })
+        const adapter = createAdapter({
+            fetchList: vi.fn().mockResolvedValue({
+                ...createAppData(),
+                rows: [{ id: 'row-1', name: 'Original', _upl_version: 9 }]
+            } satisfies AppDataResponse),
+            copyRow
+        })
+        const { getState } = renderCrudDashboard(adapter)
+
+        await waitFor(() => {
+            expect(getState().rows).toHaveLength(1)
+        })
+
+        await act(async () => {
+            getState().handleOpenCopy('row-1')
+        })
+        await act(async () => {
+            await getState().handleFormSubmit({ name: 'Copied optimistic' })
+        })
+
+        expect(copyRow).toHaveBeenCalledWith('row-1', {
+            objectCollectionId: 'object-1',
+            sectionId: 'object-1',
+            copyChildTables: true,
+            data: { name: 'Copied optimistic' },
+            expectedVersion: 9
         })
     })
 
@@ -618,6 +657,31 @@ describe('useCrudDashboard optimistic mutations', () => {
         })
     })
 
+    it('passes runtime row version to delete mutations when the row exposes optimistic metadata', async () => {
+        const deleteRow = vi.fn().mockResolvedValue(undefined)
+        const adapter = createAdapter({
+            fetchList: vi.fn().mockResolvedValue({
+                ...createAppData(),
+                rows: [{ id: 'row-1', name: 'Original', _upl_version: 7 }]
+            } satisfies AppDataResponse),
+            deleteRow
+        })
+        const { getState } = renderCrudDashboard(adapter)
+
+        await waitFor(() => {
+            expect(getState().rows).toHaveLength(1)
+        })
+
+        await act(async () => {
+            getState().handleOpenDelete('row-1')
+        })
+        await act(async () => {
+            await getState().handleConfirmDelete()
+        })
+
+        expect(deleteRow).toHaveBeenCalledWith('row-1', 'object-1', 7)
+    })
+
     it('reopens the form with an inline error if a background save fails', async () => {
         const deferredCreate = createDeferred<Record<string, unknown>>()
         const adapter = createAdapter({
@@ -683,9 +747,9 @@ describe('useCrudDashboard optimistic mutations', () => {
     })
 
     it('reveals deferred feedback and blocks unsafe interaction with pending copy rows', async () => {
-        const deferredCreate = createDeferred<Record<string, unknown>>()
+        const deferredCopy = createDeferred<Record<string, unknown>>()
         const adapter = createAdapter({
-            createRow: vi.fn().mockImplementation(() => deferredCreate.promise)
+            copyRow: vi.fn().mockImplementation(() => deferredCopy.promise)
         })
         const { getState } = renderCrudDashboard(adapter)
 
@@ -740,7 +804,7 @@ describe('useCrudDashboard optimistic mutations', () => {
                     immutability: 'posted'
                 }
             },
-            rows: [{ id: 'row-1', name: 'Original', _app_record_state: 'draft' }]
+            rows: [{ id: 'row-1', name: 'Original', _app_record_state: 'draft', _upl_version: 4 }]
         } satisfies AppDataResponse)
         const recordCommand = vi.fn().mockResolvedValue({ id: 'row-1', status: 'posted' })
         const adapter = createAdapter({ fetchList, recordCommand })
@@ -757,7 +821,8 @@ describe('useCrudDashboard optimistic mutations', () => {
 
         expect(recordCommand).toHaveBeenCalledWith('row-1', 'post', {
             objectCollectionId: 'object-1',
-            sectionId: 'object-1'
+            sectionId: 'object-1',
+            expectedVersion: 4
         })
         expect(enqueueSnackbar).toHaveBeenCalledWith('Record posted.', { variant: 'success' })
         await waitFor(() => {

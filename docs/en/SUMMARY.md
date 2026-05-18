@@ -70,6 +70,7 @@
 * [Overview](guides/README.md)
 * [LMS Overview](guides/lms-overview.md)
 * [LMS Setup](guides/lms-setup.md)
+* [LMS Learning Content](guides/lms-learning-content.md)
 * [LMS Resource Model](guides/lms-resource-model.md)
 * [LMS Reports](guides/lms-reports.md)
 * [LMS Gamification](guides/lms-gamification.md)

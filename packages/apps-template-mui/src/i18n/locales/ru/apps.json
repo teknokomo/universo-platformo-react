@@ -68,7 +68,21 @@
         "copyChildTablesRequiredHint": "Опция обязательна, потому что хотя бы одна дочерняя таблица является обязательной."
     },
     "table": {
-        "editAfterSave": "Табличные данные можно редактировать после сохранения элемента."
+        "editAfterSave": "Табличные данные можно редактировать после сохранения элемента.",
+        "copiedUnchanged": "Табличные строки копируются без изменений из исходной записи."
+    },
+    "relationBuilder": {
+        "parent": "Родитель",
+        "emptyParent": "Создайте родительскую запись перед добавлением связанных записей.",
+        "create": "Создать",
+        "createTitle": "Создать связанную запись",
+        "editTitle": "Изменить связанную запись",
+        "deleteTitle": "Удалить связанную запись?",
+        "deleteDescription": "Связанная запись будет удалена."
+    },
+    "formWizard": {
+        "back": "Назад",
+        "next": "Далее"
     },
     "blockEditor": {
         "loading": "Загрузка редактора...",
@@ -87,6 +101,62 @@
         "openPage": "Открыть страницу",
         "documentFrameTitle": "Предпросмотр документа",
         "embedFrameTitle": "Встроенный ресурс"
+    },
+    "resourceSource": {
+        "type": "Тип ресурса",
+        "url": "URL источника",
+        "pageCodename": "Код страницы",
+        "storageKey": "Ключ хранилища",
+        "packageDescriptor": "Описание пакета",
+        "launchMode": "Запуск",
+        "invalid": "Источник ресурса некорректен.",
+        "errors": {
+            "url": "Введите абсолютный URL http или https.",
+            "pageCodename": "Выберите или введите код страницы.",
+            "storageKey": "Введите ключ хранилища.",
+            "packageDescriptor": "Введите описание пакета.",
+            "mimeType": "MIME-тип не поддерживается для этого ресурса.",
+            "singleLocator": "Укажите ровно один источник ресурса.",
+            "embedHost": "Этот хост встраивания не разрешен."
+        },
+        "types": {
+            "page": "Страница",
+            "url": "Ссылка",
+            "video": "Видео",
+            "audio": "Аудио",
+            "document": "Документ",
+            "scorm": "SCORM",
+            "xapi": "xAPI",
+            "embed": "Встраивание",
+            "file": "Файл"
+        },
+        "launchModes": {
+            "inline": "Встроенно",
+            "newTab": "Новая вкладка",
+            "download": "Скачать"
+        }
+    },
+    "pageBlocks": {
+        "outline": "Содержание",
+        "progress": "Прогресс чтения {{progress}}%",
+        "progressLabel": "Прогресс чтения",
+        "markComplete": "Отметить завершенным"
+    },
+    "learnerPlayer": {
+        "loading": "Загрузка проигрывателя...",
+        "emptyParent": "Учебный контент пока недоступен.",
+        "progress": "Завершено {{completed}} из {{total}}",
+        "progressLabel": "Прогресс обучения",
+        "parentLabel": "Контент",
+        "previous": "Назад",
+        "next": "Далее",
+        "locked": "Заблокировано",
+        "noTarget": "Цель не выбрана",
+        "complete": "Завершить",
+        "lockedMessage": "Завершите предыдущие элементы, чтобы открыть этот контент.",
+        "loadingContent": "Загрузка контента...",
+        "noPreview": "У этого элемента пока нет источника для предпросмотра.",
+        "targetNotFound": "Выбранная запись контента не найдена."
     },
     "validation": {
         "vlcMinLength": "Язык \"{{locale}}\": минимальная длина {{min}}",
@@ -219,20 +289,6 @@
             "email": "Email"
         }
     },
-    "moduleViewer": {
-        "defaultTitle": "Просмотр модуля",
-        "missingContext": "Виджет просмотра модуля доступен только внутри runtime-поверхности приложения.",
-        "loading": "Загрузка модуля...",
-        "loadScriptsError": "Не удалось загрузить скрипты виджета.",
-        "loadModelError": "Не удалось загрузить содержимое модуля.",
-        "loadBundleError": "Не удалось загрузить клиентский bundle виджета.",
-        "emptyTitle": "Просмотр модуля не настроен",
-        "emptyDescription": "Подключите активный widget-script к текущему объекту или метахабу и предоставьте метод mount(), чтобы отрисовать здесь содержимое модуля.",
-        "itemOf": "Элемент {{current}} из {{total}}",
-        "restart": "Сначала",
-        "previous": "Назад",
-        "next": "Далее"
-    },
     "statsViewer": {
         "defaultTitle": "Статистика",
         "missingContext": "Виджет статистики доступен только внутри runtime-поверхности приложения.",
@@ -261,6 +317,23 @@
             "more": "Ещё"
         }
     },
+    "trash": {
+        "actions": "Действия",
+        "restore": "Восстановить",
+        "restoreUnavailable": "Восстановление недоступно для этой строки."
+    },
+    "sequence": {
+        "availability": "Доступность",
+        "available": "Доступно",
+        "lockedBy": "Заблокировано",
+        "reasons": {
+            "missingStep": "Шаг не найден",
+            "scheduledNotStarted": "Ещё не начато",
+            "scheduledExpired": "Истекло",
+            "sequentialLocked": "Заблокировано",
+            "prerequisiteLocked": "Заблокировано условием"
+        }
+    },
     "guest": {
         "invalidLink": "Публичная гостевая ссылка недействительна.",
         "enterNameTitle": "Введите имя, чтобы продолжить",
@@ -271,20 +344,20 @@
         "loadingContent": "Загрузка контента...",
         "previous": "Назад",
         "next": "Далее",
-        "completeModule": "Завершить модуль",
-        "moduleCompleted": "Модуль завершён. Прогресс записан для этой сессии.",
-        "restartModule": "Пройти модуль заново",
+        "completeContent": "Завершить контент",
+        "contentCompleted": "Контент завершён. Прогресс записан для этой сессии.",
+        "restartContent": "Пройти контент заново",
         "openQuiz": "Открыть тест",
         "submitQuiz": "Отправить тест",
         "submittingQuiz": "Отправка...",
         "quizResult": "Результат {{score}} / {{total}}",
-        "backToModule": "Назад к модулю",
+        "backToContent": "Назад к контенту",
         "unsupportedContent": "Этот тип контента пока не поддерживается в гостевом режиме.",
         "errors": {
             "linkNotFound": "Ссылка доступа не найдена или больше не активна.",
             "sessionCreate": "Не удалось создать гостевую сессию.",
             "sessionMissing": "Перед отправкой теста нужна гостевая сессия.",
-            "progressSave": "Не удалось сохранить прогресс модуля.",
+            "progressSave": "Не удалось сохранить прогресс контента.",
             "runtimeLoad": "Не удалось загрузить публичный учебный контент.",
             "quizSubmit": "Не удалось отправить тест."
         }

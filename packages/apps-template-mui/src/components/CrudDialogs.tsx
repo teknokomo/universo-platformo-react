@@ -1,4 +1,4 @@
-import { FormDialog } from './dialogs/FormDialog'
+import { FormDialog, type RuntimeObjectCollectionOption } from './dialogs/FormDialog'
 import { ConfirmDeleteDialog } from './dialogs/ConfirmDeleteDialog'
 import type { CrudDashboardState } from '../hooks/useCrudDashboard'
 
@@ -15,6 +15,10 @@ export interface CrudDialogsProps {
     applicationId?: string
     /** Object ID for TABLE (tabular part) CRUD operations. */
     objectCollectionId?: string
+    /** Runtime object registry used by metadata-driven form fields. */
+    objectCollections?: RuntimeObjectCollectionOption[]
+    /** Current workspace scope used by metadata-driven form fields. */
+    currentWorkspaceId?: string | null
     /** Surface used for create/edit/copy forms. */
     surface?: 'dialog' | 'page'
     /** Render create/edit/copy form surface. */
@@ -54,6 +58,8 @@ export function CrudDialogs({
     apiBaseUrl,
     applicationId,
     objectCollectionId,
+    objectCollections,
+    currentWorkspaceId,
     surface = 'dialog',
     renderForm = true,
     renderDelete = true
@@ -82,6 +88,9 @@ export function CrudDialogs({
                     applicationId={applicationId}
                     objectCollectionId={objectCollectionId}
                     editRowId={state.editRowId}
+                    copyMode={Boolean(state.copyRowId)}
+                    objectCollections={objectCollections}
+                    currentWorkspaceId={currentWorkspaceId}
                 />
             ) : null}
 

@@ -64,7 +64,17 @@ describe('ResourcePreview', () => {
             />
         )
 
-        expect(screen.getByRole('alert')).toHaveTextContent('not allowed')
+        const alert = screen.getByRole('alert')
+        expect(alert).toHaveTextContent('This resource source is not valid.')
+        expect(alert).not.toHaveTextContent('not allowed')
+    })
+
+    it('does not leak raw validator messages for invalid sources', () => {
+        render(<ResourcePreview source={{ type: 'video', url: '' }} />)
+
+        const alert = screen.getByRole('alert')
+        expect(alert).toHaveTextContent('This resource source is not valid.')
+        expect(alert).not.toHaveTextContent('String must contain')
     })
 
     it('keeps SCORM explicit as a deferred resource instead of pretending it can launch', () => {

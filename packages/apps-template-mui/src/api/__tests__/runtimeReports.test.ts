@@ -7,7 +7,7 @@ const reportDefinition: ReportDefinition = {
     title: 'Learner progress',
     datasource: {
         kind: 'records.list',
-        sectionCodename: 'ModuleProgress'
+        sectionCodename: 'ContentProgress'
     },
     columns: [{ field: 'ProgressPercent', label: 'Progress', type: 'number' }],
     filters: [],

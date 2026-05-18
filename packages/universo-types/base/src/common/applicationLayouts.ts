@@ -53,6 +53,12 @@ const scriptAttachmentKindSchema = z.string().trim().regex(SCRIPT_ATTACHMENT_KIN
 
 const genericWidgetConfigSchema = z.record(z.unknown()).default({})
 const localizedWidgetTextSchema = z.union([z.string().min(1).max(160), applicationLayoutLocalizedContentSchema])
+const rowCountWarningSchema = z
+    .object({
+        threshold: z.number().int().min(1).max(100_000),
+        message: localizedWidgetTextSchema
+    })
+    .strict()
 
 const menuWidgetItemSchema = z
     .object({
@@ -94,13 +100,34 @@ const nestedColumnsContainerWidgetKeySchema = z
         'Nested columnsContainer widgets are not allowed'
     )
 
-const columnsContainerNestedWidgetSchema = z
+const nestedDetailsTabsWidgetKeySchema = z
+    .string()
+    .refine(
+        (value) => DASHBOARD_LAYOUT_WIDGETS.some((widget) => widget.key === value) && value !== 'detailsTabs',
+        'Nested detailsTabs widgets are not allowed'
+    )
+
+const dashboardNestedWidgetSchema = (widgetKeySchema: z.ZodType<string>) =>
+    z
+        .object({
+            id: z.string().min(1).optional(),
+            widgetKey: widgetKeySchema,
+            sortOrder: z.number().int().optional(),
+            isActive: z.boolean().optional(),
+            config: z.record(z.unknown()).optional()
+        })
+        .strict()
+
+const columnsContainerNestedWidgetSchema = dashboardNestedWidgetSchema(nestedColumnsContainerWidgetKeySchema)
+
+const detailsTabsNestedWidgetSchema = dashboardNestedWidgetSchema(nestedDetailsTabsWidgetKeySchema)
+
+const detailsTabsTabSchema = z
     .object({
-        id: z.string().min(1).optional(),
-        widgetKey: nestedColumnsContainerWidgetKeySchema,
-        sortOrder: z.number().int().optional(),
+        id: z.string().min(1),
+        label: localizedWidgetTextSchema.optional(),
         isActive: z.boolean().optional(),
-        config: z.record(z.unknown()).optional()
+        widgets: z.array(detailsTabsNestedWidgetSchema)
     })
     .strict()
 
@@ -118,6 +145,15 @@ export const columnsContainerWidgetConfigSchema = z
         sharedBehavior: sharedBehaviorSchema.optional()
     })
     .strict()
+
+export const detailsTabsWidgetConfigSchema = z
+    .object({
+        tabs: z.array(detailsTabsTabSchema).min(1).max(8),
+        sharedBehavior: sharedBehaviorSchema.optional()
+    })
+    .strict()
+
+export type DetailsTabsWidgetConfig = z.infer<typeof detailsTabsWidgetConfigSchema>
 
 const scriptBackedWidgetConfigSchema = z
     .object({
@@ -144,12 +180,59 @@ export const detailsTableWidgetConfigSchema = z
         datasource: runtimeDatasourceDescriptorSchema.optional(),
         enableRowReordering: z.boolean().optional(),
         showViewToggle: z.boolean().optional(),
+        rowCountWarning: rowCountWarningSchema.optional(),
         sequencePolicy: sequencePolicySchema.optional(),
         reportDefinition: reportDefinitionSchema.optional(),
         workflowActions: z.array(workflowActionSchema).max(16).optional(),
         sharedBehavior: sharedBehaviorSchema.optional()
     })
     .strict()
+
+const relationBuilderPanelSchema = z
+    .object({
+        id: z.string().min(1),
+        title: localizedWidgetTextSchema,
+        width: z.number().int().min(1).max(12).optional(),
+        datasource: recordsListDatasourceSchema,
+        parentFieldCodename: z.string().trim().min(1).max(128),
+        sortOrderFieldCodename: z.string().trim().min(1).max(128).optional(),
+        enableRowReordering: z.boolean().optional(),
+        createDefaults: z.record(z.unknown()).optional(),
+        createWizard: z
+            .object({
+                steps: z
+                    .array(
+                        z
+                            .object({
+                                id: z.string().trim().min(1).max(64),
+                                label: localizedWidgetTextSchema,
+                                helperText: localizedWidgetTextSchema.optional(),
+                                fieldCodenames: z.array(z.string().trim().min(1).max(128)).min(1).max(12)
+                            })
+                            .strict()
+                    )
+                    .min(1)
+                    .max(6)
+            })
+            .strict()
+            .optional(),
+        rowCountWarning: rowCountWarningSchema.optional()
+    })
+    .strict()
+
+export const relationBuilderWidgetConfigSchema = z
+    .object({
+        parentDatasource: recordsListDatasourceSchema.optional(),
+        parentLabel: localizedWidgetTextSchema.optional(),
+        parentTitleFieldCodename: z.string().trim().min(1).max(128).optional(),
+        emptyParentMessage: localizedWidgetTextSchema.optional(),
+        panels: z.array(relationBuilderPanelSchema).min(1).max(4),
+        sharedBehavior: sharedBehaviorSchema.optional()
+    })
+    .strict()
+
+export type RelationBuilderWidgetConfig = z.infer<typeof relationBuilderWidgetConfigSchema>
+export type RelationBuilderPanelConfig = z.infer<typeof relationBuilderPanelSchema>
 
 export const statCardWidgetConfigSchema = z
     .object({
@@ -210,15 +293,46 @@ export const resourcePreviewWidgetConfigSchema = z
 
 export type ResourcePreviewWidgetConfig = z.infer<typeof resourcePreviewWidgetConfigSchema>
 
+const learnerPlayerTargetContentSchema = z
+    .object({
+        titleFieldCodename: z.string().trim().min(1).max(128).optional(),
+        descriptionFieldCodename: z.string().trim().min(1).max(128).optional(),
+        sourceFieldCodename: z.string().trim().min(1).max(128).optional(),
+        bodyFieldCodename: z.string().trim().min(1).max(128).optional()
+    })
+    .strict()
+
+export const learnerPlayerWidgetConfigSchema = z
+    .object({
+        parentDatasource: recordsListDatasourceSchema.optional(),
+        itemsDatasource: recordsListDatasourceSchema.optional(),
+        parentLabel: localizedWidgetTextSchema.optional(),
+        parentFieldCodename: z.string().trim().min(1).max(128).optional(),
+        itemTitleFieldCodename: z.string().trim().min(1).max(128).optional(),
+        targetObjectCodenameField: z.string().trim().min(1).max(128).optional(),
+        targetObjectCodename: z.string().trim().min(1).max(128).optional(),
+        targetRecordIdField: z.string().trim().min(1).max(128).optional(),
+        completionTargetObjectCodename: z.string().trim().min(1).max(128).optional(),
+        sequencePolicy: sequencePolicySchema.optional(),
+        targetContent: learnerPlayerTargetContentSchema.optional(),
+        sharedBehavior: sharedBehaviorSchema.optional()
+    })
+    .strict()
+
+export type LearnerPlayerWidgetConfig = z.infer<typeof learnerPlayerWidgetConfigSchema>
+
 const widgetConfigSchemaByKey = {
     menuWidget: menuWidgetConfigSchema,
     columnsContainer: columnsContainerWidgetConfigSchema,
     quizWidget: quizWidgetConfigSchema,
     detailsTable: detailsTableWidgetConfigSchema,
+    relationBuilder: relationBuilderWidgetConfigSchema,
     overviewCards: overviewCardsWidgetConfigSchema,
     sessionsChart: recordsSeriesChartWidgetConfigSchema,
     pageViewsChart: recordsSeriesChartWidgetConfigSchema,
-    resourcePreview: resourcePreviewWidgetConfigSchema
+    detailsTabs: detailsTabsWidgetConfigSchema,
+    resourcePreview: resourcePreviewWidgetConfigSchema,
+    learnerPlayer: learnerPlayerWidgetConfigSchema
 } as const
 
 export const applicationLayoutWidgetConfigSchema = genericWidgetConfigSchema
