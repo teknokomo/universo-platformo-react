@@ -4,10 +4,12 @@ import {
     createAppRow,
     updateAppRow,
     deleteAppRow,
+    restoreAppRow,
     copyAppRow,
     fetchTabularRows,
     runAppRecordCommand,
-    runAppWorkflowAction
+    runAppWorkflowAction,
+    reorderAppRows
 } from './api'
 import { appQueryKeys } from './mutations'
 import type { CrudDataAdapter } from './types'
@@ -24,8 +26,21 @@ export function createStandaloneAdapter(params: { apiBaseUrl: string; applicatio
     return {
         queryKeyPrefix: appQueryKeys.list(applicationId),
 
-        fetchList: ({ limit, offset, locale, objectCollectionId, sectionId, search, sort, filters }) =>
-            fetchAppData({ apiBaseUrl, applicationId, limit, offset, locale, objectCollectionId, sectionId, search, sort, filters }),
+        fetchList: ({ limit, offset, locale, objectCollectionId, sectionId, workspaceId, search, sort, filters, lifecycleState }) =>
+            fetchAppData({
+                apiBaseUrl,
+                applicationId,
+                limit,
+                offset,
+                locale,
+                objectCollectionId,
+                sectionId,
+                workspaceId,
+                search,
+                sort,
+                filters,
+                lifecycleState
+            }),
 
         fetchRow: (rowId, objectCollectionId) =>
             fetchAppRow({ apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId: objectCollectionId }),
@@ -50,8 +65,11 @@ export function createStandaloneAdapter(params: { apiBaseUrl: string; applicatio
         updateRow: (rowId, data, objectCollectionId) =>
             updateAppRow({ apiBaseUrl, applicationId, rowId, data, objectCollectionId, sectionId: objectCollectionId }),
 
-        deleteRow: (rowId, objectCollectionId) =>
-            deleteAppRow({ apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId: objectCollectionId }),
+        deleteRow: (rowId, objectCollectionId, expectedVersion) =>
+            deleteAppRow({ apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId: objectCollectionId, expectedVersion }),
+
+        restoreRow: (rowId, objectCollectionId, expectedVersion) =>
+            restoreAppRow({ apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId: objectCollectionId, expectedVersion }),
 
         copyRow: (rowId, data) =>
             copyAppRow({
@@ -60,7 +78,9 @@ export function createStandaloneAdapter(params: { apiBaseUrl: string; applicatio
                 rowId,
                 objectCollectionId: data?.objectCollectionId,
                 sectionId: data?.sectionId ?? data?.objectCollectionId,
-                copyChildTables: data?.copyChildTables
+                copyChildTables: data?.copyChildTables,
+                data: data?.data,
+                expectedVersion: data?.expectedVersion
             }),
 
         recordCommand: (rowId, command, data) =>
@@ -83,6 +103,15 @@ export function createStandaloneAdapter(params: { apiBaseUrl: string; applicatio
                 objectCollectionId: data.objectCollectionId,
                 sectionId: data.sectionId ?? data.objectCollectionId,
                 expectedVersion: data.expectedVersion
+            }),
+
+        reorderRows: ({ objectCollectionId, sectionId, orderedRowIds }) =>
+            reorderAppRows({
+                apiBaseUrl,
+                applicationId,
+                objectCollectionId,
+                sectionId: sectionId ?? objectCollectionId,
+                orderedRowIds
             })
     }
 }

@@ -31,7 +31,9 @@ Runtime dashboard template for published applications in the Universo Platformo 
 
 ### 🧩 Widget Renderer
 - **Shared renderer**: `renderWidget()` maps widget keys to concrete React components
-- **Supported widgets**: `brandSelector`, `divider`, `menuWidget`, `spacer`, `infoCard`, `userProfile`, `productTree`, `usersByCountryChart`, `detailsTable`, `columnsContainer`
+- **Supported widgets**: `brandSelector`, `divider`, `menuWidget`, `spacer`, `infoCard`, `userProfile`, `productTree`, `usersByCountryChart`, `detailsTable`, `relationBuilder`, `columnsContainer`
+- **Union datasources**: `detailsTable` can render `records.union` by resolving multiple runtime sections from metadata and querying them through the normal `fetchAppData` surface.
+- **Relation builder**: `relationBuilder` keeps child records scoped to a selected parent row while reusing generic CRUD dialogs, record pickers, and persisted row ordering.
 - **Menu resolution**: 2-level fallback — widget ID → menus map → legacy single menu prop
 - **Curated menu contract**: Runtime menus support primary item limits, overflow items, start-page selection, and workspace entry placement without requiring LMS-only components.
 - **LMS fixture rule**: LMS published layouts use the shared MUI dashboard shell and generic data-driven widgets. Demo-only surfaces such as `brandSelector`, `productTree`, and `usersByCountryChart` are blocked by the LMS fixture contract unless they become real runtime-data surfaces.
@@ -47,6 +49,8 @@ Runtime dashboard template for published applications in the Universo Platformo 
 - **Block-content authoring**: JSON fields configured with `editorjsBlockContent` reuse the shared `@universo/block-editor` package instead of exposing raw JSON or carrying a runtime-local editor fork
 - **ResourcePreview**: Generic safe preview component for supported resource source types with localized deferred/unsupported states
 - **Reports and export**: Published runtime can render saved reports through generic details widgets and export server-defined CSV reports
+- **Trash-aware operations**: Runtime lists can request `lifecycleState=deleted`, delete calls pass optimistic row versions, and adapters expose restore calls for generic soft-delete contracts.
+- **Page player progress**: Metadata Pages can render Editor.js page blocks with outline/progress controls and persist completion through the generic runtime progress API.
 
 ### 🧱 Runtime UI Primitives
 - **Local primitives**: `ViewHeaderMUI`, `ToolbarControls`, `ItemCard`, `FlowListTable`, `PaginationControls`, and `useViewPreference` live in `src/components/runtime-ui`

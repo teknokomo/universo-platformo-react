@@ -4,15 +4,17 @@ export {
     createAppRow,
     updateAppRow,
     deleteAppRow,
+    restoreAppRow,
     runAppRecordCommand,
     runAppWorkflowAction,
+    updateLearningContentProgress,
     fetchRuntimeLedgers,
     fetchRuntimeLedgerFacts,
     fetchRuntimeLedgerProjection,
     exportRuntimeReportCsv,
-    appDataResponseSchema,
-    dashboardLayoutConfigSchema
+    appDataResponseSchema
 } from './api'
+export { dashboardLayoutConfigSchema } from '@universo/types'
 export type {
     AppDataResponse,
     ApplicationRuntimeResponse,
@@ -22,7 +24,7 @@ export type {
     RuntimeLedgerProjectionResponse
 } from './api'
 
-export { appQueryKeys, runtimeKeys, useAppRow, useCreateAppRow, useUpdateAppRow, useDeleteAppRow } from './mutations'
+export { appQueryKeys, runtimeKeys, useAppRow, useCreateAppRow, useUpdateAppRow, useDeleteAppRow, useRestoreAppRow } from './mutations'
 
 // Adapter pattern
 export type { CrudDataAdapter, CellRendererOverrides, RuntimeRecordCommand } from './types'

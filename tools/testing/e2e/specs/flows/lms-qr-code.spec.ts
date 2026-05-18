@@ -40,22 +40,29 @@ test('@flow lms contextual access link enables guest journey without legacy QR w
             slug: lms.applicationSlug
         })
 
-        const modulesObjectId = await waitForApplicationObjectId(api, lms.applicationId, 'Modules')
+        const learningResourcesObjectId = await waitForApplicationObjectId(api, lms.applicationId, 'Learning Resources')
         const accessLinksObjectId = await waitForApplicationObjectId(api, lms.applicationId, 'Access Links')
         const contentTypeEnumerationId = await waitForMetahubEnumerationId(api, lms.metahub.id, 'Content Type')
-        const moduleStatusEnumerationId = await waitForMetahubEnumerationId(api, lms.metahub.id, 'Module Status')
+        const resourceTypeEnumerationId = await waitForMetahubEnumerationId(api, lms.metahub.id, 'Resource Type')
+        const publicationStatusEnumerationId = await waitForMetahubEnumerationId(api, lms.metahub.id, 'Publication Status')
         const textValueId = await waitForOptionValueId(api, lms.metahub.id, contentTypeEnumerationId, 'Text')
-        const publishedModuleStatusValueId = await waitForOptionValueId(api, lms.metahub.id, moduleStatusEnumerationId, 'Published')
+        const pageResourceTypeValueId = await waitForOptionValueId(api, lms.metahub.id, resourceTypeEnumerationId, 'Page')
+        const publishedPublicationStatusValueId = await waitForOptionValueId(
+            api,
+            lms.metahub.id,
+            publicationStatusEnumerationId,
+            'Published'
+        )
 
         const accessSlug = `access-${runManifest.runId}`
-        const moduleRow = await createRuntimeRow(api, lms.applicationId, {
-            objectCollectionId: modulesObjectId,
+        const contentRow = await createRuntimeRow(api, lms.applicationId, {
+            objectCollectionId: learningResourcesObjectId,
             data: {
-                Title: `Access Link Module ${runManifest.runId}`,
-                Slug: accessSlug,
-                Description: 'Module opened through contextual access link',
-                Status: publishedModuleStatusValueId,
-                AccessLinkSlug: accessSlug,
+                Title: `Access Link Learning Resource ${runManifest.runId}`,
+                Description: 'Learning resource opened through contextual access link',
+                ResourceType: pageResourceTypeValueId,
+                Source: { type: 'page', pageCodename: 'LearnerHome' },
+                PublicationStatus: publishedPublicationStatusValueId,
                 ContentItems: [
                     {
                         ItemType: textValueId,
@@ -66,18 +73,19 @@ test('@flow lms contextual access link enables guest journey without legacy QR w
                 ]
             }
         })
-        await waitForApplicationRuntimeRow(api, lms.applicationId, modulesObjectId, moduleRow.id)
+        await waitForApplicationRuntimeRow(api, lms.applicationId, learningResourcesObjectId, contentRow.id)
 
         const accessLinkRow = await createRuntimeRow(api, lms.applicationId, {
             objectCollectionId: accessLinksObjectId,
             data: {
                 Slug: accessSlug,
-                TargetType: 'module',
-                TargetId: moduleRow.id,
+                TargetType: 'content',
+                TargetId: contentRow.id,
+                ContentNodeIdRef: contentRow.id,
                 IsActive: true,
                 MaxUses: 20,
                 UseCount: 0,
-                LinkTitle: 'Access link module test'
+                LinkTitle: 'Access link content test'
             }
         })
         await waitForApplicationRuntimeRow(api, lms.applicationId, accessLinksObjectId, accessLinkRow.id)
@@ -93,7 +101,7 @@ test('@flow lms contextual access link enables guest journey without legacy QR w
         await page.getByLabel('Your name').fill('Access link learner')
         await page.getByRole('button', { name: 'Start learning' }).click()
 
-        await expect(page.getByText(`Access Link Module ${runManifest.runId}`)).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByText(`Access Link Learning Resource ${runManifest.runId}`)).toBeVisible({ timeout: 30_000 })
         await expect(page.getByText('This lesson was reached from a contextual access link.')).toBeVisible({ timeout: 30_000 })
     } finally {
         await disposeApiContext(api)

@@ -833,9 +833,12 @@ export const DASHBOARD_LAYOUT_WIDGETS = [
     { key: 'pageViewsChart', allowedZones: ['center'] as const, multiInstance: false },
     { key: 'detailsTitle', allowedZones: ['center'] as const, multiInstance: false },
     { key: 'detailsTable', allowedZones: ['center'] as const, multiInstance: false },
+    { key: 'relationBuilder', allowedZones: ['center'] as const, multiInstance: true },
     { key: 'columnsContainer', allowedZones: ['center'] as const, multiInstance: true },
+    { key: 'detailsTabs', allowedZones: ['center'] as const, multiInstance: true },
     { key: 'quizWidget', allowedZones: ['center', 'right'] as const, multiInstance: true },
     { key: 'resourcePreview', allowedZones: ['center', 'right'] as const, multiInstance: true },
+    { key: 'learnerPlayer', allowedZones: ['center'] as const, multiInstance: true },
     // Right zone widgets
     { key: 'detailsSidePanel', allowedZones: ['right'] as const, multiInstance: false },
     { key: 'productTree', allowedZones: ['center', 'right'] as const, multiInstance: false },
@@ -935,6 +938,25 @@ export interface ColumnsContainerColumn {
 export interface ColumnsContainerConfig {
     /** Ordered array of columns. Widths should sum to 12 for a balanced row. */
     columns: ColumnsContainerColumn[]
+    sharedBehavior?: SharedBehavior
+}
+
+/** A single tab rendered by the generic detailsTabs widget. */
+export interface DetailsTabsTab {
+    /** Stable tab identity. */
+    id: string
+    /** Localized or plain tab label. */
+    label?: Record<string, unknown> | string
+    /** Ordered list of widgets rendered inside the tab panel. */
+    widgets: ColumnsContainerColumnWidget[]
+    /** Whether this tab should render. */
+    isActive?: boolean
+}
+
+/** Configuration for the detailsTabs widget. */
+export interface DetailsTabsConfig {
+    /** Ordered tab definitions. */
+    tabs: DetailsTabsTab[]
     sharedBehavior?: SharedBehavior
 }
 

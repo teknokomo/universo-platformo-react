@@ -74,6 +74,20 @@ describe('sequence and completion engine', () => {
         })
     })
 
+    it('accepts an optional scope field for parent-scoped runtime sequence tables', () => {
+        expect(
+            sequencePolicySchema.parse({
+                mode: 'sequential',
+                scopeFieldCodename: 'CourseId',
+                orderFieldCodename: 'SortOrder'
+            })
+        ).toMatchObject({
+            mode: 'sequential',
+            scopeFieldCodename: 'CourseId',
+            orderFieldCodename: 'SortOrder'
+        })
+    })
+
     it('locks scheduled and prerequisite steps with explicit fail-closed reasons', () => {
         const now = new Date('2026-05-15T12:00:00Z')
         expect(

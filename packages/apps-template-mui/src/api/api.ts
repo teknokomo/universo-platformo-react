@@ -6,7 +6,8 @@ import {
     dashboardLayoutConfigSchema,
     runtimePageBlockSchema,
     reportDefinitionSchema,
-    workflowActionSchema
+    workflowActionSchema,
+    readLocalizedTextValue
 } from '@universo/types'
 import type { RuntimeRecordCommand } from './types'
 
@@ -147,6 +148,19 @@ const runtimeObjectCollectionSchema = z.object({
     workflowActions: z.array(workflowActionSchema).optional()
 })
 
+const runtimeOptionCodenameSchema = z.preprocess(
+    (value) => (typeof value === 'string' ? value : readLocalizedTextValue(value)),
+    z.string().optional()
+)
+
+const runtimeRefOptionSchema = z.object({
+    id: z.string(),
+    label: z.string(),
+    codename: runtimeOptionCodenameSchema,
+    isDefault: z.boolean().optional(),
+    sortOrder: z.number().optional()
+})
+
 export const appDataResponseSchema = z.object({
     section: runtimeObjectCollectionSchema.optional(),
     objectCollection: runtimeObjectCollectionSchema,
@@ -168,28 +182,8 @@ export const appDataResponseSchema = z.object({
             refTargetEntityId: z.string().nullable().optional(),
             refTargetEntityKind: z.string().nullable().optional(),
             refTargetConstantId: z.string().nullable().optional(),
-            refOptions: z
-                .array(
-                    z.object({
-                        id: z.string(),
-                        label: z.string(),
-                        codename: z.string().optional(),
-                        isDefault: z.boolean().optional(),
-                        sortOrder: z.number().optional()
-                    })
-                )
-                .optional(),
-            enumOptions: z
-                .array(
-                    z.object({
-                        id: z.string(),
-                        label: z.string(),
-                        codename: z.string().optional(),
-                        isDefault: z.boolean().optional(),
-                        sortOrder: z.number().optional()
-                    })
-                )
-                .optional(),
+            refOptions: z.array(runtimeRefOptionSchema).optional(),
+            enumOptions: z.array(runtimeRefOptionSchema).optional(),
             // Child column definitions for TABLE-type components
             childColumns: z
                 .array(
@@ -206,28 +200,8 @@ export const appDataResponseSchema = z.object({
                         refTargetEntityId: z.string().nullable().optional(),
                         refTargetEntityKind: z.string().nullable().optional(),
                         refTargetConstantId: z.string().nullable().optional(),
-                        refOptions: z
-                            .array(
-                                z.object({
-                                    id: z.string(),
-                                    label: z.string(),
-                                    codename: z.string().optional(),
-                                    isDefault: z.boolean().optional(),
-                                    sortOrder: z.number().optional()
-                                })
-                            )
-                            .optional(),
-                        enumOptions: z
-                            .array(
-                                z.object({
-                                    id: z.string(),
-                                    label: z.string(),
-                                    codename: z.string().optional(),
-                                    isDefault: z.boolean().optional(),
-                                    sortOrder: z.number().optional()
-                                })
-                            )
-                            .optional()
+                        refOptions: z.array(runtimeRefOptionSchema).optional(),
+                        enumOptions: z.array(runtimeRefOptionSchema).optional()
                     })
                 )
                 .optional()
@@ -408,11 +382,28 @@ export async function fetchAppData(options: {
     locale: string
     objectCollectionId?: string
     sectionId?: string
+    workspaceId?: string | null
     search?: string
     sort?: RuntimeDatasourceSort[]
     filters?: RuntimeDatasourceFilter[]
+    lifecycleState?: 'active' | 'deleted'
+    libraryView?: 'all' | 'recent' | 'starred' | 'shared'
 }): Promise<AppDataResponse> {
-    const { apiBaseUrl, applicationId, limit, offset, locale, objectCollectionId, sectionId, search, sort, filters } = options
+    const {
+        apiBaseUrl,
+        applicationId,
+        limit,
+        offset,
+        locale,
+        objectCollectionId,
+        sectionId,
+        workspaceId,
+        search,
+        sort,
+        filters,
+        lifecycleState,
+        libraryView
+    } = options
     const resolvedSectionId = sectionId ?? objectCollectionId
     const normalizedBase = apiBaseUrl.replace(/\/$/, '')
     const runtimePath = `${normalizedBase}/applications/${applicationId}/runtime`
@@ -424,6 +415,9 @@ export async function fetchAppData(options: {
     if (resolvedSectionId) {
         url.searchParams.set('objectCollectionId', resolvedSectionId)
     }
+    if (workspaceId?.trim()) {
+        url.searchParams.set('workspaceId', workspaceId.trim())
+    }
     if (search?.trim()) {
         url.searchParams.set('search', search.trim())
     }
@@ -432,6 +426,12 @@ export async function fetchAppData(options: {
     }
     if (filters?.length) {
         url.searchParams.set('filters', JSON.stringify(filters))
+    }
+    if (lifecycleState === 'deleted') {
+        url.searchParams.set('lifecycleState', lifecycleState)
+    }
+    if (libraryView && libraryView !== 'all') {
+        url.searchParams.set('libraryView', libraryView)
     }
 
     const res = await fetch(url.toString(), { credentials: 'include' })
@@ -696,17 +696,55 @@ export async function deleteAppRow(options: {
     rowId: string
     objectCollectionId?: string
     sectionId?: string
+    expectedVersion?: number
 }): Promise<void> {
-    const { apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId } = options
+    const { apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId, expectedVersion } = options
     const resolvedSectionId = sectionId ?? objectCollectionId
     let url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}`)
+    const params = new URLSearchParams()
     if (resolvedSectionId) {
-        url += `?objectCollectionId=${encodeURIComponent(resolvedSectionId)}`
+        params.set('objectCollectionId', resolvedSectionId)
+    }
+    if (typeof expectedVersion === 'number') {
+        params.set('expectedVersion', String(expectedVersion))
+    }
+    const queryString = params.toString()
+    if (queryString) {
+        url += `?${queryString}`
     }
 
     const res = await fetchWithCsrf(apiBaseUrl, url, { method: 'DELETE' })
     if (!res.ok) {
         throw new Error(await extractErrorMessage(res, 'Delete row failed'))
+    }
+}
+
+/** Restore a soft-deleted row. */
+export async function restoreAppRow(options: {
+    apiBaseUrl: string
+    applicationId: string
+    rowId: string
+    objectCollectionId?: string
+    sectionId?: string
+    expectedVersion?: number
+}): Promise<void> {
+    const { apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId, expectedVersion } = options
+    const resolvedSectionId = sectionId ?? objectCollectionId
+    const body: Record<string, unknown> = {}
+    if (resolvedSectionId) {
+        body.objectCollectionId = resolvedSectionId
+    }
+    if (typeof expectedVersion === 'number') {
+        body.expectedVersion = expectedVersion
+    }
+
+    const res = await fetchWithCsrf(apiBaseUrl, buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}/restore`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    })
+    if (!res.ok) {
+        throw new Error(await extractErrorMessage(res, 'Restore row failed'))
     }
 }
 
@@ -718,12 +756,16 @@ export async function copyAppRow(options: {
     objectCollectionId?: string
     sectionId?: string
     copyChildTables?: boolean
+    data?: Record<string, unknown>
+    expectedVersion?: number
 }): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId, copyChildTables = true } = options
+    const { apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId, copyChildTables = true, data, expectedVersion } = options
     const resolvedSectionId = sectionId ?? objectCollectionId
     const url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}/copy`)
     const body: Record<string, unknown> = { copyChildTables }
     if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
+    if (data && Object.keys(data).length > 0) body.data = data
+    if (typeof expectedVersion === 'number') body.expectedVersion = expectedVersion
 
     const res = await fetchWithCsrf(apiBaseUrl, url, {
         method: 'POST',
@@ -787,6 +829,75 @@ export async function runAppWorkflowAction(options: {
         throw new Error(await extractErrorMessage(res, 'Workflow action failed'))
     }
     return res.json()
+}
+
+export async function updateLearningContentProgress(options: {
+    apiBaseUrl: string
+    applicationId: string
+    targetObjectCodename: string
+    targetRecordId: string
+    progressPercent: number
+    status?: string
+    action?: 'update' | 'complete'
+}): Promise<{ persisted: boolean; reason?: string; progressPercent?: number; status?: string }> {
+    const { apiBaseUrl, applicationId, targetObjectCodename, targetRecordId, progressPercent, status, action } = options
+    const url = buildAppApiUrl(apiBaseUrl, applicationId, '/progress/content')
+    const body: Record<string, unknown> = { targetObjectCodename, targetRecordId, progressPercent }
+    if (action) body.action = action
+    if (status) body.status = status
+
+    const res = await fetchWithCsrf(apiBaseUrl, url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    })
+    if (!res.ok) {
+        throw new Error(await extractErrorMessage(res, 'Update learning content progress failed'))
+    }
+    return res.json()
+}
+
+export async function recalculateLearningContentProgress(options: {
+    apiBaseUrl: string
+    applicationId: string
+    targetObjectCodename: string
+    targetRecordId: string
+}): Promise<{ persisted: boolean; action?: string; targetObjectCodename?: string; targetRecordId?: string }> {
+    const { apiBaseUrl, applicationId, targetObjectCodename, targetRecordId } = options
+    const url = buildAppApiUrl(apiBaseUrl, applicationId, '/progress/content')
+
+    const res = await fetchWithCsrf(apiBaseUrl, url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetObjectCodename, targetRecordId, action: 'recalculate' })
+    })
+    if (!res.ok) {
+        throw new Error(await extractErrorMessage(res, 'Recalculate learning content progress failed'))
+    }
+    return res.json()
+}
+
+/** Persist a complete row order for runtime objects that explicitly enable row reordering. */
+export async function reorderAppRows(options: {
+    apiBaseUrl: string
+    applicationId: string
+    objectCollectionId?: string
+    sectionId?: string
+    orderedRowIds: string[]
+}): Promise<void> {
+    const { apiBaseUrl, applicationId, objectCollectionId, sectionId, orderedRowIds } = options
+    const resolvedSectionId = sectionId ?? objectCollectionId
+    const body: Record<string, unknown> = { orderedRowIds }
+    if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
+
+    const res = await fetchWithCsrf(apiBaseUrl, buildAppApiUrl(apiBaseUrl, applicationId, '/rows/reorder'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    })
+    if (!res.ok) {
+        throw new Error(await extractErrorMessage(res, 'Reorder rows failed'))
+    }
 }
 
 // ---------------------------------------------------------------------------

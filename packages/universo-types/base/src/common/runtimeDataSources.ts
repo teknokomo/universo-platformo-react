@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export const RUNTIME_DATASOURCE_KINDS = ['records.list', 'ledger.facts', 'ledger.projection', 'metric'] as const
+export const RUNTIME_DATASOURCE_KINDS = ['records.list', 'records.union', 'ledger.facts', 'ledger.projection', 'metric'] as const
 export type RuntimeDatasourceKind = (typeof RUNTIME_DATASOURCE_KINDS)[number]
 
 export const runtimeDatasourceSortDirectionSchema = z.enum(['asc', 'desc'])
@@ -39,6 +39,8 @@ export type RuntimeDatasourceFilter = z.infer<typeof runtimeDatasourceFilterSche
 
 export const runtimeDatasourceListQuerySchema = z
     .object({
+        lifecycleState: z.enum(['active', 'deleted']).optional(),
+        libraryView: z.enum(['all', 'recent', 'starred', 'shared']).optional(),
         search: z.string().trim().max(200).optional(),
         sort: z.array(runtimeDatasourceSortSchema).max(5).optional(),
         filters: z.array(runtimeDatasourceFilterSchema).max(20).optional()
@@ -63,6 +65,41 @@ export const recordsListDatasourceSchema = datasourceBaseSchema
         query: runtimeDatasourceListQuerySchema.optional()
     })
     .strict()
+
+export const recordsUnionDatasourceTargetSchema = z
+    .object({
+        objectCollectionId: z.string().uuid().nullable().optional(),
+        objectCollectionCodename: z.string().min(1).max(128).nullable().optional(),
+        sectionId: z.string().uuid().nullable().optional(),
+        sectionCodename: z.string().min(1).max(128).nullable().optional(),
+        displayType: z.string().min(1).max(64).optional(),
+        typeField: z.string().min(1).max(128).optional(),
+        titleField: z.string().min(1).max(128).optional(),
+        statusField: z.string().min(1).max(128).optional(),
+        updatedAtField: z.string().min(1).max(128).optional()
+    })
+    .strict()
+    .superRefine((value, ctx) => {
+        const hasObject = Boolean(value.objectCollectionId || value.objectCollectionCodename)
+        const hasSection = Boolean(value.sectionId || value.sectionCodename)
+
+        if (!hasObject && !hasSection) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'Union datasource targets must resolve by object collection or section metadata.'
+            })
+        }
+    })
+export type RecordsUnionDatasourceTarget = z.infer<typeof recordsUnionDatasourceTargetSchema>
+
+export const recordsUnionDatasourceSchema = datasourceBaseSchema
+    .extend({
+        kind: z.literal('records.union'),
+        targets: z.array(recordsUnionDatasourceTargetSchema).min(1).max(32),
+        query: runtimeDatasourceListQuerySchema.optional()
+    })
+    .strict()
+export type RecordsUnionDatasource = z.infer<typeof recordsUnionDatasourceSchema>
 
 export const ledgerFactsDatasourceSchema = datasourceBaseSchema
     .extend({
@@ -130,6 +167,7 @@ export type StatCardMetricDatasource = z.infer<typeof statCardMetricDatasourceSc
 
 export const runtimeDatasourceDescriptorSchema = z.discriminatedUnion('kind', [
     recordsListDatasourceSchema,
+    recordsUnionDatasourceSchema,
     ledgerFactsDatasourceSchema,
     ledgerProjectionDatasourceSchema,
     metricDatasourceSchema

@@ -71,8 +71,8 @@ type GuestSession = {
     sessionToken: string
 }
 
-type GuestRuntimeModule = {
-    type: 'module'
+type GuestRuntimeContent = {
+    type: 'content'
     id: string
     title: string
     description?: string
@@ -101,9 +101,9 @@ type GuestRuntimeQuiz = {
     }>
 }
 
-type GuestRuntimePayload = GuestRuntimeModule | GuestRuntimeQuiz
+type GuestRuntimePayload = GuestRuntimeContent | GuestRuntimeQuiz
 
-const calculateGuestModuleProgress = (contentItems: GuestRuntimeModule['contentItems'], completedThroughIndex: number): number => {
+const calculateGuestContentProgress = (contentItems: GuestRuntimeContent['contentItems'], completedThroughIndex: number): number => {
     const items: CompletionItem[] = contentItems.map((item, index) => ({
         id: item.id,
         status: index <= completedThroughIndex ? 'completed' : 'notStarted'
@@ -153,7 +153,7 @@ export default function GuestApp(props: GuestAppProps) {
     const [currentItemIndex, setCurrentItemIndex] = useState(0)
     const [activeQuizId, setActiveQuizId] = useState<string | null>(null)
     const [answers, setAnswers] = useState<Record<string, string[]>>({})
-    const [moduleCompleted, setModuleCompleted] = useState(false)
+    const [contentCompleted, setContentCompleted] = useState(false)
     const publicCsrfStorageKey = getPublicCsrfStorageKey(applicationId)
 
     const resolveCsrfToken = async (forceRefresh = false) => {
@@ -229,7 +229,7 @@ export default function GuestApp(props: GuestAppProps) {
             return (await response.json()) as {
                 id: string
                 title?: string
-                targetType: 'module' | 'quiz'
+                targetType: 'content' | 'quiz'
                 targetId: string
             }
         }
@@ -294,7 +294,7 @@ export default function GuestApp(props: GuestAppProps) {
     })
 
     const progressMutation = useMutation({
-        mutationFn: async (input: { moduleId: string; progressPercent: number; lastAccessedItemIndex: number; status: string }) => {
+        mutationFn: async (input: { contentNodeId: string; progressPercent: number; lastAccessedItemIndex: number; status: string }) => {
             if (!session) return
             const response = await fetchWithPublicCsrf(`${apiBaseUrl}/public/a/${applicationId}/runtime/guest-progress`, {
                 method: 'POST',
@@ -302,7 +302,7 @@ export default function GuestApp(props: GuestAppProps) {
                 body: JSON.stringify({
                     participantId: session.participantId,
                     sessionToken: session.sessionToken,
-                    contentNodeId: input.moduleId,
+                    contentNodeId: input.contentNodeId,
                     progressPercent: input.progressPercent,
                     lastAccessedItemIndex: input.lastAccessedItemIndex,
                     status: input.status
@@ -310,7 +310,7 @@ export default function GuestApp(props: GuestAppProps) {
             })
 
             if (!response.ok) {
-                throw new Error(t('guest.errors.progressSave', 'Failed to save module progress.'))
+                throw new Error(t('guest.errors.progressSave', 'Failed to save content progress.'))
             }
 
             return (await response.json()) as { ok: boolean }
@@ -350,23 +350,23 @@ export default function GuestApp(props: GuestAppProps) {
         setActiveQuizId(quizId)
     }
 
-    const handleBackToModule = () => {
+    const handleBackToContent = () => {
         submitQuizMutation.reset()
         setAnswers({})
         setActiveQuizId(null)
     }
 
     const runtime = runtimeQuery.data
-    const currentItem = runtime?.type === 'module' ? runtime.contentItems[currentItemIndex] ?? null : null
-    const totalItems = runtime?.type === 'module' ? runtime.contentItems.length : 0
+    const currentItem = runtime?.type === 'content' ? runtime.contentItems[currentItemIndex] ?? null : null
+    const totalItems = runtime?.type === 'content' ? runtime.contentItems.length : 0
 
     useEffect(() => {
-        if (runtime?.type !== 'module') {
-            setModuleCompleted(false)
+        if (runtime?.type !== 'content') {
+            setContentCompleted(false)
             return
         }
 
-        setModuleCompleted(false)
+        setContentCompleted(false)
     }, [runtime?.id, runtime?.type])
 
     const handleStartGuestSession = () => {
@@ -374,15 +374,15 @@ export default function GuestApp(props: GuestAppProps) {
         sessionMutation.mutate()
     }
 
-    const handleMoveModule = (nextIndex: number) => {
-        if (!runtime || runtime.type !== 'module') return
+    const handleMoveContent = (nextIndex: number) => {
+        if (!runtime || runtime.type !== 'content') return
         const boundedIndex = Math.max(0, Math.min(nextIndex, runtime.contentItems.length - 1))
-        setModuleCompleted(false)
+        setContentCompleted(false)
         setCurrentItemIndex(boundedIndex)
         if (session) {
-            const progressPercent = calculateGuestModuleProgress(runtime.contentItems, boundedIndex)
+            const progressPercent = calculateGuestContentProgress(runtime.contentItems, boundedIndex)
             progressMutation.mutate({
-                moduleId: runtime.id,
+                contentNodeId: runtime.id,
                 progressPercent,
                 lastAccessedItemIndex: boundedIndex,
                 status: progressPercent >= 100 ? 'completed' : 'in_progress'
@@ -397,29 +397,29 @@ export default function GuestApp(props: GuestAppProps) {
         }))
     }
 
-    const handleCompleteModule = async () => {
-        if (!runtime || runtime.type !== 'module') return
+    const handleCompleteContent = async () => {
+        if (!runtime || runtime.type !== 'content') return
 
         if (!session) {
-            setModuleCompleted(true)
+            setContentCompleted(true)
             return
         }
 
         try {
             await progressMutation.mutateAsync({
-                moduleId: runtime.id,
+                contentNodeId: runtime.id,
                 progressPercent: 100,
                 lastAccessedItemIndex: Math.max(totalItems - 1, 0),
                 status: 'completed'
             })
 
-            setModuleCompleted(true)
+            setContentCompleted(true)
         } catch {
-            setModuleCompleted(false)
+            setContentCompleted(false)
         }
     }
 
-    const renderModuleItem = () => {
+    const renderContentItem = () => {
         if (!currentItem) return null
 
         if (currentItem.itemType === 'text') {
@@ -431,7 +431,7 @@ export default function GuestApp(props: GuestAppProps) {
                 <Box
                     component='img'
                     src={currentItem.itemContent}
-                    alt={currentItem.itemTitle || 'module item'}
+                    alt={currentItem.itemTitle || 'content item'}
                     sx={{ width: '100%', borderRadius: 2 }}
                 />
             )
@@ -487,8 +487,8 @@ export default function GuestApp(props: GuestAppProps) {
 
             <Stack direction='row' spacing={1} justifyContent='flex-end'>
                 {activeQuizId ? (
-                    <Button variant='text' onClick={handleBackToModule}>
-                        {t('guest.backToModule', 'Back to module')}
+                    <Button variant='text' onClick={handleBackToContent}>
+                        {t('guest.backToContent', 'Back to content')}
                     </Button>
                 ) : null}
                 <Button variant='contained' onClick={() => submitQuizMutation.mutate(quiz.id)} disabled={submitQuizMutation.isPending}>
@@ -567,21 +567,21 @@ export default function GuestApp(props: GuestAppProps) {
 
                             {runtimeQuery.error instanceof Error ? <Alert severity='error'>{runtimeQuery.error.message}</Alert> : null}
 
-                            {runtime?.type === 'module' ? (
-                                moduleCompleted ? (
+                            {runtime?.type === 'content' ? (
+                                contentCompleted ? (
                                     <Stack spacing={2}>
                                         <Alert severity='success'>
-                                            {t('guest.moduleCompleted', 'Module complete. Progress has been recorded for this session.')}
+                                            {t('guest.contentCompleted', 'Content complete. Progress has been recorded for this session.')}
                                         </Alert>
                                         <Stack direction='row' spacing={1} justifyContent='flex-end'>
                                             <Button
                                                 variant='outlined'
                                                 onClick={() => {
-                                                    setModuleCompleted(false)
+                                                    setContentCompleted(false)
                                                     setCurrentItemIndex(0)
                                                 }}
                                             >
-                                                {t('guest.restartModule', 'Restart module')}
+                                                {t('guest.restartContent', 'Restart content')}
                                             </Button>
                                         </Stack>
                                     </Stack>
@@ -592,21 +592,21 @@ export default function GuestApp(props: GuestAppProps) {
                                             value={totalItems > 0 ? ((currentItemIndex + 1) / totalItems) * 100 : 0}
                                         />
                                         {currentItem?.itemTitle ? <Typography variant='h6'>{currentItem.itemTitle}</Typography> : null}
-                                        {renderModuleItem()}
+                                        {renderContentItem()}
                                         <Stack direction='row' spacing={1} justifyContent='space-between'>
                                             <Button
                                                 variant='outlined'
-                                                onClick={() => handleMoveModule(currentItemIndex - 1)}
+                                                onClick={() => handleMoveContent(currentItemIndex - 1)}
                                                 disabled={currentItemIndex === 0}
                                             >
                                                 {t('guest.previous', 'Previous')}
                                             </Button>
                                             {currentItemIndex >= totalItems - 1 ? (
-                                                <Button variant='contained' onClick={handleCompleteModule}>
-                                                    {t('guest.completeModule', 'Complete module')}
+                                                <Button variant='contained' onClick={handleCompleteContent}>
+                                                    {t('guest.completeContent', 'Complete content')}
                                                 </Button>
                                             ) : (
-                                                <Button variant='contained' onClick={() => handleMoveModule(currentItemIndex + 1)}>
+                                                <Button variant='contained' onClick={() => handleMoveContent(currentItemIndex + 1)}>
                                                     {t('guest.next', 'Next')}
                                                 </Button>
                                             )}

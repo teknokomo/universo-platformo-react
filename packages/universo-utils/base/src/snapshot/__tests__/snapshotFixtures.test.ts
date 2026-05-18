@@ -119,8 +119,8 @@ describe('committed metahub snapshot fixtures', () => {
         })
         expect(pointAwardRules.map((row) => row.data?.RuleCode).sort()).toEqual([
             'assignment.accepted',
-            'manual.adjustment',
-            'module.completed'
+            'content.completed',
+            'manual.adjustment'
         ])
         expect(sumNumericField(pointTransactions, 'PointsDelta')).toBe(50)
         expect(

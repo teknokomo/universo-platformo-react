@@ -47,6 +47,7 @@ import {
     toWorkspaceAwareSnapshot,
     toWorkspaceAwareSchemaSnapshot,
     withWorkspaceRuntimeLayoutWidgets,
+    remapSnapshotLayoutScopeEntityIds,
     toStructuralSchemaSnapshot,
     normalizeReferenceId,
     resolveLocalizedPreviewText,
@@ -131,7 +132,10 @@ export async function syncApplicationSchemaFromSource(options: {
         const latestMigration = await migrationManager.getLatestMigration(application.schemaName)
         const lastAppliedHash = latestMigration?.meta?.publicationSnapshotHash
         if (lastAppliedHash && lastAppliedHash === source.snapshotHash && releaseSchemaSnapshotMatchesTrackedState) {
-            const runtimeSnapshot = withWorkspaceRuntimeLayoutWidgets(source.snapshot, application.workspacesEnabled)
+            const runtimeSnapshot = withWorkspaceRuntimeLayoutWidgets(
+                remapSnapshotLayoutScopeEntityIds(source.snapshot, source.entities),
+                application.workspacesEnabled
+            )
             const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({ schemaName: application.schemaName, snapshot: runtimeSnapshot })
             const layoutsNeedUpdate = await hasPublishedLayoutsChanges({ schemaName: application.schemaName, snapshot: runtimeSnapshot })
             const widgetsNeedUpdate = await hasPublishedWidgetsChanges({
@@ -378,7 +382,10 @@ export async function syncApplicationSchemaFromSource(options: {
         const hasDestructiveChanges = diff.destructive.length > 0
 
         if (!diff.hasChanges) {
-            const runtimeSnapshot = withWorkspaceRuntimeLayoutWidgets(source.snapshot, application.workspacesEnabled)
+            const runtimeSnapshot = withWorkspaceRuntimeLayoutWidgets(
+                remapSnapshotLayoutScopeEntityIds(source.snapshot, source.entities),
+                application.workspacesEnabled
+            )
             const uiNeedsUpdate = await hasDashboardLayoutConfigChanges({ schemaName: application.schemaName!, snapshot: runtimeSnapshot })
             const layoutsNeedUpdate = await hasPublishedLayoutsChanges({ schemaName: application.schemaName!, snapshot: runtimeSnapshot })
             const widgetsNeedUpdate = await hasPublishedWidgetsChanges({
@@ -1000,7 +1007,10 @@ export async function runPublishedApplicationRuntimeSync(options: {
         userId,
         layoutResolutionPolicy
     } = options
-    const runtimeSnapshot = withWorkspaceRuntimeLayoutWidgets(snapshot, options.workspacesEnabled === true)
+    const runtimeSnapshot = withWorkspaceRuntimeLayoutWidgets(
+        remapSnapshotLayoutScopeEntityIds(snapshot, entities),
+        options.workspacesEnabled === true
+    )
 
     await runSchemaSyncStep(`runtimeSync:${applicationId}:layouts`, async () =>
         persistPublishedLayouts({

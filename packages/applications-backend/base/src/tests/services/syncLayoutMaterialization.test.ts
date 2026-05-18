@@ -1,11 +1,63 @@
+import type { EntityDefinition } from '@universo/schema-ddl'
 import {
     normalizeSnapshotLayoutZoneWidgets,
     normalizeSnapshotLayouts,
+    remapSnapshotLayoutScopeEntityIds,
     withWorkspaceRuntimeLayoutWidgets
 } from '../../routes/sync/syncHelpers'
 import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
 
 describe('sync layout materialization helpers', () => {
+    it('remaps snapshot scoped layout entity ids to runtime entity ids by codename', () => {
+        const snapshot: PublishedApplicationSnapshot = {
+            entities: {
+                'snapshot-course-items': {
+                    id: 'snapshot-course-items',
+                    kind: 'object',
+                    codename: { _primary: 'en', locales: { en: { content: 'CourseItems' } } }
+                }
+            },
+            layouts: [
+                {
+                    id: 'global-layout-1',
+                    templateKey: 'dashboard',
+                    name: { en: 'Global default' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0
+                }
+            ],
+            scopedLayouts: [
+                {
+                    id: 'course-items-layout',
+                    scopeEntityId: 'snapshot-course-items',
+                    baseLayoutId: 'global-layout-1',
+                    templateKey: 'dashboard',
+                    name: { en: 'Course Items' },
+                    description: null,
+                    config: { showColumnsContainer: true },
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0
+                }
+            ],
+            defaultLayoutId: 'global-layout-1'
+        }
+        const runtimeEntities = [
+            {
+                id: 'runtime-course-items',
+                kind: 'object',
+                codename: { _primary: 'en', locales: { en: { content: 'CourseItems' } } }
+            }
+        ] as EntityDefinition[]
+
+        const remapped = remapSnapshotLayoutScopeEntityIds(snapshot, runtimeEntities)
+
+        expect(remapped.scopedLayouts?.[0]?.scopeEntityId).toBe('runtime-course-items')
+    })
+
     it('injects workspace switcher widgets into global layouts when runtime workspaces are enabled', () => {
         const snapshot: PublishedApplicationSnapshot = {
             layouts: [
@@ -165,6 +217,59 @@ describe('sync layout materialization helpers', () => {
                     config: { compact: true }
                 })
             ])
+        )
+    })
+
+    it('keeps explicit scoped layout visibility flags over inherited widget-derived visibility', () => {
+        const snapshot: PublishedApplicationSnapshot = {
+            layouts: [
+                {
+                    id: 'global-layout-1',
+                    templateKey: 'dashboard',
+                    name: { en: 'Global default' },
+                    description: null,
+                    config: { showDetailsTable: true },
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0
+                }
+            ],
+            layoutZoneWidgets: [
+                {
+                    id: 'global-details-table',
+                    layoutId: 'global-layout-1',
+                    zone: 'center',
+                    widgetKey: 'detailsTable',
+                    sortOrder: 0,
+                    config: {},
+                    isActive: true
+                }
+            ],
+            scopedLayouts: [
+                {
+                    id: 'object-layout-1',
+                    scopeEntityId: 'object-1',
+                    baseLayoutId: 'global-layout-1',
+                    templateKey: 'dashboard',
+                    name: { en: 'Object override' },
+                    description: null,
+                    config: { showDetailsTable: false, showColumnsContainer: true },
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0
+                }
+            ],
+            defaultLayoutId: 'global-layout-1'
+        }
+
+        const layouts = normalizeSnapshotLayouts(snapshot)
+        const scopedLayout = layouts.find((item) => item.id === 'object-layout-1')
+
+        expect(scopedLayout?.config).toEqual(
+            expect.objectContaining({
+                showDetailsTable: false,
+                showColumnsContainer: true
+            })
         )
     })
 

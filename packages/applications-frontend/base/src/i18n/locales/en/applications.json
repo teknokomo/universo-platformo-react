@@ -64,6 +64,7 @@
             "title": "Application Settings",
             "tabs": {
                 "general": "General",
+                "learningContent": "Learning Content",
                 "connectors": "Connectors",
                 "access": "Access",
                 "limits": "Limits"
@@ -150,6 +151,70 @@
             "limitsLoadError": "Failed to load limits",
             "limitsSaved": "Limits saved",
             "limitsSaveError": "Failed to save limits",
+            "learningContentHint": "Configure default Learning Content behavior for published workspaces. Workspace authors can still tune individual records where permissions allow it.",
+            "learningContent": {
+                "defaultView": "Default content view",
+                "defaultViewDescription": "Choose the first view mode for Learning Content project libraries.",
+                "views": {
+                    "table": "Table",
+                    "cards": "Cards"
+                },
+                "resourceTypes": "Resource types",
+                "resourceTypesDescription": "Enable only resource types that have safe runtime behavior. Deferred types stay visible as unsupported placeholders.",
+                "enabled": "Enabled",
+                "deferred": "Deferred",
+                "resourceTypeLabels": {
+                    "page": "Page",
+                    "url": "Link",
+                    "video": "Video",
+                    "audio": "Audio",
+                    "document": "Document",
+                    "scorm": "SCORM package",
+                    "xapi": "xAPI package",
+                    "embed": "Embed",
+                    "file": "File"
+                },
+                "coursePolicy": "Course completion policy",
+                "coursePolicyDescription": "Defaults for course navigation, completion calculation, and status display.",
+                "navigationMode": "Navigation",
+                "navigationModes": {
+                    "free": "Free",
+                    "sequential": "Sequential"
+                },
+                "completionCondition": "Completion",
+                "completionConditions": {
+                    "allItems": "All items",
+                    "selectedItems": "Selected items"
+                },
+                "statusFormat": "Status",
+                "statusFormats": {
+                    "completeIncomplete": "Complete / incomplete",
+                    "passedFailed": "Passed / failed"
+                },
+                "trackPolicy": "Learning track order",
+                "trackPolicyDescription": "Default order behavior used when a new learning track is created.",
+                "restrictAfterDueDate": "Restrict after due date",
+                "orderMode": "Order",
+                "orderModes": {
+                    "byDays": "By days",
+                    "sequential": "Sequential",
+                    "free": "Free"
+                },
+                "player": "Player preset",
+                "playerDescription": "Controls the default learner player chrome for pages, links, courses, and tracks.",
+                "showOutline": "Outline",
+                "showProgressHeader": "Progress",
+                "columns": "Default columns",
+                "columnsDescription": "Choose the default visible columns for Learning Content library tables.",
+                "columnLabels": {
+                    "Title": "Title",
+                    "ResourceType": "Type",
+                    "PublicationStatus": "Status",
+                    "ProjectId": "Project",
+                    "UpdatedAt": "Updated",
+                    "CreatedBy": "Created by"
+                }
+            },
             "missingApplicationId": "Application ID is missing in URL",
             "loadError": "Failed to load application settings",
             "maxRows": "Max rows",

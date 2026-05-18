@@ -81,15 +81,16 @@ const publicGuestRuntimeSettings = {
                 accessLinks: 'AccessLinks',
                 participants: 'Students',
                 assessments: 'Quizzes',
-                contentNodes: 'Modules',
+                contentNodes: 'LearningResources',
                 assessmentResponses: 'QuizResponses',
-                contentProgress: 'ModuleProgress'
+                contentProgress: 'ContentProgress'
             },
             fields: {
                 accessLink: {
                     slug: 'Slug',
                     targetType: 'TargetType',
                     targetId: 'TargetId',
+                    contentNodeIdRef: 'ContentNodeIdRef',
                     isActive: 'IsActive',
                     expiresAt: 'ExpiresAt',
                     maxUses: 'MaxUses',
@@ -139,7 +140,7 @@ const publicGuestRuntimeSettings = {
                 },
                 contentProgress: {
                     studentId: 'ProgressStudentId',
-                    moduleId: 'ModuleId',
+                    contentNodeId: 'ContentNodeId',
                     status: 'ProgressStatus',
                     progressPercent: 'ProgressPercent',
                     startedAt: 'StartedAt',
@@ -154,7 +155,7 @@ const publicGuestRuntimeSettings = {
 describe('Public Applications Routes', () => {
     const applicationId = '2a15af4d-54ef-4b65-b5fd-8274d0d1de1b'
     const schemaName = 'app_018f8a787b8f7c1da111222233334442'
-    const moduleId = '8f1c1880-2b67-4d79-b02b-a53db0a85453'
+    const contentNodeId = '8f1c1880-2b67-4d79-b02b-a53db0a85453'
     const quizId = '16fe6f92-497d-47dd-a1bc-faf7fe55d765'
     const accessLinkId = '3ea1c528-0868-44b6-a30b-7e63a9f963da'
     const workspaceId1 = '018f8a78-7b8f-7c1d-a111-222233334441'
@@ -225,6 +226,13 @@ describe('Public Applications Routes', () => {
                                 parent_component_id: null
                             },
                             {
+                                id: 'attr-content-ref',
+                                codename: codenameVlc('ContentNodeIdRef'),
+                                column_name: 'content_node_id_ref',
+                                data_type: 'REF',
+                                parent_component_id: null
+                            },
+                            {
                                 id: 'attr-4',
                                 codename: codenameVlc('IsActive'),
                                 column_name: 'is_active',
@@ -236,7 +244,16 @@ describe('Public Applications Routes', () => {
 
                     if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
                         return currentWorkspaceId === workspaceId2
-                            ? [{ id: accessLinkId, slug: 'demo-module', target_type: 'module', target_id: moduleId, is_active: true }]
+                            ? [
+                                  {
+                                      id: accessLinkId,
+                                      slug: 'demo-content',
+                                      target_type: 'content',
+                                      target_id: quizId,
+                                      content_node_id_ref: contentNodeId,
+                                      is_active: true
+                                  }
+                              ]
                             : []
                     }
 
@@ -247,9 +264,10 @@ describe('Public Applications Routes', () => {
         )
 
         const app = buildApp(dataSource)
-        const response = await request(app).get(`/public/a/${applicationId}/links/demo-module`).expect(200)
+        const response = await request(app).get(`/public/a/${applicationId}/links/demo-content`).expect(200)
 
         expect(response.body.id).toBe(accessLinkId)
+        expect(response.body.targetId).toBe(contentNodeId)
         expect(currentWorkspaceId).toBe(workspaceId2)
     })
 
@@ -312,7 +330,15 @@ describe('Public Applications Routes', () => {
 
                     if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
                         return scope === 'tx' && txWorkspaceId === workspaceId2
-                            ? [{ id: accessLinkId, slug: 'demo-module', target_type: 'module', target_id: moduleId, is_active: true }]
+                            ? [
+                                  {
+                                      id: accessLinkId,
+                                      slug: 'demo-content',
+                                      target_type: 'content',
+                                      target_id: contentNodeId,
+                                      is_active: true
+                                  }
+                              ]
                             : []
                     }
 
@@ -323,7 +349,7 @@ describe('Public Applications Routes', () => {
         )
 
         const app = buildApp(dataSource)
-        const response = await request(app).get(`/public/a/${applicationId}/links/demo-module`).expect(200)
+        const response = await request(app).get(`/public/a/${applicationId}/links/demo-content`).expect(200)
 
         expect(response.body.id).toBe(accessLinkId)
         expect(txWorkspaceId).toBe(workspaceId2)
@@ -384,7 +410,15 @@ describe('Public Applications Routes', () => {
 
                     if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
                         return currentWorkspaceId === workspaceId1
-                            ? [{ id: accessLinkId, slug: 'demo-module', target_type: 'module', target_id: moduleId, is_active: true }]
+                            ? [
+                                  {
+                                      id: accessLinkId,
+                                      slug: 'demo-content',
+                                      target_type: 'content',
+                                      target_id: contentNodeId,
+                                      is_active: true
+                                  }
+                              ]
                             : []
                     }
 
@@ -395,7 +429,7 @@ describe('Public Applications Routes', () => {
         )
 
         const app = buildApp(dataSource)
-        await request(app).get(`/public/a/${applicationId}/links/demo-module`).expect(404)
+        await request(app).get(`/public/a/${applicationId}/links/demo-content`).expect(404)
     })
 
     it('resolves an active public access link by slug', async () => {
@@ -463,14 +497,14 @@ describe('Public Applications Routes', () => {
                     return [
                         {
                             id: accessLinkId,
-                            slug: 'demo-module',
-                            target_type: 'module',
-                            target_id: moduleId,
+                            slug: 'demo-content',
+                            target_type: 'content',
+                            target_id: contentNodeId,
                             is_active: true,
                             expires_at: null,
                             max_uses: 5,
                             use_count: 0,
-                            title: localizedTextVlc('Demo module', 'Демо-модуль'),
+                            title: localizedTextVlc('Demo content', 'Демо-модуль'),
                             class_id: null
                         }
                     ]
@@ -481,13 +515,13 @@ describe('Public Applications Routes', () => {
         )
 
         const app = buildApp(dataSource)
-        const response = await request(app).get(`/public/a/${applicationId}/links/demo-module`).expect(200)
+        const response = await request(app).get(`/public/a/${applicationId}/links/demo-content`).expect(200)
 
         expect(response.body).toMatchObject({
             id: accessLinkId,
-            slug: 'demo-module',
-            targetType: 'module',
-            title: 'Demo module'
+            slug: 'demo-content',
+            targetType: 'content',
+            title: 'Demo content'
         })
     })
 
@@ -542,9 +576,9 @@ describe('Public Applications Routes', () => {
                     return [
                         {
                             id: accessLinkId,
-                            slug: 'demo-module',
-                            target_type: 'module',
-                            target_id: moduleId,
+                            slug: 'demo-content',
+                            target_type: 'content',
+                            target_id: contentNodeId,
                             is_active: true,
                             title: localizedTextVlc('Docking drill', 'Стыковочная тренировка')
                         }
@@ -556,7 +590,7 @@ describe('Public Applications Routes', () => {
         )
 
         const app = buildApp(dataSource)
-        const response = await request(app).get(`/public/a/${applicationId}/links/demo-module?locale=ru`).expect(200)
+        const response = await request(app).get(`/public/a/${applicationId}/links/demo-content?locale=ru`).expect(200)
 
         expect(response.body.title).toBe('Стыковочная тренировка')
     })
@@ -582,14 +616,14 @@ describe('Public Applications Routes', () => {
                     ]
                 }
                 if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
-                    return [{ id: accessLinkId, slug: 'demo-module', target_type: 'module', target_id: moduleId, is_active: false }]
+                    return [{ id: accessLinkId, slug: 'demo-content', target_type: 'content', target_id: contentNodeId, is_active: false }]
                 }
                 return undefined
             })
         )
 
         const app = buildApp(dataSource)
-        await request(app).get(`/public/a/${applicationId}/links/demo-module`).expect(403)
+        await request(app).get(`/public/a/${applicationId}/links/demo-content`).expect(403)
     })
 
     it('rejects expired access links', async () => {
@@ -617,9 +651,9 @@ describe('Public Applications Routes', () => {
                     return [
                         {
                             id: accessLinkId,
-                            slug: 'demo-module',
-                            target_type: 'module',
-                            target_id: moduleId,
+                            slug: 'demo-content',
+                            target_type: 'content',
+                            target_id: contentNodeId,
                             is_active: true,
                             expires_at: '2000-01-01T00:00:00.000Z'
                         }
@@ -630,7 +664,7 @@ describe('Public Applications Routes', () => {
         )
 
         const app = buildApp(dataSource)
-        await request(app).get(`/public/a/${applicationId}/links/demo-module`).expect(403)
+        await request(app).get(`/public/a/${applicationId}/links/demo-content`).expect(403)
     })
 
     it('rejects exhausted access links before creating a guest session', async () => {
@@ -659,9 +693,9 @@ describe('Public Applications Routes', () => {
                     return [
                         {
                             id: accessLinkId,
-                            slug: 'demo-module',
-                            target_type: 'module',
-                            target_id: moduleId,
+                            slug: 'demo-content',
+                            target_type: 'content',
+                            target_id: contentNodeId,
                             is_active: true,
                             max_uses: 1,
                             use_count: 1
@@ -754,14 +788,14 @@ describe('Public Applications Routes', () => {
                     return [
                         {
                             id: accessLinkId,
-                            slug: 'demo-module',
-                            target_type: 'module',
-                            target_id: moduleId,
+                            slug: 'demo-content',
+                            target_type: 'content',
+                            target_id: contentNodeId,
                             is_active: true,
                             expires_at: null,
                             max_uses: 5,
                             use_count: 0,
-                            title: 'Demo module',
+                            title: 'Demo content',
                             class_id: null
                         }
                     ]
@@ -891,9 +925,9 @@ describe('Public Applications Routes', () => {
                             ? [
                                   {
                                       id: accessLinkId,
-                                      slug: 'demo-module',
-                                      target_type: 'module',
-                                      target_id: moduleId,
+                                      slug: 'demo-content',
+                                      target_type: 'content',
+                                      target_id: contentNodeId,
                                       is_active: true,
                                       max_uses: 5,
                                       use_count: 0
@@ -968,7 +1002,14 @@ describe('Public Applications Routes', () => {
                             ]
                         }
 
-                        return [{ id: 'object-modules', codename: codenameVlc('Modules'), kind: 'object', table_name: 'modules_table' }]
+                        return [
+                            {
+                                id: 'object-learning-resources',
+                                codename: codenameVlc('LearningResources'),
+                                kind: 'object',
+                                table_name: 'learning_resources_table'
+                            }
+                        ]
                     }
 
                     if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
@@ -1097,13 +1138,21 @@ describe('Public Applications Routes', () => {
 
                     if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
                         return currentWorkspaceId === workspaceId2
-                            ? [{ id: accessLinkId, slug: 'demo-module', target_type: 'module', target_id: moduleId, is_active: true }]
+                            ? [
+                                  {
+                                      id: accessLinkId,
+                                      slug: 'demo-content',
+                                      target_type: 'content',
+                                      target_id: contentNodeId,
+                                      is_active: true
+                                  }
+                              ]
                             : []
                     }
 
-                    if (sql.includes(`FROM "${schemaName}"."modules_table"`)) {
+                    if (sql.includes(`FROM "${schemaName}"."learning_resources_table"`)) {
                         return currentWorkspaceId === workspaceId2
-                            ? [{ id: moduleId, title: 'Header-auth module', description: 'Shared lesson' }]
+                            ? [{ id: contentNodeId, title: 'Header-auth content', description: 'Shared lesson' }]
                             : []
                     }
 
@@ -1116,7 +1165,7 @@ describe('Public Applications Routes', () => {
                             ? [
                                   {
                                       id: 'row-1',
-                                      _tp_parent_id: moduleId,
+                                      _tp_parent_id: contentNodeId,
                                       _tp_sort_order: 1,
                                       item_type: 'value-text',
                                       item_title: 'Header-auth item',
@@ -1134,15 +1183,15 @@ describe('Public Applications Routes', () => {
 
         const app = buildApp(dataSource)
         const response = await request(app)
-            .get(`/public/a/${applicationId}/runtime?slug=demo-module`)
+            .get(`/public/a/${applicationId}/runtime?slug=demo-content`)
             .set('X-Guest-Participant-Id', studentId)
             .set('X-Guest-Session-Token', sessionToken)
             .expect(200)
 
         expect(response.body).toMatchObject({
-            type: 'module',
-            id: moduleId,
-            title: 'Header-auth module'
+            type: 'content',
+            id: contentNodeId,
+            title: 'Header-auth content'
         })
         expect(response.body.contentItems).toEqual([
             expect.objectContaining({
@@ -1214,7 +1263,7 @@ describe('Public Applications Routes', () => {
 
         const app = buildApp(dataSource)
         await request(app)
-            .get(`/public/a/${applicationId}/runtime?slug=demo-module`)
+            .get(`/public/a/${applicationId}/runtime?slug=demo-content`)
             .set('X-Guest-Student-Id', studentId)
             .set('X-Guest-Session-Token', sessionToken)
             .expect(403)
@@ -1254,7 +1303,7 @@ describe('Public Applications Routes', () => {
                 participantId: 'af8a5659-4155-4681-aa2f-a7605809cbf0',
                 studentId: 'bf8a5659-4155-4681-aa2f-a7605809cbf0',
                 sessionToken: 'session-token',
-                contentNodeId: moduleId,
+                contentNodeId: contentNodeId,
                 progressPercent: 50,
                 lastAccessedItemIndex: 1,
                 status: 'in_progress'
@@ -1269,7 +1318,7 @@ describe('Public Applications Routes', () => {
         const dataSource = buildDataSource(withPublicApplication(() => undefined))
         const app = buildApp(dataSource)
 
-        await request(app).get(`/public/a/${applicationId}/runtime?targetType=module&targetId=${moduleId}`).expect(400)
+        await request(app).get(`/public/a/${applicationId}/runtime?targetType=content&targetId=${contentNodeId}`).expect(400)
     })
 
     it('rejects runtime targets that are not linked from the requested access link', async () => {
@@ -1279,7 +1328,14 @@ describe('Public Applications Routes', () => {
                     if (params[0] === 'AccessLinks') {
                         return [{ id: 'object-links', codename: 'AccessLinks', kind: 'object', table_name: 'access_links_table' }]
                     }
-                    return [{ id: 'object-modules', codename: 'Modules', kind: 'object', table_name: 'modules_table' }]
+                    return [
+                        {
+                            id: 'object-learning-resources',
+                            codename: 'LearningResources',
+                            kind: 'object',
+                            table_name: 'learning_resources_table'
+                        }
+                    ]
                 }
 
                 if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
@@ -1367,11 +1423,11 @@ describe('Public Applications Routes', () => {
                 }
 
                 if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
-                    return [{ id: accessLinkId, slug: 'demo-module', target_type: 'module', target_id: moduleId, is_active: true }]
+                    return [{ id: accessLinkId, slug: 'demo-content', target_type: 'content', target_id: contentNodeId, is_active: true }]
                 }
 
-                if (sql.includes(`FROM "${schemaName}"."modules_table"`)) {
-                    return [{ id: moduleId, title: 'Demo module', description: 'Lesson' }]
+                if (sql.includes(`FROM "${schemaName}"."learning_resources_table"`)) {
+                    return [{ id: contentNodeId, title: 'Demo content', description: 'Lesson' }]
                 }
 
                 if (sql.includes(`FROM "${schemaName}"."_app_values"`)) {
@@ -1382,7 +1438,7 @@ describe('Public Applications Routes', () => {
                     return [
                         {
                             id: 'row-1',
-                            parent_record_id: moduleId,
+                            parent_record_id: contentNodeId,
                             item_type: 'value-quiz-ref',
                             item_title: 'Allowed quiz',
                             item_content: '',
@@ -1398,7 +1454,7 @@ describe('Public Applications Routes', () => {
 
         const app = buildApp(dataSource)
         await request(app)
-            .get(`/public/a/${applicationId}/runtime?slug=demo-module&targetType=quiz&targetId=018f8a78-7b8f-7c1d-a111-222233334444`)
+            .get(`/public/a/${applicationId}/runtime?slug=demo-content&targetType=quiz&targetId=018f8a78-7b8f-7c1d-a111-222233334444`)
             .expect(403)
     })
 
@@ -1421,7 +1477,14 @@ describe('Public Applications Routes', () => {
                         if (params[0] === 'AccessLinks') {
                             return [{ id: 'object-links', codename: 'AccessLinks', kind: 'object', table_name: 'access_links_table' }]
                         }
-                        return [{ id: 'object-modules', codename: 'Modules', kind: 'object', table_name: 'modules_table' }]
+                        return [
+                            {
+                                id: 'object-learning-resources',
+                                codename: 'LearningResources',
+                                kind: 'object',
+                                table_name: 'learning_resources_table'
+                            }
+                        ]
                     }
 
                     if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
@@ -1503,13 +1566,21 @@ describe('Public Applications Routes', () => {
 
                     if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
                         return currentWorkspaceId === workspaceId2
-                            ? [{ id: accessLinkId, slug: 'demo-module', target_type: 'module', target_id: moduleId, is_active: true }]
+                            ? [
+                                  {
+                                      id: accessLinkId,
+                                      slug: 'demo-content',
+                                      target_type: 'content',
+                                      target_id: contentNodeId,
+                                      is_active: true
+                                  }
+                              ]
                             : []
                     }
 
-                    if (sql.includes(`FROM "${schemaName}"."modules_table"`)) {
+                    if (sql.includes(`FROM "${schemaName}"."learning_resources_table"`)) {
                         return currentWorkspaceId === workspaceId2
-                            ? [{ id: moduleId, title: 'Scoped module', description: 'Scoped lesson' }]
+                            ? [{ id: contentNodeId, title: 'Scoped content', description: 'Scoped lesson' }]
                             : []
                     }
 
@@ -1522,7 +1593,7 @@ describe('Public Applications Routes', () => {
                             ? [
                                   {
                                       id: 'row-1',
-                                      _tp_parent_id: moduleId,
+                                      _tp_parent_id: contentNodeId,
                                       _tp_sort_order: 1,
                                       item_type: 'value-text',
                                       item_title: 'Scoped item',
@@ -1540,12 +1611,12 @@ describe('Public Applications Routes', () => {
         )
 
         const app = buildApp(dataSource)
-        const response = await request(app).get(`/public/a/${applicationId}/runtime?slug=demo-module`).expect(200)
+        const response = await request(app).get(`/public/a/${applicationId}/runtime?slug=demo-content`).expect(200)
 
         expect(response.body).toMatchObject({
-            type: 'module',
-            id: moduleId,
-            title: 'Scoped module'
+            type: 'content',
+            id: contentNodeId,
+            title: 'Scoped content'
         })
         expect(response.body.contentItems).toEqual([
             expect.objectContaining({
@@ -1558,7 +1629,7 @@ describe('Public Applications Routes', () => {
 
     it('rebinds runtime payload assembly to the shared public link workspace when ambient workspace state drifts', async () => {
         let currentWorkspaceId = workspaceId1
-        const personalModuleId = '31b2d8e1-2b7c-4f9f-8b8e-4f1c8f1d55aa'
+        const personalContentNodeId = '31b2d8e1-2b7c-4f9f-8b8e-4f1c8f1d55aa'
         const personalQuizId = '64ab92e2-a4c2-44b3-8e94-2a71c4c3a9d9'
 
         const dataSource = buildDataSource(
@@ -1577,7 +1648,14 @@ describe('Public Applications Routes', () => {
                         if (params[0] === 'AccessLinks') {
                             return [{ id: 'object-links', codename: 'AccessLinks', kind: 'object', table_name: 'access_links_table' }]
                         }
-                        return [{ id: 'object-modules', codename: 'Modules', kind: 'object', table_name: 'modules_table' }]
+                        return [
+                            {
+                                id: 'object-learning-resources',
+                                codename: 'LearningResources',
+                                kind: 'object',
+                                table_name: 'learning_resources_table'
+                            }
+                        ]
                     }
 
                     if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
@@ -1667,16 +1745,24 @@ describe('Public Applications Routes', () => {
                     if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
                         if (currentWorkspaceId === workspaceId2) {
                             currentWorkspaceId = workspaceId1
-                            return [{ id: accessLinkId, slug: 'demo-module', target_type: 'module', target_id: moduleId, is_active: true }]
+                            return [
+                                {
+                                    id: accessLinkId,
+                                    slug: 'demo-content',
+                                    target_type: 'content',
+                                    target_id: contentNodeId,
+                                    is_active: true
+                                }
+                            ]
                         }
 
                         if (currentWorkspaceId === workspaceId1) {
                             return [
                                 {
                                     id: 'personal-link',
-                                    slug: 'demo-module',
-                                    target_type: 'module',
-                                    target_id: personalModuleId,
+                                    slug: 'demo-content',
+                                    target_type: 'content',
+                                    target_id: personalContentNodeId,
                                     is_active: true
                                 }
                             ]
@@ -1685,10 +1771,10 @@ describe('Public Applications Routes', () => {
                         return []
                     }
 
-                    if (sql.includes(`FROM "${schemaName}"."modules_table"`)) {
+                    if (sql.includes(`FROM "${schemaName}"."learning_resources_table"`)) {
                         return currentWorkspaceId === workspaceId2
-                            ? [{ id: moduleId, title: 'Shared module', description: 'Shared lesson' }]
-                            : [{ id: personalModuleId, title: 'Personal module', description: 'Personal lesson' }]
+                            ? [{ id: contentNodeId, title: 'Shared content', description: 'Shared lesson' }]
+                            : [{ id: personalContentNodeId, title: 'Personal content', description: 'Personal lesson' }]
                     }
 
                     if (sql.includes(`FROM "${schemaName}"."_app_values"`)) {
@@ -1700,7 +1786,7 @@ describe('Public Applications Routes', () => {
                             ? [
                                   {
                                       id: 'shared-row',
-                                      _tp_parent_id: moduleId,
+                                      _tp_parent_id: contentNodeId,
                                       _tp_sort_order: 1,
                                       item_type: 'value-quiz-ref',
                                       item_title: 'Shared quiz',
@@ -1711,7 +1797,7 @@ describe('Public Applications Routes', () => {
                             : [
                                   {
                                       id: 'personal-row',
-                                      _tp_parent_id: personalModuleId,
+                                      _tp_parent_id: personalContentNodeId,
                                       _tp_sort_order: 1,
                                       item_type: 'value-quiz-ref',
                                       item_title: 'Personal quiz',
@@ -1728,12 +1814,12 @@ describe('Public Applications Routes', () => {
         )
 
         const app = buildApp(dataSource)
-        const response = await request(app).get(`/public/a/${applicationId}/runtime?slug=demo-module`).expect(200)
+        const response = await request(app).get(`/public/a/${applicationId}/runtime?slug=demo-content`).expect(200)
 
         expect(response.body).toMatchObject({
-            type: 'module',
-            id: moduleId,
-            title: 'Shared module'
+            type: 'content',
+            id: contentNodeId,
+            title: 'Shared content'
         })
         expect(response.body.contentItems).toEqual([
             expect.objectContaining({
@@ -1754,7 +1840,14 @@ describe('Public Applications Routes', () => {
                             { id: 'object-links', codename: codenameVlc('AccessLinks'), kind: 'object', table_name: 'access_links_table' }
                         ]
                     }
-                    return [{ id: 'object-modules', codename: codenameVlc('Modules'), kind: 'object', table_name: 'modules_table' }]
+                    return [
+                        {
+                            id: 'object-learning-resources',
+                            codename: codenameVlc('LearningResources'),
+                            kind: 'object',
+                            table_name: 'learning_resources_table'
+                        }
+                    ]
                 }
 
                 if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
@@ -1854,11 +1947,11 @@ describe('Public Applications Routes', () => {
                 }
 
                 if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
-                    return [{ id: accessLinkId, slug: 'demo-module', target_type: 'module', target_id: moduleId, is_active: true }]
+                    return [{ id: accessLinkId, slug: 'demo-content', target_type: 'content', target_id: contentNodeId, is_active: true }]
                 }
 
-                if (sql.includes(`FROM "${schemaName}"."modules_table"`)) {
-                    return [{ id: moduleId, title: 'Localized module', description: 'Localized lesson' }]
+                if (sql.includes(`FROM "${schemaName}"."learning_resources_table"`)) {
+                    return [{ id: contentNodeId, title: 'Localized content', description: 'Localized lesson' }]
                 }
 
                 if (sql.includes(`FROM "${schemaName}"."_app_values"`)) {
@@ -1869,7 +1962,7 @@ describe('Public Applications Routes', () => {
                     return [
                         {
                             id: 'row-1',
-                            _tp_parent_id: moduleId,
+                            _tp_parent_id: contentNodeId,
                             _tp_sort_order: 1,
                             item_type: 'value-quiz-ref',
                             item_title: 'Localized quiz',
@@ -1884,12 +1977,12 @@ describe('Public Applications Routes', () => {
         )
 
         const app = buildApp(dataSource)
-        const response = await request(app).get(`/public/a/${applicationId}/runtime?slug=demo-module`).expect(200)
+        const response = await request(app).get(`/public/a/${applicationId}/runtime?slug=demo-content`).expect(200)
 
         expect(response.body).toMatchObject({
-            type: 'module',
-            id: moduleId,
-            title: 'Localized module'
+            type: 'content',
+            id: contentNodeId,
+            title: 'Localized content'
         })
         expect(response.body.contentItems).toEqual([
             expect.objectContaining({
@@ -1899,7 +1992,7 @@ describe('Public Applications Routes', () => {
         ])
     })
 
-    it('localizes runtime module payloads when locale is provided', async () => {
+    it('localizes runtime learning content payloads when locale is provided', async () => {
         const dataSource = buildDataSource(
             withPublicApplication((sql, params) => {
                 if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
@@ -1908,7 +2001,14 @@ describe('Public Applications Routes', () => {
                             { id: 'object-links', codename: codenameVlc('AccessLinks'), kind: 'object', table_name: 'access_links_table' }
                         ]
                     }
-                    return [{ id: 'object-modules', codename: codenameVlc('Modules'), kind: 'object', table_name: 'modules_table' }]
+                    return [
+                        {
+                            id: 'object-learning-resources',
+                            codename: codenameVlc('LearningResources'),
+                            kind: 'object',
+                            table_name: 'learning_resources_table'
+                        }
+                    ]
                 }
 
                 if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
@@ -2008,13 +2108,13 @@ describe('Public Applications Routes', () => {
                 }
 
                 if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
-                    return [{ id: accessLinkId, slug: 'demo-module', target_type: 'module', target_id: moduleId, is_active: true }]
+                    return [{ id: accessLinkId, slug: 'demo-content', target_type: 'content', target_id: contentNodeId, is_active: true }]
                 }
 
-                if (sql.includes(`FROM "${schemaName}"."modules_table"`)) {
+                if (sql.includes(`FROM "${schemaName}"."learning_resources_table"`)) {
                     return [
                         {
-                            id: moduleId,
+                            id: contentNodeId,
                             title: localizedTextVlc('Orbital lesson', 'Орбитальный урок'),
                             description: localizedTextVlc('English lesson body', 'Русское описание урока')
                         }
@@ -2029,7 +2129,7 @@ describe('Public Applications Routes', () => {
                     return [
                         {
                             id: 'row-1',
-                            _tp_parent_id: moduleId,
+                            _tp_parent_id: contentNodeId,
                             _tp_sort_order: 1,
                             item_type: 'value-text',
                             item_title: localizedTextVlc('Mission brief', 'Брифинг миссии'),
@@ -2044,11 +2144,11 @@ describe('Public Applications Routes', () => {
         )
 
         const app = buildApp(dataSource)
-        const response = await request(app).get(`/public/a/${applicationId}/runtime?slug=demo-module&locale=ru`).expect(200)
+        const response = await request(app).get(`/public/a/${applicationId}/runtime?slug=demo-content&locale=ru`).expect(200)
 
         expect(response.body).toMatchObject({
-            type: 'module',
-            id: moduleId,
+            type: 'content',
+            id: contentNodeId,
             title: 'Орбитальный урок',
             description: 'Русское описание урока'
         })

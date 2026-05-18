@@ -16,10 +16,10 @@ const guestTranslations = {
         'guest.next': 'Next',
         'guest.openQuiz': 'Open quiz',
         'guest.submitQuiz': 'Submit quiz',
-        'guest.backToModule': 'Back to module',
-        'guest.completeModule': 'Complete module',
-        'guest.moduleCompleted': 'Module complete. Progress has been recorded for this session.',
-        'guest.restartModule': 'Restart module'
+        'guest.backToContent': 'Back to content',
+        'guest.completeContent': 'Complete content',
+        'guest.contentCompleted': 'Content complete. Progress has been recorded for this session.',
+        'guest.restartContent': 'Restart content'
     },
     ru: {
         'guest.displayName': 'Ваше имя',
@@ -28,10 +28,10 @@ const guestTranslations = {
         'guest.next': 'Далее',
         'guest.openQuiz': 'Открыть тест',
         'guest.submitQuiz': 'Отправить тест',
-        'guest.backToModule': 'Назад к модулю',
-        'guest.completeModule': 'Завершить модуль',
-        'guest.moduleCompleted': 'Модуль завершён. Прогресс записан для этой сессии.',
-        'guest.restartModule': 'Пройти модуль заново'
+        'guest.backToContent': 'Назад к контенту',
+        'guest.completeContent': 'Завершить контент',
+        'guest.contentCompleted': 'Контент завершён. Прогресс записан для этой сессии.',
+        'guest.restartContent': 'Пройти контент заново'
     }
 } as const
 
@@ -92,16 +92,16 @@ describe('GuestApp', () => {
                 }
 
                 if (
-                    url.includes('/public/a/app-1/links/demo-module?locale=en') ||
-                    url.includes('/public/a/app-1/links/demo-module?locale=ru')
+                    url.includes('/public/a/app-1/links/demo-content?locale=en') ||
+                    url.includes('/public/a/app-1/links/demo-content?locale=ru')
                 ) {
                     return {
                         ok: true,
                         json: async () => ({
                             id: 'link-1',
-                            title: 'Demo module',
-                            targetType: 'module',
-                            targetId: 'module-1'
+                            title: 'Demo content',
+                            targetType: 'content',
+                            targetId: 'content-1'
                         })
                     } as Response
                 }
@@ -118,7 +118,7 @@ describe('GuestApp', () => {
 
                 if (
                     url.includes('/public/a/app-1/runtime?') &&
-                    url.includes('slug=demo-module') &&
+                    url.includes('slug=demo-content') &&
                     url.includes('targetType=quiz') &&
                     url.includes('targetId=quiz-1') &&
                     (url.includes('locale=en') || url.includes('locale=ru'))
@@ -145,22 +145,22 @@ describe('GuestApp', () => {
 
                 if (
                     url.includes('/public/a/app-1/runtime?') &&
-                    url.includes('slug=demo-module') &&
+                    url.includes('slug=demo-content') &&
                     (url.includes('locale=en') || url.includes('locale=ru'))
                 ) {
                     return {
                         ok: true,
                         json: async () => ({
-                            type: 'module',
-                            id: 'module-1',
-                            title: 'Module title',
-                            description: 'Module description',
+                            type: 'content',
+                            id: 'content-1',
+                            title: 'Content title',
+                            description: 'Content description',
                             contentItems: [
                                 {
                                     id: 'item-1',
                                     itemType: 'text',
                                     itemTitle: 'Intro',
-                                    itemContent: 'Module body',
+                                    itemContent: 'Content body',
                                     sortOrder: 0
                                 },
                                 {
@@ -194,26 +194,26 @@ describe('GuestApp', () => {
         )
     })
 
-    it('creates a guest session and renders public module content', async () => {
+    it('creates a guest session and renders public content', async () => {
         const queryClient = createQueryClient()
 
         render(
             <QueryClientProvider client={queryClient}>
-                <GuestApp applicationId='app-1' slug='demo-module' locale='en' apiBaseUrl='/api/v1' />
+                <GuestApp applicationId='app-1' slug='demo-content' locale='en' apiBaseUrl='/api/v1' />
             </QueryClientProvider>
         )
 
-        expect(await screen.findByText('Demo module')).toBeInTheDocument()
+        expect(await screen.findByText('Demo content')).toBeInTheDocument()
 
         fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Guest learner' } })
         fireEvent.click(screen.getByRole('button', { name: 'Start learning' }))
 
         await waitFor(() => {
-            expect(screen.getByText('Module title')).toBeInTheDocument()
-            expect(screen.getByText('Module body')).toBeInTheDocument()
+            expect(screen.getByText('Content title')).toBeInTheDocument()
+            expect(screen.getByText('Content body')).toBeInTheDocument()
         })
 
-        expect(window.sessionStorage.getItem('apps-template-mui:guest-session:app-1:demo-module')).toContain('student-1')
+        expect(window.sessionStorage.getItem('apps-template-mui:guest-session:app-1:demo-content')).toContain('student-1')
     })
 
     it('refetches runtime only after the guest session is created', async () => {
@@ -235,14 +235,14 @@ describe('GuestApp', () => {
                     } as Response
                 }
 
-                if (url.includes('/public/a/app-1/links/demo-module?locale=en')) {
+                if (url.includes('/public/a/app-1/links/demo-content?locale=en')) {
                     return {
                         ok: true,
                         json: async () => ({
                             id: 'link-1',
-                            title: 'Demo module',
-                            targetType: 'module',
-                            targetId: 'module-1'
+                            title: 'Demo content',
+                            targetType: 'content',
+                            targetId: 'content-1'
                         })
                     } as Response
                 }
@@ -257,7 +257,7 @@ describe('GuestApp', () => {
                     } as Response
                 }
 
-                if (url.includes('/public/a/app-1/runtime?') && url.includes('slug=demo-module') && url.includes('locale=en')) {
+                if (url.includes('/public/a/app-1/runtime?') && url.includes('slug=demo-content') && url.includes('locale=en')) {
                     runtimeRequestCount += 1
                     runtimeUrls.push(url)
                     const headers = new Headers(init?.headers)
@@ -268,15 +268,15 @@ describe('GuestApp', () => {
                     return {
                         ok: true,
                         json: async () => ({
-                            type: 'module',
-                            id: 'module-1',
-                            title: 'Module title',
+                            type: 'content',
+                            id: 'content-1',
+                            title: 'Content title',
                             contentItems: [
                                 {
                                     id: 'item-1',
                                     itemType: 'text',
                                     itemTitle: 'Intro',
-                                    itemContent: 'Module body',
+                                    itemContent: 'Content body',
                                     sortOrder: 0
                                 }
                             ]
@@ -292,19 +292,19 @@ describe('GuestApp', () => {
 
         render(
             <QueryClientProvider client={queryClient}>
-                <GuestApp applicationId='app-1' slug='demo-module' locale='en' apiBaseUrl='/api/v1' />
+                <GuestApp applicationId='app-1' slug='demo-content' locale='en' apiBaseUrl='/api/v1' />
             </QueryClientProvider>
         )
 
-        expect(await screen.findByText('Demo module')).toBeInTheDocument()
+        expect(await screen.findByText('Demo content')).toBeInTheDocument()
         expect(runtimeRequestCount).toBe(0)
 
         fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Guest learner' } })
         fireEvent.click(screen.getByRole('button', { name: 'Start learning' }))
 
         await waitFor(() => {
-            expect(screen.getByText('Module title')).toBeInTheDocument()
-            expect(screen.getByText('Module body')).toBeInTheDocument()
+            expect(screen.getByText('Content title')).toBeInTheDocument()
+            expect(screen.getByText('Content body')).toBeInTheDocument()
         })
 
         expect(runtimeRequestCount).toBe(1)
@@ -332,28 +332,28 @@ describe('GuestApp', () => {
                     } as Response
                 }
 
-                if (url.includes('/public/a/app-1/links/demo-module?locale=en')) {
+                if (url.includes('/public/a/app-1/links/demo-content?locale=en')) {
                     seenLinkRequests.push(url)
                     return {
                         ok: true,
                         json: async () => ({
                             id: 'link-1',
-                            title: 'Demo module',
-                            targetType: 'module',
-                            targetId: 'module-1'
+                            title: 'Demo content',
+                            targetType: 'content',
+                            targetId: 'content-1'
                         })
                     } as Response
                 }
 
-                if (url.includes('/public/a/app-2/links/demo-module?locale=en')) {
+                if (url.includes('/public/a/app-2/links/demo-content?locale=en')) {
                     seenLinkRequests.push(url)
                     return {
                         ok: true,
                         json: async () => ({
                             id: 'link-2',
-                            title: 'Second module',
-                            targetType: 'module',
-                            targetId: 'module-2'
+                            title: 'Second content',
+                            targetType: 'content',
+                            targetId: 'content-2'
                         })
                     } as Response
                 }
@@ -372,25 +372,25 @@ describe('GuestApp', () => {
                     } as Response
                 }
 
-                if (url.includes('/public/a/app-1/runtime?') && url.includes('slug=demo-module') && url.includes('locale=en')) {
+                if (url.includes('/public/a/app-1/runtime?') && url.includes('slug=demo-content') && url.includes('locale=en')) {
                     return {
                         ok: true,
                         json: async () => ({
-                            type: 'module',
-                            id: 'module-1',
-                            title: 'Module title',
+                            type: 'content',
+                            id: 'content-1',
+                            title: 'Content title',
                             contentItems: []
                         })
                     } as Response
                 }
 
-                if (url.includes('/public/a/app-2/runtime?') && url.includes('slug=demo-module') && url.includes('locale=en')) {
+                if (url.includes('/public/a/app-2/runtime?') && url.includes('slug=demo-content') && url.includes('locale=en')) {
                     return {
                         ok: true,
                         json: async () => ({
-                            type: 'module',
-                            id: 'module-2',
-                            title: 'Second module runtime',
+                            type: 'content',
+                            id: 'content-2',
+                            title: 'Second content runtime',
                             contentItems: []
                         })
                     } as Response
@@ -400,7 +400,7 @@ describe('GuestApp', () => {
             })
         )
 
-        window.history.replaceState({}, '', '/public/a/app-1/links/demo-module')
+        window.history.replaceState({}, '', '/public/a/app-1/links/demo-content')
 
         const queryClient = createQueryClient()
         const { rerender } = render(
@@ -409,38 +409,38 @@ describe('GuestApp', () => {
             </QueryClientProvider>
         )
 
-        expect(await screen.findByText('Demo module')).toBeInTheDocument()
+        expect(await screen.findByText('Demo content')).toBeInTheDocument()
 
-        window.history.replaceState({}, '', '/public/a/app-2/links/demo-module')
+        window.history.replaceState({}, '', '/public/a/app-2/links/demo-content')
         rerender(
             <QueryClientProvider client={queryClient}>
                 <GuestApp locale='en' apiBaseUrl='/api/v1' />
             </QueryClientProvider>
         )
 
-        expect(await screen.findByText('Second module')).toBeInTheDocument()
+        expect(await screen.findByText('Second content')).toBeInTheDocument()
         expect(seenLinkRequests).toEqual([
-            '/api/v1/public/a/app-1/links/demo-module?locale=en',
-            '/api/v1/public/a/app-2/links/demo-module?locale=en'
+            '/api/v1/public/a/app-1/links/demo-content?locale=en',
+            '/api/v1/public/a/app-2/links/demo-content?locale=en'
         ])
     })
 
-    it('shows a completion screen after the last module item is explicitly completed', async () => {
+    it('shows a completion screen after the last content item is explicitly completed', async () => {
         const queryClient = createQueryClient()
 
         render(
             <QueryClientProvider client={queryClient}>
-                <GuestApp applicationId='app-1' slug='demo-module' locale='en' apiBaseUrl='/api/v1' />
+                <GuestApp applicationId='app-1' slug='demo-content' locale='en' apiBaseUrl='/api/v1' />
             </QueryClientProvider>
         )
 
-        expect(await screen.findByText('Demo module')).toBeInTheDocument()
+        expect(await screen.findByText('Demo content')).toBeInTheDocument()
 
         fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Guest learner' } })
         fireEvent.click(screen.getByRole('button', { name: 'Start learning' }))
 
         await waitFor(() => {
-            expect(screen.getByText('Module title')).toBeInTheDocument()
+            expect(screen.getByText('Content title')).toBeInTheDocument()
             expect(screen.getByRole('button', { name: 'Next' })).toBeInTheDocument()
         })
 
@@ -448,35 +448,35 @@ describe('GuestApp', () => {
 
         await waitFor(() => {
             expect(screen.getByText('Knowledge check')).toBeInTheDocument()
-            expect(screen.getByRole('button', { name: 'Complete module' })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Complete content' })).toBeInTheDocument()
         })
 
-        fireEvent.click(screen.getByRole('button', { name: 'Complete module' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Complete content' }))
 
         await waitFor(() => {
-            expect(screen.getByText('Module complete. Progress has been recorded for this session.')).toBeInTheDocument()
-            expect(screen.getByRole('button', { name: 'Restart module' })).toBeInTheDocument()
+            expect(screen.getByText('Content complete. Progress has been recorded for this session.')).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Restart content' })).toBeInTheDocument()
         })
     })
 
     it('renders localized completion controls for the Russian guest flow', async () => {
         i18nState.locale = 'ru'
         const queryClient = createQueryClient()
-        window.history.replaceState({}, '', '/public/a/app-1/links/demo-module?locale=ru')
+        window.history.replaceState({}, '', '/public/a/app-1/links/demo-content?locale=ru')
 
         render(
             <QueryClientProvider client={queryClient}>
-                <GuestApp applicationId='app-1' slug='demo-module' locale='en' apiBaseUrl='/api/v1' />
+                <GuestApp applicationId='app-1' slug='demo-content' locale='en' apiBaseUrl='/api/v1' />
             </QueryClientProvider>
         )
 
-        expect(await screen.findByText('Demo module')).toBeInTheDocument()
+        expect(await screen.findByText('Demo content')).toBeInTheDocument()
 
         fireEvent.change(screen.getByLabelText('Ваше имя'), { target: { value: 'Русский гость' } })
         fireEvent.click(screen.getByRole('button', { name: 'Начать обучение' }))
 
         await waitFor(() => {
-            expect(screen.getByText('Module title')).toBeInTheDocument()
+            expect(screen.getByText('Content title')).toBeInTheDocument()
             expect(screen.getByRole('button', { name: 'Далее' })).toBeInTheDocument()
         })
 
@@ -484,14 +484,14 @@ describe('GuestApp', () => {
 
         await waitFor(() => {
             expect(screen.getByText('Knowledge check')).toBeInTheDocument()
-            expect(screen.getByRole('button', { name: 'Завершить модуль' })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Завершить контент' })).toBeInTheDocument()
         })
 
-        fireEvent.click(screen.getByRole('button', { name: 'Завершить модуль' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Завершить контент' }))
 
         await waitFor(() => {
-            expect(screen.getByText('Модуль завершён. Прогресс записан для этой сессии.')).toBeInTheDocument()
-            expect(screen.getByRole('button', { name: 'Пройти модуль заново' })).toBeInTheDocument()
+            expect(screen.getByText('Контент завершён. Прогресс записан для этой сессии.')).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Пройти контент заново' })).toBeInTheDocument()
         })
     })
 
@@ -506,14 +506,14 @@ describe('GuestApp', () => {
                 }
             }
 
-            if (url.includes('/public/a/app-1/links/demo-module?locale=ru')) {
+            if (url.includes('/public/a/app-1/links/demo-content?locale=ru')) {
                 return {
                     ok: true,
                     json: async () => ({
                         id: 'link-1',
                         title: 'RU link',
-                        targetType: 'module',
-                        targetId: 'module-1'
+                        targetType: 'content',
+                        targetId: 'content-1'
                     })
                 }
             }
@@ -528,13 +528,13 @@ describe('GuestApp', () => {
                 }
             }
 
-            if (url.includes('/public/a/app-1/runtime?') && url.includes('slug=demo-module') && url.includes('locale=ru')) {
+            if (url.includes('/public/a/app-1/runtime?') && url.includes('slug=demo-content') && url.includes('locale=ru')) {
                 return {
                     ok: true,
                     json: async () => ({
-                        type: 'module',
-                        id: 'module-1',
-                        title: 'RU module',
+                        type: 'content',
+                        id: 'content-1',
+                        title: 'RU content',
                         description: 'RU description',
                         contentItems: [
                             {
@@ -560,20 +560,20 @@ describe('GuestApp', () => {
         })
 
         vi.stubGlobal('fetch', fetchMock)
-        window.history.replaceState({}, '', '/public/a/app-1/links/demo-module?locale=ru')
+        window.history.replaceState({}, '', '/public/a/app-1/links/demo-content?locale=ru')
         const queryClient = createQueryClient()
 
         render(
             <QueryClientProvider client={queryClient}>
-                <GuestApp applicationId='app-1' slug='demo-module' locale='en' apiBaseUrl='/api/v1' />
+                <GuestApp applicationId='app-1' slug='demo-content' locale='en' apiBaseUrl='/api/v1' />
             </QueryClientProvider>
         )
 
         fireEvent.change(await screen.findByLabelText('Your name'), { target: { value: 'Guest learner' } })
         fireEvent.click(screen.getByRole('button', { name: 'Start learning' }))
 
-        expect(await screen.findByText('RU module')).toBeInTheDocument()
-        expect(fetchMock).toHaveBeenCalledWith('/api/v1/public/a/app-1/links/demo-module?locale=ru')
+        expect(await screen.findByText('RU content')).toBeInTheDocument()
+        expect(fetchMock).toHaveBeenCalledWith('/api/v1/public/a/app-1/links/demo-content?locale=ru')
         expect(
             fetchMock.mock.calls.some(
                 ([input]) => String(input).includes('/public/a/app-1/runtime?') && String(input).includes('locale=ru')
@@ -581,22 +581,22 @@ describe('GuestApp', () => {
         ).toBe(true)
     })
 
-    it('keeps the quiz result visible until the guest explicitly returns to the module', async () => {
+    it('keeps the quiz result visible until the guest explicitly returns to the content', async () => {
         const queryClient = createQueryClient()
 
         render(
             <QueryClientProvider client={queryClient}>
-                <GuestApp applicationId='app-1' slug='demo-module' locale='en' apiBaseUrl='/api/v1' />
+                <GuestApp applicationId='app-1' slug='demo-content' locale='en' apiBaseUrl='/api/v1' />
             </QueryClientProvider>
         )
 
-        expect(await screen.findByText('Demo module')).toBeInTheDocument()
+        expect(await screen.findByText('Demo content')).toBeInTheDocument()
 
         fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Guest learner' } })
         fireEvent.click(screen.getByRole('button', { name: 'Start learning' }))
 
         await waitFor(() => {
-            expect(screen.getByText('Module title')).toBeInTheDocument()
+            expect(screen.getByText('Content title')).toBeInTheDocument()
         })
 
         fireEvent.click(screen.getByRole('button', { name: 'Next' }))
@@ -617,10 +617,10 @@ describe('GuestApp', () => {
 
         await waitFor(() => {
             expect(screen.getByText('Score 1 / 1')).toBeInTheDocument()
-            expect(screen.getByRole('button', { name: 'Back to module' })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Back to content' })).toBeInTheDocument()
         })
 
-        fireEvent.click(screen.getByRole('button', { name: 'Back to module' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Back to content' }))
 
         await waitFor(() => {
             expect(screen.getByText('Knowledge check')).toBeInTheDocument()
@@ -636,7 +636,7 @@ describe('GuestApp', () => {
             vi.fn(async (input: string | URL, init?: RequestInit) => {
                 const url = String(input)
 
-                if (url.includes('/public/a/app-1/links/demo-module?locale=en')) {
+                if (url.includes('/public/a/app-1/links/demo-content?locale=en')) {
                     await new Promise<void>((resolve) => {
                         releaseLinkRequest = resolve
                     })
@@ -644,9 +644,9 @@ describe('GuestApp', () => {
                         ok: true,
                         json: async () => ({
                             id: 'link-1',
-                            title: 'Demo module',
-                            targetType: 'module',
-                            targetId: 'module-1'
+                            title: 'Demo content',
+                            targetType: 'content',
+                            targetId: 'content-1'
                         })
                     } as Response
                 }
@@ -670,13 +670,13 @@ describe('GuestApp', () => {
                     } as Response
                 }
 
-                if (url.includes('/public/a/app-1/runtime?') && url.includes('slug=demo-module') && url.includes('locale=en')) {
+                if (url.includes('/public/a/app-1/runtime?') && url.includes('slug=demo-content') && url.includes('locale=en')) {
                     return {
                         ok: true,
                         json: async () => ({
-                            type: 'module',
-                            id: 'module-1',
-                            title: 'Module title',
+                            type: 'content',
+                            id: 'content-1',
+                            title: 'Content title',
                             contentItems: []
                         })
                     } as Response
@@ -690,7 +690,7 @@ describe('GuestApp', () => {
 
         render(
             <QueryClientProvider client={queryClient}>
-                <GuestApp applicationId='app-1' slug='demo-module' locale='en' apiBaseUrl='/api/v1' />
+                <GuestApp applicationId='app-1' slug='demo-content' locale='en' apiBaseUrl='/api/v1' />
             </QueryClientProvider>
         )
 
@@ -706,7 +706,7 @@ describe('GuestApp', () => {
 
         await waitFor(() => {
             expect(button).not.toBeDisabled()
-            expect(screen.getByText('Demo module')).toBeInTheDocument()
+            expect(screen.getByText('Demo content')).toBeInTheDocument()
         })
     })
 
@@ -727,17 +727,17 @@ describe('GuestApp', () => {
                     } as Response
                 }
 
-                if (url.includes('/public/a/app-1/links/demo-module?locale=en')) {
+                if (url.includes('/public/a/app-1/links/demo-content?locale=en')) {
                     return {
                         ok: true,
-                        json: async () => ({ id: 'link-1', title: 'Demo module', targetType: 'module', targetId: 'module-1' })
+                        json: async () => ({ id: 'link-1', title: 'Demo content', targetType: 'content', targetId: 'content-1' })
                     } as Response
                 }
 
-                if (url.includes('/public/a/app-2/links/demo-module?locale=en')) {
+                if (url.includes('/public/a/app-2/links/demo-content?locale=en')) {
                     return {
                         ok: true,
-                        json: async () => ({ id: 'link-2', title: 'Second module', targetType: 'module', targetId: 'module-2' })
+                        json: async () => ({ id: 'link-2', title: 'Second content', targetType: 'content', targetId: 'content-2' })
                     } as Response
                 }
 
@@ -752,7 +752,7 @@ describe('GuestApp', () => {
                 if (url.includes('/public/a/app-1/runtime?') || url.includes('/public/a/app-2/runtime?')) {
                     return {
                         ok: true,
-                        json: async () => ({ type: 'module', id: 'module-1', title: 'Module title', contentItems: [] })
+                        json: async () => ({ type: 'content', id: 'content-1', title: 'Content title', contentItems: [] })
                     } as Response
                 }
 
@@ -763,30 +763,30 @@ describe('GuestApp', () => {
         const firstClient = createQueryClient()
         const firstRender = render(
             <QueryClientProvider client={firstClient}>
-                <GuestApp applicationId='app-1' slug='demo-module' locale='en' apiBaseUrl='/api/v1' />
+                <GuestApp applicationId='app-1' slug='demo-content' locale='en' apiBaseUrl='/api/v1' />
             </QueryClientProvider>
         )
 
-        expect(await screen.findByText('Demo module')).toBeInTheDocument()
+        expect(await screen.findByText('Demo content')).toBeInTheDocument()
         fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Guest learner 1' } })
         fireEvent.click(screen.getByRole('button', { name: 'Start learning' }))
         await waitFor(() => {
-            expect(screen.getByText('Module title')).toBeInTheDocument()
+            expect(screen.getByText('Content title')).toBeInTheDocument()
         })
         firstRender.unmount()
 
         const secondClient = createQueryClient()
         render(
             <QueryClientProvider client={secondClient}>
-                <GuestApp applicationId='app-2' slug='demo-module' locale='en' apiBaseUrl='/api/v1' />
+                <GuestApp applicationId='app-2' slug='demo-content' locale='en' apiBaseUrl='/api/v1' />
             </QueryClientProvider>
         )
 
-        expect(await screen.findByText('Second module')).toBeInTheDocument()
+        expect(await screen.findByText('Second content')).toBeInTheDocument()
         fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Guest learner 2' } })
         fireEvent.click(screen.getByRole('button', { name: 'Start learning' }))
         await waitFor(() => {
-            expect(screen.getByText('Module title')).toBeInTheDocument()
+            expect(screen.getByText('Content title')).toBeInTheDocument()
         })
 
         expect(csrfHeaders).toEqual(['csrf-token-1', 'csrf-token-2'])

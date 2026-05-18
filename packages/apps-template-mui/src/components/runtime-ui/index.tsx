@@ -252,6 +252,8 @@ export function FlowListTable<T extends FlowListTableData>({
               { id: 'name', label: t('runtime.table.name'), render: (row: T) => row.displayName ?? row.name ?? row.id },
               { id: 'description', label: t('runtime.table.description'), render: (row: T) => row.description ?? '' }
           ] satisfies TableColumn<T>[])
+    const minimumTableWidth =
+        columns.reduce((total, column) => total + (column.width ?? 160), sortableRows ? 88 : 0) + (renderActions ? 72 : 0)
 
     const moveRow = (row: T, direction: -1 | 1) => {
         const index = data.findIndex((item) => item.id === row.id)
@@ -266,12 +268,16 @@ export function FlowListTable<T extends FlowListTableData>({
             variant='outlined'
             data-testid='runtime-list-surface'
             sx={{
+                width: '100%',
+                maxWidth: '100%',
+                minWidth: 0,
                 borderRadius: 1,
                 bgcolor: 'background.paper',
-                boxShadow: 'none'
+                boxShadow: 'none',
+                overflowX: 'auto'
             }}
         >
-            <Table size='small' aria-busy={isLoading}>
+            <Table size='small' aria-busy={isLoading} sx={{ minWidth: minimumTableWidth }}>
                 <TableHead>
                     <TableRow>
                         {sortableRows ? <StyledTableCell width={88} /> : null}
@@ -312,6 +318,7 @@ export function FlowListTable<T extends FlowListTableData>({
                                                           size='small'
                                                           onClick={() => moveRow(row, -1)}
                                                           disabled={data[0]?.id === row.id}
+                                                          data-testid={`runtime-row-move-up-${row.id}`}
                                                       >
                                                           <KeyboardArrowUpRoundedIcon fontSize='small' />
                                                       </IconButton>
@@ -323,6 +330,7 @@ export function FlowListTable<T extends FlowListTableData>({
                                                           size='small'
                                                           onClick={() => moveRow(row, 1)}
                                                           disabled={data[data.length - 1]?.id === row.id}
+                                                          data-testid={`runtime-row-move-down-${row.id}`}
                                                       >
                                                           <KeyboardArrowDownRoundedIcon fontSize='small' />
                                                       </IconButton>

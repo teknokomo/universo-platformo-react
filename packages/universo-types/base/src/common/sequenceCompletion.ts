@@ -17,6 +17,7 @@ export type CompletionCondition = z.infer<typeof completionConditionSchema>
 export const sequencePolicySchema = z
     .object({
         mode: z.enum(SEQUENCE_POLICY_MODES).default('free'),
+        scopeFieldCodename: codenameSchema.optional(),
         prerequisiteFieldCodename: codenameSchema.optional(),
         orderFieldCodename: codenameSchema.optional(),
         availableFromFieldCodename: codenameSchema.optional(),

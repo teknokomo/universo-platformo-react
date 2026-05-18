@@ -14,7 +14,7 @@ const definition = {
     title: { en: 'Learner progress' },
     datasource: {
         kind: 'records.list',
-        sectionCodename: 'ModuleProgress',
+        sectionCodename: 'ContentProgress',
         query: {
             sort: [{ field: 'CompletedAt', direction: 'desc' }],
             filters: [{ field: 'ProgressPercent', operator: 'greaterThanOrEqual', value: 50 }]
@@ -41,7 +41,7 @@ describe('RuntimeReportsService', () => {
         const result = await service.runRecordsListReport({
             executor,
             schemaName,
-            tableName: 'obj_module_progress',
+            tableName: 'obj_content_progress',
             fields,
             definition: {
                 ...definition,
@@ -57,10 +57,10 @@ describe('RuntimeReportsService', () => {
         expect(result.aggregations).toEqual({ AverageProgress: 100 })
 
         const listSql = String(executor.query.mock.calls[0][0])
-        expect(listSql).toContain(`"${schemaName}"."obj_module_progress"`)
+        expect(listSql).toContain(`"${schemaName}"."obj_content_progress"`)
         expect(listSql).toContain('SELECT "learner", "progress_percent"')
         expect(listSql).toContain('"completed_at" DESC NULLS LAST')
-        expect(listSql).not.toContain('ModuleProgress')
+        expect(listSql).not.toContain('ContentProgress')
         expect(executor.query.mock.calls[0][1]).toEqual([50, '%Ava%', 25, 0])
 
         const countSql = String(executor.query.mock.calls[1][0])
@@ -80,7 +80,7 @@ describe('RuntimeReportsService', () => {
             service.runRecordsListReport({
                 executor,
                 schemaName,
-                tableName: 'obj_module_progress',
+                tableName: 'obj_content_progress',
                 fields,
                 permissions: { readReports: true },
                 definition: {
@@ -101,7 +101,7 @@ describe('RuntimeReportsService', () => {
             service.runRecordsListReport({
                 executor,
                 schemaName,
-                tableName: 'obj_module_progress',
+                tableName: 'obj_content_progress',
                 fields,
                 permissions: { readReports: true },
                 definition: {
@@ -122,7 +122,7 @@ describe('RuntimeReportsService', () => {
             service.runRecordsListReport({
                 executor,
                 schemaName,
-                tableName: 'obj_module_progress',
+                tableName: 'obj_content_progress',
                 fields,
                 permissions: { readReports: true },
                 definition: {
@@ -151,7 +151,7 @@ describe('RuntimeReportsService', () => {
             service.runRecordsListReport({
                 executor,
                 schemaName,
-                tableName: 'obj_module_progress',
+                tableName: 'obj_content_progress',
                 fields,
                 permissions: { readReports: true },
                 definition: {
@@ -180,7 +180,7 @@ describe('RuntimeReportsService', () => {
             service.runRecordsListReport({
                 executor,
                 schemaName,
-                tableName: 'obj_module_progress',
+                tableName: 'obj_content_progress',
                 fields,
                 permissions: { readReports: true },
                 definition: {
@@ -201,7 +201,7 @@ describe('RuntimeReportsService', () => {
             service.runRecordsListReport({
                 executor,
                 schemaName,
-                tableName: 'obj_module_progress',
+                tableName: 'obj_content_progress',
                 fields,
                 definition,
                 permissions: { readReports: false }

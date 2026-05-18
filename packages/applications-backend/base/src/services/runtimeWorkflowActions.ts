@@ -19,10 +19,16 @@ export type ApplyWorkflowActionParams = {
     capabilities: WorkflowCapabilityMap | null | undefined
     userId: string | null | undefined
     statusColumnName?: string
+    statusValueMap?: WorkflowStatusValueMap | null
     expectedVersion: number
     workspaceId?: string | null
     hasWorkspaceColumn?: boolean
     auditMetadata?: Record<string, unknown>
+}
+
+export type WorkflowStatusValueMap = {
+    statusByStoredValue: Record<string, string>
+    storedValueByStatus: Record<string, string>
 }
 
 export type ApplyWorkflowActionResult = {
@@ -50,6 +56,18 @@ const assertExpectedVersion = (expectedVersion: number): void => {
 }
 
 const normalizeStatus = (value: unknown): string => (typeof value === 'string' ? value : '')
+const normalizeStatusKey = (value: unknown): string => normalizeStatus(value).trim().toLowerCase()
+
+const resolveLogicalStatus = (storedValue: unknown, statusValueMap?: WorkflowStatusValueMap | null): string => {
+    const storedStatus = normalizeStatus(storedValue)
+    const mappedStatus = statusValueMap?.statusByStoredValue[normalizeStatusKey(storedStatus)]
+    return typeof mappedStatus === 'string' && mappedStatus.trim().length > 0 ? mappedStatus : storedStatus
+}
+
+const resolveStoredStatus = (logicalStatus: string, statusValueMap?: WorkflowStatusValueMap | null): string => {
+    const mappedValue = statusValueMap?.storedValueByStatus[normalizeStatusKey(logicalStatus)]
+    return typeof mappedValue === 'string' && mappedValue.trim().length > 0 ? mappedValue : logicalStatus
+}
 
 const appendWorkflowActionAuditFact = async (params: {
     executor: DbExecutor
@@ -162,7 +180,8 @@ export async function applyWorkflowAction(params: ApplyWorkflowActionParams): Pr
         })
     }
 
-    const fromStatus = normalizeStatus(row[statusColumnName])
+    const fromStoredStatus = normalizeStatus(row[statusColumnName])
+    const fromStatus = resolveLogicalStatus(fromStoredStatus, params.statusValueMap)
     const availability = evaluateWorkflowActionAvailability({
         action,
         currentStatus: fromStatus,
@@ -179,7 +198,9 @@ export async function applyWorkflowAction(params: ApplyWorkflowActionParams): Pr
         })
     }
 
-    const updateParams: unknown[] = [params.rowId, action.to, params.userId, params.expectedVersion]
+    const targetStoredStatus = resolveStoredStatus(action.to, params.statusValueMap)
+    const allowedFromStatuses = action.from.map((status) => resolveStoredStatus(status, params.statusValueMap))
+    const updateParams: unknown[] = [params.rowId, targetStoredStatus, params.userId, params.expectedVersion]
     const updateWorkspaceClause = params.hasWorkspaceColumn ? `AND ${workspaceColumn} = $5` : ''
     if (params.hasWorkspaceColumn) updateParams.push(params.workspaceId)
     const allowedFromStatusesParam = updateParams.length + 1
@@ -200,7 +221,7 @@ export async function applyWorkflowAction(params: ApplyWorkflowActionParams): Pr
                ${updateWorkspaceClause}
              RETURNING ${idColumn}, ${statusColumn}, ${versionColumn}
         `,
-        [...updateParams, action.from]
+        [...updateParams, allowedFromStatuses]
     )
 
     const updatedRow = updatedRows[0]

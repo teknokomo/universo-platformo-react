@@ -669,6 +669,49 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         }
     })
 
+    const copyMutation = useMutation({
+        mutationKey: [...queryKeyPrefix, 'copy'],
+        mutationFn: (params: { rowId: string; data: Record<string, unknown>; expectedVersion?: number }) => {
+            if (!adapter?.copyRow) throw new Error('Copy is not available for this runtime adapter')
+            return adapter.copyRow(params.rowId, {
+                objectCollectionId: selectedObjectCollectionId ?? activeObjectCollectionId,
+                sectionId: selectedObjectCollectionId ?? activeSectionId,
+                copyChildTables: true,
+                data: params.data,
+                expectedVersion: params.expectedVersion
+            })
+        },
+        onMutate: async ({ data }) => {
+            const optimisticId = generateOptimisticId()
+            return applyOptimisticCreate({
+                queryClient,
+                queryKeyPrefix,
+                optimisticEntity: {
+                    id: optimisticId,
+                    ...data,
+                    ...makePendingMarkers('copy')
+                } as AppDataResponse['rows'][number] & { id: string }
+            })
+        },
+        onError: (_error, _variables, context) => {
+            rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
+        },
+        onSuccess: (data, variables, context) => {
+            if (context?.optimisticId && data?.id) {
+                confirmOptimisticCreate(queryClient, queryKeyPrefix, context.optimisticId, String(data.id), {
+                    serverEntity: {
+                        id: data.id,
+                        ...variables.data
+                    }
+                })
+            }
+            applyWorkspaceLimitDelta(1)
+        },
+        onSettled: () => {
+            safeInvalidateQueries(queryClient, queryKeyPrefix, queryKeyPrefix)
+        }
+    })
+
     const updateMutation = useMutation({
         mutationKey: [...queryKeyPrefix, 'update'],
         mutationFn: (params: { rowId: string; data: Record<string, unknown> }) => {
@@ -711,15 +754,15 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
 
     const deleteMutation = useMutation({
         mutationKey: [...queryKeyPrefix, 'delete'],
-        mutationFn: (rowId: string) => {
+        mutationFn: (params: { rowId: string; expectedVersion?: number }) => {
             if (!adapter) throw new Error('Adapter is not available')
-            return adapter.deleteRow(rowId, selectedObjectCollectionId)
+            return adapter.deleteRow(params.rowId, selectedObjectCollectionId, params.expectedVersion)
         },
-        onMutate: async (rowId) => {
+        onMutate: async (params) => {
             return applyOptimisticDelete({
                 queryClient,
                 queryKeyPrefix,
-                entityId: rowId,
+                entityId: params.rowId,
                 strategy: 'remove'
             })
         },
@@ -754,14 +797,15 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
 
     const recordCommandMutation = useMutation({
         mutationKey: [...queryKeyPrefix, 'record-command'],
-        mutationFn: async (params: { rowId: string; command: RuntimeRecordCommand }) => {
+        mutationFn: async (params: { rowId: string; command: RuntimeRecordCommand; expectedVersion?: number }) => {
             if (!adapter?.recordCommand) {
                 throw new Error('Record lifecycle commands are not available for this runtime adapter')
             }
 
             return adapter.recordCommand(params.rowId, params.command, {
                 objectCollectionId: selectedObjectCollectionId ?? activeObjectCollectionId,
-                sectionId: selectedObjectCollectionId ?? activeSectionId
+                sectionId: selectedObjectCollectionId ?? activeSectionId,
+                expectedVersion: params.expectedVersion
             })
         },
         onSettled: (_data, _error, variables) => {
@@ -891,8 +935,14 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             setCopyError(null)
             setFormOpen(false)
 
+            const sourceCopyRow = currentCopyRowId ? rows.find((row) => String(row.id) === currentCopyRowId) : null
+            const copyExpectedVersion = readRuntimeRowVersion(sourceCopyRow)
             const mutationPromise = isCopyMode
-                ? createMutation.mutateAsync(sanitizedData)
+                ? copyMutation.mutateAsync({
+                      rowId: currentCopyRowId!,
+                      data: sanitizedData,
+                      expectedVersion: copyExpectedVersion ?? undefined
+                  })
                 : currentEditRowId
                 ? updateMutation.mutateAsync({ rowId: currentEditRowId, data: sanitizedData })
                 : createMutation.mutateAsync(sanitizedData)
@@ -913,7 +963,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
 
             return Promise.resolve()
         },
-        [copyRowId, editRowId, fieldConfigs, updateMutation, createMutation, t, currentSchemaFingerprint]
+        [copyRowId, editRowId, fieldConfigs, rows, copyMutation, updateMutation, createMutation, t, currentSchemaFingerprint]
     )
 
     const handleOpenDelete = useCallback(
@@ -937,25 +987,29 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
 
         const currentDeleteRowId = deleteRowId
         const requestId = deleteRequestIdRef.current
+        const currentRow = rows.find((row) => String(row.id) === currentDeleteRowId)
+        const expectedVersion = readRuntimeRowVersion(currentRow)
 
         setDeleteError(null)
         setDeleteRowId(null)
 
-        void deleteMutation.mutateAsync(currentDeleteRowId).catch((err: unknown) => {
-            if (deleteRequestIdRef.current !== requestId) return
+        void deleteMutation
+            .mutateAsync({ rowId: currentDeleteRowId, expectedVersion: expectedVersion ?? undefined })
+            .catch((err: unknown) => {
+                if (deleteRequestIdRef.current !== requestId) return
 
-            const msg = extractApiErrorMessage(err)
-            setDeleteError(
-                t('app.errorDelete', {
-                    defaultValue: 'Delete failed: {{message}}',
-                    message: msg
-                })
-            )
-            setDeleteRowId(currentDeleteRowId)
-        })
+                const msg = extractApiErrorMessage(err)
+                setDeleteError(
+                    t('app.errorDelete', {
+                        defaultValue: 'Delete failed: {{message}}',
+                        message: msg
+                    })
+                )
+                setDeleteRowId(currentDeleteRowId)
+            })
 
         return Promise.resolve()
-    }, [deleteRowId, deleteMutation, t])
+    }, [deleteRowId, deleteMutation, rows, t])
 
     const handleOpenCopy = useCallback(
         (rowId: string) => {
@@ -1010,9 +1064,11 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     const handleRecordCommand = useCallback(
         async (rowId: string, command: RuntimeRecordCommand) => {
             if (guardPendingRowInteraction(rowId)) return
+            const row = rows.find((candidate) => candidate.id === rowId) ?? null
+            const expectedVersion = readRuntimeRowVersion(row)
 
             try {
-                await recordCommandMutation.mutateAsync({ rowId, command })
+                await recordCommandMutation.mutateAsync({ rowId, command, expectedVersion: expectedVersion ?? undefined })
                 const messageKey =
                     command === 'post' ? 'app.recordPosted' : command === 'unpost' ? 'app.recordUnposted' : 'app.recordVoided'
                 const defaultValue = command === 'post' ? 'Record posted.' : command === 'unpost' ? 'Record unposted.' : 'Record voided.'
@@ -1028,7 +1084,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
                 )
             }
         },
-        [enqueueSnackbar, guardPendingRowInteraction, recordCommandMutation, t]
+        [enqueueSnackbar, guardPendingRowInteraction, recordCommandMutation, rows, t]
     )
 
     const handleWorkflowAction = useCallback(
@@ -1280,7 +1336,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         handleConfirmDelete,
         copyRowId,
         copyError,
-        isCopying: Boolean(copyRowId) && createMutation.isPending,
+        isCopying: Boolean(copyRowId) && copyMutation.isPending,
         handleOpenCopy,
         handleCloseCopy,
 

@@ -30,7 +30,9 @@
 
 ### 🧩 Рендерер виджетов
 - **Общий рендерер**: `renderWidget()` маппит ключи виджетов в конкретные React-компоненты
-- **Поддерживаемые виджеты**: `brandSelector`, `divider`, `menuWidget`, `spacer`, `infoCard`, `userProfile`, `productTree`, `usersByCountryChart`, `detailsTable`, `columnsContainer`
+- **Поддерживаемые виджеты**: `brandSelector`, `divider`, `menuWidget`, `spacer`, `infoCard`, `userProfile`, `productTree`, `usersByCountryChart`, `detailsTable`, `relationBuilder`, `columnsContainer`
+- **Union datasources**: `detailsTable` умеет рендерить `records.union`, резолвя несколько runtime-разделов из metadata и запрашивая их через обычный `fetchAppData`
+- **Конструктор связей**: `relationBuilder` удерживает дочерние записи в контексте выбранной родительской строки и переиспользует общие CRUD-диалоги, picker-ы записей и сохранённую сортировку строк
 - **Резолвинг меню**: 2-уровневый фолбэк — ID виджета → карта menus → легаси одиночный menu проп
 - **Общие runtime-поверхности**: Агрегации сохранённых отчётов, предпросмотр ресурсов, политики последовательностей и workflow-действия задаются через общие метаданные, а не через LMS-специфичные форки виджетов
 
@@ -44,6 +46,8 @@
 - **Создание блочного контента**: JSON-поля с `editorjsBlockContent` используют общий пакет `@universo/block-editor` вместо сырого JSON и отдельной runtime-копии редактора
 - **ResourcePreview**: Общий безопасный предпросмотр ресурсов с локализованными состояниями deferred/unsupported
 - **Отчёты и экспорт**: Опубликованный runtime умеет показывать сохранённые отчёты через общие details-виджеты и экспортировать серверно определённые CSV-отчёты
+- **Trash-aware операции**: Runtime-списки могут запрашивать `lifecycleState=deleted`, delete-вызовы передают optimistic row version, а adapters предоставляют restore-вызовы для общего soft-delete contract
+- **Progress page player**: Metadata-страницы отображают Editor.js page blocks с оглавлением/progress controls и сохраняют завершение через общий runtime progress API.
 
 ### 🧱 Runtime UI-примитивы
 - **Локальные примитивы**: `ViewHeaderMUI`, `ToolbarControls`, `ItemCard`, `FlowListTable`, `PaginationControls` и `useViewPreference` находятся в `src/components/runtime-ui`

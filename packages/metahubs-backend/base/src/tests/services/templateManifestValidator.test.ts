@@ -164,21 +164,51 @@ describe('TemplateManifestValidator', () => {
         const manifest = cloneTemplate(lmsTemplate)
         const widgets = manifest.seed.layoutZoneWidgets.main ?? []
         const homeWidgets = manifest.seed.layoutZoneWidgets.learnerHome ?? []
+        const courseBuilderWidgets = manifest.seed.layoutZoneWidgets.courseBuilder ?? []
+        const trackBuilderWidgets = manifest.seed.layoutZoneWidgets.trackBuilder ?? []
         const entityCodenames = manifest.seed.entities.map((entity) => entity.codename)
         const entityByCodename = new Map(manifest.seed.entities.map((entity) => [entity.codename, entity]))
         const menuWidget = widgets.find((widget) => widget.widgetKey === 'menuWidget')
+        const courseBuilderTabs = courseBuilderWidgets.find((widget) => widget.widgetKey === 'detailsTabs')
+        const trackBuilderTabs = trackBuilderWidgets.find((widget) => widget.widgetKey === 'detailsTabs')
 
         expect(widgets.some((widget) => widget.widgetKey === 'moduleViewerWidget')).toBe(false)
         expect(widgets.some((widget) => widget.widgetKey === 'statsViewerWidget')).toBe(false)
         expect(widgets.some((widget) => widget.widgetKey === 'qrCodeWidget')).toBe(false)
-        expect(manifest.seed.scopedLayouts).toEqual([
-            expect.objectContaining({
-                codename: 'learnerHome',
-                scopeEntityCodename: 'LearnerHome',
-                scopeEntityKind: 'page',
-                baseLayoutCodename: 'main'
-            })
-        ])
+        expect(manifest.seed.scopedLayouts).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    codename: 'learnerHome',
+                    scopeEntityCodename: 'LearnerHome',
+                    scopeEntityKind: 'page',
+                    baseLayoutCodename: 'main'
+                }),
+                expect.objectContaining({
+                    codename: 'learningContent',
+                    scopeEntityCodename: 'ContentProjects',
+                    scopeEntityKind: 'object',
+                    baseLayoutCodename: 'main'
+                }),
+                expect.objectContaining({
+                    codename: 'learningContentTrash',
+                    scopeEntityCodename: 'TrashEntries',
+                    scopeEntityKind: 'object',
+                    baseLayoutCodename: 'main'
+                }),
+                expect.objectContaining({
+                    codename: 'courseBuilder',
+                    scopeEntityCodename: 'Courses',
+                    scopeEntityKind: 'object',
+                    baseLayoutCodename: 'main'
+                }),
+                expect.objectContaining({
+                    codename: 'trackBuilder',
+                    scopeEntityCodename: 'LearningTracks',
+                    scopeEntityKind: 'object',
+                    baseLayoutCodename: 'main'
+                })
+            ])
+        )
         expect(widgets).not.toEqual(
             expect.arrayContaining([
                 expect.objectContaining({ zone: 'center', widgetKey: 'overviewCards' }),
@@ -195,13 +225,79 @@ describe('TemplateManifestValidator', () => {
             ])
         )
         expect(homeWidgets.some((widget) => widget.widgetKey === 'columnsContainer')).toBe(false)
+        expect(courseBuilderTabs).toBeDefined()
+        expect(trackBuilderTabs).toBeDefined()
+        expect(() => parseApplicationLayoutWidgetConfig('detailsTabs', courseBuilderTabs?.config ?? {})).not.toThrow()
+        expect(() => parseApplicationLayoutWidgetConfig('detailsTabs', trackBuilderTabs?.config ?? {})).not.toThrow()
+        expect((courseBuilderTabs?.config?.tabs as Array<{ id: string }> | undefined)?.map((tab) => tab.id)).toEqual([
+            'outline',
+            'general',
+            'completion',
+            'player',
+            'enrollments',
+            'reports'
+        ])
+        expect((trackBuilderTabs?.config?.tabs as Array<{ id: string }> | undefined)?.map((tab) => tab.id)).toEqual([
+            'outline',
+            'general',
+            'completion',
+            'player',
+            'enrollments',
+            'reports'
+        ])
+        const courseOutlineWidgets = (
+            courseBuilderTabs?.config?.tabs as Array<{
+                id: string
+                widgets?: Array<{ widgetKey: string; config?: Record<string, unknown> }>
+            }>
+        )?.find((tab) => tab.id === 'outline')?.widgets
+        const trackOutlineWidgets = (
+            trackBuilderTabs?.config?.tabs as Array<{
+                id: string
+                widgets?: Array<{ widgetKey: string; config?: Record<string, unknown> }>
+            }>
+        )?.find((tab) => tab.id === 'outline')?.widgets
+        const courseRelationBuilder = courseOutlineWidgets?.find((widget) => widget.widgetKey === 'relationBuilder')
+        const trackRelationBuilder = trackOutlineWidgets?.find((widget) => widget.widgetKey === 'relationBuilder')
+        expect(() => parseApplicationLayoutWidgetConfig('relationBuilder', courseRelationBuilder?.config ?? {})).not.toThrow()
+        expect(() => parseApplicationLayoutWidgetConfig('relationBuilder', trackRelationBuilder?.config ?? {})).not.toThrow()
+        expect(courseRelationBuilder?.config).toMatchObject({
+            parentDatasource: { sectionCodename: 'Courses' },
+            panels: expect.arrayContaining([
+                expect.objectContaining({
+                    id: 'course-sections',
+                    parentFieldCodename: 'CourseId',
+                    datasource: expect.objectContaining({ sectionCodename: 'CourseSections' })
+                }),
+                expect.objectContaining({
+                    id: 'course-items',
+                    parentFieldCodename: 'CourseId',
+                    datasource: expect.objectContaining({ sectionCodename: 'CourseItems' })
+                })
+            ])
+        })
+        expect(trackRelationBuilder?.config).toMatchObject({
+            parentDatasource: { sectionCodename: 'LearningTracks' },
+            panels: expect.arrayContaining([
+                expect.objectContaining({
+                    id: 'track-stages',
+                    parentFieldCodename: 'TrackId',
+                    datasource: expect.objectContaining({ sectionCodename: 'TrackStages' })
+                }),
+                expect.objectContaining({
+                    id: 'track-steps',
+                    parentFieldCodename: 'TrackId',
+                    datasource: expect.objectContaining({ sectionCodename: 'TrackSteps' })
+                })
+            ])
+        })
         for (const widget of homeWidgets.filter((item) => ['overviewCards', 'sessionsChart', 'pageViewsChart'].includes(item.widgetKey))) {
             expect(() => parseApplicationLayoutWidgetConfig(widget.widgetKey, widget.config ?? {})).not.toThrow()
         }
         expect(menuWidget?.config).toMatchObject(
             expect.objectContaining({
                 autoShowAllSections: false,
-                maxPrimaryItems: 8,
+                maxPrimaryItems: 12,
                 overflowLabelKey: 'runtime.menu.more',
                 startPage: 'LearnerHome',
                 workspacePlacement: 'primary'
@@ -212,19 +308,23 @@ describe('TemplateManifestValidator', () => {
         expect(menuItems).toEqual(
             expect.arrayContaining([
                 expect.objectContaining({ id: 'lms-nav-home', kind: 'section', sectionId: 'LearnerHome' }),
+                expect.objectContaining({ id: 'lms-nav-learning-content', kind: 'section', sectionId: 'ContentProjects' }),
+                expect.objectContaining({ id: 'lms-nav-recent-content', kind: 'section', sectionId: 'RecentContentViews' }),
+                expect.objectContaining({ id: 'lms-nav-starred-content', kind: 'section', sectionId: 'ContentStars' }),
+                expect.objectContaining({ id: 'lms-nav-shared-content', kind: 'section', sectionId: 'ContentAccessEntries' }),
                 expect.objectContaining({ id: 'lms-nav-courses', kind: 'section', sectionId: 'Courses' }),
-                expect.objectContaining({ id: 'lms-nav-modules', kind: 'section', sectionId: 'Modules' }),
-                expect.objectContaining({ id: 'lms-nav-resources', kind: 'section', sectionId: 'LearningResources' }),
+                expect.objectContaining({ id: 'lms-nav-tracks', kind: 'section', sectionId: 'LearningTracks' }),
+                expect.objectContaining({ id: 'lms-nav-trash-content', kind: 'section', sectionId: 'TrashEntries' }),
                 expect.objectContaining({ id: 'lms-nav-knowledge', kind: 'section', sectionId: 'KnowledgeArticles' }),
                 expect.objectContaining({ id: 'lms-nav-development', kind: 'section', sectionId: 'DevelopmentPlans' }),
                 expect.objectContaining({ id: 'lms-nav-reports', kind: 'section', sectionId: 'Reports' })
             ])
         )
-        const modulesMenuItem = menuItems.find((item) => item?.id === 'lms-nav-modules')
-        expect(modulesMenuItem?.title).toMatchObject({
+        const learningContentMenuItem = menuItems.find((item) => item?.id === 'lms-nav-learning-content')
+        expect(learningContentMenuItem?.title).toMatchObject({
             locales: {
-                en: { content: 'Modules' },
-                ru: { content: 'Модули' }
+                en: { content: 'Learning Content' },
+                ru: { content: 'Учебный контент' }
             }
         })
         expect(entityCodenames).toEqual(
@@ -241,7 +341,19 @@ describe('TemplateManifestValidator', () => {
                 'CertificatePolicy',
                 'Classes',
                 'Students',
-                'Modules',
+                'ContentProjects',
+                'ContentAccessEntries',
+                'ContentStars',
+                'RecentContentViews',
+                'ContentProgress',
+                'TrashEntries',
+                'LearningResources',
+                'Courses',
+                'CourseSections',
+                'CourseItems',
+                'LearningTracks',
+                'TrackStages',
+                'TrackSteps',
                 'Quizzes',
                 'QuizResponses',
                 'QuizAttempts',
@@ -253,7 +365,6 @@ describe('TemplateManifestValidator', () => {
                 'CertificateLedger',
                 'PointsLedger',
                 'NotificationLedger',
-                'ModuleProgress',
                 'AccessLinks',
                 'AssignmentSubmissions',
                 'TrainingAttendance',
@@ -264,7 +375,8 @@ describe('TemplateManifestValidator', () => {
                 'BadgeDefinitions',
                 'BadgeIssues',
                 'LeaderboardSnapshots',
-                'ModuleStatus',
+                'LearningResourceStatus',
+                'PublicationStatus',
                 'QuestionType',
                 'ContentType',
                 'PointSourceType'
@@ -277,10 +389,11 @@ describe('TemplateManifestValidator', () => {
             { presetCodename: 'set', includedByDefault: true },
             { presetCodename: 'enumeration', includedByDefault: true }
         ])
+        expect(manifest.seed.scripts?.map((script) => script.codename)).not.toContain('AutoEnrollmentRuleScript')
         for (const codename of [
             'QuizResponses',
             'QuizAttempts',
-            'ModuleProgress',
+            'ContentProgress',
             'Assignments',
             'AssignmentSubmissions',
             'TrainingEvents',
@@ -485,13 +598,6 @@ describe('TemplateManifestValidator', () => {
         expect(manifest.seed.scripts).toEqual(
             expect.arrayContaining([
                 expect.objectContaining({
-                    codename: 'AutoEnrollmentRuleScript',
-                    attachedToKind: 'object',
-                    attachedToEntityCodename: 'Students',
-                    moduleRole: 'lifecycle',
-                    capabilities: expect.arrayContaining(['records.read', 'records.write', 'lifecycle'])
-                }),
-                expect.objectContaining({
                     codename: 'EnrollmentPostingScript',
                     attachedToKind: 'object',
                     attachedToEntityCodename: 'Enrollments',
@@ -506,9 +612,9 @@ describe('TemplateManifestValidator', () => {
                     capabilities: expect.arrayContaining(['lifecycle', 'posting', 'ledger.write'])
                 }),
                 expect.objectContaining({
-                    codename: 'ModuleCompletionPostingScript',
+                    codename: 'ContentCompletionPostingScript',
                     attachedToKind: 'object',
-                    attachedToEntityCodename: 'ModuleProgress',
+                    attachedToEntityCodename: 'ContentProgress',
                     moduleRole: 'lifecycle',
                     capabilities: expect.arrayContaining(['lifecycle', 'posting', 'ledger.write'])
                 }),

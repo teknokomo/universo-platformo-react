@@ -8,7 +8,7 @@ This tutorial walks through the real browser-authored path used by the repositor
 By the end, you will have a metahub-hosted quiz widget script, a layout that renders the widget, a linked application, and a verified runtime quiz.
 
 The quiz application remains intentionally independent from the LMS template.
-In the LMS MVP, the same quiz widget can be embedded from a module content item, but the committed quiz fixture and tutorial still represent the standalone scripting-powered quiz path.
+In the LMS MVP, the same quiz widget can be embedded from a learning-content item, but the committed quiz fixture and tutorial still represent the standalone scripting-powered quiz path.
 
 ## Before You Start
 

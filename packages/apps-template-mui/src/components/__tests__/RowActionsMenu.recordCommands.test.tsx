@@ -141,6 +141,59 @@ describe('RowActionsMenu record commands', () => {
         expect(handleCloseMenu).toHaveBeenCalledTimes(1)
     })
 
+    it('shows metadata workflow actions for REF enumeration status values by option codename', async () => {
+        const handleWorkflowAction = vi.fn().mockResolvedValue(undefined)
+        const handleCloseMenu = vi.fn()
+        const appData = createState().appData!
+        const row = { id: 'row-1', publication_status_id: 'publication-draft-id', _upl_version: 2 }
+        const state = createState({
+            rows: [row],
+            appData: {
+                ...appData,
+                columns: [
+                    {
+                        id: 'status-column',
+                        codename: 'PublicationStatus',
+                        field: 'publication_status_id',
+                        dataType: 'REF',
+                        headerName: 'Publication Status',
+                        refTargetEntityKind: 'enumeration',
+                        enumOptions: [
+                            { id: 'publication-draft-id', label: 'Draft', codename: 'Draft' },
+                            { id: 'publication-published-id', label: 'Published', codename: 'Published' }
+                        ]
+                    }
+                ],
+                rows: [row],
+                workflowCapabilities: {
+                    'workflow.execute': true
+                },
+                objectCollection: {
+                    ...appData.objectCollection,
+                    workflowActions: [
+                        {
+                            codename: 'PublishLearningResource',
+                            title: 'Publish',
+                            from: ['Draft'],
+                            to: 'Published',
+                            statusFieldCodename: 'PublicationStatus',
+                            requiredCapabilities: ['workflow.execute']
+                        }
+                    ]
+                }
+            },
+            handleWorkflowAction,
+            handleCloseMenu
+        })
+
+        render(<RowActionsMenu state={state} labels={labels} permissions={{ canEdit: false, canCopy: false, canDelete: false }} />)
+
+        await userEvent.click(screen.getByRole('menuitem', { name: /^publish$/i }))
+
+        expect(handleWorkflowAction).toHaveBeenCalledWith('row-1', 'PublishLearningResource')
+        expect(handleCloseMenu).toHaveBeenCalledTimes(1)
+    })
+
     it('uses a MUI confirmation dialog for metadata workflow confirmations', async () => {
         const handleWorkflowAction = vi.fn().mockResolvedValue(undefined)
         const handleCloseMenu = vi.fn()

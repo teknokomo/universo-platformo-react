@@ -18,15 +18,26 @@ This guide describes the supported workflow for the built-in LMS template and it
 
 The canonical fixture ships a bilingual Learning Portal dataset with these entities:
 
-- `LearnerHome` Page
-- `Classes`
-- `Students`
-- `Modules`
-- `Quizzes`
-- `QuizResponses`
-- `ModuleProgress`
-- `AccessLinks`
-- `Enrollments`
+-   `LearnerHome` Page
+-   `Classes`
+-   `Students`
+-   `ContentProjects`
+-   `LearningResources`
+-   `Courses`
+-   `CourseSections`
+-   `CourseItems`
+-   `LearningTracks`
+-   `TrackStages`
+-   `TrackSteps`
+-   `ContentStars`
+-   `RecentContentViews`
+-   `ContentAccessEntries`
+-   `TrashEntries`
+-   `Quizzes`
+-   `QuizResponses`
+-   `ContentProgress`
+-   `AccessLinks`
+-   `Enrollments`
 
 It also ships the LMS enumerations, a curated working runtime menu, Editor.js-compatible landing-page blocks, workspace-aware seeded rows, and multiple guest-access routes.
 
@@ -34,13 +45,13 @@ It also ships the LMS enumerations, a curated working runtime menu, Editor.js-co
 
 The imported LMS layout must stay free of removed global dashboard widgets and removed metahub widget scripts:
 
-- no `moduleViewerWidget`
-- no `statsViewerWidget`
-- no `qrCodeWidget`
-- no `lms-module-viewer` script
-- no `lms-stats-viewer` script
+-   no `moduleViewerWidget`
+-   no `statsViewerWidget`
+-   no `qrCodeWidget`
+-   no `lms-module-viewer` script
+-   no `lms-stats-viewer` script
 
-Do not hand-edit exported snapshot payloads. Update the generator or fixture contract, then re-export or mechanically rewrite the snapshot with a recomputed `snapshotHash`.
+Do not hand-edit exported snapshot payloads. Update the generator or fixture contract, then re-export through Playwright or mechanically rewrite the snapshot with a recomputed `snapshotHash` only for deterministic fixture maintenance tasks.
 
 ## 4. Publish The Imported Or Generated Metahub
 
@@ -56,14 +67,14 @@ Workspace mode is no longer selected in the application create dialog.
 
 After the connector is linked to the publication, open schema sync:
 
-- `Require workspaces` creates or keeps application workspaces and requires an irreversible acknowledgement.
-- `Optional workspaces` allows the connector schema sync dialog to choose whether workspaces are created.
+-   `Require workspaces` creates or keeps application workspaces and requires an irreversible acknowledgement.
+-   `Optional workspaces` allows the connector schema sync dialog to choose whether workspaces are created.
 
 After sync, the linked app clones the seeded LMS rows into the user's Main workspace when the effective workspace mode is enabled.
 
 ## 6. Do Not Manually Rebuild The Demo Rows
 
-The shipped fixture already contains the classes, modules, quizzes, access links, progress rows, and workspace seed data required for the MVP scenario.
+The shipped fixture already contains the classes, learning resources, quizzes, access links, progress rows, and workspace seed data required for the MVP scenario.
 
 If the dataset must change, update the generator and fixture contract first instead of reseeding runtime tables by hand.
 
@@ -76,6 +87,7 @@ If the dataset must change, update the generator and fixture contract first inst
 
 ## Related Reading
 
-- [LMS Overview](lms-overview.md)
-- [LMS Guest Access](lms-guest-access.md)
-- [Quiz Application Tutorial](quiz-application-tutorial.md)
+-   [LMS Overview](lms-overview.md)
+-   [LMS Learning Content](lms-learning-content.md)
+-   [LMS Guest Access](lms-guest-access.md)
+-   [Quiz Application Tutorial](quiz-application-tutorial.md)

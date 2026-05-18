@@ -7,6 +7,7 @@ export interface RuntimeListQueryParams {
     search?: string
     sort?: RuntimeDatasourceSort[]
     filters?: RuntimeDatasourceFilter[]
+    lifecycleState?: 'active' | 'deleted'
 }
 
 /**
@@ -28,6 +29,7 @@ export interface CrudDataAdapter {
             locale: string
             objectCollectionId?: string
             sectionId?: string
+            workspaceId?: string | null
         } & RuntimeListQueryParams
     ): Promise<AppDataResponse>
 
@@ -49,12 +51,21 @@ export interface CrudDataAdapter {
     updateRow(rowId: string, data: Record<string, unknown>, objectCollectionId?: string): Promise<Record<string, unknown>>
 
     /** Soft-delete a row. */
-    deleteRow(rowId: string, objectCollectionId?: string): Promise<void>
+    deleteRow(rowId: string, objectCollectionId?: string, expectedVersion?: number): Promise<void>
+
+    /** Restore a soft-deleted row. */
+    restoreRow?(rowId: string, objectCollectionId?: string, expectedVersion?: number): Promise<void>
 
     /** Copy a row. */
     copyRow(
         rowId: string,
-        data?: { copyChildTables?: boolean; objectCollectionId?: string; sectionId?: string }
+        data?: {
+            copyChildTables?: boolean
+            objectCollectionId?: string
+            sectionId?: string
+            data?: Record<string, unknown>
+            expectedVersion?: number
+        }
     ): Promise<Record<string, unknown>>
 
     /** Execute a generic runtime record lifecycle command. */

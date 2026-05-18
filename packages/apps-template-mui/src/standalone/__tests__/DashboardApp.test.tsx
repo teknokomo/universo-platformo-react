@@ -33,7 +33,19 @@ vi.mock('../../dashboard/Dashboard', () => ({
         layoutConfig,
         menu
     }: {
-        details?: { title?: string; actions?: ReactNode; content?: ReactNode }
+        details?: {
+            title?: string
+            actions?: ReactNode
+            content?: ReactNode
+            pageBlocks?: Array<Record<string, unknown>>
+            pagePlayer?: {
+                showOutline?: boolean
+                showProgressHeader?: boolean
+                completeButtonMode?: string
+                progressStorageKey?: string
+                onProgressChange?: (payload: { progressPercent: number; status: string }) => void
+            }
+        }
         layoutConfig?: Record<string, unknown>
         menu?: { items?: Array<{ label: string; selected?: boolean; href?: string | null }> }
     }) => (
@@ -45,6 +57,9 @@ vi.mock('../../dashboard/Dashboard', () => ({
             <div data-testid='dashboard-title'>{details?.title}</div>
             <div data-testid='dashboard-actions'>{details?.actions}</div>
             <div data-testid='dashboard-content'>{details?.content}</div>
+            <div data-testid='dashboard-page-blocks'>{String(details?.pageBlocks?.length ?? 0)}</div>
+            <div data-testid='dashboard-page-progress-handler'>{String(typeof details?.pagePlayer?.onProgressChange === 'function')}</div>
+            <div data-testid='dashboard-page-player'>{JSON.stringify(details?.pagePlayer ?? {})}</div>
         </div>
     )
 }))
@@ -129,7 +144,9 @@ vi.mock('../../hooks/useCrudDashboard', () => ({
         menuSlot: {
             title: null,
             showTitle: false,
-            items: [{ id: 'modules', label: 'Modules', kind: 'section', objectCollectionId: 'object-1', selected: true }]
+            items: [
+                { id: 'learning-resources', label: 'LearningResources', kind: 'section', objectCollectionId: 'object-1', selected: true }
+            ]
         },
         menusMap: {},
         activeObjectCollectionId: 'object-1',
@@ -153,6 +170,55 @@ describe('DashboardApp', () => {
 
         expect(screen.getByTestId('dashboard-title')).toHaveTextContent('Standalone details')
         expect(screen.getByTestId('crud-dialogs-surface')).toHaveTextContent('dialog')
+    })
+
+    it('passes runtime page blocks and Learning Content player settings to the dashboard', () => {
+        dashboardMocks.dashboardStateOverrides = {
+            appData: {
+                zoneWidgets: { left: [], right: [], center: [] },
+                menus: [],
+                activeMenuId: null,
+                activeObjectCollectionId: 'page-1',
+                currentWorkspaceId: 'workspace-1',
+                settings: {
+                    learningContent: {
+                        playerPreset: {
+                            codename: 'player',
+                            title: 'Player',
+                            showOutline: false,
+                            showProgressHeader: true,
+                            allowResume: true,
+                            allowResourcePreview: true,
+                            completeButtonMode: 'autoAfterOpen'
+                        }
+                    }
+                },
+                permissions: {
+                    manageMembers: false,
+                    manageApplication: false,
+                    createContent: true,
+                    editContent: true,
+                    deleteContent: true,
+                    readReports: false
+                },
+                objectCollection: {
+                    name: 'Page',
+                    codename: 'Page',
+                    pageBlocks: [{ id: 'body', type: 'paragraph', data: { text: 'Read' } }]
+                }
+            }
+        }
+
+        render(<DashboardApp applicationId='app-1' locale='en' apiBaseUrl='http://localhost:3000' />)
+
+        expect(screen.getByTestId('dashboard-page-blocks')).toHaveTextContent('1')
+        expect(screen.getByTestId('dashboard-page-player')).toHaveTextContent('"showOutline":false')
+        expect(screen.getByTestId('dashboard-page-player')).toHaveTextContent('"showProgressHeader":true')
+        expect(screen.getByTestId('dashboard-page-player')).toHaveTextContent('"completeButtonMode":"autoAfterOpen"')
+        expect(screen.getByTestId('dashboard-page-player')).toHaveTextContent(
+            '"progressStorageKey":"learning-content-progress:app-1:workspace-1:page-1"'
+        )
+        expect(screen.getByTestId('dashboard-page-progress-handler')).toHaveTextContent('true')
     })
 
     it('uses the configured create page surface after the create form opens', async () => {
@@ -283,7 +349,7 @@ describe('DashboardApp', () => {
         expect(screen.getByTestId('dashboard-title')).toHaveTextContent('Workspaces')
         expect(screen.getByTestId('dashboard-content')).toHaveTextContent(`workspaces:${applicationId}`)
         expect(screen.getByTestId('dashboard-menu')).toHaveTextContent(
-            `Modules:false:/a/${applicationId}/object-1|Workspaces:true:/a/${applicationId}/workspaces`
+            `LearningResources:false:/a/${applicationId}/object-1|Workspaces:true:/a/${applicationId}/workspaces`
         )
         expect(screen.getByTestId('dashboard-layout')).toHaveTextContent('"showOverviewTitle":false')
         expect(screen.getByTestId('dashboard-layout')).toHaveTextContent('"showOverviewCards":false')
@@ -301,7 +367,7 @@ describe('DashboardApp', () => {
 
         expect(screen.getByTestId('dashboard-content')).toHaveTextContent(`workspaces:${applicationId}:${workspaceId}:access`)
         expect(screen.getByTestId('dashboard-menu')).toHaveTextContent(
-            `Modules:false:/a/${applicationId}/object-1|Workspaces:true:/a/${applicationId}/workspaces|Dashboard:false:/a/${applicationId}/workspaces/${workspaceId}|Access:true:/a/${applicationId}/workspaces/${workspaceId}/access`
+            `LearningResources:false:/a/${applicationId}/object-1|Workspaces:true:/a/${applicationId}/workspaces|Dashboard:false:/a/${applicationId}/workspaces/${workspaceId}|Access:true:/a/${applicationId}/workspaces/${workspaceId}/access`
         )
     })
 
@@ -313,7 +379,13 @@ describe('DashboardApp', () => {
                 title: null,
                 showTitle: false,
                 items: [
-                    { id: 'modules', label: 'Modules', kind: 'section', objectCollectionId: 'object-1', selected: true },
+                    {
+                        id: 'learning-resources',
+                        label: 'LearningResources',
+                        kind: 'section',
+                        objectCollectionId: 'object-1',
+                        selected: true
+                    },
                     {
                         id: 'runtime-workspaces',
                         label: 'Workspaces',
@@ -329,7 +401,7 @@ describe('DashboardApp', () => {
         render(<DashboardApp applicationId={applicationId} locale='en' apiBaseUrl='http://localhost:3000' />)
 
         expect(screen.getByTestId('dashboard-menu')).toHaveTextContent(
-            `Modules:false:/a/${applicationId}/object-1|Workspaces:true:/a/${applicationId}/workspaces`
+            `LearningResources:false:/a/${applicationId}/object-1|Workspaces:true:/a/${applicationId}/workspaces`
         )
     })
 })

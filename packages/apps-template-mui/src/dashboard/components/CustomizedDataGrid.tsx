@@ -1,5 +1,6 @@
 import {
     DataGrid,
+    type GridColumnVisibilityModel,
     type GridColDef,
     type GridFilterModel,
     type GridLocaleText,
@@ -25,6 +26,8 @@ export interface CustomizedDataGridProps {
     onSortModelChange?: (model: GridSortModel) => void
     filterModel?: GridFilterModel
     onFilterModelChange?: (model: GridFilterModel) => void
+    columnVisibilityModel?: GridColumnVisibilityModel
+    onColumnVisibilityModelChange?: (model: GridColumnVisibilityModel) => void
     pageSizeOptions?: number[]
     /** MUI DataGrid locale text overrides (e.g. from @mui/x-data-grid/locales) */
     localeText?: Partial<GridLocaleText>
@@ -60,6 +63,8 @@ export default function CustomizedDataGrid({
     onSortModelChange,
     filterModel,
     onFilterModelChange,
+    columnVisibilityModel,
+    onColumnVisibilityModelChange,
     pageSizeOptions = [10, 20, 50],
     localeText,
     rowHeight,
@@ -84,6 +89,8 @@ export default function CustomizedDataGrid({
             onSortModelChange={onSortModelChange}
             filterModel={filterModel}
             onFilterModelChange={onFilterModelChange}
+            columnVisibilityModel={columnVisibilityModel}
+            onColumnVisibilityModelChange={onColumnVisibilityModelChange}
             getRowClassName={(params) => getCustomizedDataGridRowClassName(params.row, params.indexRelativeToCurrentPage)}
             initialState={
                 paginationModel

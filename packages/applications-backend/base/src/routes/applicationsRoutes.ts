@@ -73,6 +73,8 @@ export function createApplicationsRoutes(
     router.post('/:applicationId/runtime/rows', writeLimiter, asyncHandler(runtime.createRow))
     router.post('/:applicationId/runtime/rows/reorder', writeLimiter, asyncHandler(runtime.reorderRows))
     router.post('/:applicationId/runtime/rows/:rowId/copy', writeLimiter, asyncHandler(runtime.copyRow))
+    router.post('/:applicationId/runtime/rows/:rowId/restore', writeLimiter, asyncHandler(runtime.restoreRow))
+    router.post('/:applicationId/runtime/progress/content', writeLimiter, asyncHandler(runtime.updateContentProgress))
     router.post('/:applicationId/runtime/rows/:rowId/workflow/:actionCodename', writeLimiter, asyncHandler(runtime.runWorkflowAction))
     router.post('/:applicationId/runtime/rows/:rowId/post', writeLimiter, asyncHandler(runtime.postRow))
     router.post('/:applicationId/runtime/rows/:rowId/unpost', writeLimiter, asyncHandler(runtime.unpostRow))

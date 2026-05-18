@@ -36,7 +36,7 @@ describe('App', () => {
     })
 
     it('renders the guest runtime for direct public pathname routes', () => {
-        window.history.replaceState({}, '', '/public/a/018f8a78-7b8f-7c1d-a111-222233334444/links/demo-module')
+        window.history.replaceState({}, '', '/public/a/018f8a78-7b8f-7c1d-a111-222233334444/links/demo-content')
 
         render(<App />)
 
@@ -53,7 +53,7 @@ describe('App', () => {
 
     it('prefers the explicit standalone locale from the URL before browser defaults', () => {
         window.localStorage.setItem('i18nextLng', 'en')
-        window.history.replaceState({}, '', '/public/a/018f8a78-7b8f-7c1d-a111-222233334444/links/demo-module?locale=ru')
+        window.history.replaceState({}, '', '/public/a/018f8a78-7b8f-7c1d-a111-222233334444/links/demo-content?locale=ru')
 
         render(<App />)
 
@@ -62,7 +62,7 @@ describe('App', () => {
 
     it('uses the persisted i18next locale for standalone guest routes when no explicit query is provided', () => {
         window.localStorage.setItem('i18nextLng', 'ru')
-        window.history.replaceState({}, '', '/public/a/018f8a78-7b8f-7c1d-a111-222233334444/links/demo-module')
+        window.history.replaceState({}, '', '/public/a/018f8a78-7b8f-7c1d-a111-222233334444/links/demo-content')
 
         render(<App />)
 

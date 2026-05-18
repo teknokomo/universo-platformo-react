@@ -27,15 +27,15 @@ describe('runtimeRowsController startup section resolution', () => {
                         config: {
                             bindToHub: true,
                             boundHubId: 'hub-1',
-                            startPage: 'Modules',
-                            items: [{ id: 'section', kind: 'section', sectionId: 'Modules' }]
+                            startPage: 'LearningResources',
+                            items: [{ id: 'section', kind: 'section', sectionId: 'LearningResources' }]
                         }
                     }
                 ]
             }
 
             if (sql.includes('FROM runtime_schema._app_objects') && sql.includes('id::text = $1')) {
-                expect(params).toEqual(['Modules'])
+                expect(params).toEqual(['LearningResources'])
                 expect(sql).toContain("config->'capabilities'->'layoutConfig'->>'enabled'")
                 expect(sql).not.toContain("COALESCE(kind, '') NOT IN")
                 expect(sql).not.toContain("= 'page'")

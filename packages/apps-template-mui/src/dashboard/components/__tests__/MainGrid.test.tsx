@@ -122,7 +122,11 @@ vi.mock('../widgetRenderer', () => ({
 
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
-        t: (_key: string, fallback?: string) => fallback ?? _key,
+        t: (key: string, fallback?: string | { defaultValue?: string; progress?: number }) => {
+            if (typeof fallback === 'string') return fallback
+            if (fallback?.defaultValue) return fallback.defaultValue.replace('{{progress}}', String(fallback.progress ?? ''))
+            return key
+        },
         i18n: { language: 'en' }
     })
 }))
@@ -183,6 +187,7 @@ const localizedText = (en: string, ru: string) => ({
 })
 
 afterEach(() => {
+    window.localStorage.clear()
     vi.unstubAllGlobals()
 })
 
@@ -365,7 +370,7 @@ describe('MainGrid enhanced runtime details', () => {
                     definition: {
                         codename: 'LearnerProgress',
                         title: 'Learner progress',
-                        datasource: { kind: 'records.list', sectionCodename: 'ModuleProgress' },
+                        datasource: { kind: 'records.list', sectionCodename: 'ContentProgress' },
                         columns: [{ field: 'ProgressPercent', label: 'Progress', type: 'number' }],
                         filters: [],
                         aggregations: [{ field: 'ProgressPercent', function: 'avg', alias: 'AverageProgress' }]
@@ -473,6 +478,7 @@ describe('MainGrid enhanced runtime details', () => {
                         applicationId: 'app-1',
                         apiBaseUrl: '/api/v1',
                         locale: 'ru',
+                        currentWorkspaceId: 'workspace-1',
                         sections: [{ id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990', codename: 'activity' }],
                         objectCollections: [{ id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990', codename: 'activity' }]
                     }}
@@ -511,6 +517,7 @@ describe('MainGrid enhanced runtime details', () => {
         const requestedUrl = new URL(fetchMock.mock.calls[0][0] as string)
         expect(requestedUrl.searchParams.get('limit')).toBe('3')
         expect(requestedUrl.searchParams.get('objectCollectionId')).toBe('017f22e2-79b0-7cc3-98c4-dc0c0c073990')
+        expect(requestedUrl.searchParams.get('workspaceId')).toBe('workspace-1')
         expect(requestedUrl.searchParams.get('search')).toBe('cohort')
         expect(JSON.parse(requestedUrl.searchParams.get('sort') ?? '[]')).toEqual([{ field: 'period', direction: 'asc' }])
     })
@@ -799,6 +806,14 @@ describe('MainGrid enhanced runtime details', () => {
                             }
                         },
                         {
+                            id: 'practice',
+                            type: 'header',
+                            data: {
+                                level: 3,
+                                text: 'Practice'
+                            }
+                        },
+                        {
                             id: 'ordered',
                             type: 'list',
                             data: {
@@ -842,12 +857,69 @@ describe('MainGrid enhanced runtime details', () => {
         )
 
         expect(screen.getByTestId('runtime-page-blocks')).toBeInTheDocument()
-        expect(screen.getByText('Learner Home')).toBeInTheDocument()
+        expect(screen.getByTestId('runtime-page-outline')).toHaveTextContent('Learner Home')
+        expect(screen.getByTestId('runtime-page-outline')).toHaveTextContent('Practice')
+        expect(screen.getByRole('heading', { name: 'Learner Home', level: 2 })).toBeInTheDocument()
         expect(screen.getByText('Continue lessons from one place.')).toBeInTheDocument()
         expect(screen.getByText('First step')).toBeInTheDocument()
         expect(screen.getByText('Completion')).toBeInTheDocument()
         expect(screen.getByRole('img', { name: 'Lesson illustration' })).toBeInTheDocument()
         expect(screen.getByRole('link', { name: 'External resource' })).toHaveAttribute('href', 'https://example.com/resource')
         expect(screen.queryByTestId('customized-grid')).not.toBeInTheDocument()
+    })
+
+    it('keeps page blocks visible when a dashboard layout disables the standard details area', () => {
+        render(
+            <DashboardDetailsProvider
+                value={{
+                    ...details,
+                    pageBlocks: [{ id: 'body', type: 'paragraph', data: { text: 'Read this page.' } }]
+                }}
+            >
+                <MainGrid
+                    layoutConfig={{
+                        ...baseLayoutConfig,
+                        showDetailsTitle: false,
+                        showDetailsTable: false,
+                        showColumnsContainer: false
+                    }}
+                />
+            </DashboardDetailsProvider>
+        )
+
+        expect(screen.getByTestId('runtime-page-blocks')).toBeInTheDocument()
+        expect(screen.getByText('Read this page.')).toBeInTheDocument()
+        expect(screen.queryByTestId('customized-grid')).not.toBeInTheDocument()
+    })
+
+    it('renders learner page progress from player metadata', async () => {
+        const onProgressChange = vi.fn().mockResolvedValue(undefined)
+
+        render(
+            <DashboardDetailsProvider
+                value={{
+                    ...details,
+                    pageBlocks: [{ id: 'body', type: 'paragraph', data: { text: 'Read this page.' } }],
+                    pagePlayer: {
+                        showProgressHeader: true,
+                        showOutline: false,
+                        completeButtonMode: 'manual',
+                        progressStorageKey: 'test-page-progress',
+                        onProgressChange
+                    }
+                }}
+            >
+                <MainGrid layoutConfig={baseLayoutConfig} />
+            </DashboardDetailsProvider>
+        )
+
+        expect(screen.getByTestId('runtime-page-progress')).toHaveTextContent('Reading progress 0%')
+        expect(screen.queryByTestId('runtime-page-outline')).not.toBeInTheDocument()
+
+        fireEvent.click(screen.getByRole('button', { name: 'Mark complete' }))
+
+        await waitFor(() => expect(screen.getByTestId('runtime-page-progress')).toHaveTextContent('Reading progress 100%'))
+        expect(window.localStorage.getItem('test-page-progress')).toBe('100')
+        expect(onProgressChange).toHaveBeenCalledWith({ progressPercent: 100, status: 'completed' })
     })
 })

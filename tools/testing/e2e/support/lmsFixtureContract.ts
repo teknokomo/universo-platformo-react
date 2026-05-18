@@ -1,5 +1,6 @@
 import { buildVLC, computeSnapshotHash } from '@universo/utils'
 import {
+    catalogPublicationPolicySchema,
     isDeferredResourceSource,
     LMS_ACCEPTANCE_AREAS,
     lmsAcceptanceMatrixSchema,
@@ -20,8 +21,8 @@ export const LMS_CANONICAL_METAHUB = {
         ru: 'Учебный портал LMS'
     },
     description: {
-        en: 'Canonical bilingual LMS metahub fixture with seeded classes, modules, and public learning links.',
-        ru: 'Канонический двуязычный LMS fixture metahub с заполненными классами, модулями и публичными учебными ссылками.'
+        en: 'Canonical bilingual LMS metahub fixture with seeded classes, content resources, and public learning links.',
+        ru: 'Канонический двуязычный LMS fixture metahub с заполненными классами, учебными ресурсами и публичными учебными ссылками.'
     },
     codename: {
         en: 'LearningPortalLms',
@@ -46,8 +47,8 @@ export const LMS_WELCOME_PAGE = {
         ru: 'Добро пожаловать в учебный портал'
     },
     intro: {
-        en: 'This portal brings together the learning paths, modules, assignments, tests, and progress indicators that learners need every day. Start with your assigned modules, continue from the last opened activity, and use the module library to find approved materials for independent study.',
-        ru: 'Этот портал объединяет учебные траектории, модули, задания, тесты и показатели прогресса, которые нужны учащимся каждый день. Начните с назначенных модулей, продолжите обучение с последнего открытого материала и используйте библиотеку модулей для самостоятельного изучения утвержденных материалов.'
+        en: 'This portal brings together the learning paths, content resources, assignments, tests, and progress indicators that learners need every day. Start with your assigned content, continue from the last opened activity, and use the content library to find approved materials for independent study.',
+        ru: 'Этот портал объединяет учебные траектории, учебные ресурсы, задания, тесты и показатели прогресса, которые нужны учащимся каждый день. Начните с назначенного контента, продолжите обучение с последнего открытого материала и используйте библиотеку контента для самостоятельного изучения утвержденных материалов.'
     },
     howToStartTitle: {
         en: 'How to start',
@@ -60,7 +61,7 @@ export const LMS_WELCOME_PAGE = {
 } as const
 
 export const LMS_SAMPLE_LINK = {
-    slug: 'demo-module',
+    slug: 'demo-content',
     title: {
         en: 'Learning path guest journey',
         ru: 'Гостевой учебный маршрут'
@@ -311,7 +312,7 @@ export const LMS_DEMO_QUIZZES = [
     }
 ] as const
 
-export const LMS_DEMO_MODULES = [
+export const LMS_DEMO_CONTENT_NODES = [
     {
         key: 'learning-path',
         linkedQuizKey: 'learning-path',
@@ -469,12 +470,13 @@ export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
             seeded: true,
             visible: true,
             actionable: true,
+            audited: true,
             'workspace-isolated': true,
             'covered-by-e2e': true
         }),
-        requiredEntities: ['LearnerHome', 'LearningResources', 'Courses', 'ModuleProgress'],
+        requiredEntities: ['LearnerHome', 'LearningResources', 'Courses', 'ContentProgress'],
         requiredStatuses: ['NotStarted', 'InProgress', 'Completed'],
-        evidence: ['snapshot-import-lms-runtime flow opens learner home and public module progress'],
+        evidence: ['snapshot-import-lms-runtime flow opens learner home and public content progress'],
         gaps: ['Learner-home activity is not yet written to a dedicated audit ledger']
     },
     {
@@ -483,13 +485,78 @@ export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
             seeded: true,
             visible: true,
             actionable: true,
+            audited: true,
             'workspace-isolated': true,
             'covered-by-e2e': true
         }),
-        requiredEntities: ['LearningResources', 'Courses', 'CourseSections', 'Modules', 'KnowledgeArticles'],
+        requiredEntities: ['ContentProjects', 'LearningResources', 'Courses', 'CourseSections', 'CourseItems', 'KnowledgeArticles'],
         requiredStatuses: ['Published'],
         evidence: ['resource source contract, app-side block authoring, and runtime preview tests cover early safe resource types'],
         gaps: ['Broad package ingestion remains deferred for SCORM, xAPI, Office, and advanced media']
+    },
+    {
+        area: 'contentProjects',
+        gates: acceptanceGates({
+            seeded: true,
+            visible: true,
+            actionable: true,
+            audited: true,
+            'workspace-isolated': true,
+            'covered-by-e2e': true
+        }),
+        requiredEntities: ['ContentProjects', 'ContentAccessEntries', 'ContentStars', 'RecentContentViews'],
+        evidence: [
+            'Learning Content V2 metadata seeds workspace-scoped project containers and the Playwright flow opens the Projects-backed library view'
+        ]
+    },
+    {
+        area: 'learningContentShell',
+        gates: acceptanceGates({
+            seeded: true,
+            visible: true,
+            actionable: true,
+            audited: true,
+            'workspace-isolated': true,
+            'covered-by-e2e': true
+        }),
+        requiredEntities: ['ContentProjects', 'LearningResources', 'Courses', 'LearningTracks', 'TrashEntries'],
+        evidence: [
+            'Primary LMS navigation targets ContentProjects and LearningResources',
+            'snapshot-import-lms-runtime captures Learning Content, Recent, Starred, Shared with me, and Trash screenshots'
+        ]
+    },
+    {
+        area: 'standalonePageAuthoring',
+        gates: acceptanceGates({
+            seeded: true,
+            visible: true,
+            actionable: true,
+            audited: true,
+            'workspace-isolated': true,
+            'covered-by-e2e': true
+        }),
+        requiredEntities: ['LearningResources'],
+        requiredStatuses: ['Draft', 'Published'],
+        evidence: [
+            'LearningResources.Body uses the shared Editor.js block-content field',
+            'snapshot-import-lms-runtime creates and edits block-authored content through the published app runtime'
+        ]
+    },
+    {
+        area: 'standaloneLinkResources',
+        gates: acceptanceGates({
+            seeded: true,
+            visible: true,
+            actionable: true,
+            audited: true,
+            'workspace-isolated': true,
+            'covered-by-e2e': true
+        }),
+        requiredEntities: ['LearningResources', 'ResourceType'],
+        evidence: [
+            'Shared resource-source contract validates safe URL-backed resources',
+            'Resource preview unit coverage verifies URL-backed and deferred resource states without LMS-specific widgets'
+        ]
     },
     {
         area: 'courseDetail',
@@ -497,13 +564,37 @@ export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
             seeded: true,
             visible: true,
             actionable: true,
+            audited: true,
             'workspace-isolated': true,
             'covered-by-e2e': true
         }),
-        requiredEntities: ['CourseOverview', 'Courses', 'CourseSections', 'Modules', 'LearningResources'],
+        requiredEntities: ['CourseOverview', 'Courses', 'CourseSections', 'CourseItems', 'LearningResources'],
         requiredStatuses: ['Published'],
-        evidence: ['course overview page and published-app authoring flows create modules/resources through the LMS fixture'],
-        gaps: ['Nested course-section orchestration remains a generic object flow instead of a dedicated course builder']
+        evidence: [
+            'course overview page and published-app authoring flows create content resources through the LMS fixture',
+            'CourseSections and CourseItems have scoped generic ordering layouts backed by SortOrder',
+            'snapshot-import-lms-runtime captures Course Builder tabs, player, outline scope, enrollment warning, and ordering proof'
+        ]
+    },
+    {
+        area: 'courseBuilder',
+        gates: acceptanceGates({
+            seeded: true,
+            visible: true,
+            actionable: true,
+            audited: true,
+            'workspace-isolated': true,
+            'covered-by-e2e': true
+        }),
+        requiredEntities: ['Courses', 'CourseSections', 'CourseItems', 'LearningResources'],
+        requiredStatuses: ['Draft', 'Published'],
+        evidence: [
+            'CourseItems is the canonical Course -> Section -> Content item model',
+            'Generic relationBuilder panels scope CourseSections and CourseItems to the selected Course parent',
+            'Generic records.list details tables can persist CourseSections and CourseItems order through the runtime reorder endpoint',
+            'Course Builder is organized through metadata-defined detailsTabs for Outline, General, Completion, Player, Enrollments, and Reports',
+            'snapshot-import-lms-runtime verifies builder tabs, scoped child rows, enrollment warnings, enrollment wizard, learner player, and outline reordering'
+        ]
     },
     {
         area: 'learningTrackProgression',
@@ -515,9 +606,82 @@ export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
             'workspace-isolated': true,
             'covered-by-e2e': true
         }),
-        requiredEntities: ['LearningTracks', 'TrackSteps', 'Enrollments', 'ProgressLedger'],
+        requiredEntities: ['LearningTracks', 'TrackStages', 'TrackSteps', 'Courses', 'Enrollments', 'ProgressLedger'],
         requiredStatuses: ['NotStarted', 'InProgress', 'Completed', 'Overdue', 'Expired'],
-        evidence: ['guest module flow writes progress and direct ledger facts are verified in LMS runtime E2E']
+        evidence: ['guest content flow writes progress and direct ledger facts are verified in LMS runtime E2E']
+    },
+    {
+        area: 'trackBuilder',
+        gates: acceptanceGates({
+            seeded: true,
+            visible: true,
+            actionable: true,
+            audited: true,
+            'workspace-isolated': true,
+            'covered-by-e2e': true
+        }),
+        requiredEntities: ['LearningTracks', 'TrackStages', 'TrackSteps', 'Courses'],
+        evidence: [
+            'TrackStages and course-centered TrackSteps are present in the canonical metadata model',
+            'Generic relationBuilder panels scope TrackStages and TrackSteps to the selected LearningTrack parent',
+            'Generic records.list details tables can persist TrackStages and TrackSteps order through the runtime reorder endpoint',
+            'Track Builder is organized through metadata-defined detailsTabs for Outline, General, Completion, Player, Enrollments, and Reports',
+            'snapshot-import-lms-runtime verifies track builder tabs, learner player, scoped child rows, enrollment warnings, and outline reordering'
+        ]
+    },
+    {
+        area: 'manualEnrollment',
+        gates: acceptanceGates({
+            seeded: true,
+            visible: true,
+            actionable: true,
+            audited: true,
+            'workspace-isolated': true,
+            'covered-by-e2e': true
+        }),
+        requiredEntities: ['Enrollments', 'Students', 'Courses', 'LearningTracks'],
+        requiredStatuses: ['NotStarted', 'InProgress', 'Completed', 'Overdue'],
+        evidence: [
+            'Course and Track enrollment tabs use the generic relationBuilder surface over the shared Enrollments Object',
+            'Seeded enrollments use runtime current-user token assignment for learner-facing My Courses/My Tracks visibility',
+            'snapshot-import-lms-runtime verifies the metadata-driven Enrollment Wizard in the Course Builder'
+        ]
+    },
+    {
+        area: 'learnerPlayer',
+        gates: acceptanceGates({
+            seeded: true,
+            visible: true,
+            actionable: true,
+            audited: true,
+            'workspace-isolated': true,
+            'covered-by-e2e': true
+        }),
+        requiredEntities: ['Courses', 'CourseItems', 'LearningTracks', 'TrackSteps', 'LearnerHome', 'ContentProgress'],
+        requiredStatuses: ['NotStarted', 'InProgress', 'Completed'],
+        evidence: [
+            'Course Builder exposes a metadata-defined generic learnerPlayer tab over Courses and CourseItems',
+            'Track Builder exposes the same generic learnerPlayer surface over LearningTracks and TrackSteps with a static Courses target object',
+            'The player uses CourseItems and TrackSteps sequence policies, target content references, and the runtime progress endpoint',
+            'snapshot-import-lms-runtime verifies Course and Track learner-player completion paths'
+        ]
+    },
+    {
+        area: 'trashRestore',
+        gates: acceptanceGates({
+            seeded: true,
+            visible: true,
+            actionable: true,
+            audited: true,
+            'workspace-isolated': true,
+            'covered-by-e2e': true
+        }),
+        requiredEntities: ['TrashEntries'],
+        evidence: [
+            'Runtime delete uses existing lifecycle fields and TrashEntries projects restore metadata',
+            'Runtime restore endpoint and generic Trash restore action are covered by focused runtime tests',
+            'snapshot-import-lms-runtime captures the workspace-scoped Learning Content Trash view'
+        ]
     },
     {
         area: 'assignmentSubmissionAndGrading',
@@ -645,7 +809,7 @@ export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
             'workspace-isolated': true,
             'covered-by-e2e': true
         }),
-        requiredEntities: ['AccessLinks', 'Modules', 'QuizAttempts', 'ProgressLedger'],
+        requiredEntities: ['AccessLinks', 'LearningResources', 'QuizAttempts', 'ProgressLedger'],
         requiredStatuses: ['Completed'],
         evidence: ['public guest session, progress, quiz submit, and completion flow pass in LMS runtime E2E']
     }
@@ -736,13 +900,19 @@ export const LMS_DEMO_COURSES = [
         key: 'onboarding-course',
         title: { en: 'Learner Onboarding Course', ru: 'Курс адаптации учащегося' },
         description: { en: 'A short course for the first learner journey.', ru: 'Короткий курс для первого учебного маршрута.' },
-        estimatedTimeMinutes: 22
+        estimatedTimeMinutes: 22,
+        catalogCategory: { en: 'Onboarding', ru: 'Адаптация' },
+        catalogAudience: { en: 'New learners', ru: 'Новые учащиеся' },
+        selfEnrollmentMode: 'open'
     },
     {
         key: 'compliance-course',
         title: { en: 'Compliance Refresh Course', ru: 'Курс обновления требований' },
         description: { en: 'Required refresher materials and checks.', ru: 'Обязательные материалы и проверки.' },
-        estimatedTimeMinutes: 18
+        estimatedTimeMinutes: 18,
+        catalogCategory: { en: 'Compliance', ru: 'Соответствие' },
+        catalogAudience: { en: 'All learners', ru: 'Все учащиеся' },
+        selfEnrollmentMode: 'disabled'
     }
 ] as const
 
@@ -756,8 +926,8 @@ export const LMS_DEMO_KNOWLEDGE_ARTICLE = {
     key: 'getting-started',
     title: { en: 'Getting started with learning', ru: 'Как начать обучение' },
     body: {
-        en: 'Open your assigned module, review the brief, and complete the readiness check.',
-        ru: 'Откройте назначенный модуль, изучите брифинг и завершите проверку готовности.'
+        en: 'Open your assigned content, review the brief, and complete the readiness check.',
+        ru: 'Откройте назначенный контент, изучите брифинг и завершите проверку готовности.'
     }
 } as const
 
@@ -784,9 +954,9 @@ export const LMS_DEMO_GAMIFICATION_SETTINGS = [
 
 export const LMS_DEMO_POINT_AWARD_RULES = [
     {
-        key: 'module-completed',
-        ruleCode: 'module.completed',
-        name: { en: 'Module completed', ru: 'Модуль завершён' },
+        key: 'content-completed',
+        ruleCode: 'content.completed',
+        name: { en: 'Content completed', ru: 'Контент завершён' },
         sourceType: 'Course',
         points: 25,
         isActive: true,
@@ -814,7 +984,7 @@ export const LMS_DEMO_POINT_AWARD_RULES = [
 
 export const LMS_DEMO_POINT_TRANSACTIONS = [
     {
-        key: 'ava-module-completion',
+        key: 'ava-content-completion',
         studentKey: 'ava-solaris',
         sourceType: 'Course',
         sourceObjectKey: 'learning-path',
@@ -847,10 +1017,10 @@ export const LMS_DEMO_POINT_TRANSACTIONS = [
 
 export const LMS_DEMO_BADGES = [
     {
-        key: 'first-module',
-        badgeCode: 'first.module',
-        name: { en: 'First module completed', ru: 'Первый модуль завершён' },
-        description: { en: 'Awarded after the first completed module.', ru: 'Выдаётся после первого завершённого модуля.' },
+        key: 'first-content',
+        badgeCode: 'first.content',
+        name: { en: 'First content completed', ru: 'Первый контент завершён' },
+        description: { en: 'Awarded after the first completed content.', ru: 'Выдаётся после первого завершённого контента.' },
         requiredPoints: 25,
         icon: 'WorkspacePremium',
         isActive: true
@@ -871,13 +1041,13 @@ export const LMS_DEMO_BADGES = [
 
 export const LMS_DEMO_BADGE_ISSUES = [
     {
-        key: 'ava-first-module',
+        key: 'ava-first-content',
         studentKey: 'ava-solaris',
-        badgeKey: 'first-module',
+        badgeKey: 'first-content',
         issuedAt: '2061-02-01T10:15:00.000Z',
         revokedAt: null,
         status: 'Issued',
-        reason: { en: 'Completed the first module.', ru: 'Завершён первый модуль.' }
+        reason: { en: 'Completed the first content item.', ru: 'Завершён первый элемент контента.' }
     },
     {
         key: 'ava-fast-starter',
@@ -917,7 +1087,7 @@ export const LMS_DEMO_REPORTS = [
         title: buildVLC('Learner progress', 'Прогресс учащихся'),
         datasource: {
             kind: 'records.list',
-            sectionCodename: 'ModuleProgress',
+            sectionCodename: 'ContentProgress',
             query: { sort: [{ field: 'CompletedAt', direction: 'desc' }] }
         },
         columns: [
@@ -938,7 +1108,7 @@ export const LMS_DEMO_REPORTS = [
         },
         columns: [
             { field: 'EnrollmentStudentId', label: buildVLC('Learner', 'Учащийся'), type: 'text' },
-            { field: 'ModuleIdRef', label: buildVLC('Module', 'Модуль'), type: 'text' },
+            { field: 'TargetId', label: buildVLC('Learning Item', 'Учебный объект'), type: 'text' },
             { field: 'Score', label: buildVLC('Score', 'Балл'), type: 'number' }
         ],
         filters: [],
@@ -982,17 +1152,17 @@ export const LMS_DEMO_REPORTS = [
 
 export const LMS_DEMO_ACCESS_LINKS = [
     {
-        key: 'demo-module',
+        key: 'demo-content',
         slug: LMS_SAMPLE_LINK.slug,
         title: LMS_SAMPLE_LINK.title,
-        moduleKey: 'learning-path',
+        contentKey: 'learning-path',
         classKey: 'learning-path'
     },
     {
         key: 'docking-drill',
         slug: LMS_SECONDARY_LINK.slug,
         title: LMS_SECONDARY_LINK.title,
-        moduleKey: 'docking-corridor',
+        contentKey: 'docking-corridor',
         classKey: 'learning-path'
     }
 ] as const
@@ -1002,41 +1172,43 @@ export const LMS_DEMO_ENROLLMENTS = [
         key: 'ava-learning-path',
         studentKey: 'ava-solaris',
         classKey: 'learning-path',
-        moduleKey: 'learning-path'
+        contentKey: 'learning-path'
     },
     {
         key: 'ava-docking-corridor',
         studentKey: 'ava-solaris',
         classKey: 'learning-path',
-        moduleKey: 'docking-corridor'
+        contentKey: 'docking-corridor'
     },
     {
         key: 'maksim-lunar-logistics',
         studentKey: 'maksim-vega',
         classKey: 'lunar-logistics',
-        moduleKey: 'lunar-logistics'
+        contentKey: 'lunar-logistics'
     }
 ] as const
 
-export const LMS_DEMO_MODULE_PROGRESS = [
+export const LMS_RUNTIME_CURRENT_USER_ID_TOKEN = '{{runtime.currentUserId}}'
+
+export const LMS_DEMO_CONTENT_PROGRESS = [
     {
         key: 'ava-learning-path-progress',
         studentKey: 'ava-solaris',
-        moduleKey: 'learning-path',
+        contentKey: 'learning-path',
         status: 'completed',
         progressPercent: 100
     },
     {
         key: 'ava-docking-corridor-progress',
         studentKey: 'ava-solaris',
-        moduleKey: 'docking-corridor',
+        contentKey: 'docking-corridor',
         status: 'in_progress',
         progressPercent: 50
     },
     {
         key: 'maksim-lunar-logistics-progress',
         studentKey: 'maksim-vega',
-        moduleKey: 'lunar-logistics',
+        contentKey: 'lunar-logistics',
         status: 'completed',
         progressPercent: 100
     }
@@ -1101,7 +1273,7 @@ export const LMS_DEMO_QUIZ_RESPONSES = [
 
 export const LMS_DEMO_CLASS = LMS_DEMO_CLASSES[0]
 export const LMS_DEMO_STUDENT = LMS_DEMO_STUDENTS[0]
-export const LMS_DEMO_MODULE = LMS_DEMO_MODULES[0]
+export const LMS_DEMO_CONTENT_NODE = LMS_DEMO_CONTENT_NODES[0]
 export const LMS_DEMO_QUIZ = LMS_DEMO_QUIZZES[0]
 
 type SnapshotEntity = {
@@ -1160,12 +1332,25 @@ const REQUIRED_ENTITY_CODENAMES = [
     'Classes',
     'Students',
     'Departments',
+    'ContentProjects',
+    'ContentAccessEntries',
+    'ContentStars',
+    'RecentContentViews',
+    'ContentProgress',
+    'TrashEntries',
+    'LearningContentDefaults',
+    'SupportedResourceTypes',
+    'PlayerPresets',
+    'LearningContentColumnPresets',
+    'EnrollmentDefaults',
+    'CompletionDefaults',
     'LearningResources',
     'Courses',
     'CourseSections',
+    'CourseItems',
     'LearningTracks',
+    'TrackStages',
     'TrackSteps',
-    'Modules',
     'Quizzes',
     'QuizResponses',
     'QuizAttempts',
@@ -1177,7 +1362,7 @@ const REQUIRED_ENTITY_CODENAMES = [
     'CertificateLedger',
     'PointsLedger',
     'NotificationLedger',
-    'ModuleProgress',
+    'ContentProgress',
     'AccessLinks',
     'Enrollments',
     'Assignments',
@@ -1203,6 +1388,7 @@ const REQUIRED_ENTITY_CODENAMES = [
     'LeaderboardSnapshots',
     'Reports',
     'ResourceType',
+    'PublicationStatus',
     'CompletionStatus',
     'AttemptStatus',
     'AssignmentReviewStatus',
@@ -1219,12 +1405,37 @@ type RequiredWorkflowAction = {
     actionCodename: string
     from: string[]
     to: string
+    statusFieldCodename?: string
     requiredCapabilities: string[]
     postingCommand?: 'post' | 'unpost' | 'void'
     scriptCodename?: string
 }
 
 const REQUIRED_WORKFLOW_ACTIONS: RequiredWorkflowAction[] = [
+    {
+        entityCodename: 'LearningResources',
+        actionCodename: 'PublishLearningResource',
+        from: ['Draft', 'UnpublishedChanges'],
+        to: 'Published',
+        statusFieldCodename: 'PublicationStatus',
+        requiredCapabilities: ['workflow.execute']
+    },
+    {
+        entityCodename: 'LearningResources',
+        actionCodename: 'ReturnLearningResourceToDraft',
+        from: ['Published', 'UnpublishedChanges'],
+        to: 'Draft',
+        statusFieldCodename: 'PublicationStatus',
+        requiredCapabilities: ['workflow.execute']
+    },
+    {
+        entityCodename: 'LearningResources',
+        actionCodename: 'MarkLearningResourceChanged',
+        from: ['Published'],
+        to: 'UnpublishedChanges',
+        statusFieldCodename: 'PublicationStatus',
+        requiredCapabilities: ['workflow.execute']
+    },
     {
         entityCodename: 'AssignmentSubmissions',
         actionCodename: 'StartSubmissionReview',
@@ -1554,7 +1765,6 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
 
     for (const [entityCodename, fieldCodename] of [
         ['LearningResources', 'Body'],
-        ['Modules', 'Body'],
         ['KnowledgeArticles', 'Body']
     ] as const) {
         const field = entityByCodename
@@ -1618,9 +1828,23 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
     const widgets = Array.isArray(envelope.snapshot?.layoutZoneWidgets) ? envelope.snapshot.layoutZoneWidgets : []
     const scopedLayouts = Array.isArray(envelope.snapshot?.scopedLayouts) ? envelope.snapshot.scopedLayouts : []
     const learnerHomeEntityForLayout = entityByCodename.get('LearnerHome')
+    const coursesEntityForLayout = entityByCodename.get('Courses')
+    const learningTracksEntityForLayout = entityByCodename.get('LearningTracks')
     const learnerHomeLayout = scopedLayouts.find(
         (layout) =>
             layout?.scopeEntityId === learnerHomeEntityForLayout?.id &&
+            layout?.baseLayoutId === envelope.snapshot?.defaultLayoutId &&
+            layout?.isActive !== false
+    )
+    const courseBuilderLayout = scopedLayouts.find(
+        (layout) =>
+            layout?.scopeEntityId === coursesEntityForLayout?.id &&
+            layout?.baseLayoutId === envelope.snapshot?.defaultLayoutId &&
+            layout?.isActive !== false
+    )
+    const trackBuilderLayout = scopedLayouts.find(
+        (layout) =>
+            layout?.scopeEntityId === learningTracksEntityForLayout?.id &&
             layout?.baseLayoutId === envelope.snapshot?.defaultLayoutId &&
             layout?.isActive !== false
     )
@@ -1631,6 +1855,12 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
 
     if (!learnerHomeLayout) {
         errors.push('LMS fixture must scope dashboard statistics to the LearnerHome page layout')
+    }
+    if (!courseBuilderLayout) {
+        errors.push('LMS fixture must scope Course Builder widgets to the Courses layout')
+    }
+    if (!trackBuilderLayout) {
+        errors.push('LMS fixture must scope Track Builder widgets to the LearningTracks layout')
     }
     if (
         globalLayoutConfig.showOverviewCards !== false ||
@@ -1647,8 +1877,7 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         'qrCodeWidget',
         'brandSelector',
         'productTree',
-        'usersByCountryChart',
-        'columnsContainer'
+        'usersByCountryChart'
     ])
     for (const widget of widgets) {
         if (forbiddenWidgetKeys.has(String(widget?.widgetKey))) {
@@ -1679,9 +1908,14 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
                 .filter((value): value is string => Boolean(value))
         )
         for (const requiredSectionTarget of [
+            'LearnerHome',
+            'ContentProjects',
+            'RecentContentViews',
+            'ContentStars',
+            'ContentAccessEntries',
+            'TrashEntries',
             'Courses',
-            'Modules',
-            'LearningResources',
+            'LearningTracks',
             'KnowledgeArticles',
             'DevelopmentPlans',
             'Reports'
@@ -1724,9 +1958,9 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
                 errors.push('LMS Development primary navigation must target the DevelopmentPlans authoring object')
             }
         }
-        if (config.maxPrimaryItems !== 8) {
+        if (config.maxPrimaryItems !== 12) {
             errors.push(
-                'LMS menuWidget must keep maxPrimaryItems=8 so every primary authoring surface and the workspace entry stay directly reachable'
+                'LMS menuWidget must keep maxPrimaryItems=12 so the Learning Content library, courses, tracks, reports, and workspace entry stay directly reachable'
             )
         }
         if (config.overflowLabelKey !== 'runtime.menu.more') {
@@ -1781,6 +2015,308 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
             errors.push('LMS pageViewsChart must store localized chart titles in widget config')
         }
     }
+
+    const assertBuilderRelationScope = (
+        layout: Record<string, unknown> | undefined,
+        label: string,
+        expectedParentSectionCodename: string,
+        expectedPanelRelations: Array<{ id: string; datasourceSectionCodename: string; parentFieldCodename: string }>
+    ) => {
+        if (!layout) return
+        const tabsWidget = widgets.find((widget) => widget?.layoutId === layout.id && widget?.widgetKey === 'detailsTabs')
+        const tabsConfig = readWidgetConfig(tabsWidget?.config)
+        const tabs = Array.isArray(tabsConfig.tabs) ? tabsConfig.tabs : []
+        const outlineTab = tabs.map(readRecord).find((tab) => tab?.id === 'outline')
+        const outlineWidgets = outlineTab && Array.isArray(outlineTab.widgets) ? outlineTab.widgets : []
+        const relationBuilderWidget = outlineWidgets.map(readRecord).find((widget) => widget?.widgetKey === 'relationBuilder')
+        const relationBuilderConfig = relationBuilderWidget ? readWidgetConfig(relationBuilderWidget.config) : {}
+        const parentDatasource = readRecord(relationBuilderConfig.parentDatasource)
+        if (parentDatasource?.sectionCodename !== expectedParentSectionCodename) {
+            errors.push(`${label} outline must use relationBuilder with ${expectedParentSectionCodename} as its parent datasource`)
+        }
+        const panels = Array.isArray(relationBuilderConfig.panels) ? relationBuilderConfig.panels : []
+        for (const expectedPanel of expectedPanelRelations) {
+            const panel = panels.map(readRecord).find((candidate) => candidate?.id === expectedPanel.id)
+            const datasource = panel ? readRecord(panel.datasource) : null
+            if (
+                !panel ||
+                datasource?.sectionCodename !== expectedPanel.datasourceSectionCodename ||
+                panel.parentFieldCodename !== expectedPanel.parentFieldCodename
+            ) {
+                errors.push(
+                    `${label} relationBuilder panel ${expectedPanel.id} must scope ${expectedPanel.datasourceSectionCodename} by ${expectedPanel.parentFieldCodename}`
+                )
+            }
+        }
+    }
+
+    assertBuilderRelationScope(courseBuilderLayout, 'Course Builder', 'Courses', [
+        { id: 'course-sections', datasourceSectionCodename: 'CourseSections', parentFieldCodename: 'CourseId' },
+        { id: 'course-items', datasourceSectionCodename: 'CourseItems', parentFieldCodename: 'CourseId' }
+    ])
+    assertBuilderRelationScope(trackBuilderLayout, 'Track Builder', 'LearningTracks', [
+        { id: 'track-stages', datasourceSectionCodename: 'TrackStages', parentFieldCodename: 'TrackId' },
+        { id: 'track-steps', datasourceSectionCodename: 'TrackSteps', parentFieldCodename: 'TrackId' }
+    ])
+
+    const assertBuilderEnrollmentList = (
+        layout: Record<string, unknown> | undefined,
+        label: string,
+        expectedTargetType: 'course' | 'track'
+    ) => {
+        if (!layout) return
+        const tabsWidget = widgets.find((widget) => widget?.layoutId === layout.id && widget?.widgetKey === 'detailsTabs')
+        const tabsConfig = readWidgetConfig(tabsWidget?.config)
+        const tabs = Array.isArray(tabsConfig.tabs) ? tabsConfig.tabs : []
+        const enrollmentsTab = tabs.map(readRecord).find((tab) => tab?.id === 'enrollments')
+        const enrollmentWidgets = enrollmentsTab && Array.isArray(enrollmentsTab.widgets) ? enrollmentsTab.widgets : []
+        const listWidget = enrollmentWidgets
+            .map(readRecord)
+            .filter((widget) => widget?.widgetKey === 'detailsTable')
+            .find((widget) => {
+                const config = readWidgetConfig(widget?.config)
+                const datasource = readRecord(config.datasource)
+                const query = readRecord(datasource?.query)
+                const filters = Array.isArray(query?.filters) ? query.filters.map(readRecord) : []
+                return (
+                    datasource?.kind === 'records.list' &&
+                    datasource.sectionCodename === 'Enrollments' &&
+                    filters.some(
+                        (filter) => filter?.field === 'TargetType' && filter.operator === 'equals' && filter.value === expectedTargetType
+                    )
+                )
+            })
+
+        if (!listWidget) {
+            errors.push(`${label} enrollments tab must include a generic detailsTable list filtered to ${expectedTargetType} enrollments`)
+        }
+    }
+
+    assertBuilderEnrollmentList(courseBuilderLayout, 'Course Builder', 'course')
+    assertBuilderEnrollmentList(trackBuilderLayout, 'Track Builder', 'track')
+
+    const assertBuilderCompletionSequencePolicy = (
+        layout: Record<string, unknown> | undefined,
+        label: string,
+        expectedSectionCodename: 'CourseItems' | 'TrackSteps',
+        expectedScopeFieldCodename: 'CourseId' | 'TrackId'
+    ) => {
+        if (!layout) return
+        const tabsWidget = widgets.find((widget) => widget?.layoutId === layout.id && widget?.widgetKey === 'detailsTabs')
+        const tabsConfig = readWidgetConfig(tabsWidget?.config)
+        const tabs = Array.isArray(tabsConfig.tabs) ? tabsConfig.tabs : []
+        const completionTab = tabs.map(readRecord).find((tab) => tab?.id === 'completion')
+        const completionWidgets = completionTab && Array.isArray(completionTab.widgets) ? completionTab.widgets : []
+        const tableWidget = completionWidgets
+            .map(readRecord)
+            .filter((widget) => widget?.widgetKey === 'detailsTable')
+            .find((widget) => {
+                const config = readWidgetConfig(widget?.config)
+                const datasource = readRecord(config.datasource)
+                const sequencePolicy = readRecord(config.sequencePolicy)
+                return (
+                    datasource?.kind === 'records.list' &&
+                    datasource.sectionCodename === expectedSectionCodename &&
+                    sequencePolicy?.mode === 'sequential' &&
+                    sequencePolicy.scopeFieldCodename === expectedScopeFieldCodename &&
+                    sequencePolicy.orderFieldCodename === 'SortOrder'
+                )
+            })
+
+        if (!tableWidget) {
+            errors.push(
+                `${label} completion tab must expose ${expectedSectionCodename} through detailsTable sequencePolicy instead of a custom LMS player table`
+            )
+        }
+    }
+
+    assertBuilderCompletionSequencePolicy(courseBuilderLayout, 'Course Builder', 'CourseItems', 'CourseId')
+    assertBuilderCompletionSequencePolicy(trackBuilderLayout, 'Track Builder', 'TrackSteps', 'TrackId')
+
+    const assertLearnerPlayer = (
+        layout: Record<string, unknown> | undefined,
+        options: {
+            label: string
+            parentSectionCodename: 'Courses' | 'LearningTracks'
+            itemSectionCodename: 'CourseItems' | 'TrackSteps'
+            parentFieldCodename: 'CourseId' | 'TrackId'
+            completionTargetObjectCodename: 'CourseItems' | 'TrackSteps'
+            scopeFieldCodename: 'CourseId' | 'TrackId'
+            expectedTargetObjectCodenameField?: string
+            expectedStaticTargetObjectCodename?: string
+            expectedTargetRecordIdField?: string
+        }
+    ) => {
+        if (!layout) return
+        const {
+            label,
+            parentSectionCodename,
+            itemSectionCodename,
+            parentFieldCodename,
+            completionTargetObjectCodename,
+            scopeFieldCodename,
+            expectedTargetObjectCodenameField,
+            expectedStaticTargetObjectCodename,
+            expectedTargetRecordIdField
+        } = options
+        const tabsWidget = widgets.find((widget) => widget?.layoutId === layout.id && widget?.widgetKey === 'detailsTabs')
+        const tabsConfig = readWidgetConfig(tabsWidget?.config)
+        const tabs = Array.isArray(tabsConfig.tabs) ? tabsConfig.tabs : []
+        const playerTab = tabs.map(readRecord).find((tab) => tab?.id === 'player')
+        const playerWidgets = playerTab && Array.isArray(playerTab.widgets) ? playerTab.widgets : []
+        const playerWidget = playerWidgets
+            .map(readRecord)
+            .filter((widget) => widget?.widgetKey === 'learnerPlayer')
+            .find((widget) => {
+                const config = readWidgetConfig(widget?.config)
+                const parentDatasource = readRecord(config.parentDatasource)
+                const itemsDatasource = readRecord(config.itemsDatasource)
+                const sequencePolicy = readRecord(config.sequencePolicy)
+                return (
+                    parentDatasource?.kind === 'records.list' &&
+                    parentDatasource.sectionCodename === parentSectionCodename &&
+                    itemsDatasource?.kind === 'records.list' &&
+                    itemsDatasource.sectionCodename === itemSectionCodename &&
+                    config.parentFieldCodename === parentFieldCodename &&
+                    config.completionTargetObjectCodename === completionTargetObjectCodename &&
+                    (expectedTargetObjectCodenameField === undefined ||
+                        config.targetObjectCodenameField === expectedTargetObjectCodenameField) &&
+                    (expectedStaticTargetObjectCodename === undefined ||
+                        config.targetObjectCodename === expectedStaticTargetObjectCodename) &&
+                    (expectedTargetRecordIdField === undefined || config.targetRecordIdField === expectedTargetRecordIdField) &&
+                    sequencePolicy?.mode === 'sequential' &&
+                    sequencePolicy.scopeFieldCodename === scopeFieldCodename &&
+                    sequencePolicy.orderFieldCodename === 'SortOrder'
+                )
+            })
+
+        if (!playerWidget) {
+            errors.push(`${label} must expose a generic learnerPlayer tab for sequential preview and completion`)
+        }
+    }
+
+    assertLearnerPlayer(courseBuilderLayout, {
+        label: 'Course Builder',
+        parentSectionCodename: 'Courses',
+        itemSectionCodename: 'CourseItems',
+        parentFieldCodename: 'CourseId',
+        completionTargetObjectCodename: 'CourseItems',
+        scopeFieldCodename: 'CourseId',
+        expectedTargetObjectCodenameField: 'TargetObjectCodename',
+        expectedTargetRecordIdField: 'TargetRecordId'
+    })
+    assertLearnerPlayer(trackBuilderLayout, {
+        label: 'Track Builder',
+        parentSectionCodename: 'LearningTracks',
+        itemSectionCodename: 'TrackSteps',
+        parentFieldCodename: 'TrackId',
+        completionTargetObjectCodename: 'TrackSteps',
+        scopeFieldCodename: 'TrackId',
+        expectedStaticTargetObjectCodename: 'Courses',
+        expectedTargetRecordIdField: 'CourseId'
+    })
+
+    const assertRuntimeProgressSequencePolicy = (
+        entityCodename: 'CourseItems' | 'TrackSteps',
+        expectedScopeFieldCodename: 'CourseId' | 'TrackId'
+    ) => {
+        const entity = entityByCodename.get(entityCodename)
+        const config = readRecord(entity?.config)
+        const runtimeProgress = readRecord(config?.runtimeProgress)
+        const sequencePolicy = readRecord(runtimeProgress?.sequencePolicy)
+        if (
+            sequencePolicy?.mode !== 'sequential' ||
+            sequencePolicy.scopeFieldCodename !== expectedScopeFieldCodename ||
+            sequencePolicy.orderFieldCodename !== 'SortOrder'
+        ) {
+            errors.push(
+                `LMS ${entityCodename} must declare a runtimeProgress sequencePolicy so direct progress writes cannot bypass ordering`
+            )
+        }
+    }
+
+    assertRuntimeProgressSequencePolicy('CourseItems', 'CourseId')
+    assertRuntimeProgressSequencePolicy('TrackSteps', 'TrackId')
+
+    const assertRuntimeProgressAggregation = (
+        entityCodename: 'CourseItems' | 'TrackSteps',
+        expectedParentObjectCodename: 'Courses' | 'LearningTracks',
+        expectedParentFieldCodename: 'CourseId' | 'TrackId'
+    ) => {
+        const entity = entityByCodename.get(entityCodename)
+        const config = readRecord(entity?.config)
+        const runtimeProgress = readRecord(config?.runtimeProgress)
+        const aggregateParents = Array.isArray(runtimeProgress?.aggregateParents) ? runtimeProgress.aggregateParents.map(readRecord) : []
+        const aggregateParent = aggregateParents.find(
+            (candidate) =>
+                candidate?.parentObjectCodename === expectedParentObjectCodename &&
+                candidate.parentIdFieldCodename === expectedParentFieldCodename &&
+                candidate.requiredOnly === true
+        )
+
+        if (!aggregateParent) {
+            errors.push(
+                `LMS ${entityCodename} must aggregate learner progress into ${expectedParentObjectCodename} through runtimeProgress.aggregateParents`
+            )
+        }
+    }
+
+    assertRuntimeProgressAggregation('CourseItems', 'Courses', 'CourseId')
+    assertRuntimeProgressAggregation('TrackSteps', 'LearningTracks', 'TrackId')
+
+    const assertRuntimeCopyRelations = (
+        entityCodename: 'Courses' | 'LearningTracks',
+        expectedRelations: Array<{
+            objectCodename: string
+            parentFieldCodename: string
+            refRemap?: { fieldCodename: string; sourceObjectCodename: string }
+        }>
+    ) => {
+        const entity = entityByCodename.get(entityCodename)
+        const config = readRecord(entity?.config)
+        const runtimeCopy = readRecord(config?.runtimeCopy)
+        const relations = Array.isArray(runtimeCopy?.relations) ? runtimeCopy.relations.map(readRecord) : []
+
+        for (const expectedRelation of expectedRelations) {
+            const relation = relations.find(
+                (candidate) =>
+                    candidate?.objectCodename === expectedRelation.objectCodename &&
+                    candidate.parentFieldCodename === expectedRelation.parentFieldCodename &&
+                    candidate.orderFieldCodename === 'SortOrder'
+            )
+            const refRemaps = Array.isArray(relation?.refRemaps) ? relation.refRemaps.map(readRecord) : []
+            const hasExpectedRefRemap =
+                !expectedRelation.refRemap ||
+                refRemaps.some(
+                    (candidate) =>
+                        candidate?.fieldCodename === expectedRelation.refRemap?.fieldCodename &&
+                        candidate.sourceObjectCodename === expectedRelation.refRemap.sourceObjectCodename
+                )
+
+            if (!relation || !hasExpectedRefRemap) {
+                errors.push(
+                    `LMS ${entityCodename} must declare runtimeCopy relation ${expectedRelation.objectCodename} with safe outline remapping`
+                )
+            }
+        }
+    }
+
+    assertRuntimeCopyRelations('Courses', [
+        { objectCodename: 'CourseSections', parentFieldCodename: 'CourseId' },
+        {
+            objectCodename: 'CourseItems',
+            parentFieldCodename: 'CourseId',
+            refRemap: { fieldCodename: 'SectionId', sourceObjectCodename: 'CourseSections' }
+        }
+    ])
+    assertRuntimeCopyRelations('LearningTracks', [
+        { objectCodename: 'TrackStages', parentFieldCodename: 'TrackId' },
+        {
+            objectCodename: 'TrackSteps',
+            parentFieldCodename: 'TrackId',
+            refRemap: { fieldCodename: 'StageId', sourceObjectCodename: 'TrackStages' }
+        }
+    ])
 
     const learnerHomeEntity = entityByCodename.get('LearnerHome')
     if (learnerHomeEntity?.kind !== 'page') {
@@ -1880,7 +2416,7 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
     for (const transactionalObjectCodename of [
         'QuizResponses',
         'QuizAttempts',
-        'ModuleProgress',
+        'ContentProgress',
         'Assignments',
         'AssignmentSubmissions',
         'TrainingEvents',
@@ -1926,9 +2462,10 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
             )
             continue
         }
-        if (parsedAction.data.statusFieldCodename !== 'Status') {
+        const expectedStatusFieldCodename = expectedWorkflowAction.statusFieldCodename ?? 'Status'
+        if (parsedAction.data.statusFieldCodename !== expectedStatusFieldCodename) {
             errors.push(
-                `LMS ${expectedWorkflowAction.entityCodename}.${expectedWorkflowAction.actionCodename} must use the Status field as workflow state`
+                `LMS ${expectedWorkflowAction.entityCodename}.${expectedWorkflowAction.actionCodename} must use the ${expectedStatusFieldCodename} field as workflow state`
             )
         }
         if (JSON.stringify(parsedAction.data.from) !== JSON.stringify(expectedWorkflowAction.from)) {
@@ -1981,11 +2518,71 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
     if (enrollmentPosting?.mode !== 'manual' || !targetLedgers.includes('ProgressLedger')) {
         errors.push('LMS Enrollments posting behavior must manually target ProgressLedger')
     }
+    const enrollmentRuntimeValidations =
+        enrollmentEntity?.config?.runtimeValidations &&
+        typeof enrollmentEntity.config.runtimeValidations === 'object' &&
+        !Array.isArray(enrollmentEntity.config.runtimeValidations)
+            ? (enrollmentEntity.config.runtimeValidations as Record<string, unknown>)
+            : null
+    const enrollmentRequiredWhen = Array.isArray(enrollmentRuntimeValidations?.requiredWhen)
+        ? enrollmentRuntimeValidations.requiredWhen
+        : []
+    const hasDueDateRequiredWhen = enrollmentRequiredWhen.some(
+        (rule) =>
+            rule &&
+            typeof rule === 'object' &&
+            !Array.isArray(rule) &&
+            (rule as Record<string, unknown>).field === 'DueDate' &&
+            (rule as Record<string, unknown>).when &&
+            typeof (rule as Record<string, unknown>).when === 'object' &&
+            !Array.isArray((rule as Record<string, unknown>).when) &&
+            ((rule as Record<string, unknown>).when as Record<string, unknown>).field === 'DueDateMode' &&
+            ((rule as Record<string, unknown>).when as Record<string, unknown>).equals === 'ByDate'
+    )
+    const hasDuePeriodRequiredWhen = enrollmentRequiredWhen.some(
+        (rule) =>
+            rule &&
+            typeof rule === 'object' &&
+            !Array.isArray(rule) &&
+            (rule as Record<string, unknown>).field === 'DuePeriodDays' &&
+            (rule as Record<string, unknown>).when &&
+            typeof (rule as Record<string, unknown>).when === 'object' &&
+            !Array.isArray((rule as Record<string, unknown>).when) &&
+            ((rule as Record<string, unknown>).when as Record<string, unknown>).field === 'DueDateMode' &&
+            ((rule as Record<string, unknown>).when as Record<string, unknown>).equals === 'ForPeriod'
+    )
+    if (!hasDueDateRequiredWhen || !hasDuePeriodRequiredWhen) {
+        errors.push('LMS Enrollments must enforce conditional due-date requiredWhen runtime validations')
+    }
+    const enrollmentFields = enrollmentEntity?.fields ?? []
+    for (const [fieldCodename, expectedMode] of [
+        ['DueDate', 'ByDate'],
+        ['DuePeriodDays', 'ForPeriod']
+    ] as const) {
+        const field = enrollmentFields.find((candidate) => readLocalizedText(candidate.codename, 'en') === fieldCodename)
+        const uiConfig =
+            field?.uiConfig && typeof field.uiConfig === 'object' && !Array.isArray(field.uiConfig)
+                ? (field.uiConfig as Record<string, unknown>)
+                : null
+        const requiredWhen =
+            uiConfig?.requiredWhen && typeof uiConfig.requiredWhen === 'object' && !Array.isArray(uiConfig.requiredWhen)
+                ? (uiConfig.requiredWhen as Record<string, unknown>)
+                : null
+        if (requiredWhen?.field !== 'DueDateMode' || requiredWhen.equals !== expectedMode) {
+            errors.push(`LMS Enrollments.${fieldCodename} must declare form requiredWhen metadata`)
+        }
+    }
+    if (scripts.some((candidate) => readLocalizedText(candidate?.codename, 'en') === 'AutoEnrollmentRuleScript')) {
+        errors.push('LMS fixture must not include AutoEnrollmentRuleScript until canonical auto-enrollment target rules are modeled')
+    }
     for (const requiredScript of [
-        { codename: 'AutoEnrollmentRuleScript', attachedTo: 'Students', capabilities: ['records.read', 'records.write', 'lifecycle'] },
         { codename: 'EnrollmentPostingScript', attachedTo: 'Enrollments', capabilities: ['lifecycle', 'posting', 'ledger.write'] },
         { codename: 'QuizAttemptPostingScript', attachedTo: 'QuizAttempts', capabilities: ['lifecycle', 'posting', 'ledger.write'] },
-        { codename: 'ModuleCompletionPostingScript', attachedTo: 'ModuleProgress', capabilities: ['lifecycle', 'posting', 'ledger.write'] },
+        {
+            codename: 'ContentCompletionPostingScript',
+            attachedTo: 'ContentProgress',
+            capabilities: ['lifecycle', 'posting', 'ledger.write']
+        },
         {
             codename: 'CertificateIssuePostingScript',
             attachedTo: 'CertificateIssues',
@@ -2075,15 +2672,20 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
     const elementsByEntityId = envelope.snapshot?.elements ?? {}
     const classRows = getSeededRows(elementsByEntityId, entityByCodename.get('Classes')?.id)
     const studentRows = getSeededRows(elementsByEntityId, entityByCodename.get('Students')?.id)
+    const contentProjectRows = getSeededRows(elementsByEntityId, entityByCodename.get('ContentProjects')?.id)
+    const contentAccessRows = getSeededRows(elementsByEntityId, entityByCodename.get('ContentAccessEntries')?.id)
+    const contentStarRows = getSeededRows(elementsByEntityId, entityByCodename.get('ContentStars')?.id)
+    const recentContentRows = getSeededRows(elementsByEntityId, entityByCodename.get('RecentContentViews')?.id)
     const resourceRows = getSeededRows(elementsByEntityId, entityByCodename.get('LearningResources')?.id)
     const courseRows = getSeededRows(elementsByEntityId, entityByCodename.get('Courses')?.id)
     const courseSectionRows = getSeededRows(elementsByEntityId, entityByCodename.get('CourseSections')?.id)
+    const courseItemRows = getSeededRows(elementsByEntityId, entityByCodename.get('CourseItems')?.id)
     const learningTrackRows = getSeededRows(elementsByEntityId, entityByCodename.get('LearningTracks')?.id)
+    const trackStageRows = getSeededRows(elementsByEntityId, entityByCodename.get('TrackStages')?.id)
     const trackStepRows = getSeededRows(elementsByEntityId, entityByCodename.get('TrackSteps')?.id)
-    const moduleRows = getSeededRows(elementsByEntityId, entityByCodename.get('Modules')?.id)
     const quizRows = getSeededRows(elementsByEntityId, entityByCodename.get('Quizzes')?.id)
     const quizResponseRows = getSeededRows(elementsByEntityId, entityByCodename.get('QuizResponses')?.id)
-    const moduleProgressRows = getSeededRows(elementsByEntityId, entityByCodename.get('ModuleProgress')?.id)
+    const contentProgressRows = getSeededRows(elementsByEntityId, entityByCodename.get('ContentProgress')?.id)
     const accessLinkRows = getSeededRows(elementsByEntityId, entityByCodename.get('AccessLinks')?.id)
     const enrollmentRows = getSeededRows(elementsByEntityId, entityByCodename.get('Enrollments')?.id)
     const knowledgeSpaceRows = getSeededRows(elementsByEntityId, entityByCodename.get('KnowledgeSpaces')?.id)
@@ -2104,17 +2706,22 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
     const expectedCounts = [
         ['class', classRows.length, LMS_DEMO_CLASSES.length],
         ['student', studentRows.length, LMS_DEMO_STUDENTS.length],
-        ['resource', resourceRows.length, LMS_DEMO_RESOURCES.length],
+        ['content project', contentProjectRows.length, 2],
+        ['content access entry', contentAccessRows.length, 1],
+        ['content star', contentStarRows.length, 1],
+        ['recent content view', recentContentRows.length, 1],
+        ['resource', resourceRows.length, LMS_DEMO_RESOURCES.length + LMS_DEMO_CONTENT_NODES.length],
         ['course', courseRows.length, LMS_DEMO_COURSES.length],
         ['course section', courseSectionRows.length, 3],
+        ['course item', courseItemRows.length, 3],
         ['learning track', learningTrackRows.length, 2],
+        ['track stage', trackStageRows.length, 2],
         ['track step', trackStepRows.length, 3],
-        ['module', moduleRows.length, LMS_DEMO_MODULES.length],
         ['quiz', quizRows.length, LMS_DEMO_QUIZZES.length],
         ['quiz response', quizResponseRows.length, LMS_DEMO_QUIZ_RESPONSES.length],
-        ['module progress', moduleProgressRows.length, LMS_DEMO_MODULE_PROGRESS.length],
+        ['content progress', contentProgressRows.length, LMS_DEMO_CONTENT_PROGRESS.length],
         ['access link', accessLinkRows.length, LMS_DEMO_ACCESS_LINKS.length],
-        ['enrollment', enrollmentRows.length, LMS_DEMO_ENROLLMENTS.length],
+        ['enrollment', enrollmentRows.length, LMS_DEMO_ENROLLMENTS.length + 2],
         ['knowledge space', knowledgeSpaceRows.length, 1],
         ['knowledge folder', knowledgeFolderRows.length, 1],
         ['knowledge article', knowledgeArticleRows.length, 1],
@@ -2140,9 +2747,6 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
     if (resourceRows.some((row) => !row.data?.Body)) {
         errors.push('LMS fixture must seed authored LearningResources.Body content for direct app-side editing')
     }
-    if (moduleRows.some((row) => !row.data?.Body)) {
-        errors.push('LMS fixture must seed authored Modules.Body content for direct app-side editing')
-    }
     if (!knowledgeArticleRows[0]?.data?.Body) {
         errors.push('LMS fixture must seed at least one authored KnowledgeArticles.Body document')
     }
@@ -2150,12 +2754,67 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         errors.push('LMS fixture knowledge bookmarks must point at KnowledgeArticles instead of folders')
     }
 
+    for (const seededCourse of LMS_DEMO_COURSES) {
+        const courseRow = courseRows.find((row) => readLocalizedText(row?.data?.Title, 'en') === seededCourse.title.en)
+        if (!courseRow) continue
+        const parsedCatalogPolicy = catalogPublicationPolicySchema.safeParse({
+            visible: courseRow.data?.CatalogVisible,
+            category: courseRow.data?.CatalogCategory,
+            audience: courseRow.data?.CatalogAudience,
+            selfEnrollmentMode: courseRow.data?.SelfEnrollmentMode
+        })
+        if (!parsedCatalogPolicy.success) {
+            errors.push(`LMS course ${seededCourse.key} must expose valid catalog-ready metadata`)
+        } else if (
+            parsedCatalogPolicy.data.visible !== true ||
+            readLocalizedText(parsedCatalogPolicy.data.category, 'en') !== seededCourse.catalogCategory.en ||
+            readLocalizedText(parsedCatalogPolicy.data.audience, 'en') !== seededCourse.catalogAudience.en ||
+            parsedCatalogPolicy.data.selfEnrollmentMode !== seededCourse.selfEnrollmentMode
+        ) {
+            errors.push(`LMS course ${seededCourse.key} must keep deterministic catalog policy metadata`)
+        }
+    }
+
+    for (const expectedTrack of [
+        {
+            title: 'New learner onboarding track',
+            category: 'Onboarding',
+            audience: 'New learners',
+            selfEnrollmentMode: 'open'
+        },
+        {
+            title: 'Compliance refresh track',
+            category: 'Compliance',
+            audience: 'All learners',
+            selfEnrollmentMode: 'disabled'
+        }
+    ] as const) {
+        const trackRow = learningTrackRows.find((row) => readLocalizedText(row?.data?.Title, 'en') === expectedTrack.title)
+        if (!trackRow) continue
+        const parsedCatalogPolicy = catalogPublicationPolicySchema.safeParse({
+            visible: trackRow.data?.CatalogVisible,
+            category: trackRow.data?.CatalogCategory,
+            audience: trackRow.data?.CatalogAudience,
+            selfEnrollmentMode: trackRow.data?.SelfEnrollmentMode
+        })
+        if (!parsedCatalogPolicy.success) {
+            errors.push(`LMS learning track ${expectedTrack.title} must expose valid catalog-ready metadata`)
+        } else if (
+            parsedCatalogPolicy.data.visible !== true ||
+            readLocalizedText(parsedCatalogPolicy.data.category, 'en') !== expectedTrack.category ||
+            readLocalizedText(parsedCatalogPolicy.data.audience, 'en') !== expectedTrack.audience ||
+            parsedCatalogPolicy.data.selfEnrollmentMode !== expectedTrack.selfEnrollmentMode
+        ) {
+            errors.push(`LMS learning track ${expectedTrack.title} must keep deterministic catalog policy metadata`)
+        }
+    }
+
     const enabledGamificationSetting = gamificationSettingRows.find((row) => row.data?.Scope === 'application')
     if (enabledGamificationSetting?.data?.Enabled !== true) {
         errors.push('LMS fixture must seed enabled application-level gamification settings')
     }
     const pointRuleCodes = new Set(pointAwardRuleRows.map((row) => row.data?.RuleCode).filter(Boolean))
-    for (const requiredRuleCode of ['module.completed', 'assignment.accepted', 'manual.adjustment']) {
+    for (const requiredRuleCode of ['content.completed', 'assignment.accepted', 'manual.adjustment']) {
         if (!pointRuleCodes.has(requiredRuleCode)) {
             errors.push(`LMS fixture must seed point award rule ${requiredRuleCode}`)
         }
@@ -2390,41 +3049,40 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         }
     }
 
-    const moduleRowsByKey = new Map<string, SnapshotElement>()
-    for (const seededModule of LMS_DEMO_MODULES) {
-        const moduleRow = findRowByField(moduleRows, 'Title', seededModule.title.en)
-        if (!moduleRow) {
-            errors.push(`LMS fixture is missing module ${seededModule.title.en}`)
+    const guestContentRowsByKey = new Map<string, SnapshotElement>()
+    for (const seededContent of LMS_DEMO_CONTENT_NODES) {
+        const contentRow = findRowByField(resourceRows, 'Title', seededContent.title.en)
+        if (!contentRow) {
+            errors.push(`LMS fixture is missing guest content ${seededContent.title.en}`)
             continue
         }
-        moduleRowsByKey.set(seededModule.key, moduleRow)
+        guestContentRowsByKey.set(seededContent.key, contentRow)
 
-        const moduleData = moduleRow.data ?? {}
-        if (readLocalizedText(moduleData.Title, 'ru') !== seededModule.title.ru) {
-            errors.push(`LMS module ${seededModule.title.en} is missing the canonical Russian title`)
+        const contentData = contentRow.data ?? {}
+        if (readLocalizedText(contentData.Title, 'ru') !== seededContent.title.ru) {
+            errors.push(`LMS guest content ${seededContent.title.en} is missing the canonical Russian title`)
         }
-        if (readLocalizedText(moduleData.Description, 'en') !== seededModule.description.en) {
-            errors.push(`LMS module ${seededModule.title.en} is missing the canonical English description`)
+        if (readLocalizedText(contentData.Description, 'en') !== seededContent.description.en) {
+            errors.push(`LMS guest content ${seededContent.title.en} is missing the canonical English description`)
         }
-        if (readLocalizedText(moduleData.Description, 'ru') !== seededModule.description.ru) {
-            errors.push(`LMS module ${seededModule.title.en} is missing the canonical Russian description`)
+        if (readLocalizedText(contentData.Description, 'ru') !== seededContent.description.ru) {
+            errors.push(`LMS guest content ${seededContent.title.en} is missing the canonical Russian description`)
         }
-        if (moduleData.EstimatedDurationMinutes !== seededModule.estimatedDurationMinutes) {
-            errors.push(`LMS module ${seededModule.title.en} must keep EstimatedDurationMinutes=${seededModule.estimatedDurationMinutes}`)
-        }
-        if ((moduleData.AccessLinkSlug ?? null) !== seededModule.accessLinkSlug) {
-            errors.push(`LMS module ${seededModule.title.en} must keep AccessLinkSlug=${String(seededModule.accessLinkSlug)}`)
+        if (contentData.EstimatedTimeMinutes !== seededContent.estimatedDurationMinutes) {
+            errors.push(
+                `LMS guest content ${seededContent.title.en} must keep EstimatedTimeMinutes=${seededContent.estimatedDurationMinutes}`
+            )
         }
 
-        const contentItems = Array.isArray(moduleData.ContentItems) ? moduleData.ContentItems : []
-        if (contentItems.length !== seededModule.contentItems.en.length) {
-            errors.push(`LMS module ${seededModule.title.en} must contain ${seededModule.contentItems.en.length} content item(s)`)
+        const contentItems = Array.isArray(contentData.ContentItems) ? contentData.ContentItems : []
+        if (contentItems.length !== seededContent.contentItems.en.length) {
+            errors.push(`LMS guest content ${seededContent.title.en} must contain ${seededContent.contentItems.en.length} content item(s)`)
         }
-        if (seededModule.contentItems.ru.length !== seededModule.contentItems.en.length) {
-            errors.push(`LMS module ${seededModule.title.en} must define equal English and Russian content item counts`)
+        if (seededContent.contentItems.ru.length !== seededContent.contentItems.en.length) {
+            errors.push(`LMS guest content ${seededContent.title.en} must define equal English and Russian content item counts`)
         }
-        for (const [index, expectedEnItem] of seededModule.contentItems.en.entries()) {
-            const expectedRuItem = seededModule.contentItems.ru[index]
+        for (const [index, expectedEnItem] of seededContent.contentItems.en.entries()) {
+            const expectedRuItem = seededContent.contentItems.ru[index]
             const actualItem = readRecord(contentItems[index])
             if (!actualItem || !expectedRuItem) {
                 continue
@@ -2434,7 +3092,7 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
                 errors,
                 actualItem.ItemTitle,
                 { en: expectedEnItem.itemTitle, ru: expectedRuItem.itemTitle },
-                `LMS module ${seededModule.title.en} item ${index + 1} title`
+                `LMS guest content ${seededContent.title.en} item ${index + 1} title`
             )
             const expectedEnContent = 'itemContent' in expectedEnItem ? expectedEnItem.itemContent : undefined
             const expectedRuContent = 'itemContent' in expectedRuItem ? expectedRuItem.itemContent : undefined
@@ -2443,20 +3101,20 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
                     errors,
                     actualItem.ItemContent,
                     { en: expectedEnContent ?? '', ru: expectedRuContent ?? '' },
-                    `LMS module ${seededModule.title.en} item ${index + 1} content`
+                    `LMS guest content ${seededContent.title.en} item ${index + 1} content`
                 )
             }
             if (actualItem.SortOrder !== expectedEnItem.sortOrder || actualItem.SortOrder !== expectedRuItem.sortOrder) {
-                errors.push(`LMS module ${seededModule.title.en} item ${index + 1} must keep the same sort order in both locales`)
+                errors.push(`LMS guest content ${seededContent.title.en} item ${index + 1} must keep the same sort order in both locales`)
             }
         }
 
         const quizRefItem = contentItems.find((item) => item && typeof item === 'object' && (item as Record<string, unknown>).QuizId)
-        const linkedQuizRow = quizRowsByKey.get(seededModule.linkedQuizKey)
+        const linkedQuizRow = quizRowsByKey.get(seededContent.linkedQuizKey)
         if (!quizRefItem || !linkedQuizRow?.id) {
-            errors.push(`LMS module ${seededModule.title.en} must include a quiz_ref item linked to ${seededModule.linkedQuizKey}`)
+            errors.push(`LMS guest content ${seededContent.title.en} must include a quiz_ref item linked to ${seededContent.linkedQuizKey}`)
         } else if ((quizRefItem as Record<string, unknown>).QuizId !== linkedQuizRow.id) {
-            errors.push(`LMS module ${seededModule.title.en} quiz_ref item must point at the canonical seeded quiz row id`)
+            errors.push(`LMS guest content ${seededContent.title.en} quiz_ref item must point at the canonical seeded quiz row id`)
         }
     }
 
@@ -2474,14 +3132,17 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         if (readLocalizedText(accessLinkData.LinkTitle, 'ru') !== seededLink.title.ru) {
             errors.push(`LMS access link ${seededLink.slug} is missing the canonical Russian title`)
         }
-        if (accessLinkData.TargetType !== 'module') {
-            errors.push(`LMS access link ${seededLink.slug} must target the module guest journey`)
+        if (accessLinkData.TargetType !== 'content') {
+            errors.push(`LMS access link ${seededLink.slug} must target the guest content journey`)
         }
 
-        const linkedModuleRow = moduleRowsByKey.get(seededLink.moduleKey)
+        const linkedContentRow = guestContentRowsByKey.get(seededLink.contentKey)
         const linkedClassRow = classRowsByKey.get(seededLink.classKey)
-        if (linkedModuleRow?.id && accessLinkData.TargetId !== linkedModuleRow.id) {
-            errors.push(`LMS access link ${seededLink.slug} must point at the seeded module row id`)
+        if (linkedContentRow?.id && accessLinkData.TargetId !== linkedContentRow.id) {
+            errors.push(`LMS access link ${seededLink.slug} must keep the seeded guest content row id in TargetId`)
+        }
+        if (linkedContentRow?.id && accessLinkData.ContentNodeIdRef !== linkedContentRow.id) {
+            errors.push(`LMS access link ${seededLink.slug} must reference the seeded guest content row through ContentNodeIdRef`)
         }
         if (linkedClassRow?.id && accessLinkData.LinkClassId !== linkedClassRow.id) {
             errors.push(`LMS access link ${seededLink.slug} must reference the seeded class row id`)
@@ -2491,37 +3152,74 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
     for (const seededEnrollment of LMS_DEMO_ENROLLMENTS) {
         const expectedStudentRow = studentRowsByKey.get(seededEnrollment.studentKey)
         const expectedClassRow = classRowsByKey.get(seededEnrollment.classKey)
-        const expectedModuleRow = moduleRowsByKey.get(seededEnrollment.moduleKey)
+        const expectedContentRow = guestContentRowsByKey.get(seededEnrollment.contentKey)
         const enrollmentRow = enrollmentRows.find(
             (row) =>
                 row?.data?.EnrollmentStudentId === expectedStudentRow?.id &&
                 row?.data?.EnrollmentClassId === expectedClassRow?.id &&
-                row?.data?.ModuleIdRef === expectedModuleRow?.id
+                row?.data?.TargetType === 'content' &&
+                row?.data?.TargetId === expectedContentRow?.id &&
+                row?.data?.ContentNodeIdRef === expectedContentRow?.id
         )
 
         if (!enrollmentRow) {
             errors.push(`LMS fixture is missing enrollment ${seededEnrollment.key}`)
+        } else {
+            if (enrollmentRow.data?.AssignedUserId !== LMS_RUNTIME_CURRENT_USER_ID_TOKEN) {
+                errors.push(`LMS enrollment ${seededEnrollment.key} must use the runtime current-user seed token`)
+            }
+            if (!readLocalizedText(enrollmentRow.data?.TargetTitle, 'en')) {
+                errors.push(`LMS enrollment ${seededEnrollment.key} must expose a learner-facing TargetTitle`)
+            }
+            if (enrollmentRow.data?.DueDateMode !== 'ByDate' || typeof enrollmentRow.data?.DuePeriodDays !== 'number') {
+                errors.push(`LMS enrollment ${seededEnrollment.key} must seed due-date mode and period metadata`)
+            }
         }
     }
 
-    for (const seededProgress of LMS_DEMO_MODULE_PROGRESS) {
+    const courseEnrollment = enrollmentRows.find((row) => row?.data?.TargetType === 'course')
+    if (
+        !courseEnrollment?.data?.TargetId ||
+        !courseEnrollment.data.DueDate ||
+        courseEnrollment.data.DueDateMode !== 'ByDate' ||
+        courseEnrollment.data.DuePeriodDays !== 14 ||
+        courseEnrollment.data.RestrictAfterDueDate !== true ||
+        courseEnrollment.data.AssignedUserId !== LMS_RUNTIME_CURRENT_USER_ID_TOKEN ||
+        readLocalizedText(courseEnrollment.data.TargetTitle, 'en') !== 'Compliance Refresh Course'
+    ) {
+        errors.push('LMS fixture must seed at least one due-date restricted course enrollment')
+    }
+    const trackEnrollment = enrollmentRows.find((row) => row?.data?.TargetType === 'track')
+    if (
+        !trackEnrollment?.data?.TargetId ||
+        !trackEnrollment.data.DueDate ||
+        trackEnrollment.data.DueDateMode !== 'ForPeriod' ||
+        trackEnrollment.data.DuePeriodDays !== 20 ||
+        trackEnrollment.data.RestrictAfterDueDate !== true ||
+        trackEnrollment.data.AssignedUserId !== LMS_RUNTIME_CURRENT_USER_ID_TOKEN ||
+        readLocalizedText(trackEnrollment.data.TargetTitle, 'en') !== 'Compliance refresh track'
+    ) {
+        errors.push('LMS fixture must seed at least one due-date restricted track enrollment')
+    }
+
+    for (const seededProgress of LMS_DEMO_CONTENT_PROGRESS) {
         const expectedStudentRow = studentRowsByKey.get(seededProgress.studentKey)
-        const expectedModuleRow = moduleRowsByKey.get(seededProgress.moduleKey)
-        const moduleProgressRow = moduleProgressRows.find(
-            (row) => row?.data?.ProgressStudentId === expectedStudentRow?.id && row?.data?.ModuleId === expectedModuleRow?.id
+        const expectedContentRow = guestContentRowsByKey.get(seededProgress.contentKey)
+        const contentProgressRow = contentProgressRows.find(
+            (row) => row?.data?.ProgressStudentId === expectedStudentRow?.id && row?.data?.ContentNodeId === expectedContentRow?.id
         )
 
-        if (!moduleProgressRow) {
-            errors.push(`LMS fixture is missing module progress ${seededProgress.key}`)
+        if (!contentProgressRow) {
+            errors.push(`LMS fixture is missing content progress ${seededProgress.key}`)
             continue
         }
 
-        const moduleProgressData = moduleProgressRow.data ?? {}
-        if (moduleProgressData.ProgressStatus !== seededProgress.status) {
-            errors.push(`LMS module progress ${seededProgress.key} must keep ProgressStatus=${seededProgress.status}`)
+        const contentProgressData = contentProgressRow.data ?? {}
+        if (contentProgressData.ProgressStatus !== seededProgress.status) {
+            errors.push(`LMS content progress ${seededProgress.key} must keep ProgressStatus=${seededProgress.status}`)
         }
-        if (moduleProgressData.ProgressPercent !== seededProgress.progressPercent) {
-            errors.push(`LMS module progress ${seededProgress.key} must keep ProgressPercent=${seededProgress.progressPercent}`)
+        if (contentProgressData.ProgressPercent !== seededProgress.progressPercent) {
+            errors.push(`LMS content progress ${seededProgress.key} must keep ProgressPercent=${seededProgress.progressPercent}`)
         }
     }
 
