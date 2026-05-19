@@ -1787,6 +1787,65 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
             errors.push(`LMS fixture is missing entity ${codename}`)
         }
     }
+
+    const findFieldByCodename = (entityCodename: string, fieldCodename: string) =>
+        entityByCodename.get(entityCodename)?.fields?.find((field) => readLocalizedText(field?.codename, 'en') === fieldCodename)
+
+    const readFieldUiConfig = (entityCodename: string, fieldCodename: string) => {
+        const field = findFieldByCodename(entityCodename, fieldCodename)
+        return field?.uiConfig && typeof field.uiConfig === 'object' && !Array.isArray(field.uiConfig)
+            ? (field.uiConfig as Record<string, unknown>)
+            : null
+    }
+
+    const assertTextareaField = (entityCodename: string, fieldCodename: string) => {
+        const uiConfig = readFieldUiConfig(entityCodename, fieldCodename)
+        if (uiConfig?.widget !== 'textarea' || Number(uiConfig.rows ?? 0) < 2) {
+            errors.push(`LMS ${entityCodename}.${fieldCodename} must be a textarea with at least 2 rows`)
+        }
+    }
+
+    const assertResourceSourceField = (entityCodename: string, fieldCodename: string) => {
+        const uiConfig = readFieldUiConfig(entityCodename, fieldCodename)
+        if (uiConfig?.widget !== 'resourceSource' || uiConfig.gridHidden !== true) {
+            errors.push(`LMS ${entityCodename}.${fieldCodename} must use resourceSource and stay hidden from default grids`)
+        }
+    }
+
+    const assertNoEditableRuntimeIdentityIdFields = (entityCodename: string) => {
+        const entity = entityByCodename.get(entityCodename)
+        for (const field of entity?.fields ?? []) {
+            const fieldCodename = readLocalizedText(field?.codename, 'en') ?? ''
+            if (!/(?:Owner|User|AssignedUser|CreatedByUser|Reviewer|Principal)Id$/i.test(fieldCodename)) {
+                continue
+            }
+
+            const uiConfig = readFieldUiConfig(entityCodename, fieldCodename) ?? {}
+            const isHidden = uiConfig.hidden === true || (uiConfig.formHidden === true && uiConfig.gridHidden === true)
+            const isReferenceField = field.dataType === 'REF'
+            const widget = typeof uiConfig.widget === 'string' ? uiConfig.widget : ''
+            const hasSemanticPicker =
+                ['runtimeRecordPicker', 'recordPicker', 'userPicker', 'workspaceMemberPicker'].includes(widget) ||
+                readRecord(uiConfig.runtimeRecordPicker) !== null
+
+            if (!isHidden && !isReferenceField && !hasSemanticPicker) {
+                errors.push(
+                    `LMS ${entityCodename}.${fieldCodename} must not expose an editable raw identity ID field; hide it or use a semantic picker/reference control`
+                )
+            }
+        }
+    }
+
+    assertTextareaField('ContentProjects', 'Description')
+    assertResourceSourceField('ContentProjects', 'Cover')
+    assertTextareaField('Courses', 'Description')
+    assertResourceSourceField('Courses', 'Cover')
+    assertResourceSourceField('LearningResources', 'Source')
+    assertResourceSourceField('LearningResources', 'Thumbnail')
+    for (const entityCodename of REQUIRED_ENTITY_CODENAMES) {
+        assertNoEditableRuntimeIdentityIdFields(entityCodename)
+    }
+
     const acceptanceAreas = new Set(LMS_PRODUCT_ACCEPTANCE_MATRIX.map((area) => area.area))
     for (const expectedArea of LMS_ACCEPTANCE_AREAS) {
         if (!acceptanceAreas.has(expectedArea)) {

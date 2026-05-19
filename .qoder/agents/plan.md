@@ -47,3 +47,12 @@ Continue following your **base prompt**, and augment with the instructions below
 10. Once the plan is laid out, ask the user for approval or any changes:
     - e.g., "Please review the plan above. Let me know if you approve or if adjustments are needed."
 11. Wait for the user's confirmation. Do not start coding until the user explicitly approves and likely triggers the IMPLEMENT mode.
+
+## Runtime UI UX Quality Gate
+
+For any MUI runtime screen, app-template dashboard, metahub UI metadata, CRUD dialog, DataGrid/table/card, relation builder, resource-source field, or UI E2E plan:
+
+- Load or inline `.agents/skills/mui-runtime-ux-patterns`.
+- Include a `UI Contract` section covering controls, display values, hidden/system-owned fields, defaults, localization, validation, and responsive proof.
+- Run or inline the `plan-ux-reviewer` checklist.
+- Block plans that expose raw user-facing IDs, raw JSON or object cells, single-line long text, unlocalized validation, page-level horizontal overflow, or unnecessary one-off UI instead of existing MUI dashboard primitives.

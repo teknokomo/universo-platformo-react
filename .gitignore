@@ -3,7 +3,9 @@
 .vscode
 .gigaide
 .cursorrules
-.codex
+.codex/*
+!.codex/agents/
+!.codex/agents/*.toml
 
 # dependencies
 **/node_modules

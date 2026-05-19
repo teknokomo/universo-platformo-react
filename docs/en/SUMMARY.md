@@ -64,6 +64,7 @@
 * [Coding Guidelines](contributing/coding-guidelines.md)
 * [Creating Packages](contributing/creating-packages.md)
 * [Database Code Review Checklist](contributing/database-code-review-checklist.md)
+* [Runtime UI UX Quality Gate](contributing/runtime-ui-ux-quality-gate.md)
 
 ## Guides
 

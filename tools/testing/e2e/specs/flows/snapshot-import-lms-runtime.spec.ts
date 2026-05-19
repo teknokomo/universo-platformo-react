@@ -4,6 +4,7 @@ import type { Locator, Page, Response } from '@playwright/test'
 import { expect, test } from '../../fixtures/test'
 import { waitForSettledMutationResponse } from '../../support/browser/network'
 import { applyBrowserPreferences } from '../../support/browser/preferences'
+import { expectElementFitsViewport, expectRuntimeUxViewportMatrix, expectNoTechnicalLeakage } from '../../support/browser/runtimeUx'
 import {
     createLoggedInApiContext,
     createPublicationLinkedApplication,
@@ -207,21 +208,11 @@ function extractRuntimeBlockTexts(value: unknown): string[] {
 }
 
 async function assertNoHorizontalOverflow(page: Page, label: string): Promise<void> {
-    const overflowPx = await page.evaluate(() => Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth))
-    expect(overflowPx, `${label} must not create horizontal page overflow`).toBeLessThanOrEqual(1)
+    await expectRuntimeUxViewportMatrix(page, label)
 }
 
 async function assertElementFitsViewport(page: Page, testId: string, label: string): Promise<void> {
-    const box = await page.getByTestId(testId).boundingBox()
-    expect(box, `${label} must be rendered`).not.toBeNull()
-    if (!box) return
-
-    const viewport = page.viewportSize()
-    expect(viewport, `${label} requires a viewport`).not.toBeNull()
-    if (!viewport) return
-
-    expect(box.x, `${label} must start inside the viewport`).toBeGreaterThanOrEqual(0)
-    expect(box.x + box.width, `${label} must fit inside the viewport`).toBeLessThanOrEqual(viewport.width + 1)
+    await expectElementFitsViewport(page, testId, label)
 }
 
 async function revealRuntimeGridRowActions(page: Page): Promise<void> {
@@ -662,6 +653,7 @@ async function expectPublishedLearningContentView(options: {
         .first()
     await expect(genericRuntimeSurface, `${label} must render a generic runtime data surface`).toBeVisible({ timeout: 30_000 })
     await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
+    await expectNoTechnicalLeakage(genericRuntimeSurface, { label })
     await assertNoHorizontalOverflow(page, label)
     await page.screenshot({ path: screenshotPath, fullPage: true })
 }
