@@ -3268,7 +3268,8 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         name: vlc('Principal ID', 'ID субъекта'),
                         isRequired: true,
                         sortOrder: 4,
-                        validationRules: { maxLength: 128 }
+                        validationRules: { maxLength: 128 },
+                        uiConfig: { hidden: true }
                     },
                     {
                         codename: 'AccessLevel',
@@ -3322,7 +3323,8 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         name: vlc('User ID', 'ID пользователя'),
                         isRequired: true,
                         sortOrder: 3,
-                        validationRules: { maxLength: 128 }
+                        validationRules: { maxLength: 128 },
+                        uiConfig: { hidden: true }
                     },
                     {
                         codename: 'StarredAt',
@@ -3362,7 +3364,8 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         name: vlc('User ID', 'ID пользователя'),
                         isRequired: true,
                         sortOrder: 3,
-                        validationRules: { maxLength: 128 }
+                        validationRules: { maxLength: 128 },
+                        uiConfig: { hidden: true }
                     },
                     {
                         codename: 'ViewedAt',
@@ -3413,7 +3416,8 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         dataType: 'STRING',
                         name: vlc('User ID', 'ID пользователя'),
                         sortOrder: 3,
-                        validationRules: { maxLength: 128 }
+                        validationRules: { maxLength: 128 },
+                        uiConfig: { hidden: true }
                     },
                     {
                         codename: 'ProgressStudentId',
@@ -5109,7 +5113,8 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         dataType: 'STRING',
                         name: vlc('Reviewer ID', 'ID проверяющего'),
                         sortOrder: 6,
-                        validationRules: { maxLength: 100 }
+                        validationRules: { maxLength: 100 },
+                        uiConfig: { hidden: true }
                     },
                     {
                         codename: 'Feedback',

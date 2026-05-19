@@ -128,6 +128,9 @@ export async function expectNoPageHorizontalOverflow(page: Page, label: string):
     expect(overflowPx, `${label} must not create horizontal page overflow`).toBeLessThanOrEqual(1)
 }
 
+const waitForLayoutFrame = async (page: Page) =>
+    page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
+
 export async function expectRuntimeUxViewportMatrix(
     page: Page,
     label: string,
@@ -136,16 +139,18 @@ export async function expectRuntimeUxViewportMatrix(
     const { viewports = RUNTIME_UX_VIEWPORT_MATRIX, beforeEachViewport, restoreViewport = true } = options
     const originalViewport = page.viewportSize()
 
-    for (const viewport of viewports) {
-        await page.setViewportSize({ width: viewport.width, height: viewport.height })
-        await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
-        await beforeEachViewport?.(viewport)
-        await expectNoPageHorizontalOverflow(page, `${label} at ${viewport.name} ${viewport.width}x${viewport.height}`)
-    }
-
-    if (restoreViewport && originalViewport) {
-        await page.setViewportSize(originalViewport)
-        await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
+    try {
+        for (const viewport of viewports) {
+            await page.setViewportSize({ width: viewport.width, height: viewport.height })
+            await waitForLayoutFrame(page)
+            await beforeEachViewport?.(viewport)
+            await expectNoPageHorizontalOverflow(page, `${label} at ${viewport.name} ${viewport.width}x${viewport.height}`)
+        }
+    } finally {
+        if (restoreViewport && originalViewport) {
+            await page.setViewportSize(originalViewport)
+            await waitForLayoutFrame(page)
+        }
     }
 }
 

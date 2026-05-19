@@ -8972,7 +8972,9 @@
             "validationRules": {
               "maxLength": 128
             },
-            "uiConfig": {},
+            "uiConfig": {
+              "hidden": true
+            },
             "sortOrder": 4
           },
           {
@@ -9419,7 +9421,9 @@
             "validationRules": {
               "maxLength": 128
             },
-            "uiConfig": {},
+            "uiConfig": {
+              "hidden": true
+            },
             "sortOrder": 3
           },
           {
@@ -9770,7 +9774,9 @@
             "validationRules": {
               "maxLength": 128
             },
-            "uiConfig": {},
+            "uiConfig": {
+              "hidden": true
+            },
             "sortOrder": 3
           },
           {
@@ -10141,7 +10147,9 @@
             "validationRules": {
               "maxLength": 128
             },
-            "uiConfig": {},
+            "uiConfig": {
+              "hidden": true
+            },
             "sortOrder": 3
           },
           {
@@ -21283,7 +21291,9 @@
             "validationRules": {
               "maxLength": 100
             },
-            "uiConfig": {},
+            "uiConfig": {
+              "hidden": true
+            },
             "sortOrder": 6
           },
           {
@@ -53278,5 +53288,5 @@
       "workspaceMode": "required"
     }
   },
-  "snapshotHash": "c9235e88aaef35e028a1f438bf7f495e37df5b8491c8218fd72095eecdbb2537"
+  "snapshotHash": "0180cee2e2d53c9a1d1d54a372dd075ef9e09c07008030c0ff34f343396522cd"
 }

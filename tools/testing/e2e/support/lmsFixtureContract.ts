@@ -1812,25 +1812,39 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         }
     }
 
-    const assertNoEditableOwnerIdField = (entityCodename: string) => {
+    const assertNoEditableRuntimeIdentityIdFields = (entityCodename: string) => {
         const entity = entityByCodename.get(entityCodename)
-        const forbiddenField = entity?.fields?.find((field) =>
-            /^(OwnerId|UserId|AssignedUserId|CreatedByUserId)$/i.test(readLocalizedText(field?.codename, 'en') ?? '')
-        )
-        if (forbiddenField) {
-            errors.push(
-                `LMS ${entityCodename} must not expose editable owner/user ID field ${readLocalizedText(forbiddenField.codename, 'en')}`
-            )
+        for (const field of entity?.fields ?? []) {
+            const fieldCodename = readLocalizedText(field?.codename, 'en') ?? ''
+            if (!/(?:Owner|User|AssignedUser|CreatedByUser|Reviewer|Principal)Id$/i.test(fieldCodename)) {
+                continue
+            }
+
+            const uiConfig = readFieldUiConfig(entityCodename, fieldCodename) ?? {}
+            const isHidden = uiConfig.hidden === true || (uiConfig.formHidden === true && uiConfig.gridHidden === true)
+            const isReferenceField = field.dataType === 'REF'
+            const widget = typeof uiConfig.widget === 'string' ? uiConfig.widget : ''
+            const hasSemanticPicker =
+                ['runtimeRecordPicker', 'recordPicker', 'userPicker', 'workspaceMemberPicker'].includes(widget) ||
+                readRecord(uiConfig.runtimeRecordPicker) !== null
+
+            if (!isHidden && !isReferenceField && !hasSemanticPicker) {
+                errors.push(
+                    `LMS ${entityCodename}.${fieldCodename} must not expose an editable raw identity ID field; hide it or use a semantic picker/reference control`
+                )
+            }
         }
     }
 
     assertTextareaField('ContentProjects', 'Description')
     assertResourceSourceField('ContentProjects', 'Cover')
-    assertNoEditableOwnerIdField('ContentProjects')
     assertTextareaField('Courses', 'Description')
     assertResourceSourceField('Courses', 'Cover')
     assertResourceSourceField('LearningResources', 'Source')
     assertResourceSourceField('LearningResources', 'Thumbnail')
+    for (const entityCodename of REQUIRED_ENTITY_CODENAMES) {
+        assertNoEditableRuntimeIdentityIdFields(entityCodename)
+    }
 
     const acceptanceAreas = new Set(LMS_PRODUCT_ACCEPTANCE_MATRIX.map((area) => area.area))
     for (const expectedArea of LMS_ACCEPTANCE_AREAS) {
