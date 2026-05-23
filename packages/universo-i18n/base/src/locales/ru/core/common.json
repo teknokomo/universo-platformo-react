@@ -213,7 +213,10 @@
             "removeLanguage": "Удалить",
             "back": "Назад",
             "noLanguagesAvailable": "Нет доступных языков",
-            "fallbackNotice": "Используются резервные языки"
+            "fallbackNotice": "Используются резервные языки",
+            "lengthRange": "Длина: {{min}}-{{max}} символов",
+            "maxLength": "Максимальная длина: {{max}} символов",
+            "minLength": "Минимальная длина: {{min}} символов"
         },
         "unknown": "Неизвестно",
         "conflict": {

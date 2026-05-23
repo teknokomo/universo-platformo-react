@@ -7,6 +7,7 @@ import {
     Box,
     Button,
     Checkbox,
+    Chip,
     CircularProgress,
     Dialog,
     DialogActions,
@@ -36,13 +37,18 @@ import type {
     ResourceType,
     VersionedLocalizedContent
 } from '@universo/types'
-import { normalizePageBlockContentForStorage, RESOURCE_TYPES, resourceSourceSchema } from '@universo/types'
+import { normalizePageBlockContentForStorage, parseSafeExternalUrl, RESOURCE_TYPES, resourceSourceSchema } from '@universo/types'
 import { buildTableConstraintText, createLocalizedContent, NUMBER_DEFAULTS, toNumberRules, validateNumber } from '@universo/utils'
 import { useTranslation } from 'react-i18next'
 import { LocalizedInlineField } from '../forms/LocalizedInlineField'
 import { TabularPartEditor } from '../TabularPartEditor'
 import { RuntimeInlineTabularEditor } from '../RuntimeInlineTabularEditor'
 import { normalizeTabularRowValues } from '../../utils/tabularCellValues'
+import { isSemanticLongTextRuntimeField } from '../../utils/fieldSemantics'
+import { buildDefaultResourceSourceForType } from '../../utils/resourceSourceDefaults'
+import { getDefaultResourceTypeLabel } from '../../utils/resourceSourceLabels'
+import { formatRuntimeSafeValue } from '../../utils/displayValue'
+import { extractRuntimeErrorMessage } from '../../utils/runtimeErrors'
 import PageContainer from '../../crud-dashboard/components/PageContainer'
 import { EditorJsBlockEditor } from '@universo/block-editor'
 import { ResourcePreview } from '../resource-preview'
@@ -78,6 +84,7 @@ export interface FieldValidationRules extends Record<string, unknown> {
 
 export interface FieldConfig {
     id: string
+    codename?: string
     label: string
     type: FieldType
     widget?: 'text' | 'textarea' | 'number' | 'select' | 'checkbox' | 'date' | 'datetime' | 'reference'
@@ -165,6 +172,20 @@ interface StringSelectOption {
     label: string
 }
 
+export interface ResourceSourceTypeOption {
+    resourceType: ResourceType
+    enabled?: boolean
+    deferred?: boolean
+    label?: unknown
+}
+
+interface ResourceSourceTypeSelectOption {
+    resourceType: ResourceType
+    label: string
+    disabled: boolean
+    hidden: boolean
+}
+
 interface FieldVisibilityCondition {
     fieldId: string
     equals?: unknown
@@ -178,6 +199,11 @@ interface FieldDateOffsetDerivation {
     offsetDaysFieldId: string
     when?: FieldVisibilityCondition
     clearWhen?: FieldVisibilityCondition
+}
+
+interface PageResourceCodenameDerivation {
+    enabled: boolean
+    sourceFieldIds: string[]
 }
 
 const EMPTY_OBJECT_COLLECTIONS: RuntimeObjectCollectionOption[] = []
@@ -226,6 +252,8 @@ export interface FormDialogProps {
     objectCollections?: RuntimeObjectCollectionOption[]
     /** Current workspace scope for runtime record picker fields. */
     currentWorkspaceId?: string | null
+    /** Optional generic policy for resource-source type choices. */
+    resourceSourceTypes?: ResourceSourceTypeOption[]
     /** Optional metadata-defined wizard steps for guided create/edit forms. */
     wizardSteps?: Array<{
         id: string
@@ -347,6 +375,63 @@ const readFieldDateOffsetDerivation = (field: FieldConfig): FieldDateOffsetDeriv
         when: readFieldVisibilityCondition({ ...field, uiConfig: { visibleWhen: rawDerivation.when } }) ?? undefined,
         clearWhen: readFieldVisibilityCondition({ ...field, uiConfig: { visibleWhen: rawDerivation.clearWhen } }) ?? undefined
     }
+}
+
+const readStringList = (value: unknown): string[] =>
+    Array.isArray(value)
+        ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0).map((item) => item.trim())
+        : typeof value === 'string' && value.trim().length > 0
+        ? [value.trim()]
+        : []
+
+const readPageResourceCodenameDerivation = (field: FieldConfig): PageResourceCodenameDerivation | null => {
+    const uiConfig = field.uiConfig ?? {}
+    const rawConfig = uiConfig.pageCodename ?? uiConfig.pageSource ?? uiConfig.autoPageCodename
+
+    if (rawConfig === true) {
+        return { enabled: true, sourceFieldIds: ['Name', 'Title'] }
+    }
+
+    if (!isRecord(rawConfig)) return null
+    const enabled = rawConfig.enabled !== false && rawConfig.auto !== false
+    if (!enabled) return null
+
+    const sourceFieldIds = [
+        ...readStringList(rawConfig.sourceFieldIds),
+        ...readStringList(rawConfig.sourceFields),
+        ...readStringList(rawConfig.sourceFieldId),
+        ...readStringList(rawConfig.sourceField),
+        ...readStringList(rawConfig.fromField)
+    ]
+
+    return { enabled: true, sourceFieldIds: sourceFieldIds.length > 0 ? sourceFieldIds : ['Name', 'Title'] }
+}
+
+const normalizeFieldLookupKey = (value: unknown): string =>
+    typeof value === 'string'
+        ? value
+              .trim()
+              .replace(/[^a-z0-9]/gi, '')
+              .toLowerCase()
+        : ''
+
+const readPlainRuntimeText = (value: unknown, locale: string): string => {
+    if (typeof value === 'string') return value.trim()
+    const localizedValue = getLocalizedStringValue(value, locale)
+    if (typeof localizedValue === 'string') return localizedValue.trim()
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value)
+    return ''
+}
+
+const toPageCodename = (value: string): string => {
+    const normalized = value
+        .normalize('NFKD')
+        .trim()
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}]+/gu, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 128)
+    return normalized || 'page'
 }
 
 const valuesEqual = (left: unknown, right: unknown): boolean => {
@@ -521,7 +606,71 @@ const readStringSelectOptions = (field: FieldConfig, locale: string): StringSele
     })
 }
 
-const getRuntimeRecordPickerLabel = (row: Record<string, unknown>, labelFields: readonly string[], locale: string): string => {
+const readLocalizedOptionLabel = (value: unknown, locale: string): string | null => {
+    const localizedLabel = getLocalizedStringValue(value, locale)
+    if (localizedLabel && localizedLabel.trim().length > 0) return localizedLabel.trim()
+    return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
+}
+
+const buildResourceSourceTypeOptions = (
+    configuredTypes: readonly ResourceSourceTypeOption[] | undefined,
+    locale: string,
+    translate: (key: string, fallback: string) => string,
+    currentType?: ResourceType
+): ResourceSourceTypeSelectOption[] => {
+    const translateResourceType = (resourceType: ResourceType): string =>
+        translate(`resourceSource.types.${resourceType}`, getDefaultResourceTypeLabel(resourceType))
+
+    if (!configuredTypes?.length) {
+        return RESOURCE_TYPES.map((resourceType) => ({
+            resourceType,
+            label: translateResourceType(resourceType),
+            disabled: false,
+            hidden: false
+        }))
+    }
+
+    const seen = new Set<ResourceType>()
+    const options: ResourceSourceTypeSelectOption[] = []
+
+    configuredTypes.forEach((item) => {
+        if (!RESOURCE_TYPES.includes(item.resourceType) || seen.has(item.resourceType)) return
+        seen.add(item.resourceType)
+        const disabled = item.enabled === false || item.deferred === true
+        options.push({
+            resourceType: item.resourceType,
+            label: readLocalizedOptionLabel(item.label, locale) ?? translateResourceType(item.resourceType),
+            disabled,
+            hidden: item.enabled === false && item.resourceType !== currentType
+        })
+    })
+
+    if (currentType && !seen.has(currentType)) {
+        options.push({
+            resourceType: currentType,
+            label: translateResourceType(currentType),
+            disabled: true,
+            hidden: false
+        })
+    }
+
+    const visibleOptions = options.filter((item) => !item.hidden)
+    return visibleOptions.length > 0
+        ? visibleOptions
+        : RESOURCE_TYPES.map((resourceType) => ({
+              resourceType,
+              label: translateResourceType(resourceType),
+              disabled: false,
+              hidden: false
+          }))
+}
+
+const getRuntimeRecordPickerLabel = (
+    row: Record<string, unknown>,
+    labelFields: readonly string[],
+    locale: string,
+    fallback: string
+): string => {
     for (const field of labelFields) {
         const value = row[field]
         const localizedValue = getLocalizedStringValue(value, locale)
@@ -530,7 +679,7 @@ const getRuntimeRecordPickerLabel = (row: Record<string, unknown>, labelFields: 
         if (typeof value === 'number' && Number.isFinite(value)) return String(value)
     }
 
-    return typeof row.id === 'string' ? row.id : '—'
+    return fallback
 }
 
 const isLocalizedStringField = (field: FieldConfig): boolean => Boolean(field.validationRules?.localized ?? field.localized)
@@ -597,7 +746,8 @@ const parseJsonStringValue = (value: unknown): unknown => {
 
 const readNonEmptyString = (value: unknown): string | null => (typeof value === 'string' && value.trim().length > 0 ? value.trim() : null)
 
-const isTextareaField = (field: FieldConfig): boolean => field.widget === 'textarea' || field.uiConfig?.widget === 'textarea'
+const isTextareaField = (field: FieldConfig): boolean =>
+    field.widget === 'textarea' || field.uiConfig?.widget === 'textarea' || isSemanticLongTextRuntimeField(field)
 
 const getTextareaRows = (field: FieldConfig): number => {
     if (typeof field.multilineRows === 'number' && Number.isInteger(field.multilineRows) && field.multilineRows > 0) {
@@ -622,6 +772,16 @@ const hasResourceSourceLocator = (value: unknown): boolean => {
     }
 
     return false
+}
+
+const isPageResourceSourceDraft = (value: unknown): boolean => {
+    const parsedValue = parseJsonStringValue(value)
+    return Boolean(
+        parsedValue &&
+            typeof parsedValue === 'object' &&
+            !Array.isArray(parsedValue) &&
+            (parsedValue as Record<string, unknown>).type === 'page'
+    )
 }
 
 const normalizeResourceSourceValue = (value: unknown): ResourceSource | Record<string, unknown> => {
@@ -655,6 +815,16 @@ const getResourceSourceErrorKey = (value: unknown): string => {
 const getResourceSourceType = (value: ResourceSource | Record<string, unknown>): ResourceType =>
     RESOURCE_TYPES.includes(value.type as ResourceType) ? (value.type as ResourceType) : 'url'
 
+const getSafeResourceSourceUrlHostname = (value: ResourceSource | Record<string, unknown>): string | null => {
+    if (typeof value.url !== 'string') return null
+
+    try {
+        return parseSafeExternalUrl(value.url).hostname.replace(/\.$/, '').toLowerCase()
+    } catch {
+        return null
+    }
+}
+
 const buildResourceSourceCandidate = (
     current: ResourceSource | Record<string, unknown>,
     patch: Partial<ResourceSource> | Record<string, unknown>
@@ -669,20 +839,6 @@ const getPackageDescriptorLabel = (value: unknown): string => {
     const record = value as Record<string, unknown>
     const candidate = record.codename ?? record.name ?? record.id
     return typeof candidate === 'string' ? candidate : ''
-}
-
-const buildDefaultResourceSourceForType = (resourceType: ResourceType): ResourceSource | Record<string, unknown> => {
-    switch (resourceType) {
-        case 'page':
-            return { type: resourceType, pageCodename: '' }
-        case 'scorm':
-        case 'xapi':
-            return { type: resourceType, packageDescriptor: { codename: '' } }
-        case 'file':
-            return { type: resourceType, storageKey: '' }
-        default:
-            return { type: resourceType, url: '' }
-    }
 }
 
 /**
@@ -734,6 +890,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
     copyMode = false,
     objectCollections = EMPTY_OBJECT_COLLECTIONS,
     currentWorkspaceId = null,
+    resourceSourceTypes,
     wizardSteps
 }) => {
     const [formData, setFormData] = useState<Record<string, unknown>>({})
@@ -746,6 +903,16 @@ export const FormDialog: React.FC<FormDialogProps> = ({
     const numberInputRefsRef = useRef<Map<string, HTMLInputElement>>(new Map())
     const numberCursorZoneRef = useRef<Map<string, 'integer' | 'decimal'>>(new Map())
     const fieldById = useMemo(() => new Map(fields.map((field) => [field.id, field])), [fields])
+    const fieldByLookupKey = useMemo(() => {
+        const result = new Map<string, FieldConfig>()
+        for (const field of fields) {
+            const idKey = normalizeFieldLookupKey(field.id)
+            if (idKey) result.set(idKey, field)
+            const codenameKey = normalizeFieldLookupKey(field.codename)
+            if (codenameKey) result.set(codenameKey, field)
+        }
+        return result
+    }, [fields])
     const syncTargetsBySourceId = useMemo(
         () =>
             new Map(
@@ -927,7 +1094,12 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                             error: null,
                             options: response.rows.map((row) => ({
                                 id: row.id,
-                                label: getRuntimeRecordPickerLabel(row, config.labelFields, normalizedLocale)
+                                label: getRuntimeRecordPickerLabel(
+                                    row,
+                                    config.labelFields,
+                                    normalizedLocale,
+                                    t('recordPicker.untitled', 'Untitled record')
+                                )
                             }))
                         }
                     }))
@@ -939,7 +1111,11 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                         [field.id]: {
                             targetCodename,
                             loading: false,
-                            error: error instanceof Error ? error.message : t('recordPicker.loadFailed', 'Unable to load records.'),
+                            error: extractRuntimeErrorMessage(
+                                error,
+                                t('recordPicker.loadFailed', 'Unable to load records.'),
+                                normalizedLocale
+                            ),
                             options: []
                         }
                     }))
@@ -971,6 +1147,41 @@ export const FormDialog: React.FC<FormDialogProps> = ({
             return String(value)
         },
         [normalizedLocale]
+    )
+
+    const resolvePageResourceCodename = useCallback(
+        (field: FieldConfig, data: Record<string, unknown>): string | null => {
+            const derivation = readPageResourceCodenameDerivation(field)
+            if (!derivation?.enabled) return null
+
+            for (const sourceFieldId of derivation.sourceFieldIds) {
+                const sourceField = fieldByLookupKey.get(normalizeFieldLookupKey(sourceFieldId))
+                if (!sourceField) continue
+                const sourceText = readPlainRuntimeText(data[sourceField.id], normalizedLocale)
+                if (sourceText) return toPageCodename(sourceText)
+            }
+
+            return null
+        },
+        [fieldByLookupKey, normalizedLocale]
+    )
+
+    const buildAutoResolvedPageResourceSource = useCallback(
+        (field: FieldConfig, value: unknown, data: Record<string, unknown>): ResourceSource | null => {
+            if (!isResourceSourceField(field) || !isPageResourceSourceDraft(value) || hasResourceSourceLocator(value)) return null
+            const pageCodename = resolvePageResourceCodename(field, data)
+            if (!pageCodename) return null
+            const candidate = buildResourceSourceCandidate(normalizeResourceSourceValue(value), { pageCodename })
+            const parsed = resourceSourceSchema.safeParse(candidate)
+            return parsed.success ? parsed.data : null
+        },
+        [resolvePageResourceCodename]
+    )
+
+    const hasAutoResolvedPageResourceSource = useCallback(
+        (field: FieldConfig, value: unknown, data: Record<string, unknown>): boolean =>
+            Boolean(buildAutoResolvedPageResourceSource(field, value, data)),
+        [buildAutoResolvedPageResourceSource]
     )
 
     const buildSyncedFieldValue = useCallback(
@@ -1182,7 +1393,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                     case 'exceedsSafeInteger':
                         return t('validation.numberPrecisionExceeded', 'Value exceeds allowed precision')
                     default:
-                        return result.errorMessage ?? t('validation.invalidNumber', 'Invalid number')
+                        return t('validation.invalidNumber', 'Invalid number')
                 }
             }
 
@@ -1250,10 +1461,15 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                     if (rowCount < minRequired) return true
                     return false
                 }
-                if (required && !resolveValuePresent(field, formData[field.id])) return true
+                if (
+                    required &&
+                    !resolveValuePresent(field, formData[field.id]) &&
+                    !hasAutoResolvedPageResourceSource(field, formData[field.id], formData)
+                )
+                    return true
                 return false
             }),
-        [fields, formData, resolveValuePresent]
+        [fields, formData, hasAutoResolvedPageResourceSource, resolveValuePresent]
     )
 
     const hasValidationErrors = useMemo(
@@ -1282,10 +1498,15 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                     if (rowCount < minRequired) return true
                     return false
                 }
-                if (required && !resolveValuePresent(field, formData[field.id])) return true
+                if (
+                    required &&
+                    !resolveValuePresent(field, formData[field.id]) &&
+                    !hasAutoResolvedPageResourceSource(field, formData[field.id], formData)
+                )
+                    return true
                 return false
             }),
-        [formData, resolveValuePresent]
+        [formData, hasAutoResolvedPageResourceSource, resolveValuePresent]
     )
 
     const hasValidationErrorsForFields = useCallback(
@@ -1305,6 +1526,11 @@ export const FormDialog: React.FC<FormDialogProps> = ({
             }
             if (isConditionallyHiddenField(field, formData)) return
             const value = formData[field.id]
+            const autoResolvedPageSource = buildAutoResolvedPageResourceSource(field, value, formData)
+            if (autoResolvedPageSource) {
+                payload[field.id] = autoResolvedPageSource
+                return
+            }
             if (!resolveValuePresent(field, value)) return
             // Strip internal-only properties from TABLE row arrays before sending to the API
             if (field.type === 'TABLE' && Array.isArray(value)) {
@@ -1317,7 +1543,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
             }
         })
         return payload
-    }, [fields, formData, normalizedLocale, resolveValuePresent])
+    }, [buildAutoResolvedPageResourceSource, fields, formData, normalizedLocale, resolveValuePresent])
 
     const handleSubmit = async () => {
         if (hasMissingRequired) return
@@ -1464,7 +1690,11 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                                 MenuProps={{ PaperProps: { sx: { '& .MuiMenuItem-root': { minHeight: 40 } } } }}
                             >
                                 {!field.required && <MenuItem value=''> </MenuItem>}
-                                {!hasSelectedOption && stringValue ? <MenuItem value={stringValue}>{stringValue}</MenuItem> : null}
+                                {!hasSelectedOption && stringValue ? (
+                                    <MenuItem value={stringValue}>
+                                        {t('recordPicker.unavailableSelection', 'Selected record is unavailable.')}
+                                    </MenuItem>
+                                ) : null}
                                 {pickerOptions.map((option) => (
                                     <MenuItem key={option.id} value={option.id}>
                                         {option.label}
@@ -1896,12 +2126,20 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                 if (isResourceSourceField(field)) {
                     const resourceValue = normalizeResourceSourceValue(value)
                     const resourceType = getResourceSourceType(resourceValue)
+                    const resourceTypeOptions = buildResourceSourceTypeOptions(resourceSourceTypes, normalizedLocale, t, resourceType)
+                    const selectedResourceTypeOption = resourceTypeOptions.find((item) => item.resourceType === resourceType)
+                    const resourceTypeDisabled = selectedResourceTypeOption?.disabled === true
+                    const autoPageCodename = resourceType === 'page' ? resolvePageResourceCodename(field, formData) : null
+                    const shouldAutoResolvePageCodename =
+                        resourceType === 'page' && Boolean(readPageResourceCodenameDerivation(field)?.enabled)
+                    const urlHostname =
+                        resourceType === 'url' || resourceType === 'embed' ? getSafeResourceSourceUrlHostname(resourceValue) : null
                     const updateResourceSource = (patch: Partial<ResourceSource> | Record<string, unknown>) => {
                         handleFieldChange(field.id, buildResourceSourceCandidate(resourceValue, patch))
                     }
 
                     const locatorField =
-                        resourceType === 'page' ? (
+                        resourceType === 'page' && shouldAutoResolvePageCodename ? null : resourceType === 'page' ? (
                             <TextField
                                 fullWidth
                                 size='small'
@@ -1953,6 +2191,13 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                                 placeholder='https://'
                             />
                         )
+                    const resolvedPagePreview =
+                        shouldAutoResolvePageCodename && autoPageCodename && !hasResourceSourceLocator(resourceValue) ? (
+                            <ResourcePreview
+                                source={{ type: 'page', pageCodename: autoPageCodename, launchMode: 'inline' }}
+                                title={field.label}
+                            />
+                        ) : null
 
                     return (
                         <Stack spacing={1.25}>
@@ -1977,15 +2222,33 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                                         }
                                         disabled={disabled}
                                     >
-                                        {RESOURCE_TYPES.map((type) => (
-                                            <MenuItem key={type} value={type}>
-                                                {t(`resourceSource.types.${type}`, type)}
+                                        {resourceTypeOptions.map((option) => (
+                                            <MenuItem key={option.resourceType} value={option.resourceType} disabled={option.disabled}>
+                                                {option.label}
+                                                {option.disabled ? ` (${t('resourceSource.deferredType', 'not available yet')})` : ''}
                                             </MenuItem>
                                         ))}
                                     </Select>
                                 </FormControl>
-                                <Box sx={{ flex: 1 }}>{locatorField}</Box>
+                                {locatorField ? <Box sx={{ flex: 1 }}>{locatorField}</Box> : null}
                             </Stack>
+                            {resourceTypeDisabled ? (
+                                <Alert severity='info'>
+                                    {t(
+                                        'resourceSource.deferredTypeDescription',
+                                        'This resource type is configured but is not available for runtime authoring yet.'
+                                    )}
+                                </Alert>
+                            ) : null}
+                            {urlHostname && !fieldError ? (
+                                <Chip
+                                    size='small'
+                                    variant='outlined'
+                                    data-testid={`${field.id}-resource-source-domain-preview`}
+                                    label={t('resourceSource.domainPreview', 'Domain: {{domain}}', { domain: urlHostname })}
+                                    sx={{ alignSelf: 'flex-start', maxWidth: '100%' }}
+                                />
+                            ) : null}
                             <FormControl size='small' sx={{ maxWidth: { xs: '100%', sm: 220 } }}>
                                 <InputLabel id={`${field.id}-launch-mode-label`}>{t('resourceSource.launchMode', 'Launch')}</InputLabel>
                                 <Select
@@ -2001,6 +2264,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                                 </Select>
                             </FormControl>
                             {fieldError || helperText ? <FormHelperText error={Boolean(fieldError)}>{helperText}</FormHelperText> : null}
+                            {resolvedPagePreview}
                             {hasResourceSourceLocator(resourceValue) && !fieldError ? (
                                 <ResourcePreview source={resourceValue} title={field.label} />
                             ) : null}
@@ -2055,31 +2319,27 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                     )
                 }
 
-                const stringValue =
-                    typeof value === 'string' ? value : value && typeof value === 'object' ? JSON.stringify(value, null, 2) : ''
+                const safeJsonDisplayValue =
+                    formatRuntimeSafeValue(value, normalizedLocale) ||
+                    t('jsonField.managedValue', 'Structured data is managed by the application.')
+                const jsonHelperText = helperText || t('jsonField.managedHelper', 'This field is not edited as raw JSON.')
                 return (
                     <TextField
                         fullWidth
                         multiline
                         rows={4}
                         label={field.label}
-                        value={stringValue}
-                        onChange={(event) => {
-                            try {
-                                handleFieldChange(field.id, JSON.parse(event.target.value))
-                            } catch {
-                                handleFieldChange(field.id, event.target.value)
-                            }
-                        }}
+                        value={safeJsonDisplayValue}
                         required={field.required}
                         disabled={disabled}
+                        inputProps={{ readOnly: true }}
                         placeholder={field.placeholder}
                         error={Boolean(fieldError)}
-                        helperText={helperText}
+                        helperText={fieldError || jsonHelperText}
                     />
                 )
             }
-            case 'REF':
+            case 'REF': {
                 if (field.refTargetEntityKind === 'set') {
                     const setLabelFromOption =
                         Array.isArray(field.refOptions) && field.refOptions.length > 0 ? field.refOptions[0].label : null
@@ -2193,19 +2453,23 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                     )
                 }
 
+                const unresolvedReferenceDisplay = resolveValuePresent(field, value)
+                    ? t('reference.unavailableSelection', 'Selected reference is unavailable.')
+                    : ''
+
                 return (
                     <TextField
                         fullWidth
                         label={field.label}
-                        value={(value as string) ?? ''}
-                        onChange={(event) => handleFieldChange(field.id, event.target.value)}
+                        value={unresolvedReferenceDisplay}
                         required={field.required}
-                        disabled={disabled}
+                        disabled
                         placeholder={field.placeholder}
                         error={Boolean(fieldError)}
-                        helperText={helperText}
+                        helperText={helperText ?? t('reference.selectionUnavailable', 'Reference selection is not configured.')}
                     />
                 )
+            }
             case 'TABLE': {
                 const childFieldDefs = field.childFields ?? []
                 const tableValue = (formData[field.id] as Record<string, unknown>[]) ?? []

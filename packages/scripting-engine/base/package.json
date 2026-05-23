@@ -25,7 +25,7 @@
     "dependencies": {
         "@universo/types": "workspace:*",
         "acorn": "^8.16.0",
-        "esbuild": "^0.21.5",
+        "esbuild": "0.25.0",
         "isolated-vm": "^6.1.2",
         "typescript": "catalog:"
     },

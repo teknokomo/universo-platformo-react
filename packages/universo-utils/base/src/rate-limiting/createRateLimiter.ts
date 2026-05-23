@@ -9,6 +9,7 @@ import {
 import { RedisStore } from 'rate-limit-redis'
 import { RedisClientManager } from './RedisClientManager'
 import type { RateLimitType, RateLimitConfig } from './types'
+import { parsePositiveInt } from '../env'
 
 type RateLimitRequestLike = {
     ip?: string
@@ -73,8 +74,13 @@ export async function createRateLimiter(type: RateLimitType, config?: RateLimitC
         message
     } = config || {}
 
-    // Determine max requests based on type
-    const max = type === 'read' ? maxRead : type === 'write' ? maxWrite : maxCustom ?? 100
+    const effectiveWindowMs = parsePositiveInt(process.env.API_RATE_LIMIT_WINDOW_MS, windowMs)
+    const effectiveMaxRead = parsePositiveInt(process.env.API_RATE_LIMIT_READ_MAX, maxRead)
+    const effectiveMaxWrite = parsePositiveInt(process.env.API_RATE_LIMIT_WRITE_MAX, maxWrite)
+    const effectiveMaxCustom = parsePositiveInt(process.env.API_RATE_LIMIT_CUSTOM_MAX, maxCustom ?? 100)
+
+    // Determine max requests based on type.
+    const max = type === 'read' ? effectiveMaxRead : type === 'write' ? effectiveMaxWrite : effectiveMaxCustom
 
     // Try to use Redis store for distributed rate limiting with retry logic
     let store: Store | undefined = undefined // undefined = use MemoryStore (default)
@@ -118,7 +124,7 @@ export async function createRateLimiter(type: RateLimitType, config?: RateLimitC
     }
 
     return rateLimit({
-        windowMs,
+        windowMs: effectiveWindowMs,
         max,
         standardHeaders: true, // Return rate limit info in headers (RateLimit-*)
         legacyHeaders: false, // Disable X-RateLimit-* headers
@@ -130,7 +136,7 @@ export async function createRateLimiter(type: RateLimitType, config?: RateLimitC
             const limitInfo = (req as AugmentedRequest).rateLimit as RateLimitInfo | undefined
 
             // Calculate retry-after in seconds
-            const resetMs = limitInfo?.resetTime ? Math.max(0, limitInfo.resetTime.getTime() - Date.now()) : windowMs
+            const resetMs = limitInfo?.resetTime ? Math.max(0, limitInfo.resetTime.getTime() - Date.now()) : effectiveWindowMs
             const retryAfterSeconds = Math.max(1, Math.ceil(resetMs / 1000))
 
             // Set standard headers for client retry logic

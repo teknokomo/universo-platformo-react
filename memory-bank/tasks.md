@@ -4,6 +4,830 @@
 
 ---
 
+## Completed: LMS Runtime UX QA Findings Closure (2026-05-23)
+
+> Goal: close the latest QA findings that still prevent release-ready status: duplicate primary create controls, insufficient RU control-label oracles, weak spacing/toolbar geometry checks, missing ID uniqueness assertions after create/copy/restore, and backend regression gaps for reorder and hostile locale inputs.
+
+### IMPLEMENT Action Plan
+
+-   [x] Suppress duplicate top-level create actions when a metadata details widget owns the create-target toolbar.
+-   [x] Strengthen browser UX oracles for RU control labels, single primary create action, module spacing/overlap, and toolbar geometry across desktop/tablet/mobile.
+-   [x] Add create/copy/delete/restore ID uniqueness assertions and additional ISO leakage scans for date-heavy runtime grids.
+-   [x] Add backend regressions for reorder duplicate/version-map failures and hostile `records.union` locale input.
+-   [x] Run Prettier, focused unit/backend/fixture tests, local minimal Supabase E2E, and update progress with the closure outcome.
+
+---
+
+## Completed: LMS Runtime UX/i18n Release Blocker Remediation (2026-05-23)
+
+> Goal: close the latest user-visible Learning Content blockers without LMS-only forks: locale-aware runtime dates, Russian resource preview labels, bilingual seeded LMS content on normal runtime surfaces, consistent toolbar/detail spacing, and executable Playwright UX oracles that catch these regressions.
+
+### IMPLEMENT Action Plan
+
+-   [x] Add generic runtime DATE/DATETIME display formatting that never exposes raw ISO timestamps on normal grids, cards, details tables, or player surfaces.
+-   [x] Fix ResourcePreview i18n namespace usage and add regression coverage for Russian resource type/action labels.
+-   [x] Normalize LMS template/snapshot user-facing strings so Russian runtime surfaces do not fall back to English seeded titles/body copy.
+-   [x] Tighten Learning Content toolbar/detail spacing through existing MUI primitives without LMS-only runtime forks.
+-   [x] Strengthen Playwright/runtime UX oracles for raw ISO dates, English fallback text, DataGrid leakage, control geometry, and no page-level overflow.
+-   [x] Run Prettier, focused unit/fixture tests, local minimal Supabase E2E where feasible, and update progress with the remediation outcome.
+
+---
+
+## Completed: LMS Learning Content Post-QA Release Blocker Remediation (2026-05-23)
+
+> Goal: close the latest release-blocking QA findings: make guest progress truly server-owned, enforce workspace limits on restore, prevent locked-row reorder mutations, remove public access-link slug ambiguity, align public workspace documentation with behavior, and replace weak public guest browser evidence with a realistic quiz/content flow.
+
+### IMPLEMENT Action Plan
+
+-   [x] Convert public guest progress to an action-intent API where the backend derives status/progress values.
+-   [x] Enforce workspace row limits when restoring deleted runtime rows.
+-   [x] Block persisted row reordering for locked runtime rows.
+-   [x] Fail closed on duplicate public access-link slugs inside the same workspace and cover same-workspace/cross-workspace ambiguity.
+-   [x] Align public workspace documentation with the implemented non-personal public workspace policy.
+-   [x] Strengthen public guest Playwright evidence with real quiz questions, viewport/no-overflow checks, and request-body assertions.
+-   [x] Run Prettier, focused lint/tests, fixture/no-fork gates, local minimal Supabase E2E, and update progress.
+
+---
+
+## Completed: LMS Learning Content Final QA Remediation Follow-up (2026-05-23)
+
+> Goal: close the remaining post-QA findings that still block release-ready status after the previous public workspace isolation pass: guest progress/assessment concurrency, duplicate public-link slug ambiguity, runtime copy access-entry validation parity, and missing browser UX evidence for public guest viewport/localized negative paths.
+
+### IMPLEMENT Action Plan
+
+-   [x] Reconcile the previous follow-up checklist against the code and document which parent ACL/public workspace items were already completed.
+-   [x] Make public guest progress writes concurrency-safe and fail closed without duplicate progress rows.
+-   [x] Make public guest assessment attempt numbering concurrency-safe and covered by backend regression tests.
+-   [x] Fail closed when the same public access-link slug exists in multiple active non-personal public workspaces.
+-   [x] Apply access-entry membership validation parity to runtime copy overrides and add backend regression coverage.
+-   [x] Strengthen Playwright UX evidence for public guest positive viewport/no-overflow paths and RU negative guest error pages.
+-   [x] Run Prettier, focused lint/tests, release gates, local minimal Supabase browser E2E where feasible, and update progress with the remediation outcome.
+
+---
+
+## Completed: LMS Learning Content Final Security Gate Remediation (2026-05-23)
+
+> Goal: close the latest QA blockers before the Learning Content plan can be treated as release-ready: enforce parent-derived row access for LMS outline records, apply row-level access to record posting commands, make original restore targets fail closed, wire executable release gates into CI/agent paths, remove stale docs wording, and strengthen guest/public UX leakage coverage.
+
+### IMPLEMENT Action Plan
+
+-   [x] Enforce runtime row-level edit access on direct `post`, `unpost`, and `void` record commands.
+-   [x] Add generic parent-record access inheritance for child outline records and configure the LMS course/track child objects through metadata.
+-   [x] Make original restore targets fail closed by validating existing parent references before undelete.
+-   [x] Strengthen backend regression tests for record commands, child outline mutation boundaries, and restore target authorization.
+-   [x] Wire LMS fixture/no-fork release gates into normal agent/CI checks and remove stale post-V2 docs wording.
+-   [x] Strengthen public guest browser UX leakage coverage without LMS-only runtime forks.
+-   [x] Run Prettier, focused lint/tests, fixture/no-fork/docs/audit checks, and update progress with the remediation outcome.
+
+---
+
+## Completed: LMS Learning Content QA Findings Remediation (2026-05-22)
+
+> Goal: close the latest QA findings before the Learning Content plan can be treated as release-ready: enforce owner/shared access consistently across workflow, reference, and report helper paths; make mutation outcomes fail closed; remove user-facing option codenames; and add executable tests for the corrected contracts.
+
+### IMPLEMENT Action Plan
+
+-   [x] Enforce runtime row-level access on workflow actions, record-picker reference validation, and report reference-label joins.
+-   [x] Make progress and reorder mutation paths fail closed with affected-row confirmation and duplicate-progress protection where the runtime contract supports it.
+-   [x] Render string option values in runtime tables/cards with metadata labels instead of stored codenames.
+-   [x] Add focused backend and frontend tests for the security, mutation, and display contracts.
+-   [x] Run Prettier, focused lint/tests, fixture/no-fork gates, and update progress with the remediation outcome.
+
+## Completed: LMS Learning Content QA Release Gate Closure (2026-05-22)
+
+> Goal: close the post-QA release-gate gaps without adding LMS-only runtime forks: make the acceptance matrix honest about release vs deferred scope, prove reports through the UI, derive learner-player progress from persisted rows, and remove remaining localized-validation/display heuristics debt.
+
+### IMPLEMENT Action Plan
+
+-   [x] Tighten the LMS acceptance matrix so deferred or API-only areas cannot be counted as browser-proven release gates.
+-   [x] Derive learner-player completion counts from persisted runtime item status as well as local completion state.
+-   [x] Add UI-level Playwright evidence for running/exporting the primary Learning Content report surface.
+-   [x] Close remaining generic validation and technical-field display heuristics that can leak internal text or hide legitimate business fields.
+-   [x] Run Prettier, focused runtime UI tests, fixture/no-fork/docs guards, audit, and LMS Playwright validation.
+
+---
+
+## Completed: LMS Learning Content QA Blocker Remediation (2026-05-22)
+
+> Goal: resolve the post-QA blocker list before considering the Learning Content productization plan closed: runtime access-entry integrity, owner/shared mutation boundaries, shared edit semantics, restore target authorization, backend suite stability, mobile runtime toolbar usability, accessible/localized row actions, and missing Playwright UX evidence.
+
+### IMPLEMENT Action Plan
+
+-   [x] Harden runtime access-entry creation/update so share rows cannot be forged through generic CRUD.
+-   [x] Apply owner/shared row-level access consistently to update, bulk update, restore-target, reorder, and mutation access predicates.
+-   [x] Distinguish shared read and shared edit access for copy/delete/restore/update-style mutations.
+-   [x] Stabilize the full applications-backend test suite after canonical schema-name validation.
+-   [x] Fix generic records-union mobile toolbar visibility and localized/row-aware action accessibility.
+-   [x] Strengthen Playwright/browser UX evidence for mobile controls, reports UI/export, RU validation, and keyboard paths.
+-   [x] Run Prettier, focused tests, full backend suite, app-template tests/lint/build, fixture/no-fork/docs/audit checks, and LMS Playwright validation.
+
+---
+
+## Completed: LMS Learning Content Final QA Fixes (2026-05-22)
+
+> Goal: close the final QA findings after the Learning Content productization pass: enforce row-level runtime access on direct reads, reports, progress, copy, delete, and restore; finish numeric tabular UX; remediate moderate production dependency advisories; and re-run the focused validation chain.
+
+### IMPLEMENT Action Plan
+
+-   [x] Qualify and test runtime row-level access predicates for direct reads, reports, progress, copy, delete, and restore.
+-   [x] Integrate and verify generic numeric tabular validation UX fixes.
+-   [x] Remediate moderate production dependency audit advisories with minimal supported overrides/upgrades.
+-   [x] Strengthen focused backend and runtime UX/test-oracle coverage for the QA gaps.
+-   [x] Run Prettier, focused backend/frontend tests, fixture/no-fork/docs checks, dependency audit, and package builds.
+
+---
+
+## Completed: LMS Learning Content QA Remediation (2026-05-22)
+
+> Goal: close the QA blockers found after the productization pass without LMS-only runtime forks: fail closed on sensitive runtime helper objects, prevent viewer re-share escalation, fix remaining generic runtime UX defects, strengthen executable fixture and browser oracles, and re-run the focused validation chain.
+
+### IMPLEMENT Action Plan
+
+-   [x] Harden runtime access controls for `records.union` helper-object targets and `library/shared` grants.
+-   [x] Add backend coverage for union helper-object denial and shared-viewer re-share denial.
+-   [x] Hide server-owned LMS author fields and add fixture contract coverage for duplicate/system-owned metadata regressions.
+-   [x] Render semantic long text in tabular editors as multiline controls and add accessible row action labels.
+-   [x] Strengthen frontend unit coverage for tabular long-text editing and accessibility labels.
+-   [x] Strengthen Playwright UX oracles for fixed waits, copy lifecycle, reports/export, player leakage, and localized validation.
+-   [x] Remediate production dependency audit high/critical findings where patched versions are available.
+-   [x] Run Prettier, focused backend/frontend tests, fixture/no-fork/docs checks, audit, and LMS Playwright validation.
+
+## Completed: LMS Learning Content Productization Implementation (2026-05-20)
+
+> Goal: implement `memory-bank/plan/lms-learning-content-productization-plan-2026-05-20.md` as a production-grade Learning Content runtime without LMS-only forks, starting from generic contracts, server-owned mutations, reusable MUI runtime primitives, tests, docs, and fixture generation.
+> Status: the standalone fixture gate, acceptance-matrix reconciliation, Phase 1 union datasource foundation audit, Knowledge Base actionable/audited gates, Reports audited gate, Role Visibility scoped gate, and final release validation are complete for the current plan state.
+
+### IMPLEMENT Action Plan
+
+-   [x] Phase 0: re-audit implementation seams and add executable acceptance gates for technical leakage, static LMS-fork drift, and docs/screenshot drift.
+-   [x] Phase 1: harden generic datasource/table foundations without LMS-only runtime branches.
+-   [x] Phase 2: close mutation correctness gaps for `expectedVersion`, reorder row-version maps, restore targets, and server-owned progress actions.
+-   [x] Phase 3: productize Learning Content metadata and generated LMS snapshot through the existing metahub/template generator.
+-   [x] Phase 4: apply Learning Content application settings through existing settings/runtime bootstrap surfaces.
+-   [x] Phase 5: refine published MUI runtime UX using existing dashboard primitives and no raw IDs/JSON/object cells.
+-   [x] Phase 6: complete page/link authoring on Editor.js/resource-source primitives without broad file imports.
+-   [x] Phase 7: refine Course Builder and related copy/reorder/enrollment warning flows.
+-   [x] Phase 8: refine Learning Track Builder, learner lists, player, progress, trash restore, reports/export, and access actions.
+-   [x] Phase 9: finish remaining product fixture/docs/browser validation for the open broad acceptance chains.
+-   [x] Phase 10: run final formatting, lint, package tests, fixture contract, and E2E gates for the whole plan state.
+
+### Completed Slice: Remaining Product Acceptance Closure
+
+-   [x] Reconcile the fixture-contract acceptance matrix against the remaining Phase 1 and Phase 3-8 checklist wording.
+-   [x] Verify whether the Phase 1 server-side `records.union` datasource foundation is fully implemented or should stay as an explicit remaining architecture gap.
+-   [x] Close or explicitly defer the remaining open matrix gates: `roleVisibility.actionable` and `roleVisibility.audited`.
+-   [x] Add or tighten product-level coverage for any remaining Learning Content workflow behind those open gates.
+-   [x] Run final no-fork, formatting, lint, docs, fixture, focused package, and E2E gates for the plan state.
+-   [x] Move fully proven phase outcomes to `progress.md` and keep only genuinely active work here.
+
+### Completed Slice: Final Release Validation
+
+-   [x] Verify the executable LMS product acceptance matrix has no open gates.
+-   [x] Re-run the standalone LMS fixture contract.
+-   [x] Re-run focused backend and frontend role/report contract tests for the remaining gates closed in this slice.
+-   [x] Re-run docs i18n, runtime no-LMS-forks, formatting, lint, whitespace, and the main LMS runtime Playwright flow.
+
+### Completed Slice: LMS Product Acceptance Matrix Reconciliation
+
+-   [x] Inspect `LMS_PRODUCT_ACCEPTANCE_MATRIX` through the executable fixture-contract module.
+-   [x] Confirm no open gates remain for core content projects, Learning Content shell, standalone Page/Link authoring, course detail/builder, track progression/builder, manual enrollment, learner player, trash restore, workspace isolation, or public guest access.
+-   [x] Identify the remaining open gates as reports auditability, knowledge-base actionability/auditability, and role-visibility actionability/auditability.
+-   [x] Keep explicit deferred gaps visible for broad package ingestion, learner-home audit ledger, saved/scheduled reports, knowledge bookmarks/trash/permission-limited search, mentor comments/export, and advanced role predicates.
+
+### Completed Slice: Knowledge Base Actionable Gate
+
+-   [x] Confirm Phase 1 `records.union` foundation is already server-side and covered by generic backend/app-template tests.
+-   [x] Mark `knowledgeBase.actionable` complete in the fixture contract based on the existing published-app create/edit Knowledge Article browser flow.
+-   [x] Initially kept `knowledgeBase.audited` open until the follow-up Knowledge Base audited gate closed the supported generic lifecycle scope.
+-   [x] Update English and Russian Learning Content docs to describe the supported Knowledge authoring scope and deferred gates.
+
+### Completed Slice: Reports Audited Gate
+
+-   [x] Mark `reports.audited` complete in the fixture contract based on existing saved-report authorization, execution, export, and runtime identifier suppression coverage.
+-   [x] Keep saved-filter management and scheduled report delivery as explicit deferred capabilities rather than blockers for the current Learning Content fixture.
+-   [x] Update English and Russian LMS Reports docs to describe the supported auditability scope and deferred report capabilities.
+
+### Completed Slice: Knowledge Base Audited Gate
+
+-   [x] Mark `knowledgeBase.audited` complete in the fixture contract based on seeded Knowledge spaces/folders/articles/bookmarks, published-app article create/edit evidence, and generic mutation/trash lifecycle coverage.
+-   [x] Keep dedicated bookmark UI and permission-limited knowledge search as explicit deferred capabilities rather than blockers for the current Learning Content fixture.
+-   [x] Update English and Russian Learning Content docs to describe the supported Knowledge auditability scope and deferred product capabilities.
+
+### Completed Slice: Role Visibility Scoped Gate
+
+-   [x] Mark `roleVisibility.actionable` and `roleVisibility.audited` complete in the fixture contract for the current supported scope: workspace membership, owner/shared record access, and fail-closed unsupported scoped role-policy rules.
+-   [x] Keep department, class, and group predicates as explicit deferred capabilities until a generic predicate engine can enforce them across row lists, union datasources, reports, and mutations.
+-   [x] Update English and Russian Learning Content docs to describe supported role visibility scope and deferred scoped predicates.
+
+### Completed Slice: Standalone LMS Fixture Contract Gate
+
+-   [x] Add a repository-supported root command for validating the committed LMS snapshot fixture contract without starting Playwright.
+-   [x] Keep `lmsFixtureContract.ts` as the single product oracle and use the checker only as a tiny CLI wrapper.
+-   [x] Document the standalone fixture gate in the E2E runner README in English and Russian.
+-   [x] Run focused formatting, fixture contract, lint, docs, no-fork, and whitespace validation.
+
+### Completed Slice: Generic Course Field Report Coupling
+
+> QA Contract: represent the first Phase 9 custom-field/report coupling proof through ordinary Object components, Learning Content column presets, and records.union report projections without adding an LMS-only runtime field subsystem.
+
+-   [x] Add one reusable Course business component to Learning Content union projections, default column settings, and the summary report filter/export path.
+-   [x] Strengthen shared settings, fixture, backend report, and app-template coverage for the generic projected Course field path.
+-   [x] Update Learning Content reports/docs wording so the supported Phase 9 path is explicit and does not claim a separate published-app custom-field designer.
+-   [x] Run focused formatting, tests, lint/build, fixture contract, and no-fork validation for the slice.
+
+### Completed Slice: Generic Guest Runtime Error Sanitization
+
+-   [x] Route public guest link, session, runtime, and quiz submit errors through the shared runtime error sanitizer.
+-   [x] Reuse existing localized guest error messages as safe fallbacks without changing guest-session/runtime API behavior.
+-   [x] Add focused GuestApp coverage proving public alerts do not expose SQL, UUIDs, or internal relation text.
+-   [x] Run focused formatting, tests, lint/build, no-fork, and whitespace validation.
+
+### Completed Slice: Generic Learner Player ID Fallback Safety
+
+-   [x] Replace learner-player user-facing row-id title fallbacks with localized untitled labels.
+-   [x] Keep row IDs only as internal keys, select values, and mutation targets.
+-   [x] Add English and Russian learner-player untitled fallback labels.
+-   [x] Add focused widgetRenderer coverage proving missing labels and UUID-like labels do not expose UUIDs.
+-   [x] Run focused formatting, tests, lint/build, no-fork, and whitespace validation.
+
+### Completed Slice: Generic Runtime Record Picker Load Error Sanitization
+
+-   [x] Route runtime record picker load failures through the shared runtime error sanitizer.
+-   [x] Route relation-builder parent/panel load failures through localized sanitized runtime error surfaces.
+-   [x] Keep existing localized `recordPicker.loadFailed` fallbacks in English and Russian.
+-   [x] Add focused FormDialog and relation-builder coverage proving helper text, panel alerts, create errors, and delete errors do not expose SQL, relation names, or UUIDs.
+-   [x] Run focused formatting, tests, lint/build, no-fork, and whitespace validation.
+
+### Completed Slice: Generic Workspace Switcher ID Fallback Safety
+
+-   [x] Replace workspace-name raw ID fallbacks with localized untitled workspace labels.
+-   [x] Keep workspace IDs only as internal select values and mutation targets.
+-   [x] Add focused WorkspaceSwitcher coverage proving missing names do not expose UUID-like workspace IDs.
+-   [x] Run focused formatting, tests, lint/build, no-fork, and whitespace validation.
+
+### Completed Slice: Generic Datasource Load Error UX Safety
+
+-   [x] Show localized sanitized load errors for `records.list` details-table widgets.
+-   [x] Show localized sanitized load errors for primary `records.union` details-table widgets.
+-   [x] Add focused widgetRenderer coverage proving datasource load alerts do not expose SQL, relation names, or UUIDs.
+-   [x] Run focused formatting, tests, lint/build, no-fork, and whitespace validation.
+
+### Completed Slice: Generic Runtime Workspaces Raw-ID And Error Leakage Safety
+
+-   [x] Replace Runtime Workspaces page name/member fallbacks that expose workspace IDs or user IDs with localized labels.
+-   [x] Route unknown workspace mutation errors through the shared runtime error sanitizer.
+-   [x] Add focused RuntimeWorkspacesPage coverage proving workspace IDs, user IDs, SQL, relation names, and UUIDs are not visible in fallback/error states.
+-   [x] Run focused formatting, tests, lint/build, no-fork, and whitespace validation.
+
+### Completed Slice: Generic Workflow Row-Action Label Fallback Safety
+
+-   [x] Replace workflow action menu fallback labels that expose action codenames with localized generic labels.
+-   [x] Replace workflow confirmation fallback title, message, and confirm labels that expose action codenames with localized generic labels.
+-   [x] Keep action codenames only in internal payloads and stable test IDs.
+-   [x] Add focused RowActionsMenu coverage proving action codenames are not visible when metadata labels are missing.
+-   [x] Run focused formatting, tests, lint/build, no-fork, and whitespace validation.
+
+### Completed Slice: Generic Runtime Record Picker ID Fallback Safety
+
+-   [x] Replace runtime record picker option fallbacks that expose row IDs with localized untitled record labels.
+-   [x] Keep row IDs only as internal select values and mutation payloads.
+-   [x] Add focused FormDialog record picker coverage proving UUID-like row IDs are not visible when label fields are missing.
+-   [x] Run focused formatting, tests, lint/build, no-fork, and whitespace validation.
+
+### Completed Slice: Generic Details Tabs And Sequence Label Fallback Safety
+
+-   [x] Replace details-tabs missing-label fallbacks that expose tab IDs with localized tab labels.
+-   [x] Replace sequence locked-by fallbacks that expose step IDs with safe prerequisite labels.
+-   [x] Add focused widgetRenderer coverage proving raw tab IDs and UUID-like step IDs are not visible.
+-   [x] Run focused formatting, tests, lint/build, no-fork, and whitespace validation.
+
+### Completed Slice: Generic Relation Builder And Runtime List Fallback Safety
+
+-   [x] Replace relation-builder wizard step and panel label fallbacks that expose raw IDs with localized safe labels.
+-   [x] Replace generic runtime card/table row label fallbacks that expose row IDs with localized safe labels.
+-   [x] Add focused runtime UI coverage proving missing labels do not expose raw IDs.
+-   [x] Run focused formatting, tests, lint/build, no-fork, and whitespace validation.
+
+### Completed Slice: Generic Runtime Flow-List Cell Display Safety
+
+-   [x] Replace default flow-list description rendering that can expose raw JSON/object values with safe runtime formatting.
+-   [x] Replace custom flow-list cell fallback rendering that can expose raw JSON/object values with safe runtime formatting.
+-   [x] Add focused runtime UI coverage proving custom/default cells do not expose raw IDs, raw JSON, or object placeholders.
+-   [x] Run focused formatting, tests, lint/build, no-fork, and whitespace validation.
+
+### Completed Slice: Generic Runtime Chart Axis Display Safety
+
+-   [x] Replace runtime chart x-axis fallback formatting that can expose raw JSON/object/UUID values with safe runtime formatting.
+-   [x] Add focused MainGrid coverage proving chart axis data does not expose raw IDs, raw JSON, or object placeholders.
+-   [x] Run focused formatting, tests, lint/build, no-fork, and whitespace validation.
+
+### Completed Slice: Generic Runtime Chart Metric Value Display Safety
+
+-   [x] Sanitize configured runtime chart metric values before passing them to chart components.
+-   [x] Preserve computed chart totals when configured metric values are unsafe or absent.
+-   [x] Add focused MainGrid coverage proving chart values do not expose raw IDs or runtime JSON.
+-   [x] Run focused formatting, tests, lint/build, no-fork, and whitespace validation.
+
+### Completed Slice: Generic Runtime DataGrid Cell Display Safety
+
+-   [x] Replace default runtime DataGrid cell formatting that can expose raw UUID values with safe runtime formatting.
+-   [x] Keep localized/object labels readable while suppressing raw JSON, UUID strings, and object placeholders.
+-   [x] Preserve REF option-label fallback when REF object labels are unsafe.
+-   [x] Add focused `toGridColumns` coverage for default, semantic long-text, and REF object cells.
+-   [x] Run focused formatting, tests, lint/build, no-fork, and whitespace validation.
+
+### Completed Slice: Generic Runtime Stat Card Metric Value Display Safety
+
+-   [x] Sanitize configured overview stat-card metric values before rendering.
+-   [x] Preserve existing fallback values when configured stat-card metric values are unsafe.
+-   [x] Add focused MainGrid coverage proving stat-card values do not expose raw IDs or runtime JSON.
+-   [x] Run focused formatting, tests, lint/build, no-fork, and whitespace validation.
+
+### Completed Slice: Generic Runtime Quiz Widget Text Display Safety
+
+-   [x] Sanitize quiz widget title, description, question, option, feedback, and empty-state text before rendering.
+-   [x] Preserve readable plain/localized quiz content while suppressing raw UUID, runtime JSON, and object placeholders.
+-   [x] Keep quiz question and option IDs only as internal answer keys and mutation payloads.
+-   [x] Add focused QuizWidget coverage proving unsafe runtime text does not leak to users.
+-   [x] Run focused formatting, tests, lint/build, no-fork, and whitespace validation.
+
+### Completed Slice: Generic Runtime Object Display-Key Fallback Safety
+
+-   [x] Stop treating object-only `codename` and `id` fields as normal user-facing display labels.
+-   [x] Preserve explicit human labels from `label`, `name`, `title`, and `displayName`.
+-   [x] Add focused display formatter and DataGrid coverage proving object-only codenames/IDs are suppressed.
+-   [x] Run focused formatting, tests, lint/build, no-fork, and whitespace validation.
+
+### Completed Slice: Generic Resource Preview Title And Description Safety
+
+-   [x] Sanitize `ResourcePreview` title and description before rendering.
+-   [x] Preserve readable title/description text and the existing default title fallback.
+-   [x] Add focused ResourcePreview coverage proving UUID/runtime JSON captions do not leak.
+-   [x] Run focused formatting, tests, lint/build, no-fork, and whitespace validation.
+
+### Completed Slice: Generic Records Union Card-Mode Display Safety
+
+-   [x] Sanitize records-union card title and description values with the shared safe runtime display formatter.
+-   [x] Preserve readable card labels while replacing unsafe/missing values with localized untitled labels.
+-   [x] Add focused widgetRenderer card-mode coverage proving embedded UUID/runtime JSON/object text does not leak.
+-   [x] Run focused formatting, tests, lint/build, no-fork, and whitespace validation.
+
+### Completed Slice: Generic Form Dialog JSON Field Display Safety
+
+-   [x] Stop rendering raw JSON strings for normal JSON fields without an approved runtime widget.
+-   [x] Preserve specialized `resourceSource` and `editorjsBlockContent` JSON widgets.
+-   [x] Add focused FormDialog coverage proving plain JSON payloads do not leak.
+-   [x] Run focused formatting, tests, lint/build, no-fork, and whitespace validation.
+
+### Completed Slice: Generic Localized Inline Validation Helper Safety
+
+-   [x] Replace technical `min:` and `max:` helper text with localized user-facing length helper text.
+-   [x] Apply the same helper contract to simple, versioned, and localized inline fields.
+-   [x] Add focused component coverage proving raw helper prefixes do not leak.
+-   [x] Run focused formatting, tests, lint/build, no-fork, and whitespace validation.
+
+### Completed Slice: Generic Target Picker Option Label Safety
+
+-   [x] Stop using object/record `Codename` fields as default user-facing target-picker labels.
+-   [x] Sanitize workspace member picker names and emails before rendering share targets.
+-   [x] Add focused widgetRenderer coverage proving target/share pickers do not expose UUIDs, raw JSON, or codenames.
+-   [x] Run focused formatting, tests, lint/build, no-fork, and whitespace validation.
+
+### Completed Slice: Generic Target And Share Mutation Error Sanitization Coverage
+
+-   [x] Add target-field mutation error coverage proving SQL, relation names, and UUIDs do not leak.
+-   [x] Add share-member mutation error coverage proving SQL, relation names, and UUIDs do not leak.
+-   [x] Preserve existing sanitized alert behavior without changing API payloads.
+-   [x] Run focused formatting, tests, lint/build, no-fork, and whitespace validation.
+
+### Completed Slice: Generic Workspace Invite Email Validation
+
+> UI Contract: workspace owners invite members through the existing email field and MUI dialog; invalid email input is blocked with localized field feedback before a runtime member mutation is sent.
+
+-   [x] Validate workspace invite email input against the shared email contract before mutation submission.
+-   [x] Render localized invite email validation feedback through the existing MUI field surface.
+-   [x] Add focused RuntimeWorkspacesPage coverage proving invalid email input does not submit.
+-   [x] Run focused formatting, tests, lint/build, no-fork, and whitespace validation.
+
+### Completed Slice: Generic Tabular Fetch Error Sanitization
+
+-   [x] Route TABLE child-row fetch errors through the shared runtime error sanitizer.
+-   [x] Add localized English and Russian `tabular.errorFetch` messages.
+-   [x] Add focused component coverage proving fetch failures do not expose SQL, UUIDs, or backend relation text.
+-   [x] Run focused formatting, tests, lint/build, no-fork, and whitespace validation.
+
+### Completed Slice: Generic Report Table Technical Column Safety
+
+-   [x] Filter unsafe technical report columns before rendering normal saved-report DataGrid surfaces.
+-   [x] Preserve explicitly human report labels for resolved technical references such as Project while hiding raw target/source/system columns.
+-   [x] Humanize report column fallback headers instead of exposing raw field keys.
+-   [x] Add focused widgetRenderer coverage for saved reports with technical fields, resolved labels, raw UUIDs, and structured payloads.
+-   [x] Run focused formatting, tests, lint/build, no-fork, and whitespace validation.
+
+### Completed Slice: Generic Ledger Table Technical Field Safety
+
+-   [x] Filter technical ledger datasource columns before rendering normal runtime DataGrid surfaces.
+-   [x] Replace ledger cell formatting with safe runtime value formatting so raw JSON, UUIDs, and object placeholders are suppressed.
+-   [x] Humanize ledger column headers instead of exposing raw field keys.
+-   [x] Preserve stable DataGrid row identities even when ledger payloads contain an `id` field.
+-   [x] Add focused widgetRenderer coverage for ledger facts and projections with technical fields and structured payloads.
+-   [x] Run focused formatting, tests, lint/build, no-fork, and whitespace validation.
+
+### Completed Slice: Generic Tabular String Object Display Safety
+
+-   [x] Replace `STRING` tabular object-value stringification with the shared safe runtime display formatter.
+-   [x] Keep localized string values readable while suppressing raw JSON, UUID, and object-placeholder output in tabular cells/editors.
+-   [x] Normalize localized `STRING` tabular values from safe display text instead of `String(object)`.
+-   [x] Harden unresolved tabular `REF` formatter fallback so missing option labels do not expose raw IDs.
+-   [x] Add focused tabular formatter/render coverage for label objects, raw resource JSON strings, opaque objects, and localized normalization.
+-   [x] Run focused formatting, tests, lint/build, no-fork, and whitespace validation.
+
+### Completed Slice: Generic Runtime Technical Column Safety
+
+-   [x] Filter technical runtime columns out of normal current-object and records-list grid column sets, even when metadata presets try to make them visible.
+-   [x] Keep action/control columns available while preventing `*Id`, owner/principal, JSON payload, and `_upl_*` fields from entering user-facing column controls.
+-   [x] Align reorder flow-list cells with safe runtime value formatting so structured values do not render raw payloads.
+-   [x] Add focused helper, MainGrid, and widgetRenderer coverage for metadata/local preference hardening.
+-   [x] Run focused formatting, tests, lint/build, no-fork, and whitespace validation.
+
+### Completed Slice: Generic Resource Source Type Selector Labels
+
+-   [x] Replace raw resource type fallback labels in the `resourceSource` authoring selector with safe localized labels.
+-   [x] Apply the same safe label fallback to create-target policy disabled reasons.
+-   [x] Add focused FormDialog and widgetRenderer coverage proving Page/Link labels are user-facing and raw `url`/`embed` codenames are not used as reasons.
+-   [x] Run focused formatting, tests, lint/build, no-fork, and whitespace validation.
+
+### Completed Slice: Generic Resource Preview Title Wrapping
+
+-   [x] Let long `ResourcePreview` titles wrap inside the existing MUI preview surface instead of truncating them with `noWrap`.
+-   [x] Preserve compact preview layout using existing MUI primitives and responsive text wrapping without adding new UI.
+-   [x] Add focused component coverage proving the preview title no longer uses the MUI no-wrap class.
+-   [x] Run focused formatting, tests, lint/build, no-fork, and whitespace validation.
+
+### Completed Slice: Generic Resource Preview Type Labels
+
+-   [x] Replace raw `ResourceSource.type` captions in `ResourcePreview` with localized resource type labels.
+-   [x] Add focused component coverage proving URL resources render as Link and deferred SCORM stays explicit without raw lowercase codenames.
+-   [x] Keep the change generic and reuse existing `resourceSource.types.*` i18n keys without adding LMS-only runtime code.
+-   [x] Run focused formatting, tests, lint/build, no-fork, and whitespace validation.
+
+### Completed Slice: Learning Content Create Menu Deferred Package Evidence
+
+-   [x] Assert the disabled Import package create target reason in fixture-contract and template manifest coverage.
+-   [x] Extend runtime create-menu browser expectations so Package import is visibly deferred with a localized reason.
+-   [x] Update Learning Content docs to document the deferred package-import target alongside deferred assessments.
+-   [x] Run focused formatting, fixture-contract, manifest/app-template tests, lint/build, no-fork, and whitespace validation.
+
+### Completed Slice: Generic Resource Preview Domain Badge
+
+-   [x] Add a safe domain badge to the generic `ResourcePreview` for URL-backed ready resources.
+-   [x] Reuse existing MUI primitives and shared safe URL parsing without exposing raw resource-source payloads or validator internals.
+-   [x] Add focused component coverage for link/domain rendering and unsafe URL fail-closed behavior.
+-   [x] Run focused formatting, tests, lint/build, no-fork, and whitespace validation.
+
+### Completed Slice: Generic Create Target Capacity Hardening
+
+-   [x] Raise the generic `detailsTable.createTargets` schema capacity so LMS Learning Content is not capped at its current eight-item menu.
+-   [x] Keep the create menu on existing MUI primitives with disabled reasons and no LMS-only runtime branch.
+-   [x] Add focused schema coverage for accepting more than eight create targets while preserving validation of invalid targets.
+-   [x] Run focused formatting, tests, lint/build, no-fork, and whitespace validation.
+
+### Completed Slice: Deferred Assessment Create Targets
+
+-   [x] Expose Quiz-lite and Assignment-lite as disabled metadata-defined Learning Content create targets.
+-   [x] Keep those targets on the existing generic `detailsTable.createTargets` contract with localized deferred reasons and no LMS-only runtime branch.
+-   [x] Strengthen fixture/widget/docs coverage so the create menu is honest about currently deferred assessment authoring.
+-   [x] Regenerate or validate the LMS snapshot through the product Playwright generator when metadata changes require fixture updates.
+-   [x] Run focused formatting, tests, lint/build, no-fork, fixture, docs, and whitespace validation.
+
+### Completed Slice: Generic Report Runtime Filters
+
+-   [x] Accept ad hoc report filters in the generic run/export report API payloads.
+-   [x] Apply report DataGrid filters to saved report run and export without LMS-only runtime branches.
+-   [x] Merge ad hoc filters with saved report filters and datasource filters at the backend boundary.
+-   [x] Add focused backend/API/widget coverage proving report filters are sent, validated, applied, and exported.
+-   [x] Run focused formatting, tests, lint/build, no-fork, fixture, and whitespace validation.
+
+### Completed Slice: Generic Report Error UX Safety
+
+-   [x] Show a localized report-load error state instead of leaving failed report tables looking empty or stuck.
+-   [x] Sanitize report run/export errors through the shared runtime error helper before rendering them.
+-   [x] Add focused app-template coverage for report run and export failures without leaking SQL, UUIDs, or backend details.
+-   [x] Run focused formatting, app-template tests, lint/build, no-fork, fixture, and whitespace validation.
+
+### Completed Slice: Generic Records List Column Preset Parity
+
+-   [x] Apply `details.tableDefaults.columnPreset` to generic `records.list` details-table columns.
+-   [x] Preserve sequence runtime columns and row-reordering flow-list behavior while filtering technical configured columns.
+-   [x] Add focused app-template coverage for hidden technical records-list columns.
+-   [x] Run focused formatting, app-template tests, lint/build, no-fork, fixture, and whitespace validation.
+
+### Completed Slice: Report Export Filename User Label Contract
+
+-   [x] Build CSV export filenames from localized report titles instead of technical report codenames.
+-   [x] Keep `reportCodename` as the API identifier only and preserve fallback behavior when a title is unavailable.
+-   [x] Add focused app-template coverage for the report export filename contract.
+-   [x] Run focused formatting, app-template tests, lint/build, docs/no-fork, and relevant fixture checks.
+
+### Completed Slice: Saved Report Widget Codename Contract
+
+-   [x] Add a generic `detailsTable.reportCodename` contract for saved report widgets.
+-   [x] Keep existing inline `reportDefinition` support for compatibility while preferring saved report references.
+-   [x] Convert LMS Course Builder and Learning Track Builder report tabs to saved-report references only.
+-   [x] Strengthen schema, app-template, fixture-contract, docs, and snapshot validation.
+-   [x] Run focused formatting, tests, fixture, generator, runtime E2E, and no-fork/docs validation.
+
+### Completed Slice: Builder Report Definition Productization
+
+-   [x] Seed the Course Builder and Learning Track Builder report definitions that existing report widgets execute by codename.
+-   [x] Keep Reports object JSON configuration fields out of normal runtime grids.
+-   [x] Strengthen fixture-contract coverage for builder report definitions and hidden report JSON fields.
+-   [x] Update Learning Content docs and regenerate the LMS snapshot through Playwright.
+-   [x] Run focused formatting, fixture, lint/build, generator, runtime E2E, and no-fork/docs validation.
+
+### Completed Slice: Generic Records Union Report Execution
+
+-   [x] Reuse the generic `records.union` datasource executor for saved report run/export without adding LMS-only report code.
+-   [x] Keep `records.list` reports unchanged and fail closed for unsupported union aggregations.
+-   [x] Add an LMS Learning Content Summary report backed by `records.union` with safe Type/Title/Status/Project columns.
+-   [x] Strengthen fixture, backend route, browser/API, docs, and snapshot validation for cross-type Learning Content reports.
+-   [x] Run focused formatting, tests, lint/build, no-fork, fixture, generator, and runtime E2E validation.
+
+### Completed Slice: Generic Records Union Target Filters
+
+-   [x] Add a generic `records.union` target-filter metadata contract for details-table widgets.
+-   [x] Render the target filter through existing MUI toolbar/select primitives without LMS-only runtime branches.
+-   [x] Apply selected filters by narrowing union datasource targets and resetting pagination.
+-   [x] Configure LMS Learning Content and Trash views with Resources/Courses/Tracks type filters.
+-   [x] Update fixture/schema/widget/E2E/docs coverage and regenerate the LMS snapshot.
+-   [x] Run focused formatting, tests, lint/build, no-fork, fixture, and E2E validation.
+
+### Completed Slice: Generic Learner Player Settings Enforcement
+
+-   [x] Apply existing application-level `pagePlayer` settings to the generic `learnerPlayer` widget without LMS-only branches.
+-   [x] Hide learner-player outline and progress header when runtime settings disable them.
+-   [x] Respect `completeButtonMode` for manual, hidden, and auto-after-open item completion.
+-   [x] Keep nested Editor.js page-block previews inside learner-player from showing duplicate completion controls.
+-   [x] Add focused app-template coverage for hidden outline, progress, and completion controls.
+-   [x] Run focused formatting, package tests, lint, build, docs, and no-fork validation for the touched surfaces.
+
+### Completed Slice: Generic Shared Workspace Member Row Actions
+
+-   [x] Add a generic `library.toggle` workspace-member target contract for shared `records.union` row actions.
+-   [x] Render the Share action through existing MUI dialog/select primitives with readable workspace member labels and no raw user IDs.
+-   [x] Validate explicit shared principals at the backend mutation boundary for active workspace membership or application user membership.
+-   [x] Configure LMS Learning Content Share metadata, update the generated snapshot, and strengthen the fixture contract.
+-   [x] Add focused schema, backend, API, app-template widget, Playwright, docs, no-fork, and E2E validation for the shared-member picker.
+-   [x] Stabilize dedicated local E2E API rate limits through generic env overrides without changing production defaults.
+
+### Completed Slice: Records Union Trash Runtime E2E Stabilization
+
+-   [x] Keep misconfigured `records.union` widgets fail-closed with a localized runtime configuration message instead of falling back to the current-object grid.
+-   [x] Add a stable generic DOM marker for `records.union` table surfaces so browser tests assert the intended widget rather than internal query-key text.
+-   [x] Stabilize the LMS Trash restore browser proof by deleting a Learning Content row through generic row actions before verifying Trash and restore.
+-   [x] Run focused app-template tests, lint/build, docs/no-fork guards, E2E build, and the full LMS snapshot runtime Playwright flow on local minimal Supabase.
+
+### Completed Slice: Generic Records Union Row Actions
+
+-   [x] Add a generic row-target action contract for datasource widgets without LMS-only branches.
+-   [x] Wire active `records.union` rows to existing runtime edit, copy, and delete flows through source object metadata.
+-   [x] Add focused published-runtime tests for union row action delegation and target switching.
+-   [x] Run focused formatting, tests, lint, no-fork, docs, fixture, build, and E2E validation for the touched surfaces.
+
+### Completed Slice: Generic Target-Field Row Actions
+
+-   [x] Add a generic `field.updateWithTarget` row action contract for metadata-defined target pickers.
+-   [x] Wire `records.union` row menus to update a configured target field through the existing optimistic runtime row update path.
+-   [x] Configure the LMS Learning Content library with a `Move to project` action backed by `ProjectId -> ContentProjects`.
+-   [x] Update the LMS snapshot, fixture contract, docs, schema tests, app-template tests, and full runtime E2E proof for the target-field action.
+
+### Completed Slice: Generic Records Union Starred Actions
+
+-   [x] Add a generic `detailsTable.rowActions` metadata contract for personal library relation actions.
+-   [x] Expose Star/Unstar in active `records.union` tables and cards through the existing row action menu, without requiring edit permissions.
+-   [x] Add a server-owned runtime relation endpoint that validates the source row, workspace, authenticated user, and object `runtimeLibrary.starred` metadata before inserting or soft-deleting relation rows.
+-   [x] Add generic starred state projection to server-side `records.union` rows without showing technical relation columns.
+-   [x] Update the LMS template, canonical fixture, fixture contract, docs, and focused backend/app-template/schema tests.
+
+### Completed Slice: Generic Records Union Project Labels
+
+-   [x] Add a generic `records.union` project label projection contract without exposing raw `ProjectId`.
+-   [x] Resolve configured object `REF` project fields to human-readable label objects in the server-side union datasource.
+-   [x] Configure LMS Learning Content union targets to show `Project` labels while keeping technical project IDs hidden.
+-   [x] Add focused schema, backend, app-template, fixture-contract, docs, formatting, lint, build, and no-fork validation for the touched surfaces.
+
+### Completed Slice: Generic Runtime Recent Capture
+
+-   [x] Configure Learning Content recent relations with a timestamp field through generic `runtimeLibrary` metadata.
+-   [x] Persist recent-view relation facts from the server-owned content progress `view` and `complete` actions without LMS-only branches.
+-   [x] Trigger page-content view persistence from the generic `PageBlocksView` runtime player surface.
+-   [x] Add focused backend, app-template, fixture-contract, docs, formatting, lint, build, and no-fork validation for the touched surfaces.
+
+### Completed Slice: Generic Runtime Recent Ordering
+
+-   [x] Project recent-view timestamps from generic `runtimeLibrary.recent` metadata in `records.union` datasource rows.
+-   [x] Sort the LMS Recent view by the projected recent timestamp instead of content title.
+-   [x] Keep the projected recent timestamp human-readable in table/card surfaces without exposing relation row IDs.
+-   [x] Add focused backend, app-template, fixture-contract, docs, formatting, lint, build, and no-fork validation for the touched surfaces.
+
+### Completed Slice: Generic Runtime Shared Relation Mutation
+
+-   [x] Extend the generic runtime library relation endpoint to support `runtimeLibrary.shared` entries without reusing the personal starred toggle semantics.
+-   [x] Validate shared principals, source-row access, server-owned default access levels, and workspace membership at the backend mutation boundary.
+-   [x] Update typed app-template API contracts, LMS metadata, fixture contract, and docs for the generic shared relation mutation.
+-   [x] Add focused backend/API tests and run formatting, lint, build, docs, fixture, and no-fork validation for the touched surfaces.
+
+### Completed Slice: Generic SharedAt Projection And Shared View Ordering
+
+-   [x] Project shared relation timestamps from generic `runtimeLibrary.shared` metadata in `records.union` datasource rows.
+-   [x] Sort the LMS Shared Learning Content view by the projected shared timestamp instead of title.
+-   [x] Keep the projected shared timestamp human-readable without exposing access-entry row IDs or principal IDs.
+-   [x] Add focused backend, fixture-contract, docs, formatting, lint/build, no-fork, and snapshot validation for the touched surfaces.
+
+### Completed Slice: Generic Project Create Target In Learning Content Menu
+
+-   [x] Expose `ContentProjects` through the generic Learning Content `detailsTable.createTargets` menu.
+-   [x] Keep the Project target on the existing CRUD dialog path with no LMS-only runtime widget or browser-owned system fields.
+-   [x] Persist a Project through the browser create dialog and verify the created `ContentProjects` row through the generic runtime API.
+-   [x] Update fixture-contract, E2E canary, docs, formatting, snapshot, and focused validation for the touched surfaces.
+
+### Completed Slice: Runtime Report REF Output Type Safety
+
+-   [x] Fix REF report SQL projection so every `CASE` branch returns one compatible JSONB value.
+-   [x] Keep unresolved REF report values safe for CSV/output formatting without leaking raw UUIDs as user-facing labels.
+-   [x] Add focused service coverage and re-run the full LMS runtime canary that exposed the database type mismatch.
+
+### Completed Slice: Runtime Safety And QA Gates
+
+-   [x] Added a static no-fork guard for runtime LMS-specific branches in published runtime packages.
+-   [x] Added GitBook local link and screenshot asset guards.
+-   [x] Propagated `_upl_version` through update, delete, copy, restore, and reorder adapter contracts.
+-   [x] Reworked row reorder to use per-row expected-version maps, duplicate/exact-key validation, row locks, and transaction-scoped version checks.
+-   [x] Reworked restore to support a generic restore target contract with target row, workspace, object, and parent reference validation.
+-   [x] Reworked Learning Content progress calls so the browser sends only an action intent and the backend owns progress percent and status.
+-   [x] Added focused frontend, backend, API wrapper, app-template, docs guard, and LMS E2E validation for the implemented slice.
+
+### Completed Slice: Generic Runtime UX Projection Hardening
+
+-   [x] Merged `records.union` projection columns from all configured targets so Learning Content resources, courses, and tracks do not inherit only the first target's fields.
+-   [x] Replaced learner player target-codename display with generic human-readable object labels.
+-   [x] Hardened normal runtime value formatting so structured objects without display metadata do not render raw JSON in tables/cards.
+-   [x] Restored standard `ViewHeaderMUI` toolbar actions for metadata-defined `detailsTable` widgets so published-app create actions remain available after replacing fallback current-object grids.
+-   [x] Added focused app-template tests for union column merging, learner player codename leakage, structured-value formatting, and metadata-defined details-table actions.
+-   [x] Revalidated the LMS snapshot import runtime flow on local minimal Supabase after the UX projection fixes.
+
+### Completed Slice: Generic Server-Side Records Union Datasource
+
+-   [x] Added a generic backend `records.union` datasource endpoint under the existing runtime API surface without LMS-specific branches.
+-   [x] Moved Learning Content union table pagination/search/sort/filter execution from client fan-out to a typed server-side datasource request.
+-   [x] Preserved existing `detailsTable`, `CustomizedDataGrid`, toolbar, column-leak filtering, and Trash restore behavior instead of adding LMS-only UI.
+-   [x] Added backend route coverage for target resolution, server-side search/sort, merged response columns, synthetic row ids, and hidden source row metadata.
+-   [x] Added app-template API/widget tests proving one union datasource request replaces per-target runtime list requests.
+-   [x] Re-ran focused Prettier, lint, package builds, backend route tests, and app-template Vitest coverage for the implemented server-side datasource slice.
+
+### Completed Slice: Generic Records Union Presentation Bridge
+
+-   [x] Preserved `records.union` target presentation fields from template metadata through the published app widget request.
+-   [x] Added generic server-side union projection columns for safe `type`, `title`, and `status` display without LMS-specific branches.
+-   [x] Translated union projection sort/filter aliases back to per-target physical fields before backend validation and SQL generation.
+-   [x] Updated generic grid columns to honor metadata sort/filter guards so non-physical projection columns cannot trigger unsupported server queries.
+-   [x] Updated the LMS template and committed snapshot to use safe Learning Content union target projections and a non-raw default column preset.
+-   [x] Strengthened fixture-contract checks for safe Learning Content union projections and default column presets.
+-   [x] Added focused app-template, backend, fixture, lint, and build validation for the implemented presentation bridge.
+
+### Completed Slice: Playwright Runtime Table Defaults UX Canary
+
+-   [x] Extended the runtime UX browser helper so LMS canaries can reject visible raw UUID substrings in addition to raw UUID-only lines.
+-   [x] Expanded the LMS snapshot runtime flow to prove Learning Content table defaults, card defaults, hidden `ProjectId`/`CreatedBy` columns, and no technical text leakage.
+-   [x] Added desktop, tablet, and mobile screenshot capture for both Learning Content table and card default surfaces.
+-   [x] Allowed `settings.learningContent` through the existing application settings API contract so control-panel Learning Content defaults can be saved without a runtime fork.
+-   [x] Hardened the generic `records.union` card renderer so card mode uses semantic title/status fields and never falls back to raw runtime IDs for user-facing text.
+-   [x] Revalidated the full LMS snapshot import runtime Playwright flow on local minimal Supabase after the card-default UX fix.
+
+### Completed Slice: Generic Current-Object Card Safety
+
+-   [x] Removed raw row-id fallbacks from the generic current-object dashboard card view.
+-   [x] Filtered id-like technical columns from current-object card title and description candidates.
+-   [x] Added focused app-template coverage for UUID substring suppression and localized untitled fallback behavior.
+-   [x] Expanded the runtime no-LMS-fork guard to reject LMS-only widget keys and runtime UI component/file names.
+-   [x] Ran focused formatting, lint, tests, build, and no-fork checks for the touched surfaces.
+
+### Completed Slice: Runtime UX Canary Guard Tightening
+
+-   [x] Expanded the browser technical-leakage helper to catch raw resource/media JSON keys such as `storageKey`, `mimeType`, `launchMode`, `packageDescriptor`, `recordId`, and `targetId`.
+-   [x] Added a reusable DataGrid constrained-scroll assertion so wide grids may scroll internally without creating page-level overflow.
+-   [x] Connected the constrained DataGrid assertion to the LMS Learning Content published table canary.
+
+### Completed Slice: Generic Relation Builder Display Safety
+
+-   [x] Added shared runtime display helpers for technical field names and raw resource/media JSON strings.
+-   [x] Applied the helpers to relation-builder child list columns and parent labels without adding LMS-specific branches.
+-   [x] Added focused app-template tests for hidden relation-builder technical columns, raw JSON suppression, and non-ID parent fallback labels.
+-   [x] Added a browser relationBuilder no-leakage and viewport-overflow oracle to the LMS builder flow.
+-   [x] Ran focused formatting, lint, tests, build, and no-fork validation for the touched surfaces.
+
+### Completed Slice: Runtime Form UX Safety
+
+-   [x] Added generic semantic long-text inference so runtime `Description`, `Summary`, `Body`, `Instructions`, `Feedback`, `Comment`, and similar string fields render as multiline controls.
+-   [x] Added shared runtime mutation error sanitization and reused it in CRUD, relation-builder, workflow/reorder, and inline TABLE mutation surfaces.
+-   [x] Made unavailable runtime record pickers and unconfigured generic `REF` fields fail closed with localized user-facing labels instead of exposing raw IDs.
+-   [x] Added focused unit/component tests plus browser dialog no-leakage oracles for published runtime dialogs.
+-   [x] Ran focused formatting, lint, tests, build, no-fork, E2E, and whitespace validation for the touched surfaces.
+
+### Completed Slice: Legacy Concurrency Checklist Closure
+
+-   [x] Verify that old delete/restore expected-version checklist items are already implemented at the SQL mutation boundary.
+-   [x] Verify that backend tests cover stale-before-mutation and stale-between-read-and-mutation delete/restore cases.
+-   [x] Verify that the LMS runtime Playwright navigation assertion is stable with the current flow.
+-   [x] Close obsolete Memory Bank checkboxes and record the evidence without changing product behavior.
+
+### Completed Slice: Generic Runtime Resource Source Policy
+
+-   [x] Apply Learning Content resource type settings to generic runtime resource-source form controls without LMS-only UI branches.
+-   [x] Pass the same resource-source policy through production runtime, standalone runtime, CRUD dialogs, and relation-builder dialogs.
+-   [x] Add focused app-template coverage proving enabled types stay selectable, deferred types are disabled with user-facing text, and disabled types are hidden unless already selected.
+-   [x] Run focused formatting, tests, lint/build, no-fork, docs, and whitespace validation for the touched surfaces.
+
+### Completed Slice: Metadata-Driven Union Create Menu
+
+-   [x] Add a generic `detailsTable`/`records.union` create-target metadata contract without LMS-only widget keys.
+-   [x] Render Page, Link, Course, and Learning Track create entries through existing MUI toolbar/menu primitives.
+-   [x] Open the existing CRUD form for the selected target object without route/state races and without browser-owned server fields.
+-   [x] Add fixture-contract, component, ApplicationRuntime, and Playwright browser proof for the create menu.
+
+### Completed Slice: Create-Target Form Defaults And Resource Type Presets
+
+-   [x] Add a generic, allow-listed create-target defaults contract for safe non-server fields.
+-   [x] Use the defaults so Page and Link targets preselect the expected LearningResources type/source without exposing workspace/user/system fields.
+-   [x] Add focused shared-schema, frontend, fixture-contract, and browser coverage proving create-target defaults cannot set owner, workspace, progress, lifecycle, or `_upl_*` fields.
+-   [x] Re-run LMS runtime browser proof for Page and Link authoring dialogs after the defaults are applied.
+
+### Completed Slice: Auto-Resolved Page Resource Source Authoring
+
+-   [x] Add generic metadata-driven auto page-codename derivation for `resourceSource` page drafts.
+-   [x] Configure LMS Page authoring so authors fill title/body, not a raw page codename field.
+-   [x] Add focused FormDialog and fixture-contract coverage for the auto-resolved page source contract.
+-   [x] Update LMS runtime browser proof so Page dialogs reject the old manual codename workflow.
+
+### Completed Slice: Generic Link Resource Domain Preview
+
+-   [x] Add a generic, localized domain preview for valid URL resource-source drafts.
+-   [x] Keep unsafe URL drafts blocked without rendering a preview or leaking raw validation internals.
+-   [x] Extend focused FormDialog and LMS browser assertions for Link authoring.
+-   [x] Run focused formatting, tests, lint, no-fork, fixture, and docs validation for touched surfaces.
+
+### Completed Slice: Generic Settings-Derived Create Defaults
+
+-   [x] Add a safe generic `contextPath` source for create-target defaults without allowing system-owned fields or unsafe path segments.
+-   [x] Pass a curated Learning Content create-default context from published and standalone runtime hosts.
+-   [x] Configure Course and Learning Track create targets to derive policy defaults from application settings.
+-   [x] Extend schema, hook, fixture-contract, runtime host, docs, and LMS browser coverage for settings-derived defaults.
+-   [x] Run focused formatting, tests, lint, no-fork, fixture, build, E2E, and whitespace validation for touched surfaces.
+
+### Completed Slice: Generic Create-Target Resource Policy Availability
+
+-   [x] Derive create-target menu availability from generic resource-source type policy without LMS-only branches.
+-   [x] Keep disabled targets visible with localized user-facing reasons instead of silently hiding actions.
+-   [x] Add focused app-template coverage for disabled, deferred, missing, and unaffected create targets.
+-   [x] Run focused formatting, tests, lint, no-fork, and whitespace validation for touched surfaces.
+
+### Completed Slice: Generic Runtime Report Export Output Safety
+
+-   [x] Replace raw JSON object serialization in runtime report CSV output with safe human-readable formatting.
+-   [x] Preserve localized text, primitive values, and safe object labels without leaking raw IDs or JSON payloads.
+-   [x] Add focused service and route coverage for report export output safety.
+-   [x] Run focused formatting, backend tests, lint, no-fork, docs guard, and whitespace validation.
+
+### Completed Slice: Generic Runtime Report Primitive ID Output Safety
+
+-   [x] Suppress primitive ID-like and UUID report values in generic CSV serialization without suppressing safe resolved object labels.
+-   [x] Suppress primitive ID-like and UUID report values in generic report DataGrid cells without adding LMS-only runtime branches.
+-   [x] Add focused backend and app-template tests for report primitive ID output safety.
+-   [x] Run focused formatting, tests, lint, no-fork, docs guard, and whitespace validation.
+
+### Completed Slice: Generic Runtime Report REF Label Projection
+
+-   [x] Resolve object `REF` report columns to safe label objects through generic runtime metadata.
+-   [x] Preserve fail-closed primitive ID suppression when a referenced row or display component is unavailable.
+-   [x] Add focused backend service and route coverage for report REF label projection.
+-   [x] Run focused formatting, tests, lint/build, no-fork, docs guard, and whitespace validation.
+
+### Completed Slice: Generic Runtime Report REF Label Filtering
+
+-   [x] Resolve generic report `REF` text filters through display-label joins instead of raw row ids.
+-   [x] Keep report count and aggregation SQL consistent when filters depend on reference-label joins.
+-   [x] Add focused backend coverage for REF label filtering without LMS-only branches.
+-   [x] Run focused formatting, backend tests, lint/build, no-fork, docs guard, and whitespace validation.
+
+### Completed Slice: Generic Trash Restore Target Picker
+
+-   [x] Add a generic `detailsTable.restoreTarget` metadata contract for target-based restore flows.
+-   [x] Render a reusable MUI restore-target picker for deleted `records.union` rows without LMS-only runtime branches.
+-   [x] Configure LMS Learning Content Trash to restore records into `ContentProjects` through `ProjectId`.
+-   [x] Add focused schema, app-template, fixture-contract, formatting, lint/build, no-fork, docs, and whitespace validation.
+
+---
+
 ## Active: Runtime UI UX Quality Gate (2026-05-19)
 
 > Goal: implement `memory-bank/plan/ai-agent-mui-ux-workflow-plan-2026-05-19.md` so agent-driven UI work gets a reusable MUI/runtime UX contract, self-contained reviewer profiles, drift checks, Playwright UX helpers, LMS canary coverage, and GitBook documentation.
@@ -47,10 +871,10 @@
 
 #### Final QA Concurrency And E2E Stabilization Slice
 
--   [ ] Make runtime delete/restore expected-version checks atomic at the SQL mutation boundary.
--   [ ] Add focused backend coverage for expected-version predicates on delete and restore mutations.
--   [ ] Stabilize the LMS snapshot runtime Playwright navigation assertion without weakening UI coverage.
--   [ ] Re-run focused backend, published-app, E2E, lint, build, docs, and DB-boundary validation.
+-   [x] Make runtime delete/restore expected-version checks atomic at the SQL mutation boundary.
+-   [x] Add focused backend coverage for expected-version predicates on delete and restore mutations.
+-   [x] Stabilize the LMS snapshot runtime Playwright navigation assertion without weakening UI coverage.
+-   [x] Re-run focused backend, published-app, E2E, lint, build, docs, and DB-boundary validation.
 
 #### Final QA Defect Remediation Slice
 
@@ -1385,3 +2209,48 @@ All phases of the entity-first final migration completed:
 -   [x] Reconcile the V2 implementation plan checklist with the completed implementation and remaining explicitly deferred scope.
 -   [x] Run focused lint/unit/E2E validation for the QA closure.
 -   [x] Record the closure in `memory-bank/progress.md`.
+
+## Completed: LMS Learning Content Runtime Table Defaults Bridge (2026-05-20)
+
+-   [x] Add a generic `DashboardDetailsSlot.tableDefaults` contract for runtime list/card defaults without adding LMS-only widgets.
+-   [x] Pass sanitized Learning Content application settings from both embedded and standalone app hosts into the published dashboard details slot.
+-   [x] Apply column presets and default table/card mode through existing `MainGrid`, `detailsTable`, `records.union`, `ItemCard`, `ToolbarControls`, and `PaginationControls` primitives.
+-   [x] Keep technical LMS reference columns such as `ProjectId` and `CreatedBy` hidden by default in the product column preset.
+-   [x] Add focused host, dashboard, widget-renderer, column utility, and LMS platform tests for default view and column preset behavior.
+-   [x] Fix the generic current-object card path so object/localized values are formatted through `formatRuntimeValue` instead of leaking `[object Object]`.
+-   [x] Run focused lint, build, unit, and no-LMS-fork validation for the runtime table defaults bridge.
+
+## Completed: Generic Runtime Table Column Visibility (2026-05-21)
+
+-   [x] Add a generic runtime column visibility control to existing MUI toolbar primitives.
+-   [x] Apply safe local column visibility preferences to current-object `detailsTable` and `records.union` DataGrid surfaces.
+-   [x] Force technical runtime columns such as `ProjectId`, `TargetRecordId`, source JSON, and hidden internal fields out of the user-facing column menu.
+-   [x] Keep at least one business column visible and preserve action/control columns outside normal user configuration.
+-   [x] Add focused helper, runtime UI, and records.union widget tests for safe column visibility behavior.
+-   [x] Run focused Prettier, apps-template tests, lint, build, no-LMS-fork, E2E, and whitespace validation.
+
+## Completed: Generic Records Union Runtime Search (2026-05-21)
+
+-   [x] Add a generic `showSearch` details-table metadata flag for `records.union` runtime widgets.
+-   [x] Reuse the existing `ViewHeaderMUI` search control instead of adding an LMS-only toolbar or custom widget.
+-   [x] Delegate runtime search to the server-side `records.union` datasource request while preserving static metadata search and resetting pagination to the first page.
+-   [x] Enable search in the LMS Learning Content all/recent/starred/shared views and Trash view through template metadata.
+-   [x] Regenerate `tools/fixtures/metahubs-lms-app-snapshot.json` through the Playwright LMS generator.
+-   [x] Add schema, widget, fixture-contract, and browser E2E coverage for the generic search behavior.
+-   [x] Run focused Prettier, type schema tests, apps-template tests, lint, builds, fixture contract, no-LMS-fork guard, generator, runtime E2E, and whitespace validation.
+
+## Active: LMS Learning Content Runtime Form UX Safety (2026-05-20)
+
+-   [x] Make semantic long-text runtime fields multiline by default without requiring LMS-specific `textarea` metadata.
+-   [x] Add shared runtime mutation error sanitization so raw internal/backend details are not shown on normal user surfaces.
+-   [x] Reuse the sanitizer in CRUD form/delete/reorder/workflow paths, relation-builder mutation errors, and inline TABLE editor errors.
+-   [x] Add focused unit/component tests for multiline defaults, unavailable record-picker labels, and safe localized mutation errors.
+-   [x] Run focused Prettier, lint, build, unit, no-LMS-fork, E2E, and whitespace validation for the new runtime form UX safety slice.
+
+## Completed: LMS Guest Public Workspace Isolation QA Closure (2026-05-23)
+
+-   [x] Seed LMS public guest links into a shared public workspace during the snapshot-import E2E flow and restore the main personal workspace as the default runtime workspace.
+-   [x] Harden public guest runtime SQL reads so content, quiz, tabular child rows, and access-link usage updates are explicitly scoped by workspace when a public link belongs to a workspace.
+-   [x] Split main-workspace and shared-public-workspace row-count assertions so guest participants, quiz responses, and content progress prove isolation instead of relying on aggregate counts.
+-   [x] Prevent the MUI guest app from reusing a previous public-link session after navigating to another slug or locale.
+-   [x] Add focused unit regression coverage for public-link session scoping and rerun the full local minimal Supabase snapshot-import browser flow.

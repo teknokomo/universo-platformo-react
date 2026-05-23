@@ -45,6 +45,9 @@ export interface RowActionsMenuLabels {
     stateUnknownText?: string
     cancelText?: string
     confirmText?: string
+    workflowActionText?: string
+    workflowConfirmationTitleText?: string
+    workflowConfirmationMessageText?: string
 }
 
 type PendingWorkflowConfirmation = {
@@ -177,17 +180,18 @@ export function RowActionsMenu({ state, labels, permissions }: RowActionsMenuPro
 
         const confirmation = action.confirmation
         if (confirmation?.required) {
-            const title = readLocalizedWorkflowText(confirmation.title) ?? readLocalizedWorkflowText(action.title) ?? action.codename
+            const actionLabel = readLocalizedWorkflowText(action.title) ?? labels.workflowActionText ?? 'Run action'
+            const title =
+                readLocalizedWorkflowText(confirmation.title) ??
+                labels.workflowConfirmationTitleText ??
+                labels.confirmText ??
+                'Confirm action'
             const message =
                 readLocalizedWorkflowText(confirmation.message) ??
                 readLocalizedWorkflowText(confirmation.title) ??
-                readLocalizedWorkflowText(action.title) ??
-                action.codename
-            const confirmLabel =
-                readLocalizedWorkflowText(confirmation.confirmLabel) ??
-                labels.confirmText ??
-                readLocalizedWorkflowText(action.title) ??
-                action.codename
+                labels.workflowConfirmationMessageText ??
+                actionLabel
+            const confirmLabel = readLocalizedWorkflowText(confirmation.confirmLabel) ?? labels.confirmText ?? actionLabel
             setPendingWorkflowConfirmation({ rowId, action, title, message, confirmLabel })
             state.handleCloseMenu()
             return
@@ -266,7 +270,7 @@ export function RowActionsMenu({ state, labels, permissions }: RowActionsMenuPro
                         }}
                     >
                         <CheckCircleOutlineRoundedIcon fontSize='small' sx={{ mr: 1 }} />
-                        {readLocalizedWorkflowText(action.title) ?? action.codename}
+                        {readLocalizedWorkflowText(action.title) ?? labels.workflowActionText ?? 'Run action'}
                     </MenuItem>
                 ))}
                 {(hasRecordActions || hasWorkflowActions) && hasCrudActions ? <Divider /> : null}

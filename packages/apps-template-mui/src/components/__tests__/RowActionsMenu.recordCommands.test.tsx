@@ -260,6 +260,78 @@ describe('RowActionsMenu record commands', () => {
         expect(handleWorkflowAction).toHaveBeenCalledWith('row-1', 'AcceptSubmission')
     })
 
+    it('does not expose workflow action codenames when metadata labels are missing', async () => {
+        const handleWorkflowAction = vi.fn().mockResolvedValue(undefined)
+        const handleCloseMenu = vi.fn()
+        const appData = createState().appData!
+        const row = { id: 'row-1', status: 'submitted', _upl_version: 2 }
+        const state = createState({
+            rows: [row],
+            appData: {
+                ...appData,
+                columns: [
+                    {
+                        id: 'status-column',
+                        codename: 'SubmissionStatus',
+                        field: 'status',
+                        dataType: 'STRING',
+                        headerName: 'Status'
+                    }
+                ],
+                rows: [row],
+                workflowCapabilities: {
+                    'assignment.review': true
+                },
+                objectCollection: {
+                    ...appData.objectCollection,
+                    workflowActions: [
+                        {
+                            codename: 'AcceptSubmission',
+                            title: { _primary: 'en', locales: {} },
+                            from: ['submitted'],
+                            to: 'accepted',
+                            statusFieldCodename: 'SubmissionStatus',
+                            requiredCapabilities: ['assignment.review'],
+                            confirmation: {
+                                required: true
+                            }
+                        }
+                    ]
+                }
+            },
+            handleWorkflowAction,
+            handleCloseMenu
+        })
+
+        render(
+            <RowActionsMenu
+                state={state}
+                labels={{
+                    ...labels,
+                    cancelText: 'Cancel',
+                    confirmText: 'Confirm',
+                    workflowActionText: 'Run action',
+                    workflowConfirmationTitleText: 'Confirm action',
+                    workflowConfirmationMessageText: 'Run this action?'
+                }}
+                permissions={{ canEdit: false, canCopy: false, canDelete: false }}
+            />
+        )
+
+        expect(screen.getByTestId('runtime-workflow-action-AcceptSubmission')).toBeInTheDocument()
+        await userEvent.click(screen.getByRole('menuitem', { name: /^run action$/i }))
+
+        expect(handleWorkflowAction).not.toHaveBeenCalled()
+        expect(handleCloseMenu).toHaveBeenCalledTimes(1)
+        expect(screen.getByRole('dialog', { name: 'Confirm action' })).toBeInTheDocument()
+        expect(screen.getByText('Run this action?')).toBeInTheDocument()
+        expect(document.body).not.toHaveTextContent('AcceptSubmission')
+
+        await userEvent.click(screen.getByRole('button', { name: 'Confirm' }))
+
+        expect(handleWorkflowAction).toHaveBeenCalledWith('row-1', 'AcceptSubmission')
+    })
+
     it('hides metadata workflow actions without a current row version', () => {
         const appData = createState().appData!
         const row = { id: 'row-1', Status: 'submitted' }

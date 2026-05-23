@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import CircularProgress from '@mui/material/CircularProgress'
@@ -14,12 +14,16 @@ import {
     RowActionsMenu,
     RuntimeWorkspacesPage,
     updateLearningContentProgress,
+    type AppDataResponse,
     type CellRendererOverrides,
+    type DashboardCreateTarget,
     type DashboardDetailsSlot,
     type DashboardLayoutConfig,
     type DashboardMenuItem,
     type DashboardMenuSlot,
-    type DashboardMenusMap
+    type DashboardMenusMap,
+    type DashboardRowTarget,
+    type DashboardRowTargetAction
 } from '@universo/apps-template-mui'
 import { sanitizeApplicationLearningContentSettings } from '@universo/types'
 import { createRuntimeAdapter } from '../api/runtimeAdapter'
@@ -48,6 +52,19 @@ const buildRuntimeSectionHref = (applicationId: string, collectionId: string, se
 
 const isWorkspaceRootMenuItem = (item: DashboardMenuItem): boolean =>
     item.id === 'runtime-workspaces' || item.id === 'workspaces' || /\/workspaces(?:$|\?)/.test(item.href ?? '')
+
+const buildLearningContentCreateDefaultContext = (appData: AppDataResponse | undefined): Record<string, unknown> => {
+    const learningContentSettings = sanitizeApplicationLearningContentSettings(
+        appData?.settings?.learningContent as Record<string, unknown> | undefined
+    )
+
+    return {
+        learningContent: {
+            courseCompletionPolicy: learningContentSettings.courseCompletionPolicy,
+            trackOrderPolicy: learningContentSettings.trackOrderPolicy
+        }
+    }
+}
 
 const toRuntimeSectionLinkMenuItem = (
     item: DashboardMenuItem,
@@ -155,7 +172,8 @@ const ApplicationRuntime = () => {
         pageSizeOptions: [10, 25, 50, 100],
         staleTime: 30_000,
         initialSectionId: routeSectionId,
-        cellRenderers
+        cellRenderers,
+        createDefaultContext: buildLearningContentCreateDefaultContext
     })
 
     const activeRuntimeSection = state.appData?.section ?? state.appData?.objectCollection
@@ -172,6 +190,41 @@ const ApplicationRuntime = () => {
     const learningContentSettings = useMemo(
         () => sanitizeApplicationLearningContentSettings(state.appData?.settings?.learningContent as Record<string, unknown> | undefined),
         [state.appData?.settings?.learningContent]
+    )
+    const [pendingCreateTarget, setPendingCreateTarget] = useState<{
+        sectionId: string
+        createDefaults?: DashboardCreateTarget['createDefaults']
+    } | null>(null)
+    const [pendingRowTarget, setPendingRowTarget] = useState<{
+        sectionId: string
+        rowId: string
+        action: DashboardRowTargetAction
+    } | null>(null)
+    const resolveCreateTargetSectionId = useCallback(
+        (target: DashboardCreateTarget): string | null => {
+            const directId = target.sectionId ?? target.objectCollectionId
+            if (directId) return directId
+
+            const targetCodename = target.sectionCodename ?? target.objectCollectionCodename
+            if (!targetCodename) return null
+
+            const candidates = [...(state.appData?.sections ?? []), ...(state.appData?.objectCollections ?? [])]
+            return candidates.find((candidate) => candidate.codename === targetCodename)?.id ?? null
+        },
+        [state.appData?.objectCollections, state.appData?.sections]
+    )
+    const resolveRowTargetSectionId = useCallback(
+        (target: DashboardRowTarget): string | null => {
+            const directId = target.sectionId ?? target.objectCollectionId
+            if (directId) return directId
+
+            const targetCodename = target.sectionCodename ?? target.objectCollectionCodename
+            if (!targetCodename) return null
+
+            const candidates = [...(state.appData?.sections ?? []), ...(state.appData?.objectCollections ?? [])]
+            return candidates.find((candidate) => candidate.codename === targetCodename)?.id ?? null
+        },
+        [state.appData?.objectCollections, state.appData?.sections]
     )
     const resolveFormSurface = useCallback(
         (mode: 'create' | 'edit' | 'copy') => {
@@ -190,22 +243,29 @@ const ApplicationRuntime = () => {
         setSearchParams(next, { replace: true })
     }, [searchParams, setSearchParams])
 
-    const handleOpenCreateSurface = useCallback(() => {
-        if (!showCreateButton) {
-            clearRuntimeFormParams()
-            return
-        }
+    const pageCreateDefaultsRef = useRef<DashboardCreateTarget['createDefaults'] | undefined>(undefined)
 
-        if (resolveFormSurface('create') === 'page') {
-            const next = new URLSearchParams(searchParams)
-            next.set('surface', 'page')
-            next.set('mode', 'create')
-            next.delete('rowId')
-            setSearchParams(next)
-            return
-        }
-        state.handleOpenCreate()
-    }, [clearRuntimeFormParams, resolveFormSurface, searchParams, setSearchParams, showCreateButton, state])
+    const handleOpenCreateSurface = useCallback(
+        (createDefaults?: DashboardCreateTarget['createDefaults']) => {
+            if (!showCreateButton) {
+                pageCreateDefaultsRef.current = undefined
+                clearRuntimeFormParams()
+                return
+            }
+
+            if (resolveFormSurface('create') === 'page') {
+                pageCreateDefaultsRef.current = createDefaults
+                const next = new URLSearchParams(searchParams)
+                next.set('surface', 'page')
+                next.set('mode', 'create')
+                next.delete('rowId')
+                setSearchParams(next)
+                return
+            }
+            state.handleOpenCreate(createDefaults)
+        },
+        [clearRuntimeFormParams, resolveFormSurface, searchParams, setSearchParams, showCreateButton, state]
+    )
 
     const handleOpenEditSurface = useCallback(
         (rowId: string) => {
@@ -266,12 +326,105 @@ const ApplicationRuntime = () => {
         },
         [searchParams, state]
     )
+    const handleOpenRowTargetSurface = useCallback(
+        (rowId: string, action: DashboardRowTargetAction) => {
+            if (action === 'edit') {
+                handleOpenEditSurface(rowId)
+                return
+            }
+            if (action === 'copy') {
+                handleOpenCopySurface(rowId)
+                return
+            }
+            state.handleOpenDelete(rowId)
+        },
+        [handleOpenCopySurface, handleOpenEditSurface, state]
+    )
+
+    const handleOpenCreateTarget = useCallback(
+        (target: DashboardCreateTarget) => {
+            if (target.disabled) return
+
+            const targetSectionId = resolveCreateTargetSectionId(target)
+            if (!targetSectionId) return
+
+            setPendingCreateTarget({ sectionId: targetSectionId, createDefaults: target.createDefaults })
+            if (targetSectionId !== currentSectionId) {
+                state.onSelectObjectCollection(targetSectionId)
+            }
+        },
+        [currentSectionId, resolveCreateTargetSectionId, state]
+    )
+    const handleOpenRowTarget = useCallback(
+        (target: DashboardRowTarget, action: DashboardRowTargetAction) => {
+            const targetSectionId = resolveRowTargetSectionId(target)
+            if (!targetSectionId || !target.rowId) return
+
+            if (action === 'edit' && !canEditContent) return
+            if (action === 'copy' && !canCreateContent) return
+            if (action === 'delete' && !canDeleteContent) return
+
+            setPendingRowTarget({ sectionId: targetSectionId, rowId: target.rowId, action })
+            if (targetSectionId !== currentSectionId) {
+                state.onSelectObjectCollection(targetSectionId)
+            }
+        },
+        [canCreateContent, canDeleteContent, canEditContent, currentSectionId, resolveRowTargetSectionId, state]
+    )
+
+    useEffect(() => {
+        if (!pendingCreateTarget) return
+
+        const loadedTargetId =
+            state.appData?.activeSectionId ??
+            state.appData?.section?.id ??
+            state.appData?.activeObjectCollectionId ??
+            state.appData?.objectCollection?.id ??
+            null
+        if (state.isLoading || state.isFetching || loadedTargetId !== pendingCreateTarget.sectionId) return
+
+        setPendingCreateTarget(null)
+        handleOpenCreateSurface(pendingCreateTarget.createDefaults)
+    }, [
+        handleOpenCreateSurface,
+        pendingCreateTarget,
+        state.appData?.activeObjectCollectionId,
+        state.appData?.activeSectionId,
+        state.appData?.objectCollection?.id,
+        state.appData?.section?.id,
+        state.isFetching,
+        state.isLoading
+    ])
+    useEffect(() => {
+        if (!pendingRowTarget) return
+
+        const loadedTargetId =
+            state.appData?.activeSectionId ??
+            state.appData?.section?.id ??
+            state.appData?.activeObjectCollectionId ??
+            state.appData?.objectCollection?.id ??
+            null
+        if (state.isLoading || state.isFetching || loadedTargetId !== pendingRowTarget.sectionId) return
+
+        setPendingRowTarget(null)
+        handleOpenRowTargetSurface(pendingRowTarget.rowId, pendingRowTarget.action)
+    }, [
+        handleOpenRowTargetSurface,
+        pendingRowTarget,
+        state.appData?.activeObjectCollectionId,
+        state.appData?.activeSectionId,
+        state.appData?.objectCollection?.id,
+        state.appData?.section?.id,
+        state.isFetching,
+        state.isLoading
+    ])
 
     useEffect(() => {
         if (searchParams.get('surface') !== 'page') {
             handledPageSurfaceRequestRef.current = null
             suppressPageSurfaceOpenRef.current = false
             pendingPageSurfaceCleanupRef.current = false
+            pageCreateDefaultsRef.current = undefined
             return
         }
 
@@ -299,7 +452,7 @@ const ApplicationRuntime = () => {
             handledPageSurfaceRequestRef.current = requestKey
 
             if (!state.formOpen) {
-                state.handleOpenCreate()
+                state.handleOpenCreate(pageCreateDefaultsRef.current)
             }
             return
         }
@@ -403,6 +556,7 @@ const ApplicationRuntime = () => {
         [isWorkspacesRoute, state.layoutConfig]
     )
 
+    const runtimeHandleOpenCreate = runtimeState.handleOpenCreate
     const createActions = useMemo(
         () =>
             showCreateButton ? (
@@ -410,14 +564,14 @@ const ApplicationRuntime = () => {
                     data-testid='application-runtime-create-row'
                     variant='contained'
                     startIcon={<AddIcon />}
-                    onClick={runtimeState.handleOpenCreate}
+                    onClick={() => runtimeHandleOpenCreate()}
                     disabled={state.appData?.workspaceLimit?.canCreate === false}
                     sx={{ height: 40, minHeight: 40, borderRadius: 1, flexShrink: 0 }}
                 >
                     {t('app.createRow', 'Create')}
                 </Button>
             ) : null,
-        [runtimeState.handleOpenCreate, showCreateButton, state.appData?.workspaceLimit?.canCreate, t]
+        [runtimeHandleOpenCreate, showCreateButton, state.appData?.workspaceLimit?.canCreate, t]
     )
 
     const workspaceLimitBanner = useMemo(
@@ -449,15 +603,14 @@ const ApplicationRuntime = () => {
         [applicationId, i18n.language, isWorkspacesRoute, navigate, routeWorkspaceId, workspaceRouteSection]
     )
     const handlePageProgressChange = useCallback(
-        async (payload: { progressPercent: number; status: string }) => {
+        async (payload: { action: 'view' | 'complete' }) => {
             if (!applicationId || !activeRuntimeSection?.codename || !currentSectionId) return
             await updateLearningContentProgress({
                 apiBaseUrl: '/api/v1',
                 applicationId,
                 targetObjectCodename: activeRuntimeSection.codename,
                 targetRecordId: currentSectionId,
-                progressPercent: payload.progressPercent,
-                status: payload.status
+                action: payload.action
             })
         },
         [activeRuntimeSection?.codename, applicationId, currentSectionId]
@@ -473,6 +626,9 @@ const ApplicationRuntime = () => {
                     apiBaseUrl='/api/v1'
                     applicationId={applicationId}
                     objectCollectionId={currentSectionId}
+                    objectCollections={state.appData?.objectCollections ?? []}
+                    currentWorkspaceId={currentWorkspaceId}
+                    resourceSourceTypes={learningContentSettings.supportedResourceTypes}
                     surface='page'
                     renderDelete={false}
                     labels={{
@@ -497,7 +653,18 @@ const ApplicationRuntime = () => {
                     }}
                 />
             ) : null),
-        [activeFormSurface, applicationId, currentSectionId, i18n.language, runtimeState, t, workspacePageContent]
+        [
+            activeFormSurface,
+            applicationId,
+            currentSectionId,
+            currentWorkspaceId,
+            i18n.language,
+            learningContentSettings.supportedResourceTypes,
+            runtimeState,
+            state.appData?.objectCollections,
+            t,
+            workspacePageContent
+        ]
     )
 
     const details = useMemo<DashboardDetailsSlot>(
@@ -515,6 +682,7 @@ const ApplicationRuntime = () => {
             currentWorkspaceId,
             runtimeQueryKeyPrefix: adapter?.queryKeyPrefix,
             workspacesEnabled: state.appData?.workspacesEnabled ?? false,
+            permissions: state.appData?.permissions,
             banner: workspaceLimitBanner,
             content: pageSurfaceContent,
             rows: state.rows,
@@ -547,7 +715,14 @@ const ApplicationRuntime = () => {
                     currentSectionId ?? 'unknown'
                 ].join(':'),
                 onProgressChange: handlePageProgressChange
-            }
+            },
+            tableDefaults: {
+                defaultViewMode: learningContentSettings.defaultView === 'cards' ? 'card' : 'table',
+                columnPreset: learningContentSettings.columnPreset
+            },
+            resourceSourceTypes: learningContentSettings.supportedResourceTypes,
+            onOpenCreateTarget: handleOpenCreateTarget,
+            onOpenRowTarget: handleOpenRowTarget
         }),
         [
             activeRuntimeConfig?.searchMode,
@@ -561,6 +736,12 @@ const ApplicationRuntime = () => {
             learningContentSettings.playerPreset?.completeButtonMode,
             learningContentSettings.playerPreset?.showOutline,
             learningContentSettings.playerPreset?.showProgressHeader,
+            learningContentSettings.defaultView,
+            learningContentSettings.columnPreset,
+            learningContentSettings.supportedResourceTypes,
+            handleOpenCreateTarget,
+            handleOpenRowTarget,
+            state.appData?.permissions,
             state.rows,
             state.columns,
             state.appData?.columns,
@@ -694,6 +875,9 @@ const ApplicationRuntime = () => {
                         apiBaseUrl='/api/v1'
                         applicationId={applicationId}
                         objectCollectionId={currentSectionId}
+                        objectCollections={state.appData?.objectCollections ?? []}
+                        currentWorkspaceId={currentWorkspaceId}
+                        resourceSourceTypes={learningContentSettings.supportedResourceTypes}
                         surface={activeFormSurface}
                         renderForm={activeFormSurface !== 'page'}
                         labels={{
@@ -735,7 +919,12 @@ const ApplicationRuntime = () => {
                             stateDraftText: t('app.recordStateDraft', 'Draft'),
                             statePostedText: t('app.recordStatePosted', 'Posted'),
                             stateVoidedText: t('app.recordStateVoided', 'Voided'),
-                            stateUnknownText: t('app.recordStateUnknown', 'State')
+                            stateUnknownText: t('app.recordStateUnknown', 'State'),
+                            workflowActionText: t('app.workflowAction', 'Run action'),
+                            workflowConfirmationTitleText: t('app.workflowConfirmationTitle', 'Confirm action'),
+                            workflowConfirmationMessageText: t('app.workflowConfirmationMessage', 'Run this action?'),
+                            cancelText: t('app.cancel', 'Cancel'),
+                            confirmText: t('app.confirm', 'Confirm')
                         }}
                     />
                 </>

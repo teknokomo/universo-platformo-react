@@ -15,11 +15,20 @@
         "deleting": "Deleting...",
         "noFields": "No fields configured for this object.",
         "actions": "Actions",
+        "rowActionsFor": "Actions for {{name}}",
         "edit": "Edit",
         "copy": "Copy",
         "copying": "Copying...",
         "copyTitle": "Copy element",
         "emptyOption": "Empty",
+        "createTargetMenu": "Create content",
+        "createTargetFallback": "Record",
+        "createTargetResourceTypeDisabled": "{{type}} is disabled in application settings.",
+        "createTargetResourceTypeDeferred": "{{type}} is planned for a later phase.",
+        "star": "Add to starred",
+        "unstar": "Remove from starred",
+        "addToShared": "Add to shared",
+        "removeFromShared": "Remove from shared",
         "errorCreate": "Create failed: {{message}}",
         "errorUpdate": "Update failed: {{message}}",
         "errorDelete": "Delete failed: {{message}}",
@@ -30,6 +39,7 @@
         "errorRecordCommand": "Record command failed: {{message}}",
         "errorWorkflowAction": "Workflow action failed: {{message}}",
         "errorWorkflowVersionRequired": "Workflow action requires a current row version. Please reload and try again.",
+        "errorGenericMessage": "Please try again or reload the page.",
         "postRecord": "Post",
         "unpostRecord": "Unpost",
         "voidRecord": "Void",
@@ -41,6 +51,10 @@
         "recordStatePosted": "Posted",
         "recordStateVoided": "Voided",
         "recordStateUnknown": "State",
+        "workflowAction": "Run action",
+        "workflowConfirmationTitle": "Confirm action",
+        "workflowConfirmationMessage": "Run this action?",
+        "confirm": "Confirm",
         "localSearchScope": "Search applies to loaded rows only.",
         "reorderRequiresCompleteDataset": "Row reordering is available only when all rows are loaded and search is cleared."
     },
@@ -65,7 +79,12 @@
         "copyTitle": "Copy row",
         "copyOptionsTab": "Options",
         "copyChildTables": "Copy child tables",
-        "copyChildTablesRequiredHint": "This option is required because at least one child table is mandatory."
+        "copyChildTablesRequiredHint": "This option is required because at least one child table is mandatory.",
+        "errorFetch": "Failed to load rows",
+        "errorCreate": "Failed to create row",
+        "errorUpdate": "Failed to update row",
+        "errorDelete": "Failed to delete row",
+        "errorCopy": "Failed to copy row"
     },
     "table": {
         "editAfterSave": "Table data can be edited after saving the element.",
@@ -78,11 +97,28 @@
         "createTitle": "Create related record",
         "editTitle": "Edit related record",
         "deleteTitle": "Delete related record?",
-        "deleteDescription": "This related record will be deleted."
+        "deleteDescription": "This related record will be deleted.",
+        "loadFailed": "Unable to load related records.",
+        "parentLoadFailed": "Unable to load parent records.",
+        "untitledParent": "Untitled parent",
+        "untitledPanel": "Related records",
+        "untitledStep": "Step"
     },
     "formWizard": {
         "back": "Back",
         "next": "Next"
+    },
+    "recordPicker": {
+        "selectTargetObjectFirst": "Select the target object first.",
+        "unsupportedTargetObject": "This target object is not available for selection.",
+        "loading": "Loading records...",
+        "loadFailed": "Unable to load records.",
+        "unavailableSelection": "Selected record is unavailable.",
+        "untitled": "Untitled record"
+    },
+    "reference": {
+        "selectionUnavailable": "Reference selection is not configured.",
+        "unavailableSelection": "Selected reference is unavailable."
     },
     "blockEditor": {
         "loading": "Loading editor...",
@@ -92,6 +128,10 @@
         "fallbackHelper": "Fallback JSON editor for recovery when the visual editor cannot be loaded.",
         "retry": "Retry"
     },
+    "jsonField": {
+        "managedValue": "Structured data is managed by the application.",
+        "managedHelper": "This field is not edited as raw JSON."
+    },
     "resourcePreview": {
         "defaultTitle": "Resource",
         "unknownType": "Unknown type",
@@ -99,6 +139,7 @@
         "deferredSource": "This resource type is configured but its runtime player is not available yet.",
         "openExternal": "Open",
         "openPage": "Open page",
+        "domainPreview": "Domain: {{domain}}",
         "documentFrameTitle": "Document preview",
         "embedFrameTitle": "Embedded resource"
     },
@@ -109,6 +150,9 @@
         "storageKey": "Storage key",
         "packageDescriptor": "Package descriptor",
         "launchMode": "Launch",
+        "domainPreview": "Domain: {{domain}}",
+        "deferredType": "not available yet",
+        "deferredTypeDescription": "This resource type is configured but is not available for runtime authoring yet.",
         "invalid": "Resource source is not valid.",
         "errors": {
             "url": "Enter an absolute http or https URL.",
@@ -151,7 +195,10 @@
         "previous": "Previous",
         "next": "Next",
         "locked": "Locked",
+        "untitledContent": "Untitled content",
+        "untitledItem": "Untitled item",
         "noTarget": "No target",
+        "contentTypeFallback": "Learning content",
         "complete": "Complete",
         "lockedMessage": "Complete previous items to unlock this content.",
         "loadingContent": "Loading content...",
@@ -189,7 +236,11 @@
         "search": "Search…",
         "viewMode": "View mode",
         "tableView": "Table view",
-        "cardView": "Card view"
+        "cardView": "Card view",
+        "columns": "Columns",
+        "columnsMenu": "Table columns",
+        "typeFilter": "Type",
+        "allTypes": "All types"
     },
     "cards": {
         "noData": "No items to display",
@@ -203,7 +254,9 @@
     "reports": {
         "exportCsv": "Export CSV",
         "exporting": "Exporting…",
+        "loadError": "Report could not be loaded.",
         "exportError": "Export failed: {{message}}",
+        "exportGenericError": "Report could not be exported.",
         "exportUnsupported": "CSV download is not supported in this browser."
     },
     "workspace": {
@@ -221,6 +274,8 @@
         "creating": "Creating…",
         "copying": "Copying…",
         "deleting": "Deleting…",
+        "untitled": "Untitled workspace",
+        "untitledMember": "Workspace member",
         "personal": "Personal",
         "shared": "Shared",
         "members": "Members",
@@ -276,6 +331,7 @@
             "workspaceNotFound": "Workspace not found",
             "roleNotFound": "Workspace role not found",
             "workspacesDisabled": "Workspaces are not enabled for this application",
+            "emailInvalid": "Enter a valid email address.",
             "invalidRequestBody": "Invalid request body",
             "personalMutationBlocked": "Personal workspace cannot be changed",
             "personalDeleteBlocked": "Personal workspace cannot be deleted"
@@ -311,8 +367,36 @@
             "description": "Description",
             "noRecords": "No records",
             "moveUp": "Move up",
-            "moveDown": "Move down"
+            "moveDown": "Move down",
+            "moveUpRow": "Move {{row}} up",
+            "moveDownRow": "Move {{row}} down",
+            "untitled": "Untitled row"
         },
+        "card": {
+            "untitled": "Untitled item"
+        },
+        "datasourceUnavailable": "This content view is not available yet. Check the application runtime configuration.",
+        "datasourceLoadError": "This content view could not be loaded.",
+        "libraryActionUnavailable": "This action is not available for this row.",
+        "targetActionUnavailable": "This action is not available for this row.",
+        "targetActionTitle": "Choose target",
+        "targetActionLabel": "Target",
+        "targetActionLoading": "Loading available targets...",
+        "targetActionEmpty": "No available targets were found.",
+        "targetActionHelp": "Choose the target for this action.",
+        "targetActionError": "Targets could not be loaded.",
+        "targetActionUpdateError": "Record could not be updated.",
+        "targetActionUntitled": "Untitled target",
+        "targetActionSubmit": "Apply",
+        "shareTitle": "Share",
+        "shareTargetLabel": "Workspace member",
+        "shareLoading": "Loading workspace members...",
+        "shareEmpty": "No workspace members were found.",
+        "shareHelp": "Choose who should get access to this item.",
+        "shareError": "Workspace members could not be loaded.",
+        "shareUpdateError": "Access could not be updated.",
+        "shareUntitledMember": "Workspace member",
+        "shareSubmit": "Share",
         "menu": {
             "more": "More"
         }
@@ -320,12 +404,21 @@
     "trash": {
         "actions": "Actions",
         "restore": "Restore",
-        "restoreUnavailable": "Restore is not available for this row."
+        "restoreUnavailable": "Restore is not available for this row.",
+        "restoreError": "Record could not be restored.",
+        "restoreTargetTitle": "Restore to target",
+        "restoreTargetLabel": "Target",
+        "restoreTargetLoading": "Loading available targets...",
+        "restoreTargetEmpty": "No available targets were found.",
+        "restoreTargetHelp": "Choose where this record should be restored.",
+        "restoreTargetError": "Restore targets could not be loaded.",
+        "restoreTargetUntitled": "Untitled target"
     },
     "sequence": {
         "availability": "Availability",
         "available": "Available",
         "lockedBy": "Locked by",
+        "untitledStep": "Required step",
         "reasons": {
             "missingStep": "Missing step",
             "scheduledNotStarted": "Not started",
@@ -333,6 +426,9 @@
             "sequentialLocked": "Locked",
             "prerequisiteLocked": "Prerequisite locked"
         }
+    },
+    "detailsTabs": {
+        "untitledTab": "Details"
     },
     "guest": {
         "invalidLink": "Public guest link is invalid.",

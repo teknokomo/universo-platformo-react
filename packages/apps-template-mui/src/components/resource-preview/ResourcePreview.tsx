@@ -8,17 +8,20 @@ import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded'
 import PlayCircleRoundedIcon from '@mui/icons-material/PlayCircleRounded'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
+import Chip from '@mui/material/Chip'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { useTranslation } from 'react-i18next'
 import type { ReactNode } from 'react'
 import type { ResourceSource } from '@universo/types'
-import { isAllowedEmbedUrl, isDeferredResourceSource, resourceSourceSchema } from '@universo/types'
+import { isAllowedEmbedUrl, isDeferredResourceSource, parseSafeExternalUrl, resourceSourceSchema } from '@universo/types'
+import { formatRuntimeSafeValue } from '../../utils/displayValue'
+import { getDefaultResourceTypeLabel } from '../../utils/resourceSourceLabels'
 
 export type ResourcePreviewProps = {
     source: unknown
-    title?: string
-    description?: string
+    title?: unknown
+    description?: unknown
     onOpenPage?: (pageCodename: string) => void
 }
 
@@ -59,6 +62,16 @@ const getResourceIcon = (source?: ResourceSource): ReactNode => {
     }
 }
 
+const getSafeResourceSourceHostname = (source?: ResourceSource): string | null => {
+    if (!source || typeof source.url !== 'string') return null
+
+    try {
+        return parseSafeExternalUrl(source.url).hostname.replace(/\.$/, '').toLowerCase()
+    } catch {
+        return null
+    }
+}
+
 const frameSx = {
     width: '100%',
     border: 0,
@@ -67,7 +80,7 @@ const frameSx = {
 }
 
 function ResourcePreviewBody({ source, onOpenPage }: { source: ResourceSource; onOpenPage?: (pageCodename: string) => void }) {
-    const { t } = useTranslation()
+    const { t } = useTranslation('apps')
 
     if (source.type === 'page') {
         return (
@@ -148,9 +161,17 @@ function ResourcePreviewBody({ source, onOpenPage }: { source: ResourceSource; o
 }
 
 export function ResourcePreview({ source, title, description, onOpenPage }: ResourcePreviewProps) {
-    const { t } = useTranslation()
+    const { t, i18n } = useTranslation('apps')
+    const locale = i18n.language || 'en'
     const parsed = parseResourceSource(source)
     const readySource = parsed.kind === 'ready' ? parsed.source : parsed.kind === 'deferred' ? parsed.source : undefined
+    const hostname = parsed.kind === 'ready' ? getSafeResourceSourceHostname(parsed.source) : null
+    const unknownTypeLabel = t('resourcePreview.unknownType', 'Unknown type')
+    const resourceTypeLabel = readySource
+        ? t(`resourceSource.types.${readySource.type}`, getDefaultResourceTypeLabel(readySource.type))
+        : unknownTypeLabel
+    const safeTitle = formatRuntimeSafeValue(title, locale) || t('resourcePreview.defaultTitle', 'Resource')
+    const safeDescription = formatRuntimeSafeValue(description, locale)
 
     return (
         <Stack
@@ -168,19 +189,29 @@ export function ResourcePreview({ source, title, description, onOpenPage }: Reso
             <Stack direction='row' spacing={1} alignItems='center'>
                 {getResourceIcon(readySource)}
                 <Box sx={{ minWidth: 0 }}>
-                    <Typography variant='subtitle1' sx={{ fontWeight: 700 }} noWrap>
-                        {title || t('resourcePreview.defaultTitle', 'Resource')}
+                    <Typography variant='subtitle1' sx={{ fontWeight: 700, overflowWrap: 'anywhere' }}>
+                        {safeTitle}
                     </Typography>
                     <Typography variant='caption' color='text.secondary'>
-                        {readySource?.type ?? t('resourcePreview.unknownType', 'Unknown type')}
+                        {resourceTypeLabel}
                     </Typography>
                 </Box>
             </Stack>
 
-            {description ? (
+            {safeDescription ? (
                 <Typography variant='body2' color='text.secondary'>
-                    {description}
+                    {safeDescription}
                 </Typography>
+            ) : null}
+
+            {hostname ? (
+                <Chip
+                    size='small'
+                    variant='outlined'
+                    data-testid='resource-preview-domain'
+                    label={t('resourcePreview.domainPreview', 'Domain: {{domain}}', { domain: hostname })}
+                    sx={{ alignSelf: 'flex-start', maxWidth: '100%' }}
+                />
             ) : null}
 
             {parsed.kind === 'invalid' ? (

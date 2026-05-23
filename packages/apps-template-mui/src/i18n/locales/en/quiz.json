@@ -13,6 +13,8 @@
     "nextQuestion": "Next question",
     "backToQuestions": "Back to questions",
     "questionOf": "Question {{current}} of {{total}}",
+    "fallbackQuestion": "Question {{current}}",
+    "fallbackOption": "Option {{current}}",
     "currentScore": "Current score: {{score}} / {{total}}",
     "difficulty": "Difficulty {{level}}",
     "correct": "Correct!",

@@ -31,13 +31,15 @@ describe('publicRuntimeAccess helpers', () => {
         expect(json).toHaveBeenCalledWith({ error: 'Application does not allow public runtime access' })
     })
 
-    it('exposes active workspace candidates to guest runtime helpers without relying on a seeded shared workspace', async () => {
+    it('exposes active non-personal workspace candidates to guest runtime helpers without relying on a seeded codename', async () => {
         const { executor } = createMockDbExecutor()
         const mainWorkspaceId = '018f8a78-7b8f-7c1d-a111-222233334441'
         const sharedWorkspaceId = '018f8a78-7b8f-7c1d-a111-222233334442'
 
         executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
             expect(sql).toContain('COALESCE(status,')
+            expect(sql).toContain("workspace_type <> 'personal'")
+            expect(sql).toContain('personal_user_id IS NULL')
             expect(sql).toContain('ORDER BY workspace_type ASC, _upl_created_at ASC, id ASC')
             expect(sql).not.toContain('codename = $1')
             expect(sql).not.toContain('LIMIT 1')

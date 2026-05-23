@@ -14,7 +14,7 @@ import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
 import { DataGrid, type GridRowsProp, useGridApiRef } from '@mui/x-data-grid'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { validateNumber, toNumberRules } from '@universo/utils'
+import { validateNumber, toNumberRules, type NumberValidationResult } from '@universo/utils'
 import type { FieldConfig } from './dialogs/FormDialog'
 import { ConfirmDeleteDialog } from './dialogs/ConfirmDeleteDialog'
 import { getDataGridLocaleText } from '../utils/getDataGridLocale'
@@ -28,22 +28,7 @@ import {
 } from '../api/api'
 import { buildTabularColumns } from '../utils/tabularColumns'
 import { normalizeTabularCellValue, normalizeTabularRowValues } from '../utils/tabularCellValues'
-
-/**
- * Extract the most useful error message from an API failure.
- * Prefers server-provided error/message over generic fetch/axios status text.
- */
-const extractApiErrorMessage = (err: unknown, fallback: string): string => {
-    // Axios-style errors
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const responseData = (err as any)?.response?.data
-    if (responseData) {
-        if (typeof responseData.error === 'string' && responseData.error.trim()) return responseData.error
-        if (typeof responseData.message === 'string' && responseData.message.trim()) return responseData.message
-    }
-    if (err instanceof Error && err.message) return err.message
-    return fallback
-}
+import { extractRuntimeErrorMessage } from '../utils/runtimeErrors'
 
 export interface RuntimeInlineTabularEditorProps {
     /** Base API URL (e.g. `/api/v1`). */
@@ -108,6 +93,37 @@ export function RuntimeInlineTabularEditor({
     const dataGridLocale = useMemo(() => getDataGridLocaleText(resolvedLocale), [resolvedLocale])
     const queryClient = useQueryClient()
     const apiRef = useGridApiRef()
+    const getTabularErrorMessage = useCallback(
+        (err: unknown, fallbackKey: string, fallback: string) => extractRuntimeErrorMessage(err, t(fallbackKey, fallback), resolvedLocale),
+        [resolvedLocale, t]
+    )
+    const getNumberValidationMessage = useCallback(
+        (field: FieldConfig, result: NumberValidationResult): string => {
+            const rules = field.validationRules ?? {}
+
+            switch (result.errorKey) {
+                case 'mustBeNonNegative':
+                    return t('validation.nonNegative', 'Must be non-negative')
+                case 'belowMinimum':
+                    return t('validation.minValue', {
+                        defaultValue: 'Minimum value: {{min}}',
+                        min: typeof rules.min === 'number' ? rules.min : result.errorParams?.min
+                    })
+                case 'aboveMaximum':
+                    return t('validation.maxValue', {
+                        defaultValue: 'Maximum value: {{max}}',
+                        max: typeof rules.max === 'number' ? rules.max : result.errorParams?.max
+                    })
+                case 'tooManyIntegerDigits':
+                case 'tooManyDecimalDigits':
+                case 'exceedsSafeInteger':
+                    return t('validation.numberPrecisionExceeded', 'Value exceeds allowed precision')
+                default:
+                    return t('validation.invalidNumber', 'Invalid number')
+            }
+        },
+        [t]
+    )
 
     const queryKey = useMemo(
         () => ['tabularRows', applicationId, parentRecordId, componentId],
@@ -252,7 +268,7 @@ export function RuntimeInlineTabularEditor({
             await createTabularRow({ apiBaseUrl, applicationId, parentRecordId, componentId, objectCollectionId, data })
             await queryClient.invalidateQueries({ queryKey })
         } catch (err) {
-            const message = extractApiErrorMessage(err, 'Failed to create row')
+            const message = getTabularErrorMessage(err, 'tabular.errorCreate', 'Failed to create row')
             setMutationError(message)
             onError?.(message)
         }
@@ -271,7 +287,8 @@ export function RuntimeInlineTabularEditor({
         objectCollectionId,
         queryClient,
         queryKey,
-        onError
+        onError,
+        getTabularErrorMessage
     ])
 
     // DELETE confirmation handlers
@@ -309,7 +326,7 @@ export function RuntimeInlineTabularEditor({
             setDeleteRowId(null)
             await queryClient.invalidateQueries({ queryKey })
         } catch (err) {
-            const message = extractApiErrorMessage(err, 'Failed to delete row')
+            const message = getTabularErrorMessage(err, 'tabular.errorDelete', 'Failed to delete row')
             setDeleteError(message)
             onError?.(message)
         }
@@ -327,7 +344,8 @@ export function RuntimeInlineTabularEditor({
         objectCollectionId,
         queryClient,
         queryKey,
-        onError
+        onError,
+        getTabularErrorMessage
     ])
 
     const handleCancelDelete = useCallback(() => {
@@ -396,7 +414,7 @@ export function RuntimeInlineTabularEditor({
             })
             await queryClient.invalidateQueries({ queryKey })
         } catch (err) {
-            const message = extractApiErrorMessage(err, 'Failed to copy row')
+            const message = getTabularErrorMessage(err, 'tabular.errorCopy', 'Failed to copy row')
             setMutationError(message)
             onError?.(message)
         } finally {
@@ -416,16 +434,19 @@ export function RuntimeInlineTabularEditor({
         queryClient,
         queryKey,
         onError,
-        handleCloseRowMenu
+        handleCloseRowMenu,
+        getTabularErrorMessage
     ])
 
     // UPDATE a row via API (processRowUpdate handler for DataGrid).
     // Throws on failure so DataGrid reverts the cell and calls onProcessRowUpdateError.
     const processRowUpdate = useCallback(
         async (newRow: Record<string, unknown>, oldRow: Record<string, unknown>) => {
+            setMutationError(null)
+
             if (deferPersistence) {
                 const rowId = String(newRow.id)
-                // Validate NUMBER fields — revert invalid values
+                // Validate NUMBER fields before committing the local row.
                 const validatedRow = normalizeTabularRowValues(newRow, childFields, resolvedLocale)
                 for (const field of childFields) {
                     if (
@@ -437,7 +458,7 @@ export function RuntimeInlineTabularEditor({
                     ) {
                         const result = validateNumber(validatedRow[field.id] as number, toNumberRules(field.validationRules))
                         if (!result.valid) {
-                            validatedRow[field.id] = oldRow[field.id] ?? null
+                            throw new Error(getNumberValidationMessage(field, result))
                         }
                     }
                 }
@@ -458,7 +479,7 @@ export function RuntimeInlineTabularEditor({
                     if (field.type === 'REF' && value === '') {
                         value = null
                     }
-                    // Validate NUMBER fields — revert to old value if invalid
+                    // Validate NUMBER fields before persisting the row.
                     if (
                         field.type === 'NUMBER' &&
                         value != null &&
@@ -468,7 +489,7 @@ export function RuntimeInlineTabularEditor({
                     ) {
                         const result = validateNumber(value, toNumberRules(field.validationRules))
                         if (!result.valid) {
-                            value = oldRow[field.id] ?? null
+                            throw new Error(getNumberValidationMessage(field, result))
                         }
                     }
                     data[field.id] = value
@@ -509,17 +530,18 @@ export function RuntimeInlineTabularEditor({
             componentId,
             objectCollectionId,
             queryClient,
-            queryKey
+            queryKey,
+            getNumberValidationMessage
         ]
     )
 
     const handleProcessRowUpdateError = useCallback(
         (err: Error) => {
-            const message = extractApiErrorMessage(err, 'Failed to update row')
+            const message = getTabularErrorMessage(err, 'tabular.errorUpdate', 'Failed to update row')
             setMutationError(message)
             onError?.(message)
         },
-        [onError]
+        [onError, getTabularErrorMessage]
     )
 
     // Handle select/radio value changes for always-visible controls (REF select/radio mode).
@@ -558,7 +580,7 @@ export function RuntimeInlineTabularEditor({
             } catch (err) {
                 // Revert optimistic update by refetching from server
                 await queryClient.invalidateQueries({ queryKey })
-                const message = extractApiErrorMessage(err, 'Failed to update row')
+                const message = getTabularErrorMessage(err, 'tabular.errorUpdate', 'Failed to update row')
                 setMutationError(message)
                 onError?.(message)
             }
@@ -574,7 +596,8 @@ export function RuntimeInlineTabularEditor({
             objectCollectionId,
             queryClient,
             queryKey,
-            onError
+            onError,
+            getTabularErrorMessage
         ]
     )
 
@@ -596,16 +619,29 @@ export function RuntimeInlineTabularEditor({
                 onSelectChange: handleSelectChange,
                 deleteAriaLabel: t('tabular.delete', 'Delete'),
                 actionsAriaLabel: t('app.actions', 'Actions'),
-                locale: resolvedLocale
+                locale: resolvedLocale,
+                numberIncrementAriaLabel: t('number.increment', 'Increment'),
+                numberDecrementAriaLabel: t('number.decrement', 'Decrement'),
+                numberInvalidMessage: t('validation.invalidNumber', 'Invalid number'),
+                getNumberValidationMessage
             }),
-        [childFields, rowNumberById, handleRequestDelete, handleOpenRowMenu, handleSelectChange, t, resolvedLocale]
+        [
+            childFields,
+            rowNumberById,
+            handleRequestDelete,
+            handleOpenRowMenu,
+            handleSelectChange,
+            t,
+            resolvedLocale,
+            getNumberValidationMessage
+        ]
     )
 
     const addDisabled = typeof maxRows === 'number' && effectiveRows.length >= maxRows
 
     const gridRows: GridRowsProp = useMemo(() => effectiveRows, [effectiveRows])
 
-    const fetchErrorMessage = fetchError instanceof Error ? fetchError.message : fetchError ? String(fetchError) : null
+    const fetchErrorMessage = fetchError ? getTabularErrorMessage(fetchError, 'tabular.errorFetch', 'Failed to load rows') : null
 
     return (
         <Box sx={{ mt: 1 }}>

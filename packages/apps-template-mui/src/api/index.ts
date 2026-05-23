@@ -11,6 +11,8 @@ export {
     fetchRuntimeLedgers,
     fetchRuntimeLedgerFacts,
     fetchRuntimeLedgerProjection,
+    fetchRuntimeRecordsUnion,
+    setRuntimeLibraryRelation,
     exportRuntimeReportCsv,
     appDataResponseSchema
 } from './api'
@@ -27,7 +29,7 @@ export type {
 export { appQueryKeys, runtimeKeys, useAppRow, useCreateAppRow, useUpdateAppRow, useDeleteAppRow, useRestoreAppRow } from './mutations'
 
 // Adapter pattern
-export type { CrudDataAdapter, CellRendererOverrides, RuntimeRecordCommand } from './types'
+export type { CrudDataAdapter, CellRendererOverrides, RuntimeRecordCommand, RuntimeRestoreTarget } from './types'
 export { createStandaloneAdapter } from './adapters'
 
 // Tabular part (TABLE component) adapter

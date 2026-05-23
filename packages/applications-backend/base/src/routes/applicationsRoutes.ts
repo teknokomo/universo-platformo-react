@@ -69,11 +69,13 @@ export function createApplicationsRoutes(
 
     // ── Runtime rows ──
     router.get('/:applicationId/runtime', readLimiter, asyncHandler(runtime.getRuntime))
+    router.post('/:applicationId/runtime/datasources/records/union', readLimiter, asyncHandler(runtime.listRecordsUnionDatasource))
     router.get('/:applicationId/runtime/rows/:rowId', readLimiter, asyncHandler(runtime.getRow))
     router.post('/:applicationId/runtime/rows', writeLimiter, asyncHandler(runtime.createRow))
     router.post('/:applicationId/runtime/rows/reorder', writeLimiter, asyncHandler(runtime.reorderRows))
     router.post('/:applicationId/runtime/rows/:rowId/copy', writeLimiter, asyncHandler(runtime.copyRow))
     router.post('/:applicationId/runtime/rows/:rowId/restore', writeLimiter, asyncHandler(runtime.restoreRow))
+    router.post('/:applicationId/runtime/rows/:rowId/library/:relationKey', writeLimiter, asyncHandler(runtime.setLibraryRelation))
     router.post('/:applicationId/runtime/progress/content', writeLimiter, asyncHandler(runtime.updateContentProgress))
     router.post('/:applicationId/runtime/rows/:rowId/workflow/:actionCodename', writeLimiter, asyncHandler(runtime.runWorkflowAction))
     router.post('/:applicationId/runtime/rows/:rowId/post', writeLimiter, asyncHandler(runtime.postRow))

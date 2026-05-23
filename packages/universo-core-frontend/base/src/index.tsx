@@ -45,6 +45,8 @@ const routerConfig: RouterConfig = {
     basename: (typeof window !== 'undefined' && window.__APP_BASEPATH__) || import.meta.env.BASE_URL || '/'
 }
 
+const showReactQueryDevtools = process.env.NODE_ENV === 'development' && import.meta.env.VITE_ENABLE_QUERY_DEVTOOLS === 'true'
+
 /**
  * React StrictMode Wrapper - Development Only
  *
@@ -93,8 +95,8 @@ root.render(
                         </SnackbarProvider>
                     </RouterWrapper>
                 </Provider>
-                {/* React Query DevTools - only in development */}
-                {process.env.NODE_ENV === 'development' && <ReactQueryDevtools initialIsOpen={false} position='bottom-right' />}
+                {/* React Query DevTools - opt-in only, so docs/E2E screenshots stay clean by default. */}
+                {showReactQueryDevtools && <ReactQueryDevtools initialIsOpen={false} position='bottom-right' />}
             </QueryClientProvider>
         </BootstrapErrorBoundary>
     </AppWrapper>

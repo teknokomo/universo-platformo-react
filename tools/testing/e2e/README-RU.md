@@ -75,12 +75,14 @@ Backend e2e env должен содержать:
 -   `SUPABASE_JWT_SECRET`
 -   `AUTH_LOGIN_RATE_LIMIT_WINDOW_MS`
 -   `AUTH_LOGIN_RATE_LIMIT_MAX`
+-   `API_RATE_LIMIT_READ_MAX`
+-   `API_RATE_LIMIT_WRITE_MAX`
 -   `E2E_TEST_USER_PASSWORD`
 -   `E2E_TEST_USER_ROLE_CODENAMES`
 -   `E2E_TEST_USER_EMAIL_DOMAIN`
 -   `E2E_FULL_RESET_MODE` (`strict` по умолчанию, `off` только для ручной отладки)
 
-Для больших suite повышайте `AUTH_LOGIN_RATE_LIMIT_MAX` только в выделенном e2e backend env вместо ослабления production defaults. Browser suite легитимно делает много auth round-trips между disposable users, bootstrap-admin setup и API-assisted provisioning.
+Для больших suite повышайте `AUTH_LOGIN_RATE_LIMIT_MAX`, `API_RATE_LIMIT_READ_MAX` или `API_RATE_LIMIT_WRITE_MAX` только в выделенном e2e backend env вместо ослабления production defaults. Browser suite легитимно делает много auth round-trips и API-assisted assertions между disposable users, bootstrap-admin setup и generated runtime applications.
 
 Все wrapper-based E2E команды теперь принудительно соблюдают hosted-Supabase reset contract: удаляют все application-owned fixed schemas, dynamic `app_*` / `mhb_*` schemas, `upl_migrations` и Supabase auth users перед стартом suite и ещё раз после остановки сервера. Инфраструктурные схемы вроде `public` сохраняются, чтобы стартовые migrations могли пересобрать platform state поверх валидной базы Supabase/Postgres. Прямые `pnpm exec playwright test ...` обходят этот контракт и поэтому допустимы только для debug-only сценариев. Для обычной валидации используйте wrapper-команды ниже.
 
@@ -233,6 +235,12 @@ pnpm run build:e2e
 node tools/testing/e2e/run-playwright-suite.mjs --project generators --grep "self-hosted app"
 ```
 
+Проверить контракт закоммиченного LMS fixture без запуска browser runner:
+
+```bash
+pnpm run check:lms-fixture-contract
+```
+
 Если сервер уже запущен (например, от предыдущего E2E прогона), переиспользовать его:
 
 ```bash
@@ -241,11 +249,11 @@ E2E_FULL_RESET_MODE=off E2E_ALLOW_REUSE_SERVER=true pnpm run test:e2e:generators
 
 ### Доступные генераторы
 
-| Генератор | Output | Описание |
-| --- | --- | --- |
+| Генератор                         | Output                                                  | Описание                                                                                                                                                       |
+| --------------------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `metahubs-self-hosted-app-export` | `tools/fixtures/metahubs-self-hosted-app-snapshot.json` | Создаёт локализованный fixture Metahubs Self-Hosted App, сажает baseline runtime settings, публикует его и экспортирует snapshot для self-hosted parity flows. |
-| `metahubs-quiz-app-export` | `tools/fixtures/metahubs-quiz-app-snapshot.json` | Создаёт локализованный fixture quiz-приложения и экспортирует snapshot для quiz runtime import flows. |
-| `metahubs-lms-app-export` | `tools/fixtures/metahubs-lms-app-snapshot.json` | Создаёт локализованный fixture LMS-приложения и экспортирует snapshot для LMS runtime import flows. |
+| `metahubs-quiz-app-export`        | `tools/fixtures/metahubs-quiz-app-snapshot.json`        | Создаёт локализованный fixture quiz-приложения и экспортирует snapshot для quiz runtime import flows.                                                          |
+| `metahubs-lms-app-export`         | `tools/fixtures/metahubs-lms-app-snapshot.json`         | Создаёт локализованный fixture LMS-приложения и экспортирует snapshot для LMS runtime import flows.                                                            |
 
 ### Создание новых генераторов
 

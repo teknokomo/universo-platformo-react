@@ -13,6 +13,16 @@ import { validateEntityTypePresetManifest, validateTemplateManifest } from '../.
 
 const cloneTemplate = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
 
+const readVlcContent = (value: unknown, locale: 'en' | 'ru'): string | undefined => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+    const locales = (value as { locales?: unknown }).locales
+    if (!locales || typeof locales !== 'object' || Array.isArray(locales)) return undefined
+    const entry = (locales as Record<string, unknown>)[locale]
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return undefined
+    const content = (entry as { content?: unknown }).content
+    return typeof content === 'string' ? content : undefined
+}
+
 describe('TemplateManifestValidator', () => {
     it('accepts the built-in basic template', () => {
         expect(() => validateTemplateManifest(cloneTemplate(basicTemplate))).not.toThrow()
@@ -164,11 +174,13 @@ describe('TemplateManifestValidator', () => {
         const manifest = cloneTemplate(lmsTemplate)
         const widgets = manifest.seed.layoutZoneWidgets.main ?? []
         const homeWidgets = manifest.seed.layoutZoneWidgets.learnerHome ?? []
+        const learningContentWidgets = manifest.seed.layoutZoneWidgets.learningContent ?? []
         const courseBuilderWidgets = manifest.seed.layoutZoneWidgets.courseBuilder ?? []
         const trackBuilderWidgets = manifest.seed.layoutZoneWidgets.trackBuilder ?? []
         const entityCodenames = manifest.seed.entities.map((entity) => entity.codename)
         const entityByCodename = new Map(manifest.seed.entities.map((entity) => [entity.codename, entity]))
         const menuWidget = widgets.find((widget) => widget.widgetKey === 'menuWidget')
+        const learningContentTable = learningContentWidgets.find((widget) => widget.widgetKey === 'detailsTable')
         const courseBuilderTabs = courseBuilderWidgets.find((widget) => widget.widgetKey === 'detailsTabs')
         const trackBuilderTabs = trackBuilderWidgets.find((widget) => widget.widgetKey === 'detailsTabs')
 
@@ -225,6 +237,42 @@ describe('TemplateManifestValidator', () => {
             ])
         )
         expect(homeWidgets.some((widget) => widget.widgetKey === 'columnsContainer')).toBe(false)
+        const learningContentTableConfig = parseApplicationLayoutWidgetConfig('detailsTable', learningContentTable?.config ?? {})
+        expect(learningContentTableConfig.createTargets).toHaveLength(8)
+        expect(learningContentTableConfig.createTargets?.map((target) => target.id)).toEqual([
+            'learning-content-create-project',
+            'learning-content-create-page',
+            'learning-content-create-link',
+            'learning-content-create-course',
+            'learning-content-create-track',
+            'learning-content-create-quiz-lite',
+            'learning-content-create-assignment-lite',
+            'learning-content-create-package'
+        ])
+        expect(learningContentTableConfig.createTargets?.filter((target) => target.disabled).map((target) => target.id)).toEqual([
+            'learning-content-create-quiz-lite',
+            'learning-content-create-assignment-lite',
+            'learning-content-create-package'
+        ])
+        const createTargetById = new Map(learningContentTableConfig.createTargets?.map((target) => [target.id, target]) ?? [])
+        expect(readVlcContent(createTargetById.get('learning-content-create-quiz-lite')?.disabledReason, 'en')).toBe(
+            'Quiz authoring is planned for a later Learning Content phase.'
+        )
+        expect(readVlcContent(createTargetById.get('learning-content-create-quiz-lite')?.disabledReason, 'ru')).toBe(
+            'Создание тестов запланировано на следующий этап Learning Content.'
+        )
+        expect(readVlcContent(createTargetById.get('learning-content-create-assignment-lite')?.disabledReason, 'en')).toBe(
+            'Assignment authoring is planned for a later Learning Content phase.'
+        )
+        expect(readVlcContent(createTargetById.get('learning-content-create-assignment-lite')?.disabledReason, 'ru')).toBe(
+            'Создание заданий запланировано на следующий этап Learning Content.'
+        )
+        expect(readVlcContent(createTargetById.get('learning-content-create-package')?.disabledReason, 'en')).toBe(
+            'File import and SCORM/xAPI support are planned for a later phase.'
+        )
+        expect(readVlcContent(createTargetById.get('learning-content-create-package')?.disabledReason, 'ru')).toBe(
+            'Импорт файлов и поддержка SCORM/xAPI запланированы на следующий этап.'
+        )
         expect(courseBuilderTabs).toBeDefined()
         expect(trackBuilderTabs).toBeDefined()
         expect(() => parseApplicationLayoutWidgetConfig('detailsTabs', courseBuilderTabs?.config ?? {})).not.toThrow()

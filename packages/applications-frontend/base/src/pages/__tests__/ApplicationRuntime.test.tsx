@@ -12,7 +12,11 @@ const runtimeMocks = vi.hoisted(() => ({
     mutate: vi.fn(),
     handlePendingInteractionAttempt: vi.fn(() => false),
     handleOpenCreate: vi.fn(),
+    handleOpenEdit: vi.fn(),
+    handleOpenCopy: vi.fn(),
+    handleOpenDelete: vi.fn(),
     handleCloseForm: vi.fn(),
+    onSelectObjectCollection: vi.fn(),
     updateLearningContentProgress: vi.fn().mockResolvedValue({ persisted: true }),
     setPaginationModel: vi.fn(),
     dashboardStateOverrides: {} as Record<string, unknown>,
@@ -68,8 +72,29 @@ vi.mock('@universo/apps-template-mui', async () => {
                     showProgressHeader?: boolean
                     completeButtonMode?: string
                     progressStorageKey?: string
-                    onProgressChange?: (payload: { progressPercent: number; status: string }) => Promise<void> | void
+                    onProgressChange?: (payload: { action: 'view' | 'complete' }) => Promise<void> | void
                 }
+                tableDefaults?: unknown
+                onOpenCreateTarget?: (target: {
+                    id: string
+                    label: string
+                    sectionCodename?: string
+                    objectCollectionCodename?: string
+                    createDefaults?: Array<{
+                        fieldCodename: string
+                        enumCodename?: string
+                        resourceSourceType?: string
+                        contextPath?: string
+                    }>
+                }) => void
+                onOpenRowTarget?: (
+                    target: {
+                        rowId: string
+                        sectionCodename?: string
+                        objectCollectionCodename?: string
+                    },
+                    action: 'edit' | 'copy' | 'delete'
+                ) => void
             }
             layoutConfig?: Record<string, unknown>
             menu?: { items?: Array<{ label: string; selected?: boolean; href?: string | null }> }
@@ -94,15 +119,37 @@ vi.mock('@universo/apps-template-mui', async () => {
                                   progressStorageKey: details.pagePlayer.progressStorageKey,
                                   hasProgressHandler: typeof details.pagePlayer.onProgressChange === 'function'
                               }
-                            : null
+                            : null,
+                        tableDefaults: details?.tableDefaults ?? null
                     })}
                 </div>
                 <button
                     data-testid='apps-dashboard-complete-page'
-                    onClick={() => void details?.pagePlayer?.onProgressChange?.({ progressPercent: 100, status: 'completed' })}
+                    onClick={() => void details?.pagePlayer?.onProgressChange?.({ action: 'complete' })}
                     type='button'
                 >
                     complete
+                </button>
+                <button
+                    data-testid='apps-dashboard-open-course-target'
+                    onClick={() =>
+                        details?.onOpenCreateTarget?.({
+                            id: 'create-course',
+                            label: 'Course',
+                            sectionCodename: 'Courses',
+                            createDefaults: [{ fieldCodename: 'Status', enumCodename: 'Draft' }]
+                        })
+                    }
+                    type='button'
+                >
+                    create course target
+                </button>
+                <button
+                    data-testid='apps-dashboard-open-course-row-edit'
+                    onClick={() => details?.onOpenRowTarget?.({ rowId: 'course-row-1', sectionCodename: 'Courses' }, 'edit')}
+                    type='button'
+                >
+                    edit course row
                 </button>
                 <div data-testid='apps-dashboard-actions'>{details?.actions}</div>
                 <div data-testid='apps-dashboard-content'>{details?.content}</div>
@@ -207,7 +254,7 @@ vi.mock('@universo/apps-template-mui', async () => {
                 onSelectSection: vi.fn(),
                 activeObjectCollectionId: 'object-1',
                 selectedObjectCollectionId: 'object-1',
-                onSelectObjectCollection: vi.fn(),
+                onSelectObjectCollection: runtimeMocks.onSelectObjectCollection,
                 activeMenu: null,
                 dashboardMenuItems: [],
                 menuSlot: {
@@ -223,19 +270,19 @@ vi.mock('@universo/apps-template-mui', async () => {
                 isFormReady: true,
                 isSubmitting: false,
                 handleOpenCreate: runtimeMocks.handleOpenCreate,
-                handleOpenEdit: vi.fn(),
+                handleOpenEdit: runtimeMocks.handleOpenEdit,
                 handleCloseForm: runtimeMocks.handleCloseForm,
                 handleFormSubmit: vi.fn().mockResolvedValue(undefined),
                 deleteRowId: null,
                 deleteError: null,
                 isDeleting: false,
-                handleOpenDelete: vi.fn(),
+                handleOpenDelete: runtimeMocks.handleOpenDelete,
                 handleCloseDelete: vi.fn(),
                 handleConfirmDelete: vi.fn().mockResolvedValue(undefined),
                 copyRowId: null,
                 copyError: null,
                 isCopying: false,
-                handleOpenCopy: vi.fn(),
+                handleOpenCopy: runtimeMocks.handleOpenCopy,
                 handleCloseCopy: vi.fn(),
                 menuAnchorEl: null,
                 menuRowId: null,
@@ -328,6 +375,9 @@ describe('ApplicationRuntime pending interaction safety', () => {
         runtimeMocks.capturedCrudOptions = null
         runtimeMocks.handlePendingInteractionAttempt.mockReturnValue(false)
         runtimeMocks.handleCloseForm.mockReset()
+        runtimeMocks.handleOpenEdit.mockReset()
+        runtimeMocks.handleOpenCopy.mockReset()
+        runtimeMocks.handleOpenDelete.mockReset()
         runtimeMocks.updateLearningContentProgress.mockClear()
         runtimeMocks.dashboardStateOverrides = {}
         runtimeMocks.triggerRerender = undefined
@@ -370,6 +420,117 @@ describe('ApplicationRuntime pending interaction safety', () => {
         await user.click(screen.getByRole('button', { name: 'Create' }))
 
         expect(runtimeMocks.handleOpenCreate).toHaveBeenCalledTimes(1)
+    })
+
+    it('waits for the selected create target schema before opening the runtime create form', async () => {
+        runtimeMocks.dashboardStateOverrides = {
+            activeSectionId: 'project-section',
+            selectedSectionId: 'project-section',
+            activeObjectCollectionId: 'project-section',
+            selectedObjectCollectionId: 'project-section',
+            appData: {
+                zoneWidgets: { left: [], right: [], center: [] },
+                menus: [],
+                activeMenuId: null,
+                section: { id: 'project-section', name: 'Projects', codename: 'ContentProjects' },
+                objectCollection: { id: 'project-section', name: 'Projects', codename: 'ContentProjects' },
+                activeSectionId: 'project-section',
+                activeObjectCollectionId: 'project-section',
+                sections: [
+                    { id: 'project-section', codename: 'ContentProjects' },
+                    { id: 'course-section', codename: 'Courses' }
+                ],
+                objectCollections: [
+                    { id: 'project-section', codename: 'ContentProjects' },
+                    { id: 'course-section', codename: 'Courses' }
+                ]
+            }
+        }
+        renderRuntimeHarness('/applications/app-1/runtime')
+
+        const user = userEvent.setup()
+        await user.click(screen.getByTestId('apps-dashboard-open-course-target'))
+
+        expect(runtimeMocks.onSelectObjectCollection).toHaveBeenCalledWith('course-section')
+        expect(runtimeMocks.handleOpenCreate).not.toHaveBeenCalled()
+
+        runtimeMocks.dashboardStateOverrides = {
+            ...runtimeMocks.dashboardStateOverrides,
+            activeSectionId: 'course-section',
+            selectedSectionId: 'course-section',
+            activeObjectCollectionId: 'course-section',
+            selectedObjectCollectionId: 'course-section',
+            appData: {
+                ...(runtimeMocks.dashboardStateOverrides.appData as Record<string, unknown>),
+                section: { id: 'course-section', name: 'Courses', codename: 'Courses' },
+                objectCollection: { id: 'course-section', name: 'Courses', codename: 'Courses' },
+                activeSectionId: 'course-section',
+                activeObjectCollectionId: 'course-section'
+            }
+        }
+        act(() => {
+            runtimeMocks.triggerRerender?.()
+        })
+
+        await waitFor(() => {
+            expect(runtimeMocks.handleOpenCreate).toHaveBeenCalledTimes(1)
+        })
+        expect(runtimeMocks.handleOpenCreate).toHaveBeenCalledWith([{ fieldCodename: 'Status', enumCodename: 'Draft' }])
+    })
+
+    it('waits for the selected row target schema before opening a union source row action', async () => {
+        runtimeMocks.dashboardStateOverrides = {
+            activeSectionId: 'project-section',
+            selectedSectionId: 'project-section',
+            activeObjectCollectionId: 'project-section',
+            selectedObjectCollectionId: 'project-section',
+            appData: {
+                zoneWidgets: { left: [], right: [], center: [] },
+                menus: [],
+                activeMenuId: null,
+                section: { id: 'project-section', name: 'Projects', codename: 'ContentProjects' },
+                objectCollection: { id: 'project-section', name: 'Projects', codename: 'ContentProjects' },
+                activeSectionId: 'project-section',
+                activeObjectCollectionId: 'project-section',
+                sections: [
+                    { id: 'project-section', codename: 'ContentProjects' },
+                    { id: 'course-section', codename: 'Courses' }
+                ],
+                objectCollections: [
+                    { id: 'project-section', codename: 'ContentProjects' },
+                    { id: 'course-section', codename: 'Courses' }
+                ]
+            }
+        }
+        renderRuntimeHarness('/applications/app-1/runtime')
+
+        const user = userEvent.setup()
+        await user.click(screen.getByTestId('apps-dashboard-open-course-row-edit'))
+
+        expect(runtimeMocks.onSelectObjectCollection).toHaveBeenCalledWith('course-section')
+        expect(runtimeMocks.handleOpenEdit).not.toHaveBeenCalled()
+
+        runtimeMocks.dashboardStateOverrides = {
+            ...runtimeMocks.dashboardStateOverrides,
+            activeSectionId: 'course-section',
+            selectedSectionId: 'course-section',
+            activeObjectCollectionId: 'course-section',
+            selectedObjectCollectionId: 'course-section',
+            appData: {
+                ...(runtimeMocks.dashboardStateOverrides.appData as Record<string, unknown>),
+                section: { id: 'course-section', name: 'Courses', codename: 'Courses' },
+                objectCollection: { id: 'course-section', name: 'Courses', codename: 'Courses' },
+                activeSectionId: 'course-section',
+                activeObjectCollectionId: 'course-section'
+            }
+        }
+        act(() => {
+            runtimeMocks.triggerRerender?.()
+        })
+
+        await waitFor(() => {
+            expect(runtimeMocks.handleOpenEdit).toHaveBeenCalledWith('course-row-1')
+        })
     })
 
     it('passes Learning Content page player progress settings to the dashboard runtime surface', async () => {
@@ -434,8 +595,72 @@ describe('ApplicationRuntime pending interaction safety', () => {
             applicationId: 'app-1',
             targetObjectCodename: 'LearnerHome',
             targetRecordId: 'page-1',
-            progressPercent: 100,
-            status: 'completed'
+            action: 'complete'
+        })
+    })
+
+    it('passes Learning Content table defaults to the generic runtime dashboard contract', () => {
+        runtimeMocks.dashboardStateOverrides = {
+            appData: {
+                zoneWidgets: { left: [], right: [], center: [] },
+                menus: [],
+                activeMenuId: null,
+                settings: {
+                    sectionLinksEnabled: true,
+                    learningContent: {
+                        defaultView: 'cards',
+                        courseCompletionPolicy: {
+                            navigationMode: 'sequential',
+                            completionCondition: 'selectedItems',
+                            statusFormat: 'passedFailed'
+                        },
+                        trackOrderPolicy: {
+                            orderMode: 'byDays'
+                        },
+                        columnPreset: {
+                            codename: 'learningContentDefault',
+                            title: { en: 'Learning Content default' },
+                            columns: [
+                                { field: 'type', visible: true, width: 140 },
+                                { field: 'title', visible: true, flex: 1 },
+                                { field: 'ProjectId', visible: false }
+                            ]
+                        }
+                    }
+                },
+                permissions: {
+                    manageMembers: true,
+                    manageApplication: true,
+                    createContent: true,
+                    editContent: true,
+                    deleteContent: true,
+                    readReports: true
+                },
+                workspacesEnabled: true,
+                section: { id: 'content', name: 'Learning Content', codename: 'LearningResources' },
+                sections: [{ id: 'content', codename: 'LearningResources' }],
+                objectCollection: { id: 'content', name: 'Learning Content', codename: 'LearningResources' },
+                objectCollections: [{ id: 'content', codename: 'LearningResources' }]
+            }
+        }
+
+        renderRuntimePage()
+
+        expect(screen.getByTestId('apps-dashboard-details')).toHaveTextContent('"defaultViewMode":"card"')
+        expect(screen.getByTestId('apps-dashboard-details')).toHaveTextContent('"field":"type"')
+        expect(screen.getByTestId('apps-dashboard-details')).toHaveTextContent('"visible":false')
+
+        expect(runtimeMocks.capturedCrudOptions.createDefaultContext(runtimeMocks.dashboardStateOverrides.appData)).toMatchObject({
+            learningContent: {
+                courseCompletionPolicy: {
+                    navigationMode: 'sequential',
+                    completionCondition: 'selectedItems',
+                    statusFormat: 'passedFailed'
+                },
+                trackOrderPolicy: {
+                    orderMode: 'byDays'
+                }
+            }
         })
     })
 

@@ -33,13 +33,17 @@ const createFakeIsolatedVmModule = (records: { isolates: Array<{ id: number; dis
             }
         },
         Reference: class {
-            constructor(_value: unknown) {}
+            constructor(_value: unknown) {
+                // Test double keeps the same constructor surface as isolated-vm.Reference.
+            }
 
             async apply() {
                 return undefined
             }
 
-            release() {}
+            release() {
+                // Test double does not retain native resources.
+            }
         },
         ExternalCopy: class {
             constructor(private readonly value: unknown) {}
@@ -152,16 +156,22 @@ describe('IsolatedVmScriptRuntimeHost', () => {
                     }
                 }
 
-                dispose() {}
+                dispose() {
+                    // Test double does not retain native resources.
+                }
             },
             Reference: class {
-                constructor(_value: unknown) {}
+                constructor(_value: unknown) {
+                    // Test double keeps the same constructor surface as isolated-vm.Reference.
+                }
 
                 async apply() {
                     return undefined
                 }
 
-                release() {}
+                release() {
+                    // Test double does not retain native resources.
+                }
             },
             ExternalCopy: class {
                 constructor(private readonly value: unknown) {}

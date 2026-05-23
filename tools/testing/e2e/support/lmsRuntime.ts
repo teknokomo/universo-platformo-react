@@ -54,8 +54,17 @@ const normalizeEntityLookup = (value: string) => value.trim().toLowerCase().repl
 
 const findNamedItem = (items: NamedItem[], expectedName: string) => {
     const normalizedExpectedName = normalizeEntityLookup(expectedName)
+    const codenameMatch = items.find((item) => {
+        const codename = readRuntimeLabel(item.codename)
+        return codename.length > 0 && normalizeEntityLookup(codename) === normalizedExpectedName
+    })
+
+    if (codenameMatch) {
+        return codenameMatch
+    }
+
     return items.find((item) => {
-        const candidates = [item.codename, item.name, item.title].map((candidate) => readRuntimeLabel(candidate)).filter(Boolean)
+        const candidates = [item.name, item.title].map((candidate) => readRuntimeLabel(candidate)).filter(Boolean)
         return candidates.some((candidate) => normalizeEntityLookup(candidate) === normalizedExpectedName)
     })
 }

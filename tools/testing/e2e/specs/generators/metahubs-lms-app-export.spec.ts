@@ -280,9 +280,15 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
                         type: 'paragraph',
                         data: {
                             text:
-                                seededResource.source.type === 'Page'
-                                    ? 'This page resource is authored inside the published application.'
-                                    : `Use this ${seededResource.source.type.toLowerCase()} resource inside learning flows.`
+                                seededResource.source.type === 'page'
+                                    ? buildVLC(
+                                          'This page resource is authored inside the published application.',
+                                          'Этот ресурс страницы создается внутри опубликованного приложения.'
+                                      )
+                                    : buildVLC(
+                                          `Use this ${seededResource.source.type.toLowerCase()} resource inside learning flows.`,
+                                          `Используйте этот ресурс типа ${seededResource.source.type.toLowerCase()} в учебных потоках.`
+                                      )
                         }
                     }
                 ]),
@@ -320,7 +326,7 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
                 TargetRecordId: firstResource.id,
                 PrincipalType: 'workspaceMember',
                 PrincipalId: '{{runtime.currentUserId}}',
-                AccessLevel: 'CanEdit',
+                AccessLevel: 'canEdit',
                 InvitedBy: '{{runtime.currentUserId}}',
                 InvitedAt: '2061-02-01T08:05:00.000Z'
             }
@@ -391,11 +397,11 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
                 Body: buildEditorBlockContent([
                     {
                         type: 'header',
-                        data: { text: seededContent.title.en, level: 2 }
+                        data: { text: buildVLC(seededContent.title.en, seededContent.title.ru), level: 2 }
                     },
                     {
                         type: 'paragraph',
-                        data: { text: seededContent.description.en }
+                        data: { text: buildVLC(seededContent.description.en, seededContent.description.ru) }
                     }
                 ]),
                 ContentItems: seededContent.contentItems.en.map((item, index) => {
@@ -695,11 +701,11 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
             Body: buildEditorBlockContent([
                 {
                     type: 'header',
-                    data: { text: LMS_DEMO_KNOWLEDGE_ARTICLE.title.en, level: 2 }
+                    data: { text: buildVLC(LMS_DEMO_KNOWLEDGE_ARTICLE.title.en, LMS_DEMO_KNOWLEDGE_ARTICLE.title.ru), level: 2 }
                 },
                 {
                     type: 'paragraph',
-                    data: { text: LMS_DEMO_KNOWLEDGE_ARTICLE.body.en }
+                    data: { text: buildVLC(LMS_DEMO_KNOWLEDGE_ARTICLE.body.en, LMS_DEMO_KNOWLEDGE_ARTICLE.body.ru) }
                 }
             ]),
             Status: publishedLearningResourceStatusValueId

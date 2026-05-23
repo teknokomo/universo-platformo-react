@@ -1,5 +1,8 @@
 import { createLocalizedContent } from '@universo/utils'
+import type { Page } from '@playwright/test'
 import { expect, test } from '../../fixtures/test'
+import { applyBrowserPreferences } from '../../support/browser/preferences'
+import { expectNoPageHorizontalOverflow, expectNoTechnicalLeakage, expectRuntimeUxViewportMatrix } from '../../support/browser/runtimeUx'
 import {
     createLoggedInApiContext,
     createMetahub,
@@ -8,8 +11,8 @@ import {
     createPublicationVersion,
     createRuntimeRow,
     disposeApiContext,
-    getApplicationRuntime,
     listObjectCollections,
+    sendWithCsrf,
     syncApplicationSchema,
     syncPublication,
     waitForPublicationReady
@@ -17,6 +20,28 @@ import {
 import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublication } from '../../support/backend/run-manifest.mjs'
 
 type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
+
+test.setTimeout(900_000)
+
+const assertPublicLinkErrorPage = async (
+    page: Page,
+    label: string,
+    screenshotPath: string,
+    expectedText = 'Access link was not found or is no longer active.'
+) => {
+    await expect(page.getByText(expectedText)).toBeVisible({ timeout: 30_000 })
+    await expectNoTechnicalLeakage(page.locator('body'), {
+        label,
+        checkUuidSubstrings: true
+    })
+    await expectNoPageHorizontalOverflow(page, label)
+    await expectRuntimeUxViewportMatrix(page, label, {
+        beforeEachViewport: async (viewport) => {
+            await expect(page.getByText(expectedText)).toBeVisible({ timeout: 30_000 })
+            await page.screenshot({ path: screenshotPath.replace(/\.png$/i, `-${viewport.name}.png`), fullPage: true })
+        }
+    })
+}
 
 const readRuntimeLabel = (value) => {
     if (typeof value === 'string') {
@@ -42,6 +67,25 @@ const readRuntimeLabel = (value) => {
 
 const normalizeEntityLookup = (value: string) => value.trim().toLowerCase().replace(/\s+/g, '')
 
+const findObjectCollectionByCodenameOrLabel = (objectCollections, expectedName: string) => {
+    const normalizedExpectedName = normalizeEntityLookup(expectedName)
+    const codenameMatch = objectCollections.find((item) => {
+        const codename = readRuntimeLabel(item.codename)
+        return codename.length > 0 && normalizeEntityLookup(codename) === normalizedExpectedName
+    })
+
+    if (codenameMatch) {
+        return codenameMatch
+    }
+
+    return objectCollections.find((item) => {
+        const candidates = [item.name, item.title]
+            .map((candidate) => readRuntimeLabel(candidate))
+            .filter((candidate) => candidate.length > 0)
+        return candidates.some((candidate) => normalizeEntityLookup(candidate) === normalizedExpectedName)
+    })
+}
+
 async function waitForMetahubCatalogId(api: ApiContext, metahubId: string, expectedName: string) {
     let objectCollectionId = null
 
@@ -50,38 +94,7 @@ async function waitForMetahubCatalogId(api: ApiContext, metahubId: string, expec
             async () => {
                 const catalogsResponse = await listObjectCollections(api, metahubId, { limit: 100, offset: 0 })
                 const objectCollections = catalogsResponse.items ?? []
-                const normalizedExpectedName = normalizeEntityLookup(expectedName)
-                const match = objectCollections.find((item) => {
-                    const candidates = [item.codename, item.name, item.title]
-                        .map((candidate) => readRuntimeLabel(candidate))
-                        .filter((candidate) => candidate.length > 0)
-                    return candidates.some((candidate) => normalizeEntityLookup(candidate) === normalizedExpectedName)
-                })
-                objectCollectionId = match?.id ?? null
-                return objectCollectionId
-            },
-            { timeout: 30_000, intervals: [500, 1_000, 2_000] }
-        )
-        .toBeTruthy()
-
-    return objectCollectionId
-}
-
-async function waitForApplicationCatalogId(api: ApiContext, applicationId: string, expectedName: string) {
-    let objectCollectionId = null
-
-    await expect
-        .poll(
-            async () => {
-                const runtime = await getApplicationRuntime(api, applicationId)
-                const objectCollections = runtime.objectCollections ?? []
-                const normalizedExpectedName = normalizeEntityLookup(expectedName)
-                const match = objectCollections.find((item) => {
-                    const candidates = [item.codename, item.name, item.title]
-                        .map((candidate) => readRuntimeLabel(candidate))
-                        .filter((candidate) => candidate.length > 0)
-                    return candidates.some((candidate) => normalizeEntityLookup(candidate) === normalizedExpectedName)
-                })
+                const match = findObjectCollectionByCodenameOrLabel(objectCollections, expectedName)
                 objectCollectionId = match?.id ?? null
                 return objectCollectionId
             },
@@ -133,8 +146,8 @@ async function setupPublicGuestApplication(api: ApiContext, runManifest, suffix:
     await syncPublication(api, metahub.id, publication.id)
     await waitForPublicationReady(api, metahub.id, publication.id)
 
-    await waitForMetahubCatalogId(api, metahub.id, 'Quizzes')
-    await waitForMetahubCatalogId(api, metahub.id, 'AccessLinks')
+    const quizzesCatalogId = await waitForMetahubCatalogId(api, metahub.id, 'Quizzes')
+    const accessLinksCatalogId = await waitForMetahubCatalogId(api, metahub.id, 'AccessLinks')
 
     const linkedApplication = await createPublicationLinkedApplication(api, metahub.id, publication.id, {
         name: { en: `E2E ${runManifest.runId} LMS Guest ${suffix} App` },
@@ -160,11 +173,21 @@ async function setupPublicGuestApplication(api: ApiContext, runManifest, suffix:
         }
     })
 
-    const quizzesCatalogId = await waitForApplicationCatalogId(api, applicationId, 'Quizzes')
-    const accessLinksCatalogId = await waitForApplicationCatalogId(api, applicationId, 'AccessLinks')
+    const workspaceResponse = await sendWithCsrf(api, 'POST', `/api/v1/applications/${applicationId}/runtime/workspaces`, {
+        name: createLocalizedContent('en', `E2E ${runManifest.runId} LMS Guest ${suffix} Public Workspace`)
+    })
+    if (!workspaceResponse.ok) {
+        throw new Error(`Creating public LMS guest shared workspace failed with ${workspaceResponse.status}`)
+    }
+    const workspace = await workspaceResponse.json()
+    const workspaceId = workspace?.id
+    if (typeof workspaceId !== 'string') {
+        throw new Error('Public LMS guest shared workspace creation did not return an id')
+    }
 
     const quizRow = await createRuntimeRow(api, applicationId, {
-        linkedCollectionId: quizzesCatalogId,
+        workspaceId,
+        objectCollectionId: quizzesCatalogId,
         data: {
             Title: 'Negative flow guest quiz',
             Description: 'Public guest quiz'
@@ -174,12 +197,13 @@ async function setupPublicGuestApplication(api: ApiContext, runManifest, suffix:
     return {
         applicationId,
         accessLinksCatalogId,
+        workspaceId,
         quizId: quizRow.id
     }
 }
 
-test('@flow public lms guest links reject wrong slug, expired links, and exhausted max-uses', async ({ page, runManifest }) => {
-    test.setTimeout(300_000)
+test('@flow public lms guest links reject wrong slug, expired links, and exhausted max-uses', async ({ page, runManifest }, testInfo) => {
+    test.setTimeout(900_000)
 
     const api = await createLoggedInApiContext({
         email: runManifest.testUser.email,
@@ -187,10 +211,11 @@ test('@flow public lms guest links reject wrong slug, expired links, and exhaust
     })
 
     try {
-        const { applicationId, accessLinksCatalogId, quizId } = await setupPublicGuestApplication(api, runManifest, 'Negative')
+        const { applicationId, accessLinksCatalogId, workspaceId, quizId } = await setupPublicGuestApplication(api, runManifest, 'Negative')
 
         await createRuntimeRow(api, applicationId, {
-            linkedCollectionId: accessLinksCatalogId,
+            workspaceId,
+            objectCollectionId: accessLinksCatalogId,
             data: {
                 Slug: 'expired-link',
                 TargetType: 'quiz',
@@ -204,7 +229,8 @@ test('@flow public lms guest links reject wrong slug, expired links, and exhaust
         })
 
         await createRuntimeRow(api, applicationId, {
-            linkedCollectionId: accessLinksCatalogId,
+            workspaceId,
+            objectCollectionId: accessLinksCatalogId,
             data: {
                 Slug: 'maxed-link',
                 TargetType: 'quiz',
@@ -220,19 +246,41 @@ test('@flow public lms guest links reject wrong slug, expired links, and exhaust
         expect(missingResponse.status()).toBe(404)
 
         await page.goto(`/public/a/${applicationId}/links/wrong-slug`)
-        await expect(page.getByText('Access link was not found or is no longer active.')).toBeVisible({ timeout: 30_000 })
+        await assertPublicLinkErrorPage(
+            page,
+            'Public LMS guest wrong-slug error page',
+            testInfo.outputPath('lms-guest-wrong-slug-error.png')
+        )
+
+        await applyBrowserPreferences(page, { language: 'ru' })
+        await page.goto(`/public/a/${applicationId}/links/wrong-slug?locale=ru`)
+        await assertPublicLinkErrorPage(
+            page,
+            'Public LMS guest wrong-slug RU error page',
+            testInfo.outputPath('lms-guest-wrong-slug-ru-error.png'),
+            'Ссылка доступа не найдена или больше не активна.'
+        )
+        await applyBrowserPreferences(page, { language: 'en' })
 
         const expiredResponse = await page.request.get(`/api/v1/public/a/${applicationId}/links/expired-link`)
         expect(expiredResponse.status()).toBe(403)
 
         await page.goto(`/public/a/${applicationId}/links/expired-link`)
-        await expect(page.getByText('Access link was not found or is no longer active.')).toBeVisible({ timeout: 30_000 })
+        await assertPublicLinkErrorPage(
+            page,
+            'Public LMS guest expired-link error page',
+            testInfo.outputPath('lms-guest-expired-link-error.png')
+        )
 
         const maxedResponse = await page.request.get(`/api/v1/public/a/${applicationId}/links/maxed-link`)
         expect(maxedResponse.status()).toBe(403)
 
         await page.goto(`/public/a/${applicationId}/links/maxed-link`)
-        await expect(page.getByText('Access link was not found or is no longer active.')).toBeVisible({ timeout: 30_000 })
+        await assertPublicLinkErrorPage(
+            page,
+            'Public LMS guest maxed-link error page',
+            testInfo.outputPath('lms-guest-maxed-link-error.png')
+        )
     } finally {
         await disposeApiContext(api)
     }

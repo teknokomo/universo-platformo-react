@@ -1,7 +1,11 @@
 import type { Request, Response } from 'express'
 import { z } from 'zod'
 import type { VersionedLocalizedContent } from '@universo/types'
-import { applicationRolePolicySettingsSchema, sanitizeApplicationRolePolicySettingsForSupportedScopes } from '@universo/types'
+import {
+    applicationLearningContentSettingsSchema,
+    applicationRolePolicySettingsSchema,
+    sanitizeApplicationRolePolicySettingsForSupportedScopes
+} from '@universo/types'
 import { ApplicationMembershipState } from '@universo/types'
 import type { DbExecutor } from '@universo/utils'
 import { database, normalizeApplicationCopyOptions, OptimisticLockError } from '@universo/utils'
@@ -156,6 +160,7 @@ const applicationDialogSettingsSchema = z
         datasourceExecutionPolicy: z.enum(['workspace-scoped', 'layout-only']).optional(),
         workspaceOpenBehavior: z.enum(['last-used', 'default-workspace']).optional(),
         schemaDiffLocalizedLabels: z.boolean().optional(),
+        learningContent: applicationLearningContentSettingsSchema.optional(),
         rolePolicies: applicationRolePolicySettingsSchema.optional(),
         applicationLayouts: z
             .object({

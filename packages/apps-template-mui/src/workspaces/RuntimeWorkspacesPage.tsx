@@ -30,6 +30,7 @@ import GroupAddRoundedIcon from '@mui/icons-material/GroupAddRounded'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded'
 import StarRoundedIcon from '@mui/icons-material/StarRounded'
+import { emailSchema } from '@universo/types'
 import { createLocalizedContent, updateLocalizedContentLocale } from '@universo/utils'
 import {
     FlowListTable,
@@ -42,6 +43,7 @@ import {
 } from '../components/runtime-ui'
 import { FormDialog, type FieldConfig } from '../components/dialogs/FormDialog'
 import { ConfirmDeleteDialog } from '../components/dialogs/ConfirmDeleteDialog'
+import { extractRuntimeErrorMessage } from '../utils/runtimeErrors'
 import {
     createRuntimeWorkspace,
     copyRuntimeWorkspace,
@@ -313,6 +315,9 @@ export function RuntimeWorkspacesPage({
         window.history.pushState(null, '', href)
     }
 
+    const untitledWorkspaceLabel = t('workspace.untitled', 'Untitled workspace')
+    const untitledMemberLabel = t('workspace.untitledMember', 'Workspace member')
+
     const translateWorkspaceError = (error: unknown): string => {
         const message = error instanceof Error ? error.message : String(error)
         const code = typeof (error as { code?: unknown })?.code === 'string' ? (error as { code: string }).code : ''
@@ -325,7 +330,7 @@ export function RuntimeWorkspacesPage({
                 return t(translation.key, translation.fallback)
             }
         }
-        return message
+        return extractRuntimeErrorMessage(error, t('app.errorGenericMessage', 'Please try again or reload the page.'), locale)
     }
 
     const createMutation = useMutation({
@@ -407,7 +412,7 @@ export function RuntimeWorkspacesPage({
     const workspaceRows = useMemo<WorkspaceViewRow[]>(
         () =>
             workspaces.map((workspace) => {
-                const displayName = readName(workspace.name, locale) || workspace.id
+                const displayName = readName(workspace.name, locale) || untitledWorkspaceLabel
                 const description = readName(workspace.description, locale)
                 return {
                     ...workspace,
@@ -418,7 +423,7 @@ export function RuntimeWorkspacesPage({
                     description
                 }
             }),
-        [locale, workspaces]
+        [locale, untitledWorkspaceLabel, workspaces]
     )
 
     const memberRows = useMemo<MemberViewRow[]>(
@@ -426,10 +431,10 @@ export function RuntimeWorkspacesPage({
             (membersQuery.data?.items ?? []).map((member) => ({
                 ...member,
                 id: member.userId,
-                name: member.nickname || member.email || member.userId,
-                description: member.email || member.userId
+                name: member.nickname || member.email || untitledMemberLabel,
+                description: member.email || ''
             })),
-        [membersQuery.data?.items]
+        [membersQuery.data?.items, untitledMemberLabel]
     )
 
     const workspaceColumns = useMemo<TableColumn<WorkspaceViewRow>[]>(
@@ -514,7 +519,7 @@ export function RuntimeWorkspacesPage({
             </Tooltip>
         ) : null
 
-    const workspaceName = selectedWorkspace ? readName(selectedWorkspace.name, locale) || selectedWorkspace.id : ''
+    const workspaceName = selectedWorkspace ? readName(selectedWorkspace.name, locale) || untitledWorkspaceLabel : ''
     const workspaceDescription = selectedWorkspace ? readName(selectedWorkspace.description, locale) : ''
 
     const workspaceFormFields = useMemo<FieldConfig[]>(
@@ -1062,6 +1067,7 @@ function InviteMemberDialog({
 }) {
     const { t } = useTranslation('apps')
     const [email, setEmail] = useState('')
+    const [emailInvalid, setEmailInvalid] = useState(false)
     const [roleCodename, setRoleCodename] = useState<'owner' | 'member'>('member')
 
     useEffect(() => {
@@ -1069,6 +1075,7 @@ function InviteMemberDialog({
             return
         }
         setEmail('')
+        setEmailInvalid(false)
         setRoleCodename('member')
     }, [open])
 
@@ -1082,7 +1089,13 @@ function InviteMemberDialog({
                         type='email'
                         label={t('workspace.fields.email', 'Email')}
                         value={email}
-                        onChange={(event) => setEmail(readInputChangeValue(event))}
+                        onChange={(event) => {
+                            setEmail(readInputChangeValue(event))
+                            setEmailInvalid(false)
+                        }}
+                        autoComplete='email'
+                        error={emailInvalid}
+                        helperText={emailInvalid ? t('workspace.errors.emailInvalid', 'Enter a valid email address.') : undefined}
                         fullWidth
                     />
                     <TextField
@@ -1104,7 +1117,12 @@ function InviteMemberDialog({
                 <Button
                     variant='contained'
                     onClick={() => {
-                        void onSubmit({ email: email.trim(), roleCodename }).catch(() => undefined)
+                        const trimmedEmail = email.trim()
+                        if (!emailSchema.safeParse(trimmedEmail).success) {
+                            setEmailInvalid(true)
+                            return
+                        }
+                        void onSubmit({ email: trimmedEmail, roleCodename }).catch(() => undefined)
                     }}
                     disabled={isSubmitting || email.trim().length === 0}
                 >

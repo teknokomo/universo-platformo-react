@@ -6,6 +6,7 @@ import {
     createApplicationRuntimeRow,
     updateApplicationRuntimeRow,
     deleteApplicationRuntimeRow,
+    restoreApplicationRuntimeRow,
     copyApplicationRuntimeRow,
     runApplicationRuntimeRecordCommand,
     runApplicationRuntimeWorkflowAction,
@@ -53,11 +54,21 @@ export function createRuntimeAdapter(applicationId: string): CrudDataAdapter {
         createRow: (data, objectCollectionId) =>
             createApplicationRuntimeRow({ applicationId, data, objectCollectionId, sectionId: objectCollectionId }),
 
-        updateRow: (rowId, data, objectCollectionId) =>
-            updateApplicationRuntimeRow({ applicationId, rowId, data, objectCollectionId, sectionId: objectCollectionId }),
+        updateRow: (rowId, data, objectCollectionId, expectedVersion) =>
+            updateApplicationRuntimeRow({ applicationId, rowId, data, objectCollectionId, sectionId: objectCollectionId, expectedVersion }),
 
-        deleteRow: (rowId, objectCollectionId) =>
-            deleteApplicationRuntimeRow({ applicationId, rowId, objectCollectionId, sectionId: objectCollectionId }),
+        deleteRow: (rowId, objectCollectionId, expectedVersion) =>
+            deleteApplicationRuntimeRow({ applicationId, rowId, objectCollectionId, sectionId: objectCollectionId, expectedVersion }),
+
+        restoreRow: (rowId, objectCollectionId, expectedVersion, restoreTarget) =>
+            restoreApplicationRuntimeRow({
+                applicationId,
+                rowId,
+                objectCollectionId,
+                sectionId: objectCollectionId,
+                expectedVersion,
+                restoreTarget
+            }),
 
         copyRow: (rowId, data) =>
             copyApplicationRuntimeRow({
@@ -65,7 +76,9 @@ export function createRuntimeAdapter(applicationId: string): CrudDataAdapter {
                 rowId,
                 objectCollectionId: data?.objectCollectionId,
                 sectionId: data?.sectionId ?? data?.objectCollectionId,
-                copyChildTables: data?.copyChildTables
+                copyChildTables: data?.copyChildTables,
+                data: data?.data,
+                expectedVersion: data?.expectedVersion
             }),
 
         recordCommand: (rowId, command, data) =>
@@ -88,12 +101,13 @@ export function createRuntimeAdapter(applicationId: string): CrudDataAdapter {
                 expectedVersion: data.expectedVersion
             }),
 
-        reorderRows: ({ objectCollectionId, sectionId, orderedRowIds }) =>
+        reorderRows: ({ objectCollectionId, sectionId, orderedRowIds, expectedVersionsByRowId }) =>
             reorderApplicationRuntimeRows({
                 applicationId,
                 objectCollectionId,
                 sectionId,
-                orderedRowIds
+                orderedRowIds,
+                expectedVersionsByRowId
             })
     }
 }

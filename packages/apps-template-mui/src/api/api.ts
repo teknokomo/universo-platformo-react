@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { RuntimeDatasourceFilter, RuntimeDatasourceSort } from '@universo/types'
+import type { RecordsUnionDatasource, ReportFilter, RuntimeDatasourceFilter, RuntimeDatasourceSort } from '@universo/types'
 import {
     objectRecordBehaviorSchema,
     objectCollectionRuntimeViewConfigSchema,
@@ -9,7 +9,7 @@ import {
     workflowActionSchema,
     readLocalizedTextValue
 } from '@universo/types'
-import type { RuntimeRecordCommand } from './types'
+import type { RuntimeRecordCommand, RuntimeRestoreTarget } from './types'
 
 export type { DashboardLayoutConfig } from '@universo/types'
 
@@ -381,7 +381,9 @@ export async function fetchAppData(options: {
     offset: number
     locale: string
     objectCollectionId?: string
+    objectCollectionCodename?: string | null
     sectionId?: string
+    sectionCodename?: string | null
     workspaceId?: string | null
     search?: string
     sort?: RuntimeDatasourceSort[]
@@ -396,7 +398,9 @@ export async function fetchAppData(options: {
         offset,
         locale,
         objectCollectionId,
+        objectCollectionCodename,
         sectionId,
+        sectionCodename,
         workspaceId,
         search,
         sort,
@@ -414,6 +418,11 @@ export async function fetchAppData(options: {
     url.searchParams.set('locale', locale)
     if (resolvedSectionId) {
         url.searchParams.set('objectCollectionId', resolvedSectionId)
+    } else {
+        const resolvedCodename = sectionCodename?.trim() || objectCollectionCodename?.trim()
+        if (resolvedCodename) {
+            url.searchParams.set('objectCollectionCodename', resolvedCodename)
+        }
     }
     if (workspaceId?.trim()) {
         url.searchParams.set('workspaceId', workspaceId.trim())
@@ -443,6 +452,83 @@ export async function fetchAppData(options: {
     const parsed = appDataResponseSchema.safeParse(json)
     if (!parsed.success) {
         throw new Error('App data API response validation failed')
+    }
+    return parsed.data
+}
+
+export async function fetchRuntimeRecordsUnion(options: {
+    apiBaseUrl: string
+    applicationId: string
+    datasource: RecordsUnionDatasource
+    limit: number
+    offset: number
+    locale: string
+    workspaceId?: string | null
+}): Promise<AppDataResponse> {
+    const { apiBaseUrl, applicationId, datasource, limit, offset, locale, workspaceId } = options
+    const normalizedBase = apiBaseUrl.replace(/\/$/, '')
+    const url = new URL(buildApiUrl(normalizedBase, `/applications/${applicationId}/runtime/datasources/records/union`))
+    if (workspaceId?.trim()) {
+        url.searchParams.set('workspaceId', workspaceId.trim())
+    }
+
+    const res = await fetchWithCsrf(apiBaseUrl, url.toString(), {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            datasource,
+            limit,
+            offset,
+            locale
+        })
+    })
+    if (!res.ok) {
+        throw new Error(await extractErrorMessage(res, 'Runtime records union API request failed'))
+    }
+
+    const parsed = appDataResponseSchema.safeParse(await res.json())
+    if (!parsed.success) {
+        throw new Error('Runtime records union API response validation failed')
+    }
+    return parsed.data
+}
+
+const runtimeLibraryRelationResponseSchema = z.object({
+    relationKey: z.enum(['recent', 'starred', 'shared']),
+    active: z.boolean(),
+    changed: z.boolean()
+})
+
+type RuntimeLibraryRelationKey = z.infer<typeof runtimeLibraryRelationResponseSchema>['relationKey']
+
+export async function setRuntimeLibraryRelation(options: {
+    apiBaseUrl: string
+    applicationId: string
+    rowId: string
+    objectCollectionId: string
+    relationKey: RuntimeLibraryRelationKey
+    active: boolean
+    principalType?: 'workspaceMember' | 'user'
+    principalId?: string
+}): Promise<{ relationKey: RuntimeLibraryRelationKey; active: boolean; changed: boolean }> {
+    const { apiBaseUrl, applicationId, rowId, objectCollectionId, relationKey, active, principalType, principalId } = options
+    const res = await fetchWithCsrf(apiBaseUrl, buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}/library/${relationKey}`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            objectCollectionId,
+            active,
+            ...(principalType && principalId ? { principalType, principalId } : {})
+        })
+    })
+    if (!res.ok) {
+        throw new Error(await extractErrorMessage(res, 'Runtime library action failed'))
+    }
+
+    const parsed = runtimeLibraryRelationResponseSchema.safeParse(await res.json())
+    if (!parsed.success) {
+        throw new Error('Runtime library action response validation failed')
     }
     return parsed.data
 }
@@ -553,11 +639,12 @@ export async function runRuntimeReport(options: {
     applicationId: string
     reportId?: string
     reportCodename?: string
+    filters?: ReportFilter[]
     limit?: number
     offset?: number
     workspaceId?: string | null
 }): Promise<RuntimeReportRunResponse> {
-    const { apiBaseUrl, applicationId, reportId, reportCodename, limit, offset, workspaceId } = options
+    const { apiBaseUrl, applicationId, reportId, reportCodename, filters, limit, offset, workspaceId } = options
     const normalizedBase = apiBaseUrl.replace(/\/$/, '')
     const url = new URL(buildApiUrl(normalizedBase, `/applications/${applicationId}/runtime/reports/run`))
     if (workspaceId?.trim()) {
@@ -567,7 +654,13 @@ export async function runRuntimeReport(options: {
     const res = await fetchWithCsrf(apiBaseUrl, url.toString(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reportId, reportCodename, limit, offset })
+        body: JSON.stringify({
+            reportId,
+            reportCodename,
+            ...(filters?.length ? { filters } : {}),
+            limit,
+            offset
+        })
     })
     if (!res.ok) {
         throw new Error(await extractErrorMessage(res, 'Runtime report API request failed'))
@@ -585,12 +678,13 @@ export async function exportRuntimeReportCsv(options: {
     applicationId: string
     reportId?: string
     reportCodename?: string
+    filters?: ReportFilter[]
     limit?: number
     offset?: number
     locale?: string
     workspaceId?: string | null
 }): Promise<Blob> {
-    const { apiBaseUrl, applicationId, reportId, reportCodename, limit, offset, locale, workspaceId } = options
+    const { apiBaseUrl, applicationId, reportId, reportCodename, filters, limit, offset, locale, workspaceId } = options
     const normalizedBase = apiBaseUrl.replace(/\/$/, '')
     const url = new URL(buildApiUrl(normalizedBase, `/applications/${applicationId}/runtime/reports/export`))
     if (workspaceId?.trim()) {
@@ -600,7 +694,14 @@ export async function exportRuntimeReportCsv(options: {
     const res = await fetchWithCsrf(apiBaseUrl, url.toString(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reportId, reportCodename, limit, offset, locale })
+        body: JSON.stringify({
+            reportId,
+            reportCodename,
+            ...(filters?.length ? { filters } : {}),
+            limit,
+            offset,
+            locale
+        })
     })
     if (!res.ok) {
         throw new Error(await extractErrorMessage(res, 'Runtime report export failed'))
@@ -670,13 +771,15 @@ export async function updateAppRow(options: {
     objectCollectionId?: string
     sectionId?: string
     data: Record<string, unknown>
+    expectedVersion?: number
 }): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId, data } = options
+    const { apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId, data, expectedVersion } = options
     const resolvedSectionId = sectionId ?? objectCollectionId
     const url = buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}`)
 
     const body: Record<string, unknown> = { data }
     if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
+    if (typeof expectedVersion === 'number') body.expectedVersion = expectedVersion
 
     const res = await fetchWithCsrf(apiBaseUrl, url, {
         method: 'PATCH',
@@ -727,8 +830,9 @@ export async function restoreAppRow(options: {
     objectCollectionId?: string
     sectionId?: string
     expectedVersion?: number
+    restoreTarget?: RuntimeRestoreTarget
 }): Promise<void> {
-    const { apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId, expectedVersion } = options
+    const { apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId, expectedVersion, restoreTarget } = options
     const resolvedSectionId = sectionId ?? objectCollectionId
     const body: Record<string, unknown> = {}
     if (resolvedSectionId) {
@@ -736,6 +840,9 @@ export async function restoreAppRow(options: {
     }
     if (typeof expectedVersion === 'number') {
         body.expectedVersion = expectedVersion
+    }
+    if (restoreTarget) {
+        body.restoreTarget = restoreTarget
     }
 
     const res = await fetchWithCsrf(apiBaseUrl, buildAppApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}/restore`), {
@@ -836,15 +943,11 @@ export async function updateLearningContentProgress(options: {
     applicationId: string
     targetObjectCodename: string
     targetRecordId: string
-    progressPercent: number
-    status?: string
-    action?: 'update' | 'complete'
+    action?: 'view' | 'complete'
 }): Promise<{ persisted: boolean; reason?: string; progressPercent?: number; status?: string }> {
-    const { apiBaseUrl, applicationId, targetObjectCodename, targetRecordId, progressPercent, status, action } = options
+    const { apiBaseUrl, applicationId, targetObjectCodename, targetRecordId, action = 'view' } = options
     const url = buildAppApiUrl(apiBaseUrl, applicationId, '/progress/content')
-    const body: Record<string, unknown> = { targetObjectCodename, targetRecordId, progressPercent }
-    if (action) body.action = action
-    if (status) body.status = status
+    const body: Record<string, unknown> = { targetObjectCodename, targetRecordId, action }
 
     const res = await fetchWithCsrf(apiBaseUrl, url, {
         method: 'POST',
@@ -884,11 +987,15 @@ export async function reorderAppRows(options: {
     objectCollectionId?: string
     sectionId?: string
     orderedRowIds: string[]
+    expectedVersionsByRowId?: Record<string, number>
 }): Promise<void> {
-    const { apiBaseUrl, applicationId, objectCollectionId, sectionId, orderedRowIds } = options
+    const { apiBaseUrl, applicationId, objectCollectionId, sectionId, orderedRowIds, expectedVersionsByRowId } = options
     const resolvedSectionId = sectionId ?? objectCollectionId
     const body: Record<string, unknown> = { orderedRowIds }
     if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
+    if (expectedVersionsByRowId && Object.keys(expectedVersionsByRowId).length > 0) {
+        body.expectedVersionsByRowId = expectedVersionsByRowId
+    }
 
     const res = await fetchWithCsrf(apiBaseUrl, buildAppApiUrl(apiBaseUrl, applicationId, '/rows/reorder'), {
         method: 'POST',

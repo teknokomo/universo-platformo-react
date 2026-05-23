@@ -25,7 +25,8 @@ import { createAppRow, deleteAppRow, fetchAppData, fetchAppRow, reorderAppRows, 
 import { FormDialog } from '../../components/dialogs/FormDialog'
 import { ConfirmDeleteDialog } from '../../components/dialogs/ConfirmDeleteDialog'
 import { FlowListTable, type DragEndEvent, type TableColumn } from '../../components/runtime-ui'
-import { formatRuntimeValue } from '../../utils/displayValue'
+import { formatRuntimeSafeValue, isRuntimeTechnicalFieldName } from '../../utils/displayValue'
+import { extractRuntimeErrorMessage } from '../../utils/runtimeErrors'
 import { toFieldConfigs } from '../../utils/columns'
 import { findRuntimeSectionIdByCodename } from '../../utils/runtimeSections'
 import type { AppDataResponse } from '../../api/api'
@@ -39,6 +40,25 @@ const BUILDER_LIST_LIMIT = 100
 
 const readLocalizedWidgetText = (value: unknown, locale: string | undefined): string | undefined =>
     readLocalizedTextValue(value, locale ?? 'en')
+
+const humanizeRuntimeCodename = (value: string | null | undefined): string => {
+    const normalized = value?.trim()
+    if (!normalized) return ''
+
+    return normalized
+        .replace(/[_-]+/g, ' ')
+        .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+        .replace(/\s+/g, ' ')
+        .trim()
+}
+
+const capitalizeRuntimeLabel = (value: string): string => (value ? `${value.charAt(0).toUpperCase()}${value.slice(1)}` : '')
+
+const formatMetadataFallbackLabel = (value: string, locale: string | undefined, fallback: string): string => {
+    const safeValue = formatRuntimeSafeValue(value, locale ?? 'en')
+    const humanized = capitalizeRuntimeLabel(humanizeRuntimeCodename(safeValue))
+    return humanized || fallback
+}
 
 const readRecordsListTarget = (datasource: RecordsListDatasource, details: DashboardDetailsSlot | undefined): string | undefined =>
     datasource.sectionId ??
@@ -72,7 +92,14 @@ const buildFlowListColumns = (
     hiddenFields: ReadonlySet<string>
 ): TableColumn<RuntimeRow>[] =>
     (response?.columns ?? [])
-        .filter((column) => !hiddenFields.has(column.field) && column.uiConfig?.hidden !== true && column.uiConfig?.gridHidden !== true)
+        .filter(
+            (column) =>
+                !hiddenFields.has(column.field) &&
+                column.uiConfig?.hidden !== true &&
+                column.uiConfig?.gridHidden !== true &&
+                !isRuntimeTechnicalFieldName(column.field) &&
+                !isRuntimeTechnicalFieldName(column.codename)
+        )
         .map((column) => ({
             id: column.field,
             label: column.headerName,
@@ -80,7 +107,7 @@ const buildFlowListColumns = (
                 typeof column.uiConfig?.tableWidth === 'number' && Number.isFinite(column.uiConfig.tableWidth)
                     ? column.uiConfig.tableWidth
                     : 160,
-            render: (row) => formatRuntimeValue(row[column.field], locale)
+            render: (row) => formatRuntimeSafeValue(row[column.field], locale)
         }))
 
 const readNextSortOrder = (rows: RuntimeRow[], field: string): number => {
@@ -106,11 +133,12 @@ const readMaxSortOrder = (rows: RuntimeRow[], field: string): number | null => {
 const buildRelationBuilderWizardSteps = (
     panel: RelationBuilderPanelConfig,
     columns: AppDataResponse['columns'] | undefined,
-    locale: string
+    locale: string,
+    stepFallback: string
 ) =>
     panel.createWizard?.steps.map((step) => ({
         id: step.id,
-        label: readLocalizedWidgetText(step.label, locale) ?? step.id,
+        label: readLocalizedWidgetText(step.label, locale) ?? formatMetadataFallbackLabel(step.id, locale, stepFallback),
         helperText: readLocalizedWidgetText(step.helperText, locale),
         fieldIds: step.fieldCodenames.map((codename) => findColumnField(columns, codename))
     }))
@@ -269,14 +297,15 @@ function RelationBuilderPanel({ panel, selectedParentId }: { panel: RelationBuil
         onSuccess: invalidate
     })
     const updateMutation = useMutation({
-        mutationFn: ({ rowId, data }: { rowId: string; data: Record<string, unknown> }) =>
+        mutationFn: ({ row, data }: { row: RuntimeRow; data: Record<string, unknown> }) =>
             updateAppRow({
                 apiBaseUrl: details!.apiBaseUrl!,
                 applicationId: details!.applicationId!,
-                rowId,
+                rowId: row.id,
                 objectCollectionId: targetSectionId,
                 sectionId: targetSectionId,
-                data: { ...data, ...(panel.createDefaults ?? {}), [parentField]: selectedParentId }
+                data: { ...data, ...(panel.createDefaults ?? {}), [parentField]: selectedParentId },
+                expectedVersion: readRuntimeRowVersion(row)
             }),
         onSuccess: invalidate
     })
@@ -293,13 +322,18 @@ function RelationBuilderPanel({ panel, selectedParentId }: { panel: RelationBuil
         onSuccess: invalidate
     })
     const reorderMutation = useMutation({
-        mutationFn: (orderedRowIds: string[]) =>
+        mutationFn: (nextRows: RuntimeRow[]) =>
             reorderAppRows({
                 apiBaseUrl: details!.apiBaseUrl!,
                 applicationId: details!.applicationId!,
                 objectCollectionId: targetSectionId,
                 sectionId: targetSectionId,
-                orderedRowIds
+                orderedRowIds: nextRows.map((row) => row.id),
+                expectedVersionsByRowId: nextRows.reduce<Record<string, number>>((acc, row) => {
+                    const version = readRuntimeRowVersion(row)
+                    if (typeof version === 'number') acc[row.id] = version
+                    return acc
+                }, {})
             }),
         onSuccess: invalidate
     })
@@ -317,19 +351,26 @@ function RelationBuilderPanel({ panel, selectedParentId }: { panel: RelationBuil
         panel.rowCountWarning && totalRows >= panel.rowCountWarning.threshold
             ? readLocalizedWidgetText(panel.rowCountWarning.message, details?.locale)
             : null
+    const loadErrorText =
+        query.isError && query.error
+            ? extractRuntimeErrorMessage(query.error, t('relationBuilder.loadFailed', 'Unable to load related records.'), details?.locale)
+            : null
 
     const handleFormSubmit = async (data: Record<string, unknown>) => {
         setMutationError(null)
         try {
             if (editRowId) {
-                await updateMutation.mutateAsync({ rowId: editRowId, data })
+                const currentEditRow = orderedRows.find((row) => row.id === editRowId) ?? null
+                await updateMutation.mutateAsync({ row: currentEditRow ?? ({ id: editRowId } as RuntimeRow), data })
                 setEditRowId(null)
                 return
             }
             await createMutation.mutateAsync(data)
             setCreateOpen(false)
         } catch (error) {
-            setMutationError(error instanceof Error ? error.message : String(error))
+            setMutationError(
+                extractRuntimeErrorMessage(error, t('app.errorGenericMessage', 'Please try again or reload the page.'), details?.locale)
+            )
         }
     }
     const handleDelete = async () => {
@@ -339,7 +380,9 @@ function RelationBuilderPanel({ panel, selectedParentId }: { panel: RelationBuil
             await deleteMutation.mutateAsync(deleteRow)
             setDeleteRow(null)
         } catch (error) {
-            setMutationError(error instanceof Error ? error.message : String(error))
+            setMutationError(
+                extractRuntimeErrorMessage(error, t('app.errorGenericMessage', 'Please try again or reload the page.'), details?.locale)
+            )
         }
     }
     const handleSortableDragEnd = (event: DragEndEvent) => {
@@ -351,7 +394,7 @@ function RelationBuilderPanel({ panel, selectedParentId }: { panel: RelationBuil
         if (nextRows === previousRows) return
 
         setOrderedRows(nextRows)
-        void reorderMutation.mutateAsync(nextRows.map((row) => row.id)).catch(() => {
+        void reorderMutation.mutateAsync(nextRows).catch(() => {
             setOrderedRows(previousRows)
         })
     }
@@ -361,12 +404,16 @@ function RelationBuilderPanel({ panel, selectedParentId }: { panel: RelationBuil
     return (
         <Stack spacing={1.25} data-testid={`runtime-relation-panel-${panel.id}`} sx={{ minWidth: 0 }}>
             <Stack direction='row' justifyContent='space-between' alignItems='center' gap={1} sx={{ minWidth: 0 }}>
-                <Typography variant='subtitle2'>{readLocalizedWidgetText(panel.title, details?.locale) ?? panel.id}</Typography>
+                <Typography variant='subtitle2'>
+                    {readLocalizedWidgetText(panel.title, details?.locale) ??
+                        formatMetadataFallbackLabel(panel.id, details?.locale, t('relationBuilder.untitledPanel', 'Related records'))}
+                </Typography>
                 <Button size='small' startIcon={<AddRoundedIcon />} disabled={createDisabled} onClick={() => setCreateOpen(true)}>
                     {t('relationBuilder.create', 'Create')}
                 </Button>
             </Stack>
             {warningText ? <Alert severity='warning'>{warningText}</Alert> : null}
+            {loadErrorText ? <Alert severity='error'>{loadErrorText}</Alert> : null}
             {panel.enableRowReordering && !canPersistRowReordering ? (
                 <Typography variant='caption' color='text.secondary'>
                     {t(
@@ -430,7 +477,17 @@ function RelationBuilderPanel({ panel, selectedParentId }: { panel: RelationBuil
                 editRowId={editRowId}
                 objectCollections={details?.objectCollections}
                 currentWorkspaceId={details?.currentWorkspaceId}
-                wizardSteps={editRowId ? undefined : buildRelationBuilderWizardSteps(panel, query.data?.columns, details?.locale ?? 'en')}
+                resourceSourceTypes={details?.resourceSourceTypes}
+                wizardSteps={
+                    editRowId
+                        ? undefined
+                        : buildRelationBuilderWizardSteps(
+                              panel,
+                              query.data?.columns,
+                              details?.locale ?? 'en',
+                              t('relationBuilder.untitledStep', 'Step')
+                          )
+                }
             />
             <ConfirmDeleteDialog
                 open={Boolean(deleteRow)}
@@ -518,8 +575,20 @@ export function RelationBuilderWidget({ config }: { config: RelationBuilderWidge
     const titleField = config.parentTitleFieldCodename ? findColumnField(parentColumns, config.parentTitleFieldCodename) : undefined
     const readParentLabel = (row: RuntimeRow): string => {
         const candidate = titleField ? row[titleField] : undefined
-        const formatted = formatRuntimeValue(candidate, details?.locale ?? 'en')
-        return formatted || row.id
+        const formatted = formatRuntimeSafeValue(candidate, details?.locale ?? 'en')
+        return formatted || t('relationBuilder.untitledParent', 'Untitled parent')
+    }
+    const parentLoadErrorText =
+        parentDatasource && parentQuery.isError && parentQuery.error && parentRows.length === 0
+            ? extractRuntimeErrorMessage(
+                  parentQuery.error,
+                  t('relationBuilder.parentLoadFailed', 'Unable to load parent records.'),
+                  details?.locale
+              )
+            : null
+
+    if (parentLoadErrorText) {
+        return <Alert severity='error'>{parentLoadErrorText}</Alert>
     }
 
     if (parentRows.length === 0) {

@@ -103,7 +103,11 @@ export function RuntimeTabularPartView({
             copyingText: t('tabular.copying', 'Copying...'),
             editText: t('tabular.edit', 'Edit'),
             copyText: t('tabular.copy', 'Copy'),
-            addText: t('tabular.addRow', 'Add Row')
+            addText: t('tabular.addRow', 'Add Row'),
+            workflowActionText: t('app.workflowAction', 'Run action'),
+            workflowConfirmationTitleText: t('app.workflowConfirmationTitle', 'Confirm action'),
+            workflowConfirmationMessageText: t('app.workflowConfirmationMessage', 'Run this action?'),
+            confirmText: t('app.confirm', 'Confirm')
         }),
         [t]
     )
@@ -146,7 +150,7 @@ export function RuntimeTabularPartView({
                         {label}
                     </Typography>
                     {canCreate && (
-                        <Button size='small' startIcon={<AddIcon />} onClick={state.handleOpenCreate}>
+                        <Button size='small' startIcon={<AddIcon />} onClick={() => state.handleOpenCreate()}>
                             {labels.addText}
                         </Button>
                     )}
@@ -155,7 +159,7 @@ export function RuntimeTabularPartView({
 
             {!showTitle && canCreate && (
                 <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
-                    <Button size='small' startIcon={<AddIcon />} onClick={state.handleOpenCreate}>
+                    <Button size='small' startIcon={<AddIcon />} onClick={() => state.handleOpenCreate()}>
                         {labels.addText}
                     </Button>
                 </Box>
@@ -205,7 +209,16 @@ export function RuntimeTabularPartView({
 
             <RowActionsMenu
                 state={state}
-                labels={{ editText: labels.editText, copyText: labels.copyText, deleteText: labels.deleteText }}
+                labels={{
+                    editText: labels.editText,
+                    copyText: labels.copyText,
+                    deleteText: labels.deleteText,
+                    cancelText: labels.cancelText,
+                    confirmText: labels.confirmText,
+                    workflowActionText: labels.workflowActionText,
+                    workflowConfirmationTitleText: labels.workflowConfirmationTitleText,
+                    workflowConfirmationMessageText: labels.workflowConfirmationMessageText
+                }}
                 permissions={{ canEdit, canCopy: canCreate, canDelete }}
             />
         </Box>

@@ -1,4 +1,4 @@
-import { FormDialog, type RuntimeObjectCollectionOption } from './dialogs/FormDialog'
+import { FormDialog, type ResourceSourceTypeOption, type RuntimeObjectCollectionOption } from './dialogs/FormDialog'
 import { ConfirmDeleteDialog } from './dialogs/ConfirmDeleteDialog'
 import type { CrudDashboardState } from '../hooks/useCrudDashboard'
 
@@ -19,6 +19,8 @@ export interface CrudDialogsProps {
     objectCollections?: RuntimeObjectCollectionOption[]
     /** Current workspace scope used by metadata-driven form fields. */
     currentWorkspaceId?: string | null
+    /** Optional generic resource-source type policy used by JSON resource-source fields. */
+    resourceSourceTypes?: ResourceSourceTypeOption[]
     /** Surface used for create/edit/copy forms. */
     surface?: 'dialog' | 'page'
     /** Render create/edit/copy form surface. */
@@ -60,6 +62,7 @@ export function CrudDialogs({
     objectCollectionId,
     objectCollections,
     currentWorkspaceId,
+    resourceSourceTypes,
     surface = 'dialog',
     renderForm = true,
     renderDelete = true
@@ -91,6 +94,7 @@ export function CrudDialogs({
                     copyMode={Boolean(state.copyRowId)}
                     objectCollections={objectCollections}
                     currentWorkspaceId={currentWorkspaceId}
+                    resourceSourceTypes={resourceSourceTypes}
                 />
             ) : null}
 

@@ -7,6 +7,9 @@
 !.codex/agents/
 !.codex/agents/*.toml
 
+# AI-Manager isolated directory
+.manager
+
 # dependencies
 **/node_modules
 **/package-lock.json
@@ -49,6 +52,7 @@ tools/testing/e2e/.artifacts
 .env.production.local
 .env
 **/.env.e2e
+**/.env*.backup
 **/.env.e2e.local
 **/.env.local-supabase
 **/.env.e2e.local-supabase

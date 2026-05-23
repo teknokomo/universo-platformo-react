@@ -5,6 +5,7 @@ import { escapeLikeWildcards } from '@universo/utils'
 import {
     isBuiltinEntityKind,
     normalizeRuntimePageBlocks,
+    recordsUnionDatasourceSchema,
     runtimeDatasourceFilterSchema,
     runtimeDatasourceSortSchema,
     sanitizeApplicationLearningContentSettings,
@@ -17,6 +18,7 @@ import {
     type BuiltinEntityKind,
     type RuntimeDatasourceFilter,
     type RuntimeDatasourceSort,
+    type RecordsUnionDatasource,
     type SequencePolicy,
     type SequenceStep,
     type WorkflowAction
@@ -105,12 +107,22 @@ const runtimeQuerySchema = z.object({
     offset: z.coerce.number().int().min(0).default(0),
     locale: z.string().optional(),
     objectCollectionId: z.string().uuid().optional(),
+    objectCollectionCodename: z.string().trim().min(1).max(128).optional(),
     lifecycleState: z.enum(['active', 'deleted']).default('active'),
     libraryView: z.enum(['all', 'recent', 'starred', 'shared']).default('all'),
     search: z.string().trim().max(200).optional(),
     sort: z.preprocess(parseJsonQueryValue, z.array(runtimeDatasourceSortSchema).max(5).optional()),
     filters: z.preprocess(parseJsonQueryValue, z.array(runtimeDatasourceFilterSchema).max(20).optional())
 })
+
+const runtimeRecordsUnionBodySchema = z
+    .object({
+        datasource: recordsUnionDatasourceSchema,
+        limit: z.coerce.number().int().positive().max(1000).default(100),
+        offset: z.coerce.number().int().min(0).default(0),
+        locale: z.string().optional()
+    })
+    .strict()
 
 const runtimeUpdateBodySchema = z.object({
     field: z.string().min(1),
@@ -139,7 +151,8 @@ const runtimeCopyBodySchema = z.object({
 
 const runtimeReorderBodySchema = z.object({
     objectCollectionId: z.string().uuid().optional(),
-    orderedRowIds: z.array(z.string().uuid()).min(1).max(1000)
+    orderedRowIds: z.array(z.string().uuid()).min(1).max(1000),
+    expectedVersionsByRowId: z.record(z.string().uuid(), z.number().int().positive()).optional()
 })
 
 const runtimeRecordCommandBodySchema = z.object({
@@ -149,8 +162,45 @@ const runtimeRecordCommandBodySchema = z.object({
 
 const runtimeRestoreBodySchema = z.object({
     objectCollectionId: z.string().uuid().optional(),
-    expectedVersion: z.number().int().positive().optional()
+    expectedVersion: z.number().int().positive().optional(),
+    restoreTarget: z
+        .discriminatedUnion('mode', [
+            z.object({ mode: z.literal('original') }),
+            z.object({
+                mode: z.literal('target'),
+                targetObjectCollectionId: z.string().uuid(),
+                targetRecordId: z.string().uuid(),
+                targetWorkspaceId: z.string().uuid().nullable().optional(),
+                parentFieldCodename: z
+                    .string()
+                    .trim()
+                    .min(1)
+                    .max(128)
+                    .regex(/^[A-Za-z_][A-Za-z0-9_]*$/)
+                    .optional()
+            })
+        ])
+        .optional()
 })
+
+const runtimeLibraryRelationActionBodySchema = z
+    .object({
+        objectCollectionId: z.string().uuid(),
+        active: z.boolean(),
+        principalType: z.enum(['workspaceMember', 'user']).optional(),
+        principalId: z.string().uuid().optional()
+    })
+    .strict()
+    .superRefine((value, ctx) => {
+        if (Boolean(value.principalType) !== Boolean(value.principalId)) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'Principal type and principal id must be provided together.'
+            })
+        }
+    })
+
+const runtimeLibraryRelationKeyParamSchema = z.enum(['recent', 'starred', 'shared'])
 
 const buildRuntimeExpectedVersionPredicate = (expectedVersion: number | undefined, parameterIndex: number): string =>
     expectedVersion === undefined ? '' : `\n                AND COALESCE(_upl_version, 1) = $${parameterIndex}`
@@ -177,44 +227,9 @@ const runtimeContentProgressBodySchema = z
             .max(128)
             .regex(/^[A-Za-z_][A-Za-z0-9_]*$/),
         targetRecordId: z.string().uuid(),
-        action: z.enum(['update', 'complete', 'recalculate']).default('update'),
-        progressPercent: z.number().min(0).max(100).optional(),
-        status: z.string().trim().min(1).max(64).optional()
+        action: z.enum(['view', 'complete', 'recalculate']).default('view')
     })
-    .superRefine((value, ctx) => {
-        if (value.action === 'update' && typeof value.progressPercent !== 'number') {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ['progressPercent'],
-                message: 'progressPercent is required for update actions'
-            })
-        }
-
-        if (value.action === 'complete' && typeof value.progressPercent === 'number' && value.progressPercent !== 100) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ['progressPercent'],
-                message: 'complete actions must use 100 percent progress'
-            })
-        }
-
-        if (value.action === 'recalculate') {
-            if (typeof value.progressPercent === 'number') {
-                ctx.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    path: ['progressPercent'],
-                    message: 'recalculate actions do not accept client progress'
-                })
-            }
-            if (typeof value.status === 'string') {
-                ctx.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    path: ['status'],
-                    message: 'recalculate actions do not accept client status'
-                })
-            }
-        }
-    })
+    .strict()
 
 const runtimeWorkflowActionParamSchema = z
     .string()
@@ -251,7 +266,7 @@ const isRuntimeSetKind = (kind: unknown): kind is string => typeof kind === 'str
 
 const isRuntimeHubKind = (kind: unknown): kind is string => typeof kind === 'string' && resolveRuntimeStandardKind(kind) === 'hub'
 
-type RuntimeObjectCollectionAttr = {
+export type RuntimeObjectCollectionAttr = {
     id: string
     codename: unknown
     column_name: string
@@ -261,6 +276,41 @@ type RuntimeObjectCollectionAttr = {
     target_object_id?: string | null
     target_object_kind?: string | null
     ui_config?: Record<string, unknown>
+}
+
+type RuntimeObjectCollectionRow = {
+    id: string
+    kind: string | null
+    codename: unknown
+    table_name: string
+    presentation?: unknown
+    config?: Record<string, unknown> | null
+    lifecycleContract: ReturnType<typeof resolveApplicationLifecycleContractFromConfig>
+}
+
+type RuntimeReadableComponent = RuntimeObjectCollectionAttr & {
+    data_type: RuntimeDataType
+    is_display_component?: boolean
+    presentation?: unknown
+    sort_order?: number
+}
+
+type RuntimeColumnDefinition = {
+    id: string
+    codename: string
+    field: string
+    dataType: RuntimeDataType
+    isRequired: boolean
+    isDisplayComponent: boolean
+    headerName: string
+    validationRules: Record<string, unknown>
+    uiConfig: Record<string, unknown>
+    refTargetEntityId: string | null
+    refTargetEntityKind: string | null
+    refTargetConstantId: string | null
+    refOptions?: RuntimeRefOption[]
+    enumOptions?: RuntimeRefOption[]
+    childColumns?: RuntimeColumnDefinition[]
 }
 
 type RuntimeRecordPickerReferenceConfig = {
@@ -330,8 +380,11 @@ const runtimeLibraryRelationSchema = z
         targetObjectFieldCodename: z.string().trim().min(1).max(128),
         targetRecordFieldCodename: z.string().trim().min(1).max(128),
         actorFieldCodename: z.string().trim().min(1).max(128).optional(),
+        timestampFieldCodename: z.string().trim().min(1).max(128).optional(),
         principalTypeFieldCodename: z.string().trim().min(1).max(128).optional(),
         principalIdFieldCodename: z.string().trim().min(1).max(128).optional(),
+        accessLevelFieldCodename: z.string().trim().min(1).max(128).optional(),
+        defaultAccessLevel: z.enum(['canView', 'canEdit']).optional(),
         allowedPrincipalTypes: z
             .array(z.enum(['workspaceMember', 'user']))
             .max(2)
@@ -370,21 +423,51 @@ const runtimeRecordAccessConfigSchema = z
         }
     })
 
+const runtimeRecordParentAccessConfigSchema = z
+    .object({
+        mode: z.literal('parentRecord'),
+        parentObjectCodename: z.string().trim().min(1).max(128),
+        parentFieldCodename: z.string().trim().min(1).max(128)
+    })
+    .strict()
+
 const runtimeAccessEntryConfigSchema = z
     .object({
         principalTypeFieldCodename: z.string().trim().min(1).max(128),
         principalIdFieldCodename: z.string().trim().min(1).max(128),
+        targetObjectFieldCodename: z.string().trim().min(1).max(128).optional(),
+        targetRecordFieldCodename: z.string().trim().min(1).max(128).optional(),
+        accessLevelFieldCodename: z.string().trim().min(1).max(128).optional(),
         supportedPrincipalTypes: z
             .array(z.enum(['workspaceMember', 'user']))
             .min(1)
             .max(2)
     })
     .strict()
+    .superRefine((value, ctx) => {
+        if (Boolean(value.targetObjectFieldCodename) !== Boolean(value.targetRecordFieldCodename)) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'Access entry target object and target record fields must be configured together.'
+            })
+        }
+    })
 
 type RuntimeLibraryRelation = z.infer<typeof runtimeLibraryRelationSchema>
 type RuntimeLibraryConfig = z.infer<typeof runtimeLibraryConfigSchema>
+type RuntimeLibraryRelationKey = z.infer<typeof runtimeLibraryRelationKeyParamSchema>
 type RuntimeRecordAccessConfig = z.infer<typeof runtimeRecordAccessConfigSchema>
+type RuntimeRecordParentAccessConfig = z.infer<typeof runtimeRecordParentAccessConfigSchema>
 type RuntimeAccessEntryConfig = z.infer<typeof runtimeAccessEntryConfigSchema>
+
+const normalizeRuntimeAccessLevel = (value: string | null | undefined): 'canView' | 'canEdit' | null => {
+    const normalized = String(value ?? '')
+        .trim()
+        .toLowerCase()
+    if (normalized === 'canview') return 'canView'
+    if (normalized === 'canedit') return 'canEdit'
+    return null
+}
 
 type RuntimeRelationBinding = {
     tableIdent: string
@@ -392,9 +475,79 @@ type RuntimeRelationBinding = {
     targetObjectColumnName: string
     targetRecordColumnName: string
     actorColumnName?: string
+    timestampColumnName?: string
     principalTypeColumnName?: string
     principalIdColumnName?: string
+    accessLevelColumnName?: string
     allowedPrincipalTypes: Array<'workspaceMember' | 'user'>
+    isSoftDelete: boolean
+    lifecycleContract: ReturnType<typeof resolveApplicationLifecycleContractFromConfig>
+    config?: Record<string, unknown> | null
+}
+
+const buildRuntimeRelationTimestampValueSql = (params: {
+    binding: RuntimeRelationBinding
+    currentObjectCodename: string
+    currentUserId: string
+    outerRowIdSql: string
+    values: unknown[]
+}): string | null => {
+    if (!params.binding.actorColumnName || !params.binding.timestampColumnName) return null
+
+    params.values.push(params.currentObjectCodename)
+    const objectPlaceholder = `$${params.values.length}`
+    params.values.push(params.currentUserId)
+    const userPlaceholder = `$${params.values.length}`
+
+    const relationPredicates = [
+        `rel.${quoteIdentifier(params.binding.targetObjectColumnName)}::text = ${objectPlaceholder}::text`,
+        `rel.${quoteIdentifier(params.binding.targetRecordColumnName)}::text = ${params.outerRowIdSql}::text`,
+        `rel.${quoteIdentifier(params.binding.actorColumnName)}::text = ${userPlaceholder}::text`,
+        params.binding.activeCondition
+    ]
+
+    return `(
+      SELECT rel.${quoteIdentifier(params.binding.timestampColumnName)}
+      FROM ${params.binding.tableIdent} rel
+      WHERE ${relationPredicates.join(' AND ')}
+      ORDER BY rel.${quoteIdentifier(params.binding.timestampColumnName)} DESC NULLS LAST
+      LIMIT 1
+    )`
+}
+
+const buildRuntimeSharedRelationTimestampValueSql = (params: {
+    binding: RuntimeRelationBinding
+    currentObjectCodename: string
+    currentUserId: string
+    outerRowIdSql: string
+    values: unknown[]
+}): string | null => {
+    if (!params.binding.principalTypeColumnName || !params.binding.principalIdColumnName || !params.binding.timestampColumnName) {
+        return null
+    }
+
+    params.values.push(params.currentObjectCodename)
+    const objectPlaceholder = `$${params.values.length}`
+    params.values.push(params.currentUserId)
+    const userPlaceholder = `$${params.values.length}`
+    params.values.push(params.binding.allowedPrincipalTypes)
+    const principalTypesPlaceholder = `$${params.values.length}`
+
+    const relationPredicates = [
+        `rel.${quoteIdentifier(params.binding.targetObjectColumnName)}::text = ${objectPlaceholder}::text`,
+        `rel.${quoteIdentifier(params.binding.targetRecordColumnName)}::text = ${params.outerRowIdSql}::text`,
+        `rel.${quoteIdentifier(params.binding.principalTypeColumnName)} = ANY(${principalTypesPlaceholder}::text[])`,
+        `rel.${quoteIdentifier(params.binding.principalIdColumnName)}::text = ${userPlaceholder}::text`,
+        params.binding.activeCondition
+    ]
+
+    return `(
+      SELECT rel.${quoteIdentifier(params.binding.timestampColumnName)}
+      FROM ${params.binding.tableIdent} rel
+      WHERE ${relationPredicates.join(' AND ')}
+      ORDER BY rel.${quoteIdentifier(params.binding.timestampColumnName)} DESC NULLS LAST
+      LIMIT 1
+    )`
 }
 
 type RuntimeMenuPartitionPlacement = 'primary' | 'overflow' | 'hidden'
@@ -823,6 +976,18 @@ const readRuntimeRecordAccessConfig = (config: Record<string, unknown> | null | 
     return parsed.success ? parsed.data : null
 }
 
+const readRuntimeRecordParentAccessConfigs = (
+    config: Record<string, unknown> | null | undefined
+): RuntimeRecordParentAccessConfig[] | null => {
+    const raw = config?.runtimeRecordParentAccess
+    if (!raw) return []
+    const parsed = Array.isArray(raw)
+        ? z.array(runtimeRecordParentAccessConfigSchema).max(8).safeParse(raw)
+        : runtimeRecordParentAccessConfigSchema.safeParse(raw)
+    if (!parsed.success) return null
+    return Array.isArray(parsed.data) ? parsed.data : [parsed.data]
+}
+
 const readRuntimeAccessEntryConfig = (config: Record<string, unknown> | null | undefined): RuntimeAccessEntryConfig | null => {
     const parsed = runtimeAccessEntryConfigSchema.safeParse(config?.runtimeAccessEntry)
     return parsed.success ? parsed.data : null
@@ -830,6 +995,19 @@ const readRuntimeAccessEntryConfig = (config: Record<string, unknown> | null | u
 
 const findRuntimeAttrByFieldKey = (attrs: RuntimeObjectCollectionAttr[], fieldKey: string): RuntimeObjectCollectionAttr | undefined =>
     buildRuntimeAttrLookup(attrs).get(fieldKey.trim().toLowerCase())
+
+const resolveRuntimeRecordOwnerColumnName = (
+    attrs: RuntimeObjectCollectionAttr[],
+    config: Record<string, unknown> | null | undefined
+): string | null => {
+    const accessConfig = readRuntimeRecordAccessConfig(config)
+    if (!accessConfig) return null
+
+    const ownerAttr = accessConfig.ownerFieldCodename ? findRuntimeAttrByFieldKey(attrs, accessConfig.ownerFieldCodename) : undefined
+    const ownerColumnName = ownerAttr?.column_name ?? accessConfig.ownerColumnName
+
+    return ownerColumnName && IDENTIFIER_REGEX.test(ownerColumnName) ? ownerColumnName : null
+}
 
 const resolveRuntimeObjectCollectionByCodename = async (
     manager: DbExecutor,
@@ -881,11 +1059,17 @@ const resolveRuntimeRelationBinding = async (params: {
     const actorAttr = params.relation.actorFieldCodename
         ? findRuntimeAttrByFieldKey(relatedObject.attrs, params.relation.actorFieldCodename)
         : undefined
+    const timestampAttr = params.relation.timestampFieldCodename
+        ? findRuntimeAttrByFieldKey(relatedObject.attrs, params.relation.timestampFieldCodename)
+        : undefined
     const principalTypeAttr = params.relation.principalTypeFieldCodename
         ? findRuntimeAttrByFieldKey(relatedObject.attrs, params.relation.principalTypeFieldCodename)
         : undefined
     const principalIdAttr = params.relation.principalIdFieldCodename
         ? findRuntimeAttrByFieldKey(relatedObject.attrs, params.relation.principalIdFieldCodename)
+        : undefined
+    const accessLevelAttr = params.relation.accessLevelFieldCodename
+        ? findRuntimeAttrByFieldKey(relatedObject.attrs, params.relation.accessLevelFieldCodename)
         : undefined
 
     const requiredAttrs = [targetObjectAttr, targetRecordAttr]
@@ -893,23 +1077,26 @@ const resolveRuntimeRelationBinding = async (params: {
         return null
     }
     if (actorAttr && !IDENTIFIER_REGEX.test(actorAttr.column_name)) return null
+    if (timestampAttr && !IDENTIFIER_REGEX.test(timestampAttr.column_name)) return null
     if (principalTypeAttr && !IDENTIFIER_REGEX.test(principalTypeAttr.column_name)) return null
     if (principalIdAttr && !IDENTIFIER_REGEX.test(principalIdAttr.column_name)) return null
+    if (accessLevelAttr && !IDENTIFIER_REGEX.test(accessLevelAttr.column_name)) return null
+    const lifecycleContract = resolveApplicationLifecycleContractFromConfig(relatedObject.config)
 
     return {
         tableIdent: `${params.schemaIdent}.${quoteIdentifier(relatedObject.tableName)}`,
-        activeCondition: buildRuntimeActiveRowCondition(
-            resolveApplicationLifecycleContractFromConfig(relatedObject.config),
-            relatedObject.config,
-            'rel',
-            params.currentWorkspaceId
-        ),
+        activeCondition: buildRuntimeActiveRowCondition(lifecycleContract, relatedObject.config, 'rel', params.currentWorkspaceId),
         targetObjectColumnName: targetObjectAttr!.column_name,
         targetRecordColumnName: targetRecordAttr!.column_name,
         ...(actorAttr ? { actorColumnName: actorAttr.column_name } : {}),
+        ...(timestampAttr ? { timestampColumnName: timestampAttr.column_name } : {}),
         ...(principalTypeAttr ? { principalTypeColumnName: principalTypeAttr.column_name } : {}),
         ...(principalIdAttr ? { principalIdColumnName: principalIdAttr.column_name } : {}),
-        allowedPrincipalTypes: params.relation.allowedPrincipalTypes ?? ['workspaceMember', 'user']
+        ...(accessLevelAttr ? { accessLevelColumnName: accessLevelAttr.column_name } : {}),
+        allowedPrincipalTypes: params.relation.allowedPrincipalTypes ?? ['workspaceMember', 'user'],
+        isSoftDelete: isSoftDeleteLifecycle(lifecycleContract),
+        lifecycleContract,
+        config: relatedObject.config
     }
 }
 
@@ -920,6 +1107,7 @@ const buildRuntimeRelationExistsClause = (params: {
     outerRowIdSql: string
     values: unknown[]
     kind: 'recent' | 'starred' | 'shared'
+    minimumAccessLevel?: 'read' | 'edit'
 }) => {
     params.values.push(params.currentObjectCodename)
     const objectPlaceholder = `$${params.values.length}`
@@ -942,6 +1130,10 @@ const buildRuntimeRelationExistsClause = (params: {
             `rel.${quoteIdentifier(params.binding.principalTypeColumnName)} = ANY(${principalTypesPlaceholder}::text[])`
         )
         relationPredicates.push(`rel.${quoteIdentifier(params.binding.principalIdColumnName)}::text = ${userPlaceholder}::text`)
+        if (params.minimumAccessLevel === 'edit') {
+            if (!params.binding.accessLevelColumnName) return null
+            relationPredicates.push(`LOWER(rel.${quoteIdentifier(params.binding.accessLevelColumnName)}::text) = 'canedit'`)
+        }
     } else {
         if (!params.binding.actorColumnName) {
             return null
@@ -956,7 +1148,93 @@ const buildRuntimeRelationExistsClause = (params: {
     )`
 }
 
-const buildRuntimeRecordAccessClause = async (params: {
+const resolveRuntimeOuterRowSql = (outerRowIdSql: string): string | null => {
+    const trimmed = outerRowIdSql.trim()
+    return trimmed.endsWith('.id') ? trimmed.slice(0, -3) : null
+}
+
+const buildRuntimeParentRecordAccessClauses = async (params: {
+    manager: DbExecutor
+    schemaIdent: string
+    currentWorkspaceId: string | null
+    currentUserId: string | null
+    permissions: Record<RolePermission, boolean>
+    attrs: RuntimeObjectCollectionAttr[]
+    config: Record<string, unknown> | null | undefined
+    outerRowIdSql: string
+    values: unknown[]
+    minimumAccessLevel?: 'read' | 'edit'
+    accessDepth: number
+}): Promise<string[]> => {
+    const parentAccessConfigs = readRuntimeRecordParentAccessConfigs(params.config)
+    if (!parentAccessConfigs) return ['FALSE']
+    if (parentAccessConfigs.length === 0) return []
+    if (params.accessDepth > 4) return ['FALSE']
+
+    const outerRowSql = resolveRuntimeOuterRowSql(params.outerRowIdSql)
+    if (!outerRowSql) return ['FALSE']
+
+    const clauses: string[] = []
+    for (let index = 0; index < parentAccessConfigs.length; index++) {
+        const parentAccessConfig = parentAccessConfigs[index]
+        const parentFieldAttr = findRuntimeAttrByFieldKey(params.attrs, parentAccessConfig.parentFieldCodename)
+        if (!parentFieldAttr || parentFieldAttr.data_type !== 'REF' || !IDENTIFIER_REGEX.test(parentFieldAttr.column_name)) {
+            clauses.push('FALSE')
+            continue
+        }
+
+        const parentObject = await resolveRuntimeObjectCollectionByCodename(
+            params.manager,
+            params.schemaIdent,
+            parentAccessConfig.parentObjectCodename
+        )
+        if (!parentObject || (parentFieldAttr.target_object_id && parentFieldAttr.target_object_id !== parentObject.id)) {
+            clauses.push('FALSE')
+            continue
+        }
+
+        const parentAlias = `parent_access_${index}`
+        const parentTableIdent = `${params.schemaIdent}.${quoteIdentifier(parentObject.tableName)}`
+        const parentLifecycleContract = resolveApplicationLifecycleContractFromConfig(parentObject.config)
+        const parentActiveCondition = buildRuntimeActiveRowCondition(
+            parentLifecycleContract,
+            parentObject.config,
+            parentAlias,
+            params.currentWorkspaceId
+        )
+        const parentAccessClause = await buildRuntimeRecordAccessClause({
+            manager: params.manager,
+            schemaIdent: params.schemaIdent,
+            currentWorkspaceId: params.currentWorkspaceId,
+            currentUserId: params.currentUserId,
+            permissions: params.permissions,
+            objectCodename: parentObject.codename,
+            attrs: parentObject.attrs,
+            config: parentObject.config,
+            outerRowIdSql: `${parentAlias}.id`,
+            values: params.values,
+            minimumAccessLevel: params.minimumAccessLevel,
+            accessDepth: params.accessDepth + 1
+        })
+        const parentWhereSql = [
+            `${parentAlias}.id::text = ${outerRowSql}.${quoteIdentifier(parentFieldAttr.column_name)}::text`,
+            parentActiveCondition,
+            parentAccessClause
+        ]
+            .filter((clause): clause is string => typeof clause === 'string' && clause.length > 0)
+            .join(' AND ')
+
+        clauses.push(`EXISTS (
+      SELECT 1
+      FROM ${parentTableIdent} ${parentAlias}
+      WHERE ${parentWhereSql}
+    )`)
+    }
+
+    return clauses
+}
+
+export const buildRuntimeRecordAccessClause = async (params: {
     manager: DbExecutor
     schemaIdent: string
     currentWorkspaceId: string | null
@@ -967,16 +1245,33 @@ const buildRuntimeRecordAccessClause = async (params: {
     config: Record<string, unknown> | null | undefined
     outerRowIdSql: string
     values: unknown[]
+    minimumAccessLevel?: 'read' | 'edit'
+    accessDepth?: number
 }): Promise<string | null> => {
-    const accessConfig = readRuntimeRecordAccessConfig(params.config)
-    if (!accessConfig || params.permissions.editContent || !params.currentUserId) return null
+    const parentAccessClauses = await buildRuntimeParentRecordAccessClauses({
+        manager: params.manager,
+        schemaIdent: params.schemaIdent,
+        currentWorkspaceId: params.currentWorkspaceId,
+        currentUserId: params.currentUserId,
+        permissions: params.permissions,
+        attrs: params.attrs,
+        config: params.config,
+        outerRowIdSql: params.outerRowIdSql,
+        values: params.values,
+        minimumAccessLevel: params.minimumAccessLevel,
+        accessDepth: params.accessDepth ?? 0
+    })
 
-    const ownerAttr = accessConfig.ownerFieldCodename ? findRuntimeAttrByFieldKey(params.attrs, accessConfig.ownerFieldCodename) : undefined
-    const ownerColumnName = ownerAttr?.column_name ?? accessConfig.ownerColumnName
+    const accessConfig = readRuntimeRecordAccessConfig(params.config)
+    if (!accessConfig || params.permissions.manageApplication || !params.currentUserId) {
+        return parentAccessClauses.length > 0 ? parentAccessClauses.join(' AND ') : null
+    }
+
+    const ownerColumnName = resolveRuntimeRecordOwnerColumnName(params.attrs, params.config)
     const libraryConfig = readRuntimeLibraryConfig(params.config)
     const sharedRelation = libraryConfig?.[accessConfig.sharedRelationKey]
-    if (!ownerColumnName || !IDENTIFIER_REGEX.test(ownerColumnName) || !sharedRelation) {
-        return 'FALSE'
+    if (!ownerColumnName || !sharedRelation) {
+        return parentAccessClauses.length > 0 ? [...parentAccessClauses, 'FALSE'].join(' AND ') : 'FALSE'
     }
 
     const relationBinding = await resolveRuntimeRelationBinding({
@@ -995,11 +1290,57 @@ const buildRuntimeRecordAccessClause = async (params: {
         currentUserId: params.currentUserId,
         outerRowIdSql: params.outerRowIdSql,
         values: params.values,
-        kind: 'shared'
+        kind: 'shared',
+        minimumAccessLevel: params.minimumAccessLevel ?? 'read'
     })
-    if (!sharedClause) return 'FALSE'
+    if (!sharedClause) return `${quoteIdentifier(ownerColumnName)} = ${ownerPlaceholder}`
 
-    return `(${quoteIdentifier(ownerColumnName)} = ${ownerPlaceholder} OR ${sharedClause})`
+    const ownerOrSharedClause = `(${quoteIdentifier(ownerColumnName)} = ${ownerPlaceholder} OR ${sharedClause})`
+    return parentAccessClauses.length > 0 ? [...parentAccessClauses, ownerOrSharedClause].join(' AND ') : ownerOrSharedClause
+}
+
+const loadRuntimeRowByIdWithRecordAccess = async (params: {
+    manager: DbExecutor
+    schemaIdent: string
+    dataTableIdent: string
+    currentWorkspaceId: string | null
+    currentUserId: string | null
+    permissions: Record<RolePermission, boolean>
+    objectCodename: string
+    attrs: RuntimeObjectCollectionAttr[]
+    config: Record<string, unknown> | null | undefined
+    rowId: string
+    rowCondition: string
+    minimumAccessLevel?: 'read' | 'edit'
+}): Promise<Record<string, unknown> | null> => {
+    const values: unknown[] = [params.rowId]
+    const accessClause = await buildRuntimeRecordAccessClause({
+        manager: params.manager,
+        schemaIdent: params.schemaIdent,
+        currentWorkspaceId: params.currentWorkspaceId,
+        currentUserId: params.currentUserId,
+        permissions: params.permissions,
+        objectCodename: params.objectCodename,
+        attrs: params.attrs,
+        config: params.config,
+        outerRowIdSql: `${params.dataTableIdent}.id`,
+        values,
+        minimumAccessLevel: params.minimumAccessLevel
+    })
+    const whereSql = ['id = $1', params.rowCondition, accessClause]
+        .filter((clause): clause is string => typeof clause === 'string' && clause.length > 0)
+        .join(' AND ')
+    const rows = (await params.manager.query(
+        `
+      SELECT *
+      FROM ${params.dataTableIdent}
+      WHERE ${whereSql}
+      LIMIT 1
+    `,
+        values
+    )) as Array<Record<string, unknown>>
+
+    return rows[0] ?? null
 }
 
 const buildRuntimeLibraryViewClause = async (params: {
@@ -1042,6 +1383,8 @@ const validateRuntimeAccessEntryMembership = async (params: {
     manager: DbExecutor
     schemaIdent: string
     currentWorkspaceId: string | null
+    currentUserId: string | null
+    permissions: Record<RolePermission, boolean>
     objectConfig: Record<string, unknown> | null | undefined
     attrs: RuntimeObjectCollectionAttr[]
     row: Record<string, unknown>
@@ -1079,10 +1422,128 @@ const validateRuntimeAccessEntryMembership = async (params: {
         [params.currentWorkspaceId, principalId]
     )) as Array<{ '?column?'?: number }>
 
-    return membershipRows.length > 0 ? null : 'Access entry principal is not a member of the current workspace'
+    if (membershipRows.length === 0) return 'Access entry principal is not a member of the current workspace'
+
+    if (accessConfig.accessLevelFieldCodename) {
+        const accessLevelAttr = findRuntimeAttrByFieldKey(params.attrs, accessConfig.accessLevelFieldCodename)
+        const accessLevel = readRuntimeAttrStringValue(params.row, accessLevelAttr)
+        if (accessLevel && !normalizeRuntimeAccessLevel(accessLevel)) {
+            return 'Access entry access level is not supported'
+        }
+    }
+
+    if (!accessConfig.targetObjectFieldCodename || !accessConfig.targetRecordFieldCodename) {
+        return null
+    }
+
+    const targetObjectAttr = findRuntimeAttrByFieldKey(params.attrs, accessConfig.targetObjectFieldCodename)
+    const targetRecordAttr = findRuntimeAttrByFieldKey(params.attrs, accessConfig.targetRecordFieldCodename)
+    const targetObjectCodename = readRuntimeAttrStringValue(params.row, targetObjectAttr)
+    const targetRecordId = readRuntimeAttrStringValue(params.row, targetRecordAttr)
+    if (!targetObjectCodename || !targetRecordId) {
+        return 'Access entry target fields are required'
+    }
+    if (!UUID_REGEX.test(targetRecordId)) {
+        return 'Access entry target record must be a UUID'
+    }
+
+    const targetObject = await resolveRuntimeObjectCollectionByCodename(params.manager, params.schemaIdent, targetObjectCodename)
+    if (!targetObject) {
+        return 'Access entry target object was not found'
+    }
+
+    const targetTableIdent = `${params.schemaIdent}.${quoteIdentifier(targetObject.tableName)}`
+    const targetLifecycleContract = resolveApplicationLifecycleContractFromConfig(targetObject.config)
+    const targetActiveCondition = buildRuntimeActiveRowCondition(
+        targetLifecycleContract,
+        targetObject.config,
+        undefined,
+        params.currentWorkspaceId
+    )
+    const targetValues: unknown[] = [targetRecordId]
+    const targetAccessClause = await buildRuntimeRecordAccessClause({
+        manager: params.manager,
+        schemaIdent: params.schemaIdent,
+        currentWorkspaceId: params.currentWorkspaceId,
+        currentUserId: params.currentUserId,
+        permissions: params.permissions,
+        objectCodename: targetObject.codename,
+        attrs: targetObject.attrs,
+        config: targetObject.config,
+        outerRowIdSql: `${targetTableIdent}.id`,
+        values: targetValues,
+        minimumAccessLevel: 'edit'
+    })
+    const targetWhereSql = ['id = $1', targetActiveCondition, targetAccessClause]
+        .filter((clause): clause is string => typeof clause === 'string' && clause.length > 0)
+        .join(' AND ')
+    const targetRows = (await params.manager.query(
+        `
+      SELECT id
+      FROM ${targetTableIdent}
+      WHERE ${targetWhereSql}
+      LIMIT 1
+    `,
+        targetValues
+    )) as Array<{ id: string }>
+
+    return targetRows[0]?.id ? null : 'Access entry target row is not editable by the current user'
 }
 
-const loadRuntimeObjectAttrs = async (
+const validateRuntimeSharedRelationPrincipal = async (params: {
+    manager: DbExecutor
+    applicationId: string
+    schemaIdent: string
+    currentWorkspaceId: string | null
+    binding: RuntimeRelationBinding
+    principalType: 'workspaceMember' | 'user'
+    principalId: string
+    explicitPrincipal: boolean
+}): Promise<string | null> => {
+    if (!params.binding.allowedPrincipalTypes.includes(params.principalType)) {
+        return 'Unsupported runtime shared principal type'
+    }
+
+    if (!params.explicitPrincipal) return null
+
+    if (params.principalType === 'user') {
+        const membershipRows = (await params.manager.query(
+            `
+      SELECT 1
+      FROM applications.rel_application_users
+      WHERE application_id = $1
+        AND user_id = $2
+        AND _upl_deleted = false
+        AND _app_deleted = false
+      LIMIT 1
+    `,
+            [params.applicationId, params.principalId]
+        )) as Array<{ '?column?'?: number }>
+
+        return membershipRows.length > 0 ? null : 'Runtime shared principal is not a member of the application'
+    }
+
+    if (!params.currentWorkspaceId) {
+        return 'Runtime shared workspace member requires an active workspace'
+    }
+
+    const membershipRows = (await params.manager.query(
+        `
+      SELECT 1
+      FROM ${params.schemaIdent}._app_workspace_user_roles
+      WHERE workspace_id = $1
+        AND user_id = $2
+        AND _upl_deleted = false
+        AND _app_deleted = false
+      LIMIT 1
+    `,
+        [params.currentWorkspaceId, params.principalId]
+    )) as Array<{ '?column?'?: number }>
+
+    return membershipRows.length > 0 ? null : 'Runtime shared principal is not a member of the current workspace'
+}
+
+export const loadRuntimeObjectAttrs = async (
     manager: DbExecutor,
     schemaIdent: string,
     objectId: string
@@ -1438,12 +1899,16 @@ const validateRuntimeRecordPickerReferences = async ({
     manager,
     schemaIdent,
     currentWorkspaceId,
+    currentUserId,
+    permissions,
     attrs,
     row
 }: {
     manager: DbExecutor
     schemaIdent: string
     currentWorkspaceId?: string | null
+    currentUserId?: string | null
+    permissions: Record<RolePermission, boolean>
     attrs: RuntimeObjectCollectionAttr[]
     row: Record<string, unknown>
 }): Promise<string | null> => {
@@ -1486,25 +1951,129 @@ const validateRuntimeRecordPickerReferences = async ({
             return `Target object not found for ${formatRuntimeFieldLabel(attr.codename)}`
         }
 
+        const targetAttrs = await loadRuntimeObjectAttrs(manager, schemaIdent, targetObject.id)
+        const targetTableIdent = `${schemaIdent}.${quoteIdentifier(targetObject.table_name)}`
         const targetActiveCondition = buildRuntimeActiveRowCondition(
             targetObject.lifecycleContract,
             targetObject.config,
             undefined,
             currentWorkspaceId
         )
+        const targetValues: unknown[] = [targetRecordId]
+        const targetAccessClause = await buildRuntimeRecordAccessClause({
+            manager,
+            schemaIdent,
+            currentWorkspaceId: currentWorkspaceId ?? null,
+            currentUserId: currentUserId ?? null,
+            permissions,
+            objectCodename: resolveRuntimeCodenameText(targetObject.codename),
+            attrs: targetAttrs,
+            config: targetObject.config,
+            outerRowIdSql: `${targetTableIdent}.id`,
+            values: targetValues
+        })
+        const targetWhereSql = ['id = $1', targetActiveCondition, targetAccessClause]
+            .filter((clause): clause is string => typeof clause === 'string' && clause.length > 0)
+            .join(' AND ')
         const targetRows = (await manager.query(
             `
       SELECT id
-      FROM ${schemaIdent}.${quoteIdentifier(targetObject.table_name)}
-      WHERE id = $1
-        AND ${targetActiveCondition}
+      FROM ${targetTableIdent}
+      WHERE ${targetWhereSql}
       LIMIT 1
     `,
-            [targetRecordId]
+            targetValues
         )) as Array<{ id: string }>
 
         if (!targetRows[0]?.id) {
             return `Target record not found for ${formatRuntimeFieldLabel(attr.codename)}`
+        }
+    }
+
+    return null
+}
+
+const validateRuntimeParentRecordAccessReferences = async ({
+    manager,
+    schemaIdent,
+    currentWorkspaceId,
+    currentUserId,
+    permissions,
+    objectConfig,
+    attrs,
+    row,
+    minimumAccessLevel = 'edit'
+}: {
+    manager: DbExecutor
+    schemaIdent: string
+    currentWorkspaceId?: string | null
+    currentUserId?: string | null
+    permissions: Record<RolePermission, boolean>
+    objectConfig: Record<string, unknown> | null | undefined
+    attrs: RuntimeObjectCollectionAttr[]
+    row: Record<string, unknown>
+    minimumAccessLevel?: 'read' | 'edit'
+}): Promise<string | null> => {
+    const parentAccessConfigs = readRuntimeRecordParentAccessConfigs(objectConfig)
+    if (!parentAccessConfigs) return 'Parent record access metadata is invalid'
+    if (parentAccessConfigs.length === 0) return null
+
+    for (const parentAccessConfig of parentAccessConfigs) {
+        const parentFieldAttr = findRuntimeAttrByFieldKey(attrs, parentAccessConfig.parentFieldCodename)
+        const parentRecordId = readRuntimeAttrStringValue(row, parentFieldAttr)
+
+        if (
+            !parentFieldAttr ||
+            parentFieldAttr.data_type !== 'REF' ||
+            !IDENTIFIER_REGEX.test(parentFieldAttr.column_name) ||
+            !parentRecordId ||
+            !UUID_REGEX.test(parentRecordId)
+        ) {
+            return `Parent record is required for ${formatRuntimeFieldLabel(parentAccessConfig.parentFieldCodename)}`
+        }
+
+        const parentObject = await resolveRuntimeObjectCollectionByCodename(manager, schemaIdent, parentAccessConfig.parentObjectCodename)
+        if (!parentObject || (parentFieldAttr.target_object_id && parentFieldAttr.target_object_id !== parentObject.id)) {
+            return `Parent record target is invalid for ${formatRuntimeFieldLabel(parentAccessConfig.parentFieldCodename)}`
+        }
+
+        const parentTableIdent = `${schemaIdent}.${quoteIdentifier(parentObject.tableName)}`
+        const parentLifecycleContract = resolveApplicationLifecycleContractFromConfig(parentObject.config)
+        const parentActiveCondition = buildRuntimeActiveRowCondition(
+            parentLifecycleContract,
+            parentObject.config,
+            undefined,
+            currentWorkspaceId
+        )
+        const parentValues: unknown[] = [parentRecordId]
+        const parentAccessClause = await buildRuntimeRecordAccessClause({
+            manager,
+            schemaIdent,
+            currentWorkspaceId: currentWorkspaceId ?? null,
+            currentUserId: currentUserId ?? null,
+            permissions,
+            objectCodename: parentObject.codename,
+            attrs: parentObject.attrs,
+            config: parentObject.config,
+            outerRowIdSql: `${parentTableIdent}.id`,
+            values: parentValues,
+            minimumAccessLevel
+        })
+        const parentWhereSql = ['id = $1', parentActiveCondition, parentAccessClause]
+            .filter((clause): clause is string => typeof clause === 'string' && clause.length > 0)
+            .join(' AND ')
+        const parentRows = (await manager.query(
+            `
+      SELECT id
+      FROM ${parentTableIdent}
+      WHERE ${parentWhereSql}
+      LIMIT 1
+    `,
+            parentValues
+        )) as Array<{ id: string }>
+
+        if (!parentRows[0]?.id) {
+            return `Parent record is not editable for ${formatRuntimeFieldLabel(parentAccessConfig.parentFieldCodename)}`
         }
     }
 
@@ -1953,6 +2522,16 @@ const applyRuntimeProgressParentAggregations = async ({
                 ? [aggregate.parentObjectCodename, parentId, userId, currentWorkspaceId]
                 : [aggregate.parentObjectCodename, parentId, userId]
         const existingWorkspaceClause = workspacesEnabled && currentWorkspaceId ? 'AND workspace_id = $4' : ''
+        await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+            [
+                schemaIdent,
+                binding.tableIdent,
+                aggregate.parentObjectCodename,
+                parentId,
+                userId,
+                workspacesEnabled && currentWorkspaceId ? currentWorkspaceId : ''
+            ].join(':')
+        ])
         const existingRows = (await manager.query(
             `
       SELECT id
@@ -1969,7 +2548,7 @@ const applyRuntimeProgressParentAggregations = async ({
         )) as Array<{ id: string }>
 
         if (existingRows[0]?.id) {
-            await manager.query(
+            const updatedRows = await manager.query<{ id: string }>(
                 `
       UPDATE ${binding.tableIdent}
       SET ${progressColumns.status} = $2,
@@ -1981,9 +2560,16 @@ const applyRuntimeProgressParentAggregations = async ({
           _upl_updated_by = $4,
           _upl_version = COALESCE(_upl_version, 1) + 1
       WHERE id = $1
+      RETURNING id
     `,
                 [existingRows[0].id, aggregateStatus, aggregateProgressPercent, userId]
             )
+            if (!updatedRows[0]?.id) {
+                return new UpdateFailure(409, {
+                    error: 'Progress aggregation update did not affect a row',
+                    code: 'PROGRESS_AGGREGATION_UPDATE_CONFLICT'
+                })
+            }
             continue
         }
 
@@ -2012,13 +2598,20 @@ const applyRuntimeProgressParentAggregations = async ({
         insertPlaceholders.push(`$${insertValues.length + 1}`, `$${insertValues.length + 2}`)
         insertValues.push(userId, userId)
 
-        await manager.query(
+        const insertedRows = await manager.query<{ id: string }>(
             `
       INSERT INTO ${binding.tableIdent} (${insertColumns.join(', ')})
       VALUES (${insertPlaceholders.join(', ')})
+      RETURNING id
     `,
             insertValues
         )
+        if (!insertedRows[0]?.id) {
+            return new UpdateFailure(409, {
+                error: 'Progress aggregation insert did not create a row',
+                code: 'PROGRESS_AGGREGATION_INSERT_CONFLICT'
+            })
+        }
     }
 
     return null
@@ -2572,6 +3165,982 @@ const getNextRuntimeSortValue = async (params: {
     return typeof maxValue === 'number' && Number.isFinite(maxValue) ? maxValue + 1 : 0
 }
 
+const loadRuntimeObjectCollections = async (manager: DbExecutor, schemaIdent: string): Promise<RuntimeObjectCollectionRow[]> => {
+    const rows = (await manager.query(
+        `
+      SELECT id, kind, codename, table_name, presentation, config
+      FROM ${schemaIdent}._app_objects
+      WHERE ${RUNTIME_OBJECT_FILTER_SQL}
+        AND _upl_deleted = false
+        AND _app_deleted = false
+      ORDER BY ${runtimeCodenameTextSql('codename')} ASC, id ASC
+    `
+    )) as Array<{
+        id: string
+        kind: string | null
+        codename: unknown
+        table_name: string
+        presentation?: unknown
+        config?: Record<string, unknown> | null
+    }>
+
+    return rows.map((row) => ({
+        ...row,
+        lifecycleContract: resolveApplicationLifecycleContractFromConfig(row.config)
+    }))
+}
+
+const loadRuntimeReadableComponents = async (
+    manager: DbExecutor,
+    schemaIdent: string,
+    objectCollectionId: string
+): Promise<RuntimeReadableComponent[]> => {
+    return (await manager.query(
+        `
+      SELECT id, codename, column_name, data_type, is_required, is_display_component,
+             presentation, validation_rules, sort_order, ui_config,
+             target_object_id, target_object_kind
+      FROM ${schemaIdent}._app_components
+      WHERE object_id = $1
+        AND data_type IN ('BOOLEAN', 'STRING', 'NUMBER', 'DATE', 'REF', 'JSON', 'TABLE')
+        AND parent_component_id IS NULL
+        AND _upl_deleted = false
+        AND _app_deleted = false
+      ORDER BY sort_order ASC, _upl_created_at ASC NULLS LAST, codename ASC
+    `,
+        [objectCollectionId]
+    )) as RuntimeReadableComponent[]
+}
+
+const loadRuntimeEnumOptionsMap = async (params: {
+    manager: DbExecutor
+    schemaIdent: string
+    components: RuntimeReadableComponent[]
+    locale: string
+}): Promise<Map<string, RuntimeRefOption[]>> => {
+    const enumTargetObjectIds = Array.from(
+        new Set(
+            params.components
+                .filter((cmp) => cmp.data_type === 'REF' && isRuntimeEnumerationKind(cmp.target_object_kind) && cmp.target_object_id)
+                .map((cmp) => String(cmp.target_object_id))
+        )
+    )
+    const enumOptionsMap = new Map<string, RuntimeRefOption[]>()
+    if (enumTargetObjectIds.length === 0) return enumOptionsMap
+
+    const enumRows = (await params.manager.query(
+        `
+      SELECT id, object_id, codename, presentation, sort_order, is_default
+      FROM ${params.schemaIdent}._app_values
+      WHERE object_id = ANY($1::uuid[])
+        AND _upl_deleted = false
+        AND _app_deleted = false
+      ORDER BY object_id ASC, sort_order ASC, codename ASC
+    `,
+        [enumTargetObjectIds]
+    )) as Array<{
+        id: string
+        object_id: string
+        codename: unknown
+        presentation?: unknown
+        sort_order?: number
+        is_default?: boolean
+    }>
+
+    for (const row of enumRows) {
+        const options = enumOptionsMap.get(row.object_id) ?? []
+        options.push({
+            id: row.id,
+            codename: resolveRuntimeCodenameText(row.codename),
+            label: resolvePresentationName(row.presentation, params.locale, resolveRuntimeCodenameText(row.codename)),
+            isDefault: row.is_default === true,
+            sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 0
+        })
+        enumOptionsMap.set(row.object_id, options)
+    }
+
+    return enumOptionsMap
+}
+
+const buildRuntimeSetConstantOption = (
+    valueGroupFixedValueConfig: SetConstantUiConfig | null,
+    locale: string
+): RuntimeRefOption[] | undefined => {
+    if (!valueGroupFixedValueConfig) return undefined
+    return [
+        {
+            id: valueGroupFixedValueConfig.id,
+            label: resolveSetConstantLabel(valueGroupFixedValueConfig, locale),
+            codename: valueGroupFixedValueConfig.codename ?? 'valueGroupFixedValue',
+            isDefault: true,
+            sortOrder: 0
+        }
+    ]
+}
+
+const mapRuntimeComponentToColumnDefinition = (params: {
+    component: RuntimeReadableComponent
+    enumOptionsMap: Map<string, RuntimeRefOption[]>
+    locale: string
+}): RuntimeColumnDefinition => {
+    const { component, enumOptionsMap, locale } = params
+    const valueGroupFixedValueConfig =
+        component.data_type === 'REF' && isRuntimeSetKind(component.target_object_kind) ? getSetConstantConfig(component.ui_config) : null
+    const setConstantOption = buildRuntimeSetConstantOption(valueGroupFixedValueConfig, locale)
+    const enumOptions =
+        component.data_type === 'REF' &&
+        isRuntimeEnumerationKind(component.target_object_kind) &&
+        component.target_object_id &&
+        enumOptionsMap.has(component.target_object_id)
+            ? enumOptionsMap.get(component.target_object_id)
+            : undefined
+
+    return {
+        id: component.id,
+        codename: resolveRuntimeCodenameText(component.codename),
+        field: component.column_name,
+        dataType: component.data_type,
+        isRequired: component.is_required ?? false,
+        isDisplayComponent: component.is_display_component === true,
+        headerName: resolvePresentationName(component.presentation, locale, resolveRuntimeCodenameText(component.codename)),
+        validationRules: component.validation_rules ?? {},
+        uiConfig: {
+            ...(component.ui_config ?? {}),
+            ...(valueGroupFixedValueConfig?.dataType ? { setConstantDataType: valueGroupFixedValueConfig.dataType } : {})
+        },
+        refTargetEntityId: component.target_object_id ?? null,
+        refTargetEntityKind: component.target_object_kind ?? null,
+        refTargetConstantId: valueGroupFixedValueConfig?.id ?? null,
+        refOptions: enumOptions ?? setConstantOption,
+        enumOptions
+    }
+}
+
+type RuntimeUnionSystemProjectionField = 'type' | 'title' | 'status' | 'project' | 'updatedAt' | 'recentAt' | 'sharedAt'
+
+type RuntimeUnionProjectionSpec = {
+    field: string
+    sourceColumnName: string | null
+    column: RuntimeColumnDefinition
+    valueSql: string
+}
+
+const RUNTIME_UNION_PROJECTION_LABELS: Record<RuntimeUnionSystemProjectionField, { en: string; ru: string }> = {
+    type: { en: 'Type', ru: 'Тип' },
+    title: { en: 'Title', ru: 'Заголовок' },
+    status: { en: 'Status', ru: 'Статус' },
+    project: { en: 'Project', ru: 'Проект' },
+    updatedAt: { en: 'Updated', ru: 'Обновлено' },
+    recentAt: { en: 'Viewed', ru: 'Просмотрено' },
+    sharedAt: { en: 'Shared', ru: 'Доступ открыт' }
+}
+
+const resolveRuntimeUnionProjectionLabel = (field: RuntimeUnionSystemProjectionField, locale: string): string =>
+    locale.toLowerCase().startsWith('ru') ? RUNTIME_UNION_PROJECTION_LABELS[field].ru : RUNTIME_UNION_PROJECTION_LABELS[field].en
+
+const quoteSqlLiteral = (value: string): string => `'${value.replace(/'/g, "''")}'`
+
+const runtimeLocalizedTextSql = (columnRef: string, locale: string): string => {
+    const localeKey = normalizeLocale(locale) || 'en'
+    return `COALESCE(${columnRef}->'locales'->${quoteSqlLiteral(localeKey)}->>'content', ${runtimeCodenameTextSql(columnRef)})`
+}
+
+const buildRuntimeComponentJsonValueSql = (component: RuntimeListComponent, locale = 'en'): string =>
+    component.data_type === 'STRING'
+        ? isLocalizedRuntimeListString(component)
+            ? runtimeLocalizedTextSql(quoteIdentifier(component.column_name), locale)
+            : quoteIdentifier(component.column_name)
+        : component.data_type === 'NUMBER'
+        ? `to_jsonb(${quoteIdentifier(component.column_name)})`
+        : quoteIdentifier(component.column_name)
+
+const buildRuntimeUnionEnumRefLabelSql = (
+    component: RuntimeReadableComponent,
+    enumOptionsMap: Map<string, RuntimeRefOption[]>
+): string | null => {
+    if (
+        component.data_type !== 'REF' ||
+        !isRuntimeEnumerationKind(component.target_object_kind) ||
+        !component.target_object_id ||
+        !IDENTIFIER_REGEX.test(component.column_name)
+    ) {
+        return null
+    }
+
+    const options = enumOptionsMap.get(component.target_object_id)
+    if (!options || options.length === 0) {
+        return null
+    }
+
+    const optionRowsSql = options.map((option) => `(${quoteSqlLiteral(option.id)}, ${quoteSqlLiteral(option.label)})`).join(', ')
+
+    return `
+        COALESCE(
+          (
+            SELECT runtime_enum_option.label
+            FROM (VALUES ${optionRowsSql}) AS runtime_enum_option(id, label)
+            WHERE runtime_enum_option.id = ${quoteIdentifier(component.column_name)}::text
+            LIMIT 1
+          ),
+          ${quoteIdentifier(component.column_name)}::text
+        )
+    `
+}
+
+const buildRuntimeUnionComponentProjectionSql = (
+    component: RuntimeReadableComponent,
+    enumOptionsMap: Map<string, RuntimeRefOption[]>,
+    locale: string
+): string => buildRuntimeUnionEnumRefLabelSql(component, enumOptionsMap) ?? buildRuntimeComponentJsonValueSql(component, locale)
+
+const findRuntimeComponentByFieldKey = (components: RuntimeListComponent[], fieldKey: string | null | undefined) => {
+    const normalizedFieldKey = typeof fieldKey === 'string' ? fieldKey.trim() : ''
+    if (!normalizedFieldKey) return null
+    return findRuntimeListComponent(components, normalizedFieldKey) as RuntimeReadableComponent | null
+}
+
+const buildRuntimeObjectRefLabelProjectionSql = async (params: {
+    manager: DbExecutor
+    schemaIdent: string
+    sourceTableIdent: string
+    currentWorkspaceId: string | null
+    component: RuntimeReadableComponent
+    locale: string
+}): Promise<string | null> => {
+    const targetObjectId = params.component.target_object_id
+    if (
+        params.component.data_type !== 'REF' ||
+        !targetObjectId ||
+        !isRuntimeObjectTargetKind(params.component.target_object_kind) ||
+        !IDENTIFIER_REGEX.test(params.component.column_name)
+    ) {
+        return null
+    }
+
+    const targetObjectRows = (await params.manager.query(
+        `
+      SELECT id, table_name, config
+      FROM ${params.schemaIdent}._app_objects
+      WHERE id = $1
+        AND ${RUNTIME_OBJECT_FILTER_SQL}
+        AND _upl_deleted = false
+        AND _app_deleted = false
+      LIMIT 1
+    `,
+        [targetObjectId]
+    )) as Array<{ id: string; table_name: string; config?: Record<string, unknown> | null }>
+    const targetObject = targetObjectRows[0]
+    if (!targetObject || !IDENTIFIER_REGEX.test(targetObject.table_name)) return null
+
+    const targetComponents = await loadRuntimeReadableComponents(params.manager, params.schemaIdent, targetObject.id)
+    const labelComponent =
+        targetComponents.find((component) => component.is_display_component && IDENTIFIER_REGEX.test(component.column_name)) ??
+        targetComponents.find((component) => component.data_type === 'STRING' && IDENTIFIER_REGEX.test(component.column_name)) ??
+        targetComponents.find((component) => IDENTIFIER_REGEX.test(component.column_name))
+    if (!labelComponent) return null
+
+    const targetLifecycleContract = resolveApplicationLifecycleContractFromConfig(targetObject.config)
+    const targetActiveCondition = buildRuntimeActiveRowCondition(
+        targetLifecycleContract,
+        targetObject.config,
+        'ref',
+        params.currentWorkspaceId
+    )
+    const sourceColumnSql = `${params.sourceTableIdent}.${quoteIdentifier(params.component.column_name)}`
+    const labelColumnSql = `ref.${quoteIdentifier(labelComponent.column_name)}`
+    const labelSql =
+        labelComponent.data_type === 'STRING'
+            ? isLocalizedRuntimeListString(labelComponent)
+                ? runtimeLocalizedTextSql(labelColumnSql, params.locale)
+                : labelColumnSql
+            : `to_jsonb(${labelColumnSql})`
+
+    return `
+        CASE
+          WHEN ${sourceColumnSql} IS NULL THEN NULL
+          ELSE (
+            SELECT jsonb_build_object('id', ref.id::text, 'label', ${labelSql})
+            FROM ${params.schemaIdent}.${quoteIdentifier(targetObject.table_name)} ref
+            WHERE ref.id::text = ${sourceColumnSql}::text
+              AND ${targetActiveCondition}
+            LIMIT 1
+          )
+        END
+    `
+}
+
+const buildRuntimeUnionProjectionSpecs = async (params: {
+    manager: DbExecutor
+    schemaIdent: string
+    currentWorkspaceId: string | null
+    target: RecordsUnionDatasource['targets'][number]
+    projectedFields?: string[]
+    objectCollection: RuntimeObjectCollectionRow
+    physicalComponents: RuntimeReadableComponent[]
+    enumOptionsMap: Map<string, RuntimeRefOption[]>
+    locale: string
+}): Promise<RuntimeUnionProjectionSpec[]> => {
+    const { target, objectCollection, physicalComponents, enumOptionsMap, locale } = params
+    const specs: RuntimeUnionProjectionSpec[] = [
+        {
+            field: 'type',
+            sourceColumnName: null,
+            valueSql: quoteSqlLiteral(
+                resolvePresentationName(objectCollection.presentation, locale, resolveRuntimeCodenameText(objectCollection.codename))
+            ),
+            column: {
+                id: `${objectCollection.id}:__runtimeUnionType`,
+                codename: 'Type',
+                field: 'type',
+                dataType: 'STRING',
+                headerName: resolveRuntimeUnionProjectionLabel('type', locale),
+                isDisplayComponent: false,
+                isRequired: false,
+                validationRules: {},
+                uiConfig: {
+                    gridSortable: false,
+                    gridFilterable: false
+                },
+                refTargetEntityId: null,
+                refTargetEntityKind: null,
+                refTargetConstantId: null
+            }
+        }
+    ]
+
+    const addComponentProjection = (field: RuntimeUnionSystemProjectionField, sourceField: string | undefined) => {
+        const component = findRuntimeComponentByFieldKey(physicalComponents, sourceField)
+        if (!component || component.data_type === 'JSON' || component.data_type === 'TABLE') return
+
+        const sourceColumn = mapRuntimeComponentToColumnDefinition({ component, enumOptionsMap, locale })
+        specs.push({
+            field,
+            sourceColumnName: component.column_name,
+            valueSql: buildRuntimeUnionComponentProjectionSql(component, enumOptionsMap, locale),
+            column: {
+                ...sourceColumn,
+                id: `${objectCollection.id}:__runtimeUnion${field[0].toUpperCase()}${field.slice(1)}`,
+                codename: field === 'updatedAt' ? 'UpdatedAt' : field[0].toUpperCase() + field.slice(1),
+                field,
+                headerName: resolveRuntimeUnionProjectionLabel(field, locale),
+                uiConfig: {
+                    ...(sourceColumn.uiConfig ?? {}),
+                    ...(field === 'updatedAt' ? { gridFilterable: false } : {})
+                }
+            }
+        })
+    }
+
+    const addConfiguredProjection = (field: string) => {
+        const normalizedField = field.trim()
+        const component = findRuntimeComponentByFieldKey(physicalComponents, normalizedField)
+        if (!normalizedField || !component || component.data_type === 'JSON' || component.data_type === 'TABLE') return
+
+        const sourceColumn = mapRuntimeComponentToColumnDefinition({ component, enumOptionsMap, locale })
+        specs.push({
+            field: normalizedField,
+            sourceColumnName: component.column_name,
+            valueSql: buildRuntimeUnionComponentProjectionSql(component, enumOptionsMap, locale),
+            column: {
+                ...sourceColumn,
+                id: `${objectCollection.id}:__runtimeUnion${normalizedField}`,
+                field: normalizedField
+            }
+        })
+    }
+
+    addComponentProjection('title', target.titleField)
+    addComponentProjection('status', target.statusField)
+    const projectComponent = findRuntimeComponentByFieldKey(physicalComponents, target.projectField)
+    if (projectComponent) {
+        const projectLabelSql = await buildRuntimeObjectRefLabelProjectionSql({
+            manager: params.manager,
+            schemaIdent: params.schemaIdent,
+            sourceTableIdent: `${params.schemaIdent}.${quoteIdentifier(objectCollection.table_name)}`,
+            currentWorkspaceId: params.currentWorkspaceId,
+            component: projectComponent,
+            locale
+        })
+        if (projectLabelSql) {
+            specs.push({
+                field: 'project',
+                sourceColumnName: projectComponent.column_name,
+                valueSql: projectLabelSql,
+                column: {
+                    id: `${objectCollection.id}:__runtimeUnionProject`,
+                    codename: 'Project',
+                    field: 'project',
+                    dataType: 'STRING',
+                    headerName: resolveRuntimeUnionProjectionLabel('project', locale),
+                    isDisplayComponent: false,
+                    isRequired: false,
+                    validationRules: {},
+                    uiConfig: {
+                        gridSortable: false,
+                        gridFilterable: false
+                    },
+                    refTargetEntityId: null,
+                    refTargetEntityKind: null,
+                    refTargetConstantId: null
+                }
+            })
+        }
+    }
+    addComponentProjection('updatedAt', target.updatedAtField)
+    for (const projectedField of params.projectedFields ?? []) {
+        addConfiguredProjection(projectedField)
+    }
+
+    return specs
+}
+
+const buildRuntimeUnionRecentAtProjectionSpec = (
+    objectCollectionId: string,
+    locale: string,
+    valueSql: string
+): RuntimeUnionProjectionSpec => ({
+    field: 'recentAt',
+    sourceColumnName: null,
+    valueSql,
+    column: {
+        id: `${objectCollectionId}:__runtimeUnionRecentAt`,
+        codename: 'RecentAt',
+        field: 'recentAt',
+        dataType: 'DATE',
+        headerName: resolveRuntimeUnionProjectionLabel('recentAt', locale),
+        isDisplayComponent: false,
+        isRequired: false,
+        validationRules: {},
+        uiConfig: {
+            gridFilterable: false
+        },
+        refTargetEntityId: null,
+        refTargetEntityKind: null,
+        refTargetConstantId: null
+    }
+})
+
+const buildRuntimeUnionSharedAtProjectionSpec = (
+    objectCollectionId: string,
+    locale: string,
+    valueSql: string
+): RuntimeUnionProjectionSpec => ({
+    field: 'sharedAt',
+    sourceColumnName: null,
+    valueSql,
+    column: {
+        id: `${objectCollectionId}:__runtimeUnionSharedAt`,
+        codename: 'SharedAt',
+        field: 'sharedAt',
+        dataType: 'DATE',
+        headerName: resolveRuntimeUnionProjectionLabel('sharedAt', locale),
+        isDisplayComponent: false,
+        isRequired: false,
+        validationRules: {},
+        uiConfig: {
+            gridFilterable: false
+        },
+        refTargetEntityId: null,
+        refTargetEntityKind: null,
+        refTargetConstantId: null
+    }
+})
+
+const isRuntimeUnionProjectedSourceComponent = (
+    component: RuntimeReadableComponent,
+    projectionSpecs: RuntimeUnionProjectionSpec[]
+): boolean => {
+    const sourceKeys = new Set(
+        projectionSpecs
+            .map((spec) => spec.sourceColumnName)
+            .filter((value): value is string => Boolean(value))
+            .map((value) => normalizeRuntimeListFieldKey(value))
+    )
+    if (sourceKeys.size === 0) return false
+
+    return (
+        sourceKeys.has(normalizeRuntimeListFieldKey(component.column_name)) ||
+        sourceKeys.has(normalizeRuntimeListFieldKey(resolveRuntimeCodenameText(component.codename)))
+    )
+}
+
+const mergeRuntimeUnionColumns = (columnGroups: RuntimeColumnDefinition[][]): RuntimeColumnDefinition[] => {
+    const columnsByField = new Map<string, RuntimeColumnDefinition>()
+
+    const mergeOptions = (left: RuntimeRefOption[] | undefined, right: RuntimeRefOption[] | undefined): RuntimeRefOption[] | undefined => {
+        const options = [...(left ?? []), ...(right ?? [])]
+        if (options.length === 0) return undefined
+        return Array.from(new Map(options.map((option) => [option.id, option])).values())
+    }
+
+    for (const columns of columnGroups) {
+        for (const column of columns) {
+            const existing = columnsByField.get(column.field)
+            if (!existing) {
+                columnsByField.set(column.field, column)
+                continue
+            }
+
+            columnsByField.set(column.field, {
+                ...existing,
+                refOptions: mergeOptions(existing.refOptions, column.refOptions),
+                enumOptions: mergeOptions(existing.enumOptions, column.enumOptions),
+                childColumns: existing.childColumns ?? column.childColumns
+            })
+        }
+    }
+
+    return Array.from(columnsByField.values())
+}
+
+const resolveRecordsUnionTargetObject = (
+    runtimeObjects: RuntimeObjectCollectionRow[],
+    target: RecordsUnionDatasource['targets'][number]
+): RuntimeObjectCollectionRow | null => {
+    const targetId = target.sectionId ?? target.objectCollectionId ?? null
+    if (targetId) {
+        return runtimeObjects.find((objectRow) => objectRow.id === targetId) ?? null
+    }
+
+    const targetCodename = (target.sectionCodename ?? target.objectCollectionCodename ?? '').trim().toLowerCase()
+    if (!targetCodename) return null
+    return (
+        runtimeObjects.find((objectRow) => resolveRuntimeCodenameText(objectRow.codename).trim().toLowerCase() === targetCodename) ?? null
+    )
+}
+
+const remapRuntimeUnionSqlPlaceholders = (sql: string, offset: number): string =>
+    sql.replace(/\$(\d+)/g, (_match, index: string) => `$${Number(index) + offset}`)
+
+const normalizeRuntimeUnionProjectionField = (field: string): RuntimeUnionSystemProjectionField | null => {
+    const normalized = normalizeRuntimeListFieldKey(field)
+    if (normalized === 'type') return 'type'
+    if (normalized === 'title') return 'title'
+    if (normalized === 'status') return 'status'
+    if (normalized === 'updatedat' || normalized === 'updated_at' || normalized === 'updated') return 'updatedAt'
+    if (normalized === 'recentat' || normalized === 'recent_at' || normalized === 'viewed' || normalized === 'viewedat') return 'recentAt'
+    if (normalized === 'sharedat' || normalized === 'shared_at' || normalized === 'shared') return 'sharedAt'
+    return null
+}
+
+const resolveRuntimeUnionTargetQueryField = (target: RecordsUnionDatasource['targets'][number], field: string): string | null => {
+    const projectionField = normalizeRuntimeUnionProjectionField(field)
+    if (projectionField === 'title' && target.titleField) return target.titleField
+    if (projectionField === 'status' && target.statusField) return target.statusField
+    if (projectionField === 'updatedAt' && target.updatedAtField) return target.updatedAtField
+    if (projectionField) return null
+    return field
+}
+
+const translateRuntimeUnionTargetSort = (
+    target: RecordsUnionDatasource['targets'][number],
+    sort: RuntimeDatasourceSort[] | undefined
+): RuntimeDatasourceSort[] | undefined =>
+    sort?.flatMap((item) => {
+        const field = resolveRuntimeUnionTargetQueryField(target, item.field)
+        return field ? [{ ...item, field }] : []
+    })
+
+const translateRuntimeUnionTargetFilters = (
+    target: RecordsUnionDatasource['targets'][number],
+    filters: RuntimeDatasourceFilter[] | undefined
+): RuntimeDatasourceFilter[] | undefined =>
+    filters?.map((item) => ({
+        ...item,
+        field: resolveRuntimeUnionTargetQueryField(target, item.field) ?? item.field
+    }))
+
+const resolveRuntimeUnionOutputSortField = (sortField: string, targets: RecordsUnionDatasource['targets']): string => {
+    const projectionField = normalizeRuntimeUnionProjectionField(sortField)
+    if (projectionField) return projectionField
+
+    const normalized = normalizeRuntimeListFieldKey(sortField)
+    if (targets.some((target) => target.titleField && normalizeRuntimeListFieldKey(target.titleField) === normalized)) return 'title'
+    if (targets.some((target) => target.statusField && normalizeRuntimeListFieldKey(target.statusField) === normalized)) return 'status'
+    if (targets.some((target) => target.updatedAtField && normalizeRuntimeListFieldKey(target.updatedAtField) === normalized))
+        return 'updatedAt'
+
+    return sortField
+}
+
+const buildRuntimeUnionOrderBySql = (sort: RuntimeDatasourceSort[] | undefined, targets: RecordsUnionDatasource['targets']): string => {
+    if (!sort?.length) return 'target_order ASC, row_order ASC'
+
+    return [
+        ...sort.map((sortItem) => {
+            const direction = sortItem.direction === 'desc' ? 'DESC' : 'ASC'
+            return `row_data ->> ${quoteSqlLiteral(resolveRuntimeUnionOutputSortField(sortItem.field, targets))} ${direction} NULLS LAST`
+        }),
+        `row_data ->> 'id' ASC`
+    ].join(', ')
+}
+
+export const executeRuntimeRecordsUnionDatasource = async (params: {
+    runtimeContext: Exclude<Awaited<ReturnType<typeof resolveRuntimeSchema>>, null>
+    datasource: RecordsUnionDatasource
+    limit: number
+    offset: number
+    locale: string
+}) => {
+    const { runtimeContext, datasource, limit, offset, locale } = params
+    const { manager, schemaName, schemaIdent, currentWorkspaceId } = runtimeContext
+    const runtimeObjects = await loadRuntimeObjectCollections(manager, schemaIdent)
+    const queryConfig = datasource.query ?? {}
+    const lifecycleState = queryConfig.lifecycleState ?? 'active'
+    const libraryView = queryConfig.libraryView ?? 'all'
+    const { search, sort, filters } = queryConfig
+    const shouldProjectRecentAt =
+        libraryView === 'recent' || Boolean(sort?.some((item) => normalizeRuntimeUnionProjectionField(item.field) === 'recentAt'))
+    const shouldProjectSharedAt =
+        libraryView === 'shared' || Boolean(sort?.some((item) => normalizeRuntimeUnionProjectionField(item.field) === 'sharedAt'))
+
+    const targetPayloads: Array<{
+        objectCollection: RuntimeObjectCollectionRow
+        columns: RuntimeColumnDefinition[]
+    }> = []
+    const unionSelects: string[] = []
+    const unionValues: unknown[] = []
+
+    for (const [targetIndex, target] of datasource.targets.entries()) {
+        const objectCollection = resolveRecordsUnionTargetObject(runtimeObjects, target)
+        if (!objectCollection) {
+            throw new UpdateFailure(404, {
+                error: 'Records union datasource target was not found',
+                target
+            })
+        }
+
+        const objectKind = resolveRuntimeStandardKind(objectCollection.kind)
+        if (objectKind === 'page' || !IDENTIFIER_REGEX.test(objectCollection.table_name ?? '')) {
+            throw new UpdateFailure(400, {
+                error: 'Records union datasource targets must be runtime object collections',
+                target
+            })
+        }
+        if (readRuntimeAccessEntryConfig(objectCollection.config)) {
+            throw new UpdateFailure(403, {
+                error: 'Records union datasource target is restricted',
+                target: resolveRuntimeCodenameText(objectCollection.codename)
+            })
+        }
+
+        const components = (await loadRuntimeReadableComponents(manager, schemaIdent, objectCollection.id)).filter((cmp) =>
+            IDENTIFIER_REGEX.test(cmp.column_name)
+        )
+        const physicalComponents = components.filter((cmp) => cmp.data_type !== 'TABLE')
+        const targetSort = translateRuntimeUnionTargetSort(target, sort)
+        const targetFilters = translateRuntimeUnionTargetFilters(target, filters)
+        const unsupportedListFields = findUnsupportedRuntimeListFields(physicalComponents, targetSort, targetFilters)
+        if (unsupportedListFields.length > 0) {
+            throw new UpdateFailure(400, {
+                error: 'Runtime list query references unknown or unsupported fields',
+                fields: unsupportedListFields,
+                target: resolveRuntimeCodenameText(objectCollection.codename)
+            })
+        }
+        const enumOptionsMap = await loadRuntimeEnumOptionsMap({ manager, schemaIdent, components, locale })
+        const projectionSpecs = await buildRuntimeUnionProjectionSpecs({
+            manager,
+            schemaIdent,
+            currentWorkspaceId,
+            target,
+            projectedFields: datasource.projectedFields,
+            objectCollection,
+            physicalComponents,
+            enumOptionsMap,
+            locale
+        })
+
+        const { runtimeConfig } = await resolveEffectiveObjectCollectionRuntimeConfig({
+            manager,
+            schemaName,
+            schemaIdent,
+            objectCollectionId: objectCollection.id
+        })
+        const reorderFieldAttr = resolveRuntimeReorderField(
+            components,
+            runtimeConfig.enableRowReordering ? runtimeConfig.reorderPersistenceField : null
+        )
+        const dataTableIdent = `${schemaIdent}.${quoteIdentifier(objectCollection.table_name)}`
+        const activeObjectRowCondition =
+            lifecycleState === 'deleted'
+                ? buildRuntimeDeletedRowCondition(
+                      objectCollection.lifecycleContract,
+                      objectCollection.config,
+                      undefined,
+                      currentWorkspaceId
+                  )
+                : buildRuntimeActiveRowCondition(objectCollection.lifecycleContract, objectCollection.config, undefined, currentWorkspaceId)
+        const runtimeListClauses = buildRuntimeListClauses({
+            activeCondition: activeObjectRowCondition,
+            attrs: physicalComponents,
+            search,
+            sort: targetSort,
+            filters: targetFilters,
+            fallbackOrderBy: buildRuntimeRowsOrderBy(reorderFieldAttr?.column_name ?? null),
+            currentUserId: runtimeContext.userId
+        })
+        const objectCodename = resolveRuntimeCodenameText(objectCollection.codename)
+        const recordAccessClause = await buildRuntimeRecordAccessClause({
+            manager,
+            schemaIdent,
+            currentWorkspaceId,
+            currentUserId: runtimeContext.userId,
+            permissions: runtimeContext.permissions,
+            objectCodename,
+            attrs: components,
+            config: objectCollection.config,
+            outerRowIdSql: `${dataTableIdent}.id`,
+            values: runtimeListClauses.values
+        })
+        const libraryViewClause = await buildRuntimeLibraryViewClause({
+            manager,
+            schemaIdent,
+            currentWorkspaceId,
+            currentUserId: runtimeContext.userId,
+            objectCodename,
+            config: objectCollection.config,
+            libraryView,
+            outerRowIdSql: `${dataTableIdent}.id`,
+            values: runtimeListClauses.values
+        })
+        let runtimeStarredExistsClause: string | null = null
+        let runtimeSharedExistsClause: string | null = null
+        let runtimeRecentAtValueSql: string | null = null
+        let runtimeSharedAtValueSql: string | null = null
+        const runtimeLibraryConfig = readRuntimeLibraryConfig(objectCollection.config)
+        const starredRelation = runtimeLibraryConfig?.starred
+        if (starredRelation && runtimeContext.userId) {
+            const starredBinding = await resolveRuntimeRelationBinding({
+                manager,
+                schemaIdent,
+                currentWorkspaceId,
+                relation: starredRelation
+            })
+            if (starredBinding?.actorColumnName) {
+                runtimeStarredExistsClause = buildRuntimeRelationExistsClause({
+                    binding: starredBinding,
+                    currentObjectCodename: objectCodename,
+                    currentUserId: runtimeContext.userId,
+                    outerRowIdSql: `${dataTableIdent}.id`,
+                    values: runtimeListClauses.values,
+                    kind: 'starred'
+                })
+            }
+        }
+        const sharedRelation = runtimeLibraryConfig?.shared
+        let sharedBinding: RuntimeRelationBinding | null = null
+        if (sharedRelation && runtimeContext.userId) {
+            sharedBinding = await resolveRuntimeRelationBinding({
+                manager,
+                schemaIdent,
+                currentWorkspaceId,
+                relation: sharedRelation
+            })
+            if (sharedBinding?.principalTypeColumnName && sharedBinding.principalIdColumnName) {
+                runtimeSharedExistsClause = buildRuntimeRelationExistsClause({
+                    binding: sharedBinding,
+                    currentObjectCodename: objectCodename,
+                    currentUserId: runtimeContext.userId,
+                    outerRowIdSql: `${dataTableIdent}.id`,
+                    values: runtimeListClauses.values,
+                    kind: 'shared'
+                })
+            }
+            if (shouldProjectSharedAt && sharedBinding?.timestampColumnName) {
+                runtimeSharedAtValueSql = buildRuntimeSharedRelationTimestampValueSql({
+                    binding: sharedBinding,
+                    currentObjectCodename: objectCodename,
+                    currentUserId: runtimeContext.userId,
+                    outerRowIdSql: `${dataTableIdent}.id`,
+                    values: runtimeListClauses.values
+                })
+            }
+        }
+        const recentRelation = runtimeLibraryConfig?.recent
+        if (shouldProjectRecentAt && recentRelation && runtimeContext.userId) {
+            const recentBinding = await resolveRuntimeRelationBinding({
+                manager,
+                schemaIdent,
+                currentWorkspaceId,
+                relation: recentRelation
+            })
+            if (recentBinding?.actorColumnName && recentBinding.timestampColumnName) {
+                runtimeRecentAtValueSql = buildRuntimeRelationTimestampValueSql({
+                    binding: recentBinding,
+                    currentObjectCodename: objectCodename,
+                    currentUserId: runtimeContext.userId,
+                    outerRowIdSql: `${dataTableIdent}.id`,
+                    values: runtimeListClauses.values
+                })
+            }
+        }
+        const effectiveProjectionSpecs = [
+            ...projectionSpecs,
+            ...(runtimeRecentAtValueSql
+                ? [buildRuntimeUnionRecentAtProjectionSpec(objectCollection.id, locale, runtimeRecentAtValueSql)]
+                : []),
+            ...(runtimeSharedAtValueSql
+                ? [buildRuntimeUnionSharedAtProjectionSpec(objectCollection.id, locale, runtimeSharedAtValueSql)]
+                : [])
+        ]
+        const valueOffset = unionValues.length
+        unionValues.push(...runtimeListClauses.values)
+        const runtimeListWhereSql = [runtimeListClauses.whereSql, recordAccessClause, libraryViewClause]
+            .filter((clause): clause is string => typeof clause === 'string' && clause.length > 0)
+            .map((clause) => remapRuntimeUnionSqlPlaceholders(clause, valueOffset))
+            .join(' AND ')
+        const recordBehavior = normalizeRuntimeRecordBehavior(objectCollection.config)
+        const recordBehaviorEnabled = isRuntimeRecordBehaviorEnabled(recordBehavior)
+        const includeRuntimeRowVersion = true
+        const jsonPairs = [
+            `${quoteSqlLiteral('id')}, ${quoteSqlLiteral(`${objectCollection.id}:`)} || id::text`,
+            `${quoteSqlLiteral('__runtimeObjectCollectionId')}, ${quoteSqlLiteral(objectCollection.id)}`,
+            `${quoteSqlLiteral('__runtimeObjectCollectionCodename')}, ${quoteSqlLiteral(objectCodename)}`,
+            `${quoteSqlLiteral('__runtimeSourceRowId')}, id::text`,
+            `${quoteSqlLiteral('__runtimeStarred')}, ${
+                runtimeStarredExistsClause
+                    ? `to_jsonb(${remapRuntimeUnionSqlPlaceholders(runtimeStarredExistsClause, valueOffset)})`
+                    : 'to_jsonb(false)'
+            }`,
+            `${quoteSqlLiteral('__runtimeShared')}, ${
+                runtimeSharedExistsClause
+                    ? `to_jsonb(${remapRuntimeUnionSqlPlaceholders(runtimeSharedExistsClause, valueOffset)})`
+                    : 'to_jsonb(false)'
+            }`,
+            `${quoteSqlLiteral('__runtimeDisplayType')}, ${quoteSqlLiteral(
+                target.displayType ?? resolvePresentationName(objectCollection.presentation, locale, objectCodename)
+            )}`
+        ]
+        for (const spec of effectiveProjectionSpecs) {
+            jsonPairs.push(
+                `${quoteSqlLiteral(spec.field)}, ${
+                    spec.valueSql.includes('$') ? remapRuntimeUnionSqlPlaceholders(spec.valueSql, valueOffset) : spec.valueSql
+                }`
+            )
+        }
+
+        if (recordBehaviorEnabled) {
+            for (const field of RUNTIME_RECORD_SYSTEM_FIELDS) {
+                jsonPairs.push(`${quoteSqlLiteral(field)}, ${quoteIdentifier(field)}`)
+            }
+        }
+        if (includeRuntimeRowVersion) {
+            jsonPairs.push(`${quoteSqlLiteral('_upl_version')}, ${quoteIdentifier('_upl_version')}`)
+        }
+
+        for (const component of physicalComponents) {
+            jsonPairs.push(`${quoteSqlLiteral(component.column_name)}, ${buildRuntimeComponentJsonValueSql(component, locale)}`)
+        }
+
+        for (const tableComponent of components.filter((cmp) => cmp.data_type === 'TABLE')) {
+            const fallbackTabTableName = generateChildTableName(tableComponent.id)
+            const tabTableName =
+                typeof tableComponent.column_name === 'string' && IDENTIFIER_REGEX.test(tableComponent.column_name)
+                    ? tableComponent.column_name
+                    : fallbackTabTableName
+            if (!IDENTIFIER_REGEX.test(tabTableName)) continue
+            const tabTableIdent = `${schemaIdent}.${quoteIdentifier(tabTableName)}`
+            jsonPairs.push(
+                `${quoteSqlLiteral(
+                    tableComponent.column_name
+                )}, (SELECT COUNT(*)::int FROM ${tabTableIdent} WHERE _tp_parent_id = ${dataTableIdent}.id AND ${activeObjectRowCondition})`
+            )
+        }
+
+        unionSelects.push(`
+      SELECT
+        jsonb_build_object(${jsonPairs.join(', ')}) AS row_data,
+        ${targetIndex} AS target_order,
+        row_number() OVER (ORDER BY ${runtimeListClauses.orderBySql}) AS row_order
+      FROM ${dataTableIdent}
+      WHERE ${runtimeListWhereSql}
+    `)
+
+        const columns = [
+            ...effectiveProjectionSpecs.map((spec) => spec.column),
+            ...components
+                .filter((component) => !isRuntimeUnionProjectedSourceComponent(component, effectiveProjectionSpecs))
+                .map((component) => mapRuntimeComponentToColumnDefinition({ component, enumOptionsMap, locale }))
+        ]
+
+        targetPayloads.push({
+            objectCollection,
+            columns
+        })
+    }
+
+    const firstTarget = targetPayloads[0]
+    if (!firstTarget || unionSelects.length === 0) {
+        throw new UpdateFailure(400, { error: 'Records union datasource requires at least one target' })
+    }
+
+    const unionSql = unionSelects.join('\nUNION ALL\n')
+    const totalRows = (await manager.query(
+        `
+      SELECT COUNT(*)::int AS total
+      FROM (${unionSql}) union_rows
+    `,
+        unionValues
+    )) as Array<{ total: number }>
+    const total = typeof totalRows[0]?.total === 'number' ? totalRows[0].total : Number(totalRows[0]?.total) || 0
+    const pageRows = (await manager.query(
+        `
+      SELECT row_data AS row
+      FROM (${unionSql}) union_rows
+      ORDER BY ${buildRuntimeUnionOrderBySql(sort, datasource.targets)}
+      LIMIT $${unionValues.length + 1} OFFSET $${unionValues.length + 2}
+    `,
+        [...unionValues, limit, offset]
+    )) as Array<{ row: Record<string, unknown> | string }>
+    const rows = pageRows.map((item) => {
+        if (typeof item.row === 'string') {
+            return JSON.parse(item.row) as Record<string, unknown> & { id: string }
+        }
+        return item.row as Record<string, unknown> & { id: string }
+    })
+    const objectCollections = targetPayloads.map(({ objectCollection }) => ({
+        id: objectCollection.id,
+        kind: resolveRuntimeStandardKind(objectCollection.kind) ?? 'object',
+        codename: resolveRuntimeCodenameText(objectCollection.codename),
+        tableName: objectCollection.table_name,
+        runtimeConfig: normalizeObjectCollectionRuntimeViewConfig(undefined),
+        recordBehavior: normalizeRuntimeRecordBehavior(objectCollection.config),
+        workflowActions: readConfiguredWorkflowActions(objectCollection.config),
+        name: resolvePresentationName(objectCollection.presentation, locale, resolveRuntimeCodenameText(objectCollection.codename))
+    }))
+    const activeObjectCollection = objectCollections[0]
+
+    return {
+        section: activeObjectCollection,
+        sections: objectCollections,
+        activeSectionId: activeObjectCollection.id,
+        objectCollection: activeObjectCollection,
+        objectCollections,
+        activeObjectCollectionId: activeObjectCollection.id,
+        columns: mergeRuntimeUnionColumns(targetPayloads.map((payload) => payload.columns)),
+        rows,
+        pagination: {
+            total,
+            limit,
+            offset
+        },
+        settings: runtimeContext.applicationSettings,
+        workspacesEnabled: runtimeContext.workspacesEnabled,
+        currentWorkspaceId: runtimeContext.currentWorkspaceId,
+        permissions: runtimeContext.permissions,
+        workflowCapabilities: runtimeContext.workflowCapabilities,
+        layoutConfig: {},
+        zoneWidgets: {
+            left: [],
+            right: [],
+            center: []
+        },
+        menus: [],
+        activeMenuId: null
+    }
+}
+
 const loadRuntimeRowById = async (manager: DbExecutor, dataTableIdent: string, rowId: string, runtimeRowCondition = 'TRUE') => {
     const rows = (await manager.query(
         `
@@ -2737,6 +4306,35 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         postingReversals: movementResult.postingReversals
     })
 
+    const listRecordsUnionDatasource = async (req: Request, res: Response) => {
+        const { applicationId } = req.params
+        const parsedBody = runtimeRecordsUnionBodySchema.safeParse(req.body)
+        if (!parsedBody.success) {
+            return res.status(400).json({ error: 'Invalid body', details: parsedBody.error.flatten() })
+        }
+
+        const { datasource, limit, offset, locale } = parsedBody.data
+        const requestedLocale = normalizeLocale(locale)
+        const runtimeContext = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
+        if (!runtimeContext) return
+
+        try {
+            const payload = await executeRuntimeRecordsUnionDatasource({
+                runtimeContext,
+                datasource,
+                limit,
+                offset,
+                locale: requestedLocale
+            })
+            return res.json(payload)
+        } catch (error) {
+            if (error instanceof UpdateFailure) {
+                return res.status(error.statusCode).json(error.body)
+            }
+            throw error
+        }
+    }
+
     // ============ GET RUNTIME TABLE ============
     const getRuntime = async (req: Request, res: Response) => {
         const { applicationId } = req.params
@@ -2749,6 +4347,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         const { limit, offset, locale, lifecycleState, libraryView, search, sort, filters } = parsedQuery.data
         const requestedLocale = normalizeLocale(locale)
         const requestedObjectCollectionId = parsedQuery.data.objectCollectionId ?? null
+        const requestedObjectCollectionCodename = parsedQuery.data.objectCollectionCodename?.trim() || null
         const runtimeContext = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
         if (!runtimeContext) return
 
@@ -2785,16 +4384,24 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             lifecycleContract: resolveApplicationLifecycleContractFromConfig(objectRow.config)
         }))
 
-        const preferredObjectCollectionIdFromMenu = requestedObjectCollectionId
-            ? null
-            : await resolvePreferredScopeEntityIdFromGlobalMenu({
-                  manager,
-                  schemaName,
-                  schemaIdent
-              })
+        const preferredObjectCollectionIdFromMenu =
+            requestedObjectCollectionId || requestedObjectCollectionCodename
+                ? null
+                : await resolvePreferredScopeEntityIdFromGlobalMenu({
+                      manager,
+                      schemaName,
+                      schemaIdent
+                  })
 
         const activeObjectCollection =
             (requestedObjectCollectionId ? runtimeObjects.find((objectRow) => objectRow.id === requestedObjectCollectionId) : undefined) ??
+            (requestedObjectCollectionCodename
+                ? runtimeObjects.find(
+                      (objectRow) =>
+                          resolveRuntimeCodenameText(objectRow.codename).trim().toLowerCase() ===
+                          requestedObjectCollectionCodename.toLowerCase()
+                  )
+                : undefined) ??
             (preferredObjectCollectionIdFromMenu
                 ? runtimeObjects.find((objectRow) => objectRow.id === preferredObjectCollectionIdFromMenu)
                 : undefined) ??
@@ -2802,7 +4409,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         if (!activeObjectCollection) {
             return res.status(404).json({
                 error: 'Requested object not found in runtime schema',
-                details: { objectCollectionId: requestedObjectCollectionId }
+                details: { objectCollectionId: requestedObjectCollectionId, objectCollectionCodename: requestedObjectCollectionCodename }
             })
         }
 
@@ -2967,7 +4574,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
             const targetObjectAttrs = (await manager.query(
                 `
-          SELECT object_id, column_name, codename, data_type, is_display_component, sort_order
+          SELECT id, object_id, column_name, codename, data_type, is_required, validation_rules, target_object_id, target_object_kind, ui_config, is_display_component, sort_order
           FROM ${schemaIdent}._app_components
           WHERE object_id = ANY($1::uuid[])
             AND parent_component_id IS NULL
@@ -2977,10 +4584,16 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         `,
                 [objectTargetObjectIds]
             )) as Array<{
+                id: string
                 object_id: string
                 column_name: string
                 codename: unknown
                 data_type: RuntimeDataType
+                is_required: boolean
+                validation_rules?: Record<string, unknown>
+                target_object_id?: string | null
+                target_object_kind?: string | null
+                ui_config?: Record<string, unknown>
                 is_display_component: boolean
                 sort_order?: number
             }>
@@ -3015,14 +4628,33 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                         ? `${quoteIdentifier(preferredDisplayAttr.column_name)} AS label_value`
                         : 'NULL AS label_value'
 
+                const targetTableIdent = `${schemaIdent}.${quoteIdentifier(targetObject.table_name)}`
+                const targetAccessValues: unknown[] = []
+                const targetAccessClause = await buildRuntimeRecordAccessClause({
+                    manager,
+                    schemaIdent,
+                    currentWorkspaceId,
+                    currentUserId: runtimeContext.userId,
+                    permissions: runtimeContext.permissions,
+                    objectCodename: resolveRuntimeCodenameText(targetObject.codename),
+                    attrs: targetAttrs,
+                    config: targetObject.config,
+                    outerRowIdSql: `${targetTableIdent}.id`,
+                    values: targetAccessValues
+                })
+                const targetWhereSql = [targetObjectActiveRowCondition, targetAccessClause]
+                    .filter((clause): clause is string => typeof clause === 'string' && clause.length > 0)
+                    .join(' AND ')
+
                 const targetRows = (await manager.query(
                     `
             SELECT id, ${selectLabelSql}
-            FROM ${schemaIdent}.${quoteIdentifier(targetObject.table_name)}
-            WHERE ${targetObjectActiveRowCondition}
+            FROM ${targetTableIdent}
+            WHERE ${targetWhereSql}
             ORDER BY _upl_created_at ASC NULLS LAST, id ASC
             LIMIT 1000
-          `
+          `,
+                    targetAccessValues
                 )) as Array<{
                     id: string
                     label_value?: unknown
@@ -3984,13 +5616,26 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         }
 
         const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(objectCollection.table_name)}`
-        const versionCheckClause = expectedVersion !== undefined ? 'AND COALESCE(_upl_version, 1) = $4' : ''
 
         let afterUpdateLifecycleRequest: RuntimeLifecycleDispatchRequest | null = null
 
         try {
             await ctx.manager.transaction(async (txManager) => {
-                const previousRow = await loadRuntimeRowById(txManager, dataTableIdent, rowId, runtimeRowCondition)
+                const objectCodename = resolveRuntimeCodenameText(objectCollection.codename)
+                const previousRow = await loadRuntimeRowByIdWithRecordAccess({
+                    manager: txManager,
+                    schemaIdent: ctx.schemaIdent,
+                    dataTableIdent,
+                    currentWorkspaceId: ctx.currentWorkspaceId,
+                    currentUserId: ctx.userId,
+                    permissions: ctx.permissions,
+                    objectCodename,
+                    attrs,
+                    config: objectCollection.config,
+                    rowId,
+                    rowCondition: runtimeRowCondition,
+                    minimumAccessLevel: 'edit'
+                })
                 if (!previousRow || !previousRow.id) {
                     throw new UpdateFailure(404, { error: 'Row not found' })
                 }
@@ -4003,6 +5648,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     manager: txManager,
                     schemaIdent: ctx.schemaIdent,
                     currentWorkspaceId: ctx.currentWorkspaceId,
+                    currentUserId: ctx.userId,
+                    permissions: ctx.permissions,
                     attrs,
                     row: { ...previousRow, [field]: coerced }
                 })
@@ -4013,12 +5660,28 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     manager: txManager,
                     schemaIdent: ctx.schemaIdent,
                     currentWorkspaceId: ctx.currentWorkspaceId,
+                    currentUserId: ctx.userId,
+                    permissions: ctx.permissions,
                     objectConfig: objectCollection.config,
                     attrs,
                     row: { ...previousRow, [field]: coerced }
                 })
                 if (accessEntryValidationError) {
                     throw new UpdateFailure(400, { error: accessEntryValidationError })
+                }
+                const parentAccessValidationError = await validateRuntimeParentRecordAccessReferences({
+                    manager: txManager,
+                    schemaIdent: ctx.schemaIdent,
+                    currentWorkspaceId: ctx.currentWorkspaceId,
+                    currentUserId: ctx.userId,
+                    permissions: ctx.permissions,
+                    objectConfig: objectCollection.config,
+                    attrs,
+                    row: { ...previousRow, [field]: coerced },
+                    minimumAccessLevel: 'edit'
+                })
+                if (parentAccessValidationError) {
+                    throw new UpdateFailure(400, { error: parentAccessValidationError })
                 }
                 const requiredWhenValidationError = validateRuntimeRequiredWhenRules({
                     config: objectCollection.config,
@@ -4053,6 +5716,26 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     }
                 })
 
+                const updateValues: unknown[] = [coerced, ctx.userId, rowId]
+                if (expectedVersion !== undefined) updateValues.push(expectedVersion)
+                const versionCheckClause = expectedVersion !== undefined ? `AND COALESCE(_upl_version, 1) = $${updateValues.length}` : ''
+                const updateAccessClause = await buildRuntimeRecordAccessClause({
+                    manager: txManager,
+                    schemaIdent: ctx.schemaIdent,
+                    currentWorkspaceId: ctx.currentWorkspaceId,
+                    currentUserId: ctx.userId,
+                    permissions: ctx.permissions,
+                    objectCodename,
+                    attrs,
+                    config: objectCollection.config,
+                    outerRowIdSql: `${dataTableIdent}.id`,
+                    values: updateValues,
+                    minimumAccessLevel: 'edit'
+                })
+                const updateWhereSql = ['id = $3', runtimeRowCondition, 'COALESCE(_upl_locked, false) = false', updateAccessClause]
+                    .filter((clause): clause is string => typeof clause === 'string' && clause.length > 0)
+                    .join(' AND ')
+
                 const updated = (await txManager.query(
                     `
             UPDATE ${dataTableIdent}
@@ -4060,14 +5743,12 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 _upl_updated_at = NOW(),
                 _upl_updated_by = $2,
                 _upl_version = COALESCE(_upl_version, 1) + 1
-            WHERE id = $3
-              AND ${runtimeRowCondition}
-              AND COALESCE(_upl_locked, false) = false
+            WHERE ${updateWhereSql}
               ${versionCheckClause}
             RETURNING id
           `,
-                    expectedVersion !== undefined ? [coerced, ctx.userId, rowId, expectedVersion] : [coerced, ctx.userId, rowId]
-                )) as Array<{ id: string }>
+                    updateValues
+                )) as Array<{ id: string; status?: unknown; progress_percent?: unknown }>
 
                 if (updated.length === 0) {
                     const exists = (await txManager.query(
@@ -4437,13 +6118,33 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         let afterUpdateLifecycleRequest: RuntimeLifecycleDispatchRequest | null = null
 
         const performBulkUpdate = async (mgr: DbExecutor) => {
+            const objectCodename = resolveRuntimeCodenameText(objectCollection.codename)
+            const updateAccessClause = await buildRuntimeRecordAccessClause({
+                manager: mgr,
+                schemaIdent: ctx.schemaIdent,
+                currentWorkspaceId: ctx.currentWorkspaceId,
+                currentUserId: ctx.userId,
+                permissions: ctx.permissions,
+                objectCodename,
+                attrs,
+                config: objectCollection.config,
+                outerRowIdSql: `${dataTableIdent}.id`,
+                values,
+                minimumAccessLevel: 'edit'
+            })
+            const updateWhereSql = [
+                `id = $${rowIdParamIndex}`,
+                runtimeRowCondition,
+                'COALESCE(_upl_locked, false) = false',
+                updateAccessClause
+            ]
+                .filter((clause): clause is string => typeof clause === 'string' && clause.length > 0)
+                .join(' AND ')
             const updated = (await mgr.query(
                 `
           UPDATE ${dataTableIdent}
           SET ${setClauses.join(', ')}
-          WHERE id = $${rowIdParamIndex}
-            AND ${runtimeRowCondition}
-            AND COALESCE(_upl_locked, false) = false
+          WHERE ${updateWhereSql}
             ${versionCheckClause}
           RETURNING id
         `,
@@ -4555,7 +6256,20 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
         try {
             await ctx.manager.transaction(async (txManager) => {
-                const previousRow = await loadRuntimeRowById(txManager, dataTableIdent, rowId, runtimeRowCondition)
+                const previousRow = await loadRuntimeRowByIdWithRecordAccess({
+                    manager: txManager,
+                    schemaIdent: ctx.schemaIdent,
+                    dataTableIdent,
+                    currentWorkspaceId: ctx.currentWorkspaceId,
+                    currentUserId: ctx.userId,
+                    permissions: ctx.permissions,
+                    objectCodename: resolveRuntimeCodenameText(objectCollection.codename),
+                    attrs,
+                    config: objectCollection.config,
+                    rowId,
+                    rowCondition: runtimeRowCondition,
+                    minimumAccessLevel: 'edit'
+                })
                 if (!previousRow || !previousRow.id) {
                     throw new UpdateFailure(404, {
                         error: 'Row not found'
@@ -4572,6 +6286,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     manager: txManager,
                     schemaIdent: ctx.schemaIdent,
                     currentWorkspaceId: ctx.currentWorkspaceId,
+                    currentUserId: ctx.userId,
+                    permissions: ctx.permissions,
                     attrs,
                     row: { ...previousRow, ...normalizedPatchByColumn }
                 })
@@ -4582,12 +6298,28 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     manager: txManager,
                     schemaIdent: ctx.schemaIdent,
                     currentWorkspaceId: ctx.currentWorkspaceId,
+                    currentUserId: ctx.userId,
+                    permissions: ctx.permissions,
                     objectConfig: objectCollection.config,
                     attrs,
                     row: { ...previousRow, ...normalizedPatchByColumn }
                 })
                 if (accessEntryValidationError) {
                     throw new UpdateFailure(400, { error: accessEntryValidationError })
+                }
+                const parentAccessValidationError = await validateRuntimeParentRecordAccessReferences({
+                    manager: txManager,
+                    schemaIdent: ctx.schemaIdent,
+                    currentWorkspaceId: ctx.currentWorkspaceId,
+                    currentUserId: ctx.userId,
+                    permissions: ctx.permissions,
+                    objectConfig: objectCollection.config,
+                    attrs,
+                    row: { ...previousRow, ...normalizedPatchByColumn },
+                    minimumAccessLevel: 'edit'
+                })
+                if (parentAccessValidationError) {
+                    throw new UpdateFailure(400, { error: parentAccessValidationError })
                 }
                 const requiredWhenValidationError = validateRuntimeRequiredWhenRules({
                     config: objectCollection.config,
@@ -4767,6 +6499,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             manager: ctx.manager,
             schemaIdent: ctx.schemaIdent,
             currentWorkspaceId: ctx.currentWorkspaceId,
+            currentUserId: ctx.userId,
+            permissions: ctx.permissions,
             objectConfig: objectCollection.config,
             attrs,
             row: pendingCreateRow
@@ -4778,11 +6512,27 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             manager: ctx.manager,
             schemaIdent: ctx.schemaIdent,
             currentWorkspaceId: ctx.currentWorkspaceId,
+            currentUserId: ctx.userId,
+            permissions: ctx.permissions,
             attrs,
             row: pendingCreateRow
         })
         if (referenceValidationError) {
             return res.status(400).json({ error: referenceValidationError })
+        }
+        const parentAccessValidationError = await validateRuntimeParentRecordAccessReferences({
+            manager: ctx.manager,
+            schemaIdent: ctx.schemaIdent,
+            currentWorkspaceId: ctx.currentWorkspaceId,
+            currentUserId: ctx.userId,
+            permissions: ctx.permissions,
+            objectConfig: objectCollection.config,
+            attrs,
+            row: pendingCreateRow,
+            minimumAccessLevel: 'edit'
+        })
+        if (parentAccessValidationError) {
+            return res.status(400).json({ error: parentAccessValidationError })
         }
         const requiredWhenValidationError = validateRuntimeRequiredWhenRules({
             config: objectCollection.config,
@@ -5069,6 +6819,21 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 currentWorkspaceId: ctx.currentWorkspaceId,
                 currentUserId: ctx.userId
             })
+            const transactionalCreateRow = Object.fromEntries(createColumnValues.map(({ column, value }) => [column, value]))
+            const parentAccessValidationError = await validateRuntimeParentRecordAccessReferences({
+                manager: mgr,
+                schemaIdent: ctx.schemaIdent,
+                currentWorkspaceId: ctx.currentWorkspaceId,
+                currentUserId: ctx.userId,
+                permissions: ctx.permissions,
+                objectConfig: objectCollection.config,
+                attrs,
+                row: transactionalCreateRow,
+                minimumAccessLevel: 'edit'
+            })
+            if (parentAccessValidationError) {
+                throw new UpdateFailure(400, { error: parentAccessValidationError })
+            }
 
             const colNames = createColumnValues.map((cv) => quoteIdentifier(cv.column))
             const placeholders = createColumnValues.map((_, i) => `$${i + 1}`)
@@ -5228,14 +6993,30 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         }
 
         const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(objectCollection.table_name)}`
+        const sourceReadValues: unknown[] = [rowId]
+        const sourceReadAccessClause = await buildRuntimeRecordAccessClause({
+            manager: ctx.manager,
+            schemaIdent: ctx.schemaIdent,
+            currentWorkspaceId: ctx.currentWorkspaceId,
+            currentUserId: ctx.userId,
+            permissions: ctx.permissions,
+            objectCodename: resolveRuntimeCodenameText(objectCollection.codename),
+            attrs,
+            config: objectCollection.config,
+            outerRowIdSql: `${dataTableIdent}.id`,
+            values: sourceReadValues,
+            minimumAccessLevel: 'edit'
+        })
+        const sourceReadWhereSql = ['id = $1', runtimeRowCondition, sourceReadAccessClause]
+            .filter((clause): clause is string => typeof clause === 'string' && clause.length > 0)
+            .join(' AND ')
         const sourceRows = (await ctx.manager.query(
             `
         SELECT *
         FROM ${dataTableIdent}
-        WHERE id = $1
-          AND ${runtimeRowCondition}
+        WHERE ${sourceReadWhereSql}
       `,
-            [rowId]
+            sourceReadValues
         )) as Array<Record<string, unknown>>
 
         if (sourceRows.length === 0) return res.status(404).json({ error: 'Row not found' })
@@ -5263,8 +7044,9 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         const copyOverrideValues = new Map<string, unknown>()
         const copyOverrideData = parsedBody.data.data ?? {}
         for (const cmp of tableAttrsForCopy) {
-            const { hasUserValue } = getRuntimeInputValue(copyOverrideData, cmp.column_name, cmp.codename)
-            if (hasUserValue) {
+            const { hasUserValue, value } = getRuntimeInputValue(copyOverrideData, cmp.column_name, cmp.codename)
+            const isEmptyTableOverride = Array.isArray(value) && value.length === 0
+            if (hasUserValue && !isEmptyTableOverride) {
                 return res.status(400).json({
                     error: `TABLE overrides are not supported during copy: ${formatRuntimeFieldLabel(cmp.codename)}`
                 })
@@ -5349,15 +7131,44 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 }
             }
 
+            const accessEntryValidationError = await validateRuntimeAccessEntryMembership({
+                manager: mgr,
+                schemaIdent: ctx.schemaIdent,
+                currentWorkspaceId: ctx.currentWorkspaceId,
+                currentUserId: ctx.userId,
+                permissions: ctx.permissions,
+                objectConfig: objectCollection.config,
+                attrs,
+                row: pendingCopyRow
+            })
+            if (accessEntryValidationError) {
+                throw new UpdateFailure(400, { error: accessEntryValidationError })
+            }
             const referenceValidationError = await validateRuntimeRecordPickerReferences({
                 manager: mgr,
                 schemaIdent: ctx.schemaIdent,
                 currentWorkspaceId: ctx.currentWorkspaceId,
+                currentUserId: ctx.userId,
+                permissions: ctx.permissions,
                 attrs,
                 row: pendingCopyRow
             })
             if (referenceValidationError) {
                 throw new UpdateFailure(400, { error: referenceValidationError })
+            }
+            const parentAccessValidationError = await validateRuntimeParentRecordAccessReferences({
+                manager: mgr,
+                schemaIdent: ctx.schemaIdent,
+                currentWorkspaceId: ctx.currentWorkspaceId,
+                currentUserId: ctx.userId,
+                permissions: ctx.permissions,
+                objectConfig: objectCollection.config,
+                attrs,
+                row: pendingCopyRow,
+                minimumAccessLevel: 'edit'
+            })
+            if (parentAccessValidationError) {
+                throw new UpdateFailure(400, { error: parentAccessValidationError })
             }
             const requiredWhenValidationError = validateRuntimeRequiredWhenRules({
                 config: objectCollection.config,
@@ -5391,16 +7202,32 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         let afterCopyLifecycleRequest: RuntimeLifecycleDispatchRequest | null = null
 
         const performCopy = async (mgr: DbExecutor) => {
+            const transactionalSourceValues: unknown[] = [rowId]
+            const transactionalSourceAccessClause = await buildRuntimeRecordAccessClause({
+                manager: mgr,
+                schemaIdent: ctx.schemaIdent,
+                currentWorkspaceId: ctx.currentWorkspaceId,
+                currentUserId: ctx.userId,
+                permissions: ctx.permissions,
+                objectCodename: resolveRuntimeCodenameText(objectCollection.codename),
+                attrs,
+                config: objectCollection.config,
+                outerRowIdSql: `${dataTableIdent}.id`,
+                values: transactionalSourceValues,
+                minimumAccessLevel: 'edit'
+            })
+            const transactionalSourceWhereSql = ['id = $1', runtimeRowCondition, transactionalSourceAccessClause]
+                .filter((clause): clause is string => typeof clause === 'string' && clause.length > 0)
+                .join(' AND ')
             const sourceRowsForCopy = (await mgr.query(
                 `
           SELECT *
           FROM ${dataTableIdent}
-          WHERE id = $1
-            AND ${runtimeRowCondition}
+          WHERE ${transactionalSourceWhereSql}
           FOR UPDATE
           LIMIT 1
         `,
-                [rowId]
+                transactionalSourceValues
             )) as Array<Record<string, unknown>>
             const transactionalSourceRow = sourceRowsForCopy[0]
             if (!transactionalSourceRow?.id) {
@@ -5637,11 +7464,11 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         if (!ctx.userId) return res.status(401).json({ error: 'Current user is required' })
         if (!ensureRuntimePermission(res, ctx, 'editContent')) return
 
-        const { objectCollection, error: objectCollectionError } = await resolveRuntimeObjectCollection(
-            ctx.manager,
-            ctx.schemaIdent,
-            parsedBody.data.objectCollectionId
-        )
+        const {
+            objectCollection,
+            attrs,
+            error: objectCollectionError
+        } = await resolveRuntimeObjectCollection(ctx.manager, ctx.schemaIdent, parsedBody.data.objectCollectionId)
         if (!objectCollection) return res.status(404).json({ error: objectCollectionError })
 
         const behavior = normalizeRuntimeRecordBehavior(objectCollection.config)
@@ -5671,16 +7498,32 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
         try {
             await ctx.manager.transaction(async (txManager) => {
+                const commandAccessValues: unknown[] = [rowId]
+                const commandAccessClause = await buildRuntimeRecordAccessClause({
+                    manager: txManager,
+                    schemaIdent: ctx.schemaIdent,
+                    currentWorkspaceId: ctx.currentWorkspaceId,
+                    currentUserId: ctx.userId,
+                    permissions: ctx.permissions,
+                    objectCodename: resolveRuntimeCodenameText(objectCollection.codename),
+                    attrs,
+                    config: objectCollection.config,
+                    outerRowIdSql: `${dataTableIdent}.id`,
+                    values: commandAccessValues,
+                    minimumAccessLevel: 'edit'
+                })
+                const commandWhereSql = ['id = $1', runtimeRowCondition, commandAccessClause]
+                    .filter((clause): clause is string => typeof clause === 'string' && clause.length > 0)
+                    .join(' AND ')
                 const rows = (await txManager.query(
                     `
             SELECT *
             FROM ${dataTableIdent}
-            WHERE id = $1
-              AND ${runtimeRowCondition}
+            WHERE ${commandWhereSql}
             FOR UPDATE
             LIMIT 1
           `,
-                    [rowId]
+                    commandAccessValues
                 )) as Array<Record<string, unknown>>
                 const previousRow = rows[0]
                 if (!previousRow?.id) {
@@ -5749,13 +7592,27 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     setClauses.push('_app_posting_movements = NULL')
                 }
 
+                const updateAccessClause = await buildRuntimeRecordAccessClause({
+                    manager: txManager,
+                    schemaIdent: ctx.schemaIdent,
+                    currentWorkspaceId: ctx.currentWorkspaceId,
+                    currentUserId: ctx.userId,
+                    permissions: ctx.permissions,
+                    objectCodename: resolveRuntimeCodenameText(objectCollection.codename),
+                    attrs,
+                    config: objectCollection.config,
+                    outerRowIdSql: `${dataTableIdent}.id`,
+                    values,
+                    minimumAccessLevel: 'edit'
+                })
+                const updateWhereSql = ['id = $1', runtimeRowCondition, 'COALESCE(_upl_locked, false) = false', updateAccessClause]
+                    .filter((clause): clause is string => typeof clause === 'string' && clause.length > 0)
+                    .join(' AND ')
                 const updatedRows = (await txManager.query(
                     `
             UPDATE ${dataTableIdent}
             SET ${setClauses.join(', ')}
-            WHERE id = $1
-              AND ${runtimeRowCondition}
-              AND COALESCE(_upl_locked, false) = false
+            WHERE ${updateWhereSql}
             RETURNING *
           `,
                     values
@@ -5845,6 +7702,31 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
         try {
             const result = await ctx.manager.transaction(async (txManager) => {
+                const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(objectCollection.table_name)}`
+                const runtimeRowCondition = buildRuntimeActiveRowCondition(
+                    objectCollection.lifecycleContract,
+                    objectCollection.config,
+                    undefined,
+                    ctx.currentWorkspaceId
+                )
+                const accessibleRow = await loadRuntimeRowByIdWithRecordAccess({
+                    manager: txManager,
+                    schemaIdent: ctx.schemaIdent,
+                    dataTableIdent,
+                    currentWorkspaceId: ctx.currentWorkspaceId,
+                    currentUserId: ctx.userId,
+                    permissions: ctx.permissions,
+                    objectCodename: resolveRuntimeCodenameText(objectCollection.codename),
+                    attrs,
+                    config: objectCollection.config,
+                    rowId,
+                    rowCondition: runtimeRowCondition,
+                    minimumAccessLevel: 'edit'
+                })
+                if (!accessibleRow?.id) {
+                    throw new UpdateFailure(404, { error: 'Workflow action row not found', code: 'WORKFLOW_ROW_NOT_FOUND' })
+                }
+
                 const statusValueMap = await buildWorkflowEnumStatusValueMap(txManager, ctx.schemaIdent, statusAttr)
                 ensureWorkflowEnumStatusesConfigured(action, statusValueMap)
 
@@ -5899,19 +7781,34 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             undefined,
             ctx.currentWorkspaceId
         )
+        const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(objectCollection.table_name)}`
 
+        const rowValues: unknown[] = [rowId]
+        const recordAccessClause = await buildRuntimeRecordAccessClause({
+            manager: ctx.manager,
+            schemaIdent: ctx.schemaIdent,
+            currentWorkspaceId: ctx.currentWorkspaceId,
+            currentUserId: ctx.userId,
+            permissions: ctx.permissions,
+            objectCodename: resolveRuntimeCodenameText(objectCollection.codename),
+            attrs,
+            config: objectCollection.config,
+            outerRowIdSql: `${dataTableIdent}.id`,
+            values: rowValues
+        })
         const safeAttrs = attrs.filter((a) => IDENTIFIER_REGEX.test(a.column_name) && a.data_type !== 'TABLE')
         const selectColumns = ['id', ...safeAttrs.map((a) => quoteIdentifier(a.column_name)), quoteIdentifier('_upl_version')]
-        const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(objectCollection.table_name)}`
+        const whereSql = ['id = $1', runtimeRowCondition, recordAccessClause]
+            .filter((clause): clause is string => typeof clause === 'string' && clause.length > 0)
+            .join(' AND ')
 
         const rows = (await ctx.manager.query(
             `
         SELECT ${selectColumns.join(', ')}
         FROM ${dataTableIdent}
-        WHERE id = $1
-          AND ${runtimeRowCondition}
+        WHERE ${whereSql}
       `,
-            [rowId]
+            rowValues
         )) as Array<Record<string, unknown>>
 
         if (rows.length === 0) return res.status(404).json({ error: 'Row not found' })
@@ -5967,7 +7864,33 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         let afterDeleteLifecycleRequest: RuntimeLifecycleDispatchRequest | null = null
 
         const performDelete = async (mgr: DbExecutor) => {
-            const sourceRow = await loadRuntimeRowById(mgr, dataTableIdent, rowId, runtimeRowCondition)
+            const sourceValues: unknown[] = [rowId]
+            const sourceAccessClause = await buildRuntimeRecordAccessClause({
+                manager: mgr,
+                schemaIdent: ctx.schemaIdent,
+                currentWorkspaceId: ctx.currentWorkspaceId,
+                currentUserId: ctx.userId,
+                permissions: ctx.permissions,
+                objectCodename: resolveRuntimeCodenameText(objectCollection.codename),
+                attrs,
+                config: objectCollection.config,
+                outerRowIdSql: `${dataTableIdent}.id`,
+                values: sourceValues,
+                minimumAccessLevel: 'edit'
+            })
+            const sourceWhereSql = ['id = $1', runtimeRowCondition, sourceAccessClause]
+                .filter((clause): clause is string => typeof clause === 'string' && clause.length > 0)
+                .join(' AND ')
+            const sourceRows = (await mgr.query(
+                `
+              SELECT *
+              FROM ${dataTableIdent}
+              WHERE ${sourceWhereSql}
+              LIMIT 1
+            `,
+                sourceValues
+            )) as Array<Record<string, unknown>>
+            const sourceRow = sourceRows[0]
             if (!sourceRow || !sourceRow.id) {
                 throw new UpdateFailure(404, {
                     error: 'Row not found'
@@ -6000,31 +7923,53 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 }
             })
 
-            const deleteExpectedVersionPredicate = buildRuntimeExpectedVersionPredicate(expectedVersion, runtimeDeleteSetClause ? 3 : 2)
+            const deleteParams: unknown[] = runtimeDeleteSetClause ? [ctx.userId, rowId] : [rowId]
+            const deleteRowIdPlaceholder = runtimeDeleteSetClause ? '$2' : '$1'
+            const deleteAccessClause = await buildRuntimeRecordAccessClause({
+                manager: mgr,
+                schemaIdent: ctx.schemaIdent,
+                currentWorkspaceId: ctx.currentWorkspaceId,
+                currentUserId: ctx.userId,
+                permissions: ctx.permissions,
+                objectCodename: resolveRuntimeCodenameText(objectCollection.codename),
+                attrs,
+                config: objectCollection.config,
+                outerRowIdSql: `${dataTableIdent}.id`,
+                values: deleteParams,
+                minimumAccessLevel: 'edit'
+            })
+            if (expectedVersion !== undefined) {
+                deleteParams.push(expectedVersion)
+            }
+            const deleteExpectedVersionPredicate = buildRuntimeExpectedVersionPredicate(expectedVersion, deleteParams.length)
+            const deleteWhereSql = [
+                `id = ${deleteRowIdPlaceholder}`,
+                runtimeRowCondition,
+                'COALESCE(_upl_locked, false) = false',
+                deleteAccessClause
+            ]
+                .filter((clause): clause is string => typeof clause === 'string' && clause.length > 0)
+                .join(' AND ')
             const deleted = runtimeDeleteSetClause
                 ? ((await mgr.query(
                       `
               UPDATE ${dataTableIdent}
               SET ${runtimeDeleteSetClause},
                   _upl_version = COALESCE(_upl_version, 1) + 1
-              WHERE id = $2
-                AND ${runtimeRowCondition}
-                AND COALESCE(_upl_locked, false) = false
+              WHERE ${deleteWhereSql}
                 ${deleteExpectedVersionPredicate}
               RETURNING id
             `,
-                      expectedVersion === undefined ? [ctx.userId, rowId] : [ctx.userId, rowId, expectedVersion]
+                      deleteParams
                   )) as Array<{ id: string }>)
                 : ((await mgr.query(
                       `
               DELETE FROM ${dataTableIdent}
-              WHERE id = $1
-                AND ${runtimeRowCondition}
-                AND COALESCE(_upl_locked, false) = false
+              WHERE ${deleteWhereSql}
                 ${deleteExpectedVersionPredicate}
               RETURNING id
             `,
-                      expectedVersion === undefined ? [rowId] : [rowId, expectedVersion]
+                      deleteParams
                   )) as Array<{ id: string }>)
 
             if (deleted.length === 0) {
@@ -6135,7 +8080,33 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
 
         try {
             await ctx.manager.transaction(async (txManager) => {
-                const sourceRow = await loadRuntimeRowById(txManager, dataTableIdent, rowId, deletedRowCondition)
+                const sourceValues: unknown[] = [rowId]
+                const sourceAccessClause = await buildRuntimeRecordAccessClause({
+                    manager: txManager,
+                    schemaIdent: ctx.schemaIdent,
+                    currentWorkspaceId: ctx.currentWorkspaceId,
+                    currentUserId: ctx.userId,
+                    permissions: ctx.permissions,
+                    objectCodename: resolveRuntimeCodenameText(objectCollection.codename),
+                    attrs,
+                    config: objectCollection.config,
+                    outerRowIdSql: `${dataTableIdent}.id`,
+                    values: sourceValues,
+                    minimumAccessLevel: 'edit'
+                })
+                const sourceWhereSql = ['id = $1', deletedRowCondition, sourceAccessClause]
+                    .filter((clause): clause is string => typeof clause === 'string' && clause.length > 0)
+                    .join(' AND ')
+                const sourceRows = (await txManager.query(
+                    `
+              SELECT *
+              FROM ${dataTableIdent}
+              WHERE ${sourceWhereSql}
+              LIMIT 1
+            `,
+                    sourceValues
+                )) as Array<Record<string, unknown>>
+                const sourceRow = sourceRows[0]
                 if (!sourceRow || !sourceRow.id) {
                     throw new UpdateFailure(404, {
                         error: 'Deleted row not found',
@@ -6154,6 +8125,159 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     }
                 }
                 assertRuntimeRecordMutable(objectCollection.config, sourceRow)
+
+                const restoreTarget = parsedBody.data.restoreTarget
+                let restoreTargetSetClause = ''
+                const restoreParams: unknown[] = [ctx.userId, rowId]
+                let expectedVersionParamIndex = 0
+                if (parsedBody.data.expectedVersion !== undefined) {
+                    restoreParams.push(parsedBody.data.expectedVersion)
+                    expectedVersionParamIndex = restoreParams.length
+                }
+
+                if (restoreTarget?.mode === 'target') {
+                    if (
+                        ctx.currentWorkspaceId &&
+                        restoreTarget.targetWorkspaceId &&
+                        restoreTarget.targetWorkspaceId !== ctx.currentWorkspaceId
+                    ) {
+                        throw new UpdateFailure(403, {
+                            error: 'Restore target belongs to a different workspace',
+                            code: 'RUNTIME_RESTORE_TARGET_WORKSPACE_DENIED'
+                        })
+                    }
+
+                    const targetCollectionResult = await resolveRuntimeObjectCollection(
+                        txManager,
+                        ctx.schemaIdent,
+                        restoreTarget.targetObjectCollectionId
+                    )
+                    if (
+                        !targetCollectionResult.objectCollection ||
+                        targetCollectionResult.objectCollection.id !== restoreTarget.targetObjectCollectionId
+                    ) {
+                        throw new UpdateFailure(404, {
+                            error: targetCollectionResult.error,
+                            code: 'RUNTIME_RESTORE_TARGET_NOT_FOUND'
+                        })
+                    }
+
+                    const targetTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(targetCollectionResult.objectCollection.table_name)}`
+                    const targetActiveCondition = buildRuntimeActiveRowCondition(
+                        targetCollectionResult.objectCollection.lifecycleContract,
+                        targetCollectionResult.objectCollection.config,
+                        undefined,
+                        ctx.currentWorkspaceId
+                    )
+                    const targetValues: unknown[] = [restoreTarget.targetRecordId]
+                    const targetAccessClause = await buildRuntimeRecordAccessClause({
+                        manager: txManager,
+                        schemaIdent: ctx.schemaIdent,
+                        currentWorkspaceId: ctx.currentWorkspaceId,
+                        currentUserId: ctx.userId,
+                        permissions: ctx.permissions,
+                        objectCodename: resolveRuntimeCodenameText(targetCollectionResult.objectCollection.codename),
+                        attrs: targetCollectionResult.attrs,
+                        config: targetCollectionResult.objectCollection.config,
+                        outerRowIdSql: `${targetTableIdent}.id`,
+                        values: targetValues,
+                        minimumAccessLevel: 'edit'
+                    })
+                    const targetWhereSql = ['id = $1', targetActiveCondition, targetAccessClause]
+                        .filter((clause): clause is string => typeof clause === 'string' && clause.length > 0)
+                        .join(' AND ')
+                    const targetRows = (await txManager.query(
+                        `
+              SELECT id
+              FROM ${targetTableIdent}
+              WHERE ${targetWhereSql}
+              LIMIT 1
+            `,
+                        targetValues
+                    )) as Array<{ id: string }>
+                    if (!targetRows[0]?.id) {
+                        throw new UpdateFailure(404, {
+                            error: 'Restore target row not found',
+                            code: 'RUNTIME_RESTORE_TARGET_ROW_NOT_FOUND'
+                        })
+                    }
+
+                    if (restoreTarget.parentFieldCodename) {
+                        const parentAttr = attrs.find(
+                            (attr) =>
+                                attr.column_name === restoreTarget.parentFieldCodename ||
+                                resolveRuntimeCodenameText(attr.codename) === restoreTarget.parentFieldCodename
+                        )
+                        if (
+                            !parentAttr ||
+                            parentAttr.data_type !== 'REF' ||
+                            parentAttr.target_object_id !== restoreTarget.targetObjectCollectionId
+                        ) {
+                            throw new UpdateFailure(400, {
+                                error: 'Restore target parent field does not reference the target object',
+                                code: 'RUNTIME_RESTORE_TARGET_FIELD_INVALID'
+                            })
+                        }
+                        restoreParams.push(restoreTarget.targetRecordId)
+                        restoreTargetSetClause = `,
+                  ${quoteIdentifier(parentAttr.column_name)} = $${restoreParams.length}`
+                    }
+                }
+
+                if (restoreTarget?.mode !== 'target' || !restoreTarget.parentFieldCodename) {
+                    const parentAccessValidationError = await validateRuntimeParentRecordAccessReferences({
+                        manager: txManager,
+                        schemaIdent: ctx.schemaIdent,
+                        currentWorkspaceId: ctx.currentWorkspaceId,
+                        currentUserId: ctx.userId,
+                        permissions: ctx.permissions,
+                        objectConfig: objectCollection.config,
+                        attrs,
+                        row: sourceRow,
+                        minimumAccessLevel: 'edit'
+                    })
+                    if (parentAccessValidationError) {
+                        throw new UpdateFailure(404, {
+                            error: parentAccessValidationError,
+                            code: 'RUNTIME_RESTORE_ORIGINAL_PARENT_NOT_FOUND'
+                        })
+                    }
+                }
+
+                if (ctx.workspacesEnabled && ctx.currentWorkspaceId) {
+                    const limitState = await enforceObjectWorkspaceLimit(txManager, {
+                        schemaName: ctx.schemaName,
+                        objectId: objectCollection.id,
+                        tableName: objectCollection.table_name,
+                        workspaceId: ctx.currentWorkspaceId,
+                        runtimeRowCondition: activeRowCondition
+                    })
+
+                    if (!limitState.canCreate) {
+                        throw new UpdateFailure(409, {
+                            error: 'Workspace object row limit reached',
+                            code: 'WORKSPACE_LIMIT_REACHED',
+                            details: limitState
+                        })
+                    }
+                }
+
+                const restoreAccessClause = await buildRuntimeRecordAccessClause({
+                    manager: txManager,
+                    schemaIdent: ctx.schemaIdent,
+                    currentWorkspaceId: ctx.currentWorkspaceId,
+                    currentUserId: ctx.userId,
+                    permissions: ctx.permissions,
+                    objectCodename: resolveRuntimeCodenameText(objectCollection.codename),
+                    attrs,
+                    config: objectCollection.config,
+                    outerRowIdSql: `${dataTableIdent}.id`,
+                    values: restoreParams,
+                    minimumAccessLevel: 'edit'
+                })
+                const restoreWhereSql = ['id = $2', deletedRowCondition, 'COALESCE(_upl_locked, false) = false', restoreAccessClause]
+                    .filter((clause): clause is string => typeof clause === 'string' && clause.length > 0)
+                    .join(' AND ')
 
                 await dispatchRuntimeLifecycle({
                     manager: txManager,
@@ -6174,17 +8298,14 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     `
               UPDATE ${dataTableIdent}
               SET ${runtimeRestoreSetClause},
+                  ${restoreTargetSetClause ? `${restoreTargetSetClause.trim().replace(/^,/, '')},` : ''}
                   _upl_version = COALESCE(_upl_version, 1) + 1
-              WHERE id = $2
-                AND ${deletedRowCondition}
-                AND COALESCE(_upl_locked, false) = false
-                ${buildRuntimeExpectedVersionPredicate(parsedBody.data.expectedVersion, 3)}
+              WHERE ${restoreWhereSql}
+                ${buildRuntimeExpectedVersionPredicate(parsedBody.data.expectedVersion, expectedVersionParamIndex)}
               RETURNING id
             `,
-                    parsedBody.data.expectedVersion === undefined
-                        ? [ctx.userId, rowId]
-                        : [ctx.userId, rowId, parsedBody.data.expectedVersion]
-                )) as Array<{ id: string }>
+                    restoreParams
+                )) as Array<{ id: string; status?: unknown; progress_percent?: unknown }>
 
                 if (restored.length === 0) {
                     if (parsedBody.data.expectedVersion !== undefined) {
@@ -6243,6 +8364,157 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         }
     }
 
+    const persistRuntimeActorLibraryRelation = async (params: {
+        manager: DbExecutor
+        applicationId: string
+        schemaIdent: string
+        objectCollectionId: string
+        objectCodename: string
+        objectConfig: Record<string, unknown> | null | undefined
+        relationKey: RuntimeLibraryRelationKey
+        rowId: string
+        userId: string
+        currentWorkspaceId: string | null
+        workspacesEnabled: boolean
+        active: boolean
+        refreshTimestampOnActive?: boolean
+    }): Promise<{ active: boolean; changed: boolean } | null> => {
+        const libraryConfig = readRuntimeLibraryConfig(params.objectConfig)
+        const relation = libraryConfig?.[params.relationKey]
+        if (!relation?.actorFieldCodename) return null
+
+        const binding = await resolveRuntimeRelationBinding({
+            manager: params.manager,
+            schemaIdent: params.schemaIdent,
+            currentWorkspaceId: params.currentWorkspaceId,
+            relation
+        })
+        if (!binding?.actorColumnName) return null
+
+        const targetObjectColumn = quoteIdentifier(binding.targetObjectColumnName)
+        const targetRecordColumn = quoteIdentifier(binding.targetRecordColumnName)
+        const actorColumn = quoteIdentifier(binding.actorColumnName)
+        const timestampColumn = binding.timestampColumnName ? quoteIdentifier(binding.timestampColumnName) : null
+        const relationWorkspaceClause = params.workspacesEnabled && params.currentWorkspaceId ? 'AND rel.workspace_id = $4' : ''
+        const relationParams =
+            params.workspacesEnabled && params.currentWorkspaceId
+                ? [params.objectCodename, params.rowId, params.userId, params.currentWorkspaceId]
+                : [params.objectCodename, params.rowId, params.userId]
+        const relationWhereSql = `
+            rel.${targetObjectColumn}::text = $1::text
+            AND rel.${targetRecordColumn}::text = $2::text
+            AND rel.${actorColumn}::text = $3::text
+            ${relationWorkspaceClause}
+        `
+        const relationLockKey = `${params.applicationId}:${params.objectCollectionId}:${params.rowId}:${params.relationKey}:${
+            params.userId
+        }:${params.currentWorkspaceId ?? 'default'}`
+
+        await params.manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [relationLockKey])
+        const activeRows = (await params.manager.query(
+            `
+        SELECT rel.id
+        FROM ${binding.tableIdent} rel
+        WHERE ${relationWhereSql}
+          AND ${binding.activeCondition}
+        LIMIT 1
+      `,
+            relationParams
+        )) as Array<{ id: string }>
+        const activeRowId = activeRows[0]?.id
+        const wasActive = Boolean(activeRowId)
+
+        if (params.active) {
+            if (wasActive) {
+                if (params.refreshTimestampOnActive && timestampColumn) {
+                    const updatedRows = (await params.manager.query(
+                        `
+        UPDATE ${binding.tableIdent} rel
+        SET ${timestampColumn} = NOW(),
+            _upl_updated_at = NOW(),
+            _upl_updated_by = $2,
+            _upl_version = COALESCE(_upl_version, 1) + 1
+        WHERE rel.id = $1
+          AND ${binding.activeCondition}
+        RETURNING id
+      `,
+                        [activeRowId, params.userId]
+                    )) as Array<{ id: string }>
+                    if (updatedRows.length === 0) {
+                        throw new UpdateFailure(409, { error: 'Runtime library relation could not be updated' })
+                    }
+                    return { active: true, changed: true }
+                }
+                return { active: true, changed: false }
+            }
+
+            const [{ id }] = await params.manager.query<{ id: string }>('SELECT public.uuid_generate_v7() AS id')
+            const insertColumns = ['id', targetObjectColumn, targetRecordColumn, actorColumn]
+            const insertValues: unknown[] = [id, params.objectCodename, params.rowId, params.userId]
+            const insertPlaceholders = ['$1', '$2', '$3', '$4']
+
+            if (timestampColumn) {
+                insertColumns.push(timestampColumn)
+                insertPlaceholders.push('NOW()')
+            }
+            if (params.workspacesEnabled && params.currentWorkspaceId) {
+                insertColumns.push('workspace_id')
+                insertPlaceholders.push(`$${insertValues.length + 1}`)
+                insertValues.push(params.currentWorkspaceId)
+            }
+
+            insertColumns.push('_upl_created_by', '_upl_updated_by')
+            insertPlaceholders.push(`$${insertValues.length + 1}`, `$${insertValues.length + 2}`)
+            insertValues.push(params.userId, params.userId)
+
+            await params.manager.query(
+                `
+        INSERT INTO ${binding.tableIdent} (${insertColumns.join(', ')})
+        VALUES (${insertPlaceholders.join(', ')})
+      `,
+                insertValues
+            )
+            return { active: true, changed: true }
+        }
+
+        if (!wasActive) {
+            return { active: false, changed: false }
+        }
+
+        if (binding.isSoftDelete) {
+            const deletedByParam = `$${relationParams.length + 1}`
+            const updatedRows = (await params.manager.query(
+                `
+        UPDATE ${binding.tableIdent} rel
+        SET ${buildRuntimeSoftDeleteSetClause(deletedByParam, binding.lifecycleContract, binding.config)},
+            _upl_version = COALESCE(_upl_version, 1) + 1
+        WHERE ${relationWhereSql}
+          AND ${binding.activeCondition}
+        RETURNING id
+      `,
+                [...relationParams, params.userId]
+            )) as Array<{ id: string }>
+            if (updatedRows.length === 0) {
+                throw new UpdateFailure(409, { error: 'Runtime library relation could not be updated' })
+            }
+        } else {
+            const deletedRows = (await params.manager.query(
+                `
+        DELETE FROM ${binding.tableIdent} rel
+        WHERE ${relationWhereSql}
+          AND ${binding.activeCondition}
+        RETURNING id
+      `,
+                relationParams
+            )) as Array<{ id: string }>
+            if (deletedRows.length === 0) {
+                throw new UpdateFailure(409, { error: 'Runtime library relation could not be updated' })
+            }
+        }
+
+        return { active: false, changed: true }
+    }
+
     const updateContentProgress = async (req: Request, res: Response) => {
         const { applicationId } = req.params
 
@@ -6277,15 +8549,31 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 undefined,
                 ctx.currentWorkspaceId
             )
+            const targetAttrs = await loadRuntimeObjectAttrs(ctx.manager, ctx.schemaIdent, targetObject.id)
+            const targetValues: unknown[] = [parsedBody.data.targetRecordId]
+            const targetAccessClause = await buildRuntimeRecordAccessClause({
+                manager: ctx.manager,
+                schemaIdent: ctx.schemaIdent,
+                currentWorkspaceId: ctx.currentWorkspaceId,
+                currentUserId: ctx.userId,
+                permissions: ctx.permissions,
+                objectCodename: parsedBody.data.targetObjectCodename,
+                attrs: targetAttrs,
+                config: targetObject.config,
+                outerRowIdSql: `${targetTableIdent}.id`,
+                values: targetValues
+            })
+            const targetWhereSql = ['id = $1', targetActiveCondition, targetAccessClause]
+                .filter((clause): clause is string => typeof clause === 'string' && clause.length > 0)
+                .join(' AND ')
             const targetRows = (await ctx.manager.query(
                 `
           SELECT id
           FROM ${targetTableIdent}
-          WHERE id = $1
-            AND ${targetActiveCondition}
+          WHERE ${targetWhereSql}
           LIMIT 1
         `,
-                [parsedBody.data.targetRecordId]
+                targetValues
             )) as Array<{ id: string }>
 
             if (!targetRows[0]?.id) {
@@ -6362,11 +8650,8 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             })
         }
 
-        const progressPercent = parsedBody.data.action === 'complete' ? 100 : parsedBody.data.progressPercent!
-        const status =
-            parsedBody.data.action === 'complete'
-                ? 'completed'
-                : parsedBody.data.status ?? (progressPercent >= 100 ? 'completed' : 'inProgress')
+        const progressPercent = parsedBody.data.action === 'complete' ? 100 : 0
+        const status = parsedBody.data.action === 'complete' ? 'completed' : 'inProgress'
         const q = {
             targetObjectCodename: quoteIdentifier(binding.columns.targetObjectCodename),
             targetRecordId: quoteIdentifier(binding.columns.targetRecordId),
@@ -6384,11 +8669,26 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 ? [parsedBody.data.targetObjectCodename, parsedBody.data.targetRecordId, ctx.userId, ctx.currentWorkspaceId]
                 : [parsedBody.data.targetObjectCodename, parsedBody.data.targetRecordId, ctx.userId]
 
+        let storedProgressPercent = progressPercent
+        let storedStatus = status
+
         try {
             await ctx.manager.transaction(async (tx) => {
-                const existingRows = (await tx.query<{ id: string }>(
+                await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+                    [
+                        ctx.schemaIdent,
+                        binding.tableIdent,
+                        parsedBody.data.targetObjectCodename,
+                        parsedBody.data.targetRecordId,
+                        ctx.userId,
+                        ctx.workspacesEnabled && ctx.currentWorkspaceId ? ctx.currentWorkspaceId : ''
+                    ].join(':')
+                ])
+                const existingRows = (await tx.query<{ id: string; status?: unknown; progress_percent?: unknown }>(
                     `
-          SELECT id
+          SELECT id,
+                 ${q.status} AS status,
+                 ${q.progressPercent} AS progress_percent
           FROM ${binding.tableIdent}
           WHERE ${q.targetObjectCodename} = $1
             AND ${q.targetRecordId} = $2
@@ -6399,11 +8699,14 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
           LIMIT 1
         `,
                     existingParams
-                )) as Array<{ id: string }>
+                )) as Array<{ id: string; status?: unknown; progress_percent?: unknown }>
 
                 if (existingRows[0]?.id) {
-                    await tx.query(
-                        `
+                    if (parsedBody.data.action === 'complete') {
+                        storedProgressPercent = progressPercent
+                        storedStatus = status
+                        const updatedRows = await tx.query<{ id: string }>(
+                            `
             UPDATE ${binding.tableIdent}
             SET ${q.status} = $2,
                 ${q.progressPercent} = $3,
@@ -6414,9 +8717,39 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                 _upl_updated_by = $4,
                 _upl_version = COALESCE(_upl_version, 1) + 1
             WHERE id = $1
+            RETURNING id
           `,
-                        [existingRows[0].id, status, progressPercent, ctx.userId]
-                    )
+                            [existingRows[0].id, status, progressPercent, ctx.userId]
+                        )
+                        if (!updatedRows[0]?.id) {
+                            throw new UpdateFailure(409, {
+                                error: 'Progress update did not affect a row',
+                                code: 'PROGRESS_UPDATE_CONFLICT'
+                            })
+                        }
+                    } else {
+                        storedProgressPercent = readRuntimeProgressNumber(existingRows[0].progress_percent) ?? progressPercent
+                        storedStatus = readRuntimeProgressString(existingRows[0].status) ?? status
+                        const updatedRows = await tx.query<{ id: string }>(
+                            `
+            UPDATE ${binding.tableIdent}
+            SET ${q.lastViewedAt} = NOW(),
+                ${q.startedAt} = COALESCE(${q.startedAt}, NOW()),
+                _upl_updated_at = NOW(),
+                _upl_updated_by = $2,
+                _upl_version = COALESCE(_upl_version, 1) + 1
+            WHERE id = $1
+            RETURNING id
+          `,
+                            [existingRows[0].id, ctx.userId]
+                        )
+                        if (!updatedRows[0]?.id) {
+                            throw new UpdateFailure(409, {
+                                error: 'Progress update did not affect a row',
+                                code: 'PROGRESS_UPDATE_CONFLICT'
+                            })
+                        }
+                    }
                 } else {
                     const [{ id }] = await tx.query<{ id: string }>('SELECT public.uuid_generate_v7() AS id')
                     const insertColumns = [
@@ -6460,13 +8793,38 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
                     insertPlaceholders.push(`$${insertValues.length + 1}`, `$${insertValues.length + 2}`)
                     insertValues.push(ctx.userId, ctx.userId)
 
-                    await tx.query(
+                    const insertedRows = await tx.query<{ id: string }>(
                         `
           INSERT INTO ${binding.tableIdent} (${insertColumns.join(', ')})
           VALUES (${insertPlaceholders.join(', ')})
+          RETURNING id
         `,
                         insertValues
                     )
+                    if (!insertedRows[0]?.id) {
+                        throw new UpdateFailure(409, {
+                            error: 'Progress insert did not create a row',
+                            code: 'PROGRESS_INSERT_CONFLICT'
+                        })
+                    }
+                }
+
+                if (ctx.userId) {
+                    await persistRuntimeActorLibraryRelation({
+                        manager: tx,
+                        applicationId,
+                        schemaIdent: ctx.schemaIdent,
+                        objectCollectionId: targetObject.id,
+                        objectCodename: parsedBody.data.targetObjectCodename,
+                        objectConfig: targetObject.config,
+                        relationKey: 'recent',
+                        rowId: parsedBody.data.targetRecordId,
+                        userId: ctx.userId,
+                        currentWorkspaceId: ctx.currentWorkspaceId,
+                        workspacesEnabled: ctx.workspacesEnabled,
+                        active: true,
+                        refreshTimestampOnActive: true
+                    })
                 }
 
                 if (aggregateConfig && aggregateConfig.aggregateParents.length > 0) {
@@ -6496,9 +8854,301 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             persisted: true,
             targetObjectCodename: parsedBody.data.targetObjectCodename,
             targetRecordId: parsedBody.data.targetRecordId,
-            progressPercent,
-            status
+            progressPercent: storedProgressPercent,
+            status: storedStatus
         })
+    }
+
+    const setLibraryRelation = async (req: Request, res: Response) => {
+        const { applicationId, rowId } = req.params
+        const parsedRelationKey = runtimeLibraryRelationKeyParamSchema.safeParse(req.params.relationKey)
+        if (!parsedRelationKey.success) {
+            return res.status(404).json({ error: 'Runtime library relation action is not configured' })
+        }
+        if (!UUID_REGEX.test(rowId)) {
+            return res.status(400).json({ error: 'Invalid row id' })
+        }
+
+        const parsedBody = runtimeLibraryRelationActionBodySchema.safeParse(req.body)
+        if (!parsedBody.success) {
+            return res.status(400).json({ error: 'Invalid body', details: parsedBody.error.flatten() })
+        }
+
+        const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
+        if (!ctx) return
+        if (!ctx.userId) {
+            return res.status(401).json({ error: 'Runtime library actions require an authenticated user' })
+        }
+
+        const {
+            objectCollection,
+            attrs,
+            error: objectCollectionError
+        } = await resolveRuntimeObjectCollection(ctx.manager, ctx.schemaIdent, parsedBody.data.objectCollectionId)
+        if (!objectCollection) {
+            return res.status(404).json({ error: objectCollectionError })
+        }
+
+        const objectCodename = resolveRuntimeCodenameText(objectCollection.codename)
+        const relationKey = parsedRelationKey.data
+        const isSharedRelation = relationKey === 'shared'
+        if (!isSharedRelation && (parsedBody.data.principalType || parsedBody.data.principalId)) {
+            return res.status(400).json({ error: 'Runtime library principal target is only supported for shared relations' })
+        }
+        const libraryConfig = readRuntimeLibraryConfig(objectCollection.config)
+        const relation = libraryConfig?.[relationKey]
+        if (!relation) {
+            return res.status(409).json({ error: 'Runtime library relation is not configured for this object' })
+        }
+        if (!isSharedRelation && !relation.actorFieldCodename) {
+            return res.status(409).json({ error: 'Runtime library relation is not configured for this object' })
+        }
+        if (
+            isSharedRelation &&
+            (!relation.principalTypeFieldCodename ||
+                !relation.principalIdFieldCodename ||
+                (relation.accessLevelFieldCodename && !relation.defaultAccessLevel))
+        ) {
+            return res.status(409).json({ error: 'Runtime library relation is not configured for this object' })
+        }
+
+        const binding = await resolveRuntimeRelationBinding({
+            manager: ctx.manager,
+            schemaIdent: ctx.schemaIdent,
+            currentWorkspaceId: ctx.currentWorkspaceId,
+            relation
+        })
+        if (!binding || (!isSharedRelation && !binding.actorColumnName)) {
+            return res.status(409).json({ error: 'Runtime library relation is not configured for this object' })
+        }
+        if (isSharedRelation && (!binding.principalTypeColumnName || !binding.principalIdColumnName)) {
+            return res.status(409).json({ error: 'Runtime library relation is not configured for this object' })
+        }
+        const sharedPrincipalType = isSharedRelation ? parsedBody.data.principalType ?? 'user' : null
+        const sharedPrincipalId = isSharedRelation ? parsedBody.data.principalId ?? ctx.userId : null
+        const hasExplicitSharedPrincipal = Boolean(parsedBody.data.principalType && parsedBody.data.principalId)
+        const sharedAccessLevel = relation.defaultAccessLevel ?? 'canView'
+
+        const sourceTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(objectCollection.table_name)}`
+        const sourceValues: unknown[] = [rowId]
+        const sourceActiveCondition = buildRuntimeActiveRowCondition(
+            objectCollection.lifecycleContract,
+            objectCollection.config,
+            'src',
+            ctx.currentWorkspaceId
+        )
+        const sharedOwnerColumnName =
+            isSharedRelation && !ctx.permissions.editContent ? resolveRuntimeRecordOwnerColumnName(attrs, objectCollection.config) : null
+        if (isSharedRelation && !ctx.permissions.editContent && !sharedOwnerColumnName) {
+            return res.status(403).json({ error: 'Runtime library shared relation requires content owner or editor access' })
+        }
+        const recordAccessClause = await buildRuntimeRecordAccessClause({
+            manager: ctx.manager,
+            schemaIdent: ctx.schemaIdent,
+            currentWorkspaceId: ctx.currentWorkspaceId,
+            currentUserId: ctx.userId,
+            permissions: ctx.permissions,
+            objectCodename,
+            attrs,
+            config: objectCollection.config,
+            outerRowIdSql: 'src.id',
+            values: sourceValues,
+            minimumAccessLevel: isSharedRelation ? 'edit' : 'read'
+        })
+        const sourceWhereSql = ['src.id = $1', sourceActiveCondition, recordAccessClause]
+            .filter((clause): clause is string => typeof clause === 'string' && clause.length > 0)
+            .join(' AND ')
+        const sourceSelectSql = [
+            'src.id',
+            ...(sharedOwnerColumnName ? [`src.${quoteIdentifier(sharedOwnerColumnName)} AS owner_user_id`] : [])
+        ]
+        const sourceRows = (await ctx.manager.query(
+            `
+      SELECT ${sourceSelectSql.join(', ')}
+      FROM ${sourceTableIdent} src
+      WHERE ${sourceWhereSql}
+      LIMIT 1
+    `,
+            sourceValues
+        )) as Array<{ id: string; owner_user_id?: string | null }>
+        if (!sourceRows[0]?.id) {
+            return res.status(404).json({ error: 'Runtime library target row was not found' })
+        }
+        if (isSharedRelation && !ctx.permissions.editContent && String(sourceRows[0].owner_user_id ?? '') !== ctx.userId) {
+            return res.status(403).json({ error: 'Runtime library shared relation requires content owner or editor access' })
+        }
+        if (isSharedRelation) {
+            const sharedPrincipalError = await validateRuntimeSharedRelationPrincipal({
+                manager: ctx.manager,
+                applicationId,
+                schemaIdent: ctx.schemaIdent,
+                currentWorkspaceId: ctx.currentWorkspaceId,
+                binding,
+                principalType: sharedPrincipalType!,
+                principalId: sharedPrincipalId!,
+                explicitPrincipal: hasExplicitSharedPrincipal
+            })
+            if (sharedPrincipalError) {
+                return res.status(400).json({ error: sharedPrincipalError })
+            }
+        }
+
+        const targetObjectColumn = quoteIdentifier(binding.targetObjectColumnName)
+        const targetRecordColumn = quoteIdentifier(binding.targetRecordColumnName)
+        const actorColumn = binding.actorColumnName ? quoteIdentifier(binding.actorColumnName) : null
+        const principalTypeColumn = binding.principalTypeColumnName ? quoteIdentifier(binding.principalTypeColumnName) : null
+        const principalIdColumn = binding.principalIdColumnName ? quoteIdentifier(binding.principalIdColumnName) : null
+        const accessLevelColumn = binding.accessLevelColumnName ? quoteIdentifier(binding.accessLevelColumnName) : null
+        const timestampColumn = binding.timestampColumnName ? quoteIdentifier(binding.timestampColumnName) : null
+        const relationParams: unknown[] = isSharedRelation
+            ? [objectCodename, rowId, sharedPrincipalType, sharedPrincipalId]
+            : [objectCodename, rowId, ctx.userId]
+        const relationPredicates = [
+            `rel.${targetObjectColumn}::text = $1::text`,
+            `rel.${targetRecordColumn}::text = $2::text`,
+            isSharedRelation
+                ? `rel.${principalTypeColumn!}::text = $3::text AND rel.${principalIdColumn!}::text = $4::text`
+                : `rel.${actorColumn!}::text = $3::text`
+        ]
+        if (ctx.workspacesEnabled && ctx.currentWorkspaceId) {
+            relationParams.push(ctx.currentWorkspaceId)
+            relationPredicates.push(`rel.workspace_id = $${relationParams.length}`)
+        }
+        const relationWhereSql = relationPredicates.join('\n            AND ')
+        const relationLockPrincipal = isSharedRelation ? `${sharedPrincipalType}:${sharedPrincipalId}` : ctx.userId
+        const relationLockKey = `${applicationId}:${objectCollection.id}:${rowId}:${relationKey}:${relationLockPrincipal}:${
+            ctx.currentWorkspaceId ?? 'default'
+        }`
+
+        try {
+            const result = await ctx.manager.transaction(async (tx) => {
+                await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [relationLockKey])
+                const activeRows = (await tx.query(
+                    `
+        SELECT rel.id
+        FROM ${binding.tableIdent} rel
+        WHERE ${relationWhereSql}
+          AND ${binding.activeCondition}
+        LIMIT 1
+      `,
+                    relationParams
+                )) as Array<{ id: string }>
+                const wasActive = Boolean(activeRows[0]?.id)
+
+                if (parsedBody.data.active) {
+                    if (wasActive) {
+                        if ((relationKey === 'recent' && timestampColumn) || (isSharedRelation && (accessLevelColumn || timestampColumn))) {
+                            const updateAssignments = [
+                                ...(accessLevelColumn ? [`${accessLevelColumn} = $2`] : []),
+                                ...(timestampColumn ? [`${timestampColumn} = NOW()`] : []),
+                                `_upl_updated_at = NOW()`,
+                                `_upl_updated_by = $${accessLevelColumn ? 3 : 2}`,
+                                `_upl_version = COALESCE(_upl_version, 1) + 1`
+                            ]
+                            const updateValues = accessLevelColumn
+                                ? [activeRows[0]!.id, sharedAccessLevel, ctx.userId]
+                                : [activeRows[0]!.id, ctx.userId]
+                            const updatedRows = (await tx.query(
+                                `
+        UPDATE ${binding.tableIdent} rel
+        SET ${updateAssignments.join(',\n            ')}
+        WHERE rel.id = $1
+          AND ${binding.activeCondition}
+        RETURNING id
+      `,
+                                updateValues
+                            )) as Array<{ id: string }>
+                            if (updatedRows.length === 0) {
+                                throw new UpdateFailure(409, { error: 'Runtime library relation could not be updated' })
+                            }
+                            return { active: true, changed: true }
+                        }
+                        return { active: true, changed: false }
+                    }
+
+                    const [{ id }] = await tx.query<{ id: string }>('SELECT public.uuid_generate_v7() AS id')
+                    const insertColumns = isSharedRelation
+                        ? ['id', targetObjectColumn, targetRecordColumn, principalTypeColumn!, principalIdColumn!]
+                        : ['id', targetObjectColumn, targetRecordColumn, actorColumn!]
+                    const insertValues: unknown[] = isSharedRelation
+                        ? [id, objectCodename, rowId, sharedPrincipalType, sharedPrincipalId]
+                        : [id, objectCodename, rowId, ctx.userId]
+                    const insertPlaceholders = insertValues.map((_value, index) => `$${index + 1}`)
+
+                    if (timestampColumn) {
+                        insertColumns.push(timestampColumn)
+                        insertPlaceholders.push('NOW()')
+                    }
+                    if (isSharedRelation && accessLevelColumn) {
+                        insertColumns.push(accessLevelColumn)
+                        insertPlaceholders.push(`$${insertValues.length + 1}`)
+                        insertValues.push(sharedAccessLevel)
+                    }
+                    if (ctx.workspacesEnabled && ctx.currentWorkspaceId) {
+                        insertColumns.push('workspace_id')
+                        insertPlaceholders.push(`$${insertValues.length + 1}`)
+                        insertValues.push(ctx.currentWorkspaceId)
+                    }
+
+                    insertColumns.push('_upl_created_by', '_upl_updated_by')
+                    insertPlaceholders.push(`$${insertValues.length + 1}`, `$${insertValues.length + 2}`)
+                    insertValues.push(ctx.userId, ctx.userId)
+
+                    await tx.query(
+                        `
+        INSERT INTO ${binding.tableIdent} (${insertColumns.join(', ')})
+        VALUES (${insertPlaceholders.join(', ')})
+      `,
+                        insertValues
+                    )
+                    return { active: true, changed: true }
+                }
+
+                if (!wasActive) {
+                    return { active: false, changed: false }
+                }
+
+                if (binding.isSoftDelete) {
+                    const deletedByParam = `$${relationParams.length + 1}`
+                    const updatedRows = (await tx.query(
+                        `
+        UPDATE ${binding.tableIdent} rel
+        SET ${buildRuntimeSoftDeleteSetClause(deletedByParam, binding.lifecycleContract, binding.config)},
+            _upl_version = COALESCE(_upl_version, 1) + 1
+        WHERE ${relationWhereSql}
+          AND ${binding.activeCondition}
+        RETURNING id
+      `,
+                        [...relationParams, ctx.userId]
+                    )) as Array<{ id: string }>
+                    if (updatedRows.length === 0) {
+                        throw new UpdateFailure(409, { error: 'Runtime library relation could not be updated' })
+                    }
+                } else {
+                    const deletedRows = (await tx.query(
+                        `
+        DELETE FROM ${binding.tableIdent} rel
+        WHERE ${relationWhereSql}
+          AND ${binding.activeCondition}
+        RETURNING id
+      `,
+                        relationParams
+                    )) as Array<{ id: string }>
+                    if (deletedRows.length === 0) {
+                        throw new UpdateFailure(409, { error: 'Runtime library relation could not be updated' })
+                    }
+                }
+
+                return { active: false, changed: true }
+            })
+
+            return res.json({ relationKey, ...result })
+        } catch (e) {
+            if (e instanceof UpdateFailure) {
+                return res.status(e.statusCode).json(e.body)
+            }
+            throw e
+        }
     }
 
     const reorderRows = async (req: Request, res: Response) => {
@@ -6513,7 +9163,26 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         if (!ctx) return
         if (!ensureRuntimePermission(res, ctx, 'editContent')) return
 
-        const { orderedRowIds, objectCollectionId: requestedObjectCollectionId } = parsedBody.data
+        const { orderedRowIds, objectCollectionId: requestedObjectCollectionId, expectedVersionsByRowId } = parsedBody.data
+        const orderedRowIdSet = new Set(orderedRowIds)
+        if (orderedRowIdSet.size !== orderedRowIds.length) {
+            return res.status(400).json({
+                error: 'Runtime row reorder received duplicate row IDs',
+                code: 'RUNTIME_REORDER_DUPLICATE_ROWS'
+            })
+        }
+        const expectedVersionEntries = Object.entries(expectedVersionsByRowId ?? {})
+        if (expectedVersionEntries.length > 0) {
+            const missingVersionRows = orderedRowIds.filter((id) => expectedVersionsByRowId?.[id] === undefined)
+            const extraVersionRows = expectedVersionEntries.map(([id]) => id).filter((id) => !orderedRowIdSet.has(id))
+            if (missingVersionRows.length > 0 || extraVersionRows.length > 0) {
+                return res.status(409).json({
+                    error: 'Runtime row reorder expected-version map must match ordered rows',
+                    code: 'RUNTIME_REORDER_VERSION_MAP_MISMATCH',
+                    details: { missingVersionRows, extraVersionRows }
+                })
+            }
+        }
         const {
             objectCollection,
             attrs,
@@ -6543,40 +9212,113 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             ctx.currentWorkspaceId
         )
 
-        const [{ total }] = (await ctx.manager.query(
-            `
+        try {
+            await ctx.manager.transaction(async (tx) => {
+                const objectCodename = resolveRuntimeCodenameText(objectCollection.codename)
+                const countValues: unknown[] = []
+                const countAccessClause = await buildRuntimeRecordAccessClause({
+                    manager: tx,
+                    schemaIdent: ctx.schemaIdent,
+                    currentWorkspaceId: ctx.currentWorkspaceId,
+                    currentUserId: ctx.userId,
+                    permissions: ctx.permissions,
+                    objectCodename,
+                    attrs,
+                    config: objectCollection.config,
+                    outerRowIdSql: `${dataTableIdent}.id`,
+                    values: countValues,
+                    minimumAccessLevel: 'edit'
+                })
+                const countWhereSql = [runtimeRowCondition, countAccessClause]
+                    .filter((clause): clause is string => typeof clause === 'string' && clause.length > 0)
+                    .join(' AND ')
+                const [{ total }] = (await tx.query(
+                    `
         SELECT COUNT(*)::int AS total
         FROM ${dataTableIdent}
-        WHERE ${runtimeRowCondition}
-      `
-        )) as Array<{ total: number }>
-
-        if (total !== orderedRowIds.length) {
-            return res.status(409).json({
-                error: 'Persisted row reordering requires the complete loaded dataset',
-                details: { total, received: orderedRowIds.length }
-            })
-        }
-
-        const matchedRows = (await ctx.manager.query(
-            `
-        SELECT id
-        FROM ${dataTableIdent}
-        WHERE id = ANY($1::uuid[])
-          AND ${runtimeRowCondition}
+        WHERE ${countWhereSql}
       `,
-            [orderedRowIds]
-        )) as Array<{ id: string }>
+                    countValues
+                )) as Array<{ total: number }>
 
-        if (matchedRows.length !== orderedRowIds.length) {
-            return res.status(404).json({ error: 'One or more rows could not be reordered' })
-        }
+                if (total !== orderedRowIds.length) {
+                    throw new UpdateFailure(409, {
+                        error: 'Persisted row reordering requires the complete loaded dataset',
+                        details: { total, received: orderedRowIds.length }
+                    })
+                }
 
-        const valuesSql = orderedRowIds.map((_, index) => `($${index * 2 + 1}::uuid, $${index * 2 + 2}::numeric)`).join(', ')
-        const parameters = orderedRowIds.flatMap((rowId, index) => [rowId, index])
+                const matchValues: unknown[] = [orderedRowIds]
+                const matchAccessClause = await buildRuntimeRecordAccessClause({
+                    manager: tx,
+                    schemaIdent: ctx.schemaIdent,
+                    currentWorkspaceId: ctx.currentWorkspaceId,
+                    currentUserId: ctx.userId,
+                    permissions: ctx.permissions,
+                    objectCodename,
+                    attrs,
+                    config: objectCollection.config,
+                    outerRowIdSql: `${dataTableIdent}.id`,
+                    values: matchValues,
+                    minimumAccessLevel: 'edit'
+                })
+                const matchWhereSql = [`id = ANY($1::uuid[])`, runtimeRowCondition, matchAccessClause]
+                    .filter((clause): clause is string => typeof clause === 'string' && clause.length > 0)
+                    .join(' AND ')
+                const matchedRows = (await tx.query(
+                    `
+        SELECT id, _upl_version, _upl_locked
+        FROM ${dataTableIdent}
+        WHERE ${matchWhereSql}
+        FOR UPDATE
+      `,
+                    matchValues
+                )) as Array<{ id: string; _upl_version?: number | string | null; _upl_locked?: boolean | null }>
 
-        await ctx.manager.query(
-            `
+                if (matchedRows.length !== orderedRowIds.length) {
+                    throw new UpdateFailure(404, { error: 'One or more rows could not be reordered' })
+                }
+                if (matchedRows.some((row) => row._upl_locked === true)) {
+                    throw new UpdateFailure(423, { error: 'Record is locked' })
+                }
+
+                if (expectedVersionEntries.length > 0) {
+                    for (const row of matchedRows) {
+                        const expectedVersion = expectedVersionsByRowId?.[row.id]
+                        if (expectedVersion === undefined) continue
+                        const actualVersion = Number(row._upl_version ?? 1)
+                        if (actualVersion !== expectedVersion) {
+                            throw createRuntimeVersionConflictFailure(expectedVersion, actualVersion)
+                        }
+                    }
+                }
+
+                const valuesSql = orderedRowIds.map((_, index) => `($${index * 2 + 1}::uuid, $${index * 2 + 2}::numeric)`).join(', ')
+                const parameters = orderedRowIds.flatMap((rowId, index) => [rowId, index])
+                const updateAccessClause = await buildRuntimeRecordAccessClause({
+                    manager: tx,
+                    schemaIdent: ctx.schemaIdent,
+                    currentWorkspaceId: ctx.currentWorkspaceId,
+                    currentUserId: ctx.userId,
+                    permissions: ctx.permissions,
+                    objectCodename,
+                    attrs,
+                    config: objectCollection.config,
+                    outerRowIdSql: 'target.id',
+                    values: parameters,
+                    minimumAccessLevel: 'edit'
+                })
+                const updateWhereSql = [
+                    'target.id = incoming.id',
+                    runtimeRowCondition,
+                    'COALESCE(target._upl_locked, false) = false',
+                    updateAccessClause
+                ]
+                    .filter((clause): clause is string => typeof clause === 'string' && clause.length > 0)
+                    .join(' AND ')
+
+                const updatedRows = await tx.query<{ id: string }>(
+                    `
         WITH incoming(id, sort_order) AS (
           VALUES ${valuesSql}
         )
@@ -6585,16 +9327,31 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
             _upl_updated_by = $${parameters.length + 1},
             _upl_version = COALESCE(target._upl_version, 1) + 1
         FROM incoming
-        WHERE target.id = incoming.id
-          AND ${runtimeRowCondition}
+        WHERE ${updateWhereSql}
+        RETURNING target.id
       `,
-            [...parameters, ctx.userId]
-        )
+                    [...parameters, ctx.userId]
+                )
+                if (updatedRows.length !== orderedRowIds.length) {
+                    throw new UpdateFailure(409, {
+                        error: 'One or more rows could not be reordered',
+                        code: 'RUNTIME_REORDER_UPDATE_CONFLICT',
+                        details: { updated: updatedRows.length, received: orderedRowIds.length }
+                    })
+                }
+            })
+        } catch (e) {
+            if (e instanceof UpdateFailure) {
+                return res.status(e.statusCode).json(e.body)
+            }
+            throw e
+        }
 
         return res.json({ status: 'reordered' })
     }
 
     return {
+        listRecordsUnionDatasource,
         getRuntime,
         updateCell,
         bulkUpdateRow,
@@ -6608,6 +9365,7 @@ export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
         deleteRow,
         restoreRow,
         updateContentProgress,
+        setLibraryRelation,
         reorderRows
     }
 }

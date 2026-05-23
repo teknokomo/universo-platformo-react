@@ -15,8 +15,8 @@ import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { calculateWeightedProgress, type CompletionItem } from '@universo/types'
 import AppMainLayout from '../layouts/AppMainLayout'
+import { extractRuntimeErrorMessage } from '../utils/runtimeErrors'
 
 const PUBLIC_CSRF_STORAGE_KEY_PREFIX = 'apps-template-mui:public-csrf'
 const GUEST_PARTICIPANT_ID_HEADER = 'X-Guest-Participant-Id'
@@ -103,15 +103,6 @@ type GuestRuntimeQuiz = {
 
 type GuestRuntimePayload = GuestRuntimeContent | GuestRuntimeQuiz
 
-const calculateGuestContentProgress = (contentItems: GuestRuntimeContent['contentItems'], completedThroughIndex: number): number => {
-    const items: CompletionItem[] = contentItems.map((item, index) => ({
-        id: item.id,
-        status: index <= completedThroughIndex ? 'completed' : 'notStarted'
-    }))
-
-    return calculateWeightedProgress(items)
-}
-
 const normalizeGuestSession = (value: unknown): GuestSession | null => {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
         return null
@@ -149,12 +140,15 @@ export default function GuestApp(props: GuestAppProps) {
     const storageKey = `apps-template-mui:guest-session:${applicationId}:${slug}`
 
     const [displayName, setDisplayName] = useState('')
-    const [session, setSession] = useState<GuestSession | null>(null)
+    const [storedSession, setStoredSession] = useState<GuestSession | null>(null)
+    const [sessionScope, setSessionScope] = useState('')
     const [currentItemIndex, setCurrentItemIndex] = useState(0)
     const [activeQuizId, setActiveQuizId] = useState<string | null>(null)
     const [answers, setAnswers] = useState<Record<string, string[]>>({})
     const [contentCompleted, setContentCompleted] = useState(false)
     const publicCsrfStorageKey = getPublicCsrfStorageKey(applicationId)
+    const formatGuestError = (error: unknown, key: string, fallback: string) => extractRuntimeErrorMessage(error, t(key, fallback), locale)
+    const session = sessionScope === storageKey ? storedSession : null
 
     const resolveCsrfToken = async (forceRefresh = false) => {
         if (typeof window !== 'undefined' && !forceRefresh) {
@@ -204,13 +198,20 @@ export default function GuestApp(props: GuestAppProps) {
     }
 
     useEffect(() => {
+        setStoredSession(null)
+        setSessionScope(storageKey)
+        setActiveQuizId(null)
+        setCurrentItemIndex(0)
+        setAnswers({})
+        setContentCompleted(false)
+
         if (typeof window === 'undefined' || !applicationId || !slug) return
         try {
             const stored = window.sessionStorage.getItem(storageKey)
             if (!stored) return
             const parsed = normalizeGuestSession(JSON.parse(stored))
             if (parsed) {
-                setSession(parsed)
+                setStoredSession(parsed)
             }
         } catch {
             window.sessionStorage.removeItem(storageKey)
@@ -218,7 +219,7 @@ export default function GuestApp(props: GuestAppProps) {
     }, [applicationId, slug, storageKey])
 
     const linkQuery = useQuery({
-        queryKey: ['guest-link', applicationId, slug],
+        queryKey: ['guest-link', applicationId, slug, locale],
         enabled: Boolean(applicationId && slug),
         queryFn: async () => {
             const params = new URLSearchParams({ locale })
@@ -260,7 +261,8 @@ export default function GuestApp(props: GuestAppProps) {
             return payload
         },
         onSuccess: (nextSession) => {
-            setSession(nextSession)
+            setStoredSession(nextSession)
+            setSessionScope(storageKey)
             setActiveQuizId(null)
             setCurrentItemIndex(0)
             if (typeof window !== 'undefined') {
@@ -294,7 +296,7 @@ export default function GuestApp(props: GuestAppProps) {
     })
 
     const progressMutation = useMutation({
-        mutationFn: async (input: { contentNodeId: string; progressPercent: number; lastAccessedItemIndex: number; status: string }) => {
+        mutationFn: async (input: { contentNodeId: string; action: 'view' | 'complete' | 'recalculate'; contentItemId?: string }) => {
             if (!session) return
             const response = await fetchWithPublicCsrf(`${apiBaseUrl}/public/a/${applicationId}/runtime/guest-progress`, {
                 method: 'POST',
@@ -303,9 +305,8 @@ export default function GuestApp(props: GuestAppProps) {
                     participantId: session.participantId,
                     sessionToken: session.sessionToken,
                     contentNodeId: input.contentNodeId,
-                    progressPercent: input.progressPercent,
-                    lastAccessedItemIndex: input.lastAccessedItemIndex,
-                    status: input.status
+                    action: input.action,
+                    ...(input.contentItemId ? { contentItemId: input.contentItemId } : {})
                 })
             })
 
@@ -380,12 +381,11 @@ export default function GuestApp(props: GuestAppProps) {
         setContentCompleted(false)
         setCurrentItemIndex(boundedIndex)
         if (session) {
-            const progressPercent = calculateGuestContentProgress(runtime.contentItems, boundedIndex)
+            const contentItemId = runtime.contentItems[boundedIndex]?.id
             progressMutation.mutate({
                 contentNodeId: runtime.id,
-                progressPercent,
-                lastAccessedItemIndex: boundedIndex,
-                status: progressPercent >= 100 ? 'completed' : 'in_progress'
+                action: 'view',
+                ...(contentItemId ? { contentItemId } : {})
             })
         }
     }
@@ -408,9 +408,7 @@ export default function GuestApp(props: GuestAppProps) {
         try {
             await progressMutation.mutateAsync({
                 contentNodeId: runtime.id,
-                progressPercent: 100,
-                lastAccessedItemIndex: Math.max(totalItems - 1, 0),
-                status: 'completed'
+                action: 'complete'
             })
 
             setContentCompleted(true)
@@ -532,7 +530,15 @@ export default function GuestApp(props: GuestAppProps) {
                                         <Typography>{t('guest.loadingLink', 'Loading access link...')}</Typography>
                                     </Stack>
                                 ) : null}
-                                {linkQuery.error instanceof Error ? <Alert severity='error'>{linkQuery.error.message}</Alert> : null}
+                                {linkQuery.error ? (
+                                    <Alert severity='error'>
+                                        {formatGuestError(
+                                            linkQuery.error,
+                                            'guest.errors.linkNotFound',
+                                            'Access link was not found or is no longer active.'
+                                        )}
+                                    </Alert>
+                                ) : null}
                                 <TextField
                                     value={displayName}
                                     onChange={(event) => setDisplayName(event.target.value)}
@@ -545,8 +551,14 @@ export default function GuestApp(props: GuestAppProps) {
                                 >
                                     {sessionMutation.isPending ? t('guest.starting', 'Starting...') : t('guest.start', 'Start learning')}
                                 </Button>
-                                {sessionMutation.error instanceof Error ? (
-                                    <Alert severity='error'>{sessionMutation.error.message}</Alert>
+                                {sessionMutation.error ? (
+                                    <Alert severity='error'>
+                                        {formatGuestError(
+                                            sessionMutation.error,
+                                            'guest.errors.sessionCreate',
+                                            'Failed to create guest session.'
+                                        )}
+                                    </Alert>
                                 ) : null}
                             </Stack>
                         </CardContent>
@@ -565,7 +577,15 @@ export default function GuestApp(props: GuestAppProps) {
                                 </Stack>
                             ) : null}
 
-                            {runtimeQuery.error instanceof Error ? <Alert severity='error'>{runtimeQuery.error.message}</Alert> : null}
+                            {runtimeQuery.error ? (
+                                <Alert severity='error'>
+                                    {formatGuestError(
+                                        runtimeQuery.error,
+                                        'guest.errors.runtimeLoad',
+                                        'Failed to load public learning content.'
+                                    )}
+                                </Alert>
+                            ) : null}
 
                             {runtime?.type === 'content' ? (
                                 contentCompleted ? (
@@ -617,9 +637,9 @@ export default function GuestApp(props: GuestAppProps) {
 
                             {runtime?.type === 'quiz' ? renderQuiz(runtime) : null}
 
-                            {submitQuizMutation.error instanceof Error ? (
+                            {submitQuizMutation.error ? (
                                 <Alert severity='error' sx={{ mt: 2 }}>
-                                    {submitQuizMutation.error.message}
+                                    {formatGuestError(submitQuizMutation.error, 'guest.errors.quizSubmit', 'Failed to submit the quiz.')}
                                 </Alert>
                             ) : null}
                         </CardContent>

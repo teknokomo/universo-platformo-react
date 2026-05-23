@@ -7,6 +7,7 @@ import {
 } from '@universo/utils'
 import type { VersionedLocalizedContent } from '@universo/types'
 import type { FieldConfig } from '../components/dialogs/FormDialog'
+import { formatRuntimeSafeValue } from './displayValue'
 
 type TabularFieldLike = Pick<FieldConfig, 'id' | 'type' | 'localized' | 'validationRules'>
 
@@ -16,26 +17,13 @@ export const isLocalizedStringField = (field: TabularFieldLike): boolean =>
 
 export const getTabularStringDisplayValue = (value: unknown, locale: string): string => {
     if (value === null || value === undefined) return ''
-    if (typeof value === 'string') return value
 
     if (isLocalizedContent(value)) {
         const localizedValue = resolveLocalizedContent(value as VersionedLocalizedContent<string>, normalizeLocale(locale), '')
         return typeof localizedValue === 'string' ? localizedValue : ''
     }
 
-    if (typeof value === 'number' || typeof value === 'boolean') {
-        return String(value)
-    }
-
-    if (typeof value === 'object') {
-        try {
-            return JSON.stringify(value)
-        } catch {
-            return String(value)
-        }
-    }
-
-    return String(value)
+    return formatRuntimeSafeValue(value, locale)
 }
 
 export const updateLocalizedTabularStringValue = (
@@ -69,7 +57,7 @@ export const normalizeTabularCellValue = (field: TabularFieldLike, value: unknow
         return createLocalizedContent(normalizeLocale(locale), value)
     }
 
-    return createLocalizedContent(normalizeLocale(locale), String(value))
+    return createLocalizedContent(normalizeLocale(locale), getTabularStringDisplayValue(value, locale))
 }
 
 export const normalizeTabularRowValues = (

@@ -105,3 +105,24 @@ export async function expectHeightsAligned(reference: Locator, target: Locator, 
         `Heights differ: reference=${referenceBounds.height}, target=${targetBounds.height}`
     ).toBeLessThanOrEqual(tolerance)
 }
+
+export async function expectVerticalGapBetween(
+    previous: Locator,
+    next: Locator,
+    options: { min?: number; max?: number; label?: string } = {}
+): Promise<void> {
+    const { min = 0, max, label = 'Vertical gap' } = options
+    const [previousBounds, nextBounds] = await Promise.all([
+        getElementBounds(previous, `${label} previous locator`),
+        getElementBounds(next, `${label} next locator`)
+    ])
+    const gap = nextBounds.top - previousBounds.bottom
+
+    expect(gap, `${label} must not overlap: previous bottom=${previousBounds.bottom}, next top=${nextBounds.top}`).toBeGreaterThanOrEqual(
+        min
+    )
+
+    if (typeof max === 'number') {
+        expect(gap, `${label} gap is too large`).toBeLessThanOrEqual(max)
+    }
+}

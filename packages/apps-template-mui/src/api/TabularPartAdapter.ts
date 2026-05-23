@@ -220,12 +220,19 @@ export function createTabularPartAdapter(params: TabularPartAdapterParams): Crud
             return res.json()
         },
 
-        async updateRow(rowId: string, data: Record<string, unknown>, overrideObjectId?: string): Promise<Record<string, unknown>> {
+        async updateRow(
+            rowId: string,
+            data: Record<string, unknown>,
+            overrideObjectId?: string,
+            expectedVersion?: number
+        ): Promise<Record<string, unknown>> {
             const resolvedObjectId = overrideObjectId ?? objectCollectionId
+            const body: Record<string, unknown> = { data }
+            if (typeof expectedVersion === 'number') body.expectedVersion = expectedVersion
             const res = await fetchWithCsrf(apiBaseUrl, url(resolvedObjectId, rowId), {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ data })
+                body: JSON.stringify(body)
             })
             if (!res.ok) throw new Error(await extractError(res, 'Update tabular row failed'))
             return res.json()

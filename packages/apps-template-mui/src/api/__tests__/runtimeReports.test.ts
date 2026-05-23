@@ -65,6 +65,68 @@ describe('runtime report API helpers', () => {
         expect(new Headers(reportRequest.headers).get('X-CSRF-Token')).toBe('csrf-token')
     })
 
+    it('sends ad hoc filters to report run and export requests', async () => {
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = String(input)
+            if (url.endsWith('/auth/csrf')) {
+                return new Response(JSON.stringify({ csrfToken: 'csrf-token' }), {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' }
+                })
+            }
+
+            if (url.endsWith('/runtime/reports/export?workspaceId=workspace-1')) {
+                return new Response('Progress\r\n75\r\n', {
+                    status: 200,
+                    headers: { 'Content-Type': 'text/csv; charset=utf-8' }
+                })
+            }
+
+            return new Response(
+                JSON.stringify({
+                    rows: [{ ProgressPercent: 75 }],
+                    total: 1,
+                    aggregations: {},
+                    definition: reportDefinition
+                }),
+                {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' }
+                }
+            )
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        const filters = [{ field: 'ProgressPercent', operator: 'greaterThanOrEqual' as const, value: 50 }]
+        await runRuntimeReport({
+            apiBaseUrl: '/api/v1',
+            applicationId: 'app-1',
+            reportCodename: 'LearnerProgress',
+            filters,
+            limit: 25,
+            offset: 0,
+            workspaceId: 'workspace-1'
+        })
+        await exportRuntimeReportCsv({
+            apiBaseUrl: '/api/v1',
+            applicationId: 'app-1',
+            reportCodename: 'LearnerProgress',
+            filters,
+            limit: 5000,
+            offset: 0,
+            locale: 'en',
+            workspaceId: 'workspace-1'
+        })
+
+        const reportRequests = fetchMock.mock.calls
+            .filter(([input]) => !String(input).endsWith('/auth/csrf'))
+            .map(([, init]) => init as RequestInit)
+        expect(reportRequests[0]?.body).toBe(JSON.stringify({ reportCodename: 'LearnerProgress', filters, limit: 25, offset: 0 }))
+        expect(reportRequests[1]?.body).toBe(
+            JSON.stringify({ reportCodename: 'LearnerProgress', filters, limit: 5000, offset: 0, locale: 'en' })
+        )
+    })
+
     it('exports a saved report through the runtime reports endpoint with CSRF protection', async () => {
         const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
             const url = String(input)

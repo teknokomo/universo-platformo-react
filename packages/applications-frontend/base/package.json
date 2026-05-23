@@ -35,7 +35,10 @@
         "dist/i18n/index.mjs",
         "dist/i18n/index.js"
     ],
-    "files": ["dist", "src"],
+    "files": [
+        "dist",
+        "src"
+    ],
     "scripts": {
         "clean": "rimraf dist",
         "build": "tsdown",
@@ -66,7 +69,6 @@
         "react": "catalog:",
         "react-i18next": "catalog:",
         "typescript": "catalog:",
-        "uuid": "^9.0.0",
         "axios": "catalog:"
     },
     "peerDependencies": {

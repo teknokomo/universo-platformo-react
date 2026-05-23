@@ -5,7 +5,7 @@ import { useSnackbar } from 'notistack'
 import { useTranslation } from 'react-i18next'
 import { isPendingInteractionBlocked, makePendingMarkers } from '@universo/utils'
 import { normalizeDashboardLayoutConfig } from '@universo/utils'
-import type { DashboardLayoutConfig } from '@universo/types'
+import type { CreateTargetDefault, DashboardLayoutConfig, ResourceType } from '@universo/types'
 import type { PendingAction } from '@universo/utils'
 import {
     applyOptimisticCreate,
@@ -23,9 +23,11 @@ import type { AppDataResponse } from '../api/api'
 import type { CrudDataAdapter, CellRendererOverrides, RuntimeRecordCommand } from '../api/types'
 import type { DashboardMenuItem, DashboardMenuSlot } from '../dashboard/Dashboard'
 import type { FieldConfig } from '../components/dialogs/FormDialog'
+import { buildDefaultResourceSourceForType } from '../utils/resourceSourceDefaults'
 import { toGridColumns, toFieldConfigs } from '../utils/columns'
 import { getDataGridLocaleText } from '../utils/getDataGridLocale'
 import { mapGridFilterModel, mapGridSortModel } from '../utils/runtimeListQuery'
+import { extractRuntimeErrorMessage } from '../utils/runtimeErrors'
 
 // ---------------------------------------------------------------------------
 //  Stable empty key prefix (avoids new [] allocation on each render)
@@ -105,26 +107,157 @@ const appendCopySuffixToFirstStringField = (params: {
     }
 }
 
-// ---------------------------------------------------------------------------
-//  Helper: extract human-readable error message from API failures
-// ---------------------------------------------------------------------------
+const normalizeCreateDefaultFieldKey = (value: unknown): string =>
+    (typeof value === 'string' ? value : '')
+        .trim()
+        .replace(/[^a-z0-9]/gi, '')
+        .toLowerCase()
 
-/**
- * Extract the most useful error message from an API failure.
- *
- * For Axios errors the server response body is available under
- * `err.response.data`.  We prefer the server-provided `error` or
- * `message` field over the generic Axios status line.
- */
-const extractApiErrorMessage = (err: unknown): string => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const responseData = (err as any)?.response?.data
-    if (responseData) {
-        if (typeof responseData.error === 'string' && responseData.error.trim()) return responseData.error
-        if (typeof responseData.message === 'string' && responseData.message.trim()) return responseData.message
+const blockedCreateDefaultFieldKeys = new Set([
+    'id',
+    'workspace',
+    'workspaceid',
+    'owner',
+    'ownerid',
+    'owneruserid',
+    'user',
+    'userid',
+    'assigneduserid',
+    'createdby',
+    'updatedby',
+    'deletedby',
+    'targetrecordid',
+    'targetobjectid',
+    'targetobjectcodename',
+    'sourceobjectcodename',
+    'sourcerowid',
+    'sourcelineid',
+    'principalid',
+    'apprecordstate',
+    'appdeleted'
+])
+
+const isUnsafeCreateDefaultField = (fieldCodename: string): boolean => {
+    const normalized = normalizeCreateDefaultFieldKey(fieldCodename)
+    return (
+        normalized.startsWith('upl') ||
+        normalized.startsWith('progress') ||
+        normalized.startsWith('lifecycle') ||
+        normalized.includes('workspaceid') ||
+        normalized.includes('ownerid') ||
+        normalized.includes('userid') ||
+        blockedCreateDefaultFieldKeys.has(normalized)
+    )
+}
+
+const isWritableCreateDefaultField = (field: FieldConfig): boolean => {
+    const uiConfig = field.uiConfig ?? {}
+    return (
+        field.type !== 'TABLE' &&
+        uiConfig.hidden !== true &&
+        uiConfig.formHidden !== true &&
+        uiConfig.readOnly !== true &&
+        uiConfig.readonly !== true &&
+        uiConfig.disabled !== true &&
+        uiConfig.serverOwned !== true
+    )
+}
+
+const isResourceSourceCreateDefaultField = (field: FieldConfig): boolean => {
+    const uiConfig = field.uiConfig ?? {}
+    return field.type === 'JSON' && (uiConfig.widget === 'resourceSource' || uiConfig.resourceSource === true || uiConfig.resource === true)
+}
+
+const resolveEnumDefaultValue = (field: FieldConfig, enumCodename: string): string | null => {
+    if (field.type !== 'REF' || field.refTargetEntityKind !== 'enumeration') return null
+
+    const targetCodename = normalizeCreateDefaultFieldKey(enumCodename)
+    const options = [...(field.enumOptions ?? []), ...(field.refOptions ?? [])]
+    return options.find((option) => normalizeCreateDefaultFieldKey(option.codename) === targetCodename)?.id ?? null
+}
+
+const coerceScalarCreateDefaultValue = (field: FieldConfig, value: string | number | boolean | null): unknown => {
+    if (value === null) return null
+    if (field.type === 'STRING' && typeof value === 'string') return value
+    if (field.type === 'NUMBER' && typeof value === 'number' && Number.isFinite(value)) return value
+    if (field.type === 'BOOLEAN' && typeof value === 'boolean') return value
+    if (field.type === 'DATE' && typeof value === 'string') return value
+    return undefined
+}
+
+const readCreateDefaultContextPath = (context: Record<string, unknown> | undefined, path: string): unknown => {
+    if (!context) return undefined
+
+    let current: unknown = context
+    for (const segment of path.split('.')) {
+        if (!current || typeof current !== 'object') return undefined
+        if (segment === '__proto__' || segment === 'prototype' || segment === 'constructor') return undefined
+
+        const record = current as Record<string, unknown>
+        if (!Object.prototype.hasOwnProperty.call(record, segment)) return undefined
+        current = record[segment]
     }
-    if (err instanceof Error) return err.message
-    return String(err)
+
+    return current
+}
+
+const buildSafeCreateInitialData = (
+    createDefaults: readonly CreateTargetDefault[] | undefined,
+    fieldConfigs: readonly FieldConfig[],
+    createDefaultContext?: Record<string, unknown>
+): Record<string, unknown> | undefined => {
+    if (!createDefaults?.length || fieldConfigs.length === 0) return undefined
+
+    const fieldsByCodename = new Map<string, FieldConfig>()
+    for (const field of fieldConfigs) {
+        fieldsByCodename.set(normalizeCreateDefaultFieldKey(field.id), field)
+        if (field.codename) {
+            fieldsByCodename.set(normalizeCreateDefaultFieldKey(field.codename), field)
+        }
+    }
+    const initialData: Record<string, unknown> = {}
+
+    for (const item of createDefaults) {
+        if (isUnsafeCreateDefaultField(item.fieldCodename)) continue
+
+        const field = fieldsByCodename.get(normalizeCreateDefaultFieldKey(item.fieldCodename))
+        if (!field || !isWritableCreateDefaultField(field)) continue
+
+        if (typeof item.enumCodename === 'string') {
+            const enumValueId = resolveEnumDefaultValue(field, item.enumCodename)
+            if (enumValueId) {
+                initialData[field.id] = enumValueId
+            }
+            continue
+        }
+
+        if (typeof item.resourceSourceType === 'string') {
+            if (isResourceSourceCreateDefaultField(field)) {
+                initialData[field.id] = buildDefaultResourceSourceForType(item.resourceSourceType as ResourceType)
+            }
+            continue
+        }
+
+        if (typeof item.contextPath === 'string') {
+            const rawValue = readCreateDefaultContextPath(createDefaultContext, item.contextPath)
+            if (rawValue === null || typeof rawValue === 'string' || typeof rawValue === 'number' || typeof rawValue === 'boolean') {
+                const nextValue = coerceScalarCreateDefaultValue(field, rawValue)
+                if (typeof nextValue !== 'undefined') {
+                    initialData[field.id] = nextValue
+                }
+            }
+            continue
+        }
+
+        if (Object.prototype.hasOwnProperty.call(item, 'value')) {
+            const nextValue = coerceScalarCreateDefaultValue(field, item.value as string | number | boolean | null)
+            if (typeof nextValue !== 'undefined') {
+                initialData[field.id] = nextValue
+            }
+        }
+    }
+
+    return Object.keys(initialData).length > 0 ? initialData : undefined
 }
 
 const stripReadOnlyEnumerationLabelFields = (params: {
@@ -269,6 +402,11 @@ export interface UseCrudDashboardOptions {
      * Allows consumers to inject custom rendering (e.g. inline checkbox editing).
      */
     cellRenderers?: CellRendererOverrides
+    /**
+     * Curated host context used by metadata-defined create defaults.
+     * The resolver receives the already-loaded runtime app data and must not return secrets or raw settings blobs.
+     */
+    createDefaultContext?: Record<string, unknown> | ((appData: AppDataResponse | undefined) => Record<string, unknown> | undefined)
 }
 
 // ---------------------------------------------------------------------------
@@ -327,7 +465,7 @@ export interface CrudDashboardState {
     isSubmitting: boolean
     isReordering: boolean
     canPersistRowReorder: boolean
-    handleOpenCreate: () => void
+    handleOpenCreate: (createDefaults?: readonly CreateTargetDefault[]) => void
     handleOpenEdit: (rowId: string) => void
     handleCloseForm: () => void
     handleFormSubmit: (data: Record<string, unknown>) => Promise<void>
@@ -372,7 +510,8 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         pageSizeOptions = [10, 20, 50],
         staleTime = 0,
         initialSectionId,
-        cellRenderers
+        cellRenderers,
+        createDefaultContext: createDefaultContextOption
     } = options
 
     const { t } = useTranslation(i18nNamespace)
@@ -396,6 +535,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     const [editRowId, setEditRowId] = useState<string | null>(null)
     const [deleteRowId, setDeleteRowId] = useState<string | null>(null)
     const [copyRowId, setCopyRowId] = useState<string | null>(null)
+    const [createInitialData, setCreateInitialData] = useState<Record<string, unknown> | undefined>(undefined)
     const [formError, setFormError] = useState<string | null>(null)
     const [deleteError, setDeleteError] = useState<string | null>(null)
     const [copyError, setCopyError] = useState<string | null>(null)
@@ -589,6 +729,12 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     const fieldConfigs = useMemo(() => (displayAppData ? toFieldConfigs(displayAppData) : []), [displayAppData])
     const rows = useMemo(() => (displayAppData ? displayAppData.rows : []), [displayAppData])
     const canPersistRowReorder = Boolean(adapter?.reorderRows)
+    const createDefaultContext = useMemo(() => {
+        if (typeof createDefaultContextOption === 'function') {
+            return createDefaultContextOption(displayAppData)
+        }
+        return createDefaultContextOption
+    }, [createDefaultContextOption, displayAppData])
 
     // Initialize section from the menu (fallback: backend active section)
     useEffect(() => {
@@ -714,9 +860,9 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
 
     const updateMutation = useMutation({
         mutationKey: [...queryKeyPrefix, 'update'],
-        mutationFn: (params: { rowId: string; data: Record<string, unknown> }) => {
+        mutationFn: (params: { rowId: string; data: Record<string, unknown>; expectedVersion?: number }) => {
             if (!adapter) throw new Error('Adapter is not available')
-            return adapter.updateRow(params.rowId, params.data, selectedObjectCollectionId)
+            return adapter.updateRow(params.rowId, params.data, selectedObjectCollectionId, params.expectedVersion)
         },
         onMutate: async ({ rowId, data }) => {
             const rowDetailKey = [...queryKeyPrefix, 'row', rowId]
@@ -779,7 +925,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
 
     const reorderMutation = useMutation({
         mutationKey: [...queryKeyPrefix, 'reorder'],
-        mutationFn: async (orderedRowIds: string[]) => {
+        mutationFn: async (params: { orderedRowIds: string[]; expectedVersionsByRowId?: Record<string, number> }) => {
             if (!adapter?.reorderRows) {
                 throw new Error('Row reordering is not available for this runtime adapter')
             }
@@ -787,7 +933,8 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             await adapter.reorderRows({
                 objectCollectionId: selectedObjectCollectionId ?? activeObjectCollectionId,
                 sectionId: selectedObjectCollectionId ?? activeSectionId,
-                orderedRowIds
+                orderedRowIds: params.orderedRowIds,
+                expectedVersionsByRowId: params.expectedVersionsByRowId
             })
         },
         onSettled: () => {
@@ -833,27 +980,36 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         }
     })
 
+    const getRuntimeMutationErrorMessage = useCallback(
+        (err: unknown) => extractRuntimeErrorMessage(err, t('app.errorGenericMessage', 'Please try again or reload the page.'), locale),
+        [locale, t]
+    )
+
     // ----- CRUD handlers -----
-    const handleOpenCreate = useCallback(() => {
-        if (displayAppData?.workspaceLimit?.canCreate === false) {
-            enqueueSnackbar(
-                t('app.workspaceLimitReached', {
-                    defaultValue: 'The workspace limit for this section has been reached ({{current}} / {{max}}).',
-                    current: displayAppData.workspaceLimit.currentRows,
-                    max: displayAppData.workspaceLimit.maxRows ?? '∞'
-                }),
-                { variant: 'info' }
-            )
-            return
-        }
-        formRequestIdRef.current += 1
-        setCopyRowId(null)
-        setCopyError(null)
-        setEditRowId(null)
-        setFormError(null)
-        formColumnsRef.current = currentSchemaFingerprint
-        setFormOpen(true)
-    }, [displayAppData?.workspaceLimit, currentSchemaFingerprint, enqueueSnackbar, t])
+    const handleOpenCreate = useCallback(
+        (createDefaults?: readonly CreateTargetDefault[]) => {
+            if (displayAppData?.workspaceLimit?.canCreate === false) {
+                enqueueSnackbar(
+                    t('app.workspaceLimitReached', {
+                        defaultValue: 'The workspace limit for this section has been reached ({{current}} / {{max}}).',
+                        current: displayAppData.workspaceLimit.currentRows,
+                        max: displayAppData.workspaceLimit.maxRows ?? '∞'
+                    }),
+                    { variant: 'info' }
+                )
+                return
+            }
+            formRequestIdRef.current += 1
+            setCopyRowId(null)
+            setCopyError(null)
+            setEditRowId(null)
+            setFormError(null)
+            setCreateInitialData(buildSafeCreateInitialData(createDefaults, fieldConfigs, createDefaultContext))
+            formColumnsRef.current = currentSchemaFingerprint
+            setFormOpen(true)
+        },
+        [displayAppData?.workspaceLimit, currentSchemaFingerprint, createDefaultContext, enqueueSnackbar, fieldConfigs, t]
+    )
 
     const handleOpenEdit = useCallback(
         (rowId: string) => {
@@ -863,6 +1019,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             setCopyError(null)
             setEditRowId(rowId)
             setFormError(null)
+            setCreateInitialData(undefined)
             formColumnsRef.current = currentSchemaFingerprint
             setFormOpen(true)
         },
@@ -874,6 +1031,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         setFormOpen(false)
         setEditRowId(null)
         setCopyRowId(null)
+        setCreateInitialData(undefined)
         setFormError(null)
         setCopyError(null)
         formColumnsRef.current = null
@@ -903,7 +1061,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             const reopenFormWithError = (err: unknown) => {
                 if (formRequestIdRef.current !== requestId) return
 
-                const msg = extractApiErrorMessage(err)
+                const msg = getRuntimeMutationErrorMessage(err)
                 const resolvedError = isCopyMode
                     ? t('app.errorCopy', {
                           defaultValue: 'Copy failed: {{message}}',
@@ -937,6 +1095,8 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
 
             const sourceCopyRow = currentCopyRowId ? rows.find((row) => String(row.id) === currentCopyRowId) : null
             const copyExpectedVersion = readRuntimeRowVersion(sourceCopyRow)
+            const sourceEditRow = currentEditRowId ? rows.find((row) => String(row.id) === currentEditRowId) : null
+            const editExpectedVersion = readRuntimeRowVersion(sourceEditRow)
             const mutationPromise = isCopyMode
                 ? copyMutation.mutateAsync({
                       rowId: currentCopyRowId!,
@@ -944,7 +1104,11 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
                       expectedVersion: copyExpectedVersion ?? undefined
                   })
                 : currentEditRowId
-                ? updateMutation.mutateAsync({ rowId: currentEditRowId, data: sanitizedData })
+                ? updateMutation.mutateAsync({
+                      rowId: currentEditRowId,
+                      data: sanitizedData,
+                      expectedVersion: editExpectedVersion ?? undefined
+                  })
                 : createMutation.mutateAsync(sanitizedData)
 
             void mutationPromise
@@ -953,6 +1117,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
 
                     setEditRowId(null)
                     setCopyRowId(null)
+                    setCreateInitialData(undefined)
                     setFormError(null)
                     setCopyError(null)
                     formColumnsRef.current = null
@@ -963,7 +1128,18 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
 
             return Promise.resolve()
         },
-        [copyRowId, editRowId, fieldConfigs, rows, copyMutation, updateMutation, createMutation, t, currentSchemaFingerprint]
+        [
+            copyRowId,
+            editRowId,
+            fieldConfigs,
+            rows,
+            copyMutation,
+            updateMutation,
+            createMutation,
+            t,
+            currentSchemaFingerprint,
+            getRuntimeMutationErrorMessage
+        ]
     )
 
     const handleOpenDelete = useCallback(
@@ -998,7 +1174,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             .catch((err: unknown) => {
                 if (deleteRequestIdRef.current !== requestId) return
 
-                const msg = extractApiErrorMessage(err)
+                const msg = getRuntimeMutationErrorMessage(err)
                 setDeleteError(
                     t('app.errorDelete', {
                         defaultValue: 'Delete failed: {{message}}',
@@ -1009,7 +1185,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             })
 
         return Promise.resolve()
-    }, [deleteRowId, deleteMutation, rows, t])
+    }, [deleteRowId, deleteMutation, rows, t, getRuntimeMutationErrorMessage])
 
     const handleOpenCopy = useCallback(
         (rowId: string) => {
@@ -1029,6 +1205,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             setFormOpen(true)
             setCopyError(null)
             setFormError(null)
+            setCreateInitialData(undefined)
             setCopyRowId(rowId)
             setEditRowId(null)
             formColumnsRef.current = currentSchemaFingerprint
@@ -1045,9 +1222,14 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             if (!adapter?.reorderRows || orderedRowIds.length === 0) return
 
             try {
-                await reorderMutation.mutateAsync(orderedRowIds)
+                const expectedVersionsByRowId = orderedRowIds.reduce<Record<string, number>>((acc, rowId) => {
+                    const version = readRuntimeRowVersion(rows.find((row) => String(row.id) === rowId))
+                    if (version !== null) acc[rowId] = version
+                    return acc
+                }, {})
+                await reorderMutation.mutateAsync({ orderedRowIds, expectedVersionsByRowId })
             } catch (err) {
-                const msg = extractApiErrorMessage(err)
+                const msg = getRuntimeMutationErrorMessage(err)
                 enqueueSnackbar(
                     t('app.errorReorder', {
                         defaultValue: 'Reorder failed: {{message}}',
@@ -1058,7 +1240,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
                 throw err
             }
         },
-        [adapter?.reorderRows, enqueueSnackbar, reorderMutation, t]
+        [adapter?.reorderRows, enqueueSnackbar, reorderMutation, rows, t, getRuntimeMutationErrorMessage]
     )
 
     const handleRecordCommand = useCallback(
@@ -1074,7 +1256,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
                 const defaultValue = command === 'post' ? 'Record posted.' : command === 'unpost' ? 'Record unposted.' : 'Record voided.'
                 enqueueSnackbar(t(messageKey, defaultValue), { variant: 'success' })
             } catch (err) {
-                const msg = extractApiErrorMessage(err)
+                const msg = getRuntimeMutationErrorMessage(err)
                 enqueueSnackbar(
                     t('app.errorRecordCommand', {
                         defaultValue: 'Record command failed: {{message}}',
@@ -1084,7 +1266,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
                 )
             }
         },
-        [enqueueSnackbar, guardPendingRowInteraction, recordCommandMutation, rows, t]
+        [enqueueSnackbar, guardPendingRowInteraction, recordCommandMutation, rows, t, getRuntimeMutationErrorMessage]
     )
 
     const handleWorkflowAction = useCallback(
@@ -1107,7 +1289,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
                 await workflowActionMutation.mutateAsync({ rowId, actionCodename, expectedVersion })
                 enqueueSnackbar(t('app.workflowActionCompleted', 'Workflow action completed.'), { variant: 'success' })
             } catch (err) {
-                const msg = extractApiErrorMessage(err)
+                const msg = getRuntimeMutationErrorMessage(err)
                 enqueueSnackbar(
                     t('app.errorWorkflowAction', {
                         defaultValue: 'Workflow action failed: {{message}}',
@@ -1117,7 +1299,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
                 )
             }
         },
-        [enqueueSnackbar, guardPendingRowInteraction, rows, t, workflowActionMutation]
+        [enqueueSnackbar, guardPendingRowInteraction, rows, t, workflowActionMutation, getRuntimeMutationErrorMessage]
     )
 
     // ----- Row actions menu -----
@@ -1245,7 +1427,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
 
     // Form initial data
     const formInitialData = useMemo(() => {
-        if (!sourceRowId) return undefined
+        if (!sourceRowId) return createInitialData
         if (rowQuery.data) {
             const raw = rowQuery.data as Record<string, unknown>
             const sourceData = ((raw.data as Record<string, unknown>) ?? raw) as Record<string, unknown>
@@ -1264,7 +1446,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             return sourceData
         }
         return undefined
-    }, [sourceRowId, copyRowId, fieldConfigs, rowQuery.data, copyTablesQuery.data, locale])
+    }, [sourceRowId, createInitialData, copyRowId, fieldConfigs, rowQuery.data, copyTablesQuery.data, locale])
 
     const isCopyTablesReady = !copyRowId || tableColumnRefs.length === 0 || !adapter?.fetchTabularRows || Boolean(copyTablesQuery.data)
     const isFormReady = !sourceRowId || (Boolean(rowQuery.data) && isCopyTablesReady)

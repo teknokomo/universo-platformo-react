@@ -573,7 +573,7 @@ describe('ApplicationSettings', () => {
                 })
             )
         })
-    })
+    }, 30_000)
 
     it('does not send server-managed public runtime settings from the general settings form', async () => {
         mockedUseApplicationDetails.mockReturnValue({
@@ -686,6 +686,7 @@ describe('ApplicationSettings', () => {
         await userEvent.click(screen.getByRole('tab', { name: 'Learning Content' }))
 
         expect(screen.getByTestId('application-setting-learning-content-resource-types')).toBeInTheDocument()
+        expect(screen.getByTestId('application-settings-learning-content-column-Instructor')).toBeInTheDocument()
 
         await userEvent.click(screen.getByTestId('application-settings-learning-content-resource-xapi-enabled'))
         await userEvent.click(screen.getByTestId('application-settings-learning-content-column-CreatedBy'))

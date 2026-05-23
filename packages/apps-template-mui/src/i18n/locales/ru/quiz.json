@@ -13,6 +13,8 @@
     "nextQuestion": "Следующий вопрос",
     "backToQuestions": "Вернуться к вопросам",
     "questionOf": "Вопрос {{current}} из {{total}}",
+    "fallbackQuestion": "Вопрос {{current}}",
+    "fallbackOption": "Вариант {{current}}",
     "currentScore": "Текущий результат: {{score}} / {{total}}",
     "difficulty": "Сложность {{level}}",
     "correct": "Правильно!",

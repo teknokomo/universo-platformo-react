@@ -1,5 +1,13 @@
 # Current Research
 
+## 2026-05-20: LMS Learning Content product roadmap after V2
+
+-   Research artifact created: `memory-bank/research/lms-learning-content-product-roadmap-research-2026-05-20.md`.
+-   Scope correction: the previous V2 implementation already delivered the core metadata/runtime groundwork, so the next PLAN should focus on product coherence, author/learner workflows, and user-friendly MUI surfaces rather than rebuilding the Learning Content object model from scratch.
+-   Source-backed iSpring target: Learning Content is a project-centered authoring workbench with Recent, Starred, Shared with me, Projects, standalone content, Pages, Course Builder, Learning Track Builder, enrollments, Trash, custom fields, and content-type-specific status semantics.
+-   Repository-specific decision candidate: keep Workspaces as the operational boundary and keep iSpring-like Projects as workspace-scoped `ContentProjects`; improve generic `records.union`, `detailsTable`, `relationBuilder`, runtime record pickers, player/progress/status descriptors, Trash restore, and column/report metadata before adding any LMS-only UI.
+-   UX implication: the follow-up PLAN must include a UI Contract for Learning Content workbench, project/access dialogs, page authoring, course/track builders, enrollment wizard, learner player, Trash, column settings, and application Learning Content settings, with browser evidence across desktop/tablet/mobile and no raw IDs/JSON/object cells.
+
 ## 2026-05-19: AI agent workflow for user-friendly MUI runtime UI
 
 -   Research artifact created: `memory-bank/research/ai-agent-mui-ux-workflow-research-2026-05-19.md`.

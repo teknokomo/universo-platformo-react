@@ -27,6 +27,7 @@ import {
     fetchRuntimeScripts,
     isClientScriptMethodTarget
 } from './runtimeWidgetHelpers'
+import { formatRuntimeSafeValue } from '../../utils/displayValue'
 
 type QuizOption = {
     id: string
@@ -70,8 +71,15 @@ const AUTO_ADVANCE_DELAY_MS = 1200
 
 const readString = (value: unknown, fallback = ''): string => (typeof value === 'string' ? value : fallback)
 const readNumber = (value: unknown, fallback = 0): number => (typeof value === 'number' && Number.isFinite(value) ? value : fallback)
+const readDisplayString = (value: unknown, locale: string, fallback = ''): string => formatRuntimeSafeValue(value, locale) || fallback
 
-const normalizeQuizModel = (value: unknown, fallbackTitle: string): QuizModel | null => {
+type QuizModelFallbacks = {
+    title: string
+    question: (questionIndex: number) => string
+    option: (questionIndex: number, optionIndex: number) => string
+}
+
+const normalizeQuizModel = (value: unknown, locale: string, fallbacks: QuizModelFallbacks): QuizModel | null => {
     if (!value || typeof value !== 'object') {
         return null
     }
@@ -92,7 +100,11 @@ const normalizeQuizModel = (value: unknown, fallbackTitle: string): QuizModel | 
                 }
 
                 const rawOption = option as Record<string, unknown>
-                const label = readString(rawOption.label, readString(rawOption.title, ''))
+                const label = readDisplayString(
+                    rawOption.label,
+                    locale,
+                    readDisplayString(rawOption.title, locale, fallbacks.option(index, optionIndex))
+                )
                 if (!label) {
                     return null
                 }
@@ -104,7 +116,11 @@ const normalizeQuizModel = (value: unknown, fallbackTitle: string): QuizModel | 
             })
             .filter((option): option is QuizOption => Boolean(option))
 
-        const prompt = readString(rawQuestion.prompt, readString(rawQuestion.question, ''))
+        const prompt = readDisplayString(
+            rawQuestion.prompt,
+            locale,
+            readDisplayString(rawQuestion.question, locale, fallbacks.question(index))
+        )
         if (!prompt || options.length === 0) {
             return []
         }
@@ -113,7 +129,7 @@ const normalizeQuizModel = (value: unknown, fallbackTitle: string): QuizModel | 
             {
                 id: readString(rawQuestion.id, `question-${index}`),
                 prompt,
-                description: readString(rawQuestion.description, ''),
+                description: readDisplayString(rawQuestion.description, locale, ''),
                 multiple: Boolean(rawQuestion.multiple),
                 difficulty: readNumber(rawQuestion.difficulty, 0) || undefined,
                 options
@@ -126,15 +142,15 @@ const normalizeQuizModel = (value: unknown, fallbackTitle: string): QuizModel | 
     }
 
     return {
-        title: readString(source.title, fallbackTitle),
-        description: readString(source.description, ''),
-        submitLabel: readString(source.submitLabel, ''),
-        nextLabel: readString(source.nextLabel, ''),
+        title: readDisplayString(source.title, locale, fallbacks.title),
+        description: readDisplayString(source.description, locale, ''),
+        submitLabel: readDisplayString(source.submitLabel, locale, ''),
+        nextLabel: readDisplayString(source.nextLabel, locale, ''),
         questions
     }
 }
 
-const normalizeSubmissionResult = (value: unknown): QuizSubmissionResult | null => {
+const normalizeSubmissionResult = (value: unknown, locale: string): QuizSubmissionResult | null => {
     if (!value || typeof value !== 'object') {
         return null
     }
@@ -157,10 +173,10 @@ const normalizeSubmissionResult = (value: unknown): QuizSubmissionResult | null 
     return {
         questionId: readString(source.questionId, ''),
         correct: typeof source.correct === 'boolean' ? source.correct : undefined,
-        explanation: readString(source.explanation, ''),
+        explanation: readDisplayString(source.explanation, locale, ''),
         score: typeof source.score === 'number' ? source.score : undefined,
         total: typeof source.total === 'number' ? source.total : undefined,
-        message: readString(source.message, ''),
+        message: readDisplayString(source.message, locale, ''),
         completed: typeof source.completed === 'boolean' ? source.completed : undefined,
         correctOptionIds
     }
@@ -274,7 +290,20 @@ export default function QuizWidget({ config }: { config?: Record<string, unknown
                 context: createClientScriptContext({ apiBaseUrl, applicationId, script: selectedScript })
             })
 
-            return normalizeQuizModel(rawModel, widgetConfig.title || t('defaultTitle', 'Space Quiz'))
+            return normalizeQuizModel(rawModel, i18n.language, {
+                title: readDisplayString(widgetConfig.title, i18n.language, t('defaultTitle', 'Space Quiz')),
+                question: (questionIndex) =>
+                    t('fallbackQuestion', {
+                        defaultValue: 'Question {{current}}',
+                        current: questionIndex + 1
+                    }),
+                option: (questionIndex, optionIndex) =>
+                    t('fallbackOption', {
+                        defaultValue: 'Option {{current}}',
+                        current: optionIndex + 1,
+                        question: questionIndex + 1
+                    })
+            })
         }
     })
 
@@ -367,7 +396,7 @@ export default function QuizWidget({ config }: { config?: Record<string, unknown
             })
 
             return {
-                result: normalizeSubmissionResult(rawResult),
+                result: normalizeSubmissionResult(rawResult, i18n.language),
                 responses: nextResponses
             }
         },
@@ -488,16 +517,26 @@ export default function QuizWidget({ config }: { config?: Record<string, unknown
     }
 
     if (!selectedScript || !quizModel) {
+        const emptyStateTitle = readDisplayString(
+            widgetConfig.emptyStateTitle,
+            i18n.language,
+            t('emptyTitle', 'Quiz widget is not configured')
+        )
+        const emptyStateDescription = readDisplayString(
+            widgetConfig.emptyStateDescription,
+            i18n.language,
+            t(
+                'emptyDescription',
+                'Attach an active widget script to the current object or metahub and expose a mount() method to render quiz content here.'
+            )
+        )
+
         return (
             <Card variant='outlined'>
-                <CardHeader title={widgetConfig.emptyStateTitle || t('emptyTitle', 'Quiz widget is not configured')} />
+                <CardHeader title={emptyStateTitle} />
                 <CardContent>
                     <Typography variant='body2' color='text.secondary'>
-                        {widgetConfig.emptyStateDescription ||
-                            t(
-                                'emptyDescription',
-                                'Attach an active widget script to the current object or metahub and expose a mount() method to render quiz content here.'
-                            )}
+                        {emptyStateDescription}
                     </Typography>
                 </CardContent>
             </Card>

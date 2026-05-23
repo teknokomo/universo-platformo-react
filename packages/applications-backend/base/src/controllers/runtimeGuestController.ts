@@ -100,10 +100,10 @@ const guestProgressSchema = z
         studentId: z.string().uuid().optional(),
         sessionToken: z.string().trim().min(1).max(MAX_GUEST_SESSION_TOKEN_LENGTH),
         contentNodeId: z.string().uuid(),
-        progressPercent: z.number().min(0).max(100).default(0),
-        lastAccessedItemIndex: z.number().int().min(0).default(0),
-        status: z.string().trim().min(1).max(64).default('in_progress')
+        contentItemId: z.string().uuid().optional(),
+        action: z.enum(['view', 'complete', 'recalculate'])
     })
+    .strict()
     .superRefine((value, ctx) => {
         if (!value.participantId && !value.studentId) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['participantId'], message: 'participantId is required' })
@@ -116,10 +116,32 @@ const guestProgressSchema = z
         participantId: value.participantId ?? value.studentId!,
         sessionToken: value.sessionToken,
         contentNodeId: value.contentNodeId,
-        progressPercent: value.progressPercent,
-        lastAccessedItemIndex: value.lastAccessedItemIndex,
-        status: value.status
+        contentItemId: value.contentItemId,
+        action: value.action
     }))
+
+const normalizeAccessLinkDate = (value: unknown): string | null => {
+    if (typeof value === 'string') {
+        const timestamp = new Date(value).getTime()
+        return Number.isNaN(timestamp) ? null : value
+    }
+    if (value instanceof Date) {
+        const timestamp = value.getTime()
+        return Number.isNaN(timestamp) ? null : value.toISOString()
+    }
+    return null
+}
+
+const normalizeAccessLinkNumber = (value: unknown): number | null => {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        return value
+    }
+    if (typeof value === 'string' && value.trim().length > 0) {
+        const parsed = Number(value)
+        return Number.isFinite(parsed) ? parsed : null
+    }
+    return null
+}
 
 type AccessLinkRecord = {
     id: string
@@ -269,6 +291,10 @@ const isPlainRecord = (value: unknown): value is Record<string, unknown> =>
     Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 
 const readConfiguredString = (value: unknown): string | null => (typeof value === 'string' && value.trim().length > 0 ? value.trim() : null)
+
+const lockPublicGuestRuntimeKey = async (executor: DbExecutor, key: string): Promise<void> => {
+    await executor.query(`SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))`, [key])
+}
 
 const readConfiguredStringMap = <K extends readonly string[]>(source: unknown, keys: K): Record<K[number], string> | null => {
     if (!isPlainRecord(source)) return null
@@ -488,6 +514,42 @@ const normalizeQuestionRows = (
         options: normalizeOptions(row[columns.options], options?.locale ?? 'en')
     }))
 
+const deriveGuestContentProgress = (
+    contentItems: Array<{ id: string }>,
+    action: 'view' | 'complete' | 'recalculate',
+    contentItemId?: string
+): { status: 'in_progress' | 'completed'; progressPercent: number; lastAccessedItemIndex: number } | null => {
+    if (contentItems.length === 0) {
+        return {
+            status: action === 'complete' ? 'completed' : 'in_progress',
+            progressPercent: action === 'complete' ? 100 : 0,
+            lastAccessedItemIndex: 0
+        }
+    }
+
+    if (action === 'complete') {
+        return {
+            status: 'completed',
+            progressPercent: 100,
+            lastAccessedItemIndex: contentItems.length - 1
+        }
+    }
+
+    const requestedIndex =
+        typeof contentItemId === 'string' ? contentItems.findIndex((item) => item.id === contentItemId) : action === 'view' ? 0 : -1
+    if (typeof contentItemId === 'string' && requestedIndex < 0) {
+        return null
+    }
+    const boundedIndex = requestedIndex >= 0 ? requestedIndex : 0
+    const progressPercent = Math.min(100, Math.max(0, Math.round(((boundedIndex + 1) / contentItems.length) * 100)))
+
+    return {
+        status: progressPercent >= 100 ? 'completed' : 'in_progress',
+        progressPercent,
+        lastAccessedItemIndex: boundedIndex
+    }
+}
+
 const encodeGuestSessionToken = (payload: GuestSessionPayload): string => Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url')
 
 const encodeStoredGuestSessionState = (payload: StoredGuestSessionState): string => JSON.stringify(payload)
@@ -607,6 +669,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
     ): Promise<AccessLinkRecord | null> => {
         const binding = await resolveAccessLinksBinding(executor, schemaName, config)
         if (!binding) return null
+        if (workspaceId !== null && !UUID_REGEX.test(workspaceId)) return null
 
         const attrs = resolveTopLevelComponents(binding)
         const attrByCodename = indexByCodename(attrs)
@@ -657,11 +720,17 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                    ${safeColumns.classId ? `"${safeColumns.classId}"` : 'NULL'} AS class_id
             FROM ${tableQt}
             WHERE ${matchColumnSql} = $1
+              ${workspaceId ? 'AND "workspace_id" = $2' : ''}
               AND ${ACTIVE_ROW_SQL}
-            LIMIT 1
+            ORDER BY ${qColumn('_upl_created_at')} ASC, id ASC
+            LIMIT ${lookup.type === 'slug' ? 2 : 1}
             `,
-            [lookup.value]
+            workspaceId ? [lookup.value, workspaceId] : [lookup.value]
         )
+
+        if (lookup.type === 'slug' && rows.length > 1) {
+            return null
+        }
 
         const row = rows[0]
         if (!row) return null
@@ -674,9 +743,9 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
             targetId: String(row.target_id ?? ''),
             contentNodeIdRef: typeof row.content_node_id_ref === 'string' ? row.content_node_id_ref : null,
             isActive: row.is_active === true,
-            expiresAt: typeof row.expires_at === 'string' ? row.expires_at : null,
-            maxUses: typeof row.max_uses === 'number' ? row.max_uses : null,
-            useCount: typeof row.use_count === 'number' ? row.use_count : null,
+            expiresAt: normalizeAccessLinkDate(row.expires_at),
+            maxUses: normalizeAccessLinkNumber(row.max_uses),
+            useCount: normalizeAccessLinkNumber(row.use_count),
             classId: typeof row.class_id === 'string' ? row.class_id : null,
             workspaceId,
             binding,
@@ -708,6 +777,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
         }
 
         const workspaceIds = await listActivePublicWorkspaceIds(executor, schemaName)
+        const matchingLinks: AccessLinkRecord[] = []
         for (const workspaceId of workspaceIds) {
             const hasWorkspace = await setPublicWorkspaceContext(executor, schemaName, workspaceId)
             if (!hasWorkspace) {
@@ -716,8 +786,13 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
 
             const link = await loadAccessLinkRecordBy(executor, schemaName, config, lookup, workspaceId)
             if (link) {
-                return link
+                matchingLinks.push(link)
             }
+        }
+
+        if (matchingLinks.length === 1) {
+            await setPublicWorkspaceContext(executor, schemaName, matchingLinks[0].workspaceId)
+            return matchingLinks[0]
         }
 
         await setPublicWorkspaceContext(executor, schemaName, null)
@@ -792,13 +867,14 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
             SET ${useCountColumnQt} = COALESCE(${useCountColumnQt}, 0) + 1,
                 ${qColumn('_upl_updated_at')} = NOW()
             WHERE id = $1
+              ${link.workspaceId ? 'AND "workspace_id" = $2' : ''}
               AND ${isActiveColumnQt} = true
               AND ${expiresAtCondition}
               AND ${maxUsesCondition}
               AND ${ACTIVE_ROW_SQL}
             RETURNING id
             `,
-            [link.id]
+            link.workspaceId ? [link.id, link.workspaceId] : [link.id]
         )
 
         return result.length > 0
@@ -885,12 +961,13 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
         schemaName: string,
         config: PublicGuestRuntimeConfig,
         contentNodeId: string,
-        locale: string
+        locale: string,
+        workspaceId: string | null = null
     ) => {
         const binding = await resolveContentNodeBinding(executor, schemaName, config)
         if (!binding) return null
 
-        const row = await loadPublicRuntimeRecord(executor, schemaName, binding, contentNodeId)
+        const row = await loadPublicRuntimeRecord(executor, schemaName, binding, contentNodeId, workspaceId)
         if (!row) return null
 
         const attrs = resolveTopLevelComponents(binding)
@@ -900,7 +977,9 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
         const contentTable = attrByCodename[contentFields.contentItems]
         const contentAttrs = resolveChildComponents(binding, contentTable?.id ?? '')
         const contentAttrByCodename = indexByCodename(contentAttrs)
-        const childRows = contentTable ? await loadPublicTableRows(executor, schemaName, contentTable, contentAttrs, contentNodeId) : []
+        const childRows = contentTable
+            ? await loadPublicTableRows(executor, schemaName, contentTable, contentAttrs, contentNodeId, workspaceId)
+            : []
         const enumValueCodeMaps = await loadEnumerationValueCodeMaps(executor, schemaName, contentAttrs)
 
         const columns = Object.fromEntries(contentAttrs.map((cmp) => [resolveRuntimeCodenameText(cmp.codename), cmp.column_name]))
@@ -941,12 +1020,13 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
         config: PublicGuestRuntimeConfig,
         quizId: string,
         includeAnswers: boolean,
-        locale: string
+        locale: string,
+        workspaceId: string | null = null
     ) => {
         const binding = await resolveQuizBinding(executor, schemaName, config)
         if (!binding) return null
 
-        const row = await loadPublicRuntimeRecord(executor, schemaName, binding, quizId)
+        const row = await loadPublicRuntimeRecord(executor, schemaName, binding, quizId, workspaceId)
         if (!row) return null
 
         const attrs = resolveTopLevelComponents(binding)
@@ -956,7 +1036,9 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
         const questionsTable = attrByCodename[quizFields.questions]
         const questionAttrs = questionsTable ? resolveChildComponents(binding, questionsTable.id) : []
         const questionAttrByCodename = indexByCodename(questionAttrs)
-        const questionRows = questionsTable ? await loadPublicTableRows(executor, schemaName, questionsTable, questionAttrs, quizId) : []
+        const questionRows = questionsTable
+            ? await loadPublicTableRows(executor, schemaName, questionsTable, questionAttrs, quizId, workspaceId)
+            : []
         const enumValueCodeMaps = await loadEnumerationValueCodeMaps(executor, schemaName, questionAttrs)
         const columns = Object.fromEntries(questionAttrs.map((cmp) => [resolveRuntimeCodenameText(cmp.codename), cmp.column_name]))
         const questions = normalizeQuestionRows(
@@ -1021,7 +1103,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
             return null
         }
 
-        const contentPayload = await buildContentPayload(executor, schemaName, config, baseTargetId, 'en')
+        const contentPayload = await buildContentPayload(executor, schemaName, config, baseTargetId, 'en', link.workspaceId)
         if (!contentPayload) {
             return null
         }
@@ -1316,8 +1398,8 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
 
             const payload =
                 resolvedTarget.type === 'quiz'
-                    ? await buildQuizPayload(ctx.manager, ctx.schemaName, runtimeConfig, resolvedTarget.id, false, locale)
-                    : await buildContentPayload(ctx.manager, ctx.schemaName, runtimeConfig, resolvedTarget.id, locale)
+                    ? await buildQuizPayload(ctx.manager, ctx.schemaName, runtimeConfig, resolvedTarget.id, false, locale, link.workspaceId)
+                    : await buildContentPayload(ctx.manager, ctx.schemaName, runtimeConfig, resolvedTarget.id, locale, link.workspaceId)
             if (!payload) {
                 res.status(404).json({ error: 'Runtime target not found' })
                 return
@@ -1389,7 +1471,15 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                 return
             }
 
-            const quizPayload = await buildQuizPayload(ctx.manager, ctx.schemaName, runtimeConfig, parsed.data.assessmentId, true, 'en')
+            const quizPayload = await buildQuizPayload(
+                ctx.manager,
+                ctx.schemaName,
+                runtimeConfig,
+                parsed.data.assessmentId,
+                true,
+                'en',
+                session.workspaceId
+            )
             if (!quizPayload || quizPayload.type !== 'quiz') {
                 res.status(404).json({ error: 'Quiz not found' })
                 return
@@ -1432,26 +1522,38 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                 attemptNumber: qColumn(columns.attemptNumber as string)
             }
 
-            const attemptRows = await ctx.manager.query<{ attemptNumber: number | string | null }>(
-                `
-                SELECT MAX(${qColumns.attemptNumber}) AS "attemptNumber"
-                FROM ${tableQt}
-                WHERE ${qColumns.studentId} = $1
-                  AND ${qColumns.quizId} = $2
-                  AND ${ACTIVE_ROW_SQL}
-                `,
-                [parsed.data.participantId, parsed.data.assessmentId]
-            )
-            const lastAttemptRaw = attemptRows[0]?.attemptNumber
-            const nextAttemptNumber =
-                typeof lastAttemptRaw === 'number'
-                    ? lastAttemptRaw + 1
-                    : typeof lastAttemptRaw === 'string' && Number.isFinite(Number(lastAttemptRaw))
-                    ? Number(lastAttemptRaw) + 1
-                    : 1
-
             let score = 0
             await ctx.manager.transaction(async (tx: DbExecutor) => {
+                await lockPublicGuestRuntimeKey(
+                    tx,
+                    `${ctx.schemaName}:guest-assessment:${session.workspaceId ?? ''}:${parsed.data.participantId}:${
+                        parsed.data.assessmentId
+                    }`
+                )
+                const attemptWhereClauses = [
+                    `${qColumns.studentId} = $1`,
+                    `${qColumns.quizId} = $2`,
+                    ACTIVE_ROW_SQL,
+                    ctx.workspacesEnabled && session.workspaceId ? `${qColumn('workspace_id')} = $3` : ''
+                ].filter(Boolean)
+                const attemptRows = await tx.query<{ attemptNumber: number | string | null }>(
+                    `
+                    SELECT MAX(${qColumns.attemptNumber}) AS "attemptNumber"
+                    FROM ${tableQt}
+                    WHERE ${attemptWhereClauses.join(' AND ')}
+                    `,
+                    ctx.workspacesEnabled && session.workspaceId
+                        ? [parsed.data.participantId, parsed.data.assessmentId, session.workspaceId]
+                        : [parsed.data.participantId, parsed.data.assessmentId]
+                )
+                const lastAttemptRaw = attemptRows[0]?.attemptNumber
+                const nextAttemptNumber =
+                    typeof lastAttemptRaw === 'number'
+                        ? lastAttemptRaw + 1
+                        : typeof lastAttemptRaw === 'string' && Number.isFinite(Number(lastAttemptRaw))
+                        ? Number(lastAttemptRaw) + 1
+                        : 1
+
                 for (const question of quizPayload.questions) {
                     const selectedOptionIds = parsed.data.answers[question.id] ?? []
                     const correctOptionIds = (question.options as Array<{ id: string; label: string; isCorrect?: boolean }>)
@@ -1581,6 +1683,25 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                 return
             }
 
+            const contentPayload = await buildContentPayload(
+                ctx.manager,
+                ctx.schemaName,
+                runtimeConfig,
+                parsed.data.contentNodeId,
+                'en',
+                session.workspaceId
+            )
+            if (!contentPayload || contentPayload.type !== 'content') {
+                res.status(404).json({ error: 'Content is not available for this guest session' })
+                return
+            }
+
+            const derivedProgress = deriveGuestContentProgress(contentPayload.contentItems, parsed.data.action, parsed.data.contentItemId)
+            if (!derivedProgress) {
+                res.status(400).json({ error: 'Content item is not available for this guest session' })
+                return
+            }
+
             const progressBinding = await resolveContentProgressBinding(ctx.manager, ctx.schemaName, runtimeConfig)
             if (!progressBinding) {
                 res.status(500).json({ error: 'Content progress object is not available' })
@@ -1621,21 +1742,47 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
 
             const tableQt = qSchemaTable(ctx.schemaName, progressBinding.tableName)
 
+            let progressUpdateFailed = false
             await ctx.manager.transaction(async (tx: DbExecutor) => {
+                await lockPublicGuestRuntimeKey(
+                    tx,
+                    `${ctx.schemaName}:guest-progress:${session.workspaceId ?? ''}:${parsed.data.participantId}:${
+                        parsed.data.contentNodeId
+                    }`
+                )
+
+                const progressWhereClauses = [
+                    `${qColumns.studentId} = $1`,
+                    `${qColumns.contentNodeId} = $2`,
+                    ACTIVE_ROW_SQL,
+                    ctx.workspacesEnabled && session.workspaceId ? `${qColumn('workspace_id')} = $3` : ''
+                ].filter(Boolean)
                 const existingRows = await tx.query<{ id: string }>(
                     `
                     SELECT id
                     FROM ${tableQt}
-                    WHERE ${qColumns.studentId} = $1
-                      AND ${qColumns.contentNodeId} = $2
-                      AND ${ACTIVE_ROW_SQL}
+                    WHERE ${progressWhereClauses.join(' AND ')}
                     LIMIT 1
                     `,
-                    [parsed.data.participantId, parsed.data.contentNodeId]
+                    ctx.workspacesEnabled && session.workspaceId
+                        ? [parsed.data.participantId, parsed.data.contentNodeId, session.workspaceId]
+                        : [parsed.data.participantId, parsed.data.contentNodeId]
                 )
 
                 if (existingRows[0]?.id) {
-                    await tx.query(
+                    const updateParams = [
+                        parsed.data.participantId,
+                        parsed.data.contentNodeId,
+                        derivedProgress.status,
+                        derivedProgress.progressPercent,
+                        derivedProgress.lastAccessedItemIndex,
+                        existingRows[0].id
+                    ]
+                    const workspaceUpdateClause =
+                        ctx.workspacesEnabled && session.workspaceId
+                            ? `AND ${qColumn('workspace_id')} = $${updateParams.push(session.workspaceId)}`
+                            : ''
+                    const updatedRows = await tx.query<{ id: string }>(
                         `
                         UPDATE ${tableQt}
                         SET ${qColumns.status} = $3,
@@ -1645,16 +1792,16 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                             ${qColumn('_upl_updated_at')} = NOW(),
                             ${qColumn('_upl_updated_by')} = $1
                         WHERE id = $6
+                          AND ${ACTIVE_ROW_SQL}
+                          ${workspaceUpdateClause}
+                        RETURNING id
                         `,
-                        [
-                            parsed.data.participantId,
-                            parsed.data.contentNodeId,
-                            parsed.data.status,
-                            parsed.data.progressPercent,
-                            parsed.data.lastAccessedItemIndex,
-                            existingRows[0].id
-                        ]
+                        updateParams
                     )
+                    if (!updatedRows[0]?.id) {
+                        progressUpdateFailed = true
+                        return
+                    }
                 } else {
                     const insertColumns = [
                         'id',
@@ -1671,9 +1818,9 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                         await createUuidV7(tx),
                         parsed.data.participantId,
                         parsed.data.contentNodeId,
-                        parsed.data.status,
-                        parsed.data.progressPercent,
-                        parsed.data.lastAccessedItemIndex
+                        derivedProgress.status,
+                        derivedProgress.progressPercent,
+                        derivedProgress.lastAccessedItemIndex
                     ]
 
                     if (ctx.workspacesEnabled && session.workspaceId) {
@@ -1695,6 +1842,11 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                     )
                 }
             })
+
+            if (progressUpdateFailed) {
+                res.status(409).json({ error: 'Guest progress row was not updated', code: 'GUEST_PROGRESS_UPDATE_FAILED' })
+                return
+            }
 
             res.json({ ok: true })
         })

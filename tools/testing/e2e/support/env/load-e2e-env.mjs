@@ -58,6 +58,16 @@ const normalizeHost = (value) => {
     return value
 }
 
+const normalizeEmailDomain = (value, fallback = 'example.test') => {
+    const normalized = String(value || fallback)
+        .trim()
+        .toLowerCase()
+    if (!normalized) return fallback
+
+    const atIndex = normalized.lastIndexOf('@')
+    return atIndex >= 0 ? normalized.slice(atIndex + 1) || fallback : normalized
+}
+
 const buildCandidateEnvFiles = (target) => {
     if (target === 'e2e') {
         return ['.env.e2e.local', '.env.e2e', '.env']
@@ -261,7 +271,7 @@ export function loadE2eEnvironment() {
     process.env.E2E_AUTH_PATH = process.env.E2E_AUTH_PATH || '/auth'
     process.env.E2E_TEST_USER_PASSWORD = process.env.E2E_TEST_USER_PASSWORD || 'ChangeMe_E2E-123456!'
     process.env.E2E_TEST_USER_ROLE_CODENAMES = process.env.E2E_TEST_USER_ROLE_CODENAMES || 'User'
-    process.env.E2E_TEST_USER_EMAIL_DOMAIN = process.env.E2E_TEST_USER_EMAIL_DOMAIN || 'example.test'
+    process.env.E2E_TEST_USER_EMAIL_DOMAIN = normalizeEmailDomain(process.env.E2E_TEST_USER_EMAIL_DOMAIN)
     process.env.E2E_FULL_RESET_MODE = normalizeFullResetMode(process.env.E2E_FULL_RESET_MODE)
     if (e2eSupabasePolicy) {
         process.env.E2E_SUPABASE_PROVIDER = e2eSupabasePolicy.provider

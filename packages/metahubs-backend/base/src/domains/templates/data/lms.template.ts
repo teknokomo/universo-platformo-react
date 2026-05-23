@@ -852,18 +852,194 @@ function buildLmsLearningContentSeedZoneWidgets(libraryView: 'all' | 'recent' | 
             config: {
                 datasource: {
                     kind: 'records.union',
+                    projectedFields: ['Instructor'],
                     targets: [
-                        { sectionCodename: 'LearningResources', displayType: 'resource' },
-                        { sectionCodename: 'Courses', displayType: 'course' },
-                        { sectionCodename: 'LearningTracks', displayType: 'track' }
+                        {
+                            sectionCodename: 'LearningResources',
+                            displayType: 'resource',
+                            titleField: 'Title',
+                            statusField: 'PublicationStatus',
+                            projectField: 'ProjectId'
+                        },
+                        {
+                            sectionCodename: 'Courses',
+                            displayType: 'course',
+                            titleField: 'Title',
+                            statusField: 'Status',
+                            projectField: 'ProjectId'
+                        },
+                        {
+                            sectionCodename: 'LearningTracks',
+                            displayType: 'track',
+                            titleField: 'Title',
+                            statusField: 'Status',
+                            projectField: 'ProjectId'
+                        }
                     ],
                     query: {
                         lifecycleState: 'active',
                         libraryView,
-                        sort: [{ field: 'Title', direction: 'asc' }]
+                        sort: [
+                            libraryView === 'recent'
+                                ? { field: 'recentAt', direction: 'desc' }
+                                : libraryView === 'shared'
+                                ? { field: 'sharedAt', direction: 'desc' }
+                                : { field: 'Title', direction: 'asc' }
+                        ]
                     }
                 },
-                showViewToggle: true
+                showViewToggle: true,
+                showSearch: true,
+                targetFilters: [
+                    {
+                        id: 'learning-content-filter-resources',
+                        label: vlc('Resources', 'Ресурсы'),
+                        targetDisplayTypes: ['resource']
+                    },
+                    {
+                        id: 'learning-content-filter-courses',
+                        label: vlc('Courses', 'Курсы'),
+                        targetDisplayTypes: ['course']
+                    },
+                    {
+                        id: 'learning-content-filter-tracks',
+                        label: vlc('Learning Tracks', 'Учебные треки'),
+                        targetDisplayTypes: ['track']
+                    }
+                ],
+                rowActions: [
+                    {
+                        id: 'learning-content-toggle-starred',
+                        kind: 'library.toggle',
+                        libraryView: 'starred',
+                        icon: 'star',
+                        label: vlc('Add to starred', 'Добавить в избранное'),
+                        activeLabel: vlc('Remove from starred', 'Убрать из избранного')
+                    },
+                    {
+                        id: 'learning-content-toggle-shared',
+                        kind: 'library.toggle',
+                        libraryView: 'shared',
+                        icon: 'share',
+                        principalTarget: 'workspaceMember',
+                        label: vlc('Share', 'Поделиться'),
+                        activeLabel: vlc('Share', 'Поделиться'),
+                        dialogTitle: vlc('Share content', 'Поделиться контентом'),
+                        targetLabel: vlc('Workspace member', 'Участник рабочего пространства')
+                    },
+                    ...(libraryView === 'all'
+                        ? [
+                              {
+                                  id: 'learning-content-move-project',
+                                  kind: 'field.updateWithTarget',
+                                  fieldCodename: 'ProjectId',
+                                  targetObjectCollectionCodename: 'ContentProjects',
+                                  labelFields: ['Name', 'Title'],
+                                  icon: 'move',
+                                  label: vlc('Move to project', 'Переместить в проект'),
+                                  dialogTitle: vlc('Move to project', 'Переместить в проект'),
+                                  targetLabel: vlc('Project', 'Проект')
+                              }
+                          ]
+                        : [])
+                ],
+                ...(libraryView === 'all'
+                    ? {
+                          createTargets: [
+                              {
+                                  id: 'learning-content-create-project',
+                                  label: vlc('Project', 'Проект'),
+                                  sectionCodename: 'ContentProjects',
+                                  icon: 'folder'
+                              },
+                              {
+                                  id: 'learning-content-create-page',
+                                  label: vlc('Page', 'Страница'),
+                                  sectionCodename: 'LearningResources',
+                                  icon: 'article',
+                                  createDefaults: [
+                                      { fieldCodename: 'ResourceType', enumCodename: 'Page' },
+                                      { fieldCodename: 'Source', resourceSourceType: 'page' }
+                                  ]
+                              },
+                              {
+                                  id: 'learning-content-create-link',
+                                  label: vlc('Link', 'Ссылка'),
+                                  sectionCodename: 'LearningResources',
+                                  icon: 'link',
+                                  createDefaults: [
+                                      { fieldCodename: 'ResourceType', enumCodename: 'Url' },
+                                      { fieldCodename: 'Source', resourceSourceType: 'url' }
+                                  ]
+                              },
+                              {
+                                  id: 'learning-content-create-course',
+                                  label: vlc('Course', 'Курс'),
+                                  sectionCodename: 'Courses',
+                                  icon: 'school',
+                                  createDefaults: [
+                                      {
+                                          fieldCodename: 'NavigationMode',
+                                          contextPath: 'learningContent.courseCompletionPolicy.navigationMode'
+                                      },
+                                      {
+                                          fieldCodename: 'CompletionCondition',
+                                          contextPath: 'learningContent.courseCompletionPolicy.completionCondition'
+                                      },
+                                      {
+                                          fieldCodename: 'StatusFormat',
+                                          contextPath: 'learningContent.courseCompletionPolicy.statusFormat'
+                                      }
+                                  ]
+                              },
+                              {
+                                  id: 'learning-content-create-track',
+                                  label: vlc('Learning Track', 'Учебный трек'),
+                                  sectionCodename: 'LearningTracks',
+                                  icon: 'route',
+                                  createDefaults: [
+                                      {
+                                          fieldCodename: 'OrderMode',
+                                          contextPath: 'learningContent.trackOrderPolicy.orderMode'
+                                      }
+                                  ]
+                              },
+                              {
+                                  id: 'learning-content-create-quiz-lite',
+                                  label: vlc('Quiz-lite', 'Тест-lite'),
+                                  sectionCodename: 'Quizzes',
+                                  icon: 'quiz',
+                                  disabled: true,
+                                  disabledReason: vlc(
+                                      'Quiz authoring is planned for a later Learning Content phase.',
+                                      'Создание тестов запланировано на следующий этап Learning Content.'
+                                  )
+                              },
+                              {
+                                  id: 'learning-content-create-assignment-lite',
+                                  label: vlc('Assignment-lite', 'Задание-lite'),
+                                  sectionCodename: 'Assignments',
+                                  icon: 'assignment',
+                                  disabled: true,
+                                  disabledReason: vlc(
+                                      'Assignment authoring is planned for a later Learning Content phase.',
+                                      'Создание заданий запланировано на следующий этап Learning Content.'
+                                  )
+                              },
+                              {
+                                  id: 'learning-content-create-package',
+                                  label: vlc('Import package', 'Импорт пакета'),
+                                  sectionCodename: 'LearningResources',
+                                  icon: 'upload',
+                                  disabled: true,
+                                  disabledReason: vlc(
+                                      'File import and SCORM/xAPI support are planned for a later phase.',
+                                      'Импорт файлов и поддержка SCORM/xAPI запланированы на следующий этап.'
+                                  )
+                              }
+                          ]
+                      }
+                    : {})
             }
         }
     ]
@@ -878,16 +1054,73 @@ function buildLmsTrashSeedZoneWidgets(): TemplateSeedZoneWidget[] {
             config: {
                 datasource: {
                     kind: 'records.union',
+                    projectedFields: ['Instructor'],
                     targets: [
-                        { sectionCodename: 'LearningResources', displayType: 'resource' },
-                        { sectionCodename: 'Courses', displayType: 'course' },
-                        { sectionCodename: 'LearningTracks', displayType: 'track' }
+                        {
+                            sectionCodename: 'LearningResources',
+                            displayType: 'resource',
+                            titleField: 'Title',
+                            statusField: 'PublicationStatus',
+                            projectField: 'ProjectId'
+                        },
+                        {
+                            sectionCodename: 'Courses',
+                            displayType: 'course',
+                            titleField: 'Title',
+                            statusField: 'Status',
+                            projectField: 'ProjectId'
+                        },
+                        {
+                            sectionCodename: 'LearningTracks',
+                            displayType: 'track',
+                            titleField: 'Title',
+                            statusField: 'Status',
+                            projectField: 'ProjectId'
+                        }
                     ],
                     query: {
                         lifecycleState: 'deleted',
                         sort: [{ field: 'Title', direction: 'asc' }]
                     }
+                },
+                showSearch: true,
+                targetFilters: [
+                    {
+                        id: 'learning-content-trash-filter-resources',
+                        label: vlc('Resources', 'Ресурсы'),
+                        targetDisplayTypes: ['resource']
+                    },
+                    {
+                        id: 'learning-content-trash-filter-courses',
+                        label: vlc('Courses', 'Курсы'),
+                        targetDisplayTypes: ['course']
+                    },
+                    {
+                        id: 'learning-content-trash-filter-tracks',
+                        label: vlc('Learning Tracks', 'Учебные треки'),
+                        targetDisplayTypes: ['track']
+                    }
+                ],
+                restoreTarget: {
+                    targetObjectCollectionCodename: 'ContentProjects',
+                    parentFieldCodename: 'ProjectId',
+                    labelFields: ['Name', 'Title'],
+                    dialogTitle: vlc('Restore to project', 'Восстановить в проект'),
+                    targetLabel: vlc('Project', 'Проект')
                 }
+            }
+        }
+    ]
+}
+
+function buildLmsReportsSeedZoneWidgets(): TemplateSeedZoneWidget[] {
+    return [
+        {
+            zone: 'center' as const,
+            widgetKey: 'detailsTable',
+            sortOrder: 13,
+            config: {
+                reportCodename: 'LearningContentSummary'
             }
         }
     ]
@@ -1162,20 +1395,7 @@ function buildLmsCourseBuilderSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                             {
                                 widgetKey: 'detailsTable',
                                 config: {
-                                    reportDefinition: {
-                                        codename: 'CourseBuilderOutline',
-                                        title: vlc('Course outline report', 'Отчет по структуре курса'),
-                                        datasource: {
-                                            kind: 'records.list',
-                                            sectionCodename: 'CourseItems'
-                                        },
-                                        columns: [
-                                            { field: 'Title', label: vlc('Title', 'Название'), type: 'text' },
-                                            { field: 'ItemType', label: vlc('Type', 'Тип'), type: 'text' },
-                                            { field: 'IsRequired', label: vlc('Required', 'Обязательный'), type: 'boolean' },
-                                            { field: 'CompletionWeight', label: vlc('Weight', 'Вес'), type: 'number' }
-                                        ]
-                                    }
+                                    reportCodename: 'CourseBuilderOutline'
                                 }
                             }
                         ]
@@ -1500,24 +1720,7 @@ function buildLmsTrackBuilderSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                             {
                                 widgetKey: 'detailsTable',
                                 config: {
-                                    reportDefinition: {
-                                        codename: 'TrackBuilderOutline',
-                                        title: vlc('Track outline report', 'Отчет по структуре трека'),
-                                        datasource: {
-                                            kind: 'records.list',
-                                            sectionCodename: 'TrackSteps'
-                                        },
-                                        columns: [
-                                            { field: 'Title', label: vlc('Title', 'Название'), type: 'text' },
-                                            { field: 'CourseId', label: vlc('Course', 'Курс'), type: 'text' },
-                                            {
-                                                field: 'EnrollmentOffsetDays',
-                                                label: vlc('Start offset', 'Смещение старта'),
-                                                type: 'number'
-                                            },
-                                            { field: 'DueOffsetDays', label: vlc('Due offset', 'Смещение срока'), type: 'number' }
-                                        ]
-                                    }
+                                    reportCodename: 'TrackBuilderOutline'
                                 }
                             }
                         ]
@@ -2334,6 +2537,22 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 isActive: true,
                 sortOrder: 8,
                 config: orderingLayoutConfig
+            },
+            {
+                codename: 'reportsDashboard',
+                templateKey: 'dashboard',
+                baseLayoutCodename: 'main',
+                scopeEntityCodename: 'Reports',
+                scopeEntityKind: 'object',
+                name: vlc('Reports Dashboard', 'Панель отчетов'),
+                description: vlc(
+                    'Reports layout with saved report definitions and the primary Learning Content summary report surface.',
+                    'Макет отчетов со списком сохраненных определений и основным отчетом по учебному контенту.'
+                ),
+                isDefault: true,
+                isActive: true,
+                sortOrder: 9,
+                config: lmsNavigationLayoutConfig
             }
         ],
         layoutZoneWidgets: {
@@ -2349,7 +2568,8 @@ export const lmsTemplate: MetahubTemplateManifest = {
             courseItemsOrdering: buildLmsOrderingSeedZoneWidgets('CourseItems'),
             trackBuilder: buildLmsTrackBuilderSeedZoneWidgets(),
             trackStagesOrdering: buildLmsOrderingSeedZoneWidgets('TrackStages'),
-            trackStepsOrdering: buildLmsOrderingSeedZoneWidgets('TrackSteps')
+            trackStepsOrdering: buildLmsOrderingSeedZoneWidgets('TrackSteps'),
+            reportsDashboard: buildLmsReportsSeedZoneWidgets()
         },
         entities: [
             {
@@ -2500,7 +2720,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         dataType: 'STRING',
                         name: vlc('Default Library Columns', 'Колонки библиотеки по умолчанию'),
                         sortOrder: 1,
-                        value: 'Title,ResourceType,PublicationStatus,ProjectId,CreatedBy'
+                        value: 'type,title,status,ResourceType'
                     }
                 ]
             },
@@ -3232,8 +3452,11 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 ),
                 config: {
                     runtimeAccessEntry: {
+                        targetObjectFieldCodename: 'TargetObjectCodename',
+                        targetRecordFieldCodename: 'TargetRecordId',
                         principalTypeFieldCodename: 'PrincipalType',
                         principalIdFieldCodename: 'PrincipalId',
+                        accessLevelFieldCodename: 'AccessLevel',
                         supportedPrincipalTypes: ['workspaceMember', 'user']
                     }
                 },
@@ -3559,13 +3782,15 @@ export const lmsTemplate: MetahubTemplateManifest = {
                             objectCodename: 'RecentContentViews',
                             targetObjectFieldCodename: 'TargetObjectCodename',
                             targetRecordFieldCodename: 'TargetRecordId',
-                            actorFieldCodename: 'UserId'
+                            actorFieldCodename: 'UserId',
+                            timestampFieldCodename: 'ViewedAt'
                         },
                         starred: {
                             objectCodename: 'ContentStars',
                             targetObjectFieldCodename: 'TargetObjectCodename',
                             targetRecordFieldCodename: 'TargetRecordId',
-                            actorFieldCodename: 'UserId'
+                            actorFieldCodename: 'UserId',
+                            timestampFieldCodename: 'StarredAt'
                         },
                         shared: {
                             objectCodename: 'ContentAccessEntries',
@@ -3573,6 +3798,9 @@ export const lmsTemplate: MetahubTemplateManifest = {
                             targetRecordFieldCodename: 'TargetRecordId',
                             principalTypeFieldCodename: 'PrincipalType',
                             principalIdFieldCodename: 'PrincipalId',
+                            accessLevelFieldCodename: 'AccessLevel',
+                            defaultAccessLevel: 'canView',
+                            timestampFieldCodename: 'InvitedAt',
                             allowedPrincipalTypes: ['workspaceMember', 'user']
                         }
                     },
@@ -3636,6 +3864,9 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         sortOrder: 6,
                         uiConfig: {
                             widget: 'resourceSource',
+                            autoPageCodename: {
+                                sourceFields: ['Name', 'Title']
+                            },
                             gridHidden: true
                         }
                     },
@@ -3697,13 +3928,21 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         dataType: 'STRING',
                         name: vlc('Created By', 'Создал'),
                         sortOrder: 13,
-                        validationRules: { maxLength: 128 }
+                        validationRules: { maxLength: 128 },
+                        uiConfig: { hidden: true }
+                    },
+                    {
+                        codename: 'Instructor',
+                        dataType: 'STRING',
+                        name: vlc('Instructor', 'Преподаватель'),
+                        sortOrder: 14,
+                        validationRules: { maxLength: 255 }
                     },
                     {
                         codename: 'ContentItems',
                         dataType: 'TABLE',
                         name: vlc('Content Items', 'Элементы контента'),
-                        sortOrder: 14,
+                        sortOrder: 15,
                         childComponents: [
                             {
                                 codename: 'ItemType',
@@ -3760,13 +3999,15 @@ export const lmsTemplate: MetahubTemplateManifest = {
                             objectCodename: 'RecentContentViews',
                             targetObjectFieldCodename: 'TargetObjectCodename',
                             targetRecordFieldCodename: 'TargetRecordId',
-                            actorFieldCodename: 'UserId'
+                            actorFieldCodename: 'UserId',
+                            timestampFieldCodename: 'ViewedAt'
                         },
                         starred: {
                             objectCodename: 'ContentStars',
                             targetObjectFieldCodename: 'TargetObjectCodename',
                             targetRecordFieldCodename: 'TargetRecordId',
-                            actorFieldCodename: 'UserId'
+                            actorFieldCodename: 'UserId',
+                            timestampFieldCodename: 'StarredAt'
                         },
                         shared: {
                             objectCodename: 'ContentAccessEntries',
@@ -3774,6 +4015,9 @@ export const lmsTemplate: MetahubTemplateManifest = {
                             targetRecordFieldCodename: 'TargetRecordId',
                             principalTypeFieldCodename: 'PrincipalType',
                             principalIdFieldCodename: 'PrincipalId',
+                            accessLevelFieldCodename: 'AccessLevel',
+                            defaultAccessLevel: 'canView',
+                            timestampFieldCodename: 'InvitedAt',
                             allowedPrincipalTypes: ['workspaceMember', 'user']
                         }
                     },
@@ -3951,6 +4195,13 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 kind: 'object',
                 name: vlc('Course Sections', 'Разделы курса'),
                 description: vlc('Ordered sections inside courses.', 'Упорядоченные разделы внутри курсов.'),
+                config: {
+                    runtimeRecordParentAccess: {
+                        mode: 'parentRecord',
+                        parentObjectCodename: 'Courses',
+                        parentFieldCodename: 'CourseId'
+                    }
+                },
                 components: [
                     {
                         codename: 'CourseId',
@@ -3996,6 +4247,11 @@ export const lmsTemplate: MetahubTemplateManifest = {
                     'Упорядоченные полиморфные ссылки на контент внутри разделов курса.'
                 ),
                 config: {
+                    runtimeRecordParentAccess: {
+                        mode: 'parentRecord',
+                        parentObjectCodename: 'Courses',
+                        parentFieldCodename: 'CourseId'
+                    },
                     runtimeProgress: {
                         sequencePolicy: {
                             mode: 'sequential',
@@ -4132,13 +4388,15 @@ export const lmsTemplate: MetahubTemplateManifest = {
                             objectCodename: 'RecentContentViews',
                             targetObjectFieldCodename: 'TargetObjectCodename',
                             targetRecordFieldCodename: 'TargetRecordId',
-                            actorFieldCodename: 'UserId'
+                            actorFieldCodename: 'UserId',
+                            timestampFieldCodename: 'ViewedAt'
                         },
                         starred: {
                             objectCodename: 'ContentStars',
                             targetObjectFieldCodename: 'TargetObjectCodename',
                             targetRecordFieldCodename: 'TargetRecordId',
-                            actorFieldCodename: 'UserId'
+                            actorFieldCodename: 'UserId',
+                            timestampFieldCodename: 'StarredAt'
                         },
                         shared: {
                             objectCodename: 'ContentAccessEntries',
@@ -4146,6 +4404,9 @@ export const lmsTemplate: MetahubTemplateManifest = {
                             targetRecordFieldCodename: 'TargetRecordId',
                             principalTypeFieldCodename: 'PrincipalType',
                             principalIdFieldCodename: 'PrincipalId',
+                            accessLevelFieldCodename: 'AccessLevel',
+                            defaultAccessLevel: 'canView',
+                            timestampFieldCodename: 'InvitedAt',
                             allowedPrincipalTypes: ['workspaceMember', 'user']
                         }
                     },
@@ -4289,6 +4550,13 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 kind: 'object',
                 name: vlc('Track Stages', 'Этапы трека'),
                 description: vlc('Ordered stage headers inside learning tracks.', 'Упорядоченные этапы внутри учебных треков.'),
+                config: {
+                    runtimeRecordParentAccess: {
+                        mode: 'parentRecord',
+                        parentObjectCodename: 'LearningTracks',
+                        parentFieldCodename: 'TrackId'
+                    }
+                },
                 components: [
                     {
                         codename: 'TrackId',
@@ -4334,6 +4602,11 @@ export const lmsTemplate: MetahubTemplateManifest = {
                     'Переиспользуемые упорядоченные шаги учебных треков и проверок prerequisites.'
                 ),
                 config: {
+                    runtimeRecordParentAccess: {
+                        mode: 'parentRecord',
+                        parentObjectCodename: 'LearningTracks',
+                        parentFieldCodename: 'TrackId'
+                    },
                     runtimeProgress: {
                         sequencePolicy: {
                             mode: 'sequential',
@@ -4792,12 +5065,18 @@ export const lmsTemplate: MetahubTemplateManifest = {
                             {
                                 field: 'DueDate',
                                 when: { field: 'DueDateMode', equals: 'ByDate' },
-                                message: 'Due Date is required when Due Date Mode is Due by date'
+                                message: vlc(
+                                    'Due Date is required when Due Date Mode is Due by date',
+                                    'Срок обязателен, когда режим срока задан как дата'
+                                )
                             },
                             {
                                 field: 'DuePeriodDays',
                                 when: { field: 'DueDateMode', equals: 'ForPeriod' },
-                                message: 'Due Period is required when Due Date Mode is Due for period'
+                                message: vlc(
+                                    'Due Period is required when Due Date Mode is Due for period',
+                                    'Период срока обязателен, когда режим срока задан как период'
+                                )
                             }
                         ],
                         dateOrder: [
@@ -4805,7 +5084,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                                 startField: 'EnrolledAt',
                                 endField: 'DueDate',
                                 allowEqual: true,
-                                message: 'Due Date must be on or after Enrolled At'
+                                message: vlc('Due Date must be on or after Enrolled At', 'Срок должен быть не раньше даты записи')
                             }
                         ]
                     },
@@ -6139,19 +6418,22 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         codename: 'Filters',
                         dataType: 'JSON',
                         name: vlc('Filters', 'Фильтры'),
-                        sortOrder: 3
+                        sortOrder: 3,
+                        uiConfig: { gridHidden: true }
                     },
                     {
                         codename: 'Definition',
                         dataType: 'JSON',
                         name: vlc('Definition', 'Определение'),
-                        sortOrder: 4
+                        sortOrder: 4,
+                        uiConfig: { gridHidden: true }
                     },
                     {
                         codename: 'SavedFilters',
                         dataType: 'JSON',
                         name: vlc('Saved Filters', 'Сохраненные фильтры'),
-                        sortOrder: 5
+                        sortOrder: 5,
+                        uiConfig: { gridHidden: true }
                     }
                 ]
             },

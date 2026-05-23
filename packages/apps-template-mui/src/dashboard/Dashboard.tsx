@@ -4,7 +4,7 @@ import { alpha } from '@mui/material/styles'
 import Box from '@mui/material/Box'
 import Stack from '@mui/material/Stack'
 import { useMemo } from 'react'
-import { defaultDashboardLayoutConfig, type DashboardLayoutConfig, type RuntimePageBlock } from '@universo/types'
+import { defaultDashboardLayoutConfig, type CreateTargetDefault, type DashboardLayoutConfig, type RuntimePageBlock } from '@universo/types'
 import AppNavbar from './components/AppNavbar'
 import Header from './components/Header'
 import MainGrid from './components/MainGrid'
@@ -12,6 +12,7 @@ import SideMenu from './components/SideMenu'
 import SideMenuRight from './components/SideMenuRight'
 import { DashboardDetailsProvider } from './DashboardDetailsContext'
 import type { AppDataResponse } from '../api/api'
+import type { ResourceSourceTypeOption } from '../components/dialogs/FormDialog'
 
 export type { DashboardLayoutConfig } from '@universo/types'
 
@@ -29,6 +30,7 @@ export interface DashboardDetailsSlot {
     currentWorkspaceId?: string | null
     runtimeQueryKeyPrefix?: readonly unknown[]
     workspacesEnabled?: boolean
+    permissions?: AppDataResponse['permissions']
     banner?: React.ReactNode
     content?: React.ReactNode
     rows: Array<Record<string, unknown> & { id: string }>
@@ -66,8 +68,51 @@ export interface DashboardDetailsSlot {
         showProgressHeader?: boolean
         completeButtonMode?: 'manual' | 'autoAfterOpen' | 'hidden'
         progressStorageKey?: string
-        onProgressChange?: (payload: { progressPercent: number; status: string }) => Promise<void> | void
+        onProgressChange?: (payload: { action: 'view' | 'complete' }) => Promise<void> | void
     }
+    /** Generic table defaults supplied by the host application settings. */
+    tableDefaults?: {
+        defaultViewMode?: 'table' | 'card'
+        columnPreset?: {
+            columns: Array<{
+                field: string
+                visible?: boolean
+                width?: number
+                flex?: number
+                sort?: 'asc' | 'desc'
+            }>
+        }
+    }
+    /** Generic resource-source type policy supplied by the host application settings. */
+    resourceSourceTypes?: ResourceSourceTypeOption[]
+    /** Generic create target handler used by metadata-driven datasource widgets. */
+    onOpenCreateTarget?: (target: DashboardCreateTarget) => void
+    /** Generic source-row action handler used by metadata-driven datasource widgets. */
+    onOpenRowTarget?: (target: DashboardRowTarget, action: DashboardRowTargetAction) => void
+}
+
+export interface DashboardCreateTarget {
+    id: string
+    label: unknown
+    sectionId?: string | null
+    sectionCodename?: string | null
+    objectCollectionId?: string | null
+    objectCollectionCodename?: string | null
+    icon?: string | null
+    surface?: 'dialog' | 'page'
+    disabled?: boolean
+    disabledReason?: unknown
+    createDefaults?: readonly CreateTargetDefault[]
+}
+
+export type DashboardRowTargetAction = 'edit' | 'copy' | 'delete'
+
+export interface DashboardRowTarget {
+    rowId: string
+    sectionId?: string | null
+    sectionCodename?: string | null
+    objectCollectionId?: string | null
+    objectCollectionCodename?: string | null
 }
 
 export interface DashboardMenuItem {
@@ -191,6 +236,8 @@ export default function Dashboard(props: DashboardProps) {
                     component='main'
                     sx={(theme) => ({
                         flexGrow: 1,
+                        minWidth: 0,
+                        maxWidth: '100vw',
                         backgroundColor: theme.vars
                             ? `rgba(${theme.vars.palette.background.defaultChannel} / 1)`
                             : alpha(theme.palette.background.default, 1),
@@ -201,6 +248,8 @@ export default function Dashboard(props: DashboardProps) {
                         spacing={2}
                         sx={{
                             alignItems: 'center',
+                            minWidth: 0,
+                            boxSizing: 'border-box',
                             mx: 3,
                             pb: 5,
                             mt: { xs: 8, md: 0 }

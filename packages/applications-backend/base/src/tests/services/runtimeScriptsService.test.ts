@@ -35,7 +35,7 @@ const createRecordBinding = (overrides: Record<string, unknown> = {}) => ({
             is_required: false
         }
     ],
-    tableIdent: '"app_runtime_test"."orders"',
+    tableIdent: '"app_018f8a787b8f7c1da1112222333346aa"."orders"',
     activeRowCondition: '_upl_deleted = false AND _app_deleted = false',
     ...overrides
 })
@@ -101,7 +101,7 @@ describe('RuntimeScriptsService', () => {
         const { executor } = createMockDbExecutor()
         const service = new RuntimeScriptsService(engine as never)
 
-        executor.query.mockResolvedValueOnce([{ table_name: 'app_runtime_test._app_scripts' }]).mockResolvedValueOnce([
+        executor.query.mockResolvedValueOnce([{ table_name: 'app_018f8a787b8f7c1da1112222333346aa._app_scripts' }]).mockResolvedValueOnce([
             {
                 id: 'script-1',
                 codename: 'quiz-widget',
@@ -134,7 +134,7 @@ describe('RuntimeScriptsService', () => {
 
         const items = await service.listClientScripts({
             executor: executor as never,
-            schemaName: 'app_runtime_test',
+            schemaName: 'app_018f8a787b8f7c1da1112222333346aa',
             attachedToKind: 'object',
             attachedToId: 'object-1'
         })
@@ -151,7 +151,7 @@ describe('RuntimeScriptsService', () => {
         const { executor } = createMockDbExecutor()
         const service = new RuntimeScriptsService(engine as never)
 
-        executor.query.mockResolvedValueOnce([{ table_name: 'app_runtime_test._app_scripts' }]).mockResolvedValueOnce([
+        executor.query.mockResolvedValueOnce([{ table_name: 'app_018f8a787b8f7c1da1112222333346aa._app_scripts' }]).mockResolvedValueOnce([
             {
                 id: 'script-1',
                 codename: 'quiz-widget',
@@ -184,7 +184,7 @@ describe('RuntimeScriptsService', () => {
 
         const items = await service.listClientScripts({
             executor: executor as never,
-            schemaName: 'app_runtime_test',
+            schemaName: 'app_018f8a787b8f7c1da1112222333346aa',
             attachedToKind: 'object',
             attachedToId: 'object-1'
         })
@@ -203,7 +203,7 @@ describe('RuntimeScriptsService', () => {
         ).createExecutionContext({
             executor,
             applicationId: 'application-1',
-            schemaName: 'app_runtime_test',
+            schemaName: 'app_018f8a787b8f7c1da1112222333346aa',
             script: createScriptDefinition({
                 manifest: {
                     className: 'QuizWidgetScript',
@@ -252,7 +252,7 @@ describe('RuntimeScriptsService', () => {
         ).createExecutionContext({
             executor,
             applicationId: 'application-1',
-            schemaName: 'app_runtime_test',
+            schemaName: 'app_018f8a787b8f7c1da1112222333346aa',
             script: createScriptDefinition({
                 manifest: {
                     className: 'PostingScript',
@@ -272,7 +272,7 @@ describe('RuntimeScriptsService', () => {
         expect(ledgers.appendFacts).toHaveBeenCalledWith(
             expect.objectContaining({
                 executor,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_018f8a787b8f7c1da1112222333346aa',
                 ledgerCodename: 'ProgressLedger',
                 currentWorkspaceId: 'workspace-1',
                 currentUserId: 'user-1',
@@ -284,7 +284,7 @@ describe('RuntimeScriptsService', () => {
         expect(ledgers.reverseFacts).toHaveBeenCalledWith(
             expect.objectContaining({
                 executor,
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_018f8a787b8f7c1da1112222333346aa',
                 ledgerCodename: 'ProgressLedger',
                 currentWorkspaceId: 'workspace-1',
                 currentUserId: 'user-1',
@@ -318,7 +318,7 @@ describe('RuntimeScriptsService', () => {
             service.callServerMethod({
                 executor: executor as never,
                 applicationId: 'application-1',
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_018f8a787b8f7c1da1112222333346aa',
                 scriptId: 'script-1',
                 currentWorkspaceId: null,
                 currentUserId: 'user-1',
@@ -359,7 +359,7 @@ describe('RuntimeScriptsService', () => {
             service.callServerMethod({
                 executor: executor as never,
                 applicationId: 'application-1',
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_018f8a787b8f7c1da1112222333346aa',
                 scriptId: 'script-1',
                 currentWorkspaceId: null,
                 currentUserId: 'user-1',
@@ -400,7 +400,7 @@ describe('RuntimeScriptsService', () => {
             service.callServerMethod({
                 executor: executor as never,
                 applicationId: 'application-1',
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_018f8a787b8f7c1da1112222333346aa',
                 scriptId: 'script-1',
                 currentWorkspaceId: null,
                 currentUserId: 'user-1',
@@ -430,7 +430,7 @@ describe('RuntimeScriptsService', () => {
         const { executor } = createMockDbExecutor()
         const service = new RuntimeScriptsService(engine as never)
 
-        executor.query.mockResolvedValueOnce([{ table_name: 'app_runtime_test._app_scripts' }]).mockResolvedValueOnce([
+        executor.query.mockResolvedValueOnce([{ table_name: 'app_018f8a787b8f7c1da1112222333346aa._app_scripts' }]).mockResolvedValueOnce([
             {
                 id: 'script-1',
                 codename: 'quiz-widget',
@@ -465,7 +465,7 @@ describe('RuntimeScriptsService', () => {
             service.callServerMethod({
                 executor: executor as never,
                 applicationId: 'application-1',
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_018f8a787b8f7c1da1112222333346aa',
                 scriptId: 'script-1',
                 currentWorkspaceId: null,
                 currentUserId: 'user-1',
@@ -521,7 +521,7 @@ describe('RuntimeScriptsService', () => {
         await service.dispatchLifecycleEvent({
             executor: executor as never,
             applicationId: 'application-1',
-            schemaName: 'app_runtime_test',
+            schemaName: 'app_018f8a787b8f7c1da1112222333346aa',
             attachmentKind: 'object',
             attachmentId: 'object-1',
             entityCodename: 'orders',
@@ -567,7 +567,7 @@ describe('RuntimeScriptsService', () => {
         ).createRecord({
             executor,
             applicationId: 'application-1',
-            schemaName: 'app_runtime_test',
+            schemaName: 'app_018f8a787b8f7c1da1112222333346aa',
             currentWorkspaceId: null,
             currentUserId: 'user-1',
             permissions: { createContent: true },
@@ -622,7 +622,7 @@ describe('RuntimeScriptsService', () => {
         ).createRecord({
             executor,
             applicationId: 'application-1',
-            schemaName: 'app_runtime_test',
+            schemaName: 'app_018f8a787b8f7c1da1112222333346aa',
             currentWorkspaceId: null,
             currentUserId: 'user-1',
             permissions: { createContent: true },
@@ -674,7 +674,7 @@ describe('RuntimeScriptsService', () => {
         ).deleteRecord({
             executor,
             applicationId: 'application-1',
-            schemaName: 'app_runtime_test',
+            schemaName: 'app_018f8a787b8f7c1da1112222333346aa',
             currentWorkspaceId: null,
             currentUserId: 'user-1',
             permissions: { deleteContent: true },

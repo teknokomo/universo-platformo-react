@@ -105,6 +105,23 @@ const resolveInlineMetrics = (size?: 'small' | 'medium') => {
     return { buttonHeight, buttonMinWidth, offset }
 }
 
+const buildLengthConstraintText = (
+    t: ReturnType<typeof useCommonTranslations<'localizedField'>>['t'],
+    minLength?: number | null,
+    maxLength?: number | null
+): string | null => {
+    if (minLength != null && maxLength != null) {
+        return t('lengthRange', 'Length: {{min}}-{{max}} characters', { min: minLength, max: maxLength })
+    }
+    if (maxLength != null) {
+        return t('maxLength', 'Maximum length: {{max}} characters', { max: maxLength })
+    }
+    if (minLength != null) {
+        return t('minLength', 'Minimum length: {{min}} characters', { min: minLength })
+    }
+    return null
+}
+
 /** Simple non-localized field variant (no hooks needed) */
 const SimpleInlineField: React.FC<SimpleFieldProps> = ({
     value,
@@ -120,6 +137,8 @@ const SimpleInlineField: React.FC<SimpleFieldProps> = ({
     maxLength,
     minLength
 }) => {
+    const { t } = useCommonTranslations('localizedField')
+
     // Block input beyond maxLength
     const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const newValue = event.target.value
@@ -131,17 +150,8 @@ const SimpleInlineField: React.FC<SimpleFieldProps> = ({
 
     // Build constraint helper text
     const constraintText = useMemo(() => {
-        if (minLength != null && maxLength != null) {
-            return `${minLength}-${maxLength}`
-        }
-        if (maxLength != null) {
-            return `max: ${maxLength}`
-        }
-        if (minLength != null) {
-            return `min: ${minLength}`
-        }
-        return null
-    }, [minLength, maxLength])
+        return buildLengthConstraintText(t, minLength, maxLength)
+    }, [maxLength, minLength, t])
 
     const finalHelperText = error || helperText || constraintText
 
@@ -182,6 +192,7 @@ const VersionedInlineField: React.FC<VersionedFieldProps> = ({
     maxLength,
     minLength
 }) => {
+    const { t } = useCommonTranslations('localizedField')
     const normalizedUiLocale = normalizeLocale(uiLocale)
 
     // Auto-initialize if needed
@@ -209,17 +220,8 @@ const VersionedInlineField: React.FC<VersionedFieldProps> = ({
 
     // Build constraint helper text
     const constraintText = useMemo(() => {
-        if (minLength != null && maxLength != null) {
-            return `${minLength}-${maxLength}`
-        }
-        if (maxLength != null) {
-            return `max: ${maxLength}`
-        }
-        if (minLength != null) {
-            return `min: ${minLength}`
-        }
-        return null
-    }, [minLength, maxLength])
+        return buildLengthConstraintText(t, minLength, maxLength)
+    }, [maxLength, minLength, t])
 
     const finalHelperText = error || helperText || constraintText
 
@@ -386,17 +388,8 @@ const LocalizedInlineFieldContent: React.FC<LocalizedFieldProps> = ({
 
     // Build constraint helper text - MUST be before conditional returns
     const constraintText = useMemo(() => {
-        if (minLength != null && maxLength != null) {
-            return `${minLength}-${maxLength}`
-        }
-        if (maxLength != null) {
-            return `max: ${maxLength}`
-        }
-        if (minLength != null) {
-            return `min: ${minLength}`
-        }
-        return null
-    }, [minLength, maxLength])
+        return buildLengthConstraintText(t, minLength, maxLength)
+    }, [maxLength, minLength, t])
 
     // Handler that blocks input beyond maxLength - MUST be before conditional returns
     const handleLocaleChange = useCallback(
@@ -479,7 +472,11 @@ const LocalizedInlineFieldContent: React.FC<LocalizedFieldProps> = ({
                 const isErrorLocale = errorLocale ? locale.toLowerCase() === errorLocale.toLowerCase() : isPrimary
                 const showError = (isErrorLocale && error) || hasMinLengthError
                 const fieldHelperText =
-                    isErrorLocale && error ? error : hasMinLengthError ? `min: ${minLength}` : helperText || constraintText
+                    isErrorLocale && error
+                        ? error
+                        : hasMinLengthError
+                        ? buildLengthConstraintText(t, minLength, null)
+                        : helperText || constraintText
 
                 return (
                     <Box key={locale} sx={{ position: 'relative', overflow: 'visible' }}>

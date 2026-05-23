@@ -74,6 +74,16 @@ export function derivePostgresEnv(dbUrl) {
     }
 }
 
+export function normalizeE2eEmailDomain(value, fallback = 'example.test') {
+    const normalized = String(value || fallback)
+        .trim()
+        .toLowerCase()
+    if (!normalized) return fallback
+
+    const atIndex = normalized.lastIndexOf('@')
+    return atIndex >= 0 ? normalized.slice(atIndex + 1) || fallback : normalized
+}
+
 export function buildBackendEnv({ statusEnv, target, existingEnv = {} }) {
     const supabaseUrl = firstPresent(statusEnv, ['SUPABASE_URL', 'API_URL', 'SUPA_API_URL'])
     const dbUrl = firstPresent(statusEnv, ['DB_URL', 'POSTGRES_URL', 'SUPA_DB_URL'])
@@ -130,13 +140,15 @@ export function buildBackendEnv({ statusEnv, target, existingEnv = {} }) {
         AUTH_EMAIL_CONFIRMATION_REQUIRED: target === 'e2e' ? 'false' : existingEnv.AUTH_EMAIL_CONFIRMATION_REQUIRED || 'false',
         AUTH_LOGIN_RATE_LIMIT_WINDOW_MS: existingEnv.AUTH_LOGIN_RATE_LIMIT_WINDOW_MS || '60000',
         AUTH_LOGIN_RATE_LIMIT_MAX: target === 'e2e' ? '300' : existingEnv.AUTH_LOGIN_RATE_LIMIT_MAX || '100',
+        API_RATE_LIMIT_READ_MAX: target === 'e2e' ? existingEnv.API_RATE_LIMIT_READ_MAX || '5000' : existingEnv.API_RATE_LIMIT_READ_MAX,
+        API_RATE_LIMIT_WRITE_MAX: target === 'e2e' ? existingEnv.API_RATE_LIMIT_WRITE_MAX || '2500' : existingEnv.API_RATE_LIMIT_WRITE_MAX,
         SMARTCAPTCHA_REGISTRATION_ENABLED: target === 'e2e' ? 'false' : existingEnv.SMARTCAPTCHA_REGISTRATION_ENABLED || 'false',
         SMARTCAPTCHA_LOGIN_ENABLED: target === 'e2e' ? 'false' : existingEnv.SMARTCAPTCHA_LOGIN_ENABLED || 'false',
         SMARTCAPTCHA_PUBLICATION_ENABLED: target === 'e2e' ? 'false' : existingEnv.SMARTCAPTCHA_PUBLICATION_ENABLED || 'false',
         ...(target === 'e2e'
             ? {
                   E2E_TEST_USER_PASSWORD: existingEnv.E2E_TEST_USER_PASSWORD || 'UniversoE2E_123456!',
-                  E2E_TEST_USER_EMAIL_DOMAIN: existingEnv.E2E_TEST_USER_EMAIL_DOMAIN || 'example.test',
+                  E2E_TEST_USER_EMAIL_DOMAIN: normalizeE2eEmailDomain(existingEnv.E2E_TEST_USER_EMAIL_DOMAIN),
                   E2E_FULL_RESET_MODE: existingEnv.E2E_FULL_RESET_MODE || 'strict'
               }
             : {})

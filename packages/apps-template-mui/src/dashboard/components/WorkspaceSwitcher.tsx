@@ -127,7 +127,8 @@ export default function WorkspaceSwitcher({ variant = 'inline' }: WorkspaceSwitc
 
     const currentWorkspace = workspaces.find((w) => w.id === currentWorkspaceId) ?? workspaces[0]
     const locale = i18n.language || 'en'
-    const currentName = currentWorkspace ? readName(currentWorkspace.name, locale) || currentWorkspace.id : ''
+    const untitledWorkspaceLabel = t('workspace.untitled', 'Untitled workspace')
+    const currentName = currentWorkspace ? readName(currentWorkspace.name, locale) || untitledWorkspaceLabel : ''
     const currentIsPersonal = currentWorkspace?.workspaceType === 'personal'
     const currentTypeLabel = currentIsPersonal ? t('workspace.personal', 'Personal') : t('workspace.shared', 'Shared')
     const currentRoleLabel =
@@ -201,7 +202,7 @@ export default function WorkspaceSwitcher({ variant = 'inline' }: WorkspaceSwitc
         >
             <ListSubheader sx={{ pt: 0 }}>{t('workspace.title', 'Workspaces')}</ListSubheader>
             {workspaces.map((ws) => {
-                const name = readName(ws.name, locale) || ws.id
+                const name = readName(ws.name, locale) || untitledWorkspaceLabel
                 const isPersonal = ws.workspaceType === 'personal'
                 const typeLabel = isPersonal ? t('workspace.personal', 'Personal') : t('workspace.shared', 'Shared')
                 const roleLabel = ws.roleCodename === 'owner' ? t('workspace.roleOwner', 'Owner') : t('workspace.roleMember', 'Member')

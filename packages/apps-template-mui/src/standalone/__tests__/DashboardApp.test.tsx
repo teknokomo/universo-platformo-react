@@ -9,7 +9,9 @@ const dashboardMocks = vi.hoisted(() => ({
     dashboardStateOverrides: {} as Record<string, unknown>,
     handleOpenCreate: vi.fn(),
     handleOpenEdit: vi.fn(),
-    handleOpenCopy: vi.fn()
+    handleOpenCopy: vi.fn(),
+    onSelectObjectCollection: vi.fn(),
+    capturedCrudOptions: null as null | { createDefaultContext?: (appData: unknown) => unknown }
 }))
 
 vi.mock('react-i18next', () => ({
@@ -43,8 +45,20 @@ vi.mock('../../dashboard/Dashboard', () => ({
                 showProgressHeader?: boolean
                 completeButtonMode?: string
                 progressStorageKey?: string
-                onProgressChange?: (payload: { progressPercent: number; status: string }) => void
+                onProgressChange?: (payload: { action: 'view' | 'complete' }) => void
             }
+            tableDefaults?: unknown
+            onOpenCreateTarget?: (target: {
+                id: string
+                label: string
+                objectCollectionId?: string
+                createDefaults?: Array<{
+                    fieldCodename: string
+                    enumCodename?: string
+                    resourceSourceType?: string
+                    contextPath?: string
+                }>
+            }) => void
         }
         layoutConfig?: Record<string, unknown>
         menu?: { items?: Array<{ label: string; selected?: boolean; href?: string | null }> }
@@ -60,6 +74,24 @@ vi.mock('../../dashboard/Dashboard', () => ({
             <div data-testid='dashboard-page-blocks'>{String(details?.pageBlocks?.length ?? 0)}</div>
             <div data-testid='dashboard-page-progress-handler'>{String(typeof details?.pagePlayer?.onProgressChange === 'function')}</div>
             <div data-testid='dashboard-page-player'>{JSON.stringify(details?.pagePlayer ?? {})}</div>
+            <div data-testid='dashboard-table-defaults'>{JSON.stringify(details?.tableDefaults ?? {})}</div>
+            <button
+                data-testid='dashboard-open-link-target'
+                onClick={() =>
+                    details?.onOpenCreateTarget?.({
+                        id: 'create-link',
+                        label: 'Link',
+                        objectCollectionId: 'object-1',
+                        createDefaults: [
+                            { fieldCodename: 'ResourceType', enumCodename: 'Url' },
+                            { fieldCodename: 'Source', resourceSourceType: 'url' }
+                        ]
+                    })
+                }
+                type='button'
+            >
+                open link target
+            </button>
         </div>
     )
 }))
@@ -89,79 +121,94 @@ vi.mock('../../components/RowActionsMenu', () => ({
 }))
 
 vi.mock('../../hooks/useCrudDashboard', () => ({
-    useCrudDashboard: () => ({
-        appData: {
-            zoneWidgets: { left: [], right: [], center: [] },
-            menus: [],
-            activeMenuId: null,
-            settings: { sectionLinksEnabled: true },
-            workspacesEnabled: true,
-            permissions: {
-                manageMembers: false,
-                manageApplication: false,
-                createContent: true,
-                editContent: true,
-                deleteContent: true,
-                readReports: false
+    useCrudDashboard: (options: { createDefaultContext?: (appData: unknown) => unknown }) => {
+        dashboardMocks.capturedCrudOptions = options
+        return {
+            appData: {
+                zoneWidgets: { left: [], right: [], center: [] },
+                menus: [],
+                activeMenuId: null,
+                settings: { sectionLinksEnabled: true },
+                workspacesEnabled: true,
+                permissions: {
+                    manageMembers: false,
+                    manageApplication: false,
+                    createContent: true,
+                    editContent: true,
+                    deleteContent: true,
+                    readReports: false
+                },
+                objectCollection: {
+                    name: 'Standalone details'
+                },
+                activeObjectCollectionId: 'object-1',
+                objectCollections: [{ id: 'object-1', codename: 'LearningResources' }],
+                sections: [{ id: 'object-1', codename: 'LearningResources' }]
             },
-            objectCollection: {
-                name: 'Standalone details'
-            }
-        },
-        layoutConfig: {},
-        rows: [],
-        columns: [],
-        isLoading: false,
-        rowCount: 0,
-        paginationModel: { page: 0, pageSize: 50 },
-        setPaginationModel: vi.fn(),
-        pageSizeOptions: [10, 25, 50],
-        localeText: undefined,
-        canPersistRowReorder: false,
-        handlePersistRowReorder: vi.fn(),
-        isReordering: false,
-        formOpen: false,
-        isFormReady: true,
-        fieldConfigs: [],
-        formInitialData: undefined,
-        isSubmitting: false,
-        formError: null,
-        copyError: null,
-        editRowId: null,
-        copyRowId: null,
-        handleCloseForm: vi.fn(),
-        handleFormSubmit: vi.fn().mockResolvedValue(undefined),
-        deleteRowId: null,
-        isDeleting: false,
-        deleteError: null,
-        handleCloseDelete: vi.fn(),
-        handleConfirmDelete: vi.fn().mockResolvedValue(undefined),
-        handleOpenMenu: vi.fn(),
-        handleCloseMenu: vi.fn(),
-        activeMenu: null,
-        menuAnchorEl: null,
-        menuRowId: null,
-        menuSlot: {
-            title: null,
-            showTitle: false,
-            items: [
-                { id: 'learning-resources', label: 'LearningResources', kind: 'section', objectCollectionId: 'object-1', selected: true }
-            ]
-        },
-        menusMap: {},
-        activeObjectCollectionId: 'object-1',
-        selectedObjectCollectionId: 'object-1',
-        handleOpenCreate: dashboardMocks.handleOpenCreate,
-        handleOpenEdit: dashboardMocks.handleOpenEdit,
-        handleOpenCopy: dashboardMocks.handleOpenCopy,
-        ...dashboardMocks.dashboardStateOverrides
-    })
+            layoutConfig: {},
+            rows: [],
+            columns: [],
+            isLoading: false,
+            rowCount: 0,
+            paginationModel: { page: 0, pageSize: 50 },
+            setPaginationModel: vi.fn(),
+            pageSizeOptions: [10, 25, 50],
+            localeText: undefined,
+            canPersistRowReorder: false,
+            handlePersistRowReorder: vi.fn(),
+            isReordering: false,
+            formOpen: false,
+            isFormReady: true,
+            fieldConfigs: [],
+            formInitialData: undefined,
+            isSubmitting: false,
+            formError: null,
+            copyError: null,
+            editRowId: null,
+            copyRowId: null,
+            handleCloseForm: vi.fn(),
+            handleFormSubmit: vi.fn().mockResolvedValue(undefined),
+            deleteRowId: null,
+            isDeleting: false,
+            deleteError: null,
+            handleCloseDelete: vi.fn(),
+            handleConfirmDelete: vi.fn().mockResolvedValue(undefined),
+            handleOpenMenu: vi.fn(),
+            handleCloseMenu: vi.fn(),
+            activeMenu: null,
+            menuAnchorEl: null,
+            menuRowId: null,
+            menuSlot: {
+                title: null,
+                showTitle: false,
+                items: [
+                    {
+                        id: 'learning-resources',
+                        label: 'LearningResources',
+                        kind: 'section',
+                        objectCollectionId: 'object-1',
+                        selected: true
+                    }
+                ]
+            },
+            menusMap: {},
+            activeObjectCollectionId: 'object-1',
+            selectedObjectCollectionId: 'object-1',
+            onSelectObjectCollection: dashboardMocks.onSelectObjectCollection,
+            handleOpenCreate: dashboardMocks.handleOpenCreate,
+            handleOpenEdit: dashboardMocks.handleOpenEdit,
+            handleOpenCopy: dashboardMocks.handleOpenCopy,
+            ...dashboardMocks.dashboardStateOverrides
+        }
+    }
 }))
 
 describe('DashboardApp', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         dashboardMocks.dashboardStateOverrides = {}
+        dashboardMocks.onSelectObjectCollection.mockReset()
+        dashboardMocks.capturedCrudOptions = null
         window.history.pushState({}, '', '/')
     })
 
@@ -219,6 +266,68 @@ describe('DashboardApp', () => {
             '"progressStorageKey":"learning-content-progress:app-1:workspace-1:page-1"'
         )
         expect(screen.getByTestId('dashboard-page-progress-handler')).toHaveTextContent('true')
+    })
+
+    it('passes Learning Content table defaults to the generic dashboard details contract', () => {
+        dashboardMocks.dashboardStateOverrides = {
+            appData: {
+                zoneWidgets: { left: [], right: [], center: [] },
+                menus: [],
+                activeMenuId: null,
+                settings: {
+                    learningContent: {
+                        defaultView: 'cards',
+                        courseCompletionPolicy: {
+                            navigationMode: 'sequential',
+                            completionCondition: 'selectedItems',
+                            statusFormat: 'passedFailed'
+                        },
+                        trackOrderPolicy: {
+                            orderMode: 'byDays'
+                        },
+                        columnPreset: {
+                            codename: 'learningContentDefault',
+                            title: { en: 'Learning Content default' },
+                            columns: [
+                                { field: 'type', visible: true, width: 140 },
+                                { field: 'title', visible: true, flex: 1 },
+                                { field: 'ProjectId', visible: false }
+                            ]
+                        }
+                    }
+                },
+                permissions: {
+                    manageMembers: false,
+                    manageApplication: false,
+                    createContent: true,
+                    editContent: true,
+                    deleteContent: true,
+                    readReports: false
+                },
+                objectCollection: {
+                    name: 'Learning Content',
+                    codename: 'LearningResources'
+                }
+            }
+        }
+
+        render(<DashboardApp applicationId='app-1' locale='en' apiBaseUrl='http://localhost:3000' />)
+
+        expect(screen.getByTestId('dashboard-table-defaults')).toHaveTextContent('"defaultViewMode":"card"')
+        expect(screen.getByTestId('dashboard-table-defaults')).toHaveTextContent('"field":"type"')
+        expect(screen.getByTestId('dashboard-table-defaults')).toHaveTextContent('"visible":false')
+        expect(dashboardMocks.capturedCrudOptions.createDefaultContext(dashboardMocks.dashboardStateOverrides.appData)).toMatchObject({
+            learningContent: {
+                courseCompletionPolicy: {
+                    navigationMode: 'sequential',
+                    completionCondition: 'selectedItems',
+                    statusFormat: 'passedFailed'
+                },
+                trackOrderPolicy: {
+                    orderMode: 'byDays'
+                }
+            }
+        })
     })
 
     it('uses the configured create page surface after the create form opens', async () => {
@@ -295,6 +404,20 @@ describe('DashboardApp', () => {
         await user.click(screen.getByRole('button', { name: 'Create' }))
 
         expect(dashboardMocks.handleOpenCreate).toHaveBeenCalledTimes(1)
+    })
+
+    it('forwards create-target defaults to the standalone create form', async () => {
+        render(<DashboardApp applicationId='app-1' locale='en' apiBaseUrl='http://localhost:3000' />)
+
+        const user = userEvent.setup()
+        await user.click(screen.getByTestId('dashboard-open-link-target'))
+
+        await waitFor(() => {
+            expect(dashboardMocks.handleOpenCreate).toHaveBeenCalledWith([
+                { fieldCodename: 'ResourceType', enumCodename: 'Url' },
+                { fieldCodename: 'Source', resourceSourceType: 'url' }
+            ])
+        })
     })
 
     it('hides the create action when the object runtime config disables it', () => {

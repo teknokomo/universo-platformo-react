@@ -271,6 +271,165 @@ describe('Public Applications Routes', () => {
         expect(currentWorkspaceId).toBe(workspaceId2)
     })
 
+    it('fails closed when the same public access-link slug exists in multiple active public workspaces', async () => {
+        let currentWorkspaceId = ''
+
+        const dataSource = buildDataSource(
+            withPublicApplication(
+                (sql, params) => {
+                    if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
+                        return [{ id: workspaceId2 }, { id: workspaceId1 }]
+                    }
+
+                    if (sql.includes("set_config('app.current_workspace_id'")) {
+                        currentWorkspaceId = String(params[0] ?? '')
+                        return []
+                    }
+
+                    if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
+                        return [{ id: 'object-1', codename: codenameVlc('AccessLinks'), kind: 'object', table_name: 'access_links_table' }]
+                    }
+
+                    if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
+                        return [
+                            {
+                                id: 'attr-1',
+                                codename: codenameVlc('Slug'),
+                                column_name: 'slug',
+                                data_type: 'STRING',
+                                parent_component_id: null
+                            },
+                            {
+                                id: 'attr-2',
+                                codename: codenameVlc('TargetType'),
+                                column_name: 'target_type',
+                                data_type: 'STRING',
+                                parent_component_id: null
+                            },
+                            {
+                                id: 'attr-3',
+                                codename: codenameVlc('TargetId'),
+                                column_name: 'target_id',
+                                data_type: 'STRING',
+                                parent_component_id: null
+                            },
+                            {
+                                id: 'attr-4',
+                                codename: codenameVlc('IsActive'),
+                                column_name: 'is_active',
+                                data_type: 'BOOLEAN',
+                                parent_component_id: null
+                            }
+                        ]
+                    }
+
+                    if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
+                        return [
+                            {
+                                id: currentWorkspaceId === workspaceId2 ? accessLinkId : '4ea1c528-0868-44b6-a30b-7e63a9f963db',
+                                slug: 'demo-content',
+                                target_type: 'content',
+                                target_id: contentNodeId,
+                                is_active: true
+                            }
+                        ]
+                    }
+
+                    return undefined
+                },
+                { workspacesEnabled: true }
+            )
+        )
+
+        const app = buildApp(dataSource)
+        await request(app).get(`/public/a/${applicationId}/links/demo-content`).expect(404)
+
+        expect(currentWorkspaceId).toBe('')
+    })
+
+    it('fails closed when the same public access-link slug exists more than once in one public workspace', async () => {
+        let currentWorkspaceId = ''
+
+        const dataSource = buildDataSource(
+            withPublicApplication(
+                (sql, params) => {
+                    if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
+                        return [{ id: workspaceId1 }]
+                    }
+
+                    if (sql.includes("set_config('app.current_workspace_id'")) {
+                        currentWorkspaceId = String(params[0] ?? '')
+                        return []
+                    }
+
+                    if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
+                        return [{ id: 'object-1', codename: codenameVlc('AccessLinks'), kind: 'object', table_name: 'access_links_table' }]
+                    }
+
+                    if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
+                        return [
+                            {
+                                id: 'attr-1',
+                                codename: codenameVlc('Slug'),
+                                column_name: 'slug',
+                                data_type: 'STRING',
+                                parent_component_id: null
+                            },
+                            {
+                                id: 'attr-2',
+                                codename: codenameVlc('TargetType'),
+                                column_name: 'target_type',
+                                data_type: 'STRING',
+                                parent_component_id: null
+                            },
+                            {
+                                id: 'attr-3',
+                                codename: codenameVlc('TargetId'),
+                                column_name: 'target_id',
+                                data_type: 'STRING',
+                                parent_component_id: null
+                            },
+                            {
+                                id: 'attr-4',
+                                codename: codenameVlc('IsActive'),
+                                column_name: 'is_active',
+                                data_type: 'BOOLEAN',
+                                parent_component_id: null
+                            }
+                        ]
+                    }
+
+                    if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
+                        return [
+                            {
+                                id: accessLinkId,
+                                slug: 'demo-content',
+                                target_type: 'content',
+                                target_id: contentNodeId,
+                                is_active: true
+                            },
+                            {
+                                id: '4ea1c528-0868-44b6-a30b-7e63a9f963db',
+                                slug: 'demo-content',
+                                target_type: 'quiz',
+                                target_id: quizId,
+                                is_active: true
+                            }
+                        ]
+                    }
+
+                    return undefined
+                },
+                { workspacesEnabled: true }
+            )
+        )
+
+        const app = buildApp(dataSource)
+        await request(app).get(`/public/a/${applicationId}/links/demo-content`).expect(404)
+
+        expect(currentWorkspaceId).toBe('')
+    })
+
     it('pins workspace-aware public link resolution to one transaction-scoped executor', async () => {
         let rootWorkspaceId = ''
         let txWorkspaceId = ''
@@ -363,7 +522,9 @@ describe('Public Applications Routes', () => {
             withPublicApplication(
                 (sql, params) => {
                     if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
-                        return [{ id: workspaceId2 }]
+                        expect(sql).toContain("workspace_type <> 'personal'")
+                        expect(sql).toContain('personal_user_id IS NULL')
+                        return []
                     }
 
                     if (sql.includes("set_config('app.current_workspace_id'")) {
@@ -655,7 +816,7 @@ describe('Public Applications Routes', () => {
                             target_type: 'content',
                             target_id: contentNodeId,
                             is_active: true,
-                            expires_at: '2000-01-01T00:00:00.000Z'
+                            expires_at: new Date('2000-01-01T00:00:00.000Z')
                         }
                     ]
                 }
@@ -1293,6 +1454,217 @@ describe('Public Applications Routes', () => {
         expect(JSON.stringify(response.body.details)).toContain('answers')
     })
 
+    it('locks guest assessment attempts and calculates the next attempt inside the transaction', async () => {
+        const studentId = 'af8a5659-4155-4681-aa2f-a7605809cbf0'
+        const sessionToken = Buffer.from(
+            JSON.stringify({
+                linkId: accessLinkId,
+                secret: 'guest-secret',
+                workspaceId: null
+            }),
+            'utf8'
+        ).toString('base64url')
+        let assessmentLockAttempted = false
+        let attemptQueryScope: QueryScope | null = null
+
+        const dataSource = buildDataSource(
+            withPublicApplication((sql, params, scope) => {
+                if (sql.includes('pg_advisory_xact_lock')) {
+                    assessmentLockAttempted = true
+                    expect(String(params[0])).toContain('guest-assessment')
+                    return []
+                }
+
+                if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
+                    const objectByCodename: Record<string, { id: string; tableName: string }> = {
+                        AccessLinks: { id: 'object-links', tableName: 'access_links_table' },
+                        Students: { id: 'object-students', tableName: 'students_table' },
+                        Quizzes: { id: 'object-quizzes', tableName: 'quizzes_table' },
+                        QuizResponses: { id: 'object-quiz-responses', tableName: 'quiz_responses_table' }
+                    }
+                    const match = objectByCodename[String(params[0])]
+                    return match
+                        ? [
+                              {
+                                  id: match.id,
+                                  codename: String(params[0]),
+                                  kind: 'object',
+                                  table_name: match.tableName
+                              }
+                          ]
+                        : []
+                }
+
+                if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
+                    if (params[0] === 'object-links') {
+                        return [
+                            { id: 'link-slug', codename: 'Slug', column_name: 'slug', data_type: 'STRING', parent_component_id: null },
+                            {
+                                id: 'link-target-type',
+                                codename: 'TargetType',
+                                column_name: 'target_type',
+                                data_type: 'STRING',
+                                parent_component_id: null
+                            },
+                            {
+                                id: 'link-target-id',
+                                codename: 'TargetId',
+                                column_name: 'target_id',
+                                data_type: 'STRING',
+                                parent_component_id: null
+                            },
+                            {
+                                id: 'link-active',
+                                codename: 'IsActive',
+                                column_name: 'is_active',
+                                data_type: 'BOOLEAN',
+                                parent_component_id: null
+                            }
+                        ]
+                    }
+
+                    if (params[0] === 'object-students') {
+                        return [
+                            {
+                                id: 'student-token',
+                                codename: 'GuestSessionToken',
+                                column_name: 'guest_session_token',
+                                data_type: 'STRING',
+                                parent_component_id: null
+                            },
+                            {
+                                id: 'student-guest',
+                                codename: 'IsGuest',
+                                column_name: 'is_guest',
+                                data_type: 'BOOLEAN',
+                                parent_component_id: null
+                            }
+                        ]
+                    }
+
+                    if (params[0] === 'object-quizzes') {
+                        return [
+                            { id: 'quiz-title', codename: 'Title', column_name: 'title', data_type: 'STRING', parent_component_id: null },
+                            {
+                                id: 'quiz-description',
+                                codename: 'Description',
+                                column_name: 'description',
+                                data_type: 'STRING',
+                                parent_component_id: null
+                            },
+                            {
+                                id: 'quiz-passing',
+                                codename: 'PassingScorePercent',
+                                column_name: 'passing_score_percent',
+                                data_type: 'NUMBER',
+                                parent_component_id: null
+                            }
+                        ]
+                    }
+
+                    if (params[0] === 'object-quiz-responses') {
+                        return [
+                            {
+                                id: 'response-student',
+                                codename: 'StudentId',
+                                column_name: 'student_id',
+                                data_type: 'STRING',
+                                parent_component_id: null
+                            },
+                            {
+                                id: 'response-quiz',
+                                codename: 'QuizId',
+                                column_name: 'quiz_id',
+                                data_type: 'STRING',
+                                parent_component_id: null
+                            },
+                            {
+                                id: 'response-question',
+                                codename: 'QuestionId',
+                                column_name: 'question_id',
+                                data_type: 'STRING',
+                                parent_component_id: null
+                            },
+                            {
+                                id: 'response-options',
+                                codename: 'SelectedOptionIds',
+                                column_name: 'selected_option_ids',
+                                data_type: 'JSON',
+                                parent_component_id: null
+                            },
+                            {
+                                id: 'response-correct',
+                                codename: 'IsCorrect',
+                                column_name: 'is_correct',
+                                data_type: 'BOOLEAN',
+                                parent_component_id: null
+                            },
+                            {
+                                id: 'response-attempt',
+                                codename: 'AttemptNumber',
+                                column_name: 'attempt_number',
+                                data_type: 'NUMBER',
+                                parent_component_id: null
+                            },
+                            {
+                                id: 'response-submitted',
+                                codename: 'SubmittedAt',
+                                column_name: 'submitted_at',
+                                data_type: 'DATE',
+                                parent_component_id: null
+                            }
+                        ]
+                    }
+
+                    return []
+                }
+
+                if (sql.includes(`FROM "${schemaName}"."students_table"`)) {
+                    return [
+                        {
+                            id: studentId,
+                            guest_session_token: JSON.stringify({
+                                linkId: accessLinkId,
+                                secretHash: hashGuestSecret('guest-secret'),
+                                expiresAt: '2099-01-01T00:00:00.000Z',
+                                workspaceId: null
+                            })
+                        }
+                    ]
+                }
+
+                if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
+                    return [{ id: accessLinkId, slug: 'quiz-link', target_type: 'quiz', target_id: quizId, is_active: true }]
+                }
+
+                if (sql.includes(`FROM "${schemaName}"."quizzes_table"`)) {
+                    return [{ id: quizId, title: 'Guest quiz', description: 'Public guest quiz', passing_score_percent: 80 }]
+                }
+
+                if (sql.includes('SELECT MAX("attempt_number")')) {
+                    attemptQueryScope = scope
+                    return [{ attemptNumber: 2 }]
+                }
+
+                return undefined
+            })
+        )
+
+        const app = buildApp(dataSource)
+        await request(app)
+            .post(`/public/a/${applicationId}/runtime/guest-submit`)
+            .send({
+                participantId: studentId,
+                sessionToken,
+                assessmentId: quizId,
+                answers: {}
+            })
+            .expect(200)
+
+        expect(assessmentLockAttempted).toBe(true)
+        expect(attemptQueryScope).toBe('tx')
+    })
+
     it('rejects mismatched legacy guest aliases at the request boundary', async () => {
         const dataSource = buildDataSource(withPublicApplication(() => undefined))
         const app = buildApp(dataSource)
@@ -1304,14 +1676,269 @@ describe('Public Applications Routes', () => {
                 studentId: 'bf8a5659-4155-4681-aa2f-a7605809cbf0',
                 sessionToken: 'session-token',
                 contentNodeId: contentNodeId,
-                progressPercent: 50,
-                lastAccessedItemIndex: 1,
-                status: 'in_progress'
+                action: 'view'
             })
             .expect(400)
 
         expect(response.body).toMatchObject({ error: 'Invalid request body' })
         expect(JSON.stringify(response.body.details)).toContain('studentId')
+    })
+
+    it('rejects browser-owned guest progress status and percent at the request boundary', async () => {
+        const dataSource = buildDataSource(withPublicApplication(() => undefined))
+        const app = buildApp(dataSource)
+
+        const response = await request(app)
+            .post(`/public/a/${applicationId}/runtime/guest-progress`)
+            .send({
+                participantId: 'af8a5659-4155-4681-aa2f-a7605809cbf0',
+                sessionToken: 'session-token',
+                contentNodeId,
+                action: 'complete',
+                progressPercent: 50,
+                status: 'completed'
+            })
+            .expect(400)
+
+        expect(response.body).toMatchObject({ error: 'Invalid request body' })
+        expect(JSON.stringify(response.body.details)).toContain('progressPercent')
+        expect(JSON.stringify(response.body.details)).toContain('status')
+    })
+
+    it('fails closed when an existing guest progress row is not updated', async () => {
+        const studentId = 'af8a5659-4155-4681-aa2f-a7605809cbf0'
+        const progressRowId = '018f8a78-7b8f-7c1d-a111-222233334550'
+        const sessionToken = Buffer.from(
+            JSON.stringify({
+                linkId: accessLinkId,
+                secret: 'guest-secret',
+                workspaceId: null
+            }),
+            'utf8'
+        ).toString('base64url')
+        let updateAttempted = false
+        let progressLockAttempted = false
+
+        const dataSource = buildDataSource(
+            withPublicApplication((sql, params) => {
+                if (sql.includes('pg_advisory_xact_lock')) {
+                    progressLockAttempted = true
+                    expect(String(params[0])).toContain('guest-progress')
+                    return []
+                }
+
+                if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
+                    const objectByCodename: Record<string, { id: string; tableName: string }> = {
+                        AccessLinks: { id: 'object-links', tableName: 'access_links_table' },
+                        Students: { id: 'object-students', tableName: 'students_table' },
+                        LearningResources: { id: 'object-learning-resources', tableName: 'learning_resources_table' },
+                        ContentProgress: { id: 'object-content-progress', tableName: 'content_progress_table' }
+                    }
+                    const match = objectByCodename[String(params[0])]
+                    return match
+                        ? [
+                              {
+                                  id: match.id,
+                                  codename: String(params[0]),
+                                  kind: 'object',
+                                  table_name: match.tableName
+                              }
+                          ]
+                        : []
+                }
+
+                if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
+                    if (params[0] === 'object-links') {
+                        return [
+                            { id: 'link-slug', codename: 'Slug', column_name: 'slug', data_type: 'STRING', parent_component_id: null },
+                            {
+                                id: 'link-target-type',
+                                codename: 'TargetType',
+                                column_name: 'target_type',
+                                data_type: 'STRING',
+                                parent_component_id: null
+                            },
+                            {
+                                id: 'link-target-id',
+                                codename: 'TargetId',
+                                column_name: 'target_id',
+                                data_type: 'STRING',
+                                parent_component_id: null
+                            },
+                            {
+                                id: 'link-active',
+                                codename: 'IsActive',
+                                column_name: 'is_active',
+                                data_type: 'BOOLEAN',
+                                parent_component_id: null
+                            }
+                        ]
+                    }
+
+                    if (params[0] === 'object-students') {
+                        return [
+                            {
+                                id: 'student-name',
+                                codename: 'DisplayName',
+                                column_name: 'display_name',
+                                data_type: 'STRING',
+                                parent_component_id: null
+                            },
+                            {
+                                id: 'student-guest',
+                                codename: 'IsGuest',
+                                column_name: 'is_guest',
+                                data_type: 'BOOLEAN',
+                                parent_component_id: null
+                            },
+                            {
+                                id: 'student-token',
+                                codename: 'GuestSessionToken',
+                                column_name: 'guest_session_token',
+                                data_type: 'STRING',
+                                parent_component_id: null
+                            }
+                        ]
+                    }
+
+                    if (params[0] === 'object-content-progress') {
+                        return [
+                            {
+                                id: 'progress-student',
+                                codename: 'ProgressStudentId',
+                                column_name: 'student_id',
+                                data_type: 'STRING',
+                                parent_component_id: null
+                            },
+                            {
+                                id: 'progress-content',
+                                codename: 'ContentNodeId',
+                                column_name: 'content_node_id',
+                                data_type: 'STRING',
+                                parent_component_id: null
+                            },
+                            {
+                                id: 'progress-status',
+                                codename: 'ProgressStatus',
+                                column_name: 'status',
+                                data_type: 'STRING',
+                                parent_component_id: null
+                            },
+                            {
+                                id: 'progress-percent',
+                                codename: 'ProgressPercent',
+                                column_name: 'progress_percent',
+                                data_type: 'NUMBER',
+                                parent_component_id: null
+                            },
+                            {
+                                id: 'progress-started',
+                                codename: 'StartedAt',
+                                column_name: 'started_at',
+                                data_type: 'DATE',
+                                parent_component_id: null
+                            },
+                            {
+                                id: 'progress-completed',
+                                codename: 'CompletedAt',
+                                column_name: 'completed_at',
+                                data_type: 'DATE',
+                                parent_component_id: null
+                            },
+                            {
+                                id: 'progress-item',
+                                codename: 'LastAccessedItemIndex',
+                                column_name: 'last_accessed_item_index',
+                                data_type: 'NUMBER',
+                                parent_component_id: null
+                            }
+                        ]
+                    }
+
+                    if (params[0] === 'object-learning-resources') {
+                        return [
+                            {
+                                id: 'resource-title',
+                                codename: 'Title',
+                                column_name: 'title',
+                                data_type: 'STRING',
+                                parent_component_id: null
+                            },
+                            {
+                                id: 'resource-description',
+                                codename: 'Description',
+                                column_name: 'description',
+                                data_type: 'STRING',
+                                parent_component_id: null
+                            },
+                            {
+                                id: 'resource-content-items',
+                                codename: 'ContentItems',
+                                column_name: 'content_items',
+                                data_type: 'TABLE',
+                                parent_component_id: null
+                            }
+                        ]
+                    }
+
+                    return []
+                }
+
+                if (sql.includes(`FROM "${schemaName}"."students_table"`)) {
+                    return [
+                        {
+                            id: studentId,
+                            guest_session_token: JSON.stringify({
+                                linkId: accessLinkId,
+                                secretHash: hashGuestSecret('guest-secret'),
+                                expiresAt: '2099-01-01T00:00:00.000Z',
+                                workspaceId: null
+                            })
+                        }
+                    ]
+                }
+
+                if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
+                    return [{ id: accessLinkId, slug: 'demo-content', target_type: 'content', target_id: contentNodeId, is_active: true }]
+                }
+
+                if (sql.includes(`FROM "${schemaName}"."learning_resources_table"`)) {
+                    return [{ id: contentNodeId, title: 'Guest content', description: 'Guest content description' }]
+                }
+
+                if (sql.includes(`FROM "${schemaName}"."content_progress_table"`)) {
+                    return [{ id: progressRowId }]
+                }
+
+                if (sql.includes(`UPDATE "${schemaName}"."content_progress_table"`)) {
+                    updateAttempted = true
+                    expect(sql).toContain('RETURNING id')
+                    expect(sql).toContain('_upl_deleted = false AND _app_deleted = false')
+                    expect(params.slice(2, 5)).toEqual(['completed', 100, 0])
+                    return []
+                }
+
+                return undefined
+            })
+        )
+
+        const app = buildApp(dataSource)
+        const response = await request(app)
+            .post(`/public/a/${applicationId}/runtime/guest-progress`)
+            .send({
+                participantId: studentId,
+                sessionToken,
+                contentNodeId,
+                action: 'complete'
+            })
+            .expect(409)
+
+        expect(response.body).toMatchObject({
+            error: 'Guest progress row was not updated',
+            code: 'GUEST_PROGRESS_UPDATE_FAILED'
+        })
+        expect(updateAttempted).toBe(true)
+        expect(progressLockAttempted).toBe(true)
     })
 
     it('rejects direct runtime access without a slug', async () => {

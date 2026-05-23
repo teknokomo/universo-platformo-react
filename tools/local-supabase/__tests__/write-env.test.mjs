@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { buildBackendEnv, buildFrontendEnv, derivePostgresEnv, readFirstEnvSource } from '../write-env.mjs'
+import { buildBackendEnv, buildFrontendEnv, derivePostgresEnv, normalizeE2eEmailDomain, readFirstEnvSource } from '../write-env.mjs'
 
 const statusEnv = {
     API_URL: 'http://127.0.0.1:54321',
@@ -118,6 +118,23 @@ describe('local Supabase env writer', () => {
         expect(env.E2E_LOCAL_SUPABASE_STACK).toBe('minimal')
         expect(env.E2E_ALLOW_MAIN_SUPABASE).toBe('false')
         expect(env.AUTH_LOGIN_RATE_LIMIT_MAX).toBe('300')
+        expect(env.API_RATE_LIMIT_READ_MAX).toBe('5000')
+        expect(env.API_RATE_LIMIT_WRITE_MAX).toBe('2500')
+    })
+
+    it('normalizes E2E user email domains from accidental full email values', () => {
+        expect(normalizeE2eEmailDomain('autotestuser@example.test')).toBe('example.test')
+        expect(normalizeE2eEmailDomain('example.test')).toBe('example.test')
+
+        const env = buildBackendEnv({
+            statusEnv,
+            target: 'e2e',
+            existingEnv: {
+                E2E_TEST_USER_EMAIL_DOMAIN: 'autotestuser@example.test'
+            }
+        })
+
+        expect(env.E2E_TEST_USER_EMAIL_DOMAIN).toBe('example.test')
     })
 
     it('rejects non-local Supabase URLs when generating local profiles', () => {

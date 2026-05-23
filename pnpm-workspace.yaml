@@ -10,6 +10,8 @@ packages:
 # 7 days = 10080 min — malicious releases are usually detected within hours,
 # so a week-long quarantine practically eliminates the risk.
 minimumReleaseAge: 10080
+minimumReleaseAgeExclude:
+    - qs
 
 # blockExoticSubdeps: only direct deps may use git repos / tarball URLs;
 # transitive deps must come from the registry.
@@ -27,7 +29,7 @@ trustPolicyIgnoreAfter: 129600
 catalog:
     # TypeScript toolchain - unified to 5.8.3 for consistent compilation across monorepo
     typescript: ^5.8.3
-    
+
     # i18next ecosystem - downgraded to stable 23.x due to TypeScript 5.8 incompatibility
     # i18next 24.x uses 'const' type parameters syntax that causes parsing errors in TS 5.8
     # Version 23.16.8 is proven stable and widely used
@@ -36,17 +38,17 @@ catalog:
     react-i18next: 15.5.3
     i18next-http-backend: ^2.7.0
     i18next-browser-languagedetector: ^8.0.2
-    
+
     # React ecosystem - current stable
     react: ^18.3.1
     react-dom: ^18.3.1
     '@types/react': ^18.3.18
     '@types/react-dom': ^18.3.5
-    
+
     # React Router - updated to latest for React 18 compatibility
     react-router: ^6.28.0
     react-router-dom: ^6.28.0
-    
+
     # Build tools and bundlers
     # PINNED: tsdown 0.15.7 - newer versions use rolldown 1.0.0-beta.45 which generates
     # broken CJS code with __esm() wrappers that fail on circular dependencies
@@ -55,7 +57,7 @@ catalog:
     vite: ^5.4.19
     '@vitejs/plugin-react': ^4.3.4
     vitest: ^2.1.8
-    
+
     # MUI ecosystem - v7.x (latest stable)
     # Note: MUI X packages do not follow Material UI versioning. Keep X versions unchanged during MUI v7 upgrade.
     '@mui/material': ^7.3.7
@@ -64,7 +66,7 @@ catalog:
     '@mui/lab': ^7.0.0
     '@emotion/react': ^11.14.0
     '@emotion/styled': ^11.14.1
-    
+
     # MUI X - Advanced components (v8.x)
     # Required by MUI v7 templates (apps-template-mui) and aligns runtime/dashboard APIs.
     '@mui/x-charts': ^8.27.0
@@ -73,53 +75,53 @@ catalog:
     '@mui/x-date-pickers': ^8.27.0
     '@mui/x-date-pickers-pro': ^8.27.0
     '@mui/x-tree-view': ^8.27.0
-    
+
     # Testing utilities
     '@playwright/test': ^1.58.2
     '@testing-library/react': ^14.3.1
     '@testing-library/jest-dom': ^6.8.0
     '@testing-library/user-event': ^14.6.1
     happy-dom: ^20.8.8
-    
+
     # State Management & Data Fetching
     '@tanstack/react-query': ^5.62.13
-    
+
     # UI Notifications
     notistack: ^3.0.1
-    
+
     # TypeScript types
     '@types/node': ^22.19.18
-    
+
     # Linting and formatting
     eslint: ^8.57.1
-    
+
     # Utilities
     dayjs: ^1.11.18
     axios: 1.13.2
     '@justrelate/slugify': ^1.0.1
     json-stable-stringify: ^1.0.0
-    
+
     # Rate limiting - updated to latest stable
     express-rate-limit: ^8.2.0
     rate-limit-redis: ^4.2.3
     ioredis: ^5.8.2
     async-mutex: ^0.5.0
-    
+
     # Knex - SQL query builder for runtime DDL (schema generation)
     knex: ^3.1.0
-    
+
     # UUID utilities
     uuidv7: ^1.1.0
-    
+
     # HTTP error handling
     http-errors: ^2.0.0
     '@types/http-errors': ^2.0.4
-    
+
     # Form validation
     zod: ^3.25.76
     react-hook-form: ^7.54.2
     '@hookform/resolvers': ^3.9.1
-    
+
     # React utilities
     html-react-parser: ^5.1.10
     use-debounce: ^10.0.6
@@ -137,7 +139,7 @@ catalog:
 
     # Animations (used by MUI templates in apps-template-mui)
     '@react-spring/web': ^9.7.5
-    
+
     # Captcha
     '@yandex/smart-captcha': ^2.9.0
 
