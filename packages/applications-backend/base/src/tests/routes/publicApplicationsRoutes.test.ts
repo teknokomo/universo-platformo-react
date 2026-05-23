@@ -1705,7 +1705,7 @@ describe('Public Applications Routes', () => {
         expect(JSON.stringify(response.body.details)).toContain('status')
     })
 
-    it('fails closed when an existing guest progress row is not updated', async () => {
+    it('preserves existing guest progress item index when recalculation update fails closed', async () => {
         const studentId = 'af8a5659-4155-4681-aa2f-a7605809cbf0'
         const progressRowId = '018f8a78-7b8f-7c1d-a111-222233334550'
         const sessionToken = Buffer.from(
@@ -1881,6 +1881,32 @@ describe('Public Applications Routes', () => {
                         ]
                     }
 
+                    if (params[0] === 'resource-content-items') {
+                        return [
+                            {
+                                id: 'content-item-title',
+                                codename: 'ItemTitle',
+                                column_name: 'item_title',
+                                data_type: 'STRING',
+                                parent_component_id: 'resource-content-items'
+                            },
+                            {
+                                id: 'content-item-type',
+                                codename: 'ItemType',
+                                column_name: 'item_type',
+                                data_type: 'STRING',
+                                parent_component_id: 'resource-content-items'
+                            },
+                            {
+                                id: 'content-item-content',
+                                codename: 'ItemContent',
+                                column_name: 'item_content',
+                                data_type: 'STRING',
+                                parent_component_id: 'resource-content-items'
+                            }
+                        ]
+                    }
+
                     return []
                 }
 
@@ -1906,15 +1932,22 @@ describe('Public Applications Routes', () => {
                     return [{ id: contentNodeId, title: 'Guest content', description: 'Guest content description' }]
                 }
 
+                if (sql.includes(`FROM "${schemaName}"."content_items"`)) {
+                    return [
+                        { id: '018f8a78-7b8f-7c1d-a111-222233334551', item_title: 'Intro' },
+                        { id: '018f8a78-7b8f-7c1d-a111-222233334552', item_title: 'Practice' }
+                    ]
+                }
+
                 if (sql.includes(`FROM "${schemaName}"."content_progress_table"`)) {
-                    return [{ id: progressRowId }]
+                    return [{ id: progressRowId, lastAccessedItemIndex: 1 }]
                 }
 
                 if (sql.includes(`UPDATE "${schemaName}"."content_progress_table"`)) {
                     updateAttempted = true
                     expect(sql).toContain('RETURNING id')
                     expect(sql).toContain('_upl_deleted = false AND _app_deleted = false')
-                    expect(params.slice(2, 5)).toEqual(['completed', 100, 0])
+                    expect(params.slice(2, 5)).toEqual(['completed', 100, 1])
                     return []
                 }
 
@@ -1929,7 +1962,7 @@ describe('Public Applications Routes', () => {
                 participantId: studentId,
                 sessionToken,
                 contentNodeId,
-                action: 'complete'
+                action: 'recalculate'
             })
             .expect(409)
 

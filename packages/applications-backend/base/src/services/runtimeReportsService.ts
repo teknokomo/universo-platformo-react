@@ -162,7 +162,42 @@ const buildReferenceLabelAlias = (index: number): string => `report_ref_label_${
 
 const buildReportFieldAlias = (index: number): string => `report_field_${index + 1}`
 
-const shiftSqlPlaceholders = (sql: string, offset: number): string => sql.replace(/\$(\d+)/g, (_, index) => `$${Number(index) + offset}`)
+const shiftSqlPlaceholders = (sql: string, offset: number): string => {
+    let result = ''
+    let index = 0
+    let inSingleQuotedString = false
+
+    while (index < sql.length) {
+        const char = sql[index]
+        const nextChar = sql[index + 1]
+
+        if (char === "'") {
+            result += char
+            if (inSingleQuotedString && nextChar === "'") {
+                result += nextChar
+                index += 2
+                continue
+            }
+            inSingleQuotedString = !inSingleQuotedString
+            index += 1
+            continue
+        }
+
+        if (!inSingleQuotedString && char === '$') {
+            const match = sql.slice(index + 1).match(/^\d+/)
+            if (match) {
+                result += `$${Number(match[0]) + offset}`
+                index += match[0].length + 1
+                continue
+            }
+        }
+
+        result += char
+        index += 1
+    }
+
+    return result
+}
 
 const buildReferenceLabelJoin = (params: {
     schemaName: string
@@ -247,7 +282,7 @@ const REPORT_AGGREGATION_SQL: Record<ReportDefinition['aggregations'][number]['f
     sum: 'SUM'
 }
 
-const UUID_SUBSTRING_PATTERN = /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i
+const UUID_VALUE_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 const normalizeAggregationValue = (value: unknown): unknown => {
     if (typeof value !== 'string') return value
@@ -310,7 +345,7 @@ const isPrimitiveReportValue = (value: unknown): boolean =>
 const shouldSuppressPrimitiveReportValue = (value: unknown, field?: string): boolean => {
     if (!isPrimitiveReportValue(value)) return false
     if (isReportTechnicalFieldName(field)) return true
-    return typeof value === 'string' && UUID_SUBSTRING_PATTERN.test(value)
+    return typeof value === 'string' && UUID_VALUE_PATTERN.test(value.trim())
 }
 
 const readReportObjectLabel = (value: Record<string, unknown>, locale: string): string | null => {

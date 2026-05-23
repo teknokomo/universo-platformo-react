@@ -517,7 +517,8 @@ const normalizeQuestionRows = (
 const deriveGuestContentProgress = (
     contentItems: Array<{ id: string }>,
     action: 'view' | 'complete' | 'recalculate',
-    contentItemId?: string
+    contentItemId?: string,
+    currentLastAccessedItemIndex?: number
 ): { status: 'in_progress' | 'completed'; progressPercent: number; lastAccessedItemIndex: number } | null => {
     if (contentItems.length === 0) {
         return {
@@ -536,11 +537,17 @@ const deriveGuestContentProgress = (
     }
 
     const requestedIndex =
-        typeof contentItemId === 'string' ? contentItems.findIndex((item) => item.id === contentItemId) : action === 'view' ? 0 : -1
+        typeof contentItemId === 'string'
+            ? contentItems.findIndex((item) => item.id === contentItemId)
+            : action === 'view'
+            ? 0
+            : typeof currentLastAccessedItemIndex === 'number'
+            ? currentLastAccessedItemIndex
+            : -1
     if (typeof contentItemId === 'string' && requestedIndex < 0) {
         return null
     }
-    const boundedIndex = requestedIndex >= 0 ? requestedIndex : 0
+    const boundedIndex = requestedIndex >= 0 ? Math.min(requestedIndex, contentItems.length - 1) : 0
     const progressPercent = Math.min(100, Math.max(0, Math.round(((boundedIndex + 1) / contentItems.length) * 100)))
 
     return {
@@ -1696,8 +1703,10 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                 return
             }
 
-            const derivedProgress = deriveGuestContentProgress(contentPayload.contentItems, parsed.data.action, parsed.data.contentItemId)
-            if (!derivedProgress) {
+            if (
+                typeof parsed.data.contentItemId === 'string' &&
+                !contentPayload.contentItems.some((item) => item.id === parsed.data.contentItemId)
+            ) {
                 res.status(400).json({ error: 'Content item is not available for this guest session' })
                 return
             }
@@ -1757,9 +1766,9 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                     ACTIVE_ROW_SQL,
                     ctx.workspacesEnabled && session.workspaceId ? `${qColumn('workspace_id')} = $3` : ''
                 ].filter(Boolean)
-                const existingRows = await tx.query<{ id: string }>(
+                const existingRows = await tx.query<{ id: string; lastAccessedItemIndex: number | null }>(
                     `
-                    SELECT id
+                    SELECT id, ${qColumns.lastAccessedItemIndex} AS "lastAccessedItemIndex"
                     FROM ${tableQt}
                     WHERE ${progressWhereClauses.join(' AND ')}
                     LIMIT 1
@@ -1768,6 +1777,18 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                         ? [parsed.data.participantId, parsed.data.contentNodeId, session.workspaceId]
                         : [parsed.data.participantId, parsed.data.contentNodeId]
                 )
+                const existingLastAccessedItemIndex =
+                    typeof existingRows[0]?.lastAccessedItemIndex === 'number' ? existingRows[0].lastAccessedItemIndex : undefined
+                const derivedProgress = deriveGuestContentProgress(
+                    contentPayload.contentItems,
+                    parsed.data.action,
+                    parsed.data.contentItemId,
+                    existingLastAccessedItemIndex
+                )
+                if (!derivedProgress) {
+                    progressUpdateFailed = true
+                    return
+                }
 
                 if (existingRows[0]?.id) {
                     const updateParams = [

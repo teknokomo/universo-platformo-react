@@ -184,7 +184,7 @@ describe('RuntimeReportsService', () => {
                         columnName: 'display_name',
                         dataType: 'STRING',
                         activeCondition: '_upl_deleted = false AND _app_deleted = false',
-                        accessCondition: '_upl_created_by = $1',
+                        accessCondition: `_upl_created_by = $1 AND '$1 literal' = '$1 literal'`,
                         accessConditionValues: ['viewer-user-id']
                     }
                 },
@@ -267,7 +267,7 @@ describe('RuntimeReportsService', () => {
                         columnName: 'display_name',
                         dataType: 'STRING',
                         activeCondition: '_upl_deleted = false AND _app_deleted = false',
-                        accessCondition: '_upl_created_by = $1',
+                        accessCondition: `_upl_created_by = $1 AND '$1 literal' = '$1 literal'`,
                         accessConditionValues: ['viewer-user-id']
                     }
                 },
@@ -299,18 +299,21 @@ describe('RuntimeReportsService', () => {
         const listSql = String(executor.query.mock.calls[0][0])
         expect(listSql).toContain(`FROM "${schemaName}"."obj_students"`)
         expect(listSql).toContain(`_upl_created_by = $2`)
+        expect(listSql).toContain(`'$1 literal' = '$1 literal'`)
         expect(listSql).toContain(`COALESCE("report_ref_label_1".label_value::text, "progress_student_id"::text) ILIKE $1 ESCAPE '\\'`)
         expect(executor.query.mock.calls[0][1]).toEqual(['%Ava%', 'viewer-user-id', 10, 0])
 
         const countSql = String(executor.query.mock.calls[1][0])
         expect(countSql).toContain(`FROM "${schemaName}"."obj_students"`)
         expect(countSql).toContain(`_upl_created_by = $2`)
+        expect(countSql).toContain(`'$1 literal' = '$1 literal'`)
         expect(countSql).toContain(`COALESCE("report_ref_label_1".label_value::text, "progress_student_id"::text) ILIKE $1 ESCAPE '\\'`)
         expect(executor.query.mock.calls[1][1]).toEqual(['%Ava%', 'viewer-user-id'])
 
         const aggregationSql = String(executor.query.mock.calls[2][0])
         expect(aggregationSql).toContain(`FROM "${schemaName}"."obj_students"`)
         expect(aggregationSql).toContain(`_upl_created_by = $2`)
+        expect(aggregationSql).toContain(`'$1 literal' = '$1 literal'`)
         expect(aggregationSql).toContain(
             `COALESCE("report_ref_label_1".label_value::text, "progress_student_id"::text) ILIKE $1 ESCAPE '\\'`
         )
@@ -540,8 +543,11 @@ describe('RuntimeReportsService', () => {
             }
         })
 
-        expect(csv).toBe('Learner,Stable learner,Resolved learner,Note,Mixed\r\n,,Ava Learner,Visible note,\r\n')
-        expect(csv).not.toContain('018f8a78-7b8f-7c1d-a111-2222333346')
+        expect(csv).toBe(
+            'Learner,Stable learner,Resolved learner,Note,Mixed\r\n,,Ava Learner,Visible note,Ticket 018f8a78-7b8f-7c1d-a111-2222333346bb\r\n'
+        )
+        expect(csv).not.toContain('018f8a78-7b8f-7c1d-a111-2222333346ff')
+        expect(csv).not.toContain('018f8a78-7b8f-7c1d-a111-2222333346aa')
         expect(csv).not.toContain('student-ava')
     })
 })

@@ -16,7 +16,7 @@
         "check:catalog-versions": "node tools/check-catalog-versions.mjs",
         "check:runtime-ux-agents": "node tools/agents/check-runtime-ux-agent-invariants.mjs",
         "check:runtime-no-lms-forks": "node tools/testing/check-runtime-no-lms-forks.mjs",
-        "check:lms-fixture-contract": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tools/testing/e2e/support/checkLmsFixtureContract.ts tools/fixtures/metahubs-lms-app-snapshot.json",
+        "check:lms-fixture-contract": "pnpm --filter @universo/types build && pnpm --filter @universo/utils build && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tools/testing/e2e/support/checkLmsFixtureContract.ts tools/fixtures/metahubs-lms-app-snapshot.json",
         "docs:i18n:check": "node tools/docs/check-i18n-docs.mjs",
         "migration:status": "pnpm --filter @universo/migrations-platform exec node ./dist/cli.js status",
         "migration:plan": "pnpm --filter @universo/migrations-platform exec node ./dist/cli.js plan",
