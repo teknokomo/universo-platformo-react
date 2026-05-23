@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express'
 import { z } from 'zod'
-import { reportDefinitionSchema } from '@universo/types'
+import { reportDefinitionSchema, reportFilterSchema } from '@universo/types'
+import type { ReportDefinition } from '@universo/types'
 import type { DbExecutor } from '@universo/utils'
 import { resolveApplicationLifecycleContractFromConfig } from '@universo/utils'
 import { qColumn, qSchemaTable } from '@universo/database'
@@ -16,13 +17,16 @@ import {
     UpdateFailure
 } from '../shared/runtimeHelpers'
 import { RuntimeReportsService, serializeRuntimeReportCsv, type RuntimeReportFieldMetadata } from '../services/runtimeReportsService'
+import { buildRuntimeRecordAccessClause, executeRuntimeRecordsUnionDatasource, loadRuntimeObjectAttrs } from './runtimeRowsController'
+import type { RolePermission } from '../routes/guards'
 
 const reportRunBodySchema = z
     .object({
         reportId: z.string().trim().min(1).max(128).optional(),
         reportCodename: z.string().trim().min(1).max(128).optional(),
         limit: z.coerce.number().int().positive().max(500).optional(),
-        offset: z.coerce.number().int().min(0).optional()
+        offset: z.coerce.number().int().min(0).optional(),
+        filters: z.array(reportFilterSchema).max(32).optional().default([])
     })
     .strict()
     .superRefine((value, ctx) => {
@@ -42,6 +46,7 @@ const reportExportBodySchema = z
         reportCodename: z.string().trim().min(1).max(128).optional(),
         limit: z.coerce.number().int().positive().max(5000).optional(),
         offset: z.coerce.number().int().min(0).optional(),
+        filters: z.array(reportFilterSchema).max(32).optional().default([]),
         locale: z.string().trim().min(2).max(16).optional().default('en')
     })
     .strict()
@@ -60,6 +65,7 @@ type RuntimeSchemaContext = NonNullable<Awaited<ReturnType<typeof resolveRuntime
 
 type RuntimeReportTarget = {
     id: string
+    codename: string
     tableName: string
     config?: Record<string, unknown> | null
     fields: RuntimeReportFieldMetadata[]
@@ -67,6 +73,13 @@ type RuntimeReportTarget = {
 
 type RuntimeReportObjectTarget = RuntimeReportTarget & {
     definitionColumnName: string
+}
+
+type RuntimeReportExecutionResult = {
+    rows: Array<Record<string, unknown>>
+    total: number
+    aggregations: Record<string, unknown>
+    definition: ReportDefinition
 }
 
 const parseStoredReportDefinition = (value: unknown) => {
@@ -85,6 +98,8 @@ const mapRuntimeReportFields = (
         codename: unknown
         column_name: string
         data_type: RuntimeReportFieldMetadata['dataType']
+        target_object_id?: string | null
+        target_object_kind?: string | null
     }>
 ): RuntimeReportFieldMetadata[] =>
     rawFields
@@ -92,8 +107,137 @@ const mapRuntimeReportFields = (
         .map((field) => ({
             codename: resolveRuntimeCodenameText(field.codename) || field.column_name,
             columnName: field.column_name,
-            dataType: field.data_type
+            dataType: field.data_type,
+            refTargetObjectId: field.target_object_id ?? null,
+            refTargetObjectKind: field.target_object_kind ?? null
         }))
+
+const isRuntimeObjectReferenceKind = (value: string | null | undefined): boolean => value === 'object'
+
+const attachReferenceLabelMetadata = async (params: {
+    executor: DbExecutor
+    schemaIdent: string
+    currentWorkspaceId?: string | null
+    currentUserId?: string | null
+    permissions: Record<RolePermission, boolean>
+    fields: RuntimeReportFieldMetadata[]
+}): Promise<RuntimeReportFieldMetadata[]> => {
+    const targetObjectIds = Array.from(
+        new Set(
+            params.fields
+                .filter(
+                    (field) =>
+                        field.dataType === 'REF' &&
+                        isRuntimeObjectReferenceKind(field.refTargetObjectKind) &&
+                        typeof field.refTargetObjectId === 'string' &&
+                        field.refTargetObjectId.trim().length > 0
+                )
+                .map((field) => field.refTargetObjectId as string)
+        )
+    )
+
+    if (targetObjectIds.length === 0) return params.fields
+
+    const targetObjects = await params.executor.query<{
+        id: string
+        codename: unknown
+        table_name: string | null
+        config?: Record<string, unknown> | null
+    }>(
+        `
+        SELECT id, codename, table_name, config
+        FROM ${params.schemaIdent}._app_objects
+        WHERE id = ANY($1::uuid[])
+          AND _upl_deleted = false
+          AND _app_deleted = false
+          AND ${runtimeObjectFilterSql('kind', 'config')}
+        `,
+        [targetObjectIds]
+    )
+
+    const targetComponents = await params.executor.query<{
+        id: string
+        object_id: string
+        codename: unknown
+        column_name: string
+        data_type: RuntimeReportFieldMetadata['dataType']
+        is_required: boolean
+        validation_rules?: Record<string, unknown>
+        target_object_id?: string | null
+        target_object_kind?: string | null
+        ui_config?: Record<string, unknown>
+        is_display_component: boolean
+        sort_order?: number | null
+    }>(
+        `
+        SELECT id, object_id, codename, column_name, data_type, is_required, validation_rules, target_object_id, target_object_kind, ui_config, is_display_component, sort_order
+        FROM ${params.schemaIdent}._app_components
+        WHERE object_id = ANY($1::uuid[])
+          AND parent_component_id IS NULL
+          AND _upl_deleted = false
+          AND _app_deleted = false
+        ORDER BY object_id ASC, is_display_component DESC, sort_order ASC NULLS LAST, codename ASC
+        `,
+        [targetObjectIds]
+    )
+
+    const componentsByObjectId = new Map<string, typeof targetComponents>()
+    for (const component of targetComponents) {
+        const list = componentsByObjectId.get(component.object_id) ?? []
+        list.push(component)
+        componentsByObjectId.set(component.object_id, list)
+    }
+
+    const labelsByObjectId = new Map<string, NonNullable<RuntimeReportFieldMetadata['referenceLabel']>>()
+    for (const targetObject of targetObjects) {
+        if (!targetObject.table_name || !IDENTIFIER_REGEX.test(targetObject.table_name)) continue
+
+        const components = componentsByObjectId.get(targetObject.id) ?? []
+        const preferredDisplayComponent =
+            components.find((component) => component.is_display_component === true && IDENTIFIER_REGEX.test(component.column_name)) ??
+            components.find((component) => component.data_type === 'STRING' && IDENTIFIER_REGEX.test(component.column_name)) ??
+            components.find((component) => IDENTIFIER_REGEX.test(component.column_name))
+
+        if (!preferredDisplayComponent) continue
+
+        const targetTableSql = `${params.schemaIdent}.${qColumn(targetObject.table_name)}`
+        const accessConditionValues: unknown[] = []
+        const accessCondition = await buildRuntimeRecordAccessClause({
+            manager: params.executor,
+            schemaIdent: params.schemaIdent,
+            currentWorkspaceId: params.currentWorkspaceId ?? null,
+            currentUserId: params.currentUserId ?? null,
+            permissions: params.permissions,
+            objectCodename: resolveRuntimeCodenameText(targetObject.codename),
+            attrs: components,
+            config: targetObject.config,
+            outerRowIdSql: `${targetTableSql}.id`,
+            values: accessConditionValues
+        })
+
+        labelsByObjectId.set(targetObject.id, {
+            tableName: targetObject.table_name,
+            columnName: preferredDisplayComponent.column_name,
+            dataType: preferredDisplayComponent.data_type,
+            activeCondition: buildRuntimeActiveRowCondition(
+                resolveApplicationLifecycleContractFromConfig(targetObject.config),
+                targetObject.config,
+                undefined,
+                params.currentWorkspaceId
+            ),
+            accessCondition: accessCondition ?? undefined,
+            accessConditionValues
+        })
+    }
+
+    return params.fields.map((field) => ({
+        ...field,
+        referenceLabel:
+            field.dataType === 'REF' && typeof field.refTargetObjectId === 'string'
+                ? labelsByObjectId.get(field.refTargetObjectId) ?? null
+                : null
+    }))
+}
 
 const resolveReportTargetToken = (definition: z.infer<typeof reportDefinitionSchema>): string | null => {
     const datasource = definition.datasource
@@ -114,9 +258,37 @@ const resolveReportTargetToken = (definition: z.infer<typeof reportDefinitionSch
     )
 }
 
+const resolveRecordsUnionReportValue = (value: unknown): unknown => {
+    if (value && typeof value === 'object' && !Array.isArray(value) && 'label' in value) {
+        const label = (value as { label?: unknown }).label
+        return label ?? null
+    }
+    return value
+}
+
+const pickRecordsUnionReportRows = (rows: Array<Record<string, unknown>>, definition: ReportDefinition): Array<Record<string, unknown>> => {
+    const fields = definition.columns.map((column) => column.field)
+    return rows.map((row) => Object.fromEntries(fields.map((field) => [field, resolveRecordsUnionReportValue(row[field])])))
+}
+
+const assertReportColumnsAvailable = (definition: ReportDefinition, availableFields: Iterable<string>): void => {
+    const available = new Set(availableFields)
+    const missing = definition.columns.map((column) => column.field).filter((field) => !available.has(field))
+    if (missing.length > 0) {
+        throw new UpdateFailure(400, {
+            error: 'Report columns are not available for this datasource',
+            code: 'REPORT_COLUMNS_NOT_AVAILABLE',
+            fields: missing
+        })
+    }
+}
+
 const resolveReportTarget = async (params: {
     executor: DbExecutor
     schemaIdent: string
+    currentWorkspaceId?: string | null
+    currentUserId?: string | null
+    permissions: Record<RolePermission, boolean>
     definition: z.infer<typeof reportDefinitionSchema>
 }): Promise<RuntimeReportTarget> => {
     const targetToken = resolveReportTargetToken(params.definition)
@@ -164,9 +336,11 @@ const resolveReportTarget = async (params: {
         codename: unknown
         column_name: string
         data_type: RuntimeReportFieldMetadata['dataType']
+        target_object_id?: string | null
+        target_object_kind?: string | null
     }>(
         `
-        SELECT codename, column_name, data_type
+        SELECT codename, column_name, data_type, target_object_id, target_object_kind
         FROM ${params.schemaIdent}._app_components
         WHERE object_id = $1
           AND parent_component_id IS NULL
@@ -177,10 +351,18 @@ const resolveReportTarget = async (params: {
         [target.id]
     )
 
-    const fields = mapRuntimeReportFields(rawFields)
+    const fields = await attachReferenceLabelMetadata({
+        executor: params.executor,
+        schemaIdent: params.schemaIdent,
+        currentWorkspaceId: params.currentWorkspaceId,
+        currentUserId: params.currentUserId,
+        permissions: params.permissions,
+        fields: mapRuntimeReportFields(rawFields)
+    })
 
     return {
         id: target.id,
+        codename: resolveRuntimeCodenameText(target.codename),
         tableName: target.table_name,
         config: target.config,
         fields
@@ -249,6 +431,7 @@ const resolveReportsObjectTarget = async (params: { executor: DbExecutor; schema
 
     return {
         id: target.id,
+        codename: resolveRuntimeCodenameText(target.codename),
         tableName: target.table_name,
         config: target.config,
         fields,
@@ -338,13 +521,126 @@ export function createRuntimeReportsController(getDbExecutor: () => DbExecutor) 
                 ctx.currentWorkspaceId
             )
         })
-        const target = await resolveReportTarget({
-            executor: ctx.manager,
-            schemaIdent: ctx.schemaIdent,
-            definition
-        })
+        const target =
+            definition.datasource.kind === 'records.list'
+                ? await resolveReportTarget({
+                      executor: ctx.manager,
+                      schemaIdent: ctx.schemaIdent,
+                      currentWorkspaceId: ctx.currentWorkspaceId,
+                      currentUserId: ctx.userId,
+                      permissions: ctx.permissions,
+                      definition
+                  })
+                : undefined
 
         return { definition, target }
+    }
+
+    const runResolvedReport = async (params: {
+        ctx: RuntimeSchemaContext
+        definition: ReportDefinition
+        target?: RuntimeReportTarget
+        limit?: number
+        offset?: number
+        maxLimit?: number
+        defaultLimit?: number
+        locale?: string
+        filters?: ReportDefinition['filters']
+    }): Promise<RuntimeReportExecutionResult> => {
+        const requestFilters = params.filters ?? []
+        const unionDatasource =
+            params.definition.datasource.kind === 'records.union' && (params.definition.filters.length > 0 || requestFilters.length > 0)
+                ? {
+                      ...params.definition.datasource,
+                      query: {
+                          ...(params.definition.datasource.query ?? {}),
+                          filters: [...(params.definition.datasource.query?.filters ?? []), ...params.definition.filters, ...requestFilters]
+                      }
+                  }
+                : params.definition.datasource
+
+        if (unionDatasource.kind === 'records.union') {
+            if (params.definition.aggregations.length > 0) {
+                throw new UpdateFailure(400, {
+                    error: 'Records union report aggregations are not supported',
+                    code: 'REPORT_UNION_AGGREGATIONS_UNSUPPORTED'
+                })
+            }
+
+            const limit = Math.max(1, Math.min(params.maxLimit ?? 500, Math.trunc(params.limit ?? params.defaultLimit ?? 100)))
+            const offset = Math.max(0, Math.trunc(params.offset ?? 0))
+            const payload = await executeRuntimeRecordsUnionDatasource({
+                runtimeContext: params.ctx,
+                datasource: unionDatasource,
+                limit,
+                offset,
+                locale: params.locale ?? 'en'
+            })
+            assertReportColumnsAvailable(
+                params.definition,
+                payload.columns.map((column: { field: string }) => column.field)
+            )
+
+            return {
+                rows: pickRecordsUnionReportRows(payload.rows, params.definition),
+                total: payload.pagination.total,
+                aggregations: {},
+                definition: params.definition
+            }
+        }
+
+        if (params.definition.datasource.kind !== 'records.list') {
+            throw new UpdateFailure(400, {
+                error: 'Report datasource is not supported',
+                code: 'REPORT_DATASOURCE_UNSUPPORTED',
+                kind: params.definition.datasource.kind
+            })
+        }
+
+        if (!params.target) {
+            throw new UpdateFailure(400, {
+                error: 'Report datasource requires a section target',
+                code: 'REPORT_DATASOURCE_TARGET_REQUIRED'
+            })
+        }
+
+        const lifecycleContract = resolveApplicationLifecycleContractFromConfig(params.target.config)
+        const targetAttrs = await loadRuntimeObjectAttrs(params.ctx.manager, params.ctx.schemaIdent, params.target.id)
+        const accessConditionValues: unknown[] = []
+        const targetTableSql = qSchemaTable(params.ctx.schemaName, params.target.tableName)
+        const accessCondition = await buildRuntimeRecordAccessClause({
+            manager: params.ctx.manager,
+            schemaIdent: params.ctx.schemaIdent,
+            currentWorkspaceId: params.ctx.currentWorkspaceId,
+            currentUserId: params.ctx.userId,
+            permissions: params.ctx.permissions,
+            objectCodename: params.target.codename,
+            attrs: targetAttrs,
+            config: params.target.config,
+            outerRowIdSql: `${targetTableSql}.id`,
+            values: accessConditionValues
+        })
+        return service.runRecordsListReport({
+            executor: params.ctx.manager,
+            schemaName: params.ctx.schemaName,
+            tableName: params.target.tableName,
+            fields: params.target.fields,
+            definition: params.definition,
+            permissions: params.ctx.permissions,
+            activeCondition: buildRuntimeActiveRowCondition(
+                lifecycleContract,
+                params.target.config,
+                undefined,
+                params.ctx.currentWorkspaceId
+            ),
+            accessCondition: accessCondition ?? undefined,
+            accessConditionValues,
+            limit: params.limit,
+            offset: params.offset,
+            maxLimit: params.maxLimit,
+            defaultLimit: params.defaultLimit,
+            filters: requestFilters
+        })
     }
 
     const runReport = async (req: Request, res: Response) => {
@@ -360,17 +656,13 @@ export function createRuntimeReportsController(getDbExecutor: () => DbExecutor) 
 
         try {
             const { definition, target } = await resolveSavedReportExecution(ctx, parsed.data)
-            const lifecycleContract = resolveApplicationLifecycleContractFromConfig(target.config)
-            const result = await service.runRecordsListReport({
-                executor: ctx.manager,
-                schemaName: ctx.schemaName,
-                tableName: target.tableName,
-                fields: target.fields,
+            const result = await runResolvedReport({
+                ctx,
                 definition,
-                permissions: ctx.permissions,
-                activeCondition: buildRuntimeActiveRowCondition(lifecycleContract, target.config, undefined, ctx.currentWorkspaceId),
+                target,
                 limit: parsed.data.limit,
-                offset: parsed.data.offset
+                offset: parsed.data.offset,
+                filters: parsed.data.filters
             })
 
             res.json(result)
@@ -396,19 +688,16 @@ export function createRuntimeReportsController(getDbExecutor: () => DbExecutor) 
 
         try {
             const { definition, target } = await resolveSavedReportExecution(ctx, parsed.data)
-            const lifecycleContract = resolveApplicationLifecycleContractFromConfig(target.config)
-            const result = await service.runRecordsListReport({
-                executor: ctx.manager,
-                schemaName: ctx.schemaName,
-                tableName: target.tableName,
-                fields: target.fields,
+            const result = await runResolvedReport({
+                ctx,
                 definition,
-                permissions: ctx.permissions,
-                activeCondition: buildRuntimeActiveRowCondition(lifecycleContract, target.config, undefined, ctx.currentWorkspaceId),
+                target,
                 limit: parsed.data.limit,
                 offset: parsed.data.offset,
                 maxLimit: 5000,
-                defaultLimit: 5000
+                defaultLimit: 5000,
+                locale: parsed.data.locale,
+                filters: parsed.data.filters
             })
             const csv = serializeRuntimeReportCsv(result, parsed.data.locale)
             const filename = buildCsvAttachmentFilename(definition.codename)

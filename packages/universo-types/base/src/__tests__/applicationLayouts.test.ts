@@ -190,6 +190,402 @@ describe('application layout widget config contracts', () => {
         ).toThrow()
     })
 
+    it('accepts generic create targets for records.union detailsTable widgets', () => {
+        expect(
+            parseApplicationLayoutWidgetConfig('detailsTable', {
+                datasource: {
+                    kind: 'records.union',
+                    projectedFields: ['Instructor'],
+                    targets: [
+                        { sectionCodename: 'LearningResources', displayType: 'resource' },
+                        { sectionCodename: 'Courses', displayType: 'course' }
+                    ]
+                },
+                showSearch: true,
+                targetFilters: [
+                    {
+                        id: 'resources',
+                        label: 'Resources',
+                        targetDisplayTypes: ['resource']
+                    },
+                    {
+                        id: 'courses',
+                        label: {
+                            _primary: 'en',
+                            locales: {
+                                en: { content: 'Courses' },
+                                ru: { content: 'Курсы' }
+                            }
+                        },
+                        targetSectionCodenames: ['Courses']
+                    }
+                ],
+                createTargets: [
+                    {
+                        id: 'create-page',
+                        label: {
+                            _primary: 'en',
+                            locales: {
+                                en: { content: 'Page' },
+                                ru: { content: 'Страница' }
+                            }
+                        },
+                        sectionCodename: 'LearningResources',
+                        surface: 'dialog',
+                        createDefaults: [
+                            { fieldCodename: 'ResourceType', enumCodename: 'Page' },
+                            { fieldCodename: 'Source', resourceSourceType: 'page' },
+                            {
+                                fieldCodename: 'NavigationMode',
+                                contextPath: 'learningContent.courseCompletionPolicy.navigationMode'
+                            }
+                        ]
+                    },
+                    {
+                        id: 'create-course',
+                        label: 'Course',
+                        objectCollectionCodename: 'Courses'
+                    }
+                ]
+            })
+        ).toMatchObject({
+            showSearch: true,
+            targetFilters: [
+                { id: 'resources', targetDisplayTypes: ['resource'] },
+                { id: 'courses', targetSectionCodenames: ['Courses'] }
+            ],
+            createTargets: [
+                {
+                    id: 'create-page',
+                    sectionCodename: 'LearningResources',
+                    surface: 'dialog',
+                    createDefaults: [
+                        { fieldCodename: 'ResourceType', enumCodename: 'Page' },
+                        { fieldCodename: 'Source', resourceSourceType: 'page' },
+                        {
+                            fieldCodename: 'NavigationMode',
+                            contextPath: 'learningContent.courseCompletionPolicy.navigationMode'
+                        }
+                    ]
+                },
+                { id: 'create-course', objectCollectionCodename: 'Courses' }
+            ]
+        })
+
+        expect(() =>
+            parseApplicationLayoutWidgetConfig('detailsTable', {
+                createTargets: [{ id: 'invalid', label: 'Invalid' }]
+            })
+        ).toThrow()
+
+        const extendedCreateTargets = parseApplicationLayoutWidgetConfig('detailsTable', {
+            createTargets: Array.from({ length: 16 }, (_, index) => ({
+                id: `create-target-${index + 1}`,
+                label: `Target ${index + 1}`,
+                sectionCodename: 'LearningResources'
+            }))
+        })
+        expect(extendedCreateTargets.createTargets).toHaveLength(16)
+        expect(extendedCreateTargets.createTargets?.[0]).toMatchObject({
+            id: 'create-target-1',
+            sectionCodename: 'LearningResources'
+        })
+        expect(extendedCreateTargets.createTargets?.[15]).toMatchObject({
+            id: 'create-target-16',
+            sectionCodename: 'LearningResources'
+        })
+
+        expect(() =>
+            parseApplicationLayoutWidgetConfig('detailsTable', {
+                createTargets: Array.from({ length: 17 }, (_, index) => ({
+                    id: `create-target-${index + 1}`,
+                    label: `Target ${index + 1}`,
+                    sectionCodename: 'LearningResources'
+                }))
+            })
+        ).toThrow()
+
+        expect(() =>
+            parseApplicationLayoutWidgetConfig('detailsTable', {
+                targetFilters: [{ id: 'invalid-filter', label: 'Invalid filter' }]
+            })
+        ).toThrow()
+
+        for (const fieldCodename of ['OwnerUserId', 'workspace_id', 'ProgressPercent', 'LifecycleState', '_upl_created_by']) {
+            expect(() =>
+                parseApplicationLayoutWidgetConfig('detailsTable', {
+                    createTargets: [
+                        {
+                            id: `unsafe-default-${fieldCodename}`,
+                            label: 'Unsafe',
+                            sectionCodename: 'LearningResources',
+                            createDefaults: [{ fieldCodename, value: 'attacker' }]
+                        }
+                    ]
+                })
+            ).toThrow()
+        }
+
+        expect(() =>
+            parseApplicationLayoutWidgetConfig('detailsTable', {
+                createTargets: [
+                    {
+                        id: 'ambiguous-default',
+                        label: 'Ambiguous',
+                        sectionCodename: 'LearningResources',
+                        createDefaults: [
+                            {
+                                fieldCodename: 'ResourceType',
+                                value: 'Page',
+                                enumCodename: 'Page',
+                                contextPath: 'learningContent.courseCompletionPolicy.navigationMode'
+                            }
+                        ]
+                    }
+                ]
+            })
+        ).toThrow()
+
+        for (const contextPath of ['learningContent.__proto__.navigationMode', 'learningContent[0].navigationMode']) {
+            expect(() =>
+                parseApplicationLayoutWidgetConfig('detailsTable', {
+                    createTargets: [
+                        {
+                            id: `unsafe-context-${contextPath}`,
+                            label: 'Unsafe',
+                            sectionCodename: 'Courses',
+                            createDefaults: [{ fieldCodename: 'NavigationMode', contextPath }]
+                        }
+                    ]
+                })
+            ).toThrow()
+        }
+    })
+
+    it('accepts generic library row actions for records.union detailsTable widgets', () => {
+        expect(
+            parseApplicationLayoutWidgetConfig('detailsTable', {
+                datasource: {
+                    kind: 'records.union',
+                    projectedFields: ['Instructor'],
+                    targets: [
+                        { sectionCodename: 'LearningResources', displayType: 'resource' },
+                        { sectionCodename: 'Courses', displayType: 'course' }
+                    ]
+                },
+                rowActions: [
+                    {
+                        id: 'toggle-starred',
+                        kind: 'library.toggle',
+                        libraryView: 'starred',
+                        icon: 'star',
+                        label: {
+                            _primary: 'en',
+                            locales: {
+                                en: { content: 'Add to starred' },
+                                ru: { content: 'Добавить в избранное' }
+                            }
+                        },
+                        activeLabel: {
+                            _primary: 'en',
+                            locales: {
+                                en: { content: 'Remove from starred' },
+                                ru: { content: 'Убрать из избранного' }
+                            }
+                        }
+                    },
+                    {
+                        id: 'toggle-shared',
+                        kind: 'library.toggle',
+                        libraryView: 'shared',
+                        icon: 'share',
+                        principalTarget: 'workspaceMember',
+                        label: {
+                            _primary: 'en',
+                            locales: {
+                                en: { content: 'Share' },
+                                ru: { content: 'Поделиться' }
+                            }
+                        },
+                        activeLabel: {
+                            _primary: 'en',
+                            locales: {
+                                en: { content: 'Share' },
+                                ru: { content: 'Поделиться' }
+                            }
+                        },
+                        dialogTitle: {
+                            _primary: 'en',
+                            locales: {
+                                en: { content: 'Share content' },
+                                ru: { content: 'Поделиться контентом' }
+                            }
+                        },
+                        targetLabel: {
+                            _primary: 'en',
+                            locales: {
+                                en: { content: 'Workspace member' },
+                                ru: { content: 'Участник рабочего пространства' }
+                            }
+                        }
+                    },
+                    {
+                        id: 'move-project',
+                        kind: 'field.updateWithTarget',
+                        fieldCodename: 'ProjectId',
+                        targetObjectCollectionCodename: 'ContentProjects',
+                        labelFields: ['Name', 'Title'],
+                        icon: 'move',
+                        label: {
+                            _primary: 'en',
+                            locales: {
+                                en: { content: 'Move to project' },
+                                ru: { content: 'Переместить в проект' }
+                            }
+                        },
+                        dialogTitle: {
+                            _primary: 'en',
+                            locales: {
+                                en: { content: 'Move to project' },
+                                ru: { content: 'Переместить в проект' }
+                            }
+                        },
+                        targetLabel: {
+                            _primary: 'en',
+                            locales: {
+                                en: { content: 'Project' },
+                                ru: { content: 'Проект' }
+                            }
+                        }
+                    }
+                ]
+            })
+        ).toMatchObject({
+            rowActions: [
+                {
+                    id: 'toggle-starred',
+                    kind: 'library.toggle',
+                    libraryView: 'starred',
+                    icon: 'star'
+                },
+                {
+                    id: 'toggle-shared',
+                    kind: 'library.toggle',
+                    libraryView: 'shared',
+                    icon: 'share',
+                    principalTarget: 'workspaceMember'
+                },
+                {
+                    id: 'move-project',
+                    kind: 'field.updateWithTarget',
+                    fieldCodename: 'ProjectId',
+                    targetObjectCollectionCodename: 'ContentProjects',
+                    labelFields: ['Name', 'Title'],
+                    icon: 'move'
+                }
+            ]
+        })
+
+        expect(() =>
+            parseApplicationLayoutWidgetConfig('detailsTable', {
+                datasource: {
+                    kind: 'records.union',
+                    targets: [{ sectionCodename: 'LearningResources' }]
+                },
+                rowActions: [{ id: 'bad-action', kind: 'library.toggle', libraryView: 'recent' }]
+            })
+        ).toThrow()
+
+        expect(() =>
+            parseApplicationLayoutWidgetConfig('detailsTable', {
+                datasource: {
+                    kind: 'records.union',
+                    targets: [{ sectionCodename: 'LearningResources' }]
+                },
+                rowActions: [{ id: 'bad-target-action', kind: 'field.updateWithTarget', fieldCodename: 'ProjectId' }]
+            })
+        ).toThrow()
+    })
+
+    it('accepts generic restore target pickers for deleted records.union detailsTable widgets', () => {
+        expect(
+            parseApplicationLayoutWidgetConfig('detailsTable', {
+                datasource: {
+                    kind: 'records.union',
+                    targets: [{ sectionCodename: 'LearningResources', displayType: 'resource' }],
+                    query: { lifecycleState: 'deleted' }
+                },
+                restoreTarget: {
+                    targetObjectCollectionCodename: 'ContentProjects',
+                    parentFieldCodename: 'ProjectId',
+                    labelFields: ['Name', 'Title'],
+                    dialogTitle: {
+                        _primary: 'en',
+                        locales: {
+                            en: { content: 'Restore to project' },
+                            ru: { content: 'Восстановить в проект' }
+                        }
+                    },
+                    targetLabel: 'Project'
+                }
+            })
+        ).toMatchObject({
+            restoreTarget: {
+                targetObjectCollectionCodename: 'ContentProjects',
+                parentFieldCodename: 'ProjectId',
+                labelFields: ['Name', 'Title']
+            }
+        })
+
+        expect(() =>
+            parseApplicationLayoutWidgetConfig('detailsTable', {
+                restoreTarget: {
+                    parentFieldCodename: 'ProjectId'
+                }
+            })
+        ).toThrow()
+    })
+
+    it('accepts context-derived create defaults for writable scalar fields', () => {
+        expect(
+            parseApplicationLayoutWidgetConfig('detailsTable', {
+                createTargets: [
+                    {
+                        id: 'create-course',
+                        label: 'Course',
+                        sectionCodename: 'Courses',
+                        createDefaults: [
+                            {
+                                fieldCodename: 'NavigationMode',
+                                contextPath: 'learningContent.courseCompletionPolicy.navigationMode'
+                            },
+                            {
+                                fieldCodename: 'CompletionCondition',
+                                contextPath: 'learningContent.courseCompletionPolicy.completionCondition'
+                            }
+                        ]
+                    }
+                ]
+            })
+        ).toMatchObject({
+            createTargets: [
+                {
+                    id: 'create-course',
+                    createDefaults: [
+                        {
+                            fieldCodename: 'NavigationMode',
+                            contextPath: 'learningContent.courseCompletionPolicy.navigationMode'
+                        },
+                        {
+                            fieldCodename: 'CompletionCondition',
+                            contextPath: 'learningContent.courseCompletionPolicy.completionCondition'
+                        }
+                    ]
+                }
+            ]
+        })
+    })
+
     it('accepts generic relation builder widgets for parent-scoped child records', () => {
         expect(
             parseApplicationLayoutWidgetConfig('relationBuilder', {
@@ -296,18 +692,21 @@ describe('application layout widget config contracts', () => {
             parseApplicationLayoutWidgetConfig('detailsTable', {
                 datasource: {
                     kind: 'records.union',
+                    projectedFields: ['Instructor'],
                     targets: [
                         {
                             sectionCodename: 'LearningResources',
                             displayType: 'page',
                             titleField: 'Title',
-                            statusField: 'PublicationStatus'
+                            statusField: 'PublicationStatus',
+                            projectField: 'ProjectId'
                         },
                         {
                             sectionCodename: 'Courses',
                             displayType: 'course',
                             titleField: 'Title',
-                            statusField: 'Status'
+                            statusField: 'Status',
+                            projectField: 'ProjectId'
                         }
                     ],
                     query: {
@@ -320,14 +719,17 @@ describe('application layout widget config contracts', () => {
         ).toMatchObject({
             datasource: {
                 kind: 'records.union',
+                projectedFields: ['Instructor'],
                 targets: [
                     {
                         sectionCodename: 'LearningResources',
-                        displayType: 'page'
+                        displayType: 'page',
+                        projectField: 'ProjectId'
                     },
                     {
                         sectionCodename: 'Courses',
-                        displayType: 'course'
+                        displayType: 'course',
+                        projectField: 'ProjectId'
                     }
                 ],
                 query: {
@@ -384,6 +786,22 @@ describe('application layout widget config contracts', () => {
                     },
                     columns: []
                 }
+            })
+        ).toThrow()
+    })
+
+    it('accepts saved report codename references for detailsTable widgets', () => {
+        expect(
+            parseApplicationLayoutWidgetConfig('detailsTable', {
+                reportCodename: 'CourseBuilderOutline'
+            })
+        ).toMatchObject({
+            reportCodename: 'CourseBuilderOutline'
+        })
+
+        expect(() =>
+            parseApplicationLayoutWidgetConfig('detailsTable', {
+                reportCodename: ''
             })
         ).toThrow()
     })

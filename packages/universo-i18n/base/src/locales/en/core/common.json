@@ -213,7 +213,10 @@
             "removeLanguage": "Remove",
             "back": "Back",
             "noLanguagesAvailable": "No languages available",
-            "fallbackNotice": "Using fallback languages"
+            "fallbackNotice": "Using fallback languages",
+            "lengthRange": "Length: {{min}}-{{max}} characters",
+            "maxLength": "Maximum length: {{max}} characters",
+            "minLength": "Minimum length: {{min}} characters"
         },
         "unknown": "Unknown",
         "conflict": {

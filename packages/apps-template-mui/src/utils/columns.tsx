@@ -8,13 +8,16 @@ import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import type { AppDataResponse } from '../api/api'
 import type { FieldConfig, FieldValidationRules } from '../components/dialogs/FormDialog'
 import type { CellRendererOverrides } from '../api/types'
-import { formatRuntimeValue } from './displayValue'
+import { formatRuntimeColumnValue, formatRuntimeSafeValue } from './displayValue'
+import { isSemanticLongTextRuntimeField } from './fieldSemantics'
 
 export interface ToGridColumnsOptions {
     /** Callback fired when the row-actions "⋮" button is clicked. */
     onMenuOpen?: (event: React.MouseEvent<HTMLElement>, rowId: string) => void
     /** Accessible label for the actions button. */
     actionsAriaLabel?: string
+    /** Row-aware accessible label for the actions button. */
+    getRowActionsAriaLabel?: (row: Record<string, unknown>) => string
     /**
      * Per-dataType cell renderer overrides.
      * When provided, the matching override takes priority over the default renderer.
@@ -65,10 +68,16 @@ export function toGridColumns(response: AppDataResponse, options?: ToGridColumns
             return {
                 field: c.field,
                 headerName: c.headerName,
-                flex: 1,
+                width: typeof c.uiConfig?.gridWidth === 'number' ? c.uiConfig.gridWidth : undefined,
+                flex:
+                    typeof c.uiConfig?.gridWidth === 'number'
+                        ? undefined
+                        : typeof c.uiConfig?.gridFlex === 'number'
+                        ? c.uiConfig.gridFlex
+                        : 1,
                 minWidth: 140,
-                sortable: true,
-                filterable: true,
+                sortable: c.uiConfig?.sortable !== false && c.uiConfig?.gridSortable !== false,
+                filterable: c.uiConfig?.filterable !== false && c.uiConfig?.gridFilterable !== false,
                 renderHeader:
                     c.dataType === 'BOOLEAN' && c.uiConfig?.headerAsCheckbox
                         ? () => <Checkbox size='small' disabled checked={false} indeterminate={false} sx={{ p: 0 }} title={c.headerName} />
@@ -87,11 +96,11 @@ export function toGridColumns(response: AppDataResponse, options?: ToGridColumns
                     if (c.dataType === 'BOOLEAN') {
                         return <Checkbox size='small' disabled checked={params.value === true} indeterminate={false} />
                     }
-                    if (c.dataType === 'STRING' && c.uiConfig?.widget === 'textarea') {
+                    if (c.dataType === 'STRING' && (c.uiConfig?.widget === 'textarea' || isSemanticLongTextRuntimeField(c))) {
                         if (params.value === null || params.value === undefined) return ''
                         return (
                             <Box sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', lineHeight: 1.5 }}>
-                                {formatRuntimeValue(params.value, locale)}
+                                {formatRuntimeSafeValue(params.value, locale)}
                             </Box>
                         )
                     }
@@ -102,7 +111,7 @@ export function toGridColumns(response: AppDataResponse, options?: ToGridColumns
                         } else if (params.value && typeof params.value === 'object') {
                             const refObject = params.value as Record<string, unknown>
                             let objectLabel = ''
-                            objectLabel = formatRuntimeValue(refObject.label ?? refObject.name, locale)
+                            objectLabel = formatRuntimeSafeValue(refObject.label ?? refObject.name, locale)
                             if (objectLabel) {
                                 return objectLabel
                             }
@@ -113,7 +122,7 @@ export function toGridColumns(response: AppDataResponse, options?: ToGridColumns
                         return refOptionLabels.get(value) ?? ''
                     }
                     if (params.value === null || params.value === undefined) return ''
-                    return formatRuntimeValue(params.value, locale)
+                    return formatRuntimeColumnValue(c, params.value, locale)
                 }
             }
         })
@@ -145,7 +154,7 @@ export function toGridColumns(response: AppDataResponse, options?: ToGridColumns
                     <IconButton
                         size='small'
                         data-testid={buildGridRowActionsTriggerTestId(String(params.row.id))}
-                        aria-label={options.actionsAriaLabel ?? 'Actions'}
+                        aria-label={options.getRowActionsAriaLabel?.(params.row) ?? options.actionsAriaLabel ?? 'Actions'}
                         onClick={(e) => {
                             e.stopPropagation()
                             onMenuOpen(e, params.row.id as string)
@@ -168,9 +177,15 @@ export function toGridColumns(response: AppDataResponse, options?: ToGridColumns
 export function toFieldConfigs(response: AppDataResponse): FieldConfig[] {
     return response.columns.map((c) => ({
         id: c.field,
+        codename: c.codename,
         label: c.headerName,
         type: c.dataType as FieldConfig['type'],
-        widget: c.uiConfig?.widget === 'textarea' ? 'textarea' : c.uiConfig?.widget === 'text' ? 'text' : undefined,
+        widget:
+            c.uiConfig?.widget === 'textarea' || (c.dataType === 'STRING' && isSemanticLongTextRuntimeField(c))
+                ? 'textarea'
+                : c.uiConfig?.widget === 'text'
+                ? 'text'
+                : undefined,
         multilineRows:
             c.uiConfig?.widget === 'textarea' && typeof c.uiConfig?.rows === 'number' && Number.isInteger(c.uiConfig.rows)
                 ? c.uiConfig.rows
@@ -209,6 +224,7 @@ export function toFieldConfigs(response: AppDataResponse): FieldConfig[] {
                   componentId: c.id,
                   childFields: c.childColumns.map((child) => ({
                       id: child.field,
+                      codename: child.codename,
                       label: child.headerName,
                       type: child.dataType as FieldConfig['type'],
                       required: child.isRequired,

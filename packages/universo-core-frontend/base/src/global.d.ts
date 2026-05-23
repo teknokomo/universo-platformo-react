@@ -13,4 +13,5 @@ interface ImportMetaEnv {
     readonly SSR: boolean
     readonly VITE_PORT?: string
     readonly VITE_HOST?: string
+    readonly VITE_ENABLE_QUERY_DEVTOOLS?: string
 }

@@ -76,6 +76,7 @@ export const recordsUnionDatasourceTargetSchema = z
         typeField: z.string().min(1).max(128).optional(),
         titleField: z.string().min(1).max(128).optional(),
         statusField: z.string().min(1).max(128).optional(),
+        projectField: z.string().min(1).max(128).optional(),
         updatedAtField: z.string().min(1).max(128).optional()
     })
     .strict()
@@ -96,6 +97,7 @@ export const recordsUnionDatasourceSchema = datasourceBaseSchema
     .extend({
         kind: z.literal('records.union'),
         targets: z.array(recordsUnionDatasourceTargetSchema).min(1).max(32),
+        projectedFields: z.array(z.string().min(1).max(128)).max(32).optional(),
         query: runtimeDatasourceListQuerySchema.optional()
     })
     .strict()

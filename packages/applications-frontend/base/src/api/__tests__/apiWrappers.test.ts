@@ -108,6 +108,81 @@ describe('applications-frontend api wrappers', () => {
             }
         })
 
+        patch.mockResolvedValueOnce({ data: { id: 'row-1', title: 'Updated' } })
+        await api.updateApplicationRuntimeRow({
+            applicationId: 'app-1',
+            rowId: 'row-1',
+            objectCollectionId: 'object-1',
+            data: { title: 'Updated' },
+            expectedVersion: 3
+        })
+        expect(patch).toHaveBeenCalledWith('/applications/app-1/runtime/rows/row-1', {
+            data: { title: 'Updated' },
+            objectCollectionId: 'object-1',
+            expectedVersion: 3
+        })
+
+        await api.deleteApplicationRuntimeRow({
+            applicationId: 'app-1',
+            rowId: 'row-1',
+            objectCollectionId: 'object-1',
+            expectedVersion: 4
+        })
+        expect(del).toHaveBeenCalledWith('/applications/app-1/runtime/rows/row-1', {
+            params: { objectCollectionId: 'object-1', expectedVersion: 4 }
+        })
+
+        await api.restoreApplicationRuntimeRow({
+            applicationId: 'app-1',
+            rowId: 'row-1',
+            objectCollectionId: 'object-1',
+            expectedVersion: 5,
+            restoreTarget: {
+                mode: 'target',
+                targetObjectCollectionId: 'project-object',
+                targetRecordId: 'project-row',
+                parentFieldCodename: 'ProjectId'
+            }
+        })
+        expect(post).toHaveBeenCalledWith('/applications/app-1/runtime/rows/row-1/restore', {
+            objectCollectionId: 'object-1',
+            expectedVersion: 5,
+            restoreTarget: {
+                mode: 'target',
+                targetObjectCollectionId: 'project-object',
+                targetRecordId: 'project-row',
+                parentFieldCodename: 'ProjectId'
+            }
+        })
+
+        post.mockResolvedValueOnce({ data: { id: 'row-copy' } })
+        await api.copyApplicationRuntimeRow({
+            applicationId: 'app-1',
+            rowId: 'row-1',
+            objectCollectionId: 'object-1',
+            copyChildTables: false,
+            data: { title: 'Copy' },
+            expectedVersion: 6
+        })
+        expect(post).toHaveBeenCalledWith('/applications/app-1/runtime/rows/row-1/copy', {
+            copyChildTables: false,
+            objectCollectionId: 'object-1',
+            data: { title: 'Copy' },
+            expectedVersion: 6
+        })
+
+        await api.reorderApplicationRuntimeRows({
+            applicationId: 'app-1',
+            objectCollectionId: 'object-1',
+            orderedRowIds: ['row-a', 'row-b'],
+            expectedVersionsByRowId: { 'row-a': 1, 'row-b': 2 }
+        })
+        expect(post).toHaveBeenCalledWith('/applications/app-1/runtime/rows/reorder', {
+            objectCollectionId: 'object-1',
+            orderedRowIds: ['row-a', 'row-b'],
+            expectedVersionsByRowId: { 'row-a': 1, 'row-b': 2 }
+        })
+
         api.copyApplication('m1', { name: { en: 'Copy Name' }, copyConnector: true, createSchema: false, copyAccess: true })
         expect(post).toHaveBeenCalledWith('/applications/m1/copy', {
             name: { en: 'Copy Name' },

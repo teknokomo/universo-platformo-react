@@ -1,6 +1,9 @@
 export { default as AppsDashboard } from './dashboard/Dashboard'
 export type {
     DashboardDetailsSlot,
+    DashboardCreateTarget,
+    DashboardRowTarget,
+    DashboardRowTargetAction,
     DashboardLayoutConfig,
     DashboardMenuItem,
     DashboardMenuSlot,
@@ -57,7 +60,8 @@ export { default as LanguageSwitcher } from './components/LanguageSwitcher'
 export { getDataGridLocaleText } from './utils/getDataGridLocale'
 
 // API — adapter pattern
-export type { CrudDataAdapter, CellRendererOverrides, RuntimeRecordCommand } from './api/types'
+export type { AppDataResponse } from './api/api'
+export type { CrudDataAdapter, CellRendererOverrides, RuntimeRecordCommand, RuntimeRestoreTarget } from './api/types'
 export { createStandaloneAdapter } from './api/adapters'
 export { updateLearningContentProgress } from './api/api'
 

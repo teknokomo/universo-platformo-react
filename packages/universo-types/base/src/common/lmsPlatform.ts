@@ -262,11 +262,12 @@ export const DEFAULT_LEARNING_CONTENT_COLUMN_PRESET: LearningContentColumnPreset
         ru: 'Учебный контент по умолчанию'
     },
     columns: [
-        { field: 'Title', visible: true, flex: 1 },
+        { field: 'type', visible: true, width: 140 },
+        { field: 'title', visible: true, flex: 1 },
+        { field: 'status', visible: true, width: 160 },
         { field: 'ResourceType', visible: true, width: 140 },
-        { field: 'PublicationStatus', visible: true, width: 160 },
-        { field: 'ProjectId', visible: true, width: 180 },
-        { field: 'UpdatedAt', visible: true, width: 160 },
+        { field: 'Instructor', visible: false, width: 180 },
+        { field: 'ProjectId', visible: false, width: 180 },
         { field: 'CreatedBy', visible: false, width: 180 }
     ]
 }
@@ -534,6 +535,9 @@ export const lmsAcceptanceMatrixSchema = z
                 requiredReports: z.array(codenameSchema).max(32).default([]),
                 requiredStatuses: z.array(codenameSchema).max(32).default([]),
                 evidence: z.array(z.string().trim().min(1).max(160)).max(16).default([]),
+                browserEvidence: z.array(z.string().trim().min(1).max(180)).max(16).default([]),
+                apiEvidence: z.array(z.string().trim().min(1).max(180)).max(16).default([]),
+                fixtureEvidence: z.array(z.string().trim().min(1).max(180)).max(16).default([]),
                 gaps: z.array(z.string().trim().min(1).max(240)).max(16).default([])
             })
             .strict()

@@ -15,11 +15,20 @@
         "deleting": "Удаление...",
         "noFields": "Нет настроенных полей для этого объекта.",
         "actions": "Действия",
+        "rowActionsFor": "Действия для {{name}}",
         "edit": "Редактировать",
         "copy": "Копировать",
         "copying": "Копирование...",
         "copyTitle": "Копирование элемента",
         "emptyOption": "Пусто",
+        "createTargetMenu": "Создать контент",
+        "createTargetFallback": "Запись",
+        "createTargetResourceTypeDisabled": "{{type}} отключен в настройках приложения.",
+        "createTargetResourceTypeDeferred": "{{type}} запланирован для следующего этапа.",
+        "star": "Добавить в избранное",
+        "unstar": "Убрать из избранного",
+        "addToShared": "Добавить в доступные",
+        "removeFromShared": "Убрать из доступных",
         "errorCreate": "Ошибка создания: {{message}}",
         "errorUpdate": "Ошибка обновления: {{message}}",
         "errorDelete": "Ошибка удаления: {{message}}",
@@ -30,6 +39,7 @@
         "errorRecordCommand": "Ошибка команды записи: {{message}}",
         "errorWorkflowAction": "Ошибка действия процесса: {{message}}",
         "errorWorkflowVersionRequired": "Для действия процесса нужна текущая версия строки. Перезагрузите данные и попробуйте снова.",
+        "errorGenericMessage": "Повторите действие или перезагрузите страницу.",
         "postRecord": "Провести",
         "unpostRecord": "Отменить проведение",
         "voidRecord": "Аннулировать",
@@ -41,6 +51,10 @@
         "recordStatePosted": "Проведена",
         "recordStateVoided": "Аннулирована",
         "recordStateUnknown": "Состояние",
+        "workflowAction": "Выполнить действие",
+        "workflowConfirmationTitle": "Подтвердите действие",
+        "workflowConfirmationMessage": "Выполнить это действие?",
+        "confirm": "Подтвердить",
         "localSearchScope": "Поиск применяется только к уже загруженным строкам.",
         "reorderRequiresCompleteDataset": "Перестановка строк доступна только когда загружены все строки и очищен поиск."
     },
@@ -65,7 +79,12 @@
         "copyTitle": "Копирование строки",
         "copyOptionsTab": "Опции",
         "copyChildTables": "Копировать дочерние таблицы",
-        "copyChildTablesRequiredHint": "Опция обязательна, потому что хотя бы одна дочерняя таблица является обязательной."
+        "copyChildTablesRequiredHint": "Опция обязательна, потому что хотя бы одна дочерняя таблица является обязательной.",
+        "errorFetch": "Не удалось загрузить строки",
+        "errorCreate": "Не удалось создать строку",
+        "errorUpdate": "Не удалось обновить строку",
+        "errorDelete": "Не удалось удалить строку",
+        "errorCopy": "Не удалось скопировать строку"
     },
     "table": {
         "editAfterSave": "Табличные данные можно редактировать после сохранения элемента.",
@@ -78,11 +97,28 @@
         "createTitle": "Создать связанную запись",
         "editTitle": "Изменить связанную запись",
         "deleteTitle": "Удалить связанную запись?",
-        "deleteDescription": "Связанная запись будет удалена."
+        "deleteDescription": "Связанная запись будет удалена.",
+        "loadFailed": "Не удалось загрузить связанные записи.",
+        "parentLoadFailed": "Не удалось загрузить родительские записи.",
+        "untitledParent": "Родитель без названия",
+        "untitledPanel": "Связанные записи",
+        "untitledStep": "Шаг"
     },
     "formWizard": {
         "back": "Назад",
         "next": "Далее"
+    },
+    "recordPicker": {
+        "selectTargetObjectFirst": "Сначала выберите целевой объект.",
+        "unsupportedTargetObject": "Этот целевой объект недоступен для выбора.",
+        "loading": "Загрузка записей...",
+        "loadFailed": "Не удалось загрузить записи.",
+        "unavailableSelection": "Выбранная запись недоступна.",
+        "untitled": "Запись без названия"
+    },
+    "reference": {
+        "selectionUnavailable": "Выбор ссылки не настроен.",
+        "unavailableSelection": "Выбранная ссылка недоступна."
     },
     "blockEditor": {
         "loading": "Загрузка редактора...",
@@ -92,6 +128,10 @@
         "fallbackHelper": "Резервный JSON-редактор для восстановления, если визуальный редактор не загрузился.",
         "retry": "Повторить"
     },
+    "jsonField": {
+        "managedValue": "Структурные данные управляются приложением.",
+        "managedHelper": "Это поле не редактируется как исходный JSON."
+    },
     "resourcePreview": {
         "defaultTitle": "Ресурс",
         "unknownType": "Неизвестный тип",
@@ -99,6 +139,7 @@
         "deferredSource": "Этот тип ресурса настроен, но runtime-плеер пока недоступен.",
         "openExternal": "Открыть",
         "openPage": "Открыть страницу",
+        "domainPreview": "Домен: {{domain}}",
         "documentFrameTitle": "Предпросмотр документа",
         "embedFrameTitle": "Встроенный ресурс"
     },
@@ -109,6 +150,9 @@
         "storageKey": "Ключ хранилища",
         "packageDescriptor": "Описание пакета",
         "launchMode": "Запуск",
+        "domainPreview": "Домен: {{domain}}",
+        "deferredType": "пока недоступно",
+        "deferredTypeDescription": "Этот тип ресурса настроен, но пока недоступен для создания в runtime.",
         "invalid": "Источник ресурса некорректен.",
         "errors": {
             "url": "Введите абсолютный URL http или https.",
@@ -151,7 +195,10 @@
         "previous": "Назад",
         "next": "Далее",
         "locked": "Заблокировано",
+        "untitledContent": "Контент без названия",
+        "untitledItem": "Элемент без названия",
         "noTarget": "Цель не выбрана",
+        "contentTypeFallback": "Учебный контент",
         "complete": "Завершить",
         "lockedMessage": "Завершите предыдущие элементы, чтобы открыть этот контент.",
         "loadingContent": "Загрузка контента...",
@@ -189,7 +236,11 @@
         "search": "Поиск…",
         "viewMode": "Режим отображения",
         "tableView": "Табличный вид",
-        "cardView": "Карточный вид"
+        "cardView": "Карточный вид",
+        "columns": "Колонки",
+        "columnsMenu": "Колонки таблицы",
+        "typeFilter": "Тип",
+        "allTypes": "Все типы"
     },
     "cards": {
         "noData": "Нет элементов для отображения",
@@ -203,7 +254,9 @@
     "reports": {
         "exportCsv": "Экспорт CSV",
         "exporting": "Экспорт…",
+        "loadError": "Не удалось загрузить отчёт.",
         "exportError": "Ошибка экспорта: {{message}}",
+        "exportGenericError": "Не удалось экспортировать отчёт.",
         "exportUnsupported": "Скачивание CSV не поддерживается в этом браузере."
     },
     "workspace": {
@@ -221,6 +274,8 @@
         "creating": "Создание…",
         "copying": "Копирование…",
         "deleting": "Удаление…",
+        "untitled": "Рабочее пространство без названия",
+        "untitledMember": "Участник рабочего пространства",
         "personal": "Личное",
         "shared": "Общее",
         "members": "Участники",
@@ -276,6 +331,7 @@
             "workspaceNotFound": "Рабочее пространство не найдено",
             "roleNotFound": "Роль рабочего пространства не найдена",
             "workspacesDisabled": "Рабочие пространства не включены для этого приложения",
+            "emailInvalid": "Введите корректный email.",
             "invalidRequestBody": "Некорректные данные запроса",
             "personalMutationBlocked": "Личное рабочее пространство нельзя изменить",
             "personalDeleteBlocked": "Личное рабочее пространство нельзя удалить"
@@ -311,8 +367,36 @@
             "description": "Описание",
             "noRecords": "Нет записей",
             "moveUp": "Переместить вверх",
-            "moveDown": "Переместить вниз"
+            "moveDown": "Переместить вниз",
+            "moveUpRow": "Переместить {{row}} вверх",
+            "moveDownRow": "Переместить {{row}} вниз",
+            "untitled": "Строка без названия"
         },
+        "card": {
+            "untitled": "Без названия"
+        },
+        "datasourceUnavailable": "Это представление контента пока недоступно. Проверьте runtime-настройки приложения.",
+        "datasourceLoadError": "Не удалось загрузить это представление контента.",
+        "libraryActionUnavailable": "Действие недоступно для этой строки.",
+        "targetActionUnavailable": "Действие недоступно для этой строки.",
+        "targetActionTitle": "Выберите цель",
+        "targetActionLabel": "Цель",
+        "targetActionLoading": "Загружаем доступные цели...",
+        "targetActionEmpty": "Доступные цели не найдены.",
+        "targetActionHelp": "Выберите цель для этого действия.",
+        "targetActionError": "Не удалось загрузить цели.",
+        "targetActionUpdateError": "Не удалось обновить запись.",
+        "targetActionUntitled": "Цель без названия",
+        "targetActionSubmit": "Применить",
+        "shareTitle": "Поделиться",
+        "shareTargetLabel": "Участник рабочего пространства",
+        "shareLoading": "Загружаем участников рабочего пространства...",
+        "shareEmpty": "Участники рабочего пространства не найдены.",
+        "shareHelp": "Выберите, кому открыть доступ к этому элементу.",
+        "shareError": "Не удалось загрузить участников рабочего пространства.",
+        "shareUpdateError": "Не удалось обновить доступ.",
+        "shareUntitledMember": "Участник рабочего пространства",
+        "shareSubmit": "Поделиться",
         "menu": {
             "more": "Ещё"
         }
@@ -320,12 +404,21 @@
     "trash": {
         "actions": "Действия",
         "restore": "Восстановить",
-        "restoreUnavailable": "Восстановление недоступно для этой строки."
+        "restoreUnavailable": "Восстановление недоступно для этой строки.",
+        "restoreError": "Не удалось восстановить запись.",
+        "restoreTargetTitle": "Восстановить в цель",
+        "restoreTargetLabel": "Цель",
+        "restoreTargetLoading": "Загружаем доступные цели...",
+        "restoreTargetEmpty": "Доступные цели не найдены.",
+        "restoreTargetHelp": "Выберите, куда восстановить эту запись.",
+        "restoreTargetError": "Не удалось загрузить цели восстановления.",
+        "restoreTargetUntitled": "Цель без названия"
     },
     "sequence": {
         "availability": "Доступность",
         "available": "Доступно",
         "lockedBy": "Заблокировано",
+        "untitledStep": "Обязательный шаг",
         "reasons": {
             "missingStep": "Шаг не найден",
             "scheduledNotStarted": "Ещё не начато",
@@ -333,6 +426,9 @@
             "sequentialLocked": "Заблокировано",
             "prerequisiteLocked": "Заблокировано условием"
         }
+    },
+    "detailsTabs": {
+        "untitledTab": "Детали"
     },
     "guest": {
         "invalidLink": "Публичная гостевая ссылка недействительна.",

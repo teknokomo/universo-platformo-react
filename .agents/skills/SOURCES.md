@@ -19,6 +19,7 @@ This file records external Skills imported into `.agents/skills/` so updates and
 | Local Skill | Source | License | Notes |
 |-------------|--------|---------|-------|
 | `research-before-plan` | Local project workflow | Project repository license | Supports `.gemini/rules/custom_modes/research_mode.md`. |
+| `universo-platform-architecture` | Local project workflow | Project repository license | Single source of truth for the metahub configuration model, entity type presets, the `recordBehavior` mechanism, metahub templates, and the strengthen-existing-preset rule. Used by RESEARCH, PLAN, IMPLEMENT, QA, REFLECT. |
 
 ## AI Research Skills MIT Notice
 

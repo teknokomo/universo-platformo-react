@@ -62,14 +62,22 @@ export function createStandaloneAdapter(params: { apiBaseUrl: string; applicatio
         createRow: (data, objectCollectionId) =>
             createAppRow({ apiBaseUrl, applicationId, data, objectCollectionId, sectionId: objectCollectionId }),
 
-        updateRow: (rowId, data, objectCollectionId) =>
-            updateAppRow({ apiBaseUrl, applicationId, rowId, data, objectCollectionId, sectionId: objectCollectionId }),
+        updateRow: (rowId, data, objectCollectionId, expectedVersion) =>
+            updateAppRow({ apiBaseUrl, applicationId, rowId, data, objectCollectionId, sectionId: objectCollectionId, expectedVersion }),
 
         deleteRow: (rowId, objectCollectionId, expectedVersion) =>
             deleteAppRow({ apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId: objectCollectionId, expectedVersion }),
 
-        restoreRow: (rowId, objectCollectionId, expectedVersion) =>
-            restoreAppRow({ apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId: objectCollectionId, expectedVersion }),
+        restoreRow: (rowId, objectCollectionId, expectedVersion, restoreTarget) =>
+            restoreAppRow({
+                apiBaseUrl,
+                applicationId,
+                rowId,
+                objectCollectionId,
+                sectionId: objectCollectionId,
+                expectedVersion,
+                restoreTarget
+            }),
 
         copyRow: (rowId, data) =>
             copyAppRow({
@@ -105,13 +113,14 @@ export function createStandaloneAdapter(params: { apiBaseUrl: string; applicatio
                 expectedVersion: data.expectedVersion
             }),
 
-        reorderRows: ({ objectCollectionId, sectionId, orderedRowIds }) =>
+        reorderRows: ({ objectCollectionId, sectionId, orderedRowIds, expectedVersionsByRowId }) =>
             reorderAppRows({
                 apiBaseUrl,
                 applicationId,
                 objectCollectionId,
                 sectionId: sectionId ?? objectCollectionId,
-                orderedRowIds
+                orderedRowIds,
+                expectedVersionsByRowId
             })
     }
 }

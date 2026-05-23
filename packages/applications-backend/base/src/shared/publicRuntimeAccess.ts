@@ -23,6 +23,8 @@ export const listActivePublicWorkspaceIds = async (executor: DbExecutor, schemaN
         SELECT id
         FROM ${workspacesQt}
         WHERE COALESCE(status, 'active') = 'active'
+          AND workspace_type <> 'personal'
+          AND personal_user_id IS NULL
           AND ${ACTIVE_ROW_SQL}
         ORDER BY workspace_type ASC, _upl_created_at ASC, id ASC
         `,
@@ -51,6 +53,8 @@ export const setPublicWorkspaceContext = async (executor: DbExecutor, schemaName
         FROM ${workspacesQt}
         WHERE id = $1
           AND COALESCE(status, 'active') = 'active'
+          AND workspace_type <> 'personal'
+          AND personal_user_id IS NULL
           AND ${ACTIVE_ROW_SQL}
         LIMIT 1
         `,
@@ -225,9 +229,13 @@ export const loadPublicRuntimeRecord = async (
     executor: DbExecutor,
     schemaName: string,
     binding: PublicRuntimeObjectBinding,
-    recordId: string
+    recordId: string,
+    workspaceId: string | null = null
 ): Promise<Record<string, unknown> | null> => {
     if (!UUID_REGEX.test(recordId)) {
+        return null
+    }
+    if (workspaceId !== null && !UUID_REGEX.test(workspaceId)) {
         return null
     }
 
@@ -245,10 +253,11 @@ export const loadPublicRuntimeRecord = async (
         SELECT ${selectColumns.join(', ')}
         FROM ${tableQt}
         WHERE id = $1
+          ${workspaceId ? 'AND "workspace_id" = $2' : ''}
           AND ${ACTIVE_ROW_SQL}
         LIMIT 1
         `,
-        [recordId]
+        workspaceId ? [recordId, workspaceId] : [recordId]
     )
 
     return rows[0] ?? null
@@ -259,7 +268,8 @@ export const loadPublicTableRows = async (
     schemaName: string,
     tableComponent: PublicRuntimeObjectComponent,
     childComponents: PublicRuntimeObjectComponent[],
-    parentRecordId: string
+    parentRecordId: string,
+    workspaceId: string | null = null
 ): Promise<Array<Record<string, unknown>>> => {
     const tableName =
         typeof tableComponent.column_name === 'string' && IDENTIFIER_REGEX.test(tableComponent.column_name)
@@ -267,6 +277,9 @@ export const loadPublicTableRows = async (
             : generateChildTableName(tableComponent.id)
 
     if (!IDENTIFIER_REGEX.test(tableName) || !UUID_REGEX.test(parentRecordId)) {
+        return []
+    }
+    if (workspaceId !== null && !UUID_REGEX.test(workspaceId)) {
         return []
     }
 
@@ -281,9 +294,10 @@ export const loadPublicTableRows = async (
         SELECT ${selectColumns.join(', ')}
         FROM ${tableQt}
         WHERE _tp_parent_id = $1
+          ${workspaceId ? 'AND "workspace_id" = $2' : ''}
           AND ${ACTIVE_ROW_SQL}
         ORDER BY COALESCE("_tp_sort_order", 0) ASC, id ASC
         `,
-        [parentRecordId]
+        workspaceId ? [parentRecordId, workspaceId] : [parentRecordId]
     )
 }

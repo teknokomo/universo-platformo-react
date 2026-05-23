@@ -11,25 +11,25 @@ LMS fixture моделирует учебный контент как обычн
 
 ## Сущности
 
-- `ContentProjects` группирует контент внутри рабочего пространства, не заменяя сами рабочие пространства приложения.
-- `LearningResources` хранит метаданные ресурсов: проект, тип, source descriptor, block body, estimated time, language, publication status и launch mode.
-- `Courses` хранит оболочку курса с проектом, навигацией, completion policy, status format, видимостью в каталоге, cover, instructor и tags.
-- `CourseSections` группирует содержимое курса.
-- `CourseItems` упорядочивает ссылки на resource, quiz, assignment или будущий training внутри разделов курса.
-- `LearningTracks`, `TrackStages` и `TrackSteps` задают learning paths на основе курсов.
-- `ContentStars`, `RecentContentViews`, `ContentAccessEntries` и `TrashEntries` поддерживают навигацию библиотеки и совместную работу.
-- Авторский контент остаётся в Page entities, например `CourseOverview`, `KnowledgeArticle` и `CertificatePolicy`.
+-   `ContentProjects` группирует контент внутри рабочего пространства, не заменяя сами рабочие пространства приложения.
+-   `LearningResources` хранит метаданные ресурсов: проект, тип, source descriptor, block body, estimated time, language, publication status и launch mode.
+-   `Courses` хранит оболочку курса с проектом, навигацией, completion policy, status format, видимостью в каталоге, cover, instructor и tags.
+-   `CourseSections` группирует содержимое курса.
+-   `CourseItems` упорядочивает ссылки на resource, quiz, assignment или будущий training внутри разделов курса.
+-   `LearningTracks`, `TrackStages` и `TrackSteps` задают learning paths на основе курсов.
+-   `ContentStars`, `RecentContentViews`, `ContentAccessEntries` и `TrashEntries` поддерживают навигацию библиотеки и совместную работу.
+-   Авторский контент остаётся в Page entities, например `CourseOverview`, `KnowledgeArticle` и `CertificatePolicy`.
 
 ## Контракт источника ресурса
 
 Каждый ресурс использует ровно один locator источника:
 
-- `pageCodename` для авторских Page entities.
-- `url` для ссылок, видео, аудио и embedded content.
-- `storageKey` для будущих файлов в хранилище.
-- `packageDescriptor` или `storageKey` для будущих SCORM и xAPI пакетов.
+-   `pageCodename` для авторских Page entities.
+-   `url` для ссылок, видео, аудио и embedded content.
+-   `storageKey` для будущих файлов в хранилище.
+-   `packageDescriptor` или `storageKey` для будущих SCORM и xAPI пакетов.
 
-V1 fixture намеренно не реализует загрузку файлов, извлечение пакетов, xAPI launch tracking и SCORM player.
+LMS fixture намеренно не реализует загрузку файлов, извлечение пакетов, xAPI launch tracking и SCORM player.
 SCORM, xAPI, storage-backed video/audio/document/file resources и предпросмотр office documents представлены как настроенные, но deferred resources.
 Опубликованные приложения показывают локализованное deferred runtime state вместо имитации готового player/import pipeline.
 Эти возможности должны добавляться через generic storage/runtime primitives, а не через LMS-specific frontend code.

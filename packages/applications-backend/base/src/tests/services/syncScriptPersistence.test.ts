@@ -273,7 +273,7 @@ describe('syncScriptPersistence', () => {
         })
 
         await persistPublishedScripts({
-            schemaName: 'app_runtime_test',
+            schemaName: 'app_018f8a787b8f7c1da1112222333346aa',
             userId: 'user-1',
             snapshot: createSnapshot([
                 createSnapshotScript({
@@ -291,17 +291,17 @@ describe('syncScriptPersistence', () => {
             ])
         })
 
-        expect(mockEnsureSystemTables).toHaveBeenCalledWith('app_runtime_test', undefined)
+        expect(mockEnsureSystemTables).toHaveBeenCalledWith('app_018f8a787b8f7c1da1112222333346aa', undefined)
         expect(currentKnex.transaction).toHaveBeenCalledTimes(1)
         expect(currentKnex.raw).toHaveBeenCalledWith(expect.stringContaining('SELECT indexdef'), [
-            'app_runtime_test',
+            'app_018f8a787b8f7c1da1112222333346aa',
             'idx_app_scripts_codename_active'
         ])
         expect(currentKnex.raw).toHaveBeenCalledWith(
-            expect.stringContaining('DROP INDEX IF EXISTS "app_runtime_test"."idx_app_scripts_codename_active"')
+            expect.stringContaining('DROP INDEX IF EXISTS "app_018f8a787b8f7c1da1112222333346aa"."idx_app_scripts_codename_active"')
         )
         expect(currentKnex.raw).toHaveBeenCalledWith(
-            expect.stringContaining('CREATE UNIQUE INDEX IF NOT EXISTS idx_app_scripts_codename_active')
+            expect.stringContaining('CREATE UNIQUE INDEX IF NOT EXISTS "idx_app_scripts_codename_active"')
         )
 
         expect(currentKnex.rows).toHaveLength(2)
@@ -328,17 +328,17 @@ describe('syncScriptPersistence', () => {
         currentKnex = createMockSyncKnex()
 
         await persistPublishedScripts({
-            schemaName: 'app_runtime_test',
+            schemaName: 'app_018f8a787b8f7c1da1112222333346aa',
             userId: 'user-1',
             snapshot: createSnapshot([createSnapshotScript()])
         })
 
         expect(currentKnex.raw).toHaveBeenCalledWith(expect.stringContaining('SELECT indexdef'), [
-            'app_runtime_test',
+            'app_018f8a787b8f7c1da1112222333346aa',
             'idx_app_scripts_codename_active'
         ])
         expect(currentKnex.raw).not.toHaveBeenCalledWith(
-            expect.stringContaining('DROP INDEX IF EXISTS "app_runtime_test"."idx_app_scripts_codename_active"')
+            expect.stringContaining('DROP INDEX IF EXISTS "app_018f8a787b8f7c1da1112222333346aa"."idx_app_scripts_codename_active"')
         )
         expect(currentKnex.raw).not.toHaveBeenCalledWith(
             expect.stringContaining('CREATE UNIQUE INDEX IF NOT EXISTS idx_app_scripts_codename_active')
@@ -350,7 +350,7 @@ describe('syncScriptPersistence', () => {
 
         await expect(
             persistPublishedScripts({
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_018f8a787b8f7c1da1112222333346aa',
                 snapshot: createSnapshot([createSnapshotScript()])
             })
         ).rejects.toThrow('bootstrap failed')
@@ -370,7 +370,7 @@ describe('syncScriptPersistence', () => {
 
         await expect(
             persistPublishedScripts({
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_018f8a787b8f7c1da1112222333346aa',
                 snapshot: createLegacySnapshotWithoutScripts(),
                 userId: 'user-1'
             })
@@ -385,7 +385,7 @@ describe('syncScriptPersistence', () => {
 
         await expect(
             persistPublishedScripts({
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_018f8a787b8f7c1da1112222333346aa',
                 snapshot: createSnapshot([createSnapshotScript()])
             })
         ).rejects.toThrow('Runtime scripts table is unavailable after system table bootstrap')
@@ -394,7 +394,7 @@ describe('syncScriptPersistence', () => {
     it('rejects published runtime snapshots with unsupported sdkApiVersion metadata', async () => {
         await expect(
             persistPublishedScripts({
-                schemaName: 'app_runtime_test',
+                schemaName: 'app_018f8a787b8f7c1da1112222333346aa',
                 snapshot: createSnapshot([
                     createSnapshotScript({
                         sdkApiVersion: '2.0.0',
@@ -433,7 +433,7 @@ describe('syncScriptPersistence', () => {
         })
 
         const hasChanges = await hasPublishedScriptsChanges({
-            schemaName: 'app_runtime_test',
+            schemaName: 'app_018f8a787b8f7c1da1112222333346aa',
             snapshot: createSnapshot([
                 createSnapshotScript({
                     id: 'script-1',
@@ -465,7 +465,7 @@ describe('syncScriptPersistence', () => {
         })
 
         const hasChanges = await hasPublishedScriptsChanges({
-            schemaName: 'app_runtime_test',
+            schemaName: 'app_018f8a787b8f7c1da1112222333346aa',
             snapshot: createSnapshot([
                 createSnapshotScript({
                     id: 'script-1',

@@ -477,7 +477,10 @@ export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
         requiredEntities: ['LearnerHome', 'LearningResources', 'Courses', 'ContentProgress'],
         requiredStatuses: ['NotStarted', 'InProgress', 'Completed'],
         evidence: ['snapshot-import-lms-runtime flow opens learner home and public content progress'],
-        gaps: ['Learner-home activity is not yet written to a dedicated audit ledger']
+        browserEvidence: ['snapshot-import-lms-runtime opens learner home and verifies public content progress'],
+        gaps: [
+            'Deferred beyond current Learning Content release scope: learner-home activity is not yet written to a dedicated audit ledger'
+        ]
     },
     {
         area: 'contentLibrary',
@@ -492,7 +495,13 @@ export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
         requiredEntities: ['ContentProjects', 'LearningResources', 'Courses', 'CourseSections', 'CourseItems', 'KnowledgeArticles'],
         requiredStatuses: ['Published'],
         evidence: ['resource source contract, app-side block authoring, and runtime preview tests cover early safe resource types'],
-        gaps: ['Broad package ingestion remains deferred for SCORM, xAPI, Office, and advanced media']
+        browserEvidence: [
+            'snapshot-import-lms-runtime creates Page, Link, Project, and Knowledge Article content through the published app'
+        ],
+        fixtureEvidence: ['resource source and block-content fixture contracts cover supported early resource types'],
+        gaps: [
+            'Deferred beyond current Learning Content release scope: broad package ingestion for SCORM, xAPI, Office, and advanced media'
+        ]
     },
     {
         area: 'contentProjects',
@@ -505,6 +514,9 @@ export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
             'covered-by-e2e': true
         }),
         requiredEntities: ['ContentProjects', 'ContentAccessEntries', 'ContentStars', 'RecentContentViews'],
+        browserEvidence: [
+            'snapshot-import-lms-runtime opens the Projects-backed Learning Content library and verifies project create defaults'
+        ],
         evidence: [
             'Learning Content V2 metadata seeds workspace-scoped project containers and the Playwright flow opens the Projects-backed library view'
         ]
@@ -520,6 +532,7 @@ export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
             'covered-by-e2e': true
         }),
         requiredEntities: ['ContentProjects', 'LearningResources', 'Courses', 'LearningTracks', 'TrashEntries'],
+        browserEvidence: ['snapshot-import-lms-runtime captures Library, Recent, Starred, Shared with me, and Trash runtime views'],
         evidence: [
             'Primary LMS navigation targets ContentProjects and LearningResources',
             'snapshot-import-lms-runtime captures Learning Content, Recent, Starred, Shared with me, and Trash screenshots'
@@ -537,6 +550,7 @@ export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
         }),
         requiredEntities: ['LearningResources'],
         requiredStatuses: ['Draft', 'Published'],
+        browserEvidence: ['snapshot-import-lms-runtime creates and edits block-authored Page content through the published app runtime'],
         evidence: [
             'LearningResources.Body uses the shared Editor.js block-content field',
             'snapshot-import-lms-runtime creates and edits block-authored content through the published app runtime'
@@ -553,6 +567,8 @@ export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
             'covered-by-e2e': true
         }),
         requiredEntities: ['LearningResources', 'ResourceType'],
+        browserEvidence: ['snapshot-import-lms-runtime validates Link authoring and RU unsafe URL validation in the published app runtime'],
+        fixtureEvidence: ['resource-source fixture contract validates safe URL-backed resource metadata'],
         evidence: [
             'Shared resource-source contract validates safe URL-backed resources',
             'Resource preview unit coverage verifies URL-backed and deferred resource states without LMS-specific widgets'
@@ -570,6 +586,9 @@ export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
         }),
         requiredEntities: ['CourseOverview', 'Courses', 'CourseSections', 'CourseItems', 'LearningResources'],
         requiredStatuses: ['Published'],
+        browserEvidence: [
+            'snapshot-import-lms-runtime captures Course Builder tabs, player, outline scope, enrollment warning, and ordering proof'
+        ],
         evidence: [
             'course overview page and published-app authoring flows create content resources through the LMS fixture',
             'CourseSections and CourseItems have scoped generic ordering layouts backed by SortOrder',
@@ -587,7 +606,11 @@ export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
             'covered-by-e2e': true
         }),
         requiredEntities: ['Courses', 'CourseSections', 'CourseItems', 'LearningResources'],
+        requiredReports: ['CourseBuilderOutline'],
         requiredStatuses: ['Draft', 'Published'],
+        browserEvidence: [
+            'snapshot-import-lms-runtime verifies Course Builder tabs, scoped child rows, enrollment wizard, player, and outline reordering'
+        ],
         evidence: [
             'CourseItems is the canonical Course -> Section -> Content item model',
             'Generic relationBuilder panels scope CourseSections and CourseItems to the selected Course parent',
@@ -608,6 +631,7 @@ export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
         }),
         requiredEntities: ['LearningTracks', 'TrackStages', 'TrackSteps', 'Courses', 'Enrollments', 'ProgressLedger'],
         requiredStatuses: ['NotStarted', 'InProgress', 'Completed', 'Overdue', 'Expired'],
+        browserEvidence: ['snapshot-import-lms-runtime verifies track learner-player completion and guest progress flows'],
         evidence: ['guest content flow writes progress and direct ledger facts are verified in LMS runtime E2E']
     },
     {
@@ -621,6 +645,10 @@ export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
             'covered-by-e2e': true
         }),
         requiredEntities: ['LearningTracks', 'TrackStages', 'TrackSteps', 'Courses'],
+        requiredReports: ['TrackBuilderOutline'],
+        browserEvidence: [
+            'snapshot-import-lms-runtime verifies Track Builder tabs, learner player, scoped child rows, warnings, and outline reordering'
+        ],
         evidence: [
             'TrackStages and course-centered TrackSteps are present in the canonical metadata model',
             'Generic relationBuilder panels scope TrackStages and TrackSteps to the selected LearningTrack parent',
@@ -641,6 +669,7 @@ export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
         }),
         requiredEntities: ['Enrollments', 'Students', 'Courses', 'LearningTracks'],
         requiredStatuses: ['NotStarted', 'InProgress', 'Completed', 'Overdue'],
+        browserEvidence: ['snapshot-import-lms-runtime verifies the metadata-driven Enrollment Wizard in the Course Builder'],
         evidence: [
             'Course and Track enrollment tabs use the generic relationBuilder surface over the shared Enrollments Object',
             'Seeded enrollments use runtime current-user token assignment for learner-facing My Courses/My Tracks visibility',
@@ -659,6 +688,9 @@ export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
         }),
         requiredEntities: ['Courses', 'CourseItems', 'LearningTracks', 'TrackSteps', 'LearnerHome', 'ContentProgress'],
         requiredStatuses: ['NotStarted', 'InProgress', 'Completed'],
+        browserEvidence: [
+            'snapshot-import-lms-runtime verifies Course persisted progress after reload and the Track learner-player completion path'
+        ],
         evidence: [
             'Course Builder exposes a metadata-defined generic learnerPlayer tab over Courses and CourseItems',
             'Track Builder exposes the same generic learnerPlayer surface over LearningTracks and TrackSteps with a static Courses target object',
@@ -677,6 +709,9 @@ export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
             'covered-by-e2e': true
         }),
         requiredEntities: ['TrashEntries'],
+        browserEvidence: [
+            'snapshot-import-lms-runtime captures Trash and restore-target picker flows in the workspace-scoped Learning Content runtime'
+        ],
         evidence: [
             'Runtime delete uses existing lifecycle fields and TrashEntries projects restore metadata',
             'Runtime restore endpoint and generic Trash restore action are covered by focused runtime tests',
@@ -691,11 +726,15 @@ export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
             actionable: true,
             audited: true,
             'workspace-isolated': true,
-            'covered-by-e2e': true
+            'covered-by-e2e': false
         }),
         requiredEntities: ['Assignments', 'AssignmentSubmissions'],
         requiredStatuses: ['NotStarted', 'PendingReview', 'Declined', 'Accepted'],
-        evidence: ['published runtime workflow UI covers review, accept, and decline transitions']
+        apiEvidence: ['backend and runtime workflow command tests cover assignment review, accept, and decline transitions'],
+        evidence: ['backend and runtime workflow command tests cover review, accept, and decline transitions'],
+        gaps: [
+            'Deferred beyond current Learning Content release scope: browser proof for creating assignment prerequisites entirely through the published UI'
+        ]
     },
     {
         area: 'trainingAttendance',
@@ -705,11 +744,15 @@ export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
             actionable: true,
             audited: true,
             'workspace-isolated': true,
-            'covered-by-e2e': true
+            'covered-by-e2e': false
         }),
         requiredEntities: ['TrainingEvents', 'TrainingAttendance', 'AttendanceLedger'],
         requiredStatuses: ['Registered', 'Attended', 'NoShow', 'Cancelled'],
-        evidence: ['published runtime workflow UI covers attended, no-show, and cancellation transitions']
+        apiEvidence: ['backend and runtime workflow command tests cover training attendance, no-show, and cancellation transitions'],
+        evidence: ['backend and runtime workflow command tests cover attended, no-show, and cancellation transitions'],
+        gaps: [
+            'Deferred beyond current Learning Content release scope: browser proof for creating training-event prerequisites entirely through the published UI'
+        ]
     },
     {
         area: 'certificateIssue',
@@ -719,11 +762,15 @@ export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
             actionable: true,
             audited: true,
             'workspace-isolated': true,
-            'covered-by-e2e': true
+            'covered-by-e2e': false
         }),
         requiredEntities: ['Certificates', 'CertificateIssues', 'CertificateLedger'],
         requiredStatuses: ['Eligible', 'Issued', 'Revoked', 'Expired'],
-        evidence: ['published runtime workflow UI covers certificate issue and revoke transitions']
+        apiEvidence: ['backend and runtime workflow command tests cover certificate issue and revoke transitions'],
+        evidence: ['backend and runtime workflow command tests cover certificate issue and revoke transitions'],
+        gaps: [
+            'Deferred beyond current Learning Content release scope: browser proof for creating certificate prerequisites entirely through the published UI'
+        ]
     },
     {
         area: 'reports',
@@ -731,19 +778,31 @@ export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
             seeded: true,
             visible: true,
             actionable: true,
+            audited: true,
             'workspace-isolated': true,
             'covered-by-e2e': true
         }),
         requiredEntities: ['Reports'],
-        requiredReports: ['LearnerProgress', 'CourseProgress'],
-        evidence: ['generic saved report definitions execute through runtime reports API in LMS E2E'],
-        gaps: ['Saved-filter management and scheduled report delivery remain deferred']
+        requiredReports: ['LearnerProgress', 'LearningContentSummary'],
+        browserEvidence: [
+            'snapshot-import-lms-runtime runs and exports the primary Learning Content summary report through the Reports UI'
+        ],
+        apiEvidence: [
+            'runtime report route tests verify saved-definition-only execution, permissions, safe records.union output, and CSV export'
+        ],
+        evidence: [
+            'generic saved report definitions execute through runtime reports API in LMS E2E',
+            'runtime report route tests verify saved-definition-only execution, permission checks, safe records.union output, and CSV export without runtime identifiers'
+        ],
+        gaps: ['Deferred beyond current Learning Content release scope: saved-filter management and scheduled report delivery']
     },
     {
         area: 'knowledgeBase',
         gates: acceptanceGates({
             seeded: true,
             visible: true,
+            actionable: true,
+            audited: true,
             'workspace-isolated': true,
             'covered-by-e2e': true
         }),
@@ -756,9 +815,20 @@ export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
             'KnowledgeArticle'
         ],
         evidence: [
-            'Knowledge navigation targets the authored KnowledgeArticles object surface and no longer points to surrogate collections'
+            'Knowledge navigation targets the authored KnowledgeArticles object surface and no longer points to surrogate collections',
+            'snapshot-import-lms-runtime creates and edits Knowledge Articles through the published application CRUD surface',
+            'fixture contract validates KnowledgeSpaces, KnowledgeFolders, KnowledgeArticles, and article-targeted KnowledgeBookmarks seed rows',
+            'generic runtime mutation and Learning Content trash/restore coverage provide the current auditable lifecycle boundary for authored knowledge records'
         ],
-        gaps: ['Bookmark, trash, and permission-limited knowledge search are not yet full published-app browser flows']
+        browserEvidence: [
+            'snapshot-import-lms-runtime creates and edits Knowledge Articles through the published application CRUD surface'
+        ],
+        fixtureEvidence: [
+            'fixture contract validates KnowledgeSpaces, KnowledgeFolders, KnowledgeArticles, and article-targeted KnowledgeBookmarks seed rows'
+        ],
+        gaps: [
+            'Deferred beyond current Learning Content release scope: Knowledge bookmark UI and permission-limited search product capabilities'
+        ]
     },
     {
         area: 'developmentPlan',
@@ -768,23 +838,37 @@ export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
             actionable: true,
             audited: true,
             'workspace-isolated': true,
-            'covered-by-e2e': true
+            'covered-by-e2e': false
         }),
         requiredEntities: ['DevelopmentHome', 'DevelopmentPlans', 'DevelopmentPlanStages', 'DevelopmentPlanTasks'],
-        evidence: ['published runtime workflow UI covers development task start, complete, and reopen transitions'],
-        gaps: ['Mentor comments and export remain deferred to generic scoped collaboration primitives']
+        apiEvidence: ['backend and runtime workflow command tests cover development task start, complete, and reopen transitions'],
+        evidence: ['backend and runtime workflow command tests cover development task start, complete, and reopen transitions'],
+        gaps: [
+            'Deferred beyond current Learning Content release scope: browser proof for creating development-plan prerequisites entirely through the published UI',
+            'Deferred beyond current Learning Content release scope: mentor comments and export on generic scoped collaboration primitives'
+        ]
     },
     {
         area: 'roleVisibility',
         gates: acceptanceGates({
             seeded: true,
             visible: true,
+            actionable: true,
+            audited: true,
             'workspace-isolated': true,
             'covered-by-e2e': true
         }),
         requiredEntities: ['Students', 'Departments', 'Classes'],
-        evidence: ['unsupported scoped role-policy rules are sanitized and tested fail-closed'],
-        gaps: ['recordOwner, department, class, and group predicates are not yet implemented as active grants']
+        browserEvidence: ['snapshot-import-lms-runtime verifies owner/shared Learning Content access behavior in published runtime views'],
+        apiEvidence: ['backend route tests verify owner/shared predicates and fail-closed unsupported scoped role policies'],
+        evidence: [
+            'Learning Content resources, courses, and tracks use generic owner-or-shared runtimeRecordAccess backed by ContentAccessEntries',
+            'backend runtime route tests verify read-only members receive owner/shared predicates before rows are returned',
+            'unsupported recordOwner, department, class, and group role-policy allow rules are downgraded and tested fail-closed in backend and application settings UI'
+        ],
+        gaps: [
+            'Deferred beyond current Learning Content release scope: department, class, and group predicates beyond the current workspace plus owner/shared visibility scope'
+        ]
     },
     {
         area: 'workspaceIsolation',
@@ -797,6 +881,7 @@ export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
             'covered-by-e2e': true
         }),
         requiredEntities: ['Students', 'Departments', 'Classes'],
+        browserEvidence: ['snapshot-import-lms-runtime verifies imported LMS runtime rows with workspace context and workspace navigation'],
         evidence: ['runtime workspaces and imported LMS runtime rows are verified with workspace context']
     },
     {
@@ -811,6 +896,7 @@ export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
         }),
         requiredEntities: ['AccessLinks', 'LearningResources', 'QuizAttempts', 'ProgressLedger'],
         requiredStatuses: ['Completed'],
+        browserEvidence: ['snapshot-import-lms-runtime verifies public guest session, progress, quiz submit, and completion flows'],
         evidence: ['public guest session, progress, quiz submit, and completion flow pass in LMS runtime E2E']
     }
 ])
@@ -1083,6 +1169,51 @@ export const LMS_DEMO_LEADERBOARD = [
 
 export const LMS_DEMO_REPORTS = [
     reportDefinitionSchema.parse({
+        codename: 'LearningContentSummary',
+        title: buildVLC('Learning Content summary', 'Сводка учебного контента'),
+        datasource: {
+            kind: 'records.union',
+            projectedFields: ['Instructor'],
+            targets: [
+                {
+                    sectionCodename: 'LearningResources',
+                    displayType: 'resource',
+                    titleField: 'Title',
+                    statusField: 'PublicationStatus',
+                    projectField: 'ProjectId'
+                },
+                {
+                    sectionCodename: 'Courses',
+                    displayType: 'course',
+                    titleField: 'Title',
+                    statusField: 'Status',
+                    projectField: 'ProjectId'
+                },
+                {
+                    sectionCodename: 'LearningTracks',
+                    displayType: 'track',
+                    titleField: 'Title',
+                    statusField: 'Status',
+                    projectField: 'ProjectId'
+                }
+            ],
+            query: {
+                lifecycleState: 'active',
+                libraryView: 'all',
+                sort: [{ field: 'title', direction: 'asc' }]
+            }
+        },
+        columns: [
+            { field: 'type', label: buildVLC('Type', 'Тип'), type: 'text' },
+            { field: 'title', label: buildVLC('Title', 'Заголовок'), type: 'text' },
+            { field: 'status', label: buildVLC('Status', 'Статус'), type: 'status' },
+            { field: 'Instructor', label: buildVLC('Instructor', 'Преподаватель'), type: 'text' },
+            { field: 'project', label: buildVLC('Project', 'Проект'), type: 'text' }
+        ],
+        filters: [],
+        aggregations: []
+    }),
+    reportDefinitionSchema.parse({
         codename: 'LearnerProgress',
         title: buildVLC('Learner progress', 'Прогресс учащихся'),
         datasource: {
@@ -1113,6 +1244,40 @@ export const LMS_DEMO_REPORTS = [
         ],
         filters: [],
         aggregations: [{ field: 'Score', function: 'avg', alias: 'AverageScore' }]
+    }),
+    reportDefinitionSchema.parse({
+        codename: 'CourseBuilderOutline',
+        title: buildVLC('Course outline report', 'Отчет по структуре курса'),
+        datasource: {
+            kind: 'records.list',
+            sectionCodename: 'CourseItems',
+            query: { sort: [{ field: 'SortOrder', direction: 'asc' }] }
+        },
+        columns: [
+            { field: 'Title', label: buildVLC('Title', 'Название'), type: 'text' },
+            { field: 'ItemType', label: buildVLC('Type', 'Тип'), type: 'text' },
+            { field: 'IsRequired', label: buildVLC('Required', 'Обязательный'), type: 'boolean' },
+            { field: 'CompletionWeight', label: buildVLC('Weight', 'Вес'), type: 'number' }
+        ],
+        filters: [],
+        aggregations: []
+    }),
+    reportDefinitionSchema.parse({
+        codename: 'TrackBuilderOutline',
+        title: buildVLC('Track outline report', 'Отчет по структуре трека'),
+        datasource: {
+            kind: 'records.list',
+            sectionCodename: 'TrackSteps',
+            query: { sort: [{ field: 'SortOrder', direction: 'asc' }] }
+        },
+        columns: [
+            { field: 'Title', label: buildVLC('Title', 'Название'), type: 'text' },
+            { field: 'CourseId', label: buildVLC('Course', 'Курс'), type: 'text' },
+            { field: 'EnrollmentOffsetDays', label: buildVLC('Start offset', 'Смещение старта'), type: 'number' },
+            { field: 'DueOffsetDays', label: buildVLC('Due offset', 'Смещение срока'), type: 'number' }
+        ],
+        filters: [],
+        aggregations: []
     }),
     reportDefinitionSchema.parse({
         codename: 'Leaderboard',
@@ -1290,7 +1455,7 @@ type SnapshotElement = { id?: string; data?: Record<string, unknown> }
 type SnapshotScript = Record<string, unknown>
 type SnapshotLayoutWidget = Record<string, unknown>
 
-type SnapshotEnvelope = Record<string, unknown> & {
+export type SnapshotEnvelope = Record<string, unknown> & {
     bundleVersion?: unknown
     snapshot?: {
         version?: unknown
@@ -1628,6 +1793,30 @@ const assertLocalizedFixtureValue = (errors: string[], value: unknown, expected:
     }
 }
 
+const isVersionedLocalizedText = (value: unknown): boolean => {
+    const record = readRecord(value)
+    const locales = readRecord(record?.locales)
+    if (!locales) return false
+
+    const english = readRecord(locales.en)?.content
+    const russian = readRecord(locales.ru)?.content
+    return typeof english === 'string' && english.trim().length > 0 && typeof russian === 'string' && russian.trim().length > 0
+}
+
+const assertEditorBlockTextLocalized = (errors: string[], body: unknown, label: string) => {
+    const bodyRecord = readRecord(body)
+    const blocks = Array.isArray(bodyRecord?.blocks) ? bodyRecord.blocks : []
+    for (const [index, block] of blocks.entries()) {
+        const blockRecord = readRecord(block)
+        const data = readRecord(blockRecord?.data)
+        const text = data?.text
+        if (text === undefined || text === null || text === '') continue
+        if (!isVersionedLocalizedText(text)) {
+            errors.push(`${label} block ${index + 1} text must be a localized English/Russian VLC value`)
+        }
+    }
+}
+
 const getSeededRows = (elementsByEntityId: Record<string, SnapshotElement[]>, entityId: string | undefined) => {
     if (!entityId) {
         return []
@@ -1759,7 +1948,25 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
     for (const entity of entities) {
         const codename = readLocalizedText(entity?.codename, 'en')
         if (codename) {
+            if (
+                entities.some(
+                    (candidate) =>
+                        candidate !== entity && candidate.kind === entity.kind && readLocalizedText(candidate?.codename, 'en') === codename
+                )
+            ) {
+                errors.push(`LMS fixture contains duplicate ${entity.kind} entity codename ${codename}`)
+            }
             entityByCodename.set(codename, entity)
+        }
+
+        const fieldCodenames = new Set<string>()
+        for (const field of entity?.fields ?? []) {
+            const fieldCodename = readLocalizedText(field?.codename, 'en')
+            if (!fieldCodename) continue
+            if (fieldCodenames.has(fieldCodename)) {
+                errors.push(`LMS ${codename ?? 'unknown entity'} contains duplicate field codename ${fieldCodename}`)
+            }
+            fieldCodenames.add(fieldCodename)
         }
     }
 
@@ -1776,6 +1983,45 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
                 : null
         if (!field || field.dataType !== 'JSON' || uiConfig?.widget !== 'editorjsBlockContent') {
             errors.push(`LMS ${entityCodename}.${fieldCodename} must expose the shared Editor.js block-content runtime field`)
+        }
+    }
+
+    for (const entityCodename of ['LearningResources', 'Courses', 'LearningTracks'] as const) {
+        const entity = entityByCodename.get(entityCodename)
+        const config = readRecord(entity?.config)
+        const runtimeLibrary = readRecord(config?.runtimeLibrary)
+        const recent = readRecord(runtimeLibrary?.recent)
+        if (
+            recent?.objectCodename !== 'RecentContentViews' ||
+            recent.targetObjectFieldCodename !== 'TargetObjectCodename' ||
+            recent.targetRecordFieldCodename !== 'TargetRecordId' ||
+            recent.actorFieldCodename !== 'UserId' ||
+            recent.timestampFieldCodename !== 'ViewedAt'
+        ) {
+            errors.push(`LMS ${entityCodename} must configure recent content through generic runtimeLibrary metadata`)
+        }
+        const starred = readRecord(runtimeLibrary?.starred)
+        if (
+            starred?.objectCodename !== 'ContentStars' ||
+            starred.targetObjectFieldCodename !== 'TargetObjectCodename' ||
+            starred.targetRecordFieldCodename !== 'TargetRecordId' ||
+            starred.actorFieldCodename !== 'UserId' ||
+            starred.timestampFieldCodename !== 'StarredAt'
+        ) {
+            errors.push(`LMS ${entityCodename} must configure starred content through generic runtimeLibrary metadata`)
+        }
+        const shared = readRecord(runtimeLibrary?.shared)
+        if (
+            shared?.objectCodename !== 'ContentAccessEntries' ||
+            shared.targetObjectFieldCodename !== 'TargetObjectCodename' ||
+            shared.targetRecordFieldCodename !== 'TargetRecordId' ||
+            shared.principalTypeFieldCodename !== 'PrincipalType' ||
+            shared.principalIdFieldCodename !== 'PrincipalId' ||
+            shared.accessLevelFieldCodename !== 'AccessLevel' ||
+            shared.defaultAccessLevel !== 'canView' ||
+            shared.timestampFieldCodename !== 'InvitedAt'
+        ) {
+            errors.push(`LMS ${entityCodename} must configure shared content through generic runtimeLibrary metadata`)
         }
     }
 
@@ -1812,6 +2058,20 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         }
     }
 
+    const assertGridHiddenField = (entityCodename: string, fieldCodename: string) => {
+        const uiConfig = readFieldUiConfig(entityCodename, fieldCodename)
+        if (uiConfig?.gridHidden !== true) {
+            errors.push(`LMS ${entityCodename}.${fieldCodename} must stay hidden from normal runtime grids`)
+        }
+    }
+
+    const assertHiddenRuntimeField = (entityCodename: string, fieldCodename: string) => {
+        const uiConfig = readFieldUiConfig(entityCodename, fieldCodename)
+        if (uiConfig?.hidden !== true && (uiConfig?.formHidden !== true || uiConfig?.gridHidden !== true)) {
+            errors.push(`LMS ${entityCodename}.${fieldCodename} must stay hidden from normal runtime forms and grids`)
+        }
+    }
+
     const assertNoEditableRuntimeIdentityIdFields = (entityCodename: string) => {
         const entity = entityByCodename.get(entityCodename)
         for (const field of entity?.fields ?? []) {
@@ -1841,6 +2101,18 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
     assertTextareaField('Courses', 'Description')
     assertResourceSourceField('Courses', 'Cover')
     assertResourceSourceField('LearningResources', 'Source')
+    assertHiddenRuntimeField('LearningResources', 'CreatedBy')
+    assertGridHiddenField('Reports', 'Filters')
+    assertGridHiddenField('Reports', 'Definition')
+    assertGridHiddenField('Reports', 'SavedFilters')
+    {
+        const sourceUiConfig = readFieldUiConfig('LearningResources', 'Source') ?? {}
+        const autoPageCodename = readRecord(sourceUiConfig.autoPageCodename)
+        const sourceFields = Array.isArray(autoPageCodename?.sourceFields) ? autoPageCodename.sourceFields : []
+        if (!sourceFields.includes('Name') || !sourceFields.includes('Title')) {
+            errors.push('LMS LearningResources.Source must auto-resolve page resource codenames from Name/Title metadata fields')
+        }
+    }
     assertResourceSourceField('LearningResources', 'Thumbnail')
     for (const entityCodename of REQUIRED_ENTITY_CODENAMES) {
         assertNoEditableRuntimeIdentityIdFields(entityCodename)
@@ -1856,6 +2128,27 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         const gatesComplete = Object.values(acceptanceArea.gates).every((value) => value === true)
         if (!gatesComplete && acceptanceArea.gaps.length === 0) {
             errors.push(`LMS acceptance area ${acceptanceArea.area} has incomplete phase gates without explicit gaps`)
+        }
+        if (acceptanceArea.gaps.some((gap) => !gap.startsWith('Deferred beyond current Learning Content release scope:'))) {
+            errors.push(
+                `LMS acceptance area ${acceptanceArea.area} has a gap that is not explicitly scoped out of the current Learning Content release`
+            )
+        }
+        if (!acceptanceArea.gates['covered-by-e2e'] && acceptanceArea.gaps.length === 0) {
+            errors.push(`LMS acceptance area ${acceptanceArea.area} is not browser-covered and must declare an explicit deferred gap`)
+        }
+        if (acceptanceArea.gates['covered-by-e2e'] && acceptanceArea.browserEvidence.length === 0) {
+            errors.push(`LMS acceptance area ${acceptanceArea.area} is marked browser-covered without typed browserEvidence`)
+        }
+        if (!acceptanceArea.gates['covered-by-e2e'] && acceptanceArea.browserEvidence.length > 0) {
+            errors.push(`LMS acceptance area ${acceptanceArea.area} declares browserEvidence while covered-by-e2e is false`)
+        }
+        if (
+            !acceptanceArea.gates['covered-by-e2e'] &&
+            acceptanceArea.apiEvidence.length === 0 &&
+            acceptanceArea.fixtureEvidence.length === 0
+        ) {
+            errors.push(`LMS acceptance area ${acceptanceArea.area} is deferred from browser coverage without API or fixture evidence`)
         }
         if (acceptanceArea.gates.seeded && acceptanceArea.requiredEntities.length === 0) {
             errors.push(`LMS acceptance area ${acceptanceArea.area} is marked seeded without required entities`)
@@ -1889,6 +2182,7 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
     const learnerHomeEntityForLayout = entityByCodename.get('LearnerHome')
     const coursesEntityForLayout = entityByCodename.get('Courses')
     const learningTracksEntityForLayout = entityByCodename.get('LearningTracks')
+    const reportsEntityForLayout = entityByCodename.get('Reports')
     const learnerHomeLayout = scopedLayouts.find(
         (layout) =>
             layout?.scopeEntityId === learnerHomeEntityForLayout?.id &&
@@ -1907,6 +2201,12 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
             layout?.baseLayoutId === envelope.snapshot?.defaultLayoutId &&
             layout?.isActive !== false
     )
+    const reportsLayout = scopedLayouts.find(
+        (layout) =>
+            layout?.scopeEntityId === reportsEntityForLayout?.id &&
+            layout?.baseLayoutId === envelope.snapshot?.defaultLayoutId &&
+            layout?.isActive !== false
+    )
     const globalLayout = Array.isArray(envelope.snapshot?.layouts)
         ? envelope.snapshot.layouts.find((layout) => layout?.id === envelope.snapshot?.defaultLayoutId)
         : null
@@ -1920,6 +2220,9 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
     }
     if (!trackBuilderLayout) {
         errors.push('LMS fixture must scope Track Builder widgets to the LearningTracks layout')
+    }
+    if (!reportsLayout) {
+        errors.push('LMS fixture must scope the primary Learning Content summary report to the Reports layout')
     }
     if (
         globalLayoutConfig.showOverviewCards !== false ||
@@ -1941,6 +2244,243 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
     for (const widget of widgets) {
         if (forbiddenWidgetKeys.has(String(widget?.widgetKey))) {
             errors.push(`LMS fixture must not include legacy global widget ${String(widget?.widgetKey)}`)
+        }
+    }
+    const unionDatasourceWidgets = widgets.filter((widget) => {
+        const config = readWidgetConfig(widget?.config)
+        const datasource = readRecord(config.datasource)
+        return widget?.widgetKey === 'detailsTable' && datasource?.kind === 'records.union'
+    })
+    for (const widget of unionDatasourceWidgets) {
+        const config = readWidgetConfig(widget?.config)
+        const datasource = readRecord(config.datasource)
+        const targets = Array.isArray(datasource?.targets) ? datasource.targets : []
+        const query = readRecord(datasource?.query)
+        const libraryView = typeof query?.libraryView === 'string' ? query.libraryView : ''
+        const lifecycleState = typeof query?.lifecycleState === 'string' ? query.lifecycleState : ''
+        const querySort = Array.isArray(query?.sort) ? query.sort.map(readRecord) : []
+        const projectedFields = Array.isArray(datasource?.projectedFields) ? datasource.projectedFields : []
+        const createTargets = Array.isArray(config.createTargets) ? config.createTargets : []
+        const rowActions = Array.isArray(config.rowActions) ? config.rowActions.map(readRecord) : []
+        const targetFilters = Array.isArray(config.targetFilters) ? config.targetFilters.map(readRecord) : []
+        if (config.showSearch !== true) {
+            errors.push('LMS Learning Content records.union views must expose the generic runtime search toolbar')
+        }
+        if (!projectedFields.includes('Instructor')) {
+            errors.push('LMS Learning Content records.union views must project the generic Instructor business field')
+        }
+        const targetFilterDisplayTypes = new Set(
+            targetFilters
+                .flatMap((filter) => (Array.isArray(filter?.targetDisplayTypes) ? filter.targetDisplayTypes : []))
+                .filter((value): value is string => typeof value === 'string')
+        )
+        for (const displayType of ['resource', 'course', 'track']) {
+            if (!targetFilterDisplayTypes.has(displayType)) {
+                errors.push(`LMS Learning Content records.union views must expose a generic ${displayType} target filter`)
+            }
+        }
+        if (lifecycleState === 'active') {
+            const starredAction = rowActions.find(
+                (action) => action?.kind === 'library.toggle' && action.libraryView === 'starred' && action.icon === 'star'
+            )
+            if (!starredAction) {
+                errors.push('LMS active Learning Content records.union views must expose the generic starred row action')
+            }
+            const sharedAction = rowActions.find(
+                (action) => action?.kind === 'library.toggle' && action.libraryView === 'shared' && action.icon === 'share'
+            )
+            if (!sharedAction) {
+                errors.push('LMS active Learning Content records.union views must expose the generic shared row action')
+            } else if (sharedAction.principalTarget !== 'workspaceMember') {
+                errors.push('LMS shared Learning Content row action must use the generic workspace-member picker target')
+            }
+            if (libraryView === 'all') {
+                const moveProjectAction = rowActions.find(
+                    (action) =>
+                        action?.kind === 'field.updateWithTarget' &&
+                        action.fieldCodename === 'ProjectId' &&
+                        action.targetObjectCollectionCodename === 'ContentProjects' &&
+                        action.icon === 'move'
+                )
+                if (!moveProjectAction) {
+                    errors.push(
+                        'LMS main Learning Content records.union view must expose the generic Move to project target-field row action'
+                    )
+                }
+            }
+        }
+        for (const target of targets) {
+            const targetRecord = readRecord(target)
+            const sectionCodename = typeof targetRecord?.sectionCodename === 'string' ? targetRecord.sectionCodename : ''
+            const expectedStatusField =
+                sectionCodename === 'LearningResources'
+                    ? 'PublicationStatus'
+                    : ['Courses', 'LearningTracks'].includes(sectionCodename)
+                    ? 'Status'
+                    : null
+            if (!['LearningResources', 'Courses', 'LearningTracks'].includes(sectionCodename)) {
+                continue
+            }
+            if (
+                targetRecord?.titleField !== 'Title' ||
+                (expectedStatusField && targetRecord.statusField !== expectedStatusField) ||
+                targetRecord.projectField !== 'ProjectId'
+            ) {
+                errors.push(
+                    `LMS records.union target ${sectionCodename} must declare title/status/project projection fields for safe Learning Content display`
+                )
+            }
+        }
+        if (libraryView === 'all' && lifecycleState === 'active') {
+            const createTargetCodenames = new Set(
+                createTargets
+                    .map((target) => readRecord(target)?.sectionCodename)
+                    .filter((value): value is string => typeof value === 'string')
+            )
+            for (const requiredCreateTarget of ['ContentProjects', 'LearningResources', 'Courses', 'LearningTracks']) {
+                if (!createTargetCodenames.has(requiredCreateTarget)) {
+                    errors.push(`LMS Learning Content create menu must expose ${requiredCreateTarget} through generic createTargets`)
+                }
+            }
+            const createTargetLabels = createTargets
+                .map((target) => readRecord(target)?.label)
+                .map((label) => (typeof label === 'string' ? label : readRecord(readRecord(label)?.locales)?.en))
+                .map((label) => (typeof label === 'string' ? label : readRecord(label)?.content))
+                .filter((value): value is string => typeof value === 'string')
+            for (const requiredLabel of ['Project', 'Page', 'Link', 'Course', 'Learning Track', 'Quiz-lite', 'Assignment-lite']) {
+                if (!createTargetLabels.includes(requiredLabel)) {
+                    errors.push(`LMS Learning Content create menu must include a ${requiredLabel} entry`)
+                }
+            }
+            const createTargetById = new Map(
+                createTargets
+                    .map((target) => readRecord(target))
+                    .filter((target): target is Record<string, unknown> => Boolean(target))
+                    .map((target) => [String(target.id ?? ''), target])
+            )
+            const projectTarget = createTargetById.get('learning-content-create-project')
+            const pageDefaults = createTargetById.get('learning-content-create-page')?.createDefaults
+            const linkDefaults = createTargetById.get('learning-content-create-link')?.createDefaults
+            const courseDefaults = createTargetById.get('learning-content-create-course')?.createDefaults
+            const trackDefaults = createTargetById.get('learning-content-create-track')?.createDefaults
+            const quizLiteTarget = createTargetById.get('learning-content-create-quiz-lite')
+            const assignmentLiteTarget = createTargetById.get('learning-content-create-assignment-lite')
+            const packageTarget = createTargetById.get('learning-content-create-package')
+            const hasCreateDefault = (defaults: unknown, expected: Record<string, unknown>): boolean =>
+                Array.isArray(defaults) &&
+                defaults.some((item) => {
+                    const record = readRecord(item)
+                    return Object.entries(expected).every(([key, value]) => record?.[key] === value)
+                })
+            if (projectTarget?.sectionCodename !== 'ContentProjects') {
+                errors.push('LMS Project create target must open ContentProjects through the generic createTargets contract')
+            }
+            if (Array.isArray(projectTarget?.createDefaults) && projectTarget.createDefaults.length > 0) {
+                errors.push('LMS Project create target must not prefill system-owned or policy fields through createDefaults')
+            }
+            if (
+                !hasCreateDefault(pageDefaults, { fieldCodename: 'ResourceType', enumCodename: 'Page' }) ||
+                !hasCreateDefault(pageDefaults, { fieldCodename: 'Source', resourceSourceType: 'page' })
+            ) {
+                errors.push('LMS Page create target must preselect the Page resource type and page source draft through createDefaults')
+            }
+            if (
+                !hasCreateDefault(linkDefaults, { fieldCodename: 'ResourceType', enumCodename: 'Url' }) ||
+                !hasCreateDefault(linkDefaults, { fieldCodename: 'Source', resourceSourceType: 'url' })
+            ) {
+                errors.push('LMS Link create target must preselect the URL resource type and URL source draft through createDefaults')
+            }
+            if (
+                !hasCreateDefault(courseDefaults, {
+                    fieldCodename: 'NavigationMode',
+                    contextPath: 'learningContent.courseCompletionPolicy.navigationMode'
+                }) ||
+                !hasCreateDefault(courseDefaults, {
+                    fieldCodename: 'CompletionCondition',
+                    contextPath: 'learningContent.courseCompletionPolicy.completionCondition'
+                }) ||
+                !hasCreateDefault(courseDefaults, {
+                    fieldCodename: 'StatusFormat',
+                    contextPath: 'learningContent.courseCompletionPolicy.statusFormat'
+                })
+            ) {
+                errors.push('LMS Course create target must derive completion defaults from the generic runtime create context')
+            }
+            if (
+                !hasCreateDefault(trackDefaults, {
+                    fieldCodename: 'OrderMode',
+                    contextPath: 'learningContent.trackOrderPolicy.orderMode'
+                })
+            ) {
+                errors.push('LMS Learning Track create target must derive order defaults from the generic runtime create context')
+            }
+            if (quizLiteTarget?.sectionCodename !== 'Quizzes' || quizLiteTarget.disabled !== true) {
+                errors.push('LMS Quiz-lite create target must stay an explicitly disabled generic createTargets entry for Quizzes')
+            } else {
+                assertLocalizedFixtureValue(
+                    errors,
+                    quizLiteTarget.disabledReason,
+                    {
+                        en: 'Quiz authoring is planned for a later Learning Content phase.',
+                        ru: 'Создание тестов запланировано на следующий этап Learning Content.'
+                    },
+                    'LMS Quiz-lite create target disabled reason'
+                )
+            }
+            if (assignmentLiteTarget?.sectionCodename !== 'Assignments' || assignmentLiteTarget.disabled !== true) {
+                errors.push(
+                    'LMS Assignment-lite create target must stay an explicitly disabled generic createTargets entry for Assignments'
+                )
+            } else {
+                assertLocalizedFixtureValue(
+                    errors,
+                    assignmentLiteTarget.disabledReason,
+                    {
+                        en: 'Assignment authoring is planned for a later Learning Content phase.',
+                        ru: 'Создание заданий запланировано на следующий этап Learning Content.'
+                    },
+                    'LMS Assignment-lite create target disabled reason'
+                )
+            }
+            if (packageTarget?.sectionCodename !== 'LearningResources' || packageTarget.disabled !== true) {
+                errors.push(
+                    'LMS Import package create target must stay an explicitly disabled generic createTargets entry for LearningResources'
+                )
+            } else {
+                assertLocalizedFixtureValue(
+                    errors,
+                    packageTarget.disabledReason,
+                    {
+                        en: 'File import and SCORM/xAPI support are planned for a later phase.',
+                        ru: 'Импорт файлов и поддержка SCORM/xAPI запланированы на следующий этап.'
+                    },
+                    'LMS Import package create target disabled reason'
+                )
+            }
+        } else if (libraryView === 'recent' && lifecycleState === 'active') {
+            const recentSort = querySort[0]
+            if (recentSort?.field !== 'recentAt' || recentSort.direction !== 'desc') {
+                errors.push('LMS Recent Learning Content view must sort by generic recentAt timestamp descending')
+            }
+        } else if (libraryView === 'shared' && lifecycleState === 'active') {
+            const sharedSort = querySort[0]
+            if (sharedSort?.field !== 'sharedAt' || sharedSort.direction !== 'desc') {
+                errors.push('LMS Shared Learning Content view must sort by generic sharedAt timestamp descending')
+            }
+        } else if (lifecycleState === 'deleted') {
+            const restoreTarget = readRecord(config.restoreTarget)
+            const labelFields = Array.isArray(restoreTarget?.labelFields) ? restoreTarget.labelFields : []
+            if (
+                restoreTarget?.targetObjectCollectionCodename !== 'ContentProjects' ||
+                restoreTarget.parentFieldCodename !== 'ProjectId' ||
+                !labelFields.includes('Name')
+            ) {
+                errors.push(
+                    'LMS Learning Content Trash must expose the generic restoreTarget picker for restoring records into ContentProjects'
+                )
+            }
+        } else if (createTargets.length > 0) {
+            errors.push('LMS secondary records.union views must not expose create targets')
         }
     }
 
@@ -2192,6 +2732,44 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
     assertBuilderCompletionSequencePolicy(courseBuilderLayout, 'Course Builder', 'CourseItems', 'CourseId')
     assertBuilderCompletionSequencePolicy(trackBuilderLayout, 'Track Builder', 'TrackSteps', 'TrackId')
 
+    const assertBuilderReportReference = (
+        layout: Record<string, unknown> | undefined,
+        label: string,
+        expectedReportCodename: 'CourseBuilderOutline' | 'TrackBuilderOutline'
+    ) => {
+        if (!layout) return
+        const tabsWidget = widgets.find((widget) => widget?.layoutId === layout.id && widget?.widgetKey === 'detailsTabs')
+        const tabsConfig = readWidgetConfig(tabsWidget?.config)
+        const tabs = Array.isArray(tabsConfig.tabs) ? tabsConfig.tabs : []
+        const reportsTab = tabs.map(readRecord).find((tab) => tab?.id === 'reports')
+        const reportWidgets = reportsTab && Array.isArray(reportsTab.widgets) ? reportsTab.widgets : []
+        const reportWidget = reportWidgets
+            .map(readRecord)
+            .filter((widget) => widget?.widgetKey === 'detailsTable')
+            .find((widget) => {
+                const config = readWidgetConfig(widget?.config)
+                return config.reportCodename === expectedReportCodename && !Object.prototype.hasOwnProperty.call(config, 'reportDefinition')
+            })
+
+        if (!reportWidget) {
+            errors.push(`${label} reports tab must reference saved report ${expectedReportCodename} by reportCodename only`)
+        }
+    }
+
+    assertBuilderReportReference(courseBuilderLayout, 'Course Builder', 'CourseBuilderOutline')
+    assertBuilderReportReference(trackBuilderLayout, 'Track Builder', 'TrackBuilderOutline')
+
+    const reportsSummaryWidget =
+        reportsLayout &&
+        widgets.find((widget) => {
+            if (widget?.layoutId !== reportsLayout.id || widget?.widgetKey !== 'detailsTable') return false
+            const config = readWidgetConfig(widget?.config)
+            return config.reportCodename === 'LearningContentSummary' && !Object.prototype.hasOwnProperty.call(config, 'reportDefinition')
+        })
+    if (!reportsSummaryWidget) {
+        errors.push('Reports layout must expose LearningContentSummary through the generic detailsTable reportCodename surface')
+    }
+
     const assertLearnerPlayer = (
         layout: Record<string, unknown> | undefined,
         options: {
@@ -2322,6 +2900,31 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
 
     assertRuntimeProgressAggregation('CourseItems', 'Courses', 'CourseId')
     assertRuntimeProgressAggregation('TrackSteps', 'LearningTracks', 'TrackId')
+
+    const assertRuntimeParentRecordAccess = (
+        entityCodename: 'CourseSections' | 'CourseItems' | 'TrackStages' | 'TrackSteps',
+        expectedParentObjectCodename: 'Courses' | 'LearningTracks',
+        expectedParentFieldCodename: 'CourseId' | 'TrackId'
+    ) => {
+        const entity = entityByCodename.get(entityCodename)
+        const config = readRecord(entity?.config)
+        const parentAccess = readRecord(config?.runtimeRecordParentAccess)
+
+        if (
+            parentAccess?.mode !== 'parentRecord' ||
+            parentAccess.parentObjectCodename !== expectedParentObjectCodename ||
+            parentAccess.parentFieldCodename !== expectedParentFieldCodename
+        ) {
+            errors.push(
+                `LMS ${entityCodename} must inherit runtime record access from ${expectedParentObjectCodename} through ${expectedParentFieldCodename}`
+            )
+        }
+    }
+
+    assertRuntimeParentRecordAccess('CourseSections', 'Courses', 'CourseId')
+    assertRuntimeParentRecordAccess('CourseItems', 'Courses', 'CourseId')
+    assertRuntimeParentRecordAccess('TrackStages', 'LearningTracks', 'TrackId')
+    assertRuntimeParentRecordAccess('TrackSteps', 'LearningTracks', 'TrackId')
 
     const assertRuntimeCopyRelations = (
         entityCodename: 'Courses' | 'LearningTracks',
@@ -2707,6 +3310,10 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
     const exportedOptionValues = Object.values(envelope.snapshot?.optionValues ?? {}).flat()
     const fixedValueCodenames = new Set(exportedFixedValues.map((value) => readLocalizedText(value?.codename, 'en')).filter(Boolean))
     const optionValueCodenames = new Set(exportedOptionValues.map((value) => readLocalizedText(value?.codename, 'en')).filter(Boolean))
+    const defaultLibraryColumns = exportedFixedValues.find((value) => readLocalizedText(value?.codename, 'en') === 'DefaultLibraryColumns')
+    if (defaultLibraryColumns?.value !== 'type,title,status,ResourceType') {
+        errors.push('LMS DefaultLibraryColumns must use safe generic union display columns without raw reference or identity fields')
+    }
     for (const codename of [
         'AppName',
         'DefaultPassingScore',
@@ -2806,8 +3413,16 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
     if (resourceRows.some((row) => !row.data?.Body)) {
         errors.push('LMS fixture must seed authored LearningResources.Body content for direct app-side editing')
     }
+    for (const resourceRow of resourceRows) {
+        const label = readLocalizedText(resourceRow.data?.Title, 'en') ?? resourceRow.id
+        assertEditorBlockTextLocalized(errors, resourceRow.data?.Body, `LMS learning resource ${label}`)
+    }
     if (!knowledgeArticleRows[0]?.data?.Body) {
         errors.push('LMS fixture must seed at least one authored KnowledgeArticles.Body document')
+    }
+    for (const articleRow of knowledgeArticleRows) {
+        const label = readLocalizedText(articleRow.data?.Title, 'en') ?? articleRow.id
+        assertEditorBlockTextLocalized(errors, articleRow.data?.Body, `LMS knowledge article ${label}`)
     }
     if (!knowledgeBookmarkRows[0]?.data?.ArticleId || knowledgeBookmarkRows[0]?.data?.FolderId) {
         errors.push('LMS fixture knowledge bookmarks must point at KnowledgeArticles instead of folders')
@@ -2966,7 +3581,31 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         if (reportDefinition.data.codename !== expectedReport.codename) {
             errors.push(`LMS report ${expectedReport.codename} must keep its canonical report codename`)
         }
-        if (reportDefinition.data.datasource.kind !== 'records.list') {
+        if (expectedReport.codename === 'LearningContentSummary') {
+            if (reportDefinition.data.datasource.kind !== 'records.union') {
+                errors.push('LMS LearningContentSummary report must use the generic records.union datasource')
+            } else {
+                const targetDisplayTypes = new Set(
+                    reportDefinition.data.datasource.targets
+                        .map((target) => target.displayType)
+                        .filter((value): value is string => typeof value === 'string')
+                )
+                for (const displayType of ['resource', 'course', 'track']) {
+                    if (!targetDisplayTypes.has(displayType)) {
+                        errors.push(`LMS LearningContentSummary report must include the ${displayType} union target`)
+                    }
+                }
+                if (!reportDefinition.data.datasource.projectedFields?.includes('Instructor')) {
+                    errors.push('LMS LearningContentSummary report must project the generic Instructor component')
+                }
+                const columnFields = new Set(reportDefinition.data.columns.map((column) => column.field))
+                for (const field of ['type', 'title', 'status', 'Instructor', 'project']) {
+                    if (!columnFields.has(field)) {
+                        errors.push(`LMS LearningContentSummary report must expose the safe ${field} column`)
+                    }
+                }
+            }
+        } else if (reportDefinition.data.datasource.kind !== 'records.list') {
             errors.push(`LMS report ${expectedReport.codename} must use an existing generic records.list datasource`)
         }
     }

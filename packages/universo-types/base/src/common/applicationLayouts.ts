@@ -7,7 +7,7 @@ import {
     runtimeDatasourceDescriptorSchema,
     statCardMetricDatasourceSchema
 } from './runtimeDataSources'
-import { resourceSourceSchema } from './resourceSources'
+import { RESOURCE_TYPES, resourceSourceSchema } from './resourceSources'
 import { SCRIPT_ATTACHMENT_KIND_PATTERN } from './scripts'
 import { sequencePolicySchema } from './sequenceCompletion'
 import { reportDefinitionSchema } from './lmsPlatform'
@@ -59,6 +59,97 @@ const rowCountWarningSchema = z
         message: localizedWidgetTextSchema
     })
     .strict()
+
+const normalizeCreateDefaultFieldKey = (value: string): string =>
+    value
+        .trim()
+        .replace(/[^a-z0-9]/gi, '')
+        .toLowerCase()
+
+const forbiddenCreateDefaultFieldKeys = new Set([
+    'id',
+    'workspaceid',
+    'workspace',
+    'ownerid',
+    'owneruserid',
+    'owner',
+    'userid',
+    'user',
+    'assigneduserid',
+    'createdby',
+    'updatedby',
+    'deletedby',
+    'progress',
+    'progresspercent',
+    'progressstatus',
+    'lifecyclestate',
+    'lifecycle',
+    'targetrecordid',
+    'targetobjectcodename',
+    'targetobjectid',
+    'sourceobjectcodename',
+    'sourcerowid',
+    'sourcelineid',
+    'principalid',
+    'apprecordstate',
+    'appdeleted'
+])
+
+const isUnsafeCreateDefaultFieldCodename = (fieldCodename: string): boolean => {
+    const normalized = normalizeCreateDefaultFieldKey(fieldCodename)
+    return normalized.startsWith('upl') || normalized.startsWith('_upl') || forbiddenCreateDefaultFieldKeys.has(normalized)
+}
+
+const forbiddenCreateDefaultContextPathSegments = new Set(['__proto__', 'prototype', 'constructor'])
+
+const createDefaultContextPathSchema = z
+    .string()
+    .trim()
+    .min(1)
+    .max(256)
+    .refine(
+        (value) =>
+            value.split('.').every((segment) => {
+                const normalized = segment.toLowerCase()
+                return /^[A-Za-z0-9_-]+$/.test(segment) && !forbiddenCreateDefaultContextPathSegments.has(normalized)
+            }),
+        'Create target default context paths must use safe dot-separated identifiers.'
+    )
+
+const createTargetDefaultSchema = z
+    .object({
+        fieldCodename: z.string().trim().min(1).max(128),
+        value: z.union([z.string().max(2048), z.number().finite(), z.boolean(), z.null()]).optional(),
+        enumCodename: z.string().trim().min(1).max(128).optional(),
+        resourceSourceType: z.enum(RESOURCE_TYPES).optional(),
+        contextPath: createDefaultContextPathSchema.optional()
+    })
+    .strict()
+    .superRefine((value, ctx) => {
+        if (isUnsafeCreateDefaultFieldCodename(value.fieldCodename)) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'Create target defaults cannot target system-owned fields.',
+                path: ['fieldCodename']
+            })
+        }
+
+        const defaultKinds = [
+            Object.prototype.hasOwnProperty.call(value, 'value'),
+            typeof value.enumCodename === 'string',
+            typeof value.resourceSourceType === 'string',
+            typeof value.contextPath === 'string'
+        ].filter(Boolean).length
+
+        if (defaultKinds !== 1) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'Create target default must define exactly one default value source.'
+            })
+        }
+    })
+
+export type CreateTargetDefault = z.infer<typeof createTargetDefaultSchema>
 
 const menuWidgetItemSchema = z
     .object({
@@ -175,18 +266,151 @@ export const quizWidgetConfigSchema = scriptBackedWidgetConfigSchema
     })
     .strict()
 
+const targetPickerConfigObjectSchema = z
+    .object({
+        targetSectionId: z.string().trim().min(1).max(128).optional(),
+        targetSectionCodename: z.string().trim().min(1).max(128).optional(),
+        targetObjectCollectionId: z.string().trim().min(1).max(128).optional(),
+        targetObjectCollectionCodename: z.string().trim().min(1).max(128).optional(),
+        parentFieldCodename: z.string().trim().min(1).max(128).optional(),
+        labelFields: z.array(z.string().trim().min(1).max(128)).min(1).max(8).optional(),
+        dialogTitle: localizedWidgetTextSchema.optional(),
+        targetLabel: localizedWidgetTextSchema.optional()
+    })
+    .strict()
+
+const requireTargetPickerReference = (value: z.infer<typeof targetPickerConfigObjectSchema>, ctx: z.RefinementCtx) => {
+    if (
+        !value.targetSectionId &&
+        !value.targetSectionCodename &&
+        !value.targetObjectCollectionId &&
+        !value.targetObjectCollectionCodename
+    ) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Target picker must reference a section or object collection.'
+        })
+    }
+}
+
+const restoreTargetConfigSchema = targetPickerConfigObjectSchema.superRefine((value, ctx) => {
+    if (
+        !value.targetSectionId &&
+        !value.targetSectionCodename &&
+        !value.targetObjectCollectionId &&
+        !value.targetObjectCollectionCodename
+    ) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Restore target must reference a section or object collection.'
+        })
+    }
+})
+
+const recordsUnionTargetFilterSchema = z
+    .object({
+        id: z.string().trim().min(1).max(64),
+        label: localizedWidgetTextSchema,
+        targetDisplayTypes: z.array(z.string().trim().min(1).max(64)).min(1).max(16).optional(),
+        targetSectionCodenames: z.array(z.string().trim().min(1).max(128)).min(1).max(16).optional(),
+        targetObjectCollectionCodenames: z.array(z.string().trim().min(1).max(128)).min(1).max(16).optional(),
+        targetSectionIds: z.array(z.string().trim().min(1).max(128)).min(1).max(16).optional(),
+        targetObjectCollectionIds: z.array(z.string().trim().min(1).max(128)).min(1).max(16).optional()
+    })
+    .strict()
+    .superRefine((value, ctx) => {
+        const hasCriteria = [
+            value.targetDisplayTypes,
+            value.targetSectionCodenames,
+            value.targetObjectCollectionCodenames,
+            value.targetSectionIds,
+            value.targetObjectCollectionIds
+        ].some((items) => Array.isArray(items) && items.length > 0)
+
+        if (!hasCriteria) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'Records union target filters must reference at least one target criterion.'
+            })
+        }
+    })
+
 export const detailsTableWidgetConfigSchema = z
     .object({
         datasource: runtimeDatasourceDescriptorSchema.optional(),
         enableRowReordering: z.boolean().optional(),
         showViewToggle: z.boolean().optional(),
+        showSearch: z.boolean().optional(),
+        targetFilters: z.array(recordsUnionTargetFilterSchema).max(16).optional(),
+        createTargets: z
+            .array(
+                z
+                    .object({
+                        id: z.string().trim().min(1).max(64),
+                        label: localizedWidgetTextSchema,
+                        sectionId: z.string().trim().min(1).max(128).optional(),
+                        sectionCodename: z.string().trim().min(1).max(128).optional(),
+                        objectCollectionId: z.string().trim().min(1).max(128).optional(),
+                        objectCollectionCodename: z.string().trim().min(1).max(128).optional(),
+                        icon: z.string().trim().min(1).max(64).nullable().optional(),
+                        surface: z.enum(['dialog', 'page']).optional(),
+                        disabled: z.boolean().optional(),
+                        disabledReason: localizedWidgetTextSchema.optional(),
+                        createDefaults: z.array(createTargetDefaultSchema).max(12).optional()
+                    })
+                    .strict()
+                    .superRefine((value, ctx) => {
+                        if (!value.sectionId && !value.sectionCodename && !value.objectCollectionId && !value.objectCollectionCodename) {
+                            ctx.addIssue({
+                                code: z.ZodIssueCode.custom,
+                                message: 'Create target must reference a section or object collection.'
+                            })
+                        }
+                    })
+            )
+            .max(16)
+            .optional(),
+        rowActions: z
+            .array(
+                z.union([
+                    z
+                        .object({
+                            id: z.string().trim().min(1).max(64),
+                            kind: z.literal('library.toggle'),
+                            libraryView: z.enum(['starred', 'shared']),
+                            label: localizedWidgetTextSchema.optional(),
+                            activeLabel: localizedWidgetTextSchema.optional(),
+                            icon: z.enum(['star', 'share']).optional(),
+                            principalTarget: z.enum(['currentUser', 'workspaceMember']).optional(),
+                            dialogTitle: localizedWidgetTextSchema.optional(),
+                            targetLabel: localizedWidgetTextSchema.optional()
+                        })
+                        .strict(),
+                    targetPickerConfigObjectSchema
+                        .extend({
+                            id: z.string().trim().min(1).max(64),
+                            kind: z.literal('field.updateWithTarget'),
+                            fieldCodename: z.string().trim().min(1).max(128),
+                            label: localizedWidgetTextSchema.optional(),
+                            icon: z.enum(['move']).optional()
+                        })
+                        .strict()
+                        .superRefine(requireTargetPickerReference)
+                ])
+            )
+            .max(8)
+            .optional(),
+        restoreTarget: restoreTargetConfigSchema.optional(),
         rowCountWarning: rowCountWarningSchema.optional(),
         sequencePolicy: sequencePolicySchema.optional(),
+        reportCodename: z.string().trim().min(1).max(128).optional(),
         reportDefinition: reportDefinitionSchema.optional(),
         workflowActions: z.array(workflowActionSchema).max(16).optional(),
         sharedBehavior: sharedBehaviorSchema.optional()
     })
     .strict()
+
+export type DetailsTableWidgetConfig = z.infer<typeof detailsTableWidgetConfigSchema>
 
 const relationBuilderPanelSchema = z
     .object({

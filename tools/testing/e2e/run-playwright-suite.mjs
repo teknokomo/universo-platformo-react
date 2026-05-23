@@ -17,7 +17,9 @@ const baseCommandEnv = {
     UNIVERSO_FRONTEND_ENV_FILE: env.frontendEnvPath ?? process.env.UNIVERSO_FRONTEND_ENV_FILE,
     E2E_BASE_URL: env.baseURL,
     PORT: resolvedBaseURL.port || process.env.PORT || '3100',
-    HOST: resolvedBaseURL.hostname
+    HOST: resolvedBaseURL.hostname,
+    API_RATE_LIMIT_READ_MAX: process.env.API_RATE_LIMIT_READ_MAX || '5000',
+    API_RATE_LIMIT_WRITE_MAX: process.env.API_RATE_LIMIT_WRITE_MAX || '2500'
 }
 
 let serverProcess = null

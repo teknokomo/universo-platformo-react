@@ -9,6 +9,16 @@ export interface RuntimeReportFieldMetadata {
     codename: string
     columnName: string
     dataType: ReportFieldDataType
+    refTargetObjectId?: string | null
+    refTargetObjectKind?: string | null
+    referenceLabel?: {
+        tableName: string
+        columnName: string
+        dataType: ReportFieldDataType
+        activeCondition?: string
+        accessCondition?: string
+        accessConditionValues?: unknown[]
+    } | null
 }
 
 export interface RuntimeReportRecordsListParams {
@@ -19,10 +29,13 @@ export interface RuntimeReportRecordsListParams {
     definition: unknown
     permissions: { readReports?: boolean }
     activeCondition?: string
+    accessCondition?: string
+    accessConditionValues?: unknown[]
     limit?: number
     offset?: number
     maxLimit?: number
     defaultLimit?: number
+    filters?: ReportFilter[]
 }
 
 export interface RuntimeReportRecordsListResult {
@@ -80,8 +93,34 @@ const normalizeFilterValue = (field: RuntimeReportFieldMetadata, rawValue: unkno
 
 const escapeLikeWildcards = (value: string): string => value.replace(/[\\%_]/g, (match) => `\\${match}`)
 
-const buildReportFilterClause = (field: RuntimeReportFieldMetadata, filter: ReportFilter, values: unknown[]): string | null => {
+const buildReportFilterTextExpression = (field: RuntimeReportFieldMetadata, referenceAlias?: string | null): string => {
     const columnSql = qColumn(field.columnName)
+    if (!referenceAlias) return `${columnSql}::text`
+
+    const referenceLabelSql = `${qColumn(referenceAlias)}.label_value`
+    return `COALESCE(${referenceLabelSql}::text, ${columnSql}::text)`
+}
+
+const buildReportFilterEqualityExpression = (
+    field: RuntimeReportFieldMetadata,
+    placeholder: string,
+    referenceAlias?: string | null
+): string => {
+    const columnSql = qColumn(field.columnName)
+    if (!referenceAlias) return `${columnSql} = ${placeholder}`
+
+    const referenceLabelSql = `${qColumn(referenceAlias)}.label_value`
+    return `(${columnSql}::text = ${placeholder} OR ${referenceLabelSql}::text = ${placeholder})`
+}
+
+const buildReportFilterClause = (
+    field: RuntimeReportFieldMetadata,
+    filter: ReportFilter,
+    values: unknown[],
+    referenceAlias?: string | null
+): string | null => {
+    const columnSql = qColumn(field.columnName)
+    const textExpressionSql = buildReportFilterTextExpression(field, referenceAlias)
 
     if (filter.operator === 'isEmpty') {
         return `(${columnSql} IS NULL OR ${columnSql}::text = '')`
@@ -101,19 +140,138 @@ const buildReportFilterClause = (field: RuntimeReportFieldMetadata, filter: Repo
     }
 
     if (filter.operator === 'contains') {
-        return `${columnSql}::text ILIKE ${addValue(`%${escapeLikeWildcards(String(normalizedValue))}%`)} ESCAPE '\\'`
+        return `${textExpressionSql} ILIKE ${addValue(`%${escapeLikeWildcards(String(normalizedValue))}%`)} ESCAPE '\\'`
     }
     if (filter.operator === 'startsWith') {
-        return `${columnSql}::text ILIKE ${addValue(`${escapeLikeWildcards(String(normalizedValue))}%`)} ESCAPE '\\'`
+        return `${textExpressionSql} ILIKE ${addValue(`${escapeLikeWildcards(String(normalizedValue))}%`)} ESCAPE '\\'`
     }
     if (filter.operator === 'endsWith') {
-        return `${columnSql}::text ILIKE ${addValue(`%${escapeLikeWildcards(String(normalizedValue))}`)} ESCAPE '\\'`
+        return `${textExpressionSql} ILIKE ${addValue(`%${escapeLikeWildcards(String(normalizedValue))}`)} ESCAPE '\\'`
+    }
+    if (filter.operator === 'equals') {
+        return buildReportFilterEqualityExpression(field, addValue(normalizedValue), referenceAlias)
     }
 
     const operator = REPORT_FILTER_OPERATORS[filter.operator]
     if (!operator) return null
 
     return `${columnSql} ${operator} ${addValue(normalizedValue)}`
+}
+
+const buildReferenceLabelAlias = (index: number): string => `report_ref_label_${index + 1}`
+
+const buildReportFieldAlias = (index: number): string => `report_field_${index + 1}`
+
+const shiftSqlPlaceholders = (sql: string, offset: number): string => {
+    let result = ''
+    let index = 0
+    let inSingleQuotedString = false
+
+    while (index < sql.length) {
+        const char = sql[index]
+        const nextChar = sql[index + 1]
+
+        if (char === "'") {
+            result += char
+            if (inSingleQuotedString && nextChar === "'") {
+                result += nextChar
+                index += 2
+                continue
+            }
+            inSingleQuotedString = !inSingleQuotedString
+            index += 1
+            continue
+        }
+
+        if (!inSingleQuotedString && char === '$') {
+            const match = sql.slice(index + 1).match(/^\d+/)
+            if (match) {
+                result += `$${Number(match[0]) + offset}`
+                index += match[0].length + 1
+                continue
+            }
+        }
+
+        result += char
+        index += 1
+    }
+
+    return result
+}
+
+const buildReferenceLabelJoin = (params: {
+    schemaName: string
+    field: RuntimeReportFieldMetadata
+    alias: string
+    values: unknown[]
+}): string | null => {
+    const referenceLabel = params.field.referenceLabel
+    if (!referenceLabel) return null
+
+    const targetTableSql = qSchemaTable(params.schemaName, referenceLabel.tableName)
+    const labelColumnSql = qColumn(referenceLabel.columnName)
+    const activeCondition = referenceLabel.activeCondition?.trim() || '_upl_deleted = false AND _app_deleted = false'
+    const accessCondition = referenceLabel.accessCondition?.trim()
+    const accessConditionSql =
+        accessCondition && accessCondition.length > 0 ? shiftSqlPlaceholders(accessCondition, params.values.length) : null
+    if (referenceLabel.accessConditionValues?.length) {
+        params.values.push(...referenceLabel.accessConditionValues)
+    }
+    const whereSql = [activeCondition, accessConditionSql].filter(Boolean).join(' AND ')
+
+    return `
+            LEFT JOIN (
+                SELECT id AS ref_id, ${labelColumnSql} AS label_value
+                FROM ${targetTableSql}
+                WHERE ${whereSql}
+            ) ${qColumn(params.alias)} ON ${qColumn(params.field.columnName)} = ${qColumn(params.alias)}.ref_id
+        `
+}
+
+const buildReferenceLabelJoins = (params: {
+    schemaName: string
+    specs: Array<{ field: RuntimeReportFieldMetadata; alias: string }>
+    aliases: Set<string>
+    values: unknown[]
+}): string[] =>
+    params.specs
+        .filter((spec) => params.aliases.has(spec.alias))
+        .map((spec) =>
+            buildReferenceLabelJoin({ schemaName: params.schemaName, field: spec.field, alias: spec.alias, values: params.values })
+        )
+        .filter((join): join is string => Boolean(join))
+
+const shouldUseReferenceLabelFilter = (field: RuntimeReportFieldMetadata, filter: ReportFilter): boolean =>
+    field.dataType === 'REF' &&
+    Boolean(field.referenceLabel) &&
+    (filter.operator === 'contains' || filter.operator === 'startsWith' || filter.operator === 'endsWith' || filter.operator === 'equals')
+
+const buildSelectedReportFieldSql = (params: {
+    field: RuntimeReportFieldMetadata
+    outputAlias: string
+    referenceAlias?: string | null
+}): string => {
+    const columnSql = qColumn(params.field.columnName)
+    const outputAliasSql = qColumn(params.outputAlias)
+
+    if (!params.referenceAlias) {
+        return `${columnSql} AS ${outputAliasSql}`
+    }
+
+    const referenceAliasSql = qColumn(params.referenceAlias)
+    return `
+                CASE
+                    WHEN ${columnSql} IS NULL THEN NULL::jsonb
+                    WHEN ${referenceAliasSql}.ref_id IS NOT NULL THEN jsonb_build_object(
+                        'id', ${referenceAliasSql}.ref_id::text,
+                        'label', ${referenceAliasSql}.label_value
+                    )
+                    ELSE jsonb_build_object(
+                        'id', ${columnSql}::text,
+                        'label', NULL
+                    )
+                END AS ${outputAliasSql}
+            `
 }
 
 const REPORT_AGGREGATION_SQL: Record<ReportDefinition['aggregations'][number]['function'], string> = {
@@ -123,6 +281,8 @@ const REPORT_AGGREGATION_SQL: Record<ReportDefinition['aggregations'][number]['f
     min: 'MIN',
     sum: 'SUM'
 }
+
+const UUID_VALUE_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 const normalizeAggregationValue = (value: unknown): unknown => {
     if (typeof value !== 'string') return value
@@ -162,17 +322,65 @@ const normalizeLimit = (value: unknown, fallback: number, maxLimit: number): num
     return Math.max(1, Math.min(maxLimit, Math.trunc(candidate)))
 }
 
-const stringifyCsvValue = (value: unknown, locale: string): string => {
+const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+
+const isReportTechnicalFieldName = (field: string | undefined): boolean => {
+    const normalized =
+        field
+            ?.trim()
+            .replace(/[-_\s]+/g, '')
+            .toLowerCase() ?? ''
+    if (!normalized) return false
+    return normalized.endsWith('id')
+}
+
+const isPrimitiveReportValue = (value: unknown): boolean =>
+    value === null ||
+    value === undefined ||
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean' ||
+    typeof value === 'bigint'
+
+const shouldSuppressPrimitiveReportValue = (value: unknown, field?: string): boolean => {
+    if (!isPrimitiveReportValue(value)) return false
+    if (isReportTechnicalFieldName(field)) return true
+    return typeof value === 'string' && UUID_VALUE_PATTERN.test(value.trim())
+}
+
+const readReportObjectLabel = (value: Record<string, unknown>, locale: string): string | null => {
+    const candidates = ['displayName', 'name', 'title', 'label', 'caption', 'email']
+    for (const key of candidates) {
+        const candidate = value[key]
+        const localizedText = readLocalizedTextValue(candidate, locale)
+        if (localizedText?.trim()) return localizedText.trim()
+        if (typeof candidate === 'string' && candidate.trim()) return candidate.trim()
+        if (typeof candidate === 'number' || typeof candidate === 'boolean' || typeof candidate === 'bigint') return String(candidate)
+    }
+    return null
+}
+
+const stringifyCsvValue = (value: unknown, locale: string, field?: string): string => {
     if (value === null || value === undefined) return ''
+    if (shouldSuppressPrimitiveReportValue(value, field)) return ''
     if (typeof value === 'string') return value
     if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return String(value)
     const localizedText = readLocalizedTextValue(value, locale)
     if (localizedText) return localizedText
-    return JSON.stringify(value) ?? String(value)
+    if (Array.isArray(value)) {
+        return value
+            .map((item) => stringifyCsvValue(item, locale, field))
+            .map((item) => item.trim())
+            .filter((item) => item.length > 0)
+            .join('; ')
+    }
+    if (value instanceof Date) return value.toISOString()
+    if (isRecord(value)) return readReportObjectLabel(value, locale) ?? ''
+    return ''
 }
 
-const escapeCsvValue = (value: unknown, locale: string): string => {
-    const text = stringifyCsvValue(value, locale)
+const escapeCsvValue = (value: unknown, locale: string, field?: string): string => {
+    const text = stringifyCsvValue(value, locale, field)
     if (!/[",\r\n]/.test(text)) return text
     return `"${text.replace(/"/g, '""')}"`
 }
@@ -181,7 +389,9 @@ export const serializeRuntimeReportCsv = (result: RuntimeReportRecordsListResult
     const headers = result.definition.columns.map((column) => readLocalizedTextValue(column.label, locale) ?? column.field)
     const lines = [
         headers.map((header) => escapeCsvValue(header, locale)).join(','),
-        ...result.rows.map((row) => result.definition.columns.map((column) => escapeCsvValue(row[column.field], locale)).join(','))
+        ...result.rows.map((row) =>
+            result.definition.columns.map((column) => escapeCsvValue(row[column.field], locale, column.field)).join(',')
+        )
     ]
     return `${lines.join('\r\n')}\r\n`
 }
@@ -205,24 +415,66 @@ export class RuntimeReportsService {
         }
 
         const tableSql = qSchemaTable(params.schemaName, params.tableName)
-        const values: unknown[] = []
-        const whereClauses = [params.activeCondition?.trim() || '_upl_deleted = false AND _app_deleted = false']
+        const values: unknown[] = [...(params.accessConditionValues ?? [])]
+        const whereClauses = [
+            params.activeCondition?.trim() || '_upl_deleted = false AND _app_deleted = false',
+            ...(params.accessCondition?.trim() ? [params.accessCondition.trim()] : [])
+        ]
 
-        const filters = [...(definition.datasource.query?.filters ?? []), ...definition.filters]
-        for (const filter of filters) {
-            const field = resolveReportField(params.fields, filter.field)
-            const clause = buildReportFilterClause(field, filter, values)
+        const filters = [...(definition.datasource.query?.filters ?? []), ...definition.filters, ...(params.filters ?? [])]
+        const resolvedFilters = filters.map((filter) => ({ filter, field: resolveReportField(params.fields, filter.field) }))
+
+        const selectedFields = definition.columns.map((column) => {
+            const field = resolveReportField(params.fields, column.field)
+            return { reportField: column.field, field }
+        })
+
+        const referenceAliasByField = new Map<string, string>()
+        const referenceJoinSpecs: Array<{ field: RuntimeReportFieldMetadata; alias: string }> = []
+        const selectedReferenceAliases = new Set<string>()
+        const filterReferenceAliases = new Set<string>()
+        const ensureReferenceAlias = (field: RuntimeReportFieldMetadata): string | null => {
+            if (!field.referenceLabel) return null
+
+            const existingAlias = referenceAliasByField.get(field.codename)
+            if (existingAlias) return existingAlias
+
+            const alias = buildReferenceLabelAlias(referenceAliasByField.size)
+            referenceAliasByField.set(field.codename, alias)
+            referenceJoinSpecs.push({ field, alias })
+            return alias
+        }
+
+        for (const { filter, field } of resolvedFilters) {
+            const referenceAlias = shouldUseReferenceLabelFilter(field, filter) ? ensureReferenceAlias(field) : null
+            if (referenceAlias) {
+                filterReferenceAliases.add(referenceAlias)
+            }
+
+            const clause = buildReportFilterClause(field, filter, values, referenceAlias)
             if (clause) {
                 whereClauses.push(clause)
             }
         }
 
-        const selectedFields = definition.columns.map((column) => {
-            const field = resolveReportField(params.fields, column.field)
-            return { reportField: column.field, columnName: field.columnName }
-        })
-        const selectedColumns = selectedFields.map((field) => qColumn(field.columnName))
+        const selectedColumns = selectedFields.map((field, index) => {
+            const referenceAlias = ensureReferenceAlias(field.field)
+            if (referenceAlias && field.field.referenceLabel) {
+                selectedReferenceAliases.add(referenceAlias)
+            }
 
+            const outputAlias = buildReportFieldAlias(index)
+            return {
+                reportField: field.reportField,
+                outputAlias,
+                sql: buildSelectedReportFieldSql({
+                    field: field.field,
+                    outputAlias,
+                    referenceAlias
+                })
+            }
+        })
+        const selectReferenceAliases = new Set([...filterReferenceAliases, ...selectedReferenceAliases])
         const orderClauses = (definition.datasource.query?.sort ?? []).map((sort) => {
             const field = resolveReportField(params.fields, sort.field)
             return `${qColumn(field.columnName)} ${sort.direction.toUpperCase()} NULLS LAST`
@@ -257,29 +509,45 @@ export class RuntimeReportsService {
         const defaultLimit = normalizeLimit(params.defaultLimit, 100, maxLimit)
         const limit = normalizeLimit(params.limit, defaultLimit, maxLimit)
         const offset = Math.max(0, Math.trunc(params.offset ?? 0))
-        const limitPlaceholder = `$${values.length + 1}`
-        const offsetPlaceholder = `$${values.length + 2}`
 
         const whereSql = whereClauses.join(' AND ')
+        const selectValues = [...values]
+        const selectReferenceJoins = buildReferenceLabelJoins({
+            schemaName: params.schemaName,
+            specs: referenceJoinSpecs,
+            aliases: selectReferenceAliases,
+            values: selectValues
+        })
+        const limitPlaceholder = `$${selectValues.length + 1}`
+        const offsetPlaceholder = `$${selectValues.length + 2}`
         const rawRows = await params.executor.query<Record<string, unknown>>(
             `
-            SELECT ${selectedColumns.join(', ')}
+            SELECT ${selectedColumns.map((field) => field.sql).join(', ')}
             FROM ${tableSql}
+            ${selectReferenceJoins.join('\n')}
             WHERE ${whereSql}
             ORDER BY ${orderClauses.join(', ')}
             LIMIT ${limitPlaceholder}
             OFFSET ${offsetPlaceholder}
             `,
-            [...values, limit, offset]
+            [...selectValues, limit, offset]
         )
 
+        const totalValues = [...values]
+        const filterReferenceJoins = buildReferenceLabelJoins({
+            schemaName: params.schemaName,
+            specs: referenceJoinSpecs,
+            aliases: filterReferenceAliases,
+            values: totalValues
+        })
         const totalRows = await params.executor.query<{ total: string | number }>(
             `
             SELECT count(*) AS total
             FROM ${tableSql}
+            ${filterReferenceJoins.join('\n')}
             WHERE ${whereSql}
             `,
-            values
+            totalValues
         )
 
         const rawTotal = totalRows[0]?.total ?? 0
@@ -287,13 +555,21 @@ export class RuntimeReportsService {
         let aggregations: Record<string, unknown> = {}
 
         if (aggregationSpecs.length > 0) {
+            const aggregationValues = [...values]
+            const aggregationReferenceJoins = buildReferenceLabelJoins({
+                schemaName: params.schemaName,
+                specs: referenceJoinSpecs,
+                aliases: filterReferenceAliases,
+                values: aggregationValues
+            })
             const aggregationRows = await params.executor.query<Record<string, unknown>>(
                 `
                 SELECT ${aggregationSpecs.map((aggregation) => aggregation.sql).join(', ')}
                 FROM ${tableSql}
+                ${aggregationReferenceJoins.join('\n')}
                 WHERE ${whereSql}
                 `,
-                values
+                aggregationValues
             )
             const aggregationRow = aggregationRows[0] ?? {}
             aggregations = Object.fromEntries(
@@ -305,7 +581,7 @@ export class RuntimeReportsService {
         }
 
         return {
-            rows: rawRows.map((row) => Object.fromEntries(selectedFields.map((field) => [field.reportField, row[field.columnName]]))),
+            rows: rawRows.map((row) => Object.fromEntries(selectedColumns.map((field) => [field.reportField, row[field.outputAlias]]))),
             total: Number.isFinite(total) ? total : 0,
             aggregations,
             definition

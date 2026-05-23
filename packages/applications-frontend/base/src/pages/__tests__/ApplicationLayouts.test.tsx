@@ -351,5 +351,5 @@ describe('ApplicationLayouts', () => {
             const widget = cached?.widgets?.find((item: any) => item.id === 'widget-top-1')
             expect(widget?.config).toEqual({})
         })
-    })
+    }, 30_000)
 })

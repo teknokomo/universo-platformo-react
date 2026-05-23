@@ -272,6 +272,68 @@ describe('WorkspaceSwitcher', () => {
         expect(screen.queryByRole('option', { name: /Main/ })).not.toBeInTheDocument()
     })
 
+    it('uses a localized untitled fallback instead of exposing raw workspace IDs', async () => {
+        const rawWorkspaceId = '019e4ca0-c279-7383-a4cb-25b40f100001'
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async (input: string | URL) => {
+                const url = String(input)
+                if (url.includes('/runtime/workspaces')) {
+                    return {
+                        ok: true,
+                        json: async () => ({
+                            items: [
+                                {
+                                    id: rawWorkspaceId,
+                                    name: {
+                                        _schema: '1',
+                                        _primary: 'en',
+                                        locales: {
+                                            en: { content: '' }
+                                        }
+                                    },
+                                    description: null,
+                                    workspaceType: 'shared',
+                                    status: 'active',
+                                    isDefault: true,
+                                    roleCodename: 'owner'
+                                }
+                            ]
+                        })
+                    } as Response
+                }
+
+                throw new Error(`Unexpected fetch request: ${url}`)
+            })
+        )
+        const queryClient = createQueryClient()
+
+        render(
+            <QueryClientProvider client={queryClient}>
+                <DashboardDetailsProvider
+                    value={
+                        {
+                            applicationId: 'app-1',
+                            apiBaseUrl: '/api/v1',
+                            currentWorkspaceId: rawWorkspaceId,
+                            workspacesEnabled: true,
+                            rows: [],
+                            columns: [],
+                            title: 'Runtime'
+                        } as never
+                    }
+                >
+                    <WorkspaceSwitcher />
+                </DashboardDetailsProvider>
+            </QueryClientProvider>
+        )
+
+        const switcherValue = await screen.findByTestId('runtime-workspace-switcher-value')
+        expect(switcherValue).toHaveTextContent('Untitled workspace')
+        expect(screen.getByRole('option', { name: /Untitled workspace/ })).toBeInTheDocument()
+        expect(document.body).not.toHaveTextContent(rawWorkspaceId)
+    })
+
     it('uses the host navigation callback for the manage workspaces menu item', async () => {
         const queryClient = createQueryClient()
         const navigate = vi.fn()

@@ -15,8 +15,10 @@ import type {
     RuntimeDatasourceSort
 } from '@universo/types'
 import type { RuntimeRecordCommand } from '@universo/apps-template-mui'
+import type { RuntimeRestoreTarget } from '@universo/apps-template-mui'
 import {
     Application,
+    ApplicationDialogSettings,
     ApplicationMember,
     ApplicationAssignableRole,
     PaginationParams,
@@ -31,6 +33,7 @@ import type { SimpleLocalizedInput } from '../types'
 export interface ApplicationInput extends ApplicationLocalizedPayload {
     slug?: string
     isPublic?: boolean
+    settings?: ApplicationDialogSettings
     expectedVersion?: number
 }
 
@@ -205,11 +208,13 @@ export const updateApplicationRuntimeRow = async (params: {
     data: Record<string, unknown>
     objectCollectionId?: string
     sectionId?: string
+    expectedVersion?: number
 }): Promise<Record<string, unknown>> => {
-    const { applicationId, rowId, data, objectCollectionId, sectionId } = params
+    const { applicationId, rowId, data, objectCollectionId, sectionId, expectedVersion } = params
     const resolvedSectionId = sectionId ?? objectCollectionId
     const body: Record<string, unknown> = { data }
     if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
+    if (typeof expectedVersion === 'number') body.expectedVersion = expectedVersion
     const response = await apiClient.patch<Record<string, unknown>>(`/applications/${applicationId}/runtime/rows/${rowId}`, body)
     return response.data
 }
@@ -220,12 +225,34 @@ export const deleteApplicationRuntimeRow = async (params: {
     rowId: string
     objectCollectionId?: string
     sectionId?: string
+    expectedVersion?: number
 }): Promise<void> => {
-    const { applicationId, rowId, objectCollectionId, sectionId } = params
+    const { applicationId, rowId, objectCollectionId, sectionId, expectedVersion } = params
     const resolvedSectionId = sectionId ?? objectCollectionId
+    const requestParams: Record<string, unknown> = {}
+    if (resolvedSectionId) requestParams.objectCollectionId = resolvedSectionId
+    if (typeof expectedVersion === 'number') requestParams.expectedVersion = expectedVersion
     await apiClient.delete(`/applications/${applicationId}/runtime/rows/${rowId}`, {
-        params: resolvedSectionId ? { objectCollectionId: resolvedSectionId } : undefined
+        params: Object.keys(requestParams).length > 0 ? requestParams : undefined
     })
+}
+
+/** Restore a soft-deleted runtime row. */
+export const restoreApplicationRuntimeRow = async (params: {
+    applicationId: string
+    rowId: string
+    objectCollectionId?: string
+    sectionId?: string
+    expectedVersion?: number
+    restoreTarget?: RuntimeRestoreTarget
+}): Promise<void> => {
+    const { applicationId, rowId, objectCollectionId, sectionId, expectedVersion, restoreTarget } = params
+    const resolvedSectionId = sectionId ?? objectCollectionId
+    const body: Record<string, unknown> = {}
+    if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
+    if (typeof expectedVersion === 'number') body.expectedVersion = expectedVersion
+    if (restoreTarget) body.restoreTarget = restoreTarget
+    await apiClient.post(`/applications/${applicationId}/runtime/rows/${rowId}/restore`, body)
 }
 
 /** Copy a runtime row. */
@@ -235,11 +262,15 @@ export const copyApplicationRuntimeRow = async (params: {
     objectCollectionId?: string
     sectionId?: string
     copyChildTables?: boolean
+    data?: Record<string, unknown>
+    expectedVersion?: number
 }): Promise<Record<string, unknown>> => {
-    const { applicationId, rowId, objectCollectionId, sectionId, copyChildTables = true } = params
+    const { applicationId, rowId, objectCollectionId, sectionId, copyChildTables = true, data, expectedVersion } = params
     const resolvedSectionId = sectionId ?? objectCollectionId
     const body: Record<string, unknown> = { copyChildTables }
     if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
+    if (data && Object.keys(data).length > 0) body.data = data
+    if (typeof expectedVersion === 'number') body.expectedVersion = expectedVersion
     const response = await apiClient.post<Record<string, unknown>>(`/applications/${applicationId}/runtime/rows/${rowId}/copy`, body)
     return response.data
 }
@@ -285,11 +316,15 @@ export const reorderApplicationRuntimeRows = async (params: {
     orderedRowIds: string[]
     objectCollectionId?: string
     sectionId?: string
+    expectedVersionsByRowId?: Record<string, number>
 }): Promise<void> => {
-    const { applicationId, orderedRowIds, objectCollectionId, sectionId } = params
+    const { applicationId, orderedRowIds, objectCollectionId, sectionId, expectedVersionsByRowId } = params
     const resolvedSectionId = sectionId ?? objectCollectionId
     const body: Record<string, unknown> = { orderedRowIds }
     if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
+    if (expectedVersionsByRowId && Object.keys(expectedVersionsByRowId).length > 0) {
+        body.expectedVersionsByRowId = expectedVersionsByRowId
+    }
     await apiClient.post(`/applications/${applicationId}/runtime/rows/reorder`, body)
 }
 

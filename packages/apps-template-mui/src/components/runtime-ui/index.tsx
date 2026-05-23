@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type KeyboardEvent, type ReactNode } from 'react'
+import { isValidElement, useCallback, useEffect, useMemo, useState, type ChangeEvent, type KeyboardEvent, type ReactNode } from 'react'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded'
 import KeyboardArrowUpRoundedIcon from '@mui/icons-material/KeyboardArrowUpRounded'
+import ViewColumnRoundedIcon from '@mui/icons-material/ViewColumnRounded'
 import ViewComfyRoundedIcon from '@mui/icons-material/ViewComfyRounded'
 import ViewListRoundedIcon from '@mui/icons-material/ViewListRounded'
 import { alpha, styled } from '@mui/material/styles'
@@ -9,8 +10,12 @@ import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
 import CardActionArea from '@mui/material/CardActionArea'
+import Checkbox from '@mui/material/Checkbox'
 import CircularProgress from '@mui/material/CircularProgress'
 import IconButton from '@mui/material/IconButton'
+import ListItemText from '@mui/material/ListItemText'
+import Menu from '@mui/material/Menu'
+import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import Table from '@mui/material/Table'
@@ -29,6 +34,7 @@ import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import { useTranslation } from 'react-i18next'
 import i18n from '@universo/i18n'
+import { formatRuntimeSafeValue, isRuntimeTechnicalFieldName } from '../../utils/displayValue'
 
 export interface ItemCardData {
     id?: string
@@ -52,6 +58,68 @@ export interface ItemCardProps<T extends ItemCardData = ItemCardData> {
     headerAction?: ReactNode
 }
 
+const readSafeItemCardTitle = (data: ItemCardData, locale: string, fallback: string): string => {
+    const candidates = [data.displayName, data.name, data.templateName]
+    for (const candidate of candidates) {
+        const value = formatRuntimeSafeValue(candidate, locale)
+        if (value) return value
+    }
+    return fallback
+}
+
+const readSafeTableRowLabel = (row: FlowListTableData, locale: string, fallback: string): string => {
+    const record = row as FlowListTableData & Record<string, unknown>
+    const dataRecord = record.data && typeof record.data === 'object' ? (record.data as Record<string, unknown>) : {}
+    const candidates = [
+        record.displayName,
+        record.DisplayName,
+        record.name,
+        record.Name,
+        record.title,
+        record.Title,
+        record.itemTitle,
+        record.ItemTitle,
+        record.label,
+        record.Label,
+        record.templateName,
+        dataRecord.displayName,
+        dataRecord.DisplayName,
+        dataRecord.name,
+        dataRecord.Name,
+        dataRecord.title,
+        dataRecord.Title,
+        dataRecord.itemTitle,
+        dataRecord.ItemTitle,
+        dataRecord.label,
+        dataRecord.Label
+    ]
+    for (const candidate of candidates) {
+        const value = formatRuntimeSafeValue(candidate, locale)
+        if (value) return value
+    }
+
+    for (const source of [record, dataRecord]) {
+        for (const [key, candidate] of Object.entries(source)) {
+            if (key === 'data' || key.startsWith('_') || isRuntimeTechnicalFieldName(key)) continue
+            if (typeof candidate === 'number' || typeof candidate === 'boolean' || typeof candidate === 'bigint') continue
+
+            const value = formatRuntimeSafeValue(candidate, locale)
+            if (value) return value
+        }
+    }
+
+    return fallback
+}
+
+const renderSafeTableCellValue = (value: unknown, locale: string): string => formatRuntimeSafeValue(value, locale) ?? ''
+
+const renderSafeTableCellContent = (value: unknown, locale: string): ReactNode => {
+    if (value == null || value === false) return ''
+    if (isValidElement(value)) return value
+    if (Array.isArray(value)) return value.map((item) => renderSafeTableCellContent(item, locale))
+    return renderSafeTableCellValue(value, locale)
+}
+
 export function ItemCard<T extends ItemCardData = ItemCardData>({
     data,
     onClick,
@@ -62,7 +130,10 @@ export function ItemCard<T extends ItemCardData = ItemCardData>({
     titleEndContent,
     headerAction
 }: ItemCardProps<T>) {
-    const title = data.displayName ?? data.name ?? data.templateName ?? data.id ?? ''
+    const { t } = useTranslation('apps', { i18n })
+    const locale = i18n.language || 'en'
+    const title = readSafeItemCardTitle(data, locale, t('runtime.card.untitled', 'Untitled item'))
+    const description = formatRuntimeSafeValue(data.description, locale)
     const hasInlineActions = Boolean(headerAction || footerEndContent)
     const handleInteractiveCardKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
         if (event.target !== event.currentTarget) return
@@ -135,7 +206,7 @@ export function ItemCard<T extends ItemCardData = ItemCardData>({
                             </Typography>
                             {titleEndContent}
                         </Stack>
-                        {data.description ? (
+                        {description ? (
                             <Typography
                                 variant='body2'
                                 color='text.secondary'
@@ -148,7 +219,7 @@ export function ItemCard<T extends ItemCardData = ItemCardData>({
                                     overflow: 'hidden'
                                 }}
                             >
-                                {data.description}
+                                {description}
                             </Typography>
                         ) : null}
                     </Box>
@@ -246,11 +317,20 @@ export function FlowListTable<T extends FlowListTableData>({
     onSortableDragEnd
 }: FlowListTableProps<T>) {
     const { t } = useTranslation('apps', { i18n })
+    const locale = i18n.language || 'en'
     const columns = customColumns?.length
         ? customColumns
         : ([
-              { id: 'name', label: t('runtime.table.name'), render: (row: T) => row.displayName ?? row.name ?? row.id },
-              { id: 'description', label: t('runtime.table.description'), render: (row: T) => row.description ?? '' }
+              {
+                  id: 'name',
+                  label: t('runtime.table.name'),
+                  render: (row: T) => readSafeTableRowLabel(row, locale, t('runtime.table.untitled', 'Untitled row'))
+              },
+              {
+                  id: 'description',
+                  label: t('runtime.table.description'),
+                  render: (row: T) => renderSafeTableCellValue(row.description, locale)
+              }
           ] satisfies TableColumn<T>[])
     const minimumTableWidth =
         columns.reduce((total, column) => total + (column.width ?? 160), sortableRows ? 88 : 0) + (renderActions ? 72 : 0)
@@ -307,46 +387,53 @@ export function FlowListTable<T extends FlowListTableData>({
                         </TableRow>
                     ) : null}
                     {!isLoading
-                        ? data.map((row) => (
-                              <StyledTableRow key={row.id} hover>
-                                  {sortableRows ? (
-                                      <StyledTableCell>
-                                          <Stack direction='row' spacing={0.5}>
-                                              <Tooltip title={t('runtime.table.moveUp')}>
-                                                  <span>
-                                                      <IconButton
-                                                          size='small'
-                                                          onClick={() => moveRow(row, -1)}
-                                                          disabled={data[0]?.id === row.id}
-                                                          data-testid={`runtime-row-move-up-${row.id}`}
-                                                      >
-                                                          <KeyboardArrowUpRoundedIcon fontSize='small' />
-                                                      </IconButton>
-                                                  </span>
-                                              </Tooltip>
-                                              <Tooltip title={t('runtime.table.moveDown')}>
-                                                  <span>
-                                                      <IconButton
-                                                          size='small'
-                                                          onClick={() => moveRow(row, 1)}
-                                                          disabled={data[data.length - 1]?.id === row.id}
-                                                          data-testid={`runtime-row-move-down-${row.id}`}
-                                                      >
-                                                          <KeyboardArrowDownRoundedIcon fontSize='small' />
-                                                      </IconButton>
-                                                  </span>
-                                              </Tooltip>
-                                          </Stack>
-                                      </StyledTableCell>
-                                  ) : null}
-                                  {columns.map((column) => (
-                                      <StyledTableCell key={column.id} align={column.align}>
-                                          {column.render ? column.render(row) : String(row[column.id as keyof T] ?? '')}
-                                      </StyledTableCell>
-                                  ))}
-                                  {renderActions ? <StyledTableCell align='right'>{renderActions(row)}</StyledTableCell> : null}
-                              </StyledTableRow>
-                          ))
+                        ? data.map((row) => {
+                              const rowLabel = readSafeTableRowLabel(row, locale, t('runtime.table.untitled'))
+                              return (
+                                  <StyledTableRow key={row.id} hover>
+                                      {sortableRows ? (
+                                          <StyledTableCell>
+                                              <Stack direction='row' spacing={0.5}>
+                                                  <Tooltip title={t('runtime.table.moveUpRow', { row: rowLabel })}>
+                                                      <span>
+                                                          <IconButton
+                                                              size='small'
+                                                              onClick={() => moveRow(row, -1)}
+                                                              disabled={data[0]?.id === row.id}
+                                                              aria-label={t('runtime.table.moveUpRow', { row: rowLabel })}
+                                                              data-testid={`runtime-row-move-up-${row.id}`}
+                                                          >
+                                                              <KeyboardArrowUpRoundedIcon fontSize='small' />
+                                                          </IconButton>
+                                                      </span>
+                                                  </Tooltip>
+                                                  <Tooltip title={t('runtime.table.moveDownRow', { row: rowLabel })}>
+                                                      <span>
+                                                          <IconButton
+                                                              size='small'
+                                                              onClick={() => moveRow(row, 1)}
+                                                              disabled={data[data.length - 1]?.id === row.id}
+                                                              aria-label={t('runtime.table.moveDownRow', { row: rowLabel })}
+                                                              data-testid={`runtime-row-move-down-${row.id}`}
+                                                          >
+                                                              <KeyboardArrowDownRoundedIcon fontSize='small' />
+                                                          </IconButton>
+                                                      </span>
+                                                  </Tooltip>
+                                              </Stack>
+                                          </StyledTableCell>
+                                      ) : null}
+                                      {columns.map((column) => (
+                                          <StyledTableCell key={column.id} align={column.align}>
+                                              {column.render
+                                                  ? renderSafeTableCellContent(column.render(row), locale)
+                                                  : renderSafeTableCellValue(row[column.id as keyof T], locale)}
+                                          </StyledTableCell>
+                                      ))}
+                                      {renderActions ? <StyledTableCell align='right'>{renderActions(row)}</StyledTableCell> : null}
+                                  </StyledTableRow>
+                              )
+                          })
                         : null}
                 </TableBody>
             </Table>
@@ -546,34 +633,66 @@ export interface ToolbarControlsProps {
         disabled?: boolean
         startIcon?: ReactNode
     }
+    columnVisibilityControl?: {
+        options: Array<{ field: string; label: string; visible: boolean; disabled?: boolean }>
+        onToggle: (field: string, visible: boolean) => void
+        buttonLabel?: string
+        menuLabel?: string
+    }
 }
 
 export function ToolbarControls({
     viewToggleEnabled = false,
     viewMode = 'list',
     onViewModeChange,
-    cardViewTitle = 'Card view',
-    listViewTitle = 'Table view',
-    primaryAction
+    cardViewTitle,
+    listViewTitle,
+    primaryAction,
+    columnVisibilityControl
 }: ToolbarControlsProps) {
+    const { t } = useTranslation('apps', { i18n })
+    const effectiveCardViewTitle = cardViewTitle ?? t('toolbar.cardView', 'Card view')
+    const effectiveListViewTitle = listViewTitle ?? t('toolbar.tableView', 'Table view')
+
     return (
-        <Stack direction='row' spacing={1} alignItems='center' sx={{ flexWrap: 'wrap' }}>
+        <Stack
+            direction='row'
+            spacing={1}
+            alignItems='center'
+            sx={{
+                flexWrap: 'wrap',
+                justifyContent: { xs: 'flex-end', sm: 'flex-start' },
+                minWidth: 0,
+                width: { xs: '100%', sm: 'auto' }
+            }}
+        >
+            {columnVisibilityControl?.options.length ? <ColumnVisibilityControl {...columnVisibilityControl} /> : null}
             {viewToggleEnabled ? (
                 <ToggleButtonGroup
+                    aria-label={t('toolbar.viewMode', 'View mode')}
                     exclusive
                     size='small'
                     value={viewMode}
                     onChange={(_event, nextMode: 'card' | 'list' | null) => {
                         if (nextMode) onViewModeChange?.(nextMode)
                     }}
+                    sx={{
+                        height: 40,
+                        '& .MuiToggleButton-root': {
+                            width: 40,
+                            minWidth: 40,
+                            height: 40,
+                            p: 1
+                        }
+                    }}
                 >
-                    <ToggleButton value='card' aria-label={cardViewTitle}>
-                        <Tooltip title={cardViewTitle}>
+                    <ToggleButton value='card' aria-label={effectiveCardViewTitle}>
+                        <Tooltip title={effectiveCardViewTitle}>
                             <ViewComfyRoundedIcon fontSize='small' />
                         </Tooltip>
                     </ToggleButton>
-                    <ToggleButton value='list' aria-label={listViewTitle}>
-                        <Tooltip title={listViewTitle}>
+                    <ToggleButton value='list' aria-label={effectiveListViewTitle}>
+                        <Tooltip title={effectiveListViewTitle}>
                             <ViewListRoundedIcon fontSize='small' />
                         </Tooltip>
                     </ToggleButton>
@@ -586,11 +705,70 @@ export function ToolbarControls({
                     startIcon={primaryAction.startIcon ?? <AddRoundedIcon />}
                     onClick={primaryAction.onClick}
                     disabled={primaryAction.disabled}
+                    sx={{ height: 40, minHeight: 40, borderRadius: 1, flexShrink: 0 }}
                 >
                     {primaryAction.label}
                 </Button>
             ) : null}
         </Stack>
+    )
+}
+
+export function ColumnVisibilityControl({
+    options,
+    onToggle,
+    buttonLabel,
+    menuLabel
+}: NonNullable<ToolbarControlsProps['columnVisibilityControl']>) {
+    const { t } = useTranslation('apps')
+    const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null)
+    const visibleCount = options.filter((option) => option.visible).length
+    const effectiveButtonLabel = buttonLabel ?? t('toolbar.columns', 'Columns')
+    const effectiveMenuLabel = menuLabel ?? t('toolbar.columnsMenu', 'Table columns')
+
+    if (options.length < 2) return null
+
+    return (
+        <>
+            <Button
+                type='button'
+                variant='outlined'
+                size='small'
+                startIcon={<ViewColumnRoundedIcon fontSize='small' />}
+                aria-haspopup='menu'
+                aria-expanded={anchorEl ? 'true' : undefined}
+                onClick={(event) => setAnchorEl(event.currentTarget)}
+                data-testid='runtime-column-visibility-button'
+                sx={{ height: 40, minHeight: 40, borderRadius: 1, flexShrink: 0 }}
+            >
+                {effectiveButtonLabel}
+            </Button>
+            <Menu
+                anchorEl={anchorEl}
+                open={Boolean(anchorEl)}
+                onClose={() => setAnchorEl(null)}
+                MenuListProps={{ 'aria-label': effectiveMenuLabel }}
+            >
+                {options.map((option) => {
+                    const disabled = option.disabled || (option.visible && visibleCount <= 1)
+                    return (
+                        <MenuItem
+                            key={option.field}
+                            dense
+                            disabled={disabled}
+                            onClick={() => {
+                                if (disabled) return
+                                onToggle(option.field, !option.visible)
+                            }}
+                            data-testid={`runtime-column-visibility-option-${option.field}`}
+                        >
+                            <Checkbox size='small' checked={option.visible} disabled={disabled} sx={{ p: 0.5, mr: 1 }} />
+                            <ListItemText primary={option.label} />
+                        </MenuItem>
+                    )
+                })}
+            </Menu>
+        </>
     )
 }
 

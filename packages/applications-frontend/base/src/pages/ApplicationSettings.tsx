@@ -136,7 +136,15 @@ const BASE_ROLE_PERMISSIONS: Record<ApplicationRole, Record<ApplicationCapabilit
     }
 }
 
-const LEARNING_CONTENT_COLUMN_FIELDS = ['Title', 'ResourceType', 'PublicationStatus', 'ProjectId', 'UpdatedAt', 'CreatedBy'] as const
+const LEARNING_CONTENT_COLUMN_FIELDS = [
+    'Title',
+    'ResourceType',
+    'PublicationStatus',
+    'Instructor',
+    'ProjectId',
+    'UpdatedAt',
+    'CreatedBy'
+] as const
 
 const cloneRoleMatrix = (): Record<ApplicationRole, Record<ApplicationCapabilityKey, boolean>> =>
     Object.fromEntries(

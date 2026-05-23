@@ -31,10 +31,12 @@ Before implementation, produce or verify a UI Contract for every touched screen,
 -   Validation messages must be localized and user-facing. Raw Zod/internal messages are defects on localized surfaces.
 -   Reuse existing MUI dashboard/app-template primitives before creating new widgets or layouts.
 -   Fix generic runtime metadata/rendering behavior where possible. Do not add LMS-only UI forks for generic problems.
+-   `packages/apps-template-mui` must stay isolated from the legacy template packages. It must not depend on `packages/universo-template-mui` or any feature package scheduled for removal during the architectural transition (`metahubs-*`, `applications-*`, `admin-*`, `profile-*`, `start-*`). Component duplication between those packages and `apps-template-mui` is acceptable and intentional during the transition. See `references/apps-template-isolation.md`.
 
 ## References
 
 -   Read `references/field-control-contract.md` when mapping metadata fields to form controls.
 -   Read `references/data-grid-display-contract.md` when table/card output or DataGrid columns are affected.
 -   Read `references/dashboard-template-contract.md` when app layout, widgets, relation builders, or dashboard consistency are affected.
+-   Read `references/apps-template-isolation.md` when work touches `packages/apps-template-mui`, its dependency boundary, or shared-vs-duplicated component decisions during the architectural transition.
 -   Read `references/evaluation.md` when checking that this skill would catch known bad UI plans.

@@ -366,6 +366,22 @@ describe('LMS platform primitive contracts', () => {
         expect(DEFAULT_APPLICATION_LEARNING_CONTENT_SETTINGS.supportedResourceTypes).toContainEqual(
             expect.objectContaining({ resourceType: 'scorm', deferred: true })
         )
+        expect(DEFAULT_APPLICATION_LEARNING_CONTENT_SETTINGS.columnPreset.columns.map((column) => column.field)).toEqual([
+            'type',
+            'title',
+            'status',
+            'ResourceType',
+            'Instructor',
+            'ProjectId',
+            'CreatedBy'
+        ])
+        expect(DEFAULT_APPLICATION_LEARNING_CONTENT_SETTINGS.columnPreset.columns).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ field: 'Instructor', visible: false }),
+                expect.objectContaining({ field: 'ProjectId', visible: false }),
+                expect.objectContaining({ field: 'CreatedBy', visible: false })
+            ])
+        )
 
         expect(
             sanitizeApplicationLearningContentSettings({

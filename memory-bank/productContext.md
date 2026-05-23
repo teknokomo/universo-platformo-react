@@ -1,127 +1,186 @@
 # Product Context
 
-> **Last Reviewed**: 2026-02-10 (no change)
+> **Last Reviewed**: 2026-05-22 (refreshed: product focus shifted from UPDL to the metahub configuration model and LMS as the primary configuration)
 
 ## Purpose
 
-Expanding the inherited upstream shell with multi-user capabilities for collaborative workflows within Uniq (workflows/projects), creating visual-programming functionality, business applications, games, and AR/VR applications.
+Universo Platformo extends an inherited upstream shell into a
+**configuration platform**: organizations describe their domain on a
+small, stable set of entity-type primitives, attach scripts, and ship
+the result as an **application** that runs in workspaces with multi-user
+collaboration.
+
+The same primitives (Hub, Object, Page, Set, Enumeration, Ledger,
+Constants Library) cover everything from a learning management system
+to a planning tool to a custom business application — without
+introducing new platform-level types for each product.
 
 ## Development Philosophy
 
--   Minimal changes to the original codebase
--   Backwards compatibility
--   Simplicity over complexity
--   Shared runtime DDL logic lives in a dedicated package (`@universo/schema-ddl`) to avoid cross-package coupling
--   Operational stability: pool budgets aligned with Supabase limits; pool errors log state metrics
+-   **Generic over feature-specific**: configuration data and i18n drive
+    behavior; widgets stay generic. LMS-specific labels, icons, and
+    flows are metadata, not widget code.
+-   **Strengthen the existing primitive over adding a new one**: when a
+    domain need does not fit the current entity types, prefer extending
+    a preset (capabilities or `recordBehavior`) or building a custom
+    type via the Entity Type Constructor.
+-   **Three-layer placement**: domain logic and seeded content live in
+    the metahub; deployment-wide tuning lives in the application
+    control panel; user-authored content lives in workspaces.
+-   **Minimal changes to the inherited shell** where it still works.
+-   **Backwards compatibility** when feasible.
+-   **Operational stability**: pool budgets aligned with Supabase
+    limits; pool error telemetry enabled.
+-   **Shared runtime DDL**: all schema generation lives in
+    `@universo/schema-ddl` to avoid coupling between feature packages.
 
-## 3D/AR/VR
+## Primary Configuration: LMS
 
-Modern AR/VR and 3D application development faces a key problem: a multitude of different engines and frameworks often require reimplementing the same logic for each platform. **UPDL** is designed to solve this problem by providing a **unified description language** for content. Implementing UPDL will allow development teams to:
+The first complete product on the platform is an **LMS configuration**,
+benchmarked against **iSpring LMS Learning Content**. The current
+implementation goal is to drive Learning Content (Projects, Standalone
+Content, Courses, Learning Tracks, Quizzes) to functional parity with
+iSpring LMS while staying on the platform's generic primitives.
 
--   **Develop faster and only once:** Create the scene description and game logic a single time, rather than redoing it for every engine. UPDL acts as an intermediate layer that can automatically generate platform-specific implementations across different tech stacks. This is especially valuable for studios targeting multiple platforms (for example, WebAR and native apps) – they can design in UPDL and export to each target as needed without starting from scratch.
--   **Embrace multi-platform from the start:** Thanks to UPDL's abstract nature, multi-platform deployment is considered from the design phase. The project is built with the assumption it might run anywhere. All engine-specific details remain "behind the scenes" until the export stage. The team can focus on user experience and game mechanics without being distracted by the syntax of different APIs.
--   **Scale projects efficiently:** The format is intended for a wide range of applications – from a simple AR quiz to an MMO game. UPDL's node-based structure and extensibility make it suitable for small prototypes as well as complex projects, promoting reuse of design and easier project evolution. As the project grows, the same UPDL description can be expanded and exported to new platforms, ensuring consistency across versions.
+The LMS configuration starts from the `lms` metahub template, which
+includes the same five presets as the basic template (Hub, Object,
+Page, Set, Enumeration). Ledger-style entities in the LMS template are
+implemented as `kind: 'object'` with `config.ledger` (Learning
+Activity, Enrollment, Attendance, Certificate, Points, Notification) —
+demonstrating "strengthen the existing preset" rather than adding a
+separate Ledger entity.
 
-By addressing these needs, UPDL will streamline development workflows. Teams can iterate rapidly on the core experience in a platform-agnostic way, then rely on exporters to bring that experience to each target environment. This unification reduces duplicated effort, lowers the barrier to support new platforms, and helps maintain consistency in functionality across all outputs.
+Out of scope for the current LMS slice (deferred):
 
-## UPDL Use Cases
+-   File and SCORM/xAPI/media import.
+-   AI-assisted content generation.
+-   Internal messaging.
 
-### Educational AR Applications
+These will be revisited once the core Learning Content surface reaches
+parity.
 
-1. **Mineral Identification Quizzes**
+## Other Active And Planned Configurations
 
-    - Teachers create scenes with 3D models of minerals
-    - Add interactive elements for knowledge testing
-    - Publish as AR applications for student smartphones
-    - Students scan markers to view and interact with 3D models
+-   **Universo MMOOMM** (planned/early design): a massively multiplayer
+    space sandbox built on the platform. Production chains, territorial
+    control, corporations, and integration with Kiberplano for
+    real-world execution.
+-   **Universo Kiberplano** (planned/early design): an integrated
+    planning system that bridges digital plans, multi-agent
+    orchestration, distributed nodes, and robotic execution.
+-   **Future "1C-compatible" metahub template**: a curated preset set
+    that mirrors the full 1C:Enterprise 8.x metadata-object map for
+    organizations migrating from 1C.
 
-2. **Interactive Learning Materials**
-    - Anatomical models for medical education
-    - Interactive physics experiments for science classes
-    - Historical reconstructions for history lessons
+These configurations share the platform; they are not separate
+products.
 
-### Presentation 3D Applications
+## Architectural Transition
 
-1. **Product Demonstrations**
+The platform is in active transition from a "feature packages on
+`universo-template-mui`" layout to an "everything is an Application on
+`apps-template-mui`" layout. Today:
 
-    - Interactive 3D product models
-    - Animations to showcase functionality
-    - Publication as both web applications and AR experiences
+-   `metahubs-*`, `applications-*`, `admin-*`, `profile-*`, `start-*`,
+    `auth-*` live as **separate workspace packages** rendered through
+    `universo-template-mui`.
+-   `apps-template-mui` is the new template for **published
+    applications**. It is intentionally **isolated** from
+    `universo-template-mui` and the legacy feature packages —
+    component duplication is acceptable during the transition.
+-   System applications are bootstrapped today via a **pseudo-app
+    pattern** (hand-built base snapshots → file migrations → first-run
+    install). The likely future direction is JSON-snapshot
+    configurations.
+-   A first-run **Setup Wizard** is planned: it will list required and
+    recommended system applications and let the user choose additional
+    applications from the bundled set and from a central marketplace.
 
-2. **Architectural Visualization**
-    - Interactive building models
-    - Toggle between different configurations
-    - Export to web or AR for physical location overlay
+Practical rule: continue developing in the existing legacy packages
+when the work fits there. Do not block tasks on the
+metahub-as-application migration completing.
 
-### Integration with Universo MMOOMM
+The full description lives in
+`.agents/skills/universo-platform-architecture/references/architectural-transition.md`.
 
-1. **Virtual World Prototyping**
+## Workspace Multi-User Collaboration
 
-    - Development of virtual world prototypes
-    - Testing game mechanics
-    - Component export for use in full applications
+Each published application carries its own **workspaces**. A workspace
+provides:
 
-2. **Multiplayer Interactions**
-    - Interactive spaces for collaboration
-    - Prototyping multiplayer game elements
-    - Integration with Supabase multiplayer functionality
+-   isolated runtime data per tenant,
+-   role-based membership,
+-   end-user content authoring (create, edit, copy, delete) for users
+    with sufficient role,
+-   per-workspace preferences and overrides where applicable.
 
-## APPs Architecture ✅ **COMPLETE**
+User content always lives in workspaces — never in the metahub or in
+the application control panel.
 
-**6 Working Applications** with modular architecture minimizing core shell changes:
+## Use Cases
 
--   **UPDL**: High-level abstract nodes (Space, Entity, Component, Event, Action, Data, Universo)
--   **Publish Frontend/Backend**: Multi-technology export with template-first architecture
--   **Analytics**: Quiz performance tracking and lead collection
--   **Profile Frontend/Backend**: Enhanced user management with workspace packages
+### LMS
 
-**Key Benefits:**
+-   Build courses, lessons, learning tracks, quizzes through the
+    metahub authoring surface.
+-   Seed default content with the configuration; let instructors author
+    real courses inside the published LMS application's workspaces.
+-   Track enrollments, attendance, certificates, and points through
+    `config.ledger` Objects.
 
--   Template-based export system supporting multiple technologies
--   Clean separation of concerns with minimal core changes
--   Publication URL format (`/p/{uuid}`) with iframe-based rendering
--   Proven scalability with production-ready AR.js and PlayCanvas support
+### Custom Business Applications
 
-## Current Status: Alpha Achieved (v0.21.0-alpha, July 2025)
+-   Model directories (catalogs), event records (documents), and
+    aggregations (registers) as Objects with the appropriate
+    `recordBehavior` mode and capabilities.
+-   Use Pages for authored content (knowledge base, articles,
+    onboarding instructions).
+-   Attach TypeScript scripts for validation, derived values, and
+    domain transitions.
 
-**Platform Status**: **Alpha Achieved** - Production-ready platform with complete UPDL system
+### Multi-Tenant Workspaces
 
-### ✅ Major Achievements
+-   Run a single configuration across many tenants with isolated data,
+    membership, and access policies.
+-   Replace legacy 1C:Enterprise 8.x deployments with a more flexible
+    model that still feels familiar to 1C users (with the future
+    1C-compatible template).
 
-| Milestone                       | Status      | Details                                                                         |
-| ------------------------------- | ----------- | ------------------------------------------------------------------------------- |
-| **High-Level UPDL System**      | ✅ COMPLETE | 7 core abstract nodes (Space, Entity, Component, Event, Action, Data, Universo) |
-| **Multi-Technology Export**     | ✅ COMPLETE | AR.js (production), PlayCanvas (ready), template-based architecture             |
-| **Template-First Architecture** | ✅ COMPLETE | Reusable export templates across multiple technologies                          |
-| **Alpha Status**                | ✅ ACHIEVED | Production-ready stability and feature completeness                             |
+## Legacy Product Surface (historical context)
 
-### Current Capabilities
+Earlier versions of the platform shipped a UPDL system (Universal
+Description Platform Language) for AR.js and PlayCanvas applications,
+along with packages such as `updl/`, `publish-frontend/`,
+`publish-backend/`, and `analytics-frontend/`. Those packages were
+removed from the active workspace. The current product focus is the
+metahub configuration model described above. References to UPDL in
+older documentation describe a historical surface, not the current
+product.
 
--   ✅ **Production Platform**: Alpha-grade stability with 6 working applications
--   ✅ **Multi-Technology**: AR.js (production), PlayCanvas (ready), extensible system
--   ✅ **Template System**: Reusable quiz and MMOOMM templates
--   ✅ **Universo MMOOMM**: Foundation ready for MMO development
+## Current Status
 
-### Next Development Focus (Post-Alpha)
+-   **Repository version**: `upr-0.65.0-alpha`.
+-   **Active focus**: LMS Learning Content productization (Projects,
+    Standalone Content, Courses, Learning Tracks, Quizzes), with
+    iSpring LMS as the benchmark.
+-   **Platform groundwork**: ongoing consolidation of the metahub
+    configuration model, the entity type constructor, and the
+    metahub-as-application transition.
 
-**Advanced UPDL Features:**
+## Next Development Focus
 
--   Physics, Animation, Networking nodes for complex interactions
--   Advanced scene management and multi-scene projects
--   Collaborative editing and real-time collaboration features
-
-**Universo MMOOMM Expansion:**
-
--   Full MMO development pipeline with PlayCanvas
--   Multiplayer networking and territorial control systems
--   Integration with Kiberplano for real-world implementation
-
-**Production Deployment:**
-
--   Enterprise-grade hosting and scaling solutions
--   Community features for template sharing and collaboration
--   Advanced analytics and performance optimization
+-   Drive LMS Learning Content to parity with iSpring LMS on the
+    existing primitives.
+-   Continue the metahub-as-application migration: replace legacy
+    feature packages (one area at a time) with applications shipped
+    through `apps-template-mui`.
+-   Mature the DB layer (see `.kiro/steering/recommendations.md`
+    § 2.10 for the open question: deeper Knex query builder vs.
+    project-specific DB subsystem).
+-   Stand up the first-run Setup Wizard and the central marketplace.
+-   Build out Universo MMOOMM and Universo Kiberplano on the platform.
 
 ---
 
-_For detailed timeline of development milestones, see [progress.md](progress.md). For current project status, see [activeContext.md](activeContext.md)._
+_For the technical baseline see [techContext.md](techContext.md). For
+the day-to-day execution focus see [activeContext.md](activeContext.md)._

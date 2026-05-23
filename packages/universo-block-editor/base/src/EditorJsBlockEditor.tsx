@@ -235,10 +235,12 @@ export function EditorJsBlockEditor({
     const onChangeRef = useRef(onChange)
     const onValidationErrorRef = useRef(onValidationError)
     const changeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const changeSequenceRef = useRef(0)
     const [loadError, setLoadError] = useState<string | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [retryToken, setRetryToken] = useState(0)
     const [fallbackText, setFallbackText] = useState(() => JSON.stringify(value, null, 2))
+    const [committedChangeSequence, setCommittedChangeSequence] = useState(0)
     const mergedLabels = { ...DEFAULT_LABELS, ...labels }
     const resolvedContentLocale = (contentLocale ?? locale ?? 'en').split(/[-_]/)[0].toLowerCase() || 'en'
     const allowedBlockTypesKey = buildAllowedBlockTypesKey(allowedBlockTypes)
@@ -324,28 +326,38 @@ export function EditorJsBlockEditor({
                     readOnly,
                     i18n: buildEditorJsI18n(locale),
                     async onChange(api: { saver: { save: () => Promise<unknown> } }) {
+                        const changeSequence = ++changeSequenceRef.current
+
                         if (changeTimerRef.current) {
                             clearTimeout(changeTimerRef.current)
+                            changeTimerRef.current = null
                         }
 
-                        changeTimerRef.current = setTimeout(async () => {
-                            try {
-                                const saved = await api.saver.save()
-                                const normalized = mergeEditorJsOutputDataWithLocale(
-                                    saved,
-                                    initialValueRef.current,
-                                    resolvedContentLocale,
-                                    validationOptions
-                                )
-                                initialValueRef.current = normalized
-                                lastAppliedValueJsonRef.current = buildEditorValueSignature(normalized, resolvedContentLocale)
-                                onValidationErrorRef.current?.(null)
-                                onChangeRef.current(normalized)
-                            } catch (error) {
-                                const message = error instanceof Error ? error.message : mergedLabels.validationError
-                                onValidationErrorRef.current?.(message)
+                        try {
+                            const saved = await api.saver.save()
+                            if (changeSequence !== changeSequenceRef.current) {
+                                return
                             }
-                        }, 250)
+
+                            const normalized = mergeEditorJsOutputDataWithLocale(
+                                saved,
+                                initialValueRef.current,
+                                resolvedContentLocale,
+                                validationOptions
+                            )
+                            initialValueRef.current = normalized
+                            lastAppliedValueJsonRef.current = buildEditorValueSignature(normalized, resolvedContentLocale)
+                            onValidationErrorRef.current?.(null)
+                            onChangeRef.current(normalized)
+                            setCommittedChangeSequence(changeSequence)
+                        } catch (error) {
+                            if (changeSequence !== changeSequenceRef.current) {
+                                return
+                            }
+
+                            const message = error instanceof Error ? error.message : mergedLabels.validationError
+                            onValidationErrorRef.current?.(message)
+                        }
                     }
                 })
 
@@ -444,6 +456,7 @@ export function EditorJsBlockEditor({
             <Box
                 ref={holderRef}
                 data-testid='editorjs-block-editor'
+                data-editorjs-committed-sequence={committedChangeSequence}
                 sx={{
                     border: 1,
                     borderColor: 'divider',

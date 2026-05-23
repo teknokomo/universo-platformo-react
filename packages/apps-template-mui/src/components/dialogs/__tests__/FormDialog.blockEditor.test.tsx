@@ -3,7 +3,9 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defaultDashboardLayoutConfig, type PageBlockContent } from '@universo/types'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import i18n from '@universo/i18n'
 import { FormDialog, type FieldConfig } from '../FormDialog'
+import '../../../i18n'
 
 const editorMocks = vi.hoisted(() => ({
     capturedAllowedBlockTypes: undefined as readonly string[] | undefined,
@@ -67,6 +69,7 @@ describe('FormDialog block editor fields', () => {
 
     afterEach(() => {
         vi.unstubAllGlobals()
+        void i18n.changeLanguage('en')
     })
 
     it('renders metadata-driven Editor.js JSON fields and submits normalized block content', async () => {
@@ -183,6 +186,306 @@ describe('FormDialog block editor fields', () => {
             TargetObjectCodename: 'Pages',
             TargetRecordId: 'page-1'
         })
+    })
+
+    it('does not expose raw unavailable runtime record picker IDs', async () => {
+        const rawRecordId = '019e44fc-a16a-760c-8190-280c4d9dc720'
+        const fetchMock = vi.fn(
+            async () =>
+                new Response(
+                    JSON.stringify({
+                        objectCollection: { id: 'pages-object', codename: 'Pages', tableName: null, name: 'Pages' },
+                        sections: [],
+                        objectCollections: [],
+                        columns: [],
+                        rows: [],
+                        pagination: { total: 0, limit: 100, offset: 0 },
+                        permissions: {},
+                        layoutConfig: defaultDashboardLayoutConfig
+                    }),
+                    { status: 200, headers: { 'Content-Type': 'application/json' } }
+                )
+        )
+        vi.stubGlobal('fetch', fetchMock)
+
+        const fields: FieldConfig[] = [
+            {
+                id: 'TargetObjectCodename',
+                label: 'Target Object',
+                type: 'STRING',
+                required: true,
+                uiConfig: {
+                    widget: 'select',
+                    stringOptions: [{ value: 'Pages', label: 'Pages' }]
+                }
+            },
+            {
+                id: 'TargetRecordId',
+                label: 'Target Record',
+                type: 'STRING',
+                required: true,
+                uiConfig: {
+                    widget: 'runtimeRecordPicker',
+                    runtimeRecordPicker: {
+                        targetObjectCodenameField: 'TargetObjectCodename',
+                        allowedObjectCodenames: ['Pages'],
+                        labelFields: ['Title'],
+                        limit: 100
+                    }
+                }
+            }
+        ]
+
+        render(
+            <FormDialog
+                open
+                title='Edit course item'
+                fields={fields}
+                locale='en'
+                initialData={{ TargetObjectCodename: 'Pages', TargetRecordId: rawRecordId }}
+                onClose={vi.fn()}
+                onSubmit={vi.fn()}
+                apiBaseUrl='/api/v1'
+                applicationId='app-1'
+                objectCollections={[{ id: 'pages-object', codename: 'Pages', name: 'Pages' }]}
+                currentWorkspaceId='workspace-1'
+            />
+        )
+
+        await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+
+        const user = userEvent.setup()
+        await user.click(screen.getByRole('combobox', { name: 'Target Record' }))
+
+        expect(screen.getByRole('option', { name: 'Selected record is unavailable.' })).toBeInTheDocument()
+        expect(screen.queryByText(rawRecordId)).not.toBeInTheDocument()
+    })
+
+    it('does not expose raw runtime record picker option IDs when labels are missing', async () => {
+        const rawRecordId = '019e44fc-a16a-760c-8190-280c4d9dc722'
+        const fetchMock = vi.fn(
+            async () =>
+                new Response(
+                    JSON.stringify({
+                        objectCollection: { id: 'pages-object', codename: 'Pages', tableName: null, name: 'Pages' },
+                        sections: [],
+                        objectCollections: [],
+                        columns: [],
+                        rows: [{ id: rawRecordId }],
+                        pagination: { total: 1, limit: 100, offset: 0 },
+                        permissions: {},
+                        layoutConfig: defaultDashboardLayoutConfig
+                    }),
+                    { status: 200, headers: { 'Content-Type': 'application/json' } }
+                )
+        )
+        vi.stubGlobal('fetch', fetchMock)
+
+        const fields: FieldConfig[] = [
+            {
+                id: 'TargetObjectCodename',
+                label: 'Target Object',
+                type: 'STRING',
+                required: true,
+                uiConfig: {
+                    widget: 'select',
+                    stringOptions: [{ value: 'Pages', label: 'Pages' }]
+                }
+            },
+            {
+                id: 'TargetRecordId',
+                label: 'Target Record',
+                type: 'STRING',
+                required: true,
+                uiConfig: {
+                    widget: 'runtimeRecordPicker',
+                    runtimeRecordPicker: {
+                        targetObjectCodenameField: 'TargetObjectCodename',
+                        allowedObjectCodenames: ['Pages'],
+                        labelFields: ['Title', 'Name'],
+                        limit: 100
+                    }
+                }
+            }
+        ]
+
+        render(
+            <FormDialog
+                open
+                title='Create course item'
+                fields={fields}
+                locale='en'
+                initialData={{ TargetObjectCodename: 'Pages' }}
+                onClose={vi.fn()}
+                onSubmit={vi.fn()}
+                apiBaseUrl='/api/v1'
+                applicationId='app-1'
+                objectCollections={[{ id: 'pages-object', codename: 'Pages', name: 'Pages' }]}
+                currentWorkspaceId='workspace-1'
+            />
+        )
+
+        await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+
+        const user = userEvent.setup()
+        await user.click(screen.getByRole('combobox', { name: 'Target Record' }))
+
+        expect(screen.getByRole('option', { name: 'Untitled record' })).toBeInTheDocument()
+        expect(screen.queryByText(rawRecordId)).not.toBeInTheDocument()
+    })
+
+    it('does not render unconfigured generic reference fields as editable raw ID inputs', () => {
+        const rawProjectId = '019e44fc-a16a-760c-8190-280c4d9dc720'
+        const fields: FieldConfig[] = [
+            {
+                id: 'ProjectId',
+                label: 'Project',
+                type: 'REF'
+            }
+        ]
+
+        render(
+            <FormDialog
+                open
+                title='Edit item'
+                fields={fields}
+                locale='en'
+                initialData={{ ProjectId: rawProjectId }}
+                onClose={vi.fn()}
+                onSubmit={vi.fn()}
+            />
+        )
+
+        const projectField = screen.getByRole('textbox', { name: 'Project' })
+
+        expect(projectField).toBeDisabled()
+        expect(projectField).toHaveValue('Selected reference is unavailable.')
+        expect(screen.queryByText(rawProjectId)).not.toBeInTheDocument()
+    })
+
+    it('sanitizes runtime record picker load failures before rendering helper text', async () => {
+        const rawRecordId = '019e44fc-a16a-760c-8190-280c4d9dc721'
+        const fetchMock = vi.fn(async () => {
+            return new Response(JSON.stringify({ error: `SQL relation app_runtime.pages does not exist for ${rawRecordId}` }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' }
+            })
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        const fields: FieldConfig[] = [
+            {
+                id: 'TargetObjectCodename',
+                label: 'Target Object',
+                type: 'STRING',
+                required: true,
+                uiConfig: {
+                    widget: 'select',
+                    stringOptions: [{ value: 'Pages', label: 'Pages' }]
+                }
+            },
+            {
+                id: 'TargetRecordId',
+                label: 'Target Record',
+                type: 'STRING',
+                required: true,
+                uiConfig: {
+                    widget: 'runtimeRecordPicker',
+                    runtimeRecordPicker: {
+                        targetObjectCodenameField: 'TargetObjectCodename',
+                        allowedObjectCodenames: ['Pages'],
+                        labelFields: ['Title'],
+                        limit: 100
+                    }
+                }
+            }
+        ]
+
+        render(
+            <FormDialog
+                open
+                title='Edit item'
+                fields={fields}
+                locale='en'
+                initialData={{ TargetObjectCodename: 'Pages' }}
+                onClose={vi.fn()}
+                onSubmit={vi.fn()}
+                apiBaseUrl='/api/v1'
+                applicationId='app-1'
+                objectCollections={[{ id: 'pages-object', codename: 'Pages', name: 'Pages' }]}
+                currentWorkspaceId='workspace-1'
+            />
+        )
+
+        await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+
+        expect(screen.getByText('Unable to load records.')).toBeInTheDocument()
+        expect(document.body).not.toHaveTextContent('SQL relation')
+        expect(document.body).not.toHaveTextContent('app_runtime.pages')
+        expect(document.body).not.toHaveTextContent(rawRecordId)
+    })
+
+    it('uses the localized runtime record picker load fallback for unsafe Russian errors', async () => {
+        await i18n.changeLanguage('ru')
+        const rawRecordId = '019e44fc-a16a-760c-8190-280c4d9dc722'
+        const fetchMock = vi.fn(async () => {
+            return new Response(JSON.stringify({ error: `SQL relation app_runtime.pages does not exist for ${rawRecordId}` }), {
+                status: 500,
+                headers: { 'Content-Type': 'application/json' }
+            })
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        const fields: FieldConfig[] = [
+            {
+                id: 'TargetObjectCodename',
+                label: 'Целевой объект',
+                type: 'STRING',
+                required: true,
+                uiConfig: {
+                    widget: 'select',
+                    stringOptions: [{ value: 'Pages', label: 'Страницы' }]
+                }
+            },
+            {
+                id: 'TargetRecordId',
+                label: 'Целевая запись',
+                type: 'STRING',
+                required: true,
+                uiConfig: {
+                    widget: 'runtimeRecordPicker',
+                    runtimeRecordPicker: {
+                        targetObjectCodenameField: 'TargetObjectCodename',
+                        allowedObjectCodenames: ['Pages'],
+                        labelFields: ['Title'],
+                        limit: 100
+                    }
+                }
+            }
+        ]
+
+        render(
+            <FormDialog
+                open
+                title='Редактировать элемент'
+                fields={fields}
+                locale='ru'
+                initialData={{ TargetObjectCodename: 'Pages' }}
+                onClose={vi.fn()}
+                onSubmit={vi.fn()}
+                apiBaseUrl='/api/v1'
+                applicationId='app-1'
+                objectCollections={[{ id: 'pages-object', codename: 'Pages', name: 'Страницы' }]}
+                currentWorkspaceId='workspace-1'
+            />
+        )
+
+        await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+
+        expect(screen.getByText('Не удалось загрузить записи.')).toBeInTheDocument()
+        expect(document.body).not.toHaveTextContent('SQL relation')
+        expect(document.body).not.toHaveTextContent('app_runtime.pages')
+        expect(document.body).not.toHaveTextContent(rawRecordId)
     })
 
     it('clears runtime record picker values when the target object changes', async () => {
@@ -350,9 +653,11 @@ describe('FormDialog block editor fields', () => {
         fireEvent.change(urlField, { target: { value: 'javascript:alert(1)' } })
         expect(submit).toBeDisabled()
         expect(screen.getByText('Enter an absolute http or https URL.')).toBeVisible()
+        expect(screen.queryByTestId('source-resource-source-domain-preview')).not.toBeInTheDocument()
         expect(screen.queryByTestId('resource-preview')).not.toBeInTheDocument()
 
         fireEvent.change(urlField, { target: { value: 'https://example.com/lesson' } })
+        expect(screen.getByTestId('source-resource-source-domain-preview')).toHaveTextContent('Domain: example.com')
         expect(screen.getByTestId('resource-preview')).toBeInTheDocument()
         expect(submit).toBeEnabled()
 
@@ -400,6 +705,82 @@ describe('FormDialog block editor fields', () => {
         })
     })
 
+    it('applies resource-source type policy from runtime settings', async () => {
+        const fields: FieldConfig[] = [
+            {
+                id: 'source',
+                label: 'Source',
+                type: 'JSON',
+                required: true,
+                uiConfig: {
+                    widget: 'resourceSource'
+                }
+            }
+        ]
+
+        render(
+            <FormDialog
+                open
+                title='Create resource'
+                fields={fields}
+                locale='en'
+                onClose={vi.fn()}
+                onSubmit={vi.fn()}
+                resourceSourceTypes={[
+                    { resourceType: 'page', enabled: true, label: 'Page' },
+                    { resourceType: 'url', enabled: true, label: 'Link' },
+                    { resourceType: 'embed', enabled: true },
+                    { resourceType: 'scorm', enabled: true, deferred: true, label: 'SCORM package' },
+                    { resourceType: 'file', enabled: false, label: 'File upload' }
+                ]}
+            />
+        )
+
+        fireEvent.mouseDown(screen.getByRole('combobox', { name: /Resource type/i }))
+
+        expect(screen.getByRole('option', { name: /^Page$/i })).toBeEnabled()
+        expect(screen.getByRole('option', { name: /^Link$/i })).toBeEnabled()
+        expect(screen.queryByRole('option', { name: /^url$/i })).not.toBeInTheDocument()
+        expect(screen.getByRole('option', { name: 'Embed' })).toBeEnabled()
+        expect(screen.queryByRole('option', { name: 'embed' })).not.toBeInTheDocument()
+        expect(screen.getByRole('option', { name: /SCORM package.*not available yet/i })).toHaveAttribute('aria-disabled', 'true')
+        expect(screen.queryByRole('option', { name: /File upload/i })).not.toBeInTheDocument()
+    })
+
+    it('keeps the selected embed resource type readable when metadata does not provide a label', async () => {
+        const fields: FieldConfig[] = [
+            {
+                id: 'source',
+                label: 'Source',
+                type: 'JSON',
+                required: true,
+                uiConfig: {
+                    widget: 'resourceSource'
+                }
+            }
+        ]
+
+        render(
+            <FormDialog
+                open
+                title='Create embed resource'
+                fields={fields}
+                locale='en'
+                onClose={vi.fn()}
+                onSubmit={vi.fn()}
+                resourceSourceTypes={[{ resourceType: 'embed', enabled: true }]}
+            />
+        )
+
+        const user = userEvent.setup()
+        const typeSelect = screen.getByRole('combobox', { name: /Resource type/i })
+        fireEvent.mouseDown(typeSelect)
+        await user.click(screen.getByRole('option', { name: 'Embed' }))
+
+        expect(typeSelect).toHaveTextContent('Embed')
+        expect(typeSelect).not.toHaveTextContent(/^embed$/)
+    })
+
     it('applies textarea metadata to localized string fields', async () => {
         const fields: FieldConfig[] = [
             {
@@ -428,6 +809,75 @@ describe('FormDialog block editor fields', () => {
         })
     })
 
+    it('renders semantic long-text string fields as multiline controls by default', async () => {
+        const fields: FieldConfig[] = [
+            {
+                id: 'AssignmentInstructions',
+                label: 'Instructions',
+                type: 'STRING'
+            },
+            {
+                id: 'Title',
+                label: 'Title',
+                type: 'STRING'
+            }
+        ]
+
+        render(<FormDialog open title='Edit assignment' fields={fields} locale='en' onClose={vi.fn()} onSubmit={vi.fn()} />)
+
+        const instructionsField = screen.getByRole('textbox', { name: /Instructions/i })
+        const titleField = screen.getByRole('textbox', { name: /Title/i })
+
+        expect(instructionsField.tagName.toLowerCase()).toBe('textarea')
+        expect(instructionsField).toHaveAttribute('rows', '4')
+        expect(titleField.tagName.toLowerCase()).toBe('input')
+    })
+
+    it('keeps normal JSON fields readable without leaking raw payloads', async () => {
+        const rawRecordId = '018f52d6-9b71-7d58-8f2d-889ac8263a6d'
+        const onSubmit = vi.fn().mockResolvedValue(undefined)
+        const fields: FieldConfig[] = [
+            {
+                id: 'sourceJson',
+                label: 'Source data',
+                type: 'JSON',
+                required: true
+            }
+        ]
+        const initialData = {
+            sourceJson: {
+                storageKey: 'uploads/course-intro.pdf',
+                recordId: rawRecordId,
+                mimeType: 'application/pdf'
+            }
+        }
+
+        render(
+            <FormDialog
+                open
+                title='Edit source'
+                fields={fields}
+                initialData={initialData}
+                locale='en'
+                onClose={vi.fn()}
+                onSubmit={onSubmit}
+            />
+        )
+
+        const displayField = screen.getByRole('textbox', { name: /Source data/i })
+        expect(displayField).toHaveValue('Structured data is managed by the application.')
+        expect(displayField).toHaveAttribute('readonly')
+        expect(screen.getByText('This field is not edited as raw JSON.')).toBeInTheDocument()
+        expect(document.body).not.toHaveTextContent(rawRecordId)
+        expect(document.body).not.toHaveTextContent('storageKey')
+        expect(document.body).not.toHaveTextContent('uploads/course-intro.pdf')
+        expect(document.body).not.toHaveTextContent('[object Object]')
+
+        await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+        expect(onSubmit).toHaveBeenCalledWith(initialData)
+    })
+
     it('supports page resources without raw JSON editing', async () => {
         const onSubmit = vi.fn().mockResolvedValue(undefined)
         const fields: FieldConfig[] = [
@@ -446,7 +896,8 @@ describe('FormDialog block editor fields', () => {
 
         const user = userEvent.setup()
         fireEvent.mouseDown(screen.getByRole('combobox', { name: /Resource type/i }))
-        await user.click(screen.getByRole('option', { name: 'page' }))
+        expect(screen.queryByRole('option', { name: 'page' })).not.toBeInTheDocument()
+        await user.click(screen.getByRole('option', { name: 'Page' }))
         await user.type(screen.getByRole('textbox', { name: /Page codename/i }), 'lesson-page')
         await user.click(screen.getByTestId('entity-form-submit'))
 
@@ -454,6 +905,64 @@ describe('FormDialog block editor fields', () => {
             source: {
                 type: 'page',
                 pageCodename: 'lesson-page',
+                launchMode: 'inline'
+            }
+        })
+    })
+
+    it('auto-resolves page resource codenames from metadata source fields', async () => {
+        const onSubmit = vi.fn().mockResolvedValue(undefined)
+        const fields: FieldConfig[] = [
+            {
+                id: 'Title',
+                label: 'Title',
+                type: 'STRING',
+                required: true
+            },
+            {
+                id: 'source',
+                label: 'Source',
+                type: 'JSON',
+                required: true,
+                uiConfig: {
+                    widget: 'resourceSource',
+                    autoPageCodename: {
+                        sourceFields: ['Title']
+                    }
+                }
+            }
+        ]
+
+        render(
+            <FormDialog
+                open
+                title='Create page resource'
+                fields={fields}
+                initialData={{ source: { type: 'page', pageCodename: '' } }}
+                locale='en'
+                onClose={vi.fn()}
+                onSubmit={onSubmit}
+            />
+        )
+
+        const user = userEvent.setup()
+        const submit = screen.getByTestId('entity-form-submit')
+
+        expect(screen.queryByRole('textbox', { name: /Page codename/i })).not.toBeInTheDocument()
+        expect(submit).toBeDisabled()
+
+        await user.type(screen.getByRole('textbox', { name: /Title/i }), 'Lunar Orbit Basics')
+
+        expect(screen.getByTestId('resource-preview')).toBeInTheDocument()
+        expect(submit).toBeEnabled()
+
+        await user.click(submit)
+
+        expect(onSubmit).toHaveBeenCalledWith({
+            Title: 'Lunar Orbit Basics',
+            source: {
+                type: 'page',
+                pageCodename: 'lunar-orbit-basics',
                 launchMode: 'inline'
             }
         })

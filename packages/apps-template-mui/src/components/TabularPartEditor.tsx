@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
+import Alert from '@mui/material/Alert'
 import Divider from '@mui/material/Divider'
 import Menu from '@mui/material/Menu'
 import MenuItem from '@mui/material/MenuItem'
@@ -10,7 +11,7 @@ import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import { DataGrid, type GridRowsProp, useGridApiRef } from '@mui/x-data-grid'
 import { useTranslation } from 'react-i18next'
-import { validateNumber, toNumberRules } from '@universo/utils'
+import { validateNumber, toNumberRules, type NumberValidationResult } from '@universo/utils'
 import type { FieldConfig } from './dialogs/FormDialog'
 import { ConfirmDeleteDialog } from './dialogs/ConfirmDeleteDialog'
 import { getDataGridLocaleText } from '../utils/getDataGridLocale'
@@ -64,6 +65,7 @@ export function TabularPartEditor({
     const [menuAnchorEl, setMenuAnchorEl] = useState<HTMLElement | null>(null)
     const [menuRowId, setMenuRowId] = useState<string | null>(null)
     const [deleteRowId, setDeleteRowId] = useState<string | null>(null)
+    const [rowEditError, setRowEditError] = useState<string | null>(null)
     const resolvedLocale = locale ?? i18n.language ?? 'en'
     const dataGridLocale = useMemo(() => getDataGridLocaleText(resolvedLocale), [resolvedLocale])
     const firstEditableFieldId = useMemo(
@@ -98,8 +100,37 @@ export function TabularPartEditor({
 
     const addDisabled = typeof maxRows === 'number' && value.length >= maxRows
 
+    const getNumberValidationMessage = useCallback(
+        (field: FieldConfig, result: NumberValidationResult): string => {
+            const rules = field.validationRules ?? {}
+
+            switch (result.errorKey) {
+                case 'mustBeNonNegative':
+                    return t('validation.nonNegative', 'Must be non-negative')
+                case 'belowMinimum':
+                    return t('validation.minValue', {
+                        defaultValue: 'Minimum value: {{min}}',
+                        min: typeof rules.min === 'number' ? rules.min : result.errorParams?.min
+                    })
+                case 'aboveMaximum':
+                    return t('validation.maxValue', {
+                        defaultValue: 'Maximum value: {{max}}',
+                        max: typeof rules.max === 'number' ? rules.max : result.errorParams?.max
+                    })
+                case 'tooManyIntegerDigits':
+                case 'tooManyDecimalDigits':
+                case 'exceedsSafeInteger':
+                    return t('validation.numberPrecisionExceeded', 'Value exceeds allowed precision')
+                default:
+                    return t('validation.invalidNumber', 'Invalid number')
+            }
+        },
+        [t]
+    )
+
     const handleAddRow = useCallback(() => {
         if (typeof maxRows === 'number' && value.length >= maxRows) return
+        setRowEditError(null)
         const localId = nextLocalIdRef.current++
         const newRow: Record<string, unknown> = {
             _localId: `__local_new_${localId}`,
@@ -131,6 +162,7 @@ export function TabularPartEditor({
     const handleDeleteRow = useCallback(
         (rowId: string) => {
             if (deleteDisabled) return
+            setRowEditError(null)
             onChange(value.filter((row, idx) => getRowId(row, idx) !== rowId))
         },
         [value, onChange, deleteDisabled]
@@ -173,6 +205,7 @@ export function TabularPartEditor({
 
     const handleSelectChange = useCallback(
         (rowId: string, fieldId: string, newValue: unknown) => {
+            setRowEditError(null)
             const updated = value.map((row, idx) => {
                 if (getRowId(row, idx) !== rowId) return row
                 return { ...row, [fieldId]: newValue }
@@ -200,9 +233,13 @@ export function TabularPartEditor({
                 onSelectChange: handleSelectChange,
                 deleteAriaLabel: t('tabular.delete', 'Delete'),
                 actionsAriaLabel: t('app.actions', 'Actions'),
-                locale: resolvedLocale
+                locale: resolvedLocale,
+                numberIncrementAriaLabel: t('number.increment', 'Increment'),
+                numberDecrementAriaLabel: t('number.decrement', 'Decrement'),
+                numberInvalidMessage: t('validation.invalidNumber', 'Invalid number'),
+                getNumberValidationMessage
             }),
-        [childFields, rowNumberById, handleDeleteRow, handleOpenRowMenu, handleSelectChange, t, resolvedLocale]
+        [childFields, rowNumberById, handleDeleteRow, handleOpenRowMenu, handleSelectChange, t, resolvedLocale, getNumberValidationMessage]
     )
 
     return (
@@ -217,6 +254,12 @@ export function TabularPartEditor({
                     {t('tabular.addRow', 'Add Row')}
                 </Button>
             </Box>
+
+            {rowEditError && (
+                <Alert severity='error' sx={{ mb: 1 }} onClose={() => setRowEditError(null)}>
+                    {rowEditError}
+                </Alert>
+            )}
 
             {/* Flex container replaces deprecated autoHeight prop (MUI DataGrid v7+) */}
             <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: 36, maxHeight: 400 }}>
@@ -234,9 +277,10 @@ export function TabularPartEditor({
                         ...dataGridLocale,
                         noRowsLabel: t('tabular.noRows', 'No rows yet. Click "Add Row" to start.')
                     }}
-                    processRowUpdate={(newRow, oldRow) => {
+                    processRowUpdate={(newRow, _oldRow) => {
                         const rowId = String(newRow.id)
                         const correctedRow = { ...newRow }
+                        setRowEditError(null)
                         const updated = value.map((row, idx) => {
                             if (getRowId(row, idx) !== rowId) return row
                             const patched = { ...row }
@@ -247,7 +291,7 @@ export function TabularPartEditor({
                                     if (field.type === 'REF' && cellValue === '') {
                                         cellValue = null
                                     }
-                                    // Validate NUMBER fields — revert to old value if invalid
+                                    // Validate NUMBER fields before committing the local row.
                                     if (
                                         field.type === 'NUMBER' &&
                                         cellValue != null &&
@@ -257,7 +301,7 @@ export function TabularPartEditor({
                                     ) {
                                         const result = validateNumber(cellValue, toNumberRules(field.validationRules))
                                         if (!result.valid) {
-                                            cellValue = oldRow[field.id] ?? null
+                                            throw new Error(getNumberValidationMessage(field, result))
                                         }
                                     }
                                     patched[field.id] = cellValue
@@ -270,7 +314,9 @@ export function TabularPartEditor({
                         return correctedRow
                     }}
                     onProcessRowUpdateError={(error) => {
-                        console.error('[TabularPartEditor] Row update error:', error)
+                        setRowEditError(
+                            error instanceof Error && error.message ? error.message : t('validation.invalidNumber', 'Invalid number')
+                        )
                     }}
                     sx={{
                         flex: 1,

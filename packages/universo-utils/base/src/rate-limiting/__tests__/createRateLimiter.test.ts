@@ -16,6 +16,10 @@ describe('createRateLimiter', () => {
     beforeEach(() => {
         // Reset environment
         delete process.env.REDIS_URL
+        delete process.env.API_RATE_LIMIT_WINDOW_MS
+        delete process.env.API_RATE_LIMIT_READ_MAX
+        delete process.env.API_RATE_LIMIT_WRITE_MAX
+        delete process.env.API_RATE_LIMIT_CUSTOM_MAX
 
         // Mock Redis client
         mockRedisClient = {
@@ -90,6 +94,29 @@ describe('createRateLimiter', () => {
             expect(rateLimit).toHaveBeenCalledWith(
                 expect.objectContaining({
                     max: 500
+                })
+            )
+        })
+
+        it('should allow environment overrides for dedicated test profiles', async () => {
+            process.env.API_RATE_LIMIT_WINDOW_MS = '120000'
+            process.env.API_RATE_LIMIT_READ_MAX = '5000'
+            process.env.API_RATE_LIMIT_WRITE_MAX = '2500'
+
+            await createRateLimiter('read', { windowMs: 60000, maxRead: 600 })
+            await createRateLimiter('write', { maxWrite: 240 })
+
+            expect(rateLimit).toHaveBeenNthCalledWith(
+                1,
+                expect.objectContaining({
+                    windowMs: 120000,
+                    max: 5000
+                })
+            )
+            expect(rateLimit).toHaveBeenNthCalledWith(
+                2,
+                expect.objectContaining({
+                    max: 2500
                 })
             )
         })

@@ -75,12 +75,14 @@ Optional e2e-specific overrides:
 -   `SUPABASE_JWT_SECRET`
 -   `AUTH_LOGIN_RATE_LIMIT_WINDOW_MS`
 -   `AUTH_LOGIN_RATE_LIMIT_MAX`
+-   `API_RATE_LIMIT_READ_MAX`
+-   `API_RATE_LIMIT_WRITE_MAX`
 -   `E2E_TEST_USER_PASSWORD`
 -   `E2E_TEST_USER_ROLE_CODENAMES`
 -   `E2E_TEST_USER_EMAIL_DOMAIN`
 -   `E2E_FULL_RESET_MODE` (`strict` by default, `off` only for manual debugging)
 
-For large suites, raise `AUTH_LOGIN_RATE_LIMIT_MAX` in the dedicated e2e backend env instead of weakening production defaults. The browser suite legitimately performs many auth round-trips across disposable users, bootstrap-admin setup, and API-assisted provisioning.
+For large suites, raise `AUTH_LOGIN_RATE_LIMIT_MAX`, `API_RATE_LIMIT_READ_MAX`, or `API_RATE_LIMIT_WRITE_MAX` in the dedicated e2e backend env instead of weakening production defaults. The browser suite legitimately performs many auth round-trips and API-assisted assertions across disposable users, bootstrap-admin setup, and generated runtime applications.
 
 All wrapper-based E2E commands now enforce the hosted-Supabase reset contract: drop all application-owned fixed schemas, dynamic `app_*` / `mhb_*` schemas, `upl_migrations`, and Supabase auth users before the suite starts and again after the server stops. Infrastructure schemas such as `public` stay in place so startup migrations can recreate platform state on top of a valid Supabase/Postgres base. Direct `pnpm exec playwright test ...` commands bypass that contract and are therefore debug-only. Use the wrapper commands below for normal validation.
 
@@ -233,6 +235,12 @@ pnpm run build:e2e
 node tools/testing/e2e/run-playwright-suite.mjs --project generators --grep "self-hosted app"
 ```
 
+Validate the committed LMS fixture contract without starting the browser runner:
+
+```bash
+pnpm run check:lms-fixture-contract
+```
+
 If the server is already running (e.g., from a previous E2E run), reuse it:
 
 ```bash
@@ -241,11 +249,11 @@ E2E_FULL_RESET_MODE=off E2E_ALLOW_REUSE_SERVER=true pnpm run test:e2e:generators
 
 ### Available Generators
 
-| Generator | Output | Description |
-| --- | --- | --- |
-| `metahubs-self-hosted-app-export` | `tools/fixtures/metahubs-self-hosted-app-snapshot.json` | Creates the localized Metahubs Self-Hosted App fixture, seeds the runtime settings baseline, publishes it, and exports the snapshot used by the self-hosted parity flows. |
-| `metahubs-quiz-app-export` | `tools/fixtures/metahubs-quiz-app-snapshot.json` | Creates the localized quiz application fixture and exports the snapshot used by quiz runtime import flows. |
-| `metahubs-lms-app-export` | `tools/fixtures/metahubs-lms-app-snapshot.json` | Creates the localized LMS application fixture with Learning Content Projects, standalone resources, CourseItems, TrackStages, seeded library affordances, and exports the snapshot used by LMS runtime import flows. |
+| Generator                         | Output                                                  | Description                                                                                                                                                                                                          |
+| --------------------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `metahubs-self-hosted-app-export` | `tools/fixtures/metahubs-self-hosted-app-snapshot.json` | Creates the localized Metahubs Self-Hosted App fixture, seeds the runtime settings baseline, publishes it, and exports the snapshot used by the self-hosted parity flows.                                            |
+| `metahubs-quiz-app-export`        | `tools/fixtures/metahubs-quiz-app-snapshot.json`        | Creates the localized quiz application fixture and exports the snapshot used by quiz runtime import flows.                                                                                                           |
+| `metahubs-lms-app-export`         | `tools/fixtures/metahubs-lms-app-snapshot.json`         | Creates the localized LMS application fixture with Learning Content Projects, standalone resources, CourseItems, TrackStages, seeded library affordances, and exports the snapshot used by LMS runtime import flows. |
 
 ### Creating New Generators
 

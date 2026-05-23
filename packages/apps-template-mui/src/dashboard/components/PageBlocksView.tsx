@@ -11,7 +11,7 @@ import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import Typography from '@mui/material/Typography'
 import { useTranslation } from 'react-i18next'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { extractPageBlockOutline } from '@universo/types'
 import type { RuntimePageBlock } from '@universo/types'
@@ -31,7 +31,7 @@ export type PageBlocksViewProps = {
     showProgressHeader?: boolean
     completeButtonMode?: CompleteButtonMode
     progressStorageKey?: string
-    onProgressChange?: (payload: { progressPercent: number; status: string }) => Promise<void> | void
+    onProgressChange?: (payload: { action: 'view' | 'complete' }) => Promise<void> | void
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === 'object' && !Array.isArray(value))
@@ -227,11 +227,12 @@ export default function PageBlocksView({
     const visibleBlocks = useMemo(() => blocks.filter((block) => isRecord(block)), [blocks])
     const outline = useMemo(() => extractPageBlockOutline(visibleBlocks, { locale, maxLevel: 3 }), [locale, visibleBlocks])
     const [readingProgress, setReadingProgress] = useState(() => readStoredProgress(progressStorageKey))
+    const persistedViewKeyRef = useRef<string | null>(null)
 
     const persistProgress = useCallback(
-        (progressPercent: number, status: string) => {
+        (action: 'view' | 'complete') => {
             if (!onProgressChange) return
-            void Promise.resolve(onProgressChange({ progressPercent, status })).catch(() => undefined)
+            void Promise.resolve(onProgressChange({ action })).catch(() => undefined)
         },
         [onProgressChange]
     )
@@ -241,16 +242,24 @@ export default function PageBlocksView({
     }, [progressStorageKey])
 
     useEffect(() => {
+        if (!onProgressChange || visibleBlocks.length === 0) return
+        const viewKey = progressStorageKey ?? `blocks:${visibleBlocks.length}`
+        if (persistedViewKeyRef.current === viewKey) return
+        persistedViewKeyRef.current = viewKey
+        persistProgress('view')
+    }, [onProgressChange, persistProgress, progressStorageKey, visibleBlocks.length])
+
+    useEffect(() => {
         if (completeButtonMode !== 'autoAfterOpen' || visibleBlocks.length === 0) return
         setReadingProgress(100)
         writeStoredProgress(progressStorageKey, 100)
-        persistProgress(100, 'completed')
+        persistProgress('complete')
     }, [completeButtonMode, persistProgress, progressStorageKey, visibleBlocks.length])
 
     const handleMarkComplete = () => {
         setReadingProgress(100)
         writeStoredProgress(progressStorageKey, 100)
-        persistProgress(100, 'completed')
+        persistProgress('complete')
     }
 
     if (visibleBlocks.length === 0) {

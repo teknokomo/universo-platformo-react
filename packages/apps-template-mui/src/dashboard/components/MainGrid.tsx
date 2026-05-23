@@ -7,6 +7,7 @@ import type { GridColDef } from '@mui/x-data-grid'
 import { useTranslation } from 'react-i18next'
 import {
     defaultDashboardLayoutConfig,
+    detailsTableWidgetConfigSchema,
     overviewCardsWidgetConfigSchema,
     recordsSeriesChartWidgetConfigSchema,
     type RecordsSeriesChartWidgetConfig,
@@ -19,9 +20,10 @@ import HighlightedCard from './HighlightedCard'
 import PageViewsBarChart from './PageViewsBarChart'
 import SessionsChart from './SessionsChart'
 import StatCard, { StatCardProps } from './StatCard'
-import type { ZoneWidgetItem, DashboardLayoutConfig } from '../Dashboard'
+import type { ZoneWidgetItem, DashboardLayoutConfig, DashboardDetailsSlot } from '../Dashboard'
 import { useDashboardDetails } from '../DashboardDetailsContext'
 import { findRuntimeSectionIdByCodename } from '../../utils/runtimeSections'
+import { formatRuntimeSafeValue, isRuntimeTechnicalFieldName } from '../../utils/displayValue'
 import { renderWidget } from './widgetRenderer'
 import PageBlocksView from './PageBlocksView'
 import {
@@ -37,6 +39,7 @@ import {
     type PaginationActions,
     useViewPreference
 } from '../../components/runtime-ui'
+import { isRuntimeUserFacingGridColumn, useRuntimeColumnVisibilityPreference } from '../../hooks/useRuntimeColumnVisibility'
 
 const noopSetSort = () => undefined
 
@@ -163,9 +166,16 @@ const toChartTrendLabel = (trend: RecordsSeriesChartWidgetConfig['trend'] | unde
 const getChartNoDataText = (locale: string): string =>
     normalizeLocaleCode(locale) === 'ru' ? 'Нет данных для отображения' : 'No data to display'
 
+const formatRuntimeChartAxisValue = (value: unknown, locale: string): string => formatRuntimeSafeValue(value, locale) ?? ''
+
+const formatRuntimeConfiguredMetricValue = (value: unknown, locale: string): string | undefined => {
+    if (value === null || value === undefined) return undefined
+    return formatRuntimeSafeValue(value, locale) || undefined
+}
+
 const toStatCardProps = (config: StatCardWidgetConfig, fallback: StatCardProps, locale: string | undefined): StatCardProps => ({
     title: readLocalizedConfigText(config.title, locale) ?? fallback.title,
-    value: config.value ?? fallback.value,
+    value: formatRuntimeConfiguredMetricValue(config.value, locale ?? 'en') ?? fallback.value,
     interval: readLocalizedConfigText(config.interval, locale) ?? fallback.interval,
     trend: config.trend ?? fallback.trend,
     data: config.data?.length ? config.data : fallback.data?.length ? fallback.data : DEFAULT_SPARKLINE_DATA
@@ -365,7 +375,11 @@ function RuntimeRecordsSeriesChart({ config, variant }: { config: RecordsSeriesC
         (recordsDatasource || ledgerProjectionDatasource) && config.xField && configuredSeries.length > 0
     )
     const locale = details?.locale ?? 'en'
-    const xAxisData = hasRuntimeSeries ? rows.map((row) => String(row[config.xField!] ?? '')) : shouldSuppressDemoSeries ? [] : undefined
+    const xAxisData = hasRuntimeSeries
+        ? rows.map((row) => formatRuntimeChartAxisValue(row[config.xField!], locale))
+        : shouldSuppressDemoSeries
+        ? []
+        : undefined
     const series = hasRuntimeSeries
         ? configuredSeries.map((item) => ({
               id: item.id ?? item.field,
@@ -394,7 +408,7 @@ function RuntimeRecordsSeriesChart({ config, variant }: { config: RecordsSeriesC
             : undefined
     const commonProps = {
         title: readLocalizedConfigText(config.title, locale),
-        value: config.value ?? computedValue,
+        value: formatRuntimeConfiguredMetricValue(config.value, locale) ?? computedValue,
         interval: readLocalizedConfigText(config.interval, locale),
         trend: config.trend ?? (hasRuntimeDatasource ? 'neutral' : undefined),
         trendLabel: hasRuntimeDatasource ? toChartTrendLabel(config.trend ?? 'neutral') : toChartTrendLabel(config.trend),
@@ -454,6 +468,70 @@ const reorderRowsByIds = <T extends { id: string }>(rows: T[], activeId: string,
 
 const paginateRows = <T,>(rows: T[], page: number, pageSize: number): T[] => rows.slice(page * pageSize, page * pageSize + pageSize)
 
+type RuntimeGridColumnPreset = NonNullable<DashboardDetailsSlot['tableDefaults']>['columnPreset']
+
+const normalizeGridColumnPresetKey = (value: string | undefined): string => value?.trim().toLowerCase() ?? ''
+
+const applyGridColumnPreset = (columns: GridColDef[], preset: RuntimeGridColumnPreset | undefined): GridColDef[] => {
+    if (!preset?.columns?.length) return columns
+
+    const columnsByField = new Map(columns.map((column) => [normalizeGridColumnPresetKey(column.field), column]))
+    const selectedFields = new Set<string>()
+    const selectedColumns = preset.columns.flatMap((presetColumn) => {
+        if (presetColumn.visible === false) return []
+
+        const column = columnsByField.get(normalizeGridColumnPresetKey(presetColumn.field))
+        if (!column) return []
+
+        selectedFields.add(column.field)
+        return [
+            {
+                ...column,
+                width: presetColumn.width ?? column.width,
+                flex: presetColumn.width ? undefined : presetColumn.flex ?? column.flex
+            }
+        ]
+    })
+
+    if (selectedColumns.length === 0) return columns
+
+    const actionColumns = columns.filter((column) => column.field === 'actions' && !selectedFields.has(column.field))
+    return [...selectedColumns, ...actionColumns]
+}
+
+const isCurrentObjectTechnicalCardColumn = (column: GridColDef, hasTitleColumn: boolean): boolean => {
+    const field = normalizeGridColumnPresetKey(column.field)
+
+    if (field === 'id' || field === 'actions') return true
+    if (hasTitleColumn && field === 'name') return true
+    return isRuntimeTechnicalFieldName(field)
+}
+
+const getCurrentObjectCardColumns = (columns: GridColDef[]): GridColDef[] => {
+    const hasTitleColumn = columns.some((column) => normalizeGridColumnPresetKey(column.field) === 'title')
+    return columns.filter((column) => !isCurrentObjectTechnicalCardColumn(column, hasTitleColumn))
+}
+
+const findCurrentObjectCardColumn = (columns: GridColDef[], preferredFields: readonly string[]): GridColDef | undefined => {
+    for (const preferredField of preferredFields) {
+        const normalizedPreferredField = normalizeGridColumnPresetKey(preferredField)
+        const matched = columns.find((column) => normalizeGridColumnPresetKey(column.field) === normalizedPreferredField)
+        if (matched) return matched
+    }
+
+    return undefined
+}
+
+const formatCurrentObjectCardValue = (
+    row: RuntimeDetailsRow,
+    column: GridColDef | undefined,
+    locale: string | undefined
+): string | undefined => {
+    if (!column) return undefined
+
+    return formatRuntimeSafeValue(row[column.field], locale ?? 'en') || undefined
+}
+
 const buildFlowListCellParams = (
     column: GridColDef,
     row: RuntimeDetailsRow,
@@ -500,7 +578,10 @@ const buildFlowListColumns = (columns: GridColDef[], rows: RuntimeDetailsRow[]):
 function EnhancedDetailsSection({ layoutConfig, showTitle = true }: { layoutConfig?: DashboardLayoutConfig; showTitle?: boolean }) {
     const details = useDashboardDetails()
     const { t } = useTranslation('apps')
-    const [viewMode, setViewMode] = useViewPreference('app-details-view', (layoutConfig?.defaultViewMode as 'table' | 'card') ?? 'table')
+    const [viewMode, setViewMode] = useViewPreference(
+        'app-details-view',
+        details?.tableDefaults?.defaultViewMode ?? (layoutConfig?.defaultViewMode as 'table' | 'card') ?? 'table'
+    )
     const [localSearch, setLocalSearch] = useState('')
     const [orderedRows, setOrderedRows] = useState<RuntimeDetailsRow[]>(() => (details?.rows as RuntimeDetailsRow[] | undefined) ?? [])
     const [clientPage, setClientPage] = useState(0)
@@ -574,9 +655,24 @@ function EnhancedDetailsSection({ layoutConfig, showTitle = true }: { layoutConf
         }
         return isClientFiltered ? paginateRows(filteredRows, page, pageSize) : filteredRows
     }, [canPersistRowReorder, details?.rowCount, filteredRows, isClientFiltered, page, pageSize, viewMode])
-    const flowListColumns = useMemo(() => buildFlowListColumns(details?.columns ?? [], orderedRows), [details?.columns, orderedRows])
+    const displayColumns = useMemo(
+        () => applyGridColumnPreset((details?.columns ?? []).filter(isRuntimeUserFacingGridColumn), details?.tableDefaults?.columnPreset),
+        [details?.columns, details?.tableDefaults?.columnPreset]
+    )
+    const [columnVisibilityModel, setColumnVisibilityModel, columnVisibilityOptions] = useRuntimeColumnVisibilityPreference(
+        `app-details:${details?.applicationId ?? 'app'}:${details?.sectionId ?? details?.sectionCodename ?? detailsTitle}`,
+        displayColumns
+    )
+    const visibleDisplayColumns = useMemo(
+        () => displayColumns.filter((column) => columnVisibilityModel[String(column.field)] !== false),
+        [columnVisibilityModel, displayColumns]
+    )
+    const flowListColumns = useMemo(() => buildFlowListColumns(visibleDisplayColumns, orderedRows), [orderedRows, visibleDisplayColumns])
     const gridPaginationModel = isClientFiltered ? { page: clientPage, pageSize: clientPageSize } : details?.paginationModel
-    const showHeader = Boolean(details?.actions || layoutConfig?.showFilterBar || layoutConfig?.showViewToggle || headerTitle)
+    const showColumnVisibilityControl = viewMode === 'table' && columnVisibilityOptions.length > 1
+    const showHeader = Boolean(
+        details?.actions || layoutConfig?.showFilterBar || layoutConfig?.showViewToggle || headerTitle || showColumnVisibilityControl
+    )
 
     const paginationState: PaginationState = {
         currentPage: page + 1,
@@ -659,6 +755,15 @@ function EnhancedDetailsSection({ layoutConfig, showTitle = true }: { layoutConf
                             viewToggleEnabled={layoutConfig?.showViewToggle}
                             viewMode={viewMode === 'card' ? 'card' : 'list'}
                             onViewModeChange={(mode) => setViewMode(mode === 'card' ? 'card' : 'table')}
+                            columnVisibilityControl={
+                                showColumnVisibilityControl
+                                    ? {
+                                          options: columnVisibilityOptions,
+                                          onToggle: (field, visible) =>
+                                              setColumnVisibilityModel({ ...columnVisibilityModel, [field]: visible })
+                                      }
+                                    : undefined
+                            }
                         />
                         {details?.actions}
                     </ViewHeaderMUI>
@@ -683,13 +788,20 @@ function EnhancedDetailsSection({ layoutConfig, showTitle = true }: { layoutConf
             {viewMode === 'card' ? (
                 <Grid container spacing={2} data-testid='dashboard-details-card-view'>
                     {visibleRows.map((row) => {
-                        const displayCol = details?.columns?.find((c) => c.field !== 'id' && c.field !== 'actions')
-                        const descCol = details?.columns?.find(
-                            (c) => c.field !== 'id' && c.field !== displayCol?.field && c.field !== 'actions'
-                        )
+                        const cardColumns = getCurrentObjectCardColumns(displayColumns)
+                        const titleColumn =
+                            findCurrentObjectCardColumn(cardColumns, ['title', 'name', 'displayName', 'label']) ?? cardColumns[0]
+                        const descriptionColumn =
+                            findCurrentObjectCardColumn(
+                                cardColumns.filter((column) => column.field !== titleColumn?.field),
+                                ['description', 'summary', 'status', 'type', 'updatedAt']
+                            ) ?? cardColumns.find((column) => column.field !== titleColumn?.field)
+                        const name =
+                            formatCurrentObjectCardValue(row, titleColumn, details?.locale) ?? t('runtime.card.untitled', 'Untitled item')
+                        const description = formatCurrentObjectCardValue(row, descriptionColumn, details?.locale)
                         const cardData: ItemCardData = {
-                            name: String(row[displayCol?.field ?? ''] ?? row.id),
-                            description: descCol ? String(row[descCol.field] ?? '') : undefined
+                            name,
+                            description: description || undefined
                         }
                         return (
                             <Grid key={row.id} size={{ xs: 12, sm: 6, md: 12 / (layoutConfig?.cardColumns ?? 3) }}>
@@ -709,7 +821,7 @@ function EnhancedDetailsSection({ layoutConfig, showTitle = true }: { layoutConf
             ) : (
                 <CustomizedDataGrid
                     rows={visibleRows}
-                    columns={details?.columns ?? []}
+                    columns={displayColumns}
                     loading={details?.loading}
                     rowCount={isClientFiltered ? undefined : details?.rowCount}
                     paginationModel={gridPaginationModel}
@@ -725,6 +837,8 @@ function EnhancedDetailsSection({ layoutConfig, showTitle = true }: { layoutConf
                     onSortModelChange={details?.onSortModelChange}
                     filterModel={details?.filterModel}
                     onFilterModelChange={details?.onFilterModelChange}
+                    columnVisibilityModel={columnVisibilityModel}
+                    onColumnVisibilityModelChange={setColumnVisibilityModel}
                     pageSizeOptions={details?.pageSizeOptions}
                     localeText={details?.localeText}
                     rowHeight={layoutConfig?.rowHeight}
@@ -765,6 +879,13 @@ export default function MainGrid({
     const pageViewsChartWidget = centerWidgets?.find((widget) => widget.widgetKey === 'pageViewsChart')
     const parsedPageViewsChart = recordsSeriesChartWidgetConfigSchema.safeParse(pageViewsChartWidget?.config ?? {})
     const pageViewsChartConfig = parsedPageViewsChart.success ? parsedPageViewsChart.data : EMPTY_RECORDS_SERIES_CHART_CONFIG
+    const detailsTableWidgets = showDetailsTable ? centerWidgets?.filter((w) => w.widgetKey === 'detailsTable') ?? [] : []
+    const detailsTableOwnsCreateActions = detailsTableWidgets.some((widget) => {
+        const parsed = detailsTableWidgetConfigSchema.safeParse(widget.config ?? {})
+        return parsed.success && (parsed.data.createTargets?.length ?? 0) > 0
+    })
+    const metadataHeaderActions = detailsTableOwnsCreateActions ? null : details?.actions
+    const showMetadataDetailsHeader = showDetailsTitle || Boolean(metadataHeaderActions)
     const overviewCards =
         parsedOverviewCards.success && parsedOverviewCards.data.cards?.length
             ? parsedOverviewCards.data.cards
@@ -797,7 +918,7 @@ export default function MainGrid({
         standaloneCenterWidgets.length > 0
 
     return (
-        <Box sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' } }}>
+        <Box sx={{ minWidth: 0, width: '100%', maxWidth: { sm: '100%', md: '1700px' } }}>
             {/* Overview section — boolean-driven */}
             {(showOverviewTitle || showOverviewCards || showSessionsChart || showPageViewsChart) && (
                 <>
@@ -850,7 +971,7 @@ export default function MainGrid({
                                 : null}
 
                             {standaloneCenterWidgets.length > 0 ? (
-                                <Box sx={{ display: 'grid', gap: 2 }}>
+                                <Box sx={{ display: 'grid', gap: 2, minWidth: 0 }}>
                                     {standaloneCenterWidgets.map((widget) => (
                                         <Box
                                             key={widget.id}
@@ -872,14 +993,44 @@ export default function MainGrid({
                             ) : null}
 
                             {hasPageBlocks ? (
-                                <PageBlocksView
-                                    blocks={details?.pageBlocks ?? []}
-                                    showOutline={details?.pagePlayer?.showOutline}
-                                    showProgressHeader={details?.pagePlayer?.showProgressHeader}
-                                    completeButtonMode={details?.pagePlayer?.completeButtonMode}
-                                    progressStorageKey={details?.pagePlayer?.progressStorageKey}
-                                    onProgressChange={details?.pagePlayer?.onProgressChange}
-                                />
+                                <Box
+                                    sx={{
+                                        mt: standaloneCenterWidgets.length > 0 || columnsContainerWidgets.length > 0 ? 2 : 0,
+                                        minWidth: 0
+                                    }}
+                                >
+                                    <PageBlocksView
+                                        blocks={details?.pageBlocks ?? []}
+                                        showOutline={details?.pagePlayer?.showOutline}
+                                        showProgressHeader={details?.pagePlayer?.showProgressHeader}
+                                        completeButtonMode={details?.pagePlayer?.completeButtonMode}
+                                        progressStorageKey={details?.pagePlayer?.progressStorageKey}
+                                        onProgressChange={details?.pagePlayer?.onProgressChange}
+                                    />
+                                </Box>
+                            ) : detailsTableWidgets.length > 0 ? (
+                                <Box data-testid='dashboard-metadata-details-tables' sx={{ display: 'grid', gap: 2, minWidth: 0 }}>
+                                    {showMetadataDetailsHeader ? (
+                                        <Box
+                                            sx={{
+                                                '& .MuiToolbar-root': {
+                                                    rowGap: 1.5,
+                                                    columnGap: 2,
+                                                    alignItems: { xs: 'stretch', sm: 'center' }
+                                                }
+                                            }}
+                                        >
+                                            <ViewHeaderMUI title={showDetailsTitle ? details?.title ?? 'Details' : undefined}>
+                                                {metadataHeaderActions}
+                                            </ViewHeaderMUI>
+                                        </Box>
+                                    ) : null}
+                                    {detailsTableWidgets.map((widget) => (
+                                        <Box key={widget.id} data-testid={`center-zone-widget-${widget.widgetKey}`} sx={{ minWidth: 0 }}>
+                                            {renderWidget(widget)}
+                                        </Box>
+                                    ))}
+                                </Box>
                             ) : showDetailsTable ? (
                                 <EnhancedDetailsSection layoutConfig={layoutConfig} showTitle={showDetailsTitle} />
                             ) : null}

@@ -16,7 +16,7 @@ interface MockViewHeaderProps {
 }
 
 interface MockItemCardProps {
-    data: { name?: ReactNode }
+    data: { name?: ReactNode; description?: ReactNode }
     allowStretch?: boolean
 }
 
@@ -62,10 +62,11 @@ interface MockRenderCellParams {
 }
 
 vi.mock('../CustomizedDataGrid', () => ({
-    default: (props: { rows: Array<unknown>; rowCount?: number; hideFooter?: boolean }) => (
+    default: (props: { rows: Array<unknown>; columns?: Array<{ field: string }>; rowCount?: number; hideFooter?: boolean }) => (
         <div
             data-testid='customized-grid'
             data-rows={String(props.rows.length)}
+            data-column-fields={(props.columns ?? []).map((column) => column.field).join(',')}
             data-row-count={props.rowCount === undefined ? 'undefined' : String(props.rowCount)}
             data-hide-footer={String(Boolean(props.hideFooter))}
         />
@@ -146,6 +147,7 @@ vi.mock('../../../components/runtime-ui', async () => {
         ItemCard: (props: MockItemCardProps) => (
             <div data-testid='item-card' data-allow-stretch={String(Boolean(props.allowStretch))}>
                 {props.data.name}
+                {props.data.description ? <span data-testid='item-card-description'>{props.data.description}</span> : null}
             </div>
         ),
         FlowListTable: (props: MockFlowListTableProps) => (
@@ -232,6 +234,78 @@ describe('MainGrid enhanced runtime details', () => {
         expect(screen.getByTestId('customized-grid')).toBeInTheDocument()
     })
 
+    it('renders metadata-defined detailsTable widgets with runtime actions instead of the fallback current-object grid', () => {
+        render(
+            <DashboardDetailsProvider
+                value={{
+                    ...details,
+                    actions: <button data-testid='create-action'>Create</button>
+                }}
+            >
+                <MainGrid
+                    layoutConfig={{ ...baseLayoutConfig, showDetailsTitle: true }}
+                    centerWidgets={[
+                        {
+                            id: 'details-table-widget',
+                            widgetKey: 'detailsTable',
+                            sortOrder: 1,
+                            config: {
+                                datasource: {
+                                    kind: 'records.union',
+                                    targets: [{ sectionCodename: 'LearningResources' }]
+                                }
+                            }
+                        }
+                    ]}
+                />
+            </DashboardDetailsProvider>
+        )
+
+        expect(screen.getByTestId('dashboard-metadata-details-tables')).toBeInTheDocument()
+        expect(screen.getByTestId('rendered-widget-detailsTable')).toBeInTheDocument()
+        expect(screen.getByTestId('create-action')).toBeInTheDocument()
+        expect(screen.queryByTestId('customized-grid')).not.toBeInTheDocument()
+    })
+
+    it('hides top-level runtime create actions when a detailsTable widget owns create targets', () => {
+        render(
+            <DashboardDetailsProvider
+                value={{
+                    ...details,
+                    actions: <button data-testid='create-action'>Create</button>
+                }}
+            >
+                <MainGrid
+                    layoutConfig={{ ...baseLayoutConfig, showDetailsTitle: true }}
+                    centerWidgets={[
+                        {
+                            id: 'details-table-widget',
+                            widgetKey: 'detailsTable',
+                            sortOrder: 1,
+                            config: {
+                                datasource: {
+                                    kind: 'records.union',
+                                    targets: [{ sectionCodename: 'LearningResources' }]
+                                },
+                                createTargets: [
+                                    {
+                                        id: 'create-page',
+                                        label: { en: 'Page', ru: 'Страница' },
+                                        sectionCodename: 'LearningResources'
+                                    }
+                                ]
+                            }
+                        }
+                    ]}
+                />
+            </DashboardDetailsProvider>
+        )
+
+        expect(screen.getByTestId('dashboard-metadata-details-tables')).toBeInTheDocument()
+        expect(screen.getByTestId('rendered-widget-detailsTable')).toBeInTheDocument()
+        expect(screen.queryByTestId('create-action')).not.toBeInTheDocument()
+    })
+
     it('uses local filtered totals and client rows when search narrows the current dataset', () => {
         render(
             <DashboardDetailsProvider value={details}>
@@ -260,6 +334,167 @@ describe('MainGrid enhanced runtime details', () => {
         const cards = screen.getAllByTestId('item-card')
         expect(cards).toHaveLength(2)
         expect(cards.every((card) => card.getAttribute('data-allow-stretch') === 'true')).toBe(true)
+    })
+
+    it('uses generic table defaults from the runtime details contract', () => {
+        render(
+            <DashboardDetailsProvider
+                value={{
+                    ...details,
+                    tableDefaults: {
+                        defaultViewMode: 'card',
+                        columnPreset: {
+                            columns: [
+                                { field: 'status', visible: true, width: 180 },
+                                { field: 'name', visible: false }
+                            ]
+                        }
+                    }
+                }}
+            >
+                <MainGrid layoutConfig={{ ...baseLayoutConfig, showViewToggle: true }} />
+            </DashboardDetailsProvider>
+        )
+
+        expect(screen.getByTestId('dashboard-details-card-view')).toBeInTheDocument()
+        expect(screen.getAllByTestId('item-card')).toHaveLength(2)
+        expect(screen.getAllByTestId('item-card')[0]).toHaveTextContent('Open')
+    })
+
+    it('applies generic table defaults to the current-object grid without exposing hidden technical columns', () => {
+        render(
+            <DashboardDetailsProvider
+                value={{
+                    ...details,
+                    columns: [
+                        { field: 'title', headerName: 'Title' },
+                        { field: 'status', headerName: 'Status' },
+                        { field: 'ProjectId', headerName: 'Project' },
+                        { field: 'actions', headerName: 'Actions' }
+                    ],
+                    tableDefaults: {
+                        defaultViewMode: 'table',
+                        columnPreset: {
+                            columns: [
+                                { field: 'ProjectId', visible: true },
+                                { field: 'status', visible: true },
+                                { field: 'title', visible: true }
+                            ]
+                        }
+                    }
+                }}
+            >
+                <MainGrid layoutConfig={{ ...baseLayoutConfig, showViewToggle: true }} />
+            </DashboardDetailsProvider>
+        )
+
+        expect(screen.getByTestId('customized-grid')).toHaveAttribute('data-column-fields', 'status,title,actions')
+        expect(screen.queryByTestId('dashboard-details-card-view')).not.toBeInTheDocument()
+    })
+
+    it('formats object values in generic current-object cards without leaking object placeholders', () => {
+        render(
+            <DashboardDetailsProvider
+                value={{
+                    ...details,
+                    locale: 'ru',
+                    rows: [
+                        {
+                            id: 'row-1',
+                            title: localizedText('Welcome page', 'Страница приветствия'),
+                            summary: { status: ['draft'], score: { gte: 80 } },
+                            ProjectId: '017f22e2-79b0-7cc3-98c4-dc0c0c073990'
+                        }
+                    ],
+                    columns: [
+                        { field: 'title', headerName: 'Title' },
+                        { field: 'summary', headerName: 'Summary' },
+                        { field: 'ProjectId', headerName: 'Project' }
+                    ],
+                    tableDefaults: {
+                        defaultViewMode: 'card',
+                        columnPreset: {
+                            columns: [
+                                { field: 'title', visible: true },
+                                { field: 'summary', visible: true },
+                                { field: 'ProjectId', visible: false }
+                            ]
+                        }
+                    }
+                }}
+            >
+                <MainGrid layoutConfig={{ ...baseLayoutConfig, showViewToggle: true }} />
+            </DashboardDetailsProvider>
+        )
+
+        const card = screen.getByTestId('item-card')
+        expect(card).toHaveTextContent('Страница приветствия')
+        expect(card).not.toHaveTextContent('[object Object]')
+        expect(card).not.toHaveTextContent('017f22e2-79b0-7cc3-98c4-dc0c0c073990')
+    })
+
+    it('uses a localized untitled fallback instead of raw row ids in generic current-object cards', () => {
+        render(
+            <DashboardDetailsProvider
+                value={{
+                    ...details,
+                    rows: [
+                        {
+                            id: '017f22e2-79b0-7cc3-98c4-dc0c0c073991',
+                            ProjectId: '017f22e2-79b0-7cc3-98c4-dc0c0c073990',
+                            TargetRecordId: '017f22e2-79b0-7cc3-98c4-dc0c0c073992'
+                        }
+                    ],
+                    columns: [
+                        { field: 'id', headerName: 'ID' },
+                        { field: 'ProjectId', headerName: 'Project' },
+                        { field: 'TargetRecordId', headerName: 'Target' }
+                    ],
+                    tableDefaults: {
+                        defaultViewMode: 'card'
+                    }
+                }}
+            >
+                <MainGrid layoutConfig={{ ...baseLayoutConfig, showViewToggle: true }} />
+            </DashboardDetailsProvider>
+        )
+
+        const card = screen.getByTestId('item-card')
+        expect(card).toHaveTextContent('Untitled item')
+        expect(card).not.toHaveTextContent('017f22e2-79b0-7cc3-98c4-dc0c0c073991')
+        expect(card).not.toHaveTextContent('017f22e2-79b0-7cc3-98c4-dc0c0c073990')
+        expect(card).not.toHaveTextContent('017f22e2-79b0-7cc3-98c4-dc0c0c073992')
+    })
+
+    it('suppresses UUID substrings in generic current-object card descriptions', () => {
+        render(
+            <DashboardDetailsProvider
+                value={{
+                    ...details,
+                    rows: [
+                        {
+                            id: 'row-1',
+                            title: 'Safety briefing',
+                            summary: 'Linked project 017f22e2-79b0-7cc3-98c4-dc0c0c073990'
+                        }
+                    ],
+                    columns: [
+                        { field: 'title', headerName: 'Title' },
+                        { field: 'summary', headerName: 'Summary' }
+                    ],
+                    tableDefaults: {
+                        defaultViewMode: 'card'
+                    }
+                }}
+            >
+                <MainGrid layoutConfig={{ ...baseLayoutConfig, showViewToggle: true }} />
+            </DashboardDetailsProvider>
+        )
+
+        const card = screen.getByTestId('item-card')
+        expect(card).toHaveTextContent('Safety briefing')
+        expect(card).not.toHaveTextContent('Linked project')
+        expect(card).not.toHaveTextContent('017f22e2-79b0-7cc3-98c4-dc0c0c073990')
     })
 
     it('resolves localized overview card labels and records.count metrics through the runtime list API', async () => {
@@ -349,6 +584,43 @@ describe('MainGrid enhanced runtime details', () => {
         expect(requestedUrl.searchParams.get('objectCollectionId')).toBe('017f22e2-79b0-7cc3-98c4-dc0c0c073990')
         expect(requestedUrl.searchParams.get('search')).toBe('safety')
         expect(requestedUrl.searchParams.get('locale')).toBe('ru')
+    })
+
+    it('uses fallback stat-card values instead of unsafe configured metric values', () => {
+        const rawMetricValue = '{"recordId":"017f22e2-79b0-7cc3-98c4-dc0c0c073987"}'
+
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <DashboardDetailsProvider value={details}>
+                    <MainGrid
+                        layoutConfig={{ ...baseLayoutConfig, showOverviewCards: true, showDetailsTable: false }}
+                        centerWidgets={[
+                            {
+                                id: 'overview-cards',
+                                widgetKey: 'overviewCards',
+                                sortOrder: 1,
+                                config: {
+                                    cards: [
+                                        {
+                                            title: 'Unsafe metric',
+                                            value: rawMetricValue,
+                                            interval: 'Current workspace',
+                                            trend: 'neutral'
+                                        }
+                                    ]
+                                }
+                            }
+                        ]}
+                    />
+                </DashboardDetailsProvider>
+            </QueryClientProvider>
+        )
+
+        const card = screen.getByTestId('stat-card')
+        expect(card).toHaveTextContent('Unsafe metric:14k')
+        expect(card).not.toHaveTextContent(rawMetricValue)
+        expect(card).not.toHaveTextContent('recordId')
+        expect(card).not.toHaveTextContent('017f22e2-79b0-7cc3-98c4-dc0c0c073987')
     })
 
     it('resolves overview card report aggregation metrics through the runtime reports API', async () => {
@@ -522,6 +794,175 @@ describe('MainGrid enhanced runtime details', () => {
         expect(JSON.parse(requestedUrl.searchParams.get('sort') ?? '[]')).toEqual([{ field: 'period', direction: 'asc' }])
     })
 
+    it('does not expose raw IDs, JSON, or object placeholders in chart axis labels', async () => {
+        const rawAxisId = '017f22e2-79b0-7cc3-98c4-dc0c0c073987'
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                section: {
+                    id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990',
+                    codename: 'activity',
+                    tableName: 'activity',
+                    name: 'Activity'
+                },
+                objectCollection: {
+                    id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990',
+                    codename: 'activity',
+                    tableName: 'Activity',
+                    name: 'Activity'
+                },
+                sections: [],
+                objectCollections: [],
+                activeSectionId: '017f22e2-79b0-7cc3-98c4-dc0c0c073990',
+                activeObjectCollectionId: '017f22e2-79b0-7cc3-98c4-dc0c0c073990',
+                columns: [],
+                rows: [
+                    { id: 'row-1', period: rawAxisId, completed: 12 },
+                    { id: 'row-2', period: '{"blocks":[{"type":"paragraph"}]}', completed: 18 },
+                    { id: 'row-3', period: { blocks: [{ type: 'paragraph' }] }, completed: 4 },
+                    { id: 'row-4', period: 'Readable period', completed: 9 }
+                ],
+                pagination: {
+                    total: 4,
+                    limit: 4,
+                    offset: 0
+                },
+                layoutConfig: {},
+                zoneWidgets: { left: [], right: [], center: [] },
+                menus: [],
+                activeMenuId: null
+            })
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <DashboardDetailsProvider
+                    value={{
+                        ...details,
+                        applicationId: 'app-1',
+                        apiBaseUrl: '/api/v1',
+                        locale: 'en',
+                        currentWorkspaceId: 'workspace-1',
+                        sections: [{ id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990', codename: 'activity' }],
+                        objectCollections: [{ id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990', codename: 'activity' }]
+                    }}
+                >
+                    <MainGrid
+                        layoutConfig={{ ...baseLayoutConfig, showPageViewsChart: true, showDetailsTable: false }}
+                        centerWidgets={[
+                            {
+                                id: 'page-views-chart',
+                                widgetKey: 'pageViewsChart',
+                                sortOrder: 1,
+                                config: {
+                                    title: 'Completed learning',
+                                    datasource: {
+                                        kind: 'records.list',
+                                        sectionCodename: 'activity'
+                                    },
+                                    xField: 'period',
+                                    maxRows: 4,
+                                    series: [{ field: 'completed', label: 'Completed' }]
+                                }
+                            }
+                        ]}
+                    />
+                </DashboardDetailsProvider>
+            </QueryClientProvider>
+        )
+
+        await waitFor(() => expect(screen.getByTestId('page-views-chart')).toHaveTextContent('Readable period:12|18|4|9'))
+        const chart = screen.getByTestId('page-views-chart')
+        expect(chart).toHaveAttribute('data-x-axis-length', '4')
+        expect(chart).not.toHaveTextContent(rawAxisId)
+        expect(chart).not.toHaveTextContent('blocks')
+        expect(chart).not.toHaveTextContent('[object Object]')
+    })
+
+    it('uses computed chart totals instead of unsafe configured metric values', async () => {
+        const rawMetricValue = '{"recordId":"017f22e2-79b0-7cc3-98c4-dc0c0c073987"}'
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                section: {
+                    id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990',
+                    codename: 'activity',
+                    tableName: 'activity',
+                    name: 'Activity'
+                },
+                objectCollection: {
+                    id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990',
+                    codename: 'activity',
+                    tableName: 'Activity',
+                    name: 'Activity'
+                },
+                sections: [],
+                objectCollections: [],
+                activeSectionId: '017f22e2-79b0-7cc3-98c4-dc0c0c073990',
+                activeObjectCollectionId: '017f22e2-79b0-7cc3-98c4-dc0c0c073990',
+                columns: [],
+                rows: [
+                    { id: 'row-1', period: 'Jan', completed: 12 },
+                    { id: 'row-2', period: 'Feb', completed: 18 }
+                ],
+                pagination: {
+                    total: 2,
+                    limit: 2,
+                    offset: 0
+                },
+                layoutConfig: {},
+                zoneWidgets: { left: [], right: [], center: [] },
+                menus: [],
+                activeMenuId: null
+            })
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <DashboardDetailsProvider
+                    value={{
+                        ...details,
+                        applicationId: 'app-1',
+                        apiBaseUrl: '/api/v1',
+                        locale: 'en',
+                        sections: [{ id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990', codename: 'activity' }],
+                        objectCollections: [{ id: '017f22e2-79b0-7cc3-98c4-dc0c0c073990', codename: 'activity' }]
+                    }}
+                >
+                    <MainGrid
+                        layoutConfig={{ ...baseLayoutConfig, showPageViewsChart: true, showDetailsTable: false }}
+                        centerWidgets={[
+                            {
+                                id: 'page-views-chart',
+                                widgetKey: 'pageViewsChart',
+                                sortOrder: 1,
+                                config: {
+                                    title: 'Completed learning',
+                                    value: rawMetricValue,
+                                    datasource: {
+                                        kind: 'records.list',
+                                        sectionCodename: 'activity'
+                                    },
+                                    xField: 'period',
+                                    maxRows: 2,
+                                    series: [{ field: 'completed', label: 'Completed' }]
+                                }
+                            }
+                        ]}
+                    />
+                </DashboardDetailsProvider>
+            </QueryClientProvider>
+        )
+
+        await waitFor(() => expect(screen.getByTestId('page-views-chart')).toHaveTextContent('Completed learning:30:Jan|Feb:12|18'))
+        const chart = screen.getByTestId('page-views-chart')
+        expect(chart).not.toHaveTextContent(rawMetricValue)
+        expect(chart).not.toHaveTextContent('recordId')
+        expect(chart).not.toHaveTextContent('017f22e2-79b0-7cc3-98c4-dc0c0c073987')
+    })
+
     it('resolves ledger.projection datasource rows into localized chart series props', async () => {
         window.sessionStorage.setItem('up.auth.csrf', 'csrf-token')
         const fetchMock = vi.fn().mockResolvedValue({
@@ -592,6 +1033,68 @@ describe('MainGrid enhanced runtime details', () => {
             limit: 2,
             offset: 0
         })
+    })
+
+    it('does not expose raw ledger projection values in chart axis labels', async () => {
+        window.sessionStorage.setItem('up.auth.csrf', 'csrf-token')
+        const rawLearnerId = '017f22e2-79b0-7cc3-98c4-dc0c0c073996'
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                projection: { codename: 'ProgressByLearner' },
+                rows: [
+                    { Learner: rawLearnerId, ProgressDelta: 10 },
+                    { Learner: '{"recordId":"017f22e2-79b0-7cc3-98c4-dc0c0c073997"}', ProgressDelta: 15 },
+                    { Learner: { recordId: rawLearnerId }, ProgressDelta: 5 },
+                    { Learner: localizedText('Readable learner', 'Читаемый учащийся'), ProgressDelta: 20 }
+                ],
+                limit: 4,
+                offset: 0
+            })
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <DashboardDetailsProvider
+                    value={{
+                        ...details,
+                        applicationId: 'app-1',
+                        apiBaseUrl: '/api/v1',
+                        locale: 'ru'
+                    }}
+                >
+                    <MainGrid
+                        layoutConfig={{ ...baseLayoutConfig, showPageViewsChart: true, showDetailsTable: false }}
+                        centerWidgets={[
+                            {
+                                id: 'page-views-chart',
+                                widgetKey: 'pageViewsChart',
+                                sortOrder: 1,
+                                config: {
+                                    title: localizedText('Progress by learner', 'Прогресс по учащимся'),
+                                    datasource: {
+                                        kind: 'ledger.projection',
+                                        ledgerId: '017f22e2-79b0-7cc3-98c4-dc0c0c073995',
+                                        projectionCodename: 'ProgressByLearner'
+                                    },
+                                    xField: 'Learner',
+                                    maxRows: 4,
+                                    series: [{ field: 'ProgressDelta', label: localizedText('Progress', 'Прогресс') }]
+                                }
+                            }
+                        ]}
+                    />
+                </DashboardDetailsProvider>
+            </QueryClientProvider>
+        )
+
+        await waitFor(() => expect(screen.getByTestId('page-views-chart')).toHaveTextContent('Читаемый учащийся:10|15|5|20'))
+        const chart = screen.getByTestId('page-views-chart')
+        expect(chart).toHaveAttribute('data-x-axis-length', '4')
+        expect(chart).not.toHaveTextContent(rawLearnerId)
+        expect(chart).not.toHaveTextContent('recordId')
+        expect(chart).not.toHaveTextContent('[object Object]')
     })
 
     it('keeps configured chart widgets empty instead of falling back to demo data when datasource rows are empty', async () => {
@@ -915,11 +1418,12 @@ describe('MainGrid enhanced runtime details', () => {
 
         expect(screen.getByTestId('runtime-page-progress')).toHaveTextContent('Reading progress 0%')
         expect(screen.queryByTestId('runtime-page-outline')).not.toBeInTheDocument()
+        await waitFor(() => expect(onProgressChange).toHaveBeenCalledWith({ action: 'view' }))
 
         fireEvent.click(screen.getByRole('button', { name: 'Mark complete' }))
 
         await waitFor(() => expect(screen.getByTestId('runtime-page-progress')).toHaveTextContent('Reading progress 100%'))
         expect(window.localStorage.getItem('test-page-progress')).toBe('100')
-        expect(onProgressChange).toHaveBeenCalledWith({ progressPercent: 100, status: 'completed' })
+        expect(onProgressChange).toHaveBeenCalledWith({ action: 'complete' })
     })
 })

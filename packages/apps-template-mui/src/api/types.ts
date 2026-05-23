@@ -3,6 +3,16 @@ import type { RuntimeDatasourceFilter, RuntimeDatasourceSort } from '@universo/t
 
 export type RuntimeRecordCommand = 'post' | 'unpost' | 'void'
 
+export type RuntimeRestoreTarget =
+    | { mode: 'original' }
+    | {
+          mode: 'target'
+          targetObjectCollectionId: string
+          targetRecordId: string
+          targetWorkspaceId?: string | null
+          parentFieldCodename?: string
+      }
+
 export interface RuntimeListQueryParams {
     search?: string
     sort?: RuntimeDatasourceSort[]
@@ -48,13 +58,18 @@ export interface CrudDataAdapter {
     createRow(data: Record<string, unknown>, objectCollectionId?: string): Promise<Record<string, unknown>>
 
     /** Update an existing row. Returns the updated row. */
-    updateRow(rowId: string, data: Record<string, unknown>, objectCollectionId?: string): Promise<Record<string, unknown>>
+    updateRow(
+        rowId: string,
+        data: Record<string, unknown>,
+        objectCollectionId?: string,
+        expectedVersion?: number
+    ): Promise<Record<string, unknown>>
 
     /** Soft-delete a row. */
     deleteRow(rowId: string, objectCollectionId?: string, expectedVersion?: number): Promise<void>
 
     /** Restore a soft-deleted row. */
-    restoreRow?(rowId: string, objectCollectionId?: string, expectedVersion?: number): Promise<void>
+    restoreRow?(rowId: string, objectCollectionId?: string, expectedVersion?: number, restoreTarget?: RuntimeRestoreTarget): Promise<void>
 
     /** Copy a row. */
     copyRow(
@@ -83,7 +98,12 @@ export interface CrudDataAdapter {
     ): Promise<Record<string, unknown>>
 
     /** Persist a complete runtime row order for objects that explicitly support reordering. */
-    reorderRows?(params: { objectCollectionId?: string; sectionId?: string; orderedRowIds: string[] }): Promise<void>
+    reorderRows?(params: {
+        objectCollectionId?: string
+        sectionId?: string
+        orderedRowIds: string[]
+        expectedVersionsByRowId?: Record<string, number>
+    }): Promise<void>
 }
 
 /**

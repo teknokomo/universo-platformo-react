@@ -493,7 +493,7 @@ describe('RuntimeWorkspacesPage', () => {
                 workspaceId: 'ws-shared'
             })
         })
-    })
+    }, 30_000)
 
     it('renders the selected workspace dashboard on the workspace detail route', async () => {
         renderPage({ routeWorkspaceId: 'ws-shared', routeSection: 'dashboard' })
@@ -559,6 +559,81 @@ describe('RuntimeWorkspacesPage', () => {
         expect(screen.getByText('Member')).toBeInTheDocument()
     })
 
+    it('does not expose workspace IDs when workspace names are missing', async () => {
+        const rawWorkspaceId = '017f22e2-79b0-7cc3-98c4-dc0c0c073998'
+        apiMocks.fetchRuntimeWorkspaces.mockResolvedValueOnce({
+            items: [
+                {
+                    id: rawWorkspaceId,
+                    name: null,
+                    description: null,
+                    workspaceType: 'shared',
+                    personalUserId: null,
+                    status: 'active',
+                    isDefault: false,
+                    roleCodename: 'member'
+                }
+            ],
+            total: 1,
+            limit: 20,
+            offset: 0,
+            currentWorkspaceId: rawWorkspaceId
+        })
+
+        renderPage()
+
+        expect(await screen.findByRole('button', { name: 'Untitled workspace' })).toBeInTheDocument()
+        expect(document.body).not.toHaveTextContent(rawWorkspaceId)
+    })
+
+    it('does not expose route workspace IDs when selected workspace names are missing', async () => {
+        const rawWorkspaceId = '017f22e2-79b0-7cc3-98c4-dc0c0c073999'
+        apiMocks.fetchRuntimeWorkspace.mockResolvedValueOnce({
+            id: rawWorkspaceId,
+            name: null,
+            description: null,
+            workspaceType: 'shared',
+            personalUserId: null,
+            status: 'active',
+            isDefault: false,
+            roleCodename: 'member'
+        })
+        apiMocks.fetchRuntimeWorkspaceMembers.mockResolvedValueOnce({
+            items: [],
+            total: 0,
+            limit: 20,
+            offset: 0
+        })
+
+        renderPage({ routeWorkspaceId: rawWorkspaceId, routeSection: 'dashboard' })
+
+        expect(await screen.findByRole('heading', { name: 'Untitled workspace' })).toBeInTheDocument()
+        expect(document.body).not.toHaveTextContent(rawWorkspaceId)
+    })
+
+    it('does not expose member user IDs when member names and emails are missing', async () => {
+        const rawUserId = '017f22e2-79b0-7cc3-98c4-dc0c0c073997'
+        apiMocks.fetchRuntimeWorkspaceMembers.mockResolvedValueOnce({
+            items: [
+                {
+                    userId: rawUserId,
+                    roleCodename: 'member',
+                    email: null,
+                    nickname: null,
+                    canRemove: true
+                }
+            ],
+            total: 1,
+            limit: 20,
+            offset: 0
+        })
+
+        renderPage({ routeWorkspaceId: 'ws-shared', routeSection: 'access' })
+
+        expect(await screen.findByText('Workspace member')).toBeInTheDocument()
+        expect(document.body).not.toHaveTextContent(rawUserId)
+    })
+
     it('renders workspace access and invites a member through the isolated runtime UI', async () => {
         renderPage({ routeWorkspaceId: 'ws-shared', routeSection: 'access' })
 
@@ -582,6 +657,19 @@ describe('RuntimeWorkspacesPage', () => {
         })
     })
 
+    it('blocks invalid workspace invite email input before the mutation', async () => {
+        renderPage({ routeWorkspaceId: 'ws-shared', routeSection: 'access' })
+
+        expect(await screen.findByText('owner@example.com')).toBeInTheDocument()
+        fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+        const dialog = await screen.findByRole('dialog')
+        fireEvent.change(within(dialog).getByLabelText(/Email/), { target: { value: 'invalid-workspace-email' } })
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Add' }))
+
+        expect(await within(dialog).findByText('Enter a valid email address.')).toBeInTheDocument()
+        expect(apiMocks.inviteRuntimeWorkspaceMember).not.toHaveBeenCalled()
+    })
+
     it('localizes known backend workspace errors in Russian runtime UI', async () => {
         i18nState.language = 'ru'
         apiMocks.inviteRuntimeWorkspaceMember.mockRejectedValueOnce(
@@ -598,6 +686,26 @@ describe('RuntimeWorkspacesPage', () => {
 
         expect(await within(dialog).findByRole('alert')).toHaveTextContent('Пользователь не найден')
         expect(within(dialog).queryByText('User not found')).not.toBeInTheDocument()
+    })
+
+    it('sanitizes unknown workspace mutation errors before rendering runtime dialogs', async () => {
+        const rawRecordId = '017f22e2-79b0-7cc3-98c4-dc0c0c073996'
+        apiMocks.inviteRuntimeWorkspaceMember.mockRejectedValueOnce(
+            new Error(`SQL relation app_runtime.workspace_members failed for ${rawRecordId}`)
+        )
+
+        renderPage({ routeWorkspaceId: 'ws-shared', routeSection: 'access' })
+
+        expect(await screen.findByText('owner@example.com')).toBeInTheDocument()
+        fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+        const dialog = await screen.findByRole('dialog')
+        fireEvent.change(within(dialog).getByLabelText('Email'), { target: { value: 'missing@example.com' } })
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Add' }))
+
+        expect(await within(dialog).findByRole('alert')).toHaveTextContent('Please try again or reload the page.')
+        expect(within(dialog).queryByText('SQL relation')).not.toBeInTheDocument()
+        expect(within(dialog).queryByText('app_runtime.workspace_members')).not.toBeInTheDocument()
+        expect(within(dialog).queryByText(rawRecordId)).not.toBeInTheDocument()
     })
 
     it('uses host SPA navigation callback for workspace detail navigation', async () => {

@@ -19,7 +19,11 @@ const guestTranslations = {
         'guest.backToContent': 'Back to content',
         'guest.completeContent': 'Complete content',
         'guest.contentCompleted': 'Content complete. Progress has been recorded for this session.',
-        'guest.restartContent': 'Restart content'
+        'guest.restartContent': 'Restart content',
+        'guest.errors.linkNotFound': 'Access link was not found or is no longer active.',
+        'guest.errors.sessionCreate': 'Failed to create guest session.',
+        'guest.errors.runtimeLoad': 'Failed to load public learning content.',
+        'guest.errors.quizSubmit': 'Failed to submit the quiz.'
     },
     ru: {
         'guest.displayName': 'Ваше имя',
@@ -31,7 +35,11 @@ const guestTranslations = {
         'guest.backToContent': 'Назад к контенту',
         'guest.completeContent': 'Завершить контент',
         'guest.contentCompleted': 'Контент завершён. Прогресс записан для этой сессии.',
-        'guest.restartContent': 'Пройти контент заново'
+        'guest.restartContent': 'Пройти контент заново',
+        'guest.errors.linkNotFound': 'Ссылка доступа не найдена или больше не активна.',
+        'guest.errors.sessionCreate': 'Не удалось создать гостевую сессию.',
+        'guest.errors.runtimeLoad': 'Не удалось загрузить публичный учебный контент.',
+        'guest.errors.quizSubmit': 'Не удалось отправить тест.'
     }
 } as const
 
@@ -68,6 +76,11 @@ const createQueryClient = () =>
             mutations: { retry: false }
         }
     })
+
+const readGuestProgressRequestBodies = () =>
+    ((globalThis.fetch as unknown as { mock: { calls: Array<[RequestInfo | URL, RequestInit?]> } }).mock.calls ?? [])
+        .filter(([input]) => String(input).endsWith('/public/a/app-1/runtime/guest-progress'))
+        .map(([, init]) => JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>)
 
 describe('GuestApp', () => {
     beforeEach(() => {
@@ -216,6 +229,188 @@ describe('GuestApp', () => {
         expect(window.sessionStorage.getItem('apps-template-mui:guest-session:app-1:demo-content')).toContain('student-1')
     })
 
+    it('sanitizes public guest link errors before rendering alerts', async () => {
+        const leakedUuid = '018f8a78-7b8f-7c1d-a111-2222333346ff'
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async (input: string | URL) => {
+                const url = String(input)
+                if (url.endsWith('/api/v1/auth/csrf')) {
+                    return {
+                        ok: true,
+                        json: async () => ({ csrfToken: 'csrf-token' })
+                    } as Response
+                }
+                throw new Error(`SQL relation public_links does not exist for ${leakedUuid}`)
+            })
+        )
+
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <GuestApp applicationId='app-1' slug='demo-content' locale='en' apiBaseUrl='/api/v1' />
+            </QueryClientProvider>
+        )
+
+        expect(await screen.findByText('Access link was not found or is no longer active.')).toBeInTheDocument()
+        expect(screen.queryByText(new RegExp(leakedUuid, 'i'))).not.toBeInTheDocument()
+        expect(screen.queryByText(/SQL relation|public_links/i)).not.toBeInTheDocument()
+    })
+
+    it('sanitizes public guest session creation errors before rendering alerts', async () => {
+        const leakedUuid = '018f8a78-7b8f-7c1d-a111-2222333346ff'
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async (input: string | URL) => {
+                const url = String(input)
+                if (url.endsWith('/api/v1/auth/csrf')) {
+                    return {
+                        ok: true,
+                        json: async () => ({ csrfToken: 'csrf-token' })
+                    } as Response
+                }
+                if (url.includes('/public/a/app-1/links/demo-content?locale=en')) {
+                    return {
+                        ok: true,
+                        json: async () => ({
+                            id: 'link-1',
+                            title: 'Demo content',
+                            targetType: 'content',
+                            targetId: 'content-1'
+                        })
+                    } as Response
+                }
+                if (url.endsWith('/public/a/app-1/guest-session')) {
+                    throw new Error(`SQL relation guest_sessions does not exist for ${leakedUuid}`)
+                }
+                throw new Error(`Unexpected fetch request: ${url}`)
+            })
+        )
+
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <GuestApp applicationId='app-1' slug='demo-content' locale='en' apiBaseUrl='/api/v1' />
+            </QueryClientProvider>
+        )
+
+        expect(await screen.findByText('Demo content')).toBeInTheDocument()
+        fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Guest learner' } })
+        fireEvent.click(screen.getByRole('button', { name: 'Start learning' }))
+
+        expect(await screen.findByText('Failed to create guest session.')).toBeInTheDocument()
+        expect(screen.queryByText(new RegExp(leakedUuid, 'i'))).not.toBeInTheDocument()
+        expect(screen.queryByText(/SQL relation|guest_sessions/i)).not.toBeInTheDocument()
+    })
+
+    it('sanitizes public runtime load errors before rendering alerts', async () => {
+        const leakedUuid = '018f8a78-7b8f-7c1d-a111-2222333346ff'
+        window.sessionStorage.setItem(
+            'apps-template-mui:guest-session:app-1:demo-content',
+            JSON.stringify({ participantId: 'student-1', sessionToken: 'token-1' })
+        )
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async (input: string | URL) => {
+                const url = String(input)
+                if (url.endsWith('/api/v1/auth/csrf')) {
+                    return {
+                        ok: true,
+                        json: async () => ({ csrfToken: 'csrf-token' })
+                    } as Response
+                }
+                if (url.includes('/public/a/app-1/links/demo-content?locale=en')) {
+                    return {
+                        ok: true,
+                        json: async () => ({
+                            id: 'link-1',
+                            title: 'Demo content',
+                            targetType: 'content',
+                            targetId: 'content-1'
+                        })
+                    } as Response
+                }
+                if (url.includes('/public/a/app-1/runtime?')) {
+                    throw new Error(`SQL relation public_runtime does not exist for ${leakedUuid}`)
+                }
+                throw new Error(`Unexpected fetch request: ${url}`)
+            })
+        )
+
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <GuestApp applicationId='app-1' slug='demo-content' locale='en' apiBaseUrl='/api/v1' />
+            </QueryClientProvider>
+        )
+
+        expect(await screen.findByText('Failed to load public learning content.')).toBeInTheDocument()
+        expect(screen.queryByText(new RegExp(leakedUuid, 'i'))).not.toBeInTheDocument()
+        expect(screen.queryByText(/SQL relation|public_runtime/i)).not.toBeInTheDocument()
+    })
+
+    it('sanitizes public quiz submit errors before rendering alerts', async () => {
+        const leakedUuid = '018f8a78-7b8f-7c1d-a111-2222333346ff'
+        window.sessionStorage.setItem(
+            'apps-template-mui:guest-session:app-1:demo-content',
+            JSON.stringify({ participantId: 'student-1', sessionToken: 'token-1' })
+        )
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async (input: string | URL) => {
+                const url = String(input)
+                if (url.endsWith('/api/v1/auth/csrf')) {
+                    return {
+                        ok: true,
+                        json: async () => ({ csrfToken: 'csrf-token' })
+                    } as Response
+                }
+                if (url.includes('/public/a/app-1/links/demo-content?locale=en')) {
+                    return {
+                        ok: true,
+                        json: async () => ({
+                            id: 'link-1',
+                            title: 'Demo quiz',
+                            targetType: 'quiz',
+                            targetId: 'quiz-1'
+                        })
+                    } as Response
+                }
+                if (url.includes('/public/a/app-1/runtime?')) {
+                    return {
+                        ok: true,
+                        json: async () => ({
+                            type: 'quiz',
+                            id: 'quiz-1',
+                            title: 'Quiz title',
+                            questions: [
+                                {
+                                    id: 'question-1',
+                                    prompt: 'Question prompt',
+                                    options: [{ id: 'option-1', label: 'Correct option' }]
+                                }
+                            ]
+                        })
+                    } as Response
+                }
+                if (url.endsWith('/public/a/app-1/runtime/guest-submit')) {
+                    throw new Error(`SQL relation guest_quiz_submissions does not exist for ${leakedUuid}`)
+                }
+                throw new Error(`Unexpected fetch request: ${url}`)
+            })
+        )
+
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <GuestApp applicationId='app-1' slug='demo-content' locale='en' apiBaseUrl='/api/v1' />
+            </QueryClientProvider>
+        )
+
+        expect(await screen.findByText('Quiz title')).toBeInTheDocument()
+        fireEvent.click(screen.getByRole('button', { name: 'Submit quiz' }))
+
+        expect(await screen.findByText('Failed to submit the quiz.')).toBeInTheDocument()
+        expect(screen.queryByText(new RegExp(leakedUuid, 'i'))).not.toBeInTheDocument()
+        expect(screen.queryByText(/SQL relation|guest_quiz_submissions/i)).not.toBeInTheDocument()
+    })
+
     it('refetches runtime only after the guest session is created', async () => {
         let runtimeRequestCount = 0
         const runtimeUrls: string[] = []
@@ -315,6 +510,107 @@ describe('GuestApp', () => {
             participantId: 'student-1',
             sessionToken: 'token-1'
         })
+    })
+
+    it('does not reuse a previous guest session after navigating to another public link', async () => {
+        const runtimeUrls: string[] = []
+
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async (input: string | URL, init?: RequestInit) => {
+                const url = String(input)
+
+                if (url.endsWith('/api/v1/auth/csrf')) {
+                    return {
+                        ok: true,
+                        json: async () => ({ csrfToken: 'csrf-token' })
+                    } as Response
+                }
+
+                if (url.includes('/public/a/app-1/links/demo-content?locale=en')) {
+                    return {
+                        ok: true,
+                        json: async () => ({
+                            id: 'link-1',
+                            title: 'Demo content',
+                            targetType: 'content',
+                            targetId: 'content-1'
+                        })
+                    } as Response
+                }
+
+                if (url.includes('/public/a/app-1/links/docking-drill?locale=en')) {
+                    return {
+                        ok: true,
+                        json: async () => ({
+                            id: 'link-2',
+                            title: 'Docking content',
+                            targetType: 'content',
+                            targetId: 'content-2'
+                        })
+                    } as Response
+                }
+
+                if (url.endsWith('/public/a/app-1/guest-session')) {
+                    return {
+                        ok: true,
+                        json: async () => ({
+                            studentId: 'student-1',
+                            sessionToken: 'token-1'
+                        })
+                    } as Response
+                }
+
+                if (url.includes('/public/a/app-1/runtime?') && url.includes('slug=demo-content') && url.includes('locale=en')) {
+                    runtimeUrls.push(url)
+                    const headers = new Headers(init?.headers)
+                    expect(headers.get('X-Guest-Participant-Id')).toBe('student-1')
+                    expect(headers.get('X-Guest-Session-Token')).toBe('token-1')
+                    return {
+                        ok: true,
+                        json: async () => ({
+                            type: 'content',
+                            id: 'content-1',
+                            title: 'Content title',
+                            contentItems: []
+                        })
+                    } as Response
+                }
+
+                if (url.includes('/public/a/app-1/runtime?') && url.includes('slug=docking-drill')) {
+                    throw new Error(`The previous guest session must not trigger runtime loading for a new slug: ${url}`)
+                }
+
+                throw new Error(`Unexpected fetch request: ${url} ${init?.method ?? 'GET'}`)
+            })
+        )
+
+        const queryClient = createQueryClient()
+        const { rerender } = render(
+            <QueryClientProvider client={queryClient}>
+                <GuestApp applicationId='app-1' slug='demo-content' locale='en' apiBaseUrl='/api/v1' />
+            </QueryClientProvider>
+        )
+
+        expect(await screen.findByText('Demo content')).toBeInTheDocument()
+        fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Guest learner' } })
+        fireEvent.click(screen.getByRole('button', { name: 'Start learning' }))
+
+        expect(await screen.findByText('Content title')).toBeInTheDocument()
+        expect(runtimeUrls).toHaveLength(1)
+
+        rerender(
+            <QueryClientProvider client={queryClient}>
+                <GuestApp applicationId='app-1' slug='docking-drill' locale='en' apiBaseUrl='/api/v1' />
+            </QueryClientProvider>
+        )
+
+        expect(await screen.findByText('Docking content')).toBeInTheDocument()
+        await waitFor(() => {
+            expect(screen.getByLabelText('Your name')).toBeInTheDocument()
+        })
+        expect(screen.queryByText('Content title')).not.toBeInTheDocument()
+        expect(runtimeUrls).toHaveLength(1)
     })
 
     it('re-resolves public path params when rendered without explicit props', async () => {
@@ -450,6 +746,19 @@ describe('GuestApp', () => {
             expect(screen.getByText('Knowledge check')).toBeInTheDocument()
             expect(screen.getByRole('button', { name: 'Complete content' })).toBeInTheDocument()
         })
+        await waitFor(() => {
+            expect(readGuestProgressRequestBodies()).toHaveLength(1)
+        })
+        expect(readGuestProgressRequestBodies()[0]).toMatchObject({
+            participantId: 'student-1',
+            sessionToken: 'token-1',
+            contentNodeId: 'content-1',
+            contentItemId: 'item-2',
+            action: 'view'
+        })
+        expect(readGuestProgressRequestBodies()[0]).not.toHaveProperty('progressPercent')
+        expect(readGuestProgressRequestBodies()[0]).not.toHaveProperty('status')
+        expect(readGuestProgressRequestBodies()[0]).not.toHaveProperty('lastAccessedItemIndex')
 
         fireEvent.click(screen.getByRole('button', { name: 'Complete content' }))
 
@@ -457,6 +766,19 @@ describe('GuestApp', () => {
             expect(screen.getByText('Content complete. Progress has been recorded for this session.')).toBeInTheDocument()
             expect(screen.getByRole('button', { name: 'Restart content' })).toBeInTheDocument()
         })
+        await waitFor(() => {
+            expect(readGuestProgressRequestBodies()).toHaveLength(2)
+        })
+        expect(readGuestProgressRequestBodies()[1]).toMatchObject({
+            participantId: 'student-1',
+            sessionToken: 'token-1',
+            contentNodeId: 'content-1',
+            action: 'complete'
+        })
+        expect(readGuestProgressRequestBodies()[1]).not.toHaveProperty('contentItemId')
+        expect(readGuestProgressRequestBodies()[1]).not.toHaveProperty('progressPercent')
+        expect(readGuestProgressRequestBodies()[1]).not.toHaveProperty('status')
+        expect(readGuestProgressRequestBodies()[1]).not.toHaveProperty('lastAccessedItemIndex')
     })
 
     it('renders localized completion controls for the Russian guest flow', async () => {
@@ -605,6 +927,19 @@ describe('GuestApp', () => {
             expect(screen.getByText('Knowledge check')).toBeInTheDocument()
             expect(screen.getByRole('button', { name: 'Open quiz' })).toBeInTheDocument()
         })
+        await waitFor(() => {
+            expect(readGuestProgressRequestBodies()).toHaveLength(1)
+        })
+        expect(readGuestProgressRequestBodies()[0]).toMatchObject({
+            participantId: 'student-1',
+            sessionToken: 'token-1',
+            contentNodeId: 'content-1',
+            contentItemId: 'item-2',
+            action: 'view'
+        })
+        expect(readGuestProgressRequestBodies()[0]).not.toHaveProperty('progressPercent')
+        expect(readGuestProgressRequestBodies()[0]).not.toHaveProperty('status')
+        expect(readGuestProgressRequestBodies()[0]).not.toHaveProperty('lastAccessedItemIndex')
 
         fireEvent.click(screen.getByRole('button', { name: 'Open quiz' }))
 

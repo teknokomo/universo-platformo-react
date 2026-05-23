@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, render, waitFor } from '@testing-library/react'
 import type { CrudDataAdapter } from '../../api/types'
 import type { AppDataResponse } from '../../api/api'
-import { useCrudDashboard, type CrudDashboardState } from '../useCrudDashboard'
+import { useCrudDashboard, type CrudDashboardState, type UseCrudDashboardOptions } from '../useCrudDashboard'
 
 const enqueueSnackbar = vi.fn()
 
@@ -142,14 +142,15 @@ function createAdapter(overrides: Partial<CrudDataAdapter> = {}): CrudDataAdapte
     }
 }
 
-function renderCrudDashboard(adapter: CrudDataAdapter) {
+function renderCrudDashboard(adapter: CrudDataAdapter, options: Partial<Omit<UseCrudDashboardOptions, 'adapter' | 'locale'>> = {}) {
     const queryClient = createTestQueryClient()
     let latestState: CrudDashboardState | undefined
 
     function Probe() {
         latestState = useCrudDashboard({
             adapter,
-            locale: 'en'
+            locale: 'en',
+            ...options
         })
         return null
     }
@@ -172,6 +173,160 @@ function renderCrudDashboard(adapter: CrudDataAdapter) {
 }
 
 describe('useCrudDashboard optimistic mutations', () => {
+    it('applies create-target defaults only to safe writable create fields', async () => {
+        const adapter = createAdapter({
+            fetchList: vi.fn().mockResolvedValue({
+                ...createAppData(),
+                columns: [
+                    {
+                        id: 'col-resource-type',
+                        codename: 'ResourceType',
+                        field: 'cmp_resource_type',
+                        dataType: 'REF',
+                        headerName: 'Resource Type',
+                        isRequired: true,
+                        validationRules: {},
+                        refTargetEntityKind: 'enumeration',
+                        enumOptions: [
+                            { id: 'enum-invalid', label: 'Invalid', codename: { localized: 'Url' } as unknown as string },
+                            { id: 'enum-page', label: 'Page', codename: 'Page' },
+                            { id: 'enum-url', label: 'URL', codename: 'Url' }
+                        ],
+                        uiConfig: {}
+                    },
+                    {
+                        id: 'col-source',
+                        codename: 'Source',
+                        field: 'cmp_source',
+                        dataType: 'JSON',
+                        headerName: 'Source',
+                        isRequired: true,
+                        validationRules: {},
+                        uiConfig: { widget: 'resourceSource' }
+                    },
+                    {
+                        id: 'col-title',
+                        codename: 'Title',
+                        field: 'Title',
+                        dataType: 'STRING',
+                        headerName: 'Title',
+                        isRequired: false,
+                        validationRules: {},
+                        uiConfig: {}
+                    },
+                    {
+                        id: 'col-navigation-mode',
+                        codename: 'NavigationMode',
+                        field: 'NavigationMode',
+                        dataType: 'STRING',
+                        headerName: 'Navigation Mode',
+                        isRequired: false,
+                        validationRules: {},
+                        uiConfig: { widget: 'select' }
+                    },
+                    {
+                        id: 'col-completion-condition',
+                        codename: 'CompletionCondition',
+                        field: 'CompletionCondition',
+                        dataType: 'STRING',
+                        headerName: 'Completion Condition',
+                        isRequired: false,
+                        validationRules: {},
+                        uiConfig: { widget: 'select' }
+                    },
+                    {
+                        id: 'col-status-format',
+                        codename: 'StatusFormat',
+                        field: 'StatusFormat',
+                        dataType: 'STRING',
+                        headerName: 'Status Format',
+                        isRequired: false,
+                        validationRules: {},
+                        uiConfig: { widget: 'select' }
+                    },
+                    {
+                        id: 'col-created-by',
+                        codename: 'CreatedBy',
+                        field: 'CreatedBy',
+                        dataType: 'STRING',
+                        headerName: 'Created By',
+                        isRequired: false,
+                        validationRules: {},
+                        uiConfig: {}
+                    },
+                    {
+                        id: 'col-hidden',
+                        codename: 'HiddenNotes',
+                        field: 'HiddenNotes',
+                        dataType: 'STRING',
+                        headerName: 'Hidden Notes',
+                        isRequired: false,
+                        validationRules: {},
+                        uiConfig: { hidden: true }
+                    },
+                    {
+                        id: 'col-lifecycle-state',
+                        codename: 'LifecycleState',
+                        field: 'LifecycleState',
+                        dataType: 'STRING',
+                        headerName: 'Lifecycle State',
+                        isRequired: false,
+                        validationRules: {},
+                        uiConfig: {}
+                    }
+                ]
+            })
+        })
+        const { getState } = renderCrudDashboard(adapter, {
+            createDefaultContext: {
+                learningContent: {
+                    courseCompletionPolicy: {
+                        navigationMode: 'sequential',
+                        completionCondition: 'selectedItems',
+                        statusFormat: 'passedFailed',
+                        unsafeObject: { value: 'ignored' }
+                    }
+                }
+            }
+        })
+
+        await waitFor(() => expect(getState().isLoading).toBe(false))
+
+        act(() => {
+            getState().handleOpenCreate([
+                { fieldCodename: 'ResourceType', enumCodename: 'Url' },
+                { fieldCodename: 'Source', resourceSourceType: 'url' },
+                { fieldCodename: 'Title', value: 'New link' },
+                { fieldCodename: 'NavigationMode', contextPath: 'learningContent.courseCompletionPolicy.navigationMode' },
+                { fieldCodename: 'CompletionCondition', contextPath: 'learningContent.courseCompletionPolicy.completionCondition' },
+                { fieldCodename: 'StatusFormat', contextPath: 'learningContent.courseCompletionPolicy.statusFormat' },
+                { fieldCodename: 'Title', contextPath: 'learningContent.courseCompletionPolicy.unsafeObject' },
+                { fieldCodename: 'Title', contextPath: 'learningContent.courseCompletionPolicy.missing' },
+                { fieldCodename: 'CreatedBy', value: 'attacker' },
+                { fieldCodename: 'workspace_id', value: 'workspace-2' },
+                { fieldCodename: 'ProgressPercent', value: 100 },
+                { fieldCodename: 'LifecycleState', value: 'approved' },
+                { fieldCodename: '_upl_created_by', value: 'attacker' },
+                { fieldCodename: 'HiddenNotes', value: 'hidden' }
+            ])
+        })
+
+        expect(getState().formInitialData).toEqual({
+            cmp_resource_type: 'enum-url',
+            cmp_source: { type: 'url', url: '' },
+            Title: 'New link',
+            NavigationMode: 'sequential',
+            CompletionCondition: 'selectedItems',
+            StatusFormat: 'passedFailed'
+        })
+
+        act(() => {
+            getState().handleCloseForm()
+        })
+
+        expect(getState().formInitialData).toBeUndefined()
+    })
+
     it('suppresses stale fallback section data while resolving the menu start section', async () => {
         const accessLinksSection = createRuntimeSection('access-links', 'Access Links')
         const welcomeSection = createRuntimeSection('welcome-page', 'Welcome')
@@ -573,6 +728,31 @@ describe('useCrudDashboard optimistic mutations', () => {
         })
     })
 
+    it('passes runtime row version to update mutations', async () => {
+        const updateRow = vi.fn().mockResolvedValue({ id: 'row-1', name: 'Updated' })
+        const adapter = createAdapter({
+            fetchList: vi.fn().mockResolvedValue({
+                ...createAppData(),
+                rows: [{ id: 'row-1', name: 'Original', _upl_version: 6 }]
+            } satisfies AppDataResponse),
+            updateRow
+        })
+        const { getState } = renderCrudDashboard(adapter)
+
+        await waitFor(() => {
+            expect(getState().rows).toHaveLength(1)
+        })
+
+        await act(async () => {
+            getState().handleOpenEdit('row-1')
+        })
+        await act(async () => {
+            await getState().handleFormSubmit({ name: 'Updated' })
+        })
+
+        expect(updateRow).toHaveBeenCalledWith('row-1', { name: 'Updated' }, 'object-1', 6)
+    })
+
     it('marks updated rows as pending before the server responds and closes the form right away', async () => {
         const deferredUpdate = createDeferred<Record<string, unknown>>()
         const adapter = createAdapter({
@@ -682,6 +862,39 @@ describe('useCrudDashboard optimistic mutations', () => {
         expect(deleteRow).toHaveBeenCalledWith('row-1', 'object-1', 7)
     })
 
+    it('passes runtime row version maps to reorder mutations', async () => {
+        const reorderRows = vi.fn().mockResolvedValue(undefined)
+        const adapter = createAdapter({
+            fetchList: vi.fn().mockResolvedValue({
+                ...createAppData(),
+                rows: [
+                    { id: 'row-1', name: 'Original', _upl_version: 7 },
+                    { id: 'row-2', name: 'Next', _upl_version: 8 }
+                ]
+            } satisfies AppDataResponse),
+            reorderRows
+        })
+        const { getState } = renderCrudDashboard(adapter)
+
+        await waitFor(() => {
+            expect(getState().rows).toHaveLength(2)
+        })
+
+        await act(async () => {
+            await getState().handlePersistRowReorder(['row-2', 'row-1'])
+        })
+
+        expect(reorderRows).toHaveBeenCalledWith({
+            objectCollectionId: 'object-1',
+            sectionId: 'object-1',
+            orderedRowIds: ['row-2', 'row-1'],
+            expectedVersionsByRowId: {
+                'row-2': 8,
+                'row-1': 7
+            }
+        })
+    })
+
     it('reopens the form with an inline error if a background save fails', async () => {
         const deferredCreate = createDeferred<Record<string, unknown>>()
         const adapter = createAdapter({
@@ -710,7 +923,8 @@ describe('useCrudDashboard optimistic mutations', () => {
 
         await waitFor(() => {
             expect(getState().formOpen).toBe(true)
-            expect(getState().formError).toContain('backend exploded')
+            expect(getState().formError).toBe('Create failed: Please try again or reload the page.')
+            expect(getState().formError).not.toContain('backend exploded')
         })
     })
 
@@ -742,7 +956,8 @@ describe('useCrudDashboard optimistic mutations', () => {
 
         await waitFor(() => {
             expect(getState().deleteRowId).toBe('row-1')
-            expect(getState().deleteError).toContain('delete exploded')
+            expect(getState().deleteError).toBe('Delete failed: Please try again or reload the page.')
+            expect(getState().deleteError).not.toContain('delete exploded')
         })
     })
 
@@ -907,5 +1122,24 @@ describe('useCrudDashboard optimistic mutations', () => {
         })
 
         expect(enqueueSnackbar).toHaveBeenCalledWith('Record command failed: posting blocked', { variant: 'error' })
+    })
+
+    it('sanitizes technical record lifecycle command errors before showing snackbars', async () => {
+        const recordCommand = vi
+            .fn()
+            .mockRejectedValue(new Error('duplicate key value violates unique constraint "app_rows_019e44fc-a16a-760c-8190-280c4d9dc720"'))
+        const adapter = createAdapter({ recordCommand })
+        const { getState } = renderCrudDashboard(adapter)
+
+        await waitFor(() => {
+            expect(getState().handleRecordCommand).toBeDefined()
+            expect(getState().selectedObjectCollectionId).toBe('object-1')
+        })
+
+        await act(async () => {
+            await getState().handleRecordCommand?.('row-1', 'post')
+        })
+
+        expect(enqueueSnackbar).toHaveBeenCalledWith('Record command failed: Please try again or reload the page.', { variant: 'error' })
     })
 })

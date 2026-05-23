@@ -74,6 +74,17 @@ When creating a new backend service in `packages/` that requires database access
 3.  **Create Store Modules**: Write store files (e.g., `myStore.ts`) that accept a `DbExecutor` and run SQL queries via `executor.query(sql, params)`. Use `$1`, `$2`, etc. for PostgreSQL bind parameters.
 4.  **Use Request Executor**: In route handlers, obtain the request-scoped executor via `getRequestDbExecutor(req, getDbExecutor())` from `@universo/utils`. This ensures RLS context is applied.
 
+### 2.10. DB Layer Status & Future Direction
+
+*   **Background**: The platform previously used TypeORM. TypeORM was removed because it could not flexibly support runtime schema generation, dynamic DDL, and the multi-tenant patterns the platform needs.
+*   **Current state**: Database access is now built on Knex (connection management, transactions) plus raw SQL through `DbExecutor.query()` (domain queries, mutations). The three-tier executor pattern (sections 2.4–2.5) and `@universo/schema-ddl` (runtime schema generation) are the load-bearing parts of this layer.
+*   **Maturity**: This layer is functional and is the canonical path for new code, but the team treats it as **work-in-progress**. Some areas are not yet fully consolidated and may evolve.
+*   **Possible future directions** (not decided yet — do not act on these without an explicit decision):
+    *   Move more domain code from raw SQL to the Knex query builder, where it does not lose flexibility.
+    *   Build a project-specific DB and migrations subsystem on top of `pg` for maximum flexibility, reliability, performance, and security, accepting the cost of owning more of the stack.
+    *   Keep the current Knex + raw SQL split but tighten the contracts and the migration tooling.
+*   **Practical rule**: Until the team picks a direction, keep new work on the current path (three-tier executors, `DbExecutor.query()` with parameterized SQL, `@universo/schema-ddl` for DDL/migrations). Do not propose ambitious DB-layer rewrites as part of unrelated tasks; route those decisions through a dedicated discussion.
+
 ## 3. Code Quality
 
 ### 3.1. Linting

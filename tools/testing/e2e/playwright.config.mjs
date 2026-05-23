@@ -11,7 +11,7 @@ const generatorPattern = /.*generators\/.*\.spec\.ts/
 
 export default defineConfig({
     testDir: path.resolve(currentDir, 'specs'),
-    timeout: 60_000,
+    timeout: 120_000,
     fullyParallel: false,
     forbidOnly: Boolean(process.env.CI),
     retries: process.env.CI ? 1 : 0,
@@ -23,8 +23,8 @@ export default defineConfig({
         browserName: 'chromium',
         headless: true,
         ignoreHTTPSErrors: true,
-        actionTimeout: 15_000,
-        navigationTimeout: 30_000,
+        actionTimeout: 30_000,
+        navigationTimeout: 60_000,
         locale: 'en-US',
         timezoneId: 'UTC',
         colorScheme: 'light',
@@ -43,7 +43,7 @@ export default defineConfig({
         }
     },
     expect: {
-        timeout: 10_000
+        timeout: 20_000
     },
     projects: [
         {

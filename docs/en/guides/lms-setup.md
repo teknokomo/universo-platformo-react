@@ -43,13 +43,7 @@ It also ships the LMS enumerations, a curated working runtime menu, Editor.js-co
 
 ## 3. Keep The Product Fixture Contract Stable
 
-The imported LMS layout must stay free of removed global dashboard widgets and removed metahub widget scripts:
-
--   no `moduleViewerWidget`
--   no `statsViewerWidget`
--   no `qrCodeWidget`
--   no `lms-module-viewer` script
--   no `lms-stats-viewer` script
+The imported LMS layout must stay free of removed global dashboard widgets and removed metahub widget scripts. The executable fixture contract and no-fork guard enforce that the current runtime uses metadata-defined Learning Content widgets instead of retired dashboard/script shortcuts.
 
 Do not hand-edit exported snapshot payloads. Update the generator or fixture contract, then re-export through Playwright or mechanically rewrite the snapshot with a recomputed `snapshotHash` only for deterministic fixture maintenance tasks.
 

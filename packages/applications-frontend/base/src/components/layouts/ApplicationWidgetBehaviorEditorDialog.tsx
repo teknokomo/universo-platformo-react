@@ -41,7 +41,7 @@ type Props = {
     onCancel: () => void
 }
 
-type EditableDatasourceKind = 'current' | 'records.list' | 'ledger.facts' | 'ledger.projection'
+type EditableDatasourceKind = 'current' | 'records.list' | 'records.union' | 'ledger.facts' | 'ledger.projection'
 type DatasourceSectionOption = {
     id: string
     label: string
@@ -78,10 +78,13 @@ type EditableSequencePolicy = Omit<Partial<SequencePolicy>, 'completion' | 'maxA
 const DETAILS_TABLE_DATASOURCE_KIND_OPTIONS: Array<{ value: EditableDatasourceKind; labelKey: string; fallback: string }> = [
     { value: 'current', labelKey: 'layouts.datasource.currentSection', fallback: 'Current runtime section' },
     { value: 'records.list', labelKey: 'layouts.datasource.recordsList', fallback: 'Records list' },
+    { value: 'records.union', labelKey: 'layouts.datasource.recordsUnion', fallback: 'Records union' },
     { value: 'ledger.facts', labelKey: 'layouts.datasource.ledgerFacts', fallback: 'Ledger facts' },
     { value: 'ledger.projection', labelKey: 'layouts.datasource.ledgerProjection', fallback: 'Ledger projection' }
 ]
-const CHART_DATASOURCE_KIND_OPTIONS = DETAILS_TABLE_DATASOURCE_KIND_OPTIONS.filter((option) => option.value !== 'ledger.facts')
+const CHART_DATASOURCE_KIND_OPTIONS = DETAILS_TABLE_DATASOURCE_KIND_OPTIONS.filter(
+    (option) => option.value !== 'ledger.facts' && option.value !== 'records.union'
+)
 
 const CHART_WIDGET_KEYS = new Set(['sessionsChart', 'pageViewsChart'])
 const OVERVIEW_CARD_EDITOR_SLOTS = 4
@@ -561,6 +564,10 @@ const normalizeDetailsTableDatasourceConfig = (config: Record<string, unknown>):
         })
     }
 
+    if (datasource.kind === 'records.union') {
+        return config
+    }
+
     if (datasource.kind === 'ledger.facts') {
         const ledgerId = normalizeDatasourceText((datasource as { ledgerId?: unknown }).ledgerId).trim()
         const ledgerCodename = normalizeDatasourceText((datasource as { ledgerCodename?: unknown }).ledgerCodename).trim()
@@ -802,7 +809,10 @@ const collectDatasourceValidationWarnings = (
     const warnings: DatasourceValidationWarning[] = []
     const datasource = readDatasource(config)
     const datasourceKind: EditableDatasourceKind =
-        datasource?.kind === 'records.list' || datasource?.kind === 'ledger.facts' || datasource?.kind === 'ledger.projection'
+        datasource?.kind === 'records.list' ||
+        datasource?.kind === 'records.union' ||
+        datasource?.kind === 'ledger.facts' ||
+        datasource?.kind === 'ledger.projection'
             ? datasource.kind
             : 'current'
     const isChartWidget = Boolean(widgetKey && CHART_WIDGET_KEYS.has(widgetKey))
@@ -1093,7 +1103,10 @@ export default function ApplicationWidgetBehaviorEditorDialog({ open, widgetKey,
 
     const datasource = readDatasource(draft)
     const datasourceKind: EditableDatasourceKind =
-        datasource?.kind === 'records.list' || datasource?.kind === 'ledger.facts' || datasource?.kind === 'ledger.projection'
+        datasource?.kind === 'records.list' ||
+        datasource?.kind === 'records.union' ||
+        datasource?.kind === 'ledger.facts' ||
+        datasource?.kind === 'ledger.projection'
             ? datasource.kind
             : 'current'
     const firstSeries = readFirstSeries(draft)
@@ -1553,6 +1566,14 @@ export default function ApplicationWidgetBehaviorEditorDialog({ open, widgetKey,
                                         </>
                                     ) : null}
                                 </>
+                            ) : null}
+                            {datasourceKind === 'records.union' ? (
+                                <Alert severity='info'>
+                                    {t(
+                                        'layouts.datasource.recordsUnionReadonly',
+                                        'Records union datasources are preserved from template metadata. Edit their targets in the metahub template.'
+                                    )}
+                                </Alert>
                             ) : null}
                             {datasourceKind === 'ledger.facts' || datasourceKind === 'ledger.projection' ? (
                                 <>

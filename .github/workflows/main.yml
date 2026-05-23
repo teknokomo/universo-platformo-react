@@ -34,4 +34,8 @@ jobs:
             - run: pnpm lint
             - name: Lint database access standard
               run: node tools/lint-db-access.mjs
+            - name: Check LMS runtime release gates
+              run: |
+                  pnpm run check:runtime-no-lms-forks
+                  pnpm run check:lms-fixture-contract
             - run: pnpm build

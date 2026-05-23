@@ -1,5 +1,7 @@
 # Technical Context
 
+> **Last Reviewed**: 2026-05-22 (refreshed: ECAE rename to Object/Component, architectural transition baseline added, configuration model baseline added, UPDL surface marked as historical, DB layer status & future direction added)
+
 ## Custom Modifications To Preserve
 
 ### Authentication Architecture
@@ -76,7 +78,8 @@
 
 ## ECAE / Entity Architecture Technical Baseline
 
-- Standard metadata kinds are now direct DB-stored entity type definitions keyed by `catalog`, `hub`, `set`, and `enumeration`; the shipped type/runtime contract no longer depends on a builtin registry, `source` discriminator, or `includeBuiltins` API behavior.
+- Standard metadata kinds are now direct DB-stored entity type definitions keyed by `hub`, `object`, `page`, `set`, `enumeration`, and `ledger`; the shipped type/runtime contract no longer depends on a builtin registry, `source` discriminator, or `includeBuiltins` API behavior.
+- The 2026-05-14 rename moved the user-facing universal kind from `catalog` to `object` and replaced the `attributes` / field-definition vocabulary with `components`. Persisted physical table prefix for the standard Object preset is `obj_*`. Custom Object-like entity types may choose another safe prefix through their capability metadata.
 - Shared shell, fixture, snapshot, and runtime consumers must treat standard and custom kinds uniformly and resolve display metadata from the stored entity definition.
 
 ### Backend Service Foundation
@@ -233,6 +236,18 @@
 - Business-table UPDATE/DELETE/RESTORE flows fail closed on zero-row results.
 - `node tools/lint-db-access.mjs` is the CI enforcement layer.
 
+## DB Layer Status And Future Direction
+
+- **Background**: TypeORM was previously used and was removed because it could not flexibly support runtime schema generation, dynamic DDL, and the platform's multi-tenant patterns.
+- **Current state**: Knex (connection management, transactions) plus raw SQL through `DbExecutor.query()` for domain queries and mutations. The three-tier executor pattern above and `@universo/schema-ddl` are the load-bearing parts of this layer.
+- **Maturity**: this layer is functional and the canonical path for new code, but the team treats it as **work-in-progress**. Some areas are not yet fully consolidated and may evolve.
+- **Possible future directions** (no decision made — do not act on them without one):
+  - Move more domain code from raw SQL to the Knex query builder where flexibility is preserved.
+  - Build a project-specific DB and migrations subsystem on top of `pg` for maximum flexibility, reliability, performance, and security.
+  - Keep the current Knex + raw SQL split and tighten contracts and migration tooling.
+- **Practical rule**: keep new work on the current path until the team picks a direction. Route ambitious DB-layer rewrites through a dedicated discussion, not as part of unrelated tasks.
+- Steering reference: `.kiro/steering/recommendations.md` § 2.10.
+
 ## UUID v7 Baseline
 
 - The project uses UUID v7 for time-ordered ids.
@@ -249,10 +264,28 @@
 - Fixed system-app bootstrap uses the converged application-like model documented in the architecture docs.
 - Runtime system fields follow the current lifecycle contract instead of assuming `_upl_deleted` / `_app_deleted` families always exist.
 
-## UPDL And Template Export Surface
+## Architectural Transition Baseline
 
-- UPDL nodes and template-driven export remain the high-level authoring layer for AR.js, PlayCanvas, and related generated experiences.
-- This surface is durable product scope and should stay isolated from current shell/auth/runtime foundation work.
+- Feature areas (`metahubs-*`, `applications-*`, `admin-*`, `profile-*`, `start-*`, `auth-*`) currently live as separate workspace packages on top of `packages/universo-template-mui`.
+- The long-term goal is "everything is an Application" rendered through `packages/apps-template-mui`. Each legacy area becomes a regular application; the legacy package is removed once the new application covers its functionality.
+- **`packages/apps-template-mui` must stay isolated** from `universo-template-mui` and from any legacy feature package scheduled for removal. Component duplication between the two template packages is acceptable and intentional during the transition.
+- System applications are bootstrapped today via the **pseudo-app pattern**: hand-built base snapshots → file migrations → first-run install. The likely future direction is JSON-snapshot configurations in the same shape as `tools/fixtures/metahubs-*-snapshot.json`.
+- A first-run **Setup Wizard** is planned: it will list required and recommended system applications and let the user choose additional applications from the bundled set or from a central marketplace.
+- Practical rule: continue developing in the existing legacy packages when the work fits there. Do not block tasks on the migration completing. Create a new workspace package only when significant new functionality warrants its own boundary.
+- Full description lives in `.agents/skills/universo-platform-architecture/references/architectural-transition.md`.
+
+## Configuration Model Baseline
+
+- The platform exposes seven entity type presets (`builtinEntityTypePresets`): `hub`, `object`, `page`, `set`, `enumeration`, `ledger`, `fixed-values-library` (Constants Library).
+- A user can author custom entity types via the **Entity Type Constructor** by selecting `EntityTypeCapabilities`.
+- Metahub templates curate which presets a new metahub starts with. Today there are four: `basic` (default — hub/page/object/set/enumeration), `basic-demo`, `empty`, `lms`. A future `1c-compatible` template will deliver the full 1C:Enterprise metadata-object map.
+- In the base templates, register-style behavior on Object goes through `recordBehavior` mode (`reference`/`transactional`/`hybrid`) plus `posting` and `ledgerSchema` capabilities. The separate `Ledger` preset is reserved for templates that explicitly opt in.
+- Full description lives in `.agents/skills/universo-platform-architecture/`.
+
+## Legacy UPDL Product Surface (historical)
+
+- Earlier versions of the platform shipped a UPDL system (Universal Description Platform Language) and AR.js / PlayCanvas exporters in packages such as `updl/`, `publish-frontend/`, `publish-backend/`, and `analytics-frontend/`. Those packages have been removed from the active workspace.
+- References to UPDL in older documentation describe a historical surface, not the current platform direction. The current product focus is the metahub configuration model described in `.agents/skills/universo-platform-architecture/`.
 
 ---
 

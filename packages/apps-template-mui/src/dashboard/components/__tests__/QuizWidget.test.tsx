@@ -314,6 +314,84 @@ describe('QuizWidget', () => {
         )
     })
 
+    it('sanitizes unsafe runtime quiz text while preserving localized display values', async () => {
+        const unsafeUuid = '550e8400-e29b-41d4-a716-446655440000'
+
+        mocks.executeClientScriptMethod.mockImplementation(async ({ methodName }: { methodName: string }) => {
+            if (methodName === 'mount') {
+                return {
+                    title: unsafeUuid,
+                    description: '{"type":"url","url":"https://internal.example.test/content"}',
+                    submitLabel: '{"targetId":"550e8400-e29b-41d4-a716-446655440000"}',
+                    questions: [
+                        {
+                            id: 'question-safe-id',
+                            prompt: unsafeUuid,
+                            description: {
+                                _schema: 'v1',
+                                _primary: 'en',
+                                locales: { en: { content: 'Readable quiz instructions.' } }
+                            },
+                            options: [
+                                { id: 'option-a', label: '{"type":"url","url":"https://internal.example.test/answer"}' },
+                                {
+                                    id: 'option-b',
+                                    label: {
+                                        _schema: 'v1',
+                                        _primary: 'en',
+                                        locales: { en: { content: 'Localized answer' } }
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+
+            if (methodName === 'submit') {
+                return {
+                    questionId: 'question-safe-id',
+                    correct: false,
+                    completed: false,
+                    message: unsafeUuid,
+                    explanation: '{"recordId":"550e8400-e29b-41d4-a716-446655440000"}',
+                    score: 0,
+                    total: 1,
+                    correctOptionIds: {
+                        'question-safe-id': ['option-b']
+                    }
+                }
+            }
+
+            throw new Error(`Unexpected client method: ${methodName}`)
+        })
+
+        renderWidget({
+            applicationId: 'app-1',
+            objectCollectionId: 'object-1',
+            apiBaseUrl: '/api/v1'
+        })
+
+        expect(await screen.findByText('Question 1')).toBeInTheDocument()
+        expect(screen.getByText('Space Quiz')).toBeInTheDocument()
+        expect(screen.getByText('Readable quiz instructions.')).toBeInTheDocument()
+        expect(screen.getByLabelText('Option 1')).toBeInTheDocument()
+        expect(screen.getByLabelText('Localized answer')).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Check answer' })).toBeInTheDocument()
+        expect(screen.queryByText(unsafeUuid)).not.toBeInTheDocument()
+        expect(screen.queryByText(/targetId|recordId|internal\.example\.test/)).not.toBeInTheDocument()
+
+        fireEvent.click(screen.getByLabelText('Option 1'))
+        fireEvent.click(screen.getByRole('button', { name: 'Check answer' }))
+
+        await waitFor(() => {
+            expect(screen.getByText('Not quite...')).toBeInTheDocument()
+        })
+
+        expect(screen.queryByText(unsafeUuid)).not.toBeInTheDocument()
+        expect(screen.queryByText(/targetId|recordId|internal\.example\.test/)).not.toBeInTheDocument()
+    })
+
     it('allows returning from the completion screen back to the answered questions', async () => {
         renderWidget({
             applicationId: 'app-1',

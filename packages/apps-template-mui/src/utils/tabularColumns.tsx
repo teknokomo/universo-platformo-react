@@ -7,10 +7,11 @@ import {
     type KeyboardEvent,
     type MouseEvent as ReactMouseEvent
 } from 'react'
-import type { GridColDef, GridRenderEditCellParams } from '@mui/x-data-grid'
+import type { GridColDef, GridRenderCellParams, GridRenderEditCellParams } from '@mui/x-data-grid'
 import IconButton from '@mui/material/IconButton'
 import InputBase from '@mui/material/InputBase'
 import InputAdornment from '@mui/material/InputAdornment'
+import FormHelperText from '@mui/material/FormHelperText'
 import MenuItem from '@mui/material/MenuItem'
 import Select from '@mui/material/Select'
 import Typography from '@mui/material/Typography'
@@ -21,10 +22,11 @@ import Box from '@mui/material/Box'
 import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp'
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
-import { NUMBER_DEFAULTS, validateNumber, toNumberRules } from '@universo/utils'
+import { NUMBER_DEFAULTS, validateNumber, toNumberRules, type NumberValidationResult } from '@universo/utils'
 import type { FieldConfig } from '../components/dialogs/FormDialog'
 import { getTabularStringDisplayValue, isLocalizedStringField, updateLocalizedTabularStringValue } from './tabularCellValues'
-import { formatRuntimeValue } from './displayValue'
+import { formatRuntimeDateValue, formatRuntimeSafeValue, formatRuntimeValue } from './displayValue'
+import { isSemanticLongTextRuntimeField } from './fieldSemantics'
 
 type RefOption = { id: string; label: string }
 
@@ -37,6 +39,14 @@ interface NumberEditCellProps extends GridRenderEditCellParams {
     locale: string
     /** Validation rules for stepper boundary checks. */
     validationRules?: Record<string, unknown>
+    /** Localized accessible label for the increment button. */
+    incrementAriaLabel: string
+    /** Localized accessible label for the decrement button. */
+    decrementAriaLabel: string
+    /** Localized validation helper text for the current edit value. */
+    validationErrorMessage?: string
+    /** MUI DataGrid edit error flag from preProcessEditCellProps. */
+    error?: boolean
 }
 
 /** Determine locale-appropriate decimal separator. */
@@ -56,11 +66,26 @@ const getDecimalSeparator = (locale: string, scale: number) => {
  * - stepper buttons (▲▼)
  * - blocks "-" when nonNegative, prevents exceeding precision/scale
  */
-function NumberEditCell({ id, field, value, api, nonNegative, scale, maxIntegerDigits, locale, validationRules }: NumberEditCellProps) {
+function NumberEditCell({
+    id,
+    field,
+    value,
+    api,
+    nonNegative,
+    scale,
+    maxIntegerDigits,
+    locale,
+    validationRules,
+    incrementAriaLabel,
+    decrementAriaLabel,
+    validationErrorMessage,
+    error
+}: NumberEditCellProps) {
     const decimalSeparator = getDecimalSeparator(locale, scale)
     const allowNegative = !nonNegative
     const inputRef = useRef<HTMLInputElement>(null)
     const cursorZoneRef = useRef<'integer' | 'decimal'>('integer')
+    const helperId = validationErrorMessage ? `${String(id)}-${field}-number-error` : undefined
 
     const formatValue = (val: unknown): string => {
         if (val == null || (typeof val === 'number' && Number.isNaN(val))) {
@@ -282,38 +307,63 @@ function NumberEditCell({ id, field, value, api, nonNegative, scale, maxIntegerD
     }
 
     return (
-        <InputBase
-            inputRef={inputRef}
-            value={inputValue}
-            onChange={handleChange}
-            onKeyDown={handleKeyDown}
-            onFocus={handleFocus}
-            onClick={handleClick}
-            onBlur={handleBlur}
-            fullWidth
-            sx={{ fontSize: 'inherit', '& input': { textAlign: 'right', px: 0.5, py: 0 } }}
-            inputProps={{ inputMode: scale > 0 ? 'decimal' : 'numeric' }}
-            endAdornment={
-                <InputAdornment position='end' sx={{ ml: 0 }}>
-                    <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                        <IconButton size='small' tabIndex={-1} onClick={() => doStep(1)} sx={{ width: 18, height: 14, p: 0 }}>
-                            <ArrowDropUpIcon sx={{ fontSize: 16 }} />
-                        </IconButton>
-                        <IconButton size='small' tabIndex={-1} onClick={() => doStep(-1)} sx={{ width: 18, height: 14, p: 0 }}>
-                            <ArrowDropDownIcon sx={{ fontSize: 16 }} />
-                        </IconButton>
-                    </Box>
-                </InputAdornment>
-            }
-        />
+        <Box sx={{ width: '100%' }}>
+            <InputBase
+                inputRef={inputRef}
+                value={inputValue}
+                onChange={handleChange}
+                onKeyDown={handleKeyDown}
+                onFocus={handleFocus}
+                onClick={handleClick}
+                onBlur={handleBlur}
+                fullWidth
+                sx={{ fontSize: 'inherit', '& input': { textAlign: 'right', px: 0.5, py: 0 } }}
+                inputProps={{
+                    inputMode: scale > 0 ? 'decimal' : 'numeric',
+                    'aria-invalid': error ? 'true' : undefined,
+                    'aria-describedby': helperId
+                }}
+                endAdornment={
+                    <InputAdornment position='end' sx={{ ml: 0 }}>
+                        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                            <IconButton
+                                size='small'
+                                tabIndex={-1}
+                                aria-label={incrementAriaLabel}
+                                onClick={() => doStep(1)}
+                                sx={{ width: 18, height: 14, p: 0 }}
+                            >
+                                <ArrowDropUpIcon sx={{ fontSize: 16 }} />
+                            </IconButton>
+                            <IconButton
+                                size='small'
+                                tabIndex={-1}
+                                aria-label={decrementAriaLabel}
+                                onClick={() => doStep(-1)}
+                                sx={{ width: 18, height: 14, p: 0 }}
+                            >
+                                <ArrowDropDownIcon sx={{ fontSize: 16 }} />
+                            </IconButton>
+                        </Box>
+                    </InputAdornment>
+                }
+            />
+            {error && validationErrorMessage ? (
+                <FormHelperText id={helperId} error role='alert' sx={{ m: 0, mt: 0.25, lineHeight: 1.2 }}>
+                    {validationErrorMessage}
+                </FormHelperText>
+            ) : null}
+        </Box>
     )
 }
 
-interface LocalizedStringEditCellProps extends GridRenderEditCellParams {
+interface StringEditCellProps extends GridRenderEditCellParams {
     locale: string
+    localized: boolean
+    multiline: boolean
 }
 
-function LocalizedStringEditCell({ id, field, value, api, locale }: LocalizedStringEditCellProps) {
+function StringEditCell({ id, field, value, api, locale, localized, multiline }: StringEditCellProps) {
     const [inputValue, setInputValue] = useState<string>(() => getTabularStringDisplayValue(value, locale))
     const currentValueRef = useRef<unknown>(value)
 
@@ -322,9 +372,9 @@ function LocalizedStringEditCell({ id, field, value, api, locale }: LocalizedStr
         setInputValue(getTabularStringDisplayValue(value, locale))
     }, [value, locale])
 
-    const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const handleChange = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const nextText = event.target.value
-        const nextValue = updateLocalizedTabularStringValue(currentValueRef.current, nextText, locale)
+        const nextValue = localized ? updateLocalizedTabularStringValue(currentValueRef.current, nextText, locale) : nextText
         currentValueRef.current = nextValue
         setInputValue(nextText)
         api.setEditCellValue({
@@ -334,8 +384,38 @@ function LocalizedStringEditCell({ id, field, value, api, locale }: LocalizedStr
         })
     }
 
-    return <InputBase value={inputValue} onChange={handleChange} fullWidth sx={{ fontSize: 'inherit', '& input': { px: 0.5, py: 0 } }} />
+    return (
+        <InputBase
+            value={inputValue}
+            onChange={handleChange}
+            fullWidth
+            multiline={multiline}
+            minRows={multiline ? 3 : undefined}
+            sx={{
+                fontSize: 'inherit',
+                alignItems: multiline ? 'flex-start' : 'center',
+                '& input': { px: 0.5, py: 0 },
+                '& textarea': { px: 0.5, py: 0.5, resize: 'vertical' }
+            }}
+        />
+    )
 }
+
+const renderTabularLongTextCell = (params: GridRenderCellParams, locale: string) => (
+    <Typography
+        component='span'
+        variant='body2'
+        sx={{
+            display: 'block',
+            whiteSpace: 'pre-wrap',
+            overflowWrap: 'anywhere',
+            lineHeight: 1.35,
+            py: 0.75
+        }}
+    >
+        {getTabularStringDisplayValue(params.value, locale)}
+    </Typography>
+)
 
 /**
  * Resolve the effective selected value for a REF enum field.
@@ -366,6 +446,14 @@ export interface BuildTabularColumnsOptions {
     actionsAriaLabel?: string
     /** Current locale for number formatting (e.g. 'ru', 'en'). */
     locale?: string
+    /** Localized accessible label for NUMBER increment controls. */
+    numberIncrementAriaLabel?: string
+    /** Localized accessible label for NUMBER decrement controls. */
+    numberDecrementAriaLabel?: string
+    /** Localized fallback message for invalid NUMBER input. */
+    numberInvalidMessage?: string
+    /** Maps NUMBER validation failures to localized user-facing helper text. */
+    getNumberValidationMessage?: (field: FieldConfig, result: NumberValidationResult) => string
 }
 
 /**
@@ -382,8 +470,17 @@ export function buildTabularColumns({
     onSelectChange,
     deleteAriaLabel = 'Delete',
     actionsAriaLabel = 'Actions',
-    locale = 'en'
+    locale = 'en',
+    numberIncrementAriaLabel,
+    numberDecrementAriaLabel,
+    numberInvalidMessage,
+    getNumberValidationMessage
 }: BuildTabularColumnsOptions): GridColDef[] {
+    const normalizedLocale = locale.split(/[-_]/)[0]?.toLowerCase() || 'en'
+    const incrementAriaLabel = numberIncrementAriaLabel ?? (normalizedLocale === 'ru' ? 'Увеличить' : 'Increase value')
+    const decrementAriaLabel = numberDecrementAriaLabel ?? (normalizedLocale === 'ru' ? 'Уменьшить' : 'Decrease value')
+    const invalidNumberMessage = numberInvalidMessage ?? (normalizedLocale === 'ru' ? 'Некорректное число' : 'Invalid number')
+
     const fieldCols: GridColDef[] = [
         {
             field: '__rowNumber',
@@ -538,7 +635,7 @@ export function buildTabularColumns({
                     valueFormatter: (value: unknown) => {
                         if (!value) return ''
                         const opt = refOptions.find((o) => o.id === value)
-                        return opt?.label ?? String(value)
+                        return opt?.label ?? formatRuntimeSafeValue(value, locale)
                     }
                 }
             }
@@ -552,17 +649,42 @@ export function buildTabularColumns({
             }
 
             if (field.type === 'STRING') {
-                colDef.renderCell = (params) => getTabularStringDisplayValue(params.value, locale)
+                const isLongText = isSemanticLongTextRuntimeField({
+                    id: field.id,
+                    codename: field.codename,
+                    field: field.id,
+                    label: field.label,
+                    headerName: field.label,
+                    uiConfig: field.uiConfig
+                })
+                const localized = isLocalizedStringField(field)
+
+                colDef.minWidth = isLongText ? 220 : colDef.minWidth
+                colDef.renderCell = isLongText
+                    ? (params) => renderTabularLongTextCell(params, locale)
+                    : (params) => getTabularStringDisplayValue(params.value, locale)
                 colDef.valueFormatter = (value: unknown) => getTabularStringDisplayValue(value, locale)
 
-                if (isLocalizedStringField(field)) {
-                    colDef.renderEditCell = (params) => <LocalizedStringEditCell {...params} locale={locale} />
+                if (localized || isLongText) {
+                    colDef.renderEditCell = (params) => (
+                        <StringEditCell {...params} locale={locale} localized={localized} multiline={isLongText} />
+                    )
                 }
             }
 
             if (field.type !== 'STRING' && field.type !== 'NUMBER' && field.type !== 'BOOLEAN') {
-                colDef.renderCell = (params) => formatRuntimeValue(params.value, locale)
-                colDef.valueFormatter = (value: unknown) => formatRuntimeValue(value, locale)
+                if (field.type === 'DATE') {
+                    const dateComposition = field.validationRules?.dateComposition
+                    const composition =
+                        dateComposition === 'date' || dateComposition === 'time' || dateComposition === 'datetime'
+                            ? dateComposition
+                            : 'datetime'
+                    colDef.renderCell = (params) => formatRuntimeDateValue(params.value, locale, composition)
+                    colDef.valueFormatter = (value: unknown) => formatRuntimeDateValue(value, locale, composition)
+                } else {
+                    colDef.renderCell = (params) => formatRuntimeValue(params.value, locale)
+                    colDef.valueFormatter = (value: unknown) => formatRuntimeValue(value, locale)
+                }
             }
 
             // Customize NUMBER columns: custom edit cell + validation + alignment
@@ -583,6 +705,11 @@ export function buildTabularColumns({
                         maxIntegerDigits={maxInt}
                         locale={locale}
                         validationRules={rules}
+                        incrementAriaLabel={incrementAriaLabel}
+                        decrementAriaLabel={decrementAriaLabel}
+                        validationErrorMessage={
+                            ((params as { helperText?: string }).helperText as string | undefined) ?? invalidNumberMessage
+                        }
                     />
                 )
                 // Display formatted value with locale-aware decimal separator
@@ -602,7 +729,14 @@ export function buildTabularColumns({
                             return { ...params.props, error: false }
                         }
                         const result = validateNumber(cellValue, toNumberRules(rules))
-                        return { ...params.props, error: !result.valid }
+                        if (result.valid) {
+                            return { ...params.props, error: false, helperText: undefined }
+                        }
+                        return {
+                            ...params.props,
+                            error: true,
+                            helperText: getNumberValidationMessage?.(field, result) ?? invalidNumberMessage
+                        }
                     }
                 }
             }
