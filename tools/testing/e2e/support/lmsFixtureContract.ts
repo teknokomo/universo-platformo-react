@@ -986,6 +986,7 @@ export const LMS_DEMO_COURSES = [
         key: 'onboarding-course',
         title: { en: 'Learner Onboarding Course', ru: 'Курс адаптации учащегося' },
         description: { en: 'A short course for the first learner journey.', ru: 'Короткий курс для первого учебного маршрута.' },
+        instructor: { en: 'Training Team', ru: 'Команда обучения' },
         estimatedTimeMinutes: 22,
         catalogCategory: { en: 'Onboarding', ru: 'Адаптация' },
         catalogAudience: { en: 'New learners', ru: 'Новые учащиеся' },
@@ -995,6 +996,7 @@ export const LMS_DEMO_COURSES = [
         key: 'compliance-course',
         title: { en: 'Compliance Refresh Course', ru: 'Курс обновления требований' },
         description: { en: 'Required refresher materials and checks.', ru: 'Обязательные материалы и проверки.' },
+        instructor: { en: 'Training Team', ru: 'Команда обучения' },
         estimatedTimeMinutes: 18,
         catalogCategory: { en: 'Compliance', ru: 'Соответствие' },
         catalogAudience: { en: 'All learners', ru: 'Все учащиеся' },
@@ -2347,7 +2349,7 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
                 .map((label) => (typeof label === 'string' ? label : readRecord(readRecord(label)?.locales)?.en))
                 .map((label) => (typeof label === 'string' ? label : readRecord(label)?.content))
                 .filter((value): value is string => typeof value === 'string')
-            for (const requiredLabel of ['Project', 'Page', 'Link', 'Course', 'Learning Track', 'Quiz-lite', 'Assignment-lite']) {
+            for (const requiredLabel of ['Project', 'Page', 'Link', 'Course', 'Learning Track', 'Quiz (planned)', 'Assignment (planned)']) {
                 if (!createTargetLabels.includes(requiredLabel)) {
                     errors.push(`LMS Learning Content create menu must include a ${requiredLabel} entry`)
                 }
@@ -2415,21 +2417,21 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
                 errors.push('LMS Learning Track create target must derive order defaults from the generic runtime create context')
             }
             if (quizLiteTarget?.sectionCodename !== 'Quizzes' || quizLiteTarget.disabled !== true) {
-                errors.push('LMS Quiz-lite create target must stay an explicitly disabled generic createTargets entry for Quizzes')
+                errors.push('LMS Quiz (planned) create target must stay an explicitly disabled generic createTargets entry for Quizzes')
             } else {
                 assertLocalizedFixtureValue(
                     errors,
                     quizLiteTarget.disabledReason,
                     {
                         en: 'Quiz authoring is planned for a later Learning Content phase.',
-                        ru: 'Создание тестов запланировано на следующий этап Learning Content.'
+                        ru: 'Создание тестов запланировано на следующий этап учебного контента.'
                     },
-                    'LMS Quiz-lite create target disabled reason'
+                    'LMS Quiz (planned) create target disabled reason'
                 )
             }
             if (assignmentLiteTarget?.sectionCodename !== 'Assignments' || assignmentLiteTarget.disabled !== true) {
                 errors.push(
-                    'LMS Assignment-lite create target must stay an explicitly disabled generic createTargets entry for Assignments'
+                    'LMS Assignment (planned) create target must stay an explicitly disabled generic createTargets entry for Assignments'
                 )
             } else {
                 assertLocalizedFixtureValue(
@@ -2437,24 +2439,24 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
                     assignmentLiteTarget.disabledReason,
                     {
                         en: 'Assignment authoring is planned for a later Learning Content phase.',
-                        ru: 'Создание заданий запланировано на следующий этап Learning Content.'
+                        ru: 'Создание заданий запланировано на следующий этап учебного контента.'
                     },
-                    'LMS Assignment-lite create target disabled reason'
+                    'LMS Assignment (planned) create target disabled reason'
                 )
             }
             if (packageTarget?.sectionCodename !== 'LearningResources' || packageTarget.disabled !== true) {
                 errors.push(
-                    'LMS Import package create target must stay an explicitly disabled generic createTargets entry for LearningResources'
+                    'LMS Import package (planned) create target must stay an explicitly disabled generic createTargets entry for LearningResources'
                 )
             } else {
                 assertLocalizedFixtureValue(
                     errors,
                     packageTarget.disabledReason,
                     {
-                        en: 'File import and SCORM/xAPI support are planned for a later phase.',
-                        ru: 'Импорт файлов и поддержка SCORM/xAPI запланированы на следующий этап.'
+                        en: 'File import support is planned for a later phase.',
+                        ru: 'Импорт файлов запланирован на следующий этап.'
                     },
-                    'LMS Import package create target disabled reason'
+                    'LMS Import package (planned) create target disabled reason'
                 )
             }
         } else if (libraryView === 'recent' && lifecycleState === 'active') {

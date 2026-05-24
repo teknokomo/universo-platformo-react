@@ -1,0 +1,1300 @@
+{
+    "version": 1,
+    "defaultDimensions": {
+        "width": 1920,
+        "height": 1080
+    },
+    "assetRoot": "docs/<locale>/.gitbook/assets/lms-user-guide",
+    "screenshots": [
+        {
+            "id": "dashboard-overview",
+            "filename": "dashboard-overview.png",
+            "docPages": {
+                "en": "docs/en/lms/README.md",
+                "ru": "docs/ru/lms/README.md"
+            },
+            "heading": {
+                "en": "LMS User Guide",
+                "ru": "Руководство пользователя LMS"
+            },
+            "workflowStepIds": ["README-step-1", "README-step-2", "README-step-3", "README-step-4"],
+            "routeHint": "/a/:applicationId",
+            "state": "README",
+            "captureMode": "viewport",
+            "expectedDimensions": {
+                "width": 1920,
+                "height": 1080
+            },
+            "pairedContextId": null,
+            "requiredVisibleText": {
+                "en": ["Learners"],
+                "ru": ["Учащиеся"]
+            },
+            "forbiddenVisibleText": {
+                "en": ["E2E", "[object Object]", "2061-02-01T08:00:00.000Z"],
+                "ru": [
+                    "E2E",
+                    "[object Object]",
+                    "No data to display",
+                    "Learning Content",
+                    "Create element",
+                    "2061-02-01T08:00:00.000Z",
+                    "Edit element",
+                    "Certificate policy page",
+                    "Certificate policy PDF",
+                    "Compliance Refresh Course",
+                    "Learning Path 101",
+                    "Docking Corridor Basics",
+                    "Course overview page",
+                    "Learning portal web link",
+                    "Embedded orientation video",
+                    "Use this page resource inside learning flows.",
+                    "Open page",
+                    "Learners",
+                    "Rows per page",
+                    "Create",
+                    "Search",
+                    "Type",
+                    "Table columns",
+                    "Card view",
+                    "Table view",
+                    "Copy",
+                    "Delete",
+                    "Restore",
+                    "Share",
+                    "Move to project",
+                    "Training Team",
+                    "Compliance Team"
+                ]
+            },
+            "viewportMatrixRequired": true,
+            "shared": false,
+            "workflowStepEvidence": {
+                "README-step-1": {
+                    "requiredVisibleText": {
+                        "en": ["Learners"],
+                        "ru": ["Учащиеся"]
+                    }
+                },
+                "README-step-2": {
+                    "requiredVisibleText": {
+                        "en": ["Main"],
+                        "ru": ["Основное"]
+                    }
+                },
+                "README-step-3": {
+                    "requiredVisibleText": {
+                        "en": ["Learning Content"],
+                        "ru": ["Учебный контент"]
+                    }
+                },
+                "README-step-4": {
+                    "requiredVisibleText": {
+                        "en": ["Reports"],
+                        "ru": ["Отчёты"]
+                    }
+                }
+            }
+        },
+        {
+            "id": "getting-around",
+            "filename": "getting-around.png",
+            "docPages": {
+                "en": "docs/en/lms/getting-around.md",
+                "ru": "docs/ru/lms/getting-around.md"
+            },
+            "heading": {
+                "en": "Getting Around",
+                "ru": "Навигация"
+            },
+            "workflowStepIds": [
+                "getting-around-step-1",
+                "getting-around-step-2",
+                "getting-around-step-3",
+                "getting-around-step-4",
+                "getting-around-step-5"
+            ],
+            "routeHint": "/a/:applicationId",
+            "state": "getting-around",
+            "captureMode": "viewport",
+            "expectedDimensions": {
+                "width": 1920,
+                "height": 1080
+            },
+            "pairedContextId": null,
+            "requiredVisibleText": {
+                "en": ["Workspaces"],
+                "ru": ["Рабочие пространства"]
+            },
+            "forbiddenVisibleText": {
+                "en": ["E2E", "[object Object]", "2061-02-01T08:00:00.000Z"],
+                "ru": [
+                    "E2E",
+                    "[object Object]",
+                    "No data to display",
+                    "Learning Content",
+                    "Create element",
+                    "2061-02-01T08:00:00.000Z",
+                    "Edit element",
+                    "Certificate policy page",
+                    "Certificate policy PDF",
+                    "Compliance Refresh Course",
+                    "Learning Path 101",
+                    "Docking Corridor Basics",
+                    "Course overview page",
+                    "Learning portal web link",
+                    "Embedded orientation video",
+                    "Use this page resource inside learning flows.",
+                    "Open page",
+                    "Learners",
+                    "Rows per page",
+                    "Create",
+                    "Search",
+                    "Type",
+                    "Table columns",
+                    "Card view",
+                    "Table view",
+                    "Copy",
+                    "Delete",
+                    "Restore",
+                    "Share",
+                    "Move to project",
+                    "Training Team",
+                    "Compliance Team"
+                ]
+            },
+            "viewportMatrixRequired": true,
+            "shared": false,
+            "workflowStepEvidence": {
+                "getting-around-step-1": {
+                    "requiredVisibleText": {
+                        "en": ["Workspaces"],
+                        "ru": ["Рабочие пространства"]
+                    }
+                },
+                "getting-around-step-2": {
+                    "requiredVisibleText": {
+                        "en": ["Learning Content"],
+                        "ru": ["Учебный контент"]
+                    }
+                },
+                "getting-around-step-3": {
+                    "requiredVisibleText": {
+                        "en": ["Courses"],
+                        "ru": ["Курсы"]
+                    }
+                },
+                "getting-around-step-4": {
+                    "requiredVisibleText": {
+                        "en": ["Card view"],
+                        "ru": ["Карточный вид"]
+                    }
+                },
+                "getting-around-step-5": {
+                    "requiredVisibleText": {
+                        "en": ["Edit"],
+                        "ru": ["Редактировать"]
+                    }
+                }
+            }
+        },
+        {
+            "id": "learning-content-library",
+            "filename": "learning-content-library.png",
+            "docPages": {
+                "en": "docs/en/lms/learning-content-library.md",
+                "ru": "docs/ru/lms/learning-content-library.md"
+            },
+            "heading": {
+                "en": "Learning Content Library",
+                "ru": "Библиотека учебного контента"
+            },
+            "workflowStepIds": [
+                "learning-content-library-step-1",
+                "learning-content-library-step-2",
+                "learning-content-library-step-3",
+                "learning-content-library-step-4",
+                "learning-content-library-step-5"
+            ],
+            "routeHint": "/a/:applicationId",
+            "state": "learning-content-library",
+            "captureMode": "viewport",
+            "expectedDimensions": {
+                "width": 1920,
+                "height": 1080
+            },
+            "pairedContextId": null,
+            "requiredVisibleText": {
+                "en": ["Create"],
+                "ru": ["Создать"]
+            },
+            "forbiddenVisibleText": {
+                "en": ["E2E", "[object Object]", "2061-02-01T08:00:00.000Z"],
+                "ru": [
+                    "E2E",
+                    "[object Object]",
+                    "No data to display",
+                    "Learning Content",
+                    "Create element",
+                    "2061-02-01T08:00:00.000Z",
+                    "Edit element",
+                    "Certificate policy page",
+                    "Certificate policy PDF",
+                    "Compliance Refresh Course",
+                    "Learning Path 101",
+                    "Docking Corridor Basics",
+                    "Course overview page",
+                    "Learning portal web link",
+                    "Embedded orientation video",
+                    "Use this page resource inside learning flows.",
+                    "Open page",
+                    "Learners",
+                    "Rows per page",
+                    "Create",
+                    "Search",
+                    "Type",
+                    "Table columns",
+                    "Card view",
+                    "Table view",
+                    "Copy",
+                    "Delete",
+                    "Restore",
+                    "Share",
+                    "Move to project",
+                    "Training Team",
+                    "Compliance Team"
+                ]
+            },
+            "viewportMatrixRequired": true,
+            "shared": false,
+            "workflowStepEvidence": {
+                "learning-content-library-step-1": {
+                    "requiredVisibleText": {
+                        "en": ["Create"],
+                        "ru": ["Создать"]
+                    }
+                },
+                "learning-content-library-step-2": {
+                    "requiredVisibleText": {
+                        "en": ["Courses"],
+                        "ru": ["Курсы"]
+                    }
+                },
+                "learning-content-library-step-3": {
+                    "requiredVisibleText": {
+                        "en": ["Columns"],
+                        "ru": ["Колонки"]
+                    }
+                },
+                "learning-content-library-step-4": {
+                    "requiredVisibleText": {
+                        "en": ["Page"],
+                        "ru": ["Страница"]
+                    }
+                },
+                "learning-content-library-step-5": {
+                    "requiredVisibleText": {
+                        "en": ["Edit"],
+                        "ru": ["Редактировать"]
+                    }
+                }
+            }
+        },
+        {
+            "id": "projects",
+            "filename": "projects.png",
+            "docPages": {
+                "en": "docs/en/lms/projects.md",
+                "ru": "docs/ru/lms/projects.md"
+            },
+            "heading": {
+                "en": "Projects",
+                "ru": "Проекты"
+            },
+            "workflowStepIds": ["projects-step-1", "projects-step-2", "projects-step-3", "projects-step-4", "projects-step-5"],
+            "routeHint": "/a/:applicationId",
+            "state": "projects",
+            "captureMode": "viewport",
+            "expectedDimensions": {
+                "width": 1920,
+                "height": 1080
+            },
+            "pairedContextId": null,
+            "requiredVisibleText": {
+                "en": ["Create"],
+                "ru": ["Создать"]
+            },
+            "workflowStepEvidence": {
+                "projects-step-1": {
+                    "requiredVisibleText": {
+                        "en": ["Project"],
+                        "ru": ["Проект"]
+                    }
+                },
+                "projects-step-2": {
+                    "requiredVisibleText": {
+                        "en": ["Title", "Description"],
+                        "ru": ["Заголовок", "Описание"]
+                    }
+                },
+                "projects-step-3": {
+                    "requiredVisibleText": {
+                        "en": ["Projects", "3"],
+                        "ru": ["Проекты", "4"]
+                    }
+                },
+                "projects-step-4": {
+                    "requiredVisibleText": {
+                        "en": ["Move to project", "Documentation workspace project"],
+                        "ru": ["Переместить в проект", "Проект документации"]
+                    }
+                },
+                "projects-step-5": {
+                    "requiredVisibleText": {
+                        "en": ["Restore to project"],
+                        "ru": ["Восстановить в проект"]
+                    }
+                }
+            },
+            "forbiddenVisibleText": {
+                "en": ["E2E", "[object Object]", "2061-02-01T08:00:00.000Z"],
+                "ru": [
+                    "E2E",
+                    "[object Object]",
+                    "No data to display",
+                    "Learning Content",
+                    "Create element",
+                    "2061-02-01T08:00:00.000Z",
+                    "Edit element",
+                    "Certificate policy page",
+                    "Certificate policy PDF",
+                    "Compliance Refresh Course",
+                    "Learning Path 101",
+                    "Docking Corridor Basics",
+                    "Course overview page",
+                    "Learning portal web link",
+                    "Embedded orientation video",
+                    "Use this page resource inside learning flows.",
+                    "Open page",
+                    "Learners",
+                    "Rows per page",
+                    "Create",
+                    "Search",
+                    "Type",
+                    "Table columns",
+                    "Card view",
+                    "Table view",
+                    "Copy",
+                    "Delete",
+                    "Restore",
+                    "Share",
+                    "Move to project",
+                    "Training Team",
+                    "Compliance Team"
+                ]
+            },
+            "viewportMatrixRequired": true,
+            "shared": false
+        },
+        {
+            "id": "resources-pages-links",
+            "filename": "resources-pages-links.png",
+            "docPages": {
+                "en": "docs/en/lms/resources-pages-links.md",
+                "ru": "docs/ru/lms/resources-pages-links.md"
+            },
+            "heading": {
+                "en": "Page and Link Resources",
+                "ru": "Страницы и ссылки"
+            },
+            "workflowStepIds": [
+                "resources-pages-links-step-1",
+                "resources-pages-links-step-2",
+                "resources-pages-links-step-3",
+                "resources-pages-links-step-4",
+                "resources-pages-links-step-5"
+            ],
+            "routeHint": "/a/:applicationId",
+            "state": "resources-pages-links",
+            "captureMode": "viewport",
+            "expectedDimensions": {
+                "width": 1920,
+                "height": 1080
+            },
+            "pairedContextId": null,
+            "requiredVisibleText": {
+                "en": ["Page"],
+                "ru": ["Страница"]
+            },
+            "forbiddenVisibleText": {
+                "en": ["E2E", "[object Object]", "2061-02-01T08:00:00.000Z"],
+                "ru": [
+                    "E2E",
+                    "[object Object]",
+                    "No data to display",
+                    "Learning Content",
+                    "Create element",
+                    "2061-02-01T08:00:00.000Z",
+                    "Edit element",
+                    "Certificate policy page",
+                    "Certificate policy PDF",
+                    "Compliance Refresh Course",
+                    "Learning Path 101",
+                    "Docking Corridor Basics",
+                    "Course overview page",
+                    "Learning portal web link",
+                    "Embedded orientation video",
+                    "Use this page resource inside learning flows.",
+                    "Open page",
+                    "Learners",
+                    "Rows per page",
+                    "Create",
+                    "Search",
+                    "Type",
+                    "Table columns",
+                    "Card view",
+                    "Table view",
+                    "Copy",
+                    "Delete",
+                    "Restore",
+                    "Share",
+                    "Move to project",
+                    "Training Team",
+                    "Compliance Team"
+                ]
+            },
+            "viewportMatrixRequired": true,
+            "shared": false,
+            "workflowStepEvidence": {
+                "resources-pages-links-step-1": {
+                    "requiredVisibleText": {
+                        "en": ["Body"],
+                        "ru": ["Содержимое"]
+                    }
+                },
+                "resources-pages-links-step-2": {
+                    "requiredVisibleText": {
+                        "en": ["Body"],
+                        "ru": ["Содержимое"]
+                    }
+                },
+                "resources-pages-links-step-3": {
+                    "requiredVisibleText": {
+                        "en": ["Body"],
+                        "ru": ["Содержимое"]
+                    }
+                },
+                "resources-pages-links-step-4": {
+                    "requiredVisibleText": {
+                        "en": ["Source URL"],
+                        "ru": ["URL источника"]
+                    }
+                },
+                "resources-pages-links-step-5": {
+                    "requiredVisibleText": {
+                        "en": ["Source URL"],
+                        "ru": ["URL источника"]
+                    }
+                }
+            }
+        },
+        {
+            "id": "courses",
+            "filename": "courses.png",
+            "docPages": {
+                "en": "docs/en/lms/courses.md",
+                "ru": "docs/ru/lms/courses.md"
+            },
+            "heading": {
+                "en": "Courses",
+                "ru": "Курсы"
+            },
+            "workflowStepIds": ["courses-step-1", "courses-step-2", "courses-step-3", "courses-step-4", "courses-step-5"],
+            "routeHint": "/a/:applicationId",
+            "state": "courses",
+            "captureMode": "viewport",
+            "expectedDimensions": {
+                "width": 1920,
+                "height": 1080
+            },
+            "pairedContextId": null,
+            "requiredVisibleText": {
+                "en": ["Courses"],
+                "ru": ["Курсы"]
+            },
+            "forbiddenVisibleText": {
+                "en": ["E2E", "[object Object]", "2061-02-01T08:00:00.000Z"],
+                "ru": [
+                    "E2E",
+                    "[object Object]",
+                    "No data to display",
+                    "Learning Content",
+                    "Create element",
+                    "2061-02-01T08:00:00.000Z",
+                    "Edit element",
+                    "Certificate policy page",
+                    "Certificate policy PDF",
+                    "Compliance Refresh Course",
+                    "Learning Path 101",
+                    "Docking Corridor Basics",
+                    "Course overview page",
+                    "Learning portal web link",
+                    "Embedded orientation video",
+                    "Use this page resource inside learning flows.",
+                    "Open page",
+                    "Learners",
+                    "Rows per page",
+                    "Create",
+                    "Search",
+                    "Type",
+                    "Table columns",
+                    "Card view",
+                    "Table view",
+                    "Copy",
+                    "Delete",
+                    "Restore",
+                    "Share",
+                    "Move to project",
+                    "Training Team",
+                    "Compliance Team"
+                ]
+            },
+            "viewportMatrixRequired": true,
+            "shared": false,
+            "workflowStepEvidence": {
+                "courses-step-1": {
+                    "requiredVisibleText": {
+                        "en": ["General"],
+                        "ru": ["Общее"]
+                    }
+                },
+                "courses-step-2": {
+                    "requiredVisibleText": {
+                        "en": ["Items"],
+                        "ru": ["Элементы"]
+                    }
+                },
+                "courses-step-3": {
+                    "requiredVisibleText": {
+                        "en": ["Create"],
+                        "ru": ["Создать"]
+                    }
+                },
+                "courses-step-4": {
+                    "requiredVisibleText": {
+                        "en": ["Completion"],
+                        "ru": ["Завершение"]
+                    }
+                },
+                "courses-step-5": {
+                    "requiredVisibleText": {
+                        "en": ["Learner Onboarding Course"],
+                        "ru": ["Курс адаптации учащегося"]
+                    }
+                }
+            }
+        },
+        {
+            "id": "learning-tracks",
+            "filename": "learning-tracks.png",
+            "docPages": {
+                "en": "docs/en/lms/learning-tracks.md",
+                "ru": "docs/ru/lms/learning-tracks.md"
+            },
+            "heading": {
+                "en": "Learning Tracks",
+                "ru": "Учебные треки"
+            },
+            "workflowStepIds": [
+                "learning-tracks-step-1",
+                "learning-tracks-step-2",
+                "learning-tracks-step-3",
+                "learning-tracks-step-4",
+                "learning-tracks-step-5"
+            ],
+            "routeHint": "/a/:applicationId",
+            "state": "learning-tracks",
+            "captureMode": "viewport",
+            "expectedDimensions": {
+                "width": 1920,
+                "height": 1080
+            },
+            "pairedContextId": null,
+            "requiredVisibleText": {
+                "en": ["Tracks"],
+                "ru": ["Треки"]
+            },
+            "forbiddenVisibleText": {
+                "en": ["E2E", "[object Object]", "2061-02-01T08:00:00.000Z"],
+                "ru": [
+                    "E2E",
+                    "[object Object]",
+                    "No data to display",
+                    "Learning Content",
+                    "Create element",
+                    "2061-02-01T08:00:00.000Z",
+                    "Edit element",
+                    "Certificate policy page",
+                    "Certificate policy PDF",
+                    "Compliance Refresh Course",
+                    "Learning Path 101",
+                    "Docking Corridor Basics",
+                    "Course overview page",
+                    "Learning portal web link",
+                    "Embedded orientation video",
+                    "Use this page resource inside learning flows.",
+                    "Open page",
+                    "Learners",
+                    "Rows per page",
+                    "Create",
+                    "Search",
+                    "Type",
+                    "Table columns",
+                    "Card view",
+                    "Table view",
+                    "Copy",
+                    "Delete",
+                    "Restore",
+                    "Share",
+                    "Move to project",
+                    "Training Team",
+                    "Compliance Team"
+                ]
+            },
+            "viewportMatrixRequired": true,
+            "shared": false,
+            "workflowStepEvidence": {
+                "learning-tracks-step-1": {
+                    "requiredVisibleText": {
+                        "en": ["General"],
+                        "ru": ["Общее"]
+                    }
+                },
+                "learning-tracks-step-2": {
+                    "requiredVisibleText": {
+                        "en": ["Steps"],
+                        "ru": ["Шаги"]
+                    }
+                },
+                "learning-tracks-step-3": {
+                    "requiredVisibleText": {
+                        "en": ["Create"],
+                        "ru": ["Создать"]
+                    }
+                },
+                "learning-tracks-step-4": {
+                    "requiredVisibleText": {
+                        "en": ["Completion"],
+                        "ru": ["Завершение"]
+                    }
+                },
+                "learning-tracks-step-5": {
+                    "requiredVisibleText": {
+                        "en": ["New learner onboarding track"],
+                        "ru": ["Трек адаптации нового учащегося"]
+                    }
+                }
+            }
+        },
+        {
+            "id": "sharing-recent-favorites-trash",
+            "filename": "sharing-recent-favorites-trash.png",
+            "docPages": {
+                "en": "docs/en/lms/sharing-recent-favorites-trash.md",
+                "ru": "docs/ru/lms/sharing-recent-favorites-trash.md"
+            },
+            "heading": {
+                "en": "Sharing, Recent, Starred, and Trash",
+                "ru": "Общий доступ, недавнее, избранное и корзина"
+            },
+            "workflowStepIds": [
+                "sharing-recent-favorites-trash-step-1",
+                "sharing-recent-favorites-trash-step-2",
+                "sharing-recent-favorites-trash-step-3",
+                "sharing-recent-favorites-trash-step-4",
+                "sharing-recent-favorites-trash-step-5"
+            ],
+            "routeHint": "/a/:applicationId",
+            "state": "sharing-recent-favorites-trash",
+            "captureMode": "viewport",
+            "expectedDimensions": {
+                "width": 1920,
+                "height": 1080
+            },
+            "pairedContextId": null,
+            "requiredVisibleText": {
+                "en": ["Create"],
+                "ru": ["Создать"]
+            },
+            "workflowStepEvidence": {
+                "sharing-recent-favorites-trash-step-1": {
+                    "requiredVisibleText": {
+                        "en": ["Add to starred"],
+                        "ru": ["Добавить в избранное"]
+                    }
+                },
+                "sharing-recent-favorites-trash-step-2": {
+                    "requiredVisibleText": {
+                        "en": ["Share content"],
+                        "ru": ["Поделиться контентом"]
+                    }
+                },
+                "sharing-recent-favorites-trash-step-3": {
+                    "requiredVisibleText": {
+                        "en": ["Recent"],
+                        "ru": ["Недавние"]
+                    }
+                },
+                "sharing-recent-favorites-trash-step-4": {
+                    "requiredVisibleText": {
+                        "en": ["Delete element?"],
+                        "ru": ["Удалить элемент?"]
+                    }
+                },
+                "sharing-recent-favorites-trash-step-5": {
+                    "requiredVisibleText": {
+                        "en": ["Restore to project"],
+                        "ru": ["Восстановить в проект"]
+                    }
+                }
+            },
+            "forbiddenVisibleText": {
+                "en": ["E2E", "[object Object]", "2061-02-01T08:00:00.000Z"],
+                "ru": [
+                    "E2E",
+                    "[object Object]",
+                    "No data to display",
+                    "Learning Content",
+                    "Create element",
+                    "2061-02-01T08:00:00.000Z",
+                    "Edit element",
+                    "Certificate policy page",
+                    "Certificate policy PDF",
+                    "Compliance Refresh Course",
+                    "Learning Path 101",
+                    "Docking Corridor Basics",
+                    "Course overview page",
+                    "Learning portal web link",
+                    "Embedded orientation video",
+                    "Use this page resource inside learning flows.",
+                    "Open page",
+                    "Learners",
+                    "Rows per page",
+                    "Create",
+                    "Search",
+                    "Type",
+                    "Table columns",
+                    "Card view",
+                    "Table view",
+                    "Copy",
+                    "Delete",
+                    "Restore",
+                    "Share",
+                    "Move to project",
+                    "Training Team",
+                    "Compliance Team"
+                ]
+            },
+            "viewportMatrixRequired": true,
+            "shared": false
+        },
+        {
+            "id": "learner-experience",
+            "filename": "learner-experience.png",
+            "docPages": {
+                "en": "docs/en/lms/learner-experience.md",
+                "ru": "docs/ru/lms/learner-experience.md"
+            },
+            "heading": {
+                "en": "Learner Experience",
+                "ru": "Опыт учащегося"
+            },
+            "workflowStepIds": [
+                "learner-experience-step-1",
+                "learner-experience-step-2",
+                "learner-experience-step-3",
+                "learner-experience-step-4",
+                "learner-experience-step-5"
+            ],
+            "routeHint": "/a/:applicationId",
+            "state": "learner-experience",
+            "captureMode": "viewport",
+            "expectedDimensions": {
+                "width": 1920,
+                "height": 1080
+            },
+            "pairedContextId": null,
+            "requiredVisibleText": {
+                "en": ["Learner Onboarding Course"],
+                "ru": ["Курс адаптации учащегося"]
+            },
+            "workflowStepEvidence": {
+                "learner-experience-step-1": {
+                    "requiredVisibleText": {
+                        "en": ["Learner Onboarding Course"],
+                        "ru": ["Курс адаптации учащегося"]
+                    }
+                },
+                "learner-experience-step-2": {
+                    "requiredVisibleText": {
+                        "en": ["Complete"],
+                        "ru": ["Завершить"]
+                    }
+                },
+                "learner-experience-step-3": {
+                    "requiredVisibleText": {
+                        "en": ["completed"],
+                        "ru": ["Завершено"]
+                    }
+                },
+                "learner-experience-step-4": {
+                    "requiredVisibleText": {
+                        "en": ["Next"],
+                        "ru": ["Далее"]
+                    }
+                },
+                "learner-experience-step-5": {
+                    "requiredVisibleText": {
+                        "en": ["completed"],
+                        "ru": ["Завершено"]
+                    }
+                }
+            },
+            "forbiddenVisibleText": {
+                "en": ["E2E", "[object Object]", "2061-02-01T08:00:00.000Z"],
+                "ru": [
+                    "E2E",
+                    "[object Object]",
+                    "No data to display",
+                    "Learning Content",
+                    "Create element",
+                    "2061-02-01T08:00:00.000Z",
+                    "Edit element",
+                    "Certificate policy page",
+                    "Certificate policy PDF",
+                    "Compliance Refresh Course",
+                    "Learning Path 101",
+                    "Docking Corridor Basics",
+                    "Course overview page",
+                    "Learning portal web link",
+                    "Embedded orientation video",
+                    "Use this page resource inside learning flows.",
+                    "Open page",
+                    "Learners",
+                    "Rows per page",
+                    "Create",
+                    "Search",
+                    "Type",
+                    "Table columns",
+                    "Card view",
+                    "Table view",
+                    "Copy",
+                    "Delete",
+                    "Restore",
+                    "Share",
+                    "Move to project",
+                    "Training Team",
+                    "Compliance Team"
+                ]
+            },
+            "viewportMatrixRequired": true,
+            "shared": false
+        },
+        {
+            "id": "knowledge",
+            "filename": "knowledge.png",
+            "docPages": {
+                "en": "docs/en/lms/knowledge.md",
+                "ru": "docs/ru/lms/knowledge.md"
+            },
+            "heading": {
+                "en": "Knowledge",
+                "ru": "Знания"
+            },
+            "workflowStepIds": ["knowledge-step-1", "knowledge-step-2", "knowledge-step-3", "knowledge-step-4", "knowledge-step-5"],
+            "routeHint": "/a/:applicationId",
+            "state": "knowledge",
+            "captureMode": "viewport",
+            "expectedDimensions": {
+                "width": 1920,
+                "height": 1080
+            },
+            "pairedContextId": null,
+            "requiredVisibleText": {
+                "en": ["Knowledge Articles"],
+                "ru": ["Статьи базы знаний"]
+            },
+            "forbiddenVisibleText": {
+                "en": ["E2E", "[object Object]", "2061-02-01T08:00:00.000Z"],
+                "ru": [
+                    "E2E",
+                    "[object Object]",
+                    "No data to display",
+                    "Learning Content",
+                    "Create element",
+                    "2061-02-01T08:00:00.000Z",
+                    "Edit element",
+                    "Certificate policy page",
+                    "Certificate policy PDF",
+                    "Compliance Refresh Course",
+                    "Learning Path 101",
+                    "Docking Corridor Basics",
+                    "Course overview page",
+                    "Learning portal web link",
+                    "Embedded orientation video",
+                    "Use this page resource inside learning flows.",
+                    "Open page",
+                    "Learners",
+                    "Rows per page",
+                    "Create",
+                    "Search",
+                    "Type",
+                    "Table columns",
+                    "Card view",
+                    "Table view",
+                    "Copy",
+                    "Delete",
+                    "Restore",
+                    "Share",
+                    "Move to project",
+                    "Training Team",
+                    "Compliance Team"
+                ]
+            },
+            "viewportMatrixRequired": true,
+            "shared": false,
+            "workflowStepEvidence": {
+                "knowledge-step-1": {
+                    "requiredVisibleText": {
+                        "en": ["Title"],
+                        "ru": ["Заголовок"]
+                    }
+                },
+                "knowledge-step-2": {
+                    "requiredVisibleText": {
+                        "en": ["Create"],
+                        "ru": ["Создать"]
+                    }
+                },
+                "knowledge-step-3": {
+                    "requiredVisibleText": {
+                        "en": ["Title"],
+                        "ru": ["Заголовок"]
+                    }
+                },
+                "knowledge-step-4": {
+                    "requiredVisibleText": {
+                        "en": ["Body"],
+                        "ru": ["Содержимое"]
+                    }
+                },
+                "knowledge-step-5": {
+                    "requiredVisibleText": {
+                        "en": ["Edit"],
+                        "ru": ["Редактировать"]
+                    }
+                }
+            }
+        },
+        {
+            "id": "reports",
+            "filename": "reports.png",
+            "docPages": {
+                "en": "docs/en/lms/reports.md",
+                "ru": "docs/ru/lms/reports.md"
+            },
+            "heading": {
+                "en": "Reports",
+                "ru": "Отчёты"
+            },
+            "workflowStepIds": ["reports-step-1", "reports-step-2", "reports-step-3", "reports-step-4", "reports-step-5"],
+            "routeHint": "/a/:applicationId",
+            "state": "reports",
+            "captureMode": "viewport",
+            "expectedDimensions": {
+                "width": 1920,
+                "height": 1080
+            },
+            "pairedContextId": null,
+            "requiredVisibleText": {
+                "en": ["Reports"],
+                "ru": ["Отчёты"]
+            },
+            "forbiddenVisibleText": {
+                "en": ["E2E", "[object Object]", "2061-02-01T08:00:00.000Z"],
+                "ru": [
+                    "E2E",
+                    "[object Object]",
+                    "No data to display",
+                    "Learning Content",
+                    "Create element",
+                    "2061-02-01T08:00:00.000Z",
+                    "Edit element",
+                    "Certificate policy page",
+                    "Certificate policy PDF",
+                    "Compliance Refresh Course",
+                    "Learning Path 101",
+                    "Docking Corridor Basics",
+                    "Course overview page",
+                    "Learning portal web link",
+                    "Embedded orientation video",
+                    "Use this page resource inside learning flows.",
+                    "Open page",
+                    "Learners",
+                    "Rows per page",
+                    "Create",
+                    "Search",
+                    "Type",
+                    "Table columns",
+                    "Card view",
+                    "Table view",
+                    "Copy",
+                    "Delete",
+                    "Restore",
+                    "Share",
+                    "Move to project",
+                    "Training Team",
+                    "Compliance Team"
+                ]
+            },
+            "viewportMatrixRequired": true,
+            "shared": false,
+            "workflowStepEvidence": {
+                "reports-step-1": {
+                    "requiredVisibleText": {
+                        "en": ["Reports"],
+                        "ru": ["Отчёты"]
+                    }
+                },
+                "reports-step-2": {
+                    "requiredVisibleText": {
+                        "en": ["Title"],
+                        "ru": ["Заголовок"]
+                    }
+                },
+                "reports-step-3": {
+                    "requiredVisibleText": {
+                        "en": ["Type"],
+                        "ru": ["Тип"]
+                    }
+                },
+                "reports-step-4": {
+                    "requiredVisibleText": {
+                        "en": ["Export CSV"],
+                        "ru": ["Экспорт CSV"]
+                    }
+                },
+                "reports-step-5": {
+                    "requiredVisibleText": {
+                        "en": ["Learning Content"],
+                        "ru": ["Учебный контент"]
+                    }
+                }
+            }
+        },
+        {
+            "id": "guest-access",
+            "filename": "guest-access.png",
+            "docPages": {
+                "en": "docs/en/lms/guest-access.md",
+                "ru": "docs/ru/lms/guest-access.md"
+            },
+            "heading": {
+                "en": "Guest Access",
+                "ru": "Гостевой доступ"
+            },
+            "workflowStepIds": [
+                "guest-access-step-1",
+                "guest-access-step-2",
+                "guest-access-step-3",
+                "guest-access-step-4",
+                "guest-access-step-5"
+            ],
+            "routeHint": "/public/a/:applicationId/links/:slug",
+            "state": "guest-access",
+            "captureMode": "viewport",
+            "expectedDimensions": {
+                "width": 1920,
+                "height": 1080
+            },
+            "pairedContextId": null,
+            "requiredVisibleText": {
+                "en": ["Start learning"],
+                "ru": ["Начать обучение"]
+            },
+            "forbiddenVisibleText": {
+                "en": ["E2E", "[object Object]", "2061-02-01T08:00:00.000Z"],
+                "ru": [
+                    "E2E",
+                    "[object Object]",
+                    "No data to display",
+                    "Learning Content",
+                    "Create element",
+                    "2061-02-01T08:00:00.000Z",
+                    "Edit element",
+                    "Certificate policy page",
+                    "Certificate policy PDF",
+                    "Compliance Refresh Course",
+                    "Learning Path 101",
+                    "Docking Corridor Basics",
+                    "Course overview page",
+                    "Learning portal web link",
+                    "Embedded orientation video",
+                    "Use this page resource inside learning flows.",
+                    "Open page",
+                    "Learners",
+                    "Rows per page",
+                    "Create",
+                    "Search",
+                    "Type",
+                    "Table columns",
+                    "Card view",
+                    "Table view",
+                    "Copy",
+                    "Delete",
+                    "Restore",
+                    "Share",
+                    "Move to project",
+                    "Training Team",
+                    "Compliance Team"
+                ]
+            },
+            "viewportMatrixRequired": true,
+            "shared": false,
+            "workflowStepEvidence": {
+                "guest-access-step-1": {
+                    "requiredVisibleText": {
+                        "en": ["Start learning"],
+                        "ru": ["Начать обучение"]
+                    }
+                },
+                "guest-access-step-2": {
+                    "requiredVisibleText": {
+                        "en": ["Learning Path 101"],
+                        "ru": ["Основы стыковочного коридора"]
+                    }
+                },
+                "guest-access-step-3": {
+                    "requiredVisibleText": {
+                        "en": ["Open quiz"],
+                        "ru": ["Открыть тест"]
+                    }
+                },
+                "guest-access-step-4": {
+                    "requiredVisibleText": {
+                        "en": ["Submit quiz"],
+                        "ru": ["Отправить тест"]
+                    }
+                },
+                "guest-access-step-5": {
+                    "requiredVisibleText": {
+                        "en": ["Content complete"],
+                        "ru": ["Контент завершён"]
+                    }
+                }
+            }
+        },
+        {
+            "id": "troubleshooting",
+            "filename": "troubleshooting.png",
+            "docPages": {
+                "en": "docs/en/lms/troubleshooting.md",
+                "ru": "docs/ru/lms/troubleshooting.md"
+            },
+            "heading": {
+                "en": "Troubleshooting",
+                "ru": "Решение проблем"
+            },
+            "workflowStepIds": [
+                "troubleshooting-step-1",
+                "troubleshooting-step-2",
+                "troubleshooting-step-3",
+                "troubleshooting-step-4",
+                "troubleshooting-step-5"
+            ],
+            "routeHint": "/a/:applicationId",
+            "state": "troubleshooting",
+            "captureMode": "viewport",
+            "expectedDimensions": {
+                "width": 1920,
+                "height": 1080
+            },
+            "pairedContextId": null,
+            "requiredVisibleText": {
+                "en": ["Create"],
+                "ru": ["Создать"]
+            },
+            "forbiddenVisibleText": {
+                "en": ["E2E", "[object Object]", "2061-02-01T08:00:00.000Z"],
+                "ru": [
+                    "E2E",
+                    "[object Object]",
+                    "No data to display",
+                    "Learning Content",
+                    "Create element",
+                    "2061-02-01T08:00:00.000Z",
+                    "Edit element",
+                    "Certificate policy page",
+                    "Certificate policy PDF",
+                    "Compliance Refresh Course",
+                    "Learning Path 101",
+                    "Docking Corridor Basics",
+                    "Course overview page",
+                    "Learning portal web link",
+                    "Embedded orientation video",
+                    "Use this page resource inside learning flows.",
+                    "Open page",
+                    "Learners",
+                    "Rows per page",
+                    "Create",
+                    "Search",
+                    "Type",
+                    "Table columns",
+                    "Card view",
+                    "Table view",
+                    "Copy",
+                    "Delete",
+                    "Restore",
+                    "Share",
+                    "Move to project",
+                    "Training Team",
+                    "Compliance Team"
+                ]
+            },
+            "viewportMatrixRequired": true,
+            "shared": false,
+            "workflowStepEvidence": {
+                "troubleshooting-step-1": {
+                    "requiredVisibleText": {
+                        "en": ["Content Projects"],
+                        "ru": ["Проекты контента"]
+                    }
+                },
+                "troubleshooting-step-2": {
+                    "requiredVisibleText": {
+                        "en": ["Source URL"],
+                        "ru": ["URL источника"]
+                    }
+                },
+                "troubleshooting-step-3": {
+                    "requiredVisibleText": {
+                        "en": ["Source URL"],
+                        "ru": ["URL источника"]
+                    }
+                },
+                "troubleshooting-step-4": {
+                    "requiredVisibleText": {
+                        "en": ["Trash"],
+                        "ru": ["Корзина"]
+                    }
+                },
+                "troubleshooting-step-5": {
+                    "requiredVisibleText": {
+                        "en": ["Main"],
+                        "ru": ["Основное"]
+                    }
+                }
+            }
+        }
+    ]
+}

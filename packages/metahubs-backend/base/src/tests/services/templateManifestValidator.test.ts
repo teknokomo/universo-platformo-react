@@ -259,19 +259,19 @@ describe('TemplateManifestValidator', () => {
             'Quiz authoring is planned for a later Learning Content phase.'
         )
         expect(readVlcContent(createTargetById.get('learning-content-create-quiz-lite')?.disabledReason, 'ru')).toBe(
-            'Создание тестов запланировано на следующий этап Learning Content.'
+            'Создание тестов запланировано на следующий этап учебного контента.'
         )
         expect(readVlcContent(createTargetById.get('learning-content-create-assignment-lite')?.disabledReason, 'en')).toBe(
             'Assignment authoring is planned for a later Learning Content phase.'
         )
         expect(readVlcContent(createTargetById.get('learning-content-create-assignment-lite')?.disabledReason, 'ru')).toBe(
-            'Создание заданий запланировано на следующий этап Learning Content.'
+            'Создание заданий запланировано на следующий этап учебного контента.'
         )
         expect(readVlcContent(createTargetById.get('learning-content-create-package')?.disabledReason, 'en')).toBe(
-            'File import and SCORM/xAPI support are planned for a later phase.'
+            'File import support is planned for a later phase.'
         )
         expect(readVlcContent(createTargetById.get('learning-content-create-package')?.disabledReason, 'ru')).toBe(
-            'Импорт файлов и поддержка SCORM/xAPI запланированы на следующий этап.'
+            'Импорт файлов запланирован на следующий этап.'
         )
         expect(courseBuilderTabs).toBeDefined()
         expect(trackBuilderTabs).toBeDefined()

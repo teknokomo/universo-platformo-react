@@ -138,6 +138,10 @@ Such fields should be hidden, represented by explicit display metadata, or rende
 The canonical snapshot must be regenerated only through `tools/testing/e2e/specs/generators/metahubs-lms-app-export.spec.ts`.
 `tools/testing/e2e/support/lmsFixtureContract.ts` verifies that the fixture includes Learning Content entities, seeded rows, and acceptance areas.
 
+## User Guide Link
+
+For day-to-day work inside the published LMS application, use the [Learning Content Library](../lms/learning-content-library.md).
+
 ## Related Reading
 
 -   [LMS Overview](lms-overview.md)

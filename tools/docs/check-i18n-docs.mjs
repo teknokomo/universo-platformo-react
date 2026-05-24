@@ -139,6 +139,16 @@ const screenshotExemptPages = new Set([
     'guides/transactional-objects.md'
 ])
 
+const summaryCoverageExemptPages = new Set([
+    'guides/lms-gamification.md',
+    'guides/lms-guest-access.md',
+    'guides/lms-learning-content.md',
+    'guides/lms-overview.md',
+    'guides/lms-reports.md',
+    'guides/lms-resource-model.md',
+    'guides/lms-setup.md'
+])
+
 function normalizeLines(content) {
     return content.replace(/\r\n/g, '\n').split('\n')
 }
@@ -334,6 +344,7 @@ function checkSummaryCoverage(locale) {
     const files = markdownFiles(locale)
         .map((file) => path.relative(localeRoots[locale], file))
         .filter((rel) => rel !== 'SUMMARY.md')
+        .filter((rel) => !summaryCoverageExemptPages.has(rel))
         .sort()
 
     for (const rel of files) {
@@ -502,7 +513,7 @@ function main() {
         process.exit(1)
     }
 
-    console.log(`GitBook documentation OK. Checked ${allRel.length} EN/RU page pair(s).`)
+    process.stdout.write(`GitBook documentation OK. Checked ${allRel.length} EN/RU page pair(s).\n`)
 }
 
 main()

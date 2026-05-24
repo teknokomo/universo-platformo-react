@@ -78,7 +78,7 @@ const LMS_ASSIGNMENT_SUBMISSION_WORKFLOW_ACTIONS: WorkflowAction[] = [
             titleEn: 'Accept submission',
             titleRu: 'Принять сдачу',
             messageEn: 'Accept this submission and make the result available for reports?',
-            messageRu: 'Принять эту сдачу и сделать результат доступным для отчетов?',
+            messageRu: 'Принять эту сдачу и сделать результат доступным для отчётов?',
             confirmLabelEn: 'Accept',
             confirmLabelRu: 'Принять'
         }
@@ -1006,35 +1006,35 @@ function buildLmsLearningContentSeedZoneWidgets(libraryView: 'all' | 'recent' | 
                               },
                               {
                                   id: 'learning-content-create-quiz-lite',
-                                  label: vlc('Quiz-lite', 'Тест-lite'),
+                                  label: vlc('Quiz (planned)', 'Тест (планируется)'),
                                   sectionCodename: 'Quizzes',
                                   icon: 'quiz',
                                   disabled: true,
                                   disabledReason: vlc(
                                       'Quiz authoring is planned for a later Learning Content phase.',
-                                      'Создание тестов запланировано на следующий этап Learning Content.'
+                                      'Создание тестов запланировано на следующий этап учебного контента.'
                                   )
                               },
                               {
                                   id: 'learning-content-create-assignment-lite',
-                                  label: vlc('Assignment-lite', 'Задание-lite'),
+                                  label: vlc('Assignment (planned)', 'Задание (планируется)'),
                                   sectionCodename: 'Assignments',
                                   icon: 'assignment',
                                   disabled: true,
                                   disabledReason: vlc(
                                       'Assignment authoring is planned for a later Learning Content phase.',
-                                      'Создание заданий запланировано на следующий этап Learning Content.'
+                                      'Создание заданий запланировано на следующий этап учебного контента.'
                                   )
                               },
                               {
                                   id: 'learning-content-create-package',
-                                  label: vlc('Import package', 'Импорт пакета'),
+                                  label: vlc('Import package (planned)', 'Импорт пакета (планируется)'),
                                   sectionCodename: 'LearningResources',
                                   icon: 'upload',
                                   disabled: true,
                                   disabledReason: vlc(
-                                      'File import and SCORM/xAPI support are planned for a later phase.',
-                                      'Импорт файлов и поддержка SCORM/xAPI запланированы на следующий этап.'
+                                      'File import support is planned for a later phase.',
+                                      'Импорт файлов запланирован на следующий этап.'
                                   )
                               }
                           ]
@@ -1390,7 +1390,7 @@ function buildLmsCourseBuilderSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                     },
                     {
                         id: 'reports',
-                        label: vlc('Reports', 'Отчеты'),
+                        label: vlc('Reports', 'Отчёты'),
                         widgets: [
                             {
                                 widgetKey: 'detailsTable',
@@ -1715,7 +1715,7 @@ function buildLmsTrackBuilderSeedZoneWidgets(): TemplateSeedZoneWidget[] {
                     },
                     {
                         id: 'reports',
-                        label: vlc('Reports', 'Отчеты'),
+                        label: vlc('Reports', 'Отчёты'),
                         widgets: [
                             {
                                 widgetKey: 'detailsTable',
@@ -2544,10 +2544,10 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 baseLayoutCodename: 'main',
                 scopeEntityCodename: 'Reports',
                 scopeEntityKind: 'object',
-                name: vlc('Reports Dashboard', 'Панель отчетов'),
+                name: vlc('Reports Dashboard', 'Панель отчётов'),
                 description: vlc(
                     'Reports layout with saved report definitions and the primary Learning Content summary report surface.',
-                    'Макет отчетов со списком сохраненных определений и основным отчетом по учебному контенту.'
+                    'Макет отчётов со списком сохраненных определений и основным отчётом по учебному контенту.'
                 ),
                 isDefault: true,
                 isActive: true,
@@ -3300,7 +3300,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         isRequired: true,
                         isDisplayComponent: true,
                         sortOrder: 1,
-                        validationRules: { maxLength: 255 }
+                        validationRules: { maxLength: 255, localized: true, versioned: true }
                     },
                     {
                         codename: 'Email',
@@ -3936,7 +3936,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         dataType: 'STRING',
                         name: vlc('Instructor', 'Преподаватель'),
                         sortOrder: 14,
-                        validationRules: { maxLength: 255 }
+                        validationRules: { maxLength: 255, localized: true, versioned: true }
                     },
                     {
                         codename: 'ContentItems',
@@ -4138,7 +4138,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         dataType: 'STRING',
                         name: vlc('Instructor', 'Преподаватель'),
                         sortOrder: 9,
-                        validationRules: { maxLength: 255 }
+                        validationRules: { maxLength: 255, localized: true, versioned: true }
                     },
                     {
                         codename: 'Tags',
@@ -6391,10 +6391,10 @@ export const lmsTemplate: MetahubTemplateManifest = {
             {
                 codename: 'Reports',
                 kind: 'object',
-                name: vlc('Reports', 'Отчеты'),
+                name: vlc('Reports', 'Отчёты'),
                 description: vlc(
                     'Reusable LMS report definitions for administrators and instructors.',
-                    'Переиспользуемые определения отчетов LMS для администраторов и преподавателей.'
+                    'Переиспользуемые определения отчётов LMS для администраторов и преподавателей.'
                 ),
                 components: [
                     {
@@ -6537,7 +6537,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 codename: 'ReportType',
                 kind: 'enumeration',
                 name: vlc('Report Type', 'Тип отчета'),
-                description: vlc('Report categories for LMS analytics.', 'Категории отчетов для аналитики LMS.')
+                description: vlc('Report categories for LMS analytics.', 'Категории отчётов для аналитики LMS.')
             }
         ],
         optionValues: {

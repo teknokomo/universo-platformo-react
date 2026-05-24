@@ -259,6 +259,7 @@ function RuntimeStatCard({ config, fallback }: { config: StatCardWidgetConfig; f
                 reportCodename,
                 limit: 1,
                 offset: 0,
+                locale: details?.locale ?? 'en',
                 workspaceId: details?.currentWorkspaceId
             }),
         enabled: Boolean(

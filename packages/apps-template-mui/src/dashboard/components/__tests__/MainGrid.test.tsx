@@ -700,7 +700,7 @@ describe('MainGrid enhanced runtime details', () => {
         expect(fetchMock).toHaveBeenCalledTimes(2)
         const reportRequest = fetchMock.mock.calls[1]?.[1] as RequestInit
         expect(reportRequest.method).toBe('POST')
-        expect(reportRequest.body).toBe(JSON.stringify({ reportCodename: 'LearnerProgress', limit: 1, offset: 0 }))
+        expect(reportRequest.body).toBe(JSON.stringify({ reportCodename: 'LearnerProgress', limit: 1, offset: 0, locale: 'en' }))
         expect(new Headers(reportRequest.headers).get('X-CSRF-Token')).toBe('csrf-token')
     })
 

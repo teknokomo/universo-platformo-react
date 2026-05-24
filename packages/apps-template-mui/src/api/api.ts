@@ -642,9 +642,10 @@ export async function runRuntimeReport(options: {
     filters?: ReportFilter[]
     limit?: number
     offset?: number
+    locale?: string
     workspaceId?: string | null
 }): Promise<RuntimeReportRunResponse> {
-    const { apiBaseUrl, applicationId, reportId, reportCodename, filters, limit, offset, workspaceId } = options
+    const { apiBaseUrl, applicationId, reportId, reportCodename, filters, limit, offset, locale, workspaceId } = options
     const normalizedBase = apiBaseUrl.replace(/\/$/, '')
     const url = new URL(buildApiUrl(normalizedBase, `/applications/${applicationId}/runtime/reports/run`))
     if (workspaceId?.trim()) {
@@ -659,7 +660,8 @@ export async function runRuntimeReport(options: {
             reportCodename,
             ...(filters?.length ? { filters } : {}),
             limit,
-            offset
+            offset,
+            locale
         })
     })
     if (!res.ok) {

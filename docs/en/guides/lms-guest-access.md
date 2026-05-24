@@ -8,7 +8,7 @@ The LMS MVP supports guest access without platform registration.
 
 ## How It Works
 
-![LMS guest entry screen](../.gitbook/assets/quiz-tutorial/runtime-quiz.png)
+![LMS guest entry screen](../.gitbook/assets/lms-user-guide/guest-access-step-1.png)
 
 1. An operator creates an `AccessLinks` runtime row.
 2. The row points to a learning-content or quiz target.
@@ -22,11 +22,11 @@ This keeps public LMS traffic fail-closed inside the intended workspace when `wo
 
 ## Supported Public Endpoints
 
-- `GET /public/a/:applicationId/links/:slug`
-- `POST /public/a/:applicationId/guest-session`
-- `GET /public/a/:applicationId/runtime`
-- `POST /public/a/:applicationId/runtime/guest-submit`
-- `POST /public/a/:applicationId/runtime/guest-progress`
+-   `GET /public/a/:applicationId/links/:slug`
+-   `POST /public/a/:applicationId/guest-session`
+-   `GET /public/a/:applicationId/runtime`
+-   `POST /public/a/:applicationId/runtime/guest-submit`
+-   `POST /public/a/:applicationId/runtime/guest-progress`
 
 ## QR Codes
 
@@ -34,7 +34,7 @@ Access links are regular public URLs. Generate QR codes from the saved link URL 
 
 ## Retention Model
 
-![Completed LMS guest result](../.gitbook/assets/quiz-tutorial/runtime-quiz.png)
+![Completed LMS guest result](../.gitbook/assets/lms-user-guide/guest-access-step-5.png)
 
 Guest learners are stored in the same application schema as registered learners.
 This keeps statistics, progress, and quiz-response tracking inside one runtime boundary instead of introducing a separate platform-wide guest-account system.
@@ -42,6 +42,10 @@ The browser stores the guest-session token in session storage, scoped to the cur
 
 ## Operational Notes
 
-- Public runtime access only works for applications marked as public.
-- Access-link validation checks active status and target routing before the guest runtime loads content.
-- The public surface intentionally does not show workspace management or authenticated runtime controls.
+-   Public runtime access only works for applications marked as public.
+-   Access-link validation checks active status and target routing before the guest runtime loads content.
+-   The public surface intentionally does not show workspace management or authenticated runtime controls.
+
+## User Guide Link
+
+For day-to-day work inside the published LMS application, use the [Guest Access](../lms/guest-access.md).

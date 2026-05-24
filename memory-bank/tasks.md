@@ -4,6 +4,19 @@
 
 ---
 
+## Recently Closed: LMS User Guide Screenshot QA (2026-05-24)
+
+-   [x] Add a global duplicate screenshot gate for all localized LMS user-guide PNG assets.
+-   [x] Add per-capture provenance evidence for overview and workflow-step screenshots.
+-   [x] Exercise edit, copy, delete, project, report, learner, and guest flows in the Playwright screenshot generator.
+-   [x] Remove user-facing implementation wording from English and Russian LMS guide pages.
+-   [x] Include `check:runtime-no-lms-forks` in the LMS user-guide verification scripts.
+-   [x] Normalize generated route identifiers in screenshot provenance and fail the docs check when raw route IDs remain.
+-   [x] Run whole-viewport technical-leakage and DataGrid-leakage checks before every full-window screenshot.
+-   [x] Add block-editor and semantic multiline dialog oracles to the LMS screenshot generator.
+-   [x] Make learner-experience progress screenshots deterministic and distinct from course preview screenshots.
+-   [x] Re-run the full local minimal Supabase verification pipeline after regenerating screenshots.
+
 ## Active: Node.js 22 Migration (2026-05-06)
 
 > Goal: Migrate project from Node.js 20 to Node.js 22.6.0+ to enable autoskills tool support.
@@ -84,8 +97,67 @@
 -   [ ] Review and approve [e2e-dedicated-supabase-and-agent-playwright-guidance-plan-2026-05-13.md](plan/e2e-dedicated-supabase-and-agent-playwright-guidance-plan-2026-05-13.md)
 -   [ ] Implement separate local E2E Supabase profile, source policy guards, and repository-specific Playwright skill guidance after approval
 
-
 ## Recently Completed (Full Detail)
+
+## Completed: LMS User Guide User-Facing Text And CI Gate Closure (2026-05-24)
+
+> Goal: close the final LMS GitBook user-guide QA blockers by removing implementation-only screenshot markers, replacing internal/QA wording with user-facing language, and making the screenshot workflow run broadly enough to catch runtime documentation regressions.
+
+### IMPLEMENT Action Plan
+
+-   [x] Remove all `<!-- screenshot: ... -->` comments from English and Russian LMS user-guide Markdown while keeping visible per-step screenshots.
+-   [x] Refactor `docs:lms-user-guide:check` so screenshot coverage is driven by the manifest, visible images, assets, and provenance rather than hidden Markdown comments.
+-   [x] Add checker failures for TODO/FIXME/placeholder markers and user-facing technical wording such as raw ID/JSON/UUID/metahub/source-preview/row-action terminology.
+-   [x] Replace internal LMS setup, source-preview, row-action, and technical-value wording in the user guide with user-facing English and Russian copy.
+-   [x] Make the LMS user-guide screenshot GitHub Actions workflow run for every pull request instead of only a narrow path set.
+-   [x] Run Prettier, static docs checks, and the local minimal Supabase Playwright verification after the final text/checker edits.
+
+---
+
+## Completed: LMS User Guide Step Screenshot And Detail Remediation (2026-05-24)
+
+> Goal: close the QA blockers in the GitBook LMS user guide so every documented workflow step has a real localized 1920x1080 screenshot, the guide text is detailed enough for end users, and checks fail on duplicated placeholder screenshots.
+
+### IMPLEMENT Action Plan
+
+-   [x] Replace overview-buffer step screenshot generation with real per-step capture actions and assertions.
+-   [x] Strengthen `docs:lms-user-guide:check` so duplicated step screenshots, weak manifests, and stale placeholder assets fail closed.
+-   [x] Expand English and Russian LMS guide pages into detailed user-facing workflows while keeping EN/RU structural parity.
+-   [x] Regenerate localized LMS guide screenshots through local minimal Supabase Playwright and verify no TanStack banner, raw IDs, raw ISO dates, or English RU fallback text.
+-   [x] Fix the learner-experience screenshot flow so step 2 captures a distinct outline-item state instead of duplicating another step.
+-   [x] Update screenshot manifest evidence after the EN/RU generation order changed project counts and RU guest-content assertions.
+-   [x] Add a first-class LMS user-guide verify command and CI workflow that regenerate browser screenshots before running static docs checks.
+-   [x] Run Prettier, docs checks, targeted lint, local minimal Supabase Playwright generator, update Memory Bank, and leave the repo ready for QA.
+
+---
+
+## Completed: LMS User Guide QA Remediation (2026-05-24)
+
+> Goal: close the documentation QA blockers found after the first LMS user-guide implementation: Russian pages must be fully localized, every workflow step must show a visible GitBook image, and the docs checker must reject invisible screenshot-comment placeholders.
+
+### IMPLEMENT Action Plan
+
+-   [x] Localize Russian LMS user-guide boilerplate headings and role/goal labels without changing the EN/RU structural parity required by GitBook checks.
+-   [x] Add visible step-level screenshot images after every numbered workflow step in EN/RU LMS user-guide pages.
+-   [x] Add or generate referenced step-level screenshot assets and update the Playwright generator so regenerated docs assets keep those references valid.
+-   [x] Strengthen `docs:lms-user-guide:check` so it rejects English RU boilerplate and numbered steps without adjacent visible images.
+-   [x] Run Prettier, docs checks, targeted lint, and local-minimal-Supabase Playwright generator, then update `progress.md`.
+
+---
+
+## Completed: LMS User Guide GitBook Documentation (2026-05-24)
+
+> Goal: implement the approved bilingual GitBook user documentation plan for the published LMS application generated from `tools/fixtures/metahubs-lms-app-snapshot.json`, including localized user-guide pages, screenshot assets, manifest-driven docs QA, and a Playwright screenshot generator that uses `1920x1080` whole-window captures by default.
+
+### IMPLEMENT Action Plan
+
+-   [x] Add the first-class `docs/<locale>/lms/` GitBook section and update existing LMS guides with user-guide cross-links.
+-   [x] Write matching English and Russian LMS user-guide pages with task-based workflows, role assumptions, results, and localized screenshot references.
+-   [x] Add localized LMS user-guide screenshot assets, a manifest, and a docs checker that enforces EN/RU parity, screenshot coverage, dimensions, no stale assets, and no technical leakage.
+-   [x] Add a Playwright docs screenshot generator with local-minimal-Supabase-compatible setup, `1920x1080` capture defaults, RU fallback checks, runtime UX oracles, and toolbar/overflow guards.
+-   [x] Run Prettier and targeted docs/checker/generator validation, then update `progress.md`.
+
+---
 
 ## Completed: LMS Runtime UX QA Findings Closure (2026-05-23)
 
@@ -261,286 +333,287 @@
 -   [x] Split main-workspace and shared-public-workspace row-count assertions so guest participants, quiz responses, and content progress prove isolation instead of relying on aggregate counts.
 -   [x] Prevent the MUI guest app from reusing a previous public-link session after navigating to another slug or locale.
 -   [x] Add focused unit regression coverage for public-link session scoping and rerun the full local minimal Supabase snapshot-import browser flow.
+
 ---
 
 ## Historical Tasks (Condensed) ✅
 
 ### LMS Learning Content Productization Implementation ✅ (2026-05-20)
 
-- Phase 0: re-audit implementation seams and add executable acceptance gates for technical leakage, static LMS-fork drift, and docs/screenshot drift.
-- Details: progress.md#2026-05-20-lms-learning-content-productization-implementation
+-   Phase 0: re-audit implementation seams and add executable acceptance gates for technical leakage, static LMS-fork drift, and docs/screenshot drift.
+-   Details: progress.md#2026-05-20-lms-learning-content-productization-implementation
 
 ### Remaining Product Acceptance Closure ✅ (Older)
 
-- Reconcile the fixture-contract acceptance matrix against the remaining Phase 1 and Phase 3-8 checklist wording.
-- Details: progress.md#lder-remaining-product-acceptance-closure
+-   Reconcile the fixture-contract acceptance matrix against the remaining Phase 1 and Phase 3-8 checklist wording.
+-   Details: progress.md#lder-remaining-product-acceptance-closure
 
 ### Final Release Validation ✅ (Older)
 
-- Verify the executable LMS product acceptance matrix has no open gates.
-- Details: progress.md#lder-final-release-validation
+-   Verify the executable LMS product acceptance matrix has no open gates.
+-   Details: progress.md#lder-final-release-validation
 
 ### LMS Product Acceptance Matrix Reconciliation ✅ (Older)
 
-- Inspect `LMS_PRODUCT_ACCEPTANCE_MATRIX` through the executable fixture-contract module.
-- Details: progress.md#lder-lms-product-acceptance-matrix-reconciliation
+-   Inspect `LMS_PRODUCT_ACCEPTANCE_MATRIX` through the executable fixture-contract module.
+-   Details: progress.md#lder-lms-product-acceptance-matrix-reconciliation
 
 ### Knowledge Base Actionable Gate ✅ (Older)
 
-- Confirm Phase 1 `records.union` foundation is already server-side and covered by generic backend/app-template tests.
-- Details: progress.md#lder-knowledge-base-actionable-gate
+-   Confirm Phase 1 `records.union` foundation is already server-side and covered by generic backend/app-template tests.
+-   Details: progress.md#lder-knowledge-base-actionable-gate
 
 ### Reports Audited Gate ✅ (Older)
 
-- Mark `reports.audited` complete in the fixture contract based on existing saved-report authorization, execution, export, and runtime identifier suppression coverage.
-- Details: progress.md#lder-reports-audited-gate
+-   Mark `reports.audited` complete in the fixture contract based on existing saved-report authorization, execution, export, and runtime identifier suppression coverage.
+-   Details: progress.md#lder-reports-audited-gate
 
 ### Knowledge Base Audited Gate ✅ (Older)
 
-- Mark `knowledgeBase.audited` complete in the fixture contract based on seeded Knowledge spaces/folders/articles/bookmarks, published-app article create/edit evidence, and generic mutation/trash lifecycle coverage.
-- Details: progress.md#lder-knowledge-base-audited-gate
+-   Mark `knowledgeBase.audited` complete in the fixture contract based on seeded Knowledge spaces/folders/articles/bookmarks, published-app article create/edit evidence, and generic mutation/trash lifecycle coverage.
+-   Details: progress.md#lder-knowledge-base-audited-gate
 
 ### Role Visibility Scoped Gate ✅ (Older)
 
-- Mark `roleVisibility.actionable` and `roleVisibility.audited` complete in the fixture contract for the current supported scope: workspace membership, owner/shared record access, and fail-closed unsupported scoped role-policy rules.
-- Details: progress.md#lder-role-visibility-scoped-gate
+-   Mark `roleVisibility.actionable` and `roleVisibility.audited` complete in the fixture contract for the current supported scope: workspace membership, owner/shared record access, and fail-closed unsupported scoped role-policy rules.
+-   Details: progress.md#lder-role-visibility-scoped-gate
 
 ### Standalone LMS Fixture Contract Gate ✅ (Older)
 
-- Add a repository-supported root command for validating the committed LMS snapshot fixture contract without starting Playwright.
-- Details: progress.md#lder-standalone-lms-fixture-contract-gate
+-   Add a repository-supported root command for validating the committed LMS snapshot fixture contract without starting Playwright.
+-   Details: progress.md#lder-standalone-lms-fixture-contract-gate
 
 ### Generic Course Field Report Coupling ✅ (Older)
 
-- Add one reusable Course business component to Learning Content union projections, default column settings, and the summary report filter/export path.
-- Details: progress.md#lder-generic-course-field-report-coupling
+-   Add one reusable Course business component to Learning Content union projections, default column settings, and the summary report filter/export path.
+-   Details: progress.md#lder-generic-course-field-report-coupling
 
 ### Generic Guest Runtime Error Sanitization ✅ (Older)
 
-- Route public guest link, session, runtime, and quiz submit errors through the shared runtime error sanitizer.
-- Details: progress.md#lder-generic-guest-runtime-error-sanitization
+-   Route public guest link, session, runtime, and quiz submit errors through the shared runtime error sanitizer.
+-   Details: progress.md#lder-generic-guest-runtime-error-sanitization
 
 ### Generic Learner Player ID Fallback Safety ✅ (Older)
 
-- Replace learner-player user-facing row-id title fallbacks with localized untitled labels.
-- Details: progress.md#lder-generic-learner-player-id-fallback-safety
+-   Replace learner-player user-facing row-id title fallbacks with localized untitled labels.
+-   Details: progress.md#lder-generic-learner-player-id-fallback-safety
 
 ### Generic Runtime Record Picker Load Error Sanitization ✅ (Older)
 
-- Route runtime record picker load failures through the shared runtime error sanitizer.
-- Details: progress.md#lder-generic-runtime-record-picker-load-error-sanitization
+-   Route runtime record picker load failures through the shared runtime error sanitizer.
+-   Details: progress.md#lder-generic-runtime-record-picker-load-error-sanitization
 
 ### Generic Workspace Switcher ID Fallback Safety ✅ (Older)
 
-- Replace workspace-name raw ID fallbacks with localized untitled workspace labels.
-- Details: progress.md#lder-generic-workspace-switcher-id-fallback-safety
+-   Replace workspace-name raw ID fallbacks with localized untitled workspace labels.
+-   Details: progress.md#lder-generic-workspace-switcher-id-fallback-safety
 
 ### Generic Datasource Load Error UX Safety ✅ (Older)
 
-- Show localized sanitized load errors for `records.list` details-table widgets.
-- Details: progress.md#lder-generic-datasource-load-error-ux-safety
+-   Show localized sanitized load errors for `records.list` details-table widgets.
+-   Details: progress.md#lder-generic-datasource-load-error-ux-safety
 
 ### Generic Runtime Workspaces Raw-ID And Error Leakage Safety ✅ (Older)
 
-- Replace Runtime Workspaces page name/member fallbacks that expose workspace IDs or user IDs with localized labels.
-- Details: progress.md#lder-generic-runtime-workspaces-raw-id-and-error-leakage-safety
+-   Replace Runtime Workspaces page name/member fallbacks that expose workspace IDs or user IDs with localized labels.
+-   Details: progress.md#lder-generic-runtime-workspaces-raw-id-and-error-leakage-safety
 
 ### Generic Workflow Row-Action Label Fallback Safety ✅ (Older)
 
-- Replace workflow action menu fallback labels that expose action codenames with localized generic labels.
-- Details: progress.md#lder-generic-workflow-row-action-label-fallback-safety
+-   Replace workflow action menu fallback labels that expose action codenames with localized generic labels.
+-   Details: progress.md#lder-generic-workflow-row-action-label-fallback-safety
 
 ### Generic Runtime Record Picker ID Fallback Safety ✅ (Older)
 
-- Replace runtime record picker option fallbacks that expose row IDs with localized untitled record labels.
-- Details: progress.md#lder-generic-runtime-record-picker-id-fallback-safety
+-   Replace runtime record picker option fallbacks that expose row IDs with localized untitled record labels.
+-   Details: progress.md#lder-generic-runtime-record-picker-id-fallback-safety
 
 ### Generic Details Tabs And Sequence Label Fallback Safety ✅ (Older)
 
-- Replace details-tabs missing-label fallbacks that expose tab IDs with localized tab labels.
-- Details: progress.md#lder-generic-details-tabs-and-sequence-label-fallback-safety
+-   Replace details-tabs missing-label fallbacks that expose tab IDs with localized tab labels.
+-   Details: progress.md#lder-generic-details-tabs-and-sequence-label-fallback-safety
 
 ### Generic Relation Builder And Runtime List Fallback Safety ✅ (Older)
 
-- Replace relation-builder wizard step and panel label fallbacks that expose raw IDs with localized safe labels.
-- Details: progress.md#lder-generic-relation-builder-and-runtime-list-fallback-safety
+-   Replace relation-builder wizard step and panel label fallbacks that expose raw IDs with localized safe labels.
+-   Details: progress.md#lder-generic-relation-builder-and-runtime-list-fallback-safety
 
 ### Generic Runtime Flow-List Cell Display Safety ✅ (Older)
 
-- Replace default flow-list description rendering that can expose raw JSON/object values with safe runtime formatting.
-- Details: progress.md#lder-generic-runtime-flow-list-cell-display-safety
+-   Replace default flow-list description rendering that can expose raw JSON/object values with safe runtime formatting.
+-   Details: progress.md#lder-generic-runtime-flow-list-cell-display-safety
 
 ### Generic Runtime Chart Axis Display Safety ✅ (Older)
 
-- Replace runtime chart x-axis fallback formatting that can expose raw JSON/object/UUID values with safe runtime formatting.
-- Details: progress.md#lder-generic-runtime-chart-axis-display-safety
+-   Replace runtime chart x-axis fallback formatting that can expose raw JSON/object/UUID values with safe runtime formatting.
+-   Details: progress.md#lder-generic-runtime-chart-axis-display-safety
 
 ### Generic Runtime Chart Metric Value Display Safety ✅ (Older)
 
-- Sanitize configured runtime chart metric values before passing them to chart components.
-- Details: progress.md#lder-generic-runtime-chart-metric-value-display-safety
+-   Sanitize configured runtime chart metric values before passing them to chart components.
+-   Details: progress.md#lder-generic-runtime-chart-metric-value-display-safety
 
 ### Generic Runtime DataGrid Cell Display Safety ✅ (Older)
 
-- Replace default runtime DataGrid cell formatting that can expose raw UUID values with safe runtime formatting.
-- Details: progress.md#lder-generic-runtime-datagrid-cell-display-safety
+-   Replace default runtime DataGrid cell formatting that can expose raw UUID values with safe runtime formatting.
+-   Details: progress.md#lder-generic-runtime-datagrid-cell-display-safety
 
 ### Generic Runtime Stat Card Metric Value Display Safety ✅ (Older)
 
-- Sanitize configured overview stat-card metric values before rendering.
-- Details: progress.md#lder-generic-runtime-stat-card-metric-value-display-safety
+-   Sanitize configured overview stat-card metric values before rendering.
+-   Details: progress.md#lder-generic-runtime-stat-card-metric-value-display-safety
 
 ### Generic Runtime Quiz Widget Text Display Safety ✅ (Older)
 
-- Sanitize quiz widget title, description, question, option, feedback, and empty-state text before rendering.
-- Details: progress.md#lder-generic-runtime-quiz-widget-text-display-safety
+-   Sanitize quiz widget title, description, question, option, feedback, and empty-state text before rendering.
+-   Details: progress.md#lder-generic-runtime-quiz-widget-text-display-safety
 
 ### Generic Runtime Object Display-Key Fallback Safety ✅ (Older)
 
-- Stop treating object-only `codename` and `id` fields as normal user-facing display labels.
-- Details: progress.md#lder-generic-runtime-object-display-key-fallback-safety
+-   Stop treating object-only `codename` and `id` fields as normal user-facing display labels.
+-   Details: progress.md#lder-generic-runtime-object-display-key-fallback-safety
 
 ### Generic Resource Preview Title And Description Safety ✅ (Older)
 
-- Sanitize `ResourcePreview` title and description before rendering.
-- Details: progress.md#lder-generic-resource-preview-title-and-description-safety
+-   Sanitize `ResourcePreview` title and description before rendering.
+-   Details: progress.md#lder-generic-resource-preview-title-and-description-safety
 
 ### Generic Records Union Card-Mode Display Safety ✅ (Older)
 
-- Sanitize records-union card title and description values with the shared safe runtime display formatter.
-- Details: progress.md#lder-generic-records-union-card-mode-display-safety
+-   Sanitize records-union card title and description values with the shared safe runtime display formatter.
+-   Details: progress.md#lder-generic-records-union-card-mode-display-safety
 
 ### Generic Form Dialog JSON Field Display Safety ✅ (Older)
 
-- Stop rendering raw JSON strings for normal JSON fields without an approved runtime widget.
-- Details: progress.md#lder-generic-form-dialog-json-field-display-safety
+-   Stop rendering raw JSON strings for normal JSON fields without an approved runtime widget.
+-   Details: progress.md#lder-generic-form-dialog-json-field-display-safety
 
 ### Generic Localized Inline Validation Helper Safety ✅ (Older)
 
-- Replace technical `min:` and `max:` helper text with localized user-facing length helper text.
-- Details: progress.md#lder-generic-localized-inline-validation-helper-safety
+-   Replace technical `min:` and `max:` helper text with localized user-facing length helper text.
+-   Details: progress.md#lder-generic-localized-inline-validation-helper-safety
 
 ### Generic Target Picker Option Label Safety ✅ (Older)
 
-- Stop using object/record `Codename` fields as default user-facing target-picker labels.
-- Details: progress.md#lder-generic-target-picker-option-label-safety
+-   Stop using object/record `Codename` fields as default user-facing target-picker labels.
+-   Details: progress.md#lder-generic-target-picker-option-label-safety
 
 ### Generic Target And Share Mutation Error Sanitization Coverage ✅ (Older)
 
-- Add target-field mutation error coverage proving SQL, relation names, and UUIDs do not leak.
-- Details: progress.md#lder-generic-target-and-share-mutation-error-sanitization-coverage
+-   Add target-field mutation error coverage proving SQL, relation names, and UUIDs do not leak.
+-   Details: progress.md#lder-generic-target-and-share-mutation-error-sanitization-coverage
 
 ### Generic Workspace Invite Email Validation ✅ (Older)
 
-- Validate workspace invite email input against the shared email contract before mutation submission.
-- Details: progress.md#lder-generic-workspace-invite-email-validation
+-   Validate workspace invite email input against the shared email contract before mutation submission.
+-   Details: progress.md#lder-generic-workspace-invite-email-validation
 
 ### Generic Tabular Fetch Error Sanitization ✅ (Older)
 
-- Route TABLE child-row fetch errors through the shared runtime error sanitizer.
-- Details: progress.md#lder-generic-tabular-fetch-error-sanitization
+-   Route TABLE child-row fetch errors through the shared runtime error sanitizer.
+-   Details: progress.md#lder-generic-tabular-fetch-error-sanitization
 
 ### Generic Report Table Technical Column Safety ✅ (Older)
 
-- Filter unsafe technical report columns before rendering normal saved-report DataGrid surfaces.
-- Details: progress.md#lder-generic-report-table-technical-column-safety
+-   Filter unsafe technical report columns before rendering normal saved-report DataGrid surfaces.
+-   Details: progress.md#lder-generic-report-table-technical-column-safety
 
 ### Generic Ledger Table Technical Field Safety ✅ (Older)
 
-- Filter technical ledger datasource columns before rendering normal runtime DataGrid surfaces.
-- Details: progress.md#lder-generic-ledger-table-technical-field-safety
+-   Filter technical ledger datasource columns before rendering normal runtime DataGrid surfaces.
+-   Details: progress.md#lder-generic-ledger-table-technical-field-safety
 
 ### Generic Tabular String Object Display Safety ✅ (Older)
 
-- Replace `STRING` tabular object-value stringification with the shared safe runtime display formatter.
-- Details: progress.md#lder-generic-tabular-string-object-display-safety
+-   Replace `STRING` tabular object-value stringification with the shared safe runtime display formatter.
+-   Details: progress.md#lder-generic-tabular-string-object-display-safety
 
 ### Generic Runtime Technical Column Safety ✅ (Older)
 
-- Filter technical runtime columns out of normal current-object and records-list grid column sets, even when metadata presets try to make them visible.
-- Details: progress.md#lder-generic-runtime-technical-column-safety
+-   Filter technical runtime columns out of normal current-object and records-list grid column sets, even when metadata presets try to make them visible.
+-   Details: progress.md#lder-generic-runtime-technical-column-safety
 
 ### Generic Resource Source Type Selector Labels ✅ (Older)
 
-- Replace raw resource type fallback labels in the `resourceSource` authoring selector with safe localized labels.
-- Details: progress.md#lder-generic-resource-source-type-selector-labels
+-   Replace raw resource type fallback labels in the `resourceSource` authoring selector with safe localized labels.
+-   Details: progress.md#lder-generic-resource-source-type-selector-labels
 
 ### Generic Resource Preview Title Wrapping ✅ (Older)
 
-- Let long `ResourcePreview` titles wrap inside the existing MUI preview surface instead of truncating them with `noWrap`.
-- Details: progress.md#lder-generic-resource-preview-title-wrapping
+-   Let long `ResourcePreview` titles wrap inside the existing MUI preview surface instead of truncating them with `noWrap`.
+-   Details: progress.md#lder-generic-resource-preview-title-wrapping
 
 ### Generic Resource Preview Type Labels ✅ (Older)
 
-- Replace raw `ResourceSource.type` captions in `ResourcePreview` with localized resource type labels.
-- Details: progress.md#lder-generic-resource-preview-type-labels
+-   Replace raw `ResourceSource.type` captions in `ResourcePreview` with localized resource type labels.
+-   Details: progress.md#lder-generic-resource-preview-type-labels
 
 ### Learning Content Create Menu Deferred Package Evidence ✅ (Older)
 
-- Assert the disabled Import package create target reason in fixture-contract and template manifest coverage.
-- Details: progress.md#lder-learning-content-create-menu-deferred-package-evidence
+-   Assert the disabled Import package create target reason in fixture-contract and template manifest coverage.
+-   Details: progress.md#lder-learning-content-create-menu-deferred-package-evidence
 
 ### Generic Resource Preview Domain Badge ✅ (Older)
 
-- Add a safe domain badge to the generic `ResourcePreview` for URL-backed ready resources.
-- Details: progress.md#lder-generic-resource-preview-domain-badge
+-   Add a safe domain badge to the generic `ResourcePreview` for URL-backed ready resources.
+-   Details: progress.md#lder-generic-resource-preview-domain-badge
 
 ### Generic Create Target Capacity Hardening ✅ (Older)
 
-- Raise the generic `detailsTable.createTargets` schema capacity so LMS Learning Content is not capped at its current eight-item menu.
-- Details: progress.md#lder-generic-create-target-capacity-hardening
+-   Raise the generic `detailsTable.createTargets` schema capacity so LMS Learning Content is not capped at its current eight-item menu.
+-   Details: progress.md#lder-generic-create-target-capacity-hardening
 
 ### Deferred Assessment Create Targets ✅ (Older)
 
-- Expose Quiz-lite and Assignment-lite as disabled metadata-defined Learning Content create targets.
-- Details: progress.md#lder-deferred-assessment-create-targets
+-   Expose Quiz-lite and Assignment-lite as disabled metadata-defined Learning Content create targets.
+-   Details: progress.md#lder-deferred-assessment-create-targets
 
 ### Generic Report Runtime Filters ✅ (Older)
 
-- Accept ad hoc report filters in the generic run/export report API payloads.
-- Details: progress.md#lder-generic-report-runtime-filters
+-   Accept ad hoc report filters in the generic run/export report API payloads.
+-   Details: progress.md#lder-generic-report-runtime-filters
 
 ### Generic Report Error UX Safety ✅ (Older)
 
-- Show a localized report-load error state instead of leaving failed report tables looking empty or stuck.
-- Details: progress.md#lder-generic-report-error-ux-safety
+-   Show a localized report-load error state instead of leaving failed report tables looking empty or stuck.
+-   Details: progress.md#lder-generic-report-error-ux-safety
 
 ### Generic Records List Column Preset Parity ✅ (Older)
 
-- Apply `details.tableDefaults.columnPreset` to generic `records.list` details-table columns.
-- Details: progress.md#lder-generic-records-list-column-preset-parity
+-   Apply `details.tableDefaults.columnPreset` to generic `records.list` details-table columns.
+-   Details: progress.md#lder-generic-records-list-column-preset-parity
 
 ### Report Export Filename User Label Contract ✅ (Older)
 
-- Build CSV export filenames from localized report titles instead of technical report codenames.
-- Details: progress.md#lder-report-export-filename-user-label-contract
+-   Build CSV export filenames from localized report titles instead of technical report codenames.
+-   Details: progress.md#lder-report-export-filename-user-label-contract
 
 ### Saved Report Widget Codename Contract ✅ (Older)
 
-- Add a generic `detailsTable.reportCodename` contract for saved report widgets.
-- Details: progress.md#lder-saved-report-widget-codename-contract
+-   Add a generic `detailsTable.reportCodename` contract for saved report widgets.
+-   Details: progress.md#lder-saved-report-widget-codename-contract
 
 ### Builder Report Definition Productization ✅ (Older)
 
-- Seed the Course Builder and Learning Track Builder report definitions that existing report widgets execute by codename.
-- Details: progress.md#lder-builder-report-definition-productization
+-   Seed the Course Builder and Learning Track Builder report definitions that existing report widgets execute by codename.
+-   Details: progress.md#lder-builder-report-definition-productization
 
 ### Generic Records Union Report Execution ✅ (Older)
 
-- Reuse the generic `records.union` datasource executor for saved report run/export without adding LMS-only report code.
-- Details: progress.md#lder-generic-records-union-report-execution
+-   Reuse the generic `records.union` datasource executor for saved report run/export without adding LMS-only report code.
+-   Details: progress.md#lder-generic-records-union-report-execution
 
 ### Generic Records Union Target Filters ✅ (Older)
 
-- Add a generic `records.union` target-filter metadata contract for details-table widgets.
-- Details: progress.md#lder-generic-records-union-target-filters
+-   Add a generic `records.union` target-filter metadata contract for details-table widgets.
+-   Details: progress.md#lder-generic-records-union-target-filters
 
 ### Generic Learner Player Settings Enforcement ✅ (Older)
 
-- Apply existing application-level `pagePlayer` settings to the generic `learnerPlayer` widget without LMS-only branches.
-- Details: progress.md#lder-generic-learner-player-settings-enforcement
+-   Apply existing application-level `pagePlayer` settings to the generic `learnerPlayer` widget without LMS-only branches.
+-   Details: progress.md#lder-generic-learner-player-settings-enforcement
 
 ### Generic Shared Workspace Member Row Actions ✅ (Older)
 
-- Add a generic `library.toggle` workspace-member target contract for shared `records.union` row actions.
-- Details: progress.md#lder-generic-shared-workspace-member-row-actions
+-   Add a generic `library.toggle` workspace-member target contract for shared `records.union` row actions.
+-   Details: progress.md#lder-generic-shared-workspace-member-row-actions

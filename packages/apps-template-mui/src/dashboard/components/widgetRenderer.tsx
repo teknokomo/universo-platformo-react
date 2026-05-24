@@ -25,6 +25,7 @@ import type { SelectChangeEvent } from '@mui/material/Select'
 import Stack from '@mui/material/Stack'
 import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
+import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
@@ -714,18 +715,66 @@ const resolveTargetPickerObjectCollectionId = (
 const resolveTargetPickerObjectCollectionCodename = (target: DetailsTableTargetPickerConfig | undefined): string | null =>
     target?.targetSectionCodename ?? target?.targetObjectCollectionCodename ?? null
 
+const readTargetPickerOptionValue = (
+    row: Record<string, unknown>,
+    field: string,
+    columns: AppDataResponse['columns'] | undefined
+): unknown => {
+    if (Object.prototype.hasOwnProperty.call(row, field)) return row[field]
+
+    const normalizedField = normalizeRuntimeColumnKey(field)
+    const matchedRowKey = Object.keys(row).find((key) => normalizeRuntimeColumnKey(key) === normalizedField)
+    if (matchedRowKey) return row[matchedRowKey]
+
+    const matchedColumn = columns?.find(
+        (column) =>
+            normalizeRuntimeColumnKey(column.codename) === normalizedField ||
+            normalizeRuntimeColumnKey(column.field) === normalizedField ||
+            normalizeRuntimeColumnKey(column.headerName) === normalizedField
+    )
+    if (!matchedColumn) return undefined
+
+    if (Object.prototype.hasOwnProperty.call(row, matchedColumn.field)) return row[matchedColumn.field]
+    if (Object.prototype.hasOwnProperty.call(row, matchedColumn.codename)) return row[matchedColumn.codename]
+    return undefined
+}
+
+const readTargetPickerFallbackLabel = (
+    row: Record<string, unknown>,
+    columns: AppDataResponse['columns'] | undefined,
+    locale: string
+): string => {
+    const readableColumns = (columns ?? []).filter((column) => !isRuntimeTechnicalFieldName(column.codename || column.field))
+    for (const column of readableColumns) {
+        const value = formatRuntimeSafeValue(readTargetPickerOptionValue(row, column.codename || column.field, columns), locale).trim()
+        if (value) return value
+    }
+
+    for (const [key, value] of Object.entries(row)) {
+        if (key.startsWith('__') || normalizeRuntimeColumnKey(key) === 'codename' || isRuntimeTechnicalFieldName(key)) continue
+        const formatted = formatRuntimeSafeValue(value, locale).trim()
+        if (formatted) return formatted
+    }
+
+    return ''
+}
+
 const formatTargetPickerOptionLabel = (
     row: Record<string, unknown>,
     target: DetailsTableTargetPickerConfig | undefined,
     locale: string | undefined,
-    fallback: string
+    fallback: string,
+    columns?: AppDataResponse['columns']
 ): string => {
     const fields = target?.labelFields?.length ? target.labelFields : DEFAULT_RESTORE_TARGET_LABEL_FIELDS
     for (const field of fields) {
         if (normalizeRuntimeColumnKey(field) === 'codename') continue
-        const value = formatRuntimeSafeValue(row[field], locale ?? 'en').trim()
+        const value = formatRuntimeSafeValue(readTargetPickerOptionValue(row, field, columns), locale ?? 'en').trim()
         if (value) return value
     }
+    const fallbackLabel = readTargetPickerFallbackLabel(row, columns, locale ?? 'en')
+    if (fallbackLabel) return fallbackLabel
+
     return fallback
 }
 
@@ -1512,6 +1561,28 @@ function RecordsUnionDetailsTableWidget({
         [details?.locale, t]
     )
     const buildCardRowAction = (row: Record<string, unknown> & { id: string }) => {
+        if (datasource.query?.lifecycleState === 'deleted') {
+            return (
+                <Tooltip title={t('trash.restore', 'Restore')}>
+                    <span>
+                        <IconButton
+                            size='small'
+                            aria-label={t('trash.restore', 'Restore')}
+                            disabled={restoreMutation.isPending}
+                            onClick={(event) => {
+                                event.preventDefault()
+                                event.stopPropagation()
+                                handleRestoreRow(row)
+                            }}
+                            sx={{ width: 28, height: 28, p: 0.25 }}
+                        >
+                            <RestoreRoundedIcon sx={{ fontSize: 18 }} />
+                        </IconButton>
+                    </span>
+                </Tooltip>
+            )
+        }
+
         if (!canOpenRowTargetActions || !readRecordsUnionRowTarget(row)) return undefined
 
         return (
@@ -1822,7 +1893,8 @@ function RecordsUnionDetailsTableWidget({
                                             option,
                                             restoreTarget,
                                             details?.locale,
-                                            t('trash.restoreTargetUntitled', 'Untitled target')
+                                            t('trash.restoreTargetUntitled', 'Untitled target'),
+                                            restoreTargetQuery.data?.columns
                                         )}
                                     </MenuItem>
                                 ))}
@@ -1882,7 +1954,8 @@ function RecordsUnionDetailsTableWidget({
                                             option,
                                             activeTargetFieldAction,
                                             details?.locale,
-                                            t('runtime.targetActionUntitled', 'Untitled target')
+                                            t('runtime.targetActionUntitled', 'Untitled target'),
+                                            targetActionQuery.data?.columns
                                         )}
                                     </MenuItem>
                                 ))}
@@ -2272,7 +2345,7 @@ function ReportDetailsTableWidget({ definition, reportCodename }: { definition?:
             ...(details?.runtimeQueryKeyPrefix ?? []),
             'report-definition',
             reportCodename,
-            { limit, offset, filters: runtimeFilters, workspaceId: details?.currentWorkspaceId ?? null }
+            { limit, offset, filters: runtimeFilters, locale: details?.locale ?? 'en', workspaceId: details?.currentWorkspaceId ?? null }
         ],
         queryFn: () =>
             runRuntimeReport({
@@ -2282,6 +2355,7 @@ function ReportDetailsTableWidget({ definition, reportCodename }: { definition?:
                 filters: runtimeFilters,
                 limit,
                 offset,
+                locale: details?.locale ?? 'en',
                 workspaceId: details?.currentWorkspaceId
             }),
         enabled: canFetch,

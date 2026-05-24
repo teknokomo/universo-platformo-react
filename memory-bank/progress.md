@@ -55,6 +55,165 @@
 
 ---
 
+## 2026-05-24 - LMS User Guide Final QA Gate Closure
+
+### Summary
+
+Closed the final QA issues in the LMS GitBook user-guide implementation. The generator and checker now fail closed on raw route identifiers, whole-viewport technical leakage, weak block-editor dialog coverage, and duplicate workflow screenshots that previously allowed visually repeated learner/course states.
+
+### Implemented
+
+-   Normalized dynamic application, public-link, UUID, and 32-hex route segments in screenshot provenance so committed evidence is stable and does not expose generated identifiers.
+-   Added a provenance checker assertion that fails when any captured route still contains a raw UUID-like path segment.
+-   Moved screenshot safety checks to the whole viewport before every full-window capture, including raw UUID substring checks, DataGrid leakage checks, and forbidden visible text checks.
+-   Added LMS dialog oracles for semantic multiline fields and Editor.js body controls, verifying the visible editor holder instead of a single inner content block.
+-   Made the learner-experience capture path idempotent for already-completed progress and changed the final persistence screenshot to show a distinct post-reload course selector state.
+-   Folded `check:runtime-no-lms-forks` into `docs:lms-user-guide:check` so the standalone documentation check also guards against LMS-only runtime branches.
+
+### Validation
+
+-   `pnpm docs:lms-user-guide:verify:local-supabase`
+-   `pnpm exec eslint tools/docs/check-lms-user-guide-docs.mjs tools/testing/e2e/specs/generators/docs-lms-user-guide-screenshots.spec.ts`
+-   `git diff --check`
+-   `node - <<'NODE' ... provenance raw-route check ... NODE`
+-   `pnpm supabase:e2e:stop`
+
+## 2026-05-24 - LMS User Guide Screenshot Oracle Hardening
+
+### Summary
+
+Closed the remaining LMS user-guide implementation gaps found by strict QA. The screenshot pipeline now rejects duplicate screenshots across the whole localized guide, records per-capture provenance for overview and workflow-step assets, and exercises edit/copy/delete/project/guest/report user paths before accepting regenerated documentation screenshots.
+
+### Implemented
+
+-   Strengthened `tools/docs/check-lms-user-guide-docs.mjs` with global duplicate PNG hash detection across all LMS guide assets.
+-   Added per-capture provenance assertions for screenshot id, locale, normalized route, viewport, capture type, and workflow step mapping.
+-   Expanded forbidden user-guide wording checks for implementation-only language such as source records, progress-store, application IDs, target IDs, and session tokens.
+-   Added runtime form lifecycle coverage for edit and copy row actions to the LMS user-guide Playwright generator.
+-   Reworked duplicate-prone captures so Learning Content create-menu, Projects create-menu, and Page resource overview screenshots represent distinct user states.
+-   Included `check:runtime-no-lms-forks` in both LMS user-guide verify scripts so the documentation pipeline also guards against LMS-only runtime forks.
+
+### Validation
+
+-   `pnpm docs:lms-user-guide:verify:local-supabase`
+-   `pnpm exec eslint tools/docs/check-lms-user-guide-docs.mjs tools/testing/e2e/specs/generators/docs-lms-user-guide-screenshots.spec.ts`
+-   `git diff --check`
+-   `rg -n "runtime|source record|progress-store|application IDs|target IDs|session tokens|Favorites|Действия строки|действия строки|ID рабочих пространств|внутренности хранилища|исходной записи|сырых идентификаторов" docs/en/lms docs/ru/lms docs/en/SUMMARY.md docs/ru/SUMMARY.md`
+-   `sha256sum docs/ru/.gitbook/assets/lms-user-guide/getting-around-step-2.png docs/ru/.gitbook/assets/lms-user-guide/learning-content-library-step-1.png docs/en/.gitbook/assets/lms-user-guide/projects-step-1.png docs/en/.gitbook/assets/lms-user-guide/learning-content-library-step-4.png docs/en/.gitbook/assets/lms-user-guide/resources-pages-links.png docs/en/.gitbook/assets/lms-user-guide/resources-pages-links-step-2.png`
+-   `pnpm supabase:e2e:stop`
+
+---
+
+## 2026-05-24 - LMS User Guide User-Facing Text And CI Gate Closure
+
+### Summary
+
+Closed the final QA blockers in the LMS GitBook user guide. The guide no longer relies on hidden screenshot comments, the user-facing pages avoid implementation-only terminology, and the docs checker now blocks both visible placeholder comments and internal language regressions.
+
+### Implemented
+
+-   Removed all `<!-- screenshot: ... -->` comments from English and Russian LMS guide pages while preserving the real visible per-step screenshot images.
+-   Refactored `tools/docs/check-lms-user-guide-docs.mjs` so screenshot coverage is validated from the manifest, visible image references, committed assets, and provenance instead of hidden Markdown comments.
+-   Added LMS user-guide checker failures for TODO/FIXME/placeholder markers and user-hostile technical wording such as raw ID/JSON/UUID, metahub, source-preview, workspace-selector, and row-action terminology.
+-   Replaced internal setup, resource-source, row-action, and technical-value wording in the English and Russian guide pages with user-facing copy.
+-   Broadened `.github/workflows/docs-lms-user-guide-screenshots.yml` so the local minimal Supabase screenshot verification runs for every pull request.
+
+### Validation
+
+-   `pnpm exec prettier --write docs/en/lms docs/ru/lms tools/docs/check-lms-user-guide-docs.mjs .github/workflows/docs-lms-user-guide-screenshots.yml memory-bank/tasks.md memory-bank/progress.md package.json`
+-   `pnpm docs:lms-user-guide:check`
+-   `pnpm docs:i18n:check`
+-   `pnpm docs:gitbook-screenshot-assets:check`
+-   `pnpm docs:lms-user-guide:verify:local-supabase`
+-   `pnpm exec eslint tools/docs/check-lms-user-guide-docs.mjs tools/testing/e2e/specs/generators/docs-lms-user-guide-screenshots.spec.ts`
+-   `git diff --check`
+
+---
+
+## 2026-05-24 - LMS User Guide Step Screenshot Closure
+
+### Summary
+
+Closed the second LMS GitBook user-guide remediation pass. The documentation now uses detailed English and Russian workflow pages with real per-step localized screenshots, the Playwright generator captures meaningful state changes instead of duplicating overview buffers, the learner-experience step screenshots no longer duplicate each other, and the docs checker rejects stale placeholders, duplicate step images, weak manifest coverage, and user-visible technical leakage.
+
+### Implemented
+
+-   Reworked the LMS user-guide screenshot generator so every workflow step performs a concrete UI action before capture.
+-   Regenerated English and Russian `1920x1080` full-window screenshots through the local minimal Supabase E2E stack.
+-   Strengthened `docs:lms-user-guide:check` to fail on duplicated step screenshot hashes, stale assets, missing visible images, raw IDs, raw ISO dates, TanStack or React Query devtools text, and forbidden English fallback text on Russian pages.
+-   Adjusted the learner-experience generator path so the second documented step selects a different outline item before capture, then returns to the first item for completion, preventing repeated screenshots from passing.
+-   Updated manifest evidence for the deterministic EN/RU generation order, including the RU project count after the EN-created project persists and the localized RU guest-content assertion.
+-   Added `docs:lms-user-guide:verify` and `docs:lms-user-guide:verify:local-supabase` so teams can run build, screenshot regeneration, and all docs checks in the correct order.
+-   Added a targeted LMS user-guide screenshots workflow that runs the local minimal Supabase browser generator before the static documentation checks for PRs touching the LMS docs/runtime screenshot surface, then fails if regenerated screenshots or provenance were not committed.
+-   Removed the tracked `.env.e2e.backup` file from the Git index and local workspace; the existing `**/.env*.backup` ignore rule now keeps backup files out of future commits.
+-   Expanded LMS user-guide pages and related guide cross-links while preserving English/Russian structural parity.
+-   Fixed localized LMS fixture/report data paths that could otherwise leak English report labels, instructor names, or raw technical values into Russian runtime screenshots.
+
+### Validation
+
+-   `pnpm docs:lms-user-guide:screenshots:local-supabase`
+-   `pnpm docs:lms-user-guide:verify:local-supabase`
+-   `pnpm docs:lms-user-guide:check`
+-   `pnpm docs:i18n:check`
+-   `pnpm docs:gitbook-screenshot-assets:check`
+-   `pnpm exec prettier --write .github/workflows/docs-lms-user-guide-screenshots.yml package.json memory-bank/tasks.md memory-bank/progress.md tools/testing/e2e/specs/generators/docs-lms-user-guide-screenshots.spec.ts tools/docs/lms-user-guide-screenshot-manifest.json`
+-   `pnpm exec eslint tools/docs/check-lms-user-guide-docs.mjs tools/testing/e2e/specs/generators/docs-lms-user-guide-screenshots.spec.ts tools/testing/e2e/specs/generators/metahubs-lms-app-export.spec.ts tools/testing/e2e/support/browser/runtimeUx.ts tools/testing/e2e/support/lmsFixtureContract.ts tools/testing/e2e/support/lmsSnapshotImport.ts packages/applications-backend/base/src/controllers/runtimeReportsController.ts packages/apps-template-mui/src/api/api.ts packages/apps-template-mui/src/dashboard/components/MainGrid.tsx packages/apps-template-mui/src/dashboard/components/widgetRenderer.tsx packages/apps-template-mui/src/dashboard/components/__tests__/MainGrid.test.tsx packages/apps-template-mui/src/dashboard/components/__tests__/widgetRenderer.test.tsx`
+-   `pnpm --filter @universo/apps-template-mui test -- widgetRenderer`
+-   `pnpm --filter @universo/metahubs-backend test -- templateManifestValidator`
+-   `pnpm --filter @universo/applications-backend build`
+-   `pnpm --filter @universo/apps-template-mui build`
+-   `pnpm --filter @universo/core-frontend build`
+
+---
+
+## 2026-05-24 - LMS User Guide QA Remediation
+
+### Summary
+
+Closed the QA blockers in the LMS GitBook user guide. Russian user-guide pages now have localized boilerplate headings and role/goal labels, every workflow step has a visible GitBook image instead of an invisible screenshot comment placeholder, and the LMS docs checker now fails closed on the exact regression classes that were missed: English RU boilerplate and numbered steps without adjacent visible screenshots.
+
+### Implemented
+
+-   Localized Russian LMS user-guide section labels: role, goal, prerequisites, workflow, result, checks, and related pages.
+-   Added visible step-level screenshots after every numbered workflow step in all English and Russian LMS user-guide pages.
+-   Added derived step-level screenshot assets for all manifest `workflowStepIds` and updated the Playwright generator to refresh those assets whenever overview screenshots are regenerated.
+-   Strengthened `tools/docs/check-lms-user-guide-docs.mjs` to validate H1 headings against the manifest, enforce workflow step counts, require `step -> visible image -> marker`, inspect step image dimensions, and reject English boilerplate in Russian pages.
+
+### Validation
+
+-   `pnpm run docs:lms-user-guide:screenshots:local-supabase`
+-   `pnpm run docs:lms-user-guide:check`
+-   `pnpm run docs:i18n:check`
+-   `node tools/docs/check-gitbook-links.mjs && node tools/docs/check-gitbook-screenshot-assets.mjs`
+-   `pnpm exec eslint tools/docs/check-lms-user-guide-docs.mjs tools/testing/e2e/specs/generators/docs-lms-user-guide-screenshots.spec.ts tools/testing/e2e/support/lmsSnapshotImport.ts`
+
+---
+
+## 2026-05-24 - LMS User Guide GitBook Documentation
+
+### Summary
+
+Implemented the first-class bilingual GitBook LMS user guide for applications created from `tools/fixtures/metahubs-lms-app-snapshot.json`. The guide now has matching English and Russian task-based pages, localized `1920x1080` screenshot assets, existing guide cross-links, a manifest-driven documentation checker, and a Playwright generator that recreates screenshots from the canonical LMS snapshot on the dedicated local minimal Supabase E2E profile.
+
+### Implemented
+
+-   Added `docs/en/lms/` and `docs/ru/lms/` as a new top-level GitBook section with 13 paired user-facing workflow pages.
+-   Updated both `SUMMARY.md` files and existing LMS guide pages with links into the new runtime user guide.
+-   Added localized LMS screenshot assets under `.gitbook/assets/lms-user-guide/` with manifest coverage and strict dimension validation.
+-   Added `tools/docs/check-lms-user-guide-docs.mjs` and package scripts for user-guide documentation QA.
+-   Added a Playwright screenshot generator that imports the canonical LMS snapshot through the UI, creates and syncs an application, captures whole-window `1920x1080` screenshots, blocks TanStack Query banner leakage, scans for raw IDs/raw ISO/object leakage, and verifies RU fallback text is not visible.
+
+### Validation
+
+-   `pnpm run build:e2e:local-supabase`
+-   `pnpm run docs:lms-user-guide:screenshots:local-supabase`
+-   `pnpm run docs:lms-user-guide:check`
+-   `pnpm run docs:i18n:check`
+-   `node tools/docs/check-gitbook-links.mjs && node tools/docs/check-gitbook-screenshot-assets.mjs`
+-   `pnpm exec eslint tools/docs/check-lms-user-guide-docs.mjs tools/testing/e2e/specs/generators/docs-lms-user-guide-screenshots.spec.ts tools/testing/e2e/support/lmsSnapshotImport.ts`
+
+---
+
 ## 2026-05-23 - LMS Runtime UX/i18n Release Blocker Remediation
 
 ### Summary
@@ -216,430 +375,573 @@ Closed the remaining QA findings for the LMS Learning Content release gate. Runt
 -   `pnpm audit --prod --audit-level=low`: passed with no known vulnerabilities.
 
 ### 2026-05-22: LMS Learning Content QA Release Gate Closure ✅
+
 -   Added explicit browser/API/fixture evidence fields to the LMS acceptance matrix and prevented d...
 
 ### 2026-05-22: LMS Learning Content QA Remediation Closure ✅
+
 -   Hardened generic runtime access handling for `records.union` helper-object targets and `library...
 
 ### 2026-05-22: LMS Learning Content Productization Final Validation ✅
+
 -   Marked Phase 10 complete in `tasks.md` for the current plan state.
 
 ### 2026-05-22: Role Visibility Scoped Gate ✅
+
 -   Marked `roleVisibility.actionable` and `roleVisibility.audited` complete in `LMS_PRODUCT_ACCEPT...
 
 ### 2026-05-22: Knowledge Base Audited Gate ✅
+
 -   Marked `knowledgeBase.audited` complete in `LMS_PRODUCT_ACCEPTANCE_MATRIX`.
 
 ### 2026-05-22: Reports Audited Gate ✅
+
 -   Marked `reports.audited` complete in `LMS_PRODUCT_ACCEPTANCE_MATRIX`.
 
 ### 2026-05-22: Knowledge Base Actionable Gate ✅
+
 -   Confirmed the Phase 1 `records.union` datasource foundation is already server-side: the app-tem...
 
 ### 2026-05-22: LMS Product Acceptance Matrix Reconciliation ✅
+
 -   Confirmed the matrix has no open gates for content projects, Learning Content shell, standalone...
 
 ### 2026-05-22: Standalone LMS Fixture Contract Gate ✅
+
 -   Added `pnpm run check:lms-fixture-contract` as the supported command for validating `tools/fixt...
 
 ### 2026-05-22: Generic Resource Preview Title And Description Safety ✅
+
 -   Routed `ResourcePreview` title and description through the shared safe runtime display formatter.
 
 ### 2026-05-22: Generic Records Union Card-Mode Display Safety ✅
+
 -   Changed the records-union card value formatter to use `formatRuntimeSafeValue`.
 
 ### 2026-05-22: Generic Form Dialog JSON Field Display Safety ✅
+
 -   Replaced the generic JSON fallback editor with a localized read-only structured-data message.
 
 ### 2026-05-22: Generic Localized Inline Validation Helper Safety ✅
+
 -   Added a shared length constraint helper for simple, versioned, and localized inline field varia...
 
 ### 2026-05-22: Generic Target Picker Option Label Safety ✅
+
 -   Removed `Codename`/`codename` from default target picker label candidates.
 
 ### 2026-05-22: Generic Target And Share Mutation Error Sanitization Coverage ✅
+
 -   Added share-member mutation failure coverage for the generic records-union shared action dialog.
 
 ### 2026-05-22: Generic Runtime Quiz Widget Text Display Safety ✅
+
 -   Added safe display normalization for quiz title, description, submit/next labels, question prom...
 
 ### 2026-05-22: Generic Runtime Object Display-Key Fallback Safety ✅
+
 -   Restricted generic object display keys to explicit human label fields: `label`, `name`, `title`...
 
 ### 2026-05-21: Generic Runtime Record Picker And Relation Builder Error Sanitization ✅
+
 -   Routed `FormDialog` runtime record picker load failures through `extractRuntimeErrorMessage`.
 
 ### 2026-05-21: Generic Workspace Switcher ID Fallback Safety ✅
+
 -   Replaced current workspace and workspace menu raw ID name fallbacks with `workspace.untitled`.
 
 ### 2026-05-21: Generic Guest Runtime Error Sanitization ✅
+
 -   Added sanitized guest error rendering in `GuestApp` for link load, guest session creation, runt...
 
 ### 2026-05-21: Generic Learner Player ID Fallback Safety ✅
+
 -   Added a learner-player safe row-text helper backed by the shared runtime safe display formatter.
 
 ### 2026-05-21: Generic Tabular Fetch Error Sanitization ✅
+
 -   Routed TABLE child-row fetch errors through `extractRuntimeErrorMessage` via the existing `getT...
 
 ### 2026-05-21: Generic Report Table Technical Column Safety ✅
+
 -   Filtered report definition columns with technical fields like `TargetRecordId`, `sourceJson`, a...
 
 ### 2026-05-21: Generic Ledger Table Technical Field Safety ✅
+
 -   Filtered ledger datasource columns with the shared runtime technical-field classifier, includin...
 
 ### 2026-05-21: Generic Tabular String Object Display Safety ✅
+
 -   Replaced `STRING` tabular object-value `JSON.stringify` fallback with `formatRuntimeSafeValue`.
 
 ### 2026-05-21: Generic Runtime Technical Column Safety ✅
+
 -   Exported generic runtime grid column classifiers from `useRuntimeColumnVisibility`.
 
 ### 2026-05-21: Generic Resource Source Type Selector Labels ✅
+
 -   Added shared default resource type labels for app-template runtime fallback paths.
 
 ### 2026-05-21: Generic Resource Preview Title Wrapping ✅
+
 -   Removed MUI `noWrap` from the generic `ResourcePreview` title.
 
 ### 2026-05-21: Generic Resource Preview Type Labels ✅
+
 -   Replaced raw `ResourceSource.type` preview captions with localized resource type labels in the ...
 
 ### 2026-05-21: Learning Content Create Menu Deferred Package Evidence ✅
+
 -   Added fixture-contract coverage for the disabled Import package create target and its canonical...
 
 ### 2026-05-21: Generic Resource Preview Domain Badge ✅
+
 -   Added a generic domain chip to `ResourcePreview` for safe ready URL sources using the shared `p...
 
 ### 2026-05-21: Generic Create Target Capacity Hardening ✅
+
 -   Raised `detailsTable.createTargets` capacity from 8 to 16 in the generic application layout sch...
 
 ### 2026-05-21: Generic Report Runtime Filters ✅
+
 -   Added optional ad hoc report filters to generic runtime report run/export payloads.
 
 ### 2026-05-21: Generic Report Error UX Safety ✅
+
 -   Added a localized report-load error state to `ReportDetailsTableWidget`.
 
 ### 2026-05-21: Generic Records List Column Preset Parity ✅
+
 -   Applied runtime table column presets before building `records.list` MUI DataGrid columns.
 
 ### 2026-05-21: Report Export Filename User Label Contract ✅
+
 -   Added a generic report CSV filename builder in the published MUI report widget.
 
 ### 2026-05-21: Saved Report Widget Codename Contract ✅
+
 -   Added the generic `detailsTable.reportCodename` metadata contract in shared application layout ...
 
 ### 2026-05-21: Builder Report Definition Productization ✅
+
 -   Seeded `CourseBuilderOutline` and `TrackBuilderOutline` report definitions in the LMS template.
 
 ### 2026-05-21: LMS Learning Content Generic Learner Player Settings Enforcement ✅
+
 -   Applied `details.pagePlayer.showOutline` to the learner-player item outline and nested Editor.j...
 
 ### 2026-05-21: LMS Learning Content Generic Shared Workspace Member Row Actions ✅
+
 -   Extended the shared `library.toggle` row action contract with `principalTarget`, localized dial...
 
 ### 2026-05-21: LMS Learning Content Generic Target-Field Row Actions ✅
+
 -   Added the shared `field.updateWithTarget` row action contract with target object collection ref...
 
 ### 2026-05-21: Records Union Trash Runtime E2E Stabilization ✅
+
 -   Added a stable `records-union-details-table` runtime marker for generic union table surfaces.
 
 ### 2026-05-21: LMS Learning Content Report REF Filtering And Trash Restore Target Picker ✅
+
 -   Extended runtime report SQL generation so `contains`, `startsWith`, `endsWith`, and `equals` fi...
 
 ### 2026-05-21: LMS Learning Content Generic Project Create Target And Report REF Safety ✅
+
 -   Added `ContentProjects` to the LMS Learning Content `detailsTable.createTargets` metadata with ...
 
 ### 2026-05-21: LMS Learning Content Generic SharedAt Projection And Shared View Ordering ✅
+
 -   Added a generic shared-relation timestamp projection for principal-based `runtimeLibrary.shared...
 
 ### 2026-05-21: LMS Learning Content Generic Runtime Shared Relation Mutation ✅
+
 -   Added `shared` to the generic runtime library relation key contract alongside starred and recen...
 
 ### 2026-05-21: LMS Learning Content Generic Runtime Recent Ordering ✅
+
 -   Added a generic `recentAt` virtual projection for `records.union` rows, sourced from the config...
 
 ### 2026-05-21: LMS Learning Content Generic Runtime Recent Capture ✅
+
 -   Added `recent` as a generic runtime library relation key alongside `starred`.
 
 ### 2026-05-21: LMS Learning Content Generic Records Union Project Labels ✅
+
 -   Added an optional generic `records.union` target `projectField` contract.
 
 ### 2026-05-20: LMS Learning Content Generic Records Union Starred Actions ✅
+
 -   Added a generic `detailsTable.rowActions` schema for `library.toggle` actions targeting the `st...
 
 ### 2026-05-20: LMS Learning Content Generic Runtime Report REF Label Projection ✅
+
 -   Enriched runtime report field metadata with object reference target and display-component label...
 
 ### 2026-05-20: LMS Learning Content Generic Runtime Report Primitive ID Output Safety ✅
+
 -   Added generic primitive ID suppression to runtime report CSV serialization for `*Id` fields and...
 
 ### 2026-05-20: LMS Learning Content Generic Runtime Report Export Output Safety ✅
+
 -   Replaced generic CSV object fallback serialization with safe report value formatting in `Runtim...
 
 ### 2026-05-20: LMS Learning Content Generic Create-Target Resource Policy Availability ✅
+
 -   Added generic create-target availability resolution in `detailsTable` create menus based on `cr...
 
 ### 2026-05-20: LMS Learning Content Generic Settings-Derived Create Defaults ✅
+
 -   Added a safe `contextPath` create-default source to the shared application layout schema, inclu...
 
 ### 2026-05-21: Generic Records Union Report Execution ✅
+
 -   Reused `executeRuntimeRecordsUnionDatasource` from the runtime rows controller for saved report...
 
 ### 2026-05-20: LMS Learning Content Generic Resource Source Policy ✅
+
 -   Added a generic `resourceSourceTypes` policy to `FormDialog`, `CrudDialogs`, and `DashboardDeta...
 
 ### 2026-05-20: LMS Learning Content Generic Runtime UX Projection Slice ✅
+
 -   Changed `records.union` rendering so projection columns are merged across all configured target...
 
 ### 2026-05-20: LMS Learning Content Runtime Safety Slice ✅
+
 -   Added executable guard scripts for runtime LMS-only branch drift and GitBook link/screenshot as...
 
 ### 2026-05-19: Runtime UI UX Viewport Matrix Closure ✅
+
 -   Added `RUNTIME_UX_VIEWPORT_MATRIX` and `expectRuntimeUxViewportMatrix` for `1920x1080`, `768x10...
 
 ### 2026-05-19: Runtime UI UX Quality Gate ✅
+
 -   Added portable `mui-runtime-ux-patterns` and `runtime-ux-qa` skills with focused references and...
 
 ### 2026-05-18: LMS Learning Content Product UX Remediation ✅
+
 -   Made optional `resourceSource` fields submit as absent until a concrete locator is provided, wh...
 
 ### 2026-05-20: LMS Learning Content Records Union Presentation Bridge ✅
+
 -   Preserved `titleField`, `statusField`, `typeField`, and `updatedAtField` from `records.union` t...
 
 ### 2026-05-18: LMS Learning Content Final QA Closure ✅
+
 -   Removed public guest runtime compatibility for `module` targets and kept only `content`, `asses...
 
 ### 2026-05-18: LMS Learning Content No-Modules Remediation ✅
+
 -   Removed the active `Modules` entity path from the LMS template/generator/fixture contract/snaps...
 
 ### 2026-05-18: LMS Runtime Copy UI Integration ✅
+
 -   Routed `useCrudDashboard` copy submissions through `adapter.copyRow`.
 
 ### 2026-05-18: LMS Runtime Copy Relations ✅
+
 -   Added `config.runtimeCopy.relations` support to the runtime rows controller.
 
 ### 2026-05-17: LMS Parent Progress Aggregation ✅
+
 -   Added `runtimeProgress.aggregateParents` handling to the runtime progress endpoint.
 
 ### 2026-05-17: LMS Enrollment Wizard Due-Date Derivation ✅
+
 -   Added generic `uiConfig.derivedDateOffset` handling in the published app `FormDialog`.
 
 ### 2026-05-17: LMS Generic Learner Player Shell ✅
+
 -   Added the generic `learnerPlayer` widget to the published MUI app template renderer.
 
 ### 2026-05-17: LMS Server-Owned Sequence Progress Guard ✅
+
 -   Added generic Object-level `config.runtimeProgress.sequencePolicy` support for server-owned pro...
 
 ### 2026-05-17: LMS Scoped Sequence Availability In Details Tables ✅
+
 -   Added optional `scopeFieldCodename` to the shared sequence policy contract so availability can ...
 
 ### 2026-05-17: LMS Course And Track Enrollment List Tabs ✅
+
 -   Added `detailsTable` enrollment-list widgets to Course Builder and Track Builder enrollment tab...
 
 ### 2026-05-17: LMS Catalog-Ready Course And Track Metadata ✅
+
 -   Added a shared `catalogPublicationPolicySchema` in `@universo/types` with fail-closed self-enro...
 
 ### Unknown Date: 2026-05-13: Local Supabase Minimal App Start Commands ✅
+
 -   Added `start:local-supabase:minimal` and `start:allclean:local-supabase:minimal` root scripts s...
 
 ### Unknown Date: 2026-05-13: Dedicated E2E Supabase Profile And Agent Playwright Guidance ✅
+
 -   Added a centralized local Supabase profile model with separate dev and E2E project ids, workdir...
 
 ### Unknown Date: 2026-04-13 And Earlier: Archive ✅
+
 -   Removed legacy `HubList`/`CatalogList`/`SetList`/`EnumerationList` frontend exports; neutral `g...
 
 ### Unknown Date: 2026-05-15: Documentation Refresh Implementation (Phase 1-4 Complete) ✅
+
 -   ✅ Verified legacy terminology already removed from all documentation
 
 ### 2026-05-15: LMS Platform Implementation Slice 7B: Published Runtime Workflow Actions ✅
+
 -   Added workflow actions to the apps-template runtime response schema for `section`, `objectColle...
 
 ### 2026-05-15: LMS Platform Implementation Slice 7C: Workflow Capability Policy ✅
+
 -   Added `resolveEffectiveRoleCapabilities()` in application access guards.
 
 ### 2026-05-15: LMS Platform Implementation Slice 7D: Knowledge and Development Portal Navigation ✅
+
 -   Added `KnowledgeHome` as a Page entity with EN/RU Editor.js blocks describing knowledge spaces,...
 
 ### 2026-05-15: LMS Platform Implementation Slice 7E: LMS Workflow Metadata ✅
+
 -   Added reusable LMS workflow action builders in the LMS template.
 
 ### 2026-05-15: LMS Platform Implementation Slice 8A: Saved Runtime Report CSV Export ✅
+
 -   Added `POST /applications/:applicationId/runtime/reports/export` for CSV export of saved `recor...
 
 ### 2026-05-15: LMS Platform Implementation Slice 8B: Report Aggregation Overview Metrics ✅
+
 -   Added a typed `report.aggregation` metric datasource for stat cards.
 
 ### 2026-05-15: LMS Platform Implementation Slice 13A: Deferred xAPI And Broad File Resources ✅
+
 -   Added `xapi` to the shared `ResourceSource` type contract.
 
 ### 2026-05-15: LMS Platform Implementation Slice 9A: Runtime Dashboard Card Grid Parity ✅
+
 -   Updated the runtime details card grid to expose a stable test target for visual and unit checks.
 
 ### 2026-05-15: LMS Platform Implementation Slice 12A: LMS Resource And Report Docs ✅
+
 -   Updated `docs/en/guides/lms-resource-model.md` and `docs/ru/guides/lms-resource-model.md` for x...
 
 ### 2026-05-15: LMS Platform Implementation Slice 7G: Gamification And Achievements ✅
+
 -   Added `GamificationSettings`, `PointAwardRules`, `PointTransactions`, `BadgeDefinitions`, `Badg...
 
 ### 2026-05-15: LMS Platform Implementation Slice 11A: Committed LMS Fixture Contract ✅
+
 -   Extended `packages/universo-utils/base/src/snapshot/__tests__/snapshotFixtures.test.ts` with a ...
 
 ### 2026-05-15: LMS Platform Implementation Slice 12B: Gamification Guide ✅
+
 -   Added `docs/en/guides/lms-gamification.md`.
 
 ### 2026-05-15: LMS Platform Implementation Slice 9B: Workspace Metric Card Parity ✅
+
 -   Replaced the custom `WorkspaceMetricCard` Box surface in `packages/apps-template-mui` with `Car...
 
 ### 2026-05-16: LMS Platform Implementation Slice 9C/11B: Workspace Metric Screenshot Gate And LMS Flow Cleanup ✅
+
 -   Extended `lms-workspace-management.spec.ts` with dashboard metric-card coverage, a no-horizonta...
 
 ### 2026-05-16: LMS Platform Implementation Slice 9D/12C: Published Runtime README Alignment ✅
+
 -   Confirmed Phase 9 acceptance coverage already exists through runtime record-card unit coverage ...
 
 ### 2026-05-16: LMS Platform Implementation Slice 1B/12D: Shared Block Editor Package ✅
+
 -   Added `@universo/block-editor` with the shared `EditorJsBlockEditor`, locale-aware Editor.js he...
 
 ### 2026-05-16: LMS QA Remediation: Runtime Scripts And Workflow Capability Gate ✅
--   Updated runtime script route tests to use canonical application schema names (`app_<uuid withou...
+
+-   Updated runtime script route tests to use canonical application schema names (`app\_<uuid withou...
 
 ### 2026-05-16: Node 22 Environment And LMS E2E Remediation ✅
+
 -   Removed obsolete nvm-managed Node versions and set the nvm default runtime to Node 22.22.2.
 
 ### 2026-05-16: LMS QA Follow-up Remediation Complete ✅
+
 -   Decoupled published-app metadata workflow actions from broad `editContent` permission in both U...
 
 ### 2026-05-16: Final LMS QA Gap Closure ✅
+
 -   Updated `application-runtime-rows.spec.ts` so the test reuses the seeded `Title` component and ...
 
 ### 2026-05-16: Published LMS Authoring and Workspace UI Closure ✅
+
 -   Changed the LMS template navigation so primary published-app sections open operational object s...
 
 ### 2026-05-17: LMS Relation Builder Runtime Closure ✅
+
 -   Added a generic published-app `RelationBuilderWidget` for parent-scoped child datasources inste...
 
 ### 2026-05-16: LMS Final QA Follow-up Closure ✅
+
 -   Raised the LMS runtime menu `maxPrimaryItems` contract to 8 in the template, fixture, snapshot ...
 
 ### 2026-05-17: LMS Learning Content Generic Ordering Runtime Closure ✅
+
 -   Added generic persisted row ordering for datasource-backed details tables and reused it for Cou...
 
 ### 2026-05-17: LMS Learning Content Builder Tabs Runtime Closure ✅
+
 -   Added `detailsTabs` to the shared dashboard widget registry and strict application layout widge...
 
 ### 2026-05-17: LMS Course Item Runtime Record Picker ✅
+
 -   Added generic `stringOptions` rendering for STRING fields so metadata can expose select control...
 
 ### 2026-05-17: LMS Runtime Record Picker QA Gap Closure ✅
+
 -   Cleared `runtimeRecordPicker` field values when their configured `targetObjectCodenameField` ch...
 
 ### 2026-05-17: LMS Course Builder Policy Controls And Large Outline Warning ✅
+
 -   Added a generic `rowCountWarning` contract to `detailsTable` widget metadata.
 
 ### 2026-05-17: LMS Enrollment Wizard And Conditional Due-Date Validation ✅
+
 -   Added `createWizard` metadata to relation-builder panel configuration and rendered it with the ...
 
 ### 2026-05-18: LMS Runtime Progress Complete/Recalculate Actions ✅
+
 -   Extended `POST /runtime/progress/content` with `action: update | complete | recalculate` while ...
 
 ### 2026-05-18: LMS Track Learner Player Closure ✅
+
 -   Added `targetObjectCodename` to the generic `learnerPlayer` widget config contract.
 
 ### 2026-05-18: LMS Learning Content Final QA Closure ✅
+
 -   Renamed the LMS class flow to `lms-class-content-quiz.spec.ts` and updated the browser journey ...
 
 ### 2026-05-18: LMS Learning Content Auto-Enrollment QA Remediation ✅
+
 -   Removed `AutoEnrollmentRuleScript` from the active LMS template and regenerated `tools/fixtures...
 
 ### 2026-05-20: LMS Learning Content Runtime Table Defaults Bridge ✅
+
 -   Added `tableDefaults.defaultViewMode` and `tableDefaults.columnPreset` to the published dashboa...
 
 ### 2026-05-20: LMS Learning Content Runtime Table Defaults UX Canary ✅
+
 -   Added optional raw UUID substring detection to the shared runtime UX Playwright helper.
 
 ### 2026-05-20: LMS Learning Content Current-Object Card Safety ✅
+
 -   Hardened `MainGrid` current-object card rendering to ignore `id`, `actions`, `*Id`, owner/user/...
 
 ### 2026-05-20: LMS Learning Content Runtime UX Canary Guard Tightening ✅
+
 -   Expanded `expectNoTechnicalLeakage` to detect raw JSON/object text containing `storageKey`, `mi...
 
 ### 2026-05-20: LMS Learning Content Generic Relation Builder Display Safety ✅
+
 -   Added shared app-template runtime display helpers for technical field names, raw resource/media...
 
 ### 2026-05-20: LMS Learning Content Runtime Form UX Safety ✅
+
 -   Added shared `fieldSemantics` helpers so `Description`, `Summary`, `Body`, `Instructions`, `Fee...
 
 ### 2026-05-20: LMS Legacy Concurrency Checklist Closure ✅
+
 -   Verified `deleteRow` and `restoreRow` use `buildRuntimeExpectedVersionPredicate` inside `UPDATE...
 
 ### 2026-05-20: LMS Metadata-Driven Union Create Menu ✅
+
 -   Added a generic `detailsTable.createTargets` contract with localized labels, target section/obj...
 
 ### 2026-05-20: LMS Create-Target Form Defaults And Resource Type Presets ✅
+
 -   Added a strict `CreateTargetDefault` metadata contract for `detailsTable.createTargets` with ex...
 
 ### 2026-05-20: Generic Link Resource Domain Preview ✅
+
 -   Added a generic domain preview chip to the shared `resourceSource` form widget for URL and embe...
 
 ### 2026-05-20: LMS Auto-Resolved Page Resource Source Authoring ✅
+
 -   Added metadata-driven auto page resource source resolution to the shared runtime `FormDialog` f...
 
 ### 2026-05-20: Generic Records Union Row Actions ✅
+
 -   Added a generic `DashboardRowTarget` action contract for datasource widgets.
 
 ### 2026-05-21: Generic Runtime Table Column Visibility ✅
+
 -   Added `useRuntimeColumnVisibilityPreference` with safe model normalization, local persistence, ...
 
 ### 2026-05-21: Deferred Assessment Create Targets ✅
+
 -   Added disabled Quiz-lite and Assignment-lite create targets to the LMS Learning Content metadat...
 
 ### 2026-05-21: Generic Records Union Runtime Search ✅
+
 -   Added `showSearch` to the generic details-table widget metadata schema.
 
 ### 2026-05-21: Generic Records Union Target Filters ✅
+
 -   Added a generic `detailsTable.targetFilters` schema contract for `records.union` widgets with v...
 
 ### 2026-05-21: Generic Datasource Load Error UX Safety ✅
+
 -   Routed `records.list` datasource query failures through the shared runtime error sanitizer befo...
 
 ### 2026-05-21: Generic Runtime Workspaces Raw-ID And Error Leakage Safety ✅
+
 -   Replaced Runtime Workspaces page workspace-name fallbacks with the localized `workspace.untitle...
 
 ### 2026-05-22: Generic Workflow Row-Action Label Fallback Safety ✅
+
 -   Added generic workflow action fallback labels to `RowActionsMenuLabels`.
 
 ### 2026-05-22: Generic Runtime Record Picker ID Fallback Safety ✅
+
 -   Changed runtime record picker option label resolution to return a localized fallback instead of...
 
 ### 2026-05-22: Generic Details Tabs And Sequence Label Fallback Safety ✅
+
 -   Added safe details-tabs fallback labels that humanize non-technical tab IDs and use localized g...
 
 ### 2026-05-22: Generic Relation Builder And Runtime List Fallback Safety ✅
+
 -   Added safe metadata fallback labels for relation-builder panels and create wizard steps.
 
 ### 2026-05-22: Generic Runtime Flow-List Cell Display Safety ✅
+
 -   Added a shared flow-list cell rendering helper that preserves real React elements while sanitiz...
 
 ### 2026-05-22: Generic Runtime Chart Axis Display Safety ✅
+
 -   Added a `MainGrid` chart-axis formatter that reuses `formatRuntimeSafeValue`.
 
 ### 2026-05-22: Generic Runtime Chart Metric Value Display Safety ✅
+
 -   Added a `MainGrid` chart metric formatter that reuses `formatRuntimeSafeValue`.
 
 ### 2026-05-22: Generic Runtime DataGrid Cell Display Safety ✅
+
 -   Replaced default `toGridColumns()` display formatting with `formatRuntimeSafeValue`.
 
 ### 2026-05-22: LMS Learning Content Final QA Fixes ✅
+
 -   Hardened `buildRuntimeRecordAccessClause` so `runtimeRecordAccess.ownerOrShared` is bypassed on...
 
 ### 2026-05-22: Generic Runtime Stat Card Metric Value Display Safety ✅
+
 -   Reused the shared configured metric formatter for overview stat cards and records-series charts.
 
 ### 2026-05-22: Generic Workspace Invite Email Validation ✅
+
 -   Reused the shared `emailSchema` contract in the existing invite-member dialog before mutation s...
 
 ### 2026-05-23: LMS Runtime UX QA Findings Closure ✅
+
 -   Suppressed top-level metadata create actions when a `detailsTable` widget owns `createTargets`,...
 
 ### 2026-05-22: Generic Course Field Report Coupling ✅
+
 -   Added the reusable `Instructor` business component to the Learning Content union projection pat...
 
 ### 2026-05-23: LMS Guest Public Workspace Isolation QA Closure ✅
+
 -   Scoped public guest runtime record reads, child TABLE reads, access-link lookup, and access-lin...
