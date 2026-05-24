@@ -52,44 +52,15 @@ async function submitSnapshotImportDialog(page: Page, dialog: Locator): Promise<
     const importButton = dialog.getByRole('button', { name: /import|импорт/i })
     await expect(importButton).toBeEnabled({ timeout: 120_000 })
 
-    const pendingWaiters: Array<{
-        resolve: (response: Response) => void
-        reject: (error: Error) => void
-        timer: NodeJS.Timeout
-    }> = []
-    const onResponse = (response: Response) => {
-        const request = response.request()
-        if (request.method() !== 'POST' || !/\/api\/v1\/metahubs\/import(?:\?|$)/.test(response.url())) return
-        const waiter = pendingWaiters.shift()
-        if (!waiter) return
-        clearTimeout(waiter.timer)
-        waiter.resolve(response)
-    }
-    const waitForNextImportResponse = (timeoutMs: number) =>
-        new Promise<Response>((resolve, reject) => {
-            const waiter = {
-                resolve,
-                reject,
-                timer: setTimeout(() => {
-                    const index = pendingWaiters.indexOf(waiter)
-                    if (index >= 0) {
-                        pendingWaiters.splice(index, 1)
-                    }
-                    reject(new Error(`Timed out waiting for metahub import response after ${timeoutMs}ms`))
-                }, timeoutMs)
-            }
-            pendingWaiters.push(waiter)
-        })
+    const [response] = await Promise.all([
+        page.waitForResponse((res) => res.request().method() === 'POST' && /\/api\/v1\/metahubs\/import(?:\?|$)/.test(res.url()), {
+            timeout: 420_000
+        }),
+        importButton.click()
+    ])
 
-    page.on('response', onResponse)
-    try {
-        await importButton.click()
-        const response = await waitForNextImportResponse(420_000)
-        if (response.status() === 201) return response
-        throw new Error(`Snapshot import failed with HTTP ${response.status()}: ${(await response.text()).slice(0, 500)}`)
-    } finally {
-        page.off('response', onResponse)
-    }
+    if (response.status() === 201) return response
+    throw new Error(`Snapshot import failed with HTTP ${response.status()}: ${(await response.text()).slice(0, 500)}`)
 }
 
 export async function importLmsSnapshotThroughUi(page: Page): Promise<{

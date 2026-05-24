@@ -197,10 +197,11 @@ export async function expectNoDataGridTechnicalLeakage(
         ...options,
         checkUuidSubstrings: options.checkUuidSubstrings ?? true
     })
-    const grids = await surface.locator('.MuiDataGrid-root').elementHandles()
+    const grids = surface.locator('.MuiDataGrid-root')
+    const gridCount = await grids.count()
 
-    for (let index = 0; index < grids.length; index += 1) {
-        const grid = grids[index]
+    for (let index = 0; index < gridCount; index += 1) {
+        const grid = grids.nth(index)
         const visible = await grid
             .evaluate((node) => {
                 const element = node as HTMLElement
@@ -213,8 +214,12 @@ export async function expectNoDataGridTechnicalLeakage(
             continue
         }
 
-        const scroller = await grid.$('.MuiDataGrid-virtualScroller')
-        const scrollPoints = scroller
+        const scroller = grid.locator('.MuiDataGrid-virtualScroller').first()
+        const hasScroller = await scroller
+            .count()
+            .then((count) => count > 0)
+            .catch(() => false)
+        const scrollPoints = hasScroller
             ? await scroller
                   .evaluate((node) => {
                       const element = node as HTMLElement
@@ -225,7 +230,7 @@ export async function expectNoDataGridTechnicalLeakage(
             : [0]
 
         for (const scrollLeft of scrollPoints) {
-            if (scroller) {
+            if (hasScroller) {
                 await scroller
                     .evaluate((node, nextScrollLeft) => {
                         ;(node as HTMLElement).scrollLeft = nextScrollLeft
@@ -248,7 +253,7 @@ export async function expectNoDataGridTechnicalLeakage(
             ).toEqual([])
         }
 
-        if (scroller) {
+        if (hasScroller) {
             await scroller
                 .evaluate((node) => {
                     ;(node as HTMLElement).scrollLeft = 0

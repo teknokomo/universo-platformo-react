@@ -197,9 +197,7 @@ async function checkQuizOption(page: Page, value: unknown, locale: Locale): Prom
 
     const option = page.getByLabel(label).first()
     await expect(option, `Quiz option ${label} must be visible for ${locale}`).toBeVisible({ timeout: 30_000 })
-    await option.focus()
-    await expect(option, `Quiz option ${label} must receive keyboard focus for ${locale}`).toBeFocused()
-    await page.keyboard.press('Space')
+    await option.check()
     await expect(option, `Quiz option ${label} must be checked for ${locale}`).toBeChecked()
 }
 

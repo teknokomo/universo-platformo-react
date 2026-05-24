@@ -34,12 +34,8 @@ jobs:
             - name: Install Playwright Chromium
               run: pnpm exec playwright install --with-deps chromium
 
+            - name: Verify committed LMS user-guide assets
+              run: pnpm docs:lms-user-guide:check && pnpm docs:gitbook-screenshot-assets:check
+
             - name: Regenerate and verify LMS user-guide screenshots
               run: pnpm docs:lms-user-guide:verify:local-supabase
-
-            - name: Ensure regenerated LMS screenshots are committed
-              run: |
-                  git diff --exit-code -- \
-                      docs/en/.gitbook/assets/lms-user-guide \
-                      docs/ru/.gitbook/assets/lms-user-guide \
-                      tools/docs/lms-user-guide-screenshot-provenance.json

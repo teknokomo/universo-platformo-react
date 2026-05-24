@@ -715,23 +715,42 @@ const resolveTargetPickerObjectCollectionId = (
 const resolveTargetPickerObjectCollectionCodename = (target: DetailsTableTargetPickerConfig | undefined): string | null =>
     target?.targetSectionCodename ?? target?.targetObjectCollectionCodename ?? null
 
+type TargetPickerOptionLookup = {
+    rowValuesByNormalizedKey: Map<string, unknown>
+    columnsByNormalizedKey: Map<string, AppDataResponse['columns'][number]>
+}
+
+const buildTargetPickerOptionLookup = (
+    row: Record<string, unknown>,
+    columns: AppDataResponse['columns'] | undefined
+): TargetPickerOptionLookup => {
+    const rowValuesByNormalizedKey = new Map<string, unknown>()
+    for (const [key, value] of Object.entries(row)) {
+        rowValuesByNormalizedKey.set(normalizeRuntimeColumnKey(key), value)
+    }
+
+    const columnsByNormalizedKey = new Map<string, AppDataResponse['columns'][number]>()
+    for (const column of columns ?? []) {
+        columnsByNormalizedKey.set(normalizeRuntimeColumnKey(column.codename), column)
+        columnsByNormalizedKey.set(normalizeRuntimeColumnKey(column.field), column)
+        columnsByNormalizedKey.set(normalizeRuntimeColumnKey(column.headerName), column)
+    }
+
+    return { rowValuesByNormalizedKey, columnsByNormalizedKey }
+}
+
 const readTargetPickerOptionValue = (
     row: Record<string, unknown>,
     field: string,
-    columns: AppDataResponse['columns'] | undefined
+    columns: AppDataResponse['columns'] | undefined,
+    lookup = buildTargetPickerOptionLookup(row, columns)
 ): unknown => {
     if (Object.prototype.hasOwnProperty.call(row, field)) return row[field]
 
     const normalizedField = normalizeRuntimeColumnKey(field)
-    const matchedRowKey = Object.keys(row).find((key) => normalizeRuntimeColumnKey(key) === normalizedField)
-    if (matchedRowKey) return row[matchedRowKey]
+    if (lookup.rowValuesByNormalizedKey.has(normalizedField)) return lookup.rowValuesByNormalizedKey.get(normalizedField)
 
-    const matchedColumn = columns?.find(
-        (column) =>
-            normalizeRuntimeColumnKey(column.codename) === normalizedField ||
-            normalizeRuntimeColumnKey(column.field) === normalizedField ||
-            normalizeRuntimeColumnKey(column.headerName) === normalizedField
-    )
+    const matchedColumn = lookup.columnsByNormalizedKey.get(normalizedField)
     if (!matchedColumn) return undefined
 
     if (Object.prototype.hasOwnProperty.call(row, matchedColumn.field)) return row[matchedColumn.field]
@@ -742,11 +761,15 @@ const readTargetPickerOptionValue = (
 const readTargetPickerFallbackLabel = (
     row: Record<string, unknown>,
     columns: AppDataResponse['columns'] | undefined,
-    locale: string
+    locale: string,
+    lookup = buildTargetPickerOptionLookup(row, columns)
 ): string => {
     const readableColumns = (columns ?? []).filter((column) => !isRuntimeTechnicalFieldName(column.codename || column.field))
     for (const column of readableColumns) {
-        const value = formatRuntimeSafeValue(readTargetPickerOptionValue(row, column.codename || column.field, columns), locale).trim()
+        const value = formatRuntimeSafeValue(
+            readTargetPickerOptionValue(row, column.codename || column.field, columns, lookup),
+            locale
+        ).trim()
         if (value) return value
     }
 
@@ -767,12 +790,13 @@ const formatTargetPickerOptionLabel = (
     columns?: AppDataResponse['columns']
 ): string => {
     const fields = target?.labelFields?.length ? target.labelFields : DEFAULT_RESTORE_TARGET_LABEL_FIELDS
+    const lookup = buildTargetPickerOptionLookup(row, columns)
     for (const field of fields) {
         if (normalizeRuntimeColumnKey(field) === 'codename') continue
-        const value = formatRuntimeSafeValue(readTargetPickerOptionValue(row, field, columns), locale ?? 'en').trim()
+        const value = formatRuntimeSafeValue(readTargetPickerOptionValue(row, field, columns, lookup), locale ?? 'en').trim()
         if (value) return value
     }
-    const fallbackLabel = readTargetPickerFallbackLabel(row, columns, locale ?? 'en')
+    const fallbackLabel = readTargetPickerFallbackLabel(row, columns, locale ?? 'en', lookup)
     if (fallbackLabel) return fallbackLabel
 
     return fallback
