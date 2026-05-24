@@ -1,6 +1,8 @@
 import { access, readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 
+/* eslint-disable no-console */
+
 const ROOT = process.cwd()
 const DOCS_ROOT = path.join(ROOT, 'docs')
 const IMAGE_PATTERN = /!\[[^\]]*]\((?!https?:\/\/)([^)]+)\)/g

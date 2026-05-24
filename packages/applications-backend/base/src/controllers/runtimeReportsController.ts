@@ -26,7 +26,8 @@ const reportRunBodySchema = z
         reportCodename: z.string().trim().min(1).max(128).optional(),
         limit: z.coerce.number().int().positive().max(500).optional(),
         offset: z.coerce.number().int().min(0).optional(),
-        filters: z.array(reportFilterSchema).max(32).optional().default([])
+        filters: z.array(reportFilterSchema).max(32).optional().default([]),
+        locale: z.string().trim().min(2).max(16).optional().default('en')
     })
     .strict()
     .superRefine((value, ctx) => {
@@ -662,6 +663,7 @@ export function createRuntimeReportsController(getDbExecutor: () => DbExecutor) 
                 target,
                 limit: parsed.data.limit,
                 offset: parsed.data.offset,
+                locale: parsed.data.locale,
                 filters: parsed.data.filters
             })
 

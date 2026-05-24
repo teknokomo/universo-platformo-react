@@ -55,3 +55,7 @@ The current LMS fixture treats report auditability as supported for saved-defini
 
 Saved-filter management UI and scheduled report delivery are deferred product capabilities.
 They are not required for the current Learning Content fixture because the supported path is manual execution/export of published saved reports.
+
+## User Guide Link
+
+For day-to-day work inside the published LMS application, use the [Reports](../lms/reports.md).

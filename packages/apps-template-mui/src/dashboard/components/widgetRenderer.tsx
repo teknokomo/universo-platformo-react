@@ -25,6 +25,7 @@ import type { SelectChangeEvent } from '@mui/material/Select'
 import Stack from '@mui/material/Stack'
 import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
+import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
@@ -714,18 +715,90 @@ const resolveTargetPickerObjectCollectionId = (
 const resolveTargetPickerObjectCollectionCodename = (target: DetailsTableTargetPickerConfig | undefined): string | null =>
     target?.targetSectionCodename ?? target?.targetObjectCollectionCodename ?? null
 
+type TargetPickerOptionLookup = {
+    rowValuesByNormalizedKey: Map<string, unknown>
+    columnsByNormalizedKey: Map<string, AppDataResponse['columns'][number]>
+}
+
+const buildTargetPickerOptionLookup = (
+    row: Record<string, unknown>,
+    columns: AppDataResponse['columns'] | undefined
+): TargetPickerOptionLookup => {
+    const rowValuesByNormalizedKey = new Map<string, unknown>()
+    for (const [key, value] of Object.entries(row)) {
+        rowValuesByNormalizedKey.set(normalizeRuntimeColumnKey(key), value)
+    }
+
+    const columnsByNormalizedKey = new Map<string, AppDataResponse['columns'][number]>()
+    for (const column of columns ?? []) {
+        columnsByNormalizedKey.set(normalizeRuntimeColumnKey(column.codename), column)
+        columnsByNormalizedKey.set(normalizeRuntimeColumnKey(column.field), column)
+        columnsByNormalizedKey.set(normalizeRuntimeColumnKey(column.headerName), column)
+    }
+
+    return { rowValuesByNormalizedKey, columnsByNormalizedKey }
+}
+
+const readTargetPickerOptionValue = (
+    row: Record<string, unknown>,
+    field: string,
+    columns: AppDataResponse['columns'] | undefined,
+    lookup = buildTargetPickerOptionLookup(row, columns)
+): unknown => {
+    if (Object.prototype.hasOwnProperty.call(row, field)) return row[field]
+
+    const normalizedField = normalizeRuntimeColumnKey(field)
+    if (lookup.rowValuesByNormalizedKey.has(normalizedField)) return lookup.rowValuesByNormalizedKey.get(normalizedField)
+
+    const matchedColumn = lookup.columnsByNormalizedKey.get(normalizedField)
+    if (!matchedColumn) return undefined
+
+    if (Object.prototype.hasOwnProperty.call(row, matchedColumn.field)) return row[matchedColumn.field]
+    if (Object.prototype.hasOwnProperty.call(row, matchedColumn.codename)) return row[matchedColumn.codename]
+    return undefined
+}
+
+const readTargetPickerFallbackLabel = (
+    row: Record<string, unknown>,
+    columns: AppDataResponse['columns'] | undefined,
+    locale: string,
+    lookup = buildTargetPickerOptionLookup(row, columns)
+): string => {
+    const readableColumns = (columns ?? []).filter((column) => !isRuntimeTechnicalFieldName(column.codename || column.field))
+    for (const column of readableColumns) {
+        const value = formatRuntimeSafeValue(
+            readTargetPickerOptionValue(row, column.codename || column.field, columns, lookup),
+            locale
+        ).trim()
+        if (value) return value
+    }
+
+    for (const [key, value] of Object.entries(row)) {
+        if (key.startsWith('__') || normalizeRuntimeColumnKey(key) === 'codename' || isRuntimeTechnicalFieldName(key)) continue
+        const formatted = formatRuntimeSafeValue(value, locale).trim()
+        if (formatted) return formatted
+    }
+
+    return ''
+}
+
 const formatTargetPickerOptionLabel = (
     row: Record<string, unknown>,
     target: DetailsTableTargetPickerConfig | undefined,
     locale: string | undefined,
-    fallback: string
+    fallback: string,
+    columns?: AppDataResponse['columns']
 ): string => {
     const fields = target?.labelFields?.length ? target.labelFields : DEFAULT_RESTORE_TARGET_LABEL_FIELDS
+    const lookup = buildTargetPickerOptionLookup(row, columns)
     for (const field of fields) {
         if (normalizeRuntimeColumnKey(field) === 'codename') continue
-        const value = formatRuntimeSafeValue(row[field], locale ?? 'en').trim()
+        const value = formatRuntimeSafeValue(readTargetPickerOptionValue(row, field, columns, lookup), locale ?? 'en').trim()
         if (value) return value
     }
+    const fallbackLabel = readTargetPickerFallbackLabel(row, columns, locale ?? 'en', lookup)
+    if (fallbackLabel) return fallbackLabel
+
     return fallback
 }
 
@@ -1512,6 +1585,28 @@ function RecordsUnionDetailsTableWidget({
         [details?.locale, t]
     )
     const buildCardRowAction = (row: Record<string, unknown> & { id: string }) => {
+        if (datasource.query?.lifecycleState === 'deleted') {
+            return (
+                <Tooltip title={t('trash.restore', 'Restore')}>
+                    <span>
+                        <IconButton
+                            size='small'
+                            aria-label={t('trash.restore', 'Restore')}
+                            disabled={restoreMutation.isPending}
+                            onClick={(event) => {
+                                event.preventDefault()
+                                event.stopPropagation()
+                                handleRestoreRow(row)
+                            }}
+                            sx={{ width: 28, height: 28, p: 0.25 }}
+                        >
+                            <RestoreRoundedIcon sx={{ fontSize: 18 }} />
+                        </IconButton>
+                    </span>
+                </Tooltip>
+            )
+        }
+
         if (!canOpenRowTargetActions || !readRecordsUnionRowTarget(row)) return undefined
 
         return (
@@ -1822,7 +1917,8 @@ function RecordsUnionDetailsTableWidget({
                                             option,
                                             restoreTarget,
                                             details?.locale,
-                                            t('trash.restoreTargetUntitled', 'Untitled target')
+                                            t('trash.restoreTargetUntitled', 'Untitled target'),
+                                            restoreTargetQuery.data?.columns
                                         )}
                                     </MenuItem>
                                 ))}
@@ -1882,7 +1978,8 @@ function RecordsUnionDetailsTableWidget({
                                             option,
                                             activeTargetFieldAction,
                                             details?.locale,
-                                            t('runtime.targetActionUntitled', 'Untitled target')
+                                            t('runtime.targetActionUntitled', 'Untitled target'),
+                                            targetActionQuery.data?.columns
                                         )}
                                     </MenuItem>
                                 ))}
@@ -2272,7 +2369,7 @@ function ReportDetailsTableWidget({ definition, reportCodename }: { definition?:
             ...(details?.runtimeQueryKeyPrefix ?? []),
             'report-definition',
             reportCodename,
-            { limit, offset, filters: runtimeFilters, workspaceId: details?.currentWorkspaceId ?? null }
+            { limit, offset, filters: runtimeFilters, locale: details?.locale ?? 'en', workspaceId: details?.currentWorkspaceId ?? null }
         ],
         queryFn: () =>
             runRuntimeReport({
@@ -2282,6 +2379,7 @@ function ReportDetailsTableWidget({ definition, reportCodename }: { definition?:
                 filters: runtimeFilters,
                 limit,
                 offset,
+                locale: details?.locale ?? 'en',
                 workspaceId: details?.currentWorkspaceId
             }),
         enabled: canFetch,

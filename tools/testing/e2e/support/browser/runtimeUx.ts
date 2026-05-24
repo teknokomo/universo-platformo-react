@@ -51,17 +51,9 @@ const readVisibleText = async (locator: Locator): Promise<string> =>
 const isAllowedText = (text: string, allowTextPatterns: RegExp[]) => allowTextPatterns.some((pattern) => pattern.test(text))
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-export async function expectNoTechnicalLeakage(surface: Locator, options: TechnicalLeakageOptions = {}): Promise<void> {
-    const {
-        label = 'Runtime UX surface',
-        allowTextPatterns = [],
-        checkUuidOnlyLines = true,
-        checkUuidSubstrings = false,
-        checkJsonLikeText = true,
-        checkInternalValidationText = true,
-        checkIsoDateText = true
-    } = options
-    const text = await readVisibleText(surface)
+const collectTechnicalLeakageIssues = (text: string, options: Required<TechnicalLeakageOptions>): string[] => {
+    const { allowTextPatterns, checkUuidOnlyLines, checkUuidSubstrings, checkJsonLikeText, checkInternalValidationText, checkIsoDateText } =
+        options
     const lines = text
         .split(/\n+/)
         .map((line) => line.trim())
@@ -95,6 +87,40 @@ export async function expectNoTechnicalLeakage(surface: Locator, options: Techni
             issues.push(`visible raw UUID value(s): ${uuidMatches.slice(0, 3).join(', ')}`)
         }
     }
+
+    return issues
+}
+
+const normalizeTechnicalLeakageOptions = (options: TechnicalLeakageOptions = {}): Required<TechnicalLeakageOptions> => ({
+    label: options.label ?? 'Runtime UX surface',
+    allowTextPatterns: options.allowTextPatterns ?? [],
+    checkUuidOnlyLines: options.checkUuidOnlyLines ?? true,
+    checkUuidSubstrings: options.checkUuidSubstrings ?? false,
+    checkJsonLikeText: options.checkJsonLikeText ?? true,
+    checkInternalValidationText: options.checkInternalValidationText ?? true,
+    checkIsoDateText: options.checkIsoDateText ?? true
+})
+
+export async function expectNoTechnicalLeakage(surface: Locator, options: TechnicalLeakageOptions = {}): Promise<void> {
+    const {
+        label = 'Runtime UX surface',
+        allowTextPatterns = [],
+        checkUuidOnlyLines = true,
+        checkUuidSubstrings = false,
+        checkJsonLikeText = true,
+        checkInternalValidationText = true,
+        checkIsoDateText = true
+    } = options
+    const text = await readVisibleText(surface)
+    const issues = collectTechnicalLeakageIssues(text, {
+        label,
+        allowTextPatterns,
+        checkUuidOnlyLines,
+        checkUuidSubstrings,
+        checkJsonLikeText,
+        checkInternalValidationText,
+        checkIsoDateText
+    })
 
     expect(issues, `${label} must not expose technical leakage`).toEqual([])
 }
@@ -167,32 +193,73 @@ export async function expectNoDataGridTechnicalLeakage(
     surface: Locator,
     options: TechnicalLeakageOptions & { label?: string } = {}
 ): Promise<void> {
+    const normalizedOptions = normalizeTechnicalLeakageOptions({
+        ...options,
+        checkUuidSubstrings: options.checkUuidSubstrings ?? true
+    })
     const grids = surface.locator('.MuiDataGrid-root')
     const gridCount = await grids.count()
 
     for (let index = 0; index < gridCount; index += 1) {
         const grid = grids.nth(index)
-        const scroller = grid.locator('.MuiDataGrid-virtualScroller').first()
-        const scrollPoints = await scroller
+        const visible = await grid
             .evaluate((node) => {
                 const element = node as HTMLElement
-                const maxScrollLeft = Math.max(0, element.scrollWidth - element.clientWidth)
-                return Array.from(new Set([0, Math.floor(maxScrollLeft / 2), maxScrollLeft]))
+                const rect = element.getBoundingClientRect()
+                const style = window.getComputedStyle(element)
+                return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none'
             })
-            .catch(() => [0])
+            .catch(() => false)
+        if (!visible) {
+            continue
+        }
+
+        const scroller = grid.locator('.MuiDataGrid-virtualScroller').first()
+        const hasScroller = await scroller
+            .count()
+            .then((count) => count > 0)
+            .catch(() => false)
+        const scrollPoints = hasScroller
+            ? await scroller
+                  .evaluate((node) => {
+                      const element = node as HTMLElement
+                      const maxScrollLeft = Math.max(0, element.scrollWidth - element.clientWidth)
+                      return Array.from(new Set([0, Math.floor(maxScrollLeft / 2), maxScrollLeft]))
+                  })
+                  .catch(() => [0])
+            : [0]
 
         for (const scrollLeft of scrollPoints) {
+            if (hasScroller) {
+                await scroller
+                    .evaluate((node, nextScrollLeft) => {
+                        ;(node as HTMLElement).scrollLeft = nextScrollLeft
+                    }, scrollLeft)
+                    .catch(() => undefined)
+            }
+            await waitForLayoutFrame(surface.page())
+            const text = await grid
+                .evaluate((node) => {
+                    const element = node as HTMLElement
+                    return element.innerText || element.textContent || ''
+                })
+                .catch(() => '')
+            const issues = collectTechnicalLeakageIssues(text, normalizedOptions)
+            expect(
+                issues,
+                `${
+                    normalizedOptions.label ?? 'Runtime UX surface'
+                } DataGrid #${index} at scrollLeft ${scrollLeft} must not expose technical leakage`
+            ).toEqual([])
+        }
+
+        if (hasScroller) {
             await scroller
-                .evaluate((node, nextScrollLeft) => {
-                    ;(node as HTMLElement).scrollLeft = nextScrollLeft
-                }, scrollLeft)
+                .evaluate((node) => {
+                    ;(node as HTMLElement).scrollLeft = 0
+                })
                 .catch(() => undefined)
             await waitForLayoutFrame(surface.page())
-            await expectNoTechnicalLeakage(grid, {
-                ...options,
-                label: `${options.label ?? 'Runtime UX surface'} DataGrid #${index} at scrollLeft ${scrollLeft}`,
-                checkUuidSubstrings: options.checkUuidSubstrings ?? true
-            })
         }
     }
 }

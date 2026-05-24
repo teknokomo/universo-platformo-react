@@ -4666,8 +4666,8 @@ describe('widgetRenderer detailsTable datasource', () => {
                         columns: [
                             {
                                 id: 'runtime-project-name',
-                                codename: 'Name',
-                                field: 'Name',
+                                codename: 'Title',
+                                field: 'cmp_title',
                                 dataType: 'STRING',
                                 headerName: 'Project',
                                 isRequired: true,
@@ -4675,7 +4675,7 @@ describe('widgetRenderer detailsTable datasource', () => {
                                 uiConfig: {}
                             }
                         ],
-                        rows: [{ id: projectRowId, Codename: 'ContentProjects', Name: 'Safety project' }],
+                        rows: [{ id: projectRowId, cmp_title: 'Safety project' }],
                         pagination: { total: 1, limit: 100, offset: 0 }
                     }),
                     {
@@ -4753,7 +4753,7 @@ describe('widgetRenderer detailsTable datasource', () => {
                                     kind: 'field.updateWithTarget',
                                     fieldCodename: 'ProjectId',
                                     targetObjectCollectionCodename: 'ContentProjects',
-                                    labelFields: ['Codename', 'Name'],
+                                    labelFields: ['Title'],
                                     icon: 'move',
                                     label: 'Move to project',
                                     dialogTitle: 'Move to project',
@@ -4791,6 +4791,134 @@ describe('widgetRenderer detailsTable datasource', () => {
                 )
             ).toBe(true)
         )
+    })
+
+    it('keeps target-field picker labels readable when target column metadata is incomplete', async () => {
+        const user = userEvent.setup()
+        const learningResourcesId = '017f22e2-79b0-7cc3-98c4-dc0c0c073991'
+        const contentProjectsId = '017f22e2-79b0-7cc3-98c4-dc0c0c073901'
+        const sourceRowId = '017f22e2-79b0-7cc3-98c4-dc0c0c073997'
+        const projectRowId = '017f22e2-79b0-7cc3-98c4-dc0c0c073902'
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = new URL(String(input), 'http://localhost')
+            if (url.pathname === '/api/v1/auth/csrf') {
+                return new Response(JSON.stringify({ csrfToken: 'csrf-token' }), {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' }
+                })
+            }
+
+            if (url.pathname.endsWith('/runtime') && url.searchParams.get('objectCollectionId') === contentProjectsId) {
+                return new Response(
+                    JSON.stringify({
+                        ...createAppDataResponse(),
+                        activeObjectCollectionId: contentProjectsId,
+                        columns: [],
+                        rows: [
+                            {
+                                id: projectRowId,
+                                cmp_019e598246cc728aa65e6862f933a77d: 'Documentation workspace project',
+                                cmp_019e598246cd7719b3ffe6b377599072: 'Reusable documentation examples.'
+                            }
+                        ],
+                        pagination: { total: 1, limit: 100, offset: 0 }
+                    }),
+                    {
+                        status: 200,
+                        headers: { 'Content-Type': 'application/json' }
+                    }
+                )
+            }
+
+            return new Response(
+                JSON.stringify({
+                    ...createAppDataResponse(),
+                    columns: [
+                        {
+                            id: 'runtime-union-title',
+                            codename: 'Title',
+                            field: 'title',
+                            dataType: 'STRING',
+                            headerName: 'Title',
+                            isRequired: false,
+                            validationRules: {},
+                            uiConfig: {}
+                        }
+                    ],
+                    rows: [
+                        {
+                            id: `${learningResourcesId}:${sourceRowId}`,
+                            __runtimeSourceRowId: sourceRowId,
+                            __runtimeObjectCollectionId: learningResourcesId,
+                            __runtimeObjectCollectionCodename: 'LearningResources',
+                            title: 'Welcome page',
+                            _upl_version: 4
+                        }
+                    ],
+                    pagination: { total: 1, limit: 20, offset: 0 }
+                }),
+                {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' }
+                }
+            )
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <DashboardDetailsProvider
+                    value={{
+                        title: 'Details',
+                        applicationId: '017f22e2-79b0-7cc3-98c4-dc0c0c073993',
+                        apiBaseUrl: '/api/v1',
+                        locale: 'en',
+                        permissions: { editContent: true },
+                        sections: [
+                            { id: learningResourcesId, codename: 'LearningResources' },
+                            { id: contentProjectsId, codename: 'ContentProjects' }
+                        ],
+                        objectCollections: [],
+                        rows: [],
+                        columns: []
+                    }}
+                >
+                    {renderWidget({
+                        id: 'widget-union-target-field-actions-incomplete-metadata',
+                        widgetKey: 'detailsTable',
+                        sortOrder: 0,
+                        config: {
+                            datasource: {
+                                kind: 'records.union',
+                                targets: [{ sectionCodename: 'LearningResources', displayType: 'page', titleField: 'Title' }]
+                            },
+                            rowActions: [
+                                {
+                                    id: 'move-project',
+                                    kind: 'field.updateWithTarget',
+                                    fieldCodename: 'ProjectId',
+                                    targetObjectCollectionCodename: 'ContentProjects',
+                                    labelFields: ['Name', 'Title'],
+                                    icon: 'move',
+                                    label: 'Move to project',
+                                    dialogTitle: 'Move to project',
+                                    targetLabel: 'Project'
+                                }
+                            ]
+                        }
+                    })}
+                </DashboardDetailsProvider>
+            </QueryClientProvider>
+        )
+
+        await waitFor(() => expect(screen.getByTestId('customized-grid')).toHaveAttribute('data-column-fields', 'title,actions'))
+        await user.click(screen.getByTestId(`grid-row-actions-trigger-${learningResourcesId}:${sourceRowId}`))
+        await user.click(await screen.findByRole('menuitem', { name: 'Move to project' }))
+        const dialog = await screen.findByRole('dialog', { name: 'Move to project' })
+        await user.click(within(dialog).getByRole('combobox', { name: 'Project' }))
+
+        expect(await screen.findByRole('option', { name: 'Documentation workspace project' })).toBeInTheDocument()
+        expect(screen.queryByRole('option', { name: 'Untitled target' })).not.toBeInTheDocument()
     })
 
     it('sanitizes failed records.union target-field action mutations', async () => {
@@ -6050,6 +6178,97 @@ describe('widgetRenderer detailsTable datasource', () => {
         })
     })
 
+    it('keeps the restore action available for deleted records.union cards', async () => {
+        window.localStorage.clear()
+        const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
+            const url = new URL(String(input), 'http://localhost')
+            if (url.pathname === '/api/v1/auth/csrf') {
+                return new Response(JSON.stringify({ csrfToken: 'csrf-token' }), {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' }
+                })
+            }
+
+            if (url.pathname.endsWith('/restore')) {
+                return new Response(JSON.stringify({ ok: true }), {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' }
+                })
+            }
+
+            const response = createAppDataResponse()
+            return new Response(
+                JSON.stringify({
+                    ...response,
+                    rows: [
+                        {
+                            id: '017f22e2-79b0-7cc3-98c4-dc0c0c073991:017f22e2-79b0-7cc3-98c4-dc0c0c073997',
+                            __runtimeSourceRowId: '017f22e2-79b0-7cc3-98c4-dc0c0c073997',
+                            __runtimeObjectCollectionId: '017f22e2-79b0-7cc3-98c4-dc0c0c073991',
+                            title: 'Archived page',
+                            status: 'Deleted',
+                            _upl_version: 3
+                        }
+                    ],
+                    pagination: { total: 1, limit: 20, offset: 0 }
+                }),
+                {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' }
+                }
+            )
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <DashboardDetailsProvider
+                    value={{
+                        title: 'Details',
+                        applicationId: '017f22e2-79b0-7cc3-98c4-dc0c0c073993',
+                        apiBaseUrl: '/api/v1',
+                        locale: 'en',
+                        runtimeQueryKeyPrefix: ['runtime', 'app-1'],
+                        sections: [{ id: '017f22e2-79b0-7cc3-98c4-dc0c0c073991', codename: 'LearningResources' }],
+                        objectCollections: [],
+                        rows: [],
+                        columns: [],
+                        tableDefaults: { defaultViewMode: 'card' }
+                    }}
+                >
+                    {renderWidget({
+                        id: 'widget-trash-card',
+                        widgetKey: 'detailsTable',
+                        sortOrder: 0,
+                        config: {
+                            datasource: {
+                                kind: 'records.union',
+                                targets: [{ sectionCodename: 'LearningResources', displayType: 'page' }],
+                                query: { lifecycleState: 'deleted' }
+                            },
+                            showViewToggle: true
+                        }
+                    })}
+                </DashboardDetailsProvider>
+            </QueryClientProvider>
+        )
+
+        await screen.findByTestId('records-union-card-view')
+        await userEvent.click(await screen.findByRole('button', { name: 'Restore' }))
+
+        await waitFor(() => {
+            const restoreCall = fetchMock.mock.calls.find(([input]) => new URL(String(input)).pathname.endsWith('/restore'))
+            expect(restoreCall).toBeDefined()
+            expect(restoreCall?.[1]).toMatchObject({
+                method: 'POST',
+                body: JSON.stringify({
+                    objectCollectionId: '017f22e2-79b0-7cc3-98c4-dc0c0c073991',
+                    expectedVersion: 3
+                })
+            })
+        })
+    })
+
     it('uses the generic restore target picker for deleted records.union rows when metadata configures one', async () => {
         window.localStorage.clear()
         const learningResourcesId = '017f22e2-79b0-7cc3-98c4-dc0c0c073991'
@@ -6775,7 +6994,8 @@ describe('widgetRenderer detailsTable datasource', () => {
             body: JSON.stringify({
                 reportCodename: 'LearnerProgress',
                 limit: 20,
-                offset: 0
+                offset: 0,
+                locale: 'en'
             })
         })
     })
@@ -6926,7 +7146,8 @@ describe('widgetRenderer detailsTable datasource', () => {
                 reportCodename: 'LearningContentSummary',
                 filters: [{ field: 'Status', operator: 'equals', value: 'Published' }],
                 limit: 20,
-                offset: 0
+                offset: 0,
+                locale: 'en'
             })
         })
 

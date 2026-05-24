@@ -138,6 +138,10 @@ Progress Learning Content принадлежит серверу.
 Канонический snapshot нужно регенерировать только через `tools/testing/e2e/specs/generators/metahubs-lms-app-export.spec.ts`.
 `tools/testing/e2e/support/lmsFixtureContract.ts` проверяет наличие сущностей Learning Content, seeded rows и acceptance areas.
 
+## Ссылка на пользовательское руководство
+
+Для повседневной работы внутри опубликованного LMS-приложения используйте [Библиотека учебного контента](../lms/learning-content-library.md).
+
 ## См. также
 
 -   [Обзор LMS](lms-overview.md)

@@ -1868,7 +1868,7 @@
                                 "updatedAt": "1970-01-01T00:00:00.000Z"
                             },
                             "ru": {
-                                "content": "Категории отчетов для аналитики LMS.",
+                                "content": "Категории отчётов для аналитики LMS.",
                                 "version": 1,
                                 "isActive": true,
                                 "createdAt": "1970-01-01T00:00:00.000Z",
@@ -2026,7 +2026,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -2259,7 +2261,9 @@
                             "defaultToNow": true
                         }
                     },
-                    "hubs": ["019e4d43-2efb-7a9c-be60-d37ed26f71a6"],
+                    "hubs": [
+                        "019e4d43-2efb-7a9c-be60-d37ed26f71a6"
+                    ],
                     "ledger": {
                         "mode": "balance",
                         "fieldRoles": [
@@ -2301,7 +2305,11 @@
                             }
                         ],
                         "idempotency": {
-                            "keyFields": ["source_object_id", "source_row_id", "source_line_id"]
+                            "keyFields": [
+                                "source_object_id",
+                                "source_row_id",
+                                "source_line_id"
+                            ]
                         },
                         "periodicity": "instant",
                         "projections": [
@@ -2309,13 +2317,20 @@
                                 "kind": "balance",
                                 "period": "none",
                                 "codename": "ProgressByLearner",
-                                "resources": ["ProgressDelta"],
-                                "dimensions": ["Learner", "LearningItem"]
+                                "resources": [
+                                    "ProgressDelta"
+                                ],
+                                "dimensions": [
+                                    "Learner",
+                                    "LearningItem"
+                                ]
                             }
                         ],
                         "sourcePolicy": "registrar",
                         "mutationPolicy": "appendOnly",
-                        "registrarKinds": ["object"]
+                        "registrarKinds": [
+                            "object"
+                        ]
                     },
                     "sortOrder": 2,
                     "capabilities": {
@@ -2339,7 +2354,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -2753,7 +2770,9 @@
                         "sortOrder": 8
                     }
                 ],
-                "hubs": ["019e4d43-2efb-7a9c-be60-d37ed26f71a6"]
+                "hubs": [
+                    "019e4d43-2efb-7a9c-be60-d37ed26f71a6"
+                ]
             },
             "019e4d43-2f24-79ca-aa6f-b43e6ea37323": {
                 "id": "019e4d43-2f24-79ca-aa6f-b43e6ea37323",
@@ -2844,7 +2863,9 @@
                             "defaultToNow": true
                         }
                     },
-                    "hubs": ["019e4d43-2efb-7a9c-be60-d37ed26f71a6"],
+                    "hubs": [
+                        "019e4d43-2efb-7a9c-be60-d37ed26f71a6"
+                    ],
                     "ledger": {
                         "mode": "balance",
                         "fieldRoles": [
@@ -2886,7 +2907,11 @@
                             }
                         ],
                         "idempotency": {
-                            "keyFields": ["source_object_id", "source_row_id", "source_line_id"]
+                            "keyFields": [
+                                "source_object_id",
+                                "source_row_id",
+                                "source_line_id"
+                            ]
                         },
                         "periodicity": "instant",
                         "projections": [
@@ -2894,13 +2919,20 @@
                                 "kind": "latest",
                                 "period": "none",
                                 "codename": "LatestScoreByAssessment",
-                                "resources": ["Score"],
-                                "dimensions": ["Learner", "Assessment"]
+                                "resources": [
+                                    "Score"
+                                ],
+                                "dimensions": [
+                                    "Learner",
+                                    "Assessment"
+                                ]
                             }
                         ],
                         "sourcePolicy": "registrar",
                         "mutationPolicy": "appendOnly",
-                        "registrarKinds": ["object"]
+                        "registrarKinds": [
+                            "object"
+                        ]
                     },
                     "sortOrder": 3,
                     "capabilities": {
@@ -2924,7 +2956,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -3338,7 +3372,9 @@
                         "sortOrder": 8
                     }
                 ],
-                "hubs": ["019e4d43-2efb-7a9c-be60-d37ed26f71a6"]
+                "hubs": [
+                    "019e4d43-2efb-7a9c-be60-d37ed26f71a6"
+                ]
             },
             "019e4d43-2f32-72fe-a193-4cfe798062fd": {
                 "id": "019e4d43-2f32-72fe-a193-4cfe798062fd",
@@ -3429,7 +3465,9 @@
                             "defaultToNow": true
                         }
                     },
-                    "hubs": ["019e4d43-2efb-7a9c-be60-d37ed26f71a6"],
+                    "hubs": [
+                        "019e4d43-2efb-7a9c-be60-d37ed26f71a6"
+                    ],
                     "ledger": {
                         "mode": "balance",
                         "fieldRoles": [
@@ -3471,7 +3509,11 @@
                             }
                         ],
                         "idempotency": {
-                            "keyFields": ["source_object_id", "source_row_id", "source_line_id"]
+                            "keyFields": [
+                                "source_object_id",
+                                "source_row_id",
+                                "source_line_id"
+                            ]
                         },
                         "periodicity": "instant",
                         "projections": [
@@ -3479,13 +3521,20 @@
                                 "kind": "balance",
                                 "period": "none",
                                 "codename": "LearningActivityLedgerByLearner",
-                                "resources": ["ActivityCount"],
-                                "dimensions": ["Learner", "Subject"]
+                                "resources": [
+                                    "ActivityCount"
+                                ],
+                                "dimensions": [
+                                    "Learner",
+                                    "Subject"
+                                ]
                             }
                         ],
                         "sourcePolicy": "registrar",
                         "mutationPolicy": "appendOnly",
-                        "registrarKinds": ["object"]
+                        "registrarKinds": [
+                            "object"
+                        ]
                     },
                     "sortOrder": 4,
                     "capabilities": {
@@ -3509,7 +3558,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -3923,7 +3974,9 @@
                         "sortOrder": 8
                     }
                 ],
-                "hubs": ["019e4d43-2efb-7a9c-be60-d37ed26f71a6"]
+                "hubs": [
+                    "019e4d43-2efb-7a9c-be60-d37ed26f71a6"
+                ]
             },
             "019e4d43-2f3f-7f68-a39a-b06feeec26fe": {
                 "id": "019e4d43-2f3f-7f68-a39a-b06feeec26fe",
@@ -4014,7 +4067,9 @@
                             "defaultToNow": true
                         }
                     },
-                    "hubs": ["019e4d43-2efb-7a9c-be60-d37ed26f71a6"],
+                    "hubs": [
+                        "019e4d43-2efb-7a9c-be60-d37ed26f71a6"
+                    ],
                     "ledger": {
                         "mode": "balance",
                         "fieldRoles": [
@@ -4056,7 +4111,11 @@
                             }
                         ],
                         "idempotency": {
-                            "keyFields": ["source_object_id", "source_row_id", "source_line_id"]
+                            "keyFields": [
+                                "source_object_id",
+                                "source_row_id",
+                                "source_line_id"
+                            ]
                         },
                         "periodicity": "instant",
                         "projections": [
@@ -4064,13 +4123,20 @@
                                 "kind": "balance",
                                 "period": "none",
                                 "codename": "EnrollmentLedgerByLearner",
-                                "resources": ["EnrollmentDelta"],
-                                "dimensions": ["Learner", "Subject"]
+                                "resources": [
+                                    "EnrollmentDelta"
+                                ],
+                                "dimensions": [
+                                    "Learner",
+                                    "Subject"
+                                ]
                             }
                         ],
                         "sourcePolicy": "registrar",
                         "mutationPolicy": "appendOnly",
-                        "registrarKinds": ["object"]
+                        "registrarKinds": [
+                            "object"
+                        ]
                     },
                     "sortOrder": 5,
                     "capabilities": {
@@ -4094,7 +4160,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -4508,7 +4576,9 @@
                         "sortOrder": 8
                     }
                 ],
-                "hubs": ["019e4d43-2efb-7a9c-be60-d37ed26f71a6"]
+                "hubs": [
+                    "019e4d43-2efb-7a9c-be60-d37ed26f71a6"
+                ]
             },
             "019e4d43-2f4d-7a42-ac52-945319060c8c": {
                 "id": "019e4d43-2f4d-7a42-ac52-945319060c8c",
@@ -4599,7 +4669,9 @@
                             "defaultToNow": true
                         }
                     },
-                    "hubs": ["019e4d43-2efb-7a9c-be60-d37ed26f71a6"],
+                    "hubs": [
+                        "019e4d43-2efb-7a9c-be60-d37ed26f71a6"
+                    ],
                     "ledger": {
                         "mode": "balance",
                         "fieldRoles": [
@@ -4641,7 +4713,11 @@
                             }
                         ],
                         "idempotency": {
-                            "keyFields": ["source_object_id", "source_row_id", "source_line_id"]
+                            "keyFields": [
+                                "source_object_id",
+                                "source_row_id",
+                                "source_line_id"
+                            ]
                         },
                         "periodicity": "instant",
                         "projections": [
@@ -4649,13 +4725,20 @@
                                 "kind": "balance",
                                 "period": "none",
                                 "codename": "AttendanceLedgerByLearner",
-                                "resources": ["AttendanceDelta"],
-                                "dimensions": ["Learner", "Subject"]
+                                "resources": [
+                                    "AttendanceDelta"
+                                ],
+                                "dimensions": [
+                                    "Learner",
+                                    "Subject"
+                                ]
                             }
                         ],
                         "sourcePolicy": "registrar",
                         "mutationPolicy": "appendOnly",
-                        "registrarKinds": ["object"]
+                        "registrarKinds": [
+                            "object"
+                        ]
                     },
                     "sortOrder": 6,
                     "capabilities": {
@@ -4679,7 +4762,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -5093,7 +5178,9 @@
                         "sortOrder": 8
                     }
                 ],
-                "hubs": ["019e4d43-2efb-7a9c-be60-d37ed26f71a6"]
+                "hubs": [
+                    "019e4d43-2efb-7a9c-be60-d37ed26f71a6"
+                ]
             },
             "019e4d43-2f5b-79f0-ace1-09c60ade45be": {
                 "id": "019e4d43-2f5b-79f0-ace1-09c60ade45be",
@@ -5184,7 +5271,9 @@
                             "defaultToNow": true
                         }
                     },
-                    "hubs": ["019e4d43-2efb-7a9c-be60-d37ed26f71a6"],
+                    "hubs": [
+                        "019e4d43-2efb-7a9c-be60-d37ed26f71a6"
+                    ],
                     "ledger": {
                         "mode": "balance",
                         "fieldRoles": [
@@ -5226,7 +5315,11 @@
                             }
                         ],
                         "idempotency": {
-                            "keyFields": ["source_object_id", "source_row_id", "source_line_id"]
+                            "keyFields": [
+                                "source_object_id",
+                                "source_row_id",
+                                "source_line_id"
+                            ]
                         },
                         "periodicity": "instant",
                         "projections": [
@@ -5234,13 +5327,20 @@
                                 "kind": "balance",
                                 "period": "none",
                                 "codename": "CertificateLedgerByLearner",
-                                "resources": ["CertificateDelta"],
-                                "dimensions": ["Learner", "Subject"]
+                                "resources": [
+                                    "CertificateDelta"
+                                ],
+                                "dimensions": [
+                                    "Learner",
+                                    "Subject"
+                                ]
                             }
                         ],
                         "sourcePolicy": "registrar",
                         "mutationPolicy": "appendOnly",
-                        "registrarKinds": ["object"]
+                        "registrarKinds": [
+                            "object"
+                        ]
                     },
                     "sortOrder": 7,
                     "capabilities": {
@@ -5264,7 +5364,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -5678,7 +5780,9 @@
                         "sortOrder": 8
                     }
                 ],
-                "hubs": ["019e4d43-2efb-7a9c-be60-d37ed26f71a6"]
+                "hubs": [
+                    "019e4d43-2efb-7a9c-be60-d37ed26f71a6"
+                ]
             },
             "019e4d43-2f69-728c-a571-d1776c259def": {
                 "id": "019e4d43-2f69-728c-a571-d1776c259def",
@@ -5769,7 +5873,9 @@
                             "defaultToNow": true
                         }
                     },
-                    "hubs": ["019e4d43-2efb-7a9c-be60-d37ed26f71a6"],
+                    "hubs": [
+                        "019e4d43-2efb-7a9c-be60-d37ed26f71a6"
+                    ],
                     "ledger": {
                         "mode": "balance",
                         "fieldRoles": [
@@ -5811,7 +5917,11 @@
                             }
                         ],
                         "idempotency": {
-                            "keyFields": ["source_object_id", "source_row_id", "source_line_id"]
+                            "keyFields": [
+                                "source_object_id",
+                                "source_row_id",
+                                "source_line_id"
+                            ]
                         },
                         "periodicity": "instant",
                         "projections": [
@@ -5819,13 +5929,20 @@
                                 "kind": "balance",
                                 "period": "none",
                                 "codename": "PointsLedgerByLearner",
-                                "resources": ["PointsDelta"],
-                                "dimensions": ["Learner", "Subject"]
+                                "resources": [
+                                    "PointsDelta"
+                                ],
+                                "dimensions": [
+                                    "Learner",
+                                    "Subject"
+                                ]
                             }
                         ],
                         "sourcePolicy": "registrar",
                         "mutationPolicy": "appendOnly",
-                        "registrarKinds": ["object"]
+                        "registrarKinds": [
+                            "object"
+                        ]
                     },
                     "sortOrder": 8,
                     "capabilities": {
@@ -5849,7 +5966,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -6263,7 +6382,9 @@
                         "sortOrder": 8
                     }
                 ],
-                "hubs": ["019e4d43-2efb-7a9c-be60-d37ed26f71a6"]
+                "hubs": [
+                    "019e4d43-2efb-7a9c-be60-d37ed26f71a6"
+                ]
             },
             "019e4d43-2f77-7232-b4a5-54614d4a226f": {
                 "id": "019e4d43-2f77-7232-b4a5-54614d4a226f",
@@ -6354,7 +6475,9 @@
                             "defaultToNow": true
                         }
                     },
-                    "hubs": ["019e4d43-2efb-7a9c-be60-d37ed26f71a6"],
+                    "hubs": [
+                        "019e4d43-2efb-7a9c-be60-d37ed26f71a6"
+                    ],
                     "ledger": {
                         "mode": "balance",
                         "fieldRoles": [
@@ -6396,7 +6519,11 @@
                             }
                         ],
                         "idempotency": {
-                            "keyFields": ["source_object_id", "source_row_id", "source_line_id"]
+                            "keyFields": [
+                                "source_object_id",
+                                "source_row_id",
+                                "source_line_id"
+                            ]
                         },
                         "periodicity": "instant",
                         "projections": [
@@ -6404,13 +6531,20 @@
                                 "kind": "balance",
                                 "period": "none",
                                 "codename": "NotificationLedgerByLearner",
-                                "resources": ["NotificationCount"],
-                                "dimensions": ["Learner", "Subject"]
+                                "resources": [
+                                    "NotificationCount"
+                                ],
+                                "dimensions": [
+                                    "Learner",
+                                    "Subject"
+                                ]
                             }
                         ],
                         "sourcePolicy": "registrar",
                         "mutationPolicy": "appendOnly",
-                        "registrarKinds": ["object"]
+                        "registrarKinds": [
+                            "object"
+                        ]
                     },
                     "sortOrder": 9,
                     "capabilities": {
@@ -6434,7 +6568,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -6848,7 +6984,9 @@
                         "sortOrder": 8
                     }
                 ],
-                "hubs": ["019e4d43-2efb-7a9c-be60-d37ed26f71a6"]
+                "hubs": [
+                    "019e4d43-2efb-7a9c-be60-d37ed26f71a6"
+                ]
             },
             "019e4d43-2f84-7cea-90d2-63bb5a84707b": {
                 "id": "019e4d43-2f84-7cea-90d2-63bb5a84707b",
@@ -6961,7 +7099,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -7314,7 +7454,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -7707,7 +7849,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -8058,7 +8202,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -8569,7 +8715,10 @@
                         "accessLevelFieldCodename": "AccessLevel",
                         "targetRecordFieldCodename": "TargetRecordId",
                         "targetObjectFieldCodename": "TargetObjectCodename",
-                        "supportedPrincipalTypes": ["workspaceMember", "user"],
+                        "supportedPrincipalTypes": [
+                            "workspaceMember",
+                            "user"
+                        ],
                         "principalIdFieldCodename": "PrincipalId",
                         "principalTypeFieldCodename": "PrincipalType"
                     },
@@ -8594,7 +8743,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -9089,7 +9240,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -9440,7 +9593,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -9751,7 +9906,9 @@
                         "mode": "transactional",
                         "posting": {
                             "mode": "manual",
-                            "targetLedgers": ["ProgressLedger"]
+                            "targetLedgers": [
+                                "ProgressLedger"
+                            ]
                         },
                         "lifecycle": {
                             "states": [
@@ -9809,7 +9966,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -10543,7 +10702,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -10978,7 +11139,10 @@
                         "shared": {
                             "objectCodename": "ContentAccessEntries",
                             "defaultAccessLevel": "canView",
-                            "allowedPrincipalTypes": ["workspaceMember", "user"],
+                            "allowedPrincipalTypes": [
+                                "workspaceMember",
+                                "user"
+                            ],
                             "timestampFieldCodename": "InvitedAt",
                             "accessLevelFieldCodename": "AccessLevel",
                             "principalIdFieldCodename": "PrincipalId",
@@ -10997,7 +11161,10 @@
                     "workflowActions": [
                         {
                             "to": "Published",
-                            "from": ["Draft", "UnpublishedChanges"],
+                            "from": [
+                                "Draft",
+                                "UnpublishedChanges"
+                            ],
                             "title": {
                                 "_schema": "1",
                                 "locales": {
@@ -11083,11 +11250,16 @@
                                 }
                             },
                             "statusFieldCodename": "PublicationStatus",
-                            "requiredCapabilities": ["workflow.execute"]
+                            "requiredCapabilities": [
+                                "workflow.execute"
+                            ]
                         },
                         {
                             "to": "Draft",
-                            "from": ["Published", "UnpublishedChanges"],
+                            "from": [
+                                "Published",
+                                "UnpublishedChanges"
+                            ],
                             "title": {
                                 "_schema": "1",
                                 "locales": {
@@ -11173,11 +11345,15 @@
                                 }
                             },
                             "statusFieldCodename": "PublicationStatus",
-                            "requiredCapabilities": ["workflow.execute"]
+                            "requiredCapabilities": [
+                                "workflow.execute"
+                            ]
                         },
                         {
                             "to": "UnpublishedChanges",
-                            "from": ["Published"],
+                            "from": [
+                                "Published"
+                            ],
                             "title": {
                                 "_schema": "1",
                                 "locales": {
@@ -11200,7 +11376,9 @@
                             },
                             "codename": "MarkLearningResourceChanged",
                             "statusFieldCodename": "PublicationStatus",
-                            "requiredCapabilities": ["workflow.execute"]
+                            "requiredCapabilities": [
+                                "workflow.execute"
+                            ]
                         }
                     ],
                     "runtimeRecordAccess": {
@@ -11229,7 +11407,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -11568,7 +11748,10 @@
                             "widget": "resourceSource",
                             "gridHidden": true,
                             "autoPageCodename": {
-                                "sourceFields": ["Name", "Title"]
+                                "sourceFields": [
+                                    "Name",
+                                    "Title"
+                                ]
                             }
                         },
                         "sortOrder": 6
@@ -11621,7 +11804,16 @@
                             "gridHidden": true,
                             "blockEditor": {
                                 "maxBlocks": 200,
-                                "allowedBlockTypes": ["paragraph", "header", "list", "quote", "table", "image", "embed", "delimiter"]
+                                "allowedBlockTypes": [
+                                    "paragraph",
+                                    "header",
+                                    "list",
+                                    "quote",
+                                    "table",
+                                    "image",
+                                    "embed",
+                                    "delimiter"
+                                ]
                             }
                         },
                         "sortOrder": 7
@@ -11960,7 +12152,9 @@
                             "description": {}
                         },
                         "validationRules": {
-                            "maxLength": 255
+                            "maxLength": 255,
+                            "localized": true,
+                            "versioned": true
                         },
                         "uiConfig": {},
                         "sortOrder": 14
@@ -12383,7 +12577,10 @@
                         "shared": {
                             "objectCodename": "ContentAccessEntries",
                             "defaultAccessLevel": "canView",
-                            "allowedPrincipalTypes": ["workspaceMember", "user"],
+                            "allowedPrincipalTypes": [
+                                "workspaceMember",
+                                "user"
+                            ],
                             "timestampFieldCodename": "InvitedAt",
                             "accessLevelFieldCodename": "AccessLevel",
                             "principalIdFieldCodename": "PrincipalId",
@@ -12425,7 +12622,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -13052,7 +13251,9 @@
                             "description": {}
                         },
                         "validationRules": {
-                            "maxLength": 255
+                            "maxLength": 255,
+                            "localized": true,
+                            "versioned": true
                         },
                         "uiConfig": {},
                         "sortOrder": 9
@@ -13511,7 +13712,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -13887,7 +14090,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -14231,8 +14436,14 @@
                             "gridHidden": true,
                             "runtimeRecordPicker": {
                                 "limit": 100,
-                                "labelFields": ["Title", "Name"],
-                                "allowedObjectCodenames": ["LearningResources", "Quizzes"],
+                                "labelFields": [
+                                    "Title",
+                                    "Name"
+                                ],
+                                "allowedObjectCodenames": [
+                                    "LearningResources",
+                                    "Quizzes"
+                                ],
                                 "targetObjectCodenameField": "TargetObjectCodename"
                             }
                         },
@@ -14646,7 +14857,10 @@
                         "shared": {
                             "objectCodename": "ContentAccessEntries",
                             "defaultAccessLevel": "canView",
-                            "allowedPrincipalTypes": ["workspaceMember", "user"],
+                            "allowedPrincipalTypes": [
+                                "workspaceMember",
+                                "user"
+                            ],
                             "timestampFieldCodename": "InvitedAt",
                             "accessLevelFieldCodename": "AccessLevel",
                             "principalIdFieldCodename": "PrincipalId",
@@ -14688,7 +14902,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -15142,7 +15358,9 @@
                             "description": {}
                         },
                         "validationRules": {
-                            "maxLength": 255
+                            "maxLength": 255,
+                            "localized": true,
+                            "versioned": true
                         },
                         "uiConfig": {},
                         "sortOrder": 7
@@ -15553,7 +15771,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -15925,7 +16145,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -16521,7 +16743,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -17225,7 +17449,9 @@
                         "mode": "transactional",
                         "posting": {
                             "mode": "manual",
-                            "targetLedgers": ["ScoreLedger"]
+                            "targetLedgers": [
+                                "ScoreLedger"
+                            ]
                         },
                         "lifecycle": {
                             "states": [],
@@ -17267,7 +17493,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -17712,7 +17940,10 @@
                         "mode": "transactional",
                         "posting": {
                             "mode": "manual",
-                            "targetLedgers": ["ScoreLedger", "LearningActivityLedger"]
+                            "targetLedgers": [
+                                "ScoreLedger",
+                                "LearningActivityLedger"
+                            ]
                         },
                         "lifecycle": {
                             "states": [
@@ -17775,7 +18006,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -18310,7 +18543,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -18905,7 +19140,9 @@
                         "mode": "transactional",
                         "posting": {
                             "mode": "manual",
-                            "targetLedgers": ["ProgressLedger"],
+                            "targetLedgers": [
+                                "ProgressLedger"
+                            ],
                             "scriptCodename": "EnrollmentPostingScript"
                         },
                         "lifecycle": {
@@ -19009,7 +19246,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -20020,7 +20259,9 @@
                         "mode": "transactional",
                         "posting": {
                             "mode": "manual",
-                            "targetLedgers": ["LearningActivityLedger"]
+                            "targetLedgers": [
+                                "LearningActivityLedger"
+                            ]
                         },
                         "lifecycle": {
                             "states": [
@@ -20083,7 +20324,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -20534,7 +20777,10 @@
                         "mode": "transactional",
                         "posting": {
                             "mode": "manual",
-                            "targetLedgers": ["ScoreLedger", "LearningActivityLedger"]
+                            "targetLedgers": [
+                                "ScoreLedger",
+                                "LearningActivityLedger"
+                            ]
                         },
                         "lifecycle": {
                             "states": [
@@ -20579,7 +20825,9 @@
                     "workflowActions": [
                         {
                             "to": "PendingReview",
-                            "from": ["Submitted"],
+                            "from": [
+                                "Submitted"
+                            ],
                             "title": {
                                 "_schema": "1",
                                 "locales": {
@@ -20602,11 +20850,15 @@
                             },
                             "codename": "StartSubmissionReview",
                             "statusFieldCodename": "Status",
-                            "requiredCapabilities": ["assignment.review"]
+                            "requiredCapabilities": [
+                                "assignment.review"
+                            ]
                         },
                         {
                             "to": "Accepted",
-                            "from": ["PendingReview"],
+                            "from": [
+                                "PendingReview"
+                            ],
                             "title": {
                                 "_schema": "1",
                                 "locales": {
@@ -20660,7 +20912,7 @@
                                             "updatedAt": "1970-01-01T00:00:00.000Z"
                                         },
                                         "ru": {
-                                            "content": "Принять эту сдачу и сделать результат доступным для отчетов?",
+                                            "content": "Принять эту сдачу и сделать результат доступным для отчётов?",
                                             "version": 1,
                                             "isActive": true,
                                             "createdAt": "1970-01-01T00:00:00.000Z",
@@ -20693,11 +20945,15 @@
                             },
                             "postingCommand": "post",
                             "statusFieldCodename": "Status",
-                            "requiredCapabilities": ["assignment.review"]
+                            "requiredCapabilities": [
+                                "assignment.review"
+                            ]
                         },
                         {
                             "to": "Declined",
-                            "from": ["PendingReview"],
+                            "from": [
+                                "PendingReview"
+                            ],
                             "title": {
                                 "_schema": "1",
                                 "locales": {
@@ -20783,7 +21039,9 @@
                                 }
                             },
                             "statusFieldCodename": "Status",
-                            "requiredCapabilities": ["assignment.review"]
+                            "requiredCapabilities": [
+                                "assignment.review"
+                            ]
                         }
                     ],
                     "capabilities": {
@@ -20807,7 +21065,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -21261,7 +21521,9 @@
                         "mode": "transactional",
                         "posting": {
                             "mode": "manual",
-                            "targetLedgers": ["AttendanceLedger"]
+                            "targetLedgers": [
+                                "AttendanceLedger"
+                            ]
                         },
                         "lifecycle": {
                             "states": [],
@@ -21303,7 +21565,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -21658,7 +21922,10 @@
                         "mode": "transactional",
                         "posting": {
                             "mode": "manual",
-                            "targetLedgers": ["AttendanceLedger", "LearningActivityLedger"]
+                            "targetLedgers": [
+                                "AttendanceLedger",
+                                "LearningActivityLedger"
+                            ]
                         },
                         "lifecycle": {
                             "states": [
@@ -21704,7 +21971,9 @@
                     "workflowActions": [
                         {
                             "to": "Attended",
-                            "from": ["Registered"],
+                            "from": [
+                                "Registered"
+                            ],
                             "title": {
                                 "_schema": "1",
                                 "locales": {
@@ -21728,11 +21997,15 @@
                             "codename": "MarkAttendanceAttended",
                             "postingCommand": "post",
                             "statusFieldCodename": "Status",
-                            "requiredCapabilities": ["attendance.mark"]
+                            "requiredCapabilities": [
+                                "attendance.mark"
+                            ]
                         },
                         {
                             "to": "NoShow",
-                            "from": ["Registered"],
+                            "from": [
+                                "Registered"
+                            ],
                             "title": {
                                 "_schema": "1",
                                 "locales": {
@@ -21756,11 +22029,17 @@
                             "codename": "MarkAttendanceNoShow",
                             "postingCommand": "post",
                             "statusFieldCodename": "Status",
-                            "requiredCapabilities": ["attendance.mark"]
+                            "requiredCapabilities": [
+                                "attendance.mark"
+                            ]
                         },
                         {
                             "to": "Cancelled",
-                            "from": ["Registered", "Attended", "NoShow"],
+                            "from": [
+                                "Registered",
+                                "Attended",
+                                "NoShow"
+                            ],
                             "title": {
                                 "_schema": "1",
                                 "locales": {
@@ -21784,7 +22063,9 @@
                             "codename": "CancelAttendance",
                             "postingCommand": "void",
                             "statusFieldCodename": "Status",
-                            "requiredCapabilities": ["attendance.manage"]
+                            "requiredCapabilities": [
+                                "attendance.manage"
+                            ]
                         }
                     ],
                     "capabilities": {
@@ -21808,7 +22089,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -22163,7 +22446,9 @@
                         "mode": "transactional",
                         "posting": {
                             "mode": "manual",
-                            "targetLedgers": ["CertificateLedger"]
+                            "targetLedgers": [
+                                "CertificateLedger"
+                            ]
                         },
                         "lifecycle": {
                             "states": [
@@ -22226,7 +22511,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -22581,7 +22868,10 @@
                         "mode": "transactional",
                         "posting": {
                             "mode": "manual",
-                            "targetLedgers": ["CertificateLedger", "NotificationLedger"]
+                            "targetLedgers": [
+                                "CertificateLedger",
+                                "NotificationLedger"
+                            ]
                         },
                         "lifecycle": {
                             "states": [
@@ -22626,7 +22916,9 @@
                     "workflowActions": [
                         {
                             "to": "Issued",
-                            "from": ["Eligible"],
+                            "from": [
+                                "Eligible"
+                            ],
                             "title": {
                                 "_schema": "1",
                                 "locales": {
@@ -22714,11 +23006,15 @@
                             "postingCommand": "post",
                             "scriptCodename": "CertificateIssuePostingScript",
                             "statusFieldCodename": "Status",
-                            "requiredCapabilities": ["certificate.issue"]
+                            "requiredCapabilities": [
+                                "certificate.issue"
+                            ]
                         },
                         {
                             "to": "Revoked",
-                            "from": ["Issued"],
+                            "from": [
+                                "Issued"
+                            ],
                             "title": {
                                 "_schema": "1",
                                 "locales": {
@@ -22806,7 +23102,9 @@
                             "postingCommand": "post",
                             "scriptCodename": "CertificateIssuePostingScript",
                             "statusFieldCodename": "Status",
-                            "requiredCapabilities": ["certificate.revoke"]
+                            "requiredCapabilities": [
+                                "certificate.revoke"
+                            ]
                         }
                     ],
                     "capabilities": {
@@ -22830,7 +23128,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -23273,7 +23573,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -23577,7 +23879,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -23880,7 +24184,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -24068,7 +24374,16 @@
                             "widget": "editorjsBlockContent",
                             "blockEditor": {
                                 "maxBlocks": 200,
-                                "allowedBlockTypes": ["paragraph", "header", "list", "quote", "table", "image", "embed", "delimiter"]
+                                "allowedBlockTypes": [
+                                    "paragraph",
+                                    "header",
+                                    "list",
+                                    "quote",
+                                    "table",
+                                    "image",
+                                    "embed",
+                                    "delimiter"
+                                ]
                             }
                         },
                         "sortOrder": 3
@@ -24235,7 +24550,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -24534,7 +24851,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -24885,7 +25204,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -25192,7 +25513,9 @@
                     "workflowActions": [
                         {
                             "to": "InProgress",
-                            "from": ["NotStarted"],
+                            "from": [
+                                "NotStarted"
+                            ],
                             "title": {
                                 "_schema": "1",
                                 "locales": {
@@ -25215,11 +25538,15 @@
                             },
                             "codename": "StartDevelopmentTask",
                             "statusFieldCodename": "Status",
-                            "requiredCapabilities": ["development.task.update"]
+                            "requiredCapabilities": [
+                                "development.task.update"
+                            ]
                         },
                         {
                             "to": "Completed",
-                            "from": ["InProgress"],
+                            "from": [
+                                "InProgress"
+                            ],
                             "title": {
                                 "_schema": "1",
                                 "locales": {
@@ -25242,11 +25569,15 @@
                             },
                             "codename": "CompleteDevelopmentTask",
                             "statusFieldCodename": "Status",
-                            "requiredCapabilities": ["development.task.update"]
+                            "requiredCapabilities": [
+                                "development.task.update"
+                            ]
                         },
                         {
                             "to": "InProgress",
-                            "from": ["Completed"],
+                            "from": [
+                                "Completed"
+                            ],
                             "title": {
                                 "_schema": "1",
                                 "locales": {
@@ -25269,7 +25600,9 @@
                             },
                             "codename": "ReopenDevelopmentTask",
                             "statusFieldCodename": "Status",
-                            "requiredCapabilities": ["development.task.update"]
+                            "requiredCapabilities": [
+                                "development.task.update"
+                            ]
                         }
                     ],
                     "capabilities": {
@@ -25293,7 +25626,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -25690,7 +26025,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -25951,7 +26288,9 @@
                         "mode": "transactional",
                         "posting": {
                             "mode": "manual",
-                            "targetLedgers": ["NotificationLedger"]
+                            "targetLedgers": [
+                                "NotificationLedger"
+                            ]
                         },
                         "lifecycle": {
                             "states": [
@@ -25996,7 +26335,10 @@
                     "workflowActions": [
                         {
                             "to": "Sent",
-                            "from": ["Queued", "Failed"],
+                            "from": [
+                                "Queued",
+                                "Failed"
+                            ],
                             "title": {
                                 "_schema": "1",
                                 "locales": {
@@ -26020,11 +26362,15 @@
                             "codename": "MarkNotificationSent",
                             "postingCommand": "post",
                             "statusFieldCodename": "Status",
-                            "requiredCapabilities": ["notification.deliver"]
+                            "requiredCapabilities": [
+                                "notification.deliver"
+                            ]
                         },
                         {
                             "to": "Failed",
-                            "from": ["Queued"],
+                            "from": [
+                                "Queued"
+                            ],
                             "title": {
                                 "_schema": "1",
                                 "locales": {
@@ -26047,11 +26393,16 @@
                             },
                             "codename": "MarkNotificationFailed",
                             "statusFieldCodename": "Status",
-                            "requiredCapabilities": ["notification.deliver"]
+                            "requiredCapabilities": [
+                                "notification.deliver"
+                            ]
                         },
                         {
                             "to": "Cancelled",
-                            "from": ["Queued", "Failed"],
+                            "from": [
+                                "Queued",
+                                "Failed"
+                            ],
                             "title": {
                                 "_schema": "1",
                                 "locales": {
@@ -26075,7 +26426,9 @@
                             "codename": "CancelNotification",
                             "postingCommand": "void",
                             "statusFieldCodename": "Status",
-                            "requiredCapabilities": ["notification.manage"]
+                            "requiredCapabilities": [
+                                "notification.manage"
+                            ]
                         }
                     ],
                     "capabilities": {
@@ -26099,7 +26452,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -26492,7 +26847,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -26886,7 +27243,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -27287,7 +27646,9 @@
                         "mode": "transactional",
                         "posting": {
                             "mode": "manual",
-                            "targetLedgers": ["PointsLedger"]
+                            "targetLedgers": [
+                                "PointsLedger"
+                            ]
                         },
                         "lifecycle": {
                             "states": [
@@ -27327,7 +27688,9 @@
                     "workflowActions": [
                         {
                             "to": "Approved",
-                            "from": ["Pending"],
+                            "from": [
+                                "Pending"
+                            ],
                             "title": {
                                 "_schema": "1",
                                 "locales": {
@@ -27415,11 +27778,15 @@
                             "postingCommand": "post",
                             "scriptCodename": "PointTransactionPostingScript",
                             "statusFieldCodename": "Status",
-                            "requiredCapabilities": ["gamification.points.adjust"]
+                            "requiredCapabilities": [
+                                "gamification.points.adjust"
+                            ]
                         },
                         {
                             "to": "Reversed",
-                            "from": ["Approved"],
+                            "from": [
+                                "Approved"
+                            ],
                             "title": {
                                 "_schema": "1",
                                 "locales": {
@@ -27507,7 +27874,9 @@
                             "postingCommand": "void",
                             "scriptCodename": "PointTransactionPostingScript",
                             "statusFieldCodename": "Status",
-                            "requiredCapabilities": ["gamification.points.adjust"]
+                            "requiredCapabilities": [
+                                "gamification.points.adjust"
+                            ]
                         }
                     ],
                     "capabilities": {
@@ -27531,7 +27900,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -28021,7 +28392,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -28467,7 +28840,9 @@
                     "workflowActions": [
                         {
                             "to": "Issued",
-                            "from": ["Eligible"],
+                            "from": [
+                                "Eligible"
+                            ],
                             "title": {
                                 "_schema": "1",
                                 "locales": {
@@ -28553,11 +28928,15 @@
                                 }
                             },
                             "statusFieldCodename": "Status",
-                            "requiredCapabilities": ["badge.issue"]
+                            "requiredCapabilities": [
+                                "badge.issue"
+                            ]
                         },
                         {
                             "to": "Revoked",
-                            "from": ["Issued"],
+                            "from": [
+                                "Issued"
+                            ],
                             "title": {
                                 "_schema": "1",
                                 "locales": {
@@ -28643,7 +29022,9 @@
                                 }
                             },
                             "statusFieldCodename": "Status",
-                            "requiredCapabilities": ["badge.revoke"]
+                            "requiredCapabilities": [
+                                "badge.revoke"
+                            ]
                         }
                     ],
                     "capabilities": {
@@ -28667,7 +29048,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -29109,7 +29492,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -29453,7 +29838,7 @@
                             "updatedAt": "2026-05-22T01:18:29.774Z"
                         },
                         "ru": {
-                            "content": "Отчеты",
+                            "content": "Отчёты",
                             "version": 1,
                             "isActive": true,
                             "createdAt": "2026-05-22T01:18:29.774Z",
@@ -29475,7 +29860,7 @@
                                 "updatedAt": "1970-01-01T00:00:00.000Z"
                             },
                             "ru": {
-                                "content": "Отчеты",
+                                "content": "Отчёты",
                                 "version": 1,
                                 "isActive": true,
                                 "createdAt": "1970-01-01T00:00:00.000Z",
@@ -29495,7 +29880,7 @@
                                 "updatedAt": "1970-01-01T00:00:00.000Z"
                             },
                             "ru": {
-                                "content": "Переиспользуемые определения отчетов LMS для администраторов и преподавателей.",
+                                "content": "Переиспользуемые определения отчётов LMS для администраторов и преподавателей.",
                                 "version": 1,
                                 "isActive": true,
                                 "createdAt": "1970-01-01T00:00:00.000Z",
@@ -29550,7 +29935,9 @@
                         },
                         "relations": {
                             "enabled": true,
-                            "allowedRelationTypes": ["manyToOne"]
+                            "allowedRelationTypes": [
+                                "manyToOne"
+                            ]
                         },
                         "scripting": {
                             "enabled": true
@@ -29904,7 +30291,9 @@
                     }
                 },
                 "config": {
-                    "hubs": ["019e4d43-2efb-7a9c-be60-d37ed26f71a6"],
+                    "hubs": [
+                        "019e4d43-2efb-7a9c-be60-d37ed26f71a6"
+                    ],
                     "runtime": {
                         "routeSegment": "home",
                         "menuVisibility": "primary"
@@ -30165,8 +30554,19 @@
                             "storage": "objectConfig",
                             "maxBlocks": 500,
                             "defaultFormat": "editorjs",
-                            "supportedFormats": ["editorjs"],
-                            "allowedBlockTypes": ["paragraph", "header", "list", "quote", "table", "image", "embed", "delimiter"]
+                            "supportedFormats": [
+                                "editorjs"
+                            ],
+                            "allowedBlockTypes": [
+                                "paragraph",
+                                "header",
+                                "list",
+                                "quote",
+                                "table",
+                                "image",
+                                "embed",
+                                "delimiter"
+                            ]
                         },
                         "layoutConfig": {
                             "enabled": true
@@ -30188,7 +30588,9 @@
                     }
                 },
                 "fields": [],
-                "hubs": ["019e4d43-2efb-7a9c-be60-d37ed26f71a6"]
+                "hubs": [
+                    "019e4d43-2efb-7a9c-be60-d37ed26f71a6"
+                ]
             },
             "019e4d43-2f0b-7b53-a112-275c55aa67f9": {
                 "id": "019e4d43-2f0b-7b53-a112-275c55aa67f9",
@@ -30256,7 +30658,9 @@
                     }
                 },
                 "config": {
-                    "hubs": ["019e4d43-2efb-7a9c-be60-d37ed26f71a6"],
+                    "hubs": [
+                        "019e4d43-2efb-7a9c-be60-d37ed26f71a6"
+                    ],
                     "runtime": {
                         "routeSegment": "course-overview",
                         "menuVisibility": "secondary"
@@ -30395,8 +30799,19 @@
                             "storage": "objectConfig",
                             "maxBlocks": 500,
                             "defaultFormat": "editorjs",
-                            "supportedFormats": ["editorjs"],
-                            "allowedBlockTypes": ["paragraph", "header", "list", "quote", "table", "image", "embed", "delimiter"]
+                            "supportedFormats": [
+                                "editorjs"
+                            ],
+                            "allowedBlockTypes": [
+                                "paragraph",
+                                "header",
+                                "list",
+                                "quote",
+                                "table",
+                                "image",
+                                "embed",
+                                "delimiter"
+                            ]
                         },
                         "layoutConfig": {
                             "enabled": true
@@ -30418,7 +30833,9 @@
                     }
                 },
                 "fields": [],
-                "hubs": ["019e4d43-2efb-7a9c-be60-d37ed26f71a6"]
+                "hubs": [
+                    "019e4d43-2efb-7a9c-be60-d37ed26f71a6"
+                ]
             },
             "019e4d43-2f0d-7cd7-b2f6-1092bbf20cdc": {
                 "id": "019e4d43-2f0d-7cd7-b2f6-1092bbf20cdc",
@@ -30486,7 +30903,9 @@
                     }
                 },
                 "config": {
-                    "hubs": ["019e4d43-2efb-7a9c-be60-d37ed26f71a6"],
+                    "hubs": [
+                        "019e4d43-2efb-7a9c-be60-d37ed26f71a6"
+                    ],
                     "runtime": {
                         "routeSegment": "knowledge",
                         "menuVisibility": "secondary"
@@ -30625,8 +31044,19 @@
                             "storage": "objectConfig",
                             "maxBlocks": 500,
                             "defaultFormat": "editorjs",
-                            "supportedFormats": ["editorjs"],
-                            "allowedBlockTypes": ["paragraph", "header", "list", "quote", "table", "image", "embed", "delimiter"]
+                            "supportedFormats": [
+                                "editorjs"
+                            ],
+                            "allowedBlockTypes": [
+                                "paragraph",
+                                "header",
+                                "list",
+                                "quote",
+                                "table",
+                                "image",
+                                "embed",
+                                "delimiter"
+                            ]
                         },
                         "layoutConfig": {
                             "enabled": true
@@ -30648,7 +31078,9 @@
                     }
                 },
                 "fields": [],
-                "hubs": ["019e4d43-2efb-7a9c-be60-d37ed26f71a6"]
+                "hubs": [
+                    "019e4d43-2efb-7a9c-be60-d37ed26f71a6"
+                ]
             },
             "019e4d43-2f0e-7486-be8c-57b4f6038d08": {
                 "id": "019e4d43-2f0e-7486-be8c-57b4f6038d08",
@@ -30716,7 +31148,9 @@
                     }
                 },
                 "config": {
-                    "hubs": ["019e4d43-2efb-7a9c-be60-d37ed26f71a6"],
+                    "hubs": [
+                        "019e4d43-2efb-7a9c-be60-d37ed26f71a6"
+                    ],
                     "runtime": {
                         "routeSegment": "knowledge-article",
                         "menuVisibility": "secondary"
@@ -30855,8 +31289,19 @@
                             "storage": "objectConfig",
                             "maxBlocks": 500,
                             "defaultFormat": "editorjs",
-                            "supportedFormats": ["editorjs"],
-                            "allowedBlockTypes": ["paragraph", "header", "list", "quote", "table", "image", "embed", "delimiter"]
+                            "supportedFormats": [
+                                "editorjs"
+                            ],
+                            "allowedBlockTypes": [
+                                "paragraph",
+                                "header",
+                                "list",
+                                "quote",
+                                "table",
+                                "image",
+                                "embed",
+                                "delimiter"
+                            ]
                         },
                         "layoutConfig": {
                             "enabled": true
@@ -30878,7 +31323,9 @@
                     }
                 },
                 "fields": [],
-                "hubs": ["019e4d43-2efb-7a9c-be60-d37ed26f71a6"]
+                "hubs": [
+                    "019e4d43-2efb-7a9c-be60-d37ed26f71a6"
+                ]
             },
             "019e4d43-2f10-7cd2-ad8d-41fd93aa9c02": {
                 "id": "019e4d43-2f10-7cd2-ad8d-41fd93aa9c02",
@@ -30946,7 +31393,9 @@
                     }
                 },
                 "config": {
-                    "hubs": ["019e4d43-2efb-7a9c-be60-d37ed26f71a6"],
+                    "hubs": [
+                        "019e4d43-2efb-7a9c-be60-d37ed26f71a6"
+                    ],
                     "runtime": {
                         "routeSegment": "development",
                         "menuVisibility": "secondary"
@@ -31085,8 +31534,19 @@
                             "storage": "objectConfig",
                             "maxBlocks": 500,
                             "defaultFormat": "editorjs",
-                            "supportedFormats": ["editorjs"],
-                            "allowedBlockTypes": ["paragraph", "header", "list", "quote", "table", "image", "embed", "delimiter"]
+                            "supportedFormats": [
+                                "editorjs"
+                            ],
+                            "allowedBlockTypes": [
+                                "paragraph",
+                                "header",
+                                "list",
+                                "quote",
+                                "table",
+                                "image",
+                                "embed",
+                                "delimiter"
+                            ]
                         },
                         "layoutConfig": {
                             "enabled": true
@@ -31108,7 +31568,9 @@
                     }
                 },
                 "fields": [],
-                "hubs": ["019e4d43-2efb-7a9c-be60-d37ed26f71a6"]
+                "hubs": [
+                    "019e4d43-2efb-7a9c-be60-d37ed26f71a6"
+                ]
             },
             "019e4d43-2f12-70f3-816c-1921cb559296": {
                 "id": "019e4d43-2f12-70f3-816c-1921cb559296",
@@ -31176,7 +31638,9 @@
                     }
                 },
                 "config": {
-                    "hubs": ["019e4d43-2efb-7a9c-be60-d37ed26f71a6"],
+                    "hubs": [
+                        "019e4d43-2efb-7a9c-be60-d37ed26f71a6"
+                    ],
                     "runtime": {
                         "routeSegment": "assignment-instructions",
                         "menuVisibility": "secondary"
@@ -31315,8 +31779,19 @@
                             "storage": "objectConfig",
                             "maxBlocks": 500,
                             "defaultFormat": "editorjs",
-                            "supportedFormats": ["editorjs"],
-                            "allowedBlockTypes": ["paragraph", "header", "list", "quote", "table", "image", "embed", "delimiter"]
+                            "supportedFormats": [
+                                "editorjs"
+                            ],
+                            "allowedBlockTypes": [
+                                "paragraph",
+                                "header",
+                                "list",
+                                "quote",
+                                "table",
+                                "image",
+                                "embed",
+                                "delimiter"
+                            ]
                         },
                         "layoutConfig": {
                             "enabled": true
@@ -31338,7 +31813,9 @@
                     }
                 },
                 "fields": [],
-                "hubs": ["019e4d43-2efb-7a9c-be60-d37ed26f71a6"]
+                "hubs": [
+                    "019e4d43-2efb-7a9c-be60-d37ed26f71a6"
+                ]
             },
             "019e4d43-2f14-775e-ac75-55ece4c616e9": {
                 "id": "019e4d43-2f14-775e-ac75-55ece4c616e9",
@@ -31406,7 +31883,9 @@
                     }
                 },
                 "config": {
-                    "hubs": ["019e4d43-2efb-7a9c-be60-d37ed26f71a6"],
+                    "hubs": [
+                        "019e4d43-2efb-7a9c-be60-d37ed26f71a6"
+                    ],
                     "runtime": {
                         "routeSegment": "certificate-policy",
                         "menuVisibility": "secondary"
@@ -31545,8 +32024,19 @@
                             "storage": "objectConfig",
                             "maxBlocks": 500,
                             "defaultFormat": "editorjs",
-                            "supportedFormats": ["editorjs"],
-                            "allowedBlockTypes": ["paragraph", "header", "list", "quote", "table", "image", "embed", "delimiter"]
+                            "supportedFormats": [
+                                "editorjs"
+                            ],
+                            "allowedBlockTypes": [
+                                "paragraph",
+                                "header",
+                                "list",
+                                "quote",
+                                "table",
+                                "image",
+                                "embed",
+                                "delimiter"
+                            ]
                         },
                         "layoutConfig": {
                             "enabled": true
@@ -31568,7 +32058,9 @@
                     }
                 },
                 "fields": [],
-                "hubs": ["019e4d43-2efb-7a9c-be60-d37ed26f71a6"]
+                "hubs": [
+                    "019e4d43-2efb-7a9c-be60-d37ed26f71a6"
+                ]
             },
             "019e4d43-2ef8-7a6e-9a24-c560f620116a": {
                 "id": "019e4d43-2ef8-7a6e-9a24-c560f620116a",
@@ -32608,7 +33100,11 @@
                 },
                 "ui": {
                     "iconName": "IconFiles",
-                    "tabs": ["general", "hubs", "scripts"],
+                    "tabs": [
+                        "general",
+                        "hubs",
+                        "scripts"
+                    ],
                     "sidebarSection": "objects",
                     "sidebarOrder": 50,
                     "nameKey": "metahubs:enumerations.title",
@@ -33103,7 +33599,9 @@
                 },
                 "ui": {
                     "iconName": "IconHierarchy",
-                    "tabs": ["general"],
+                    "tabs": [
+                        "general"
+                    ],
                     "sidebarSection": "objects",
                     "sidebarOrder": 10,
                     "nameKey": "metahubs:hubs.title"
@@ -33279,7 +33777,9 @@
                     },
                     "relations": {
                         "enabled": true,
-                        "allowedRelationTypes": ["manyToOne"]
+                        "allowedRelationTypes": [
+                            "manyToOne"
+                        ]
                     },
                     "scripting": {
                         "enabled": true
@@ -33322,7 +33822,14 @@
                 },
                 "ui": {
                     "iconName": "IconDatabase",
-                    "tabs": ["behavior", "general", "hubs", "layout", "ledgerSchema", "scripts"],
+                    "tabs": [
+                        "behavior",
+                        "general",
+                        "hubs",
+                        "layout",
+                        "ledgerSchema",
+                        "scripts"
+                    ],
                     "sidebarSection": "objects",
                     "sidebarOrder": 30,
                     "nameKey": "metahubs:objects.title",
@@ -33832,8 +34339,19 @@
                         "storage": "objectConfig",
                         "maxBlocks": 500,
                         "defaultFormat": "editorjs",
-                        "supportedFormats": ["editorjs"],
-                        "allowedBlockTypes": ["paragraph", "header", "list", "quote", "table", "image", "embed", "delimiter"]
+                        "supportedFormats": [
+                            "editorjs"
+                        ],
+                        "allowedBlockTypes": [
+                            "paragraph",
+                            "header",
+                            "list",
+                            "quote",
+                            "table",
+                            "image",
+                            "embed",
+                            "delimiter"
+                        ]
                     },
                     "layoutConfig": {
                         "enabled": true
@@ -33855,7 +34373,13 @@
                 },
                 "ui": {
                     "iconName": "IconFileText",
-                    "tabs": ["content", "general", "hubs", "layout", "scripts"],
+                    "tabs": [
+                        "content",
+                        "general",
+                        "hubs",
+                        "layout",
+                        "scripts"
+                    ],
                     "sidebarSection": "objects",
                     "sidebarOrder": 20,
                     "nameKey": "metahubs:pages.title",
@@ -34329,7 +34853,11 @@
                 },
                 "ui": {
                     "iconName": "IconStack2",
-                    "tabs": ["general", "hubs", "scripts"],
+                    "tabs": [
+                        "general",
+                        "hubs",
+                        "scripts"
+                    ],
                     "sidebarSection": "objects",
                     "sidebarOrder": 40,
                     "nameKey": "metahubs:sets.title",
@@ -40067,7 +40595,26 @@
                         },
                         "Status": "019e4d43-3416-7d60-b734-7f829d4715b5",
                         "ProjectId": "019e4d43-38e9-7e7b-9c29-8aecc22aa4ab",
-                        "Instructor": "Training Team",
+                        "Instructor": {
+                            "_schema": "1",
+                            "locales": {
+                                "en": {
+                                    "content": "Training Team",
+                                    "version": 1,
+                                    "isActive": true,
+                                    "createdAt": "2026-05-22T01:18:31.943Z",
+                                    "updatedAt": "2026-05-22T01:18:31.943Z"
+                                },
+                                "ru": {
+                                    "content": "Команда обучения",
+                                    "version": 1,
+                                    "isActive": true,
+                                    "createdAt": "2026-05-22T01:18:31.943Z",
+                                    "updatedAt": "2026-05-22T01:18:31.943Z"
+                                }
+                            },
+                            "_primary": "en"
+                        },
                         "Description": {
                             "_schema": "1",
                             "locales": {
@@ -40164,7 +40711,26 @@
                         },
                         "Status": "019e4d43-3416-7d60-b734-7f829d4715b5",
                         "ProjectId": "019e4d43-38ff-7847-b56d-daa654f10253",
-                        "Instructor": "Training Team",
+                        "Instructor": {
+                            "_schema": "1",
+                            "locales": {
+                                "en": {
+                                    "content": "Training Team",
+                                    "version": 1,
+                                    "isActive": true,
+                                    "createdAt": "2026-05-22T01:18:31.943Z",
+                                    "updatedAt": "2026-05-22T01:18:31.943Z"
+                                },
+                                "ru": {
+                                    "content": "Команда обучения",
+                                    "version": 1,
+                                    "isActive": true,
+                                    "createdAt": "2026-05-22T01:18:31.943Z",
+                                    "updatedAt": "2026-05-22T01:18:31.943Z"
+                                }
+                            },
+                            "_primary": "en"
+                        },
                         "Description": {
                             "_schema": "1",
                             "locales": {
@@ -40523,7 +41089,26 @@
                         "Status": "019e4d43-3416-7d60-b734-7f829d4715b5",
                         "OrderMode": "sequential",
                         "ProjectId": "019e4d43-38e9-7e7b-9c29-8aecc22aa4ab",
-                        "Instructor": "Training Team",
+                        "Instructor": {
+                            "_schema": "1",
+                            "locales": {
+                                "en": {
+                                    "content": "Training Team",
+                                    "version": 1,
+                                    "isActive": true,
+                                    "createdAt": "2026-05-22T01:18:31.943Z",
+                                    "updatedAt": "2026-05-22T01:18:31.943Z"
+                                },
+                                "ru": {
+                                    "content": "Команда обучения",
+                                    "version": 1,
+                                    "isActive": true,
+                                    "createdAt": "2026-05-22T01:18:31.943Z",
+                                    "updatedAt": "2026-05-22T01:18:31.943Z"
+                                }
+                            },
+                            "_primary": "en"
+                        },
                         "Description": {
                             "_schema": "1",
                             "locales": {
@@ -40617,7 +41202,26 @@
                         "Status": "019e4d43-3416-7d60-b734-7f829d4715b5",
                         "OrderMode": "sequential",
                         "ProjectId": "019e4d43-38ff-7847-b56d-daa654f10253",
-                        "Instructor": "Compliance Team",
+                        "Instructor": {
+                            "_schema": "1",
+                            "locales": {
+                                "en": {
+                                    "content": "Compliance Team",
+                                    "version": 1,
+                                    "isActive": true,
+                                    "createdAt": "2026-05-22T01:18:32.245Z",
+                                    "updatedAt": "2026-05-22T01:18:32.245Z"
+                                },
+                                "ru": {
+                                    "content": "Команда по требованиям",
+                                    "version": 1,
+                                    "isActive": true,
+                                    "createdAt": "2026-05-22T01:18:32.245Z",
+                                    "updatedAt": "2026-05-22T01:18:32.245Z"
+                                }
+                            },
+                            "_primary": "en"
+                        },
                         "Description": {
                             "_schema": "1",
                             "locales": {
@@ -41753,7 +42357,9 @@
                         "QuestionId": "learning-path-question-1",
                         "SubmittedAt": "2061-02-01T08:20:00.000Z",
                         "AttemptNumber": 1,
-                        "SelectedOptionIds": ["learning-q1-opt-a"]
+                        "SelectedOptionIds": [
+                            "learning-q1-opt-a"
+                        ]
                     },
                     "sortOrder": 1
                 },
@@ -41767,7 +42373,9 @@
                         "QuestionId": "learning-path-question-2",
                         "SubmittedAt": "2061-02-01T08:20:00.000Z",
                         "AttemptNumber": 1,
-                        "SelectedOptionIds": ["learning-q2-opt-a"]
+                        "SelectedOptionIds": [
+                            "learning-q2-opt-a"
+                        ]
                     },
                     "sortOrder": 2
                 },
@@ -41781,7 +42389,9 @@
                         "QuestionId": "docking-corridor-question-1",
                         "SubmittedAt": "2061-02-01T08:20:00.000Z",
                         "AttemptNumber": 1,
-                        "SelectedOptionIds": ["docking-q1-opt-a"]
+                        "SelectedOptionIds": [
+                            "docking-q1-opt-a"
+                        ]
                     },
                     "sortOrder": 3
                 },
@@ -41795,7 +42405,9 @@
                         "QuestionId": "docking-corridor-question-2",
                         "SubmittedAt": "2061-02-01T08:20:00.000Z",
                         "AttemptNumber": 1,
-                        "SelectedOptionIds": ["docking-q2-opt-a"]
+                        "SelectedOptionIds": [
+                            "docking-q2-opt-a"
+                        ]
                     },
                     "sortOrder": 4
                 },
@@ -41809,7 +42421,9 @@
                         "QuestionId": "lunar-logistics-question-1",
                         "SubmittedAt": "2061-02-01T08:20:00.000Z",
                         "AttemptNumber": 1,
-                        "SelectedOptionIds": ["logistics-q1-opt-a"]
+                        "SelectedOptionIds": [
+                            "logistics-q1-opt-a"
+                        ]
                     },
                     "sortOrder": 5
                 },
@@ -41823,7 +42437,9 @@
                         "QuestionId": "lunar-logistics-question-2",
                         "SubmittedAt": "2061-02-01T08:20:00.000Z",
                         "AttemptNumber": 1,
-                        "SelectedOptionIds": ["logistics-q2-opt-a"]
+                        "SelectedOptionIds": [
+                            "logistics-q2-opt-a"
+                        ]
                     },
                     "sortOrder": 6
                 }
@@ -43014,7 +43630,9 @@
                                         "sectionCodename": "LearningTracks"
                                     }
                                 ],
-                                "projectedFields": ["Instructor"]
+                                "projectedFields": [
+                                    "Instructor"
+                                ]
                             },
                             "aggregations": []
                         },
@@ -48436,7 +49054,13 @@
                     "sdkApiVersion": "1.0.0",
                     "moduleRole": "lifecycle",
                     "sourceKind": "embedded",
-                    "capabilities": ["records.read", "metadata.read", "lifecycle", "posting", "ledger.write"],
+                    "capabilities": [
+                        "records.read",
+                        "metadata.read",
+                        "lifecycle",
+                        "posting",
+                        "ledger.write"
+                    ],
                     "methods": [
                         {
                             "name": "buildContentProgressMovement",
@@ -48520,7 +49144,13 @@
                     "sdkApiVersion": "1.0.0",
                     "moduleRole": "lifecycle",
                     "sourceKind": "embedded",
-                    "capabilities": ["records.read", "metadata.read", "lifecycle", "posting", "ledger.write"],
+                    "capabilities": [
+                        "records.read",
+                        "metadata.read",
+                        "lifecycle",
+                        "posting",
+                        "ledger.write"
+                    ],
                     "methods": [
                         {
                             "name": "buildQuizAttemptMovements",
@@ -48604,7 +49234,13 @@
                     "sdkApiVersion": "1.0.0",
                     "moduleRole": "lifecycle",
                     "sourceKind": "embedded",
-                    "capabilities": ["records.read", "metadata.read", "lifecycle", "posting", "ledger.write"],
+                    "capabilities": [
+                        "records.read",
+                        "metadata.read",
+                        "lifecycle",
+                        "posting",
+                        "ledger.write"
+                    ],
                     "methods": [
                         {
                             "name": "buildProgressMovement",
@@ -48688,7 +49324,13 @@
                     "sdkApiVersion": "1.0.0",
                     "moduleRole": "lifecycle",
                     "sourceKind": "embedded",
-                    "capabilities": ["records.read", "metadata.read", "lifecycle", "posting", "ledger.write"],
+                    "capabilities": [
+                        "records.read",
+                        "metadata.read",
+                        "lifecycle",
+                        "posting",
+                        "ledger.write"
+                    ],
                     "methods": [
                         {
                             "name": "buildCertificateMovements",
@@ -48772,7 +49414,13 @@
                     "sdkApiVersion": "1.0.0",
                     "moduleRole": "lifecycle",
                     "sourceKind": "embedded",
-                    "capabilities": ["records.read", "metadata.read", "lifecycle", "posting", "ledger.write"],
+                    "capabilities": [
+                        "records.read",
+                        "metadata.read",
+                        "lifecycle",
+                        "posting",
+                        "ledger.write"
+                    ],
                     "methods": [
                         {
                             "name": "buildPointMovements",
@@ -50032,7 +50680,9 @@
                                 "sectionCodename": "LearningTracks"
                             }
                         ],
-                        "projectedFields": ["Instructor"]
+                        "projectedFields": [
+                            "Instructor"
+                        ]
                     },
                     "rowActions": [
                         {
@@ -50212,7 +50862,10 @@
                                 },
                                 "_primary": "en"
                             },
-                            "labelFields": ["Name", "Title"],
+                            "labelFields": [
+                                "Name",
+                                "Title"
+                            ],
                             "targetLabel": {
                                 "_schema": "1",
                                 "locales": {
@@ -50411,14 +51064,14 @@
                                 "_schema": "1",
                                 "locales": {
                                     "en": {
-                                        "content": "Quiz-lite",
+                                        "content": "Quiz (planned)",
                                         "version": 1,
                                         "isActive": true,
                                         "createdAt": "1970-01-01T00:00:00.000Z",
                                         "updatedAt": "1970-01-01T00:00:00.000Z"
                                     },
                                     "ru": {
-                                        "content": "Тест-lite",
+                                        "content": "Тест (планируется)",
                                         "version": 1,
                                         "isActive": true,
                                         "createdAt": "1970-01-01T00:00:00.000Z",
@@ -50439,7 +51092,7 @@
                                         "updatedAt": "1970-01-01T00:00:00.000Z"
                                     },
                                     "ru": {
-                                        "content": "Создание тестов запланировано на следующий этап Learning Content.",
+                                        "content": "Создание тестов запланировано на следующий этап учебного контента.",
                                         "version": 1,
                                         "isActive": true,
                                         "createdAt": "1970-01-01T00:00:00.000Z",
@@ -50457,14 +51110,14 @@
                                 "_schema": "1",
                                 "locales": {
                                     "en": {
-                                        "content": "Assignment-lite",
+                                        "content": "Assignment (planned)",
                                         "version": 1,
                                         "isActive": true,
                                         "createdAt": "1970-01-01T00:00:00.000Z",
                                         "updatedAt": "1970-01-01T00:00:00.000Z"
                                     },
                                     "ru": {
-                                        "content": "Задание-lite",
+                                        "content": "Задание (планируется)",
                                         "version": 1,
                                         "isActive": true,
                                         "createdAt": "1970-01-01T00:00:00.000Z",
@@ -50485,7 +51138,7 @@
                                         "updatedAt": "1970-01-01T00:00:00.000Z"
                                     },
                                     "ru": {
-                                        "content": "Создание заданий запланировано на следующий этап Learning Content.",
+                                        "content": "Создание заданий запланировано на следующий этап учебного контента.",
                                         "version": 1,
                                         "isActive": true,
                                         "createdAt": "1970-01-01T00:00:00.000Z",
@@ -50503,7 +51156,7 @@
                                 "_schema": "1",
                                 "locales": {
                                     "en": {
-                                        "content": "Import package",
+                                        "content": "Import package (planned)",
                                         "version": 1,
                                         "isActive": true,
                                         "createdAt": "1970-01-01T00:00:00.000Z",
@@ -50524,14 +51177,14 @@
                                 "_schema": "1",
                                 "locales": {
                                     "en": {
-                                        "content": "File import and SCORM/xAPI support are planned for a later phase.",
+                                        "content": "File import support is planned for a later phase.",
                                         "version": 1,
                                         "isActive": true,
                                         "createdAt": "1970-01-01T00:00:00.000Z",
                                         "updatedAt": "1970-01-01T00:00:00.000Z"
                                     },
                                     "ru": {
-                                        "content": "Импорт файлов и поддержка SCORM/xAPI запланированы на следующий этап.",
+                                        "content": "Импорт файлов запланирован на следующий этап.",
                                         "version": 1,
                                         "isActive": true,
                                         "createdAt": "1970-01-01T00:00:00.000Z",
@@ -50566,7 +51219,9 @@
                                 },
                                 "_primary": "en"
                             },
-                            "targetDisplayTypes": ["resource"]
+                            "targetDisplayTypes": [
+                                "resource"
+                            ]
                         },
                         {
                             "id": "learning-content-filter-courses",
@@ -50590,7 +51245,9 @@
                                 },
                                 "_primary": "en"
                             },
-                            "targetDisplayTypes": ["course"]
+                            "targetDisplayTypes": [
+                                "course"
+                            ]
                         },
                         {
                             "id": "learning-content-filter-tracks",
@@ -50614,7 +51271,9 @@
                                 },
                                 "_primary": "en"
                             },
-                            "targetDisplayTypes": ["track"]
+                            "targetDisplayTypes": [
+                                "track"
+                            ]
                         }
                     ],
                     "showViewToggle": true
@@ -50879,7 +51538,9 @@
                                 "sectionCodename": "LearningTracks"
                             }
                         ],
-                        "projectedFields": ["Instructor"]
+                        "projectedFields": [
+                            "Instructor"
+                        ]
                     },
                     "rowActions": [
                         {
@@ -51040,7 +51701,9 @@
                                 },
                                 "_primary": "en"
                             },
-                            "targetDisplayTypes": ["resource"]
+                            "targetDisplayTypes": [
+                                "resource"
+                            ]
                         },
                         {
                             "id": "learning-content-filter-courses",
@@ -51064,7 +51727,9 @@
                                 },
                                 "_primary": "en"
                             },
-                            "targetDisplayTypes": ["course"]
+                            "targetDisplayTypes": [
+                                "course"
+                            ]
                         },
                         {
                             "id": "learning-content-filter-tracks",
@@ -51088,7 +51753,9 @@
                                 },
                                 "_primary": "en"
                             },
-                            "targetDisplayTypes": ["track"]
+                            "targetDisplayTypes": [
+                                "track"
+                            ]
                         }
                     ],
                     "showViewToggle": true
@@ -51353,7 +52020,9 @@
                                 "sectionCodename": "LearningTracks"
                             }
                         ],
-                        "projectedFields": ["Instructor"]
+                        "projectedFields": [
+                            "Instructor"
+                        ]
                     },
                     "rowActions": [
                         {
@@ -51514,7 +52183,9 @@
                                 },
                                 "_primary": "en"
                             },
-                            "targetDisplayTypes": ["resource"]
+                            "targetDisplayTypes": [
+                                "resource"
+                            ]
                         },
                         {
                             "id": "learning-content-filter-courses",
@@ -51538,7 +52209,9 @@
                                 },
                                 "_primary": "en"
                             },
-                            "targetDisplayTypes": ["course"]
+                            "targetDisplayTypes": [
+                                "course"
+                            ]
                         },
                         {
                             "id": "learning-content-filter-tracks",
@@ -51562,7 +52235,9 @@
                                 },
                                 "_primary": "en"
                             },
-                            "targetDisplayTypes": ["track"]
+                            "targetDisplayTypes": [
+                                "track"
+                            ]
                         }
                     ],
                     "showViewToggle": true
@@ -51827,7 +52502,9 @@
                                 "sectionCodename": "LearningTracks"
                             }
                         ],
-                        "projectedFields": ["Instructor"]
+                        "projectedFields": [
+                            "Instructor"
+                        ]
                     },
                     "rowActions": [
                         {
@@ -51988,7 +52665,9 @@
                                 },
                                 "_primary": "en"
                             },
-                            "targetDisplayTypes": ["resource"]
+                            "targetDisplayTypes": [
+                                "resource"
+                            ]
                         },
                         {
                             "id": "learning-content-filter-courses",
@@ -52012,7 +52691,9 @@
                                 },
                                 "_primary": "en"
                             },
-                            "targetDisplayTypes": ["course"]
+                            "targetDisplayTypes": [
+                                "course"
+                            ]
                         },
                         {
                             "id": "learning-content-filter-tracks",
@@ -52036,7 +52717,9 @@
                                 },
                                 "_primary": "en"
                             },
-                            "targetDisplayTypes": ["track"]
+                            "targetDisplayTypes": [
+                                "track"
+                            ]
                         }
                     ],
                     "showViewToggle": true
@@ -52084,7 +52767,9 @@
                                 "sectionCodename": "LearningTracks"
                             }
                         ],
-                        "projectedFields": ["Instructor"]
+                        "projectedFields": [
+                            "Instructor"
+                        ]
                     },
                     "showSearch": true,
                     "restoreTarget": {
@@ -52108,7 +52793,10 @@
                             },
                             "_primary": "en"
                         },
-                        "labelFields": ["Name", "Title"],
+                        "labelFields": [
+                            "Name",
+                            "Title"
+                        ],
                         "targetLabel": {
                             "_schema": "1",
                             "locales": {
@@ -52155,7 +52843,9 @@
                                 },
                                 "_primary": "en"
                             },
-                            "targetDisplayTypes": ["resource"]
+                            "targetDisplayTypes": [
+                                "resource"
+                            ]
                         },
                         {
                             "id": "learning-content-trash-filter-courses",
@@ -52179,7 +52869,9 @@
                                 },
                                 "_primary": "en"
                             },
-                            "targetDisplayTypes": ["course"]
+                            "targetDisplayTypes": [
+                                "course"
+                            ]
                         },
                         {
                             "id": "learning-content-trash-filter-tracks",
@@ -52203,7 +52895,9 @@
                                 },
                                 "_primary": "en"
                             },
-                            "targetDisplayTypes": ["track"]
+                            "targetDisplayTypes": [
+                                "track"
+                            ]
                         }
                     ]
                 },
@@ -52796,7 +53490,9 @@
                                                                 },
                                                                 "_primary": "en"
                                                             },
-                                                            "fieldCodenames": ["TargetTitle"]
+                                                            "fieldCodenames": [
+                                                                "TargetTitle"
+                                                            ]
                                                         },
                                                         {
                                                             "id": "learners",
@@ -52840,7 +53536,10 @@
                                                                 },
                                                                 "_primary": "en"
                                                             },
-                                                            "fieldCodenames": ["EnrollmentStudentId", "EnrollmentClassId"]
+                                                            "fieldCodenames": [
+                                                                "EnrollmentStudentId",
+                                                                "EnrollmentClassId"
+                                                            ]
                                                         },
                                                         {
                                                             "id": "parameters",
@@ -53021,7 +53720,7 @@
                                         "updatedAt": "1970-01-01T00:00:00.000Z"
                                     },
                                     "ru": {
-                                        "content": "Отчеты",
+                                        "content": "Отчёты",
                                         "version": 1,
                                         "isActive": true,
                                         "createdAt": "1970-01-01T00:00:00.000Z",
@@ -53679,7 +54378,9 @@
                                                                 },
                                                                 "_primary": "en"
                                                             },
-                                                            "fieldCodenames": ["TargetTitle"]
+                                                            "fieldCodenames": [
+                                                                "TargetTitle"
+                                                            ]
                                                         },
                                                         {
                                                             "id": "learners",
@@ -53723,7 +54424,10 @@
                                                                 },
                                                                 "_primary": "en"
                                                             },
-                                                            "fieldCodenames": ["EnrollmentStudentId", "EnrollmentClassId"]
+                                                            "fieldCodenames": [
+                                                                "EnrollmentStudentId",
+                                                                "EnrollmentClassId"
+                                                            ]
                                                         },
                                                         {
                                                             "id": "parameters",
@@ -53904,7 +54608,7 @@
                                         "updatedAt": "1970-01-01T00:00:00.000Z"
                                     },
                                     "ru": {
-                                        "content": "Отчеты",
+                                        "content": "Отчёты",
                                         "version": 1,
                                         "isActive": true,
                                         "createdAt": "1970-01-01T00:00:00.000Z",
@@ -54909,7 +55613,7 @@
                             "updatedAt": "1970-01-01T00:00:00.000Z"
                         },
                         "ru": {
-                            "content": "Панель отчетов",
+                            "content": "Панель отчётов",
                             "version": 1,
                             "isActive": true,
                             "createdAt": "1970-01-01T00:00:00.000Z",
@@ -54929,7 +55633,7 @@
                             "updatedAt": "1970-01-01T00:00:00.000Z"
                         },
                         "ru": {
-                            "content": "Макет отчетов со списком сохраненных определений и основным отчетом по учебному контенту.",
+                            "content": "Макет отчётов со списком сохраненных определений и основным отчётом по учебному контенту.",
                             "version": 1,
                             "isActive": true,
                             "createdAt": "1970-01-01T00:00:00.000Z",
@@ -54955,5 +55659,5 @@
             "workspaceMode": "required"
         }
     },
-    "snapshotHash": "a2cb24b20064c3f724b3b3516e86993a11c4f1f74f7fbf78a025c09b23c6c0bc"
+    "snapshotHash": "d561c30a486b4b1bd8409caf0cc4d1bc00818007d4014ff48b5defe04fd9919c"
 }

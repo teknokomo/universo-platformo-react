@@ -14,7 +14,7 @@ This guide describes the supported workflow for the built-in LMS template and it
 
 ## 2. Review The Shipped Seeded Surface
 
-![Seeded LMS runtime dashboard](../.gitbook/assets/quiz-tutorial/runtime-quiz.png)
+![Seeded LMS runtime dashboard](../.gitbook/assets/lms-user-guide/dashboard-overview.png)
 
 The canonical fixture ships a bilingual Learning Portal dataset with these entities:
 
@@ -74,10 +74,14 @@ If the dataset must change, update the generator and fixture contract first inst
 
 ## 7. Verify Both Runtime Surfaces
 
-![LMS guest result screen](../.gitbook/assets/quiz-tutorial/runtime-quiz.png)
+![LMS guest result screen](../.gitbook/assets/lms-user-guide/guest-access-step-5.png)
 
 1. Open `/a/:applicationId` and verify that EN and RU authenticated runtime starts from the `LearnerHome` Page, has no duplicate `Workspaces` entry, and every visible menu item either opens a real section or a real route.
 2. Open `/public/a/:applicationId/links/:slug` and verify the EN and RU guest-learning flows.
+
+## User Guide Link
+
+For day-to-day work inside the published LMS application, use the [LMS User Guide](../lms/README.md).
 
 ## Related Reading
 

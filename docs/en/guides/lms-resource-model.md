@@ -40,3 +40,7 @@ Published applications render resources through existing dashboard widgets, Page
 The unified content library uses a generic `records.union` datasource over resources, courses, and tracks.
 Trash views use the same datasource shape with `lifecycleState=deleted`.
 Progress is stored in Object records and Object-backed ledgers such as `ProgressLedger` and `LearningActivityLedger`.
+
+## User Guide Link
+
+For day-to-day work inside the published LMS application, use the [Page and Link Resources](../lms/resources-pages-links.md).

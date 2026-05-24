@@ -83,6 +83,16 @@ Website: [https://universo.pro](https://universo.pro)
 -   In the metahubs and admin domains, fixed schemas, runtime metadata, and authoring flows converge on one persisted `codename JSONB` contract built on versioned localized content (VLC), and platform migrations upgrade legacy dual-field codename storage into the same shape.
 -   The repository also contains cross-cutting documentation and architecture notes that track active plans, verified progress, and stable system patterns for ongoing platform development.
 
+## Strategic Priorities
+
+These are the top-level priorities that guide development across the whole Universo ecosystem. Details for each priority live in the per-project documentation and roadmaps.
+
+1. **Universo Platformo general development.** Stabilise Universo Platformo React, move it from alpha to beta and then to a stable release, and start porting platform work to other technology stacks such as Rust and Godot, so the same platform direction becomes available across implementations.
+2. **Architecture refactor toward "everything is an Application".** Turn every product surface — including the metahub configurator, admin tools, and similar feature areas — into Applications, while keeping some of them as system Applications. Add a first-run Setup Wizard that lets the operator choose which Applications to install. In parallel, evolve the database and migrations layer — currently built on Knex.js, Raw SQL, and a request-scoped `DbExecutor` — toward maximum performance, reliability, and security.
+3. **Metahub template expansion.** Significantly increase the number of entity-type presets and grow the entity-type constructor, then assemble those presets into metahub templates that reproduce the architecture of established platforms (including 1C:Enterprise) and into industry templates such as PR, CRM, LMS, ERP, and LDM.
+4. **Universo MMOOMM development.** An open-world MMO across parallel universes with different economic systems (capitalist, socialist, and others), where players explore, trade, build empires, fight interstellar wars, and cooperate in real time. MMOOMM blends science fiction, strategy, RPG, and life-simulation elements on top of the same Universo Platformo core.
+5. **Universo Kiberplano development.** An integrated planning and execution environment that connects tasks, resources, capacities, people, organizations, software agents, and robots inside one coordinated system. Kiberplano combines ERP-style planning, multi-agent orchestration, robot and digital-twin integration, distributed nodes (personal, organizational, regional), scenario simulation, and a virtual-to-physical bridge for real-world execution.
+
 ## Universo Platformo Functionality (in development)
 
 -   **Modular business applications**: the platform is being assembled as a package-based environment where separate domains can be developed, migrated, and evolved without collapsing into one monolith.
@@ -92,15 +102,6 @@ Website: [https://universo.pro](https://universo.pro)
 -   **Cross-stack application descriptions**: applications created in the platform are intended to remain exportable between implementations, so business logic, structure, and data definitions are being separated from any single UI or engine.
 -   **Shared migration and schema runtime**: the monorepo already contains dedicated packages for migration orchestration, runtime schema DDL, catalog storage, and platform-wide definition export or diff workflows.
 -   **Operational shell for real deployments**: onboarding, authentication, profile management, admin tooling, API documentation, and package-based frontend modules are being developed as the practical shell for real installations.
-
-## Universo Kiberplano Functionality (planned)
-
--   **Integrated planning of tasks, resources, and capacities**: Kiberplano is intended to unify operational plans, production plans, staffing, inventory, and execution feedback inside one coordinated system.
--   **Multi-agent orchestration**: software agents will eventually help decompose goals, negotiate subtasks, monitor execution, and coordinate with human operators and organizational rules instead of acting as isolated assistants.
--   **Robot and digital-twin integration**: the planning layer is expected to connect to equipment, sensors, and robotized execution environments through explicit schemas, events, and control workflows.
--   **Distributed node coordination**: separate personal, organizational, and larger regional nodes should be able to exchange plans, constraints, and results without requiring one fragile centralized deployment.
--   **Scenario modeling and simulation**: the platform is intended to support simulation of plans, bottlenecks, and resource conflicts before those plans are executed in the physical world.
--   **Governance and auditability**: role separation, approval flows, version history, and transparent change tracking are expected to be first-class requirements rather than optional afterthoughts.
 
 ## Universo MMOOMM Functionality (planned)
 
@@ -117,6 +118,15 @@ Key capabilities are expected to include:
 -   **Exploration and research** across large virtual spaces and experimental scenarios.
 -   **Construction and territorial development** for bases, stations, settlements, and industrial facilities.
 -   **Technology trees and scientific progress** that connect simulation outcomes with real-world planning experiments.
+
+## Universo Kiberplano Functionality (planned)
+
+-   **Integrated planning of tasks, resources, and capacities**: Kiberplano is intended to unify operational plans, production plans, staffing, inventory, and execution feedback inside one coordinated system.
+-   **Multi-agent orchestration**: software agents will eventually help decompose goals, negotiate subtasks, monitor execution, and coordinate with human operators and organizational rules instead of acting as isolated assistants.
+-   **Robot and digital-twin integration**: the planning layer is expected to connect to equipment, sensors, and robotized execution environments through explicit schemas, events, and control workflows.
+-   **Distributed node coordination**: separate personal, organizational, and larger regional nodes should be able to exchange plans, constraints, and results without requiring one fragile centralized deployment.
+-   **Scenario modeling and simulation**: the platform is intended to support simulation of plans, bottlenecks, and resource conflicts before those plans are executed in the physical world.
+-   **Governance and auditability**: role separation, approval flows, version history, and transparent change tracking are expected to be first-class requirements rather than optional afterthoughts.
 
 ## Cross-Platform Implementation
 

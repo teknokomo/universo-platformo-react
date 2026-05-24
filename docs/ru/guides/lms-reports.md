@@ -55,3 +55,7 @@ Overview stat cards также могут использовать generic datas
 
 UI для saved-filter management и scheduled report delivery остаются deferred product capabilities.
 Они не требуются для текущего Learning Content fixture, потому что поддержанный путь — ручное выполнение и export опубликованных saved reports.
+
+## Ссылка на пользовательское руководство
+
+Для повседневной работы внутри опубликованного LMS-приложения используйте [Отчёты](../lms/reports.md).
