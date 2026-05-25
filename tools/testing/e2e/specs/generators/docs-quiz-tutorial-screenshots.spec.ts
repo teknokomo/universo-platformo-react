@@ -27,7 +27,7 @@ import {
     QUIZ_MODULE_CODENAME,
     QUIZ_WIDGET_SOURCE
 } from '../../support/quizFixtureContract'
-import { createLocalizedContent } from '@universo/utils'
+import { createLocalizedContent } from '@universo-react/utils'
 
 type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
 

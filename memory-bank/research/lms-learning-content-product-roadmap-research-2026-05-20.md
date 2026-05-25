@@ -14,7 +14,7 @@ The decision this research supports:
 -   keep Universo's architecture: Metahub defines base metadata and reusable logic, application settings define global defaults, and workspace runtime owns authored content and individual operational settings;
 -   preserve Workspaces as the main application container and model iSpring-like Projects as content containers inside each Workspace;
 -   use the existing generic Entity kernel: Hubs, Pages, Objects, Sets, Enumerations, ledgers, and attached TypeScript scripts;
--   continue using `packages/apps-template-mui` and the original MUI dashboard style;
+-   continue using `packages/universo-react-apps-template-mui` and the original MUI dashboard style;
 -   regenerate `tools/fixtures/metahubs-lms-app-snapshot.json` only through the product Playwright flow when implementation later starts.
 
 ## Source Inventory
@@ -66,15 +66,15 @@ The decision this research supports:
 | `memory-bank/systemPatterns.md`                                                                       | Internal primary for durable rules                 | Read 2026-05-20                                               | Confirms research-aware planning and generic runtime patterns.                                                                                                               |
 | `.backup/Доработка-Learning-Content-для-LMS-конфигурации.md`                                          | Internal secondary                                 | Reviewed 2026-05-20                                           | Useful product analysis, but must be corrected against current architecture and current implementation progress.                                                             |
 | `.backup/Разработка-LMS-функционала-Learning-Content.md`                                              | Internal secondary                                 | Reviewed 2026-05-20                                           | Useful iSpring decomposition, but contains greenfield and 1C analogy recommendations that need mapping to current primitives.                                                |
-| `packages/apps-template-mui/README.md`                                                                | Internal primary                                   | Reviewed 2026-05-20                                           | Confirms current generic runtime primitives: detailsTable, relationBuilder, records.union, ResourcePreview, Trash-aware operations, page progress, and workspace management. |
-| `packages/metahubs-backend/base/README.md`                                                            | Internal primary                                   | Reviewed 2026-05-20                                           | Confirms the `lms` template is entity-first and Learning Content layouts use generic runtime widgets.                                                                        |
+| `packages/universo-react-apps-template-mui/README.md`                                                                | Internal primary                                   | Reviewed 2026-05-20                                           | Confirms current generic runtime primitives: detailsTable, relationBuilder, records.union, ResourcePreview, Trash-aware operations, page progress, and workspace management. |
+| `packages/universo-react-metahubs-backend/base/README.md`                                                            | Internal primary                                   | Reviewed 2026-05-20                                           | Confirms the `lms` template is entity-first and Learning Content layouts use generic runtime widgets.                                                                        |
 | `.backup/templates/dashboard/README.md`                                                               | Internal primary for template lineage              | Reviewed 2026-05-20                                           | Confirms original MUI dashboard template and dependency set.                                                                                                                 |
 | `.agents/skills/mui-runtime-ux-patterns/SKILL.md` and references                                      | Internal primary for UI quality gate               | Reviewed 2026-05-20                                           | Defines blocking runtime UI rules and dashboard contract.                                                                                                                    |
 | `.agents/skills/runtime-ux-qa/SKILL.md`                                                               | Internal primary for QA output contract            | Reviewed 2026-05-20                                           | Defines user-facing QA gates and evidence expectations.                                                                                                                      |
-| `packages/metahubs-backend/base/src/domains/templates/data/lms.template.ts`                           | Internal primary                                   | Inspected 2026-05-20                                          | Confirms current LMS metadata/entities/layouts after V2.                                                                                                                     |
+| `packages/universo-react-metahubs-backend/base/src/domains/templates/data/lms.template.ts`                           | Internal primary                                   | Inspected 2026-05-20                                          | Confirms current LMS metadata/entities/layouts after V2.                                                                                                                     |
 | `tools/testing/e2e/support/lmsFixtureContract.ts`                                                     | Internal primary                                   | Inspected 2026-05-20                                          | Confirms acceptance matrix and fixture-contract UX checks.                                                                                                                   |
 | `tools/testing/e2e/specs/flows/snapshot-import-lms-runtime.spec.ts`                                   | Internal primary                                   | Inspected 2026-05-20                                          | Confirms current browser proof, screenshots, viewport/no-leakage helpers.                                                                                                    |
-| `packages/apps-template-mui/src/dashboard/components/widgetRenderer.tsx`                              | Internal primary                                   | Inspected 2026-05-20                                          | Confirms current records.union, restore, and learnerPlayer implementations.                                                                                                  |
+| `packages/universo-react-apps-template-mui/src/dashboard/components/widgetRenderer.tsx`                              | Internal primary                                   | Inspected 2026-05-20                                          | Confirms current records.union, restore, and learnerPlayer implementations.                                                                                                  |
 | `docs/en/guides/lms-overview.md` and `docs/en/guides/lms-resource-model.md`                           | Internal primary                                   | Reviewed 2026-05-20                                           | Confirms documented current LMS MVP and deferred resource-source scope.                                                                                                      |
 
 ## Screenshot Observations
@@ -128,14 +128,14 @@ Implication: Universo should keep the MUI dashboard visual language, but the nex
 ### Internal Facts From Current Repository
 
 -   The previous V2 plan is marked implemented and reconciled through the 2026-05-18 QA closure. Do not re-plan the core V2 primitives as if they are missing.
--   `packages/metahubs-backend/base/README.md` states the built-in `lms` template is entity-first and includes content projects, resources, courses, course sections/items, learning tracks/stages/steps, content access/star/recent/trash projections, and generic layouts.
--   `packages/apps-template-mui/README.md` confirms current generic runtime primitives relevant to Learning Content:
+-   `packages/universo-react-metahubs-backend/base/README.md` states the built-in `lms` template is entity-first and includes content projects, resources, courses, course sections/items, learning tracks/stages/steps, content access/star/recent/trash projections, and generic layouts.
+-   `packages/universo-react-apps-template-mui/README.md` confirms current generic runtime primitives relevant to Learning Content:
     -   `detailsTable`;
     -   `records.union`;
     -   `relationBuilder`;
     -   `columnsContainer`;
     -   workflow actions;
-    -   block-content authoring via `@universo/block-editor`;
+    -   block-content authoring via `@universo-react/block-editor`;
     -   `ResourcePreview`;
     -   reports/export;
     -   Trash-aware delete/restore;

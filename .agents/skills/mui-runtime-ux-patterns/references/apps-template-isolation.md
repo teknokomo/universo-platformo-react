@@ -1,27 +1,27 @@
 # apps-template-mui Isolation
 
 This reference covers the dependency boundary between
-`packages/apps-template-mui` and the legacy template/feature packages.
+`packages/universo-react-apps-template-mui` and the legacy template/feature packages.
 Use it when work touches `apps-template-mui`, when adding new components
 to it, or when reviewing a proposal to share code between
 `apps-template-mui` and `universo-template-mui`.
 
 ## Rule
 
-`packages/apps-template-mui` must stay **isolated** from the legacy
+`packages/universo-react-apps-template-mui` must stay **isolated** from the legacy
 template package and from feature packages that are scheduled for
 removal during the architectural transition.
 
 Concretely:
 
-- `apps-template-mui` MUST NOT depend on `packages/universo-template-mui`.
+- `apps-template-mui` MUST NOT depend on `packages/universo-react-template-mui`.
 - `apps-template-mui` MUST NOT depend on `metahubs-frontend`,
   `applications-frontend`, `admin-frontend`, `profile-frontend`,
   `start-frontend`, or any other workspace package planned for removal
   once the corresponding functionality migrates into an application.
 - `apps-template-mui` MAY depend on shared **non-UI** workspace packages
-  that survive the transition (for example `@universo/types`,
-  `@universo/utils`, `@universo/i18n`, `@universo/api-client`).
+  that survive the transition (for example `@universo-react/types`,
+  `@universo-react/utils`, `@universo-react/i18n`, `@universo-react/api-client`).
 - Within `apps-template-mui`, components and utilities follow the usual
   monorepo conventions and stay self-contained.
 
@@ -75,7 +75,7 @@ This duplication is a deliberate trade-off:
 
 If a piece of UI code is genuinely shared between `apps-template-mui`
 and a package that **survives** the transition, lift it into a stable
-shared package (for example `@universo/types` for type contracts, or a
+shared package (for example `@universo-react/types` for type contracts, or a
 new neutral UI utility package), not into `universo-template-mui`. The
 shared package must not be on the deprecation path.
 
@@ -85,12 +85,12 @@ transition.
 
 ## What Counts As A Violation
 
-- Adding `"@universo/template-mui"` (or any equivalent name for the
-  legacy template) to `packages/apps-template-mui/package.json`
+- Adding `"@universo-react/template-mui"` (or any equivalent name for the
+  legacy template) to `packages/universo-react-apps-template-mui/package.json`
   dependencies.
-- Adding `"@universo/metahubs-frontend"`, `"@universo/applications-frontend"`,
-  `"@universo/admin-frontend"`, `"@universo/profile-frontend"`,
-  `"@universo/start-frontend"`, or any similar deprecated package as a
+- Adding `"@universo-react/metahubs-frontend"`, `"@universo-react/applications-frontend"`,
+  `"@universo-react/admin-frontend"`, `"@universo-react/profile-frontend"`,
+  `"@universo-react/start-frontend"`, or any similar deprecated package as a
   dependency.
 - Importing from any of those packages via path or alias inside
   `apps-template-mui/src/`.

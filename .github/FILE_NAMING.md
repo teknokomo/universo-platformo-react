@@ -64,7 +64,7 @@ File naming should be **consistent**, **predictable**, and **semantic**. The con
 **Examples**:
 
 ```
-✅ space-builder-frontend/
+✅ universo-react-applications-frontend/
 ✅ universo-template-mui/
 ✅ memory-bank/
 ✅ menu-items/
@@ -168,16 +168,16 @@ Does the file contain JSX elements (<Component />)?
 
 ## Summary Table
 
-| File Type              | Convention     | Location            | Example                   |
-| ---------------------- | -------------- | ------------------- | ------------------------- |
-| React Component        | **PascalCase** | pages/, components/ | `MetaverseList.tsx`       |
-| Component with JSX     | **PascalCase** | pages/              | `MetaverseActions.tsx`    |
-| Hook                   | **camelCase**  | hooks/              | `useApi.ts`               |
-| API Module             | **camelCase**  | api/                | `metaverses.ts`           |
-| Utility                | **camelCase**  | utils/              | `genericHelper.ts`        |
-| Type Definitions       | **camelCase**  | types/              | `template-mui.d.ts`       |
-| Configuration (no JSX) | **camelCase**  | menu-items/         | `metaverseDashboard.ts`   |
-| Directory              | **kebab-case** | anywhere            | `space-builder-frontend/` |
+| File Type              | Convention     | Location            | Example                                 |
+| ---------------------- | -------------- | ------------------- | --------------------------------------- |
+| React Component        | **PascalCase** | pages/, components/ | `MetaverseList.tsx`                     |
+| Component with JSX     | **PascalCase** | pages/              | `MetaverseActions.tsx`                  |
+| Hook                   | **camelCase**  | hooks/              | `useApi.ts`                             |
+| API Module             | **camelCase**  | api/                | `metaverses.ts`                         |
+| Utility                | **camelCase**  | utils/              | `genericHelper.ts`                      |
+| Type Definitions       | **camelCase**  | types/              | `template-mui.d.ts`                     |
+| Configuration (no JSX) | **camelCase**  | menu-items/         | `metaverseDashboard.ts`                 |
+| Directory              | **kebab-case** | anywhere            | `universo-react-applications-frontend/` |
 
 ## Enforcement
 

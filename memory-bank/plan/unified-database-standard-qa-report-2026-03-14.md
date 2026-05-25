@@ -19,14 +19,14 @@ Additionally, the user's explicit directives — "no legacy preservation needed"
 
 | # | Severity | Finding | Plan Section | Status |
 |---|----------|---------|-------------|--------|
-| F1 | **CRITICAL** | Circular dependency: `@universo/utils` → `@universo/migrations-core` | §2.2 identifiers | Must fix |
+| F1 | **CRITICAL** | Circular dependency: `@universo-react/utils` → `@universo-react/migrations-core` | §2.2 identifiers | Must fix |
 | F2 | **CRITICAL** | SQL injection in `withAdvisoryLock` via string interpolation of `timeoutMs` | §2.3 locks | Must fix |
 | F3 | **CRITICAL** | SQL injection in `withTransaction` via string interpolation of `statementTimeoutMs` | §2.4 transactions | Must fix |
 | F4 | **HIGH** | Existing advisory lock system in `schema-ddl` not reconciled | §2.3 locks | Must fix |
 | F5 | **HIGH** | Plan assumes gradual migration; user said "clean break, DB recreated" | §3 all phases | Must fix |
 | F6 | **HIGH** | Schema/template version increment not needed per user directive | §3 Phase 2.9 | Must fix |
 | F7 | **MEDIUM** | Existing `buildSetLocalStatementTimeoutSql()` in utils not reused | §2.4 transactions | Should fix |
-| F8 | **MEDIUM** | `qSchema`/`qTable` could live in `@universo/database` instead of utils | §2.2 identifiers | Recommendation |
+| F8 | **MEDIUM** | `qSchema`/`qTable` could live in `@universo-react/database` instead of utils | §2.2 identifiers | Recommendation |
 | F9 | **MEDIUM** | `executeCount` implementation relies on `rows.length`, not `rowCount` | §2.1 query | Should fix |
 | F10 | **MEDIUM** | Baseline lint script unnecessary given clean-break approach | §3 Phase 1.6 | Simplification |
 
@@ -34,11 +34,11 @@ Additionally, the user's explicit directives — "no legacy preservation needed"
 
 ## CRITICAL Findings
 
-### F1. Circular Dependency: `@universo/utils` → `@universo/migrations-core`
+### F1. Circular Dependency: `@universo-react/utils` → `@universo-react/migrations-core`
 
-**Location in plan**: Section 2.2 — Safe Identifier Helpers (`@universo/utils/database/identifiers`)
+**Location in plan**: Section 2.2 — Safe Identifier Helpers (`@universo-react/utils/database/identifiers`)
 
-**Problem**: The plan proposes creating `packages/universo-utils/base/src/database/identifiers.ts` that imports from `@universo/migrations-core`:
+**Problem**: The plan proposes creating `packages/universo-react-utils/base/src/database/identifiers.ts` that imports from `@universo-react/migrations-core`:
 
 ```typescript
 import {
@@ -46,22 +46,22 @@ import {
     assertCanonicalIdentifier,
     quoteIdentifier,
     quoteQualifiedIdentifier
-} from '@universo/migrations-core'
+} from '@universo-react/migrations-core'
 ```
 
-However, `@universo/utils` has **no dependency** on `@universo/migrations-core` (verified in `packages/universo-utils/base/package.json`). Adding this dependency would violate the package's role as a leaf utility package.
+However, `@universo-react/utils` has **no dependency** on `@universo-react/migrations-core` (verified in `packages/universo-react-utils/base/package.json`). Adding this dependency would violate the package's role as a leaf utility package.
 
 **Current dependency graph**:
-- `@universo/utils` → (no DB package deps)
-- `@universo/database` → `@universo/utils`, `knex`, `pg`
-- `@universo/migrations-core` → `@universo/types`, `knex`
-- `@universo/schema-ddl` → `@universo/migrations-core`, `@universo/utils`, `knex`
+- `@universo-react/utils` → (no DB package deps)
+- `@universo-react/database` → `@universo-react/utils`, `knex`, `pg`
+- `@universo-react/migrations-core` → `@universo-react/types`, `knex`
+- `@universo-react/schema-ddl` → `@universo-react/migrations-core`, `@universo-react/utils`, `knex`
 
-**Recommended fix — Option A (preferred)**: Place `qSchema`/`qTable`/`qSchemaTable`/`qColumn` in `@universo/database` (which already depends on utils and can add migrations-core dependency). Domain packages already import from database.
+**Recommended fix — Option A (preferred)**: Place `qSchema`/`qTable`/`qSchemaTable`/`qColumn` in `@universo-react/database` (which already depends on utils and can add migrations-core dependency). Domain packages already import from database.
 
-**Recommended fix — Option B**: Copy the identifier validation logic (pure regex, no external deps) directly into `@universo/utils/database/identifiers.ts` so there's no import from migrations-core. Then re-export from migrations-core for backward compatibility. This is viable because `assertCanonicalIdentifier`, `assertCanonicalSchemaName`, and `quoteIdentifier` are **pure functions** with zero external dependencies — just regex checks and string replacements.
+**Recommended fix — Option B**: Copy the identifier validation logic (pure regex, no external deps) directly into `@universo-react/utils/database/identifiers.ts` so there's no import from migrations-core. Then re-export from migrations-core for backward compatibility. This is viable because `assertCanonicalIdentifier`, `assertCanonicalSchemaName`, and `quoteIdentifier` are **pure functions** with zero external dependencies — just regex checks and string replacements.
 
-**Recommended fix — Option C**: Keep identifiers in `@universo/migrations-core` and have domain packages import `qSchema`/`qTable` from there directly. This avoids creating any new dependency. Many domain packages (metahubs-backend, applications-backend) already depend on migrations-core indirectly through schema-ddl.
+**Recommended fix — Option C**: Keep identifiers in `@universo-react/migrations-core` and have domain packages import `qSchema`/`qTable` from there directly. This avoids creating any new dependency. Many domain packages (metahubs-backend, applications-backend) already depend on migrations-core indirectly through schema-ddl.
 
 ---
 
@@ -79,7 +79,7 @@ if (options?.timeoutMs) {
 
 This is **direct string interpolation** of a user-provided number into SQL. While `timeoutMs` is expected to be a number, TypeScript types don't prevent a caller from passing a string like `"1; DROP TABLE users; --"` at runtime (via `as any`, external input, etc.).
 
-**Recommended fix**: Use the **existing** `formatStatementTimeoutLiteral()` from `@universo/utils/database/statementTimeout` which validates the input is a positive integer ≤ 300,000ms before interpolation. Or create an analogous `buildSetLocalLockTimeoutSql()`:
+**Recommended fix**: Use the **existing** `formatStatementTimeoutLiteral()` from `@universo-react/utils/database/statementTimeout` which validates the input is a positive integer ≤ 300,000ms before interpolation. Or create an analogous `buildSetLocalLockTimeoutSql()`:
 
 ```typescript
 const assertLockTimeoutMs = (ms: number): number => {
@@ -109,12 +109,12 @@ await tx.query(
 **Recommended fix**: Replace with the **existing utility that already does exactly this**:
 
 ```typescript
-import { buildSetLocalStatementTimeoutSql } from '@universo/utils/database'
+import { buildSetLocalStatementTimeoutSql } from '@universo-react/utils/database'
 
 await tx.query(buildSetLocalStatementTimeoutSql(options.statementTimeoutMs))
 ```
 
-`buildSetLocalStatementTimeoutSql` (in `packages/universo-utils/base/src/database/statementTimeout.ts`) already validates the input as a positive integer ≤ 300,000ms and formats the SQL safely. There is **no reason** to reinvent this.
+`buildSetLocalStatementTimeoutSql` (in `packages/universo-react-utils/base/src/database/statementTimeout.ts`) already validates the input as a positive integer ≤ 300,000ms and formats the SQL safely. There is **no reason** to reinvent this.
 
 ---
 
@@ -122,9 +122,9 @@ await tx.query(buildSetLocalStatementTimeoutSql(options.statementTimeoutMs))
 
 ### F4. Existing Advisory Lock System Not Reconciled
 
-**Location in plan**: Section 2.3 vs existing `packages/schema-ddl/base/src/locking.ts`
+**Location in plan**: Section 2.3 vs existing `packages/universo-react-schema-ddl/base/src/locking.ts`
 
-**Problem**: The codebase already has a sophisticated advisory lock system in `@universo/schema-ddl`:
+**Problem**: The codebase already has a sophisticated advisory lock system in `@universo-react/schema-ddl`:
 - `acquireAdvisoryLock(knex, lockKey, timeoutMs)` — uses pinned connection + BEGIN + poll loop with `pg_try_advisory_xact_lock` + configurable timeout + debug logging + in-memory Map for tracking
 - `releaseAdvisoryLock(knex, lockKey)` — COMMIT + connection release
 
@@ -180,7 +180,7 @@ The plan's Phase 2.9 discusses converting MetahubSchemaService and splitting it 
 
 ### F7. Existing `buildSetLocalStatementTimeoutSql()` Not Reused
 
-**File**: `packages/universo-utils/base/src/database/statementTimeout.ts`
+**File**: `packages/universo-react-utils/base/src/database/statementTimeout.ts`
 
 The utility already exports:
 - `formatStatementTimeoutLiteral(ms)` — validates and formats `"123ms"`
@@ -190,13 +190,13 @@ The plan's `withTransaction` reinvents this with unsafe string interpolation. Th
 
 ---
 
-### F8. Identifier Helpers Placement — `@universo/database` Is Better
+### F8. Identifier Helpers Placement — `@universo-react/database` Is Better
 
-As discussed in F1, `@universo/database` is the natural home for `qSchema`/`qTable`/`qSchemaTable`:
-- It already depends on `@universo/utils`
-- Adding `@universo/migrations-core` as dependency is architecturally clean (both are DB infrastructure)
-- Domain packages that need identifiers already depend on `@universo/database` (or should)
-- This preserves `@universo/utils` as a pure leaf utility package
+As discussed in F1, `@universo-react/database` is the natural home for `qSchema`/`qTable`/`qSchemaTable`:
+- It already depends on `@universo-react/utils`
+- Adding `@universo-react/migrations-core` as dependency is architecturally clean (both are DB infrastructure)
+- Domain packages that need identifiers already depend on `@universo-react/database` (or should)
+- This preserves `@universo-react/utils` as a pure leaf utility package
 
 ---
 
@@ -263,7 +263,7 @@ Given F5 (clean-break approach), the `--baseline` mode in `tools/lint-db-access.
 
 ## Recommended Action Sequence
 
-1. **Fix F1** — Decide identifier helper placement (@universo/database or Option B/C from report)
+1. **Fix F1** — Decide identifier helper placement (@universo-react/database or Option B/C from report)
 2. **Fix F2+F3** — Use existing `buildSetLocalStatementTimeoutSql` and create analogous `buildSetLocalLockTimeoutSql` with validation
 3. **Fix F4** — Add section explaining coexistence of schema-ddl locks (Knex, Tier 3) and new domain locks (DbExecutor, Tier 1/2)
 4. **Fix F5** — Rewrite phasing for clean-break approach, remove baseline lint mode
@@ -307,8 +307,8 @@ Round 2 found **3 MEDIUM** and **2 LOW** implementation-detail issues. These are
 
 | # | Severity | Finding | Plan Section | Status |
 |---|----------|---------|-------------|--------|
-| F11 | **MEDIUM** | `queryOneOrThrow` uses non-existent `createHttpError` — `http-errors` not in `@universo/utils` deps | §2.1 query helpers | Should fix |
-| F12 | **MEDIUM** | Import path `@universo/utils/database/query` is not a valid subpath export | §9 example code | Should fix |
+| F11 | **MEDIUM** | `queryOneOrThrow` uses non-existent `createHttpError` — `http-errors` not in `@universo-react/utils` deps | §2.1 query helpers | Should fix |
+| F12 | **MEDIUM** | Import path `@universo-react/utils/database/query` is not a valid subpath export | §9 example code | Should fix |
 | F13 | **MEDIUM** | Lint script scans `auth-backend` but `ensureAuthWithRls` middleware legitimately needs Knex | Step 1.6 + Phase 4.1 | Should clarify |
 | F14 | **LOW** | `permissionService.ts` public API change (`PermissionServiceOptions.getKnex`) not fully specified | Phase 4.1 | Should clarify |
 | F15 | **LOW** | `getPoolExecutor()` Step 1.5 shows signature but no implementation body | Step 1.5 | Minor |
@@ -321,7 +321,7 @@ Round 2 found **3 MEDIUM** and **2 LOW** implementation-detail issues. These are
 
 **Location**: §2.1, line `if (!row) throw createHttpError(404, message)`
 
-**Problem**: The `createHttpError` function does not exist in `@universo/utils`. The `http-errors` package is NOT listed in `@universo/utils/base/package.json` dependencies.
+**Problem**: The `createHttpError` function does not exist in `@universo-react/utils`. The `http-errors` package is NOT listed in `@universo-react/utils/base/package.json` dependencies.
 
 The codebase uses `http-errors` in backend packages with the following ESM/CJS compatibility pattern:
 ```typescript
@@ -332,35 +332,35 @@ const createError = (httpErrors as any).default || httpErrors
 This pattern appears in: `metahubs-backend/guards.ts`, `auth-backend/createAccessGuards.ts`, `applications-backend/guards.ts`, `admin-backend/ensureGlobalAccess.ts`.
 
 **Options**:
-- **(A)** Add `http-errors` as a peer/optional dependency of `@universo/utils` and use the ESM/CJS pattern. Downcouples utils from a specific HTTP framework.
-- **(B) Recommended**: Remove HTTP coupling from `queryOneOrThrow`. Throw a plain `Error` (or a custom `NotFoundError` class). Let the calling route/guard wrap it with `createError(404)` using the `http-errors` already available in every backend package. This keeps `@universo/utils` transport-agnostic (it also has browser exports).
+- **(A)** Add `http-errors` as a peer/optional dependency of `@universo-react/utils` and use the ESM/CJS pattern. Downcouples utils from a specific HTTP framework.
+- **(B) Recommended**: Remove HTTP coupling from `queryOneOrThrow`. Throw a plain `Error` (or a custom `NotFoundError` class). Let the calling route/guard wrap it with `createError(404)` using the `http-errors` already available in every backend package. This keeps `@universo-react/utils` transport-agnostic (it also has browser exports).
 
-### F12. Import Path `@universo/utils/database/query` Not a Valid Subpath (MEDIUM)
+### F12. Import Path `@universo-react/utils/database/query` Not a Valid Subpath (MEDIUM)
 
 **Location**: §9 "After" example code:
 ```typescript
-import { queryMany, queryOne } from '@universo/utils/database/query'
+import { queryMany, queryOne } from '@universo-react/utils/database/query'
 ```
 
-**Problem**: `@universo/utils` `package.json` defines subpath `"./database"` → `./dist/database/index.mjs`, but NOT `"./database/query"`. Node.js + TypeScript will fail to resolve this import.
+**Problem**: `@universo-react/utils` `package.json` defines subpath `"./database"` → `./dist/database/index.mjs`, but NOT `"./database/query"`. Node.js + TypeScript will fail to resolve this import.
 
-Phase 1 Step 1.1 correctly says "Export from `@universo/utils/database` barrel", which means the import should be:
+Phase 1 Step 1.1 correctly says "Export from `@universo-react/utils/database` barrel", which means the import should be:
 ```typescript
-import { queryMany, queryOne } from '@universo/utils/database'
+import { queryMany, queryOne } from '@universo-react/utils/database'
 ```
 
-**Fix**: Update §9 example (and any other code snippets) to use the barrel path `@universo/utils/database`, or explicitly add a new subpath export to `package.json`. The barrel is simpler.
+**Fix**: Update §9 example (and any other code snippets) to use the barrel path `@universo-react/utils/database`, or explicitly add a new subpath export to `package.json`. The barrel is simpler.
 
 ### F13. Lint Script Scans `auth-backend` but Middleware Needs Knex (MEDIUM)
 
 **Location**: Step 1.6 lint script scans `auth-backend`; Phase 4.1 audits auth-backend
 
-**Problem**: Step 1.6 defines the lint script to scan domain packages including `auth-backend`. However, `@universo/auth-backend` contains `ensureAuthWithRls` middleware that **must** use `getKnex()` directly — it creates pinned RLS connections via `createRlsExecutor(knex, connection)`. This is legitimate infrastructure, not domain logic.
+**Problem**: Step 1.6 defines the lint script to scan domain packages including `auth-backend`. However, `@universo-react/auth-backend` contains `ensureAuthWithRls` middleware that **must** use `getKnex()` directly — it creates pinned RLS connections via `createRlsExecutor(knex, connection)`. This is legitimate infrastructure, not domain logic.
 
 The lint rule catches `getKnex()` "in non-infrastructure paths" — but the plan doesn't define what counts as "non-infrastructure" within auth-backend.
 
 **Options**:
-- **(A)** Remove `auth-backend` from lint scan — it's foundational infrastructure like `@universo/database`.
+- **(A)** Remove `auth-backend` from lint scan — it's foundational infrastructure like `@universo-react/database`.
 - **(B) Recommended**: Define concrete path exclusions in the lint script: `**/middlewares/**` and `**/auth.ts` are infrastructure; `**/services/**` and `**/routes/**` are domain. This way `permissionService.ts` (services/) is linted but `ensureAuthWithRls` (middlewares/) is not.
 
 ### F14. `permissionService.ts` Public API Change Not Specified (LOW)
@@ -369,7 +369,7 @@ The lint rule catches `getKnex()` "in non-infrastructure paths" — but the plan
 
 **Problem**: The plan says to convert `permissionService.ts` from `createKnexExecutor(getKnex())` to `getPoolExecutor()`. But it doesn't mention that:
 
-1. `PermissionServiceOptions` interface is typed as `{ getKnex: () => Knex }` — this is a **public type-level Knex dependency** exported from `@universo/auth-backend`
+1. `PermissionServiceOptions` interface is typed as `{ getKnex: () => Knex }` — this is a **public type-level Knex dependency** exported from `@universo-react/auth-backend`
 2. The call site in `universo-core-backend/routes/index.ts` passes `createPermissionService({ getKnex })` — this must change to `createPermissionService({ getDbExecutor: getPoolExecutor })` (or similar)
 
 **Fix**: Phase 4.1 should explicitly state:
@@ -398,14 +398,14 @@ This is minor since it's obvious, but other helpers (§2.1–2.4) show full code
 
 | R1 Finding | Verification | Status |
 |-----------|-------------|--------|
-| F1 (circular dep) | Identifiers moved to `@universo/database` with `@universo/migrations-core` dep. Build order verified: types → migrations-core → utils → database. No cycle. | ✅ Correct |
+| F1 (circular dep) | Identifiers moved to `@universo-react/database` with `@universo-react/migrations-core` dep. Build order verified: types → migrations-core → utils → database. No cycle. | ✅ Correct |
 | F2 (advisory lock injection) | `assertLockTimeoutMs()` validates positive integer ≤ 300000. Interpolation is safe post-validation. | ✅ Correct |
 | F3 (transaction injection) | Reuses `buildSetLocalStatementTimeoutSql()` from `./statementTimeout`. No custom interpolation. | ✅ Correct |
 | F4 (two lock systems) | Comparison table added. schema-ddl Tier 3 vs domain Tier 1/2 clearly documented. | ✅ Correct |
 | F5 (clean break) | `--baseline` removed. Zero-violation policy from day one. Key Constraints header added. | ✅ Correct |
 | F6 (schema version) | Phase 2.9 has explicit note: "schema_version and template_version must remain at current values". | ✅ Correct |
 | F7 (statement timeout reuse) | `withTransaction` now imports `buildSetLocalStatementTimeoutSql` from `./statementTimeout`. | ✅ Correct |
-| F8 (identifier placement) | Resolved by F1 — identifiers in `@universo/database`. | ✅ Correct |
+| F8 (identifier placement) | Resolved by F1 — identifiers in `@universo-react/database`. | ✅ Correct |
 | F9 (executeCount) | DML RETURNING requirement added as architectural standard. JSDoc documents this. | ✅ Correct |
 | F10 (baseline lint) | Removed. Lint script is zero-violations, no exception tracking. | ✅ Correct |
 
@@ -413,9 +413,9 @@ This is minor since it's obvious, but other helpers (§2.1–2.4) show full code
 
 | Check | Result |
 |-------|--------|
-| Build order: no cycles with new `@universo/database` → `@universo/migrations-core` dep | ✅ types → migrations-core → utils/i18n → database → domain packages |
-| `@universo/utils/database` barrel already exports all key types | ✅ DbExecutor, DbSession, SqlQueryable, softDelete, systemFields, statementTimeout |
-| `zod` is a dependency of `@universo/utils` | ✅ Version 3.25.76 in package.json |
+| Build order: no cycles with new `@universo-react/database` → `@universo-react/migrations-core` dep | ✅ types → migrations-core → utils/i18n → database → domain packages |
+| `@universo-react/utils/database` barrel already exports all key types | ✅ DbExecutor, DbSession, SqlQueryable, softDelete, systemFields, statementTimeout |
+| `zod` is a dependency of `@universo-react/utils` | ✅ Version 3.25.76 in package.json |
 | `convertPgBindings` correctly handles $1..$N ↔ ? conversion | ✅ Validated, throws on mixed placeholders |
 | `createRlsExecutor` SAVEPOINT naming is safe (uses depth counter) | ✅ `rls_sp_${nextDepth}` — no user input |
 | Three-tier boundary correctly documented | ✅ Tier 1 (RLS), Tier 2 (Pool), Tier 3 (Knex DDL) |
@@ -434,7 +434,7 @@ This is minor since it's obvious, but other helpers (§2.1–2.4) show full code
 | Ban Knex from domain code | ✅ Full (lint + conversion) |
 | RLS pinned-connection standard | ✅ Preserved |
 | Advisory locks | ✅ Two systems documented |
-| Safe identifier quoting | ✅ qSchema/qTable in @universo/database |
+| Safe identifier quoting | ✅ qSchema/qTable in @universo-react/database |
 | Set-based operations (lsFusion) | ✅ Phase 5 |
 | Materialized views (lsFusion) | ✅ Phase 6 (optional) |
 | Typed query results | ✅ queryMany/queryOne |
@@ -565,7 +565,7 @@ identified **7 remaining gaps**:
 | G1 | **MEDIUM** | Core-backend executor factory wiring: plan only fixes `permissionService` (Step 4.1) but `routes/index.ts` has 10+ sites passing `() => createKnexExecutor(getKnex())` | Added **Step 4.1b** with explicit migration table for all 11 router factory call sites |
 | G2 | LOW | Schema-qualified SQL rule not explicitly stated as a standard — TZ says "не полагаться на search_path" | Added **§2 "Cross-Cutting Rules"** section with explicit rule |
 | G3 | LOW | Phase 5.1 "one query per action" scope too narrow — said "metahubs routes" but applies to ALL domains | Expanded Step 5.1 to "all domain routes (metahubs-backend, applications-backend)" |
-| G4 | LOW | Step 2.9 DDL Knex source overcomplicated — "accept from caller" forces domain code to know Knex | Simplified to "import `getKnex()` from `@universo/database` directly" (DDL-excluded file) |
+| G4 | LOW | Step 2.9 DDL Knex source overcomplicated — "accept from caller" forces domain code to know Knex | Simplified to "import `getKnex()` from `@universo-react/database` directly" (DDL-excluded file) |
 | G5 | LOW | Step 4.2 (start-backend) missing expected outcome — R3 audit confirmed zero Knex usage | Added note: "verification-only, expected: already clean" |
 | G6 | LOW | Code review checklist from TZ not in Documentation Plan | Added checklist creation task to §8 with 9 review criteria from TZ |
 | G7 | LOW | SECURITY DEFINER function standard from TZ not documented | Added future-proofing rule to §2 Cross-Cutting Rules |
@@ -605,7 +605,7 @@ The 3 MEDIUM findings (F11–F13) are **implementation-detail gaps** that should
 
 > **Update 2026-03-14**: All Round 2 findings (F11–F15) have been incorporated into the plan:
 > - F11: `queryOneOrThrow` now throws `NotFoundError` (plain Error subclass) with optional error factory — no `http-errors` dep.
-> - F12: §9 example corrected to `@universo/utils/database` barrel import.
+> - F12: §9 example corrected to `@universo-react/utils/database` barrel import.
 > - F13: Lint script Step 1.6 now defines path exclusions for `auth-backend/**/middlewares/**`.
 > - F14: Phase 4.1 now fully specifies `PermissionServiceOptions` API change + core-backend call-site update.
 > - F15: Step 1.5 now includes full `getPoolExecutor()` implementation body.

@@ -7,14 +7,14 @@ Checklist for reviewing any pull request that touches backend database access, p
 ## 1. Access Tier Correctness
 
 - [ ] Authenticated route handlers use `getRequestDbExecutor(req, getDbExecutor())` (Tier 1, RLS-scoped)
-- [ ] Admin/bootstrap code uses `getPoolExecutor()` from `@universo/database` (Tier 2, non-RLS)
-- [ ] DDL/migration code uses `getKnex()` from `@universo/database` (Tier 3)
+- [ ] Admin/bootstrap code uses `getPoolExecutor()` from `@universo-react/database` (Tier 2, non-RLS)
+- [ ] DDL/migration code uses `getKnex()` from `@universo-react/database` (Tier 3)
 - [ ] Tier 3 access is isolated in explicit DDL boundaries such as package-local `src/ddl/` seams, not mixed into route/store code
 - [ ] No direct Knex imports in domain route handlers or persistence stores
 
 ## 2. Identifier Safety
 
-- [ ] All dynamic schema/table/column names use `qSchema()`, `qTable()`, `qColumn()`, or `qSchemaTable()` from `@universo/database`
+- [ ] All dynamic schema/table/column names use `qSchema()`, `qTable()`, `qColumn()`, or `qSchemaTable()` from `@universo-react/database`
 - [ ] No string template interpolation (`${...}`) for identifiers in SQL
 - [ ] All user-supplied values use bind parameters (`$1`, `$2`, ...)
 

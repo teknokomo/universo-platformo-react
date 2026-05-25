@@ -13,7 +13,7 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
-import { buildVLC, validateSnapshotEnvelope } from '@universo/utils'
+import { buildVLC, validateSnapshotEnvelope } from '@universo-react/utils'
 import {
     SELF_HOSTED_APP_CANONICAL_METAHUB,
     SELF_HOSTED_APP_FIXTURE_FILENAME,

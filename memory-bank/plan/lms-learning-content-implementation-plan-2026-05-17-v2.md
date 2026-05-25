@@ -23,7 +23,7 @@ Implement a real iSpring-like Learning Content subsystem for the LMS configurati
 - Application settings define global runtime defaults, menu behavior, resource policies, role policies, and player presets.
 - Workspace runtime owns operational authoring and data: projects, pages, links, courses, tracks, enrollments, progress, sharing, and trash.
 - The logical kernel remains generic Entity types: Hubs, Pages, Objects with Components, Sets, Enumerations, Ledgers, and attached TypeScript scripts.
-- The published LMS app must be built with `packages/apps-template-mui` and the original dense MUI dashboard style from `.backup/templates/dashboard`.
+- The published LMS app must be built with `packages/universo-react-apps-template-mui` and the original dense MUI dashboard style from `.backup/templates/dashboard`.
 - Do not hardcode an LMS-only runtime fork. Add or extend generic platform primitives first.
 
 The V2 emphasis is narrower and more product-focused than the first plan. The repository already contains many generic LMS primitives: safe resource source contracts, block-content authoring, resource preview, workflow actions, reports, sequence helpers, workspace runtime, and Playwright fixture generation. The missing work is not another broad platform groundwork pass. The missing work is a coherent Learning Content product surface:
@@ -48,17 +48,17 @@ Primary planning inputs:
 - Local project state:
   - `memory-bank/tasks.md`
   - `memory-bank/activeContext.md`
-  - `packages/apps-template-mui/README.md`
+  - `packages/universo-react-apps-template-mui/README.md`
   - `.backup/templates/dashboard/README.md`
-  - `packages/metahubs-backend/base/src/domains/templates/data/lms.template.ts`
+  - `packages/universo-react-metahubs-backend/base/src/domains/templates/data/lms.template.ts`
   - `tools/testing/e2e/specs/generators/metahubs-lms-app-export.spec.ts`
   - `tools/testing/e2e/support/lmsFixtureContract.ts`
-  - `packages/universo-types/base/src/common/lmsPlatform.ts`
-  - `packages/universo-types/base/src/common/resourceSources.ts`
-  - `packages/universo-types/base/src/common/sequenceCompletion.ts`
-  - `packages/universo-types/base/src/common/runtimeDataSources.ts`
-  - `packages/apps-template-mui/src/dashboard/components/CustomizedDataGrid.tsx`
-  - `packages/apps-template-mui/src/dashboard/components/MainGrid.tsx`
+  - `packages/universo-react-types/base/src/common/lmsPlatform.ts`
+  - `packages/universo-react-types/base/src/common/resourceSources.ts`
+  - `packages/universo-react-types/base/src/common/sequenceCompletion.ts`
+  - `packages/universo-react-types/base/src/common/runtimeDataSources.ts`
+  - `packages/universo-react-apps-template-mui/src/dashboard/components/CustomizedDataGrid.tsx`
+  - `packages/universo-react-apps-template-mui/src/dashboard/components/MainGrid.tsx`
 
 Current documentation checked through Context7:
 
@@ -88,9 +88,9 @@ The previous PLAN is directionally correct, but V2 improves it in five places:
 
 ### Already Available Baseline
 
-- `@universo/apps-template-mui` is an independent MUI v7 runtime package with generic CRUD, dashboard widgets, runtime workspaces, workflow actions, block-content authoring, reports/export, and resource previews.
+- `@universo-react/apps-template-mui` is an independent MUI v7 runtime package with generic CRUD, dashboard widgets, runtime workspaces, workflow actions, block-content authoring, reports/export, and resource previews.
 - `LearningResources.Body` already uses JSON `editorjsBlockContent` UI config in the LMS template.
-- `@universo/types` already contains generic resource source validation, safe URL rules, deferred resource detection, workflow action contracts, role policy templates, LMS acceptance matrix contracts, and sequence/completion helpers.
+- `@universo-react/types` already contains generic resource source validation, safe URL rules, deferred resource detection, workflow action contracts, role policy templates, LMS acceptance matrix contracts, and sequence/completion helpers.
 - `CustomizedDataGrid` already supports server pagination, sorting, and filtering through MUI X Data Grid modes.
 - Application settings already have role policy handling and validation previews for unsupported scopes.
 - The LMS Playwright product generator exists and already seeds resources, courses, sections, tracks, enrollments, progress-like rows, reports, knowledge, development, workflow actions, and gamification.
@@ -182,23 +182,23 @@ Server-owned services must still enforce permission, sequence, and persistence s
 
 ## Affected Areas
 
-- `packages/universo-types/base/src/common/`
+- `packages/universo-react-types/base/src/common/`
   - content references, project access, supported-resource policy, course/track policies, trash entries, union datasources, column presets.
-- `packages/universo-utils/base/src/`
-  - workspace package `@universo/utils`: existing UUID v7 helpers (`generateUuidV7`) and DB-side `$uuid_v7` defaults, localized label utilities, safe value coercion, snapshot/contract helpers.
-- `packages/metahubs-backend/base/src/domains/templates/data/lms.template.ts`
+- `packages/universo-react-utils/base/src/`
+  - workspace package `@universo-react/utils`: existing UUID v7 helpers (`generateUuidV7`) and DB-side `$uuid_v7` defaults, localized label utilities, safe value coercion, snapshot/contract helpers.
+- `packages/universo-react-metahubs-backend/base/src/domains/templates/data/lms.template.ts`
   - LMS Objects, Components, Enumerations, Sets, scripts, layouts, menu items, and seed metadata.
-- `packages/applications-backend/base/src/`
+- `packages/universo-react-applications-backend/base/src/`
   - runtime rows, workspace-scoped queries, permission checks, soft-delete/restore, generic content references, progress/enrollment services, runtime datasource execution.
-- `packages/applications-frontend/base/src/`
+- `packages/universo-react-applications-frontend/base/src/`
   - generic application settings editors for Learning Content defaults, supported resource policy, player presets, role policies, and column presets.
-- `packages/apps-template-mui/src/`
+- `packages/universo-react-apps-template-mui/src/`
   - Learning Content shell, generic union table/card view, controlled DataGrid column visibility, project dialogs, page authoring, course/track builders, learner player.
 - i18n locale packages:
-  - `packages/universo-i18n/base/src/locales/{en,ru}/` for labels that are genuinely shared by multiple frontend packages;
-  - `packages/apps-template-mui/src/i18n/locales/{en,ru}/apps.json` for published runtime Learning Content labels;
-  - `packages/applications-frontend/base/src/i18n/locales/{en,ru}/applications.json` for application control-panel settings labels;
-  - `packages/metahubs-frontend/base/src/i18n/locales/{en,ru}/metahubs.json` for metahub authoring labels owned by the metahub UI.
+  - `packages/universo-react-i18n/base/src/locales/{en,ru}/` for labels that are genuinely shared by multiple frontend packages;
+  - `packages/universo-react-apps-template-mui/src/i18n/locales/{en,ru}/apps.json` for published runtime Learning Content labels;
+  - `packages/universo-react-applications-frontend/base/src/i18n/locales/{en,ru}/applications.json` for application control-panel settings labels;
+  - `packages/universo-react-metahubs-frontend/base/src/i18n/locales/{en,ru}/metahubs.json` for metahub authoring labels owned by the metahub UI.
 - `tools/testing/e2e/specs/generators/metahubs-lms-app-export.spec.ts`
   - canonical product snapshot generation through Playwright/API-supported flows.
 - `tools/testing/e2e/support/lmsFixtureContract.ts`
@@ -210,8 +210,8 @@ Server-owned services must still enforce permission, sequence, and persistence s
 - `docs/en`, `docs/ru`
   - GitBook LMS Learning Content, page authoring, Course Builder, Track Builder, player, and fixture regeneration docs.
 - Package READMEs:
-  - `packages/apps-template-mui/README.md`
-  - `packages/metahubs-backend/base/README.md`
+  - `packages/universo-react-apps-template-mui/README.md`
+  - `packages/universo-react-metahubs-backend/base/README.md`
   - `tools/testing/e2e/README.md`
 
 ## Plan Steps
@@ -255,7 +255,7 @@ Acceptance:
 
 ### Phase 1. Generic Contracts For Content References And Project Library
 
-- [x] Add strict shared schemas in `@universo/types`:
+- [x] Add strict shared schemas in `@universo-react/types`:
   - `runtimeContentRefSchema`;
   - `contentProjectSchema`;
   - `contentAccessEntrySchema`;
@@ -281,7 +281,7 @@ Acceptance:
   - `PrincipalId`;
   - first supported type: workspace member/user;
   - group, department, and class principals stay disabled or fail closed until scoped predicates are implemented.
-- [x] Export new contracts through package index files and update `@universo/types` README.
+- [x] Export new contracts through package index files and update `@universo-react/types` README.
 
 Acceptance:
 
@@ -453,7 +453,7 @@ Acceptance:
   - `RowActionsMenu`;
   - `CrudDialogs`;
   - runtime menu/workspace primitives.
-- [x] Extend existing generic table/card/details surfaces before introducing a new widget key. If a new widget key becomes unavoidable, make it a generic runtime primitive with a shared schema in `@universo/types`, not an LMS-only component.
+- [x] Extend existing generic table/card/details surfaces before introducing a new widget key. If a new widget key becomes unavoidable, make it a generic runtime primitive with a shared schema in `@universo-react/types`, not an LMS-only component.
 - [x] Any union datasource response must adapt to the existing `detailsTable`/`MainGrid` and `CustomizedDataGrid` contracts before a new Learning Content table component is considered.
 - [x] Add left navigation:
   - Recent;
@@ -508,7 +508,7 @@ Acceptance:
 
 ### Phase 6. Page Authoring And Standalone Resources
 
-- [x] Reuse `@universo/block-editor` for `LearningResources.Body`.
+- [x] Reuse `@universo-react/block-editor` for `LearningResources.Body`.
 - [x] Keep normal users away from raw JSON editing for authored pages.
 - [x] Add title/name sync:
   - title drives page name until name is manually edited;
@@ -791,8 +791,8 @@ Acceptance:
   - Pages Entity Type;
   - Ledgers if progress/ledger contracts change.
 - [x] Update package READMEs:
-  - `packages/apps-template-mui/README.md`;
-  - `packages/metahubs-backend/base/README.md`;
+  - `packages/universo-react-apps-template-mui/README.md`;
+  - `packages/universo-react-metahubs-backend/base/README.md`;
   - `tools/testing/e2e/README.md`.
 - [x] Add screenshots generated from real Playwright runs.
 - [x] Keep EN/RU docs aligned and update GitBook SUMMARY files.
@@ -884,8 +884,8 @@ export function resolveAllowedContentTarget(
 ### SQL-First Fail-Closed Mutation
 
 ```ts
-import { qColumn, qSchemaTable } from '@universo/database'
-import type { DbExecutor } from '@universo/utils'
+import { qColumn, qSchemaTable } from '@universo-react/database'
+import type { DbExecutor } from '@universo-react/utils'
 
 type SoftDeleteInput = {
   schemaName: string
@@ -1067,9 +1067,9 @@ Mitigation:
 - New dependencies must be added through the `pnpm-workspace.yaml` catalog. Prefer existing MUI, MUI icons, `apps-template-mui` primitives, and current runtime helpers before adding a dependency.
 - E2E runner owns app startup on `http://127.0.0.1:3100`; do not run `pnpm dev`.
 - Local Supabase minimal is required only for explicit local validation.
-- `@universo/block-editor` remains the shared Editor.js integration.
-- `packages/apps-template-mui` remains isolated and must not import from legacy `@universo/template-mui`.
-- `@universo/types`, `@universo/utils`, backend runtime APIs, fixture contracts, and Playwright generator must stay in sync.
+- `@universo-react/block-editor` remains the shared Editor.js integration.
+- `packages/universo-react-apps-template-mui` remains isolated and must not import from legacy `@universo-react/template-mui`.
+- `@universo-react/types`, `@universo-react/utils`, backend runtime APIs, fixture contracts, and Playwright generator must stay in sync.
 
 ## Implementation Order Recommendation
 

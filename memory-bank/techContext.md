@@ -34,7 +34,7 @@
 
 ## Codename And VLC Contract
 
--   Codename normalization and validation live in `@universo/utils/validation/codename`.
+-   Codename normalization and validation live in `@universo-react/utils/validation/codename`.
 -   Storage converged on one persisted `codename JSONB` field using the canonical VLC shape.
 -   Uniqueness and ordering use extracted primary-locale codename text, not a second stored machine-codename column.
 -   `general.codenameLocalizedEnabled` shapes the persisted VLC payload; it does not switch storage away from JSONB.
@@ -57,7 +57,7 @@
 -   Frontend mutation error handling: `createDomainErrorHandler(...)`.
 -   Frontend mutation types and display converters are extracted into dedicated modules.
 -   Shared metahub hub caching uses `useMetahubTrees(metahubId)`.
--   Shared VLC mapping uses `mapBaseVlcFields(entity, locale)` from `@universo/utils`.
+-   Shared VLC mapping uses `mapBaseVlcFields(entity, locale)` from `@universo-react/utils`.
 
 ## Page Spacing And Shell Contract
 
@@ -138,8 +138,8 @@
 
 ## Module Runtime Contract
 
--   Shared source of truth for module roles, source kinds, capability enums, allowlists, and normalization lives in `@universo/types`.
--   `@universo/extension-sdk` keeps the stable root import while remaining modular internally.
+-   Shared source of truth for module roles, source kinds, capability enums, allowlists, and normalization lives in `@universo-react/types`.
+-   `@universo-react/extension-sdk` keeps the stable root import while remaining modular internally.
 -   `@AtServerAndClient()` is the explicit dual-target contract.
 -   Authoring is limited to `embedded` sources in the current UI.
 -   Common/general modules use `attachedToKind='general'`, `attachedToId=null`, and `moduleRole='library'`.
@@ -151,7 +151,7 @@
 
 ## LMS Public Runtime Contract
 
--   Public LMS access links resolve through `applications-backend` public routes and the standalone `GuestApp` surface in `@universo/apps-template-mui`.
+-   Public LMS access links resolve through `universo-react-applications-backend` public routes and the standalone `GuestApp` surface in `@universo-react/apps-template-mui`.
 -   Guest sessions currently reuse the existing students token string column by storing a JSON envelope with `secret` and `expiresAt`; this is the active compatibility-safe expiry contract until a future schema migration says otherwise.
 -   Persisted guest-created rows in the public LMS flows now use UUID v7 generation through the database helper path, matching the wider repository direction for ordered ids.
 -   Public client bundles for runtime widgets/modules are served with explicit JavaScript MIME type plus defensive `nosniff` / CSP / cache headers because they execute outside the authenticated dashboard shell.
@@ -166,8 +166,8 @@
 ## Dialog Presentation Contract
 
 -   Dialog behavior is registry-driven through shared common settings keys for size preset, fullscreen, resize, and close behavior.
--   `@universo/template-mui` owns `DialogPresentationProvider` / `useDialogPresentation(...)`.
--   `@universo/metahubs-frontend` bridges those settings through `MetahubDialogSettingsProvider` and `withMetahubDialogSettings(...)`.
+-   `@universo-react/template-mui` owns `DialogPresentationProvider` / `useDialogPresentation(...)`.
+-   `@universo-react/metahubs-frontend` bridges those settings through `MetahubDialogSettingsProvider` and `withMetahubDialogSettings(...)`.
 -   Dialog resize state is stored in localStorage and scoped by metahub id.
 -   `EntityModulesTab` uses `ResizeObserver` on the rendered container, not viewport breakpoints.
 
@@ -176,7 +176,7 @@
 -   Resources section lives at `/metahub/:metahubId/resources` (formerly `/common`, `/general`).
 -   `SharedResourcesPage.tsx` renders dynamic tabs based on entity type definitions.
 -   Tab visibility derives from `ComponentManifest`: `dataSchema.enabled` → Field Definitions, `fixedValues.enabled` → Fixed Values, `optionValues.enabled` → Option Values.
--   Shared pool containers use `SHARED_OBJECT_KINDS` constants in `@universo/types/shared.ts`.
+-   Shared pool containers use `SHARED_OBJECT_KINDS` constants in `@universo-react/types/shared.ts`.
 -   Container codenames (`shared_attributes`, `shared_constants`, `shared_values`) are DB-stored legacy identifiers — not user-visible.
 -   User-visible tab labels are controlled by i18n keys `general.tabs.*`.
 
@@ -214,13 +214,20 @@
 -   Primary root validation command: `pnpm build` from the repository root.
 -   Turbo 2 is the workspace orchestrator; repeated root builds should reuse the local Turbo cache.
 -   Generated artifacts must stay out of task `inputs` so the cache remains effective.
--   `@universo/rest-docs` OpenAPI source is generated from `scripts/generate-openapi-source.js`; canonical entity-owned managed metadata paths appear only if `entityInstancesRoutes.ts` is included in that generator inventory.
+-   `@universo-react/rest-docs` OpenAPI source is generated from `scripts/generate-openapi-source.js`; canonical entity-owned managed metadata paths appear only if `entityInstancesRoutes.ts` is included in that generator inventory.
 -   Backend package `test` scripts use the custom Jest wrapper under `tools/testing/backend/run-jest.cjs`.
 -   Focused backend runs pass file paths positionally after `--`.
 
+### Package Naming Convention
+
+-   Active React workspace package directories use `packages/universo-react-<name>/`.
+-   Active React workspace package names use `@universo-react/<name>`.
+-   Legacy `universo-` directory prefixes are flattened into the new prefix, so a legacy `packages/universo-<name>/` directory moved to `packages/universo-react-<name>/`, not to a double-prefixed directory.
+-   The previous workspace scope is not preserved through aliases, symlinks, or compatibility re-export packages. Cross-package imports use the exact package name from the target package's `package.json`.
+
 ## Database Pooling And Environment Baseline
 
--   Shared Knex pool is owned by `@universo/database`.
+-   Shared Knex pool is owned by `@universo-react/database`.
 -   Default pool max is `DATABASE_POOL_MAX` or 15.
 -   Request-scoped RLS execution uses pinned connections wrapped by `createRlsExecutor(...)`.
 -   Port `6543` implies Supavisor transaction mode; port `5432` implies direct/session mode.
@@ -231,7 +238,7 @@
 
 -   Tier 1: `getRequestDbExecutor(req, getDbExecutor())` for authenticated routes.
 -   Tier 2: `getPoolExecutor()` for admin/bootstrap/background jobs.
--   Tier 3: `getKnex()` only for schema-ddl, migration runners, and explicit DDL boundaries.
+-   Tier 3: `getKnex()` only for universo-react-schema-ddl, migration runners, and explicit DDL boundaries.
 -   Identifier safety comes from `qSchema()`, `qTable()`, `qColumn()`, and `qSchemaTable()`.
 -   Business-table UPDATE/DELETE/RESTORE flows fail closed on zero-row results.
 -   `node tools/lint-db-access.mjs` is the CI enforcement layer.
@@ -239,7 +246,7 @@
 ## DB Layer Status And Future Direction
 
 -   **Background**: TypeORM was previously used and was removed because it could not flexibly support runtime schema generation, dynamic DDL, and the platform's multi-tenant patterns.
--   **Current state**: Knex (connection management, transactions) plus raw SQL through `DbExecutor.query()` for domain queries and mutations. The three-tier executor pattern above and `@universo/schema-ddl` are the load-bearing parts of this layer.
+-   **Current state**: Knex (connection management, transactions) plus raw SQL through `DbExecutor.query()` for domain queries and mutations. The three-tier executor pattern above and `@universo-react/schema-ddl` are the load-bearing parts of this layer.
 -   **Maturity**: this layer is functional and the canonical path for new code, but the team treats it as **work-in-progress**. Some areas are not yet fully consolidated and may evolve.
 -   **Possible future directions** (no decision made — do not act on them without one):
     -   Move more domain code from raw SQL to the Knex query builder where flexibility is preserved.
@@ -252,23 +259,23 @@
 
 -   The project uses UUID v7 for time-ordered ids.
 -   PostgreSQL support comes from the dedicated infrastructure migration that creates `public.uuid_generate_v7()`.
--   Backend code uses `@universo/utils/uuid` when it needs application-generated ids.
+-   Backend code uses `@universo-react/utils/uuid` when it needs application-generated ids.
 -   SQL-first migrations and schema bootstrap use `DEFAULT public.uuid_generate_v7()`.
 
 ## Runtime And Platform Foundation Notes
 
--   `@universo/schema-ddl` provides shared runtime DDL logic.
+-   `@universo-react/schema-ddl` provides shared runtime DDL logic.
 -   Optional global catalog mode remains controlled by `UPL_GLOBAL_MIGRATION_CATALOG_ENABLED`.
--   Managed schema naming/validation is shared through `@universo/migrations-core` helpers.
--   Applications runtime sync and release-bundle flows are owned by `@universo/applications-backend`.
+-   Managed schema naming/validation is shared through `@universo-react/migrations-core` helpers.
+-   Applications runtime sync and release-bundle flows are owned by `@universo-react/applications-backend`.
 -   Fixed system-app bootstrap uses the converged application-like model documented in the architecture docs.
 -   Runtime system fields follow the current lifecycle contract instead of assuming `_upl_deleted` / `_app_deleted` families always exist.
 
 ## Architectural Transition Baseline
 
--   Feature areas (`metahubs-*`, `applications-*`, `admin-*`, `profile-*`, `start-*`, `auth-*`) currently live as separate workspace packages on top of `packages/universo-template-mui`.
--   The long-term goal is "everything is an Application" rendered through `packages/apps-template-mui`. Each legacy area becomes a regular application; the legacy package is removed once the new application covers its functionality.
--   **`packages/apps-template-mui` must stay isolated** from `universo-template-mui` and from any legacy feature package scheduled for removal. Component duplication between the two template packages is acceptable and intentional during the transition.
+-   Feature areas (`metahubs-*`, `applications-*`, `admin-*`, `profile-*`, `start-*`, `auth-*`) currently live as separate workspace packages on top of `packages/universo-react-template-mui`.
+-   The long-term goal is "everything is an Application" rendered through `packages/universo-react-apps-template-mui`. Each legacy area becomes a regular application; the legacy package is removed once the new application covers its functionality.
+-   **`packages/universo-react-apps-template-mui` must stay isolated** from `universo-react-template-mui` and from any legacy feature package scheduled for removal. Component duplication between the two template packages is acceptable and intentional during the transition.
 -   System applications are bootstrapped today via the **pseudo-app pattern**: hand-built base snapshots → file migrations → first-run install. The likely future direction is JSON-snapshot configurations in the same shape as `tools/fixtures/metahubs-*-snapshot.json`.
 -   A first-run **Setup Wizard** is planned: it will list required and recommended system applications and let the user choose additional applications from the bundled set or from a central marketplace.
 -   Practical rule: continue developing in the existing legacy packages when the work fits there. Do not block tasks on the migration completing. Create a new workspace package only when significant new functionality warrants its own boundary.

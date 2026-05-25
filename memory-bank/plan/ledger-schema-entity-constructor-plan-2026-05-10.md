@@ -25,7 +25,7 @@ The target state is:
 -   Do not create a standalone `LedgerListPage`, `LedgerFieldEditor`, or LMS-specific widget/editor.
 -   Allow `ledgerSchema` on standard `ledger` and future custom/hybrid entity types, including Catalog-derived types.
 -   Remove kind-only gates from both frontend and backend component registries. `ledgerSchema` must be validated by component compatibility, not by `kindKey === 'ledger'`.
--   Keep the application control panel and published `packages/apps-template-mui` runtime generic: existing table/card/chart widgets must be extended to consume ledger datasources instead of adding LMS-only widgets.
+-   Keep the application control panel and published `packages/universo-react-apps-template-mui` runtime generic: existing table/card/chart widgets must be extended to consume ledger datasources instead of adding LMS-only widgets.
 -   Preserve the three configuration layers:
     -   metahub metadata defines base logic and schema;
     -   application control panel defines app-wide layout, connector, datasource, and default behavior;
@@ -54,7 +54,7 @@ These items are now treated as required work, not optional follow-up.
 
 -   `ledger` already exists as a standard entity kind. In `standardEntityTypeDefinitions.ts`, it has `dataSchema`, `physicalTable` with prefix `led`, `runtimeBehavior`, `layoutConfig`, and `ledgerSchema` enabled.
 -   `ledger` currently has `records: false`, so it does not behave as normal runtime CRUD.
--   `config.ledger` already exists in `@universo/types` with:
+-   `config.ledger` already exists in `@universo-react/types` with:
     -   `mode`
     -   `mutationPolicy`
     -   `periodicity`
@@ -202,7 +202,7 @@ The chosen contract must include enough information to evaluate `supportsLedgerS
 
 ## Target Data Contract
 
-Create a shared Zod schema and normalizer in `@universo/types`, next to `ledgers.ts`:
+Create a shared Zod schema and normalizer in `@universo-react/types`, next to `ledgers.ts`:
 
 ```ts
 export const ledgerConfigSchema = z
@@ -286,83 +286,83 @@ export const validateLedgerConfigReferences = (params: {
 
 ### Shared Types
 
--   `packages/universo-types/base/src/common/ledgers.ts`
--   `packages/universo-types/base/src/common/entityComponents.ts`
--   `packages/universo-types/base/src/common/entityTypeDefinition.ts`
--   `packages/universo-types/base/src/common/metahubs.ts`
--   `packages/universo-types/base/src/index.ts`
+-   `packages/universo-react-types/base/src/common/ledgers.ts`
+-   `packages/universo-react-types/base/src/common/entityComponents.ts`
+-   `packages/universo-react-types/base/src/common/entityTypeDefinition.ts`
+-   `packages/universo-react-types/base/src/common/metahubs.ts`
+-   `packages/universo-react-types/base/src/index.ts`
 
 ### Metahubs Backend
 
--   `packages/metahubs-backend/base/src/domains/templates/data/standardEntityTypeDefinitions.ts`
--   `packages/metahubs-backend/base/src/domains/templates/data/ledger.entity-preset.ts`
--   `packages/metahubs-backend/base/src/domains/templates/data/basic.template.ts`
--   `packages/metahubs-backend/base/src/domains/templates/data/basic-demo.template.ts`
--   `packages/metahubs-backend/base/src/domains/templates/data/lms.template.ts`
--   `packages/metahubs-backend/base/src/domains/templates/services/TemplateManifestValidator.ts`
--   `packages/metahubs-backend/base/src/domains/entities/controllers/entityControllerShared.ts`
--   `packages/metahubs-backend/base/src/domains/entities/services/EntityTypeService.ts`
--   `packages/metahubs-backend/base/src/domains/publications/services/SnapshotSerializer.ts`
--   `packages/metahubs-backend/base/src/domains/metahubs/services/SnapshotRestoreService.ts`
+-   `packages/universo-react-metahubs-backend/base/src/domains/templates/data/standardEntityTypeDefinitions.ts`
+-   `packages/universo-react-metahubs-backend/base/src/domains/templates/data/ledger.entity-preset.ts`
+-   `packages/universo-react-metahubs-backend/base/src/domains/templates/data/basic.template.ts`
+-   `packages/universo-react-metahubs-backend/base/src/domains/templates/data/basic-demo.template.ts`
+-   `packages/universo-react-metahubs-backend/base/src/domains/templates/data/lms.template.ts`
+-   `packages/universo-react-metahubs-backend/base/src/domains/templates/services/TemplateManifestValidator.ts`
+-   `packages/universo-react-metahubs-backend/base/src/domains/entities/controllers/entityControllerShared.ts`
+-   `packages/universo-react-metahubs-backend/base/src/domains/entities/services/EntityTypeService.ts`
+-   `packages/universo-react-metahubs-backend/base/src/domains/publications/services/SnapshotSerializer.ts`
+-   `packages/universo-react-metahubs-backend/base/src/domains/metahubs/services/SnapshotRestoreService.ts`
 
 ### Metahubs Frontend
 
--   `packages/metahubs-frontend/base/src/domains/entities/ui/EntityInstanceListContent.tsx`
--   `packages/metahubs-frontend/base/src/domains/entities/ui/entityInstanceListHelpers.ts`
--   `packages/metahubs-frontend/base/src/domains/entities/ui/EntitiesWorkspace.tsx`
--   `packages/metahubs-frontend/base/src/domains/entities/ui/RecordBehaviorFields.tsx` only if shared option helpers should be extracted
+-   `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/EntityInstanceListContent.tsx`
+-   `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/entityInstanceListHelpers.ts`
+-   `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/EntitiesWorkspace.tsx`
+-   `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/RecordBehaviorFields.tsx` only if shared option helpers should be extracted
 -   New generic UI:
-    -   `packages/metahubs-frontend/base/src/domains/entities/ui/LedgerSchemaFields.tsx`
-    -   `packages/metahubs-frontend/base/src/domains/entities/ui/LedgerProjectionEditor.tsx`
-    -   `packages/metahubs-frontend/base/src/domains/entities/ui/LedgerFieldRoleChips.tsx`
+    -   `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/LedgerSchemaFields.tsx`
+    -   `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/LedgerProjectionEditor.tsx`
+    -   `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/LedgerFieldRoleChips.tsx`
     -   These must be compositional subcomponents inside the existing Entity dialog and field-definition surfaces, reusing current table/form primitives. They are not standalone Ledger pages or alternative list/edit frameworks.
--   `packages/metahubs-frontend/base/src/domains/entities/metadata/fieldDefinition/ui/FieldDefinitionList.tsx`
--   `packages/metahubs-frontend/base/src/domains/entities/metadata/fieldDefinition/ui/FieldDefinitionActions.tsx`
--   `packages/metahubs-frontend/base/src/domains/entities/presets/ui/LinkedCollectionActions.tsx` if a future Catalog-like preset uses `ledgerSchema`
--   `packages/metahubs-frontend/base/src/i18n/locales/en/metahubs.json`
--   `packages/metahubs-frontend/base/src/i18n/locales/ru/metahubs.json`
+-   `packages/universo-react-metahubs-frontend/base/src/domains/entities/metadata/fieldDefinition/ui/FieldDefinitionList.tsx`
+-   `packages/universo-react-metahubs-frontend/base/src/domains/entities/metadata/fieldDefinition/ui/FieldDefinitionActions.tsx`
+-   `packages/universo-react-metahubs-frontend/base/src/domains/entities/presets/ui/LinkedCollectionActions.tsx` if a future Catalog-like preset uses `ledgerSchema`
+-   `packages/universo-react-metahubs-frontend/base/src/i18n/locales/en/metahubs.json`
+-   `packages/universo-react-metahubs-frontend/base/src/i18n/locales/ru/metahubs.json`
 
 ### Runtime And Schema
 
--   `packages/schema-ddl/base/src/SchemaGenerator.ts`
--   `packages/schema-ddl/base/src/builtinEntityKinds.ts`
--   `packages/applications-backend/base/src/controllers/runtimeLedgersController.ts`
--   `packages/applications-backend/base/src/services/runtimeLedgersService.ts`
--   `packages/applications-backend/base/src/services/runtimeScriptsService.ts`
--   `packages/applications-backend/base/src/services/runtimeWorkspaceService.ts`
--   `packages/applications-backend/base/src/services/runtimePostingMovements.ts`
--   `packages/applications-backend/base/src/services/applicationWorkspaces.ts`
--   `packages/extension-sdk/base/src/apis/ledgers.ts`
+-   `packages/universo-react-schema-ddl/base/src/SchemaGenerator.ts`
+-   `packages/universo-react-schema-ddl/base/src/builtinEntityKinds.ts`
+-   `packages/universo-react-applications-backend/base/src/controllers/runtimeLedgersController.ts`
+-   `packages/universo-react-applications-backend/base/src/services/runtimeLedgersService.ts`
+-   `packages/universo-react-applications-backend/base/src/services/runtimeScriptsService.ts`
+-   `packages/universo-react-applications-backend/base/src/services/runtimeWorkspaceService.ts`
+-   `packages/universo-react-applications-backend/base/src/services/runtimePostingMovements.ts`
+-   `packages/universo-react-applications-backend/base/src/services/applicationWorkspaces.ts`
+-   `packages/universo-react-extension-sdk/base/src/apis/ledgers.ts`
 
 ### Application Control Panel And Runtime Template
 
--   `packages/applications-frontend/base/src/components/layouts/ApplicationWidgetBehaviorEditorDialog.tsx`
--   `packages/applications-frontend/base/src/i18n/locales/en/applications.json`
--   `packages/applications-frontend/base/src/i18n/locales/ru/applications.json`
--   `packages/apps-template-mui/src/api/api.ts`
--   `packages/apps-template-mui/src/api/types.ts`
--   `packages/apps-template-mui/src/dashboard/components/MainGrid.tsx`
--   `packages/apps-template-mui/src/dashboard/components/widgetRenderer.tsx`
--   `packages/apps-template-mui/src/dashboard/components/CustomizedDataGrid.tsx`
--   `packages/apps-template-mui/src/dashboard/components/__tests__/MainGrid.test.tsx`
--   `packages/apps-template-mui/src/dashboard/components/__tests__/widgetRenderer.test.tsx`
+-   `packages/universo-react-applications-frontend/base/src/components/layouts/ApplicationWidgetBehaviorEditorDialog.tsx`
+-   `packages/universo-react-applications-frontend/base/src/i18n/locales/en/applications.json`
+-   `packages/universo-react-applications-frontend/base/src/i18n/locales/ru/applications.json`
+-   `packages/universo-react-apps-template-mui/src/api/api.ts`
+-   `packages/universo-react-apps-template-mui/src/api/types.ts`
+-   `packages/universo-react-apps-template-mui/src/dashboard/components/MainGrid.tsx`
+-   `packages/universo-react-apps-template-mui/src/dashboard/components/widgetRenderer.tsx`
+-   `packages/universo-react-apps-template-mui/src/dashboard/components/CustomizedDataGrid.tsx`
+-   `packages/universo-react-apps-template-mui/src/dashboard/components/__tests__/MainGrid.test.tsx`
+-   `packages/universo-react-apps-template-mui/src/dashboard/components/__tests__/widgetRenderer.test.tsx`
 
 ### Shared I18n
 
--   `packages/universo-i18n/base/src/locales/en/common.json`
--   `packages/universo-i18n/base/src/locales/ru/common.json`
+-   `packages/universo-react-i18n/base/src/locales/en/common.json`
+-   `packages/universo-react-i18n/base/src/locales/ru/common.json`
 -   Package-local namespaces only for package-specific labels.
 
 ### Tests And Fixtures
 
--   `packages/universo-types/base/src/__tests__/ledgers.test.ts`
--   `packages/metahubs-frontend/base/src/domains/entities/ui/__tests__/LedgerSchemaFields.test.tsx`
--   `packages/metahubs-frontend/base/src/domains/entities/ui/__tests__/EntityInstanceList.test.tsx`
--   `packages/metahubs-frontend/base/src/domains/entities/metadata/fieldDefinition/ui/__tests__/FieldDefinitionList.ledgerRoles.test.tsx`
--   `packages/metahubs-backend/base/src/tests/services/templateManifestValidator.test.ts`
--   `packages/metahubs-backend/base/src/tests/services/metahubSchemaService.test.ts`
--   `packages/applications-backend/base/src/tests/services/runtimeLedgersService.test.ts`
--   `packages/schema-ddl/base/src/__tests__/SchemaGenerator.test.ts`
+-   `packages/universo-react-types/base/src/__tests__/ledgers.test.ts`
+-   `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/__tests__/LedgerSchemaFields.test.tsx`
+-   `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/__tests__/EntityInstanceList.test.tsx`
+-   `packages/universo-react-metahubs-frontend/base/src/domains/entities/metadata/fieldDefinition/ui/__tests__/FieldDefinitionList.ledgerRoles.test.tsx`
+-   `packages/universo-react-metahubs-backend/base/src/tests/services/templateManifestValidator.test.ts`
+-   `packages/universo-react-metahubs-backend/base/src/tests/services/metahubSchemaService.test.ts`
+-   `packages/universo-react-applications-backend/base/src/tests/services/runtimeLedgersService.test.ts`
+-   `packages/universo-react-schema-ddl/base/src/__tests__/SchemaGenerator.test.ts`
 -   `tools/testing/e2e/support/lmsFixtureContract.ts`
 -   `tools/testing/e2e/specs/generators/metahubs-lms-app-export.spec.ts`
 -   `tools/testing/e2e/specs/flows/snapshot-import-lms-runtime.spec.ts`
@@ -383,7 +383,7 @@ export const validateLedgerConfigReferences = (params: {
 
 ### Phase 1 - Shared Ledger Contract Hardening
 
--   [ ] Add `ledgerConfigSchema`, `ledgerFieldRoleSchema`, `ledgerProjectionDefinitionSchema`, `normalizeLedgerConfig`, `normalizeLedgerConfigFromConfig`, and reference validation helpers to `@universo/types`.
+-   [ ] Add `ledgerConfigSchema`, `ledgerFieldRoleSchema`, `ledgerProjectionDefinitionSchema`, `normalizeLedgerConfig`, `normalizeLedgerConfigFromConfig`, and reference validation helpers to `@universo-react/types`.
 -   [ ] Export `supportsLedgerSchema(components)` from `entityComponents.ts`.
 -   [ ] Add `isLedgerSchemaCapableEntity(components)` for schema/runtime use; it should require `ledgerSchema`, `dataSchema`, and `physicalTable`, not a specific `kind`.
 -   [ ] Extend `LedgerSchemaComponentConfig` from a minimal toggle into a capability descriptor:
@@ -568,7 +568,7 @@ const validateEntityComponentCombination = (manifest: ComponentManifest): string
 -   [ ] Keep configured widgets empty or show a localized no-data state when runtime rows are empty; do not fall back to demo chart data after a datasource is configured.
 -   [ ] Preserve workspace scoping according to application settings and current workspace context.
 -   [ ] Update workspace copy/delete flows to enumerate scoped physical tables from runtime object metadata and component capabilities, not from fixed table-name prefixes such as `cat_%` or `tbl_%`; this must cover standard Ledgers, hybrid Catalog-like Ledgers, and future custom prefixes.
--   [ ] Ensure all application control panel and published app labels are localized in application/template namespaces, with common reusable labels in `packages/universo-i18n`.
+-   [ ] Ensure all application control panel and published app labels are localized in application/template namespaces, with common reusable labels in `packages/universo-react-i18n`.
 
 ### Phase 10 - LMS Template And Fixture Regeneration
 
@@ -606,10 +606,10 @@ node tools/testing/e2e/run-playwright-suite.mjs \
 
 #### Unit And Type Tests
 
--   [ ] `@universo/types`: ledger schema normalizer, strict schema parsing, reference validation.
--   [ ] `@universo/schema-ddl`: ledger DDL, system columns, idempotency indexes, hybrid component combinations.
--   [ ] `@universo/applications-backend`: source policy, mutation policy, projection validation, compensation facts.
--   [ ] `@universo/metahubs-backend`: template validation, snapshot restore, entity copy/delete behavior.
+-   [ ] `@universo-react/types`: ledger schema normalizer, strict schema parsing, reference validation.
+-   [ ] `@universo-react/schema-ddl`: ledger DDL, system columns, idempotency indexes, hybrid component combinations.
+-   [ ] `@universo-react/applications-backend`: source policy, mutation policy, projection validation, compensation facts.
+-   [ ] `@universo-react/metahubs-backend`: template validation, snapshot restore, entity copy/delete behavior.
 -   [ ] `applications-frontend`: widget behavior editor supports `ledger.facts` and `ledger.projection` without LMS-specific branches.
 -   [ ] `apps-template-mui`: table/chart/stat widgets render ledger datasources and suppress demo data when a datasource is configured.
 
@@ -762,31 +762,31 @@ Use existing identifier helpers for dynamic schema/table names and parameter pla
 Run focused checks first:
 
 ```bash
-pnpm --filter @universo/types test -- ledgers
-pnpm --filter @universo/metahubs-frontend exec vitest run \
+pnpm --filter @universo-react/types test -- ledgers
+pnpm --filter @universo-react/metahubs-frontend exec vitest run \
   src/domains/entities/ui/__tests__/LedgerSchemaFields.test.tsx \
   src/domains/entities/ui/__tests__/EntityInstanceList.test.tsx \
   src/domains/entities/metadata/fieldDefinition/ui/__tests__/FieldDefinitionList.ledgerRoles.test.tsx
-pnpm --filter @universo/metahubs-backend test -- templateManifestValidator metahubSchemaService
-pnpm --filter @universo/applications-backend test -- runtimeLedgersService runtimePostingMovements
-pnpm --filter @universo/schema-ddl test -- SchemaGenerator
+pnpm --filter @universo-react/metahubs-backend test -- templateManifestValidator metahubSchemaService
+pnpm --filter @universo-react/applications-backend test -- runtimeLedgersService runtimePostingMovements
+pnpm --filter @universo-react/schema-ddl test -- SchemaGenerator
 ```
 
 Then package builds and lint:
 
 ```bash
 rg "kind === 'ledger'|kind !== 'ledger'|WHERE kind = 'ledger'|supportedKinds: \\['ledger'\\]|cat_%|tbl_%" \
-  packages/schema-ddl/base \
-  packages/metahubs-backend/base/src \
-  packages/applications-backend/base/src \
-  packages/applications-frontend/base/src \
-  packages/apps-template-mui/src
-pnpm --filter @universo/types build
-pnpm --filter @universo/metahubs-frontend lint
-pnpm --filter @universo/metahubs-frontend build
-pnpm --filter @universo/metahubs-backend build
-pnpm --filter @universo/applications-backend build
-pnpm --filter @universo/schema-ddl build
+  packages/universo-react-schema-ddl/base \
+  packages/universo-react-metahubs-backend/base/src \
+  packages/universo-react-applications-backend/base/src \
+  packages/universo-react-applications-frontend/base/src \
+  packages/universo-react-apps-template-mui/src
+pnpm --filter @universo-react/types build
+pnpm --filter @universo-react/metahubs-frontend lint
+pnpm --filter @universo-react/metahubs-frontend build
+pnpm --filter @universo-react/metahubs-backend build
+pnpm --filter @universo-react/applications-backend build
+pnpm --filter @universo-react/schema-ddl build
 pnpm docs:i18n:check
 git diff --check
 ```

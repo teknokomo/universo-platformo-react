@@ -6,15 +6,15 @@ description: How to run and use the interactive OpenAPI and Swagger documentatio
 
 ## Package
 
-The interactive REST reference is served by `@universo/rest-docs`.
+The interactive REST reference is served by `@universo-react/rest-docs`.
 
 ## Build And Start
 
 Run the commands from the repository root:
 
 ```bash
-pnpm --filter @universo/rest-docs build
-pnpm --filter @universo/rest-docs start
+pnpm --filter @universo-react/rest-docs build
+pnpm --filter @universo-react/rest-docs start
 ```
 
 The docs server is exposed by default at `http://localhost:6655/api-docs`.

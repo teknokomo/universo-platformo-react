@@ -1,0 +1,541 @@
+import { useCallback, useMemo, useState, type MouseEvent } from 'react'
+import { useParams } from 'react-router-dom'
+import { Box, Skeleton, Stack, Typography } from '@mui/material'
+import AddRoundedIcon from '@mui/icons-material/AddRounded'
+import { useTranslation } from 'react-i18next'
+import { useCommonTranslations } from '@universo-react/i18n'
+import { useSnackbar } from 'notistack'
+import { useAuth } from '@universo-react/auth-frontend'
+import { canManageRole } from '@universo-react/types'
+import type { ApplicationRole } from '@universo-react/types'
+import { isPendingEntity, getPendingAction } from '@universo-react/utils'
+
+// project imports
+import {
+    TemplateMainCard as MainCard,
+    ItemCard,
+    ToolbarControls,
+    EmptyListState,
+    SkeletonGrid,
+    APIEmptySVG,
+    usePaginated,
+    useDebouncedSearch,
+    PaginationControls,
+    FlowListTable,
+    gridSpacing,
+    ConfirmDialog,
+    useConfirm,
+    RoleChip
+} from '@universo-react/template-mui'
+import type { ActionContext, AssignableRole, TableColumn } from '@universo-react/template-mui'
+import { MemberFormDialog, ConfirmDeleteDialog } from '@universo-react/template-mui/components/dialogs'
+import { BaseEntityMenu, ViewHeaderMUI as ViewHeader } from '@universo-react/template-mui'
+import type { MemberFormData } from '@universo-react/template-mui'
+
+import { useInviteMember, useRemoveMember, useUpdateMemberRole } from '../hooks/mutations'
+import { useViewPreference } from '../hooks/useViewPreference'
+import { STORAGE_KEYS } from '../constants/storage'
+import * as applicationsApi from '../api/applications'
+import { applicationsQueryKeys } from '../api/queryKeys'
+import { ApplicationMember, getVLCString } from '../types'
+import { extractLocalizedInput } from '../utils/localizedInput'
+import applicationMemberActions from './ApplicationMemberActions'
+
+// Re-export MemberFormData as MemberData for backward compatibility
+type MemberData = MemberFormData
+
+function isMemberFormData(data: unknown): data is MemberData {
+    if (!data || typeof data !== 'object') return false
+    const d = data as Record<string, unknown>
+    const hasValidCommentVlc =
+        d.commentVlc === undefined ||
+        (typeof d.commentVlc === 'object' && d.commentVlc !== null && 'locales' in (d.commentVlc as Record<string, unknown>))
+    return (
+        typeof d.email === 'string' &&
+        typeof d.role === 'string' &&
+        ['admin', 'editor', 'member'].includes(d.role) &&
+        (d.comment === undefined || typeof d.comment === 'string') &&
+        hasValidCommentVlc
+    )
+}
+
+interface ConfirmSpec {
+    title?: string
+    titleKey?: string
+    description?: string
+    descriptionKey?: string
+    confirmButtonName?: string
+    confirmKey?: string
+    cancelButtonName?: string
+    cancelKey?: string
+    interpolate?: Record<string, string | number>
+}
+
+export const ApplicationMembers = () => {
+    const { applicationId } = useParams<{ applicationId: string }>()
+    const { user } = useAuth()
+    const { i18n } = useTranslation(['applications', 'roles', 'common', 'flowList'])
+    const { t: tc } = useCommonTranslations()
+
+    const { enqueueSnackbar } = useSnackbar()
+
+    const [isInviteDialogOpen, setInviteDialogOpen] = useState(false)
+    const [view, setView] = useViewPreference(STORAGE_KEYS.MEMBERS_DISPLAY_STYLE)
+
+    const paginationResult = usePaginated<ApplicationMember, 'email' | 'role' | 'created'>({
+        queryKeyFn: (params) => applicationsQueryKeys.membersList(applicationId!, params),
+        queryFn: (params) => applicationsApi.listApplicationMembers(applicationId!, params),
+        initialLimit: 20,
+        sortBy: 'created',
+        sortOrder: 'desc',
+        enabled: !!applicationId
+    })
+
+    const { data: members, isLoading, error } = paginationResult
+
+    const { handleSearchChange } = useDebouncedSearch({
+        onSearchChange: paginationResult.actions.setSearch,
+        delay: 0
+    })
+
+    const [removeDialogState, setRemoveDialogState] = useState<{ open: boolean; member: ApplicationMember | null }>({
+        open: false,
+        member: null
+    })
+
+    const { confirm } = useConfirm()
+
+    const hasResponseStatus = (value: unknown): value is { response: { status: number } } => {
+        if (!value || typeof value !== 'object') {
+            return false
+        }
+
+        const response = (value as { response?: unknown }).response
+        return Boolean(response && typeof response === 'object' && 'status' in response)
+    }
+
+    const inviteMember = useInviteMember()
+    const updateMemberRoleMutation = useUpdateMemberRole()
+    const removeMemberMutation = useRemoveMember()
+
+    const images = useMemo(() => {
+        const imagesMap: Record<string, unknown[]> = {}
+        if (Array.isArray(members)) {
+            members.forEach((member) => {
+                if (member?.id) {
+                    imagesMap[member.id] = []
+                }
+            })
+        }
+        return imagesMap
+    }, [members])
+
+    const handleInviteDialogClose = () => {
+        setInviteDialogOpen(false)
+    }
+
+    const handleInviteDialogSave = () => {
+        setInviteDialogOpen(false)
+    }
+
+    const handleInviteMember = (data: { email: string; role: AssignableRole; commentVlc?: MemberData['commentVlc'] }) => {
+        if (!applicationId) return Promise.resolve()
+
+        const { input: commentInput, primaryLocale: commentPrimaryLocale } = extractLocalizedInput(data.commentVlc)
+        void inviteMember
+            .mutateAsync({
+                applicationId,
+                data: {
+                    email: data.email,
+                    role: data.role,
+                    comment: commentInput ?? null,
+                    commentPrimaryLocale
+                }
+            })
+            .catch(() => undefined)
+        handleInviteDialogSave()
+
+        return Promise.resolve()
+    }
+
+    const resolveMemberComment = useCallback(
+        (member: ApplicationMember) => getVLCString(member.commentVlc ?? undefined, i18n.language) || member.comment || '',
+        [i18n.language]
+    )
+
+    const handleChange = (_event: MouseEvent<HTMLElement> | null, nextView: string | null) => {
+        if (nextView === null) return
+        setView(nextView as 'card' | 'list')
+    }
+
+    const memberColumns = [
+        {
+            id: 'email',
+            label: tc('members.table.email'),
+            width: '25%',
+            align: 'left',
+            sortable: true,
+            sortAccessor: (row: ApplicationMember) => row.email?.toLowerCase() ?? '',
+            render: (row: ApplicationMember) => {
+                if (!row.email) return null
+                return <Typography variant='body2'>{row.email}</Typography>
+            }
+        },
+        {
+            id: 'nickname',
+            label: tc('members.table.nickname'),
+            width: '20%',
+            align: 'left',
+            sortable: true,
+            sortAccessor: (row: ApplicationMember) => row.nickname?.toLowerCase() ?? '',
+            render: (row: ApplicationMember) => {
+                if (!row.nickname) return null
+                return <Typography variant='body2'>{row.nickname}</Typography>
+            }
+        },
+        {
+            id: 'comment',
+            label: tc('members.table.comment'),
+            width: '25%',
+            align: 'left',
+            render: (row: ApplicationMember) => {
+                const comment = resolveMemberComment(row)
+                if (!comment) return null
+                return (
+                    <Typography variant='body2' noWrap sx={{ maxWidth: 200 }}>
+                        {comment}
+                    </Typography>
+                )
+            }
+        },
+        {
+            id: 'role',
+            label: tc('members.table.role'),
+            width: '15%',
+            align: 'center',
+            render: (row: ApplicationMember) => {
+                const roleKey = (row.role || 'member') as ApplicationRole
+                return <RoleChip role={roleKey} />
+            }
+        },
+        {
+            id: 'added',
+            label: tc('members.table.added'),
+            width: '15%',
+            align: 'left',
+            sortable: true,
+            sortAccessor: (row: ApplicationMember) => (row.createdAt ? new Date(row.createdAt).getTime() : 0),
+            render: (row: ApplicationMember) => {
+                if (!row.createdAt) return null
+                return <Typography variant='body2'>{new Date(row.createdAt).toLocaleDateString()}</Typography>
+            }
+        }
+    ] satisfies TableColumn<ApplicationMember>[]
+
+    const createMemberContext = useCallback(
+        (baseContext: Partial<ActionContext<ApplicationMember, MemberData>>): ActionContext<ApplicationMember, MemberData> => ({
+            ...baseContext,
+            entity: baseContext.entity!,
+            entityKind: 'member',
+            t: baseContext.t!,
+            api: {
+                updateEntity: (id: string, data: MemberData) => {
+                    if (!applicationId) return Promise.resolve()
+                    if (!isMemberFormData(data)) {
+                        throw new Error('Invalid member data format')
+                    }
+                    void updateMemberRoleMutation
+                        .mutateAsync({
+                            applicationId,
+                            memberId: id,
+                            data: (() => {
+                                const { input: commentInput, primaryLocale: commentPrimaryLocale } = extractLocalizedInput(data.commentVlc)
+                                return {
+                                    role: data.role as AssignableRole,
+                                    comment: commentInput ?? null,
+                                    commentPrimaryLocale
+                                }
+                            })()
+                        })
+                        .catch(() => undefined)
+
+                    return Promise.resolve()
+                },
+                deleteEntity: (id: string) => {
+                    if (!applicationId) return Promise.resolve()
+                    removeMemberMutation.mutate({ applicationId, memberId: id })
+                    return Promise.resolve()
+                }
+            },
+            helpers: {
+                refreshList: async () => Promise.resolve(),
+                confirm: async (spec: ConfirmSpec) => {
+                    const confirmed = await confirm({
+                        title: spec.titleKey && baseContext.t ? baseContext.t(spec.titleKey, spec.interpolate) : spec.title || '',
+                        description:
+                            spec.descriptionKey && baseContext.t
+                                ? baseContext.t(spec.descriptionKey, spec.interpolate)
+                                : spec.description || '',
+                        confirmButtonName:
+                            spec.confirmKey && baseContext.t
+                                ? baseContext.t(spec.confirmKey)
+                                : spec.confirmButtonName || (baseContext.t ? baseContext.t('confirm.remove.confirm') : 'Confirm'),
+                        cancelButtonName:
+                            spec.cancelKey && baseContext.t
+                                ? baseContext.t(spec.cancelKey)
+                                : spec.cancelButtonName || (baseContext.t ? baseContext.t('confirm.remove.cancel') : 'Cancel')
+                    })
+                    return confirmed
+                },
+                enqueueSnackbar: (payload: {
+                    message: string
+                    options?: { variant?: 'default' | 'error' | 'success' | 'warning' | 'info' }
+                }) => {
+                    if (payload?.message) {
+                        enqueueSnackbar(payload.message, payload.options)
+                    }
+                },
+                openDeleteDialog: (member: ApplicationMember) => {
+                    setRemoveDialogState({ open: true, member })
+                }
+            }
+        }),
+        [confirm, enqueueSnackbar, applicationId, removeMemberMutation, updateMemberRoleMutation]
+    )
+
+    if (!applicationId) {
+        return (
+            <MainCard
+                sx={{ maxWidth: '100%', width: '100%' }}
+                contentSX={{ px: 0, py: 0 }}
+                disableContentPadding
+                disableHeader
+                border={false}
+                shadow={false}
+            >
+                <EmptyListState image={APIEmptySVG} imageAlt='Invalid application' title={tc('errors.connectionFailed')} />
+            </MainCard>
+        )
+    }
+
+    return (
+        <MainCard
+            sx={{ maxWidth: '100%', width: '100%' }}
+            contentSX={{ px: 0, py: 0 }}
+            disableContentPadding
+            disableHeader
+            border={false}
+            shadow={false}
+        >
+            {error ? (
+                <EmptyListState
+                    image={APIEmptySVG}
+                    imageAlt='Connection error'
+                    title={tc('errors.connectionFailed')}
+                    description={!hasResponseStatus(error) ? tc('errors.checkConnection') : tc('errors.pleaseTryLater')}
+                    action={{
+                        label: tc('actions.retry'),
+                        onClick: () => paginationResult.actions.goToPage(1)
+                    }}
+                />
+            ) : (
+                <Stack flexDirection='column' sx={{ gap: 1 }}>
+                    <ViewHeader
+                        search={true}
+                        searchPlaceholder={tc('members.searchPlaceholder')}
+                        onSearchChange={handleSearchChange}
+                        title={tc('members.title')}
+                    >
+                        <ToolbarControls
+                            viewToggleEnabled
+                            viewMode={view as 'card' | 'list'}
+                            onViewModeChange={(mode: string) => handleChange(null, mode)}
+                            cardViewTitle={tc('cardView')}
+                            listViewTitle={tc('listView')}
+                            primaryAction={{
+                                label: tc('members.inviteMember'),
+                                onClick: () => setInviteDialogOpen(true),
+                                startIcon: <AddRoundedIcon />
+                            }}
+                        />
+                    </ViewHeader>
+
+                    {isLoading && members.length === 0 ? (
+                        view === 'card' ? (
+                            <SkeletonGrid />
+                        ) : (
+                            <Skeleton variant='rectangular' height={120} />
+                        )
+                    ) : !isLoading && members.length === 0 ? (
+                        <EmptyListState image={APIEmptySVG} imageAlt='No members' title={tc('members.noMembersFound')} />
+                    ) : (
+                        <>
+                            {view === 'card' ? (
+                                <Box
+                                    sx={{
+                                        display: 'grid',
+                                        gap: gridSpacing,
+                                        mx: { xs: -1.5, md: -2 },
+                                        gridTemplateColumns: {
+                                            xs: '1fr',
+                                            sm: 'repeat(auto-fill, minmax(240px, 1fr))',
+                                            lg: 'repeat(auto-fill, minmax(260px, 1fr))'
+                                        },
+                                        justifyContent: 'start',
+                                        alignContent: 'start'
+                                    }}
+                                >
+                                    {members.map((member: ApplicationMember) => {
+                                        const descriptors = applicationMemberActions.filter((_descriptor) => {
+                                            if (member.role === 'owner') {
+                                                return false
+                                            }
+
+                                            const currentMember = members.find((m) => m.userId === user?.id)
+                                            if (!currentMember) return false
+
+                                            return canManageRole(currentMember.role, member.role)
+                                        })
+
+                                        return (
+                                            <ItemCard
+                                                key={member.id}
+                                                data={{
+                                                    ...member,
+                                                    name: member.email || tc('noEmail'),
+                                                    description:
+                                                        [member.nickname, resolveMemberComment(member)].filter(Boolean).join('\n') ||
+                                                        undefined
+                                                }}
+                                                images={images[member.id] || []}
+                                                onClick={undefined}
+                                                pending={isPendingEntity(member)}
+                                                pendingAction={getPendingAction(member)}
+                                                footerEndContent={<RoleChip role={member.role} size='small' />}
+                                                headerAction={
+                                                    descriptors.length > 0 ? (
+                                                        <Box onClick={(e) => e.stopPropagation()}>
+                                                            <BaseEntityMenu<ApplicationMember, MemberFormData>
+                                                                entity={member}
+                                                                entityKind='member'
+                                                                descriptors={descriptors}
+                                                                namespace='applications'
+                                                                i18nInstance={i18n}
+                                                                createContext={createMemberContext}
+                                                            />
+                                                        </Box>
+                                                    ) : null
+                                                }
+                                            />
+                                        )
+                                    })}
+                                </Box>
+                            ) : (
+                                <Box sx={{ mx: { xs: -1.5, md: -2 } }}>
+                                    <FlowListTable
+                                        data={members}
+                                        images={images}
+                                        isLoading={isLoading}
+                                        getRowLink={() => undefined}
+                                        customColumns={memberColumns}
+                                        i18nNamespace='flowList'
+                                        renderActions={(row: ApplicationMember) => {
+                                            if (row.role === 'owner') {
+                                                return null
+                                            }
+
+                                            const currentMember = members.find((m) => m.userId === user?.id)
+                                            if (!currentMember) return null
+
+                                            if (!canManageRole(currentMember.role, row.role)) {
+                                                return null
+                                            }
+
+                                            const descriptors = applicationMemberActions
+
+                                            return (
+                                                <BaseEntityMenu<ApplicationMember, MemberFormData>
+                                                    entity={row}
+                                                    entityKind='member'
+                                                    descriptors={descriptors}
+                                                    namespace='applications'
+                                                    menuButtonLabelKey='flowList:menu.button'
+                                                    i18nInstance={i18n}
+                                                    createContext={createMemberContext}
+                                                />
+                                            )
+                                        }}
+                                    />
+                                </Box>
+                            )}
+                        </>
+                    )}
+
+                    {!isLoading && members.length > 0 && (
+                        <Box sx={{ mx: { xs: -1.5, md: -2 }, mt: 2 }}>
+                            <PaginationControls
+                                pagination={paginationResult.pagination}
+                                actions={paginationResult.actions}
+                                isLoading={paginationResult.isLoading}
+                                rowsPerPageOptions={[10, 20, 50, 100]}
+                                namespace='common'
+                            />
+                        </Box>
+                    )}
+                </Stack>
+            )}
+
+            <MemberFormDialog
+                open={isInviteDialogOpen}
+                mode='create'
+                title={tc('members.inviteMember')}
+                emailLabel={tc('members.emailLabel')}
+                roleLabel={tc('members.roleLabel')}
+                commentLabel={tc('members.commentLabel')}
+                commentPlaceholder={tc('members.commentPlaceholder')}
+                commentCharacterCountFormatter={(count, max) => tc('members.validation.commentCharacterCount', { count, max })}
+                commentTooLongMessage={tc('members.validation.commentTooLong')}
+                commentMode='localized'
+                uiLocale={i18n.language}
+                saveButtonText={tc('actions.save', 'Save')}
+                savingButtonText={tc('actions.saving', 'Saving...')}
+                cancelButtonText={tc('actions.cancel', 'Cancel')}
+                loading={inviteMember.isPending}
+                onClose={handleInviteDialogClose}
+                onSave={handleInviteMember}
+                autoCloseOnSuccess={false}
+                availableRoles={['admin', 'editor', 'member']}
+                roleLabels={{
+                    admin: tc('members.roles.admin'),
+                    editor: tc('members.roles.editor'),
+                    member: tc('members.roles.member')
+                }}
+            />
+
+            <ConfirmDeleteDialog
+                open={removeDialogState.open}
+                title={removeDialogState.member?.userId === user?.id ? tc('members.selfActionWarning') : tc('members.confirmRemove')}
+                description={
+                    removeDialogState.member?.userId === user?.id
+                        ? tc('members.selfActionWarning')
+                        : tc('members.confirmRemoveDescription', { email: removeDialogState.member?.email || '' })
+                }
+                confirmButtonText={tc('actions.remove', 'Remove')}
+                deletingButtonText={tc('actions.deleting', 'Removing...')}
+                cancelButtonText={tc('actions.cancel', 'Cancel')}
+                onCancel={() => setRemoveDialogState({ open: false, member: null })}
+                onConfirm={() => {
+                    if (removeDialogState.member && applicationId) {
+                        removeMemberMutation.mutate({ applicationId, memberId: removeDialogState.member.id })
+                        setRemoveDialogState({ open: false, member: null })
+                    }
+                    return Promise.resolve()
+                }}
+            />
+
+            <ConfirmDialog />
+        </MainCard>
+    )
+}
+
+export default ApplicationMembers

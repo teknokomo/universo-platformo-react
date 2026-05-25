@@ -6,21 +6,21 @@ Rebuild the Application Admin `Layouts` surface so it matches the shipped metahu
 
 The target is not just visual resemblance. The Application and Metahub surfaces should converge on the same extracted core component tree for list/detail authoring, with only thin consumer adapters for data, permissions, lineage, and route wiring.
 
-This plan intentionally treats the current application layouts UI as an intermediate prototype, not as a final contract. The backend merge/safety model stays, while the frontend must be refactored toward true metahub parity and shared ownership in `@universo/template-mui`.
+This plan intentionally treats the current application layouts UI as an intermediate prototype, not as a final contract. The backend merge/safety model stays, while the frontend must be refactored toward true metahub parity and shared ownership in `@universo-react/template-mui`.
 
 ## Current Implementation Gap Summary
 
 ### Confirmed UX gaps
 
 - The Application Admin layout list page uses a separate card/list implementation instead of the metahub `LayoutListContent` pattern.
-- Shared layout UI extraction into `@universo/template-mui` is still incomplete; detail authoring is now extracted, but list-shell rendering and widget editor dialogs are still not fully shared.
-- The actual shell menu is driven by `@universo/template-mui` navigation, while `applications-frontend` still carries a legacy local menu definition. This already caused one shipped regression and shows the current ownership boundaries are blurred.
+- Shared layout UI extraction into `@universo-react/template-mui` is still incomplete; detail authoring is now extracted, but list-shell rendering and widget editor dialogs are still not fully shared.
+- The actual shell menu is driven by `@universo-react/template-mui` navigation, while `applications-frontend` still carries a legacy local menu definition. This already caused one shipped regression and shows the current ownership boundaries are blurred.
 - Current Playwright coverage proves application-side browser flows and stores screenshots, but it still does not enforce automated screenshot/DOM parity between Metahub and Application surfaces.
 
 ### Confirmed code seams
 
-- Metahub list UI already has a reusable core: `packages/metahubs-frontend/base/src/domains/layouts/ui/LayoutList.tsx` exports `LayoutListContent`.
-- Metahub detail UI now already consumes the extracted shared authoring core: `packages/metahubs-frontend/base/src/domains/layouts/ui/LayoutDetails.tsx`.
+- Metahub list UI already has a reusable core: `packages/universo-react-metahubs-frontend/base/src/domains/layouts/ui/LayoutList.tsx` exports `LayoutListContent`.
+- Metahub detail UI now already consumes the extracted shared authoring core: `packages/universo-react-metahubs-frontend/base/src/domains/layouts/ui/LayoutDetails.tsx`.
 - The repo already standardizes on `@dnd-kit/core` / `@dnd-kit/sortable`, so no new drag-and-drop library is needed.
 - Application layout backend contracts already exist and are good enough to support a richer UI, but the frontend contracts are currently too application-specific and too far from the metahub authoring surface.
 
@@ -49,35 +49,35 @@ The previous failure happened because the Application surface was built as a par
 
 ### Frontend packages
 
-- `packages/universo-template-mui/base`
+- `packages/universo-react-template-mui/base`
   - add shared layout list/detail authoring components
   - add shared layout widget row, zone column, header actions, and dialog launcher contracts
   - add shared layout test helpers/selectors where useful
-- `packages/metahubs-frontend/base`
+- `packages/universo-react-metahubs-frontend/base`
   - refactor existing metahub layout list/detail pages to consume extracted shared components
   - keep metahub-specific API hooks, inheritance logic, and permission wiring in metahubs
-- `packages/applications-frontend/base`
+- `packages/universo-react-applications-frontend/base`
   - replace the current custom `ApplicationLayouts.tsx` list/detail UI with the shared authoring system
   - add application-specific adapters for lineage/sync-state/source actions
   - preserve existing connector diff dialog and application-side mutations
-- `packages/universo-core-frontend/base`
+- `packages/universo-react-core-frontend/base`
   - verify route shell and breadcrumbs stay aligned after UI refactor
-- `packages/universo-i18n/base`
+- `packages/universo-react-i18n/base`
   - move repeated shared layout strings out of package-local JSON where appropriate
 
 ### Shared contracts and utilities
 
-- `packages/universo-types/base`
+- `packages/universo-react-types/base`
   - add shared frontend-facing layout authoring types if current metahub/application page props are too divergent
-- `packages/universo-utils/base`
+- `packages/universo-react-utils/base`
   - add tiny shared helpers only where they reduce duplication between metahub/application authoring adapters
 
 ### Backend and API
 
-- `packages/applications-backend/base`
+- `packages/universo-react-applications-backend/base`
   - may need small response enrichments if the shared UI needs stronger parity fields
   - keep SQL-first safety model and current sync guarantees
-- `packages/metahubs-backend/base`
+- `packages/universo-react-metahubs-backend/base`
   - likely no functional change unless shared UI extraction reveals missing symmetry in widget catalog/detail payloads
 
 ### Docs and tests
@@ -92,9 +92,9 @@ The previous failure happened because the Application surface was built as a par
 
 ## Key Architecture Decisions
 
-### 1. The shared source of truth must live in `@universo/template-mui`
+### 1. The shared source of truth must live in `@universo-react/template-mui`
 
-Any UI reused by both Metahubs and Applications must move into `@universo/template-mui`, not remain inside `metahubs-frontend`. Consumer packages should provide:
+Any UI reused by both Metahubs and Applications must move into `@universo-react/template-mui`, not remain inside `metahubs-frontend`. Consumer packages should provide:
 
 - data loading;
 - mutation callbacks;
@@ -115,7 +115,7 @@ The backend application layout model already carries provenance and conflict sem
 
 The default strategy is:
 
-- move the existing `LayoutListContent` and `LayoutDetails` implementation seams into `@universo/template-mui`;
+- move the existing `LayoutListContent` and `LayoutDetails` implementation seams into `@universo-react/template-mui`;
 - preserve existing markup, selectors, spacing, and interaction semantics;
 - keep Metahub and Application packages as thin adapter layers.
 
@@ -130,7 +130,7 @@ Use the already adopted `@dnd-kit/core` and `@dnd-kit/sortable`. Do not introduc
 The stale `applications-frontend/src/menu-items/applicationDashboard.ts` contract is now a liability. The plan should either:
 
 - remove it if unused, or
-- reduce it to a compatibility shim with a clear deprecation note and tests proving the canonical menu lives in `@universo/template-mui`.
+- reduce it to a compatibility shim with a clear deprecation note and tests proving the canonical menu lives in `@universo-react/template-mui`.
 
 ## Implementation Plan
 
@@ -154,9 +154,9 @@ The stale `applications-frontend/src/menu-items/applicationDashboard.ts` contrac
   - source/sync-state badges.
 - [ ] Freeze screenshot artifacts for this phase so later Playwright assertions compare against real UI, not assumptions.
 
-### Phase 1 — Extract shared list authoring shell into `@universo/template-mui`
+### Phase 1 — Extract shared list authoring shell into `@universo-react/template-mui`
 
-- [ ] Move the metahub `LayoutListContent` implementation into `@universo/template-mui` with the smallest safe structural change, preserving the current visual hierarchy and behavior.
+- [ ] Move the metahub `LayoutListContent` implementation into `@universo-react/template-mui` with the smallest safe structural change, preserving the current visual hierarchy and behavior.
 - [ ] Preserve the existing card/list toggle behavior, search flow, pagination shape, card actions, and spacing from the metahub screen.
 - [ ] Introduce new shared list primitives only when they emerge naturally during extraction; do not pre-split the screen into a large new component taxonomy up front.
 - [ ] Design new props/interfaces only where the existing metahub contract cannot cross package boundaries cleanly.
@@ -198,7 +198,7 @@ type LayoutAuthoringListPageShellProps = {
 
 ### Phase 2 — Extract shared detail authoring shell and widget-zone editor
 
-- [ ] Move the metahub `LayoutDetails.tsx` editor into `@universo/template-mui` as the canonical shared authoring surface with minimal markup churn.
+- [ ] Move the metahub `LayoutDetails.tsx` editor into `@universo-react/template-mui` as the canonical shared authoring surface with minimal markup churn.
 - [ ] Preserve the existing drag-and-drop widget rows, zone columns, add-widget menu placement, behavior panel, and icon/action layout instead of redesigning them for Applications.
 - [ ] Extract small reusable pieces from `LayoutDetails.tsx` only where they are already distinct seams in the existing code.
 - [ ] Keep consumer-specific dialog openers outside the lowest-level primitives, but make the row/actions/rendering identical.
@@ -237,7 +237,7 @@ type LayoutAuthoringDetailsShellProps = {
   - columns container editor
   - quiz widget editor
   - shared widget behavior editor
-- [ ] Move the existing dialog UI and validation into `@universo/template-mui` by extraction first; do not replace them with a new application-only editor stack.
+- [ ] Move the existing dialog UI and validation into `@universo-react/template-mui` by extraction first; do not replace them with a new application-only editor stack.
 - [ ] Keep API submission and consumer-specific data normalization in metahubs/applications packages.
 - [ ] Replace the application page’s raw JSON widget config editor with the same dialog-based editor system used by metahubs.
 - [ ] Keep a structured JSON fallback only for unsupported widget types, and clearly isolate it behind a shared expert-mode component rather than making it the default editor.
@@ -245,7 +245,7 @@ type LayoutAuthoringDetailsShellProps = {
 
 ### Phase 4 — Application-specific adapter layer on top of shared UI
 
-- [ ] Replace the current `packages/applications-frontend/base/src/pages/ApplicationLayouts.tsx` implementation with an adapter-based page using the shared list/detail authoring components.
+- [ ] Replace the current `packages/universo-react-applications-frontend/base/src/pages/ApplicationLayouts.tsx` implementation with an adapter-based page using the shared list/detail authoring components.
 - [ ] Remove the current bespoke card/detail/widget-management implementation rather than keeping it in parallel behind alternate branches or duplicated routes.
 - [ ] Add an application-specific view model mapper that transforms application layout DTOs into the shared list/detail item contracts.
 - [ ] Preserve application-only capabilities:
@@ -298,13 +298,13 @@ await executor.query(
 
 - [ ] Remove or deprecate duplicate application sidebar menu declarations so the canonical shell menu remains in one place.
 - [ ] Remove or deprecate any remaining legacy application-layout UI exports/helpers that would allow the old bespoke surface to drift back in later work.
-- [ ] Move truly shared layout UI strings into `packages/universo-i18n` where they are used by both Metahubs and Applications.
+- [ ] Move truly shared layout UI strings into `packages/universo-react-i18n` where they are used by both Metahubs and Applications.
 - [ ] Keep package-local strings only for consumer-specific copy such as conflict/source messages.
 - [ ] Re-check breadcrumbs and page titles for the application routes after the UI replacement.
 
 ### Phase 7 — Test system rebuild for UI parity
 
-- [ ] Expand Jest coverage in `@universo/template-mui` for:
+- [ ] Expand Jest coverage in `@universo-react/template-mui` for:
   - shared list shell rendering
   - shared detail shell rendering
   - drag-and-drop reorder callbacks
@@ -338,11 +338,11 @@ await executor.query(
   - `applications-frontend`
   - `metahubs-frontend`
   - `universo-template-mui`
-- [ ] Document that shared layout authoring UI lives in `@universo/template-mui`, while consumer packages own API adapters and route wiring.
+- [ ] Document that shared layout authoring UI lives in `@universo-react/template-mui`, while consumer packages own API adapters and route wiring.
 
 ## Additional Refactoring Targets
 
-- [ ] Audit whether `packages/applications-frontend/base/src/menu-items/applicationDashboard.ts` should be deleted or converted into a compatibility export that delegates to canonical menu config.
+- [ ] Audit whether `packages/universo-react-applications-frontend/base/src/menu-items/applicationDashboard.ts` should be deleted or converted into a compatibility export that delegates to canonical menu config.
 - [ ] Audit whether `LayoutListContent` and `LayoutDetails` exports from `metahubs-frontend` should shrink to adapter wrappers around shared `template-mui` components.
 - [ ] Audit whether any newly introduced shared type/interface is genuinely required; remove speculative abstractions that do not reduce duplication in both consumers.
 - [ ] Audit docs and READMEs that currently overstate application layout completeness and align them with the refactored shared authoring architecture.
@@ -387,7 +387,7 @@ Do not patch gaps in the frontend with guesswork. Extend DTOs and typed response
 
 **Mitigation**
 
-`@universo/template-mui` must depend only on shared types/utilities, never on `metahubs-frontend` or `applications-frontend`. Consumer packages may wrap shared components, but the dependency direction must stay one-way.
+`@universo-react/template-mui` must depend only on shared types/utilities, never on `metahubs-frontend` or `applications-frontend`. Consumer packages may wrap shared components, but the dependency direction must stay one-way.
 
 ## Acceptance Criteria
 
@@ -396,7 +396,7 @@ Do not patch gaps in the frontend with guesswork. Extend DTOs and typed response
 - Application and Metahub list/detail pages share the same extracted core implementation instead of maintaining two separate authoring UIs.
 - The default application widget editing path uses structured dialogs, not raw JSON editing.
 - Widget editor dialogs are shared or clearly proven to be consumer-specific thin wrappers over shared dialog content.
-- Shared authoring UI lives in `@universo/template-mui`.
+- Shared authoring UI lives in `@universo-react/template-mui`.
 - Metahub and Application pages both consume the shared authoring system.
 - Existing backend lineage/sync safety remains intact.
 - Tests cover shared UI, application adapters, metahub adapters, and real browser flows.

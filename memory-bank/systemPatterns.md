@@ -34,12 +34,12 @@
 
 **Required**:
 
--   `@universo/apps-template-mui` runtime widgets with the same module-discovery contract should use `useRuntimeWidgetClientModule(...)` from `runtimeWidgetHelpers.ts`.
+-   `@universo-react/apps-template-mui` runtime widgets with the same module-discovery contract should use `useRuntimeWidgetClientModule(...)` from `runtimeWidgetHelpers.ts`.
 -   Shared filtering/dedup must stay centralized through `filterRuntimeWidgetModules(...)` and `selectRuntimeWidgetModule(...)` so widget-specific components only own their model query and render logic.
 -   The hook must preserve the current dual-scope lookup contract: entity-attached modules when a linked collection is present, metahub-attached modules otherwise, with `attachedToKind` still able to constrain either side.
 -   Add focused component coverage when a new widget adopts the hook, because the shared hook is a runtime boundary between module metadata and widget rendering.
 
-**Detection**: `rg "fetchRuntimeModules|fetchRuntimeClientBundle|useRuntimeWidgetClientModule" packages/apps-template-mui/src/dashboard/components`
+**Detection**: `rg "fetchRuntimeModules|fetchRuntimeClientBundle|useRuntimeWidgetClientModule" packages/universo-react-apps-template-mui/src/dashboard/components`
 
 **Why**: the 2026-04-20 LMS QA remediation finish found that `ModuleViewerWidget` and `StatsViewerWidget` had drifted into copy-pasted module-loading logic. Centralizing the shared query path reduces widget drift and keeps future runtime widget fixes one-place.
 
@@ -54,7 +54,7 @@
 -   Prefer compatibility-safe hardening that avoids schema-version churn when the existing column can safely hold the structured envelope.
 -   Public runtime module bundles served without authenticated dashboard chrome must set explicit JavaScript MIME type and defensive browser headers (`nosniff`, CSP, cache policy).
 
-**Detection**: `rg "expiresAt|guest_session_token|X-Content-Type-Options|Content-Security-Policy" packages/applications-backend/src/controllers/runtimeGuestController.ts`
+**Detection**: `rg "expiresAt|guest_session_token|X-Content-Type-Options|Content-Security-Policy" packages/universo-react-applications-backend/src/controllers/runtimeGuestController.ts`
 
 **Why**: the 2026-04-20 LMS QA remediation finish closed the remaining public guest-runtime hardening gap without forcing a schema migration by serializing the server-side session envelope into the existing students token column.
 
@@ -69,7 +69,7 @@
 -   Revalidate the focused `entityInstancesRoutes.test.ts` suite plus the touched backend package build and canonical root build before closing the slice.
 -   Do not describe the backend as fully de-specialized while `entityInstancesController.ts` still instantiates the specialized child controllers internally.
 
-**Detection**: `rg "dispatchStandardRouteKind|create(Tree|LinkedCollection|ValueGroup|OptionList)Controller|listNestedStandardInstances|listOptionValues" packages/metahubs-backend/src/domains/entities`
+**Detection**: `rg "dispatchStandardRouteKind|create(Tree|LinkedCollection|ValueGroup|OptionList)Controller|listNestedStandardInstances|listOptionValues" packages/universo-react-metahubs-backend/src/domains/entities`
 
 **Why**: the 2026-04-15 backend closure slice proved that moving the live route seam out of `entityInstancesRoutes.ts` was a safe intermediate step. It reduced active router ownership without forcing a riskier one-pass rewrite of nested standard child CRUD/value semantics.
 
@@ -86,7 +86,7 @@
 -   Add focused route coverage for the entity-owned endpoint in the same slice, because many nested standard child paths were previously under-tested relative to the router and blocking-endpoint surfaces.
 -   Keep the remaining specialized controller dependencies explicitly documented after each cut so progress is measurable and closure claims stay honest.
 
-**Detection**: `rg "create(Tree|LinkedCollection|ValueGroup|OptionList)Controller|listNestedStandardInstances" packages/metahubs-backend/src/domains/entities`
+**Detection**: `rg "create(Tree|LinkedCollection|ValueGroup|OptionList)Controller|listNestedStandardInstances" packages/universo-react-metahubs-backend/src/domains/entities`
 
 **Why**: the 2026-04-15 tree-controller removal proved that the backend controller layer can be de-specialized safely in small verified cuts. Removing the smallest single-purpose dependency first reduced the live seam without forcing a risky all-at-once rewrite of nested catalog/value-group/option-list flows.
 
@@ -101,7 +101,7 @@
 -   Keep unsupported-kind and missing-entity behavior explicit instead of silently falling through to unrelated specialized controllers.
 -   Retarget the focused route suite and rerun both the touched package build and the canonical root build before closing the pass.
 
-**Detection**: `rg "blocking-references|blocking-dependencies|treeController|getBlockingReferences|dispatchEntityRoute" packages/metahubs-backend/src/domains/entities`
+**Detection**: `rg "blocking-references|blocking-dependencies|treeController|getBlockingReferences|dispatchEntityRoute" packages/universo-react-metahubs-backend/src/domains/entities`
 
 **Why**: the 2026-04-15 backend consolidation slices proved that hub `blocking-dependencies` and catalog/set/enumeration `blocking-references` could move onto the generic entity-controller + behavior-registry path without changing the frontend-visible contract, removing another real standard-kind ownership seam safely.
 
@@ -117,7 +117,7 @@
 -   Active tab auto-falls-back to first visible tab if the current tab becomes hidden.
 -   i18n keys follow `general.tabs.{fieldDefinitions|fixedValues|optionValues|layouts|modules}` pattern.
 
-**Detection**: `rg "hasAnyEnabledComponent|TabConfig" packages/metahubs-frontend/src/domains/entities/shared`
+**Detection**: `rg "hasAnyEnabledComponent|TabConfig" packages/universo-react-metahubs-frontend/src/domains/entities/shared`
 
 **Why**: the 2026-04-18 QA closure proved that deriving shared pool participation from existing ComponentManifest fields eliminates the need for a separate `hasSharedElements` toggle while making the system work for future custom entity types.
 
@@ -134,7 +134,7 @@
 -   Preserve mounted route segments, request param names, and compatibility payload fields such as `targetConstantId` while those remain transport/runtime truth and have not been explicitly migrated.
 -   Revalidate the touched frontend package slice and rerun the canonical root build before closing the pass.
 
-**Detection**: `rg "listAttributes|getAttribute|createAttribute|listConstants|getConstant|createConstant|listElements|getElement|createElement|createAttributeSchema|createConstantSchema|createElementSchema" packages/metahubs-{frontend,backend}/src/domains/entities/metadata`
+**Detection**: `rg "listAttributes|getAttribute|createAttribute|listConstants|getConstant|createConstant|listElements|getElement|createElement|createAttributeSchema|createConstantSchema|createElementSchema" packages/universo-react-metahubs-{frontend,backend}/src/domains/entities/metadata`
 
 **Why**: the 2026-04-15 metadata helper cleanup proved that the remaining legacy surface could be reduced safely by neutralizing export/hook/schema contracts first, without conflating that work with a riskier mounted-route migration in the same change.
 
@@ -149,7 +149,7 @@
 -   Preserve i18n namespaces, kind keys, route strings, and data semantics while those remain the current runtime truth and have not been explicitly migrated.
 -   Revalidate the touched frontend package slice and rerun the canonical root build before closing the pass.
 
-**Detection**: `rg "const (HubList|CatalogList|SetList|EnumerationList)|export default (HubList|CatalogList|SetList|EnumerationList)|\bhubActions\b" packages/metahubs-frontend/src`
+**Detection**: `rg "const (HubList|CatalogList|SetList|EnumerationList)|export default (HubList|CatalogList|SetList|EnumerationList)|\bhubActions\b" packages/universo-react-metahubs-frontend/src`
 
 **Why**: the 2026-04-14 standard UI alias cleanup proved that even after larger route/runtime cutovers, thin local alias seams can still keep active source looking legacy-owned unless they are removed explicitly and validated like any other entity-first slice.
 
@@ -165,7 +165,7 @@
 -   Preserve mounted URL strings, backend route params, and deeper transport semantics while those remain the live server contract and have not been explicitly migrated.
 -   Revalidate the touched frontend package slice and rerun the canonical root build before closing the pass.
 
-**Detection**: `rg "buildEntity(Hub|Catalog|Set|Enumeration)AuthoringPath|buildCatalogInstancePath|buildHubScopedCatalogPath|buildSetInstancePath|buildHubScopedSetPath|buildEnumerationInstancePath|buildHubScopedEnumerationPath|buildHubInstance(s)?Path" packages/metahubs-frontend/src`
+**Detection**: `rg "buildEntity(Hub|Catalog|Set|Enumeration)AuthoringPath|buildCatalogInstancePath|buildHubScopedCatalogPath|buildSetInstancePath|buildHubScopedSetPath|buildEnumerationInstancePath|buildHubScopedEnumerationPath|buildHubInstance(s)?Path" packages/universo-react-metahubs-frontend/src`
 
 **Why**: the 2026-04-14 authoring-route-builder cleanup proved that one more visible business-owned seam could be removed safely by renaming only the shared symbol/helper contract while leaving the mounted backend transport shape untouched.
 
@@ -180,7 +180,7 @@
 -   Preserve HTTP path builders, backend payload semantics, and deeper data-kind terminology while those remain transport/domain truth and have not been explicitly migrated.
 -   Revalidate the touched frontend package slice and rerun the canonical root build before closing the pass.
 
-**Detection**: `rg "createCatalogAtMetahub|createSetAtMetahub|createEnumerationAtMetahub|getCatalogById|getSetById|getEnumerationById|listEnumerationValues" packages/metahubs-frontend/src`
+**Detection**: `rg "createCatalogAtMetahub|createSetAtMetahub|createEnumerationAtMetahub|getCatalogById|getSetById|getEnumerationById|listEnumerationValues" packages/universo-react-metahubs-frontend/src`
 
 **Why**: the 2026-04-14 standard-runtime API helper cleanup proved that the entity-owned runtime can drop another major layer of old business naming by retargeting the direct data-access contract alone, without forcing an unsafe path/transport migration in the same change.
 
@@ -195,7 +195,7 @@
 -   Preserve API path shapes, translation namespaces, and durable kind semantics while those are still the backend/data truth and have not been explicitly migrated.
 -   Revalidate the touched frontend package slice and rerun the canonical root build before closing the pass.
 
-**Detection**: `rg "useCreateCatalog|useCreateSet|useCreateEnumeration|CatalogFormValues|SetFormValues|EnumerationFormValues|CreateCatalogParams|CreateSetParams|CreateEnumerationParams" packages/metahubs-frontend/src`
+**Detection**: `rg "useCreateCatalog|useCreateSet|useCreateEnumeration|CatalogFormValues|SetFormValues|EnumerationFormValues|CreateCatalogParams|CreateSetParams|CreateEnumerationParams" packages/universo-react-metahubs-frontend/src`
 
 **Why**: the 2026-04-14 standard-runtime mutation contract cleanup proved that a large amount of live business-owned vocabulary was only an export/hook/form seam and could be neutralized safely without changing the underlying API-path or persistence contract in the same step.
 
@@ -210,7 +210,7 @@
 -   Update focused EN/RU locale resources and the touched focused tests in the same change so the neutral runtime contract is locked immediately.
 -   Revalidate the touched package slice and rerun the canonical root build before calling the pass complete.
 
-**Detection**: `rg "availableHubs|selectedHubIds|parentHubId|buildHubScopedCatalogPath|resolveCatalogKindKey|general\.tabs\.(attributes|constants|values)" packages/metahubs-frontend/src`
+**Detection**: `rg "availableHubs|selectedHubIds|parentHubId|buildHubScopedCatalogPath|resolveCatalogKindKey|general\.tabs\.(attributes|constants|values)" packages/universo-react-metahubs-frontend/src`
 
 **Why**: the 2026-04-14 container/shared-runtime cleanup proved that local runtime ownership seams can be removed safely without prematurely rewriting backend persistence or HTTP contracts that need their own migration.
 
@@ -240,7 +240,7 @@
 -   Use `listEntityInstances(...)` for managed `catalog` / `hub` / `set` / `enumeration` selectors and editors when the flow only needs the shared entity list contract.
 -   Treat separate per-kind list clients as specialized-only seams for richer domain payloads, not as the default fetch path for shared generic UI.
 
-**Detection**: `rg "hubsCount|catalogsCount|listAllCatalogs|listAllSets|listAllEnumerations" packages/metahubs-frontend packages/metahubs-backend`
+**Detection**: `rg "hubsCount|catalogsCount|listAllCatalogs|listAllSets|listAllEnumerations" packages/universo-react-metahubs-frontend packages/universo-react-metahubs-backend`
 
 **Why**: the final 2026-04-13 closure wave replaced the fixed metahub board summary shape and the last shared frontend per-kind fetch seams with the unified entity-owned contract.
 
@@ -266,12 +266,12 @@
 
 **Required**:
 
--   `packages/universo-rest-docs/scripts/generate-openapi-source.js` must include `domains/entities/routes/entityInstancesRoutes.ts` in `routeSources` under a dedicated `Entities` tag.
+-   `packages/universo-react-rest-docs/scripts/generate-openapi-source.js` must include `domains/entities/routes/entityInstancesRoutes.ts` in `routeSources` under a dedicated `Entities` tag.
 -   Keep Hubs/Catalogs/Sets/Enumerations tag descriptions explicit that those families are nested or compatibility routes once entity-owned managed paths are the public top-level contract.
 -   Regenerate `src/openapi/index.yml` through the script instead of hand-editing the YAML snapshot.
 -   Treat missing `/metahub/{metahubId}/entities/{kindKey}/instances` or `/instance/{entityId}` entries in generated OpenAPI as documentation drift.
 
-**Detection**: `rg "entityInstancesRoutes|tag: 'Entities'|Nested and compatibility" packages/universo-rest-docs/scripts packages/universo-rest-docs/src/openapi`
+**Detection**: `rg "entityInstancesRoutes|tag: 'Entities'|Nested and compatibility" packages/universo-react-rest-docs/scripts packages/universo-react-rest-docs/src/openapi`
 
 **Why**: the 2026-04-13 closure found that docs could still look legacy-first even after production route ownership had moved, because the generator inventory itself was missing the canonical entity-owned route family.
 
@@ -301,7 +301,7 @@
 -   Keep `extraValuesRef` synchronized only through reset helpers or effects.
 -   Preserve async hydration through `shouldPreserveAsyncHydration(...)` and `hasTouchedExtraValues`.
 
-**Detection**: `rg "isFreshOpen|renderedExtraValues|extraValuesRef\.current =|shouldPreserveAsyncHydration" packages/universo-template-mui`
+**Detection**: `rg "isFreshOpen|renderedExtraValues|extraValuesRef\.current =|shouldPreserveAsyncHydration" packages/universo-react-template-mui`
 
 **Why**: the accepted fix closed both the render-purity issue and the first-open child-update race.
 
@@ -316,7 +316,7 @@
 -   Apply the same contract to both generic entity delete flows and legacy child-delete flows.
 -   Keep direct service-level SQL regressions plus at least one real browser negative-path proof.
 
-**Detection**: `rg "ANY\(\$[0-9]+::text\[\]\)|findSetReferenceBlockers|findReferenceBlockersByTarget|target_object_kind = 'set'|target_object_kind = 'enumeration'" packages/metahubs-backend`
+**Detection**: `rg "ANY\(\$[0-9]+::text\[\]\)|findSetReferenceBlockers|findReferenceBlockersByTarget|target_object_kind = 'set'|target_object_kind = 'enumeration'" packages/universo-react-metahubs-backend`
 
 **Why**: route-level compatibility work is not sufficient if the low-level SQL seam still filters only exact built-in kinds.
 
@@ -404,7 +404,7 @@
 -   Keep legacy built-in object routes as the source of truth until dedicated compatibility phases widen the shared surface.
 -   Let `MetahubObjectsService` accept generic kind strings and transaction runners so shared CRUD code can grow underneath legacy adapters.
 
-**Detection**: `rg "Generic entity routes currently support custom entity kinds only|entityInstancesRoutes|findByCodenameAndKind\(|updateObject\(" packages/metahubs-backend`
+**Detection**: `rg "Generic entity routes currently support custom entity kinds only|entityInstancesRoutes|findByCodenameAndKind\(|updateObject\(" packages/universo-react-metahubs-backend`
 
 **Why**: the shared object plumbing is ready, but built-in design-time objects still carry extra policy, copy, and runtime behavior.
 
@@ -435,7 +435,7 @@
 -   When generic create allocates a pending object id ahead of persistence, that same id becomes the persisted `_mhb_objects.id`.
 -   `after*` hooks run only after commit and must not be wrapped in fake nested post-commit abstractions.
 
-**Detection**: `rg "EntityMutationService|EntityEventRouter|createEntity\(|createObject\(|_mhb_actions|_mhb_event_bindings" packages/metahubs-backend`
+**Detection**: `rg "EntityMutationService|EntityEventRouter|createEntity\(|createObject\(|_mhb_actions|_mhb_event_bindings" packages/universo-react-metahubs-backend`
 
 **Why**: explicit transaction boundaries keep lifecycle behavior correct and prevent create-id drift.
 
@@ -495,7 +495,7 @@
 -   Parent mutation flows already inside `exec.transaction(...)` pass their active `tx`.
 -   Keep regression coverage proving that the explicit-runner path does not call `exec.transaction()` again.
 
-**Detection**: `rg "upsertOverride\(|db: exec|db: tx" packages/metahubs-backend`
+**Detection**: `rg "upsertOverride\(|db: exec|db: tx" packages/universo-react-metahubs-backend`
 
 **Why**: reusing the caller runner keeps request and parent transaction lifetimes aligned.
 
@@ -607,7 +607,7 @@
 -   Presentation components render from hook return values only.
 -   Shared supporting queries such as `useMetahubTrees(metahubId)` centralize deduplicated list reads.
 
-**Detection**: `rg "ListData|ListUtils|useMetahubTrees" packages/metahubs-frontend`
+**Detection**: `rg "ListData|ListUtils|useMetahubTrees" packages/universo-react-metahubs-frontend`
 
 **Why**: this prevents 1000+ line list components from carrying duplicated data-loading logic and cache drift.
 
@@ -628,7 +628,7 @@
 
 ## Rate Limiting Pattern (CRITICAL)
 
-**Rule**: HTTP rate limiting uses the shared `@universo/utils/rate-limiting` package with Redis when available and memory fallback only for single-instance/local scenarios.
+**Rule**: HTTP rate limiting uses the shared `@universo-react/utils/rate-limiting` package with Redis when available and memory fallback only for single-instance/local scenarios.
 
 **Required**:
 

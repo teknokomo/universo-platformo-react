@@ -14,7 +14,7 @@ Use this contract for runtime CRUD dialogs and metadata-generated forms.
 
 ## Local Precedents
 
--   `packages/apps-template-mui/src/components/dialogs/FormDialog.tsx` already supports `textarea`, rows, hidden fields, resource-source widgets, localized validation, REF/select controls, and Editor.js block content.
+-   `packages/universo-react-apps-template-mui/src/components/dialogs/FormDialog.tsx` already supports `textarea`, rows, hidden fields, resource-source widgets, localized validation, REF/select controls, and Editor.js block content.
 -   Runtime workspace/member UI already uses human-readable names, emails, and role chips instead of requiring users to manually type IDs.
 -   Metadata should drive the generic renderer. A field that is bad in LMS is usually bad in any runtime app with the same semantics.
 

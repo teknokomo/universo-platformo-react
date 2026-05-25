@@ -1,4 +1,4 @@
-import { createLocalizedContent } from '@universo/utils'
+import { createLocalizedContent } from '@universo-react/utils'
 import { expect, test } from '../../fixtures/test'
 import { createLoggedInBrowserContext } from '../../support/browser/auth'
 import { disposeBootstrapApiContext, createBootstrapApiContext } from '../../support/backend/bootstrap.mjs'

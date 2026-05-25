@@ -83,7 +83,7 @@ Dot-notation grouping: `{tab}.{setting}`, e.g.:
 
 ## 2. Settings Registry (Types)
 
-**File**: `packages/universo-types/base/src/common/metahubs.ts`
+**File**: `packages/universo-react-types/base/src/common/metahubs.ts`
 
 Add a typed settings registry so both backend and frontend know all possible settings, their types, defaults, and which tab they belong to.
 
@@ -277,7 +277,7 @@ export const getSettingDefinition = (key: string): SettingDefinition | undefined
 
 ## 3. Backend: MetahubSettingsService
 
-**File**: `packages/metahubs-backend/base/src/domains/settings/services/MetahubSettingsService.ts`
+**File**: `packages/universo-react-metahubs-backend/base/src/domains/settings/services/MetahubSettingsService.ts`
 
 Follows the `MetahubObjectsService` pattern — uses `MetahubSchemaService` for schema resolution and Knex for queries.
 
@@ -285,7 +285,7 @@ Follows the `MetahubObjectsService` pattern — uses `MetahubSchemaService` for 
 import { KnexClient } from '../../ddl'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { incrementVersion } from '../../../utils/optimisticLock'
-import { METAHUB_SETTINGS_REGISTRY, getSettingDefinition } from '@universo/types'
+import { METAHUB_SETTINGS_REGISTRY, getSettingDefinition } from '@universo-react/types'
 
 const TABLE = '_mhb_settings'
 
@@ -468,7 +468,7 @@ export class MetahubSettingsService {
 
 ## 4. Backend: settingsRoutes.ts
 
-**File**: `packages/metahubs-backend/base/src/domains/settings/routes/settingsRoutes.ts`
+**File**: `packages/universo-react-metahubs-backend/base/src/domains/settings/routes/settingsRoutes.ts`
 
 Follows the `catalogsRoutes.ts` pattern — factory function, service instantiation per request, Zod validation.
 
@@ -482,7 +482,7 @@ import { getRequestManager } from '../../../utils'
 import { ensureMetahubAccess } from '../../shared/guards'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubSettingsService } from '../services/MetahubSettingsService'
-import { METAHUB_SETTINGS_REGISTRY } from '@universo/types'
+import { METAHUB_SETTINGS_REGISTRY } from '@universo-react/types'
 
 type RequestWithUser = Request & { user?: { id?: string; sub?: string } }
 
@@ -651,7 +651,7 @@ export function createSettingsRoutes(
 
 ## 5. Backend: Integration in router.ts
 
-**File**: `packages/metahubs-backend/base/src/domains/router.ts`
+**File**: `packages/universo-react-metahubs-backend/base/src/domains/router.ts`
 
 ### Changes
 
@@ -665,7 +665,7 @@ Place it after layouts and before templates (logical grouping — settings belon
 
 ## 6. Codename Style: Validation Extension
 
-**File**: `packages/universo-utils/base/src/validation/codename.ts`
+**File**: `packages/universo-react-utils/base/src/validation/codename.ts`
 
 ### Changes
 
@@ -767,7 +767,7 @@ if (!isValidCodenameForStyle(codename, codenameStyle as CodenameStyle)) {
 
 ## 7. Template Seed Update
 
-**File**: `packages/metahubs-backend/base/src/domains/templates/data/basic.template.ts`
+**File**: `packages/universo-react-metahubs-backend/base/src/domains/templates/data/basic.template.ts`
 
 ### Changes
 
@@ -787,7 +787,7 @@ This ensures every new metahub starts with an explicit codename style.
 
 ## 8. Frontend: Settings API Client
 
-**File**: `packages/metahubs-frontend/base/src/domains/settings/api/settingsApi.ts`
+**File**: `packages/universo-react-metahubs-frontend/base/src/domains/settings/api/settingsApi.ts`
 
 Follows the existing API client pattern using `createAuthClient`.
 
@@ -850,7 +850,7 @@ export const settingsApi = {
 
 ### Query Keys Extension
 
-**File**: `packages/metahubs-frontend/base/src/domains/shared/queryKeys.ts`
+**File**: `packages/universo-react-metahubs-frontend/base/src/domains/shared/queryKeys.ts`
 
 ```typescript
 // Add to metahubsQueryKeys:
@@ -883,7 +883,7 @@ export const invalidateSettingsQueries = {
 
 ### Hooks
 
-**File**: `packages/metahubs-frontend/base/src/domains/settings/hooks/useSettings.ts`
+**File**: `packages/universo-react-metahubs-frontend/base/src/domains/settings/hooks/useSettings.ts`
 
 ```typescript
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -932,7 +932,7 @@ export const useResetSetting = () => {
 
 ## 10. Frontend: SettingsPage UI
 
-**File**: `packages/metahubs-frontend/base/src/domains/settings/ui/SettingsPage.tsx`
+**File**: `packages/universo-react-metahubs-frontend/base/src/domains/settings/ui/SettingsPage.tsx`
 
 ### Component Structure
 
@@ -964,15 +964,15 @@ SettingsPage (reuses existing template-mui components)
 └── Save button (bulk update via PUT /metahub/:id/settings)
 ```
 
-### Reused Components from `@universo/template-mui`
+### Reused Components from `@universo-react/template-mui`
 
 | Component | Usage | Import |
 |-----------|-------|--------|
-| `TemplateMainCard` (as MainCard) | Root page wrapper | `import { TemplateMainCard as MainCard } from '@universo/template-mui'` |
-| `ViewHeaderMUI` (as ViewHeader) | Header with search field, Ctrl+F shortcut | `import { ViewHeaderMUI as ViewHeader } from '@universo/template-mui'` |
-| `useDebouncedSearch` | Search state hook with debounce | `import { useDebouncedSearch } from '@universo/template-mui'` |
-| `ConfirmDialog` + `useConfirm` | "Reset to default" confirmation dialog | `import { ConfirmDialog, useConfirm } from '@universo/template-mui'` |
-| `EmptyListState` + `APIEmptySVG` | Empty tab / error state | `import { EmptyListState, APIEmptySVG } from '@universo/template-mui'` |
+| `TemplateMainCard` (as MainCard) | Root page wrapper | `import { TemplateMainCard as MainCard } from '@universo-react/template-mui'` |
+| `ViewHeaderMUI` (as ViewHeader) | Header with search field, Ctrl+F shortcut | `import { ViewHeaderMUI as ViewHeader } from '@universo-react/template-mui'` |
+| `useDebouncedSearch` | Search state hook with debounce | `import { useDebouncedSearch } from '@universo-react/template-mui'` |
+| `ConfirmDialog` + `useConfirm` | "Reset to default" confirmation dialog | `import { ConfirmDialog, useConfirm } from '@universo-react/template-mui'` |
+| `EmptyListState` + `APIEmptySVG` | Empty tab / error state | `import { EmptyListState, APIEmptySVG } from '@universo-react/template-mui'` |
 
 > **NOT creating new reusable components** — only domain-specific sub-components:
 > - `SettingControl.tsx` — renders the appropriate MUI control based on `valueType` (Switch, Select, Multiselect checkboxes, TextField)
@@ -987,7 +987,7 @@ SettingsPage (reuses existing template-mui components)
 5. **Optimistic updates** — show changes immediately, revert on error
 6. **Search** — filter settings by label/description text (client-side via `useDebouncedSearch` since <50 items)
 7. **Codename Style selector** with live preview showing example codename
-8. **Reset confirmation** — `ConfirmDialog` from `@universo/template-mui` for "Reset to default" action
+8. **Reset confirmation** — `ConfirmDialog` from `@universo-react/template-mui` for "Reset to default" action
 
 ### UI Wireframe (Tab: General)
 
@@ -1035,7 +1035,7 @@ SettingsPage (reuses existing template-mui components)
 
 ### Route Registration
 
-**File**: `packages/universo-template-mui/base/src/routes/MainRoutesMUI.tsx`
+**File**: `packages/universo-react-template-mui/base/src/routes/MainRoutesMUI.tsx`
 
 Add under `metahub/:metahubId` children:
 
@@ -1050,13 +1050,13 @@ Add lazy import at top:
 
 ```tsx
 const MetahubSettings = lazy(() =>
-    import('@universo/metahubs-frontend').then(m => ({ default: m.MetahubSettings }))
+    import('@universo-react/metahubs-frontend').then(m => ({ default: m.MetahubSettings }))
 )
 ```
 
 ### Menu Registration (2 files)
 
-**File 1**: `packages/universo-template-mui/base/src/navigation/menuConfigs.ts`
+**File 1**: `packages/universo-react-template-mui/base/src/navigation/menuConfigs.ts`
 
 Add after `access` item in `getMetahubMenuItems`:
 
@@ -1076,7 +1076,7 @@ Add after `access` item in `getMetahubMenuItems`:
 
 Import `IconSettings` from `@tabler/icons-react`.
 
-**File 2**: `packages/metahubs-frontend/base/src/menu-items/metahubDashboard.ts`
+**File 2**: `packages/universo-react-metahubs-frontend/base/src/menu-items/metahubDashboard.ts`
 
 Add after `access` item:
 
@@ -1229,7 +1229,7 @@ Add `"settings"` section to the JSON:
 
 ### i18n registry update
 
-**File**: `packages/metahubs-frontend/base/src/i18n/index.ts`
+**File**: `packages/universo-react-metahubs-frontend/base/src/i18n/index.ts`
 
 Add `settings` to the `MetahubsBundle` interface and `consolidateMetahubsNamespace`.
 
@@ -1250,11 +1250,11 @@ After the settings API is built, we need to update the 6 route files that valida
 
 ### Shared helper (avoids code duplication)
 
-**File**: `packages/metahubs-backend/base/src/domains/shared/codenameStyleHelper.ts`
+**File**: `packages/universo-react-metahubs-backend/base/src/domains/shared/codenameStyleHelper.ts`
 
 ```typescript
 import { MetahubSettingsService } from '../settings/services/MetahubSettingsService'
-import type { CodenameStyle } from '@universo/types'
+import type { CodenameStyle } from '@universo-react/types'
 
 const DEFAULT_STYLE: CodenameStyle = 'kebab-case'
 
@@ -1373,20 +1373,20 @@ export const useEntityPermissions = (metahubId: string, entityType: 'hubs' | 'ca
 ## 15. Implementation Checklist
 
 ### Phase 1: Types & Shared Code
-- [ ] Add `CodenameStyle`, `SettingsTab`, `SettingDefinition`, `SettingValueType` (incl. `'multiselect'`), `MetahubSettingRow`, `SettingsUpdatePayload` to `packages/universo-types/base/src/common/metahubs.ts`
-- [ ] Add `METAHUB_SETTINGS_REGISTRY` (with `catalogs.attributeCodenameScope`, `catalogs.allowedAttributeTypes`, `enumerations.allowedValueTypes`), `getSettingsForTab`, `getSettingDefinition` to `packages/universo-types/base/src/common/metahubs.ts`
-- [ ] Export new types from `packages/universo-types/base/src/index.ts`
-- [ ] Add `CODENAME_1C_PATTERN` (`/^[A-ZА-Я][A-ZА-Яa-zа-яA-Za-z0-9_]{0,79}$/`), `isValid1CCodename`, `isValidCodenameForStyle`, `normalize1CCodename`, `normalizeCodenameForStyle` to `packages/universo-utils/base/src/validation/codename.ts`
-- [ ] Export new validation functions from `packages/universo-utils/base/src/validation/index.ts`
+- [ ] Add `CodenameStyle`, `SettingsTab`, `SettingDefinition`, `SettingValueType` (incl. `'multiselect'`), `MetahubSettingRow`, `SettingsUpdatePayload` to `packages/universo-react-types/base/src/common/metahubs.ts`
+- [ ] Add `METAHUB_SETTINGS_REGISTRY` (with `catalogs.attributeCodenameScope`, `catalogs.allowedAttributeTypes`, `enumerations.allowedValueTypes`), `getSettingsForTab`, `getSettingDefinition` to `packages/universo-react-types/base/src/common/metahubs.ts`
+- [ ] Export new types from `packages/universo-react-types/base/src/index.ts`
+- [ ] Add `CODENAME_1C_PATTERN` (`/^[A-ZА-Я][A-ZА-Яa-zа-яA-Za-z0-9_]{0,79}$/`), `isValid1CCodename`, `isValidCodenameForStyle`, `normalize1CCodename`, `normalizeCodenameForStyle` to `packages/universo-react-utils/base/src/validation/codename.ts`
+- [ ] Export new validation functions from `packages/universo-react-utils/base/src/validation/index.ts`
 
 ### Phase 2: Backend Service & Routes
-- [ ] Create `MetahubSettingsService.ts` in `packages/metahubs-backend/base/src/domains/settings/services/`
+- [ ] Create `MetahubSettingsService.ts` in `packages/universo-react-metahubs-backend/base/src/domains/settings/services/`
   - `bulkUpsert` must wrap all operations in `this.knex.transaction(async (trx) => { ... })`
-- [ ] Create `settingsRoutes.ts` in `packages/metahubs-backend/base/src/domains/settings/routes/`
+- [ ] Create `settingsRoutes.ts` in `packages/universo-react-metahubs-backend/base/src/domains/settings/routes/`
   - Use `Router({ mergeParams: true })`, `router.use(ensureAuth)`, all handlers wrapped in `asyncHandler`
   - URL convention: `/metahub/:metahubId/settings` (collection), `/metahub/:metahubId/setting/:key` (single)
-- [ ] Register settings routes in `packages/metahubs-backend/base/src/domains/router.ts`
-- [ ] Create `codenameStyleHelper.ts` in `packages/metahubs-backend/base/src/domains/shared/`
+- [ ] Register settings routes in `packages/universo-react-metahubs-backend/base/src/domains/router.ts`
+- [ ] Create `codenameStyleHelper.ts` in `packages/universo-react-metahubs-backend/base/src/domains/shared/`
   - Exports: `getCodenameStyle()`, `getAttributeCodenameScope()`, `getAllowedAttributeTypes()`
 - [ ] Add `general.codenameStyle` seed to `basic.template.ts`
 
@@ -1400,10 +1400,10 @@ export const useEntityPermissions = (metahubId: string, entityType: 'hubs' | 'ca
   - `catalogs.allowedAttributeTypes` check: reject attribute types not in the allowed list
 
 ### Phase 4: Frontend Domain
-- [ ] Create `packages/metahubs-frontend/base/src/domains/settings/api/settingsApi.ts`
+- [ ] Create `packages/universo-react-metahubs-frontend/base/src/domains/settings/api/settingsApi.ts`
   - Use `/metahub/:metahubId/settings` for collection, `/metahub/:metahubId/setting/:key` for single
-- [ ] Create `packages/metahubs-frontend/base/src/domains/settings/hooks/useSettings.ts`
-- [ ] Create `packages/metahubs-frontend/base/src/domains/settings/hooks/useEntityPermissions.ts`
+- [ ] Create `packages/universo-react-metahubs-frontend/base/src/domains/settings/hooks/useSettings.ts`
+- [ ] Create `packages/universo-react-metahubs-frontend/base/src/domains/settings/hooks/useEntityPermissions.ts`
 - [ ] Create `SettingsPage.tsx` — reuse `TemplateMainCard`, `ViewHeaderMUI` (built-in search), `ConfirmDialog`/`useConfirm`
   - Do NOT create new reusable components; leverage existing template-mui abstractions
 - [ ] Create `SettingControl.tsx` — support all `SettingValueType` including `'multiselect'` (MUI Checkbox group or Autocomplete multi)
@@ -1415,7 +1415,7 @@ export const useEntityPermissions = (metahubId: string, entityType: 'hubs' | 'ca
 - [ ] Add i18n keys to `locales/en/metahubs.json` (incl. `attributeCodenameScope`, `allowedAttributeTypes`, `allowedValueTypes`)
 - [ ] Add i18n keys to `locales/ru/metahubs.json` (same keys)
 - [ ] Add `settings` to `MetahubsBundle` interface and `consolidateMetahubsNamespace` in `i18n/index.ts`
-- [ ] Export `MetahubSettings` from `packages/metahubs-frontend/base/src/index.ts`
+- [ ] Export `MetahubSettings` from `packages/universo-react-metahubs-frontend/base/src/index.ts`
 
 ### Phase 6: Route & Menu Registration
 - [ ] Add settings route in `MainRoutesMUI.tsx` (path: `settings`)

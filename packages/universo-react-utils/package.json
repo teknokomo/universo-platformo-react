@@ -1,0 +1,123 @@
+{
+    "name": "@universo-react/utils",
+    "version": "0.1.0",
+    "description": "Shared validators, serialization, delta and net utilities for Universo Platformo",
+    "private": true,
+    "main": "./dist/index.js",
+    "module": "./dist/index.mjs",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "browser": {
+                "import": "./dist/index.browser.mjs",
+                "require": "./dist/index.browser.js",
+                "types": "./dist/index.browser.d.ts"
+            },
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.js",
+            "types": "./dist/index.d.ts"
+        },
+        "./env": {
+            "browser": {
+                "import": "./dist/env/index.browser.mjs",
+                "require": "./dist/env/index.browser.js",
+                "types": "./dist/env/index.browser.d.ts"
+            },
+            "import": "./dist/env/index.mjs",
+            "require": "./dist/env/index.js",
+            "types": "./dist/env/index.d.ts"
+        },
+        "./rate-limiting": {
+            "import": "./dist/rate-limiting.mjs",
+            "require": "./dist/rate-limiting.js",
+            "types": "./dist/rate-limiting.d.ts"
+        },
+        "./captcha": {
+            "import": "./dist/captcha/index.mjs",
+            "require": "./dist/captcha/index.js",
+            "types": "./dist/captcha/index.d.ts"
+        },
+        "./auth": {
+            "import": "./dist/auth/index.mjs",
+            "require": "./dist/auth/index.js",
+            "types": "./dist/auth/index.d.ts"
+        },
+        "./ui-utils": {
+            "import": "./dist/ui-utils.mjs",
+            "require": "./dist/ui-utils.js"
+        },
+        "./ui-utils/*": "./src/ui-utils/*",
+        "./vlc": {
+            "import": "./dist/vlc/index.mjs",
+            "require": "./dist/vlc/index.js",
+            "types": "./dist/vlc/index.d.ts"
+        },
+        "./validation/codename": {
+            "import": "./dist/validation/codename.mjs",
+            "require": "./dist/validation/codename.js",
+            "types": "./dist/validation/codename.d.ts"
+        },
+        "./database": {
+            "import": "./dist/database/index.mjs",
+            "require": "./dist/database/index.js",
+            "types": "./dist/database/index.d.ts"
+        },
+        "./optimistic-crud": {
+            "import": "./dist/optimisticCrud.mjs",
+            "require": "./dist/optimisticCrud.js",
+            "types": "./dist/optimisticCrud.d.ts"
+        }
+    },
+    "typesVersions": {
+        "*": {
+            "database": ["./dist/database/index.d.ts"],
+            "env": ["./dist/env/index.d.ts"],
+            "rate-limiting": ["./dist/rate-limiting.d.ts"],
+            "captcha": ["./dist/captcha/index.d.ts"],
+            "auth": ["./dist/auth/index.d.ts"],
+            "vlc": ["./dist/vlc/index.d.ts"],
+            "validation/codename": ["./dist/validation/codename.d.ts"],
+            "optimistic-crud": ["./dist/optimisticCrud.d.ts"]
+        }
+    },
+    "sideEffects": false,
+    "scripts": {
+        "build": "tsdown",
+        "build:watch": "tsdown --watch",
+        "dev": "tsc -p tsconfig.json --watch",
+        "lint": "eslint --ext .ts src/",
+        "test": "vitest run --config vitest.config.ts"
+    },
+    "license": "Omsk Open License",
+    "dependencies": {
+        "@tanstack/react-query": "catalog:",
+        "@universo-react/types": "workspace:*",
+        "@universo-react/i18n": "workspace:*",
+        "@justrelate/slugify": "catalog:",
+        "axios": "catalog:",
+        "dayjs": "catalog:",
+        "express-rate-limit": "catalog:",
+        "rate-limit-redis": "catalog:",
+        "ioredis": "catalog:",
+        "async-mutex": "catalog:",
+        "json-stable-stringify": "catalog:",
+        "zod": "3.25.76",
+        "uuidv7": "catalog:"
+    },
+    "peerDependencies": {
+        "express": "^4.18.0"
+    },
+    "peerDependenciesMeta": {
+        "express": {
+            "optional": true
+        }
+    },
+    "devDependencies": {
+        "@types/node": "catalog:",
+        "eslint": "catalog:",
+        "rimraf": "^5.0.5",
+        "tsdown": "catalog:",
+        "typescript": "catalog:",
+        "vitest": "catalog:"
+    }
+}

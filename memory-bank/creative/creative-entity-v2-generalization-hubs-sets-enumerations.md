@@ -56,7 +56,7 @@ Create a static `Record<LegacyCompatibleObjectKind, React.ComponentType>` map. `
 ```tsx
 // entityInstanceDelegates.ts
 import { lazy } from 'react'
-import type { LegacyCompatibleObjectKind } from '@universo/types'
+import type { LegacyCompatibleObjectKind } from '@universo-react/types'
 
 type DelegateComponent = React.LazyExoticComponent<React.ComponentType<any>>
 
@@ -928,17 +928,17 @@ Note: The preset manifests use `vlc()` (VersionedLocalizedContent) format for na
 ### Files To Be Created or Modified
 
 **New Files:**
-- `packages/metahubs-backend/base/src/domains/templates/data/hub-v2.entity-preset.ts`
-- `packages/metahubs-backend/base/src/domains/templates/data/set-v2.entity-preset.ts`
-- `packages/metahubs-backend/base/src/domains/templates/data/enumeration-v2.entity-preset.ts`
-- `packages/metahubs-frontend/base/src/domains/entities/ui/entityInstanceDelegates.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/templates/data/hub-v2.entity-preset.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/templates/data/set-v2.entity-preset.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/templates/data/enumeration-v2.entity-preset.ts`
+- `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/entityInstanceDelegates.ts`
 
 **Modified Files:**
-- `packages/metahubs-backend/base/src/domains/templates/data/index.ts` — add 3 new presets
-- `packages/metahubs-backend/base/src/domains/entities/controllers/entityInstancesController.ts` — generalize settings/ACL
-- `packages/metahubs-backend/base/src/domains/catalogs/services/catalogCompatibility.ts` — extract `resolveLegacySettingsPrefix()`
-- `packages/metahubs-frontend/base/src/domains/entities/ui/EntityInstanceList.tsx` — delegation map
-- `packages/metahubs-frontend/base/src/domains/settings/hooks/useEntityPermissions.ts` — no change needed (already generic)
+- `packages/universo-react-metahubs-backend/base/src/domains/templates/data/index.ts` — add 3 new presets
+- `packages/universo-react-metahubs-backend/base/src/domains/entities/controllers/entityInstancesController.ts` — generalize settings/ACL
+- `packages/universo-react-metahubs-backend/base/src/domains/catalogs/services/catalogCompatibility.ts` — extract `resolveLegacySettingsPrefix()`
+- `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/EntityInstanceList.tsx` — delegation map
+- `packages/universo-react-metahubs-frontend/base/src/domains/settings/hooks/useEntityPermissions.ts` — no change needed (already generic)
 - Settings migration file — add missing `sets.*`, `hubs.*` settings
 - i18n files (EN/RU) for preset labels
 

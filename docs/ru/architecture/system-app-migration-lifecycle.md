@@ -21,13 +21,13 @@ metahubs и applications.
 
 | Компонент                           | Пакет                            | Роль                                       |
 |-------------------------------------|----------------------------------|--------------------------------------------|
-| `SystemAppDefinition`               | `@universo/migrations-core`      | Типовой контракт для манифестов приложений  |
-| `systemAppSchemaCompiler`           | `@universo/migrations-platform`  | Строит сущности из манифеста, вычисляет diff|
-| `SchemaGenerator`                   | `@universo/schema-ddl`           | Создаёт схемы, таблицы, системные метаданные|
-| `SchemaMigrator`                    | `@universo/schema-ddl`           | Вычисляет и применяет инкрементальные diff  |
-| `MigrationManager`                  | `@universo/schema-ddl`           | Записывает миграции в `_app_migrations`     |
-| `buildSchemaSnapshot`               | `@universo/schema-ddl`           | Строит структурный снимок из сущностей      |
-| `calculateSchemaDiff`               | `@universo/schema-ddl`           | Вычисляет набор изменений между снимками    |
+| `SystemAppDefinition`               | `@universo-react/migrations-core`      | Типовой контракт для манифестов приложений  |
+| `systemAppSchemaCompiler`           | `@universo-react/migrations-platform`  | Строит сущности из манифеста, вычисляет diff|
+| `SchemaGenerator`                   | `@universo-react/schema-ddl`           | Создаёт схемы, таблицы, системные метаданные|
+| `SchemaMigrator`                    | `@universo-react/schema-ddl`           | Вычисляет и применяет инкрементальные diff  |
+| `MigrationManager`                  | `@universo-react/schema-ddl`           | Записывает миграции в `_app_migrations`     |
+| `buildSchemaSnapshot`               | `@universo-react/schema-ddl`           | Строит структурный снимок из сущностей      |
+| `calculateSchemaDiff`               | `@universo-react/schema-ddl`           | Вычисляет набор изменений между снимками    |
 
 ## Структура манифеста
 
@@ -42,7 +42,7 @@ metahubs и applications.
 
 ## Последовательность начальной загрузки
 
-Полная начальная загрузка выполняется внутри `initDatabase()` в `@universo/core-backend`:
+Полная начальная загрузка выполняется внутри `initDatabase()` в `@universo-react/core-backend`:
 
 ```
 1. validateRegisteredPlatformMigrations()

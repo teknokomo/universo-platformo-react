@@ -79,18 +79,18 @@ CREATE INDEX ON ... (_tp_parent_id);
 
 ## Затрагиваемые области (файлы)
 
-### Пакет `@universo/types` (1 файл)
-- `packages/universo-types/base/src/common/metahubs.ts`
+### Пакет `@universo-react/types` (1 файл)
+- `packages/universo-react-types/base/src/common/metahubs.ts`
 
-### Пакет `@universo/schema-ddl` (5 файлов)
-- `packages/schema-ddl/base/src/naming.ts`
-- `packages/schema-ddl/base/src/types.ts`
-- `packages/schema-ddl/base/src/snapshot.ts`
-- `packages/schema-ddl/base/src/diff.ts`
-- `packages/schema-ddl/base/src/SchemaGenerator.ts`
-- `packages/schema-ddl/base/src/SchemaMigrator.ts`
+### Пакет `@universo-react/schema-ddl` (5 файлов)
+- `packages/universo-react-schema-ddl/base/src/naming.ts`
+- `packages/universo-react-schema-ddl/base/src/types.ts`
+- `packages/universo-react-schema-ddl/base/src/snapshot.ts`
+- `packages/universo-react-schema-ddl/base/src/diff.ts`
+- `packages/universo-react-schema-ddl/base/src/SchemaGenerator.ts`
+- `packages/universo-react-schema-ddl/base/src/SchemaMigrator.ts`
 
-### Пакет `@universo/metahubs-backend` (6+ файлов)
+### Пакет `@universo-react/metahubs-backend` (6+ файлов)
 - `systemTableDefinitions.ts` — добавить `parent_attribute_id`
 - `MetahubAttributesService.ts` — CRUD дочерних атрибутов
 - `attributesRoutes.ts` — роуты и Zod-схемы для TABLE
@@ -98,7 +98,7 @@ CREATE INDEX ON ... (_tp_parent_id);
 - `SnapshotSerializer.ts` — сериализация дочерних атрибутов
 - `applicationSyncRoutes.ts` — создание дочерних таблиц, seed данных
 
-### Пакет `@universo/metahubs-frontend` (2+ файла)
+### Пакет `@universo-react/metahubs-frontend` (2+ файла)
 - `AttributeList.tsx` — UI контейнер для дочерних атрибутов
 - `AttributeFormFields.tsx` — настройки TABLE (showTitle toggle)
 - `ElementList.tsx` — inline TABLE в диалоге элемента
@@ -106,7 +106,7 @@ CREATE INDEX ON ... (_tp_parent_id);
 ### Пакет `@universo/universo-template-mui` (1 файл)
 - `DynamicEntityFormDialog.tsx` — рендеринг TABLE в диалогах
 
-### Пакет `@universo/apps-template-mui` (4+ файла)
+### Пакет `@universo-react/apps-template-mui` (4+ файла)
 - `FormDialog.tsx` — runtime TABLE CRUD + динамический maxWidth `[QA-FIX]`
 - `columns.tsx` — рендеринг TABLE в DataGrid (кол-во строк) + toFieldConfigs `[QA-FIX]`
 - `useCrudDashboard.ts` — переиспользование для дочерних таблиц `[QA-FIX: критично]`
@@ -114,7 +114,7 @@ CREATE INDEX ON ... (_tp_parent_id);
 - `api/TabularPartAdapter.ts` — **НОВЫЙ** adapter для дочерних таблиц `[QA-FIX]`
 - `components/RuntimeTabularPartView.tsx` — **НОВЫЙ** view через useCrudDashboard `[QA-FIX]`
 
-### Пакет `@universo/applications-backend` (1+ файл)
+### Пакет `@universo-react/applications-backend` (1+ файл)
 - `applicationsRoutes.ts` — RUNTIME_WRITABLE_TYPES + coerceRuntimeValue + resolveRuntimeCatalog + транзакции + soft-delete cascade `[QA-FIX: критично]`
 
 ### i18n (2 файла)
@@ -137,11 +137,11 @@ CREATE INDEX ON ... (_tp_parent_id);
 
 ---
 
-## Фаза 1: Типы и shared-контракты (`@universo/types`)
+## Фаза 1: Типы и shared-контракты (`@universo-react/types`)
 
 ### Шаг 1.1: Добавить TABLE в ATTRIBUTE_DATA_TYPES
 
-**Файл**: `packages/universo-types/base/src/common/metahubs.ts` (строка 10)
+**Файл**: `packages/universo-react-types/base/src/common/metahubs.ts` (строка 10)
 
 ```typescript
 // BEFORE:
@@ -224,7 +224,7 @@ export type TableChildDataType = (typeof TABLE_CHILD_DATA_TYPES)[number]
 
 ### Шаг 2.1: Добавить именование табличных частей (`naming.ts`)
 
-**Файл**: `packages/schema-ddl/base/src/naming.ts`
+**Файл**: `packages/universo-react-schema-ddl/base/src/naming.ts`
 
 ```typescript
 // ADD:
@@ -241,7 +241,7 @@ export const generateTabularTableName = (parentTableName: string, attributeId: s
 
 ### Шаг 2.2: Расширить snapshot (`snapshot.ts`)
 
-**Файл**: `packages/schema-ddl/base/src/snapshot.ts`
+**Файл**: `packages/universo-react-schema-ddl/base/src/snapshot.ts`
 
 Дочерние атрибуты TABLE нужно включить в snapshot. Два подхода:
 
@@ -300,7 +300,7 @@ export const buildSchemaSnapshot = (entities: EntityDefinition[]): SchemaSnapsho
 
 ### Шаг 2.2a: Сброс `CURRENT_SCHEMA_SNAPSHOT_VERSION` → 1
 
-**Файл**: `packages/schema-ddl/base/src/snapshot.ts`
+**Файл**: `packages/universo-react-schema-ddl/base/src/snapshot.ts`
 
 Текущее значение `CURRENT_SCHEMA_SNAPSHOT_VERSION = 3` было установлено при первом создании файла (d1a0c2e6) и никогда не инкрементировалось. Значение `3` было произвольным — нигде в коде нет логики проверки или миграции по версии snapshot. Число просто штампуется в `SchemaSnapshot.version` и записывается в `_app_migrations.meta`.
 
@@ -313,7 +313,7 @@ export const CURRENT_SCHEMA_SNAPSHOT_VERSION = 3
 export const CURRENT_SCHEMA_SNAPSHOT_VERSION = 1
 ```
 
-**Тест** (`packages/schema-ddl/base/src/__tests__/snapshot.test.ts`): тест проверяет `toBeGreaterThan(0)` — значение `1` пройдёт без изменений.
+**Тест** (`packages/universo-react-schema-ddl/base/src/__tests__/snapshot.test.ts`): тест проверяет `toBeGreaterThan(0)` — значение `1` пройдёт без изменений.
 
 **Обоснование**: БД будет удалена и пересоздана — legacy snapshot-ов в _app_migrations нет. Все версии начинаются с первых значений (structure version = 1, template version = 1.0.0, snapshot format = 1, schema snapshot version → 1).
 
@@ -1501,7 +1501,7 @@ const TabularPartEditor: React.FC<TabularPartEditorProps> = ({
 **CrudDataAdapter** — интерфейс, уже используемый в `apps-template-mui` для runtime CRUD:
 
 ```typescript
-// CrudDataAdapter interface (packages/apps-template-mui/src/api/types.ts):
+// CrudDataAdapter interface (packages/universo-react-apps-template-mui/src/api/types.ts):
 export interface CrudDataAdapter {
     queryKeyPrefix: string
     fetchList(): Promise<AppDataResponse>
@@ -1515,7 +1515,7 @@ export interface CrudDataAdapter {
 Новый адаптер `TabularPartAdapter` реализует `CrudDataAdapter` для дочерних таблиц:
 
 ```typescript
-// NEW FILE: packages/apps-template-mui/base/src/api/TabularPartAdapter.ts
+// NEW FILE: packages/universo-react-apps-template-mui/base/src/api/TabularPartAdapter.ts
 
 export class TabularPartAdapter implements CrudDataAdapter {
     readonly queryKeyPrefix: string
@@ -1634,7 +1634,7 @@ case 'TABLE': {
 с `TabularPartAdapter`:
 
 ```tsx
-// NEW FILE: packages/apps-template-mui/base/src/components/RuntimeTabularPartView.tsx
+// NEW FILE: packages/universo-react-apps-template-mui/base/src/components/RuntimeTabularPartView.tsx
 
 import { useCrudDashboard } from '../hooks/useCrudDashboard'
 import { TabularPartAdapter } from '../api/TabularPartAdapter'
@@ -2044,15 +2044,15 @@ router.get('/:recordId/tabular/:attributeId', async (req, res) => {
 
 | Этап | Фазы | Пакеты | Описание |
 |------|-------|--------|----------|
-| 1 | 0 + 1 | `@universo/types` | Контракт + типы |
-| 2 | 2 | `@universo/schema-ddl` | naming, snapshot (version reset 3→1), diff, generator, migrator (вкл. FK CASCADE) |
-| 3 | 3 | `@universo/metahubs-backend` | systemTables, CRUD, routes |
-| 4 | 5.1 | `@universo/metahubs-backend` | SnapshotSerializer |
-| 5 | 4 + 5.2-5.3 | `@universo/metahubs-backend` | Elements + Sync + syncSystemMetadata + _app_attributes DDL |
-| 6 | 6 | `@universo/metahubs-frontend` | UI: AttributeList, Form, Elements (DataGrid editable) |
-| 7 | 7.3-7.4 | `@universo/applications-backend` | Runtime: RUNTIME_WRITABLE_TYPES + coerceRuntimeValue + resolveRuntimeCatalog + транзакции + cascade soft-delete |
-| 8 | 7.1-7.2 | `@universo/apps-template-mui` | Runtime UI: TabularPartAdapter + RuntimeTabularPartView + FormDialog + columns |
-| 9 | 8 | `@universo/i18n` | EN/RU ключи |
+| 1 | 0 + 1 | `@universo-react/types` | Контракт + типы |
+| 2 | 2 | `@universo-react/schema-ddl` | naming, snapshot (version reset 3→1), diff, generator, migrator (вкл. FK CASCADE) |
+| 3 | 3 | `@universo-react/metahubs-backend` | systemTables, CRUD, routes |
+| 4 | 5.1 | `@universo-react/metahubs-backend` | SnapshotSerializer |
+| 5 | 4 + 5.2-5.3 | `@universo-react/metahubs-backend` | Elements + Sync + syncSystemMetadata + _app_attributes DDL |
+| 6 | 6 | `@universo-react/metahubs-frontend` | UI: AttributeList, Form, Elements (DataGrid editable) |
+| 7 | 7.3-7.4 | `@universo-react/applications-backend` | Runtime: RUNTIME_WRITABLE_TYPES + coerceRuntimeValue + resolveRuntimeCatalog + транзакции + cascade soft-delete |
+| 8 | 7.1-7.2 | `@universo-react/apps-template-mui` | Runtime UI: TabularPartAdapter + RuntimeTabularPartView + FormDialog + columns |
+| 9 | 8 | `@universo-react/i18n` | EN/RU ключи |
 | 10 | 9 | Все | Тестирование |
 
 **Оценка трудозатрат**: ~35-40 файлов, 3500-4500 строк кода, 5-7 итераций IMPLEMENT.

@@ -15,11 +15,40 @@
 -   Ensure that `activeContext.md` contains at least 120 lines to satisfy its 80% upper bound rule.
 -   Current constraints dictate that all historical implementation summaries (anything > 1 week old) be moved completely to `progress.md`.
 
+## Recent Focus: Packages Naming Convention Rollout (Complete)
+
+-   Renamed all 32 active workspace packages to the canonical
+    `packages/universo-react-<name>/` directory convention and
+    `@universo-react/<name>` package-name convention.
+-   Flattened legacy `universo-*` names during the rename; no
+    `universo-react-universo-*` package names, legacy aliases, compatibility
+    re-exports, npm publish aliases, or symlinks were introduced.
+-   Updated active imports, package manifests, root scripts, Turbo/Vitest/Jest/
+    Playwright tooling, CI instructions, agent guidance, GitBook docs, package
+    READMEs, steering docs, and Memory Bank references to the new scope.
+-   Published the convention in `.kiro/steering/structure.md` and
+    `memory-bank/techContext.md`.
+-   Added fail-closed guards for package naming, stale package base paths,
+    `apps-template-mui` isolation, React bundle loading, and workspace
+    dependency graph drift.
+-   QA closure hardened the package naming guard so active docs/tooling/guidance
+    now fail closed on double-prefix references, stale removed package examples,
+    and generic active package layout text.
+-   The main CI workflow now runs package naming and apps-template isolation
+    guards alongside the existing flattened-layout and DB access checks.
+-   `tools/lint-db-access.mjs` Tier 3 exclusion paths were synchronized with the
+    renamed `packages/universo-react-*` directories and now passes with zero
+    violations.
+-   No database schema version or metahub template version was bumped; the LMS
+    snapshot hash was refreshed from the canonical snapshot content only.
+-   Verification included frozen install, full build, lint, Vitest, backend Jest
+    matrix, docs checks, local minimal Supabase build, and Playwright smoke.
+
 ## Recent Focus: Scripts To Modules Rename (Complete)
 
 -   Renamed the attached TypeScript-code capability from Scripts/Scripting to Modules across shared contracts, backend routes/stores, frontend authoring UI, runtime widget execution, SDK names, fixtures, E2E specs, and GitBook docs.
 -   Fresh-database rename only: no `/scripts` aliases, compatibility shims, schema/template version bump, or legacy migration path.
--   Canonical contracts now use `modules`, `_mhb_modules`, `_app_modules`, `/modules`, `/module/:moduleId`, `/runtime/modules`, `moduleId`, `moduleCodename`, `ModuleRole`, and `@universo/modules-engine`.
+-   Canonical contracts now use `modules`, `_mhb_modules`, `_app_modules`, `/modules`, `/module/:moduleId`, `/runtime/modules`, `moduleId`, `moduleCodename`, `ModuleRole`, and `@universo-react/modules-engine`.
 -   LMS template and fixture posting handlers now use `*PostingModule` codenames/classes and refreshed snapshot hash.
 -   Browser QA evidence for authoring and runtime module surfaces was captured through local minimal Supabase Playwright flows.
 -   Allowed residual `script` terms are limited to HTML/security contexts, package manager `scripts`, shell/E2E scripts, external TypeScript/node APIs such as `ts.ScriptTarget`, `node:vm Script`, and isolated-vm `compileScript`.
@@ -27,8 +56,8 @@
 
 ## Recent Focus: Flatten Base Directory Layout (Complete)
 
--   Removed the unused `packages/<name>/base` package-root layer from active workspace packages.
--   Active package roots now use `packages/<name>/package.json`; `pnpm-workspace.yaml` uses `packages/*`.
+-   Removed the unused package-root `base` layer from active workspace packages.
+-   Active React package roots now use `packages/universo-react-<name>/package.json`; `pnpm-workspace.yaml` uses `packages/*`.
 -   Updated workspace, Turbo/package export, local Supabase, E2E runner, OpenAPI/docs tooling, agent, Kiro, GitBook, and package README references to the flat layout.
 -   Added `tools/check-no-package-base-paths.mjs` and root `check:no-package-base-paths` to fail closed on stale active package-base paths and layout guidance.
 -   Verified the final closure with Prettier, stale-path check, package directory inventory, full build, full lint, full Vitest workspace run, and local minimal Supabase Playwright smoke.
@@ -46,7 +75,7 @@
 ## Recent Focus: Local Supabase Env Profile Generation (Complete)
 
 -   Local Supabase env generation derives backend profiles from normal env source order.
--   Development source order: `packages/universo-core-backend/.env`, `.env.example`, minimal fallback.
+-   Development source order: `packages/universo-react-core-backend/.env`, `.env.example`, minimal fallback.
 -   E2E source order: `.env.e2e`, `.env`, `.env.e2e.example`, `.env.example`, fallback.
 -   Preserves unrelated application settings, replaces only connection values and safe missing defaults.
 -   README and GitBook docs describe preserved-settings workflow, hosted/local switching, and local E2E stack.

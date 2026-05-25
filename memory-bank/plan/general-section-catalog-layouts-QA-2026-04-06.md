@@ -23,8 +23,8 @@
 2. **`type: 'collapse'` is not even rendered by the real sidebar**: The actual sidebar renderer is `MenuContent.tsx` in `universo-template-mui`, which uses `TemplateMenuItem = TemplateMenuEntry | TemplateMenuDivider` — **no collapse type is supported**. The `MenuItem` interface in `metahubDashboard.ts` defines `'collapse'` in its union type, but `metahubDashboard.ts` is **never consumed** by the sidebar renderer. The real menu comes from `getMetahubMenuItems()` in `menuConfigs.ts` which has a completely different type system.
 
 3. **TWO menu systems exist** — plan only addresses one:
-   - `packages/metahubs-frontend/base/src/menu-items/metahubDashboard.ts` → exported as `metahubsDashboard` but **NOT imported** anywhere for rendering
-   - `packages/universo-template-mui/base/src/navigation/menuConfigs.ts` → `getMetahubMenuItems()` → consumed by `MenuContent.tsx` — this is the **real** sidebar
+   - `packages/universo-react-metahubs-frontend/base/src/menu-items/metahubDashboard.ts` → exported as `metahubsDashboard` but **NOT imported** anywhere for rendering
+   - `packages/universo-react-template-mui/base/src/navigation/menuConfigs.ts` → `getMetahubMenuItems()` → consumed by `MenuContent.tsx` — this is the **real** sidebar
 
 **Correct approach**: 
 - Add a `general` menu item in `getMetahubMenuItems()` (replacing `layouts` item)
@@ -81,7 +81,7 @@
 ### M1. Surface Type (Dialog vs Page) Verification Missing
 
 **Spec says** (point 7):
-> "проверить что правильно работают настройки каталога Тип окна создания / редактирования / копирования, проверить что работает вариант 'Страница', мне кажется что раньше работал только вариант 'Диалог'... Если это так, то нужно осторожно без лишних изменений сделать нужный компонент в темплейте `packages/apps-template-mui`."
+> "проверить что правильно работают настройки каталога Тип окна создания / редактирования / копирования, проверить что работает вариант 'Страница', мне кажется что раньше работал только вариант 'Диалог'... Если это так, то нужно осторожно без лишних изменений сделать нужный компонент в темплейте `packages/universo-react-apps-template-mui`."
 
 **Plan**: Does not address this at all. No Playwright verification, no fix plan.
 

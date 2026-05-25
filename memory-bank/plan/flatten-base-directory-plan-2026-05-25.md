@@ -166,13 +166,13 @@ preflight inventories and fail-closed residue checks.
 
 - [ ] 6. Fix root scripts and development entrypoints.
   - `start:default` and `start:windows` should `cd
-    packages/universo-core-backend/bin`.
+    packages/universo-react-core-backend/bin`.
   - Worker scripts should use the same flattened backend bin path.
   - Local Supabase scripts should point
     `UNIVERSO_FRONTEND_ENV_FILE` to
-    `packages/universo-core-frontend/.env.local-supabase`.
+    `packages/universo-react-core-frontend/.env.local-supabase`.
   - E2E scripts should point to
-    `packages/universo-core-frontend/.env.e2e.local-supabase`.
+    `packages/universo-react-core-frontend/.env.e2e.local-supabase`.
   - Keep `pnpm dev` as a user-run command only; do not add automatic agent
     runs for it.
   - Update `.dockerignore` entries that currently point to backend/frontend
@@ -196,15 +196,15 @@ preflight inventories and fail-closed residue checks.
     currently extend `../../../tsconfig.json` from `base/` will need
     `../../tsconfig.json` after flattening.
   - Update package-local `.eslintrc.js` files and their depth-sensitive
-    `extends` values, for example `packages/universo-utils/.eslintrc.js`.
+    `extends` values, for example `packages/universo-react-utils/.eslintrc.js`.
   - Update `.eslintrc.js` overrides that currently target
     `packages/*/base/src/**`.
   - Update hard-coded scanner paths such as
     `tools/testing/check-runtime-no-lms-forks.mjs`.
   - Update `repository.directory` metadata in package manifests, for example
-    `packages/universo-i18n/base` -> `packages/universo-i18n`.
+    `packages/universo-react-i18n/base` -> `packages/universo-react-i18n`.
   - Move package-local `turbo.json` files with their packages, then update any
-    depth-sensitive inputs such as `packages/universo-core-frontend/turbo.json`.
+    depth-sensitive inputs such as `packages/universo-react-core-frontend/turbo.json`.
 
 - [ ] 8. Fix local Supabase and Playwright E2E infrastructure.
   - Update `tools/testing/e2e/support/env/load-e2e-env.mjs`.
@@ -217,8 +217,8 @@ preflight inventories and fail-closed residue checks.
     as the owner of app startup and cleanup.
 
 - [ ] 9. Fix OpenAPI and documentation-source tooling.
-  - Update `packages/universo-rest-docs/scripts/generate-openapi-source.js`.
-  - Update `packages/universo-rest-docs/scripts/verify-route-sources.js`.
+  - Update `packages/universo-react-rest-docs/scripts/generate-openapi-source.js`.
+  - Update `packages/universo-react-rest-docs/scripts/verify-route-sources.js`.
   - Regenerate or rewrite OpenAPI route source descriptions if the checker
     expects exact file paths.
   - Run the route-source verifier and docs checks after the path update.
@@ -303,16 +303,16 @@ preflight inventories and fail-closed residue checks.
     extra, or `base`-rooted package paths.
   - `pnpm -r test --if-present` or an equivalent ledger-targeted package test
     command so stale package-local script paths cannot survive.
-  - `test -x packages/universo-core-backend/bin/run` and, if safe in the local
-    environment, `pnpm --filter @universo/core-backend exec node ./bin/run --help`
+  - `test -x packages/universo-react-core-backend/bin/run` and, if safe in the local
+    environment, `pnpm --filter @universo-react/core-backend exec node ./bin/run --help`
     to validate the flattened CLI/bin entrypoint without starting the server.
   - Targeted backend Jest packages with path-heavy configs:
-    `@universo/core-backend`, `@universo/metahubs-backend`,
-    `@universo/applications-backend`, `@universo/migrations-platform`.
-  - `pnpm --filter @universo/rest-docs verify:route-sources`.
-  - `pnpm --filter @universo/rest-docs generate:openapi`.
-  - `pnpm --filter @universo/rest-docs build`.
-  - `rg "packages/[^\\s\"'`)]+/base|packages/\\*/base|/base/src" packages/universo-rest-docs/src/openapi/index.yml`
+    `@universo-react/core-backend`, `@universo-react/metahubs-backend`,
+    `@universo-react/applications-backend`, `@universo-react/migrations-platform`.
+  - `pnpm --filter @universo-react/rest-docs verify:route-sources`.
+  - `pnpm --filter @universo-react/rest-docs generate:openapi`.
+  - `pnpm --filter @universo-react/rest-docs build`.
+  - `rg "packages/[^\\s\"'`)]+/base|packages/\\*/base|/base/src" packages/universo-react-rest-docs/src/openapi/index.yml`
     must return zero hits after OpenAPI generation.
   - `pnpm build`.
   - `pnpm docs:i18n:check` and

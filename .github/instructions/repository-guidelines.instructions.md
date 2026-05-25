@@ -7,8 +7,8 @@ applyTo: '**'
 ## Project Structure & Module Organization
 
 -   Monorepo with feature apps under `packages/`.
-    -   Examples: `packages/publish-frontend` (React front end), `packages/publish-backend` (Node/Express back end), `packages/updl` (UPDL tools).
-    -   Workspace packages use the flat `packages/<name>/package.json` layout.
+    -   Examples: `packages/universo-react-applications-frontend` (React front end), `packages/universo-react-applications-backend` (Node/Express back end), `packages/universo-react-modules-engine` (server-side modules runtime).
+    -   Workspace packages use the flat `packages/universo-react-<name>/package.json` layout and the matching npm name `@universo-react/<name>`.
 -   Front-end apps include `i18n/` with default locales `en/` and `ru/`.
 -   Context docs and planning live in `memory-bank/` (`productContext`, `techContext`, `progress`, `tasks`).
 -   Extends an inherited upstream shell with Supabase multi-user features; keep upstream changes minimal and isolated.
@@ -17,10 +17,10 @@ applyTo: '**'
 
 -   `pnpm install`: Install workspace dependencies.
 -   `pnpm dev`: Start development servers (run from the target app directory when applicable). Important: due to repo size and resource usage, only the user should run this locally; agents must not run it automatically.
--   `pnpm --filter <package> build`: Build a single package to validate it quickly (e.g., lint/type errors). Note: changes are fully applied across the workspace only after a full root rebuild.
+-   `pnpm --filter <package> build`: Build a single package to validate it quickly (e.g., `pnpm --filter @universo-react/applications-frontend build`). Note: changes are fully applied across the workspace only after a full root rebuild.
 -   `pnpm build` (root): Full workspace rebuild; required to propagate changes (even for a single package) and ensure cross-dependency consistency.
 -   `pnpm start`: Run production server(s) for built apps.
--   `pnpm lint`: Run ESLint across the workspace. For checking specific packages, use `pnpm --filter <package> lint` (e.g., `pnpm --filter publish-frontend lint`) to avoid long execution times. Run global lint only when necessary and with user approval.
+-   `pnpm lint`: Run ESLint across the workspace. For checking specific packages, use `pnpm --filter <package> lint` (e.g., `pnpm --filter @universo-react/applications-frontend lint`) to avoid long execution times. Run global lint only when necessary and with user approval.
 
 ## Coding Style & Naming Conventions
 
@@ -39,7 +39,7 @@ applyTo: '**'
 
 ## Commit & Pull Request Guidelines
 
--   Use Conventional Commits: `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, with optional scope (e.g., `feat(publish-frontend): add i18n loader`).
+-   Use Conventional Commits: `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, with optional scope (e.g., `feat(applications-frontend): add i18n loader`).
 -   PRs include: clear description, linked issues, screenshots for UI, and notes on env vars or migrations.
 -   Small, focused PRs are preferred; include `packages/*` paths in the scope when relevant.
 

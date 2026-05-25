@@ -4,7 +4,7 @@ import { test, expect } from '../../fixtures/test'
 import { createLoggedInApiContext, createMetahub, createRecord, disposeApiContext } from '../../support/backend/api-session.mjs'
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
 import { repoRoot } from '../../support/env/load-e2e-env.mjs'
-import { buildSnapshotEnvelope, buildVLC, validateSnapshotEnvelope } from '@universo/utils'
+import { buildSnapshotEnvelope, buildVLC, validateSnapshotEnvelope } from '@universo-react/utils'
 import { waitForMetahubObjectId, waitForMetahubEnumerationId, waitForOptionValueId } from '../../support/lmsRuntime'
 import {
     assertLmsFixtureEnvelopeContract,

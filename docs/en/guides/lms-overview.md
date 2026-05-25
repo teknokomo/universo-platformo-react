@@ -5,7 +5,7 @@ description: Product overview of the LMS MVP built on metahubs, applications, an
 # LMS Overview
 
 The current LMS surface on Universo Platformo is implemented as metahub configuration plus generic application runtime capabilities.
-It is not a hardcoded vertical inside `packages/apps-template-mui`, and the shipped fixture now keeps LMS behavior in entities, layouts, and public learning links rather than in global demo widgets.
+It is not a hardcoded vertical inside `packages/universo-react-apps-template-mui`, and the shipped fixture now keeps LMS behavior in entities, layouts, and public learning links rather than in global demo widgets.
 
 ## What The MVP Covers
 

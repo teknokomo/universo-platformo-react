@@ -55,6 +55,122 @@
 
 ---
 
+## 2026-05-25 - Packages Naming Convention Rollout
+
+### Summary
+
+Completed the repository-wide package naming cutover. All 32 active workspace
+packages now use the canonical `packages/universo-react-<name>/` directory
+layout and `@universo-react/<name>` npm package name. Existing legacy
+`universo-*` package folders were flattened into the new prefix rather than
+double-prefixed, and the implementation introduced no compatibility aliases,
+re-export packages, publish aliases, or symlinks for the old `@universo/*`
+scope.
+
+### Implemented
+
+-   Renamed every active workspace package directory and package manifest to
+    the `universo-react` convention.
+-   Rewrote active cross-package imports, root scripts, workspace dependencies,
+    Turbo/Vitest/Jest/Playwright tooling, local Supabase helpers, CI
+    instructions, agent guidance, GitBook docs, package READMEs, steering docs,
+    and Memory Bank references to the new scope.
+-   Published the canonical package naming convention in
+    `.kiro/steering/structure.md` and `memory-bank/techContext.md`.
+-   Added fail-closed repository guards for package naming, dependency graph
+    drift, stale package-base references, `apps-template-mui` isolation, and
+    React package loading.
+-   Regenerated `pnpm-lock.yaml` from the renamed workspace tree.
+-   Kept schema and template versions unchanged; only the canonical LMS fixture
+    hash was refreshed after name-only snapshot content changes.
+
+### Verification
+
+-   `pnpm install`
+-   `pnpm install --frozen-lockfile`
+-   `pnpm exec turbo run build --force`
+-   `pnpm build`
+-   `pnpm run build:e2e:local-supabase`
+-   `pnpm run test:e2e:smoke:local-supabase` (11 Playwright smoke tests through
+    local minimal Supabase, no `pnpm dev`)
+-   `pnpm run test:vitest` (192 files, 1263 tests)
+-   Backend Jest matrix for `@universo-react/admin-backend`,
+    `@universo-react/core-backend`, `@universo-react/applications-backend`, and
+    `@universo-react/metahubs-backend`.
+-   `pnpm lint --quiet`
+-   `pnpm lint` (passed with existing warning-only lint debt)
+-   `pnpm run check:package-naming`
+-   `pnpm run check:apps-template-isolation`
+-   `pnpm run check:no-package-base-paths`
+-   `pnpm run check:react-bundle`
+-   `pnpm run check:runtime-ux-agents`
+-   `pnpm run check:runtime-no-lms-forks`
+-   `pnpm run check:lms-fixture-contract`
+-   `pnpm run check:catalog-versions`
+-   `pnpm docs:i18n:check`
+-   `pnpm docs:gitbook-screenshot-assets:check`
+-   `pnpm docs:lms-user-guide:check`
+-   `node tools/compare-workspace-dependency-graph.mjs
+memory-bank/implementation/packages-naming-convention-dependency-graph-before.json
+memory-bank/implementation/packages-naming-convention-dependency-graph-after.json`
+-   Final active-source searches found no remaining `@universo/*` imports or
+    stale old package path references outside ignored/generated coverage and
+    historical planning artifacts.
+
+## 2026-05-26 - Packages Naming Convention QA Closure
+
+### Summary
+
+Closed the QA findings found after the repository-wide package naming rollout.
+The follow-up removed active stale examples from agent guidance, public README
+and GitBook architecture docs, and Memory Bank convention context. The package
+naming guard now checks current docs/tooling/guidance for double-prefixed
+package names, stale removed package examples, and generic package-layout text
+that should use the canonical `packages/universo-react-<name>/package.json`
+form. The DB access linter was also synchronized with the renamed package paths
+so the existing Tier 3 exclusions apply to `packages/universo-react-*`
+directories.
+
+### Implemented
+
+-   Fixed double-prefixed package-scope and package-path references in
+    `memory-bank/techContext.md`.
+-   Updated active `.gemini`, `.qoder`, `.github`, `AGENTS.md`, README, and
+    GitBook monorepo-structure guidance to use real
+    `packages/universo-react-*` examples and `@universo-react/*` filters.
+-   Updated `tools/lint-db-access.mjs` excluded Tier 3 boundary paths from the
+    old package directories to the renamed `packages/universo-react-*`
+    directories.
+-   Strengthened `tools/check-package-naming-convention.mjs` to fail closed on
+    active double-prefix references, removed package examples, legacy filter
+    examples, and active generic package-layout wording.
+-   Added `pnpm check:package-naming` and `pnpm check:apps-template-isolation`
+    to the main GitHub Actions workflow.
+
+### Verification
+
+-   `git ls-files -z --cached --others --exclude-standard | node
+tools/check-package-naming-convention.mjs --from-ledger
+memory-bank/implementation/packages-naming-ledger.json --allowlist
+memory-bank/implementation/packages-naming-legacy-reference-allowlist.json
+--stdin0`
+-   `pnpm run check:package-naming`
+-   `pnpm run check:apps-template-isolation`
+-   `pnpm run check:no-package-base-paths`
+-   `pnpm run check:react-bundle`
+-   `node tools/lint-db-access.mjs`
+-   `pnpm --filter @universo-react/auth-backend test -- --runInBand`
+-   `pnpm --filter @universo-react/admin-backend test -- --runInBand`
+-   `pnpm --filter @universo-react/applications-backend test -- --runInBand`
+-   `pnpm lint --quiet`
+-   `pnpm docs:i18n:check`
+-   `pnpm docs:gitbook-screenshot-assets:check`
+-   `pnpm install --frozen-lockfile`
+-   `pnpm build`
+-   `git diff --check`
+-   A sidecar QA pass found no remaining blocker, major, or minor package
+    naming rollout issues after the closure fixes.
+
 ## 2026-05-25 - Flatten Base Directory Index And Backend Matrix Closure
 
 ### Summary
@@ -72,31 +188,31 @@ from their flat package roots.
 -   Synchronized the Git index with the flat package layout and included the
     Memory Bank plan, research, and implementation ledger artifacts in the
     tracked change set.
--   Removed the unnecessary root `@universo/migrations-platform` development
-    dependency; root-level tools directly import `@universo/types` and
-    `@universo/utils`, while migration commands execute through
-    `pnpm --filter @universo/migrations-platform`.
--   Centralized the backend Jest mapper for `@universo/migrations-core` in
+-   Removed the unnecessary root `@universo-react/migrations-platform` development
+    dependency; root-level tools directly import `@universo-react/types` and
+    `@universo-react/utils`, while migration commands execute through
+    `pnpm --filter @universo-react/migrations-platform`.
+-   Centralized the backend Jest mapper for `@universo-react/migrations-core` in
     `tools/testing/backend/jest.base.config.cjs` and removed stale package-local
     mappings from profile and migration package Jest configs.
 -   Updated core-backend Jest mocks so existing tests continue to isolate
     workspace packages after flat package resolution, while preserving real
-    `@universo/utils` exports where downstream imports need them.
+    `@universo-react/utils` exports where downstream imports need them.
 
 ### Verification
 
 -   `pnpm install --frozen-lockfile`
 -   Backend Jest matrix with `--runInBand --silent`:
-    `@universo/admin-backend`, `@universo/applications-backend`,
-    `@universo/auth-backend`, `@universo/metahubs-backend`,
-    `@universo/profile-backend`, `@universo/schema-ddl`,
-    `@universo/start-backend`, `@universo/core-backend`,
-    `@universo/database`, `@universo/migrations-catalog`,
-    `@universo/migrations-core`, and `@universo/migrations-platform`.
--   `pnpm --filter @universo/types build`
--   `pnpm --filter @universo/utils build`
--   `pnpm --filter @universo/migrations-platform build`
--   `pnpm --filter @universo/core-backend build`
+    `@universo-react/admin-backend`, `@universo-react/applications-backend`,
+    `@universo-react/auth-backend`, `@universo-react/metahubs-backend`,
+    `@universo-react/profile-backend`, `@universo-react/schema-ddl`,
+    `@universo-react/start-backend`, `@universo-react/core-backend`,
+    `@universo-react/database`, `@universo-react/migrations-catalog`,
+    `@universo-react/migrations-core`, and `@universo-react/migrations-platform`.
+-   `pnpm --filter @universo-react/types build`
+-   `pnpm --filter @universo-react/utils build`
+-   `pnpm --filter @universo-react/migrations-platform build`
+-   `pnpm --filter @universo-react/core-backend build`
 -   `pnpm check:no-package-base-paths`
 -   `find packages -mindepth 2 -maxdepth 2 -type d -name base -print`
 -   `git grep -n -E 'packages/[A-Za-z0-9._-]+/base|packages/\*/base|/base/src|/base/package\.json|/base/README' -- . ':!memory-bank/**' ':!.manager/specs/**' ':!tools/fixtures/**'`
@@ -109,7 +225,7 @@ from their flat package roots.
 
 Closed the remaining QA blockers after the flat package layout migration. The
 previous implementation had already moved package roots to
-`packages/<name>/package.json`, but final QA found several integration gaps:
+`packages/universo-react-<name>/package.json`, but final QA found several integration gaps:
 new required files were not yet tracked, one core-backend Jest import expected a
 commands barrel, one flat package Vitest config was missing from the root
 workspace, the stale package-base guard was not part of CI or the agent E2E gate,
@@ -119,10 +235,10 @@ and local Supabase script tests did not assert exact flat frontend env paths.
 
 -   Added the new stale path checker and `start-frontend` views components
     barrel to the tracked change set.
--   Added `packages/universo-core-backend/src/commands/index.ts` so existing
+-   Added `packages/universo-react-core-backend/src/commands/index.ts` so existing
     command tests and compiled oclif startup can resolve `../commands` from the
     flat package root.
--   Included `packages/universo-block-editor/vitest.config.ts` in the root
+-   Included `packages/universo-react-block-editor/vitest.config.ts` in the root
     Vitest workspace.
 -   Wired `pnpm check:no-package-base-paths` into the main GitHub Actions
     workflow and the `test:e2e:agent` gate.
@@ -131,10 +247,10 @@ and local Supabase script tests did not assert exact flat frontend env paths.
 
 ### Verification
 
--   `pnpm --filter @universo/core-backend test -- --runInBand`
+-   `pnpm --filter @universo-react/core-backend test -- --runInBand`
 -   `pnpm test:local-supabase:tools`
--   `pnpm --filter @universo/block-editor test`
--   `pnpm exec prettier --check package.json .github/workflows/main.yml vitest.workspace.ts tools/local-supabase/__tests__/package-scripts.test.mjs tools/check-no-package-base-paths.mjs packages/universo-core-backend/src/commands/index.ts packages/start-frontend/src/views/components/index.ts memory-bank/tasks.md`
+-   `pnpm --filter @universo-react/block-editor test`
+-   `pnpm exec prettier --check package.json .github/workflows/main.yml vitest.workspace.ts tools/local-supabase/__tests__/package-scripts.test.mjs tools/check-no-package-base-paths.mjs packages/universo-react-core-backend/src/commands/index.ts packages/universo-react-start-frontend/src/views/components/index.ts memory-bank/tasks.md`
 -   `pnpm build` (31/31 Turbo tasks passed; existing build warnings only)
 -   `pnpm lint` (passed with existing warning-only lint debt)
 -   `pnpm test:vitest` (192 files, 1263 tests)
@@ -150,13 +266,13 @@ and local Supabase script tests did not assert exact flat frontend env paths.
 
 ### Summary
 
-Completed the package layout flattening refactor. Active workspace packages now use the flat `packages/<name>/package.json` layout, `pnpm-workspace.yaml` discovers packages through `packages/*`, and the old `packages/<name>/base` package-root layer has been removed from active package directories. Workspace, Turbo/package exports, local Supabase, E2E runner, OpenAPI/docs tooling, agent instructions, GitBook docs, and package README references were updated to the flat layout.
+Completed the package layout flattening refactor. Active workspace packages now use the flat `packages/universo-react-<name>/package.json` layout, `pnpm-workspace.yaml` discovers packages through `packages/*`, and the old package-root `base` layer has been removed from active package directories. Workspace, Turbo/package exports, local Supabase, E2E runner, OpenAPI/docs tooling, agent instructions, GitBook docs, and package README references were updated to the flat layout.
 
-The final QA pass removed remaining active documentation references that still described package roots as `base/` directories, including repository guidelines, Kiro steering structure docs, and the Universo core frontend README tree. The stale path guard now also catches standalone active package-layout guidance and package tree snippets, while avoiding false positives such as "Supabase" and env-file base wording. The new `packages/start-frontend/src/views/components/index.ts` barrel was verified as intentional because `src/views/index.ts` re-exports `./components` and the package build exposes the compiled `views/index` entry.
+The final QA pass removed remaining active documentation references that still described package roots as `base/` directories, including repository guidelines, Kiro steering structure docs, and the Universo core frontend README tree. The stale path guard now also catches standalone active package-layout guidance and package tree snippets, while avoiding false positives such as "Supabase" and env-file base wording. The new `packages/universo-react-start-frontend/src/views/components/index.ts` barrel was verified as intentional because `src/views/index.ts` re-exports `./components` and the package build exposes the compiled `views/index` entry.
 
 ### Verification
 
--   `pnpm exec prettier --write .github/instructions/repository-guidelines.instructions.md .kiro/steering/structure.md packages/universo-core-frontend/README.md packages/universo-core-frontend/README-RU.md tools/check-no-package-base-paths.mjs memory-bank/tasks.md`
+-   `pnpm exec prettier --write .github/instructions/repository-guidelines.instructions.md .kiro/steering/structure.md packages/universo-react-core-frontend/README.md packages/universo-react-core-frontend/README-RU.md tools/check-no-package-base-paths.mjs memory-bank/tasks.md`
 -   `pnpm check:no-package-base-paths`
 -   `find packages -mindepth 2 -maxdepth 2 -type d -name base -print`
 -   `pnpm build`
@@ -173,16 +289,16 @@ Closed the final QA issues found after the Scripts to Modules rename implementat
 
 ### Verification
 
--   `pnpm --filter @universo/utils test -- publicationSnapshotHash snapshotArchive snapshotFixtures`
--   `pnpm --filter @universo/applications-backend test -- runtimeModulesService applicationsRoutes publicApplicationsRoutes`
--   `pnpm --filter @universo/metahubs-backend test -- SnapshotRestoreService SnapshotSerializer`
+-   `pnpm --filter @universo-react/utils test -- publicationSnapshotHash snapshotArchive snapshotFixtures`
+-   `pnpm --filter @universo-react/applications-backend test -- runtimeModulesService applicationsRoutes publicApplicationsRoutes`
+-   `pnpm --filter @universo-react/metahubs-backend test -- SnapshotRestoreService SnapshotSerializer`
 -   `pnpm docs:i18n:check`
--   `pnpm --filter @universo/applications-backend lint`
--   `pnpm --filter @universo/metahubs-backend lint`
--   `pnpm --filter @universo/utils lint`
--   `pnpm --filter @universo/utils build`
--   `pnpm --filter @universo/applications-backend build`
--   `pnpm --filter @universo/metahubs-backend build`
+-   `pnpm --filter @universo-react/applications-backend lint`
+-   `pnpm --filter @universo-react/metahubs-backend lint`
+-   `pnpm --filter @universo-react/utils lint`
+-   `pnpm --filter @universo-react/utils build`
+-   `pnpm --filter @universo-react/applications-backend build`
+-   `pnpm --filter @universo-react/metahubs-backend build`
 -   No Playwright rerun in this pass: the remaining fixes were backend/security and snapshot-hash contract changes, with prior module runtime browser evidence already recorded for the UI rename.
 
 ## 2026-05-25 - Scripts To Modules QA Fix Closure
@@ -193,11 +309,11 @@ Closed the backend QA findings from the Scripts to Modules rename implementation
 
 ### Verification
 
--   `pnpm --filter @universo/metahubs-backend test -- SnapshotRestoreService MetahubModulesService`
--   `pnpm --filter @universo/metahubs-backend test -- SnapshotSerializer publicationsController`
--   `pnpm --filter @universo/applications-backend test -- syncModulePersistence runtimeModulesService applicationsRoutes`
--   `pnpm --filter @universo/metahubs-backend lint`
--   `pnpm --filter @universo/metahubs-backend build`
+-   `pnpm --filter @universo-react/metahubs-backend test -- SnapshotRestoreService MetahubModulesService`
+-   `pnpm --filter @universo-react/metahubs-backend test -- SnapshotSerializer publicationsController`
+-   `pnpm --filter @universo-react/applications-backend test -- syncModulePersistence runtimeModulesService applicationsRoutes`
+-   `pnpm --filter @universo-react/metahubs-backend lint`
+-   `pnpm --filter @universo-react/metahubs-backend build`
 -   `git diff --check`
 
 ## 2026-05-24 - LMS User Guide Final QA Gate Closure
@@ -302,12 +418,12 @@ Closed the second LMS GitBook user-guide remediation pass. The documentation now
 -   `pnpm docs:i18n:check`
 -   `pnpm docs:gitbook-screenshot-assets:check`
 -   `pnpm exec prettier --write .github/workflows/docs-lms-user-guide-screenshots.yml package.json memory-bank/tasks.md memory-bank/progress.md tools/testing/e2e/specs/generators/docs-lms-user-guide-screenshots.spec.ts tools/docs/lms-user-guide-screenshot-manifest.json`
--   `pnpm exec eslint tools/docs/check-lms-user-guide-docs.mjs tools/testing/e2e/specs/generators/docs-lms-user-guide-screenshots.spec.ts tools/testing/e2e/specs/generators/metahubs-lms-app-export.spec.ts tools/testing/e2e/support/browser/runtimeUx.ts tools/testing/e2e/support/lmsFixtureContract.ts tools/testing/e2e/support/lmsSnapshotImport.ts packages/applications-backend/src/controllers/runtimeReportsController.ts packages/apps-template-mui/src/api/api.ts packages/apps-template-mui/src/dashboard/components/MainGrid.tsx packages/apps-template-mui/src/dashboard/components/widgetRenderer.tsx packages/apps-template-mui/src/dashboard/components/__tests__/MainGrid.test.tsx packages/apps-template-mui/src/dashboard/components/__tests__/widgetRenderer.test.tsx`
--   `pnpm --filter @universo/apps-template-mui test -- widgetRenderer`
--   `pnpm --filter @universo/metahubs-backend test -- templateManifestValidator`
--   `pnpm --filter @universo/applications-backend build`
--   `pnpm --filter @universo/apps-template-mui build`
--   `pnpm --filter @universo/core-frontend build`
+-   `pnpm exec eslint tools/docs/check-lms-user-guide-docs.mjs tools/testing/e2e/specs/generators/docs-lms-user-guide-screenshots.spec.ts tools/testing/e2e/specs/generators/metahubs-lms-app-export.spec.ts tools/testing/e2e/support/browser/runtimeUx.ts tools/testing/e2e/support/lmsFixtureContract.ts tools/testing/e2e/support/lmsSnapshotImport.ts packages/universo-react-applications-backend/src/controllers/runtimeReportsController.ts packages/universo-react-apps-template-mui/src/api/api.ts packages/universo-react-apps-template-mui/src/dashboard/components/MainGrid.tsx packages/universo-react-apps-template-mui/src/dashboard/components/widgetRenderer.tsx packages/universo-react-apps-template-mui/src/dashboard/components/__tests__/MainGrid.test.tsx packages/universo-react-apps-template-mui/src/dashboard/components/__tests__/widgetRenderer.test.tsx`
+-   `pnpm --filter @universo-react/apps-template-mui test -- widgetRenderer`
+-   `pnpm --filter @universo-react/metahubs-backend test -- templateManifestValidator`
+-   `pnpm --filter @universo-react/applications-backend build`
+-   `pnpm --filter @universo-react/apps-template-mui build`
+-   `pnpm --filter @universo-react/core-frontend build`
 
 ---
 
@@ -377,13 +493,13 @@ Closed the screenshot-driven LMS runtime UX/i18n blockers. Normal runtime surfac
 ### Validation
 
 -   `pnpm exec prettier --write ...` for the touched runtime UI, backend, LMS template, fixture, and E2E files.
--   `pnpm exec vitest run --workspace vitest.workspace.ts packages/apps-template-mui/src/utils/__tests__/displayValue.test.ts packages/apps-template-mui/src/components/resource-preview/__tests__/ResourcePreview.test.tsx packages/apps-template-mui/src/components/runtime-ui/__tests__/runtimeUi.test.tsx`: 28 passed.
+-   `pnpm exec vitest run --workspace vitest.workspace.ts packages/universo-react-apps-template-mui/src/utils/__tests__/displayValue.test.ts packages/universo-react-apps-template-mui/src/components/resource-preview/__tests__/ResourcePreview.test.tsx packages/universo-react-apps-template-mui/src/components/runtime-ui/__tests__/runtimeUi.test.tsx`: 28 passed.
 -   `pnpm run check:lms-fixture-contract`: passed.
 -   `pnpm run check:runtime-no-lms-forks`: passed.
--   `pnpm --filter @universo/applications-backend test -- src/tests/routes/applicationsRoutes.test.ts --runInBand`: 155 passed.
--   `pnpm --filter @universo/applications-backend build`: passed.
+-   `pnpm --filter @universo-react/applications-backend test -- src/tests/routes/applicationsRoutes.test.ts --runInBand`: 155 passed.
+-   `pnpm --filter @universo-react/applications-backend build`: passed.
 -   `pnpm run build:e2e:local-supabase`: passed on local minimal Supabase.
--   `pnpm exec cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/snapshot-import-lms-runtime.spec.ts --project chromium --grep "lms snapshot fixture imports"`: 2 passed in 3.6 minutes on local minimal Supabase.
+-   `pnpm exec cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-react-core-frontend/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/snapshot-import-lms-runtime.spec.ts --project chromium --grep "lms snapshot fixture imports"`: 2 passed in 3.6 minutes on local minimal Supabase.
 
 ## 2026-05-23 - LMS Learning Content Post-QA Release Blocker Remediation
 
@@ -404,15 +520,15 @@ Closed the post-QA release blockers for the public LMS guest runtime and generic
 ### Validation
 
 -   `pnpm exec prettier --write` on the updated backend, frontend, E2E, docs, and Memory Bank files.
--   `pnpm --filter @universo/applications-backend test -- --runTestsByPath src/tests/routes/publicApplicationsRoutes.test.ts src/tests/routes/applicationsRoutes.test.ts --runInBand`: 2 suites and 181 tests passed.
--   `pnpm --dir packages/apps-template-mui exec vitest run --config vitest.config.ts src/standalone/__tests__/GuestApp.test.tsx`: 14 tests passed.
+-   `pnpm --filter @universo-react/applications-backend test -- --runTestsByPath src/tests/routes/publicApplicationsRoutes.test.ts src/tests/routes/applicationsRoutes.test.ts --runInBand`: 2 suites and 181 tests passed.
+-   `pnpm --dir packages/universo-react-apps-template-mui exec vitest run --config vitest.config.ts src/standalone/__tests__/GuestApp.test.tsx`: 14 tests passed.
 -   `pnpm exec eslint` on the changed backend controllers/tests, `GuestApp`, `GuestApp.test`, and LMS public guest E2E spec: passed.
 -   `pnpm run check:runtime-no-lms-forks`: passed.
 -   `pnpm run check:lms-fixture-contract`: passed.
--   `pnpm --filter @universo/applications-backend build`: passed.
--   `pnpm --filter @universo/apps-template-mui build`: passed.
+-   `pnpm --filter @universo-react/applications-backend build`: passed.
+-   `pnpm --filter @universo-react/apps-template-mui build`: passed.
 -   `pnpm run build:e2e:local-supabase`: passed against local minimal Supabase.
--   `pnpm exec cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs --grep "enforce the guest journey"`: 2 browser tests passed against local minimal Supabase after fixing the completion-response assertion to wait for the `complete` request body.
+-   `pnpm exec cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-react-core-frontend/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs --grep "enforce the guest journey"`: 2 browser tests passed against local minimal Supabase after fixing the completion-response assertion to wait for the `complete` request body.
 -   `git diff --check`: passed before the final Memory Bank update.
 
 ## 2026-05-23 - LMS Learning Content Final QA Remediation Follow-up
@@ -434,8 +550,8 @@ Closed the remaining QA follow-up items after the public workspace isolation pas
 ### Validation
 
 -   `pnpm exec prettier --write` on the updated backend, E2E, and Memory Bank files.
--   `pnpm --filter @universo/applications-backend test -- --runInBand src/tests/routes/publicApplicationsRoutes.test.ts src/tests/routes/applicationsRoutes.test.ts`: 2 suites and 177 tests passed.
--   `pnpm --filter @universo/applications-backend lint`: passed.
+-   `pnpm --filter @universo-react/applications-backend test -- --runInBand src/tests/routes/publicApplicationsRoutes.test.ts src/tests/routes/applicationsRoutes.test.ts`: 2 suites and 177 tests passed.
+-   `pnpm --filter @universo-react/applications-backend lint`: passed.
 -   `pnpm exec eslint tools/testing/e2e/support/browser/runtimeUx.ts tools/testing/e2e/specs/flows/lms-guest-public-runtime.spec.ts tools/testing/e2e/specs/flows/lms-guest-public-runtime-negative.spec.ts`: passed.
 -   `pnpm run check:lms-fixture-contract`: passed.
 -   `pnpm run check:runtime-no-lms-forks`: passed.
@@ -467,12 +583,12 @@ Closed the final security and release-gate remediation slice for the LMS Learnin
 ### Validation
 
 -   `pnpm exec prettier --write` on the updated backend, template, fixture, E2E, docs, CI, and Memory Bank files.
--   `pnpm --filter @universo/applications-backend lint`: passed.
+-   `pnpm --filter @universo-react/applications-backend lint`: passed.
 -   `pnpm exec eslint tools/testing/e2e/specs/flows/lms-guest-public-runtime.spec.ts tools/testing/e2e/specs/flows/lms-guest-public-runtime-negative.spec.ts tools/testing/e2e/support/lmsRuntime.ts tools/testing/e2e/support/lmsFixtureContract.ts tools/testing/e2e/specs/flows/snapshot-import-lms-runtime.spec.ts`: passed.
--   `pnpm --filter @universo/applications-backend test -- --runInBand src/tests/services/runtimeReportsService.test.ts src/tests/routes/applicationsRoutes.test.ts src/tests/routes/publicApplicationsRoutes.test.ts`: 3 suites and 185 tests passed.
--   `pnpm --filter @universo/metahubs-backend test -- --runInBand --testPathPattern "templateManifestValidator.test.ts|metahubSchemaService.test.ts" --testNamePattern "lms|LMS|built-in lms|template"`: 20 passed, 6 skipped.
--   `pnpm --filter @universo/applications-backend build`: passed.
--   `pnpm --filter @universo/metahubs-backend build`: passed after rerunning sequentially instead of concurrently with the applications backend build.
+-   `pnpm --filter @universo-react/applications-backend test -- --runInBand src/tests/services/runtimeReportsService.test.ts src/tests/routes/applicationsRoutes.test.ts src/tests/routes/publicApplicationsRoutes.test.ts`: 3 suites and 185 tests passed.
+-   `pnpm --filter @universo-react/metahubs-backend test -- --runInBand --testPathPattern "templateManifestValidator.test.ts|metahubSchemaService.test.ts" --testNamePattern "lms|LMS|built-in lms|template"`: 20 passed, 6 skipped.
+-   `pnpm --filter @universo-react/applications-backend build`: passed.
+-   `pnpm --filter @universo-react/metahubs-backend build`: passed after rerunning sequentially instead of concurrently with the applications backend build.
 -   `pnpm run check:lms-fixture-contract`: passed.
 -   `pnpm run check:runtime-no-lms-forks`: passed.
 -   `pnpm docs:i18n:check`: passed for 75 EN/RU pairs.
@@ -504,12 +620,12 @@ Closed the remaining QA findings for the LMS Learning Content release gate. Runt
 ### Validation
 
 -   `pnpm exec prettier --write` on the updated backend, frontend, E2E, and Memory Bank files.
--   `pnpm --filter @universo/applications-backend test -- --runInBand src/tests/services/runtimeReportsService.test.ts`: passed.
--   `pnpm --filter @universo/applications-backend test -- --runInBand src/tests/routes/applicationsRoutes.test.ts`: 147 passed.
--   `pnpm --filter @universo/apps-template-mui test -- src/utils/__tests__/displayValue.test.ts src/utils/__tests__/columns.test.tsx`: 307 passed across the package suite.
--   `pnpm --filter @universo/applications-backend lint`: passed.
--   `pnpm --filter @universo/apps-template-mui lint`: passed.
--   `pnpm --filter @universo/core-frontend build`: passed.
+-   `pnpm --filter @universo-react/applications-backend test -- --runInBand src/tests/services/runtimeReportsService.test.ts`: passed.
+-   `pnpm --filter @universo-react/applications-backend test -- --runInBand src/tests/routes/applicationsRoutes.test.ts`: 147 passed.
+-   `pnpm --filter @universo-react/apps-template-mui test -- src/utils/__tests__/displayValue.test.ts src/utils/__tests__/columns.test.tsx`: 307 passed across the package suite.
+-   `pnpm --filter @universo-react/applications-backend lint`: passed.
+-   `pnpm --filter @universo-react/apps-template-mui lint`: passed.
+-   `pnpm --filter @universo-react/core-frontend build`: passed.
 -   `pnpm exec eslint tools/testing/e2e/run-playwright-suite.mjs tools/testing/e2e/specs/flows/snapshot-import-lms-runtime.spec.ts`: passed.
 -   `pnpm run check:runtime-no-lms-forks`: passed.
 -   `pnpm run check:lms-fixture-contract`: passed on Node.js 22.
@@ -813,7 +929,7 @@ Closed the remaining QA findings for the LMS Learning Content release gate. Runt
 
 ### 2026-05-17: LMS Catalog-Ready Course And Track Metadata ✅
 
--   Added a shared `catalogPublicationPolicySchema` in `@universo/types` with fail-closed self-enro...
+-   Added a shared `catalogPublicationPolicySchema` in `@universo-react/types` with fail-closed self-enro...
 
 ### Unknown Date: 2026-05-13: Local Supabase Minimal App Start Commands ✅
 
@@ -873,7 +989,7 @@ Closed the remaining QA findings for the LMS Learning Content release gate. Runt
 
 ### 2026-05-15: LMS Platform Implementation Slice 11A: Committed LMS Fixture Contract ✅
 
--   Extended `packages/universo-utils/src/snapshot/__tests__/snapshotFixtures.test.ts` with a ...
+-   Extended `packages/universo-react-utils/src/snapshot/__tests__/snapshotFixtures.test.ts` with a ...
 
 ### 2026-05-15: LMS Platform Implementation Slice 12B: Gamification Guide ✅
 
@@ -881,7 +997,7 @@ Closed the remaining QA findings for the LMS Learning Content release gate. Runt
 
 ### 2026-05-15: LMS Platform Implementation Slice 9B: Workspace Metric Card Parity ✅
 
--   Replaced the custom `WorkspaceMetricCard` Box surface in `packages/apps-template-mui` with `Car...
+-   Replaced the custom `WorkspaceMetricCard` Box surface in `packages/universo-react-apps-template-mui` with `Car...
 
 ### 2026-05-16: LMS Platform Implementation Slice 9C/11B: Workspace Metric Screenshot Gate And LMS Flow Cleanup ✅
 
@@ -893,7 +1009,7 @@ Closed the remaining QA findings for the LMS Learning Content release gate. Runt
 
 ### 2026-05-16: LMS Platform Implementation Slice 1B/12D: Shared Block Editor Package ✅
 
--   Added `@universo/block-editor` with the shared `EditorJsBlockEditor`, locale-aware Editor.js he...
+-   Added `@universo-react/block-editor` with the shared `EditorJsBlockEditor`, locale-aware Editor.js he...
 
 ### 2026-05-16: LMS QA Remediation: Runtime Scripts And Workflow Capability Gate ✅
 
@@ -1094,12 +1210,12 @@ Closed the remaining QA findings for the LMS Learning Content release gate. Runt
 ### 2026-05-25: Scripts To Modules Rename ✅
 
 -   Completed the no-legacy rename of the metahub attached TypeScript-code capability from Scripts/Scripting to Modules across packages, routes, database contracts, snapshots, fixtures, tests, SDK names, and GitBook docs.
--   Renamed runtime and design-time contracts to `modules`, `_mhb_modules`, `_app_modules`, `/modules`, `/module/:moduleId`, `/runtime/modules`, `moduleId`, `moduleCodename`, `ModuleRole`, and `@universo/modules-engine`.
+-   Renamed runtime and design-time contracts to `modules`, `_mhb_modules`, `_app_modules`, `/modules`, `/module/:moduleId`, `/runtime/modules`, `moduleId`, `moduleCodename`, `ModuleRole`, and `@universo-react/modules-engine`.
 -   Updated LMS template and fixture posting handlers to `*PostingModule` codenames/classes and refreshed the LMS fixture snapshot hash.
 -   Replaced stale UI capability helpers and localized module-action validation keys; module list role labels now use localized labels instead of raw enum values.
 -   Verified no domain `scripts`/`scripting` leftovers remain outside allowed HTML/security/package-script/external-API contexts.
--   Refreshed workspace links with `pnpm install`, resolving the stale `@universo/core-backend` dependency symlink after the engine package was renamed to `@universo/modules-engine`.
--   Validation passed: local Supabase smoke Vitest, targeted `@universo/types`, applications-backend, metahubs-backend, metahubs-frontend, applications-frontend, and modules-engine tests/builds; `pnpm docs:i18n:check`; `build:e2e` on local minimal Supabase; and the two Chromium module runtime Playwright flows.
+-   Refreshed workspace links with `pnpm install`, resolving the stale `@universo-react/core-backend` dependency symlink after the engine package was renamed to `@universo-react/modules-engine`.
+-   Validation passed: local Supabase smoke Vitest, targeted `@universo-react/types`, applications-backend, metahubs-backend, metahubs-frontend, applications-frontend, and modules-engine tests/builds; `pnpm docs:i18n:check`; `build:e2e` on local minimal Supabase; and the two Chromium module runtime Playwright flows.
 -   Browser evidence captured at `test-results/flows-application-runtime--70ed6-before-runtime-verification-chromium/quiz-modules-authoring-dialog.png` and `test-results/flows-application-runtime--e26b0--the-real-a-browser-surface-chromium/quiz-modules-runtime-en.png`.
 
 ### 2026-05-25: Scripts To Modules Post-QA Closure ✅

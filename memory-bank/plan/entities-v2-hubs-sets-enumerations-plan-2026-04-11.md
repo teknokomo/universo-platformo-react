@@ -44,13 +44,13 @@ Extend the Entity Component Architecture (ECAE) to produce three new entity type
 
 ### Step 1.1: Extract `resolveLegacySettingsPrefix()` from catalog-only code
 
-**File**: `packages/metahubs-backend/base/src/domains/catalogs/services/catalogCompatibility.ts`
+**File**: `packages/universo-react-metahubs-backend/base/src/domains/catalogs/services/catalogCompatibility.ts`
 
 Rename and generalize into a broader compatibility utility. The existing `isCatalogCompatibleEntityType` and `isCatalogCompatibleResolvedType` stay for catalog-specific logic; add new generic helpers.
 
 ```typescript
 // New export in catalogCompatibility.ts (or a new legacyCompatibility.ts)
-import { getLegacyCompatibleObjectKind, type ResolvedEntityType } from '@universo/types'
+import { getLegacyCompatibleObjectKind, type ResolvedEntityType } from '@universo-react/types'
 
 const LEGACY_SETTINGS_PREFIX_MAP: Record<string, string> = {
     catalog: 'catalogs',
@@ -87,7 +87,7 @@ export const resolveLegacyAclPermission = (
 
 ### Step 1.2: Generalize `entityInstancesController.ts` settings & ACL
 
-**File**: `packages/metahubs-backend/base/src/domains/entities/controllers/entityInstancesController.ts`
+**File**: `packages/universo-react-metahubs-backend/base/src/domains/entities/controllers/entityInstancesController.ts`
 
 Replace every hardcoded `'catalogs.allowCopy'` / `'catalogs.allowDelete'` with `resolveLegacySettingsPrefix()`:
 
@@ -120,7 +120,7 @@ const permission = resolveLegacyAclPermission(resolvedType, 'write')
 
 ### Step 1.3: Generalize blocking-reference resolution
 
-**File**: `packages/metahubs-backend/base/src/domains/entities/controllers/entityInstancesController.ts`
+**File**: `packages/universo-react-metahubs-backend/base/src/domains/entities/controllers/entityInstancesController.ts`
 
 Create a kind-dispatched blocker finder:
 
@@ -157,8 +157,8 @@ const findLegacyReferenceBlockers = async (
 ### Step 1.4: Introduce a generic legacy-compatibility registry (CRITICAL)
 
 **Files**:
-- `packages/metahubs-backend/base/src/domains/catalogs/services/catalogCompatibility.ts` or new `packages/metahubs-backend/base/src/domains/shared/legacyCompatibility.ts`
-- `packages/universo-types/base/src/common/entityTypeDefinition.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/catalogs/services/catalogCompatibility.ts` or new `packages/universo-react-metahubs-backend/base/src/domains/shared/legacyCompatibility.ts`
+- `packages/universo-react-types/base/src/common/entityTypeDefinition.ts`
 
 The previous QA revision proposed storing legacy-compatible V2 objects with legacy `kind` values. A deeper code review shows that approach is **incorrect** because:
 - `entityInstancesController.ts` resolves custom entity types via `assertCustomEntityKind(resolver, kind, ...)`, so storing `kind='hub'` would make existing generic entity routes resolve the built-in kind instead of the custom type.
@@ -194,13 +194,13 @@ This must become the **single source of truth** for controller lists, blocker ch
 ### Step 1.5: Generalize legacy controllers and service seams for hubs/sets/enumerations
 
 **Files**:
-- `packages/metahubs-backend/base/src/domains/hubs/controllers/hubsController.ts`
-- `packages/metahubs-backend/base/src/domains/sets/controllers/setsController.ts`
-- `packages/metahubs-backend/base/src/domains/enumerations/controllers/enumerationsController.ts`
-- `packages/metahubs-backend/base/src/domains/metahubs/services/MetahubHubsService.ts`
-- `packages/metahubs-backend/base/src/domains/branches/services/MetahubBranchesService.ts`
-- `packages/metahubs-backend/base/src/domains/settings/services/MetahubSettingsService.ts`
-- `packages/metahubs-backend/base/src/domains/metahubs/controllers/metahubsController.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/hubs/controllers/hubsController.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/sets/controllers/setsController.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/enumerations/controllers/enumerationsController.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/metahubs/services/MetahubHubsService.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/branches/services/MetahubBranchesService.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/settings/services/MetahubSettingsService.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/metahubs/controllers/metahubsController.ts`
 
 Catalogs V2 already use the right structural pattern: the **legacy controller remains authoritative**, while compatibility helpers widen it to include compatible custom kinds. The same pattern must be implemented for hubs, sets, and enumerations.
 
@@ -216,9 +216,9 @@ Required updates:
 ### Step 1.6: Generalize publication, runtime, and schema-generation seams
 
 **Files**:
-- `packages/metahubs-backend/base/src/domains/publications/services/SnapshotSerializer.ts`
-- `packages/applications-backend/base/src/controllers/runtimeRowsController.ts`
-- `packages/schema-ddl/base/src/SchemaGenerator.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/publications/services/SnapshotSerializer.ts`
+- `packages/universo-react-applications-backend/base/src/controllers/runtimeRowsController.ts`
+- `packages/universo-react-schema-ddl/base/src/SchemaGenerator.ts`
 
 The previous plan treated these as implicitly solved by kind translation. That is no longer valid.
 
@@ -234,11 +234,11 @@ Required updates:
 
 ### Step 2.1: Create Kind-Registry Delegation Map
 
-**New file**: `packages/metahubs-frontend/base/src/domains/entities/ui/entityInstanceDelegates.ts`
+**New file**: `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/entityInstanceDelegates.ts`
 
 ```typescript
 import { lazy, type LazyExoticComponent, type ComponentType } from 'react'
-import type { LegacyCompatibleObjectKind } from '@universo/types'
+import type { LegacyCompatibleObjectKind } from '@universo-react/types'
 
 /**
  * Lazy-loaded legacy surface delegates.
@@ -257,7 +257,7 @@ export const LEGACY_INSTANCE_DELEGATES: Partial<
 
 ### Step 2.2: Generalize `EntityInstanceList.tsx` delegation
 
-**File**: `packages/metahubs-frontend/base/src/domains/entities/ui/EntityInstanceList.tsx`
+**File**: `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/EntityInstanceList.tsx`
 
 Replace the hardcoded `CATALOG_COMPATIBLE_KIND_KEY` and `isCatalogCompatibleEntityType` check with the generic delegation map:
 
@@ -271,7 +271,7 @@ if (isCatalogCompatibleMode) {
 
 // After:
 import { Suspense } from 'react'
-import { getLegacyCompatibleObjectKind } from '@universo/types'
+import { getLegacyCompatibleObjectKind } from '@universo-react/types'
 import { LEGACY_INSTANCE_DELEGATES } from './entityInstanceDelegates'
 
 // In the component body:
@@ -298,9 +298,9 @@ if (DelegateComponent) {
 ### Step 2.3: Add route-path adapters for hubs, sets, and enumerations
 
 **New files**:
-- `packages/metahubs-frontend/base/src/domains/hubs/ui/hubRoutePaths.ts`
-- `packages/metahubs-frontend/base/src/domains/sets/ui/setRoutePaths.ts`
-- `packages/metahubs-frontend/base/src/domains/enumerations/ui/enumerationRoutePaths.ts`
+- `packages/universo-react-metahubs-frontend/base/src/domains/hubs/ui/hubRoutePaths.ts`
+- `packages/universo-react-metahubs-frontend/base/src/domains/sets/ui/setRoutePaths.ts`
+- `packages/universo-react-metahubs-frontend/base/src/domains/enumerations/ui/enumerationRoutePaths.ts`
 
 Catalogs V2 already preserve route ownership through `catalogRoutePaths.ts`. Hubs, sets, and enumerations must follow the same pattern so V2 surfaces do not silently navigate back into legacy URL trees.
 
@@ -312,12 +312,12 @@ Required behavior:
 ### Step 2.4: Generalize legacy list components and hooks for entity-route ownership
 
 **Files**:
-- `packages/metahubs-frontend/base/src/domains/hubs/ui/HubList.tsx`
-- `packages/metahubs-frontend/base/src/domains/sets/ui/SetList.tsx`
-- `packages/metahubs-frontend/base/src/domains/enumerations/ui/EnumerationList.tsx`
-- `packages/metahubs-frontend/base/src/domains/hubs/hooks/useTreeListData.ts`
-- `packages/metahubs-frontend/base/src/domains/sets/hooks/useValueGroupListData.ts`
-- `packages/metahubs-frontend/base/src/domains/enumerations/hooks/useOptionListData.ts`
+- `packages/universo-react-metahubs-frontend/base/src/domains/hubs/ui/HubList.tsx`
+- `packages/universo-react-metahubs-frontend/base/src/domains/sets/ui/SetList.tsx`
+- `packages/universo-react-metahubs-frontend/base/src/domains/enumerations/ui/EnumerationList.tsx`
+- `packages/universo-react-metahubs-frontend/base/src/domains/hubs/hooks/useTreeListData.ts`
+- `packages/universo-react-metahubs-frontend/base/src/domains/sets/hooks/useValueGroupListData.ts`
+- `packages/universo-react-metahubs-frontend/base/src/domains/enumerations/hooks/useOptionListData.ts`
 
 These components currently render, but still hardcode legacy navigation targets such as `/metahub/:id/set/:setId/constants` and `/metahub/:id/enumeration/:enumerationId/values`.
 
@@ -325,12 +325,12 @@ Update them to:
 - detect optional `kindKey` from the entity route,
 - build links/navigation through the new `*RoutePaths.ts` helpers,
 - preserve breadcrumbs and deep links inside the V2 route tree,
-- continue reusing the existing list dialogs, `EntityFormDialog`, cards, menus, and `@universo/template-mui` primitives.
+- continue reusing the existing list dialogs, `EntityFormDialog`, cards, menus, and `@universo-react/template-mui` primitives.
 
 ### Step 2.5: Generalize widget and selector integrations for compatible hubs
 
 **Files**:
-- `packages/metahubs-frontend/base/src/domains/layouts/ui/MenuWidgetEditorDialog.tsx`
+- `packages/universo-react-metahubs-frontend/base/src/domains/layouts/ui/MenuWidgetEditorDialog.tsx`
 - any hub-selection hooks/selectors used by layouts and other integrations
 
 `MenuWidgetEditorDialog.tsx` and related hub selectors currently assume `kind === 'hub'` and consume only legacy hub lists. Hub V2 must become selectable anywhere the product currently expects hubs.
@@ -343,11 +343,11 @@ Required updates:
 ### Step 2.6: Add explicit sidebar ordering metadata and sort published menu items by it
 
 **Files**:
-- `packages/universo-types/base/src/common/entityTypeDefinition.ts`
-- `packages/metahubs-backend/base/src/domains/entities/services/EntityTypeService.ts`
-- `packages/metahubs-frontend/base/src/domains/entities/ui/EntitiesWorkspace.tsx`
-- `packages/universo-template-mui/base/src/components/dashboard/MenuContent.tsx`
-- `packages/universo-template-mui/base/src/navigation/menuConfigs.ts`
+- `packages/universo-react-types/base/src/common/entityTypeDefinition.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/entities/services/EntityTypeService.ts`
+- `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/EntitiesWorkspace.tsx`
+- `packages/universo-react-template-mui/base/src/components/dashboard/MenuContent.tsx`
+- `packages/universo-react-template-mui/base/src/navigation/menuConfigs.ts`
 
 The original specification requires exact order in the left menu:
 - `Хабы V2`
@@ -369,11 +369,11 @@ Preset defaults should be:
 
 ### Step 3.1: Create Hub V2 preset
 
-**New file**: `packages/metahubs-backend/base/src/domains/templates/data/hub-v2.entity-preset.ts`
+**New file**: `packages/universo-react-metahubs-backend/base/src/domains/templates/data/hub-v2.entity-preset.ts`
 
 ```typescript
-import type { EntityTypePresetManifest } from '@universo/types'
-import { HUB_TYPE } from '@universo/types'
+import type { EntityTypePresetManifest } from '@universo-react/types'
+import { HUB_TYPE } from '@universo-react/types'
 import { vlc } from './basic.template'
 
 const hubV2Name = vlc('Hubs V2', 'Хабы V2')
@@ -425,11 +425,11 @@ export const hubV2EntityPreset: EntityTypePresetManifest = {
 
 ### Step 3.2: Create Set V2 preset
 
-**New file**: `packages/metahubs-backend/base/src/domains/templates/data/set-v2.entity-preset.ts`
+**New file**: `packages/universo-react-metahubs-backend/base/src/domains/templates/data/set-v2.entity-preset.ts`
 
 ```typescript
-import type { EntityTypePresetManifest } from '@universo/types'
-import { SET_TYPE } from '@universo/types'
+import type { EntityTypePresetManifest } from '@universo-react/types'
+import { SET_TYPE } from '@universo-react/types'
 import { vlc } from './basic.template'
 
 const setV2Name = vlc('Sets V2', 'Наборы V2')
@@ -476,11 +476,11 @@ export const setV2EntityPreset: EntityTypePresetManifest = {
 
 ### Step 3.3: Create Enumeration V2 preset
 
-**New file**: `packages/metahubs-backend/base/src/domains/templates/data/enumeration-v2.entity-preset.ts`
+**New file**: `packages/universo-react-metahubs-backend/base/src/domains/templates/data/enumeration-v2.entity-preset.ts`
 
 ```typescript
-import type { EntityTypePresetManifest } from '@universo/types'
-import { ENUMERATION_TYPE } from '@universo/types'
+import type { EntityTypePresetManifest } from '@universo-react/types'
+import { ENUMERATION_TYPE } from '@universo-react/types'
 import { vlc } from './basic.template'
 
 const enumerationV2Name = vlc('Enumerations V2', 'Перечисления V2')
@@ -537,7 +537,7 @@ Set `ui.sidebarOrder = 20` so the published menu order exactly matches the speci
 
 ### Step 3.5: Register new presets in index
 
-**File**: `packages/metahubs-backend/base/src/domains/templates/data/index.ts`
+**File**: `packages/universo-react-metahubs-backend/base/src/domains/templates/data/index.ts`
 
 ```typescript
 import { hubV2EntityPreset } from './hub-v2.entity-preset'
@@ -562,7 +562,7 @@ export const builtinEntityTypePresets: EntityTypePresetManifest[] = [
 
 ### Step 4.1: Verify existing settings coverage
 
-The following settings are **already registered** in `packages/universo-types/base/src/common/metahubs.ts`:
+The following settings are **already registered** in `packages/universo-react-types/base/src/common/metahubs.ts`:
 
 | Key | Line | Status |
 |---|---|---|
@@ -579,7 +579,7 @@ i18n keys for these settings also exist in both `en/metahubs.json` and `ru/metah
 
 ### Step 4.2: Verify `useEntityPermissions` frontend hook
 
-**File**: `packages/metahubs-frontend/base/src/domains/settings/hooks/useEntityPermissions.ts`
+**File**: `packages/universo-react-metahubs-frontend/base/src/domains/settings/hooks/useEntityPermissions.ts`
 
 This hook already resolves settings generically from a `{entityType}` prefix (e.g., `sets.allowCopy`). Verify it works for set/hub/enumeration prefixes — likely no code change needed.
 
@@ -591,7 +591,7 @@ This hook already resolves settings generically from a `{entityType}` prefix (e.
 
 ### Step 5.1: Add EN locale keys for preset names
 
-**File**: `packages/universo-i18n/base/src/locales/en/metahubs.json` (or `packages/metahubs-frontend/base/src/i18n/locales/en/metahubs.json` depending on where ECAE preset keys live)
+**File**: `packages/universo-react-i18n/base/src/locales/en/metahubs.json` (or `packages/universo-react-metahubs-frontend/base/src/i18n/locales/en/metahubs.json` depending on where ECAE preset keys live)
 
 ```json
 {
@@ -606,7 +606,7 @@ This hook already resolves settings generically from a `{entityType}` prefix (e.
 
 ### Step 5.2: Add RU locale keys for preset names
 
-**File**: `packages/universo-i18n/base/src/locales/ru/metahubs.json` (or equivalent)
+**File**: `packages/universo-react-i18n/base/src/locales/ru/metahubs.json` (or equivalent)
 
 ```json
 {
@@ -631,7 +631,7 @@ pnpm docs:i18n:check
 
 ### Step 6.1: Backend unit tests — settings resolution
 
-**File**: `packages/metahubs-backend/base/src/domains/catalogs/services/__tests__/catalogCompatibility.test.ts` (or new `legacyCompatibility.test.ts`)
+**File**: `packages/universo-react-metahubs-backend/base/src/domains/catalogs/services/__tests__/catalogCompatibility.test.ts` (or new `legacyCompatibility.test.ts`)
 
 ```typescript
 describe('resolveLegacySettingsPrefix', () => {
@@ -674,7 +674,7 @@ describe('resolveLegacyAclPermission', () => {
 
 ### Step 6.2: Backend integration tests — legacy controller compatibility
 
-**File**: `packages/metahubs-backend/base/src/tests/routes/entityInstancesRoutes.test.ts`
+**File**: `packages/universo-react-metahubs-backend/base/src/tests/routes/entityInstancesRoutes.test.ts`
 
 Add test cases verifying compatibility-aware behavior without changing stored custom kinds:
 
@@ -699,7 +699,7 @@ describe('legacy-compatible V2 kinds in legacy controllers', () => {
 
 ### Step 6.3: Backend integration tests — settings enforcement
 
-**File**: `packages/metahubs-backend/base/src/tests/routes/entityInstancesRoutes.test.ts`
+**File**: `packages/universo-react-metahubs-backend/base/src/tests/routes/entityInstancesRoutes.test.ts`
 
 Add test cases in the existing entity routes suite:
 
@@ -748,13 +748,13 @@ Add coverage for:
 
 ### Step 6.5: Backend preset validation tests
 
-**File**: `packages/metahubs-backend/base/src/tests/templates/entityTypePresets.test.ts` (new or extend existing)
+**File**: `packages/universo-react-metahubs-backend/base/src/tests/templates/entityTypePresets.test.ts` (new or extend existing)
 
 ```typescript
 import { hubV2EntityPreset } from '../../domains/templates/data/hub-v2.entity-preset'
 import { setV2EntityPreset } from '../../domains/templates/data/set-v2.entity-preset'
 import { enumerationV2EntityPreset } from '../../domains/templates/data/enumeration-v2.entity-preset'
-import { validateComponentDependencies } from '@universo/types'
+import { validateComponentDependencies } from '@universo-react/types'
 
 describe('V2 entity type presets', () => {
     it.each([
@@ -788,7 +788,7 @@ describe('V2 entity type presets', () => {
 
 ### Step 6.6: Frontend delegation and route-ownership tests
 
-**File**: `packages/metahubs-frontend/base/src/domains/entities/ui/__tests__/EntityInstanceList.test.tsx`
+**File**: `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/__tests__/EntityInstanceList.test.tsx`
 
 Extend the existing RTL test suite:
 
@@ -833,10 +833,10 @@ describe('legacy-kind delegation', () => {
 
 ```bash
 # Backend
-pnpm --filter @universo/metahubs-backend test -- --run
+pnpm --filter @universo-react/metahubs-backend test -- --run
 
 # Frontend
-pnpm --filter @universo/metahubs-frontend test -- --run
+pnpm --filter @universo-react/metahubs-frontend test -- --run
 ```
 
 ---
@@ -997,7 +997,7 @@ Mirror EN changes in Russian.
 
 ### Step 8.3: Update package README
 
-**File**: `packages/metahubs-frontend/base/README.md` and `packages/metahubs-backend/base/README.md`
+**File**: `packages/universo-react-metahubs-frontend/base/README.md` and `packages/universo-react-metahubs-backend/base/README.md`
 
 Note the new delegation pattern and preset registration locations.
 
@@ -1044,7 +1044,7 @@ Run the Playwright generator to regenerate `tools/fixtures/metahubs-self-hosted-
 Run existing snapshot E2E tests to verify the new entity types are correctly serialized and restored:
 
 ```bash
-pnpm --filter @universo/utils test -- --run src/snapshot/__tests__/snapshotArchive.test.ts
+pnpm --filter @universo-react/utils test -- --run src/snapshot/__tests__/snapshotArchive.test.ts
 ```
 
 ---
@@ -1054,23 +1054,23 @@ pnpm --filter @universo/utils test -- --run src/snapshot/__tests__/snapshotArchi
 ### Step 10.1: Run focused package builds
 
 ```bash
-pnpm --filter @universo/types build
-pnpm --filter @universo/metahubs-backend build
-pnpm --filter @universo/metahubs-frontend build
+pnpm --filter @universo-react/types build
+pnpm --filter @universo-react/metahubs-backend build
+pnpm --filter @universo-react/metahubs-frontend build
 ```
 
 ### Step 10.2: Run focused test suites
 
 ```bash
-pnpm --filter @universo/metahubs-backend test -- --run
-pnpm --filter @universo/metahubs-frontend test -- --run
+pnpm --filter @universo-react/metahubs-backend test -- --run
+pnpm --filter @universo-react/metahubs-frontend test -- --run
 ```
 
 ### Step 10.3: Run focused lint
 
 ```bash
-pnpm --filter @universo/metahubs-backend lint
-pnpm --filter @universo/metahubs-frontend lint
+pnpm --filter @universo-react/metahubs-backend lint
+pnpm --filter @universo-react/metahubs-frontend lint
 ```
 
 ### Step 10.4: Run canonical full build
@@ -1187,13 +1187,13 @@ npx playwright test --project chromium tools/testing/e2e/specs/flows/metahub-ent
 
 | File | Purpose |
 |---|---|
-| `packages/metahubs-backend/base/src/domains/templates/data/hub-v2.entity-preset.ts` | Hub V2 preset manifest |
-| `packages/metahubs-backend/base/src/domains/templates/data/set-v2.entity-preset.ts` | Set V2 preset manifest |
-| `packages/metahubs-backend/base/src/domains/templates/data/enumeration-v2.entity-preset.ts` | Enumeration V2 preset manifest |
-| `packages/metahubs-frontend/base/src/domains/entities/ui/entityInstanceDelegates.ts` | Kind-registry delegation map |
-| `packages/metahubs-frontend/base/src/domains/hubs/ui/hubRoutePaths.ts` | Hub V2 route ownership helpers |
-| `packages/metahubs-frontend/base/src/domains/sets/ui/setRoutePaths.ts` | Set V2 route ownership helpers |
-| `packages/metahubs-frontend/base/src/domains/enumerations/ui/enumerationRoutePaths.ts` | Enumeration V2 route ownership helpers |
+| `packages/universo-react-metahubs-backend/base/src/domains/templates/data/hub-v2.entity-preset.ts` | Hub V2 preset manifest |
+| `packages/universo-react-metahubs-backend/base/src/domains/templates/data/set-v2.entity-preset.ts` | Set V2 preset manifest |
+| `packages/universo-react-metahubs-backend/base/src/domains/templates/data/enumeration-v2.entity-preset.ts` | Enumeration V2 preset manifest |
+| `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/entityInstanceDelegates.ts` | Kind-registry delegation map |
+| `packages/universo-react-metahubs-frontend/base/src/domains/hubs/ui/hubRoutePaths.ts` | Hub V2 route ownership helpers |
+| `packages/universo-react-metahubs-frontend/base/src/domains/sets/ui/setRoutePaths.ts` | Set V2 route ownership helpers |
+| `packages/universo-react-metahubs-frontend/base/src/domains/enumerations/ui/enumerationRoutePaths.ts` | Enumeration V2 route ownership helpers |
 | optional `legacyCompatibility.ts` | Shared backend compatibility registry |
 
 ### New Test Files (~9)

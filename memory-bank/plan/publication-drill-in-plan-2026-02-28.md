@@ -22,7 +22,7 @@ Transform Publications from a flat list + modal-edit pattern into a **drill-in n
 
 ### 2.1 Confirmed architectural constraints
 
-- `@universo/metahubs-backend` depends on `@universo/applications-backend` (not reverse) → Connector/Application/ConnectorPublication entities can be used from publications routes.
+- `@universo-react/metahubs-backend` depends on `@universo-react/applications-backend` (not reverse) → Connector/Application/ConnectorPublication entities can be used from publications routes.
 - Publication CREATE handler already creates Application + Connector inside transaction.
 - Schema sync is done lazily via `POST /application/:applicationId/sync` (separate route in applicationSyncRoutes.ts).
 - The new "Create application schema" option will need to either:
@@ -92,13 +92,13 @@ Existing tables `metahubs.publications`, `metahubs.publications_versions`, `appl
 
 Extract the application-creation logic (lines ~486-560 of publicationsRoutes.ts) into a reusable helper:
 
-File: `packages/metahubs-backend/base/src/domains/publications/helpers/createLinkedApplication.ts`
+File: `packages/universo-react-metahubs-backend/base/src/domains/publications/helpers/createLinkedApplication.ts`
 
 ```typescript
 import { EntityManager } from 'typeorm'
 import { Application, ApplicationUser, Connector, ConnectorPublication } from '../../...' // entities
 import { generateSchemaName } from '../../ddl'
-import type { VersionedLocalizedContent } from '@universo/types'
+import type { VersionedLocalizedContent } from '@universo-react/types'
 
 interface CreateLinkedApplicationOpts {
     manager: EntityManager
@@ -288,12 +288,12 @@ pnpm build --filter metahubs-backend
 Add inside the `metahub/:metahubId` route group, after existing publication route:
 
 ```tsx
-// Lazy imports (named re-export pattern from @universo/metahubs-frontend)
+// Lazy imports (named re-export pattern from @universo-react/metahubs-frontend)
 const PublicationVersionList = Loadable(
-    lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.PublicationVersionList })))
+    lazy(() => import('@universo-react/metahubs-frontend').then((m) => ({ default: m.PublicationVersionList })))
 )
 const PublicationApplicationList = Loadable(
-    lazy(() => import('@universo/metahubs-frontend').then((m) => ({ default: m.PublicationApplicationList })))
+    lazy(() => import('@universo-react/metahubs-frontend').then((m) => ({ default: m.PublicationApplicationList })))
 )
 
 // Routes — add after the /publications route:
@@ -318,12 +318,12 @@ export { PublicationApplicationList } from './domains/publications/ui/Publicatio
 
 ```bash
 # Step 1: Copy AttributeList as the base shell for PublicationVersionList
-cp packages/metahubs-frontend/base/src/domains/attributes/ui/AttributeList.tsx \
-   packages/metahubs-frontend/base/src/domains/publications/ui/PublicationVersionList.tsx
+cp packages/universo-react-metahubs-frontend/base/src/domains/attributes/ui/AttributeList.tsx \
+   packages/universo-react-metahubs-frontend/base/src/domains/publications/ui/PublicationVersionList.tsx
 
 # Step 2: Copy VersionsPanel as reference for version-specific logic (keep as reference, delete later)
-cp packages/metahubs-frontend/base/src/domains/publications/ui/VersionsPanel.tsx \
-   packages/metahubs-frontend/base/src/domains/publications/ui/VersionsPanel.ref.tsx
+cp packages/universo-react-metahubs-frontend/base/src/domains/publications/ui/VersionsPanel.tsx \
+   packages/universo-react-metahubs-frontend/base/src/domains/publications/ui/VersionsPanel.ref.tsx
 ```
 
 **R3.0.1** Refactor `PublicationVersionList.tsx` — systematic replacement checklist:
@@ -344,9 +344,9 @@ cp packages/metahubs-frontend/base/src/domains/publications/ui/VersionsPanel.tsx
 
 **R3.1** Final structure of `PublicationVersionList.tsx`
 
-File: `packages/metahubs-frontend/base/src/domains/publications/ui/PublicationVersionList.tsx`
+File: `packages/universo-react-metahubs-frontend/base/src/domains/publications/ui/PublicationVersionList.tsx`
 
-File: `packages/metahubs-frontend/base/src/domains/publications/ui/PublicationVersionList.tsx`
+File: `packages/universo-react-metahubs-frontend/base/src/domains/publications/ui/PublicationVersionList.tsx`
 
 Structure:
 ```tsx
@@ -414,7 +414,7 @@ export const PublicationVersionList: React.FC = () => {
 
 **R3.2** Create version-specific query hooks
 
-File: `packages/metahubs-frontend/base/src/domains/publications/hooks/usePublicationVersions.ts`
+File: `packages/universo-react-metahubs-frontend/base/src/domains/publications/hooks/usePublicationVersions.ts`
 
 ```typescript
 // Query: list versions
@@ -432,7 +432,7 @@ export function usePublicationVersions(metahubId: string, publicationId: string)
 
 Both PublicationVersionList and PublicationApplicationList need to show the publication name in the ViewHeader. The API function `getPublicationById` already exists in `publications.ts`.
 
-File: `packages/metahubs-frontend/base/src/domains/publications/hooks/usePublicationDetails.ts`
+File: `packages/universo-react-metahubs-frontend/base/src/domains/publications/hooks/usePublicationDetails.ts`
 
 ```typescript
 import { useQuery } from '@tanstack/react-query'
@@ -460,7 +460,7 @@ const publicationName = publication ? getVLCString(publication.name, i18n.langua
 
 **R3.3** Create version-specific mutations
 
-File: `packages/metahubs-frontend/base/src/domains/publications/hooks/versionMutations.ts`
+File: `packages/universo-react-metahubs-frontend/base/src/domains/publications/hooks/versionMutations.ts`
 
 ```typescript
 export function useCreatePublicationVersion() { ... }
@@ -472,7 +472,7 @@ export function useUpdatePublicationVersion() { ... }
 
 **R3.4** Add version-specific API functions
 
-File: `packages/metahubs-frontend/base/src/domains/publications/api/publicationVersions.ts`
+File: `packages/universo-react-metahubs-frontend/base/src/domains/publications/api/publicationVersions.ts`
 
 ```typescript
 export const listPublicationVersions = async (metahubId: string, publicationId: string) => { ... }
@@ -499,8 +499,8 @@ publicationApplicationsList: (metahubId: string, publicationId: string) =>
 
 ```bash
 # Copy ElementList as the base shell for PublicationApplicationList
-cp packages/metahubs-frontend/base/src/domains/elements/ui/ElementList.tsx \
-   packages/metahubs-frontend/base/src/domains/publications/ui/PublicationApplicationList.tsx
+cp packages/universo-react-metahubs-frontend/base/src/domains/elements/ui/ElementList.tsx \
+   packages/universo-react-metahubs-frontend/base/src/domains/publications/ui/PublicationApplicationList.tsx
 ```
 
 **R4.0.1** Refactor `PublicationApplicationList.tsx` — systematic replacement checklist:
@@ -519,7 +519,7 @@ cp packages/metahubs-frontend/base/src/domains/elements/ui/ElementList.tsx \
 
 **R4.1** Final structure of `PublicationApplicationList.tsx`
 
-File: `packages/metahubs-frontend/base/src/domains/publications/ui/PublicationApplicationList.tsx`
+File: `packages/universo-react-metahubs-frontend/base/src/domains/publications/ui/PublicationApplicationList.tsx`
 
 Copy shell from ElementList (tabs, ViewHeader), but content is the application list.
 
@@ -580,7 +580,7 @@ export const PublicationApplicationList: React.FC = () => {
 
 **R4.2** Create application-specific API, hooks, mutations
 
-File: `packages/metahubs-frontend/base/src/domains/publications/api/publicationApplications.ts`
+File: `packages/universo-react-metahubs-frontend/base/src/domains/publications/api/publicationApplications.ts`
 
 ```typescript
 export const listPublicationApplications = async (metahubId: string, publicationId: string) => { ... }
@@ -722,7 +722,7 @@ const buildCreateTabs = ({ values, setValue, isLoading, errors }): TabConfig[] =
 
 **R5.3** Extract `CollapsibleSection` component
 
-File: `packages/universo-template-mui/base/src/components/CollapsibleSection.tsx`
+File: `packages/universo-react-template-mui/base/src/components/CollapsibleSection.tsx`
 
 Reusable component matching the existing pattern from `AttributeFormFields.tsx`:
 
@@ -881,9 +881,9 @@ const buildFormTabs = (ctx, metahubId): TabConfig[] => [
 ### Phase R8: Cleanup — Remove legacy panels
 
 **R8.1** Delete files:
-- `packages/metahubs-frontend/base/src/domains/publications/ui/VersionsPanel.tsx`
-- `packages/metahubs-frontend/base/src/domains/publications/ui/ApplicationsPanel.tsx`
-- `packages/metahubs-frontend/base/src/domains/publications/ui/ApplicationsCreatePanel.tsx`
+- `packages/universo-react-metahubs-frontend/base/src/domains/publications/ui/VersionsPanel.tsx`
+- `packages/universo-react-metahubs-frontend/base/src/domains/publications/ui/ApplicationsPanel.tsx`
+- `packages/universo-react-metahubs-frontend/base/src/domains/publications/ui/ApplicationsCreatePanel.tsx`
 
 **R8.2** Remove imports referencing these files from:
 - `PublicationActions.tsx`

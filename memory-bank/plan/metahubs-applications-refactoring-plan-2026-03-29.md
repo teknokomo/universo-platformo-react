@@ -80,16 +80,16 @@ This plan addresses accumulated technical debt in the metahubs and applications 
 
 | Package | Purpose | Assessment |
 |---------|---------|------------|
-| `@universo/types` | Core types, VLC, pagination | ✅ Well-organized |
-| `@universo/utils` | VLC helpers, codename validation, DB utils, optimistic state | ✅ Comprehensive |
-| `@universo/template-mui` | UI components, `usePaginated()`, dialogs, guards | ✅ Rich component library |
-| `@universo/i18n` | i18n instance, hooks, namespaces | ✅ Clean |
-| `@universo/store` | Redux, CASL abilities | ✅ Minimal |
+| `@universo-react/types` | Core types, VLC, pagination | ✅ Well-organized |
+| `@universo-react/utils` | VLC helpers, codename validation, DB utils, optimistic state | ✅ Comprehensive |
+| `@universo-react/template-mui` | UI components, `usePaginated()`, dialogs, guards | ✅ Rich component library |
+| `@universo-react/i18n` | i18n instance, hooks, namespaces | ✅ Clean |
+| `@universo-react/store` | Redux, CASL abilities | ✅ Minimal |
 
 **What Should Be Moved to Shared**:
-- `fetchAllPaginatedItems()` from metahubs-frontend → `@universo/utils/api`
-- `optimisticReorder()` from metahubs-frontend → `@universo/template-mui/hooks`
-- Display converter pattern → generic factory in `@universo/utils/vlc`
+- `fetchAllPaginatedItems()` from metahubs-frontend → `@universo-react/utils/api`
+- `optimisticReorder()` from metahubs-frontend → `@universo-react/template-mui/hooks`
+- Display converter pattern → generic factory in `@universo-react/utils/vlc`
 
 ---
 
@@ -192,7 +192,7 @@ Eliminates the auth-check + service-init boilerplate repeated 60+ times:
 ```typescript
 // domains/shared/createMetahubHandler.ts
 import type { Request, Response } from 'express'
-import type { DbExecutor } from '@universo/utils'
+import type { DbExecutor } from '@universo-react/utils'
 
 interface MetahubHandlerContext {
   req: Request
@@ -230,7 +230,7 @@ export function createMetahubHandler(handler: MetahubHandlerFn) {
 
 ### 2.3 Backend: Unified Error Handling
 
-Extend the **existing** `MetahubDomainError` hierarchy in [domainErrors.ts](packages/metahubs-backend/base/src/domains/shared/domainErrors.ts) with new subclasses (preserving its payload-based constructor pattern):
+Extend the **existing** `MetahubDomainError` hierarchy in [domainErrors.ts](packages/universo-react-metahubs-backend/base/src/domains/shared/domainErrors.ts) with new subclasses (preserving its payload-based constructor pattern):
 
 ```typescript
 // domains/shared/domainErrors.ts — EXTEND existing file
@@ -305,7 +305,7 @@ if (isMetahubDomainError(error)) {
 
 ### 2.4 Backend: Shared Pagination Helper
 
-The `ListQuerySchema` and `validateListQuery()` **already exist** in [queryParams.ts](packages/metahubs-backend/base/src/domains/shared/queryParams.ts). Only add the missing `paginateItems()` helper:
+The `ListQuerySchema` and `validateListQuery()` **already exist** in [queryParams.ts](packages/universo-react-metahubs-backend/base/src/domains/shared/queryParams.ts). Only add the missing `paginateItems()` helper:
 
 ```typescript
 // domains/shared/queryParams.ts — ADD to existing file (after validateListQuery)
@@ -337,7 +337,7 @@ export function paginateItems<T>(
 Replaces 5+ useState blocks per List component with a single useReducer:
 
 ```typescript
-// @universo/template-mui/hooks/useListDialogs.ts
+// @universo-react/template-mui/hooks/useListDialogs.ts
 
 type DialogType = 'create' | 'edit' | 'copy' | 'delete' | 'conflict'
 
@@ -375,7 +375,7 @@ function createDialogReducer<TEntity>() {
 /**
  * Manages dialog open/close state for entity list pages.
  * Replaces 5 separate useState calls per component.
- * Components compose this with usePaginated() + useDebouncedSearch() from @universo/template-mui.
+ * Components compose this with usePaginated() + useDebouncedSearch() from @universo-react/template-mui.
  */
 export function useListDialogs<TEntity>() {
   const [dialogs, dispatch] = useReducer(
@@ -390,15 +390,15 @@ export function useListDialogs<TEntity>() {
 > ```typescript
 > // In CatalogList.tsx — composing focused hooks:
 > const { dialogs, dispatch } = useListDialogs<CatalogDisplay>()
-> const pagination = usePaginated<CatalogDisplay>({...})     // from @universo/template-mui
-> const { searchValue, onSearchChange } = useDebouncedSearch() // from @universo/template-mui
+> const pagination = usePaginated<CatalogDisplay>({...})     // from @universo-react/template-mui
+> const { searchValue, onSearchChange } = useDebouncedSearch() // from @universo-react/template-mui
 > ```
 ### 2.6 Frontend: useHubScopedList — Hub-Scoped Data Abstraction
 
 Replaces the hub-scoped vs. global branching repeated in all 5+ List components:
 
 ```typescript
-// @universo/template-mui/hooks/useHubScopedList.ts
+// @universo-react/template-mui/hooks/useHubScopedList.ts
 
 interface HubScopedListConfig<T> {
   metahubId: string | undefined
@@ -531,9 +531,9 @@ export function useSimpleDeleteMutation<TParams extends { [key: string]: string 
 Replace the common VLC extraction logic (used in ~7 converters) with a shared base utility:
 
 ```typescript
-// @universo/utils/vlc/mapBaseVlcFields.ts
+// @universo-react/utils/vlc/mapBaseVlcFields.ts
 import { getVLCString, getLocalizedContentText } from './getters'
-import type { VersionedLocalizedContent } from '@universo/types'
+import type { VersionedLocalizedContent } from '@universo-react/types'
 
 interface VlcMappableEntity {
   codename?: VersionedLocalizedContent<string> | string | null
@@ -623,10 +623,10 @@ export function toCatalogDisplay(catalog: Catalog, locale = 'en'): CatalogDispla
 > **QA NOTE**: Do NOT create a monolithic `useListManager` hook — it violates SRP. Instead create 2 focused hooks: `useListDialogs` and `useHubScopedList`. Components will compose `usePaginated()` + `useListDialogs()` + `useDebouncedSearch()` themselves.
 > **QA NOTE**: `useEntityMutation` factory is too simplified for real mutation hooks that have domain-specific error code handling (6+ error codes per domain), complex `applyOptimisticCreate/confirmOptimisticCreate` flows with `generateOptimisticId`. Keep factory only for simple mutations (delete, reorder). Instead create a shared error handler factory (`createDomainErrorHandler`).
 
-- [ ] **2.1** Create `useListDialogs<T>()` hook in `@universo/template-mui` — useReducer-based dialog state management for create/edit/copy/delete/conflict dialogs (replaces 5+ useState per List component)
+- [ ] **2.1** Create `useListDialogs<T>()` hook in `@universo-react/template-mui` — useReducer-based dialog state management for create/edit/copy/delete/conflict dialogs (replaces 5+ useState per List component)
   - Unit tests: `useListDialogs.test.ts` (open/close, state transitions)
 
-- [ ] **2.2** Create `useHubScopedList<T>()` hook in `@universo/template-mui` — hub-scoped vs. global list abstraction, composing existing `usePaginated()` hook
+- [ ] **2.2** Create `useHubScopedList<T>()` hook in `@universo-react/template-mui` — hub-scoped vs. global list abstraction, composing existing `usePaginated()` hook
   - Unit tests: `useHubScopedList.test.ts` (hub mode, global mode, disabled state)
 
 - [ ] **2.3** Create `createDomainErrorHandler()` factory in metahubs-frontend `domains/shared` — maps backend error codes to i18n-translated snackbar messages. Replaces repetitive per-mutation error `if/else` chains.
@@ -636,15 +636,15 @@ export function toCatalogDisplay(catalog: Catalog, locale = 'en'): CatalogDispla
 - [ ] **2.3b** Create `useSimpleMutation()` factory in metahubs-frontend `domains/shared` for basic mutations (delete, reorder) that follow a standard pattern. Complex mutations (create, update with optimistic + error mapping) should keep `useMutation()` directly.
   - Unit tests: `useSimpleMutation.test.ts`
 
-- [ ] **2.4** Move `fetchAllPaginatedItems()` from `metahubs-frontend/domains/shared` to `@universo/utils/api`
+- [ ] **2.4** Move `fetchAllPaginatedItems()` from `metahubs-frontend/domains/shared` to `@universo-react/utils/api`
   - Add re-export alias in metahubs-frontend for backwards compatibility
   - Unit tests: `fetchAllPaginatedItems.test.ts`
 
-- [ ] **2.5** Move `optimisticReorder()` from `metahubs-frontend/domains/shared` to `@universo/template-mui/hooks`
+- [ ] **2.5** Move `optimisticReorder()` from `metahubs-frontend/domains/shared` to `@universo-react/template-mui/hooks`
   - Add re-export alias for backwards compatibility
   - Unit tests: `optimisticReorder.test.ts`
 
-- [ ] **2.6** Create `mapBaseVlcFields()` in `@universo/utils/vlc`
+- [ ] **2.6** Create `mapBaseVlcFields()` in `@universo-react/utils/vlc`
   - Use as building block inside domain-specific `toXxxDisplay()` converters (see section 2.8)
   - Unit tests: `mapBaseVlcFields.test.ts`
 
@@ -801,7 +801,7 @@ export function toCatalogDisplay(catalog: Catalog, locale = 'en'): CatalogDispla
   - Target: ≤ 350 lines
 
 - [ ] **6.4** Consolidate `metahubs-frontend/types.ts` (840 lines)
-  - Use `mapBaseVlcFields()` from `@universo/utils/vlc` as building block in domain converters
+  - Use `mapBaseVlcFields()` from `@universo-react/utils/vlc` as building block in domain converters
   - Keep entity-specific converters (toCatalogDisplay, toAttributeDisplay) with their custom logic
   - Target: ≤ 500 lines
 
@@ -857,24 +857,24 @@ export function toCatalogDisplay(catalog: Catalog, locale = 'en'): CatalogDispla
 
 ### Phase 9: Documentation
 
-- [ ] **9.1** Update `packages/metahubs-backend/base/README.md`:
+- [ ] **9.1** Update `packages/universo-react-metahubs-backend/base/README.md`:
   - Document controller–service–store architecture
   - Document `createMetahubHandler()` usage pattern
   - Document domain error hierarchy
   - Document pagination utility
 
-- [ ] **9.2** Update `packages/metahubs-frontend/base/README.md`:
+- [ ] **9.2** Update `packages/universo-react-metahubs-frontend/base/README.md`:
   - Document shared hooks (`useListDialogs`, `useHubScopedList`, `createDomainErrorHandler`)
   - Document component decomposition pattern
   - Document `mapBaseVlcFields()` usage in domain converters
   
-- [ ] **9.3** Update `packages/applications-backend/base/README.md`:
+- [ ] **9.3** Update `packages/universo-react-applications-backend/base/README.md`:
   - Document runtime row controller structure
   - Document transaction patterns
 
-- [ ] **9.4** Update `packages/applications-frontend/base/README.md`
+- [ ] **9.4** Update `packages/universo-react-applications-frontend/base/README.md`
 
-- [ ] **9.5** Update `packages/universo-template-mui/base/README.md`:
+- [ ] **9.5** Update `packages/universo-react-template-mui/base/README.md`:
   - Document new shared hooks
 
 - [ ] **9.6** Update `docs/en/architecture/` and `docs/ru/architecture/` (GitBook format):
@@ -885,7 +885,7 @@ export function toCatalogDisplay(catalog: Catalog, locale = 'en'): CatalogDispla
 
 - [ ] **9.7** Update `docs/en/api-reference/` and `docs/ru/api-reference/` if any API changes
 
-- [ ] **9.8** Update REST API docs (`@universo/rest-docs`) if endpoints change
+- [ ] **9.8** Update REST API docs (`@universo-react/rest-docs`) if endpoints change
 
 - [ ] **9.9** Update Memory Bank files:
   - `systemPatterns.md` — add Controller–Service–Store pattern, List Component pattern
@@ -912,10 +912,10 @@ export function toCatalogDisplay(catalog: Catalog, locale = 'en'): CatalogDispla
 - **pnpm workspace** — all package moves must respect workspace:* protocol
 - **Existing tests** must continue to pass at every phase boundary
 - **28/28 build** must remain green at every phase boundary
-- **UUID v7** — continue using for new IDs (uuidv7 from `@universo/utils`)
+- **UUID v7** — continue using for new IDs (uuidv7 from `@universo-react/utils`)
 - **i18n** — all new user-facing strings must use i18n keys in both `en` and `ru`
-- **@universo/template-mui** — new hooks go here (or `domains/shared` if metahubs-specific)
-- **@universo/types** and `@universo/utils` — shared types and utilities go here
+- **@universo-react/template-mui** — new hooks go here (or `domains/shared` if metahubs-specific)
+- **@universo-react/types** and `@universo-react/utils` — shared types and utilities go here
 
 ## 6. Recommended Execution Order
 

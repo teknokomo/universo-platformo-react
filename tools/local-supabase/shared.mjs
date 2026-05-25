@@ -7,13 +7,13 @@ export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url
 export const LOCAL_NETWORK_ID = 'universo-local-supabase'
 
 export const backendEnvPathByTarget = {
-    dev: path.join(REPO_ROOT, 'packages/universo-core-backend/.env.local-supabase'),
-    e2e: path.join(REPO_ROOT, 'packages/universo-core-backend/.env.e2e.local-supabase')
+    dev: path.join(REPO_ROOT, 'packages/universo-react-core-backend/.env.local-supabase'),
+    e2e: path.join(REPO_ROOT, 'packages/universo-react-core-backend/.env.e2e.local-supabase')
 }
 
 export const frontendEnvPathByTarget = {
-    dev: path.join(REPO_ROOT, 'packages/universo-core-frontend/.env.local-supabase'),
-    e2e: path.join(REPO_ROOT, 'packages/universo-core-frontend/.env.e2e.local-supabase')
+    dev: path.join(REPO_ROOT, 'packages/universo-react-core-frontend/.env.local-supabase'),
+    e2e: path.join(REPO_ROOT, 'packages/universo-react-core-frontend/.env.e2e.local-supabase')
 }
 
 export const envFileByTarget = {

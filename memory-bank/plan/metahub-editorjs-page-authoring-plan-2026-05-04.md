@@ -7,8 +7,8 @@ Add a real block editor for Entity instances that enable the `blockContent` comp
 The current state already has:
 
 -   `blockContent` in the shared Entity component manifest.
--   `pageBlockContentSchema` and `runtimePageBlockSchema` in `@universo/types`.
--   Runtime rendering in `packages/apps-template-mui/src/dashboard/components/PageBlocksView.tsx`.
+-   `pageBlockContentSchema` and `runtimePageBlockSchema` in `@universo-react/types`.
+-   Runtime rendering in `packages/universo-react-apps-template-mui/src/dashboard/components/PageBlocksView.tsx`.
 -   A temporary JSON `TextField` authoring surface in `EntityInstanceListContent`.
 
 The target state is:
@@ -40,14 +40,14 @@ Reference links:
 | Area                                         | Planned changes                                                                                                                                                  |
 | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `pnpm-workspace.yaml`                        | Add Editor.js core/tool versions to the central catalog.                                                                                                         |
-| `packages/universo-template-mui`             | Add a domain-neutral `EditorJsBlockEditor` shared component, exported from the package root.                                                                     |
-| `packages/universo-types`                    | Keep and harden Editor.js-compatible block schemas, add editor config normalization types only if needed.                                                        |
-| `packages/universo-utils`                    | Add shared normalization/sanitization helpers only if they are needed by more than one package; keep server enforcement in backend routes/services.              |
-| `packages/metahubs-frontend`                 | Add Entity block-content detail route, use the shared editor, remove JSON authoring as the default Page UX, wire save/query invalidation through TanStack Query. |
-| `packages/universo-core-frontend`            | Register new entity-owned content route.                                                                                                                         |
-| `packages/metahubs-backend`                  | No new table should be required for Page `objectConfig` storage; add route/service tests around update validation and snapshot preservation if touched.          |
-| `packages/apps-template-mui`                 | Keep runtime renderer; no Editor.js dependency should be added to published runtime unless a separate runtime editing feature is requested later.                |
-| `packages/universo-i18n` and package locales | Add EN/RU keys for editor UI, Page detail route, save states, validation, and fallback JSON view.                                                                |
+| `packages/universo-react-template-mui`             | Add a domain-neutral `EditorJsBlockEditor` shared component, exported from the package root.                                                                     |
+| `packages/universo-react-types`                    | Keep and harden Editor.js-compatible block schemas, add editor config normalization types only if needed.                                                        |
+| `packages/universo-react-utils`                    | Add shared normalization/sanitization helpers only if they are needed by more than one package; keep server enforcement in backend routes/services.              |
+| `packages/universo-react-metahubs-frontend`                 | Add Entity block-content detail route, use the shared editor, remove JSON authoring as the default Page UX, wire save/query invalidation through TanStack Query. |
+| `packages/universo-react-core-frontend`            | Register new entity-owned content route.                                                                                                                         |
+| `packages/universo-react-metahubs-backend`                  | No new table should be required for Page `objectConfig` storage; add route/service tests around update validation and snapshot preservation if touched.          |
+| `packages/universo-react-apps-template-mui`                 | Keep runtime renderer; no Editor.js dependency should be added to published runtime unless a separate runtime editing feature is requested later.                |
+| `packages/universo-react-i18n` and package locales | Add EN/RU keys for editor UI, Page detail route, save states, validation, and fallback JSON view.                                                                |
 | `docs/` and package READMEs                  | Document Page content authoring, block component configuration, supported blocks, and runtime rendering boundary.                                                |
 | `tools/testing/e2e`                          | Add browser proof for editor route, screenshots, save/reload, publication/runtime render, and regression checks for no raw JSON default UX.                      |
 
@@ -71,22 +71,22 @@ catalog:
     '@editorjs/image': ^2.10.3
 ```
 
-Install these only as direct dependencies of `@universo/template-mui` if the shared editor lives there.
+Install these only as direct dependencies of `@universo-react/template-mui` if the shared editor lives there.
 
-### Decision 2: Place the editor adapter in `@universo/template-mui`
+### Decision 2: Place the editor adapter in `@universo-react/template-mui`
 
 The editor component should be domain-neutral and reusable:
 
 -   It receives `value`, `allowedBlockTypes`, `readOnly`, `locale`, `labels`, `onChange`, `onReady`, and `onValidationError`.
 -   It emits normalized Editor.js-compatible output.
 -   It does not know about metahubs, pages, applications, LMS, or routes.
--   It is imported by `@universo/metahubs-frontend` only where the Entity type enables `blockContent`.
+-   It is imported by `@universo-react/metahubs-frontend` only where the Entity type enables `blockContent`.
 
 This keeps metahub business logic in `metahubs-frontend` and generic presentation/lifecycle logic in the shared UI package.
 
 ### Decision 3: Published runtime stays renderer-only
 
-`packages/apps-template-mui` should not load Editor.js for viewing published pages. It should keep using `PageBlocksView` and `runtimePageBlockSchema` because:
+`packages/universo-react-apps-template-mui` should not load Editor.js for viewing published pages. It should keep using `PageBlocksView` and `runtimePageBlockSchema` because:
 
 -   Runtime is safer when it renders a constrained schema, not arbitrary editor plugins.
 -   Runtime bundles stay smaller.
@@ -146,9 +146,9 @@ Do not introduce a Page-only card system, table system, sidebar, breadcrumb impl
 
 ### Phase 1: Dependency and shared editor foundation
 
--   [ ] Add Editor.js packages to `pnpm-workspace.yaml` catalog and `packages/universo-template-mui/base/package.json`.
--   [ ] Add a shared `components/block-editor/EditorJsBlockEditor.tsx` in `@universo/template-mui`.
--   [ ] Export `EditorJsBlockEditor` and its types from `packages/universo-template-mui/base/src/components/index.ts` and root index.
+-   [ ] Add Editor.js packages to `pnpm-workspace.yaml` catalog and `packages/universo-react-template-mui/base/package.json`.
+-   [ ] Add a shared `components/block-editor/EditorJsBlockEditor.tsx` in `@universo-react/template-mui`.
+-   [ ] Export `EditorJsBlockEditor` and its types from `packages/universo-react-template-mui/base/src/components/index.ts` and root index.
 -   [ ] Use dynamic imports inside the component so Editor.js code loads only when the editor is mounted.
 -   [ ] Make lifecycle StrictMode-safe: create once per holder, await `isReady`, guard unmount races, destroy only after ready, and clear refs.
 -   [ ] Add a fallback `JsonBlockContentEditor` behind a developer/debug toggle or error boundary, not as the default UX.
@@ -218,7 +218,7 @@ export function EditorJsBlockEditor(props: EditorJsBlockEditorProps) {
 
 ### Phase 2: Tool configuration and safe data normalization
 
--   [ ] Create `editorJsTools.ts` in `@universo/template-mui` with a strict allowlist for supported tools.
+-   [ ] Create `editorJsTools.ts` in `@universo-react/template-mui` with a strict allowlist for supported tools.
 -   [ ] Initially support only the block types already accepted by `runtimePageBlockSchema`: `paragraph`, `header`, `list`, `quote`, `table`, `embed`, `image`, `delimiter`.
 -   [ ] Do not enable `raw`, `code`, custom HTML, or arbitrary plugin tools.
 -   [ ] Configure text-capable tools without inline toolbars in this phase so saved text remains plain text.
@@ -271,7 +271,7 @@ export function normalizeEditorJsSavedData(saved: OutputData): PageBlockContent 
 
 ### Phase 4: Metahub Page/detail route
 
--   [ ] Add a route in `packages/universo-core-frontend/base/src/routes/MainRoutes.tsx`:
+-   [ ] Add a route in `packages/universo-react-core-frontend/base/src/routes/MainRoutes.tsx`:
 
 ```tsx
 {
@@ -280,8 +280,8 @@ export function normalizeEditorJsSavedData(saved: OutputData): PageBlockContent 
 }
 ```
 
--   [ ] Export `EntityBlockContentPage` from `@universo/metahubs-frontend`.
--   [ ] Implement `EntityBlockContentPage` in `packages/metahubs-frontend/base/src/domains/entities/ui/EntityBlockContentPage.tsx`.
+-   [ ] Export `EntityBlockContentPage` from `@universo-react/metahubs-frontend`.
+-   [ ] Implement `EntityBlockContentPage` in `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/EntityBlockContentPage.tsx`.
 -   [ ] Load:
     -   metahub id and route params.
     -   entity type by `kindKey`.
@@ -345,8 +345,8 @@ await updateEntityInstance({
 
 ### Phase 7: Internationalization
 
--   [ ] Add shared editor keys to `packages/universo-i18n/base/src/locales/{en,ru}/core/common.json` only for domain-neutral labels.
--   [ ] Add metahub-specific keys to `packages/metahubs-frontend/base/src/i18n/locales/{en,ru}/metahubs.json`:
+-   [ ] Add shared editor keys to `packages/universo-react-i18n/base/src/locales/{en,ru}/core/common.json` only for domain-neutral labels.
+-   [ ] Add metahub-specific keys to `packages/universo-react-metahubs-frontend/base/src/i18n/locales/{en,ru}/metahubs.json`:
     -   `entities.instances.actions.openContent`
     -   `entities.instances.actions.editProperties`
     -   `entities.instances.content.title`
@@ -377,27 +377,27 @@ await updateEntityInstance({
 
 #### Unit and component tests
 
--   [ ] `@universo/types`: extend `pageBlocks.test.ts` for real Editor.js `OutputData` from supported tools and invalid tool rejection.
--   [ ] `@universo/types` or `@universo/utils`: add adapter tests for:
+-   [ ] `@universo-react/types`: extend `pageBlocks.test.ts` for real Editor.js `OutputData` from supported tools and invalid tool rejection.
+-   [ ] `@universo-react/types` or `@universo-react/utils`: add adapter tests for:
     -   `@editorjs/list` 2.x nested `{ content, meta, items }` output with `maxLevel: 1`.
     -   nested list rejection or flattening rules.
     -   inline HTML rejection/stripping in paragraph, header, quote, table, and list content.
     -   URL-only image/embed validation.
--   [ ] `@universo/template-mui`: add Jest tests for `EditorJsBlockEditor` with mocked dynamic imports:
+-   [ ] `@universo-react/template-mui`: add Jest tests for `EditorJsBlockEditor` with mocked dynamic imports:
     -   initializes once.
     -   calls `destroy()` on unmount.
     -   handles React StrictMode double mount.
     -   emits normalized `PageBlockContent`.
     -   rejects unsupported block data.
     -   renders load/error states.
--   [ ] `@universo/metahubs-frontend`: add Vitest tests for:
+-   [ ] `@universo-react/metahubs-frontend`: add Vitest tests for:
     -   Page card click navigates to `/content`.
     -   menu has `Open content` and `Edit properties`.
     -   edit dialog no longer shows JSON Content as the main default path.
     -   content route fails closed for an Entity type without `blockContent`.
     -   save mutation sends `expectedVersion` and normalized `config.blockContent`.
     -   conflict handling preserves local unsaved data.
--   [ ] `@universo/template-mui` breadcrumb tests: entity instance `/content` route resolves localized Entity type and instance names.
+-   [ ] `@universo-react/template-mui` breadcrumb tests: entity instance `/content` route resolves localized Entity type and instance names.
 
 #### Backend/API tests
 
@@ -435,14 +435,14 @@ await updateEntityInstance({
 
 ### Phase 11: Documentation
 
--   [ ] Update `packages/metahubs-frontend/base/README.md` and `README-RU.md`:
+-   [ ] Update `packages/universo-react-metahubs-frontend/base/README.md` and `README-RU.md`:
     -   Page detail route.
     -   `blockContent` authoring.
     -   Editor.js integration boundary.
--   [ ] Update `packages/universo-template-mui/base/README.md`:
+-   [ ] Update `packages/universo-react-template-mui/base/README.md`:
     -   shared `EditorJsBlockEditor`.
     -   dependency/lifecycle notes.
--   [ ] Update `packages/universo-types/base/README.md`:
+-   [ ] Update `packages/universo-react-types/base/README.md`:
     -   `PageBlockContent` / `runtimePageBlockSchema` contract.
 -   [ ] Update GitBook docs:
     -   `docs/en/architecture/lms-entities.md`
@@ -452,15 +452,15 @@ await updateEntityInstance({
 
 ### Phase 12: Validation commands
 
--   [ ] `pnpm --filter @universo/types test -- pageBlocks.test.ts`
--   [ ] `pnpm --filter @universo/template-mui test -- EditorJsBlockEditor.test.tsx NavbarBreadcrumbs.test.tsx`
--   [ ] `pnpm --filter @universo/metahubs-frontend test -- EntityInstanceList.test.tsx EntityBlockContentPage.test.tsx`
--   [ ] `pnpm --filter @universo/metahubs-backend test -- entityInstancesRoutes.test.ts SnapshotRestoreService.test.ts`
--   [ ] `pnpm --filter @universo/template-mui lint`
--   [ ] `pnpm --filter @universo/metahubs-frontend lint`
--   [ ] `pnpm --filter @universo/template-mui build`
--   [ ] `pnpm --filter @universo/metahubs-frontend build`
--   [ ] `pnpm --filter @universo/core-frontend build`
+-   [ ] `pnpm --filter @universo-react/types test -- pageBlocks.test.ts`
+-   [ ] `pnpm --filter @universo-react/template-mui test -- EditorJsBlockEditor.test.tsx NavbarBreadcrumbs.test.tsx`
+-   [ ] `pnpm --filter @universo-react/metahubs-frontend test -- EntityInstanceList.test.tsx EntityBlockContentPage.test.tsx`
+-   [ ] `pnpm --filter @universo-react/metahubs-backend test -- entityInstancesRoutes.test.ts SnapshotRestoreService.test.ts`
+-   [ ] `pnpm --filter @universo-react/template-mui lint`
+-   [ ] `pnpm --filter @universo-react/metahubs-frontend lint`
+-   [ ] `pnpm --filter @universo-react/template-mui build`
+-   [ ] `pnpm --filter @universo-react/metahubs-frontend build`
+-   [ ] `pnpm --filter @universo-react/core-frontend build`
 -   [ ] `node tools/testing/e2e/run-playwright-suite.mjs --project=chromium tools/testing/e2e/specs/flows/metahub-basic-pages-ux.spec.ts`
 -   [ ] Run LMS import/runtime Playwright if the LMS fixture or template manifests change.
 -   [ ] `pnpm exec prettier --check ...`
@@ -504,5 +504,5 @@ Required implementation guardrails:
 -   Do not allow frontend-only validation; backend create/update/copy/import paths must validate `config.blockContent`.
 -   Do not introduce Page-only UI primitives. Reuse the existing Entity route shell, list/card/table/menu/dialog components, and query/mutation hooks.
 -   Do not enable inline HTML or rich inline tools until the platform has an explicit sanitized inline mark contract.
--   Do not add Editor.js to `packages/apps-template-mui`; published applications should render only normalized blocks.
+-   Do not add Editor.js to `packages/universo-react-apps-template-mui`; published applications should render only normalized blocks.
 -   Do not regenerate `tools/fixtures/metahubs-lms-app-snapshot.json` unless serialized template or fixture content changes.

@@ -52,10 +52,10 @@ function loadFixedProjectSchemaNames() {
     let moduleExports
 
     try {
-        moduleExports = require('@universo/migrations-platform')
+        moduleExports = require('@universo-react/migrations-platform')
     } catch (error) {
         throw new Error(
-            `Unable to load @universo/migrations-platform for E2E reset. Run 'pnpm build' or 'pnpm build:e2e' first. ${toErrorMessage(error)}`
+            `Unable to load @universo-react/migrations-platform for E2E reset. Run 'pnpm build' or 'pnpm build:e2e' first. ${toErrorMessage(error)}`
         )
     }
 

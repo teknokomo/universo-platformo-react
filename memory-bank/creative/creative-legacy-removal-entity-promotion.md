@@ -105,7 +105,7 @@ After removing legacy domains, should `EntityInstanceList` still delegate to spe
 Legacy domain folders (`catalogs/`, `hubs/`, `sets/`, `enumerations/`) are removed as standalone domains, but their **UI components** are migrated into `entities/ui/` as specialized renderers:
 
 ```
-packages/metahubs-frontend/base/src/domains/entities/
+packages/universo-react-metahubs-frontend/base/src/domains/entities/
 ├── ui/
 │   ├── EntityInstanceList.tsx        ← Entry point (router)
 │   ├── renderers/
@@ -918,7 +918,7 @@ entity.hub.allowDelete = true
 
 ### Problem Statement
 
-`BUILTIN_ENTITY_TYPE_REGISTRY` is a code-based `Map<string, EntityTypeDefinition>` in `@universo/types`. With all types stored in `_mhb_entity_type_definitions`, do we still need it?
+`BUILTIN_ENTITY_TYPE_REGISTRY` is a code-based `Map<string, EntityTypeDefinition>` in `@universo-react/types`. With all types stored in `_mhb_entity_type_definitions`, do we still need it?
 
 ### Decision: Replace with STANDARD_ENTITY_PRESETS (Read-Only Reference)
 
@@ -1109,7 +1109,7 @@ Since the UI components (CatalogList, HubList, etc.) still exist — they're jus
 ### Phase 0: Types & Interfaces (No Breaking Changes)
 
 1. Add `EntityTypeSource = 'preset' | 'custom'` type
-2. Add `TemplatePresetReference` and `PresetDefaultInstance` interfaces to `@universo/types`
+2. Add `TemplatePresetReference` and `PresetDefaultInstance` interfaces to `@universo-react/types`
 3. Update `MetahubCreateOptions` to include `presetToggles`
 4. Add `sidebarOrder` to `EntityTypeUIConfig`
 5. Rename `EntityTypePresetManifest.entityType.kindKey` values: `custom.catalog-v2` → `catalog`, etc.
@@ -1184,7 +1184,7 @@ Since the UI components (CatalogList, HubList, etc.) still exist — they're jus
 ## Appendix: Key TypeScript Interfaces After Promotion
 
 ```typescript
-// === @universo/types — core interfaces ===
+// === @universo-react/types — core interfaces ===
 
 /** Standard kinds shipped with the platform (convenience alias, not a gate) */
 export const StandardEntityKinds = {

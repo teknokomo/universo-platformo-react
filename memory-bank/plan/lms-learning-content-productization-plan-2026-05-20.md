@@ -14,7 +14,7 @@ The target result keeps the Universo architecture intact:
 -   Metahub defines metadata, Objects, Pages, Sets, Enumerations, scripts, layouts, seed content, and default logic.
 -   Application settings define global defaults: enabled resource types, column presets, player presets, role policy defaults, completion defaults, menu behavior, and report defaults.
 -   Workspace runtime owns real operational work: projects, pages, links, courses, tracks, sharing, copying, deletion, restore, enrollment, progress, and reporting.
--   Published application UI is built from `packages/apps-template-mui` and its MUI dashboard primitives, preserving the original dashboard style from `.backup/templates/dashboard`.
+-   Published application UI is built from `packages/universo-react-apps-template-mui` and its MUI dashboard primitives, preserving the original dashboard style from `.backup/templates/dashboard`.
 -   Generic platform behavior is improved in reusable primitives before adding any new widget. No package should branch on `template === 'lms'` for normal runtime behavior.
 -   Broad import/player support for SCORM 1.2, SCORM 2004, xAPI, office files, video/audio conversion, internal messaging, and AI generation remains deferred.
 
@@ -26,8 +26,8 @@ Primary sources:
 -   Previous implementation plan: `memory-bank/plan/lms-learning-content-implementation-plan-2026-05-17-v2.md`.
 -   Previous LMS platform roadmaps: `memory-bank/plan/ispring-like-lms-platform-roadmap-2026-05-11.md` and `memory-bank/plan/ispring-like-lms-next-platform-roadmap-2026-05-15.md`.
 -   Current task state: `memory-bank/tasks.md`, `memory-bank/activeContext.md`, `memory-bank/systemPatterns.md`, `memory-bank/currentResearch.md`.
--   Runtime docs and code: `packages/apps-template-mui/README.md`, `packages/metahubs-backend/base/README.md`, `.backup/templates/dashboard/README.md`.
--   Current shared contracts: `packages/universo-types/base/src/common/lmsPlatform.ts`, `runtimeDataSources.ts`, `applicationLayouts.ts`, `resourceSources.ts`.
+-   Runtime docs and code: `packages/universo-react-apps-template-mui/README.md`, `packages/universo-react-metahubs-backend/base/README.md`, `.backup/templates/dashboard/README.md`.
+-   Current shared contracts: `packages/universo-react-types/base/src/common/lmsPlatform.ts`, `runtimeDataSources.ts`, `applicationLayouts.ts`, `resourceSources.ts`.
 -   Current runtime implementation: `CustomizedDataGrid.tsx`, `RelationBuilderWidget.tsx`, `widgetRenderer.tsx`, `FormDialog.tsx`, `ResourcePreview.tsx`, `runtimeRowsController.ts`, `ApplicationSettings.tsx`, `runtimeAdapter.ts`.
 -   Current E2E and contract baseline: `tools/testing/e2e/support/lmsFixtureContract.ts`, `tools/testing/e2e/support/browser/runtimeUx.ts`, `tools/testing/e2e/specs/flows/snapshot-import-lms-runtime.spec.ts`, `tools/testing/e2e/README.md`.
 -   GitBook docs: `docs/en/guides/lms-learning-content.md`, `docs/ru/guides/lms-learning-content.md`, `docs/*/guides/lms-resource-model.md`.
@@ -80,29 +80,29 @@ High-risk gaps:
 
 ## Affected Areas
 
--   `packages/universo-types/base/src/common/`
+-   `packages/universo-react-types/base/src/common/`
     -   Extend generic runtime datasource contracts, column projection contracts, restore target contracts, content access/star/recent action contracts, and Learning Content settings defaults.
--   `packages/universo-utils/base/src/`
+-   `packages/universo-react-utils/base/src/`
     -   Add reusable display-label, reference projection, UUID v7 validation, and fail-closed coercion helpers only when needed by more than one package.
--   `packages/metahubs-backend/base/src/domains/templates/data/lms.template.ts`
+-   `packages/universo-react-metahubs-backend/base/src/domains/templates/data/lms.template.ts`
     -   Update LMS metadata, layouts, Object components, row actions, reports, settings defaults, fixture seed rows, and scripts.
--   `packages/applications-backend/base/src/`
+-   `packages/universo-react-applications-backend/base/src/`
     -   Add generic union datasource execution, fail-closed permission predicates, expected-version mutation boundaries, restore target resolution, progress/status ownership guards, reports/custom field filters, and route/service tests.
     -   Explicit seams: `routes/applicationsRoutes.ts`, `controllers/runtimeRowsController.ts`, `controllers/runtimeReportsController.ts`, `services/runtimeReportsService.ts`, and route/service tests.
--   `packages/applications-frontend/base/src/`
+-   `packages/universo-react-applications-frontend/base/src/`
     -   Apply Learning Content settings in app control panel and runtime bootstrap, pass `expectedVersion`, keep settings localized and validated.
     -   Explicit seams: `api/runtimeAdapter.ts`, `api/applications.ts`, `pages/ApplicationRuntime.tsx`, `pages/ApplicationSettings.tsx`, and related tests.
--   `packages/apps-template-mui/src/`
+-   `packages/universo-react-apps-template-mui/src/`
     -   Productize the workbench, generic table/card projections, row actions, relation builders, dialogs, learner player, report views, and UX helpers without hardcoded LMS screens.
     -   Explicit seams: `api/api.ts`, `api/adapters.ts`, `api/types.ts`, `hooks/useCrudDashboard.ts`, `dashboard/components/widgetRenderer.tsx`, `dashboard/components/RelationBuilderWidget.tsx`, `dashboard/components/CustomizedDataGrid.tsx`, `components/dialogs/FormDialog.tsx`, `components/resource-preview/ResourcePreview.tsx`, `standalone/DashboardApp.tsx`, and related tests.
--   `packages/universo-i18n` and package-local i18n folders
+-   `packages/universo-react-i18n` and package-local i18n folders
     -   Add shared labels in the correct ownership layer. All new UI text and validation messages must ship in English and Russian.
 -   `tools/testing/e2e/`
     -   Extend fixture contract, add focused product Playwright flow, add screenshots, run local Supabase minimal release gate.
 -   `docs/en`, `docs/ru`
     -   Update GitBook docs for Learning Content, resource model, setup, reports, runtime UX quality gate references, and screenshot assets.
 -   Package READMEs
-    -   Update `packages/apps-template-mui/README.md`, `packages/metahubs-backend/base/README.md`, and `tools/testing/e2e/README.md`.
+    -   Update `packages/universo-react-apps-template-mui/README.md`, `packages/universo-react-metahubs-backend/base/README.md`, and `tools/testing/e2e/README.md`.
 
 ## Architecture Principles
 
@@ -196,7 +196,7 @@ Work:
     -   restore target matrix for wrong object type, deleted target, no-permission target, cross-workspace target, missing target, and stale version;
     -   fixture generator determinism and docs/screenshot drift.
 -   Add a static no-fork oracle:
-    -   fail if `packages/apps-template-mui/src`, `packages/applications-frontend/base/src`, or runtime backend code introduces `template === 'lms'` branches for normal behavior;
+    -   fail if `packages/universo-react-apps-template-mui/src`, `packages/universo-react-applications-frontend/base/src`, or runtime backend code introduces `template === 'lms'` branches for normal behavior;
     -   fail if a new LMS-specific widget bypasses generic `detailsTable`, `records.union`, `relationBuilder`, `FormDialog`, `CustomizedDataGrid`, `ResourcePreview`, reports, or `learnerPlayer` without an approved generic primitive contract.
 -   Extend runtime UX helpers or fixture contract so the oracles catch internal field names/codenames and embedded UUID values, not only UUID-only lines.
 
@@ -214,7 +214,7 @@ Work:
 -   Replace or augment client-side `records.union` fan-out with a generic server-side union datasource executor.
 -   Define the backend API boundary explicitly:
     -   either add a generic `/applications/:applicationId/runtime/datasources/union` endpoint or extend `/runtime` with a typed union datasource mode;
-    -   keep request/response schemas in `@universo/types`;
+    -   keep request/response schemas in `@universo-react/types`;
     -   keep projection ownership in layout/widget metadata, not LMS code;
     -   merge per-target permission predicates fail-closed and return only rows the current workspace/user can read;
     -   return consistent projection fields, row action capabilities, pagination metadata, and display labels.
@@ -240,10 +240,10 @@ Work:
 -   Pass `expectedVersion` through frontend runtime adapter delete/copy/update/reorder calls.
 -   Close the full `expectedVersion` chain:
     -   `CrudDataAdapter` types;
-    -   standalone adapter in `packages/apps-template-mui/src/api/adapters.ts`;
-    -   standalone HTTP helpers in `packages/apps-template-mui/src/api/api.ts`;
-    -   production adapter in `packages/applications-frontend/base/src/api/runtimeAdapter.ts`;
-    -   production HTTP helpers in `packages/applications-frontend/base/src/api/applications.ts`;
+    -   standalone adapter in `packages/universo-react-apps-template-mui/src/api/adapters.ts`;
+    -   standalone HTTP helpers in `packages/universo-react-apps-template-mui/src/api/api.ts`;
+    -   production adapter in `packages/universo-react-applications-frontend/base/src/api/runtimeAdapter.ts`;
+    -   production HTTP helpers in `packages/universo-react-applications-frontend/base/src/api/applications.ts`;
     -   `useCrudDashboard`;
     -   `RelationBuilderWidget` update/delete/reorder;
     -   backend reorder request schema and SQL/service tests.
@@ -542,27 +542,27 @@ node -v
 pnpm supabase:e2e:start:minimal
 pnpm env:e2e:local-supabase
 pnpm doctor:e2e:local-supabase
-pnpm --filter @universo/types test
-pnpm --filter @universo/applications-backend test
-pnpm --filter @universo/apps-template-mui test
-pnpm --filter @universo/applications-frontend test
-pnpm --filter @universo/metahubs-backend test
+pnpm --filter @universo-react/types test
+pnpm --filter @universo-react/applications-backend test
+pnpm --filter @universo-react/apps-template-mui test
+pnpm --filter @universo-react/applications-frontend test
+pnpm --filter @universo-react/metahubs-backend test
 ! rg -n "template\\s*===\\s*['\"]lms['\"]|case\\s+['\"]lms['\"]|widgetKey\\s*[:=]\\s*['\"]lms-" \
-  packages/apps-template-mui/src \
-  packages/applications-frontend/base/src \
-  packages/applications-backend/base/src
+  packages/universo-react-apps-template-mui/src \
+  packages/universo-react-applications-frontend/base/src \
+  packages/universo-react-applications-backend/base/src
 UNIVERSO_ENV_FILE=.env.e2e.local-supabase \
-UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/base/.env.e2e.local-supabase \
+UNIVERSO_FRONTEND_ENV_FILE=packages/universo-react-core-frontend/base/.env.e2e.local-supabase \
   pnpm run build:e2e
 UNIVERSO_ENV_FILE=.env.e2e.local-supabase \
-UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/base/.env.e2e.local-supabase \
+UNIVERSO_FRONTEND_ENV_FILE=packages/universo-react-core-frontend/base/.env.e2e.local-supabase \
   node tools/testing/e2e/run-playwright-suite.mjs specs/generators/metahubs-lms-app-export.spec.ts --project chromium
 git diff --exit-code -- tools/fixtures/metahubs-lms-app-snapshot.json
 UNIVERSO_ENV_FILE=.env.e2e.local-supabase \
-UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/base/.env.e2e.local-supabase \
+UNIVERSO_FRONTEND_ENV_FILE=packages/universo-react-core-frontend/base/.env.e2e.local-supabase \
   node tools/testing/e2e/run-playwright-suite.mjs specs/flows/lms-learning-content-product.spec.ts --project chromium
 UNIVERSO_ENV_FILE=.env.e2e.local-supabase \
-UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/base/.env.e2e.local-supabase \
+UNIVERSO_FRONTEND_ENV_FILE=packages/universo-react-core-frontend/base/.env.e2e.local-supabase \
   node tools/testing/e2e/run-playwright-suite.mjs specs/flows/snapshot-import-lms-runtime.spec.ts --project chromium --grep "lms snapshot fixture imports"
 pnpm docs:i18n:check
 ! rg -n "V1 fixture|canonical Modules|lms-module-viewer|lms-stats-viewer" docs/en docs/ru
@@ -578,10 +578,10 @@ If docs link/screenshot guard scripts are missing at implementation time, Phase 
 
 | Layer                       | Required tests                                                         | Key fail-oracles                                                                                                                                                                                                       |
 | --------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Shared contracts            | Vitest/Zod tests in `packages/universo-types`                          | invalid union targets, unsafe URLs, invalid access principals, unsupported resource types, restore target schema, union projection schema, raw internal settings blocks                                                |
-| Backend routes/services     | Jest/Vitest route and service tests in `packages/applications-backend` | stale expected version across edit/copy/delete/restore/move/reorder, shared viewer write denial, malicious progress/status writes, restore target fail-closed, report/custom field filters, report export label safety |
-| Frontend runtime primitives | Vitest/component tests in `packages/apps-template-mui`                 | no raw object cells, column preset application, optimistic rollback, relation builder labels, FormDialog multiline/editor fields, card mode display contract, disabled/deferred action states                          |
-| Application settings UI     | Vitest/component tests in `packages/applications-frontend`             | settings saved strictly, localized validation, runtime defaults applied                                                                                                                                                |
+| Shared contracts            | Vitest/Zod tests in `packages/universo-react-types`                          | invalid union targets, unsafe URLs, invalid access principals, unsupported resource types, restore target schema, union projection schema, raw internal settings blocks                                                |
+| Backend routes/services     | Jest/Vitest route and service tests in `packages/universo-react-applications-backend` | stale expected version across edit/copy/delete/restore/move/reorder, shared viewer write denial, malicious progress/status writes, restore target fail-closed, report/custom field filters, report export label safety |
+| Frontend runtime primitives | Vitest/component tests in `packages/universo-react-apps-template-mui`                 | no raw object cells, column preset application, optimistic rollback, relation builder labels, FormDialog multiline/editor fields, card mode display contract, disabled/deferred action states                          |
+| Application settings UI     | Vitest/component tests in `packages/universo-react-applications-frontend`             | settings saved strictly, localized validation, runtime defaults applied                                                                                                                                                |
 | Fixture contract            | Node/Playwright support contract                                       | product entities and flows present, deterministic generated snapshot, no `Modules` canonical path, no unsupported player claims, no technical field leakage                                                            |
 | Browser E2E                 | Playwright via repository wrapper                                      | create/share/star/recent/course/enroll/player/delete/restore/report lifecycle; screenshots; localized invalid submits; permission matrix; no page-level overflow                                                       |
 | Static/no-fork              | grep or AST guard                                                      | no LMS-only runtime widgets or `template === 'lms'` branches in normal runtime packages                                                                                                                                |
@@ -669,8 +669,8 @@ export const runtimeUnionRowsRequestSchema = z
 ### SQL Boundary Pattern For Expected Version
 
 ```ts
-import { qColumn, qSchemaTable } from '@universo/schema-ddl'
-import type { DbExecutor } from '@universo/utils'
+import { qColumn, qSchemaTable } from '@universo-react/schema-ddl'
+import type { DbExecutor } from '@universo-react/utils'
 
 export async function softDeleteRuntimeRow(params: {
     executor: DbExecutor
@@ -805,8 +805,8 @@ Update GitBook docs in English and Russian:
 
 Update README files:
 
--   `packages/apps-template-mui/README.md`: generic primitives used by Learning Content and rules for avoiding raw IDs/JSON.
--   `packages/metahubs-backend/base/README.md`: LMS template structure and product snapshot contract.
+-   `packages/universo-react-apps-template-mui/README.md`: generic primitives used by Learning Content and rules for avoiding raw IDs/JSON.
+-   `packages/universo-react-metahubs-backend/base/README.md`: LMS template structure and product snapshot contract.
 -   `tools/testing/e2e/README.md`: focused LMS product spec, screenshot naming, local Supabase minimal commands.
 
 ## Explicit Later Parity Backlog

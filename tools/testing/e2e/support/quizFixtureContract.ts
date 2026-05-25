@@ -1,4 +1,4 @@
-import { buildVLC, computeSnapshotHash } from '@universo/utils'
+import { buildVLC, computeSnapshotHash } from '@universo-react/utils'
 
 export type QuizLocale = 'en' | 'ru'
 

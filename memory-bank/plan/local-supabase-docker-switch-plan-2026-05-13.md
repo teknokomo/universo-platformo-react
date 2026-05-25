@@ -52,7 +52,7 @@ These continue to use `.env` or `.env.e2e` unless the user explicitly selects an
 
 ### Local Supabase
 
-New workflows should be explicit. Normal local startup should not require editing `packages/universo-core-backend/base/.env`; switching is controlled by script-selected env files:
+New workflows should be explicit. Normal local startup should not require editing `packages/universo-react-core-backend/base/.env`; switching is controlled by script-selected env files:
 
 ```bash
 pnpm run supabase:local:start
@@ -94,10 +94,10 @@ pnpm run supabase:local:nuke
 - Root `package.json`
 - New `supabase/config.toml`
 - Root `.gitignore`
-- `packages/universo-core-backend/base/.env.local-supabase.example`
-- `packages/universo-core-backend/base/.env.e2e.local-supabase.example`
-- `packages/universo-core-frontend/base/.env.local-supabase.example`
-- `packages/universo-core-frontend/base/.env.e2e.local-supabase.example`
+- `packages/universo-react-core-backend/base/.env.local-supabase.example`
+- `packages/universo-react-core-backend/base/.env.e2e.local-supabase.example`
+- `packages/universo-react-core-frontend/base/.env.local-supabase.example`
+- `packages/universo-react-core-frontend/base/.env.e2e.local-supabase.example`
 - New tooling under `tools/local-supabase/`
 - E2E env helper and runner scripts only if explicit local profiles require wrapper improvements
 - Documentation:
@@ -105,7 +105,7 @@ pnpm run supabase:local:nuke
   - `docs/ru/getting-started/configuration.md`
   - `docs/en/guides/browser-e2e-testing.md`
   - `docs/ru/guides/browser-e2e-testing.md`
-  - `packages/universo-core-backend/base/README.md`
+  - `packages/universo-react-core-backend/base/README.md`
   - `tools/testing/e2e/README.md`
 
 ## Architecture Decision
@@ -433,10 +433,10 @@ Update `.gitignore`:
 
 Add tracked examples only:
 
-- `packages/universo-core-backend/base/.env.local-supabase.example`
-- `packages/universo-core-backend/base/.env.e2e.local-supabase.example`
-- `packages/universo-core-frontend/base/.env.local-supabase.example`
-- `packages/universo-core-frontend/base/.env.e2e.local-supabase.example`
+- `packages/universo-react-core-backend/base/.env.local-supabase.example`
+- `packages/universo-react-core-backend/base/.env.e2e.local-supabase.example`
+- `packages/universo-react-core-frontend/base/.env.local-supabase.example`
+- `packages/universo-react-core-frontend/base/.env.e2e.local-supabase.example`
 
 The examples must use placeholders and must not contain real generated Supabase keys.
 
@@ -491,8 +491,8 @@ Required documentation files:
 - `docs/en/guides/browser-e2e-testing.md`
 - `docs/ru/guides/browser-e2e-testing.md`
 - `docs/en/SUMMARY.md` and `docs/ru/SUMMARY.md` only if a new GitBook page is added instead of extending existing pages.
-- `packages/universo-core-backend/base/README.md`
-- `packages/universo-core-backend/base/README-RU.md`
+- `packages/universo-react-core-backend/base/README.md`
+- `packages/universo-react-core-backend/base/README-RU.md`
 - `tools/testing/e2e/README.md`
 - `tools/testing/e2e/README-RU.md`
 - Root `README.md` only if the local Supabase workflow becomes a recommended first-run path.
@@ -513,16 +513,16 @@ Create a complete test system for the local Supabase switching feature. This pha
 
 Use existing backend Jest patterns for packages that already use Jest:
 
-- `packages/universo-core-backend/base/src/__tests__/bootstrapSuperuser.test.ts`
+- `packages/universo-react-core-backend/base/src/__tests__/bootstrapSuperuser.test.ts`
   - Add or verify cases that local Supabase env with `SUPABASE_JWT_SECRET` and `SERVICE_ROLE_KEY` passes startup config validation.
   - Ensure missing local `SERVICE_ROLE_KEY` still fails fast when bootstrap is enabled.
-- `packages/universo-core-backend/base/src/__tests__/startupReset.test.ts`
+- `packages/universo-react-core-backend/base/src/__tests__/startupReset.test.ts`
   - Prove local DB port `54322` is treated as session/direct mode and reset remains allowed only outside production.
   - Keep the production guard for `_FORCE_DATABASE_RESET=true`.
-- `packages/auth-backend/base/src/tests/utils/rlsContext.test.ts` or `verifySupabaseJwt` focused tests
+- `packages/universo-react-auth-backend/base/src/tests/utils/rlsContext.test.ts` or `verifySupabaseJwt` focused tests
   - Prove local HS256 JWT verification works with `SUPABASE_JWT_SECRET`.
   - Prove JWKS mode remains available for hosted Supabase.
-- `packages/auth-backend/base/src/tests/routes/authRoutes.test.ts`
+- `packages/universo-react-auth-backend/base/src/tests/routes/authRoutes.test.ts`
   - Ensure auth routes use the selected `SUPABASE_URL` and public key env without leaking service-role credentials.
 
 #### Vitest Coverage
@@ -586,8 +586,8 @@ Playwright quality rules:
 Implementation must finish with at least:
 
 ```bash
-pnpm --filter @universo/core-backend test
-pnpm --filter @universo/auth-backend test
+pnpm --filter @universo-react/core-backend test
+pnpm --filter @universo-react/auth-backend test
 pnpm exec vitest run tools/local-supabase/__tests__
 pnpm run supabase:local:start:minimal
 pnpm run doctor:local-supabase
@@ -683,8 +683,8 @@ Run after implementation to prove existing behavior is unchanged:
 ```bash
 pnpm run build:e2e
 pnpm run test:e2e:smoke
-pnpm --filter @universo/core-backend test
-pnpm --filter @universo/auth-backend test
+pnpm --filter @universo-react/core-backend test
+pnpm --filter @universo-react/auth-backend test
 ```
 
 ## Security Requirements

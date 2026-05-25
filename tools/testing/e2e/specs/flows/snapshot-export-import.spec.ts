@@ -4,7 +4,7 @@ import { test, expect } from '../../fixtures/test'
 import { createLoggedInApiContext, createMetahub, disposeApiContext, sendWithCsrf } from '../../support/backend/api-session.mjs'
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
 import { toolbarSelectors } from '../../support/selectors/contracts'
-import { createLocalizedContent } from '@universo/utils'
+import { createLocalizedContent } from '@universo-react/utils'
 import {
     SELF_HOSTED_APP_CANONICAL_METAHUB,
     SELF_HOSTED_APP_FIXTURE_FILENAME,

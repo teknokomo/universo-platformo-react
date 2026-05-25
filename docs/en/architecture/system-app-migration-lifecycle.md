@@ -20,13 +20,13 @@ used by user-created applications published through metahubs.
 
 | Component                           | Package                          | Role                                      |
 |-------------------------------------|----------------------------------|-------------------------------------------|
-| `SystemAppDefinition`               | `@universo/migrations-core`      | Type contract for system app manifests     |
-| `systemAppSchemaCompiler`           | `@universo/migrations-platform`  | Builds entities from manifest, runs diff   |
-| `SchemaGenerator`                   | `@universo/schema-ddl`           | Creates schemas, tables, system metadata   |
-| `SchemaMigrator`                    | `@universo/schema-ddl`           | Calculates and applies incremental diffs   |
-| `MigrationManager`                  | `@universo/schema-ddl`           | Records migrations in `_app_migrations`    |
-| `buildSchemaSnapshot`               | `@universo/schema-ddl`           | Builds a structural snapshot from entities |
-| `calculateSchemaDiff`               | `@universo/schema-ddl`           | Computes change set between two snapshots  |
+| `SystemAppDefinition`               | `@universo-react/migrations-core`      | Type contract for system app manifests     |
+| `systemAppSchemaCompiler`           | `@universo-react/migrations-platform`  | Builds entities from manifest, runs diff   |
+| `SchemaGenerator`                   | `@universo-react/schema-ddl`           | Creates schemas, tables, system metadata   |
+| `SchemaMigrator`                    | `@universo-react/schema-ddl`           | Calculates and applies incremental diffs   |
+| `MigrationManager`                  | `@universo-react/schema-ddl`           | Records migrations in `_app_migrations`    |
+| `buildSchemaSnapshot`               | `@universo-react/schema-ddl`           | Builds a structural snapshot from entities |
+| `calculateSchemaDiff`               | `@universo-react/schema-ddl`           | Computes change set between two snapshots  |
 
 ## Manifest Structure
 
@@ -44,7 +44,7 @@ A `SystemAppDefinition` contains:
 ## Bootstrap Sequence
 
 The full bootstrap runs inside `initDatabase()` in
-`@universo/core-backend`:
+`@universo-react/core-backend`:
 
 ```
 1. validateRegisteredPlatformMigrations()

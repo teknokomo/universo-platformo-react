@@ -13,7 +13,7 @@ inclusion: always
 -   **Express**: ^4.17.3
 
 **CRITICAL**: Node.js 22+ requires `--no-node-snapshot` flag for isolated-vm compatibility.
-This flag is already configured in `packages/universo-core-backend/bin/run`.
+This flag is already configured in `packages/universo-react-core-backend/bin/run`.
 
 ## Build System
 
@@ -124,7 +124,7 @@ pnpm migration:sync           # Sync migrations
 
 ## Environment Setup
 
--   Create `.env` in `packages/universo-core-backend/` with Supabase configuration
+-   Create `.env` in `packages/universo-react-core-backend/` with Supabase configuration
 -   Required environment variables:
     -   `SUPABASE_URL`
     -   `SUPABASE_ANON_KEY`
@@ -135,10 +135,10 @@ pnpm migration:sync           # Sync migrations
 
 The platform uses a custom DDL (Data Definition Language) system:
 
--   **@universo/schema-ddl**: Runtime schema generation, migration, and diff utilities
--   **@universo/migrations-core**: Core migration runtime and execution helpers
--   **@universo/migrations-platform**: Platform-wide migration registry and CLI
--   **@universo/migrations-catalog**: Catalog storage for migration history
+-   **@universo-react/schema-ddl**: Runtime schema generation, migration, and diff utilities
+-   **@universo-react/migrations-core**: Core migration runtime and execution helpers
+-   **@universo-react/migrations-platform**: Platform-wide migration registry and CLI
+-   **@universo-react/migrations-catalog**: Catalog storage for migration history
 
 Key features:
 

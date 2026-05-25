@@ -1,0 +1,30 @@
+{
+    "compilerOptions": {
+        "target": "ES2017",
+        "module": "Node16",
+        "lib": ["ES2020"],
+        "outDir": "./dist",
+        "rootDir": "./src",
+        "paths": {
+            "@universo-react/admin-backend": ["../universo-react-admin-backend/dist/index.d.ts"],
+            "@universo-react/applications-backend": ["../universo-react-applications-backend/dist/index.d.ts"],
+            "@universo-react/migrations-catalog": ["../universo-react-migrations-catalog/dist/index.d.ts"],
+            "@universo-react/schema-ddl": ["../universo-react-schema-ddl/dist/index.d.ts"],
+            "@universo-react/modules-engine": ["../universo-react-modules-engine/dist/index.d.ts", "../universo-react-modules-engine/src/index.ts"]
+        },
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "resolveJsonModule": true,
+        "moduleResolution": "node16",
+        "declaration": true,
+        "declarationMap": true,
+        "sourceMap": true,
+        "experimentalDecorators": true,
+        "emitDecoratorMetadata": true,
+        "types": ["node"]
+    },
+    "include": ["src/**/*"],
+    "exclude": ["node_modules", "dist", "src/tests/**/*"]
+}

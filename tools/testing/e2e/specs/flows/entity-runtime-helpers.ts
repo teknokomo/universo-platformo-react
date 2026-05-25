@@ -1,6 +1,6 @@
 import type { Locator, Page, Response as PlaywrightResponse } from '@playwright/test'
 
-import { createLocalizedContent } from '@universo/utils'
+import { createLocalizedContent } from '@universo-react/utils'
 
 import { expect } from '../../fixtures/test'
 import { createMetahubEntityType, createLoggedInApiContext, getTemplate, listTemplates } from '../../support/backend/api-session.mjs'

@@ -3,7 +3,7 @@
 > **Created**: 2026-04-05
 > **Status**: Design complete, ready for PLAN
 > **Complexity**: Level 4+ (Major/Complex, cross-cutting)
-> **Scope**: New packages `@universo/extension-sdk`, `@universo/scripting-engine`; touched packages: `metahubs-backend`, `metahubs-frontend`, `applications-backend`, `apps-template-mui`, `universo-types`, `schema-ddl`, `universo-i18n`
+> **Scope**: New packages `@universo-react/extension-sdk`, `@universo/scripting-engine`; touched packages: `metahubs-backend`, `metahubs-frontend`, `applications-backend`, `apps-template-mui`, `universo-types`, `schema-ddl`, `universo-i18n`
 > **Analogies**: GDExtension (Godot Engine), 1С:Предприятие 8.x module objects
 
 > **QA note (2026-04-05):** This creative document remains the alternative-analysis archive. The implementation source of truth is the corrected plan in `memory-bank/plan/metahub-scripting-extension-system-plan-2026-04-05.md`. Where they differ, the plan wins. Key superseded decisions include: Monaco Editor → CodeMirror 6, public raw SQL API → domain-safe RecordAPI/MetadataAPI, and object-only attachment → generic `attached_to_kind` / `attached_to_id` model with explicit `module_role` and `source_kind` seams.
@@ -21,7 +21,7 @@
 
 ---
 
-## A. SDK Package Design (`@universo/extension-sdk`)
+## A. SDK Package Design (`@universo-react/extension-sdk`)
 
 ### Design Topic: What TypeScript interfaces/types does the SDK expose to script authors?
 
@@ -44,7 +44,7 @@
 #### SDK Type Definitions
 
 ```typescript
-// packages/extension-sdk/base/src/types.ts
+// packages/universo-react-extension-sdk/base/src/types.ts
 
 // ═══════════════════════════════════════
 // Execution Context
@@ -250,7 +250,7 @@ export interface ScriptContext {
  *
  * Example usage:
  * ```typescript
- * import { ExtensionScript, AtServer, AtClient, OnEvent } from '@universo/extension-sdk'
+ * import { ExtensionScript, AtServer, AtClient, OnEvent } from '@universo-react/extension-sdk'
  *
  * export default class ProductScript extends ExtensionScript {
  *   @OnEvent('OnBeforeElementCreate')
@@ -492,7 +492,7 @@ export class IsolatePool {
 ```typescript
 // packages/scripting-engine/base/src/router/EventRouter.ts
 
-import type { LifecycleEvent, EventContext, ScriptContext } from '@universo/extension-sdk'
+import type { LifecycleEvent, EventContext, ScriptContext } from '@universo-react/extension-sdk'
 import type { IsolatePool } from '../sandbox/IsolatePool'
 import type { CompiledScript } from '../compiler/types'
 
@@ -831,11 +831,11 @@ export class ScriptCompiler {
 ```
 
 ```typescript
-// packages/applications-backend/base/src/routes/scriptRpcRoutes.ts
+// packages/universo-react-applications-backend/base/src/routes/scriptRpcRoutes.ts
 
 import { Router } from 'express'
 import { z } from 'zod'
-import { asyncHandler } from '@universo/metahubs-backend'
+import { asyncHandler } from '@universo-react/metahubs-backend'
 
 const scriptRpcBodySchema = z.object({
   scriptId: z.string().uuid(),
@@ -1094,7 +1094,7 @@ CREATE TABLE IF NOT EXISTS <schema>._app_scripts (
 **TanStack Query integration**:
 
 ```typescript
-// packages/metahubs-frontend/base/src/domains/scripts/hooks/useScripts.ts
+// packages/universo-react-metahubs-frontend/base/src/domains/scripts/hooks/useScripts.ts
 
 export const scriptKeys = {
   all: (metahubId: string) => ['metahub', metahubId, 'scripts'] as const,
@@ -1255,8 +1255,8 @@ Catalog: "SpaceQuiz" (kind: catalog)
 ```typescript
 // Example QuizScript — lives in _mhb_scripts, attached to SpaceQuiz catalog
 
-import { ExtensionScript, AtServer, AtClient, OnEvent } from '@universo/extension-sdk'
-import type { WidgetEventContext } from '@universo/extension-sdk'
+import { ExtensionScript, AtServer, AtClient, OnEvent } from '@universo-react/extension-sdk'
+import type { WidgetEventContext } from '@universo-react/extension-sdk'
 
 export default class QuizScript extends ExtensionScript {
   /**
@@ -1390,7 +1390,7 @@ interface AnswerResult {
 #### Decision: New `quizWidget` case in widgetRenderer + `ScriptedWidget` wrapper
 
 ```typescript
-// Addition to packages/apps-template-mui/src/dashboard/components/widgetRenderer.tsx
+// Addition to packages/universo-react-apps-template-mui/src/dashboard/components/widgetRenderer.tsx
 
 // New case in renderWidget():
 case 'quizWidget':
@@ -1409,7 +1409,7 @@ case 'scriptedWidget':
 ```
 
 ```typescript
-// packages/apps-template-mui/src/dashboard/components/ScriptedWidgetHost.tsx
+// packages/universo-react-apps-template-mui/src/dashboard/components/ScriptedWidgetHost.tsx
 
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { useCallback, useEffect, useState } from 'react'
@@ -1461,7 +1461,7 @@ export default function ScriptedWidgetHost({ scriptId, widgetKey, config }: Scri
 ```
 
 ```typescript
-// packages/apps-template-mui/src/dashboard/components/QuizWidget.tsx
+// packages/universo-react-apps-template-mui/src/dashboard/components/QuizWidget.tsx
 
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
@@ -1675,7 +1675,7 @@ export interface ScriptResourceLimits {
 ```typescript
 // packages/scripting-engine/base/src/sandbox/DatabaseBridge.ts
 
-import type { DbExecutor } from '@universo/utils'
+import type { DbExecutor } from '@universo-react/utils'
 
 const ALLOWED_SQL_PREFIXES = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'WITH']
 const BLOCKED_SQL_KEYWORDS = [
@@ -1773,19 +1773,19 @@ export class DatabaseBridge {
 
 | Package | Type | Purpose |
 |---------|------|---------|
-| `@universo/extension-sdk` | Source-only (peerDeps) | TypeScript types, decorators, base classes for script authors |
+| `@universo-react/extension-sdk` | Source-only (peerDeps) | TypeScript types, decorators, base classes for script authors |
 | `@universo/scripting-engine` | Built (tsdown) | V8 isolate management, event routing, compilation, RPC handler |
 
 ## Existing Packages Touched
 
 | Package | Changes |
 |---------|---------|
-| `@universo/types` | Add `ScriptManifest`, `MetahubScriptSnapshot` types; extend snapshot schema |
-| `@universo/schema-ddl` | Add `_mhb_scripts` to system table generation; add `_app_scripts` to runtime tables |
-| `@universo/metahubs-backend` | New `scripts` domain (controller/service/store); extend `SnapshotSerializer` |
-| `@universo/metahubs-frontend` | New `scripts` domain (hooks/pages); Monaco editor integration |
-| `@universo/applications-backend` | `scriptRpcRoutes`; extend `syncEngine` with `persistPublishedScripts()` |
-| `@universo/apps-template-mui` | `quizWidget` case in `widgetRenderer`; `QuizWidget` + `ScriptedWidgetHost` components |
+| `@universo-react/types` | Add `ScriptManifest`, `MetahubScriptSnapshot` types; extend snapshot schema |
+| `@universo-react/schema-ddl` | Add `_mhb_scripts` to system table generation; add `_app_scripts` to runtime tables |
+| `@universo-react/metahubs-backend` | New `scripts` domain (controller/service/store); extend `SnapshotSerializer` |
+| `@universo-react/metahubs-frontend` | New `scripts` domain (hooks/pages); Monaco editor integration |
+| `@universo-react/applications-backend` | `scriptRpcRoutes`; extend `syncEngine` with `persistPublishedScripts()` |
+| `@universo-react/apps-template-mui` | `quizWidget` case in `widgetRenderer`; `QuizWidget` + `ScriptedWidgetHost` components |
 | `@universo/universo-i18n` | New `scripting` and `quiz` namespaces |
 | `@universo/universo-migrations-platform` | Migration for `_app_scripts` in runtime schemas |
 
@@ -1803,7 +1803,7 @@ export class DatabaseBridge {
 ## Implementation Order (recommended for PLAN phase)
 
 1. **Phase 1 — SDK + Engine foundation** (2-3 weeks)
-   - Create `@universo/extension-sdk` package with types/decorators
+   - Create `@universo-react/extension-sdk` package with types/decorators
    - Create `@universo/scripting-engine` with IsolatePool + EventRouter
    - Add `_mhb_scripts` table to schema-ddl
 

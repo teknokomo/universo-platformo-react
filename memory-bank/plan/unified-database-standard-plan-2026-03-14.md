@@ -32,8 +32,8 @@ Establish a single, auditable standard for all PostgreSQL access in the Universo
 
 The codebase already has a solid foundation:
 
-- **DbExecutor / DbSession / SqlQueryable** interfaces in `@universo/utils/database/manager.ts`.
-- **createKnexExecutor** (pool-level) and **createRlsExecutor** (pinned-connection) implementations in `@universo/database`.
+- **DbExecutor / DbSession / SqlQueryable** interfaces in `@universo-react/utils/database/manager.ts`.
+- **createKnexExecutor** (pool-level) and **createRlsExecutor** (pinned-connection) implementations in `@universo-react/database`.
 - **ensureAuthWithRls** middleware that correctly pins one connection + set_config + BEGIN/COMMIT.
 - **migrations-core** runner with advisory locks, execution budgets, drift detection.
 - Clean SQL-first stores in **admin-backend**, **profile-backend**, and most of **applications-backend**.
@@ -140,11 +140,11 @@ After evaluating alternatives (pg-pool direct, Drizzle, Kysely, full removal of 
 > row count and that returned data is available for the caller. This also aligns with
 > lsFusion's set-based philosophy: every mutation returns its result set.
 
-#### 2.1. Typed Query Helpers — `@universo/utils/database/query`
+#### 2.1. Typed Query Helpers — `@universo-react/utils/database/query`
 
 ```typescript
 import { z } from 'zod'
-import type { SqlQueryable, DbExecutor } from '@universo/utils/database'
+import type { SqlQueryable, DbExecutor } from '@universo-react/utils/database'
 
 // ── Query helpers ────────────────────────────────────────────
 
@@ -179,7 +179,7 @@ export async function queryOne<T>(
 /**
  * Execute SQL and return the first row, or throw NotFoundError.
  *
- * Throws a plain Error (not http-errors) to keep @universo/utils transport-agnostic
+ * Throws a plain Error (not http-errors) to keep @universo-react/utils transport-agnostic
  * (the package has browser exports and must not depend on http-errors).
  * Route handlers should catch this error and wrap it with createError(404) from
  * the http-errors package already available in every backend package.
@@ -228,17 +228,17 @@ export async function executeCount(
 }
 ```
 
-#### 2.2. Safe Identifier Helpers — `@universo/database/identifiers`
+#### 2.2. Safe Identifier Helpers — `@universo-react/database/identifiers`
 
-> **Package placement rationale (QA fix F1):** These helpers live in `@universo/database`,
-> NOT in `@universo/utils`. Reason: they import from `@universo/migrations-core`, and
-> `@universo/utils` is a leaf package that must not depend on migrations-core.
-> `@universo/database` already depends on `@universo/utils` and adding
-> `@universo/migrations-core` as a dependency is architecturally clean (both are DB
+> **Package placement rationale (QA fix F1):** These helpers live in `@universo-react/database`,
+> NOT in `@universo-react/utils`. Reason: they import from `@universo-react/migrations-core`, and
+> `@universo-react/utils` is a leaf package that must not depend on migrations-core.
+> `@universo-react/database` already depends on `@universo-react/utils` and adding
+> `@universo-react/migrations-core` as a dependency is architecturally clean (both are DB
 > infrastructure). Domain packages that need identifier quoting import from
-> `@universo/database` (which they already depend on for `getPoolExecutor()`).
+> `@universo-react/database` (which they already depend on for `getPoolExecutor()`).
 
-File: `packages/universo-database/base/src/identifiers.ts`
+File: `packages/universo-react-database/base/src/identifiers.ts`
 
 ```typescript
 import {
@@ -246,7 +246,7 @@ import {
     assertCanonicalIdentifier,
     quoteIdentifier,
     quoteQualifiedIdentifier
-} from '@universo/migrations-core'
+} from '@universo-react/migrations-core'
 
 /**
  * Quote a validated schema name for use in SQL.
@@ -282,29 +282,29 @@ export function qColumn(column: string): string {
 }
 ```
 
-**Required package.json change:** Add `"@universo/migrations-core": "workspace:*"` to
-`packages/universo-database/base/package.json` dependencies.
+**Required package.json change:** Add `"@universo-react/migrations-core": "workspace:*"` to
+`packages/universo-react-database/base/package.json` dependencies.
 
-**Barrel export:** Add to `packages/universo-database/base/src/index.ts`:
+**Barrel export:** Add to `packages/universo-react-database/base/src/index.ts`:
 ```typescript
 export { qSchema, qTable, qSchemaTable, qColumn } from './identifiers'
 ```
 
-#### 2.3. DbExecutor-Based Advisory Lock — `@universo/utils/database/locks`
+#### 2.3. DbExecutor-Based Advisory Lock — `@universo-react/utils/database/locks`
 
 > **Two advisory lock systems coexist (QA fix F4):**
 >
 > | System | Package | Scope | API | Use when |
 > |--------|---------|-------|-----|----------|
-> | Existing | `@universo/schema-ddl/locking.ts` | DDL / migrations (Tier 3) | `acquireAdvisoryLock(knex, lockKey, timeoutMs)` — poll-loop with `pg_try_advisory_xact_lock`, pinned Knex connection, debug logging, in-memory tracking | Infrastructure packages doing DDL that already have a Knex instance |
-> | New | `@universo/utils/database/locks` | Domain code (Tier 1/2) | `withAdvisoryLock(executor, lockKey, work, opts?)` — blocking `pg_advisory_xact_lock` inside `executor.transaction()`, validated timeout | Domain services and route handlers that use DbExecutor |
+> | Existing | `@universo-react/schema-ddl/locking.ts` | DDL / migrations (Tier 3) | `acquireAdvisoryLock(knex, lockKey, timeoutMs)` — poll-loop with `pg_try_advisory_xact_lock`, pinned Knex connection, debug logging, in-memory tracking | Infrastructure packages doing DDL that already have a Knex instance |
+> | New | `@universo-react/utils/database/locks` | Domain code (Tier 1/2) | `withAdvisoryLock(executor, lockKey, work, opts?)` — blocking `pg_advisory_xact_lock` inside `executor.transaction()`, validated timeout | Domain services and route handlers that use DbExecutor |
 >
 > The existing `schema-ddl` system is mature, battle-tested, and tightly coupled to Knex.
 > It stays unchanged. The new system provides the same safety for domain code that must
 > not import Knex. Both use transaction-scoped locks that auto-release on COMMIT/ROLLBACK.
 
 ```typescript
-import type { DbExecutor } from '@universo/utils/database'
+import type { DbExecutor } from '@universo-react/utils/database'
 
 const MAX_LOCK_TIMEOUT_MS = 300_000
 
@@ -364,14 +364,14 @@ export async function tryWithAdvisoryLock<T>(
 }
 ```
 
-#### 2.4. DbExecutor-Based Transaction Helper — `@universo/utils/database/transactions`
+#### 2.4. DbExecutor-Based Transaction Helper — `@universo-react/utils/database/transactions`
 
 > **QA fix F3+F7:** Uses the existing `buildSetLocalStatementTimeoutSql()` from
-> `@universo/utils/database/statementTimeout` instead of raw string interpolation.
+> `@universo-react/utils/database/statementTimeout` instead of raw string interpolation.
 > That helper already validates the timeout as a positive integer ≤ 300,000ms.
 
 ```typescript
-import type { DbExecutor } from '@universo/utils/database'
+import type { DbExecutor } from '@universo-react/utils/database'
 import { buildSetLocalStatementTimeoutSql } from './statementTimeout'
 
 /**
@@ -400,10 +400,10 @@ export async function withTransaction<T>(
 
 #### Step 1.1: Create typed query helpers
 
-- [ ] Add `packages/universo-utils/base/src/database/query.ts` with `queryMany`, `queryOne`, `queryOneOrThrow`, `executeCount`
+- [ ] Add `packages/universo-react-utils/base/src/database/query.ts` with `queryMany`, `queryOne`, `queryOneOrThrow`, `executeCount`
 - [ ] Add Zod optional validation overload
-- [ ] Export from `@universo/utils/database` barrel
-- [ ] Tests: `packages/universo-utils/base/src/database/__tests__/query.test.ts`
+- [ ] Export from `@universo-react/utils/database` barrel
+- [ ] Tests: `packages/universo-react-utils/base/src/database/__tests__/query.test.ts`
   - Test: queryMany returns typed array
   - Test: queryOne returns null when empty
   - Test: queryOneOrThrow throws 404
@@ -412,10 +412,10 @@ export async function withTransaction<T>(
 
 #### Step 1.2: Create safe identifier helpers
 
-- [ ] Add `packages/universo-database/base/src/identifiers.ts` with `qSchema`, `qTable`, `qSchemaTable`, `qColumn`
-- [ ] Add `"@universo/migrations-core": "workspace:*"` to `packages/universo-database/base/package.json` dependencies
-- [ ] Export from `@universo/database` barrel (`packages/universo-database/base/src/index.ts`)
-- [ ] Tests: `packages/universo-database/base/src/__tests__/identifiers.test.ts`
+- [ ] Add `packages/universo-react-database/base/src/identifiers.ts` with `qSchema`, `qTable`, `qSchemaTable`, `qColumn`
+- [ ] Add `"@universo-react/migrations-core": "workspace:*"` to `packages/universo-react-database/base/package.json` dependencies
+- [ ] Export from `@universo-react/database` barrel (`packages/universo-react-database/base/src/index.ts`)
+- [ ] Tests: `packages/universo-react-database/base/src/__tests__/identifiers.test.ts`
   - Test: qSchema accepts canonical names (admin, metahubs, app_*, mhb_*)
   - Test: qSchema rejects malicious identifiers (`'; DROP TABLE`, `" OR 1=1 --`)
   - Test: qSchemaTable returns correct quoted form (`"schema"."table"`)
@@ -423,9 +423,9 @@ export async function withTransaction<T>(
 
 #### Step 1.3: Create DbExecutor-based advisory lock helpers
 
-- [ ] Add `packages/universo-utils/base/src/database/locks.ts` with `withAdvisoryLock`, `tryWithAdvisoryLock`, `assertLockTimeoutMs`, `buildSetLocalLockTimeoutSql`
-- [ ] Export from `@universo/utils/database` barrel
-- [ ] Tests: `packages/universo-utils/base/src/database/__tests__/locks.test.ts`
+- [ ] Add `packages/universo-react-utils/base/src/database/locks.ts` with `withAdvisoryLock`, `tryWithAdvisoryLock`, `assertLockTimeoutMs`, `buildSetLocalLockTimeoutSql`
+- [ ] Export from `@universo-react/utils/database` barrel
+- [ ] Tests: `packages/universo-react-utils/base/src/database/__tests__/locks.test.ts`
   - Test: withAdvisoryLock acquires lock and runs work
   - Test: withAdvisoryLock respects timeout via validated `SET LOCAL lock_timeout`
   - Test: assertLockTimeoutMs rejects invalid values (negative, non-integer, >300000)
@@ -433,21 +433,21 @@ export async function withTransaction<T>(
 
 #### Step 1.4: Create DbExecutor-based transaction helper
 
-- [ ] Add `packages/universo-utils/base/src/database/transactions.ts` with `withTransaction`
+- [ ] Add `packages/universo-react-utils/base/src/database/transactions.ts` with `withTransaction`
 - [ ] Reuse existing `buildSetLocalStatementTimeoutSql()` from `./statementTimeout` for safe timeout SQL
-- [ ] Export from `@universo/utils/database` barrel
-- [ ] Tests: `packages/universo-utils/base/src/database/__tests__/transactions.test.ts`
+- [ ] Export from `@universo-react/utils/database` barrel
+- [ ] Tests: `packages/universo-react-utils/base/src/database/__tests__/transactions.test.ts`
   - Test: withTransaction wraps work in transaction
   - Test: withTransaction delegates to `buildSetLocalStatementTimeoutSql` for timeout SQL
   - Test: withTransaction inherits the 300s cap from that helper
 
 #### Step 1.5: Add DbExecutor factory to universo-database exports
 
-- [ ] Ensure `@universo/database` exports a factory that domain packages can import without touching Knex:
+- [ ] Ensure `@universo-react/database` exports a factory that domain packages can import without touching Knex:
   ```typescript
   import { createKnexExecutor } from './knexExecutor'
   import { getKnex } from './KnexClient'
-  import type { DbExecutor } from '@universo/utils/database'
+  import type { DbExecutor } from '@universo-react/utils/database'
 
   /**
    * Returns a pool-level DbExecutor backed by the shared Knex instance.
@@ -458,7 +458,7 @@ export async function withTransaction<T>(
   }
   ```
 - [ ] This wraps `createKnexExecutor(getKnex())` so domain code never imports getKnex directly
-- [ ] Export from `@universo/database` barrel (`packages/universo-database/base/src/index.ts`)
+- [ ] Export from `@universo-react/database` barrel (`packages/universo-react-database/base/src/index.ts`)
 
 #### Step 1.6: Create lint enforcement script
 
@@ -477,8 +477,8 @@ export async function withTransaction<T>(
   - **Path exclusions for auth-backend (QA fix F13):** `ensureAuthWithRls` middleware in
     `**/middlewares/**` legitimately uses `getKnex()` to create pinned RLS connections
     via `createRlsExecutor(knex, connection)`. This is infrastructure, not domain logic.
-    Excluded paths: `packages/auth-backend/**/middlewares/**`.
-    Scanned paths (domain): `packages/auth-backend/**/services/**`, `packages/auth-backend/**/routes/**`.
+    Excluded paths: `packages/universo-react-auth-backend/**/middlewares/**`.
+    Scanned paths (domain): `packages/universo-react-auth-backend/**/services/**`, `packages/universo-react-auth-backend/**/routes/**`.
   - **Path exclusions for metahubs-backend DDL subsystem (QA fix F16):** Several files in
     metahubs-backend are genuine DDL infrastructure that legitimately requires Knex types:
     `SystemTableDDLGenerator.ts` (creates tables via `knex.schema`),
@@ -487,10 +487,10 @@ export async function withTransaction<T>(
     (getDDLServices factory + Knex re-exports). These are Tier 3-equivalent code that
     happens to live inside a domain package for colocation reasons.
     Excluded paths:
-    - `packages/metahubs-backend/**/domains/ddl/**`
-    - `packages/metahubs-backend/**/services/SystemTableDDLGenerator.ts`
-    - `packages/metahubs-backend/**/services/SystemTableMigrator.ts`
-    - `packages/metahubs-backend/**/services/structureVersions.ts`
+    - `packages/universo-react-metahubs-backend/**/domains/ddl/**`
+    - `packages/universo-react-metahubs-backend/**/services/SystemTableDDLGenerator.ts`
+    - `packages/universo-react-metahubs-backend/**/services/SystemTableMigrator.ts`
+    - `packages/universo-react-metahubs-backend/**/services/structureVersions.ts`
     Note: `widgetTableResolver.ts`, `TemplateSeedExecutor.ts`, `TemplateSeedMigrator.ts`,
     and `TemplateSeedCleanupService.ts` are evaluated in Step 2.11 — those that can be
     converted to DbExecutor MUST be; only files that genuinely need Knex Schema Builder
@@ -501,8 +501,8 @@ export async function withTransaction<T>(
 
 #### Step 1.7: Build and validate
 
-- [ ] `pnpm --filter @universo/utils build`
-- [ ] `pnpm --filter @universo/database build` (now includes identifiers + migrations-core dep)
+- [ ] `pnpm --filter @universo-react/utils build`
+- [ ] `pnpm --filter @universo-react/database build` (now includes identifiers + migrations-core dep)
 - [ ] Run new tests
 - [ ] Full `pnpm build`
 
@@ -527,7 +527,7 @@ This is the largest wave. The metahubs-backend has ~10 service classes that use 
 #### Step 2.2: Convert MetahubAttributesService
 
 - [ ] Same pattern: inject `DbExecutor`, replace `.withSchema().from().where()` chains
-- [ ] Replace local `quoteSchemaName()` with `qSchema()` from `@universo/database`
+- [ ] Replace local `quoteSchemaName()` with `qSchema()` from `@universo-react/database`
 - [ ] Replace `Knex.Transaction` parameter types with `DbExecutor`
 - [ ] Replace direct `.transaction()` calls with `executor.transaction()` or `withTransaction()`
 - [ ] Tests:
@@ -584,7 +584,7 @@ This is the largest wave. The metahubs-backend has ~10 service classes that use 
   advisory locks. The conversion must:
   1. **Remove** `private get knex() { return KnexClient.getInstance() }` getter
   2. **DDL methods** (`createEmptySchemaIfNeeded`, `dropSchema`): replace `KnexClient.getInstance()`
-     with `getKnex()` imported directly from `@universo/database`. This is the standard Tier 3
+     with `getKnex()` imported directly from `@universo-react/database`. This is the standard Tier 3
      API. Since this file is in the DDL lint exclusion list (QA fix F16), importing `getKnex()`
      and `Knex` types is permitted. **(Gap G4 simplification):** Passing Knex from callers
      (route handlers) would force domain code to know about Knex — contradicting the goal.
@@ -600,7 +600,7 @@ This is the largest wave. The metahubs-backend has ~10 service classes that use 
 
 > **Security fix:** `metahubsQueryHelpers.ts` currently uses `"${schema}"."${table}"` and
 > `"${filterColumn}"` — direct string interpolation without validation. This must be
-> replaced with `qSchemaTable(schema, table)` and `qColumn(column)` from `@universo/database`.
+> replaced with `qSchemaTable(schema, table)` and `qColumn(column)` from `@universo-react/database`.
 
 - [ ] Replace all `"${schema}"."${table}"` patterns with `${qSchemaTable(schema, table)}`
 - [ ] Replace all `"${filterColumn}"` patterns with `${qColumn(filterColumn)}`
@@ -627,14 +627,14 @@ This is the largest wave. The metahubs-backend has ~10 service classes that use 
   **metahubMigrationsRoutes** (7–8 KnexClient calls — highest density)
 - [ ] Advisory lock calls → `withAdvisoryLock(executor, ...)`
 - [ ] Inject executor from `getRequestDbExecutor(req, getPoolExecutor())`
-- [ ] Replace all `import ... from 'knex'` with `import ... from '@universo/database'` for identifiers
+- [ ] Replace all `import ... from 'knex'` with `import ... from '@universo-react/database'` for identifiers
 - [ ] Tests: route-level integration tests
 
 #### Step 2.14: Validate metahubs-backend
 
-- [ ] `pnpm --filter @universo/metahubs-backend build`
-- [ ] `pnpm --filter @universo/metahubs-backend test`
-- [ ] `pnpm --filter @universo/metahubs-backend lint`
+- [ ] `pnpm --filter @universo-react/metahubs-backend build`
+- [ ] `pnpm --filter @universo-react/metahubs-backend test`
+- [ ] `pnpm --filter @universo-react/metahubs-backend lint`
 
 ---
 
@@ -656,15 +656,15 @@ This is the largest wave. The metahubs-backend has ~10 service classes that use 
 - [ ] Replace all `getKnex()` direct calls (16+ instances)
 - [ ] Replace `Knex.Transaction` type annotations
 - [ ] Replace `.transaction()` calls with executor.transaction()
-- [ ] Remove LOCAL `quoteIdentifier` function — use `qSchema`/`qTable` from `@universo/database`
+- [ ] Remove LOCAL `quoteIdentifier` function — use `qSchema`/`qTable` from `@universo-react/database`
 - [ ] DDL operations: accept Knex from route boundary, not via getKnex()
 - [ ] Tests: sync route operations
 
 #### Step 3.4: Validate applications-backend
 
-- [ ] `pnpm --filter @universo/applications-backend build`
-- [ ] `pnpm --filter @universo/applications-backend test`
-- [ ] `pnpm --filter @universo/applications-backend lint`
+- [ ] `pnpm --filter @universo-react/applications-backend build`
+- [ ] `pnpm --filter @universo-react/applications-backend test`
+- [ ] `pnpm --filter @universo-react/applications-backend lint`
 
 ---
 
@@ -680,8 +680,8 @@ This is the largest wave. The metahubs-backend has ~10 service classes that use 
 - [ ] `permissionService.ts` — convert public API and internal implementation (QA fix F14):
   - Change `PermissionServiceOptions` from `{ getKnex: () => Knex }` to `{ getDbExecutor: () => DbExecutor }`
   - Change internal `runQuery` fallback from `createKnexExecutor(getKnex())` to `options.getDbExecutor()`
-  - Remove `import type { Knex } from 'knex'` and `import { createKnexExecutor } from '@universo/database'`
-  - Add `import type { DbExecutor } from '@universo/utils/database'`
+  - Remove `import type { Knex } from 'knex'` and `import { createKnexExecutor } from '@universo-react/database'`
+  - Add `import type { DbExecutor } from '@universo-react/utils/database'`
   - Update call site in `universo-core-backend/base/src/routes/index.ts`:
     ```typescript
     // Before:
@@ -698,7 +698,7 @@ This is the largest wave. The metahubs-backend has ~10 service classes that use 
 > be updated to use the new factory instead of `() => createKnexExecutor(getKnex())`.
 > Step 4.1 only addresses `permissionService` — this step covers the remaining 10+ sites.
 
-- [ ] Import `getPoolExecutor` from `@universo/database` (replacing `createKnexExecutor`)
+- [ ] Import `getPoolExecutor` from `@universo-react/database` (replacing `createKnexExecutor`)
 - [ ] Replace all `() => createKnexExecutor(getKnex())` factory arguments with `getPoolExecutor`:
   | Router factory | Current | After |
   |---|---|---|
@@ -800,7 +800,7 @@ Each phase includes its own tests. Additionally:
 
 #### Step 7.1: Cross-cutting integration tests
 
-- [ ] `packages/universo-utils/base/src/database/__tests__/integration.test.ts`:
+- [ ] `packages/universo-react-utils/base/src/database/__tests__/integration.test.ts`:
   - Test: RLS executor preserves claims across queries
   - Test: Pool executor does not have RLS claims
   - Test: Advisory lock blocks concurrent work
@@ -834,14 +834,14 @@ Each phase includes its own tests. Additionally:
 
 | Package | Changes | Risk |
 |---------|---------|------|
-| `@universo/utils` | Add query/locks/transactions modules | LOW — additive |
-| `@universo/database` | Add `getPoolExecutor()` export, add `identifiers.ts`, add `@universo/migrations-core` dependency | LOW — additive |
-| `@universo/metahubs-backend` | Convert 10+ services, 10+ routes, delete `KnexClient` wrapper | HIGH — core domain |
-| `@universo/applications-backend` | Convert sync routes + 2 stores, remove local `quoteIdentifier` | MEDIUM |
-| `@universo/auth-backend` | Minor: switch to getPoolExecutor() | LOW |
-| `@universo/admin-backend` | Already clean — verify only | LOW |
-| `@universo/profile-backend` | Already clean — verify only | LOW |
-| `@universo/schema-ddl` | No changes (Tier 3 — Knex is allowed, keeps own advisory lock system) | NONE |
+| `@universo-react/utils` | Add query/locks/transactions modules | LOW — additive |
+| `@universo-react/database` | Add `getPoolExecutor()` export, add `identifiers.ts`, add `@universo-react/migrations-core` dependency | LOW — additive |
+| `@universo-react/metahubs-backend` | Convert 10+ services, 10+ routes, delete `KnexClient` wrapper | HIGH — core domain |
+| `@universo-react/applications-backend` | Convert sync routes + 2 stores, remove local `quoteIdentifier` | MEDIUM |
+| `@universo-react/auth-backend` | Minor: switch to getPoolExecutor() | LOW |
+| `@universo-react/admin-backend` | Already clean — verify only | LOW |
+| `@universo-react/profile-backend` | Already clean — verify only | LOW |
+| `@universo-react/schema-ddl` | No changes (Tier 3 — Knex is allowed, keeps own advisory lock system) | NONE |
 | `@universo/migrations-*` | No changes (Tier 3 — Knex is allowed) | NONE |
 
 ---
@@ -962,7 +962,7 @@ Each phase is independently deployable and testable. If a phase introduces regre
   (`docs/en/contributing/database-code-review-checklist.md` + Russian translation).
   Based on the TZ's "Стандарты и чеклист для code review" section, must include:
   1. SQL query → `executor.query(sql, params)` — no Knex builder in domain code
-  2. All identifiers through `qSchemaTable()` / `qColumn()` from `@universo/database`
+  2. All identifiers through `qSchemaTable()` / `qColumn()` from `@universo-react/database`
   3. No raw driver result in store contract — always `T[]` / `T | null`
   4. Advisory lock required for all DDL operations
   5. `SET LOCAL lock_timeout` / `statement_timeout` for long operations
@@ -979,7 +979,7 @@ Each phase is independently deployable and testable. If a phase introduces regre
 
 ```typescript
 import type { Knex } from 'knex'
-import { KnexClient } from '@universo/database'
+import { KnexClient } from '@universo-react/database'
 
 export class MetahubSettingsService {
     private get knex(): Knex {
@@ -1013,9 +1013,9 @@ export class MetahubSettingsService {
 ### After (MetahubSettingsService — unified standard)
 
 ```typescript
-import type { SqlQueryable, DbExecutor } from '@universo/utils/database'
-import { queryMany, queryOne } from '@universo/utils/database'
-import { qSchemaTable } from '@universo/database'
+import type { SqlQueryable, DbExecutor } from '@universo-react/utils/database'
+import { queryMany, queryOne } from '@universo-react/utils/database'
+import { qSchemaTable } from '@universo-react/database'
 
 export function createMetahubSettingsStore(db: SqlQueryable) {
     return {

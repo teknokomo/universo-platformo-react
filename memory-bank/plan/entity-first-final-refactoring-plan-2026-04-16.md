@@ -111,32 +111,32 @@ This plan picks up from the **current verified state** (QA audit 2026-04-16) and
 
 ```bash
 cd /home/vladimir/GigaProjects/upstream-universo-platformo-react
-pnpm --filter @universo/metahubs-frontend lint -- --fix
+pnpm --filter @universo-react/metahubs-frontend lint -- --fix
 ```
 
 ### Step 1.2: Auto-fix metahubs-backend
 
 ```bash
-pnpm --filter @universo/metahubs-backend lint -- --fix
+pnpm --filter @universo-react/metahubs-backend lint -- --fix
 ```
 
 ### Step 1.3: Check all other packages for Prettier issues
 
 ```bash
-pnpm --filter @universo/types lint -- --fix
-pnpm --filter @universo/utils lint -- --fix
-pnpm --filter @universo/template-mui lint -- --fix
-pnpm --filter @universo/apps-template-mui lint -- --fix
-pnpm --filter @universo/applications-backend lint -- --fix
-pnpm --filter @universo/applications-frontend lint -- --fix
+pnpm --filter @universo-react/types lint -- --fix
+pnpm --filter @universo-react/utils lint -- --fix
+pnpm --filter @universo-react/template-mui lint -- --fix
+pnpm --filter @universo-react/apps-template-mui lint -- --fix
+pnpm --filter @universo-react/applications-backend lint -- --fix
+pnpm --filter @universo-react/applications-frontend lint -- --fix
 ```
 
 ### Step 1.4: Validate
 
 ```bash
 pnpm build   # 30/30
-pnpm --filter @universo/metahubs-frontend lint
-pnpm --filter @universo/metahubs-backend lint
+pnpm --filter @universo-react/metahubs-frontend lint
+pnpm --filter @universo-react/metahubs-backend lint
 ```
 
 ### Checklist — Phase 1:
@@ -153,7 +153,7 @@ pnpm --filter @universo/metahubs-backend lint
 
 ### Current State
 
-The i18n keys live in `packages/metahubs-frontend/base/src/i18n/locales/{en,ru}/metahubs.json` under legacy section names:
+The i18n keys live in `packages/universo-react-metahubs-frontend/base/src/i18n/locales/{en,ru}/metahubs.json` under legacy section names:
 
 | Section | Approx. keys | New section name |
 |---------|-------------|------------------|
@@ -227,10 +227,10 @@ Use `perl -pi -e` for bulk replacement with word boundaries:
 
 ```bash
 # Shared keys (identical across all 4 kinds)
-perl -pi -e "s/t\('hubs\.create'\)/t('standardEntities.create')/g" $(find packages/metahubs-frontend/base/src -name '*.ts' -o -name '*.tsx')
+perl -pi -e "s/t\('hubs\.create'\)/t('standardEntities.create')/g" $(find packages/universo-react-metahubs-frontend/base/src -name '*.ts' -o -name '*.tsx')
 
 # Kind-specific keys
-perl -pi -e "s/t\('hubs\./t('treeEntities./g" $(find packages/metahubs-frontend/base/src -name '*.ts' -o -name '*.tsx')
+perl -pi -e "s/t\('hubs\./t('treeEntities./g" $(find packages/universo-react-metahubs-frontend/base/src -name '*.ts' -o -name '*.tsx')
 perl -pi -e "s/t\('catalogs\./t('linkedCollections./g" $(find ...)
 perl -pi -e "s/t\('sets\./t('valueGroups./g" $(find ...)
 perl -pi -e "s/t\('enumerations\./t('optionLists./g" $(find ...)
@@ -249,7 +249,7 @@ Rename sections in both `en/metahubs.json` and `ru/metahubs.json`:
 
 ```bash
 grep -r "t('hubs\.\|t(\"hubs\.\|t('catalogs\.\|t(\"catalogs\.\|t('sets\.\|t(\"sets\.\|t('enumerations\.\|t(\"enumerations\." \
-  packages/metahubs-frontend/base/src/ --include='*.ts' --include='*.tsx' | wc -l
+  packages/universo-react-metahubs-frontend/base/src/ --include='*.ts' --include='*.tsx' | wc -l
 # Expected: 0
 ```
 
@@ -391,7 +391,7 @@ describe('standardInstances query keys', () => {
 - [ ] 3.4: Update invalidation patterns across all standard UI
 - [ ] 3.5: Remove old per-kind key definitions
 - [ ] 3.6: Write and run query key unit tests
-- [ ] Build: `pnpm --filter @universo/metahubs-frontend build`
+- [ ] Build: `pnpm --filter @universo-react/metahubs-frontend build`
 
 ---
 
@@ -410,11 +410,11 @@ describe('standardInstances query keys', () => {
 
 ### Step 4.0: Extract shared service factory
 
-Create `packages/metahubs-backend/base/src/domains/entities/controllers/entityServiceFactory.ts` — eliminates duplicated service instantiation across handler groups.
+Create `packages/universo-react-metahubs-backend/base/src/domains/entities/controllers/entityServiceFactory.ts` — eliminates duplicated service instantiation across handler groups.
 
 ### Step 4.1: Extract standard-kind CRUD handlers
 
-Create `packages/metahubs-backend/base/src/domains/entities/controllers/standardKindHandlers.ts`:
+Create `packages/universo-react-metahubs-backend/base/src/domains/entities/controllers/standardKindHandlers.ts`:
 
 ```typescript
 // Extracted from entityInstancesController.ts
@@ -433,7 +433,7 @@ export function createStandardKindListHandler(deps: ControllerDeps) {
 
 ### Step 4.2: Extract child-resource handlers
 
-Create `packages/metahubs-backend/base/src/domains/entities/controllers/childResourceHandlers.ts`:
+Create `packages/universo-react-metahubs-backend/base/src/domains/entities/controllers/childResourceHandlers.ts`:
 
 Handles nested entity operations:
 - Hub children listing (`/instance/:treeEntityId/instances`)
@@ -442,7 +442,7 @@ Handles nested entity operations:
 
 ### Step 4.3: Extract option-value handlers
 
-Create `packages/metahubs-backend/base/src/domains/entities/controllers/optionValueHandlers.ts`:
+Create `packages/universo-react-metahubs-backend/base/src/domains/entities/controllers/optionValueHandlers.ts`:
 
 Handles:
 - `listOptionValues`, `getOptionValue`, `createOptionValue`, `updateOptionValue`
@@ -479,8 +479,8 @@ export function createEntityInstancesController(deps: ControllerDeps) {
 ### Step 4.5: Validate
 
 ```bash
-pnpm --filter @universo/metahubs-backend build
-pnpm --filter @universo/metahubs-backend test
+pnpm --filter @universo-react/metahubs-backend build
+pnpm --filter @universo-react/metahubs-backend test
 ```
 
 ### Checklist — Phase 4:
@@ -521,7 +521,7 @@ loadTreeCompatibilityContext → loadTreeEntityContext
 ### Step 5.4: Build validation
 
 ```bash
-pnpm --filter @universo/metahubs-backend build
+pnpm --filter @universo-react/metahubs-backend build
 ```
 
 ### Checklist — Phase 5:
@@ -534,11 +534,11 @@ pnpm --filter @universo/metahubs-backend build
 
 ## Phase 6: Frontend Standard Subtree Consolidation {#phase-6}
 
-> **Goal**: Reduce code duplication across the 5 parallel List components in `standard/ui/` (~14.5K LOC) by extracting shared patterns into reusable hooks. This is NOT about creating new UI components — `@universo/template-mui` already provides all needed UI primitives.
+> **Goal**: Reduce code duplication across the 5 parallel List components in `standard/ui/` (~14.5K LOC) by extracting shared patterns into reusable hooks. This is NOT about creating new UI components — `@universo-react/template-mui` already provides all needed UI primitives.
 
 ### Current State Analysis (VERIFIED)
 
-**All 5 List components already import the SAME shared UI primitives from `@universo/template-mui`:**
+**All 5 List components already import the SAME shared UI primitives from `@universo-react/template-mui`:**
 - `EntityFormDialog` + `TabConfig` system — for create/edit dialogs
 - `BlockingEntitiesDeleteDialog` + `ConfirmDeleteDialog` — for delete handling
 - `ConflictResolutionDialog` — for optimistic lock conflicts
@@ -575,7 +575,7 @@ pnpm --filter @universo/metahubs-backend build
 Create `standard/hooks/useStandardEntityListState.ts` — thin state hook combining existing `useListDialogs()`, `useDebouncedSearch()`, `useViewPreference()`, and `usePaginated()` hooks from template-mui:
 
 ```typescript
-import { useListDialogs, useDebouncedSearch, useViewPreference, usePaginated } from '@universo/template-mui'
+import { useListDialogs, useDebouncedSearch, useViewPreference, usePaginated } from '@universo-react/template-mui'
 
 // Combines EXISTING hooks into a single state bundle — NOT reinventing any state management
 export function useStandardEntityListState(kindKey: StandardEntityKind) {
@@ -604,11 +604,11 @@ export function useStandardEntityCopyHandler(params: {
 
 ### Step 6.3: Consolidate delete dialog strategy
 
-Unify `TreeDeleteDialog.tsx` to use `BlockingEntitiesDeleteDialog` from `@universo/template-mui` — the same pattern that `LinkedCollectionDeleteDialog` and `OptionListDeleteDialog` ALREADY use. Currently, TreeDeleteDialog reimplements blocking query logic manually.
+Unify `TreeDeleteDialog.tsx` to use `BlockingEntitiesDeleteDialog` from `@universo-react/template-mui` — the same pattern that `LinkedCollectionDeleteDialog` and `OptionListDeleteDialog` ALREADY use. Currently, TreeDeleteDialog reimplements blocking query logic manually.
 
 ### Step 6.4: Leverage `createEntityActions()` factory
 
-`@universo/template-mui` exports `createEntityActions()` factory that generates action descriptors (edit, delete, copy) programmatically. MetahubActions.tsx already uses it. Standard Lists should leverage this instead of inline action handler wiring.
+`@universo-react/template-mui` exports `createEntityActions()` factory that generates action descriptors (edit, delete, copy) programmatically. MetahubActions.tsx already uses it. Standard Lists should leverage this instead of inline action handler wiring.
 
 ### Step 6.5: Refactor List components to use shared hooks
 
@@ -656,7 +656,7 @@ Split the 1791-line `EntityInstanceList.tsx` into:
 ### Step 6.8: Validate
 
 ```bash
-pnpm --filter @universo/metahubs-frontend build
+pnpm --filter @universo-react/metahubs-frontend build
 # Run existing tests to verify no regressions
 ```
 
@@ -722,7 +722,7 @@ grep -r "listMetahubCatalogs\|createMetahubCatalog\|listMetahubHubs\|getMetahubH
 
 ### Step 8.1: Backend — Behavior registry tests
 
-**File**: `packages/metahubs-backend/base/src/tests/services/behaviorRegistry.test.ts`
+**File**: `packages/universo-react-metahubs-backend/base/src/tests/services/behaviorRegistry.test.ts`
 
 ```typescript
 describe('EntityBehaviorService registry', () => {
@@ -749,7 +749,7 @@ describe('EntityBehaviorService registry', () => {
 
 ### Step 8.2: Backend — Standard kind capabilities tests
 
-**File**: `packages/metahubs-backend/base/src/tests/services/standardKindCapabilities.test.ts`
+**File**: `packages/universo-react-metahubs-backend/base/src/tests/services/standardKindCapabilities.test.ts`
 
 Test each capability function:
 - `buildStandardKindBlockingState` for each of the 4 kinds
@@ -758,7 +758,7 @@ Test each capability function:
 
 ### Step 8.3: Backend — Template seed executor tests
 
-**File**: `packages/metahubs-backend/base/src/tests/services/TemplateSeedExecutor.test.ts`
+**File**: `packages/universo-react-metahubs-backend/base/src/tests/services/TemplateSeedExecutor.test.ts`
 
 ```typescript
 describe('TemplateSeedExecutor', () => {
@@ -793,15 +793,15 @@ describe('TemplateSeedExecutor', () => {
 
 ### Step 8.4: Frontend — Query key stability tests
 
-**File**: `packages/metahubs-frontend/base/src/domains/shared/__tests__/queryKeys.test.ts`
+**File**: `packages/universo-react-metahubs-frontend/base/src/domains/shared/__tests__/queryKeys.test.ts`
 
 ### Step 8.5: Frontend — Standard entity list manager tests
 
-**File**: `packages/metahubs-frontend/base/src/domains/entities/standard/ui/__tests__/useStandardEntityListManager.test.tsx`
+**File**: `packages/universo-react-metahubs-frontend/base/src/domains/entities/standard/ui/__tests__/useStandardEntityListManager.test.tsx`
 
 ### Step 8.6: Frontend — Entity workspace tests (coverage expansion)
 
-**File**: `packages/metahubs-frontend/base/src/domains/entities/ui/__tests__/EntitiesWorkspace.test.tsx`
+**File**: `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/__tests__/EntitiesWorkspace.test.tsx`
 
 Add test cases:
 - No "Source" column rendered
@@ -1046,8 +1046,8 @@ Verify TOC links, add new pages, remove stale entries.
 
 ### Step 11.7: Update package READMEs
 
-- `packages/metahubs-frontend/base/README.md`
-- `packages/metahubs-backend/base/README.md`
+- `packages/universo-react-metahubs-frontend/base/README.md`
+- `packages/universo-react-metahubs-backend/base/README.md`
 - `packages/README.md` (root packages)
 
 ### Checklist — Phase 11:
@@ -1080,10 +1080,10 @@ pnpm test
 ### Step 12.3: Lint check (all core packages)
 
 ```bash
-pnpm --filter @universo/metahubs-frontend lint
-pnpm --filter @universo/metahubs-backend lint
-pnpm --filter @universo/types lint
-pnpm --filter @universo/template-mui lint
+pnpm --filter @universo-react/metahubs-frontend lint
+pnpm --filter @universo-react/metahubs-backend lint
+pnpm --filter @universo-react/types lint
+pnpm --filter @universo-react/template-mui lint
 ```
 
 ### Step 12.4: E2E test suite
@@ -1111,14 +1111,14 @@ grep -r "custom\.hub-v2\|custom\.catalog-v2\|custom\.set-v2\|custom\.enumeration
 
 # No legacy i18n key refs (after Phase 2)
 grep -r "t('hubs\.\|t(\"hubs\.\|t('catalogs\.\|t(\"catalogs\.\|t('sets\.\|t(\"sets\.\|t('enumerations\.\|t(\"enumerations\." \
-  packages/metahubs-frontend/base/src/ --include='*.ts' --include='*.tsx'
+  packages/universo-react-metahubs-frontend/base/src/ --include='*.ts' --include='*.tsx'
 
 # No per-kind query key trees (after Phase 3)
 grep -r "metahubsQueryKeys\.hubs(\|metahubsQueryKeys\.catalogs(\|metahubsQueryKeys\.sets(\|metahubsQueryKeys\.enumerations(" \
-  packages/metahubs-frontend/base/src/ --include='*.ts' --include='*.tsx'
+  packages/universo-react-metahubs-frontend/base/src/ --include='*.ts' --include='*.tsx'
 
 # No Compatibility.ts files (after Phase 5)
-find packages/metahubs-backend/base/src -name '*Compatibility*'
+find packages/universo-react-metahubs-backend/base/src -name '*Compatibility*'
 ```
 
 ### Step 12.6: Technical specification compliance matrix
@@ -1139,7 +1139,7 @@ find packages/metahubs-backend/base/src -name '*Compatibility*'
 ### Step 12.7: OpenAPI regeneration
 
 ```bash
-cd packages/universo-rest-docs && node scripts/generate-openapi-source.js
+cd packages/universo-react-rest-docs && node scripts/generate-openapi-source.js
 ```
 
 ### Step 12.8: Memory bank update
@@ -1297,9 +1297,9 @@ The plan was reviewed against: (1) the actual codebase architecture, (2) the ori
 #### ISSUE 2 — Phase 6: Proposed creating UI components that already exist (FIXED ✅)
 
 **Problem**: The plan proposed creating `StandardEntityCreateDialog`, `StandardEntityDeleteDialog`, `StandardEntityToolbar`, `StandardEntityCopyDialog` — 4 new components. However:
-- `EntityFormDialog` from `@universo/template-mui` is already used by ALL 5 lists for create/edit
-- `BlockingEntitiesDeleteDialog` from `@universo/template-mui` is already used by LinkedCollectionDeleteDialog and OptionListDeleteDialog
-- `ToolbarControls` from `@universo/template-mui` is already used by ALL 5 lists
+- `EntityFormDialog` from `@universo-react/template-mui` is already used by ALL 5 lists for create/edit
+- `BlockingEntitiesDeleteDialog` from `@universo-react/template-mui` is already used by LinkedCollectionDeleteDialog and OptionListDeleteDialog
+- `ToolbarControls` from `@universo-react/template-mui` is already used by ALL 5 lists
 
 Only the copy handler logic is genuinely duplicated and needs extraction.
 
@@ -1325,7 +1325,7 @@ Only the copy handler logic is genuinely duplicated and needs extraction.
 | Optimistic update pattern | `applyOptimisticCreate/Update/Delete` + `rollbackOptimisticSnapshots` from template-mui | ✅ Correct |
 | Cache invalidation | `safeInvalidateQueries()` in `onSettled` (not just onSuccess) | ✅ Best practice |
 | Error handling | notistack `enqueueSnackbar()` with i18n fallback | ✅ Consistent |
-| API client | Centralized axios wrapper via `@universo/auth-frontend` createAuthClient | ✅ Correct |
+| API client | Centralized axios wrapper via `@universo-react/auth-frontend` createAuthClient | ✅ Correct |
 | Pagination | Offset-based (limit/offset) via `usePaginated()` | ✅ Consistent |
 | Backend security: RLS | `getRequestDbExecutor()` enforces request-scoped RLS executor | ✅ Secure |
 | Backend security: Input validation | Zod schemas with `.strict()` on all request bodies | ✅ Secure |
@@ -1364,5 +1364,5 @@ Only the copy handler logic is genuinely duplicated and needs extraction.
 
 1. **TanStack Query v5 `queryOptions()` factory** — The codebase could benefit from the v5 `queryOptions()` API for better type inference, but this is a style improvement, not required for this plan.
 2. **Code splitting** — No React.lazy() in standard/ subtree. Could be added for route-level splitting, but not critical for functionality.
-3. **`createEntityActions()` factory** — `@universo/template-mui` exports this factory but standard Lists don't use it. Phase 6.4 recommends adopting it for consistency with MetahubActions.tsx.
+3. **`createEntityActions()` factory** — `@universo-react/template-mui` exports this factory but standard Lists don't use it. Phase 6.4 recommends adopting it for consistency with MetahubActions.tsx.
 4. **Optimistic feedback inconsistency** — `revealPendingEntityFeedback()` is used by some lists but not all. Phase 6.5 should ensure consistent usage.

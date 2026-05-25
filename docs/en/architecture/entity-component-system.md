@@ -52,6 +52,6 @@ The Entity-Component-Action-Event (ECAE) layer adds custom and standard metahub 
 
 ## Related Packages
 
--   `@universo/metahubs-backend` owns entity definitions, actions, event bindings, and publication metadata.
--   `@universo/metahubs-frontend` owns the Entities workspace and custom entity instance authoring.
--   `@universo/applications-backend` and `@universo/applications-frontend` consume published sections at runtime.
+-   `@universo-react/metahubs-backend` owns entity definitions, actions, event bindings, and publication metadata.
+-   `@universo-react/metahubs-frontend` owns the Entities workspace and custom entity instance authoring.
+-   `@universo-react/applications-backend` and `@universo-react/applications-frontend` consume published sections at runtime.

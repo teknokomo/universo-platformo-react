@@ -1,0 +1,550 @@
+import type { Knex } from 'knex'
+import stableStringify from 'json-stable-stringify'
+import type {
+    MetahubTemplateSeed,
+    TemplateSeedEntity,
+    TemplateSeedSetting,
+    TemplateSeedElement,
+    TemplateSeedZoneWidget,
+    StructuredBlocker
+} from '@universo-react/types'
+import { resolveWidgetTableName } from './widgetTableResolver'
+import { codenamePrimaryTextSql } from '../../shared/codename'
+
+export const TEMPLATE_CLEANUP_MODES = ['keep', 'dry_run', 'confirm'] as const
+export type TemplateCleanupMode = (typeof TEMPLATE_CLEANUP_MODES)[number]
+
+interface CleanupSeedDiff {
+    removedEntities: Map<string, TemplateSeedEntity>
+    removedSettings: Map<string, TemplateSeedSetting>
+    /** Widgets removed per layout codename. */
+    removedWidgets: Map<string, TemplateSeedZoneWidget[]>
+}
+
+interface EntityCleanupCandidate {
+    key: string
+    objectId: string
+    componentIds: string[]
+    elementIds: string[]
+}
+
+interface SettingCleanupCandidate {
+    id: string
+    key: string
+}
+
+interface WidgetCleanupCandidate {
+    id: string
+    layoutCodename: string
+    zone: string
+    widgetKey: string
+    sortOrder: number
+}
+
+interface CleanupPlanData {
+    diff: CleanupSeedDiff
+    entityCandidates: EntityCleanupCandidate[]
+    settingCandidates: SettingCleanupCandidate[]
+    widgetCandidates: WidgetCleanupCandidate[]
+    blockers: StructuredBlocker[]
+    notes: string[]
+}
+
+export interface TemplateSeedCleanupSummary {
+    entitiesDeleted: number
+    componentsDeleted: number
+    elementsDeleted: number
+    settingsDeleted: number
+    widgetsDeleted: number
+}
+
+export interface TemplateSeedCleanupResult {
+    mode: TemplateCleanupMode
+    hasChanges: boolean
+    blockers: StructuredBlocker[]
+    notes: string[]
+    summary: TemplateSeedCleanupSummary
+}
+
+const zeroSummary = (): TemplateSeedCleanupSummary => ({
+    entitiesDeleted: 0,
+    componentsDeleted: 0,
+    elementsDeleted: 0,
+    settingsDeleted: 0,
+    widgetsDeleted: 0
+})
+
+const buildEntityKey = (entity: Pick<TemplateSeedEntity, 'kind' | 'codename'>): string => `${entity.kind}:${entity.codename}`
+
+const parseEntityKey = (key: string): { kind: string; codename: string } => {
+    const [kind, codename] = key.split(':', 2)
+    return { kind: kind ?? '', codename: codename ?? '' }
+}
+
+const normalizeSettingValue = (setting: TemplateSeedSetting): unknown =>
+    typeof setting.value === 'object' ? setting.value : { _value: setting.value }
+
+const jsonEquals = (left: unknown, right: unknown): boolean => stableStringify(left) === stableStringify(right)
+
+const toStringValue = (value: unknown): string => {
+    if (value instanceof Date) return value.toISOString()
+    if (typeof value === 'string') return value
+    return String(value ?? '')
+}
+
+export class TemplateSeedCleanupService {
+    constructor(private readonly knex: Knex, private readonly schemaName: string) {}
+
+    async analyze(params: {
+        mode: TemplateCleanupMode
+        currentSeed: MetahubTemplateSeed | null
+        targetSeed: MetahubTemplateSeed | null
+    }): Promise<TemplateSeedCleanupResult> {
+        if (params.mode === 'keep') {
+            return {
+                mode: 'keep',
+                hasChanges: false,
+                blockers: [],
+                notes: ['Cleanup mode is keep: destructive cleanup is disabled.'],
+                summary: zeroSummary()
+            }
+        }
+
+        const plan = await this.buildPlan(params.currentSeed, params.targetSeed)
+        return {
+            mode: params.mode,
+            hasChanges: plan.entityCandidates.length > 0 || plan.settingCandidates.length > 0 || plan.widgetCandidates.length > 0,
+            blockers: plan.blockers,
+            notes: plan.notes,
+            summary: {
+                entitiesDeleted: plan.entityCandidates.length,
+                componentsDeleted: plan.entityCandidates.reduce((sum, candidate) => sum + candidate.componentIds.length, 0),
+                elementsDeleted: plan.entityCandidates.reduce((sum, candidate) => sum + candidate.elementIds.length, 0),
+                settingsDeleted: plan.settingCandidates.length,
+                widgetsDeleted: plan.widgetCandidates.length
+            }
+        }
+    }
+
+    async apply(params: {
+        mode: TemplateCleanupMode
+        currentSeed: MetahubTemplateSeed | null
+        targetSeed: MetahubTemplateSeed | null
+        actorId?: string | null
+    }): Promise<TemplateSeedCleanupResult> {
+        if (params.mode !== 'confirm') {
+            return this.analyze(params)
+        }
+
+        const plan = await this.buildPlan(params.currentSeed, params.targetSeed)
+        if (plan.blockers.length > 0) {
+            return {
+                mode: 'confirm',
+                hasChanges: plan.entityCandidates.length > 0 || plan.settingCandidates.length > 0 || plan.widgetCandidates.length > 0,
+                blockers: plan.blockers,
+                notes: plan.notes,
+                summary: {
+                    entitiesDeleted: plan.entityCandidates.length,
+                    componentsDeleted: plan.entityCandidates.reduce((sum, candidate) => sum + candidate.componentIds.length, 0),
+                    elementsDeleted: plan.entityCandidates.reduce((sum, candidate) => sum + candidate.elementIds.length, 0),
+                    settingsDeleted: plan.settingCandidates.length,
+                    widgetsDeleted: plan.widgetCandidates.length
+                }
+            }
+        }
+
+        const now = new Date()
+        const actorId = params.actorId ?? null
+        const summary = zeroSummary()
+
+        await this.knex.transaction(async (trx) => {
+            const widgetTableName = await resolveWidgetTableName(trx, this.schemaName)
+
+            for (const candidate of plan.widgetCandidates) {
+                await trx
+                    .withSchema(this.schemaName)
+                    .from(widgetTableName)
+                    .where({ id: candidate.id, _upl_deleted: false, _mhb_deleted: false })
+                    .update({
+                        _mhb_deleted: true,
+                        _mhb_deleted_at: now,
+                        _mhb_deleted_by: actorId,
+                        _upl_updated_at: now,
+                        _upl_updated_by: actorId,
+                        _upl_version: trx.raw('_upl_version + 1')
+                    })
+                summary.widgetsDeleted += 1
+            }
+
+            for (const candidate of plan.settingCandidates) {
+                await trx
+                    .withSchema(this.schemaName)
+                    .from('_mhb_settings')
+                    .where({ id: candidate.id, _upl_deleted: false, _mhb_deleted: false })
+                    .update({
+                        _mhb_deleted: true,
+                        _mhb_deleted_at: now,
+                        _mhb_deleted_by: actorId,
+                        _upl_updated_at: now,
+                        _upl_updated_by: actorId,
+                        _upl_version: trx.raw('_upl_version + 1')
+                    })
+                summary.settingsDeleted += 1
+            }
+
+            for (const candidate of plan.entityCandidates) {
+                if (candidate.componentIds.length > 0) {
+                    await trx
+                        .withSchema(this.schemaName)
+                        .from('_mhb_components')
+                        .whereIn('id', candidate.componentIds)
+                        .where({ _upl_deleted: false, _mhb_deleted: false })
+                        .update({
+                            _mhb_deleted: true,
+                            _mhb_deleted_at: now,
+                            _mhb_deleted_by: actorId,
+                            _upl_updated_at: now,
+                            _upl_updated_by: actorId,
+                            _upl_version: trx.raw('_upl_version + 1')
+                        })
+                    summary.componentsDeleted += candidate.componentIds.length
+                }
+
+                if (candidate.elementIds.length > 0) {
+                    await trx
+                        .withSchema(this.schemaName)
+                        .from('_mhb_elements')
+                        .whereIn('id', candidate.elementIds)
+                        .where({ _upl_deleted: false, _mhb_deleted: false })
+                        .update({
+                            _mhb_deleted: true,
+                            _mhb_deleted_at: now,
+                            _mhb_deleted_by: actorId,
+                            _upl_updated_at: now,
+                            _upl_updated_by: actorId,
+                            _upl_version: trx.raw('_upl_version + 1')
+                        })
+                    summary.elementsDeleted += candidate.elementIds.length
+                }
+
+                await trx
+                    .withSchema(this.schemaName)
+                    .from('_mhb_objects')
+                    .where({ id: candidate.objectId, _upl_deleted: false, _mhb_deleted: false })
+                    .update({
+                        _mhb_deleted: true,
+                        _mhb_deleted_at: now,
+                        _mhb_deleted_by: actorId,
+                        _upl_updated_at: now,
+                        _upl_updated_by: actorId,
+                        _upl_version: trx.raw('_upl_version + 1')
+                    })
+                summary.entitiesDeleted += 1
+            }
+        })
+
+        return {
+            mode: 'confirm',
+            hasChanges: summary.entitiesDeleted > 0 || summary.settingsDeleted > 0 || summary.widgetsDeleted > 0,
+            blockers: [],
+            notes: [
+                `Removed entities: ${summary.entitiesDeleted}, components: ${summary.componentsDeleted}, elements: ${summary.elementsDeleted}, settings: ${summary.settingsDeleted}, widgets: ${summary.widgetsDeleted}`
+            ],
+            summary
+        }
+    }
+
+    private async buildPlan(currentSeed: MetahubTemplateSeed | null, targetSeed: MetahubTemplateSeed | null): Promise<CleanupPlanData> {
+        const blockers: StructuredBlocker[] = []
+        const notes: string[] = []
+
+        if (!currentSeed && !targetSeed) {
+            notes.push('Both current and target template seeds are unavailable; cleanup is not required.')
+            return {
+                diff: { removedEntities: new Map(), removedSettings: new Map(), removedWidgets: new Map() },
+                entityCandidates: [],
+                settingCandidates: [],
+                widgetCandidates: [],
+                blockers,
+                notes
+            }
+        }
+        if (!currentSeed) {
+            blockers.push({
+                code: 'seed.current_unavailable',
+                params: {},
+                message: 'Current template seed is unavailable. Cleanup cannot be analyzed safely.'
+            })
+            return {
+                diff: { removedEntities: new Map(), removedSettings: new Map(), removedWidgets: new Map() },
+                entityCandidates: [],
+                settingCandidates: [],
+                widgetCandidates: [],
+                blockers,
+                notes
+            }
+        }
+        if (!targetSeed) {
+            blockers.push({
+                code: 'seed.target_unavailable',
+                params: {},
+                message: 'Target template seed is unavailable. Cleanup cannot be analyzed safely.'
+            })
+            return {
+                diff: { removedEntities: new Map(), removedSettings: new Map(), removedWidgets: new Map() },
+                entityCandidates: [],
+                settingCandidates: [],
+                widgetCandidates: [],
+                blockers,
+                notes
+            }
+        }
+
+        const diff = this.calculateRemovedSeed(currentSeed, targetSeed)
+        const entityCandidates: EntityCleanupCandidate[] = []
+        const settingCandidates: SettingCleanupCandidate[] = []
+
+        for (const [entityKey, entity] of diff.removedEntities) {
+            const { kind, codename } = parseEntityKey(entityKey)
+            const objectRow = await this.knex
+                .withSchema(this.schemaName)
+                .from('_mhb_objects')
+                .where({ kind, _upl_deleted: false, _mhb_deleted: false })
+                .whereRaw(`${codenamePrimaryTextSql('codename')} = ?`, [codename])
+                .select(['id', '_upl_created_by', '_upl_updated_by'])
+                .first()
+
+            if (!objectRow) {
+                notes.push(`Entity ${entityKey} is absent in schema; cleanup not required.`)
+                continue
+            }
+
+            const entityBlockersBefore = blockers.length
+            if (objectRow._upl_created_by || objectRow._upl_updated_by) {
+                blockers.push({
+                    code: 'entity.audit_provenance',
+                    params: { entityKey },
+                    message: `Entity "${entityKey}" has non-system audit provenance (created/updated by user).`
+                })
+            }
+
+            const liveComponents = await this.knex
+                .withSchema(this.schemaName)
+                .from('_mhb_components')
+                .where({ object_id: objectRow.id, _upl_deleted: false, _mhb_deleted: false })
+                .select(['id', 'codename', '_upl_created_by', '_upl_updated_by'])
+            const allowedComponentCodes = new Set((entity.components ?? []).map((component) => component.codename))
+            for (const cmp of liveComponents) {
+                if (!allowedComponentCodes.has(toStringValue(cmp.codename))) {
+                    blockers.push({
+                        code: 'entity.component_extra',
+                        params: { entityKey, component: toStringValue(cmp.codename) },
+                        message: `Component "${toStringValue(cmp.codename)}" of entity "${entityKey}" was added outside template seed.`
+                    })
+                }
+                if (cmp._upl_created_by || cmp._upl_updated_by) {
+                    blockers.push({
+                        code: 'entity.component_audit',
+                        params: { entityKey, component: toStringValue(cmp.codename) },
+                        message: `Component "${toStringValue(cmp.codename)}" of entity "${entityKey}" has non-system audit provenance.`
+                    })
+                }
+            }
+
+            const currentSeedElements = currentSeed.elements?.[codename] ?? []
+            const liveElements = await this.knex
+                .withSchema(this.schemaName)
+                .from('_mhb_elements')
+                .where({ object_id: objectRow.id, _upl_deleted: false, _mhb_deleted: false })
+                .select(['id', 'sort_order', 'data', '_upl_created_by', '_upl_updated_by'])
+
+            const expectedElementKeys = new Set(currentSeedElements.map((element) => this.buildElementKey(element)))
+            for (const elementRow of liveElements) {
+                const elementKey = this.buildElementKey({
+                    codename: '',
+                    sortOrder: Number(elementRow.sort_order),
+                    data: (elementRow.data as Record<string, unknown>) ?? {}
+                })
+                if (!expectedElementKeys.has(elementKey)) {
+                    blockers.push({
+                        code: 'entity.element_mismatch',
+                        params: { entityKey, sortOrder: String(Number(elementRow.sort_order)) },
+                        message: `Element at sort=${Number(elementRow.sort_order)} of entity "${entityKey}" does not match template seed.`
+                    })
+                }
+                if (elementRow._upl_created_by || elementRow._upl_updated_by) {
+                    blockers.push({
+                        code: 'entity.element_audit',
+                        params: { entityKey, sortOrder: String(Number(elementRow.sort_order)) },
+                        message:
+                            `Element at sort=${Number(elementRow.sort_order)} of entity "${entityKey}" ` +
+                            'has non-system audit provenance.'
+                    })
+                }
+            }
+
+            if (blockers.length > entityBlockersBefore) {
+                continue
+            }
+
+            entityCandidates.push({
+                key: entityKey,
+                objectId: toStringValue(objectRow.id),
+                componentIds: liveComponents.map((row) => toStringValue(row.id)),
+                elementIds: liveElements.map((row) => toStringValue(row.id))
+            })
+        }
+
+        for (const [settingKey, setting] of diff.removedSettings) {
+            const row = await this.knex
+                .withSchema(this.schemaName)
+                .from('_mhb_settings')
+                .where({ key: settingKey, _upl_deleted: false, _mhb_deleted: false })
+                .select(['id', 'value', '_upl_created_by', '_upl_updated_by'])
+                .first()
+
+            if (!row) {
+                notes.push(`Setting "${settingKey}" is absent in schema; cleanup not required.`)
+                continue
+            }
+
+            if (row._upl_created_by || row._upl_updated_by) {
+                blockers.push({
+                    code: 'setting.audit_provenance',
+                    params: { settingKey },
+                    message: `Setting "${settingKey}" cleanup blocked: non-system audit provenance detected.`
+                })
+                continue
+            }
+
+            const seedValue = normalizeSettingValue(setting)
+            if (!jsonEquals(row.value, seedValue)) {
+                blockers.push({
+                    code: 'setting.value_mismatch',
+                    params: { settingKey },
+                    message: `Setting "${settingKey}" cleanup blocked: current value differs from template seed baseline.`
+                })
+                continue
+            }
+
+            settingCandidates.push({ id: toStringValue(row.id), key: settingKey })
+        }
+
+        // ── Widget cleanup candidates ──
+        const widgetCandidates: WidgetCleanupCandidate[] = []
+        const widgetTableName = await resolveWidgetTableName(this.knex, this.schemaName)
+
+        // Build codename → templateKey map from seed layouts for robust DB lookup
+        const layoutCodenameToTemplateKey = new Map<string, string>()
+        if (currentSeed.layouts) {
+            for (const layout of currentSeed.layouts) {
+                layoutCodenameToTemplateKey.set(layout.codename, layout.templateKey)
+            }
+        }
+
+        for (const [layoutCodename, removedList] of diff.removedWidgets) {
+            const templateKey = layoutCodenameToTemplateKey.get(layoutCodename) ?? layoutCodename
+            const layoutRow = await this.knex
+                .withSchema(this.schemaName)
+                .from('_mhb_layouts')
+                .where({ template_key: templateKey, _upl_deleted: false, _mhb_deleted: false })
+                .select('id')
+                .first()
+
+            if (!layoutRow) {
+                notes.push(`Layout "${layoutCodename}" not found in schema; widget cleanup skipped.`)
+                continue
+            }
+
+            for (const w of removedList) {
+                const widgetRow = await this.knex
+                    .withSchema(this.schemaName)
+                    .from(widgetTableName)
+                    .where({
+                        layout_id: layoutRow.id,
+                        zone: w.zone,
+                        widget_key: w.widgetKey,
+                        sort_order: w.sortOrder,
+                        _upl_deleted: false,
+                        _mhb_deleted: false
+                    })
+                    .select(['id', '_upl_created_by', '_upl_updated_by'])
+                    .first()
+
+                if (!widgetRow) {
+                    notes.push(
+                        `Widget "${w.widgetKey}" at ${w.zone}:${w.sortOrder} in layout "${layoutCodename}" is absent; cleanup not required.`
+                    )
+                    continue
+                }
+
+                if (widgetRow._upl_created_by || widgetRow._upl_updated_by) {
+                    blockers.push({
+                        code: 'widget.audit_provenance',
+                        params: {
+                            widgetKey: w.widgetKey,
+                            zone: w.zone,
+                            sortOrder: String(w.sortOrder),
+                            layoutCodename
+                        },
+                        message: `Widget "${w.widgetKey}" at ${w.zone}:${w.sortOrder} cleanup blocked: non-system audit provenance detected.`
+                    })
+                    continue
+                }
+
+                widgetCandidates.push({
+                    id: toStringValue(widgetRow.id),
+                    layoutCodename,
+                    zone: w.zone,
+                    widgetKey: w.widgetKey,
+                    sortOrder: w.sortOrder
+                })
+            }
+        }
+
+        return { diff, entityCandidates, settingCandidates, widgetCandidates, blockers, notes }
+    }
+
+    private calculateRemovedSeed(currentSeed: MetahubTemplateSeed, targetSeed: MetahubTemplateSeed): CleanupSeedDiff {
+        const currentEntities = new Map((currentSeed.entities ?? []).map((entity) => [buildEntityKey(entity), entity]))
+        const targetEntityKeys = new Set((targetSeed.entities ?? []).map((entity) => buildEntityKey(entity)))
+        const removedEntities = new Map<string, TemplateSeedEntity>()
+        for (const [key, entity] of currentEntities) {
+            if (!targetEntityKeys.has(key)) {
+                removedEntities.set(key, entity)
+            }
+        }
+
+        const currentSettings = new Map((currentSeed.settings ?? []).map((setting) => [setting.key, setting]))
+        const targetSettingKeys = new Set((targetSeed.settings ?? []).map((setting) => setting.key))
+        const removedSettings = new Map<string, TemplateSeedSetting>()
+        for (const [key, setting] of currentSettings) {
+            if (!targetSettingKeys.has(key)) {
+                removedSettings.set(key, setting)
+            }
+        }
+
+        // Widget diff: compare per layout codename
+        const removedWidgets = new Map<string, TemplateSeedZoneWidget[]>()
+        const currentWidgets = currentSeed.layoutZoneWidgets ?? {}
+        const targetWidgets = targetSeed.layoutZoneWidgets ?? {}
+        for (const [layoutCodename, currentList] of Object.entries(currentWidgets)) {
+            const targetList = targetWidgets[layoutCodename] ?? []
+            const targetKeys = new Set(targetList.map((w) => this.buildWidgetKey(w)))
+            const removed = currentList.filter((w) => !targetKeys.has(this.buildWidgetKey(w)))
+            if (removed.length > 0) {
+                removedWidgets.set(layoutCodename, removed)
+            }
+        }
+
+        return { removedEntities, removedSettings, removedWidgets }
+    }
+
+    private buildWidgetKey(widget: TemplateSeedZoneWidget): string {
+        return `${widget.zone}:${widget.widgetKey}:${widget.sortOrder}`
+    }
+
+    private buildElementKey(element: TemplateSeedElement): string {
+        return `${element.sortOrder}:${stableStringify(element.data ?? {})}`
+    }
+}

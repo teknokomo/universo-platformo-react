@@ -266,7 +266,7 @@ This phase can be **SKIPPED** unless new content is added.
 
 **QA FINDINGS:**
 - ✅ Pages entity is fully implemented with `kindKey: 'page'`
-- ✅ Editor.js integration exists in `@universo/template-mui` via `EditorJsBlockEditor` component
+- ✅ Editor.js integration exists in `@universo-react/template-mui` via `EditorJsBlockEditor` component
 - ✅ Used in LMS for `LearnerHome` entity (confirmed in `architecture/lms-entities.md`)
 - ✅ Backend normalizes Editor.js blocks to canonical Page block schema
 - ✅ Frontend renders via `EntityBlockContentPage.tsx` in `metahubs-frontend`

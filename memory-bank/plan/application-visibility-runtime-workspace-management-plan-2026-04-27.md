@@ -14,7 +14,7 @@ This plan improves the existing application/runtime workspace feature in three c
 
 1. Allow application owners/admins to change application visibility between closed and public after creation.
 2. Expose real workspace management inside published applications: users can see their workspaces, create shared workspaces, switch defaults, view workspace members, and owners can add/remove workspace members.
-3. Replace the current compact workspace dialog in `packages/apps-template-mui` with a first-class isolated workspace management section that follows the card/list, search, pagination, and member-management patterns used by metahub and application access pages.
+3. Replace the current compact workspace dialog in `packages/universo-react-apps-template-mui` with a first-class isolated workspace management section that follows the card/list, search, pagination, and member-management patterns used by metahub and application access pages.
 
 The implementation may refactor existing code aggressively because the test database will be recreated. No legacy compatibility layer, metahub schema version bump, or template version bump is required.
 
@@ -35,28 +35,28 @@ Final browser proof: `node tools/testing/e2e/run-playwright-suite.mjs tools/test
 
 ### Backend
 
-- `packages/applications-backend/base/src/controllers/applicationsController.ts` currently rejects `isPublic` and `workspacesEnabled` changes with an "Immutable application parameters" response.
-- `packages/applications-backend/base/src/persistence/applicationsStore.ts` already returns `isPublic` and `workspacesEnabled`, but `updateApplication(...)` cannot update `is_public`.
-- `packages/applications-backend/base/src/platform/migrations/1800000000000-CreateApplicationsSchema.sql.ts` already has RLS policies that distinguish public app reads and owner/admin updates. This should be rechecked during implementation, but the shape is compatible with mutable visibility.
-- `packages/applications-backend/base/src/shared/publicRuntimeAccess.ts` rejects public runtime access when `is_public` is false. This means changing an application from public to closed will also close `/public/a/:applicationId/...` access links unless a new product exception is introduced.
+- `packages/universo-react-applications-backend/base/src/controllers/applicationsController.ts` currently rejects `isPublic` and `workspacesEnabled` changes with an "Immutable application parameters" response.
+- `packages/universo-react-applications-backend/base/src/persistence/applicationsStore.ts` already returns `isPublic` and `workspacesEnabled`, but `updateApplication(...)` cannot update `is_public`.
+- `packages/universo-react-applications-backend/base/src/platform/migrations/1800000000000-CreateApplicationsSchema.sql.ts` already has RLS policies that distinguish public app reads and owner/admin updates. This should be rechecked during implementation, but the shape is compatible with mutable visibility.
+- `packages/universo-react-applications-backend/base/src/shared/publicRuntimeAccess.ts` rejects public runtime access when `is_public` is false. This means changing an application from public to closed will also close `/public/a/:applicationId/...` access links unless a new product exception is introduced.
 - Runtime workspace APIs already exist under `/applications/:applicationId/runtime/workspaces`, but list endpoints are currently unpaginated and return minimal member data. `listWorkspaceMembers(...)` returns only `{ userId, roleCodename }`, so the UI cannot show email/nickname like access pages do.
 - Workspace member invitation currently accepts `userId`, not email. This is hard to use in a published application UI and diverges from `ApplicationMembers` / `MetahubMembers`.
 - `runtimeWorkspaceService.ts` already blocks personal workspace member management and last-owner removal. Those guards should be preserved and expanded with tests around paginated/member-profile responses.
 
 ### Published App Template
 
-- `packages/apps-template-mui/src/dashboard/components/WorkspaceSwitcher.tsx` already lets authenticated users switch their default workspace.
+- `packages/universo-react-apps-template-mui/src/dashboard/components/WorkspaceSwitcher.tsx` already lets authenticated users switch their default workspace.
 - `WorkspaceSwitcher` is already rendered in both the desktop `Header` and mobile `AppNavbar`, so it should remain the quick workspace switch entry point across viewport sizes.
 - `WorkspaceManagerDialog.tsx` contains create/invite/remove flows, but it is a small dialog, uses ad hoc query keys, lacks pagination/search, and asks for raw user UUIDs.
-- `apps-template-mui` already imports shared UI from `@universo/template-mui` in `MainGrid.tsx`, including `ViewHeaderMUI`, `ToolbarControls`, `ItemCard`, `FlowListTable`, and `PaginationControls`. These can be used without coupling to `applications-frontend`.
+- `apps-template-mui` already imports shared UI from `@universo-react/template-mui` in `MainGrid.tsx`, including `ViewHeaderMUI`, `ToolbarControls`, `ItemCard`, `FlowListTable`, and `PaginationControls`. These can be used without coupling to `applications-frontend`.
 - `MainGrid.tsx` already supports `DashboardDetailsSlot.content` and suppresses the normal table/details rendering through the existing custom-content branch. The workspace page should use this content slot inside the existing dashboard shell instead of introducing a second runtime shell or layout primitive.
-- The package should remain isolated: do not import `applications-frontend` page components. Shared types can move to `@universo/types`; shared generic helpers can move to `@universo/utils` only if they are truly reusable.
+- The package should remain isolated: do not import `applications-frontend` page components. Shared types can move to `@universo-react/types`; shared generic helpers can move to `@universo-react/utils` only if they are truly reusable.
 - The authenticated published runtime is already rendered through `ApplicationRuntime` with route pattern `a/:applicationId/*`, while standalone local rendering is handled by `DashboardApp`. The workspace management section should therefore be integrated as a runtime sub-route/view inside the existing shell instead of introducing a parallel navigation system.
 - The existing dashboard menu model already supports `kind: 'link'`. Prefer adding a `link` menu item to `/a/:applicationId/workspaces` over adding a new `DashboardMenuItem.kind`, unless implementation proves the current link path cannot support active state.
 
 ### Application Management UI
 
-- `packages/applications-frontend/base/src/pages/ApplicationSettings.tsx` is the right place to expose mutable visibility after creation.
+- `packages/universo-react-applications-frontend/base/src/pages/ApplicationSettings.tsx` is the right place to expose mutable visibility after creation.
 - `ApplicationMembers.tsx` and `MetahubMembers.tsx` are the current UX references for card/list view, pagination, search, member dialogs, role chips, and action menus.
 - Application settings currently focus on dialog settings and workspace limits. Visibility belongs in a "General" settings block with optimistic-lock protection.
 - `applicationsQueryKeys.lists()` and `runtimeAll(applicationId)` already exist and should be reused for invalidation. The plan must avoid introducing duplicate application-list/runtime key factories in `applications-frontend`.
@@ -69,8 +69,8 @@ Final browser proof: `node tools/testing/e2e/run-playwright-suite.mjs tools/test
   - `docs/en/platform/applications.md`
   - mirrored `docs/ru/**` pages
 - Existing test stack:
-  - backend Jest in `@universo/applications-backend`
-  - frontend Vitest in `@universo/applications-frontend` and `@universo/apps-template-mui`
+  - backend Jest in `@universo-react/applications-backend`
+  - frontend Vitest in `@universo-react/applications-frontend` and `@universo-react/apps-template-mui`
   - Playwright wrappers under `tools/testing/e2e`
 - TanStack Query v5 documentation confirms the target cache pattern: use stable query key factories and invalidate all related list/detail queries from mutation `onSuccess`, preferably returning/awaiting invalidation promises for mutation pending-state accuracy.
 
@@ -110,44 +110,44 @@ Final browser proof: `node tools/testing/e2e/run-playwright-suite.mjs tools/test
 
 ### Backend
 
-- `packages/applications-backend/base/src/controllers/applicationsController.ts`
-- `packages/applications-backend/base/src/persistence/applicationsStore.ts`
-- `packages/applications-backend/base/src/controllers/runtimeWorkspaceController.ts`
-- `packages/applications-backend/base/src/services/runtimeWorkspaceService.ts`
-- `packages/applications-backend/base/src/routes/applicationsRoutes.ts`
-- `packages/applications-backend/base/src/routes/publicApplicationsRoutes.ts`
-- `packages/applications-backend/base/src/shared/publicRuntimeAccess.ts`
-- `packages/applications-backend/base/src/platform/migrations/1800000000000-CreateApplicationsSchema.sql.ts`
-- `packages/applications-backend/base/src/tests/**`
+- `packages/universo-react-applications-backend/base/src/controllers/applicationsController.ts`
+- `packages/universo-react-applications-backend/base/src/persistence/applicationsStore.ts`
+- `packages/universo-react-applications-backend/base/src/controllers/runtimeWorkspaceController.ts`
+- `packages/universo-react-applications-backend/base/src/services/runtimeWorkspaceService.ts`
+- `packages/universo-react-applications-backend/base/src/routes/applicationsRoutes.ts`
+- `packages/universo-react-applications-backend/base/src/routes/publicApplicationsRoutes.ts`
+- `packages/universo-react-applications-backend/base/src/shared/publicRuntimeAccess.ts`
+- `packages/universo-react-applications-backend/base/src/platform/migrations/1800000000000-CreateApplicationsSchema.sql.ts`
+- `packages/universo-react-applications-backend/base/src/tests/**`
 
 ### Application Management Frontend
 
-- `packages/applications-frontend/base/src/pages/ApplicationSettings.tsx`
-- `packages/applications-frontend/base/src/api/applications.ts`
-- `packages/applications-frontend/base/src/api/queryKeys.ts`
-- `packages/applications-frontend/base/src/api/mutations.ts`
-- `packages/applications-frontend/base/src/types.ts`
-- `packages/applications-frontend/base/src/pages/__tests__/ApplicationSettings.test.tsx`
+- `packages/universo-react-applications-frontend/base/src/pages/ApplicationSettings.tsx`
+- `packages/universo-react-applications-frontend/base/src/api/applications.ts`
+- `packages/universo-react-applications-frontend/base/src/api/queryKeys.ts`
+- `packages/universo-react-applications-frontend/base/src/api/mutations.ts`
+- `packages/universo-react-applications-frontend/base/src/types.ts`
+- `packages/universo-react-applications-frontend/base/src/pages/__tests__/ApplicationSettings.test.tsx`
 
 ### Published App Template
 
-- `packages/apps-template-mui/src/api/api.ts`
-- `packages/apps-template-mui/src/api/mutations.ts`
-- `packages/apps-template-mui/src/api/types.ts`
-- `packages/apps-template-mui/src/dashboard/Dashboard.tsx`
-- `packages/apps-template-mui/src/dashboard/DashboardDetailsContext.tsx`
-- `packages/apps-template-mui/src/dashboard/components/WorkspaceSwitcher.tsx`
-- `packages/apps-template-mui/src/dashboard/components/WorkspaceManagerDialog.tsx`
-- new `packages/apps-template-mui/src/workspaces/**`
-- `packages/apps-template-mui/src/i18n/locales/en/apps.json`
-- `packages/apps-template-mui/src/i18n/locales/ru/apps.json`
-- `packages/apps-template-mui/src/**/__tests__/**`
+- `packages/universo-react-apps-template-mui/src/api/api.ts`
+- `packages/universo-react-apps-template-mui/src/api/mutations.ts`
+- `packages/universo-react-apps-template-mui/src/api/types.ts`
+- `packages/universo-react-apps-template-mui/src/dashboard/Dashboard.tsx`
+- `packages/universo-react-apps-template-mui/src/dashboard/DashboardDetailsContext.tsx`
+- `packages/universo-react-apps-template-mui/src/dashboard/components/WorkspaceSwitcher.tsx`
+- `packages/universo-react-apps-template-mui/src/dashboard/components/WorkspaceManagerDialog.tsx`
+- new `packages/universo-react-apps-template-mui/src/workspaces/**`
+- `packages/universo-react-apps-template-mui/src/i18n/locales/en/apps.json`
+- `packages/universo-react-apps-template-mui/src/i18n/locales/ru/apps.json`
+- `packages/universo-react-apps-template-mui/src/**/__tests__/**`
 
 ### Shared Packages
 
-- `packages/universo-types/base/src/common/**` for shared workspace DTOs and role enums if useful.
-- `packages/universo-i18n/base/**` only for text shared across product shells. Template-only text should remain in `apps-template-mui`.
-- `packages/universo-template-mui/base/**` only if a truly generic reusable surface is needed. Do not move app-specific workspace pages there.
+- `packages/universo-react-types/base/src/common/**` for shared workspace DTOs and role enums if useful.
+- `packages/universo-react-i18n/base/**` only for text shared across product shells. Template-only text should remain in `apps-template-mui`.
+- `packages/universo-react-template-mui/base/**` only if a truly generic reusable surface is needed. Do not move app-specific workspace pages there.
 
 ### E2E And Docs
 
@@ -259,7 +259,7 @@ if (parsed.data.workspacesEnabled !== undefined) {
 
 ### Phase 2: Runtime Workspace API Contract
 
-- [ ] Introduce shared workspace DTOs, either in `apps-template-mui/src/api/types.ts` or `@universo/types` if reused by backend/frontend:
+- [ ] Introduce shared workspace DTOs, either in `apps-template-mui/src/api/types.ts` or `@universo-react/types` if reused by backend/frontend:
   - `RuntimeWorkspaceSummary`
   - `RuntimeWorkspaceMember`
   - `RuntimeWorkspaceRole`
@@ -427,7 +427,7 @@ onSuccess: async (_data, variables) => {
 - [ ] Create an isolated workspace feature folder:
 
 ```text
-packages/apps-template-mui/src/workspaces/
+packages/universo-react-apps-template-mui/src/workspaces/
 ├── RuntimeWorkspacesPage.tsx
 ├── RuntimeWorkspaceMembersPanel.tsx
 ├── RuntimeWorkspaceCard.tsx
@@ -439,7 +439,7 @@ packages/apps-template-mui/src/workspaces/
 └── __tests__/
 ```
 
-- [ ] Use `@universo/template-mui` components already consumed by `apps-template-mui`:
+- [ ] Use `@universo-react/template-mui` components already consumed by `apps-template-mui`:
   - `ViewHeaderMUI`
   - `ToolbarControls`
   - `ItemCard`
@@ -449,8 +449,8 @@ packages/apps-template-mui/src/workspaces/
   - `SkeletonGrid`
   - existing MUI `Chip` for workspace roles unless `RoleChip` can be reused without role-label drift.
 - [ ] Use local `apps-template-mui` dialogs where possible:
-  - `packages/apps-template-mui/src/components/dialogs/FormDialog.tsx`
-  - `packages/apps-template-mui/src/components/dialogs/ConfirmDeleteDialog.tsx`
+  - `packages/universo-react-apps-template-mui/src/components/dialogs/FormDialog.tsx`
+  - `packages/universo-react-apps-template-mui/src/components/dialogs/ConfirmDeleteDialog.tsx`
   This keeps the published template isolated and avoids importing application/metahub access dialogs.
 - [ ] Render the workspace section through the existing dashboard details content override:
   - pass `RuntimeWorkspacesPage` through `DashboardDetailsSlot.content` when the `/workspaces` sub-route is active.
@@ -526,11 +526,11 @@ export function RuntimeWorkspacesPage({ applicationId, apiBaseUrl }: RuntimeWork
 ### Phase 6: Internationalization
 
 - [ ] Add all `apps-template-mui` workspace keys to:
-  - `packages/apps-template-mui/src/i18n/locales/en/apps.json`
-  - `packages/apps-template-mui/src/i18n/locales/ru/apps.json`
+  - `packages/universo-react-apps-template-mui/src/i18n/locales/en/apps.json`
+  - `packages/universo-react-apps-template-mui/src/i18n/locales/ru/apps.json`
 - [ ] Avoid hardcoded fallback strings in new UI except test-only labels.
 - [ ] Add application settings visibility keys to application frontend locales.
-- [ ] Check whether common member labels should move to `packages/universo-i18n`; do this only for text shared by multiple packages.
+- [ ] Check whether common member labels should move to `packages/universo-react-i18n`; do this only for text shared by multiple packages.
 - [ ] Add locale tests for missing EN/RU workspace keys if the package has existing i18n validation utilities.
 
 Suggested key groups:
@@ -624,9 +624,9 @@ Suggested key groups:
 ### Phase 8: Documentation And READMEs
 
 - [ ] Update package READMEs:
-  - `packages/applications-backend/base/README.md`: visibility is mutable; workspace mode remains structural; runtime workspace management endpoints.
-  - `packages/applications-frontend/base/README.md`: settings page visibility controls.
-  - `packages/apps-template-mui/README.md`: workspace management section and API helpers.
+  - `packages/universo-react-applications-backend/base/README.md`: visibility is mutable; workspace mode remains structural; runtime workspace management endpoints.
+  - `packages/universo-react-applications-frontend/base/README.md`: settings page visibility controls.
+  - `packages/universo-react-apps-template-mui/README.md`: workspace management section and API helpers.
 - [ ] Update GitBook docs in EN/RU:
   - creating application: public/closed can be changed after creation.
   - workspace management: published app workspace section, roles, personal vs shared workspaces.
@@ -639,20 +639,20 @@ Suggested key groups:
 Use focused commands first:
 
 ```bash
-pnpm --filter @universo/applications-backend test
-pnpm --filter @universo/applications-frontend test
-pnpm --filter @universo/apps-template-mui test
-pnpm --filter @universo/applications-backend build
-pnpm --filter @universo/applications-frontend build
-pnpm --filter @universo/apps-template-mui build
+pnpm --filter @universo-react/applications-backend test
+pnpm --filter @universo-react/applications-frontend test
+pnpm --filter @universo-react/apps-template-mui test
+pnpm --filter @universo-react/applications-backend build
+pnpm --filter @universo-react/applications-frontend build
+pnpm --filter @universo-react/apps-template-mui build
 ```
 
 Then run integration validation:
 
 ```bash
-pnpm --filter @universo/types build
-pnpm --filter @universo/utils build
-pnpm --filter @universo/core-frontend build
+pnpm --filter @universo-react/types build
+pnpm --filter @universo-react/utils build
+pnpm --filter @universo-react/core-frontend build
 pnpm build
 ```
 
@@ -680,7 +680,7 @@ Do not start `pnpm dev`; the browser proof should use the existing Playwright CL
    - Mitigation: reuse existing application-member lookup semantics and require active application membership for V1 shared-workspace invitation. If product later wants cross-workspace invitation to also add application membership, implement that as a single explicit transaction with dedicated tests.
 
 4. **Published app template must remain isolated.**
-   - Mitigation: use shared primitives from `@universo/template-mui`, but keep runtime workspace pages and hooks inside `apps-template-mui`.
+   - Mitigation: use shared primitives from `@universo-react/template-mui`, but keep runtime workspace pages and hooks inside `apps-template-mui`.
 
 5. **Query invalidation can miss runtime data after default workspace switch.**
    - Mitigation: centralize query keys and invalidate workspace lists, member lists, and runtime app data in mutation `onSuccess`.

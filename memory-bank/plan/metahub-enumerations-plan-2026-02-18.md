@@ -6,15 +6,15 @@
 ## 1) Что дополнительно проверено
 
 - Кодовые связи по `catalog`/`REF`/`kind` в:
-  - `packages/metahubs-frontend/base/src/components/TargetEntitySelector.tsx`
-  - `packages/metahubs-backend/base/src/domains/metahubs/services/MetahubObjectsService.ts`
-  - `packages/metahubs-backend/base/src/domains/attributes/routes/attributesRoutes.ts`
-  - `packages/metahubs-backend/base/src/domains/publications/services/SnapshotSerializer.ts`
-  - `packages/metahubs-backend/base/src/domains/applications/routes/applicationSyncRoutes.ts`
-  - `packages/schema-ddl/base/src/naming.ts`
-  - `packages/applications-backend/base/src/routes/applicationsRoutes.ts`
-  - `packages/apps-template-mui/src/api/api.ts`
-  - `packages/apps-template-mui/src/components/dialogs/FormDialog.tsx`
+  - `packages/universo-react-metahubs-frontend/base/src/components/TargetEntitySelector.tsx`
+  - `packages/universo-react-metahubs-backend/base/src/domains/metahubs/services/MetahubObjectsService.ts`
+  - `packages/universo-react-metahubs-backend/base/src/domains/attributes/routes/attributesRoutes.ts`
+  - `packages/universo-react-metahubs-backend/base/src/domains/publications/services/SnapshotSerializer.ts`
+  - `packages/universo-react-metahubs-backend/base/src/domains/applications/routes/applicationSyncRoutes.ts`
+  - `packages/universo-react-schema-ddl/base/src/naming.ts`
+  - `packages/universo-react-applications-backend/base/src/routes/applicationsRoutes.ts`
+  - `packages/universo-react-apps-template-mui/src/api/api.ts`
+  - `packages/universo-react-apps-template-mui/src/components/dialogs/FormDialog.tsx`
 - Live-проверка Supabase (проект `UP-test`, `osnvhnawsmyfduygsajj`):
   - в `mhb_*` и `app_*` сейчас фактически только `kind='catalog'`;
   - строгих CHECK-ограничений по `kind` в `_mhb_objects` не обнаружено;
@@ -65,8 +65,8 @@
   - [ ] `uiConfig.defaultEnumValueId: string | null`.
 - [ ] Утвердить правило `UUID v7` для всех новых записей значений перечислений.
 
-## Фаза 1. Типы и shared-контракты (`@universo/types`)
-- [ ] Добавить `MetaEntityKind.ENUMERATION` в `packages/universo-types/base/src/common/metahubs.ts`.
+## Фаза 1. Типы и shared-контракты (`@universo-react/types`)
+- [ ] Добавить `MetaEntityKind.ENUMERATION` в `packages/universo-react-types/base/src/common/metahubs.ts`.
 - [ ] Расширить `METAHUB_MENU_ITEM_KINDS` при необходимости (если хотим пункт меню для enumeration-объектов в menuWidget).
 - [ ] Добавить типы:
   - [ ] `EnumerationValueDefinition`;
@@ -97,13 +97,13 @@
 
 ## Фаза 4. Frontend metahubs: маршруты, меню, UI-потоки
 - [ ] Добавить пункт `Перечисления` в оба меню:
-  - [ ] `packages/metahubs-frontend/base/src/menu-items/metahubDashboard.ts`;
-  - [ ] `packages/universo-template-mui/base/src/navigation/menuConfigs.ts`.
+  - [ ] `packages/universo-react-metahubs-frontend/base/src/menu-items/metahubDashboard.ts`;
+  - [ ] `packages/universo-react-template-mui/base/src/navigation/menuConfigs.ts`.
 - [ ] Добавить route `metahub/:metahubId/enumerations` в `MainRoutesMUI.tsx`.
 - [ ] Реализовать `EnumerationList` и `EnumerationValuesList` (стартово через рефактор `CatalogList` + `ElementList` паттернов).
 - [ ] Полная i18n:
   - [ ] `metahubs` namespace (en/ru);
-  - [ ] `menu` namespace в `packages/universo-i18n`.
+  - [ ] `menu` namespace в `packages/universo-react-i18n`.
 
 ## Фаза 5. REF на перечисление в атрибутах
 - [ ] В `TargetEntitySelector` добавить `enumeration` как поддерживаемый kind.
@@ -129,7 +129,7 @@
   - [ ] сохранить идемпотентность и dry-run.
 
 ## Фаза 7. Application schema и sync
-- [ ] В `@universo/schema-ddl`:
+- [ ] В `@universo-react/schema-ddl`:
   - [ ] добавить префикс `enumeration -> enum` в `naming.ts`;
   - [ ] добавить `_app_enum_values` в system tables;
   - [ ] для `REF->enumeration` создавать FK на `_app_enum_values(id)`.

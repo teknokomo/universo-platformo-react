@@ -96,11 +96,11 @@ Express middleware chain where each component is opt-in based on the entity kind
 #### 2.1 Behavior Service Interface
 
 ```typescript
-// packages/metahubs-backend/base/src/domains/entities/services/EntityBehaviorService.ts
+// packages/universo-react-metahubs-backend/base/src/domains/entities/services/EntityBehaviorService.ts
 
 import type { Request, Response } from 'express'
-import type { SqlQueryable } from '@universo/utils'
-import type { ResolvedEntityType } from '@universo/types'
+import type { SqlQueryable } from '@universo-react/utils'
+import type { ResolvedEntityType } from '@universo-react/types'
 
 /**
  * Optional behavior extensions for entity kinds.
@@ -140,7 +140,7 @@ export interface BlockingReferencesResult {
 #### 2.2 Hub Behavior Service (the most complex kind)
 
 ```typescript
-// packages/metahubs-backend/base/src/domains/entities/services/HubBehaviorService.ts
+// packages/universo-react-metahubs-backend/base/src/domains/entities/services/HubBehaviorService.ts
 
 export class HubBehaviorService implements EntityBehaviorService {
   readonly kindKey = 'hub'
@@ -202,7 +202,7 @@ export class HubBehaviorService implements EntityBehaviorService {
 #### 2.3 Catalog/Set/Enumeration Behavior Services (simpler)
 
 ```typescript
-// packages/metahubs-backend/base/src/domains/entities/services/CatalogBehaviorService.ts
+// packages/universo-react-metahubs-backend/base/src/domains/entities/services/CatalogBehaviorService.ts
 
 export class CatalogBehaviorService implements EntityBehaviorService {
   readonly kindKey = 'catalog'
@@ -224,7 +224,7 @@ export class CatalogBehaviorService implements EntityBehaviorService {
 #### 2.4 Behavior Registry
 
 ```typescript
-// packages/metahubs-backend/base/src/domains/entities/services/behaviorRegistry.ts
+// packages/universo-react-metahubs-backend/base/src/domains/entities/services/behaviorRegistry.ts
 
 const behaviorServices = new Map<string, EntityBehaviorService>()
 
@@ -433,7 +433,7 @@ listHubChildren: (childKind: string) => createHandler(async (req, res, { metahub
 #### 2.8 Backend File Structure After Cleanup
 
 ```
-packages/metahubs-backend/base/src/domains/
+packages/universo-react-metahubs-backend/base/src/domains/
 ├── entities/
 │   ├── controllers/
 │   │   └── entityInstancesController.ts    ← EXPANDED: sole instance controller
@@ -699,8 +699,8 @@ export function useBlockingReferencesQuery(
 
 import { lazy, Suspense } from 'react'
 import { useParams } from 'react-router-dom'
-import { SkeletonGrid } from '@universo/template-mui'
-import { isStandardEntityKind } from '@universo/types'
+import { SkeletonGrid } from '@universo-react/template-mui'
+import { isStandardEntityKind } from '@universo-react/types'
 
 const CatalogInstanceRenderer = lazy(() => import('./renderers/CatalogInstanceRenderer'))
 const HubInstanceRenderer = lazy(() => import('./renderers/HubInstanceRenderer'))
@@ -914,7 +914,7 @@ presets: [
 #### D.1 Data Model for MetahubCreateOptions
 
 ```typescript
-// @universo/types — updated interface
+// @universo-react/types — updated interface
 export interface MetahubCreateOptions {
   /** Per-preset toggles. Key = preset codename. */
   presetToggles: Record<string, boolean>
@@ -1082,7 +1082,7 @@ The `TemplateSeedExecutor` already handles entity creation. Preset manifests alr
 #### E.1 Data Model (already exists — formalized here)
 
 ```typescript
-// @universo/types — PresetDefaultInstance (already defined)
+// @universo-react/types — PresetDefaultInstance (already defined)
 export interface PresetDefaultInstance {
   codename: string
   name: VersionedLocalizedContent<string>
@@ -1694,8 +1694,8 @@ Since the test DB will be wiped, there is no data rollback concern. Code rollbac
 
 ### Success Criteria
 
-1. **Zero legacy domain folders** in `packages/metahubs-backend/base/src/domains/` (no `hubs/`, `catalogs/`, `sets/`, `enumerations/`)
-2. **Zero managed domain folders** in `packages/metahubs-frontend/base/src/domains/` (no `managedHubs/`, `managedCatalogs/`, `managedSets/`, `managedEnumerations/`)
+1. **Zero legacy domain folders** in `packages/universo-react-metahubs-backend/base/src/domains/` (no `hubs/`, `catalogs/`, `sets/`, `enumerations/`)
+2. **Zero managed domain folders** in `packages/universo-react-metahubs-frontend/base/src/domains/` (no `managedHubs/`, `managedCatalogs/`, `managedSets/`, `managedEnumerations/`)
 3. **Single query key tree** — no legacy per-kind query key factories
 4. **Single entity API layer** — no per-kind API client files
 5. **Entity-only child routes** — no legacy path shapes

@@ -1,0 +1,14 @@
+{
+    "rollout_audit_artifacts": [
+        ".manager/specs/platformo/packages-naming-convention-rollout-spec-2026-05-25.md",
+        "memory-bank/plan/packages-naming-convention-rollout-plan-2026-05-25.md",
+        "memory-bank/implementation/packages-naming-ledger.json",
+        "memory-bank/implementation/packages-naming-old-package-names.txt",
+        "memory-bank/implementation/packages-naming-old-package-paths.txt",
+        "memory-bank/implementation/packages-naming-pre-rename-workspace-list.json",
+        "memory-bank/implementation/packages-naming-pre-rename-dependency-graph.json",
+        "memory-bank/implementation/packages-naming-pre-rename-package-json-paths.txt"
+    ],
+    "historical_memory_bank": [],
+    "generated_regenerated": []
+}

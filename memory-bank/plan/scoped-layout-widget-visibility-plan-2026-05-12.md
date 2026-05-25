@@ -16,7 +16,7 @@ The correct fix is not to add LMS-specific widget filters. The platform needs a 
 - Scoped layouts inherit widgets from the active global layout and store only sparse visibility or placement overrides.
 - The global layout editor can show where each widget is visible or hidden.
 - The scoped Entity layout editor can hide or move inherited widgets for that specific destination.
-- Runtime receives a flattened, already-resolved layout for the active destination, so `packages/apps-template-mui` stays simple and configuration-driven.
+- Runtime receives a flattened, already-resolved layout for the active destination, so `packages/universo-react-apps-template-mui` stays simple and configuration-driven.
 
 For the LMS fixture this means:
 
@@ -36,12 +36,12 @@ Current implementation details that explain the reported behavior:
 - `tools/fixtures/metahubs-lms-app-snapshot.json` contains one global layout and no scoped layouts for the LMS pages or sections.
 - The global LMS layout has `overviewCards`, `sessionsChart`, `pageViewsChart`, and `columnsContainer` enabled through `layoutConfig` and `zoneWidgets`.
 - `columnsContainer` contains three nested `detailsTable` widgets for `ModuleProgress`, `LearningTracks`, and `Enrollments`.
-- `packages/apps-template-mui/src/dashboard/components/MainGrid.tsx` renders global overview and chart widgets whenever the selected layout has them enabled.
-- `packages/apps-template-mui/src/dashboard/components/widgetRenderer.tsx` renders `columnsContainer` recursively from configuration.
-- `packages/applications-backend/base/src/controllers/runtimeRowsController.ts` currently selects a layout by `catalog_id = linkedCollectionId` or global fallback. This is semantically too narrow for Page, Hub, Set, Enumeration, and custom Entity destinations.
-- `packages/applications-backend/base/src/routes/sync/syncHelpers.ts` currently materializes only catalog-scoped layout overlays into runtime layouts and widgets.
-- `packages/metahubs-backend/base/src/domains/layouts/services/MetahubLayoutsService.ts` already has the right inheritance idea, but the naming and persistence are catalog-specific.
-- `packages/universo-types/base/src/common/applicationLayouts.ts` already contains `scopeKind: "global" | "entity"`, but layout API fields still expose `linkedCollectionId`. The implementation should finish this generic direction instead of introducing a second scope model.
+- `packages/universo-react-apps-template-mui/src/dashboard/components/MainGrid.tsx` renders global overview and chart widgets whenever the selected layout has them enabled.
+- `packages/universo-react-apps-template-mui/src/dashboard/components/widgetRenderer.tsx` renders `columnsContainer` recursively from configuration.
+- `packages/universo-react-applications-backend/base/src/controllers/runtimeRowsController.ts` currently selects a layout by `catalog_id = linkedCollectionId` or global fallback. This is semantically too narrow for Page, Hub, Set, Enumeration, and custom Entity destinations.
+- `packages/universo-react-applications-backend/base/src/routes/sync/syncHelpers.ts` currently materializes only catalog-scoped layout overlays into runtime layouts and widgets.
+- `packages/universo-react-metahubs-backend/base/src/domains/layouts/services/MetahubLayoutsService.ts` already has the right inheritance idea, but the naming and persistence are catalog-specific.
+- `packages/universo-react-types/base/src/common/applicationLayouts.ts` already contains `scopeKind: "global" | "entity"`, but layout API fields still expose `linkedCollectionId`. The implementation should finish this generic direction instead of introducing a second scope model.
 - Standard Entity type metadata currently enables `components.layoutConfig` for Catalog, Set, Page, and Ledger-style types. Future Entity types can enable the same capability in the Entity constructor, so scope eligibility must be capability-driven rather than based on a hardcoded kind allowlist.
 
 The main reusable pattern already exists: inherited widgets plus sparse overrides. The next step is to generalize it from Catalog-only layouts to Entity-scoped layouts.
@@ -90,7 +90,7 @@ Context7 checks confirmed the implementation direction:
    - Scoped Entity layouts show inherited widgets and their local overrides.
 5. Make the LMS generated application show dashboard metrics only on intended destinations.
 6. Remove or properly scope the three empty table modules in the LMS fixture.
-7. Preserve original MUI dashboard visual language from `packages/apps-template-mui` and `.backup/templates/dashboard`.
+7. Preserve original MUI dashboard visual language from `packages/universo-react-apps-template-mui` and `.backup/templates/dashboard`.
 8. Regenerate `tools/fixtures/metahubs-lms-app-snapshot.json` only through the product Playwright generator.
 9. Add backend, frontend, unit, integration, and Playwright coverage that catches visually incorrect or illogical runtime states.
 10. Update GitBook docs and package README files.
@@ -99,7 +99,7 @@ Context7 checks confirmed the implementation direction:
 
 1. Do not create LMS-specific runtime routes, widgets, or visibility flags.
 2. Do not add a separate dashboard engine.
-3. Do not hardcode "Home" in `packages/apps-template-mui`; use menu/start-page and layout metadata.
+3. Do not hardcode "Home" in `packages/universo-react-apps-template-mui`; use menu/start-page and layout metadata.
 4. Do not preserve legacy catalog-only layout naming or database compatibility in public contracts, snapshot payloads, database schema definitions, or documentation.
 5. Do not add new UI components when existing MUI template surfaces and shared layout editors can be extended.
 6. Do not show empty dashboard/table containers in the generated LMS app as accepted behavior.
@@ -273,7 +273,7 @@ Do not create a separate LMS configuration UI for this.
 
 The published runtime should remain data-driven:
 
-- `packages/apps-template-mui` receives the already-resolved `layoutConfig` and `zoneWidgets`.
+- `packages/universo-react-apps-template-mui` receives the already-resolved `layoutConfig` and `zoneWidgets`.
 - It should not implement LMS-specific destination checks.
 - It may keep generic defensive behavior: do not render empty widget containers when there are no active child widgets.
 - Existing MUI cards, Grid layout, table surfaces, and dashboard styles should be reused.
@@ -336,7 +336,7 @@ Acceptance rules:
 
 ### Shared Types
 
-- `packages/universo-types`
+- `packages/universo-react-types`
   - Add generic layout scope and widget override schemas.
   - Rename catalog-specific layout types to scoped layout types.
   - Replace layout-specific `linkedCollectionId` fields with `scopeEntityId`; keep record/data-source `linkedCollectionId` fields unchanged.
@@ -344,14 +344,14 @@ Acceptance rules:
 
 ### Metahubs Backend
 
-- `packages/metahubs-backend/base/src/domains/layouts/services/MetahubLayoutsService.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/layouts/services/MetahubLayoutsService.ts`
   - Generalize catalog layout checks to scoped layout checks.
   - Validate that `scopeEntityId` exists and supports layout customization through `components.layoutConfig.enabled`.
   - Add create/update/delete services for widget visibility by destination.
   - Add reverse visibility aggregation for global widget editors.
 
 - Design-time schema definitions:
-  - Update `packages/metahubs-backend/base/src/domains/metahubs/services/systemTableDefinitions.ts`.
+  - Update `packages/universo-react-metahubs-backend/base/src/domains/metahubs/services/systemTableDefinitions.ts`.
   - Replace `_mhb_layouts.catalog_id` with `_mhb_layouts.scope_entity_id`.
   - Replace `_mhb_catalog_widget_overrides` with `_mhb_layout_widget_overrides`.
   - Update indexes, foreign keys, and system table tests.
@@ -360,8 +360,8 @@ Acceptance rules:
   - Replace `catalogLayouts` with `scopedLayouts`.
   - Replace `catalogLayoutWidgetOverrides` with `layoutWidgetOverrides`.
   - Update LMS generator and import/export contracts.
-  - Update `packages/metahubs-backend/base/src/domains/shared/snapshotLayouts.ts`.
-  - Update `packages/metahubs-backend/base/src/domains/metahubs/services/SnapshotRestoreService.ts`.
+  - Update `packages/universo-react-metahubs-backend/base/src/domains/shared/snapshotLayouts.ts`.
+  - Update `packages/universo-react-metahubs-backend/base/src/domains/metahubs/services/SnapshotRestoreService.ts`.
   - Update template seed cleanup/migration/executor code that touches `_mhb_layouts`.
 
 ### Applications Backend
@@ -375,15 +375,15 @@ Acceptance rules:
 - Sync/materialization:
   - Materialize all Entity-scoped layouts, not only Catalog layouts.
   - Resolve source Entity ids safely during snapshot import and app creation.
-  - Update `packages/applications-backend/base/src/routes/sync/syncHelpers.ts`.
-  - Update `packages/applications-backend/base/src/routes/sync/syncLayoutPersistence.ts`.
-  - Update `packages/applications-backend/base/src/persistence/applicationLayoutsStore.ts`.
+  - Update `packages/universo-react-applications-backend/base/src/routes/sync/syncHelpers.ts`.
+  - Update `packages/universo-react-applications-backend/base/src/routes/sync/syncLayoutPersistence.ts`.
+  - Update `packages/universo-react-applications-backend/base/src/persistence/applicationLayoutsStore.ts`.
 
 - Runtime rows controller:
   - Resolve active destination Entity from route/menu state.
   - Load exact scoped layout first, then global fallback.
   - Keep all SQL parameterized and schema-qualified.
-  - Update `packages/applications-backend/base/src/controllers/runtimeRowsController.ts`.
+  - Update `packages/universo-react-applications-backend/base/src/controllers/runtimeRowsController.ts`.
 
 ### Applications Frontend
 
@@ -480,7 +480,7 @@ Objective: define the generic scoped layout contract.
 
 Tasks:
 
-1. Add `LayoutScope`, `ScopedLayout`, and `LayoutWidgetOverride` schemas in `packages/universo-types`.
+1. Add `LayoutScope`, `ScopedLayout`, and `LayoutWidgetOverride` schemas in `packages/universo-react-types`.
 2. Replace catalog-specific snapshot/runtime type names with scoped names.
 3. Rename layout API fields from `linkedCollectionId` to `scopeEntityId` while keeping `linkedCollectionId` in record/datasource APIs.
 4. Update snapshot hashing/normalization code that currently knows about `catalogLayouts` and `catalogLayoutWidgetOverrides`.
@@ -545,7 +545,7 @@ Tasks:
 4. Replace deterministic synthetic persisted inherited-widget ids with UUID v7 insert-once semantics plus unique source keys.
 5. Add duplicate id and duplicate scope guards.
 6. Update fixture contract to reject obsolete global LMS dashboard inheritance.
-7. Update snapshot hash tests in `packages/universo-utils` so scoped layouts affect publication hashes deterministically.
+7. Update snapshot hash tests in `packages/universo-react-utils` so scoped layouts affect publication hashes deterministically.
 
 Acceptance:
 
@@ -592,7 +592,7 @@ Tasks:
    - Auto-create scoped layout and override.
 6. Implement reverse read path:
    - Scoped layout hidden state appears in global widget editor.
-7. Add empty-state copy and error messages through `packages/universo-i18n`.
+7. Add empty-state copy and error messages through `packages/universo-react-i18n`.
 
 Acceptance:
 
@@ -645,25 +645,25 @@ Objective: prevent a repeat of visually obvious product regressions.
 
 Unit and contract tests:
 
-1. `packages/universo-types`:
+1. `packages/universo-react-types`:
    - scoped layout schema parsing.
    - override patch validation.
    - custom Entity kind compatibility.
-2. `packages/metahubs-backend`:
+2. `packages/universo-react-metahubs-backend`:
    - scoped layout creation for Page and Catalog.
    - inherited widget hide/show.
    - reverse visibility aggregation.
    - sharedBehavior enforcement.
-3. `packages/applications-backend`:
+3. `packages/universo-react-applications-backend`:
    - snapshot scoped layout import/export.
    - runtime scoped layout selection.
    - root URL start page destination resolution.
    - duplicate scope/id rejection.
-4. `packages/applications-frontend`:
+4. `packages/universo-react-applications-frontend`:
    - visibility by destination editor.
    - optimistic update rollback.
    - localized destination names.
-5. `packages/apps-template-mui`:
+5. `packages/universo-react-apps-template-mui`:
    - Home renders scoped dashboard widgets.
    - Catalog does not render Home dashboard widgets.
    - empty `columnsContainer` does not render.
@@ -721,10 +721,10 @@ Tasks:
    - LMS Home dashboard setup.
 2. Update Russian docs with equivalent content.
 3. Update package READMEs:
-   - `packages/metahubs-backend/base/README.md`
-   - `packages/applications-backend/base/README.md`
-   - `packages/applications-frontend/base/README.md`
-   - `packages/apps-template-mui/README.md`
+   - `packages/universo-react-metahubs-backend/base/README.md`
+   - `packages/universo-react-applications-backend/base/README.md`
+   - `packages/universo-react-applications-frontend/base/README.md`
+   - `packages/universo-react-apps-template-mui/README.md`
 4. Add screenshots captured from Playwright after implementation.
 
 Acceptance:
@@ -739,11 +739,11 @@ Recommended targeted checks:
 
 ```bash
 git diff --check
-pnpm --filter @universo/types test -- layoutScope
-pnpm --filter @universo/metahubs-backend test -- MetahubLayoutsService snapshotLayouts
-pnpm --filter @universo/applications-backend test -- syncLayoutMaterialization runtimeRowsController
-pnpm --filter @universo/applications-frontend test -- ApplicationWidgetBehaviorEditorDialog ApplicationLayouts
-pnpm --filter @universo/apps-template-mui test -- MainGrid widgetRenderer DashboardApp
+pnpm --filter @universo-react/types test -- layoutScope
+pnpm --filter @universo-react/metahubs-backend test -- MetahubLayoutsService snapshotLayouts
+pnpm --filter @universo-react/applications-backend test -- syncLayoutMaterialization runtimeRowsController
+pnpm --filter @universo-react/applications-frontend test -- ApplicationWidgetBehaviorEditorDialog ApplicationLayouts
+pnpm --filter @universo-react/apps-template-mui test -- MainGrid widgetRenderer DashboardApp
 node tools/testing/e2e/run-playwright-suite.mjs specs/generators/metahubs-lms-app-export.spec.ts
 node tools/testing/e2e/run-playwright-suite.mjs flows/snapshot-import-lms-runtime.spec.ts
 ```

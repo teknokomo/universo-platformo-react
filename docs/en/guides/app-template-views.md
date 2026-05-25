@@ -65,7 +65,7 @@ buttons. Users can switch between:
 - **Card view**: A responsive grid of cards showing item summaries.
 
 The user's preference is persisted in `localStorage` via the `useViewPreference`
-hook from `@universo/template-mui`.
+hook from `@universo-react/template-mui`.
 
 ## Search/Filter Bar
 
@@ -87,7 +87,7 @@ When `rowHeight` is set to `'auto'`, cells use `white-space: normal` and
 ## Integration Architecture
 
 The enhanced dashboard section in `MainGrid.tsx` bridges the existing DataGrid
-with shared components from `@universo/template-mui`:
+with shared components from `@universo-react/template-mui`:
 
 - `ViewHeaderMUI` — search bar with toolbar controls
 - `ToolbarControls` — view mode toggle buttons

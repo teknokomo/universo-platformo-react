@@ -176,7 +176,7 @@
 
 ## 2026-04-13: Standard-kind contract cleanup and validation sync
 
--   Research outcome implemented: the remaining legacy-removal drift was a shared contract problem, not a single-controller bug. The stale assumptions lived in `@universo/types`, dynamic menu/breadcrumb consumers, self-hosted fixture generation, and the touched runtime/browser proofs that still expected builtin/source or `custom.*-v2` behavior.
+-   Research outcome implemented: the remaining legacy-removal drift was a shared contract problem, not a single-controller bug. The stale assumptions lived in `@universo-react/types`, dynamic menu/breadcrumb consumers, self-hosted fixture generation, and the touched runtime/browser proofs that still expected builtin/source or `custom.*-v2` behavior.
 -   Implemented fix set: standard metadata kinds now stay direct (`catalog`, `hub`, `set`, `enumeration`) across the shared type surface, shell navigation resolves labels from unified entity metadata, self-hosted generator/export/import coverage asserts the direct kind contract, and the committed fixture aligns with the entity-owned route/API surface.
 -   Validation sync: the focused schema-ddl, metahubs-backend, applications-backend, template-mui, and touched Playwright slices were aligned during the implementation wave, and the canonical root `pnpm build` was rerun green while updating the compressed memory-bank files.
 -   No open research thread remains for this standard-kind cleanup seam.
@@ -188,26 +188,26 @@
 -   Research outcome implemented: only the dialog-related review comments were correct on the live tree. React docs confirmed that `EntityFormDialog` should not write `ref.current` during render, and the first-open reset path was indeed vulnerable to child mount effects overwriting or being overwritten by the passive open-reset cycle.
 -   Implemented fix set: `EntityFormDialog` now performs the first-open reset in `useLayoutEffect`, resyncs to incoming initials while closed, renders extra fields from state only, and adds focused regression coverage for first-open child updates.
 -   Rejected suggestion with proof: removing the route-aware `Header` inset looked plausible from the nested `Stack` structure, but the targeted Chromium `metahub-shell-spacing.spec.ts` run showed a `16px` breadcrumb/title drift immediately after that patch, so the `Header` inset contract was restored unchanged.
--   Closure validation: focused `EntityFormDialog` Jest passed (`10/10`), `pnpm --filter @universo/template-mui build` passed, `pnpm run build:e2e` passed, the targeted Chromium metahub shell-spacing flow passed (`2 passed`), and the canonical root `pnpm build` completed successfully.
+-   Closure validation: focused `EntityFormDialog` Jest passed (`10/10`), `pnpm --filter @universo-react/template-mui build` passed, `pnpm run build:e2e` passed, the targeted Chromium metahub shell-spacing flow passed (`2 passed`), and the canonical root `pnpm build` completed successfully.
 -   No open research thread remains for this PR review-triage seam.
 
 -   Research outcome implemented: the remaining QA debt after the visual spacing acceptance passes was structural, not visual-only. The accepted inset depended on duplicated metahub route detection across shared shell components, metahub loading states still used an implicit numeric override pattern, and the tree lacked real proof for browser geometry plus negative-path generic-entity ACL behavior.
 -   Implemented fix set: `pageSpacing.ts` now centralizes the route-aware metahub shell helpers consumed by `MainLayoutMUI` and `Header`; `SkeletonGrid` now exposes semantic `insetMode='page' | 'content'` plus the stable `skeleton-grid` selector; the affected metahub routes now use `insetMode='content'`; focused `entityInstancesRoutes` ACL tests now prove `403` denial behavior for generic delete and catalog-compatible create; and the new authenticated Playwright flow `metahub-shell-spacing.spec.ts` proves breadcrumb/header/loading-skeleton alignment on `/metahubs` during a delayed loading state.
--   Closure validation: `pnpm --filter @universo/template-mui build` passed, `pnpm --filter @universo/template-mui test` passed (`23/23`), `pnpm --filter @universo/metahubs-frontend build` passed, `pnpm run build:e2e` passed, the targeted Chromium shell-spacing flow passed (`2 passed` including auth setup), and the canonical root `pnpm build` completed green.
+-   Closure validation: `pnpm --filter @universo-react/template-mui build` passed, `pnpm --filter @universo-react/template-mui test` passed (`23/23`), `pnpm --filter @universo-react/metahubs-frontend build` passed, `pnpm run build:e2e` passed, the targeted Chromium shell-spacing flow passed (`2 passed` including auth setup), and the canonical root `pnpm build` completed green.
 -   Wider `entityInstancesRoutes` permanent-delete policy failures remain an older branch baseline and were not changed in this session; no open research thread remains for the metahub QA-gap closure itself.
 
 ## 2026-04-12: Metahub gutter narrowing follow-up
 
 -   Research outcome implemented: removing the old content bleed offsets fixed the original mismatch, but the resulting metahub page inset was still wider than the acceptance screenshots because breadcrumbs remained tied to the shared shell gutter.
 -   Implemented fix set: `MainLayoutMUI` now applies a narrower route-aware gutter for `/metahubs` and `/metahub/*`, and `MetahubBoard` dropped its remaining extra header padding so metahub breadcrumbs, headers, content, and pagination all align to the same smaller inset.
--   Closure validation: `pnpm --filter @universo/template-mui build` passed, `pnpm --filter @universo/metahubs-frontend build` passed, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+-   Closure validation: `pnpm --filter @universo-react/template-mui build` passed, `pnpm --filter @universo-react/metahubs-frontend build` passed, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
 -   No open research thread remains for this metahub gutter follow-up.
 
 ## 2026-04-12: Metahub page horizontal spacing fix
 
 -   Research outcome implemented: the spacing issue was not isolated to one list page. The same standalone page-shell drift existed across both legacy and entity-based metahub pages because the main layout already provided a gutter while the page content still applied older negative bleed offsets.
 -   Implemented fix set: the old horizontal bleed offsets were removed from metahub card/table/banner/pagination wrappers and from the Common/Settings/Migrations/Layout page shells, so headers and the content below now align to the same left/right gutter.
--   Closure validation: `pnpm --filter @universo/metahubs-frontend build` completed green, diagnostics stayed clean, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+-   Closure validation: `pnpm --filter @universo-react/metahubs-frontend build` completed green, diagnostics stayed clean, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
 -   No open research thread remains for this metahub spacing seam.
 
 ## 2026-04-12: Entity V2 post-rebuild regression fix
@@ -280,7 +280,7 @@
 
 -   Research outcome implemented: the remaining builder/browser gap was real checkbox semantics in `EntitiesWorkspace`, not a test bug; after that repair the honest Phase 3.8 closure was focused compatibility proof plus Phase 4 docs rather than widening into a new speculative surface.
 -   Implemented fix: `EntitiesWorkspace` now uses actual checkbox controls for structured builder toggles, focused backend proofs now cover legacy snapshot restore without v3-only entity metadata sections and legacy catalog-wrapper parity against object-scoped system-attribute reads, and EN/RU architecture/guide/API docs plus summaries are synced.
--   Closure validation: focused frontend regressions passed (`5/5`), `@universo/metahubs-frontend` build passed, focused workspace and publication/runtime Playwright flows passed (`2/2` each), focused backend suites passed (`27/27`), the repository-standard docs i18n check passed, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+-   Closure validation: focused frontend regressions passed (`5/5`), `@universo-react/metahubs-frontend` build passed, focused workspace and publication/runtime Playwright flows passed (`2/2` each), focused backend suites passed (`27/27`), the repository-standard docs i18n check passed, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
 -   No open research thread remains for the Phase 3.6-4 closure seam.
 
 ## 2026-04-09: ECAE Phase 2.9 browser validation closure
@@ -294,43 +294,43 @@
 
 -   Research outcome implemented: the safe reusable-preset seam was already present in the metahub template registry. The missing pieces were typed registry/API exposure for `definition_type='entity_type_preset'`, builtin preset manifests, and frontend create-flow consumption.
 -   Implemented fix: shared template DTOs/routes now expose `definitionType` plus `activeVersionManifest`, builtin entity presets are validated and seeded through the existing template seeder/migration path, and `EntitiesWorkspace` create mode now reuses the templates hooks/selector seam to prefill entity-type form state from preset manifests.
--   Additional closure fix: the canonical root `pnpm build` initially failed on `@universo/core-frontend` V8 heap exhaustion under Turbo, so the package build script now runs Vite with `NODE_OPTIONS='--max-old-space-size=8192'` to keep root validation reproducible.
--   Closure validation: focused metahubs backend/frontend checks passed, `@universo/core-frontend` build passed with the heap guard, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+-   Additional closure fix: the canonical root `pnpm build` initially failed on `@universo-react/core-frontend` V8 heap exhaustion under Turbo, so the package build script now runs Vite with `NODE_OPTIONS='--max-old-space-size=8192'` to keep root validation reproducible.
+-   Closure validation: focused metahubs backend/frontend checks passed, `@universo-react/core-frontend` build passed with the heap guard, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
 -   No open research thread remains for the Phase 2.7b reusable-entity-preset seam.
 
 ## 2026-04-08: ECAE Phase 2.5c design-time service genericization closure
 
 -   Research outcome implemented: the honest safe Phase 2.5c slice was not broad layout-service genericization. The real reusable seam was an object-scoped system-attribute adapter plus one shared design-time child-copy helper that both legacy built-in copy routes and generic custom-entity copy can reuse.
 -   Implemented fix: `MetahubAttributesService` now exposes object-scoped system-attribute aliases while preserving catalog wrappers, `copyDesignTimeObjectChildren(...)` centralizes attribute/element/constant/value copy behavior plus optional system-attribute reseeding, legacy catalog/set/enumeration copy controllers now use that helper internally, and generic custom-entity copy derives child-copy breadth from enabled components.
--   Closure validation: focused backend regressions passed (`82/82`), `@universo/metahubs-backend` lint returned to the existing warning-only backlog (`0 errors`), `@universo/metahubs-backend` build passed, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+-   Closure validation: focused backend regressions passed (`82/82`), `@universo-react/metahubs-backend` lint returned to the existing warning-only backlog (`0 errors`), `@universo-react/metahubs-backend` build passed, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
 -   No open research thread remains for the Phase 2.5c design-time genericization seam.
 
 ## 2026-04-08: ECAE Phase 2.5 generic entity CRUD backend closure
 
 -   Research outcome implemented: the generic object-layer seam was viable, but only as a coexistence-first slice. Built-in catalogs/sets/enumerations still carry extra policy/copy/runtime behavior, so the safe first cut was a custom-only generic route surface rather than a wholesale legacy-route replacement.
 -   Implemented fix: `MetahubObjectsService` now supports generic kind strings and optional transaction runners on the mutation helpers used by generic CRUD, while the new entity-instance controllers/routes expose custom-only list/create/get/update/delete/restore/permanent/copy/reorder flows and route update/delete/copy/restore through `EntityMutationService`.
--   Closure validation: focused generic route tests passed (`9/9`), the combined ECAE regression suite passed (`33/33`), `@universo/utils` build passed, `@universo/metahubs-backend` build passed, touched-file lint had `0 errors` (warning backlog only), and the canonical root `pnpm build` completed green after clearing an unrelated generated `applications-backend/base/dist` cleanup blocker.
+-   Closure validation: focused generic route tests passed (`9/9`), the combined ECAE regression suite passed (`33/33`), `@universo-react/utils` build passed, `@universo-react/metahubs-backend` build passed, touched-file lint had `0 errors` (warning backlog only), and the canonical root `pnpm build` completed green after clearing an unrelated generated `applications-backend/base/dist` cleanup blocker.
 -   No open research thread remains for the Phase 2.5 generic entity CRUD backend seam.
 
 ## 2026-04-08: ECAE Phase 2.4 resolver DB extension closure
 
 -   Research outcome implemented: the shared entity-type resolver is no longer registry-only. It now understands the hybrid model where built-ins come from code and custom kinds come from metahub data definitions.
 -   Implemented fix: `EntityTypeResolver` now resolves built-ins first, falls through to `EntityTypeService.resolveType(...)` for custom DB-backed kinds when metahub context exists, and caches repeated custom-kind lookups per resolver instance.
--   Closure validation: focused resolver tests passed (`5/5`), the combined ECAE service+route+resolver regression suite passed (`24/24`), `@universo/metahubs-backend` build passed, touched-file lint was clean, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+-   Closure validation: focused resolver tests passed (`5/5`), the combined ECAE service+route+resolver regression suite passed (`24/24`), `@universo-react/metahubs-backend` build passed, touched-file lint was clean, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
 -   No open research thread remains for the Phase 2.4 resolver DB extension seam.
 
 ## 2026-04-08: ECAE Phase 2.3 backend route surface closure
 
 -   Research outcome implemented: the new ECAE backend foundation is no longer service-only. The metahubs backend now exposes custom entity types, object-owned actions, and object-owned event bindings through the normal route/controller/auth/rate-limit stack.
 -   Implemented fix: added entity-type, action, and event-binding controllers/routes, registered them in the metahubs domain router, and kept route handlers thin so validation/business rules stay in the Phase 2.2 services.
--   Closure validation: the new focused route suite passed (`8/8`), the combined ECAE service+route regression suite passed (`19/19`), `@universo/metahubs-backend` build passed, package lint finished with `0 errors` (warning backlog only), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+-   Closure validation: the new focused route suite passed (`8/8`), the combined ECAE service+route regression suite passed (`19/19`), `@universo-react/metahubs-backend` build passed, package lint finished with `0 errors` (warning backlog only), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
 -   No open research thread remains for the Phase 2.3 backend route surface seam.
 
 ## 2026-04-08: ECAE Phase 2.2 backend service foundation closure
 
 -   Research outcome implemented: the first focused Phase 2.2 service run did not reveal domain-logic breakage; it exposed two narrower seams instead: test fixtures used non-canonical schema names, and the new services still had build-only typing gaps around optimistic locking and post-commit dispatch.
 -   Implemented fix: the focused backend tests now use canonical metahub schema names, `ActionService` uses the shared codename text helper for conflict checks, shared optimistic-lock typing now includes `entity_type` / `action` / `event_binding`, and `EntityMutationService` now performs `after*` dispatch explicitly after the transaction instead of storing a callback closure.
--   Closure validation: focused entity/action/event/lifecycle service tests passed (`11/11`), `@universo/utils` build passed, `@universo/metahubs-backend` build passed, package lint finished with `0 errors` (warning backlog only), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
+-   Closure validation: focused entity/action/event/lifecycle service tests passed (`11/11`), `@universo-react/utils` build passed, `@universo-react/metahubs-backend` build passed, package lint finished with `0 errors` (warning backlog only), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
 -   No open research thread remains for the Phase 2.2 backend service foundation seam.
 
 ## 2026-04-08: Post-QA lint closure for the Shared/Common wave
@@ -338,7 +338,7 @@
 -   Research outcome implemented: after the earlier product/security remediations were closed, the only remaining QA blocker was red package lint in the touched Shared/Common backend/frontend files.
 -   Confirmed root cause: the release gate was the error-level Prettier/ESLint drift in the touched metahubs files. The broader warning-only backlog was real but was not the blocker that kept this implementation wave open.
 -   Implemented fix: root-level Prettier on the confirmed blocker files plus package `eslint --fix` restored green lint exits for both metahubs packages.
--   Closure validation: `@universo/metahubs-backend` lint passed, `@universo/metahubs-frontend` lint passed, focused backend routes passed (`35/35`), focused frontend tests passed (`18/18`), and root `pnpm build` passed (`30 successful`, `30 total`, `EXIT:0`).
+-   Closure validation: `@universo-react/metahubs-backend` lint passed, `@universo-react/metahubs-frontend` lint passed, focused backend routes passed (`35/35`), focused frontend tests passed (`18/18`), and root `pnpm build` passed (`30 successful`, `30 total`, `EXIT:0`).
 -   No open research thread remains for the lint-closure seam.
 
 ## 2026-04-08: Attribute move ownership remediation closure
@@ -368,7 +368,7 @@
 -   Research outcome implemented: the imported self-hosted connector failure was a two-step application-runtime identifier reuse problem, not raw fixture corruption. The first live 500 came from repeated shared field ids across multiple target entities in `_app_attributes`; after that fix landed, the remaining live 500 came from repeated shared enumeration value ids across multiple target enumeration objects in `_app_values` seeding.
 -   Confirmed narrowing: the committed raw fixture and the direct runtime-materialized fixture bundle were clean under the new executable-payload checks. The remaining collisions only surfaced on the imported publication runtime path that applications-backend consumes for diff/sync.
 -   Implemented fix: `resolveExecutablePayloadEntities(...)` now scopes repeated shared field ids per target entity, and the normalized publication runtime source now scopes repeated shared enumeration value ids per target enumeration object while rewriting predefined catalog-element REF payloads to the scoped ids.
--   Validation: focused `applicationReleaseBundle.test.ts` passed (`14 / 14`), the imported snapshot connector Chromium flow passed (`2 passed`, `1.3m`), and the canonical root `pnpm build` completed green after rebuilding `@universo/applications-backend`.
+-   Validation: focused `applicationReleaseBundle.test.ts` passed (`14 / 14`), the imported snapshot connector Chromium flow passed (`2 passed`, `1.3m`), and the canonical root `pnpm build` completed green after rebuilding `@universo-react/applications-backend`.
 -   No open research thread remains for the connector schema-sync duplicate seam.
 
 ## 2026-04-07: Remaining shared/Common QA contract gap remediation
@@ -403,7 +403,7 @@
 
 -   Research outcome implemented: the remaining Phase 6 defect was not just missing button hiding. Global widgets had no consistent `sharedBehavior` editor path, inherited widget UI still allowed forbidden drag/toggle actions, and backend resolver/mutation seams still trusted sparse overrides that should have been locked by the base widget.
 -   Implemented fix: global layout widget editors now persist `sharedBehavior` through menu/columns/quiz editors plus a generic behavior-only dialog; `LayoutDetails` gates inherited drag/toggle/exclude affordances through base-widget `sharedBehavior`; `MetahubLayoutsService` now ignores stale forbidden overrides, reuses `is_deleted_override` for inherited exclusion, and rejects forbidden inherited move/toggle/exclude writes fail closed.
--   Closure validation: focused metahubs frontend inherited-widget tests passed (`2/2`), focused metahubs-backend `MetahubLayoutsService` tests passed (`11/11`), `@universo/metahubs-frontend` and `@universo/metahubs-backend` built successfully, and the canonical root `pnpm build` finished green (`30 successful`, `0 cached`, `3m46.335s`).
+-   Closure validation: focused metahubs frontend inherited-widget tests passed (`2/2`), focused metahubs-backend `MetahubLayoutsService` tests passed (`11/11`), `@universo-react/metahubs-frontend` and `@universo-react/metahubs-backend` built successfully, and the canonical root `pnpm build` finished green (`30 successful`, `0 cached`, `3m46.335s`).
 -   No open research thread remains for the widget shared-behavior wave.
 
 ## 2026-04-07: Layout-owned catalog behavior contract closure
@@ -417,8 +417,8 @@
 
 -   Research outcome implemented: the reopened QA defect was a real integrity gap, not a false positive. The shared canonical publication snapshot hash/checksum path had not kept up with the current export surface.
 -   Confirmed root cause: `normalizePublicationSnapshotForHash(...)` omitted `modules`, `catalogLayouts`, and `catalogLayoutWidgetOverrides`, even though those sections already participate in snapshot export/import and application release lineage.
--   Implemented fix: the shared normalizer now includes those sections with deterministic ordering, focused `@universo/utils` regressions fail closed on hash drift and envelope tampering across the newly covered sections, and the EN/RU catalog-layout docs now describe inherited widgets as placement/visibility overlays with base-layout config inheritance.
--   Closure validation: focused snapshot/hash tests passed (`22/22`), `pnpm --filter @universo/utils build` completed green, and the canonical root `pnpm build` finished green.
+-   Implemented fix: the shared normalizer now includes those sections with deterministic ordering, focused `@universo-react/utils` regressions fail closed on hash drift and envelope tampering across the newly covered sections, and the EN/RU catalog-layout docs now describe inherited widgets as placement/visibility overlays with base-layout config inheritance.
+-   Closure validation: focused snapshot/hash tests passed (`22/22`), `pnpm --filter @universo-react/utils build` completed green, and the canonical root `pnpm build` finished green.
 -   No open research thread remains for this remediation wave.
 
 ## 2026-04-07: Self-hosted fixture regeneration and current structure baseline closure
@@ -461,7 +461,7 @@
 
 -   Research outcome implemented: the remaining QA debt was not a product bug. The noisy MUI `anchorEl` warning came from jsdom layout validation for `Popover`/`Select` anchors inside modules-related frontend tests.
 -   Implemented fix: the affected metahubs frontend tests now provide a stable non-zero `HTMLElement.prototype.getBoundingClientRect` mock while keeping the existing `user.click(...)` interaction path intact.
--   Validation result: focused `@universo/metahubs-frontend` dialog/script tests passed (`9/9`), the warning string `anchorEl` no longer appeared in the captured test log, package lint no longer had error-level failures on the touched scope, and the final root `pnpm build` finished green.
+-   Validation result: focused `@universo-react/metahubs-frontend` dialog/script tests passed (`9/9`), the warning string `anchorEl` no longer appeared in the captured test log, package lint no longer had error-level failures on the touched scope, and the final root `pnpm build` finished green.
 -   No open research thread remains for this remediation.
 
 ## 2026-04-05: Metahub dialog settings and Modules-tab responsiveness closure
@@ -484,7 +484,7 @@
 ## 2026-04-05: Modules QA gap closure and final plan completion
 
 -   Research outcome implemented: the previously identified modules QA gaps are fully closed, and the final plan-completion wave is now the durable state for the 2026-04-05 modules track.
--   Implemented proof: `@universo/modules-engine` now carries reproducible benchmark evidence with recorded `coldStartMs 7.13`, `meanMs 1.596`, and `p95Ms 2.127`.
+-   Implemented proof: `@universo-react/modules-engine` now carries reproducible benchmark evidence with recorded `coldStartMs 7.13`, `meanMs 1.596`, and `p95Ms 2.127`.
 -   Implemented compatibility hardening: core-backend startup now validates `isolated-vm` / `--no-node-snapshot` compatibility explicitly. The 2026-05-25 rename intentionally removes legacy `snapshot.scripts` compatibility because the alpha database is recreated.
 -   Implemented product proof: browser authoring now exposes `quizWidget` `moduleCodename`, the real browser-authored Playwright flow covers authoring -> publication -> application -> runtime smoke, the shared auth `419` retry defect is fixed, and untouched draft role switches now reapply widget defaults so `rpc.client` remains present.
 -   Closure validation: focused auth-frontend Vitest passed, focused metahubs-frontend `EntityModulesTab` coverage passed, the browser-authored Playwright flow passed with `2 passed`, and the final root `pnpm build` finished green with `30 successful`, `27 cached`, and `3m54.625s`.
@@ -507,10 +507,10 @@
 
 ## 2026-04-04: Self-hosted post-import schema diff and runtime inheritance regression wave
 
--   Research outcome implemented: the connector destructive-diff bug was caused by identity drift, not by harmless UI-only diff rendering. `@universo/schema-ddl/calculateSchemaDiff(...)` matches physical entities and fields by `entity.id` / `field.id`, not by codename.
+-   Research outcome implemented: the connector destructive-diff bug was caused by identity drift, not by harmless UI-only diff rendering. `@universo-react/schema-ddl/calculateSchemaDiff(...)` matches physical entities and fields by `entity.id` / `field.id`, not by codename.
 -   Confirmed-and-fixed root cause: `metahubsController.importFromSnapshot` restored the imported snapshot into a fresh branch through `SnapshotRestoreService`, which remapped entity/attribute/layout IDs to new runtime rows, but originally created the initial publication version from the raw imported snapshot payload instead of serializing the restored live branch. The imported publication baseline now serializes from the restored live branch, keeping executable identity aligned with later publications.
 -   Confirmed-and-fixed runtime-config seam: eager normalization of sparse catalog runtime config erased the distinction between inheritance and authored catalog overrides. The shared contract now keeps runtime config sparse, introduces explicit `useLayoutOverrides`, and applies layout-like catalog overrides only when that seam is actually enabled.
--   Closure validation: focused shared/backend/frontend tests passed, the missing browser-safe `sanitizeCatalogRuntimeViewConfig` export was fixed in `@universo/utils`, `pnpm run build:e2e` finished green (`28/28`), the real Playwright self-hosted generator reran and rewrote the committed fixture, the targeted browser import flow passed on the regenerated snapshot, and the canonical root `pnpm build` finished green (`28/28`).
+-   Closure validation: focused shared/backend/frontend tests passed, the missing browser-safe `sanitizeCatalogRuntimeViewConfig` export was fixed in `@universo-react/utils`, `pnpm run build:e2e` finished green (`28/28`), the real Playwright self-hosted generator reran and rewrote the committed fixture, the targeted browser import flow passed on the regenerated snapshot, and the canonical root `pnpm build` finished green (`28/28`).
 -   No open research thread remains for this regression wave.
 
 ## 2026-03-23: Unified codename JSONB architecture revalidation
@@ -534,8 +534,8 @@
 ## 2026-03-17: Configurable platform runtime `_upl_*` columns
 
 -   Research outcome implemented: the remaining bug was below the metahub/publication layer. Catalog snapshots already preserved disabled `upl.*` states, but runtime application business-table generation still created configurable `_upl_archived*` / `_upl_deleted*` columns unconditionally.
--   Confirmed root cause: `@universo/schema-ddl` consumed only `config.systemFields.lifecycleContract`, while applications runtime CRUD/sync helpers still hardcoded `_upl_deleted` predicates and updates for dynamic business tables.
--   Implemented fix: one shared `@universo/utils` helper now derives platform archive/delete families from `config.systemFields.fields`, schema-ddl consumes that helper for conditional runtime DDL, and applications-backend consumes the same helper for active-row and soft-delete SQL.
+-   Confirmed root cause: `@universo-react/schema-ddl` consumed only `config.systemFields.lifecycleContract`, while applications runtime CRUD/sync helpers still hardcoded `_upl_deleted` predicates and updates for dynamic business tables.
+-   Implemented fix: one shared `@universo-react/utils` helper now derives platform archive/delete families from `config.systemFields.fields`, schema-ddl consumes that helper for conditional runtime DDL, and applications-backend consumes the same helper for active-row and soft-delete SQL.
 -   Regression result: shared utils tests, schema-ddl generator tests, and applications runtime route tests all passed after the fix, and the final root build is green.
 -   No open research thread remains for this runtime `_upl_*` contract issue.
 
@@ -582,7 +582,7 @@
 -   External references used in the planning pass: Context7 Knex guidance, MUI Tabs guidance, TanStack Query invalidation/query-key guidance, PostgreSQL ALTER TABLE behavior, and UP-test Supabase live schema inspection.
 -   Open decision for implementation review: whether design-time persistence should extend the existing catalog-attribute entity with `isSystem/systemKey/isEnabled` metadata or use a small dedicated side-table if the current schema shape proves too rigid.
 -   QA refinement conclusion: for this repository, wave 1 should extend `_mhb_attributes` directly rather than introduce a separate side-table, because template seeding, template migration, cleanup, snapshot serialization, and optimistic attribute CRUD already converge on `_mhb_attributes`.
--   QA refinement conclusion: any richer system-field registry must reuse `@universo/utils/database/systemFields.ts` as the canonical low-level field-name source and must not duplicate raw `_app_*` / `_upl_*` string constants in a second independent catalog.
+-   QA refinement conclusion: any richer system-field registry must reuse `@universo-react/utils/database/systemFields.ts` as the canonical low-level field-name source and must not duplicate raw `_app_*` / `_upl_*` string constants in a second independent catalog.
 -   QA refinement conclusion: backend service-level guards are required for reorder/move operations on system rows; UI-only restrictions are not sufficient because attribute ordering and transfer operations already exist in `MetahubAttributesService`.
 -   QA refinement conclusion: because metahub attribute routes, metahub element validation, snapshot serialization, and runtime application metadata all currently consume generic attribute collections, the implementation must exclude system rows from ordinary attribute/business-field flows by default and serialize them through a dedicated lifecycle metadata channel.
 
@@ -591,15 +591,15 @@
 -   Research outcome implemented: the last remaining gap was not runtime correctness but artifact completeness. `application_release_bundle` now embeds deterministic executable payloads for both baseline and incremental execution instead of checksum-only descriptors.
 -   The executable payload contract is intentionally deterministic: bundle artifact `schemaSnapshot.generatedAt` is bound to `manifest.generatedAt`, which keeps checksum validation stable across export and import.
 -   Bundle apply now consumes the embedded artifact payloads on the real execution paths and rejects corrupted payload/checksum combinations before any schema existence checks, diff calculation, or DDL execution begin.
--   Validation for this closure wave is complete: `@universo/applications-backend` tests passed (80/80), package lint is green, and the final root `pnpm build` completed green (`27/27`, `2m38.453s`).
+-   Validation for this closure wave is complete: `@universo-react/applications-backend` tests passed (80/80), package lint is green, and the final root `pnpm build` completed green (`27/27`, `2m38.453s`).
 -   No open research thread remains for this architecture wave.
 
 ## 2026-03-13: Optional global migration catalog closure
 
 -   Research outcome implemented: the remaining QA gaps were operational closure issues, not missing core architecture.
--   `@universo/applications-backend` now exposes a real application release-bundle workflow: publication-backed export emits the canonical `application_release_bundle` contract, and bundle apply reuses the existing schema sync engine instead of creating a second install path.
+-   `@universo-react/applications-backend` now exposes a real application release-bundle workflow: publication-backed export emits the canonical `application_release_bundle` contract, and bundle apply reuses the existing schema sync engine instead of creating a second install path.
 -   Successful publication sync and bundle apply now both persist `installed_release_metadata` through the central `applications.cat_applications` sync-state seam, keeping release/install state out of per-app runtime schemas.
--   The last touched raw global-catalog env parser in migrations-platform CLI now uses the shared `@universo/utils` helper, aligning the touched startup/runtime/CLI paths on one parsing contract.
+-   The last touched raw global-catalog env parser in migrations-platform CLI now uses the shared `@universo-react/utils` helper, aligning the touched startup/runtime/CLI paths on one parsing contract.
 -   Mirrored EN/RU operator docs now describe disabled-vs-enabled catalog behavior, release bundles, recovery guidance, and the env flag.
 -   Validation for this closure wave is complete: utils tests 189, core-backend tests 17, applications-backend release-bundle tests 12 with lint green, migrations-platform tests 49 with lint green, final root `pnpm build` green (`27/27`, `2m37.175s`).
 -   No open research thread remains for this architecture wave.
@@ -608,7 +608,7 @@
 
 ## 2026-03-13: Optional global migration catalog architecture audit
 
--   Code audit: `@universo/core-backend` startup still always calls `syncRegisteredPlatformDefinitionsToCatalog(...)`, so global catalog bootstrap remains in the critical startup path.
+-   Code audit: `@universo-react/core-backend` startup still always calls `syncRegisteredPlatformDefinitionsToCatalog(...)`, so global catalog bootstrap remains in the critical startup path.
 -   Code audit: runtime application/metahub migrations already write local history into `_app_migrations` / `_mhb_migrations`, but `MigrationManager`, `SystemTableMigrator`, and `MetahubSchemaService` also hard-call `mirrorToGlobalCatalog(...)`, which currently auto-creates `upl_migrations` through `PlatformMigrationCatalog.ensureStorage()`.
 -   Code audit: fixed system-app schema generation uses `SchemaGenerator.generateFullSchema(...)` directly and does not record local baseline rows, which is why fixed-schema `_app_migrations` tables remain empty in the live database.
 -   Context7 findings: Knex treats seeds as repeatable data loaders and keeps schema history in migrations; Prisma baselining uses a full `0_init` baseline plus incremental pending migrations, which matches the target direction for exported/file-backed apps.
@@ -618,31 +618,31 @@
 -   QA refinement finding: the earlier master-plan wording that expected `definition_registry` population on every fresh bootstrap is too strict for the intended architecture and must be replaced with an explicit two-mode acceptance contract.
 -   QA refinement finding: enabled-mode global audit should remain fail-closed and same-transaction with local history/schema-state persistence; disabled mode may no-op safely, but enabled mode must not silently degrade.
 -   QA refinement finding: file-bundle release/install metadata should reuse the existing central application sync-state surface in `applications.cat_applications` before any new metadata store is introduced.
--   QA refinement finding: the env/config layer should follow the repository’s established small helper pattern in `@universo/utils` first, rather than introducing a broader shared capability abstraction prematurely.
+-   QA refinement finding: the env/config layer should follow the repository’s established small helper pattern in `@universo-react/utils` first, rather than introducing a broader shared capability abstraction prematurely.
 
 ## 2026-03-13: Optional global migration catalog implementation closure
 
 -   Research outcome implemented: the repository now supports explicit catalog-enabled and catalog-disabled modes without treating the full global definition registry as a mandatory cold-start dependency.
--   `@universo/migrations-platform` now uses `PlatformMigrationKernelCatalog` in disabled mode, preserving `upl_migrations.migration_runs` while keeping definition-registry lifecycle storage behind the feature flag.
+-   `@universo-react/migrations-platform` now uses `PlatformMigrationKernelCatalog` in disabled mode, preserving `upl_migrations.migration_runs` while keeping definition-registry lifecycle storage behind the feature flag.
 -   Runtime application/metahub migration writes now preserve local canonical history even when global catalog mirroring is disabled, and enabled mode remains fail-closed by keeping explicit capability checks.
 -   Fixed system-app schema generation now records deterministic local baseline rows and backfills missing `_app_migrations` baseline history when a schema already exists.
 -   Central application release/install metadata now reuses `applications.cat_applications.installed_release_metadata`, keeping sync/install state in one canonical persistence surface.
--   Validation for this wave is complete: `@universo/schema-ddl` tests green, `@universo/migrations-catalog` tests 36/36 green, `@universo/migrations-platform` tests 101/101 green, and final root `pnpm build` green (`27/27`, `2m41.284s`).
+-   Validation for this wave is complete: `@universo-react/schema-ddl` tests green, `@universo-react/migrations-catalog` tests 36/36 green, `@universo-react/migrations-platform` tests 101/101 green, and final root `pnpm build` green (`27/27`, `2m41.284s`).
 -   No open research thread remains for this architecture wave.
 
 ## 2026-03-13: QA blocker closure wave
 
 -   Research outcome implemented: the still-live blockers were narrow package-level correctness/tooling issues, not missing architecture from the completed system-app program.
--   The failing `@universo/migrations-core` validation case was caused by a malformed test owner id; the fix preserved strict managed owner-id validation by correcting the test input to a canonical UUID.
--   `@universo/migrations-core` lint now ignores committed/generated `src/**/*.d.ts`, `@universo/schema-ddl` no longer has error-level lint failures, and `@universo/core-backend` again exposes a package-level lint script with warning-only output on the touched surface.
--   Validation for this closure wave is complete: `@universo/migrations-core` tests 58/58 + lint green, `@universo/schema-ddl` tests green with warning-only lint, `@universo/core-backend` tests 16/16 with warning-only lint, final root `pnpm build` green (`27/27`, `2m27.925s`).
+-   The failing `@universo-react/migrations-core` validation case was caused by a malformed test owner id; the fix preserved strict managed owner-id validation by correcting the test input to a canonical UUID.
+-   `@universo-react/migrations-core` lint now ignores committed/generated `src/**/*.d.ts`, `@universo-react/schema-ddl` no longer has error-level lint failures, and `@universo-react/core-backend` again exposes a package-level lint script with warning-only output on the touched surface.
+-   Validation for this closure wave is complete: `@universo-react/migrations-core` tests 58/58 + lint green, `@universo-react/schema-ddl` tests green with warning-only lint, `@universo-react/core-backend` tests 16/16 with warning-only lint, final root `pnpm build` green (`27/27`, `2m27.925s`).
 -   No open research thread remains for this blocker-closure wave.
 
 ## 2026-03-13: Final QA closure gap audit
 
 -   Research outcome implemented: the remaining repository-side gaps were narrow contract and proof issues, not missing architectural waves.
 -   Profile and admin fixed-system-app manifests now keep string validation limits aligned with their backing `VARCHAR(50)` columns, and shared migrations-platform tests assert that manifest `maxLength` never exceeds declared `VARCHAR(N)` lengths.
--   `@universo/applications-backend` now has direct persistence-level regression coverage for `copyApplicationWithOptions(...)`, so copy safety no longer depends only on route-level mocks.
+-   `@universo-react/applications-backend` now has direct persistence-level regression coverage for `copyApplicationWithOptions(...)`, so copy safety no longer depends only on route-level mocks.
 -   The core-backend acceptance regression now captures both halves of the final contract: application-like fixed-schema fresh bootstrap and publication-created application runtime sync composition.
 -   The docs tree now contains mirrored English/Russian architecture docs for fixed system-app convergence, with verified line parity across the touched doc pairs.
 -   Validation for this closure wave is complete: profile Jest 5/5, admin Jest 3/3, applications persistence Jest 12/12, migrations-platform Jest 35/35, core-backend acceptance Jest 2/2, error-free lint for applications-backend and migrations-platform, warning-only touched lint elsewhere, final root `pnpm build` green (`27/27`, `2m37.515s`).
@@ -651,18 +651,18 @@
 ## 2026-03-13: QA closure completion revalidation
 
 -   Research outcome implemented: four real residual defects remained after the earlier green state, and all were operational contract issues rather than broad architectural failures.
--   `@universo/migrations-platform` now records export lifecycle rows for bundle-oriented catalog exports, so CLI export and doctor observe the same active published revision state.
--   `@universo/migrations-catalog` and `@universo/migrations-platform` now use stable artifact-equivalence checks, so dependency-only changes are no longer skipped behind checksum-only no-op detection.
--   `@universo/utils` now exposes a browser-specific env entry whose precedence is `__UNIVERSO_PUBLIC_ENV__` → `import.meta.env` → `process.env` → browser origin, and `@universo/store` mirrors `import.meta.env` fallback support.
--   `@universo/migrations-core` now rejects malformed managed owner ids instead of silently normalizing them into potentially colliding schema-name inputs.
--   Validation for this closure wave is complete: `@universo/migrations-catalog` tests 28/28, `@universo/migrations-platform` regressions 64/64, `@universo/utils` env tests 5/5, `@universo/migrations-core` identifiers 8/8, touched-surface lint green, final root `pnpm build` green (`27/27`, `2m39.834s`).
+-   `@universo-react/migrations-platform` now records export lifecycle rows for bundle-oriented catalog exports, so CLI export and doctor observe the same active published revision state.
+-   `@universo-react/migrations-catalog` and `@universo-react/migrations-platform` now use stable artifact-equivalence checks, so dependency-only changes are no longer skipped behind checksum-only no-op detection.
+-   `@universo-react/utils` now exposes a browser-specific env entry whose precedence is `__UNIVERSO_PUBLIC_ENV__` → `import.meta.env` → `process.env` → browser origin, and `@universo-react/store` mirrors `import.meta.env` fallback support.
+-   `@universo-react/migrations-core` now rejects malformed managed owner ids instead of silently normalizing them into potentially colliding schema-name inputs.
+-   Validation for this closure wave is complete: `@universo-react/migrations-catalog` tests 28/28, `@universo-react/migrations-platform` regressions 64/64, `@universo-react/utils` env tests 5/5, `@universo-react/migrations-core` identifiers 8/8, touched-surface lint green, final root `pnpm build` green (`27/27`, `2m39.834s`).
 -   No open research thread remains for this QA closure completion wave.
 
 ## 2026-03-13: QA plan completion revalidation
 
 -   Research outcome implemented: the suspected metahubs naming/parity mismatch was not real on the live branch; the parity contract already expects the converged `cat_*` / `doc_*` fixed-schema naming.
--   `@universo/migrations-platform` doctor lifecycle checks now treat any export recorded for the active published revision as healthy, while operational sync/export flows still keep explicit export targets.
--   Shared backend Jest mapping now resolves `@universo/database`, which restores package-local execution of the metahubs parity contract suite.
+-   `@universo-react/migrations-platform` doctor lifecycle checks now treat any export recorded for the active published revision as healthy, while operational sync/export flows still keep explicit export targets.
+-   Shared backend Jest mapping now resolves `@universo-react/database`, which restores package-local execution of the metahubs parity contract suite.
 -   A new core-backend router-level regression now covers publication-created application bootstrap through the composed runtime-sync seam.
 -   Validation for this closure wave is complete: touched focused Jest suites are green, touched-package lint is green, and final root `pnpm build` is green (`27/27`, `2m39.643s`).
 -   No open research thread remains for this QA completion wave.
@@ -670,14 +670,14 @@
 ## 2026-03-13: Definition lifecycle closure audit
 
 -   Research outcome implemented: the remaining gap was operational, not storage-level — lifecycle tables and helpers already existed, but live imports still bypassed them.
--   `@universo/migrations-catalog` now routes active imports through draft creation, review request, and publication, while preserving published lifecycle provenance on unchanged revisions.
--   `@universo/migrations-platform` no-op and doctor checks now require published lifecycle provenance in addition to registry checksum/export parity, so pre-fix catalog rows are repaired once.
--   Validation for this closure wave is complete: `@universo/migrations-catalog` tests 34/34, `@universo/migrations-platform` tests 98/98, package lint green, final root `pnpm build` green (`27/27`, `2m51.177s`).
+-   `@universo-react/migrations-catalog` now routes active imports through draft creation, review request, and publication, while preserving published lifecycle provenance on unchanged revisions.
+-   `@universo-react/migrations-platform` no-op and doctor checks now require published lifecycle provenance in addition to registry checksum/export parity, so pre-fix catalog rows are repaired once.
+-   Validation for this closure wave is complete: `@universo-react/migrations-catalog` tests 34/34, `@universo-react/migrations-platform` tests 98/98, package lint green, final root `pnpm build` green (`27/27`, `2m51.177s`).
 -   No open research thread remains for this lifecycle closure wave.
 
 ## 2026-03-12: Ownership seam and live-start bootstrap investigation
 
--   Research outcome implemented: the publication-derived runtime sync seam now stops at `loadPublishedPublicationRuntimeSource(...)` in `@universo/metahubs-backend`, while `@universo/applications-backend` owns the final sync-context adapter.
+-   Research outcome implemented: the publication-derived runtime sync seam now stops at `loadPublishedPublicationRuntimeSource(...)` in `@universo-react/metahubs-backend`, while `@universo-react/applications-backend` owns the final sync-context adapter.
 -   Reproduced and fixed package-level Jest forwarding drift by moving touched backend packages to the shared `tools/testing/backend/run-jest.cjs` wrapper.
 -   Live startup investigation proved that the remaining bootstrap failures were phase-ordering defects, not only SQL idempotency defects: `OptimizeRlsPolicies1800000000200` and `SeedBuiltinMetahubTemplates1800000000250` both needed `post_schema_generation` registration.
 -   Live validation now reaches a serving server: after bootstrap, `node ./run start` listens on port 3000 and returns `HTTP/1.1 200 OK` for the root route.
@@ -705,7 +705,7 @@
 ## 2026-03-04: Codename QA closure follow-up
 
 -   Research outcome implemented: codename retry policy standardized across backend domains using shared constants.
--   Added direct unit coverage for codename validation/sanitization (`@universo/utils`) and retry candidate generation (`metahubs-backend` helper).
+-   Added direct unit coverage for codename validation/sanitization (`@universo-react/utils`) and retry candidate generation (`metahubs-backend` helper).
 -   No unresolved blocker from this research thread remains.
 
 ## 2026-02-10: Application Runtime 404 on Checkbox Update
@@ -725,9 +725,9 @@
 
 ### Code audit (createQueryRunner call sites)
 
--   `@universo/auth-backend`: `ensureAuthWithRls` creates a per-request QueryRunner and releases it on response completion.
--   `@universo/auth-backend`: `permissionService` creates a QueryRunner only when one is not provided; releases it in `finally`.
--   `@universo/core-backend`: export/import uses QueryRunner with explicit connect + transaction and releases in `finally`.
+-   `@universo-react/auth-backend`: `ensureAuthWithRls` creates a per-request QueryRunner and releases it on response completion.
+-   `@universo-react/auth-backend`: `permissionService` creates a QueryRunner only when one is not provided; releases it in `finally`.
+-   `@universo-react/core-backend`: export/import uses QueryRunner with explicit connect + transaction and releases in `finally`.
 
 ### Current hypothesis
 
@@ -740,7 +740,7 @@
 
 ### Notes
 
--   Parameterized statement_timeout in `@universo/schema-ddl` locking helper to avoid raw interpolation
+-   Parameterized statement_timeout in `@universo-react/schema-ddl` locking helper to avoid raw interpolation
 -   Removed deprecated static wrapper methods in `SchemaGenerator` and `MigrationManager`
 -   Updated tests to use naming utilities directly
 

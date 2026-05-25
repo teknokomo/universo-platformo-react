@@ -126,11 +126,11 @@ Root attributes use `usePaginated`. DnD only reorders items **within the visible
 
 > **QA-F15**: Verify that `FlowListTableData` interface always has `id: string`. Check all usages of `<FlowListTable>` across the project to confirm that `data` items always have `.id` populated. If not, use `row.id ?? index` as fallback.
 
-- [ ] **Step 1.2** (QA-F10): Export `StyledTableCell` and `StyledTableRow` from `@universo/template-mui`
+- [ ] **Step 1.2** (QA-F10): Export `StyledTableCell` and `StyledTableRow` from `@universo-react/template-mui`
 
 Currently these are defined inside `FlowListTable.tsx`. Export them from a shared file so DnD components can reuse them:
 ```typescript
-// packages/universo-template-mui/base/src/components/table/TableStyles.ts
+// packages/universo-react-template-mui/base/src/components/table/TableStyles.ts
 export { StyledTableCell, StyledTableRow } from './FlowListTable'
 // Also re-export from the package index
 ```
@@ -138,7 +138,7 @@ export { StyledTableCell, StyledTableRow } from './FlowListTable'
 - [ ] **Step 1.3** (QA-F4): Add `hideCancelButton` to `ConfirmPayload` and handle in `ConfirmDialog`
 
 ```typescript
-// packages/universo-template-mui/base/src/store/actions.ts
+// packages/universo-react-template-mui/base/src/store/actions.ts
 // Add to ConfirmPayload interface:
 export interface ConfirmPayload {
     title?: string
@@ -166,7 +166,7 @@ In `ConfirmDialog.tsx`, conditionally hide the Cancel button:
 - [ ] **Step 2.1**: Add settings to `METAHUB_SETTINGS_REGISTRY` in `universo-types`
 
 ```typescript
-// packages/universo-types/base/src/common/metahubs.ts
+// packages/universo-react-types/base/src/common/metahubs.ts
 // Add after catalogs.allowElementDelete (sortOrder 9):
 
 {
@@ -712,7 +712,7 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 // QA-F10: Reuse shared styled components instead of duplicating
-import { StyledTableCell, StyledTableRow } from '@universo/template-mui'
+import { StyledTableCell, StyledTableRow } from '@universo-react/template-mui'
 
 interface SortableAttributeRowProps {
     id: string
@@ -1131,7 +1131,7 @@ import { useDroppable } from '@dnd-kit/core'
 import { Table, TableBody, TableHead, TableRow, TableCell } from '@mui/material'
 import { SortableAttributeRow } from './SortableAttributeRow'
 import type { AttributeDisplay, Attribute } from '../../../../types'
-import type { TableColumn } from '@universo/template-mui'
+import type { TableColumn } from '@universo-react/template-mui'
 
 interface SortableAttributeTableBodyProps {
     containerId: string
@@ -1475,7 +1475,7 @@ Since enumeration values are a simple flat list with no cross-container logic, t
 // src/domains/enumerations/ui/dnd/SortableValueRow.tsx
 // Same pattern as SortableAttributeRow — wraps <StyledTableRow> with useSortable
 // Uses CSS.Translate.toString(transform) for <tr> safety (QA-F6)
-// Imports StyledTableCell, StyledTableRow from @universo/template-mui (QA-F10)
+// Imports StyledTableCell, StyledTableRow from @universo-react/template-mui (QA-F10)
 // Includes DragIndicatorIcon handle column
 ```
 
@@ -1637,8 +1637,8 @@ const handleReorder = useCallback(async (valueId: string, newSortOrder: number) 
   - Container registry — register/unregister lifecycle
 
 - [ ] **Step 11.3**: Lint verification
-  - `pnpm --filter @universo/metahubs-frontend lint`
-  - `pnpm --filter @universo/metahubs-backend lint`
+  - `pnpm --filter @universo-react/metahubs-frontend lint`
+  - `pnpm --filter @universo-react/metahubs-backend lint`
 
 - [ ] **Step 11.4**: Full workspace build
   - `pnpm build`
@@ -1717,7 +1717,7 @@ Key patterns to follow:
 
 ### Current moveAttribute API
 
-Location: `packages/metahubs-backend/base/src/domains/metahubs/services/MetahubAttributesService.ts`
+Location: `packages/universo-react-metahubs-backend/base/src/domains/metahubs/services/MetahubAttributesService.ts`
 
 Key patterns:
 - `_ensureSequentialSortOrder()` — normalizes gaps before any reorder
@@ -1726,7 +1726,7 @@ Key patterns:
 
 ### ConfirmDialog / useConfirm
 
-Location: `packages/universo-template-mui/base/src/components/dialogs/ConfirmDialog.tsx`
+Location: `packages/universo-react-template-mui/base/src/components/dialogs/ConfirmDialog.tsx`
 
 Usage pattern:
 ```typescript

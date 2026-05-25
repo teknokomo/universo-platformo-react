@@ -44,7 +44,7 @@ The 13-phase plan is **structurally sound** and covers most of the TZ scope. How
 **Plan Step 1.3** renames `BUILTIN_ENTITY_TYPE_REGISTRY` → `STANDARD_ENTITY_PRESETS` but keeps it as a runtime registry.  
 **TZ #3** says entity types should NOT be specially marked. The registry should only be used at **metahub creation time** (to seed initial entity types from presets into the DB), NOT at runtime for type resolution.
 
-**Fix**: Keep preset definitions as **seed data** in template files only (`packages/metahubs-backend/base/src/domains/templates/data/presets/`). Remove the `@universo/types` registry entirely. At metahub creation, `TemplateSeedExecutor` reads preset manifests and inserts rows into `_mhb_entity_type_definitions`. After that, all entity type resolution comes from the DB.
+**Fix**: Keep preset definitions as **seed data** in template files only (`packages/universo-react-metahubs-backend/base/src/domains/templates/data/presets/`). Remove the `@universo-react/types` registry entirely. At metahub creation, `TemplateSeedExecutor` reads preset manifests and inserts rows into `_mhb_entity_type_definitions`. After that, all entity type resolution comes from the DB.
 
 **Impact on EntityTypeResolver**: Must be simplified to DB-only lookup. No more `resolveBuiltin()` fallback. If an entity type isn't in the DB for a given metahub, it doesn't exist — period.
 

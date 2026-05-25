@@ -6,7 +6,7 @@ inclusion: always
 
 ## 1. General Principles
 
-1.  **Review Local READMEs**: Before starting a task, always review the `README.md` in the relevant package's directory (e.g., `packages/profile-frontend/README.md`).
+1.  **Review Local READMEs**: Before starting a task, always review the `README.md` in the relevant package's directory (e.g., `packages/universo-react-profile-frontend/README.md`).
 2.  **Adhere to Linters**: Always follow the project's configured linters when writing code to ensure consistency and quality. For linting, use `pnpm --filter <package> lint` instead of global `pnpm lint` to optimize execution time.
 3.  **Language**: Respond to the user in Russian. However, all code comments and all information in the `memory-bank` folder must be written in English only.
 
@@ -14,7 +14,7 @@ inclusion: always
 
 ### 2.1. Workspace Imports
 
--   **DO**: When importing from another local package in the monorepo, always use the full PNPM workspace package name as defined in its `package.json` (e.g., `import { something } from '@universo/types'`).
+-   **DO**: When importing from another local package in the monorepo, always use the full PNPM workspace package name as defined in its `package.json` (e.g., `import { something } from '@universo-react/types'`).
 -   **DO NOT**: Never use relative paths (`../`) to import across package boundaries.
 -   **WHY**: This ensures correct module resolution via PNPM workspaces, prevents circular dependencies, and is critical for eventually extracting packages into separate repositories.
 
@@ -69,21 +69,21 @@ inclusion: always
 
 When creating a new backend service in `packages/` that requires database access, you must:
 
-1.  **Define SQL Migrations**: Create platform migration definitions in your package's `src/migrations/` directory using `createSchemaMigrationDefinition()` from `@universo/schema-ddl`.
-2.  **Register Migrations**: Import your migration definition into `packages/universo-migrations-platform/src/platformMigrations.ts` and add it to the `platformMigrations` array.
+1.  **Define SQL Migrations**: Create platform migration definitions in your package's `src/migrations/` directory using `createSchemaMigrationDefinition()` from `@universo-react/schema-ddl`.
+2.  **Register Migrations**: Import your migration definition into `packages/universo-react-migrations-platform/src/platformMigrations.ts` and add it to the `platformMigrations` array.
 3.  **Create Store Modules**: Write store files (e.g., `myStore.ts`) that accept a `DbExecutor` and run SQL queries via `executor.query(sql, params)`. Use `$1`, `$2`, etc. for PostgreSQL bind parameters.
-4.  **Use Request Executor**: In route handlers, obtain the request-scoped executor via `getRequestDbExecutor(req, getDbExecutor())` from `@universo/utils`. This ensures RLS context is applied.
+4.  **Use Request Executor**: In route handlers, obtain the request-scoped executor via `getRequestDbExecutor(req, getDbExecutor())` from `@universo-react/utils`. This ensures RLS context is applied.
 
 ### 2.10. DB Layer Status & Future Direction
 
 -   **Background**: The platform previously used TypeORM. TypeORM was removed because it could not flexibly support runtime schema generation, dynamic DDL, and the multi-tenant patterns the platform needs.
--   **Current state**: Database access is now built on Knex (connection management, transactions) plus raw SQL through `DbExecutor.query()` (domain queries, mutations). The three-tier executor pattern (sections 2.4–2.5) and `@universo/schema-ddl` (runtime schema generation) are the load-bearing parts of this layer.
+-   **Current state**: Database access is now built on Knex (connection management, transactions) plus raw SQL through `DbExecutor.query()` (domain queries, mutations). The three-tier executor pattern (sections 2.4–2.5) and `@universo-react/schema-ddl` (runtime schema generation) are the load-bearing parts of this layer.
 -   **Maturity**: This layer is functional and is the canonical path for new code, but the team treats it as **work-in-progress**. Some areas are not yet fully consolidated and may evolve.
 -   **Possible future directions** (not decided yet — do not act on these without an explicit decision):
     -   Move more domain code from raw SQL to the Knex query builder, where it does not lose flexibility.
     -   Build a project-specific DB and migrations subsystem on top of `pg` for maximum flexibility, reliability, performance, and security, accepting the cost of owning more of the stack.
     -   Keep the current Knex + raw SQL split but tighten the contracts and the migration tooling.
--   **Practical rule**: Until the team picks a direction, keep new work on the current path (three-tier executors, `DbExecutor.query()` with parameterized SQL, `@universo/schema-ddl` for DDL/migrations). Do not propose ambitious DB-layer rewrites as part of unrelated tasks; route those decisions through a dedicated discussion.
+-   **Practical rule**: Until the team picks a direction, keep new work on the current path (three-tier executors, `DbExecutor.query()` with parameterized SQL, `@universo-react/schema-ddl` for DDL/migrations). Do not propose ambitious DB-layer rewrites as part of unrelated tasks; route those decisions through a dedicated discussion.
 
 ## 3. Code Quality
 

@@ -1,5 +1,5 @@
-import { METAHUB_SETTINGS_REGISTRY } from '@universo/types'
-import { buildVLC, computeSnapshotHash } from '@universo/utils'
+import { METAHUB_SETTINGS_REGISTRY } from '@universo-react/types'
+import { buildVLC, computeSnapshotHash } from '@universo-react/utils'
 
 export const SELF_HOSTED_APP_FIXTURE_FILENAME = 'metahubs-self-hosted-app-snapshot.json'
 export const SELF_HOSTED_APP_SCREENSHOTS_DIRNAME = 'self-hosted-app'

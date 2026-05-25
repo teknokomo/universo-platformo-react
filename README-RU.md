@@ -77,7 +77,7 @@ Universo Platformo React — это текущая эталонная реали
 ## Структура проекта
 
 -   Репозиторий представляет собой монорепозиторий на PNPM + Turborepo с корневой документацией, планировочными записями в `memory-bank`, инженерными утилитами и пакетными workspace.
--   Рабочие пакеты используют плоскую структуру `packages/<name>/package.json`, включая пакеты общей UI-обвязки вроде `packages/apps-template-mui` и сервисы документации вроде `packages/universo-rest-docs`.
+-   Рабочие пакеты используют плоскую структуру `packages/universo-react-<name>/package.json` с соответствующими именами `@universo-react/<name>`, включая пакеты общей UI-обвязки вроде `packages/universo-react-apps-template-mui` и сервисы документации вроде `packages/universo-react-rest-docs`.
 -   Бекенд-часть организована вокруг SQL-first рантайма на PostgreSQL/Supabase, модульного миграционного инструментария, утилит описания схем и feature-пакетов для аутентификации, онбординга, профиля, metahubs, applications и администрирования.
 -   Фронтенд-часть организована вокруг React-оболочки, общих пакетов UI/state/i18n и feature-пакетов для онбординга, аутентификации, профиля, metahubs, applications и администрирования.
 -   В доменах metahubs и admin, fixed schemas, runtime metadata и authoring flows сходятся к одному persisted-контракту `codename JSONB` на основе versioned localized content (VLC), а platform migrations переводят legacy dual-field хранение codename в ту же форму.
@@ -172,7 +172,7 @@ Universo Platformo разрабатывается на нескольких те
 
 3. Настройте переменные окружения.
 
-    - Создайте `.env` в `packages/universo-core-backend`.
+    - Создайте `.env` в `packages/universo-react-core-backend`.
     - Добавьте необходимые настройки Supabase/PostgreSQL:
         ```
         SUPABASE_URL=your_supabase_url
@@ -187,7 +187,7 @@ Universo Platformo разрабатывается на нескольких те
     - `SERVICE_ROLE_KEY` обязателен для server-side provisioning-задач, включая стартовый bootstrap суперпользователя и создание пользователей из админ-панели.
     - `BOOTSTRAP_SUPERUSER_EMAIL` и `BOOTSTRAP_SUPERUSER_PASSWORD` являются demo credentials только для первого локального bootstrap. Перед любым реальным развёртыванием обязательно замените их.
     - `NODE_ENV=development` включает функции разработки, такие как сброс базы данных. Никогда не используйте в production.
-    - При необходимости создайте `.env` в `packages/universo-core-frontend` для UI-специфичных настроек, например `VITE_PORT`.
+    - При необходимости создайте `.env` в `packages/universo-react-core-frontend` для UI-специфичных настроек, например `VITE_PORT`.
 
 4. Соберите workspace.
 
@@ -213,7 +213,7 @@ Universo Platformo разрабатывается на нескольких те
 
 ### Варианты Supabase
 
-Обычные команды `pnpm start` и `pnpm start:allclean` используют стандартные `.env` файлы. Они могут указывать на удалённый проект Supabase или на локальный Supabase, если вы вручную запишете локальные значения в `packages/universo-core-backend/.env`.
+Обычные команды `pnpm start` и `pnpm start:allclean` используют стандартные `.env` файлы. Они могут указывать на удалённый проект Supabase или на локальный Supabase, если вы вручную запишете локальные значения в `packages/universo-react-core-backend/.env`.
 
 Для обычной локальной работы рекомендуется Docker-сценарий с отдельными профилями, игнорируемыми git, чтобы не смешивать удалённые и локальные настройки:
 

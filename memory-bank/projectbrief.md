@@ -34,14 +34,14 @@ The platform is also the foundation for two larger initiatives:
 -   **Architectural transition to "everything is an Application"**: the
     current legacy feature packages (metahubs, applications list, admin,
     profile, start) become regular applications rendered through
-    `packages/apps-template-mui`. The legacy packages are removed once
+    `packages/universo-react-apps-template-mui`. The legacy packages are removed once
     the new applications cover their functionality.
 -   **Universo MMOOMM**: massively multiplayer space MMO with production
     chains, territorial control, and real-world integration.
 -   **Universo Kiberplano**: digital planning → multi-agent orchestration →
     robotic implementation across distributed nodes.
 -   **Shared runtime DDL**: schema generation and migrations live in
-    `@universo/schema-ddl` to avoid backend coupling.
+    `@universo-react/schema-ddl` to avoid backend coupling.
 
 ## Current Status
 
@@ -55,7 +55,7 @@ The platform is also the foundation for two larger initiatives:
     benchmarked against iSpring LMS.
 -   **DB layer**: TypeORM was removed. Current path is Knex (connection
     management, transactions) plus raw SQL through `DbExecutor.query()`,
-    with `@universo/schema-ddl` for runtime schema generation. The team
+    with `@universo-react/schema-ddl` for runtime schema generation. The team
     treats this layer as work-in-progress; see
     `.kiro/steering/recommendations.md` § 2.10 for the future direction.
 
@@ -200,12 +200,12 @@ pnpm build
 pnpm dev
 
 # Build a specific package
-pnpm --filter @universo/metahubs-frontend build
+pnpm --filter @universo-react/metahubs-frontend build
 ```
 
 ### Environment Setup
 
-Create `.env` in `packages/universo-core-backend/`:
+Create `.env` in `packages/universo-react-core-backend/`:
 
 ```bash
 SUPABASE_URL=your_supabase_url
@@ -215,7 +215,7 @@ DATABASE_URL=your_postgres_url
 ```
 
 After refactoring, Supabase configuration is consolidated to
-`packages/universo-core-backend/`.
+`packages/universo-react-core-backend/`.
 
 ## Coding Standards & Guidelines
 
@@ -223,7 +223,7 @@ After refactoring, Supabase configuration is consolidated to
 -   **Efficiency**: fewer lines is better when readability is preserved.
 -   **Compatibility**: maintain backwards compatibility with the inherited upstream shell where required.
 -   **Package management**: PNPM workspaces only, no npm/yarn.
--   **Workspace imports**: use full package names (`@universo/types`), never relative cross-package paths.
+-   **Workspace imports**: use full package names (`@universo-react/types`), never relative cross-package paths.
 -   **Data access**: three-tier executor pattern + `DbExecutor.query()` parameterized SQL.
 -   **UI**: reuse existing MUI dashboard / app-template primitives; do not introduce LMS-only forks for generic problems.
 

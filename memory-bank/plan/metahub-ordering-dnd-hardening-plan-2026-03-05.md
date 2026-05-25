@@ -3,36 +3,36 @@
 ## Overview
 Implement a consistent ordering and table-view drag-and-drop model across metahub entities (hubs, catalogs, sets, enumerations, elements), add configurable max child-attribute limits for TABLE attributes, and remove unused dependency debt without preserving legacy compatibility paths.
 
-This plan assumes a fresh database baseline (no legacy migration compatibility constraints), UUID v7, immediate i18n coverage, and shared contracts via `@universo/types` / `@universo/utils`.
+This plan assumes a fresh database baseline (no legacy migration compatibility constraints), UUID v7, immediate i18n coverage, and shared contracts via `@universo-react/types` / `@universo-react/utils`.
 
 ## Affected Areas
 - Backend routes/services:
-  - `packages/metahubs-backend/base/src/domains/elements/routes/elementsRoutes.ts`
-  - `packages/metahubs-backend/base/src/domains/metahubs/services/MetahubElementsService.ts`
-  - `packages/metahubs-backend/base/src/domains/hubs/routes/hubsRoutes.ts`
-  - `packages/metahubs-backend/base/src/domains/catalogs/routes/catalogsRoutes.ts`
-  - `packages/metahubs-backend/base/src/domains/sets/routes/setsRoutes.ts`
-  - `packages/metahubs-backend/base/src/domains/enumerations/routes/enumerationsRoutes.ts`
-  - `packages/metahubs-backend/base/src/domains/metahubs/services/MetahubObjectsService.ts`
-  - `packages/metahubs-backend/base/src/domains/metahubs/services/MetahubAttributesService.ts`
+  - `packages/universo-react-metahubs-backend/base/src/domains/elements/routes/elementsRoutes.ts`
+  - `packages/universo-react-metahubs-backend/base/src/domains/metahubs/services/MetahubElementsService.ts`
+  - `packages/universo-react-metahubs-backend/base/src/domains/hubs/routes/hubsRoutes.ts`
+  - `packages/universo-react-metahubs-backend/base/src/domains/catalogs/routes/catalogsRoutes.ts`
+  - `packages/universo-react-metahubs-backend/base/src/domains/sets/routes/setsRoutes.ts`
+  - `packages/universo-react-metahubs-backend/base/src/domains/enumerations/routes/enumerationsRoutes.ts`
+  - `packages/universo-react-metahubs-backend/base/src/domains/metahubs/services/MetahubObjectsService.ts`
+  - `packages/universo-react-metahubs-backend/base/src/domains/metahubs/services/MetahubAttributesService.ts`
 - Frontend domains/UI:
-  - `packages/metahubs-frontend/base/src/domains/elements/{api,hooks,ui}`
-  - `packages/metahubs-frontend/base/src/domains/hubs/{api,hooks,ui}`
-  - `packages/metahubs-frontend/base/src/domains/catalogs/{api,hooks,ui}`
-  - `packages/metahubs-frontend/base/src/domains/sets/{api,hooks,ui}`
-  - `packages/metahubs-frontend/base/src/domains/enumerations/{api,hooks,ui}`
-  - `packages/metahubs-frontend/base/src/domains/attributes/ui/{AttributeFormFields.tsx,AttributeList.tsx,ChildAttributeList.tsx}`
-  - `packages/universo-template-mui/base/src/components/table/FlowListTable.tsx`
+  - `packages/universo-react-metahubs-frontend/base/src/domains/elements/{api,hooks,ui}`
+  - `packages/universo-react-metahubs-frontend/base/src/domains/hubs/{api,hooks,ui}`
+  - `packages/universo-react-metahubs-frontend/base/src/domains/catalogs/{api,hooks,ui}`
+  - `packages/universo-react-metahubs-frontend/base/src/domains/sets/{api,hooks,ui}`
+  - `packages/universo-react-metahubs-frontend/base/src/domains/enumerations/{api,hooks,ui}`
+  - `packages/universo-react-metahubs-frontend/base/src/domains/attributes/ui/{AttributeFormFields.tsx,AttributeList.tsx,ChildAttributeList.tsx}`
+  - `packages/universo-react-template-mui/base/src/components/table/FlowListTable.tsx`
 - Shared types/contracts:
-  - `packages/universo-types/base/src/common/metahubs.ts`
+  - `packages/universo-react-types/base/src/common/metahubs.ts`
 - i18n:
-  - `packages/metahubs-frontend/base/src/i18n/locales/en/metahubs.json`
-  - `packages/metahubs-frontend/base/src/i18n/locales/ru/metahubs.json`
-  - If reused globally: `packages/universo-i18n/*`
+  - `packages/universo-react-metahubs-frontend/base/src/i18n/locales/en/metahubs.json`
+  - `packages/universo-react-metahubs-frontend/base/src/i18n/locales/ru/metahubs.json`
+  - If reused globally: `packages/universo-react-i18n/*`
 - Workspace dependency management:
   - `pnpm-workspace.yaml`
-  - `packages/metahubs-frontend/base/package.json`
-  - `packages/applications-frontend/base/package.json`
+  - `packages/universo-react-metahubs-frontend/base/package.json`
+  - `packages/universo-react-applications-frontend/base/package.json`
 
 ## Additional Findings From Deep Analysis
 - `MetahubElementsService.create()` currently defaults `sort_order` to `0` instead of append-to-end.
@@ -131,13 +131,13 @@ This plan assumes a fresh database baseline (no legacy migration compatibility c
   - disabled `Create` + blocked drop when child max reached,
   - invalid drop target style assertion.
 - [ ] Quality gates (scoped first, then workspace if requested):
-  - `pnpm --filter @universo/metahubs-backend lint`
-  - `pnpm --filter @universo/metahubs-backend test -- <touched-tests>`
-  - `pnpm --filter @universo/metahubs-backend build`
-  - `pnpm --filter @universo/metahubs-frontend lint -- <touched-files>`
-  - `pnpm --filter @universo/metahubs-frontend test -- <touched-tests>`
-  - `pnpm --filter @universo/metahubs-frontend build`
-  - `pnpm --filter @universo/types build` (if shared contracts changed)
+  - `pnpm --filter @universo-react/metahubs-backend lint`
+  - `pnpm --filter @universo-react/metahubs-backend test -- <touched-tests>`
+  - `pnpm --filter @universo-react/metahubs-backend build`
+  - `pnpm --filter @universo-react/metahubs-frontend lint -- <touched-files>`
+  - `pnpm --filter @universo-react/metahubs-frontend test -- <touched-tests>`
+  - `pnpm --filter @universo-react/metahubs-frontend build`
+  - `pnpm --filter @universo-react/types build` (if shared contracts changed)
 
 ## Potential Challenges
 - Concurrency collisions in reorder operations under `READ COMMITTED`.
@@ -162,16 +162,16 @@ This plan assumes a fresh database baseline (no legacy migration compatibility c
   - do not introduce new shared table interfaces unless impossible with existing `FlowListTable` capabilities,
   - implement by analogy with existing attributes / enumeration values / constants flows.
 - Shared package usage:
-  - `@universo/types` for new validation-rule/contracts updates,
-  - `@universo/utils` for reusable helpers,
-  - `@universo/template-mui` for table behavior extension,
-  - keep published-app constraints compatible with `packages/apps-template-mui`.
+  - `@universo-react/types` for new validation-rule/contracts updates,
+  - `@universo-react/utils` for reusable helpers,
+  - `@universo-react/template-mui` for table behavior extension,
+  - keep published-app constraints compatible with `packages/universo-react-apps-template-mui`.
 
 ## Dependencies and Coordination
-- `@universo/types` update must land before backend/frontend `AttributeValidationRules.maxChildAttributes` usage.
+- `@universo-react/types` update must land before backend/frontend `AttributeValidationRules.maxChildAttributes` usage.
 - Backend reorder endpoints should land before frontend DnD wiring.
 - Prefer implementing red invalid-drop visualization in existing wrapper/container styles first; only extend `FlowListTable` API if wrapper styling is demonstrably insufficient.
-- If global i18n key policy requires centralization, mirror keys in `packages/universo-i18n` and keep package-level namespace registration aligned.
+- If global i18n key policy requires centralization, mirror keys in `packages/universo-react-i18n` and keep package-level namespace registration aligned.
 
 ## Definition of Done
 - [ ] Elements support ordered display index, move up/down actions, and table drag reorder.

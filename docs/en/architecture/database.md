@@ -9,10 +9,10 @@ shared Knex-based runtime.
 
 ## Current Model
 
-- `@universo/database` owns the shared Knex runtime and executor helpers.
+- `@universo-react/database` owns the shared Knex runtime and executor helpers.
 - Request-scoped execution is used where auth and RLS context must be applied.
-- `@universo/migrations-platform` registers and runs platform migrations.
-- `@universo/schema-ddl` provides runtime schema generation and diff utilities.
+- `@universo-react/migrations-platform` registers and runs platform migrations.
+- `@universo-react/schema-ddl` provides runtime schema generation and diff utilities.
 
 ## Design Goals
 

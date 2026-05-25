@@ -48,7 +48,7 @@ Two project rules sit on top of this:
   package that needs DDL/runtime schema work isolates that work behind
   a dedicated boundary (for example `src/ddl/index.ts`).
 
-`@universo/schema-ddl` (runtime schema generation, migration, and diff
+`@universo-react/schema-ddl` (runtime schema generation, migration, and diff
 utilities) is the load-bearing piece for DDL/migration work.
 
 ## Maturity
@@ -85,7 +85,7 @@ Until the team picks a direction:
 - Keep new work on the **current path**:
   - three-tier executors,
   - `DbExecutor.query()` with parameterized, schema-qualified SQL,
-  - `@universo/schema-ddl` for DDL/migrations.
+  - `@universo-react/schema-ddl` for DDL/migrations.
 - Do not propose ambitious DB-layer rewrites as part of unrelated
   tasks. A change to the data-access stack is a strategic decision;
   route it through a dedicated discussion (a brief or a design

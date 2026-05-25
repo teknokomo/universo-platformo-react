@@ -58,7 +58,7 @@ QA constraint:
 
 ### F-1: The LMS template seeds the reported global widgets
 
-[packages/metahubs-backend/base/src/domains/templates/data/lms.template.ts](../../packages/metahubs-backend/base/src/domains/templates/data/lms.template.ts) currently seeds:
+[packages/universo-react-metahubs-backend/base/src/domains/templates/data/lms.template.ts](../../packages/universo-react-metahubs-backend/base/src/domains/templates/data/lms.template.ts) currently seeds:
 
 - `moduleViewerWidget` in the center zone.
 - `statsViewerWidget` in the right zone.
@@ -80,16 +80,16 @@ The fixture also contains the `lms-module-viewer` and `lms-stats-viewer` scripts
 
 ### F-3: The flat sidebar is produced by backend runtime expansion
 
-[packages/applications-backend/base/src/controllers/runtimeRowsController.ts](../../packages/applications-backend/base/src/controllers/runtimeRowsController.ts) expands `autoShowAllCatalogs` into linked runtime collections. This is useful for generic CRUD inspection, but it is not a good default for an LMS learner portal because it exposes implementation catalogs as first-class navigation.
+[packages/universo-react-applications-backend/base/src/controllers/runtimeRowsController.ts](../../packages/universo-react-applications-backend/base/src/controllers/runtimeRowsController.ts) expands `autoShowAllCatalogs` into linked runtime collections. This is useful for generic CRUD inspection, but it is not a good default for an LMS learner portal because it exposes implementation catalogs as first-class navigation.
 
 ### F-4: The frontend runtime still contains template demo fallbacks
 
 The CREATIVE review confirmed demo leftovers in:
 
-- [packages/apps-template-mui/src/dashboard/components/MainGrid.tsx](../../packages/apps-template-mui/src/dashboard/components/MainGrid.tsx) with static overview cards/charts.
-- [packages/apps-template-mui/src/dashboard/components/CardAlert.tsx](../../packages/apps-template-mui/src/dashboard/components/CardAlert.tsx) with demo upgrade copy.
-- [packages/apps-template-mui/src/dashboard/components/SelectContent.tsx](../../packages/apps-template-mui/src/dashboard/components/SelectContent.tsx) with demo product names.
-- [packages/apps-template-mui/src/dashboard/components/widgetRenderer.tsx](../../packages/apps-template-mui/src/dashboard/components/widgetRenderer.tsx) with demo user profile data and hardcoded widget cases.
+- [packages/universo-react-apps-template-mui/src/dashboard/components/MainGrid.tsx](../../packages/universo-react-apps-template-mui/src/dashboard/components/MainGrid.tsx) with static overview cards/charts.
+- [packages/universo-react-apps-template-mui/src/dashboard/components/CardAlert.tsx](../../packages/universo-react-apps-template-mui/src/dashboard/components/CardAlert.tsx) with demo upgrade copy.
+- [packages/universo-react-apps-template-mui/src/dashboard/components/SelectContent.tsx](../../packages/universo-react-apps-template-mui/src/dashboard/components/SelectContent.tsx) with demo product names.
+- [packages/universo-react-apps-template-mui/src/dashboard/components/widgetRenderer.tsx](../../packages/universo-react-apps-template-mui/src/dashboard/components/widgetRenderer.tsx) with demo user profile data and hardcoded widget cases.
 
 These must be converted to data-driven or disabled-by-default runtime surfaces before the LMS fixture can be treated as product-quality.
 
@@ -167,7 +167,7 @@ Constrained or deferred directions:
 1. Remove global LMS module, statistics, and QR widgets from the default published LMS application.
 2. Replace `autoShowAllCatalogs` with explicit, workspace-aware portal navigation and a safe extension path for role-aware navigation.
 3. Keep runtime improvements generic so they can support non-LMS metahubs later.
-4. Use the original MUI dashboard visual language from [packages/apps-template-mui](../../packages/apps-template-mui) and [.backup/templates/dashboard](../../.backup/templates/dashboard).
+4. Use the original MUI dashboard visual language from [packages/universo-react-apps-template-mui](../../packages/universo-react-apps-template-mui) and [.backup/templates/dashboard](../../.backup/templates/dashboard).
 5. Build the LMS configuration from entity-first metadata objects, scripts, layouts, and workspace settings.
 6. Add a lightweight Page metadata type or preset when it is useful for block-structured content.
 7. Regenerate [tools/fixtures/metahubs-lms-app-snapshot.json](../../tools/fixtures/metahubs-lms-app-snapshot.json) through the product Playwright generator.
@@ -207,7 +207,7 @@ Constrained or deferred directions:
 
 3. **Published application runtime**
    - Renders generic entity views, page views, cards, tables, filters, dashboards, and context actions.
-   - Uses [packages/apps-template-mui](../../packages/apps-template-mui) as the isolated published-app template.
+   - Uses [packages/universo-react-apps-template-mui](../../packages/universo-react-apps-template-mui) as the isolated published-app template.
    - Does not hardcode LMS-only logic unless it is expressed as data, scripts, or metadata.
 
 4. **Workspace layer**
@@ -269,36 +269,36 @@ Constrained or deferred directions:
 
 ### Types and Shared Utilities
 
-- [packages/universo-types/base/src/common/dashboardLayout.ts](../../packages/universo-types/base/src/common/dashboardLayout.ts)
-- [packages/universo-types/base/src/common/applicationLayouts.ts](../../packages/universo-types/base/src/common/applicationLayouts.ts)
-- [packages/universo-types/base/src/common/metahubs.ts](../../packages/universo-types/base/src/common/metahubs.ts)
-- [packages/universo-utils](../../packages/universo-utils)
-- [packages/universo-i18n](../../packages/universo-i18n)
+- [packages/universo-react-types/base/src/common/dashboardLayout.ts](../../packages/universo-react-types/base/src/common/dashboardLayout.ts)
+- [packages/universo-react-types/base/src/common/applicationLayouts.ts](../../packages/universo-react-types/base/src/common/applicationLayouts.ts)
+- [packages/universo-react-types/base/src/common/metahubs.ts](../../packages/universo-react-types/base/src/common/metahubs.ts)
+- [packages/universo-react-utils](../../packages/universo-react-utils)
+- [packages/universo-react-i18n](../../packages/universo-react-i18n)
 
 ### Metahubs
 
-- [packages/metahubs-backend/base/src/domains/templates/data/lms.template.ts](../../packages/metahubs-backend/base/src/domains/templates/data/lms.template.ts)
-- [packages/metahubs-backend/base/src/domains/templates/data/basic.template.ts](../../packages/metahubs-backend/base/src/domains/templates/data/basic.template.ts)
-- [packages/metahubs-backend/base/src/domains/templates/services](../../packages/metahubs-backend/base/src/domains/templates/services)
-- [packages/metahubs-backend/base/src/domains/publications](../../packages/metahubs-backend/base/src/domains/publications)
+- [packages/universo-react-metahubs-backend/base/src/domains/templates/data/lms.template.ts](../../packages/universo-react-metahubs-backend/base/src/domains/templates/data/lms.template.ts)
+- [packages/universo-react-metahubs-backend/base/src/domains/templates/data/basic.template.ts](../../packages/universo-react-metahubs-backend/base/src/domains/templates/data/basic.template.ts)
+- [packages/universo-react-metahubs-backend/base/src/domains/templates/services](../../packages/universo-react-metahubs-backend/base/src/domains/templates/services)
+- [packages/universo-react-metahubs-backend/base/src/domains/publications](../../packages/universo-react-metahubs-backend/base/src/domains/publications)
 
 ### Applications
 
-- [packages/applications-backend/base/src/controllers/runtimeRowsController.ts](../../packages/applications-backend/base/src/controllers/runtimeRowsController.ts)
-- [packages/applications-backend/base/src/routes/sync](../../packages/applications-backend/base/src/routes/sync)
-- [packages/applications-backend/base/src/services](../../packages/applications-backend/base/src/services)
-- [packages/applications-frontend](../../packages/applications-frontend)
+- [packages/universo-react-applications-backend/base/src/controllers/runtimeRowsController.ts](../../packages/universo-react-applications-backend/base/src/controllers/runtimeRowsController.ts)
+- [packages/universo-react-applications-backend/base/src/routes/sync](../../packages/universo-react-applications-backend/base/src/routes/sync)
+- [packages/universo-react-applications-backend/base/src/services](../../packages/universo-react-applications-backend/base/src/services)
+- [packages/universo-react-applications-frontend](../../packages/universo-react-applications-frontend)
 
 ### Published App Runtime
 
-- [packages/apps-template-mui/src/dashboard](../../packages/apps-template-mui/src/dashboard)
-- [packages/apps-template-mui/src/standalone](../../packages/apps-template-mui/src/standalone)
-- [packages/apps-template-mui/src/hooks](../../packages/apps-template-mui/src/hooks)
-- [packages/apps-template-mui/src/workspaces](../../packages/apps-template-mui/src/workspaces)
+- [packages/universo-react-apps-template-mui/src/dashboard](../../packages/universo-react-apps-template-mui/src/dashboard)
+- [packages/universo-react-apps-template-mui/src/standalone](../../packages/universo-react-apps-template-mui/src/standalone)
+- [packages/universo-react-apps-template-mui/src/hooks](../../packages/universo-react-apps-template-mui/src/hooks)
+- [packages/universo-react-apps-template-mui/src/workspaces](../../packages/universo-react-apps-template-mui/src/workspaces)
 
 ### Shared MUI Template
 
-- [packages/universo-template-mui](../../packages/universo-template-mui)
+- [packages/universo-react-template-mui](../../packages/universo-react-template-mui)
 - [.backup/templates/dashboard](../../.backup/templates/dashboard)
 
 ### Fixtures and E2E
@@ -409,7 +409,7 @@ Low-level catalogs such as progress records, quiz responses, access links, and i
 ### Phase 0 - Baseline Evidence
 
 1. Create a fresh test run using the existing LMS snapshot import flow.
-2. Use Playwright CLI on port 3100 with the credentials from [packages/universo-core-backend/base/.env.e2e](../../packages/universo-core-backend/base/.env.e2e).
+2. Use Playwright CLI on port 3100 with the credentials from [packages/universo-react-core-backend/base/.env.e2e](../../packages/universo-react-core-backend/base/.env.e2e).
 3. Capture before screenshots for:
    - default published LMS runtime,
    - mobile runtime,
@@ -420,7 +420,7 @@ Low-level catalogs such as progress records, quiz responses, access links, and i
 
 ### Phase 1 - Clean the LMS Default Template and Fixture Contract
 
-1. Update [lms.template.ts](../../packages/metahubs-backend/base/src/domains/templates/data/lms.template.ts):
+1. Update [lms.template.ts](../../packages/universo-react-metahubs-backend/base/src/domains/templates/data/lms.template.ts):
    - remove default `moduleViewerWidget`,
    - remove default `statsViewerWidget`,
    - remove default `qrCodeWidget`,
@@ -438,7 +438,7 @@ Low-level catalogs such as progress records, quiz responses, access links, and i
 
 ### Phase 2 - Add Generic Portal Navigation
 
-1. Extend shared menu widget types in [packages/universo-types](../../packages/universo-types):
+1. Extend shared menu widget types in [packages/universo-react-types](../../packages/universo-react-types):
    - `maxPrimaryItems`,
    - `overflowLabelKey`,
    - `startPage`,
@@ -454,13 +454,13 @@ Low-level catalogs such as progress records, quiz responses, access links, and i
    - add explicit quick access and overflow resolution,
    - place workspace items predictably.
 4. Update both existing menu editors:
-   - [packages/metahubs-frontend/base/src/domains/layouts/ui/MenuWidgetEditorDialog.tsx](../../packages/metahubs-frontend/base/src/domains/layouts/ui/MenuWidgetEditorDialog.tsx)
-   - [packages/applications-frontend/base/src/components/layouts/ApplicationMenuWidgetEditorDialog.tsx](../../packages/applications-frontend/base/src/components/layouts/ApplicationMenuWidgetEditorDialog.tsx)
-5. Update [MenuContent.tsx](../../packages/apps-template-mui/src/dashboard/components/MenuContent.tsx):
+   - [packages/universo-react-metahubs-frontend/base/src/domains/layouts/ui/MenuWidgetEditorDialog.tsx](../../packages/universo-react-metahubs-frontend/base/src/domains/layouts/ui/MenuWidgetEditorDialog.tsx)
+   - [packages/universo-react-applications-frontend/base/src/components/layouts/ApplicationMenuWidgetEditorDialog.tsx](../../packages/universo-react-applications-frontend/base/src/components/layouts/ApplicationMenuWidgetEditorDialog.tsx)
+5. Update [MenuContent.tsx](../../packages/universo-react-apps-template-mui/src/dashboard/components/MenuContent.tsx):
    - render quick access items,
    - render an overflow menu,
    - avoid layout shifts.
-6. Add a default section resolver instead of depending on the first menu item in [useCrudDashboard.ts](../../packages/apps-template-mui/src/hooks/useCrudDashboard.ts).
+6. Add a default section resolver instead of depending on the first menu item in [useCrudDashboard.ts](../../packages/universo-react-apps-template-mui/src/hooks/useCrudDashboard.ts).
 
 ### Phase 3 - Add Generic Runtime View Primitives
 
@@ -471,8 +471,8 @@ Low-level catalogs such as progress records, quiz responses, access links, and i
    - surface props,
    - loading and empty states.
 2. Update both existing columns-container editors:
-   - [packages/metahubs-frontend/base/src/domains/layouts/ui/ColumnsContainerEditorDialog.tsx](../../packages/metahubs-frontend/base/src/domains/layouts/ui/ColumnsContainerEditorDialog.tsx)
-   - [packages/applications-frontend/base/src/components/layouts/ApplicationColumnsContainerEditorDialog.tsx](../../packages/applications-frontend/base/src/components/layouts/ApplicationColumnsContainerEditorDialog.tsx)
+   - [packages/universo-react-metahubs-frontend/base/src/domains/layouts/ui/ColumnsContainerEditorDialog.tsx](../../packages/universo-react-metahubs-frontend/base/src/domains/layouts/ui/ColumnsContainerEditorDialog.tsx)
+   - [packages/universo-react-applications-frontend/base/src/components/layouts/ApplicationColumnsContainerEditorDialog.tsx](../../packages/universo-react-applications-frontend/base/src/components/layouts/ApplicationColumnsContainerEditorDialog.tsx)
 3. Upgrade the existing overview cards surface:
    - data comes from a query, a script, or runtime rows,
    - presentation follows the original MUI dashboard card style,
@@ -528,7 +528,7 @@ Low-level catalogs such as progress records, quiz responses, access links, and i
    - report presets,
    - public access defaults.
 2. Extend the existing strict `applicationDialogSettingsSchema` instead of storing arbitrary JSON settings.
-3. Update the existing application settings UI in [packages/applications-frontend](../../packages/applications-frontend) using current form/dialog components.
+3. Update the existing application settings UI in [packages/universo-react-applications-frontend](../../packages/universo-react-applications-frontend) using current form/dialog components.
 4. Use TanStack Query for mutations and cache invalidation.
 5. Await invalidations for runtime/layout/settings mutations so pending state matches refetch lifecycle.
 6. Persist settings through SQL-first backend stores with request-scoped executors.
@@ -543,7 +543,7 @@ Low-level catalogs such as progress records, quiz responses, access links, and i
    - Knowledge: spaces, folders, articles, search.
    - Development: active plans, stages, mentors, supervisors.
    - Team/Admin: scoped lists and reports depending on role.
-2. Use existing [apps-template-mui](../../packages/apps-template-mui) components first:
+2. Use existing [apps-template-mui](../../packages/universo-react-apps-template-mui) components first:
    - `ViewHeaderMUI`,
    - `ToolbarControls`,
    - `ItemCard`,
@@ -701,26 +701,26 @@ Use full root checks only after the implementation is stable or when the user ap
 
 Update the local READMEs for packages whose contracts change:
 
-1. [packages/metahubs-backend/base/README.md](../../packages/metahubs-backend/base/README.md)
+1. [packages/universo-react-metahubs-backend/base/README.md](../../packages/universo-react-metahubs-backend/base/README.md)
    - LMS template seed model,
    - Page metadata type or preset,
    - fixture generation expectations.
-2. [packages/applications-backend/base/README.md](../../packages/applications-backend/base/README.md)
+2. [packages/universo-react-applications-backend/base/README.md](../../packages/universo-react-applications-backend/base/README.md)
    - portal navigation runtime settings,
    - layout sync behavior,
    - public access and workspace settings.
-3. [packages/apps-template-mui/README.md](../../packages/apps-template-mui/README.md)
+3. [packages/universo-react-apps-template-mui/README.md](../../packages/universo-react-apps-template-mui/README.md)
    - generic portal components,
    - columns container extensions,
    - menu quick access and overflow extension,
    - screenshot testing expectations.
-4. [packages/apps-template-mui/src/dashboard/README.md](../../packages/apps-template-mui/src/dashboard/README.md)
+4. [packages/universo-react-apps-template-mui/src/dashboard/README.md](../../packages/universo-react-apps-template-mui/src/dashboard/README.md)
    - dashboard zones,
    - inline side stacks,
    - disabled demo fallbacks.
-5. [packages/universo-template-mui/base/README.md](../../packages/universo-template-mui/base/README.md)
+5. [packages/universo-react-template-mui/base/README.md](../../packages/universo-react-template-mui/base/README.md)
    - shared MUI component reuse rules if components are moved or generalized.
-6. [packages/universo-types](../../packages/universo-types)
+6. [packages/universo-react-types](../../packages/universo-react-types)
    - update or add docs if shared runtime types are changed.
 
 ### GitBook Docs
@@ -778,8 +778,8 @@ Specific cleanup:
 ### Safe SQL Store Pattern
 
 ```ts
-import type { DbExecutor } from '@universo/utils'
-import { qSchemaTable } from '@universo/database'
+import type { DbExecutor } from '@universo-react/utils'
+import { qSchemaTable } from '@universo-react/database'
 
 interface UpdateCourseStatusInput {
   schema: string
@@ -847,7 +847,7 @@ Expected implementation notes:
 ### UUID v7 Pattern
 
 ```ts
-import { generateUuidV7 } from '@universo/utils'
+import { generateUuidV7 } from '@universo-react/utils'
 
 const draftEntityId = generateUuidV7()
 ```
@@ -924,7 +924,7 @@ Expected implementation notes:
 ### Script Contract Pattern
 
 ```ts
-import { AtServer, ExtensionScript } from '@universo/extension-sdk'
+import { AtServer, ExtensionScript } from '@universo-react/extension-sdk'
 
 interface ProgressSummaryInput {
   workspaceId?: string | null
@@ -984,7 +984,7 @@ Attach this script with `records.read`; only client-facing widgets that proxy to
 Incorrect implementation to avoid:
 
 ```ts
-import type { RuntimeScriptContext } from '@universo/types'
+import type { RuntimeScriptContext } from '@universo-react/types'
 
 export async function calculateProgressSummary(ctx: RuntimeScriptContext) {
   // There is no ctx.query() API in the current extension SDK.
@@ -995,14 +995,14 @@ export async function calculateProgressSummary(ctx: RuntimeScriptContext) {
 Expected implementation notes:
 
 1. Scripts validate inputs before reading runtime data.
-2. Scripts use the current `@universo/extension-sdk` contract: `ExtensionScript`, decorators, and `this.ctx.records`.
+2. Scripts use the current `@universo-react/extension-sdk` contract: `ExtensionScript`, decorators, and `this.ctx.records`.
 3. Scripts request only the capabilities they need.
 4. Scripts return a small serialized model.
 5. Scripts do not embed static demo UI copy.
 
 ### Existing SDK Contract Guardrail
 
-The implementation must not invent a new runtime script host API for the LMS plan. It should extend the existing SDK only through explicit package-level changes in `packages/extension-sdk`, `packages/scripting-engine`, and runtime script service tests.
+The implementation must not invent a new runtime script host API for the LMS plan. It should extend the existing SDK only through explicit package-level changes in `packages/universo-react-extension-sdk`, `packages/scripting-engine`, and runtime script service tests.
 
 Current supported surfaces:
 
@@ -1151,7 +1151,7 @@ Mitigation:
 
 Mitigation:
 
-- Use shared types in [packages/universo-types](../../packages/universo-types).
+- Use shared types in [packages/universo-react-types](../../packages/universo-react-types).
 - Add backend sync tests and frontend rendering tests.
 - Add fixture contract checks for the generated snapshot.
 
@@ -1159,7 +1159,7 @@ Mitigation:
 
 Mitigation:
 
-- Reuse [apps-template-mui](../../packages/apps-template-mui) and [universo-template-mui](../../packages/universo-template-mui) components.
+- Reuse [apps-template-mui](../../packages/universo-react-apps-template-mui) and [universo-template-mui](../../packages/universo-react-template-mui) components.
 - Compare against [.backup/templates/dashboard](../../.backup/templates/dashboard) where relevant.
 - Add Playwright screenshots for desktop and mobile.
 
@@ -1175,7 +1175,7 @@ Mitigation:
 
 Mitigation:
 
-- Add all shared keys to [packages/universo-i18n](../../packages/universo-i18n) when reused.
+- Add all shared keys to [packages/universo-react-i18n](../../packages/universo-react-i18n) when reused.
 - Keep package-local keys only for package-local UI.
 - Add raw-key tests for LMS runtime surfaces.
 

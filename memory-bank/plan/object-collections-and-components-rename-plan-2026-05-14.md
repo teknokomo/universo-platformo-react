@@ -123,7 +123,7 @@ Local rules and context reviewed:
 10. Docs contain both target terms and unrelated "catalog" uses. The optional global migration catalog and historical progress logs are not part of this rename. Platform fixed system tables such as `applications.cat_applications` must be audited separately: if they are Entity-like Object tables, rename them; if they are truly non-Entity migration catalog storage, document a narrow allowlist.
 11. Application sync code still filters runtime entities with `entity.kind === 'catalog'` and relationship code checks `targetEntityKind === 'catalog'`. This is the main architectural risk: runtime behavior must be capability-driven, not renamed to `entity.kind === 'object'` in the same hardcoded pattern.
 12. Workspace seed code contains legacy table-name parsing for `cat_*`, `doc_*`, and `rel_*`. Because the target is a fresh database with no legacy preservation, this fallback should be removed and replaced with snapshot-provided physical table names/prefixes.
-13. `@universo/migrations-core` and platform system-app definitions still encode `SystemAppBusinessTableKind = 'catalog'` and canonical `cat_` prefixes. If left unchanged, the platform would keep an active second Catalog vocabulary outside Metahubs, so the plan must either rename it to Object or document a narrow non-Entity exception. The target for this task is rename, not legacy preservation.
+13. `@universo-react/migrations-core` and platform system-app definitions still encode `SystemAppBusinessTableKind = 'catalog'` and canonical `cat_` prefixes. If left unchanged, the platform would keep an active second Catalog vocabulary outside Metahubs, so the plan must either rename it to Object or document a narrow non-Entity exception. The target for this task is rename, not legacy preservation.
 14. Shared snapshot and schema contracts still use `fields`, `systemFields`, `MetaFieldDefinition`, `FieldDefinitionDataType`, `FieldDefinitionValidationRules`, `TemplateSeedAttribute`, `childFields`, and `childAttributes`. These are not just implementation details because they are serialized into fixtures and generated apps.
 
 ## QA Corrections Applied
@@ -141,16 +141,16 @@ Local rules and context reviewed:
 
 ### Shared Types And Contracts
 
-- `packages/universo-types/base/src/common/metahubs.ts`
-- `packages/universo-types/base/src/common/entityComponents.ts` -> `entityCapabilities.ts`
-- `packages/universo-types/base/src/common/entityTypeDefinition.ts`
-- `packages/universo-types/base/src/common/recordBehavior.ts`
-- `packages/universo-types/base/src/common/linkedCollectionRuntimeConfig.ts`
-- `packages/universo-types/base/src/common/catalogRuntimeConfig.ts`
-- `packages/universo-types/base/src/common/applicationLayouts.ts`
-- `packages/universo-types/base/src/common/scripts.ts`
-- `packages/universo-types/base/src/common/ledgers.ts`
-- `packages/universo-types/base/src/__tests__/**`
+- `packages/universo-react-types/base/src/common/metahubs.ts`
+- `packages/universo-react-types/base/src/common/entityComponents.ts` -> `entityCapabilities.ts`
+- `packages/universo-react-types/base/src/common/entityTypeDefinition.ts`
+- `packages/universo-react-types/base/src/common/recordBehavior.ts`
+- `packages/universo-react-types/base/src/common/linkedCollectionRuntimeConfig.ts`
+- `packages/universo-react-types/base/src/common/catalogRuntimeConfig.ts`
+- `packages/universo-react-types/base/src/common/applicationLayouts.ts`
+- `packages/universo-react-types/base/src/common/scripts.ts`
+- `packages/universo-react-types/base/src/common/ledgers.ts`
+- `packages/universo-react-types/base/src/__tests__/**`
 - Rename shared serialized contracts where they represent former Attributes:
   - `MetaFieldDefinition` -> `MetaComponent`
   - `FieldDefinitionDataType` -> `ComponentDataType`
@@ -164,14 +164,14 @@ Local rules and context reviewed:
 
 ### Schema DDL And Runtime Metadata
 
-- `packages/schema-ddl/base/src/builtinEntityKinds.ts`
-- `packages/schema-ddl/base/src/naming.ts`
-- `packages/schema-ddl/base/src/SchemaGenerator.ts`
-- `packages/schema-ddl/base/src/diff.ts`
-- `packages/schema-ddl/base/src/snapshot.ts`
-- `packages/schema-ddl/base/src/systemTables.ts`
-- `packages/schema-ddl/base/src/types.ts`
-- `packages/schema-ddl/base/src/__tests__/**`
+- `packages/universo-react-schema-ddl/base/src/builtinEntityKinds.ts`
+- `packages/universo-react-schema-ddl/base/src/naming.ts`
+- `packages/universo-react-schema-ddl/base/src/SchemaGenerator.ts`
+- `packages/universo-react-schema-ddl/base/src/diff.ts`
+- `packages/universo-react-schema-ddl/base/src/snapshot.ts`
+- `packages/universo-react-schema-ddl/base/src/systemTables.ts`
+- `packages/universo-react-schema-ddl/base/src/types.ts`
+- `packages/universo-react-schema-ddl/base/src/__tests__/**`
 - Serialized schema types:
   - `FieldDefinition` -> `EntityComponentDefinition`
   - `SchemaFieldSnapshot` -> `SchemaComponentSnapshot`
@@ -180,24 +180,24 @@ Local rules and context reviewed:
 
 ### Platform Migrations And System Apps
 
-- `packages/universo-migrations-core/base/src/types.ts`
-- `packages/universo-migrations-core/base/src/validate.ts`
-- `packages/universo-migrations-platform/base/src/**`
-- `packages/admin-backend/base/src/platform/systemAppDefinition.ts`
-- `packages/profile-backend/base/src/platform/systemAppDefinition.ts`
-- `packages/start-backend/base/src/platform/systemAppDefinition.ts`
-- `packages/applications-backend/base/src/platform/systemAppDefinition.ts`
-- `packages/metahubs-backend/base/src/platform/systemAppDefinition.ts`
+- `packages/universo-react-migrations-core/base/src/types.ts`
+- `packages/universo-react-migrations-core/base/src/validate.ts`
+- `packages/universo-react-migrations-platform/base/src/**`
+- `packages/universo-react-admin-backend/base/src/platform/systemAppDefinition.ts`
+- `packages/universo-react-profile-backend/base/src/platform/systemAppDefinition.ts`
+- `packages/universo-react-start-backend/base/src/platform/systemAppDefinition.ts`
+- `packages/universo-react-applications-backend/base/src/platform/systemAppDefinition.ts`
+- `packages/universo-react-metahubs-backend/base/src/platform/systemAppDefinition.ts`
 - RLS policy optimization files that reference `cat_*` platform tables.
 - System-app schema/compiler tests that currently assert `catalog`, `cat_*`, `attribute`, or `__attr__` artifact names.
 
 ### Metahubs Backend
 
-- `packages/metahubs-backend/base/src/domains/templates/data/standardEntityTypeDefinitions.ts`
-- `packages/metahubs-backend/base/src/domains/templates/data/basic.template.ts`
-- `packages/metahubs-backend/base/src/domains/templates/data/basic-demo.template.ts`
-- `packages/metahubs-backend/base/src/domains/templates/data/lms.template.ts`
-- `packages/metahubs-backend/base/src/domains/templates/data/linked-collection.entity-preset.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/templates/data/standardEntityTypeDefinitions.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/templates/data/basic.template.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/templates/data/basic-demo.template.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/templates/data/lms.template.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/templates/data/linked-collection.entity-preset.ts`
 - New replacement preset file, preferably `object.entity-preset.ts` or `object-collection.entity-preset.ts`.
 - Template validation, seeding, cleanup, and migration services.
 - Entity instance routes/controllers/services.
@@ -207,41 +207,41 @@ Local rules and context reviewed:
 
 ### Metahubs Frontend
 
-- `packages/metahubs-frontend/base/src/domains/entities/presets/**`
-- `packages/metahubs-frontend/base/src/domains/entities/metadata/fieldDefinition/**` -> `packages/metahubs-frontend/base/src/domains/entities/metadata/component/**`
-- `packages/metahubs-frontend/base/src/domains/entities/ui/**`
-- `packages/metahubs-frontend/base/src/domains/entities/shared/**`
-- `packages/metahubs-frontend/base/src/domains/layouts/**`
-- `packages/metahubs-frontend/base/src/domains/scripts/**`
-- `packages/metahubs-frontend/base/src/domains/settings/**`
-- `packages/metahubs-frontend/base/src/i18n/locales/{en,ru}/metahubs.json`
+- `packages/universo-react-metahubs-frontend/base/src/domains/entities/presets/**`
+- `packages/universo-react-metahubs-frontend/base/src/domains/entities/metadata/fieldDefinition/**` -> `packages/universo-react-metahubs-frontend/base/src/domains/entities/metadata/component/**`
+- `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/**`
+- `packages/universo-react-metahubs-frontend/base/src/domains/entities/shared/**`
+- `packages/universo-react-metahubs-frontend/base/src/domains/layouts/**`
+- `packages/universo-react-metahubs-frontend/base/src/domains/scripts/**`
+- `packages/universo-react-metahubs-frontend/base/src/domains/settings/**`
+- `packages/universo-react-metahubs-frontend/base/src/i18n/locales/{en,ru}/metahubs.json`
 - Frontend Vitest and visual/E2E selectors.
 
 ### Applications Backend And Frontend Runtime
 
-- `packages/applications-backend/base/src/routes/sync/**`
-- `packages/applications-backend/base/src/controllers/runtimeRowsController.ts`
-- `packages/applications-backend/base/src/controllers/runtimeChildRowsController.ts`
-- `packages/applications-backend/base/src/controllers/runtimeGuestController.ts`
-- `packages/applications-backend/base/src/controllers/runtimeLedgersController.ts`
-- `packages/applications-backend/base/src/controllers/runtimeReportsController.ts`
-- `packages/applications-backend/base/src/services/runtimeScriptsService.ts`
-- `packages/applications-backend/base/src/services/runtimeRecordBehavior.ts`
-- `packages/applications-backend/base/src/services/runtimeLedgersService.ts`
-- `packages/applications-backend/base/src/services/applicationWorkspaces.ts`
-- `packages/applications-backend/base/src/services/publishedApplicationSnapshotEntities.ts`
-- `packages/applications-frontend/base/src/pages/**`
-- `packages/applications-frontend/base/src/components/**`
-- `packages/applications-frontend/base/src/i18n/locales/{en,ru}/applications.json`
+- `packages/universo-react-applications-backend/base/src/routes/sync/**`
+- `packages/universo-react-applications-backend/base/src/controllers/runtimeRowsController.ts`
+- `packages/universo-react-applications-backend/base/src/controllers/runtimeChildRowsController.ts`
+- `packages/universo-react-applications-backend/base/src/controllers/runtimeGuestController.ts`
+- `packages/universo-react-applications-backend/base/src/controllers/runtimeLedgersController.ts`
+- `packages/universo-react-applications-backend/base/src/controllers/runtimeReportsController.ts`
+- `packages/universo-react-applications-backend/base/src/services/runtimeScriptsService.ts`
+- `packages/universo-react-applications-backend/base/src/services/runtimeRecordBehavior.ts`
+- `packages/universo-react-applications-backend/base/src/services/runtimeLedgersService.ts`
+- `packages/universo-react-applications-backend/base/src/services/applicationWorkspaces.ts`
+- `packages/universo-react-applications-backend/base/src/services/publishedApplicationSnapshotEntities.ts`
+- `packages/universo-react-applications-frontend/base/src/pages/**`
+- `packages/universo-react-applications-frontend/base/src/components/**`
+- `packages/universo-react-applications-frontend/base/src/i18n/locales/{en,ru}/applications.json`
 
 ### Published App Template
 
-- `packages/apps-template-mui/src/api/**`
-- `packages/apps-template-mui/src/components/**`
-- `packages/apps-template-mui/src/dashboard/**`
-- `packages/apps-template-mui/src/hooks/**`
-- `packages/apps-template-mui/src/utils/**`
-- `packages/apps-template-mui/src/i18n/locales/{en,ru}/apps.json`
+- `packages/universo-react-apps-template-mui/src/api/**`
+- `packages/universo-react-apps-template-mui/src/components/**`
+- `packages/universo-react-apps-template-mui/src/dashboard/**`
+- `packages/universo-react-apps-template-mui/src/hooks/**`
+- `packages/universo-react-apps-template-mui/src/utils/**`
+- `packages/universo-react-apps-template-mui/src/i18n/locales/{en,ru}/apps.json`
 
 ### Fixtures, Generators, And E2E
 
@@ -280,14 +280,14 @@ Local rules and context reviewed:
   - classify each hit as product term, persisted contract, unrelated migration catalog, historical docs, or test fixture.
 - [ ] Add temporary allowlist files for final grep gates so unrelated terms are not confused with active legacy seams.
 - [ ] Run a baseline focused validation slice before edits:
-  - `pnpm --filter @universo/types test`
-  - `pnpm --filter @universo/schema-ddl test`
-  - `pnpm --filter @universo/metahubs-backend test -- --runTestsByPath src/tests/services/templateManifestValidator.test.ts`
-  - `pnpm --filter @universo/metahubs-frontend test -- src/domains/entities/ui/__tests__/EntityInstanceList.test.tsx`
+  - `pnpm --filter @universo-react/types test`
+  - `pnpm --filter @universo-react/schema-ddl test`
+  - `pnpm --filter @universo-react/metahubs-backend test -- --runTestsByPath src/tests/services/templateManifestValidator.test.ts`
+  - `pnpm --filter @universo-react/metahubs-frontend test -- src/domains/entities/ui/__tests__/EntityInstanceList.test.tsx`
 
 ### Phase 1 - Shared Contract Rename
 
-- [ ] Replace standard kind and surface contracts in `@universo/types`.
+- [ ] Replace standard kind and surface contracts in `@universo-react/types`.
 - [ ] Rename `CatalogRecordBehavior` to `ObjectRecordBehavior` or `ObjectCollectionBehavior`.
 - [ ] Rename `catalogRecordBehaviorSchema` and normalizers.
 - [ ] Rename former Attribute/FieldDefinition type exports and serialized properties:
@@ -338,7 +338,7 @@ export const objectRecordBehaviorSchema = z
 
 Acceptance checks:
 
-- [ ] `@universo/types` tests cover the new kind, settings keys, script attachment kinds, layout config keys, and schema names.
+- [ ] `@universo-react/types` tests cover the new kind, settings keys, script attachment kinds, layout config keys, and schema names.
 - [ ] No production export named `catalogRecordBehavior*` remains.
 - [ ] No production export named `MetaFieldDefinition`, `FieldDefinitionDataType`, `FieldDefinitionValidationRules`, or `TemplateSeedAttribute` remains unless it is an explicitly unrelated UI/form concept.
 
@@ -349,7 +349,7 @@ Acceptance checks:
   - remove active runtime reliance on a hardcoded kind-to-prefix map such as `catalog -> cat`.
   - table names must be resolved from `EntityDefinition.physicalTableName` or validated `EntityTypeCapabilities.physicalTable.prefix` copied into the published snapshot.
   - the standard Object preset supplies `capabilities.physicalTable.prefix = 'obj'`; custom Object-based Entity types may supply another prefix through the Entity constructor.
-- [ ] Refactor `packages/schema-ddl/base/src/naming.ts` so `generateTableName` accepts an explicit prefix for runtime-managed tables and fails closed when a physical table capable Entity lacks a prefix after constructor validation.
+- [ ] Refactor `packages/universo-react-schema-ddl/base/src/naming.ts` so `generateTableName` accepts an explicit prefix for runtime-managed tables and fails closed when a physical table capable Entity lacks a prefix after constructor validation.
 - [ ] Keep any remaining kind fallback only for package-local platform/system tables that are explicitly outside metahub/app runtime data schemas, and document the allowlist.
 - [ ] Rename runtime metadata tables for fresh databases:
   - `_app_attributes` -> `_app_components`
@@ -389,7 +389,7 @@ if (rows.length === 0) {
 
 Acceptance checks:
 
-- [ ] `pnpm --filter @universo/schema-ddl test` passes.
+- [ ] `pnpm --filter @universo-react/schema-ddl test` passes.
 - [ ] Runtime Object data tables are named `obj_*` only because the standard Object capability prefix is `obj`, not because DDL special-cases `kind === 'object'`.
 - [ ] A custom Object-like Entity type with `capabilities.physicalTable.prefix = 'doc'` or another safe prefix creates `doc_*` (or that custom prefix), proving the constructor path is used.
 - [ ] Runtime schemas created from fresh snapshots contain `_app_components`, not `_app_attributes`.
@@ -411,8 +411,8 @@ Acceptance checks:
 
 Acceptance checks:
 
-- [ ] `@universo/migrations-core` validation accepts Object table definitions and rejects accidental `kind: 'catalog'` in active system-app manifests.
-- [ ] `@universo/migrations-platform` compiler tests assert `object`/`component` artifact names instead of `catalog`/`attribute` artifact names.
+- [ ] `@universo-react/migrations-core` validation accepts Object table definitions and rejects accidental `kind: 'catalog'` in active system-app manifests.
+- [ ] `@universo-react/migrations-platform` compiler tests assert `object`/`component` artifact names instead of `catalog`/`attribute` artifact names.
 - [ ] Platform RLS policy optimization references the new Object table names or a documented allowlist.
 
 ### Phase 3 - Template Presets And Standard Entity Definitions
@@ -606,7 +606,7 @@ Acceptance checks:
 
 Acceptance checks:
 
-- [ ] `@universo/apps-template-mui` Vitest tests cover tables, dialogs, row commands, structured values, tabular components, and workspace pages.
+- [ ] `@universo-react/apps-template-mui` Vitest tests cover tables, dialogs, row commands, structured values, tabular components, and workspace pages.
 - [ ] Published app screenshots show Objects/Components labels without layout overlap.
 
 ### Phase 8 - Fixture Generators And Snapshot Contracts
@@ -647,7 +647,7 @@ Do not use fixed waits such as `page.waitForTimeout(2000)` in new or touched tes
 
 #### Unit And Contract Tests
 
-- [ ] `@universo/types`
+- [ ] `@universo-react/types`
   - kind/surface maps
   - settings registry
   - script attachment kinds
@@ -655,19 +655,19 @@ Do not use fixed waits such as `page.waitForTimeout(2000)` in new or touched tes
   - Entity capability schema after `components` -> `capabilities`
   - object record behavior schema
   - application layout config schema
-- [ ] `@universo/schema-ddl`
+- [ ] `@universo-react/schema-ddl`
   - table naming through explicit capability prefixes, including standard `object -> obj` and custom non-`obj` prefixes
   - `_app_components` creation
   - TABLE child component DDL
   - diff add/drop component behavior
   - snapshot generation
   - record behavior columns
-- [ ] `@universo/migrations-core` and `@universo/migrations-platform`
+- [ ] `@universo-react/migrations-core` and `@universo-react/migrations-platform`
   - Object system-app table kinds and prefixes
   - component artifact names
   - RLS policy references for fresh platform schemas
   - rejection of accidental active `catalog` / `attribute` system-app definitions
-- [ ] `@universo/metahubs-backend`
+- [ ] `@universo-react/metahubs-backend`
   - standard template seeding
   - template validator
   - object routes
@@ -677,7 +677,7 @@ Do not use fixed waits such as `page.waitForTimeout(2000)` in new or touched tes
   - layouts
   - snapshot serializer/restore
   - schema service
-- [ ] `@universo/applications-backend`
+- [ ] `@universo-react/applications-backend`
   - sync data loader
   - runtime rows
   - child rows
@@ -769,11 +769,11 @@ pnpm run docs:i18n:check
 ```bash
 rg "kind: 'catalog'|kind: \"catalog\"|attachedToKind: 'catalog'|targetEntityKind: 'catalog'|SystemAppBusinessTableKind.*catalog|catalogTables|cat_" packages tools
 rg "_mhb_attributes|_app_attributes|parent_attribute_id|is_display_attribute|__attr__|attributeValueTables|SystemAppBusinessFieldDefinition" packages tools
-rg "Catalogs|Catalog|Attributes|Attribute|FieldDefinition|fieldDefinition|fields:|systemFields|sharedFields" packages/metahubs-frontend packages/applications-frontend packages/apps-template-mui packages/universo-types packages/schema-ddl tools/fixtures
+rg "Catalogs|Catalog|Attributes|Attribute|FieldDefinition|fieldDefinition|fields:|systemFields|sharedFields" packages/universo-react-metahubs-frontend packages/universo-react-applications-frontend packages/universo-react-apps-template-mui packages/universo-react-types packages/universo-react-schema-ddl tools/fixtures
 ```
 
 - [ ] Maintain an explicit allowlist for unrelated terms:
-  - `@universo/migrations-catalog` and optional global migration catalog docs.
+  - `@universo-react/migrations-catalog` and optional global migration catalog docs.
   - historical progress/plan files.
   - 1C-compatible future-template docs where "Catalogs" intentionally means 1C directories.
 - [ ] Any remaining active `cat_*` table names must be explicitly justified as non-Entity migration catalog storage. Platform system-app Object tables should not keep `cat_*` by inertia.
@@ -785,24 +785,24 @@ rg "Catalogs|Catalog|Attributes|Attribute|FieldDefinition|fieldDefinition|fields
 Recommended validation sequence:
 
 ```bash
-pnpm --filter @universo/types test
-pnpm --filter @universo/types build
-pnpm --filter @universo/schema-ddl test
-pnpm --filter @universo/schema-ddl build
-pnpm --filter @universo/migrations-core test
-pnpm --filter @universo/migrations-core build
-pnpm --filter @universo/migrations-platform test
-pnpm --filter @universo/migrations-platform build
-pnpm --filter @universo/metahubs-backend test -- --runInBand
-pnpm --filter @universo/applications-backend test -- --runInBand
-pnpm --filter @universo/metahubs-frontend test
-pnpm --filter @universo/applications-frontend test
-pnpm --filter @universo/apps-template-mui test
-pnpm --filter @universo/metahubs-backend build
-pnpm --filter @universo/applications-backend build
-pnpm --filter @universo/metahubs-frontend build
-pnpm --filter @universo/applications-frontend build
-pnpm --filter @universo/apps-template-mui build
+pnpm --filter @universo-react/types test
+pnpm --filter @universo-react/types build
+pnpm --filter @universo-react/schema-ddl test
+pnpm --filter @universo-react/schema-ddl build
+pnpm --filter @universo-react/migrations-core test
+pnpm --filter @universo-react/migrations-core build
+pnpm --filter @universo-react/migrations-platform test
+pnpm --filter @universo-react/migrations-platform build
+pnpm --filter @universo-react/metahubs-backend test -- --runInBand
+pnpm --filter @universo-react/applications-backend test -- --runInBand
+pnpm --filter @universo-react/metahubs-frontend test
+pnpm --filter @universo-react/applications-frontend test
+pnpm --filter @universo-react/apps-template-mui test
+pnpm --filter @universo-react/metahubs-backend build
+pnpm --filter @universo-react/applications-backend build
+pnpm --filter @universo-react/metahubs-frontend build
+pnpm --filter @universo-react/applications-frontend build
+pnpm --filter @universo-react/apps-template-mui build
 pnpm run build:e2e
 pnpm run test:e2e:generators
 node tools/testing/e2e/run-playwright-suite.mjs specs/flows/snapshot-import-lms-runtime.spec.ts --project chromium

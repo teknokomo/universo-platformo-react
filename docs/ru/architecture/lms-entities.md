@@ -58,10 +58,10 @@ LMS-шаблон намеренно построен вокруг сущност
 Контент Page редактируется в метахабе на маршруте контента, принадлежащем сущности:
 `/metahub/:metahubId/entities/:kindKey/instance/:entityId/content`.
 
-Поверхность редактирования использует официальный Editor.js core и инструменты через общий adapter `@universo/template-mui`.
+Поверхность редактирования использует официальный Editor.js core и инструменты через общий adapter `@universo-react/template-mui`.
 Backend не сохраняет raw Editor.js `OutputData`; перед сохранением поддерживаемые блоки нормализуются в каноническую Page block schema, а небезопасный текст, неподдерживаемые блоки и небезопасные URL отклоняются.
 Опубликованные приложения не подключают Editor.js для рендеринга.
-`packages/apps-template-mui` рендерит канонические Page blocks через существующие runtime dashboard components.
+`packages/universo-react-apps-template-mui` рендерит канонические Page blocks через существующие runtime dashboard components.
 
 ## Слой виджетов
 

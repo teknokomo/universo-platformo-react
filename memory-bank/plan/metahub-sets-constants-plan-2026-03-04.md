@@ -63,66 +63,66 @@ Functional intent:
 Current `MetaEntityKind` does not include `set`.
 
 Direct impacts:
-- `packages/universo-types/base/src/common/metahubs.ts`
-- `packages/metahubs-backend/base/src/domains/metahubs/services/MetahubObjectsService.ts`
+- `packages/universo-react-types/base/src/common/metahubs.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/metahubs/services/MetahubObjectsService.ts`
 - Zod schemas in routes and template validators.
-- Schema-DDL naming (`packages/schema-ddl/base/src/naming.ts`)
+- Schema-DDL naming (`packages/universo-react-schema-ddl/base/src/naming.ts`)
 
 ### 2) Branch copy compatibility risk
 Branch copy options currently include only:
 - `copyLayouts`, `copyHubs`, `copyCatalogs`, `copyEnumerations`
 
 Direct impacts:
-- `packages/universo-types/base/src/common/copyOptions.ts`
-- `packages/universo-utils/base/src/validation/copyOptions.ts`
-- `packages/metahubs-backend/base/src/domains/branches/routes/branchesRoutes.ts`
-- `packages/metahubs-backend/base/src/domains/branches/services/MetahubBranchesService.ts`
-- `packages/metahubs-frontend/base/src/domains/branches/**`
+- `packages/universo-react-types/base/src/common/copyOptions.ts`
+- `packages/universo-react-utils/base/src/validation/copyOptions.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/branches/routes/branchesRoutes.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/branches/services/MetahubBranchesService.ts`
+- `packages/universo-react-metahubs-frontend/base/src/domains/branches/**`
 
 ### 3) Snapshot/runtime sync risk
 Publication snapshot and application sync are catalog/enumeration-centric.
 
 Direct impacts:
-- `packages/metahubs-backend/base/src/domains/publications/services/SnapshotSerializer.ts`
-- `packages/metahubs-backend/base/src/domains/applications/routes/applicationSyncRoutes.ts`
-- `packages/schema-ddl/base/src/SchemaGenerator.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/publications/services/SnapshotSerializer.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/applications/routes/applicationSyncRoutes.ts`
+- `packages/universo-react-schema-ddl/base/src/SchemaGenerator.ts`
 
 ### 4) REF target UX risk
 REF selector currently supports only `catalog` and `enumeration`.
 
 Direct impacts:
-- `packages/metahubs-frontend/base/src/components/TargetEntitySelector.tsx`
-- `packages/metahubs-frontend/base/src/domains/attributes/ui/AttributeFormFields.tsx`
-- `packages/metahubs-backend/base/src/domains/attributes/routes/attributesRoutes.ts`
+- `packages/universo-react-metahubs-frontend/base/src/components/TargetEntitySelector.tsx`
+- `packages/universo-react-metahubs-frontend/base/src/domains/attributes/ui/AttributeFormFields.tsx`
+- `packages/universo-react-metahubs-backend/base/src/domains/attributes/routes/attributesRoutes.ts`
 
 ### 5) Menu/route dual-source risk
 Metahub navigation is configured in **two places** and must stay aligned.
 
 Direct impacts:
-- `packages/metahubs-frontend/base/src/menu-items/metahubDashboard.ts`
-- `packages/universo-template-mui/base/src/navigation/menuConfigs.ts`
-- `packages/universo-template-mui/base/src/routes/MainRoutesMUI.tsx`
+- `packages/universo-react-metahubs-frontend/base/src/menu-items/metahubDashboard.ts`
+- `packages/universo-react-template-mui/base/src/navigation/menuConfigs.ts`
+- `packages/universo-react-template-mui/base/src/routes/MainRoutesMUI.tsx`
 
 ### 6) Settings tab model risk
 Settings tabs/types currently hardcoded for hubs/catalogs/enumerations.
 
 Direct impacts:
-- `packages/universo-types/base/src/common/metahubs.ts`
-- `packages/metahubs-frontend/base/src/domains/settings/ui/SettingsPage.tsx`
+- `packages/universo-react-types/base/src/common/metahubs.ts`
+- `packages/universo-react-metahubs-frontend/base/src/domains/settings/ui/SettingsPage.tsx`
 
 ### 7) Hub relation aggregation risk
 Hub-level counters and relation-copy code currently account only for catalogs/enumerations.
 
 Direct impacts:
-- `packages/metahubs-backend/base/src/domains/hubs/routes/hubsRoutes.ts`
-- `packages/metahubs-frontend/base/src/domains/hubs/hooks/mutations.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/hubs/routes/hubsRoutes.ts`
+- `packages/universo-react-metahubs-frontend/base/src/domains/hubs/hooks/mutations.ts`
 
 ### 8) Branch-copy UI and helper coupling risk
 Branch copy checkboxes and compatibility code are wired to fixed option keys and messages.
 
 Direct impacts:
-- `packages/metahubs-frontend/base/src/domains/branches/ui/BranchActions.tsx`
-- `packages/metahubs-frontend/base/src/domains/branches/utils/copyOptions.ts`
+- `packages/universo-react-metahubs-frontend/base/src/domains/branches/ui/BranchActions.tsx`
+- `packages/universo-react-metahubs-frontend/base/src/domains/branches/utils/copyOptions.ts`
 
 ---
 
@@ -131,73 +131,73 @@ Direct impacts:
 ## Backend clone (must run first)
 
 ```bash
-mkdir -p packages/metahubs-backend/base/src/domains/sets/routes
-mkdir -p packages/metahubs-backend/base/src/domains/constants/routes
-mkdir -p packages/metahubs-backend/base/src/tests/routes
+mkdir -p packages/universo-react-metahubs-backend/base/src/domains/sets/routes
+mkdir -p packages/universo-react-metahubs-backend/base/src/domains/constants/routes
+mkdir -p packages/universo-react-metahubs-backend/base/src/tests/routes
 
-cp packages/metahubs-backend/base/src/domains/catalogs/index.ts \
-   packages/metahubs-backend/base/src/domains/sets/index.ts
-cp packages/metahubs-backend/base/src/domains/catalogs/routes/catalogsRoutes.ts \
-   packages/metahubs-backend/base/src/domains/sets/routes/setsRoutes.ts
+cp packages/universo-react-metahubs-backend/base/src/domains/catalogs/index.ts \
+   packages/universo-react-metahubs-backend/base/src/domains/sets/index.ts
+cp packages/universo-react-metahubs-backend/base/src/domains/catalogs/routes/catalogsRoutes.ts \
+   packages/universo-react-metahubs-backend/base/src/domains/sets/routes/setsRoutes.ts
 
-cp packages/metahubs-backend/base/src/domains/attributes/index.ts \
-   packages/metahubs-backend/base/src/domains/constants/index.ts
-cp packages/metahubs-backend/base/src/domains/attributes/routes/attributesRoutes.ts \
-   packages/metahubs-backend/base/src/domains/constants/routes/constantsRoutes.ts
+cp packages/universo-react-metahubs-backend/base/src/domains/attributes/index.ts \
+   packages/universo-react-metahubs-backend/base/src/domains/constants/index.ts
+cp packages/universo-react-metahubs-backend/base/src/domains/attributes/routes/attributesRoutes.ts \
+   packages/universo-react-metahubs-backend/base/src/domains/constants/routes/constantsRoutes.ts
 
-cp packages/metahubs-backend/base/src/tests/routes/catalogsRoutes.test.ts \
-   packages/metahubs-backend/base/src/tests/routes/setsRoutes.test.ts
-cp packages/metahubs-backend/base/src/tests/routes/attributesRoutes.test.ts \
-   packages/metahubs-backend/base/src/tests/routes/constantsRoutes.test.ts
+cp packages/universo-react-metahubs-backend/base/src/tests/routes/catalogsRoutes.test.ts \
+   packages/universo-react-metahubs-backend/base/src/tests/routes/setsRoutes.test.ts
+cp packages/universo-react-metahubs-backend/base/src/tests/routes/attributesRoutes.test.ts \
+   packages/universo-react-metahubs-backend/base/src/tests/routes/constantsRoutes.test.ts
 ```
 
 ## Frontend clone (must run first)
 
 ```bash
-mkdir -p packages/metahubs-frontend/base/src/domains/sets/{api,hooks,ui}
-mkdir -p packages/metahubs-frontend/base/src/domains/constants/{api,hooks,ui,dnd}
+mkdir -p packages/universo-react-metahubs-frontend/base/src/domains/sets/{api,hooks,ui}
+mkdir -p packages/universo-react-metahubs-frontend/base/src/domains/constants/{api,hooks,ui,dnd}
 
-cp packages/metahubs-frontend/base/src/domains/catalogs/index.ts \
-   packages/metahubs-frontend/base/src/domains/sets/index.ts
-cp packages/metahubs-frontend/base/src/domains/catalogs/api/catalogs.ts \
-   packages/metahubs-frontend/base/src/domains/sets/api/sets.ts
-cp packages/metahubs-frontend/base/src/domains/catalogs/api/index.ts \
-   packages/metahubs-frontend/base/src/domains/sets/api/index.ts
-cp packages/metahubs-frontend/base/src/domains/catalogs/hooks/index.ts \
-   packages/metahubs-frontend/base/src/domains/sets/hooks/index.ts
-cp packages/metahubs-frontend/base/src/domains/catalogs/hooks/mutations.ts \
-   packages/metahubs-frontend/base/src/domains/sets/hooks/mutations.ts
-cp packages/metahubs-frontend/base/src/domains/catalogs/ui/CatalogActions.tsx \
-   packages/metahubs-frontend/base/src/domains/sets/ui/SetActions.tsx
-cp packages/metahubs-frontend/base/src/domains/catalogs/ui/CatalogList.tsx \
-   packages/metahubs-frontend/base/src/domains/sets/ui/SetList.tsx
+cp packages/universo-react-metahubs-frontend/base/src/domains/catalogs/index.ts \
+   packages/universo-react-metahubs-frontend/base/src/domains/sets/index.ts
+cp packages/universo-react-metahubs-frontend/base/src/domains/catalogs/api/catalogs.ts \
+   packages/universo-react-metahubs-frontend/base/src/domains/sets/api/sets.ts
+cp packages/universo-react-metahubs-frontend/base/src/domains/catalogs/api/index.ts \
+   packages/universo-react-metahubs-frontend/base/src/domains/sets/api/index.ts
+cp packages/universo-react-metahubs-frontend/base/src/domains/catalogs/hooks/index.ts \
+   packages/universo-react-metahubs-frontend/base/src/domains/sets/hooks/index.ts
+cp packages/universo-react-metahubs-frontend/base/src/domains/catalogs/hooks/mutations.ts \
+   packages/universo-react-metahubs-frontend/base/src/domains/sets/hooks/mutations.ts
+cp packages/universo-react-metahubs-frontend/base/src/domains/catalogs/ui/CatalogActions.tsx \
+   packages/universo-react-metahubs-frontend/base/src/domains/sets/ui/SetActions.tsx
+cp packages/universo-react-metahubs-frontend/base/src/domains/catalogs/ui/CatalogList.tsx \
+   packages/universo-react-metahubs-frontend/base/src/domains/sets/ui/SetList.tsx
 
-cp packages/metahubs-frontend/base/src/domains/attributes/index.ts \
-   packages/metahubs-frontend/base/src/domains/constants/index.ts
-cp packages/metahubs-frontend/base/src/domains/attributes/api/attributes.ts \
-   packages/metahubs-frontend/base/src/domains/constants/api/constants.ts
-cp packages/metahubs-frontend/base/src/domains/attributes/api/index.ts \
-   packages/metahubs-frontend/base/src/domains/constants/api/index.ts
-cp packages/metahubs-frontend/base/src/domains/attributes/hooks/index.ts \
-   packages/metahubs-frontend/base/src/domains/constants/hooks/index.ts
-cp packages/metahubs-frontend/base/src/domains/attributes/hooks/mutations.ts \
-   packages/metahubs-frontend/base/src/domains/constants/hooks/mutations.ts
-cp packages/metahubs-frontend/base/src/domains/attributes/ui/AttributeActions.tsx \
-   packages/metahubs-frontend/base/src/domains/constants/ui/ConstantActions.tsx
-cp packages/metahubs-frontend/base/src/domains/attributes/ui/AttributeFormFields.tsx \
-   packages/metahubs-frontend/base/src/domains/constants/ui/ConstantFormFields.tsx
-cp packages/metahubs-frontend/base/src/domains/attributes/ui/AttributeList.tsx \
-   packages/metahubs-frontend/base/src/domains/constants/ui/ConstantList.tsx
-cp packages/metahubs-frontend/base/src/domains/attributes/ui/dnd/AttributeDndContainerRegistry.tsx \
-   packages/metahubs-frontend/base/src/domains/constants/ui/dnd/ConstantDndContainerRegistry.tsx
-cp packages/metahubs-frontend/base/src/domains/attributes/ui/dnd/AttributeDndProvider.tsx \
-   packages/metahubs-frontend/base/src/domains/constants/ui/dnd/ConstantDndProvider.tsx
-cp packages/metahubs-frontend/base/src/domains/attributes/ui/dnd/DragOverlayRow.tsx \
-   packages/metahubs-frontend/base/src/domains/constants/ui/dnd/DragOverlayRow.tsx
-cp packages/metahubs-frontend/base/src/domains/attributes/ui/dnd/useAttributeDnd.ts \
-   packages/metahubs-frontend/base/src/domains/constants/ui/dnd/useConstantDnd.ts
-cp packages/metahubs-frontend/base/src/domains/attributes/ui/dnd/index.ts \
-   packages/metahubs-frontend/base/src/domains/constants/ui/dnd/index.ts
+cp packages/universo-react-metahubs-frontend/base/src/domains/attributes/index.ts \
+   packages/universo-react-metahubs-frontend/base/src/domains/constants/index.ts
+cp packages/universo-react-metahubs-frontend/base/src/domains/attributes/api/attributes.ts \
+   packages/universo-react-metahubs-frontend/base/src/domains/constants/api/constants.ts
+cp packages/universo-react-metahubs-frontend/base/src/domains/attributes/api/index.ts \
+   packages/universo-react-metahubs-frontend/base/src/domains/constants/api/index.ts
+cp packages/universo-react-metahubs-frontend/base/src/domains/attributes/hooks/index.ts \
+   packages/universo-react-metahubs-frontend/base/src/domains/constants/hooks/index.ts
+cp packages/universo-react-metahubs-frontend/base/src/domains/attributes/hooks/mutations.ts \
+   packages/universo-react-metahubs-frontend/base/src/domains/constants/hooks/mutations.ts
+cp packages/universo-react-metahubs-frontend/base/src/domains/attributes/ui/AttributeActions.tsx \
+   packages/universo-react-metahubs-frontend/base/src/domains/constants/ui/ConstantActions.tsx
+cp packages/universo-react-metahubs-frontend/base/src/domains/attributes/ui/AttributeFormFields.tsx \
+   packages/universo-react-metahubs-frontend/base/src/domains/constants/ui/ConstantFormFields.tsx
+cp packages/universo-react-metahubs-frontend/base/src/domains/attributes/ui/AttributeList.tsx \
+   packages/universo-react-metahubs-frontend/base/src/domains/constants/ui/ConstantList.tsx
+cp packages/universo-react-metahubs-frontend/base/src/domains/attributes/ui/dnd/AttributeDndContainerRegistry.tsx \
+   packages/universo-react-metahubs-frontend/base/src/domains/constants/ui/dnd/ConstantDndContainerRegistry.tsx
+cp packages/universo-react-metahubs-frontend/base/src/domains/attributes/ui/dnd/AttributeDndProvider.tsx \
+   packages/universo-react-metahubs-frontend/base/src/domains/constants/ui/dnd/ConstantDndProvider.tsx
+cp packages/universo-react-metahubs-frontend/base/src/domains/attributes/ui/dnd/DragOverlayRow.tsx \
+   packages/universo-react-metahubs-frontend/base/src/domains/constants/ui/dnd/DragOverlayRow.tsx
+cp packages/universo-react-metahubs-frontend/base/src/domains/attributes/ui/dnd/useAttributeDnd.ts \
+   packages/universo-react-metahubs-frontend/base/src/domains/constants/ui/dnd/useConstantDnd.ts
+cp packages/universo-react-metahubs-frontend/base/src/domains/attributes/ui/dnd/index.ts \
+   packages/universo-react-metahubs-frontend/base/src/domains/constants/ui/dnd/index.ts
 ```
 
 ---
@@ -229,10 +229,10 @@ Run residue scan only inside new Set/Constant files:
 
 ```bash
 rg -n "catalog|Catalog|attributes?|Attribute|elements?|Element|/catalog|catalogId|attributeId" \
-  packages/metahubs-backend/base/src/domains/sets \
-  packages/metahubs-backend/base/src/domains/constants \
-  packages/metahubs-frontend/base/src/domains/sets \
-  packages/metahubs-frontend/base/src/domains/constants
+  packages/universo-react-metahubs-backend/base/src/domains/sets \
+  packages/universo-react-metahubs-backend/base/src/domains/constants \
+  packages/universo-react-metahubs-frontend/base/src/domains/sets \
+  packages/universo-react-metahubs-frontend/base/src/domains/constants
 ```
 
 Acceptance rule:
@@ -379,8 +379,8 @@ try {
 ## Phase 2: Backend Domain Integration
 
 - [ ] Add `createSetsRoutes` and `createConstantsRoutes` in router:
-  - `packages/metahubs-backend/base/src/domains/router.ts`
-  - `packages/metahubs-backend/base/src/index.ts`
+  - `packages/universo-react-metahubs-backend/base/src/domains/router.ts`
+  - `packages/universo-react-metahubs-backend/base/src/index.ts`
 - [ ] Create `MetahubConstantsService` by cloning/refactoring `MetahubAttributesService` semantics for constants.
 - [ ] Refactor `setsRoutes.ts` from `catalogsRoutes.ts`:
   - remove element counters/blockers logic for sets.
@@ -397,26 +397,26 @@ try {
 ## Phase 3: Data Schema & Type Layer
 
 - [ ] Extend `MetaEntityKind` with `set`:
-  - `packages/universo-types/base/src/common/metahubs.ts`
-- [ ] Add `CONSTANT_DATA_TYPES` (or equivalent) in `@universo/types`.
+  - `packages/universo-react-types/base/src/common/metahubs.ts`
+- [ ] Add `CONSTANT_DATA_TYPES` (or equivalent) in `@universo-react/types`.
 - [ ] Add new `_mhb_constants` system table definition in:
-  - `packages/metahubs-backend/base/src/domains/metahubs/services/systemTableDefinitions.ts`
+  - `packages/universo-react-metahubs-backend/base/src/domains/metahubs/services/systemTableDefinitions.ts`
 - [ ] Add `target_constant_id` to `_mhb_attributes` in declarative definitions + migration.
 - [ ] Bump structure version (`CURRENT_STRUCTURE_VERSION`) and include clean additive migration path (without compatibility shims).
 - [ ] Update `MetahubObjectsService` kind union and table-name generation policy for sets.
-- [ ] Update `packages/schema-ddl/base/src/naming.ts` mapping for `set` prefix handling.
+- [ ] Update `packages/universo-react-schema-ddl/base/src/naming.ts` mapping for `set` prefix handling.
 
 ## Phase 4: Frontend Set/Constant Modules
 
 - [ ] Integrate new pages/components into metahubs exports:
-  - `packages/metahubs-frontend/base/src/index.ts`
+  - `packages/universo-react-metahubs-frontend/base/src/index.ts`
 - [ ] Add routes in template router:
   - `/metahub/:metahubId/sets`
   - `/metahub/:metahubId/set/:setId/constants`
   - hub-scoped variants if required.
 - [ ] Update both menu configs:
-  - `packages/metahubs-frontend/base/src/menu-items/metahubDashboard.ts`
-  - `packages/universo-template-mui/base/src/navigation/menuConfigs.ts`
+  - `packages/universo-react-metahubs-frontend/base/src/menu-items/metahubDashboard.ts`
+  - `packages/universo-react-template-mui/base/src/navigation/menuConfigs.ts`
 - [ ] Add query keys in `metahubsQueryKeys` for sets/constants.
 - [ ] Implement SetList/SetActions from cloned Catalog files.
 - [ ] Implement ConstantList/ConstantActions/ConstantFormFields from cloned Attribute files.
@@ -452,7 +452,7 @@ try {
 ## Phase 7: Branch Copy & Compatibility Rules
 
 - [ ] Add `copySets` in branch copy options types + normalization:
-  - `@universo/types` and `@universo/utils`.
+  - `@universo-react/types` and `@universo-react/utils`.
 - [ ] Update backend branch clone compatibility checks to include set dependencies.
 - [ ] Update frontend branch create/copy dialogs and tests.
 - [ ] Add/adjust compatibility error codes/messages if set/constants references are disabled inconsistently.
@@ -467,7 +467,7 @@ try {
 ## Phase 9: i18n & Shared Packages Alignment
 
 - [ ] Add full RU/EN keys in metahubs locale bundles for sets/constants and selector errors.
-- [ ] Add shared reusable keys to `packages/universo-i18n` when generic.
+- [ ] Add shared reusable keys to `packages/universo-react-i18n` when generic.
 - [ ] Keep all new user-facing text i18n-first (no hardcoded literals).
 
 ## Phase 10: Tests & Verification
@@ -491,36 +491,36 @@ try {
 
 ## Affected Areas Checklist (High Priority)
 
-- [ ] `packages/metahubs-backend/base/src/domains/router.ts`
-- [ ] `packages/metahubs-backend/base/src/index.ts`
-- [ ] `packages/metahubs-backend/base/src/domains/metahubs/services/MetahubObjectsService.ts`
-- [ ] `packages/metahubs-backend/base/src/domains/metahubs/services/systemTableDefinitions.ts`
-- [ ] `packages/metahubs-backend/base/src/domains/metahubs/services/structureVersions.ts`
-- [ ] `packages/metahubs-backend/base/src/domains/branches/routes/branchesRoutes.ts`
-- [ ] `packages/metahubs-backend/base/src/domains/branches/services/MetahubBranchesService.ts`
-- [ ] `packages/metahubs-backend/base/src/domains/hubs/routes/hubsRoutes.ts`
-- [ ] `packages/metahubs-backend/base/src/domains/publications/services/SnapshotSerializer.ts`
-- [ ] `packages/metahubs-backend/base/src/domains/applications/routes/applicationSyncRoutes.ts`
-- [ ] `packages/metahubs-backend/base/src/domains/templates/services/TemplateManifestValidator.ts`
-- [ ] `packages/metahubs-backend/base/src/domains/templates/services/TemplateSeedExecutor.ts`
-- [ ] `packages/metahubs-backend/base/src/domains/templates/services/TemplateSeedMigrator.ts`
+- [ ] `packages/universo-react-metahubs-backend/base/src/domains/router.ts`
+- [ ] `packages/universo-react-metahubs-backend/base/src/index.ts`
+- [ ] `packages/universo-react-metahubs-backend/base/src/domains/metahubs/services/MetahubObjectsService.ts`
+- [ ] `packages/universo-react-metahubs-backend/base/src/domains/metahubs/services/systemTableDefinitions.ts`
+- [ ] `packages/universo-react-metahubs-backend/base/src/domains/metahubs/services/structureVersions.ts`
+- [ ] `packages/universo-react-metahubs-backend/base/src/domains/branches/routes/branchesRoutes.ts`
+- [ ] `packages/universo-react-metahubs-backend/base/src/domains/branches/services/MetahubBranchesService.ts`
+- [ ] `packages/universo-react-metahubs-backend/base/src/domains/hubs/routes/hubsRoutes.ts`
+- [ ] `packages/universo-react-metahubs-backend/base/src/domains/publications/services/SnapshotSerializer.ts`
+- [ ] `packages/universo-react-metahubs-backend/base/src/domains/applications/routes/applicationSyncRoutes.ts`
+- [ ] `packages/universo-react-metahubs-backend/base/src/domains/templates/services/TemplateManifestValidator.ts`
+- [ ] `packages/universo-react-metahubs-backend/base/src/domains/templates/services/TemplateSeedExecutor.ts`
+- [ ] `packages/universo-react-metahubs-backend/base/src/domains/templates/services/TemplateSeedMigrator.ts`
 
-- [ ] `packages/metahubs-frontend/base/src/domains/shared/queryKeys.ts`
-- [ ] `packages/metahubs-frontend/base/src/components/TargetEntitySelector.tsx`
-- [ ] `packages/metahubs-frontend/base/src/index.ts`
-- [ ] `packages/metahubs-frontend/base/src/types.ts`
-- [ ] `packages/metahubs-frontend/base/src/i18n/index.ts`
-- [ ] `packages/metahubs-frontend/base/src/domains/branches/ui/BranchActions.tsx`
-- [ ] `packages/metahubs-frontend/base/src/domains/branches/utils/copyOptions.ts`
-- [ ] `packages/metahubs-frontend/base/src/domains/hubs/hooks/mutations.ts`
-- [ ] `packages/metahubs-frontend/base/src/menu-items/metahubDashboard.ts`
-- [ ] `packages/universo-template-mui/base/src/navigation/menuConfigs.ts`
-- [ ] `packages/universo-template-mui/base/src/routes/MainRoutesMUI.tsx`
+- [ ] `packages/universo-react-metahubs-frontend/base/src/domains/shared/queryKeys.ts`
+- [ ] `packages/universo-react-metahubs-frontend/base/src/components/TargetEntitySelector.tsx`
+- [ ] `packages/universo-react-metahubs-frontend/base/src/index.ts`
+- [ ] `packages/universo-react-metahubs-frontend/base/src/types.ts`
+- [ ] `packages/universo-react-metahubs-frontend/base/src/i18n/index.ts`
+- [ ] `packages/universo-react-metahubs-frontend/base/src/domains/branches/ui/BranchActions.tsx`
+- [ ] `packages/universo-react-metahubs-frontend/base/src/domains/branches/utils/copyOptions.ts`
+- [ ] `packages/universo-react-metahubs-frontend/base/src/domains/hubs/hooks/mutations.ts`
+- [ ] `packages/universo-react-metahubs-frontend/base/src/menu-items/metahubDashboard.ts`
+- [ ] `packages/universo-react-template-mui/base/src/navigation/menuConfigs.ts`
+- [ ] `packages/universo-react-template-mui/base/src/routes/MainRoutesMUI.tsx`
 
-- [ ] `packages/universo-types/base/src/common/metahubs.ts`
-- [ ] `packages/universo-types/base/src/common/copyOptions.ts`
-- [ ] `packages/universo-utils/base/src/validation/copyOptions.ts`
-- [ ] `packages/schema-ddl/base/src/naming.ts`
+- [ ] `packages/universo-react-types/base/src/common/metahubs.ts`
+- [ ] `packages/universo-react-types/base/src/common/copyOptions.ts`
+- [ ] `packages/universo-react-utils/base/src/validation/copyOptions.ts`
+- [ ] `packages/universo-react-schema-ddl/base/src/naming.ts`
 
 ---
 
@@ -533,7 +533,7 @@ try {
 - Mitigation: introduce explicit handling in schema-ddl and sync layers before enabling UI path.
 
 3. **Risk**: Branch copy options become inconsistent.
-- Mitigation: shared option keys and normalization in `@universo/types` + `@universo/utils` first.
+- Mitigation: shared option keys and normalization in `@universo-react/types` + `@universo-react/utils` first.
 
 4. **Risk**: clone-refactor leaves stale naming.
 - Mitigation: mandatory residue scan and checklist sign-off before merge.

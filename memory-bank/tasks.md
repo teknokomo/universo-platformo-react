@@ -4,6 +4,49 @@
 
 ---
 
+## Recently Closed: Packages Naming Convention Rollout (2026-05-25)
+
+> Goal: rename every active workspace package to
+> `packages/universo-react-<name>/` and `@universo-react/<name>` in one
+> coordinated cutover, publish the convention, and prove the rename did not
+> alter package boundaries, dependency graph semantics, runtime behavior, DB
+> schemas, or UI primitives.
+
+### IMPLEMENT Action Plan
+
+-   [x] Capture baseline inventory, dependency graph, and legacy-reference
+        search evidence.
+-   [x] Generate deterministic rename ledger and exact legacy-reference
+        allowlist artifacts.
+-   [x] Move all package directories with `git mv` and preserve local env
+        files.
+-   [x] Rewrite manifests, workspace dependencies, root scripts, imports,
+        dynamic module strings, fixtures, configs, CI, tools, docs, Memory
+        Bank, steering, manager context, and agent guidance.
+-   [x] Add fail-closed guards for package naming, dependency graph drift, and
+        `apps-template-mui` isolation.
+-   [x] Regenerate `pnpm-lock.yaml` and verify workspace discovery.
+-   [x] Run formatting, static checks, focused package tests/builds, OpenAPI,
+        docs, full build/lint/test matrix, local Supabase, and Playwright
+        runtime evidence.
+-   [x] Update Memory Bank active context and progress with the final rollout
+        outcome.
+
+### QA Closure Action Plan
+
+-   [x] Remove stale active agent guidance and public docs that still used old
+        package examples or generic package-layout wording.
+-   [x] Fix double-prefixed package-scope and package-path references in the
+        published Memory Bank convention context.
+-   [x] Update `tools/lint-db-access.mjs` Tier 3 exclusion paths to the renamed
+        workspace package directories and restore CI DB-lint to zero violations.
+-   [x] Strengthen `check:package-naming` so active docs/tooling/guidance fail
+        closed on double-prefix and stale package example regressions.
+-   [x] Add package naming and apps-template isolation guards to the main CI
+        workflow.
+-   [x] Re-run formatting, rename guards, DB lint, security/access backend
+        tests, docs checks, frozen install, and full root build.
+
 ## Active: Flatten Base Directory Layout (2026-05-25)
 
 > Goal: remove the unused `base/` package-root layer from all active
@@ -43,7 +86,7 @@
 
 -   [x] Add the new stale-path checker and `start-frontend` views components
         barrel to the tracked change set.
--   [x] Fix the `@universo/core-backend` Jest command import regression.
+-   [x] Fix the `@universo-react/core-backend` Jest command import regression.
 -   [x] Include all flat-package Vitest configs in the root Vitest workspace.
 -   [x] Wire the stale package-base guard into CI and agent verification gates.
 -   [x] Strengthen local Supabase tests for exact flattened frontend env paths.

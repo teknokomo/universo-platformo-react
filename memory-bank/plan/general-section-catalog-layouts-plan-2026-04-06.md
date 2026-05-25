@@ -47,14 +47,14 @@ Create a new "General" (Общие) **tabbed page** in the metahub sidebar (foll
 
 | Package | Scope |
 |---------|-------|
-| `@universo/metahubs-frontend` | GeneralPage, catalog layout editor with overlay UI, i18n |
-| `@universo/metahubs-backend` | Schema update, overlay service methods, routes, snapshot |
+| `@universo-react/metahubs-frontend` | GeneralPage, catalog layout editor with overlay UI, i18n |
+| `@universo-react/metahubs-backend` | Schema update, overlay service methods, routes, snapshot |
 | `@universo/universo-types` | Overlay types: CatalogLayoutOverride, merged widget types |
 | `@universo/universo-utils` | Overlay resolution helpers |
 | `@universo/universo-template-mui` | Menu restructuring (getMetahubMenuItems), page spacing constants |
-| `@universo/apps-template-mui` | Runtime catalog-specific layout resolution, surface type fix |
-| `@universo/applications-backend` | Runtime sync for catalog layouts |
-| `@universo/schema-ddl` | SchemaGenerator: `catalog_id` on `_app_layouts` |
+| `@universo-react/apps-template-mui` | Runtime catalog-specific layout resolution, surface type fix |
+| `@universo-react/applications-backend` | Runtime sync for catalog layouts |
+| `@universo-react/schema-ddl` | SchemaGenerator: `catalog_id` on `_app_layouts` |
 | `docs/` | GitBook EN/RU pages for General section + catalog layouts |
 | `tools/testing/e2e/` | Comprehensive Playwright E2E test |
 
@@ -147,7 +147,7 @@ After creation, inheritance remains deterministic via `base_layout_id`; switchin
 
 ### Phase 1: Shared Types & Utilities (Foundation)
 
-#### Step 1.1 — Extend shared types in `@universo/types`
+#### Step 1.1 — Extend shared types in `@universo-react/types`
 - [ ] Add `catalog_id: string | null` to `MetahubLayoutRow` interface
 - [ ] Add `baseLayoutId: string | null` to `MetahubLayoutRow` interface
 - [ ] Add `CatalogWidgetOverride` interface:
@@ -193,9 +193,9 @@ After creation, inheritance remains deterministic via `base_layout_id`; switchin
   ```
 - [ ] Extend `MetahubSnapshotExtension` with optional `catalogLayouts?: CatalogLayoutSnapshot[]`
 
-**Files:** `packages/universo-types/base/src/common/metahubs.ts`, `packages/universo-types/base/src/common/dashboardLayout.ts`
+**Files:** `packages/universo-react-types/base/src/common/metahubs.ts`, `packages/universo-react-types/base/src/common/dashboardLayout.ts`
 
-#### Step 1.2 — Overlay resolution helper in `@universo/utils`
+#### Step 1.2 — Overlay resolution helper in `@universo-react/utils`
 - [ ] Add `resolveOverlayWidgets()`:
   ```typescript
   export function resolveOverlayWidgets(params: {
@@ -221,7 +221,7 @@ After creation, inheritance remains deterministic via `base_layout_id`; switchin
   ```
 - [ ] Unit tests: sparse overrides merge correctly, non-overridden global widget config keeps following the base widget, disabled inherited widgets excluded, cross-zone moves respected, catalog-owned widgets included, catalog-layout behavior config reuses existing catalog runtime defaults/enums, and catalogs without a custom layout fall back to the catalog runtimeConfig behavior subset
 
-**Files:** `packages/universo-utils/base/src/validation/catalogLayoutOverlay.ts` (new), tests alongside
+**Files:** `packages/universo-react-utils/base/src/validation/catalogLayoutOverlay.ts` (new), tests alongside
 
 ---
 
@@ -259,8 +259,8 @@ After creation, inheritance remains deterministic via `base_layout_id`; switchin
 - [ ] Keep runtime schema flattened: no `_app_catalog_widget_overrides` table
 
 **Files:**
-- `packages/metahubs-backend/base/src/domains/metahubs/services/systemTableDefinitions.ts`
-- `packages/schema-ddl/base/src/SchemaGenerator.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/metahubs/services/systemTableDefinitions.ts`
+- `packages/universo-react-schema-ddl/base/src/SchemaGenerator.ts`
 
 ---
 
@@ -289,7 +289,7 @@ After creation, inheritance remains deterministic via `base_layout_id`; switchin
 - [ ] Ensure `listLayouts()` default behavior unchanged (catalog_id IS NULL filter)
 - [ ] Transaction safety: all mutations in transactions with FOR UPDATE
 
-**File:** `packages/metahubs-backend/base/src/domains/layouts/services/MetahubLayoutsService.ts`
+**File:** `packages/universo-react-metahubs-backend/base/src/domains/layouts/services/MetahubLayoutsService.ts`
 
 #### Step 3.2 — Add catalog layout routes
 - [ ] Routes scoped under `/metahub/:metahubId/catalog/:catalogId/layouts`:
@@ -311,7 +311,7 @@ After creation, inheritance remains deterministic via `base_layout_id`; switchin
 - [ ] Auth: `ensureMetahubAccess` with `manageMetahub` for mutations, membership for reads
 - [ ] Input validation: Zod schemas with bind parameters for SQL
 
-**File:** `packages/metahubs-backend/base/src/domains/layouts/routes/catalogLayoutRoutes.ts` (new)
+**File:** `packages/universo-react-metahubs-backend/base/src/domains/layouts/routes/catalogLayoutRoutes.ts` (new)
 
 #### Step 3.3 — Extend publication snapshot
 - [ ] Update `attachLayoutsToSnapshot()` in `snapshotLayouts.ts`:
@@ -321,7 +321,7 @@ After creation, inheritance remains deterministic via `base_layout_id`; switchin
   - Each entry: `{ catalogId, layout, zoneWidgets[], behaviorConfig }`
 - [ ] Update snapshot restore: if `catalogLayouts` present, recreate catalog layout rows, inherited overrides, and owned widgets with remapped IDs
 
-**File:** `packages/metahubs-backend/base/src/domains/shared/snapshotLayouts.ts`
+**File:** `packages/universo-react-metahubs-backend/base/src/domains/shared/snapshotLayouts.ts`
 
 #### Step 3.4 — Backend tests
 - [ ] Unit: createCatalogLayout stores `base_layout_id` and does not preseed inherited overrides
@@ -336,7 +336,7 @@ After creation, inheritance remains deterministic via `base_layout_id`; switchin
 - [ ] Route integration: full CRUD lifecycle
 - [ ] Route integration: auth (403 for non-members)
 
-**File:** `packages/metahubs-backend/base/src/tests/` (new test files)
+**File:** `packages/universo-react-metahubs-backend/base/src/tests/` (new test files)
 
 ---
 
@@ -367,9 +367,9 @@ After creation, inheritance remains deterministic via `base_layout_id`; switchin
   - Existing behavior (no catalog layout) continues to work unchanged
 
 **Files:**
-- `packages/applications-backend/base/src/routes/sync/syncDataLoader.ts`
-- `packages/applications-backend/base/src/controllers/runtimeRowsController.ts`
-- `packages/apps-template-mui/src/standalone/DashboardApp.tsx`
+- `packages/universo-react-applications-backend/base/src/routes/sync/syncDataLoader.ts`
+- `packages/universo-react-applications-backend/base/src/controllers/runtimeRowsController.ts`
+- `packages/universo-react-apps-template-mui/src/standalone/DashboardApp.tsx`
 
 ---
 
@@ -389,14 +389,14 @@ After creation, inheritance remains deterministic via `base_layout_id`; switchin
   - Remove `metahub-layouts` from the later slot after `metahub-divider-secondary`
   - Resulting order: divider-after-branches → General → Hubs → Catalogs → Sets → Enumerations
 
-**File:** `packages/universo-template-mui/base/src/navigation/menuConfigs.ts`
+**File:** `packages/universo-react-template-mui/base/src/navigation/menuConfigs.ts`
 
 #### Step 5.2 — Update descriptive menu in `metahubDashboard.ts`
 - [ ] Place `general` item above `hubs` and remove standalone `layouts` item
   - This syncs the descriptive definition even though it's not rendered
   - Remove any 'collapse' approach — keep flat like all other menu items
 
-**File:** `packages/metahubs-frontend/base/src/menu-items/metahubDashboard.ts`
+**File:** `packages/universo-react-metahubs-frontend/base/src/menu-items/metahubDashboard.ts`
 
 #### Step 5.3 — Create `GeneralPage.tsx` (SettingsPage pattern)
 - [ ] New component following exact SettingsPage structure:
@@ -426,9 +426,9 @@ After creation, inheritance remains deterministic via `base_layout_id`; switchin
   }
   ```
 - [ ] Extract `LayoutsListContent` from `LayoutList.tsx` so the existing list UI is reused without nesting page shells/MainCard containers
-- [ ] Import `PAGE_TAB_BAR_SX`, `PAGE_CONTENT_GUTTER_MX` from `@universo/template-mui`
+- [ ] Import `PAGE_TAB_BAR_SX`, `PAGE_CONTENT_GUTTER_MX` from `@universo-react/template-mui`
 
-**File:** `packages/metahubs-frontend/base/src/domains/general/ui/GeneralPage.tsx` (new)
+**File:** `packages/universo-react-metahubs-frontend/base/src/domains/general/ui/GeneralPage.tsx` (new)
 
 #### Step 5.4 — Add route in MainRoutes.tsx
 - [ ] Add `general` route:
@@ -438,7 +438,7 @@ After creation, inheritance remains deterministic via `base_layout_id`; switchin
 - [ ] Keep existing `layouts` and `layouts/:layoutId` routes (for deep linking / editing detail)
 - [ ] Lazy import: `const MetahubGeneral = Loadable(lazy(() => import('...')))` (follow existing pattern)
 
-**File:** `packages/universo-core-frontend/base/src/routes/MainRoutes.tsx`
+**File:** `packages/universo-react-core-frontend/base/src/routes/MainRoutes.tsx`
 
 #### Step 5.5 — i18n keys
 - [ ] Add keys for EN and RU:
@@ -482,9 +482,9 @@ After creation, inheritance remains deterministic via `base_layout_id`; switchin
 - [ ] Navigation from CatalogActions "Layout" tab → click layout → navigate to detail route
 
 **Files:**
-- `packages/metahubs-frontend/base/src/domains/catalogs/ui/CatalogActions.tsx` (extend Layout tab)
-- `packages/metahubs-frontend/base/src/domains/catalogs/ui/CatalogLayoutDetails.tsx` (new)
-- `packages/universo-core-frontend/base/src/routes/MainRoutes.tsx` (add route)
+- `packages/universo-react-metahubs-frontend/base/src/domains/catalogs/ui/CatalogActions.tsx` (extend Layout tab)
+- `packages/universo-react-metahubs-frontend/base/src/domains/catalogs/ui/CatalogLayoutDetails.tsx` (new)
+- `packages/universo-react-core-frontend/base/src/routes/MainRoutes.tsx` (add route)
 
 ---
 
@@ -509,7 +509,7 @@ After creation, inheritance remains deterministic via `base_layout_id`; switchin
 
 **Files:**
 - `tools/testing/e2e/specs/` (new test)
-- `packages/apps-template-mui/src/standalone/DashboardApp.tsx` (fix if needed)
+- `packages/universo-react-apps-template-mui/src/standalone/DashboardApp.tsx` (fix if needed)
 
 ---
 

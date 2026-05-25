@@ -23,8 +23,8 @@ Extend the Metahub "Common" / "Общие" section with new tabs for managing sh
 
 | Package | Scope |
 |---------|-------|
-| `@universo/types` | New shared object kinds, `SharedBehavior` type, script attachment/role enums |
-| `@universo/utils` | Snapshot hash normalization for new sections, merged list helpers |
+| `@universo-react/types` | New shared object kinds, `SharedBehavior` type, script attachment/role enums |
+| `@universo-react/utils` | Snapshot hash normalization for new sections, merged list helpers |
 | `metahubs-backend` | Virtual container service, exclusions CRUD, shared entity query patterns, script compilation order |
 | `metahubs-frontend` | GeneralPage tabs, shell-less list content components, exclusions UI, visual badges/dividers |
 | `applications-backend` | Runtime materialization of shared entities into `_app_*` rows, shared script sync |
@@ -44,16 +44,16 @@ Extend the Metahub "Common" / "Общие" section with new tabs for managing sh
 
 ### Phase 1: Foundation — Types, Schema, Backend Core
 
-#### Step 1.1: Shared Types in `@universo/types`
+#### Step 1.1: Shared Types in `@universo-react/types`
 
-**File**: `packages/universo-types/base/src/common/scripts.ts`
+**File**: `packages/universo-react-types/base/src/common/scripts.ts`
 
 - [ ] Add `'general'` to `SCRIPT_ATTACHMENT_KINDS`
 - [ ] Replace existing `'global'` role with `'library'` in `SCRIPT_MODULE_ROLES` (do NOT keep both; they overlap semantically and the user explicitly does not want legacy preservation)
 - [ ] Update `SCRIPT_ALLOWED_CAPABILITIES_BY_ROLE` and `SCRIPT_DEFAULT_CAPABILITIES_BY_ROLE` for `library` role
 - [ ] Update any frontend/i18n/guidance strings that still refer to `'global'` script role so the role model stays unambiguous
 
-**New file**: `packages/universo-types/base/src/common/shared.ts`
+**New file**: `packages/universo-react-types/base/src/common/shared.ts`
 
 ```typescript
 // Virtual container object kinds for shared entities
@@ -103,12 +103,12 @@ export function resolveSharedBehavior(raw?: Partial<SharedBehavior>): Required<S
 }
 ```
 
-- [ ] Export from `packages/universo-types/base/src/index.ts`
-- [ ] Build `@universo/types`
+- [ ] Export from `packages/universo-react-types/base/src/index.ts`
+- [ ] Build `@universo-react/types`
 
 #### Step 1.2: System Table Definition — `_mhb_shared_entity_overrides`
 
-**File**: `packages/metahubs-backend/base/src/domains/metahubs/services/systemTableDefinitions.ts`
+**File**: `packages/universo-react-metahubs-backend/base/src/domains/metahubs/services/systemTableDefinitions.ts`
 
 - [ ] Add `mhbSharedEntityOverrides` table definition:
 
@@ -157,10 +157,10 @@ const mhbSharedEntityOverrides: SystemTableDef = {
 
 #### Step 1.3: Virtual Container Object Service
 
-**New file**: `packages/metahubs-backend/base/src/domains/shared/services/SharedContainerService.ts`
+**New file**: `packages/universo-react-metahubs-backend/base/src/domains/shared/services/SharedContainerService.ts`
 
 ```typescript
-import { SHARED_OBJECT_KINDS, type SharedObjectKind } from '@universo/types'
+import { SHARED_OBJECT_KINDS, type SharedObjectKind } from '@universo-react/types'
 
 export class SharedContainerService {
   /**
@@ -193,7 +193,7 @@ export class SharedContainerService {
 
 #### Step 1.4: Shared Entity Overrides Service
 
-**New file**: `packages/metahubs-backend/base/src/domains/shared/services/SharedEntityOverridesService.ts`
+**New file**: `packages/universo-react-metahubs-backend/base/src/domains/shared/services/SharedEntityOverridesService.ts`
 
 ```typescript
 export class SharedEntityOverridesService {
@@ -227,7 +227,7 @@ export class SharedEntityOverridesService {
 
 #### Step 1.5: Shared Entity Overrides Controller (REST API)
 
-**New file**: `packages/metahubs-backend/base/src/domains/shared/controllers/sharedEntityOverridesController.ts`
+**New file**: `packages/universo-react-metahubs-backend/base/src/domains/shared/controllers/sharedEntityOverridesController.ts`
 
 Endpoints:
 - [ ] `GET /metahubs/:metahubId/shared-entity-overrides?entityKind=attribute&sharedEntityId=:id` → list per-target overrides for one shared entity
@@ -247,9 +247,9 @@ const upsertSharedEntityOverrideSchema = z.object({
 })
 ```
 
-#### Step 1.6: Merged Entity List Helpers (`@universo/utils` or `metahubs-backend`)
+#### Step 1.6: Merged Entity List Helpers (`@universo-react/utils` or `metahubs-backend`)
 
-**New file**: `packages/metahubs-backend/base/src/domains/shared/helpers/mergedEntityHelpers.ts`
+**New file**: `packages/universo-react-metahubs-backend/base/src/domains/shared/helpers/mergedEntityHelpers.ts`
 
 ```typescript
 /**
@@ -295,7 +295,7 @@ export async function buildMergedAttributeList(
 
 #### Step 2.1: i18n Keys
 
-**Files**: `packages/universo-i18n/base/src/locales/en.json`, `ru.json`
+**Files**: `packages/universo-react-i18n/base/src/locales/en.json`, `ru.json`
 
 - [ ] Add keys under `metahubs.general.tabs.*`:
   - `attributes` / `Attributes` / `Атрибуты`
@@ -324,7 +324,7 @@ Following the `LayoutList` → `LayoutListContent` extraction pattern:
 
 #### Step 2.3: Extend GeneralPage with New Tabs
 
-**File**: `packages/metahubs-frontend/base/src/domains/general/ui/GeneralPage.tsx`
+**File**: `packages/universo-react-metahubs-frontend/base/src/domains/general/ui/GeneralPage.tsx`
 
 ```typescript
 type GeneralTab = 'layouts' | 'attributes' | 'constants' | 'values' | 'scripts'
@@ -443,7 +443,7 @@ const SharedEntityBadge = () => {
 
 #### Step 3.3: Inherited Widget Enhanced Styling in Catalog Layouts
 
-**File**: `packages/metahubs-frontend/base/src/domains/layouts/ui/LayoutDetails.tsx`
+**File**: `packages/universo-react-metahubs-frontend/base/src/domains/layouts/ui/LayoutDetails.tsx`
 
 - [ ] Apply same visual treatment to inherited widgets:
   - Background tint: `alpha(theme.palette.info.main, 0.04)`
@@ -471,7 +471,7 @@ const SharedEntityBadge = () => {
 
 #### Step 4.1: Types and Backend Configuration
 
-- [ ] Update `SCRIPT_ATTACHMENT_KINDS` in `@universo/types` (done in Step 1.1)
+- [ ] Update `SCRIPT_ATTACHMENT_KINDS` in `@universo-react/types` (done in Step 1.1)
 - [ ] Replace `global` with `library` in `SCRIPT_MODULE_ROLES`, script-role guidance, UI role selectors, i18n keys, and backend validation so there is one clear read-only reusable-code role
 - [ ] Normalize persisted `moduleRole='global'` records to `library` on read/write/publication so there is no shadow legacy role at runtime
 - [ ] Ensure `library` role defaults/capabilities fail closed and the frontend pristine role-switch path resets capabilities from `resolveDefaultScriptCapabilities(nextRole)` instead of carrying over stale executable permissions
@@ -482,13 +482,13 @@ const SharedEntityBadge = () => {
   - `attachedToKind in {'catalog','hub','set','enumeration','attribute'}` = executable object-scoped scripts (current behavior preserved)
 - [ ] Extend backend null-attachment handling so `attachedToKind='general'` also normalizes to `attachedToId = null` (same storage pattern as metahub-level scripts)
 - [ ] Update frontend `EntityScriptsTab` gating and query behavior so `attachedToKind='general'` with `attachedToId = null` is editable/listable (current UI only allows null attachment for `metahub`)
-- [ ] Add `SharedLibraryScript` to `packages/extension-sdk` as a marker base class for shared libraries; keep it thin and use it mainly for intent, templates, and compiler validation
+- [ ] Add `SharedLibraryScript` to `packages/universo-react-extension-sdk` as a marker base class for shared libraries; keep it thin and use it mainly for intent, templates, and compiler validation
 
 #### Step 4.2: Scripting Engine — `@shared/` Import Resolver
 
 **File**: `packages/scripting-engine/base/src/compiler.ts`
 
-The compiler's import boundary checker currently allows only `@universo/extension-sdk`. Add `@shared/*` resolution:
+The compiler's import boundary checker currently allows only `@universo-react/extension-sdk`. Add `@shared/*` resolution:
 
 ```typescript
 // In the import validator / esbuild plugin:
@@ -535,12 +535,12 @@ const sharedLibraryPlugin: esbuild.Plugin = {
 - [ ] Detect circular imports between shared libraries (topological sort)
 - [ ] Compile shared libraries FIRST, then compile consumer scripts with resolved libraries
 - [ ] Add `@shared/*` to the allowed import paths in the import boundary checker
-- [ ] Keep import boundary fail-closed: only `@universo/extension-sdk` and `@shared/*` are allowed; all other imports remain blocked
+- [ ] Keep import boundary fail-closed: only `@universo-react/extension-sdk` and `@shared/*` are allowed; all other imports remain blocked
 - [ ] Keep the `@shared/*` resolution map per-metahub compilation context; the same codename in another metahub must never satisfy the import
 
 #### Step 4.3: Publication — Shared Script Compilation Order
 
-**File**: `packages/metahubs-backend/base/src/domains/publications/services/publicationPipeline.ts` (or equivalent)
+**File**: `packages/universo-react-metahubs-backend/base/src/domains/publications/services/publicationPipeline.ts` (or equivalent)
 
 - [ ] During publication, compile scripts in dependency order:
   1. Collect all shared library scripts (`attached_to_kind = 'general'`, `module_role = 'library'`)
@@ -565,7 +565,7 @@ const sharedLibraryPlugin: esbuild.Plugin = {
 - [ ] Template content:
 
 ```typescript
-import { SharedLibraryScript } from '@universo/extension-sdk'
+import { SharedLibraryScript } from '@universo-react/extension-sdk'
 
 export default class SharedHelpers extends SharedLibraryScript {
   static formatCurrency(amount: number, currency: string): string {
@@ -615,7 +615,7 @@ export default class SharedHelpers extends SharedLibraryScript {
 
 #### Step 5.1: Snapshot Export — Add Shared Entity Sections
 
-**File**: `packages/metahubs-backend/base/src/domains/publications/services/SnapshotSerializer.ts`
+**File**: `packages/universo-react-metahubs-backend/base/src/domains/publications/services/SnapshotSerializer.ts`
 
 - [ ] Identify virtual container objects during export
 - [ ] Serialize shared attributes/constants/values into dedicated snapshot sections:
@@ -635,7 +635,7 @@ interface MetahubSnapshot {
 
 #### Step 5.2: Snapshot Import — Restore Shared Entities
 
-**File**: `packages/metahubs-backend/base/src/domains/metahubs/services/SnapshotRestoreService.ts`
+**File**: `packages/universo-react-metahubs-backend/base/src/domains/metahubs/services/SnapshotRestoreService.ts`
 
 - [ ] Add restoration pass between Pass 1 (entities) and Pass 2 (constants):
   - `restoreSharedEntities()`: create virtual containers, insert shared attributes/constants/values
@@ -644,7 +644,7 @@ interface MetahubSnapshot {
 
 #### Step 5.3: Snapshot Hash Normalization
 
-**File**: `packages/universo-utils/base/src/serialization/publicationSnapshotHash.ts`
+**File**: `packages/universo-react-utils/base/src/serialization/publicationSnapshotHash.ts`
 
 - [ ] Add `sharedAttributes`, `sharedConstants`, `sharedValues`, `sharedEntityOverrides` sections to normalizer
 - [ ] Each section: sort by deterministic keys (codename, id)
@@ -657,7 +657,7 @@ interface MetahubSnapshot {
 
 #### Step 5.4: Application Sync — Flatten Shared Entities into Runtime Tables
 
-**File**: `packages/applications-backend/base/src/routes/sync/syncHelpers.ts`
+**File**: `packages/universo-react-applications-backend/base/src/routes/sync/syncHelpers.ts`
 
 During app creation from publication snapshot:
 

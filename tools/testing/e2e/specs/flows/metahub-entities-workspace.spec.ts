@@ -1,5 +1,5 @@
 import type { Response as PlaywrightResponse } from '@playwright/test'
-import { createLocalizedContent, getVLCString } from '@universo/utils'
+import { createLocalizedContent, getVLCString } from '@universo-react/utils'
 
 import { expect, test } from '../../fixtures/test'
 import {
@@ -243,7 +243,7 @@ function buildKindSuffix(runId: string): string {
     return normalized.slice(-8) || 'e2e'
 }
 
-const GENERIC_ENTITY_WIDGET_SOURCE = `import { ExtensionModule, AtClient } from '@universo/extension-sdk'
+const GENERIC_ENTITY_WIDGET_SOURCE = `import { ExtensionModule, AtClient } from '@universo-react/extension-sdk'
 
 export default class GenericEntityWidget extends ExtensionModule {
     @AtClient()

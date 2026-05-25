@@ -15,10 +15,10 @@ The following findings from the first comprehensive QA audit have been incorpora
 
 | # | Severity | Finding | Resolution |
 |---|----------|---------|------------|
-| F1 | HIGH | Plan reinvented VLC type (`VlcContent`) | Use existing `VersionedLocalizedContent<T>` from `@universo/types` |
-| F2 | HIGH | Plan reinvented VLC resolver (`vlcResolver.ts`) | Use existing `getVLCString()` / `resolveLocalizedContent()` from `@universo/utils/vlc` — same as metahubs-frontend |
+| F1 | HIGH | Plan reinvented VLC type (`VlcContent`) | Use existing `VersionedLocalizedContent<T>` from `@universo-react/types` |
+| F2 | HIGH | Plan reinvented VLC resolver (`vlcResolver.ts`) | Use existing `getVLCString()` / `resolveLocalizedContent()` from `@universo-react/utils/vlc` — same as metahubs-frontend |
 | F3 | MEDIUM | Wrong function name `resolveAuthUserId` | Keep existing local `resolveAuthUser()` pattern already in onboardingRoutes.ts |
-| F4 | MEDIUM | Wrong executor API `getDbExecutor()` from `@universo/utils` | Use `getPoolExecutor()` from `@universo/database`; route receives executor via factory argument |
+| F4 | MEDIUM | Wrong executor API `getDbExecutor()` from `@universo-react/utils` | Use `getPoolExecutor()` from `@universo-react/database`; route receives executor via factory argument |
 | F5 | MEDIUM | Plan imported `SqlPlatformMigrationDefinition` from shared package | Define `SqlMigrationStatement` + `SqlMigrationDefinition` LOCALLY in migration file (codebase convention) |
 | F6 | MEDIUM | Missing local helpers | Add local `createDropPolicyIfTableExistsStatement` and `normalizeSql` helpers (all existing migrations define them locally) |
 | F7 | LOW | VLC seed dates `2026-03-15T00:00:00.000Z` | Use `2024-12-06T00:00:00.000Z` for consistency with existing admin seeds |
@@ -34,8 +34,8 @@ The following findings from the second QA audit of the updated v2 plan have been
 | # | Severity | Finding | Resolution |
 |---|----------|---------|------------|
 | F1-v2 | MEDIUM | `user_id` in `rel_user_selections` used `AttributeDataType.STRING` — admin-backend uses `AttributeDataType.REF` for `user_id` in `rel_user_roles` | Changed to `AttributeDataType.REF` for metadata consistency |
-| F2-v2 | MEDIUM | `start-frontend/base/package.json` missing `@universo/types` dependency — needed for `import type { VersionedLocalizedContent }` | Added `@universo/types: workspace:*` to Step 3.1 package.json changes |
-| F3-v2 | MEDIUM | `universo-migrations-platform/base/package.json` missing `@universo/start-backend` dependency — needed for `require('@universo/start-backend/platform-definition')` | Added `@universo/start-backend: workspace:*` to Step 1.4 |
+| F2-v2 | MEDIUM | `start-frontend/base/package.json` missing `@universo-react/types` dependency — needed for `import type { VersionedLocalizedContent }` | Added `@universo-react/types: workspace:*` to Step 3.1 package.json changes |
+| F3-v2 | MEDIUM | `universo-migrations-platform/base/package.json` missing `@universo-react/start-backend` dependency — needed for `require('@universo-react/start-backend/platform-definition')` | Added `@universo-react/start-backend: workspace:*` to Step 1.4 |
 | F4-v2 | LOW | Step 1.5 showed wrong `PolicyRewrite` format (`{ schema, table, policy }`) — real interface uses `{ table, name, forClause, using?, withCheck? }` | Replaced with correct `PolicyRewrite` entries matching admin-backend pattern |
 | F5-v2 | LOW | `item_id` in `rel_user_selections` used `AttributeDataType.STRING` — as a UUID reference to catalog items, `AttributeDataType.REF` is more semantically correct | Changed to `AttributeDataType.REF` (polymorphic reference without `targetTableCodename`) |
 | F6-v2 | INFO | `start-frontend/base/package.json` missing from File Change Summary Modified Files | Added to Modified Files table |
@@ -54,7 +54,7 @@ The platform's onboarding wizard currently returns **empty arrays** after the le
 - Full RLS security, system fields (`_upl_*` + `_app_*`), UUID v7 PKs
 - Backend store modules with raw SQL through `DbExecutor` + `RETURNING` pattern
 - Updated API routes for real data retrieval and selection persistence
-- Updated frontend using existing `VersionedLocalizedContent<T>` type and `getVLCString()` from `@universo/utils/vlc` (no new VLC types or resolvers)
+- Updated frontend using existing `VersionedLocalizedContent<T>` type and `getVLCString()` from `@universo-react/utils/vlc` (no new VLC types or resolvers)
 - Comprehensive test suite across all layers
 
 **Key principle**: No legacy code preserved. Fresh schema, fresh DB. No version bumps needed.
@@ -144,7 +144,7 @@ Each catalog table has the same column layout:
 
 ### 2.5 VLC Data Format
 
-All name/description fields use the existing `VersionedLocalizedContent<string>` type from `@universo/types/common/admin.ts`. Seed VLC dates use `2024-12-06T00:00:00.000Z` to match existing admin seed convention:
+All name/description fields use the existing `VersionedLocalizedContent<string>` type from `@universo-react/types/common/admin.ts`. Seed VLC dates use `2024-12-06T00:00:00.000Z` to match existing admin seed convention:
 
 ```json
 {
@@ -175,14 +175,14 @@ All name/description fields use the existing `VersionedLocalizedContent<string>`
 
 | What | Where | Import Pattern |
 |------|-------|----------------|
-| `VersionedLocalizedContent<T>` type | `@universo/types` | `import type { VersionedLocalizedContent } from '@universo/types'` |
-| `getVLCString(vlc, locale)` | `@universo/utils/vlc` | `import { getVLCString } from '@universo/utils/vlc'` |
-| `getVLCStringWithFallback(vlc, locale, fallback)` | `@universo/utils/vlc` | Same import path |
-| `resolveLocalizedContent(vlc, locale, fallback?)` | `@universo/utils/vlc` | Same import path |
-| `buildVLC(enContent, ruContent)` | `@universo/utils/vlc` | Same import path |
-| VLC Zod schemas | `@universo/types/validation/vlc` | `import { VersionedLocalizedContentSchema } from '@universo/types/validation/vlc'` |
+| `VersionedLocalizedContent<T>` type | `@universo-react/types` | `import type { VersionedLocalizedContent } from '@universo-react/types'` |
+| `getVLCString(vlc, locale)` | `@universo-react/utils/vlc` | `import { getVLCString } from '@universo-react/utils/vlc'` |
+| `getVLCStringWithFallback(vlc, locale, fallback)` | `@universo-react/utils/vlc` | Same import path |
+| `resolveLocalizedContent(vlc, locale, fallback?)` | `@universo-react/utils/vlc` | Same import path |
+| `buildVLC(enContent, ruContent)` | `@universo-react/utils/vlc` | Same import path |
+| VLC Zod schemas | `@universo-react/types/validation/vlc` | `import { VersionedLocalizedContentSchema } from '@universo-react/types/validation/vlc'` |
 
-**Reference pattern**: metahubs-frontend uses `import { getVLCString } from '@universo/utils/vlc'` for all VLC resolution.
+**Reference pattern**: metahubs-frontend uses `import { getVLCString } from '@universo-react/utils/vlc'` for all VLC resolution.
 
 ---
 
@@ -193,14 +193,14 @@ All name/description fields use the existing `VersionedLocalizedContent<string>`
 #### Step 1.1: Create `start-backend` platform definition infrastructure
 
 **Files to create:**
-- `packages/start-backend/base/src/platform/systemAppDefinition.ts`
-- `packages/start-backend/base/src/platform/migrations/index.ts`
+- `packages/universo-react-start-backend/base/src/platform/systemAppDefinition.ts`
+- `packages/universo-react-start-backend/base/src/platform/migrations/index.ts`
 
 **`systemAppDefinition.ts`** — SystemAppDefinition manifest:
 
 ```typescript
-import { createSystemAppManifestPresentation, type SystemAppDefinition } from '@universo/migrations-core'
-import { AttributeDataType } from '@universo/types'
+import { createSystemAppManifestPresentation, type SystemAppDefinition } from '@universo-react/migrations-core'
+import { AttributeDataType } from '@universo-react/types'
 import { finalizeStartSchemaSupportMigrationDefinition, prepareStartSchemaSupportMigrationDefinition } from './migrations'
 
 const p = createSystemAppManifestPresentation
@@ -310,7 +310,7 @@ export const startSystemAppDefinition: SystemAppDefinition = {
     manifestVersion: 1,
     key: 'start',
     displayName: 'Start',
-    ownerPackage: '@universo/start-backend',
+    ownerPackage: '@universo-react/start-backend',
     engineVersion: '0.1.0',
     structureVersion: '0.1.0',
     configurationVersion: '0.1.0',
@@ -366,9 +366,9 @@ export const startSystemAppDefinition: SystemAppDefinition = {
 
 #### Step 1.2: Create SQL migration definitions
 
-**File**: `packages/start-backend/base/src/platform/migrations/index.ts`
+**File**: `packages/universo-react-start-backend/base/src/platform/migrations/index.ts`
 
-**IMPORTANT (QA F5, F6)**: Migration interfaces and helpers are defined LOCALLY in each migration file — this is the established codebase convention. Do NOT import `SqlPlatformMigrationDefinition` from `@universo/migrations-core`. Instead:
+**IMPORTANT (QA F5, F6)**: Migration interfaces and helpers are defined LOCALLY in each migration file — this is the established codebase convention. Do NOT import `SqlPlatformMigrationDefinition` from `@universo-react/migrations-core`. Instead:
 
 1. Define `SqlMigrationStatement` and `SqlMigrationDefinition` interfaces locally (identical to admin-backend/profile-backend pattern)
 2. Define `normalizeSql` helper locally for SQL-prefix-based splitting
@@ -553,20 +553,20 @@ Add dependencies:
 ```json
 {
     "dependencies": {
-        "@universo/migrations-core": "workspace:*",
-        "@universo/types": "workspace:*"
+        "@universo-react/migrations-core": "workspace:*",
+        "@universo-react/types": "workspace:*"
     }
 }
 ```
 
 #### Step 1.4: Register in `universo-migrations-platform`
 
-**File**: `packages/universo-migrations-platform/base/src/systemAppDefinitions.ts`
+**File**: `packages/universo-react-migrations-platform/base/src/systemAppDefinitions.ts`
 
 Add to the existing imports and systemAppDefinitions array:
 
 ```typescript
-const { startSystemAppDefinition } = require('@universo/start-backend/platform-definition') as {
+const { startSystemAppDefinition } = require('@universo-react/start-backend/platform-definition') as {
     startSystemAppDefinition: SystemAppDefinition
 }
 
@@ -580,19 +580,19 @@ export const systemAppDefinitions: SystemAppDefinition[] = [
 ]
 ```
 
-**QA F3-v2**: Also add `@universo/start-backend` to `packages/universo-migrations-platform/base/package.json` dependencies:
+**QA F3-v2**: Also add `@universo-react/start-backend` to `packages/universo-react-migrations-platform/base/package.json` dependencies:
 
 ```json
 {
     "dependencies": {
-        "@universo/start-backend": "workspace:*"
+        "@universo-react/start-backend": "workspace:*"
     }
 }
 ```
 
 #### Step 1.5: Update `rlsPolicyOptimization.ts`
 
-**File**: `packages/universo-migrations-platform/base/src/rlsPolicyOptimization.ts`
+**File**: `packages/universo-react-migrations-platform/base/src/rlsPolicyOptimization.ts`
 
 **QA F4-v2**: Add start schema policies using the correct `PolicyRewrite` interface format (matching admin/profile/metahubs patterns):
 
@@ -645,12 +645,12 @@ const startPolicies: PolicyRewrite[] = [
 
 #### Step 2.1: Create store modules
 
-**File**: `packages/start-backend/base/src/persistence/onboardingStore.ts`
+**File**: `packages/universo-react-start-backend/base/src/persistence/onboardingStore.ts`
 
 **QA F11**: All INSERT/UPDATE functions use `RETURNING` to return affected business columns, matching profile store convention. DELETE returns only `id`.
 
 ```typescript
-import type { DbExecutor } from '@universo/utils/database'
+import type { DbExecutor } from '@universo-react/utils/database'
 
 export type CatalogKind = 'goals' | 'topics' | 'features'
 
@@ -785,7 +785,7 @@ export async function syncUserSelections(
 
 #### Step 2.2: Refactor onboarding routes
 
-**File**: `packages/start-backend/base/src/routes/onboardingRoutes.ts` — complete rewrite
+**File**: `packages/universo-react-start-backend/base/src/routes/onboardingRoutes.ts` — complete rewrite
 
 **QA F3**: Keep the existing local `resolveAuthUser` pattern (returns `{ id?, email? }`) — there is no shared `resolveAuthUserId` function in the codebase.
 
@@ -802,7 +802,7 @@ New API contract:
 **GET `/onboarding/items`** response:
 
 ```typescript
-// Uses VersionedLocalizedContent<string> from @universo/types — NOT a custom VlcContent
+// Uses VersionedLocalizedContent<string> from @universo-react/types — NOT a custom VlcContent
 interface OnboardingItemsResponse {
     onboardingCompleted: boolean
     goals: OnboardingCatalogItem[]
@@ -826,8 +826,8 @@ interface OnboardingCatalogItem {
 import { Router, Request, Response, RequestHandler } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import { z } from 'zod'
-import { ProfileService } from '@universo/profile-backend'
-import type { DbExecutor } from '@universo/utils/database'
+import { ProfileService } from '@universo-react/profile-backend'
+import type { DbExecutor } from '@universo-react/utils/database'
 import {
     fetchCatalogItems, fetchAllUserSelections, syncUserSelections,
     validateItemExists, type CatalogKind, type OnboardingCatalogRow
@@ -916,7 +916,7 @@ router.post('/complete', writeLimiter, async (req: Request, res: Response) => {
 
 #### Step 2.3: Update main exports
 
-**File**: `packages/start-backend/base/src/index.ts`
+**File**: `packages/universo-react-start-backend/base/src/index.ts`
 
 Add store exports and new types:
 ```typescript
@@ -931,12 +931,12 @@ export type { CatalogKind, OnboardingCatalogRow, UserSelectionRow } from './pers
 
 #### Step 3.1: Update shared types
 
-**File**: `packages/start-frontend/base/src/types/index.ts`
+**File**: `packages/universo-react-start-frontend/base/src/types/index.ts`
 
-**QA F1**: Use `VersionedLocalizedContent<string>` from `@universo/types` for VLC fields. Do NOT define a local `VlcContent` interface.
+**QA F1**: Use `VersionedLocalizedContent<string>` from `@universo-react/types` for VLC fields. Do NOT define a local `VlcContent` interface.
 
 ```typescript
-import type { VersionedLocalizedContent } from '@universo/types'
+import type { VersionedLocalizedContent } from '@universo-react/types'
 
 export interface OnboardingCatalogItem {
     id: string
@@ -976,7 +976,7 @@ export type OnboardingStep = 'welcome' | 'goals' | 'topics' | 'features' | 'comp
 
 #### Step 3.2: Update API client
 
-**File**: `packages/start-frontend/base/src/api/onboarding.ts`
+**File**: `packages/universo-react-start-frontend/base/src/api/onboarding.ts`
 
 ```typescript
 import apiClient from './apiClient'
@@ -1000,11 +1000,11 @@ export const completeOnboarding = async (): Promise<CompleteOnboardingResponse> 
 
 #### Step 3.3: VLC Resolution in Components — Use Existing Infrastructure
 
-**QA F2**: DO NOT create `packages/start-frontend/base/src/utils/vlcResolver.ts`. Instead, use the existing VLC utilities from `@universo/utils/vlc`:
+**QA F2**: DO NOT create `packages/universo-react-start-frontend/base/src/utils/vlcResolver.ts`. Instead, use the existing VLC utilities from `@universo-react/utils/vlc`:
 
 ```typescript
 // In OnboardingWizard / SelectionStep components:
-import { getVLCString } from '@universo/utils/vlc'
+import { getVLCString } from '@universo-react/utils/vlc'
 
 // Usage:
 const displayName = getVLCString(item.name, currentLocale) ?? item.codename
@@ -1039,7 +1039,7 @@ This matches the established pattern in metahubs-frontend components.
 
 #### 4.1 Backend Unit Tests
 
-**File**: `packages/start-backend/base/src/tests/persistence/onboardingStore.test.ts`
+**File**: `packages/universo-react-start-backend/base/src/tests/persistence/onboardingStore.test.ts`
 
 Test all store functions against mock DbExecutor:
 - `fetchCatalogItems` — correct SQL, parameter binding, ordering
@@ -1049,7 +1049,7 @@ Test all store functions against mock DbExecutor:
 - `syncUserSelections` — add + remove + idempotent scenarios
 - RETURNING: verify INSERT/UPDATE queries include RETURNING clause
 
-**File**: `packages/start-backend/base/src/tests/routes/onboardingRoutes.test.ts` — rewrite
+**File**: `packages/universo-react-start-backend/base/src/tests/routes/onboardingRoutes.test.ts` — rewrite
 
 Using supertest with mock DbExecutor (existing pattern):
 
@@ -1066,7 +1066,7 @@ Using supertest with mock DbExecutor (existing pattern):
 | POST /complete marks onboarding done | Calls markOnboardingCompleted |
 | POST /complete returns 401 for unauthenticated | Auth check |
 
-**File**: `packages/start-backend/base/src/tests/platform/systemAppDefinition.test.ts`
+**File**: `packages/universo-react-start-backend/base/src/tests/platform/systemAppDefinition.test.ts`
 
 Validate manifest structure:
 - Definition key is 'start', schema name is 'start'
@@ -1076,7 +1076,7 @@ Validate manifest structure:
 
 #### 4.2 Backend Integration Tests (Migration)
 
-**File**: `packages/universo-migrations-platform/base/src/__tests__/startSystemApp.test.ts`
+**File**: `packages/universo-react-migrations-platform/base/src/__tests__/startSystemApp.test.ts`
 
 Verify:
 - `startSystemAppDefinition` is loadable via require
@@ -1087,9 +1087,9 @@ Verify:
 
 #### 4.3 Frontend Unit Tests
 
-**Note on VLC resolver tests**: Since we use the existing `getVLCString()` from `@universo/utils/vlc` (which is already tested in that package), we do NOT create separate VLC resolver tests. This is a direct consequence of QA F1/F2 — no custom VLC code means no custom VLC tests needed.
+**Note on VLC resolver tests**: Since we use the existing `getVLCString()` from `@universo-react/utils/vlc` (which is already tested in that package), we do NOT create separate VLC resolver tests. This is a direct consequence of QA F1/F2 — no custom VLC code means no custom VLC tests needed.
 
-**File**: `packages/start-frontend/base/src/__tests__/components/OnboardingWizard.test.tsx`
+**File**: `packages/universo-react-start-frontend/base/src/__tests__/components/OnboardingWizard.test.tsx`
 
 Using @testing-library/react + vitest:
 - Renders welcome step initially
@@ -1101,14 +1101,14 @@ Using @testing-library/react + vitest:
 - Shows loading state during API calls
 - Shows error alert on API failure
 
-**File**: `packages/start-frontend/base/src/__tests__/components/SelectionStep.test.tsx`
+**File**: `packages/universo-react-start-frontend/base/src/__tests__/components/SelectionStep.test.tsx`
 
 - Renders title, subtitle, and item list
 - Calls onSelectionChange when item toggled
 - Shows skeleton loader when isLoading=true
 - Shows no items message when items array is empty
 
-**File**: `packages/start-frontend/base/src/__tests__/api/onboarding.test.ts`
+**File**: `packages/universo-react-start-frontend/base/src/__tests__/api/onboarding.test.ts`
 
 Mock axios/apiClient:
 - getOnboardingItems returns correct shape
@@ -1121,11 +1121,11 @@ Add `start-frontend` to `vitest.workspace.ts`:
 ```typescript
 export default defineWorkspace([
     // ...existing...
-    'packages/start-frontend/base/vitest.config.ts',  // NEW
+    'packages/universo-react-start-frontend/base/vitest.config.ts',  // NEW
 ])
 ```
 
-Create `packages/start-frontend/base/vitest.config.ts` following the metahubs-frontend pattern.
+Create `packages/universo-react-start-frontend/base/vitest.config.ts` following the metahubs-frontend pattern.
 
 ---
 
@@ -1135,13 +1135,13 @@ Create `packages/start-frontend/base/vitest.config.ts` following the metahubs-fr
 
 ```bash
 # 1. Build start-backend with new platform definition
-pnpm --filter @universo/start-backend build
+pnpm --filter @universo-react/start-backend build
 
 # 2. Build migrations-platform (depends on start-backend/platform-definition)
-pnpm --filter @universo/migrations-platform build
+pnpm --filter @universo-react/migrations-platform build
 
 # 3. Build start-frontend
-pnpm --filter @universo/start-frontend build
+pnpm --filter @universo-react/start-frontend build
 
 # 4. Full workspace build
 pnpm build
@@ -1159,13 +1159,13 @@ After build, the platform startup should:
 
 ```bash
 # Backend tests
-pnpm --filter @universo/start-backend test
+pnpm --filter @universo-react/start-backend test
 
 # Migration integration tests
-pnpm --filter @universo/migrations-platform test
+pnpm --filter @universo-react/migrations-platform test
 
 # Frontend tests
-pnpm --filter @universo/start-frontend test
+pnpm --filter @universo-react/start-frontend test
 
 # CI-level verification
 pnpm test
@@ -1179,45 +1179,45 @@ pnpm test
 
 | File | Description |
 |------|-------------|
-| `packages/start-backend/base/src/platform/systemAppDefinition.ts` | System app manifest for 'start' |
-| `packages/start-backend/base/src/platform/migrations/index.ts` | SQL migration definitions with local interfaces, helpers, and seed data |
-| `packages/start-backend/base/src/persistence/onboardingStore.ts` | SQL store module with RETURNING pattern |
-| `packages/start-backend/base/src/tests/persistence/onboardingStore.test.ts` | Store unit tests |
-| `packages/start-backend/base/src/tests/platform/systemAppDefinition.test.ts` | Manifest validation tests |
-| `packages/start-frontend/base/src/__tests__/components/OnboardingWizard.test.tsx` | Wizard integration tests |
-| `packages/start-frontend/base/src/__tests__/components/SelectionStep.test.tsx` | Selection step tests |
-| `packages/start-frontend/base/src/__tests__/api/onboarding.test.ts` | API client tests |
-| `packages/start-frontend/base/vitest.config.ts` | Vitest configuration |
-| `packages/universo-migrations-platform/base/src/__tests__/startSystemApp.test.ts` | Migration integration tests |
+| `packages/universo-react-start-backend/base/src/platform/systemAppDefinition.ts` | System app manifest for 'start' |
+| `packages/universo-react-start-backend/base/src/platform/migrations/index.ts` | SQL migration definitions with local interfaces, helpers, and seed data |
+| `packages/universo-react-start-backend/base/src/persistence/onboardingStore.ts` | SQL store module with RETURNING pattern |
+| `packages/universo-react-start-backend/base/src/tests/persistence/onboardingStore.test.ts` | Store unit tests |
+| `packages/universo-react-start-backend/base/src/tests/platform/systemAppDefinition.test.ts` | Manifest validation tests |
+| `packages/universo-react-start-frontend/base/src/__tests__/components/OnboardingWizard.test.tsx` | Wizard integration tests |
+| `packages/universo-react-start-frontend/base/src/__tests__/components/SelectionStep.test.tsx` | Selection step tests |
+| `packages/universo-react-start-frontend/base/src/__tests__/api/onboarding.test.ts` | API client tests |
+| `packages/universo-react-start-frontend/base/vitest.config.ts` | Vitest configuration |
+| `packages/universo-react-migrations-platform/base/src/__tests__/startSystemApp.test.ts` | Migration integration tests |
 
 ### Files NOT Created (QA F1/F2 — eliminated tech debt)
 
 | File | Reason |
 |------|--------|
-| ~~`packages/start-frontend/base/src/utils/vlcResolver.ts`~~ | Use existing `getVLCString()` from `@universo/utils/vlc` |
-| ~~`packages/start-frontend/base/src/__tests__/utils/vlcResolver.test.ts`~~ | No custom VLC code = no custom VLC tests |
+| ~~`packages/universo-react-start-frontend/base/src/utils/vlcResolver.ts`~~ | Use existing `getVLCString()` from `@universo-react/utils/vlc` |
+| ~~`packages/universo-react-start-frontend/base/src/__tests__/utils/vlcResolver.test.ts`~~ | No custom VLC code = no custom VLC tests |
 
 ### Modified Files
 
 | File | Change |
 |------|--------|
-| `packages/start-backend/base/package.json` | Add exports, deps, typesVersions |
-| `packages/start-backend/base/src/index.ts` | Export new modules |
-| `packages/start-backend/base/src/routes/onboardingRoutes.ts` | Complete rewrite — real SQL queries via store, keep local `resolveAuthUser` |
-| `packages/start-backend/base/src/routes/index.ts` | Update route mounting if needed |
-| `packages/start-backend/base/src/tests/routes/onboardingRoutes.test.ts` | Complete rewrite — new API contract |
-| `packages/start-frontend/base/src/types/index.ts` | New types using `VersionedLocalizedContent<string>` from `@universo/types` |
-| `packages/start-frontend/base/src/api/onboarding.ts` | New API functions |
-| `packages/start-frontend/base/src/components/OnboardingWizard.tsx` | Step name + data handling + `getVLCString()` usage |
-| `packages/start-frontend/base/src/components/SelectionStep.tsx` | VLC resolution via `getVLCString()` |
-| `packages/start-frontend/base/src/components/SelectableListCard.tsx` | May need minor prop updates |
-| `packages/start-frontend/base/src/views/AuthenticatedStartPage.tsx` | Updated API calls, address double-fetch |
-| `packages/start-frontend/base/package.json` | Add `@universo/types: workspace:*` dependency (QA F2-v2) |
-| `packages/start-frontend/base/src/i18n/locales/en/onboarding.json` | Step label updates |
-| `packages/start-frontend/base/src/i18n/locales/ru/onboarding.json` | Step label updates |
-| `packages/universo-migrations-platform/base/package.json` | Add `@universo/start-backend: workspace:*` dependency (QA F3-v2) |
-| `packages/universo-migrations-platform/base/src/systemAppDefinitions.ts` | Register startSystemAppDefinition |
-| `packages/universo-migrations-platform/base/src/rlsPolicyOptimization.ts` | Add start schema policies |
+| `packages/universo-react-start-backend/base/package.json` | Add exports, deps, typesVersions |
+| `packages/universo-react-start-backend/base/src/index.ts` | Export new modules |
+| `packages/universo-react-start-backend/base/src/routes/onboardingRoutes.ts` | Complete rewrite — real SQL queries via store, keep local `resolveAuthUser` |
+| `packages/universo-react-start-backend/base/src/routes/index.ts` | Update route mounting if needed |
+| `packages/universo-react-start-backend/base/src/tests/routes/onboardingRoutes.test.ts` | Complete rewrite — new API contract |
+| `packages/universo-react-start-frontend/base/src/types/index.ts` | New types using `VersionedLocalizedContent<string>` from `@universo-react/types` |
+| `packages/universo-react-start-frontend/base/src/api/onboarding.ts` | New API functions |
+| `packages/universo-react-start-frontend/base/src/components/OnboardingWizard.tsx` | Step name + data handling + `getVLCString()` usage |
+| `packages/universo-react-start-frontend/base/src/components/SelectionStep.tsx` | VLC resolution via `getVLCString()` |
+| `packages/universo-react-start-frontend/base/src/components/SelectableListCard.tsx` | May need minor prop updates |
+| `packages/universo-react-start-frontend/base/src/views/AuthenticatedStartPage.tsx` | Updated API calls, address double-fetch |
+| `packages/universo-react-start-frontend/base/package.json` | Add `@universo-react/types: workspace:*` dependency (QA F2-v2) |
+| `packages/universo-react-start-frontend/base/src/i18n/locales/en/onboarding.json` | Step label updates |
+| `packages/universo-react-start-frontend/base/src/i18n/locales/ru/onboarding.json` | Step label updates |
+| `packages/universo-react-migrations-platform/base/package.json` | Add `@universo-react/start-backend: workspace:*` dependency (QA F3-v2) |
+| `packages/universo-react-migrations-platform/base/src/systemAppDefinitions.ts` | Register startSystemAppDefinition |
+| `packages/universo-react-migrations-platform/base/src/rlsPolicyOptimization.ts` | Add start schema policies |
 | `vitest.workspace.ts` | Add start-frontend config |
 
 ---

@@ -11,7 +11,7 @@ pnpm run test:e2e:smoke
 
 -   The E2E server is started by `tools/testing/e2e/run-playwright-suite.mjs`.
 -   The browser target is `http://127.0.0.1:3100`.
--   Backend credentials come from `packages/universo-core-backend/.env.e2e.local` or `.env.e2e`.
+-   Backend credentials come from `packages/universo-react-core-backend/.env.e2e.local` or `.env.e2e`.
 -   Do not run `pnpm dev` for this workflow.
 
 ## Dedicated Local Supabase E2E

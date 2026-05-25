@@ -9,15 +9,15 @@ description: Описывает аутентификацию, сессии, CSRF
 
 ## Текущая модель
 
-- Бэкенд-маршруты auth и middleware живут в `@universo/auth-backend`.
-- Фронтенд-хелперы auth и UI-потоки живут в `@universo/auth-frontend`.
+- Бэкенд-маршруты auth и middleware живут в `@universo-react/auth-backend`.
+- Фронтенд-хелперы auth и UI-потоки живут в `@universo-react/auth-frontend`.
 - Клиенты используют запросы с учётом сессии и CSRF-защиту.
 - Для защищённых операций с базой применяется RLS-контекст, привязанный к запросу.
 - Server-side provisioning-потоки используют Supabase Admin API через server-only client, собранный из `SUPABASE_URL` + `SERVICE_ROLE_KEY`.
 
 ## Стартовый bootstrap суперпользователя
 
-Во время первого запуска платформы `@universo/core-backend` может автоматически создать или подтвердить bootstrap superuser, если `BOOTSTRAP_SUPERUSER_ENABLED=true`.
+Во время первого запуска платформы `@universo-react/core-backend` может автоматически создать или подтвердить bootstrap superuser, если `BOOTSTRAP_SUPERUSER_ENABLED=true`.
 
 Этот поток намеренно строгий:
 

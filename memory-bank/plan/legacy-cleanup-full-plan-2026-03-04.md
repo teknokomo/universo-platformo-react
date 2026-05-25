@@ -72,7 +72,7 @@ Remove **38 legacy legacy upstream/UPDL packages** from the monorepo, clean all 
 |---------|--------|
 | `legacy-core-backend` | Migrate essential code → `universo-core-backend`, then delete |
 | `legacy-core-frontend` | Rename to `universo-core-frontend`, clean legacy imports |
-| `legacy-store` | Rename to `@universo/store` (or merge into core-frontend — user decision needed) |
+| `legacy-store` | Rename to `@universo-react/store` (or merge into core-frontend — user decision needed) |
 | `legacy-template-mui` | Rename to `@universo/legacy-mui` or merge shared components — user decision needed |
 
 ---
@@ -85,7 +85,7 @@ Remove **38 legacy legacy upstream/UPDL packages** from the monorepo, clean all 
 `start-backend`, `start-frontend`, `universo-api-client`, `universo-core-backend` (enriched),
 `universo-core-frontend` (renamed), `universo-i18n`, `universo-rest-docs`,
 `universo-template-mui`, `universo-types`, `universo-utils`,
-`legacy-store` (renamed to `@universo/store`), `legacy-template-mui` (renamed to legacy or merged)
+`legacy-store` (renamed to `@universo-react/store`), `legacy-template-mui` (renamed to legacy or merged)
 
 ---
 
@@ -114,7 +114,7 @@ Remove **38 legacy legacy upstream/UPDL packages** from the monorepo, clean all 
 
 | File | What to change |
 |------|----------------|
-| `src/index.jsx` (129L) | Remove 10+ i18n imports from deleted packages, remove `setupBuilders()`, remove `browserModuleMap`, change `/store` → `@universo/store` |
+| `src/index.jsx` (129L) | Remove 10+ i18n imports from deleted packages, remove `setupBuilders()`, remove `browserModuleMap`, change `/store` → `@universo-react/store` |
 | `src/App.jsx` (218L) | Change `/template-mui` → new location, remove CaslDebugger TODO |
 | `package.json` (128L) | Remove 9+ deps on deleted frontend packages, remove `reactflow`, `legacy-embed`, `legacy-react-json-view`, `codemirror*`, `react-code-blocks`, etc. |
 | `vite.config.js` | Remove optimizeDeps for deleted packages |
@@ -158,12 +158,12 @@ Remove **38 legacy legacy upstream/UPDL packages** from the monorepo, clean all 
 |------|----------------|
 | `src/instance.ts` | Remove ~20 comment lines referencing deleted `/*` packages |
 
-### Shared — legacy-store (→ @universo/store)
+### Shared — legacy-store (→ @universo-react/store)
 
 | File | What to change |
 |------|----------------|
-| `package.json` | Rename `"name"` from `/store` → `@universo/store` |
-| All consumers | Update imports from `/store` → `@universo/store` |
+| `package.json` | Rename `"name"` from `/store` → `@universo-react/store` |
+| All consumers | Update imports from `/store` → `@universo-react/store` |
 
 ### Shared — legacy-template-mui
 
@@ -176,7 +176,7 @@ Remove **38 legacy legacy upstream/UPDL packages** from the monorepo, clean all 
 
 | File | What to change |
 |------|----------------|
-| Root `package.json` scripts | Change `packages/legacy-core-backend/base/bin` → `packages/universo-core-backend/base/bin` |
+| Root `package.json` scripts | Change `packages/legacy-core-backend/base/bin` → `packages/universo-react-core-backend/base/bin` |
 | `Dockerfile` | No package-specific refs (uses `pnpm build` / `pnpm start`) — update if start scripts change |
 | `docker/Dockerfile` | Uses global `legacy` npm install — review if still valid post-rename |
 | `docker/docker-compose.yml` | Review environment variables |
@@ -216,27 +216,27 @@ Remove **38 legacy legacy upstream/UPDL packages** from the monorepo, clean all 
 
 - [ ] **Step 0.3**: Document the starting package count
   ```bash
-  ls -d packages/*/base/package.json packages/apps-template-mui/package.json packages/universo-rest-docs/package.json | wc -l
+  ls -d packages/*/base/package.json packages/universo-react-apps-template-mui/package.json packages/universo-react-rest-docs/package.json | wc -l
   # Expected: ~62
   ```
 
 ---
 
-### Phase 1: @universo/types Cleanup (Foundation — must be first!)
+### Phase 1: @universo-react/types Cleanup (Foundation — must be first!)
 
-Other packages import from `@universo/types`. Removing types first prevents downstream build errors.
+Other packages import from `@universo-react/types`. Removing types first prevents downstream build errors.
 
 - [ ] **Step 1.1**: Delete UPDL type file
   ```bash
-  rm packages/universo-types/base/src/updl/index.ts
-  rmdir packages/universo-types/base/src/updl/
+  rm packages/universo-react-types/base/src/updl/index.ts
+  rmdir packages/universo-react-types/base/src/updl/
   ```
 
 - [ ] **Step 1.2**: Delete legacy validation files
   ```bash
-  rm packages/universo-types/base/src/validation/metaverses.ts
-  rm packages/universo-types/base/src/validation/leads.ts
-  rm packages/universo-types/base/src/validation/vlc.ts  # Review first — keep if used by kept packages
+  rm packages/universo-react-types/base/src/validation/metaverses.ts
+  rm packages/universo-react-types/base/src/validation/leads.ts
+  rm packages/universo-react-types/base/src/validation/vlc.ts  # Review first — keep if used by kept packages
   ```
 
 - [ ] **Step 1.3**: Clean `universo-types/base/src/index.ts` — remove deleted re-exports
@@ -426,11 +426,11 @@ This is the most complex phase. The `legacy-core-backend` is the central hub tha
   **AFTER** (only kept entity registrations):
   ```typescript
   // Database entity registry — only active packages
-  import { metahubsEntities } from '@universo/metahubs-backend'
-  import { applicationsEntities } from '@universo/applications-backend'
-  import { AuthUser } from '@universo/auth-backend'
-  import { Profile } from '@universo/profile-backend'
-  import { adminEntities } from '@universo/admin-backend'
+  import { metahubsEntities } from '@universo-react/metahubs-backend'
+  import { applicationsEntities } from '@universo-react/applications-backend'
+  import { AuthUser } from '@universo-react/auth-backend'
+  import { Profile } from '@universo-react/profile-backend'
+  import { adminEntities } from '@universo-react/admin-backend'
 
   export const entities = {
       ...metahubsEntities,
@@ -447,11 +447,11 @@ This is the most complex phase. The `legacy-core-backend` is the central hub tha
   
   **AFTER**:
   ```typescript
-  import { infrastructureMigrations } from '@universo/core-backend'
-  import { adminMigrations } from '@universo/admin-backend'
-  import { profileMigrations } from '@universo/profile-backend'
-  import { metahubsMigrations } from '@universo/metahubs-backend'
-  import { applicationsMigrations } from '@universo/applications-backend'
+  import { infrastructureMigrations } from '@universo-react/core-backend'
+  import { adminMigrations } from '@universo-react/admin-backend'
+  import { profileMigrations } from '@universo-react/profile-backend'
+  import { metahubsMigrations } from '@universo-react/metahubs-backend'
+  import { applicationsMigrations } from '@universo-react/applications-backend'
 
   /**
    * Migration order matters for FK constraints.
@@ -482,13 +482,13 @@ This is the most complex phase. The `legacy-core-backend` is the central hub tha
   **What to KEEP** (route mounts):
   ```
   GET /api/v1/ping
-  /api/v1/metahubs/*        (lazy from @universo/metahubs-backend)
-  /api/v1/applications/*    (lazy from @universo/applications-backend)
-  /api/v1/start/*           (lazy from @universo/start-backend)
-  /api/v1/admin/*           (from @universo/admin-backend)
-  /api/v1/profile/*         (from @universo/profile-backend)
-  /api/v1/public/metahubs/* (from @universo/metahubs-backend)
-  /api/v1/bots/*            (from @universo/metahubs-backend — keep if used)
+  /api/v1/metahubs/*        (lazy from @universo-react/metahubs-backend)
+  /api/v1/applications/*    (lazy from @universo-react/applications-backend)
+  /api/v1/start/*           (lazy from @universo-react/start-backend)
+  /api/v1/admin/*           (from @universo-react/admin-backend)
+  /api/v1/profile/*         (from @universo-react/profile-backend)
+  /api/v1/public/metahubs/* (from @universo-react/metahubs-backend)
+  /api/v1/bots/*            (from @universo-react/metahubs-backend — keep if used)
   ```
   
   **What to REMOVE** (routes):
@@ -563,7 +563,7 @@ This is the most complex phase. The `legacy-core-backend` is the central hub tha
       let metahubsRouterInitialized = false
       app.use('/api/v1/metahubs', async (req, res, next) => {
           if (!metahubsRouterInitialized) {
-              const { createMetahubsRouter } = await import('@universo/metahubs-backend')
+              const { createMetahubsRouter } = await import('@universo-react/metahubs-backend')
               metahubsRouter.use(createMetahubsRouter())
               metahubsRouterInitialized = true
           }
@@ -573,14 +573,14 @@ This is the most complex phase. The `legacy-core-backend` is the central hub tha
       // ... similar lazy routers for applications, start
       
       // Direct routers
-      const { createAdminRouter } = await import('@universo/admin-backend')
+      const { createAdminRouter } = await import('@universo-react/admin-backend')
       app.use('/api/v1/admin', createAdminRouter())
       
-      const { createProfileRouter } = await import('@universo/profile-backend')
+      const { createProfileRouter } = await import('@universo-react/profile-backend')
       app.use('/api/v1/profile', createProfileRouter())
       
       // Public routes
-      const { createPublicMetahubsRouter } = await import('@universo/metahubs-backend')
+      const { createPublicMetahubsRouter } = await import('@universo-react/metahubs-backend')
       app.use('/api/v1/public/metahubs', createPublicMetahubsRouter())
   }
   ```
@@ -595,7 +595,7 @@ This is the most complex phase. The `legacy-core-backend` is the central hub tha
   import { Canvas } from '@universo/spaces-backend'
   import { getAPIKeysFromJson } from '/apikey-backend'
   import { initializeRateLimiters } from '@universo/metaverses-backend'
-  import { seedMetahubTemplates } from '@universo/metahubs-backend'  // KEEP if still needed
+  import { seedMetahubTemplates } from '@universo-react/metahubs-backend'  // KEEP if still needed
   import { NodesPool } from './NodesPool'
   import { CachePool } from './CachePool'
   import { AbortControllerPool } from './AbortControllerPool'
@@ -624,7 +624,7 @@ This is the most complex phase. The `legacy-core-backend` is the central hub tha
   // BEFORE:
   const packagePath = getNodeModulesPackagePath('/core-frontend')
   // AFTER:
-  const packagePath = getNodeModulesPackagePath('@universo/core-frontend')
+  const packagePath = getNodeModulesPackagePath('@universo-react/core-frontend')
   ```
 
 #### 4D: Delete Unused Source Files
@@ -746,24 +746,24 @@ After Phase 4, `legacy-core-backend` is clean. Now migrate the code.
   
   ```bash
   # Copy cleaned source files
-  cp -r packages/legacy-core-backend/base/src/routes packages/universo-core-backend/base/src/
-  cp -r packages/legacy-core-backend/base/src/utils packages/universo-core-backend/base/src/
-  cp packages/legacy-core-backend/base/src/index.ts packages/universo-core-backend/base/src/app.ts
-  cp packages/legacy-core-backend/base/src/DataSource.ts packages/universo-core-backend/base/src/
-  cp packages/legacy-core-backend/base/src/Interface.ts packages/universo-core-backend/base/src/
-  cp packages/legacy-core-backend/base/src/Interface.Metrics.ts packages/universo-core-backend/base/src/
+  cp -r packages/legacy-core-backend/base/src/routes packages/universo-react-core-backend/base/src/
+  cp -r packages/legacy-core-backend/base/src/utils packages/universo-react-core-backend/base/src/
+  cp packages/legacy-core-backend/base/src/index.ts packages/universo-react-core-backend/base/src/app.ts
+  cp packages/legacy-core-backend/base/src/DataSource.ts packages/universo-react-core-backend/base/src/
+  cp packages/legacy-core-backend/base/src/Interface.ts packages/universo-react-core-backend/base/src/
+  cp packages/legacy-core-backend/base/src/Interface.Metrics.ts packages/universo-react-core-backend/base/src/
   
   # Copy database layer (entities + migrations already have index files)
-  cp packages/legacy-core-backend/base/src/database/entities/index.ts packages/universo-core-backend/base/src/database/entities/index.ts
+  cp packages/legacy-core-backend/base/src/database/entities/index.ts packages/universo-react-core-backend/base/src/database/entities/index.ts
   # Migrations already exist in universo-core-backend — merge the index
   
   # Copy bin scripts
-  cp -r packages/legacy-core-backend/base/bin packages/universo-core-backend/base/
+  cp -r packages/legacy-core-backend/base/bin packages/universo-react-core-backend/base/
   ```
 
 - [ ] **Step 5.2**: Update `universo-core-backend/base/package.json`
   
-  - Change `"name"` to `"@universo/core-backend"` (already correct)
+  - Change `"name"` to `"@universo-react/core-backend"` (already correct)
   - Add all dependencies from cleaned legacy-core-backend package.json
   - Add `"bin"` config if using oclif
   - Ensure correct `"main"` entry point
@@ -778,10 +778,10 @@ After Phase 4, `legacy-core-backend` is clean. Now migrate the code.
   ```typescript
   // universo-core-backend/base/src/database/migrations/postgres/index.ts
   import { AddUuidV7Function1500000000000 } from './1500000000000-InitializeUuidV7Function'
-  import { adminMigrations } from '@universo/admin-backend'
-  import { profileMigrations } from '@universo/profile-backend'
-  import { metahubsMigrations } from '@universo/metahubs-backend'
-  import { applicationsMigrations } from '@universo/applications-backend'
+  import { adminMigrations } from '@universo-react/admin-backend'
+  import { profileMigrations } from '@universo-react/profile-backend'
+  import { metahubsMigrations } from '@universo-react/metahubs-backend'
+  import { applicationsMigrations } from '@universo-react/applications-backend'
   
   export const infrastructureMigrations = [AddUuidV7Function1500000000000]
   
@@ -836,7 +836,7 @@ After Phase 4, `legacy-core-backend` is clean. Now migrate the code.
   // BEFORE:
   import { store } from '/store'
   // AFTER:
-  import { store } from '@universo/store'
+  import { store } from '@universo-react/store'
   ```
 
 - [ ] **Step 6.1b**: Delete all legacy view directories and legacy api directory
@@ -855,16 +855,16 @@ After Phase 4, `legacy-core-backend` is clean. Now migrate the code.
 
 - [ ] **Step 6.2**: Clean `src/App.jsx`
   
-  **UPDATE** imports (legacy-template-mui is being deleted — use @universo/template-mui):
+  **UPDATE** imports (legacy-template-mui is being deleted — use @universo-react/template-mui):
   ```jsx
   // BEFORE:
   import routes from '/template-mui/routes'
   import themes from '/template-mui/themes'
   import NavigationScroll from '/template-mui/layout/NavigationScroll'
   // AFTER:
-  import routes from '@universo/template-mui/routes'
-  import themes from '@universo/template-mui/themes'
-  import NavigationScroll from '@universo/template-mui/layout/NavigationScroll'
+  import routes from '@universo-react/template-mui/routes'
+  import themes from '@universo-react/template-mui/themes'
+  import NavigationScroll from '@universo-react/template-mui/layout/NavigationScroll'
   ```
   > NOTE: These components must first be migrated to universo-template-mui in Phase 9.
 
@@ -898,7 +898,7 @@ After Phase 4, `legacy-core-backend` is clean. Now migrate the code.
   
   **UPDATE**:
   ```json
-  "/store": "workspace:*" → "@universo/store": "workspace:*"
+  "/store": "workspace:*" → "@universo-react/store": "workspace:*"
   ```
 
 - [ ] **Step 6.4**: Clean `vite.config.js` — remove optimizeDeps for deleted packages
@@ -907,12 +907,12 @@ After Phase 4, `legacy-core-backend` is clean. Now migrate the code.
   
   ```bash
   # Rename directory
-  mv packages/legacy-core-frontend packages/universo-core-frontend
+  mv packages/legacy-core-frontend packages/universo-react-core-frontend
   ```
   
-  In `packages/universo-core-frontend/base/package.json`:
+  In `packages/universo-react-core-frontend/base/package.json`:
   ```json
-  "name": "@universo/core-frontend"
+  "name": "@universo-react/core-frontend"
   ```
 
 - [ ] **Step 6.6**: Verify universo-core-frontend builds
@@ -1054,7 +1054,7 @@ After Phase 4, `legacy-core-backend` is clean. Now migrate the code.
   
   **UPDATE**:
   ```json
-  "/store": "workspace:*" → "@universo/store": "workspace:*"
+  "/store": "workspace:*" → "@universo-react/store": "workspace:*"
   ```
 
 - [ ] **Step 7.8**: Verify universo-template-mui builds
@@ -1064,9 +1064,9 @@ After Phase 4, `legacy-core-backend` is clean. Now migrate the code.
 
 ---
 
-### Phase 8: Rename legacy-store → @universo/store + Clean Legacy Content
+### Phase 8: Rename legacy-store → @universo-react/store + Clean Legacy Content
 
-> **Decision**: Rename directory + npm name to `@universo/store` (user confirmed).
+> **Decision**: Rename directory + npm name to `@universo-react/store` (user confirmed).
 > After deleting all canvas consumers (spaces-frontend, legacy-core-frontend/views),
 > canvas-specific Redux code becomes dead. Clean it to avoid tech debt.
 
@@ -1074,7 +1074,7 @@ After Phase 4, `legacy-core-backend` is clean. Now migrate the code.
   
   In `packages/legacy-store/base/package.json`:
   ```json
-  "name": "@universo/store"
+  "name": "@universo-react/store"
   ```
 
 - [ ] **Step 8.2**: Clean dead canvas/flow code from store internals
@@ -1118,25 +1118,25 @@ After Phase 4, `legacy-core-backend` is clean. Now migrate the code.
   
   Files that import from `/store` (in KEPT packages only):
   ```
-  packages/universo-template-mui/base/src/components/dashboard/NavbarBreadcrumbs.tsx
-  packages/universo-template-mui/base/src/components/dashboard/MenuContent.tsx
-  packages/universo-template-mui/base/src/components/toolbar/ToolbarControls.tsx
-  packages/universo-template-mui/base/src/components/dialogs/SettingsDialog.tsx
-  packages/universo-template-mui/base/src/components/routing/AdminGuard.tsx
-  packages/universo-core-frontend/base/src/index.jsx (after rename)
-  packages/universo-core-frontend/base/src/App.jsx (after rename)
+  packages/universo-react-template-mui/base/src/components/dashboard/NavbarBreadcrumbs.tsx
+  packages/universo-react-template-mui/base/src/components/dashboard/MenuContent.tsx
+  packages/universo-react-template-mui/base/src/components/toolbar/ToolbarControls.tsx
+  packages/universo-react-template-mui/base/src/components/dialogs/SettingsDialog.tsx
+  packages/universo-react-template-mui/base/src/components/routing/AdminGuard.tsx
+  packages/universo-react-core-frontend/base/src/index.jsx (after rename)
+  packages/universo-react-core-frontend/base/src/App.jsx (after rename)
   ```
   
   **Find and replace** across all files:
   ```bash
   grep -rn "/store" packages/*/base/src --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" | grep -v node_modules
   ```
-  Then: `/store` → `@universo/store` in all matched files.
+  Then: `/store` → `@universo-react/store` in all matched files.
 
 - [ ] **Step 8.4**: Update ALL consumer `package.json` deps
   
   In every `package.json` that has `"/store": "workspace:*"`:
-  - Change to `"@universo/store": "workspace:*"`
+  - Change to `"@universo-react/store": "workspace:*"`
   
   Known consumers:
   - `universo-template-mui/base/package.json`
@@ -1145,7 +1145,7 @@ After Phase 4, `legacy-core-backend` is clean. Now migrate the code.
 
 - [ ] **Step 8.5**: Rename directory
   ```bash
-  mv packages/legacy-store packages/universo-store
+  mv packages/legacy-store packages/universo-react-store
   ```
 
 - [ ] **Step 8.6**: Verify universo-store builds
@@ -1177,27 +1177,27 @@ The following components from `/template-mui` are imported by KEPT packages:
   ```bash
   # Cards
   cp packages/legacy-template-mui/base/src/ui-components/cards/MainCard.jsx \
-     packages/universo-template-mui/base/src/components/cards/
+     packages/universo-react-template-mui/base/src/components/cards/
   
   # Buttons
   cp packages/legacy-template-mui/base/src/ui-components/button/FlowListMenu.jsx \
-     packages/universo-template-mui/base/src/components/button/
+     packages/universo-react-template-mui/base/src/components/button/
   
   # Dialogs
   cp packages/legacy-template-mui/base/src/ui-components/dialog/InputHintDialog.jsx \
-     packages/universo-template-mui/base/src/components/dialogs/
+     packages/universo-react-template-mui/base/src/components/dialogs/
   
   # Themes (if not already duplicated)
   cp -r packages/legacy-template-mui/base/src/themes/* \
-     packages/universo-template-mui/base/src/themes/ 2>/dev/null || true
+     packages/universo-react-template-mui/base/src/themes/ 2>/dev/null || true
   
   # Layout
   cp packages/legacy-template-mui/base/src/layout/NavigationScroll.jsx \
-     packages/universo-template-mui/base/src/layout/
+     packages/universo-react-template-mui/base/src/layout/
   ```
 
 - [ ] **Step 9A.2**: Update imports inside migrated files
-  - Change `/store` → `@universo/store` in migrated files
+  - Change `/store` → `@universo-react/store` in migrated files
   - Change any `/template-mui` internal imports to relative paths
   - Remove any imports from deleted packages (`/credentials-frontend`, `/tools-frontend`)
 
@@ -1210,7 +1210,7 @@ The following components from `/template-mui` are imported by KEPT packages:
   export { default as NavigationScroll } from './layout/NavigationScroll'
   ```
 
-#### 9B: Update all consumers to use @universo/template-mui
+#### 9B: Update all consumers to use @universo-react/template-mui
 
 - [ ] **Step 9B.1**: `universo-template-mui/FlowListTable.tsx`
   ```typescript
@@ -1225,7 +1225,7 @@ The following components from `/template-mui` are imported by KEPT packages:
   // BEFORE:
   import { MainCard } from '/template-mui'
   // AFTER:
-  import { MainCard } from '@universo/template-mui'
+  import { MainCard } from '@universo-react/template-mui'
   ```
 
 - [ ] **Step 9B.3**: `metahubs-frontend` + `applications-frontend` test mocks
@@ -1233,11 +1233,11 @@ The following components from `/template-mui` are imported by KEPT packages:
   // BEFORE:
   vi.mock('/template-mui', async () => { ... })
   // AFTER:
-  vi.mock('@universo/template-mui', async () => { ... })
+  vi.mock('@universo-react/template-mui', async () => { ... })
   ```
 
 - [ ] **Step 9B.4**: `universo-core-frontend/App.jsx` (from Phase 6.2)
-  - Confirm all `/template-mui` imports now point to `@universo/template-mui`
+  - Confirm all `/template-mui` imports now point to `@universo-react/template-mui`
 
 #### 9C: Delete legacy-template-mui
 
@@ -1287,31 +1287,31 @@ The following components from `/template-mui` are imported by KEPT packages:
 
 > QA analysis found `universo-api-client` has **22 API modules**, ~19 of which serve deleted features.
 > The `lead.ts` module also has a direct `import type { ILead } from '/leads-backend'` — broken ref.
-> None of the KEPT frontend packages import from `@universo/api-client` (only deleted packages do).
+> None of the KEPT frontend packages import from `@universo-react/api-client` (only deleted packages do).
 
 - [ ] **Step 11A.1**: Delete API modules for deleted features
   ```bash
   # These API modules correspond to removed backend routes:
-  rm packages/universo-api-client/base/src/api/apikey.ts
-  rm packages/universo-api-client/base/src/api/assistants.ts
-  rm packages/universo-api-client/base/src/api/canvasMessages.ts
-  rm packages/universo-api-client/base/src/api/canvasVersions.ts
-  rm packages/universo-api-client/base/src/api/canvases.ts
-  rm packages/universo-api-client/base/src/api/chatmessagefeedback.ts
-  rm packages/universo-api-client/base/src/api/credentials.ts
-  rm packages/universo-api-client/base/src/api/documentstore.ts
-  rm packages/universo-api-client/base/src/api/executions.ts
-  rm packages/universo-api-client/base/src/api/exportimport.ts
-  rm packages/universo-api-client/base/src/api/lead.ts
-  rm packages/universo-api-client/base/src/api/nodes.ts
-  rm packages/universo-api-client/base/src/api/prediction.ts
-  rm packages/universo-api-client/base/src/api/prompt.ts
-  rm packages/universo-api-client/base/src/api/scraper.ts
-  rm packages/universo-api-client/base/src/api/spaces.ts
-  rm packages/universo-api-client/base/src/api/templates.ts
-  rm packages/universo-api-client/base/src/api/tools.ts
-  rm packages/universo-api-client/base/src/api/variables.ts
-  rm packages/universo-api-client/base/src/api/vectorstore.ts
+  rm packages/universo-react-api-client/base/src/api/apikey.ts
+  rm packages/universo-react-api-client/base/src/api/assistants.ts
+  rm packages/universo-react-api-client/base/src/api/canvasMessages.ts
+  rm packages/universo-react-api-client/base/src/api/canvasVersions.ts
+  rm packages/universo-react-api-client/base/src/api/canvases.ts
+  rm packages/universo-react-api-client/base/src/api/chatmessagefeedback.ts
+  rm packages/universo-react-api-client/base/src/api/credentials.ts
+  rm packages/universo-react-api-client/base/src/api/documentstore.ts
+  rm packages/universo-react-api-client/base/src/api/executions.ts
+  rm packages/universo-react-api-client/base/src/api/exportimport.ts
+  rm packages/universo-react-api-client/base/src/api/lead.ts
+  rm packages/universo-react-api-client/base/src/api/nodes.ts
+  rm packages/universo-react-api-client/base/src/api/prediction.ts
+  rm packages/universo-react-api-client/base/src/api/prompt.ts
+  rm packages/universo-react-api-client/base/src/api/scraper.ts
+  rm packages/universo-react-api-client/base/src/api/spaces.ts
+  rm packages/universo-react-api-client/base/src/api/templates.ts
+  rm packages/universo-react-api-client/base/src/api/tools.ts
+  rm packages/universo-react-api-client/base/src/api/variables.ts
+  rm packages/universo-react-api-client/base/src/api/vectorstore.ts
   ```
   
   **KEEP**: `config.ts`, `feedback.ts`, `validation.ts`, `attachments.ts` (review if still needed).
@@ -1344,38 +1344,38 @@ The following components from `/template-mui` are imported by KEPT packages:
 
 - [ ] **Step 11B.1**: Update import (depends on Phase 9 completion)
   
-  In `packages/profile-frontend/base/src/pages/Profile.jsx`:
+  In `packages/universo-react-profile-frontend/base/src/pages/Profile.jsx`:
   ```jsx
   // BEFORE:
   import { MainCard } from '/template-mui'
   // AFTER:
-  import { MainCard } from '@universo/template-mui'
+  import { MainCard } from '@universo-react/template-mui'
   ```
 
 #### 11C: Clean test mocks in metahubs-frontend & applications-frontend
 
 - [ ] **Step 11C.1**: metahubs-frontend — update test mock
   
-  In `packages/metahubs-frontend/base/src/domains/metahubs/ui/__tests__/MetahubMembers.test.tsx`:
+  In `packages/universo-react-metahubs-frontend/base/src/domains/metahubs/ui/__tests__/MetahubMembers.test.tsx`:
   ```typescript
   // BEFORE:
   vi.mock('/template-mui', async () => {
       const actual = await vi.importActual<any>('/template-mui')
   // AFTER:
-  vi.mock('@universo/template-mui', async () => {
-      const actual = await vi.importActual<any>('@universo/template-mui')
+  vi.mock('@universo-react/template-mui', async () => {
+      const actual = await vi.importActual<any>('@universo-react/template-mui')
   ```
 
 - [ ] **Step 11C.2**: applications-frontend — update test mock
   
-  In `packages/applications-frontend/base/src/pages/__tests__/ApplicationMembers.test.tsx`:
+  In `packages/universo-react-applications-frontend/base/src/pages/__tests__/ApplicationMembers.test.tsx`:
   ```typescript
   // BEFORE:
   vi.mock('/template-mui', async () => {
       const actual = await vi.importActual<any>('/template-mui')
   // AFTER:
-  vi.mock('@universo/template-mui', async () => {
-      const actual = await vi.importActual<any>('@universo/template-mui')
+  vi.mock('@universo-react/template-mui', async () => {
+      const actual = await vi.importActual<any>('@universo-react/template-mui')
   ```
 
 ---
@@ -1394,10 +1394,10 @@ The following components from `/template-mui` are imported by KEPT packages:
   
   **AFTER**:
   ```json
-  "start:windows": "cd packages/universo-core-backend/base/bin && run start",
-  "start:default": "cd packages/universo-core-backend/base/bin && ./run start",
-  "start-worker:windows": "cd packages/universo-core-backend/base/bin && run worker",
-  "start-worker:default": "cd packages/universo-core-backend/base/bin && ./run worker"
+  "start:windows": "cd packages/universo-react-core-backend/base/bin && run start",
+  "start:default": "cd packages/universo-react-core-backend/base/bin && ./run start",
+  "start-worker:windows": "cd packages/universo-react-core-backend/base/bin && run worker",
+  "start-worker:default": "cd packages/universo-react-core-backend/base/bin && ./run worker"
   ```
 
 - [ ] **Step 12.2**: Clean root `package.json` — remove ghost workspaces, stale overrides, dead deps
@@ -1520,7 +1520,7 @@ The following components from `/template-mui` are imported by KEPT packages:
 
 - [ ] **Step 14.3**: Verify package count
   ```bash
-  ls -d packages/*/base/package.json packages/apps-template-mui/package.json packages/universo-rest-docs/package.json 2>/dev/null | wc -l
+  ls -d packages/*/base/package.json packages/universo-react-apps-template-mui/package.json packages/universo-react-rest-docs/package.json 2>/dev/null | wc -l
   # Expected: ~24 (down from ~62)
   ```
 
@@ -1580,7 +1580,7 @@ curl http://localhost:3000/api/v1/metahubs (with auth)
 ```
 
 ### 4. Static UI Asset Path
-The backend serves the frontend build from a path resolved via `getNodeModulesPackagePath('/core-frontend')`. After rename to `@universo/core-frontend`, this must be updated.
+The backend serves the frontend build from a path resolved via `getNodeModulesPackagePath('/core-frontend')`. After rename to `@universo-react/core-frontend`, this must be updated.
 
 **Mitigation**: Step 4C.1 covers this explicitly.
 

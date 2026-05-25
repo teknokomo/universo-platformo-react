@@ -9,10 +9,10 @@ description: Описывает модель PostgreSQL, Knex, миграций 
 
 ## Текущая модель
 
-- `@universo/database` владеет общим рантаймом Knex и executor-helper.
+- `@universo-react/database` владеет общим рантаймом Knex и executor-helper.
 - Выполнение, привязанное к запросу, используется там, где нужен auth- и RLS-контекст.
-- `@universo/migrations-platform` регистрирует и запускает платформенные миграции.
-- `@universo/schema-ddl` даёт генерацию схем во время выполнения и утилиты diff.
+- `@universo-react/migrations-platform` регистрирует и запускает платформенные миграции.
+- `@universo-react/schema-ddl` даёт генерацию схем во время выполнения и утилиты diff.
 
 ## Цели проектирования
 

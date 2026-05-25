@@ -5,7 +5,7 @@
 > Complexity: Level 4 (major backend refactor)
 > Status: DRAFT v2 — post-QA revision
 > Supersedes: `final-remove-typeorm-metahubs-applications-roadmap-2026-03-09.md` for execution detail
-> Scope: Remove ALL TypeORM from `@universo/metahubs-backend` and `@universo/applications-backend`, replace the RLS transport, validate on a fresh database with a comprehensive test system.
+> Scope: Remove ALL TypeORM from `@universo-react/metahubs-backend` and `@universo-react/applications-backend`, replace the RLS transport, validate on a fresh database with a comprehensive test system.
 
 ---
 
@@ -30,7 +30,7 @@
 - `metahubs` and `applications` platform schemas run from native SQL definitions.
 - Runtime migration events mirror into `upl_migrations`.
 - `applications-backend` is ~80% SQL-first: connectors, top-level CRUD, members, runtime schema lookup, copy flow all use `applicationsStore.ts` with raw SQL.
-- Shared `DbSession` / `DbExecutor` / `RequestDbContext` contracts exist in `@universo/utils/database`.
+- Shared `DbSession` / `DbExecutor` / `RequestDbContext` contracts exist in `@universo-react/utils/database`.
 - `QueryRunner` is no longer publicly exposed — hidden behind neutral `DbSession`.
 
 ### What remains
@@ -126,7 +126,7 @@ ds.createQueryRunner() → runner.connect() → set_config('request.jwt.claims',
 
 ### 2.4 Cross-package dependencies
 
-**metahubs-backend → @universo/applications-backend** (5 files, not 1):
+**metahubs-backend → @universo-react/applications-backend** (5 files, not 1):
 
 | File | Imports |
 |------|--------|
@@ -136,13 +136,13 @@ ds.createQueryRunner() → runner.connect() → set_config('request.jwt.claims',
 | `domains/applications/routes/applicationSyncRoutes.ts` | `Application`, `Connector`, `ConnectorPublication`, `ApplicationSchemaStatus`, `ensureApplicationAccess` |
 | `domains/applications/services/ApplicationSchemaStateStore.ts` | `ApplicationSchemaStatus` (enum only) |
 
-**Note**: `ApplicationSchemaStatus` is an enum, not an entity. It and `ensureApplicationAccess` guard should be moved to `@universo/types` or a shared neutral module to break the cross-package entity chain cleanly.
+**Note**: `ApplicationSchemaStatus` is an enum, not an entity. It and `ensureApplicationAccess` guard should be moved to `@universo-react/types` or a shared neutral module to break the cross-package entity chain cleanly.
 
 **universo-core-backend → entity registries**:
 ```
-universo-core-backend → imports applicationsEntities from @universo/applications-backend
-                      → imports metahubsEntities from @universo/metahubs-backend
-                      → imports adminEntities from @universo/admin-backend
+universo-core-backend → imports applicationsEntities from @universo-react/applications-backend
+                      → imports metahubsEntities from @universo-react/metahubs-backend
+                      → imports adminEntities from @universo-react/admin-backend
                       (in database/entities/index.ts for TypeORM entity registry)
 ```
 
@@ -169,7 +169,7 @@ universo-core-backend → imports applicationsEntities from @universo/applicatio
 5. **Schema-qualified SQL** — always use `applications.applications`, `metahubs.metahubs`, etc.
 6. **Parameterized queries only** — never interpolate user input into SQL strings.
 7. **UUID v7 everywhere** — use `public.uuid_generate_v7()` in SQL or the shared helper.
-8. **All user-facing text must be i18n-ready** — use `@universo/i18n` keys.
+8. **All user-facing text must be i18n-ready** — use `@universo-react/i18n` keys.
 
 ### Allowed patterns
 
@@ -177,7 +177,7 @@ universo-core-backend → imports applicationsEntities from @universo/applicatio
 - Row type interfaces (plain TypeScript, no decorators)
 - SQL fragment constants for SELECT/RETURNING clauses
 - Explicit transaction helpers via `DbExecutor.transaction()`
-- Schema-name validation via `@universo/schema-ddl` utilities
+- Schema-name validation via `@universo-react/schema-ddl` utilities
 
 ### Forbidden patterns
 
@@ -212,7 +212,7 @@ export async function createApplicationWithOwner(
 
 **After** (neutral contract):
 ```ts
-import type { DbExecutor } from '@universo/utils'
+import type { DbExecutor } from '@universo-react/utils'
 
 export async function createApplicationWithOwner(
     executor: DbExecutor,
@@ -701,7 +701,7 @@ export function createEnsureAuthWithRls(options: {
 
 4. **Pool budget preservation** — the current pool budget formula (`knexReserve = max(4, floor(budget/3))`) must be revisited. When TypeORM's QueryRunner pool is eliminated, the entire budget goes to Knex. This simplifies pool management significantly.
 
-**Note on `acquireConnection` stability**: This API is already used in production in `@universo/schema-ddl/locking.ts` for advisory lock acquisition (Knex 3.1.0 + pg 8.11.1). No stability concerns.
+**Note on `acquireConnection` stability**: This API is already used in production in `@universo-react/schema-ddl/locking.ts` for advisory lock acquisition (Knex 3.1.0 + pg 8.11.1). No stability concerns.
 
 ### Pattern 6: Route factory signature change
 
@@ -723,7 +723,7 @@ export function createMetahubsRoutes(
 
 **After**:
 ```ts
-import type { DbExecutor } from '@universo/utils'
+import type { DbExecutor } from '@universo-react/utils'
 
 export function createMetahubsRoutes(
     ensureAuth: RequestHandler,
@@ -781,7 +781,7 @@ The `manager` and `getRepository()` fields must be removed, because:
 - `applications-backend` and `metahubs-backend` won't use them after cutover.
 - Other packages (`admin-backend`, `profile-backend`) still use TypeORM — they retain their own `DataSource` access but must NOT route through the shared request context contract.
 
-**Migration path**: Keep `manager` as an optional deprecated field during the transition, then remove it when all consumers are migrated. The legacy `createRequestDbContext(manager, session)` signature is kept as a separate function in `@universo/utils/database/legacy` for admin/profile.
+**Migration path**: Keep `manager` as an optional deprecated field during the transition, then remove it when all consumers are migrated. The legacy `createRequestDbContext(manager, session)` signature is kept as a separate function in `@universo-react/utils/database/legacy` for admin/profile.
 
 ---
 
@@ -803,9 +803,9 @@ The `manager` and `getRepository()` fields must be removed, because:
 - [ ] Step 1.8: Remove `applicationsEntities` export from package index.
 - [ ] Step 1.9: Remove `typeorm` from `package.json` dependencies.
 - [ ] Step 1.10: Update applications-backend README.
-- [ ] Step 1.11: Run `pnpm --filter @universo/applications-backend test` and `pnpm --filter @universo/applications-backend build`.
+- [ ] Step 1.11: Run `pnpm --filter @universo-react/applications-backend test` and `pnpm --filter @universo-react/applications-backend build`.
 
-**Exit gate**: `rg "typeorm" packages/applications-backend/base/src/` returns nothing.
+**Exit gate**: `rg "typeorm" packages/universo-react-applications-backend/base/src/` returns nothing.
 
 ### Batch 2: Clean up core-backend entity registry for applications
 
@@ -813,10 +813,10 @@ The `manager` and `getRepository()` fields must be removed, because:
 
 **Steps**:
 
-- [ ] Step 2.1: Remove `applicationsEntities` import from `packages/universo-core-backend/base/src/database/entities/index.ts`.
+- [ ] Step 2.1: Remove `applicationsEntities` import from `packages/universo-react-core-backend/base/src/database/entities/index.ts`.
 - [ ] Step 2.2: Remove `applicationsEntities` spread from the aggregated entities array.
 - [ ] Step 2.3: Verify that no other core-backend code imports Application/ApplicationUser/Connector/ConnectorPublication entities.
-- [ ] Step 2.4: Run `pnpm --filter @universo/core-backend build`.
+- [ ] Step 2.4: Run `pnpm --filter @universo-react/core-backend build`.
 
 **Exit gate**: No applications-backend entity references in core-backend.
 
@@ -853,7 +853,7 @@ Full Knex-only transport (Pattern 5) becomes a **future** batch after admin/prof
 
 **Steps**:
 
-- [ ] Step 4.1: Create `packages/metahubs-backend/base/src/persistence/` directory.
+- [ ] Step 4.1: Create `packages/universo-react-metahubs-backend/base/src/persistence/` directory.
 - [ ] Step 4.2: Create `metahubsStore.ts` — SQL-first CRUD for `metahubs.metahubs` table.
 - [ ] Step 4.3: Create `branchesStore.ts` — SQL-first CRUD for `metahubs.metahub_branches`.
 - [ ] Step 4.4: Create `publicationsStore.ts` — SQL-first CRUD for `metahubs.publications` and `metahubs.publication_versions`.
@@ -881,21 +881,21 @@ Full Knex-only transport (Pattern 5) becomes a **future** batch after admin/prof
 
 ### Batch 6: Port cross-package entity imports in metahubs-backend to SQL-first
 
-**Goal**: `metahubs-backend` no longer imports entity classes from `@universo/applications-backend`. Application creation from publications uses SQL. Shared enums/guards are extracted to neutral packages.
+**Goal**: `metahubs-backend` no longer imports entity classes from `@universo-react/applications-backend`. Application creation from publications uses SQL. Shared enums/guards are extracted to neutral packages.
 
 **Steps**:
 
-- [ ] Step 6.1: Move `ApplicationSchemaStatus` enum from `@universo/applications-backend` to `@universo/types` (it's a pure type, not an entity).
-- [ ] Step 6.2: Move `ensureApplicationAccess` guard to a neutral location (either `@universo/utils` or a shared guards module) so metahubs-backend can import it without pulling application entities.
+- [ ] Step 6.1: Move `ApplicationSchemaStatus` enum from `@universo-react/applications-backend` to `@universo-react/types` (it's a pure type, not an entity).
+- [ ] Step 6.2: Move `ensureApplicationAccess` guard to a neutral location (either `@universo-react/utils` or a shared guards module) so metahubs-backend can import it without pulling application entities.
 - [ ] Step 6.3: Rewrite `createLinkedApplication.ts` to accept `DbExecutor` and use SQL INSERT (Pattern 3 above). Remove imports of `Application`, `ApplicationUser`, `Connector`, `ConnectorPublication` entity classes.
-- [ ] Step 6.4: Update `publicationsRoutes.ts` — replace `Application`, `Connector`, `ConnectorPublication` entity imports with SQL queries and the moved `ApplicationSchemaStatus` enum from `@universo/types`.
+- [ ] Step 6.4: Update `publicationsRoutes.ts` — replace `Application`, `Connector`, `ConnectorPublication` entity imports with SQL queries and the moved `ApplicationSchemaStatus` enum from `@universo-react/types`.
 - [ ] Step 6.5: Update `applicationMigrationsRoutes.ts` — replace entity imports with SQL queries, use moved `ApplicationSchemaStatus` and `ensureApplicationAccess`.
 - [ ] Step 6.6: Update `applicationSyncRoutes.ts` — same treatment as 6.5.
-- [ ] Step 6.7: Update `ApplicationSchemaStateStore.ts` — import `ApplicationSchemaStatus` from `@universo/types` instead of `@universo/applications-backend`.
+- [ ] Step 6.7: Update `ApplicationSchemaStateStore.ts` — import `ApplicationSchemaStatus` from `@universo-react/types` instead of `@universo-react/applications-backend`.
 - [ ] Step 6.8: Add focused tests for linked application creation and cross-package guard behavior.
-- [ ] Step 6.9: Update `@universo/applications-backend` to re-export `ApplicationSchemaStatus` from `@universo/types` for backward compatibility.
+- [ ] Step 6.9: Update `@universo-react/applications-backend` to re-export `ApplicationSchemaStatus` from `@universo-react/types` for backward compatibility.
 
-**Exit gate**: `metahubs-backend` has zero entity class imports from `@universo/applications-backend`. Only enum/type imports from `@universo/types`.
+**Exit gate**: `metahubs-backend` has zero entity class imports from `@universo-react/applications-backend`. Only enum/type imports from `@universo-react/types`.
 
 ### Batch 7: Port metahubs-backend route factories
 
@@ -937,7 +937,7 @@ Full Knex-only transport (Pattern 5) becomes a **future** batch after admin/prof
 - [ ] Step 9.5: Update metahubs-backend README.
 - [ ] Step 9.6: Remove `metahubsEntities` import from `core-backend/database/entities/index.ts`.
 
-**Exit gate**: `rg "typeorm" packages/metahubs-backend/base/src/` returns nothing.
+**Exit gate**: `rg "typeorm" packages/universo-react-metahubs-backend/base/src/` returns nothing.
 
 ### Batch 10: Remove `RequestDbContext.manager` and `getRequestManager()`
 
@@ -947,15 +947,15 @@ Full Knex-only transport (Pattern 5) becomes a **future** batch after admin/prof
 
 - [ ] Step 10.1: Remove `manager` field from `RequestDbContext` interface.
 - [ ] Step 10.2: Remove `getRepository()` from `RequestDbContext`.
-- [ ] Step 10.3: Remove `getRequestManager()` and `getRequestRepository()` exports from `@universo/utils/database` main barrel.
-- [ ] Step 10.4: Move `getRequestManager()`, `getRequestRepository()`, `createRequestDbContext(manager, session)` (the legacy overload), and associated TypeORM types to `@universo/utils/database/legacy` subpath export. This is unconditional — `admin-backend` and `profile-backend` both depend on these functions.
-- [ ] Step 10.5: Update `admin-backend` imports: `import { getRequestManager } from '@universo/utils/database/legacy'`.
+- [ ] Step 10.3: Remove `getRequestManager()` and `getRequestRepository()` exports from `@universo-react/utils/database` main barrel.
+- [ ] Step 10.4: Move `getRequestManager()`, `getRequestRepository()`, `createRequestDbContext(manager, session)` (the legacy overload), and associated TypeORM types to `@universo-react/utils/database/legacy` subpath export. This is unconditional — `admin-backend` and `profile-backend` both depend on these functions.
+- [ ] Step 10.5: Update `admin-backend` imports: `import { getRequestManager } from '@universo-react/utils/database/legacy'`.
 - [ ] Step 10.6: Update `profile-backend` imports similarly.
 - [ ] Step 10.7: Update `start-backend` imports if they use `getRequestManager()`.
 - [ ] Step 10.8: Update all remaining codebase imports.
-- [ ] Step 10.9: Verify `@universo/utils/database` main exports have no TypeORM types (only `DbSession`, `DbExecutor`, `RequestDbContext` neutral version).
+- [ ] Step 10.9: Verify `@universo-react/utils/database` main exports have no TypeORM types (only `DbSession`, `DbExecutor`, `RequestDbContext` neutral version).
 
-**Exit gate**: `@universo/utils/database` main exports have no TypeORM types. Legacy subpath compiles and admin/profile/start tests pass.
+**Exit gate**: `@universo-react/utils/database` main exports have no TypeORM types. Legacy subpath compiles and admin/profile/start tests pass.
 
 ### Batch 11: Unify runtime history contracts
 
@@ -963,8 +963,8 @@ Full Knex-only transport (Pattern 5) becomes a **future** batch after admin/prof
 
 **Steps**:
 
-- [ ] Step 11.1: Extract a shared `RuntimeMigrationHistory` interface in `@universo/migrations-core` that describes the common shape of `_mhb_migrations` and `_app_migrations` tables (columns: `id`, `migration_name`, `checksum`, `applied_at`, `run_id`, etc.).
-- [ ] Step 11.2: Create a shared `RuntimeMigrationStore` module in `@universo/migrations-core` with functions: `recordRuntimeMigrationRun(trx, schemaName, tableName, run)`, `listRuntimeHistory(executor, schemaName, tableName)`, `getLastApplied(executor, schemaName, tableName)`.
+- [ ] Step 11.1: Extract a shared `RuntimeMigrationHistory` interface in `@universo-react/migrations-core` that describes the common shape of `_mhb_migrations` and `_app_migrations` tables (columns: `id`, `migration_name`, `checksum`, `applied_at`, `run_id`, etc.).
+- [ ] Step 11.2: Create a shared `RuntimeMigrationStore` module in `@universo-react/migrations-core` with functions: `recordRuntimeMigrationRun(trx, schemaName, tableName, run)`, `listRuntimeHistory(executor, schemaName, tableName)`, `getLastApplied(executor, schemaName, tableName)`.
 - [ ] Step 11.3: Refactor `metahubs-backend` runtime migration path to use `RuntimeMigrationStore` instead of direct SQL against `_mhb_migrations`.
 - [ ] Step 11.4: Refactor `applications-backend` runtime migration path to use `RuntimeMigrationStore` instead of direct SQL against `_app_migrations`.
 - [ ] Step 11.5: Normalize global catalog write paths — both runtime flows must use the same `mirrorToGlobalCatalog()` helper.
@@ -979,9 +979,9 @@ Full Knex-only transport (Pattern 5) becomes a **future** batch after admin/prof
 
 **Steps**:
 
-- [ ] Step 12.1: Define a `DefinitionArtifact` interface in `@universo/migrations-catalog` representing a single schema definition unit (table, index, RLS policy, seed data). Fields: `kind`, `name`, `schemaQualifiedName`, `sql`, `checksum`, `dependencies[]`.
+- [ ] Step 12.1: Define a `DefinitionArtifact` interface in `@universo-react/migrations-catalog` representing a single schema definition unit (table, index, RLS policy, seed data). Fields: `kind`, `name`, `schemaQualifiedName`, `sql`, `checksum`, `dependencies[]`.
 - [ ] Step 12.2: Add a `definitions` table to the catalog schema (`upl_migrations.definitions`) storing: `id`, `artifact_kind`, `schema_name`, `name`, `sql_hash`, `sql_content`, `source` (file|db|editor), `created_at`, `updated_at`.
-- [ ] Step 12.3: Implement `registerDefinition(trx, artifact)` and `listDefinitions(executor, filter)` in `@universo/migrations-catalog`.
+- [ ] Step 12.3: Implement `registerDefinition(trx, artifact)` and `listDefinitions(executor, filter)` in `@universo-react/migrations-catalog`.
 - [ ] Step 12.4: Implement round-trip: `exportDefinitions(executor, schemaName) → DefinitionArtifact[]` (query live schema → produce artifacts) and `importDefinitions(trx, artifacts[]) → void` (write artifacts to definitions table).
 - [ ] Step 12.5: **Application-definition model**: Define the conceptual mapping where a Metahub template = an application definition template. Concretely:
   - Rename/alias `metahubs.templates` as the canonical "definition template" registry.
@@ -1015,19 +1015,19 @@ Full Knex-only transport (Pattern 5) becomes a **future** batch after admin/prof
 **Scope**: Pure logic, no database required.
 
 ```
-packages/universo-utils/base/src/database/__tests__/
+packages/universo-react-utils/base/src/database/__tests__/
 ├── dbSession.test.ts          — DbSession contract
 ├── dbExecutor.test.ts         — DbExecutor contract, transaction reuse
 ├── requestDbContext.test.ts   — Context creation, fallback behavior
 └── sqlHelpers.test.ts         — softDeleteWhereClause, assertValidTable
 
-packages/applications-backend/base/src/tests/
+packages/universo-react-applications-backend/base/src/tests/
 ├── persistence/
 │   └── applicationsStore.test.ts  — SQL query shape, parameter binding
 └── utils/
     └── queryHelpers.test.ts       — (if any neutral helpers remain)
 
-packages/metahubs-backend/base/src/tests/
+packages/universo-react-metahubs-backend/base/src/tests/
 ├── persistence/
 │   ├── metahubsStore.test.ts
 │   ├── branchesStore.test.ts
@@ -1097,7 +1097,7 @@ describe('POST /applications', () => {
 **New test files needed**:
 
 ```
-packages/metahubs-backend/base/src/tests/routes/
+packages/universo-react-metahubs-backend/base/src/tests/routes/
 ├── metahubsRoutes.test.ts
 ├── branchesRoutes.test.ts
 ├── publicationsRoutes.test.ts
@@ -1333,18 +1333,18 @@ The roadmap is closed only when ALL of the following are true:
 
 ### Package-level gates
 
-- [ ] `packages/applications-backend/base/src/database` directory does not exist
-- [ ] `packages/metahubs-backend/base/src/database` directory does not exist
-- [ ] `packages/applications-backend/base/package.json` has no `typeorm` dependency
-- [ ] `packages/metahubs-backend/base/package.json` has no `typeorm` dependency
-- [ ] `rg "typeorm" packages/applications-backend/base/src/` returns 0 matches
-- [ ] `rg "typeorm" packages/metahubs-backend/base/src/` returns 0 matches
+- [ ] `packages/universo-react-applications-backend/base/src/database` directory does not exist
+- [ ] `packages/universo-react-metahubs-backend/base/src/database` directory does not exist
+- [ ] `packages/universo-react-applications-backend/base/package.json` has no `typeorm` dependency
+- [ ] `packages/universo-react-metahubs-backend/base/package.json` has no `typeorm` dependency
+- [ ] `rg "typeorm" packages/universo-react-applications-backend/base/src/` returns 0 matches
+- [ ] `rg "typeorm" packages/universo-react-metahubs-backend/base/src/` returns 0 matches
 
 ### Transport-level gates
 
 - [ ] Request-scoped DB execution for applications/metahubs does not use `QueryRunner` directly
 - [ ] `req.dbContext` for migrated packages exposes only neutral `DbSession`/`DbExecutor` (no `EntityManager`)
-- [ ] TypeORM `EntityManager` is accessible only via `@universo/utils/database/legacy` for admin/profile
+- [ ] TypeORM `EntityManager` is accessible only via `@universo-react/utils/database/legacy` for admin/profile
 - [ ] Pool budget is documented and rational (single Knex pool + TypeORM reduced to admin/profile)
 
 ### Behavioral gates
@@ -1364,8 +1364,8 @@ The roadmap is closed only when ALL of the following are true:
 - [ ] Schema parity tests pass
 - [ ] Fresh-database acceptance test passes
 - [ ] Root `pnpm build` passes (all packages)
-- [ ] `pnpm --filter @universo/applications-backend test` passes
-- [ ] `pnpm --filter @universo/metahubs-backend test` passes
+- [ ] `pnpm --filter @universo-react/applications-backend test` passes
+- [ ] `pnpm --filter @universo-react/metahubs-backend test` passes
 
 ### Documentation gates
 

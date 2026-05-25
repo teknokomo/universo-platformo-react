@@ -23,7 +23,7 @@ This plan assumes:
 - a fresh test database is acceptable,
 - UUID v7 remains mandatory,
 - new functionality must be i18n-first,
-- shared types/utilities belong in `@universo/types` and `@universo/utils`,
+- shared types/utilities belong in `@universo-react/types` and `@universo-react/utils`,
 - dependency versions must keep following the centralized `pnpm-workspace.yaml` catalog policy.
 
 ---
@@ -81,7 +81,7 @@ The corrected constraints for implementation are:
 
 4. **Do not introduce a new package unless it has a clear ownership win**
    - A new `@universo/app-definitions` package is reasonable only if it prevents circular dependencies and gives a clean infrastructure boundary.
-   - If the same result can be achieved more simply by extending `@universo/migrations-platform`, `@universo/migrations-core`, `@universo/migrations-catalog`, and `@universo/types`, that path is preferred.
+   - If the same result can be achieved more simply by extending `@universo-react/migrations-platform`, `@universo-react/migrations-core`, `@universo-react/migrations-catalog`, and `@universo-react/types`, that path is preferred.
 
 5. **Reuse existing UI patterns by default**
    - The plan must explicitly reuse:
@@ -154,7 +154,7 @@ The corrected constraints for implementation are:
 
 ### Revalidated Current Architecture
 
-- Unified platform migrations already run from `@universo/migrations-platform` during `App.initDatabase()` in `@universo/core-backend`.
+- Unified platform migrations already run from `@universo-react/migrations-platform` during `App.initDatabase()` in `@universo-react/core-backend`.
 - Runtime schema history already exists for both Metahub branches and published Applications.
 - `upl_migrations.migration_runs` is active in `UP-test`, but `upl_migrations.definition_registry` and related revision/export tables are still empty.
 - Metahub template persistence already stores `manifest_json`, `manifest_hash`, and `definition_type`, which is a strong base for a broader application-definition model.
@@ -162,11 +162,11 @@ The corrected constraints for implementation are:
 ### Hidden Couplings And Problems Found
 
 1. **Platform bootstrap is still manually assembled**
-   - `packages/universo-migrations-platform/base/src/platformMigrations.ts` imports package migrations explicitly and builds one hardcoded array.
+   - `packages/universo-react-migrations-platform/base/src/platformMigrations.ts` imports package migrations explicitly and builds one hardcoded array.
    - Result: the runtime is unified, but the bootstrap source-of-truth is not.
 
 2. **Template seeding still lives outside the migration lifecycle**
-   - `seedMetahubTemplates()` is called after platform migrations from `@universo/core-backend`.
+   - `seedMetahubTemplates()` is called after platform migrations from `@universo-react/core-backend`.
    - Result: schema bootstrap and repeatable seed bootstrap are still separate orchestration paths.
 
 3. **Definition registry exists but is not used as a real definition lifecycle**
@@ -175,7 +175,7 @@ The corrected constraints for implementation are:
    - Result: the project has catalog storage, but not yet a living DB/file definition workflow.
 
 4. **Schema naming policy is fragmented**
-   - `@universo/schema-ddl` validates only managed dynamic names (`app_*`, `mhb_*`).
+   - `@universo-react/schema-ddl` validates only managed dynamic names (`app_*`, `mhb_*`).
    - `MetahubBranchesService` has its own `buildSchemaName()` and `assertSafeSchemaName()`.
    - Fixed schema names (`admin`, `metahubs`, `applications`) are not represented through one canonical `SchemaTarget` contract.
 
@@ -184,15 +184,15 @@ The corrected constraints for implementation are:
    - Result: moving Profile to `profiles.profiles` is now feasible on a fresh DB, but must be treated as a coordinated cross-package refactor.
 
 6. **Application runtime sync logic is still hosted in `metahubs-backend`**
-   - `packages/metahubs-backend/base/src/domains/applications/routes/applicationSyncRoutes.ts` performs application schema generation and sync.
+   - `packages/universo-react-metahubs-backend/base/src/domains/applications/routes/applicationSyncRoutes.ts` performs application schema generation and sync.
    - Result: domain ownership is still transitional and should be decoupled before full system-app convergence.
 
 7. **Version catalog usage is not fully normalized**
-   - At least `packages/universo-rest-docs/package.json` still pins a literal `typescript` version instead of using `catalog:`.
+   - At least `packages/universo-react-rest-docs/package.json` still pins a literal `typescript` version instead of using `catalog:`.
    - Result: the monorepo policy is defined centrally, but not enforced uniformly.
 
 8. **Shared i18n registry currently logs namespace registration to console**
-   - `packages/universo-i18n/base/src/registry.ts` prints registration diagnostics.
+   - `packages/universo-react-i18n/base/src/registry.ts` prints registration diagnostics.
    - Result: helpful during migration, but noisy and not appropriate as a long-term production default.
 
 9. **Current test coverage is good at package-unit level but not deep enough end-to-end**
@@ -209,27 +209,27 @@ The corrected constraints for implementation are:
 
 ## Affected Areas
 
-- `packages/universo-migrations-platform`
-- `packages/universo-migrations-core`
-- `packages/universo-migrations-catalog`
-- `packages/schema-ddl`
-- `packages/universo-core-backend`
-- `packages/universo-database`
-- `packages/metahubs-backend`
-- `packages/applications-backend`
-- `packages/profile-backend`
-- `packages/admin-backend`
-- `packages/auth-backend`
-- `packages/start-backend`
-- `packages/universo-types`
-- `packages/universo-utils`
-- `packages/universo-i18n`
-- `packages/universo-template-mui`
-- `packages/apps-template-mui`
-- `packages/metahubs-frontend`
-- `packages/applications-frontend`
-- `packages/admin-frontend`
-- `packages/profile-frontend`
+- `packages/universo-react-migrations-platform`
+- `packages/universo-react-migrations-core`
+- `packages/universo-react-migrations-catalog`
+- `packages/universo-react-schema-ddl`
+- `packages/universo-react-core-backend`
+- `packages/universo-react-database`
+- `packages/universo-react-metahubs-backend`
+- `packages/universo-react-applications-backend`
+- `packages/universo-react-profile-backend`
+- `packages/universo-react-admin-backend`
+- `packages/universo-react-auth-backend`
+- `packages/universo-react-start-backend`
+- `packages/universo-react-types`
+- `packages/universo-react-utils`
+- `packages/universo-react-i18n`
+- `packages/universo-react-template-mui`
+- `packages/universo-react-apps-template-mui`
+- `packages/universo-react-metahubs-frontend`
+- `packages/universo-react-applications-frontend`
+- `packages/universo-react-admin-frontend`
+- `packages/universo-react-profile-frontend`
 - `memory-bank/plan`
 - selected package README / architecture docs only when the implementation is approved
 
@@ -306,7 +306,7 @@ Responsibilities:
 
 Decision gate:
 
-- Create this package only if it provides a clean ownership boundary and avoids cycles better than extending existing migration packages plus `@universo/types`.
+- Create this package only if it provides a clean ownership boundary and avoids cycles better than extending existing migration packages plus `@universo-react/types`.
 - Do not create it if it only repackages interfaces that can live cleanly in the current `universo-migrations-*` stack.
 
 If created, it must not depend on business backends. Business packages may consume definitions or contribute builders, but the definition contract itself must live in a neutral `universo-*` layer.
@@ -353,8 +353,8 @@ Do not block on full UI convergence.
 
 During this plan:
 
-- Metahubs/Admin/Profile/Applications management UIs continue to use `@universo/template-mui` and current feature packages.
-- Published application runtime continues to use `@universo/apps-template-mui`.
+- Metahubs/Admin/Profile/Applications management UIs continue to use `@universo-react/template-mui` and current feature packages.
+- Published application runtime continues to use `@universo-react/apps-template-mui`.
 - Backend/data contracts evolve first.
 - UI convergence is prepared, not completed.
 
@@ -507,19 +507,19 @@ Recommended ownership split:
 
 ### Existing Packages To Extend
 
-- `@universo/migrations-platform`
+- `@universo-react/migrations-platform`
   - load registered platform migrations from definition loaders, not only hardcoded arrays.
 
-- `@universo/migrations-catalog`
+- `@universo-react/migrations-catalog`
   - become the canonical registry/export/revision layer for system-app definitions.
 
-- `@universo/schema-ddl`
+- `@universo-react/schema-ddl`
   - adopt the shared `SchemaTarget` rules but remain DI-only.
 
-- `@universo/types`
+- `@universo-react/types`
   - shared contracts for definitions, schema targets, seed packs, registry DTOs, status payloads.
 
-- `@universo/utils`
+- `@universo-react/utils`
   - shared validators, naming helpers, safe identifier helpers, reusable test fixtures/wrappers where appropriate.
 
 ---
@@ -769,13 +769,13 @@ Why this is safe:
 
 ### Phase 0: Freeze The Contracts Before Moving More Code
 
-- [ ] Define the approved terminology in `@universo/types`:
+- [ ] Define the approved terminology in `@universo-react/types`:
   - `SystemAppDefinition`
   - `SchemaTarget`
   - `RepeatableSeedPack`
   - `DefinitionSource`
   - `DefinitionExportBundle`
-- [ ] Add neutral validators and naming helpers to `@universo/utils` / `@universo/migrations-core`.
+- [ ] Add neutral validators and naming helpers to `@universo-react/utils` / `@universo-react/migrations-core`.
 - [ ] Freeze the file format strategy:
   - canonical authored manifests = TypeScript,
   - export/import bundles = JSON,
@@ -824,7 +824,7 @@ Acceptance:
 
 - [ ] Run a dependency-boundary check:
   - if a new package is justified, create it with catalog-based versions and dual build outputs consistent with the repo pattern,
-  - otherwise keep the contracts in existing `universo-migrations-*` packages and `@universo/types`.
+  - otherwise keep the contracts in existing `universo-migrations-*` packages and `@universo-react/types`.
 - [ ] Move shared definition contracts and manifest validators there.
 - [ ] Add file loaders for:
   - versioned migration files,
@@ -900,7 +900,7 @@ Acceptance:
 - system apps are loaded from files,
 - bootstrap no longer depends on hand-maintained per-package arrays as the only source-of-truth.
 
-### Phase 4: Refactor `@universo/migrations-platform` To Load Definitions
+### Phase 4: Refactor `@universo-react/migrations-platform` To Load Definitions
 
 - [ ] Replace the manually assembled `platformMigrations` array with a loader/registry that consumes system-app definitions.
 - [ ] Keep the existing CLI surface (`status`, `plan`, `diff`, `export`) stable.
@@ -931,7 +931,7 @@ Acceptance:
 
 ### Phase 5: Move Repeatable Bootstrap Data Into The Definition Lifecycle
 
-- [ ] Remove standalone startup seeding from `@universo/core-backend` for Metahub templates.
+- [ ] Remove standalone startup seeding from `@universo-react/core-backend` for Metahub templates.
 - [ ] Re-express template bootstrap as repeatable seed packs.
 - [ ] Re-express Admin default roles/permissions/locales/settings using the same repeatable seed lifecycle where appropriate.
 - [ ] Track seed execution checksums and reapply rules through the shared catalog.
@@ -1033,9 +1033,9 @@ Acceptance:
 ### Phase 10: Enforce I18n-First And Shared Frontend Contracts
 
 - [ ] Every new backend status code / blocker / diagnostics payload must use i18n-ready codes plus params.
-- [ ] Every new UI string must be registered through package namespaces and merged via `@universo/i18n`.
+- [ ] Every new UI string must be registered through package namespaces and merged via `@universo-react/i18n`.
 - [ ] Stop adding raw user-facing strings inside shared infrastructure components.
-- [ ] Remove or gate debug namespace logging in `@universo/i18n/registry`.
+- [ ] Remove or gate debug namespace logging in `@universo-react/i18n/registry`.
 - [ ] Standardize Query Key Factories for new system-app/admin/runtime flows.
 - [ ] Explicitly reuse existing UI building blocks before introducing new ones:
   - `MigrationGuardShell`
@@ -1126,18 +1126,18 @@ Acceptance:
 
 ### B. Package Integration Tests
 
-- `@universo/migrations-platform` loader + plan/diff/export
-- `@universo/migrations-platform` validate/lint/doctor/import
-- `@universo/migrations-catalog` registry/revisions/exports/drafts
-- `@universo/schema-ddl` with shared `SchemaTarget`
-- `@universo/schema-ddl` timeout / schema-qualification helpers
+- `@universo-react/migrations-platform` loader + plan/diff/export
+- `@universo-react/migrations-platform` validate/lint/doctor/import
+- `@universo-react/migrations-catalog` registry/revisions/exports/drafts
+- `@universo-react/schema-ddl` with shared `SchemaTarget`
+- `@universo-react/schema-ddl` timeout / schema-qualification helpers
 - artifact graph ordering and cycle rejection across compiler/export/apply paths
 - `profile-backend` after `profiles` schema move
 - `auth-backend` bootstrap trigger and session behavior after profile move
 
 ### C. Cross-Package Integration Tests
 
-- fresh DB startup from `@universo/core-backend`
+- fresh DB startup from `@universo-react/core-backend`
 - system-app bootstrap creates all fixed schemas
 - repeatable seeds populate expected rows
 - definition registry is populated
@@ -1310,8 +1310,8 @@ Mitigation:
 5. Creating a publication/version still works.
 6. Creating an application/connector still works.
 7. Application runtime schema `app_*` is created and synced from the publication snapshot.
-8. Current management UIs continue to function through existing feature packages and `@universo/template-mui`.
-9. Published application runtime continues to function through `@universo/apps-template-mui`.
+8. Current management UIs continue to function through existing feature packages and `@universo-react/template-mui`.
+9. Published application runtime continues to function through `@universo-react/apps-template-mui`.
 10. No new compatibility shims are introduced solely to preserve disposable legacy test-DB state.
 11. Import/export/doctor lifecycle exists for definitions and is covered by automated tests.
 12. Definition registry stores usable provenance/audit metadata for future editor-driven flows.
@@ -1327,14 +1327,14 @@ Mitigation:
 
 - A later CREATIVE/DESIGN phase is still required for the future editor UX that will create and edit system-app / metahub-app definitions directly.
 - This plan intentionally focuses on infrastructure, lifecycle, and compatibility layers first.
-- The current `@universo/template-mui` and `@universo/apps-template-mui` split remains acceptable during this refactor, but the new definition model must not hardcode that split into the long-term architecture.
+- The current `@universo-react/template-mui` and `@universo-react/apps-template-mui` split remains acceptable during this refactor, but the new definition model must not hardcode that split into the long-term architecture.
 
 ---
 
 ## Dependencies And Coordination
 
-- `@universo/types` and `@universo/utils` must be extended before feature package rewiring.
-- `@universo/core-backend` bootstrap changes depend on the chosen definition-contract home (`@universo/app-definitions` if created, otherwise the extended `universo-migrations-*` stack plus `@universo/types`).
+- `@universo-react/types` and `@universo-react/utils` must be extended before feature package rewiring.
+- `@universo-react/core-backend` bootstrap changes depend on the chosen definition-contract home (`@universo/app-definitions` if created, otherwise the extended `universo-migrations-*` stack plus `@universo-react/types`).
 - Profile schema relocation depends on cross-package SQL updates.
 - Frontend compatibility depends on stable backend contracts and i18n payload design.
 - Test infrastructure changes depend on Vitest project layout decisions and shared test helpers.

@@ -1,0 +1,93 @@
+{
+    "name": "@universo-react/start-frontend",
+    "version": "0.1.0",
+    "description": "Frontend module for onboarding and start page functionality",
+    "main": "./dist/index.js",
+    "module": "./dist/index.mjs",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.js"
+        },
+        "./i18n": {
+            "types": "./dist/i18n/index.d.ts",
+            "import": "./dist/i18n/index.mjs",
+            "require": "./dist/i18n/index.js"
+        },
+        "./components": {
+            "types": "./dist/components/index.d.ts",
+            "import": "./dist/components/index.mjs",
+            "require": "./dist/components/index.js"
+        },
+        "./components/*": {
+            "default": "./src/components/*"
+        },
+        "./views": {
+            "types": "./dist/views/index.d.ts",
+            "import": "./dist/views/index.mjs",
+            "require": "./dist/views/index.js"
+        },
+        "./views/*": {
+            "default": "./src/views/*"
+        },
+        "./package.json": "./package.json"
+    },
+    "sideEffects": [
+        "dist/i18n/index.mjs",
+        "dist/i18n/index.js"
+    ],
+    "files": [
+        "dist",
+        "src"
+    ],
+    "scripts": {
+        "clean": "rimraf dist",
+        "build": "tsdown",
+        "dev": "tsdown --watch",
+        "lint": "eslint --ext .ts,.tsx,.jsx src/",
+        "test": "vitest run"
+    },
+    "keywords": [
+        "universo",
+        "onboarding",
+        "start",
+        "frontend"
+    ],
+    "author": "Vladimir Levadnij and Teknokomo",
+    "license": "Omsk Open License",
+    "dependencies": {
+        "@emotion/react": "^11.14.0",
+        "@emotion/styled": "^11.14.1",
+        "@mui/icons-material": "catalog:",
+        "@mui/material": "catalog:",
+        "@universo-react/auth-frontend": "workspace:*",
+        "@universo-react/i18n": "workspace:*",
+        "@universo-react/store": "workspace:*",
+        "@universo-react/types": "workspace:*",
+        "@universo-react/utils": "workspace:*",
+        "react": "catalog:",
+        "react-i18next": "catalog:",
+        "react-router-dom": "catalog:",
+        "i18next": "catalog:",
+        "typescript": "catalog:",
+        "axios": "catalog:"
+    },
+    "peerDependencies": {
+        "react": ">=18",
+        "react-dom": ">=18",
+        "react-router-dom": "^6.0.0"
+    },
+    "devDependencies": {
+        "@testing-library/jest-dom": "^6.4.5",
+        "@testing-library/react": "^14.1.2",
+        "@testing-library/user-event": "^14.5.2",
+        "@types/react": "catalog:",
+        "@types/react-dom": "catalog:",
+        "eslint": "catalog:",
+        "rimraf": "^5.0.5",
+        "tsdown": "catalog:",
+        "vitest": "catalog:"
+    }
+}

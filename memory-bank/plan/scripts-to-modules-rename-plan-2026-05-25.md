@@ -32,14 +32,14 @@ boundary change.
 
 Real rename targets:
 
-- `packages/universo-types/base/src/common/entityCapabilities.ts` currently
+- `packages/universo-react-types/base/src/common/entityCapabilities.ts` currently
   exposes the capability key `modules`; fresh metadata, templates, fixtures,
   and UI capability toggles must move to `modules`.
-- `packages/universo-types/base/src/common/modules.ts` is the shared type source
+- `packages/universo-react-types/base/src/common/modules.ts` is the shared type source
   for attachment kinds, module roles, source kinds, capabilities, lifecycle
   events, manifests, compilation inputs, and DTOs.
 - Design-time backend is under
-  `packages/metahubs-backend/base/src/domains/modules/**` and stores rows in
+  `packages/universo-react-metahubs-backend/base/src/domains/modules/**` and stores rows in
   `_mhb_modules`.
 - Runtime/application backend owns
   `runtimeModulesController.ts`, `runtimeModulesService.ts`, and
@@ -52,17 +52,17 @@ Real rename targets:
   `workflowActions`, `applicationLayouts`, `metahubs`, and `extension-sdk`
   context/widget types.
 - Schema generation and branch system table definitions live in
-  `packages/schema-ddl/base/src/**` and
-  `packages/metahubs-backend/base/src/domains/metahubs/services/systemTableDefinitions.ts`.
+  `packages/universo-react-schema-ddl/base/src/**` and
+  `packages/universo-react-metahubs-backend/base/src/domains/metahubs/services/systemTableDefinitions.ts`.
 - UI authoring lives in
-  `packages/metahubs-frontend/base/src/domains/modules/**`, especially
+  `packages/universo-react-metahubs-frontend/base/src/domains/modules/**`, especially
   `EntityModulesTab`.
 - Shared resources show a `modules` tab in `SharedResourcesPage`.
 - Runtime widgets use module discovery/client bundles in
-  `packages/apps-template-mui/src/dashboard/components/runtimeWidgetHelpers.ts`,
+  `packages/universo-react-apps-template-mui/src/dashboard/components/runtimeWidgetHelpers.ts`,
   `QuizWidget.tsx`, and browser runtime files.
-- `packages/modules-engine/base` is an entire package and package name.
-- `@universo/extension-sdk` exposes user-facing base classes named
+- `packages/universo-react-modules-engine/base` is an entire package and package name.
+- `@universo-react/extension-sdk` exposes user-facing base classes named
   `ExtensionModule` and `SharedLibraryModule`.
 - Fixtures and snapshot contracts contain `snapshot.modules`, `sourceCode`,
   `serverBundle`, `clientBundle`, `attachedToKind`, `moduleRole`, and
@@ -141,10 +141,10 @@ Non-target or allowlisted uses:
 
 ## Affected Areas
 
-- `@universo/types`: rename shared module contract and exports.
-- `@universo/modules-engine`: rename package to `@universo/modules-engine`
+- `@universo-react/types`: rename shared module contract and exports.
+- `@universo-react/modules-engine`: rename package to `@universo-react/modules-engine`
   because it owns multiple module definitions and runtime bundles.
-- `@universo/extension-sdk`: keep package name if the team wants the broader
+- `@universo-react/extension-sdk`: keep package name if the team wants the broader
   extension concept, but rename classes to `ExtensionModule` and
   `SharedLibraryModule`, plus context/widget field names that expose
   `moduleId` / `moduleCodename`.
@@ -162,7 +162,7 @@ Non-target or allowlisted uses:
 - `universo-utils`: snapshot hash/archive serializers.
 - `universo-rest-docs`: generated and committed OpenAPI/reference docs.
 - `universo-core-backend`, package dependencies, TypeScript path mappings, and
-  backend Jest mapper that currently reference `@universo/modules-engine`.
+  backend Jest mapper that currently reference `@universo-react/modules-engine`.
 - `apps-template-mui` test dependency boundary: its browser runtime tests import
   the engine and should declare an explicit devDependency on the renamed engine
   package.
@@ -275,7 +275,7 @@ Required Playwright UX oracles:
 - [ ] Phase 0: Freeze scope and vocabulary.
   - Use final canonical names: Modules, Module, module, modules, Модули,
     Модуль.
-  - Use package rename choice: `@universo/modules-engine`.
+  - Use package rename choice: `@universo-react/modules-engine`.
   - Use SDK class rename: `ExtensionModule` and `SharedLibraryModule`,
     with no compatibility exports.
   - Keep `moduleRole`, role values, decorators, and `@shared/*`.
@@ -302,7 +302,7 @@ Required Playwright UX oracles:
 
 - [ ] Phase 2: Rename shared type contract first.
   - Rename entity capability key in
-    `packages/universo-types/base/src/common/entityCapabilities.ts` from
+    `packages/universo-react-types/base/src/common/entityCapabilities.ts` from
     `modules` to `modules`, including dependency declarations such as
     `posting -> modules`.
   - Update capability manifests, validators, tests, and template data that
@@ -314,7 +314,7 @@ Required Playwright UX oracles:
     `applicationLayouts.ts`, and `metahubs.ts` from `moduleCodename`/`moduleId`
     to `moduleCodename`/`moduleId` where they refer to attached metahub
     modules.
-  - Move `packages/universo-types/base/src/common/modules.ts` to
+  - Move `packages/universo-react-types/base/src/common/modules.ts` to
     `modules.ts`.
   - Rename exported constants/types/functions to module terminology:
     `MODULE_ATTACHMENT_KINDS`, `ModuleAttachmentKind`, `ModuleManifest`,
@@ -322,13 +322,13 @@ Required Playwright UX oracles:
     `normalizeModuleRole`, `resolveModuleSdkApiVersion`, etc.
   - Keep value names such as `moduleRole`, `module`, `lifecycle`, `widget`,
     and `library`.
-  - Update `packages/universo-types/base/src/index.ts` exports and tests.
+  - Update `packages/universo-react-types/base/src/index.ts` exports and tests.
 
 - [ ] Phase 3: Rename engine and SDK boundaries.
-  - Rename package folder `packages/modules-engine` to
-    `packages/modules-engine`.
-  - Rename package name `@universo/modules-engine` to
-    `@universo/modules-engine` and update all workspace imports, Jest module
+  - Rename package folder `packages/universo-react-modules-engine` to
+    `packages/universo-react-modules-engine`.
+  - Rename package name `@universo-react/modules-engine` to
+    `@universo-react/modules-engine` and update all workspace imports, Jest module
     mapping, package dependencies, docs, and build modules.
   - Update `universo-core-backend` startup dependency/import for isolated-vm
     availability checks, all package `tsconfig` path mappings, and
@@ -337,9 +337,9 @@ Required Playwright UX oracles:
     import, including `apps-template-mui` test imports as a devDependency.
   - Rename internal file/symbol wording in compiler/runtime tests where it
     refers to authored modules.
-  - In `@universo/extension-sdk`, rename `ExtensionModule` to
+  - In `@universo-react/extension-sdk`, rename `ExtensionModule` to
     `ExtensionModule` and `SharedLibraryModule` to `SharedLibraryModule`.
-  - In `@universo/extension-sdk`, rename exposed context/widget fields
+  - In `@universo-react/extension-sdk`, rename exposed context/widget fields
     `moduleId` and `moduleCodename` to `moduleId` and `moduleCodename`.
   - Update generated/source authored examples in fixtures and Playwright tests.
 
@@ -447,7 +447,7 @@ Required Playwright UX oracles:
   - Audit by visible text, not only key roots. Update old wording in other
     subtrees such as layout quiz editor `noScripts`, entity capability
     `modules`, automation action copy, and runtime `loadScriptsError`.
-  - Update central `packages/universo-i18n` only if this capability has keys
+  - Update central `packages/universo-react-i18n` only if this capability has keys
     there after a fresh search.
   - Add tests/audit ensuring EN/RU parity and no old visible text on module
     surfaces.
@@ -489,10 +489,10 @@ Required Playwright UX oracles:
   - Rename OpenAPI tags/operation IDs/path parameters from Modules/moduleId to
     Modules/moduleId.
   - Update generator inputs before generated YAML:
-    `packages/universo-rest-docs/modules/generate-openapi-source.js` route
+    `packages/universo-react-rest-docs/modules/generate-openapi-source.js` route
     source inventory, tag names/descriptions, operation IDs, and path parameter
     names.
-  - Update `packages/universo-rest-docs/API_ENDPOINTS.md`,
+  - Update `packages/universo-react-rest-docs/API_ENDPOINTS.md`,
     `ARCHITECTURE.md`, `src/openapi/index.yml`, and generator tests if present.
   - Regenerate or manually update generated docs according to the package's
     existing workflow.
@@ -507,7 +507,7 @@ Required Playwright UX oracles:
     - snapshot serialize/restore/hash.
   - Vitest/frontend/types/engine:
     - `EntityTypeCapabilities.modules` and posting dependency coverage;
-    - `@universo/types` module normalization;
+    - `@universo-react/types` module normalization;
     - module engine compiler/runtime;
     - extension SDK exports;
     - `EntityModulesTab`;
@@ -616,7 +616,7 @@ if (!result[0]?.table_name) {
 - Widget/layout behavior config carries `moduleCodename`; missing it would keep
   old terminology in published app configuration even if the runtime routes are
   renamed.
-- Renaming package `@universo/modules-engine` requires Jest module mapper,
+- Renaming package `@universo-react/modules-engine` requires Jest module mapper,
   TypeScript path mappings, package dependency, and docs updates in one
   commit-sized slice.
 - `moduleRole` should not be over-renamed; it is already correct and is part of

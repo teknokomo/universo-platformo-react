@@ -306,8 +306,8 @@ Per metahub/application, create members with realistic roles:
 
 Keep the existing dedicated E2E environment model:
 
-- `packages/universo-core-backend/base/.env.e2e.local`
-- `packages/universo-core-frontend/base/.env.e2e.local`
+- `packages/universo-react-core-backend/base/.env.e2e.local`
+- `packages/universo-react-core-frontend/base/.env.e2e.local`
 
 Prefer a dedicated Supabase test project or branch for E2E. Never reuse a production-like project.
 

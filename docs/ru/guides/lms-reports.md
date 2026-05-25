@@ -28,7 +28,7 @@ description: Object-backed определения отчётов LMS и безо
 
 ## Безопасный runner
 
-Backend report runner валидирует определение отчёта shared-схемами из `@universo/types`.
+Backend report runner валидирует определение отчёта shared-схемами из `@universo-react/types`.
 Runtime API calls не передают raw report definition.
 Они передают ровно одну ссылку на сохранённый отчёт: `reportId` или `reportCodename`, а backend загружает JSON `Definition` из опубликованного Object `Reports` в текущем workspace.
 

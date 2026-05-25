@@ -23,10 +23,10 @@ package:
 
 | System App   | Manifest File                                                       |
 | ------------ | ------------------------------------------------------------------- |
-| admin        | `packages/admin-backend/src/platform/systemAppDefinition.ts`        |
-| profiles     | `packages/profile-backend/src/platform/systemAppDefinition.ts`      |
-| metahubs     | `packages/metahubs-backend/src/platform/systemAppDefinition.ts`     |
-| applications | `packages/applications-backend/src/platform/systemAppDefinition.ts` |
+| admin        | `packages/universo-react-admin-backend/src/platform/systemAppDefinition.ts`        |
+| profiles     | `packages/universo-react-profile-backend/src/platform/systemAppDefinition.ts`      |
+| metahubs     | `packages/universo-react-metahubs-backend/src/platform/systemAppDefinition.ts`     |
+| applications | `packages/universo-react-applications-backend/src/platform/systemAppDefinition.ts` |
 
 The manifest declares business tables, fields, data types, and
 capabilities. It is the single source of truth for the schema shape of

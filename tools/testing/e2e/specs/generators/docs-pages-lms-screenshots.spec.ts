@@ -24,7 +24,7 @@ import {
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
 import { repoRoot } from '../../support/env/load-e2e-env.mjs'
-import { createLocalizedContent } from '@universo/utils'
+import { createLocalizedContent } from '@universo-react/utils'
 
 type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
 

@@ -77,7 +77,7 @@ Website: [https://universo.pro](https://universo.pro)
 ## Project Structure
 
 -   The repository is a PNPM + Turborepo monorepo with root-level documentation, planning records in `memory-bank`, engineering tools, and package workspaces.
--   Runtime workspaces use the flat `packages/<name>/package.json` layout, including shared UI scaffolding packages such as `packages/apps-template-mui` and documentation services such as `packages/universo-rest-docs`.
+-   Runtime workspaces use the flat `packages/universo-react-<name>/package.json` layout with matching `@universo-react/<name>` package names, including shared UI scaffolding packages such as `packages/universo-react-apps-template-mui` and documentation services such as `packages/universo-react-rest-docs`.
 -   The backend side is organized around a SQL-first PostgreSQL/Supabase runtime, modular migration tooling, schema-definition utilities, and feature packages for authentication, onboarding, profile, metahubs, applications, and administration.
 -   The frontend side is organized around a React shell, shared UI/state/i18n packages, and feature packages for onboarding, authentication, profile, metahubs, applications, and administration.
 -   In the metahubs and admin domains, fixed schemas, runtime metadata, and authoring flows converge on one persisted `codename JSONB` contract built on versioned localized content (VLC), and platform migrations upgrade legacy dual-field codename storage into the same shape.
@@ -172,7 +172,7 @@ Each implementation shares the same strategic direction, and the high-level abst
 
 3. Configure environment variables.
 
-    - Create `.env` in `packages/universo-core-backend`.
+    - Create `.env` in `packages/universo-react-core-backend`.
     - Add the required Supabase/PostgreSQL settings:
         ```
         SUPABASE_URL=your_supabase_url
@@ -187,7 +187,7 @@ Each implementation shares the same strategic direction, and the high-level abst
     - `SERVICE_ROLE_KEY` is required for server-side provisioning tasks such as startup superuser bootstrap and admin-side user creation.
     - `BOOTSTRAP_SUPERUSER_EMAIL` and `BOOTSTRAP_SUPERUSER_PASSWORD` are demo credentials for first local bootstrap only. Change both before any real deployment.
     - `NODE_ENV=development` enables development features like database reset. Never use in production.
-    - Optionally create `.env` in `packages/universo-core-frontend` for UI-specific settings such as `VITE_PORT`.
+    - Optionally create `.env` in `packages/universo-react-core-frontend` for UI-specific settings such as `VITE_PORT`.
 
 4. Build the workspace.
 
@@ -213,7 +213,7 @@ Each implementation shares the same strategic direction, and the high-level abst
 
 ### Supabase Options
 
-The default `pnpm start` and `pnpm start:allclean` commands use the normal `.env` files. They can point to a hosted Supabase project or to a local Supabase instance if you write local Supabase values directly into `packages/universo-core-backend/.env`.
+The default `pnpm start` and `pnpm start:allclean` commands use the normal `.env` files. They can point to a hosted Supabase project or to a local Supabase instance if you write local Supabase values directly into `packages/universo-react-core-backend/.env`.
 
 For routine local work, the recommended Docker-based flow keeps hosted and local settings separate by generating gitignored local profiles:
 

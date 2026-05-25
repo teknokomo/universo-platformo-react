@@ -4,7 +4,7 @@ description: Describe the frontend shell and feature-package composition.
 
 # Frontend Architecture
 
-The frontend is centered on `@universo/core-frontend`, which bootstraps the
+The frontend is centered on `@universo-react/core-frontend`, which bootstraps the
 React application and assembles feature packages into one routed web shell.
 
 ## Runtime Pattern

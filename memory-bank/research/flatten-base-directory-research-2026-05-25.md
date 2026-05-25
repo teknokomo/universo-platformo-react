@@ -51,7 +51,7 @@ moving package roots?
   - `tools/testing/e2e/support/env/load-e2e-env.mjs`.
   - `tools/local-supabase/*.mjs` and matching tests.
   - `tools/lint-db-access.mjs`.
-  - `packages/universo-rest-docs/scripts/*` and generated OpenAPI source
+  - `packages/universo-react-rest-docs/scripts/*` and generated OpenAPI source
     references.
   - Package-local `tsconfig.json`, `vitest.config.ts`, `jest.config.js`, and
     Vite aliases.
@@ -66,7 +66,7 @@ moving package roots?
     `.github/**`, and `.agents/skills/**`, plus `.github/FILE_NAMING.md`.
   - Tool README files under `tools/testing/**`.
   - Package metadata such as `repository.directory` in
-    `packages/universo-i18n/base/package.json`.
+    `packages/universo-react-i18n/base/package.json`.
   - Package-local `turbo.json` files in `extension-sdk` and
     `universo-core-frontend`.
   - Root and package READMEs, `.github/instructions/**`, `AGENTS.md`, and
@@ -118,10 +118,10 @@ moving package roots?
   root-relative POSIX paths. Active files can contain `../package/base`,
   `../../package/base`, `/base/README*`, `/base/package.json`, or
   `packages\\package\\base`.
-- Root scripts that `cd packages/universo-core-backend/base/bin` must target
-  `packages/universo-core-backend/bin`.
+- Root scripts that `cd packages/universo-react-core-backend/base/bin` must target
+  `packages/universo-react-core-backend/bin`.
 - E2E env profile paths must target
-  `packages/universo-core-frontend/.env.e2e.local-supabase` and matching
+  `packages/universo-react-core-frontend/.env.e2e.local-supabase` and matching
   backend paths.
 - The root `turbo.json` can likely keep its current task definitions, but
   package-local `turbo.json` files must move with package contents and their
@@ -140,7 +140,7 @@ or schema changes.
 - Should historical Memory Bank files be left untouched except for the new plan
   and final progress notes? Recommended: yes, to avoid rewriting project
   history.
-- Should generated fixture bundles containing embedded `../../../extension-sdk/base`
+- Should generated fixture bundles containing embedded `../../../universo-react-extension-sdk/base`
   source comments be regenerated immediately? Recommended: only if an active
   checker consumes those strings; otherwise keep fixture regeneration as a
   follow-up to avoid broad non-functional diffs.

@@ -28,7 +28,7 @@ This plan is optimized for a fresh database baseline (no legacy compatibility pa
 ### Codebase findings (additional audit)
 
 1. Hub dialogs currently do not expose `Hubs` tab in all required modes:
-   - `packages/metahubs-frontend/base/src/domains/hubs/ui/HubActions.tsx`
+   - `packages/universo-react-metahubs-frontend/base/src/domains/hubs/ui/HubActions.tsx`
 2. Hub-scoped child pages currently miss `Hubs` tab and have inconsistent tab sets/order:
    - `CatalogList.tsx`, `SetList.tsx`, `EnumerationList.tsx`
 3. Create-from-inside-hub behavior currently silently redirects when `hubIds[0]` differs from current hub instead of warning.
@@ -101,45 +101,45 @@ Project: `osnvhnawsmyfduygsajj` (`UP-test`)
 
 ### Backend
 
-- `packages/metahubs-backend/base/src/domains/hubs/routes/hubsRoutes.ts`
-- `packages/metahubs-backend/base/src/domains/catalogs/routes/catalogsRoutes.ts`
-- `packages/metahubs-backend/base/src/domains/sets/routes/setsRoutes.ts`
-- `packages/metahubs-backend/base/src/domains/enumerations/routes/enumerationsRoutes.ts`
-- `packages/metahubs-backend/base/src/domains/settings/routes/settingsRoutes.ts`
-- `packages/metahubs-backend/base/src/domains/branches/services/MetahubBranchesService.ts`
-- `packages/metahubs-backend/base/src/domains/publications/services/SnapshotSerializer.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/hubs/routes/hubsRoutes.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/catalogs/routes/catalogsRoutes.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/sets/routes/setsRoutes.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/enumerations/routes/enumerationsRoutes.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/settings/routes/settingsRoutes.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/branches/services/MetahubBranchesService.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/publications/services/SnapshotSerializer.ts`
 
 ### Frontend (metahubs)
 
-- `packages/metahubs-frontend/base/src/domains/hubs/ui/HubList.tsx`
-- `packages/metahubs-frontend/base/src/domains/hubs/ui/HubActions.tsx`
-- `packages/metahubs-frontend/base/src/domains/catalogs/ui/CatalogList.tsx`
-- `packages/metahubs-frontend/base/src/domains/sets/ui/SetList.tsx`
-- `packages/metahubs-frontend/base/src/domains/enumerations/ui/EnumerationList.tsx`
-- `packages/metahubs-frontend/base/src/domains/settings/ui/SettingsPage.tsx`
-- `packages/metahubs-frontend/base/src/domains/settings/hooks/useEntityPermissions.ts`
-- `packages/metahubs-frontend/base/src/domains/layouts/ui/MenuWidgetEditorDialog.tsx`
+- `packages/universo-react-metahubs-frontend/base/src/domains/hubs/ui/HubList.tsx`
+- `packages/universo-react-metahubs-frontend/base/src/domains/hubs/ui/HubActions.tsx`
+- `packages/universo-react-metahubs-frontend/base/src/domains/catalogs/ui/CatalogList.tsx`
+- `packages/universo-react-metahubs-frontend/base/src/domains/sets/ui/SetList.tsx`
+- `packages/universo-react-metahubs-frontend/base/src/domains/enumerations/ui/EnumerationList.tsx`
+- `packages/universo-react-metahubs-frontend/base/src/domains/settings/ui/SettingsPage.tsx`
+- `packages/universo-react-metahubs-frontend/base/src/domains/settings/hooks/useEntityPermissions.ts`
+- `packages/universo-react-metahubs-frontend/base/src/domains/layouts/ui/MenuWidgetEditorDialog.tsx`
 
 ### Shared types / UI / i18n
 
-- `packages/universo-types/base/src/common/metahubs.ts`
-- `packages/universo-template-mui/base/src/routes/MainRoutesMUI.tsx`
-- `packages/universo-template-mui/base/src/components/dashboard/NavbarBreadcrumbs.tsx`
-- `packages/universo-i18n` (new shared keys if commonized)
+- `packages/universo-react-types/base/src/common/metahubs.ts`
+- `packages/universo-react-template-mui/base/src/routes/MainRoutesMUI.tsx`
+- `packages/universo-react-template-mui/base/src/components/dashboard/NavbarBreadcrumbs.tsx`
+- `packages/universo-react-i18n` (new shared keys if commonized)
 - metahubs frontend locale bundles (EN/RU)
 
 ### Runtime app (published applications)
 
-- `packages/applications-backend/base/src/routes/applicationsRoutes.ts`
-- `packages/apps-template-mui/src/api/api.ts`
-- `packages/apps-template-mui/src/hooks/useCrudDashboard.ts`
-- `packages/apps-template-mui/src/dashboard/Dashboard.tsx`
-- `packages/apps-template-mui/src/dashboard/components/MenuContent.tsx`
+- `packages/universo-react-applications-backend/base/src/routes/applicationsRoutes.ts`
+- `packages/universo-react-apps-template-mui/src/api/api.ts`
+- `packages/universo-react-apps-template-mui/src/hooks/useCrudDashboard.ts`
+- `packages/universo-react-apps-template-mui/src/dashboard/Dashboard.tsx`
+- `packages/universo-react-apps-template-mui/src/dashboard/components/MenuContent.tsx`
 
 ### Schema DDL
 
-- `packages/schema-ddl/base/src/SchemaGenerator.ts`
-- (possibly) `packages/schema-ddl/base/src/snapshot.ts` or helpers if needed for kind filtering consistency
+- `packages/universo-react-schema-ddl/base/src/SchemaGenerator.ts`
+- (possibly) `packages/universo-react-schema-ddl/base/src/snapshot.ts` or helpers if needed for kind filtering consistency
 
 ### Tests
 
@@ -261,7 +261,7 @@ Project: `osnvhnawsmyfduygsajj` (`UP-test`)
 ### Phase 12: i18n, QA matrix, and verification
 
 - [ ] Add EN/RU keys for all new labels, warnings, dialogs, menu kinds, settings.
-- [ ] Prefer shared keys in `packages/universo-i18n` for cross-module reusable actions/messages; keep feature-specific keys in metahubs namespace.
+- [ ] Prefer shared keys in `packages/universo-react-i18n` for cross-module reusable actions/messages; keep feature-specific keys in metahubs namespace.
 - [ ] Add targeted unit/integration tests for:
   - cycle detection,
   - parent hub deletion policy,
@@ -477,17 +477,17 @@ Safety properties:
    - keep hub hierarchy in snapshot metadata until runtime mutation use-cases appear.
 
 5. **Shared package strategy alignment:**
-   - place shared types in `@universo/types` and reusable logic/helpers in `@universo/utils` where appropriate.
+   - place shared types in `@universo-react/types` and reusable logic/helpers in `@universo-react/utils` where appropriate.
 
 ---
 
 ## Dependencies / Coordination
 
-1. `@universo/types` changes must land before frontend/backend runtime parsers compile.
+1. `@universo-react/types` changes must land before frontend/backend runtime parsers compile.
 2. `applications-backend` and `apps-template-mui` must be updated together for new menu item kinds.
 3. `schema-ddl` skip-hub-table change must be synchronized with publication/runtime tests.
 4. i18n keys should be added with EN/RU parity in same PR slice to avoid UI key leakage.
-5. If shared dialog component is extracted to `@universo/template-mui`, publish/build order in monorepo must follow dependency graph.
+5. If shared dialog component is extracted to `@universo-react/template-mui`, publish/build order in monorepo must follow dependency graph.
 
 ---
 

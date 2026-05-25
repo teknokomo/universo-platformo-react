@@ -1,0 +1,292 @@
+import { ComponentDefinitionDataType } from '@universo-react/types'
+import { SchemaMigrator } from '../SchemaMigrator'
+import { ChangeType } from '../diff'
+import type { SchemaChange } from '../diff'
+import type { EntityDefinition, Component } from '../types'
+
+const mockAcquireAdvisoryLock = jest.fn().mockResolvedValue(true)
+const mockReleaseAdvisoryLock = jest.fn().mockResolvedValue(undefined)
+
+jest.mock('../locking', () => ({
+    uuidToLockKey: jest.fn(() => 123),
+    acquireAdvisoryLock: (...args: unknown[]) => mockAcquireAdvisoryLock(...args),
+    releaseAdvisoryLock: (...args: unknown[]) => mockReleaseAdvisoryLock(...args)
+}))
+
+describe('SchemaMigrator', () => {
+    beforeEach(() => {
+        jest.clearAllMocks()
+        mockAcquireAdvisoryLock.mockResolvedValue(true)
+        mockReleaseAdvisoryLock.mockResolvedValue(undefined)
+    })
+
+    it('routes REF->enumeration foreign keys to _app_values', async () => {
+        const trx = {
+            raw: jest.fn().mockResolvedValue(undefined)
+        } as unknown as import('knex').Knex.Transaction
+
+        const generator = {
+            ensureSystemTables: jest.fn().mockResolvedValue(undefined)
+        } as unknown as import('../SchemaGenerator').SchemaGenerator
+
+        const migrator = new SchemaMigrator({} as import('knex').Knex, generator, {} as import('../MigrationManager').MigrationManager)
+
+        const field: Component = {
+            id: 'field-ref-0000-0000-0000-000000000001',
+            codename: 'status',
+            dataType: ComponentDefinitionDataType.REF,
+            isRequired: false,
+            targetEntityId: 'enum-0000-0000-0000-000000000001',
+            targetEntityKind: 'enumeration' as import('../types').RuntimeEntityKind
+        }
+        const entities: EntityDefinition[] = [
+            {
+                id: 'object-0000-0000-0000-000000000001',
+                codename: 'orders',
+                kind: 'object',
+                fields: [field]
+            }
+        ]
+
+        const change: SchemaChange = {
+            type: ChangeType.ADD_FK,
+            entityId: entities[0].id,
+            fieldId: field.id,
+            tableName: 'obj_orders',
+            columnName: 'cmp_status',
+            newValue: field.targetEntityId,
+            isDestructive: false,
+            description: 'Add FK on "status"'
+        }
+
+        const applyChange = Reflect.get(migrator as object, 'applyChange') as (
+            schemaName: string,
+            change: SchemaChange,
+            entities: EntityDefinition[],
+            trx: import('knex').Knex.Transaction,
+            options?: { systemTableCapabilities?: Record<string, boolean> }
+        ) => Promise<void>
+
+        await applyChange.call(migrator, 'app_test_schema', change, entities, trx, {
+            systemTableCapabilities: {
+                includeComponents: false,
+                includeValues: true,
+                includeLayouts: false,
+                includeWidgets: false
+            }
+        })
+
+        expect(generator.ensureSystemTables).toHaveBeenCalledWith('app_test_schema', trx, {
+            includeComponents: false,
+            includeValues: true,
+            includeLayouts: false,
+            includeWidgets: false
+        })
+        expect(trx.raw).toHaveBeenCalledWith(
+            'ALTER TABLE ??.?? ADD CONSTRAINT ?? FOREIGN KEY (??) REFERENCES ??.??(id) ON DELETE SET NULL',
+            ['app_test_schema', 'obj_orders', 'fk_obj_orders_cmp_status', 'cmp_status', 'app_test_schema', '_app_values']
+        )
+    })
+
+    it('skips physical FK creation for REF->set fields', async () => {
+        const trx = {
+            raw: jest.fn().mockResolvedValue(undefined)
+        } as unknown as import('knex').Knex.Transaction
+
+        const generator = {
+            ensureSystemTables: jest.fn().mockResolvedValue(undefined)
+        } as unknown as import('../SchemaGenerator').SchemaGenerator
+
+        const migrator = new SchemaMigrator({} as import('knex').Knex, generator, {} as import('../MigrationManager').MigrationManager)
+
+        const field: Component = {
+            id: 'field-ref-0000-0000-0000-000000000002',
+            codename: 'version',
+            dataType: ComponentDefinitionDataType.REF,
+            isRequired: false,
+            targetEntityId: 'set-0000-0000-0000-000000000001',
+            targetEntityKind: 'set' as import('../types').RuntimeEntityKind
+        }
+        const entities: EntityDefinition[] = [
+            {
+                id: 'object-0000-0000-0000-000000000001',
+                codename: 'orders',
+                kind: 'object',
+                fields: [field]
+            }
+        ]
+
+        const change: SchemaChange = {
+            type: ChangeType.ADD_FK,
+            entityId: entities[0].id,
+            fieldId: field.id,
+            tableName: 'obj_orders',
+            columnName: 'cmp_version',
+            newValue: field.targetEntityId,
+            isDestructive: false,
+            description: 'Add FK on "version"'
+        }
+
+        const applyChange = Reflect.get(migrator as object, 'applyChange') as (
+            schemaName: string,
+            change: SchemaChange,
+            entities: EntityDefinition[],
+            trx: import('knex').Knex.Transaction,
+            options?: { systemTableCapabilities?: Record<string, boolean> }
+        ) => Promise<void>
+
+        await applyChange.call(migrator, 'app_test_schema', change, entities, trx)
+
+        expect(generator.ensureSystemTables).not.toHaveBeenCalled()
+        expect(trx.raw).not.toHaveBeenCalled()
+    })
+
+    it('runs afterMigrationRecorded inside the same transaction after migration history is persisted', async () => {
+        const trx = {
+            raw: jest.fn().mockResolvedValue(undefined)
+        } as unknown as import('knex').Knex.Transaction
+
+        const localKnex = {
+            transaction: jest.fn(async (callback: (innerTrx: import('knex').Knex.Transaction) => Promise<void>) => {
+                await callback(trx)
+            })
+        } as unknown as import('knex').Knex
+
+        const generator = {
+            syncSystemMetadata: jest.fn().mockResolvedValue(undefined),
+            generateSnapshot: jest.fn().mockReturnValue({
+                version: 3,
+                generatedAt: '2026-03-09T00:00:00.000Z',
+                hasSystemTables: true,
+                entities: {}
+            })
+        } as unknown as import('../SchemaGenerator').SchemaGenerator
+
+        const recordMigration = jest.fn().mockResolvedValue('migration-id')
+        const migrationManager = {
+            getLatestMigration: jest.fn().mockResolvedValue(null),
+            recordMigration
+        } as unknown as import('../MigrationManager').MigrationManager
+
+        const migrator = new SchemaMigrator(localKnex, generator, migrationManager)
+        const applyChangeMock = jest.fn().mockResolvedValue(undefined)
+        Reflect.set(migrator as object, 'applyChange', applyChangeMock)
+
+        const afterMigrationRecorded = jest.fn().mockResolvedValue(undefined)
+        const result = await migrator.applyAllChanges(
+            'app_test_schema',
+            {
+                hasChanges: true,
+                additive: [
+                    {
+                        type: ChangeType.ADD_TABLE,
+                        entityCodename: 'products',
+                        tableName: 'obj_products',
+                        isDestructive: false,
+                        description: 'Create table "products"'
+                    }
+                ],
+                destructive: [],
+                summary: '1 additive change'
+            },
+            [],
+            true,
+            {
+                recordMigration: true,
+                afterMigrationRecorded
+            }
+        )
+
+        expect(result.success).toBe(true)
+        expect(recordMigration).toHaveBeenCalledTimes(1)
+        expect(afterMigrationRecorded).toHaveBeenCalledWith(
+            expect.objectContaining({
+                trx,
+                schemaName: 'app_test_schema',
+                snapshotBefore: null,
+                migrationName: expect.stringMatching(/^\d{8}_\d{6}_schema_sync$/),
+                migrationId: 'migration-id',
+                snapshotAfter: expect.objectContaining({
+                    version: 3,
+                    entities: {}
+                }),
+                diff: expect.objectContaining({
+                    summary: '1 additive change'
+                })
+            })
+        )
+        expect(recordMigration.mock.invocationCallOrder[0]).toBeLessThan(afterMigrationRecorded.mock.invocationCallOrder[0])
+        expect(applyChangeMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('uses physical column types and explicit SQL defaults when adding columns', async () => {
+        const columnBuilder = {
+            nullable: jest.fn().mockReturnThis(),
+            defaultTo: jest.fn().mockReturnThis()
+        }
+        const alterTable = jest.fn((_: string, callback: (table: { specificType: typeof specificType }) => void) => {
+            callback({
+                specificType
+            })
+        })
+        const specificType = jest.fn(() => columnBuilder)
+        const trx = {
+            raw: jest.fn((sql: string) => ({ rawSql: sql })),
+            schema: {
+                withSchema: jest.fn(() => ({
+                    alterTable
+                }))
+            }
+        } as unknown as import('knex').Knex.Transaction
+
+        const migrator = new SchemaMigrator(
+            {} as import('knex').Knex,
+            {} as import('../SchemaGenerator').SchemaGenerator,
+            {} as import('../MigrationManager').MigrationManager
+        )
+
+        const field: Component = {
+            id: 'field-string-0000-0000-0000-000000000010',
+            codename: 'timezone',
+            dataType: ComponentDefinitionDataType.STRING,
+            isRequired: false,
+            physicalColumnName: 'profile_timezone',
+            physicalDataType: 'citext',
+            defaultSqlExpression: `'UTC'::citext`
+        }
+        const entities: EntityDefinition[] = [
+            {
+                id: 'object-0000-0000-0000-000000000010',
+                codename: 'profiles',
+                kind: 'object',
+                physicalTableName: 'obj_profiles',
+                fields: [field]
+            }
+        ]
+
+        const change: SchemaChange = {
+            type: ChangeType.ADD_COLUMN,
+            entityId: entities[0].id,
+            fieldId: field.id,
+            tableName: 'obj_profiles',
+            isDestructive: false,
+            description: 'Add column "timezone"'
+        }
+
+        const applyChange = Reflect.get(migrator as object, 'applyChange') as (
+            schemaName: string,
+            change: SchemaChange,
+            entities: EntityDefinition[],
+            trx: import('knex').Knex.Transaction
+        ) => Promise<void>
+
+        await applyChange.call(migrator, 'app_test_schema', change, entities, trx)
+
+        expect(trx.schema.withSchema).toHaveBeenCalledWith('app_test_schema')
+        expect(alterTable).toHaveBeenCalledWith('obj_profiles', expect.any(Function))
+        expect(specificType).toHaveBeenCalledWith('profile_timezone', 'citext')
+        expect(columnBuilder.nullable).toHaveBeenCalledTimes(1)
+        expect(trx.raw).toHaveBeenCalledWith(`'UTC'::citext`)
+        expect(columnBuilder.defaultTo).toHaveBeenCalledWith({ rawSql: `'UTC'::citext` })
+    })
+})

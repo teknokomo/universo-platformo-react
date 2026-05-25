@@ -23,7 +23,7 @@ This plan changes the current LMS template, Playwright generator, fixture contra
 
 The current codebase already has a strong LMS baseline:
 
-- `packages/metahubs-backend/base/src/domains/templates/data/lms.template.ts` defines an entity-first LMS template.
+- `packages/universo-react-metahubs-backend/base/src/domains/templates/data/lms.template.ts` defines an entity-first LMS template.
 - The LMS snapshot requires `runtimePolicy.workspaceMode = "required"`.
 - The fixture currently exports 45 entities: hubs, pages, catalogs, sets, and enumerations.
 - Ledger behavior is modeled as Catalog entities with `config.ledger`, not as a mandatory built-in entity type.
@@ -36,10 +36,10 @@ The current codebase already has a strong LMS baseline:
 
 Relevant files:
 
-- `packages/metahubs-backend/base/README.md`
-- `packages/applications-backend/base/README.md`
-- `packages/apps-template-mui/README.md`
-- `packages/universo-types/base/README.md`
+- `packages/universo-react-metahubs-backend/base/README.md`
+- `packages/universo-react-applications-backend/base/README.md`
+- `packages/universo-react-apps-template-mui/README.md`
+- `packages/universo-react-types/base/README.md`
 - `tools/testing/e2e/support/lmsFixtureContract.ts`
 - `tools/testing/e2e/specs/generators/metahubs-lms-app-export.spec.ts`
 - `tools/fixtures/metahubs-lms-app-snapshot.json`
@@ -143,7 +143,7 @@ The QA review confirmed that the overall architecture is correct, but the implem
    The current fixture has several entities and ledgers, but the runtime must support real record commands, status transitions, posting, and visibility rules.
 
 6. Published app UI needs original MUI dashboard parity.
-   `packages/apps-template-mui` should keep the original dashboard visual language from `.backup/templates/dashboard`. Workspace cards and any remaining demo copy such as Sitemark or Product tree must be removed or made generic and translated.
+   `packages/universo-react-apps-template-mui` should keep the original dashboard visual language from `.backup/templates/dashboard`. Workspace cards and any remaining demo copy such as Sitemark or Product tree must be removed or made generic and translated.
 
 7. Fixture seed data is still too small for product evaluation.
    The generated snapshot must represent a credible LMS scenario, not only schema shape.
@@ -167,8 +167,8 @@ The QA review confirmed that the overall architecture is correct, but the implem
 5. Add generic resource, sequence, report, role, and notification primitives where needed.
 6. Keep scripts capability-scoped and deterministic.
 7. Use `DbExecutor.query()` and schema-qualified parameterized SQL for backend data access.
-8. Keep all user-visible text internationalized through package i18n and `packages/universo-i18n`.
-9. Keep package boundaries strict: shared contracts in `packages/universo-types`, shared utilities in `packages/universo-utils`, shared UI in `packages/universo-template-mui`, published runtime in `packages/apps-template-mui`.
+8. Keep all user-visible text internationalized through package i18n and `packages/universo-react-i18n`.
+9. Keep package boundaries strict: shared contracts in `packages/universo-react-types`, shared utilities in `packages/universo-react-utils`, shared UI in `packages/universo-react-template-mui`, published runtime in `packages/universo-react-apps-template-mui`.
 10. Regenerate `tools/fixtures/metahubs-lms-app-snapshot.json` only through Playwright.
 11. Do not bump the Metahub schema version or LMS template version for this work.
 12. Extend the existing `owner/admin/editor/member` application role model and workspace roles with configurable capabilities before considering any new role table or subsystem.
@@ -180,7 +180,7 @@ The QA review confirmed that the overall architecture is correct, but the implem
 
 | iSpring-like capability | Universo implementation |
 | --- | --- |
-| Learner portal | Published app from `packages/apps-template-mui` using generic dashboard layout widgets |
+| Learner portal | Published app from `packages/universo-react-apps-template-mui` using generic dashboard layout widgets |
 | Navigation menu | `menuWidget` with curated items, start page, primary limit, overflow, and workspace entry |
 | Content library | Catalogs `LearningResources`, `Modules`, `Courses`; Page entities for authored pages; generic resource metadata |
 | SCORM, video, audio, documents, links | Generic Resource catalog fields and future storage adapter, not LMS-only code |
@@ -206,7 +206,7 @@ Objective: lock the current state before expanding the LMS configuration.
 Tasks:
 
 1. Summarize current LMS fixture entity counts, widget data sources, scripts, and ledgers.
-2. Audit `packages/apps-template-mui` against `.backup/templates/dashboard`.
+2. Audit `packages/universo-react-apps-template-mui` against `.backup/templates/dashboard`.
 3. Search for LMS-only runtime branches, demo copy, untranslated strings, old widgets, and published access to demo keys such as `brandSelector`, `productTree`, and `usersByCountryChart`.
 4. Capture baseline Playwright screenshots from port 3100 where available.
 5. Record the baseline in the new plan implementation notes before coding starts.
@@ -255,7 +255,7 @@ Objective: support course content types without LMS-specific runtime code.
 
 Tasks:
 
-1. Add shared resource contract types in `packages/universo-types`.
+1. Add shared resource contract types in `packages/universo-react-types`.
 2. Model V1 resources as Catalog records, not as a new entity kind:
    - `resourceType`: page, url, video, audio, document, scorm, embed, file.
    - `source`: external URL, storage key, page codename, or package descriptor.
@@ -372,7 +372,7 @@ Objective: make reports real and reusable.
 
 Tasks:
 
-1. Add report definition contracts in `packages/universo-types`.
+1. Add report definition contracts in `packages/universo-react-types`.
 2. Store V1 report definitions in the existing `Reports` Catalog.
 3. Introduce `ReportDefinitions` only if implementation proves that report templates and report instances must be separated.
 4. Reuse existing runtime data-source descriptors and existing widgets.
@@ -452,7 +452,7 @@ Tasks:
    - dashboard widget data sources.
 2. Replace raw text entry for section ids, section codenames, ledger ids, ledger codenames, projection codenames, fields, and datasource targets with metadata-backed pickers in the existing widget behavior editor.
 3. Use TanStack Query mutations with optimistic updates and rollback where safe.
-4. Keep all labels in `packages/universo-i18n` or package i18n files.
+4. Keep all labels in `packages/universo-react-i18n` or package i18n files.
 5. Reuse existing `EntityFormDialog`, `ViewHeader`, `ToolbarControls`, `ItemCard`, `FlowListTable`, DataGrid, and existing layout editor dialogs before introducing new components.
 
 Mutation example:
@@ -675,11 +675,11 @@ test('LMS learner dashboard matches the product baseline', async ({ page }) => {
 Validation commands to plan for implementation:
 
 ```bash
-pnpm --filter @universo/types test
-pnpm --filter @universo/metahubs-backend test
-pnpm --filter @universo/applications-backend test
-pnpm --filter @universo/apps-template-mui test
-pnpm --filter @universo/apps-template-mui build
+pnpm --filter @universo-react/types test
+pnpm --filter @universo-react/metahubs-backend test
+pnpm --filter @universo-react/applications-backend test
+pnpm --filter @universo-react/apps-template-mui test
+pnpm --filter @universo-react/apps-template-mui build
 node tools/testing/e2e/run-playwright-suite.mjs generators/metahubs-lms-app-export.spec.ts
 node tools/testing/e2e/run-playwright-suite.mjs flows/snapshot-import-lms-runtime.spec.ts
 ```
@@ -693,10 +693,10 @@ Objective: make the feature understandable and reproducible.
 Tasks:
 
 1. Update package READMEs:
-   - `packages/metahubs-backend/base/README.md`
-   - `packages/applications-backend/base/README.md`
-   - `packages/apps-template-mui/README.md`
-   - `packages/universo-types/base/README.md`
+   - `packages/universo-react-metahubs-backend/base/README.md`
+   - `packages/universo-react-applications-backend/base/README.md`
+   - `packages/universo-react-apps-template-mui/README.md`
+   - `packages/universo-react-types/base/README.md`
 2. Update GitBook docs under `docs/en` and `docs/ru`.
 3. Add pages for:
    - LMS configuration overview,

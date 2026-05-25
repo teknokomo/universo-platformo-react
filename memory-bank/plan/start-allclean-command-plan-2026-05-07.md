@@ -17,10 +17,10 @@ Implement a new `pnpm start:allclean` command that performs a complete platform 
 ### Core Backend Files
 | File | Action | Description |
 |------|--------|-------------|
-| `packages/universo-core-backend/base/src/bootstrap/startupReset.ts` | MODIFY | Add `force` parameter to bypass env var check |
-| `packages/universo-core-backend/base/src/commands/start.ts` | MODIFY | Add `--reset-db` CLI flag |
-| `packages/universo-core-backend/base/src/commands/base.ts` | MODIFY | Add `FULL_DATABASE_RESET` flag declaration |
-| `packages/universo-core-backend/base/src/index.ts` | MODIFY | Pass force flag through to reset function |
+| `packages/universo-react-core-backend/base/src/bootstrap/startupReset.ts` | MODIFY | Add `force` parameter to bypass env var check |
+| `packages/universo-react-core-backend/base/src/commands/start.ts` | MODIFY | Add `--reset-db` CLI flag |
+| `packages/universo-react-core-backend/base/src/commands/base.ts` | MODIFY | Add `FULL_DATABASE_RESET` flag declaration |
+| `packages/universo-react-core-backend/base/src/index.ts` | MODIFY | Pass force flag through to reset function |
 
 ### Root Configuration
 | File | Action | Description |
@@ -30,8 +30,8 @@ Implement a new `pnpm start:allclean` command that performs a complete platform 
 ### Tests
 | File | Action | Description |
 |------|--------|-------------|
-| `packages/universo-core-backend/base/src/__tests__/startupReset.test.ts` | MODIFY | Add tests for force mode |
-| `packages/universo-core-backend/base/src/__tests__/App.initDatabase.test.ts` | MODIFY | Add tests for CLI flag integration |
+| `packages/universo-react-core-backend/base/src/__tests__/startupReset.test.ts` | MODIFY | Add tests for force mode |
+| `packages/universo-react-core-backend/base/src/__tests__/App.initDatabase.test.ts` | MODIFY | Add tests for CLI flag integration |
 | NEW: E2E test for start:allclean | CREATE | Verify full command chain works |
 
 ### Documentation
@@ -41,14 +41,14 @@ Implement a new `pnpm start:allclean` command that performs a complete platform 
 | `docs/ru/getting-started/configuration.md` | MODIFY | Russian translation |
 | `README.md` | MODIFY | Add command to Quick Start section |
 | `README-RU.md` | MODIFY | Russian translation |
-| `packages/universo-core-backend/base/.env.example` | MODIFY | Mention command alternative |
+| `packages/universo-react-core-backend/base/.env.example` | MODIFY | Mention command alternative |
 
 ## Implementation Plan
 
 ### Phase 1: Core Backend Implementation
 
 #### Step 1.1: Extend `executeStartupFullReset` Function
-**File**: `packages/universo-core-backend/base/src/bootstrap/startupReset.ts`
+**File**: `packages/universo-react-core-backend/base/src/bootstrap/startupReset.ts`
 
 Add optional `force` parameter to the function signature:
 
@@ -84,7 +84,7 @@ export async function executeStartupFullReset(
 - All other safety measures (advisory lock, schema validation) remain active
 
 #### Step 1.2: Add `--reset-db` CLI Flag to Start Command
-**File**: `packages/universo-core-backend/base/src/commands/start.ts`
+**File**: `packages/universo-react-core-backend/base/src/commands/start.ts`
 
 ```typescript
 import { Flags } from '@oclif/core'
@@ -113,7 +113,7 @@ export default class Start extends BaseCommand {
 ```
 
 #### Step 1.3: Add Flag Declaration to Base Command
-**File**: `packages/universo-core-backend/base/src/commands/base.ts`
+**File**: `packages/universo-react-core-backend/base/src/commands/base.ts`
 
 The `FULL_DATABASE_RESET` flag is NOT needed in base.ts because:
 1. We don't want to expose it as a direct CLI flag
@@ -121,7 +121,7 @@ The `FULL_DATABASE_RESET` flag is NOT needed in base.ts because:
 3. This provides cleaner separation of concerns
 
 #### Step 1.4: Pass Force Flag Through App.initDatabase
-**File**: `packages/universo-core-backend/base/src/index.ts`
+**File**: `packages/universo-react-core-backend/base/src/index.ts`
 
 ```typescript
 async initDatabase() {
@@ -158,7 +158,7 @@ async initDatabase() {
 ### Phase 2: Testing Strategy
 
 #### Step 2.1: Unit Tests for Force Mode
-**File**: `packages/universo-core-backend/base/src/__tests__/startupReset.test.ts`
+**File**: `packages/universo-react-core-backend/base/src/__tests__/startupReset.test.ts`
 
 Add test cases:
 
@@ -205,7 +205,7 @@ describe('force mode', () => {
 ```
 
 #### Step 2.2: Integration Tests for CLI Flag
-**File**: `packages/universo-core-backend/base/src/__tests__/App.initDatabase.test.ts`
+**File**: `packages/universo-react-core-backend/base/src/__tests__/App.initDatabase.test.ts`
 
 Add test case:
 
@@ -374,7 +374,7 @@ pnpm start:allclean
 ```
 
 #### Step 3.5: Update .env.example
-**File**: `packages/universo-core-backend/base/.env.example`
+**File**: `packages/universo-react-core-backend/base/.env.example`
 
 Update the DANGER ZONE section:
 
@@ -430,8 +430,8 @@ FULL_DATABASE_RESET=false
 
 After implementation:
 
-- [ ] `pnpm --filter @universo/core-backend build` passes
-- [ ] `pnpm --filter @universo/core-backend lint` passes
+- [ ] `pnpm --filter @universo-react/core-backend build` passes
+- [ ] `pnpm --filter @universo-react/core-backend lint` passes
 - [ ] Unit tests pass: `pnpm test:vitest`
 - [ ] Manual test: `pnpm start:allclean` resets database
 - [ ] Manual test: `FULL_DATABASE_RESET=false pnpm start:allclean` still resets

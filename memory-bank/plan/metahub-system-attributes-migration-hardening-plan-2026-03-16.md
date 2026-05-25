@@ -48,12 +48,12 @@ This keeps the design modern, avoids runtime guesswork, preserves performance, a
 
 ### 1. Runtime lifecycle fields are hardcoded today
 
-- `@universo/schema-ddl` currently injects runtime `_app_*` fields directly into generated business tables and runtime metadata tables.
+- `@universo-react/schema-ddl` currently injects runtime `_app_*` fields directly into generated business tables and runtime metadata tables.
 - This is currently a generator concern, not a metahub catalog-definition concern.
 
 ### 2. Runtime applications assume `_app_deleted` exists
 
-- `@universo/applications-backend` synchronization and runtime CRUD routes explicitly filter on `_app_deleted = false` and update `_app_deleted`, `_app_deleted_at`, `_app_deleted_by` directly.
+- `@universo-react/applications-backend` synchronization and runtime CRUD routes explicitly filter on `_app_deleted = false` and update `_app_deleted`, `_app_deleted_at`, `_app_deleted_by` directly.
 - Therefore deactivating `_app_deleted` is a behavior change, not only a schema change.
 
 ### 3. Metahub design-time attributes do not yet have a stable system-attribute identity layer
@@ -108,14 +108,14 @@ Create one shared registry that describes every supported lifecycle system attri
 
 Recommended package placement:
 
-- `@universo/types`: registry-facing types and runtime contract types
-- `@universo/utils`: pure helper functions for deriving runtime contracts and validating toggle combinations
-- `@universo/i18n`: shared RU/EN labels for reusable system-field names/groups/types
+- `@universo-react/types`: registry-facing types and runtime contract types
+- `@universo-react/utils`: pure helper functions for deriving runtime contracts and validating toggle combinations
+- `@universo-react/i18n`: shared RU/EN labels for reusable system-field names/groups/types
 
 Important reuse rule:
 
 - Do not create a second independent low-level source of truth for `_app_*` / `_upl_*` column names.
-- Reuse the existing shared system-field contract in `@universo/utils/database/systemFields.ts` as the canonical low-level field-name layer.
+- Reuse the existing shared system-field contract in `@universo-react/utils/database/systemFields.ts` as the canonical low-level field-name layer.
 - If a richer registry is introduced for UI/runtime-contract purposes, it must be derived from that existing field contract instead of repeating raw string literals in a parallel catalog.
 
 Recommended core types:
@@ -278,15 +278,15 @@ This keeps runtime semantics explicit and centrally testable.
 
 | Package | Planned responsibility |
 | --- | --- |
-| `@universo/types` | system-field keys, definition types, lifecycle contract types |
-| `@universo/utils` | registry helpers, dependency validation, contract derivation helpers |
-| `@universo/i18n` | shared RU/EN labels for system fields/families/types |
-| `@universo/metahubs-backend` | catalog metadata persistence, seeding, snapshot serialization, routes/services |
-| `@universo/schema-ddl` | consume lifecycle contract when generating runtime tables |
-| `@universo/applications-backend` | contract-aware runtime CRUD + sync behavior |
-| `@universo/metahubs-frontend` | new System tab, toggle UX, tab-order consistency, query invalidation |
-| `@universo/template-mui` | only extract generic UI primitives if duplication is real after implementation |
-| `@universo/apps-template-mui` | validate runtime app behavior if lifecycle contract affects shared runtime UI expectations |
+| `@universo-react/types` | system-field keys, definition types, lifecycle contract types |
+| `@universo-react/utils` | registry helpers, dependency validation, contract derivation helpers |
+| `@universo-react/i18n` | shared RU/EN labels for system fields/families/types |
+| `@universo-react/metahubs-backend` | catalog metadata persistence, seeding, snapshot serialization, routes/services |
+| `@universo-react/schema-ddl` | consume lifecycle contract when generating runtime tables |
+| `@universo-react/applications-backend` | contract-aware runtime CRUD + sync behavior |
+| `@universo-react/metahubs-frontend` | new System tab, toggle UX, tab-order consistency, query invalidation |
+| `@universo-react/template-mui` | only extract generic UI primitives if duplication is real after implementation |
+| `@universo-react/apps-template-mui` | validate runtime app behavior if lifecycle contract affects shared runtime UI expectations |
 
 ---
 
@@ -294,8 +294,8 @@ This keeps runtime semantics explicit and centrally testable.
 
 ### Phase 1: Shared Contract Foundation
 
-- [ ] Add the shared registry types to `@universo/types`.
-- [ ] Add pure helpers to `@universo/utils`:
+- [ ] Add the shared registry types to `@universo-react/types`.
+- [ ] Add pure helpers to `@universo-react/utils`:
   - `getCatalogSystemFieldDefinitions()`
   - `validateCatalogSystemFieldToggleSet(...)`
   - `deriveApplicationLifecycleContract(...)`
@@ -373,11 +373,11 @@ Otherwise bundle validation and runtime rebuilds can become nondeterministic.
 
 ### Phase 5: Runtime Schema Generation and Application Behavior Hardening
 
-- [ ] Refactor `@universo/schema-ddl` so lifecycle system columns are not injected unconditionally.
+- [ ] Refactor `@universo-react/schema-ddl` so lifecycle system columns are not injected unconditionally.
 - [ ] Keep infrastructure columns that remain out of scope as unconditional if runtime logic still requires them.
 - [ ] Generate per-entity runtime columns from the derived lifecycle contract.
 - [ ] Persist the derived `ApplicationLifecycleContract` in the existing central application sync/release metadata surface inside `applications.cat_applications`; do not introduce a second metadata table for this feature.
-- [ ] Refactor `@universo/applications-backend` helpers/routes/services to use contract-aware helpers for:
+- [ ] Refactor `@universo-react/applications-backend` helpers/routes/services to use contract-aware helpers for:
   - active-row predicates,
   - delete mutations,
   - restore behavior,
@@ -419,8 +419,8 @@ Reuse rules for this phase:
 
 Recommended UI split:
 
-- keep metahub-specific tab shell and page orchestration in `@universo/metahubs-frontend`,
-- extract a generic `SystemFieldBadge` / `TypeBadge` primitive to `@universo/template-mui` only if at least two screens truly reuse it.
+- keep metahub-specific tab shell and page orchestration in `@universo-react/metahubs-frontend`,
+- extract a generic `SystemFieldBadge` / `TypeBadge` primitive to `@universo-react/template-mui` only if at least two screens truly reuse it.
 
 Recommended TanStack Query shape:
 
@@ -433,12 +433,12 @@ systemAttributes: {
 
 ### Phase 7: Deep Test Matrix
 
-- [ ] `@universo/types` / `@universo/utils`
+- [ ] `@universo-react/types` / `@universo-react/utils`
   - registry integrity
   - dependency validation
   - lifecycle contract derivation
 
-- [ ] `@universo/metahubs-backend`
+- [ ] `@universo-react/metahubs-backend`
   - catalog creation seeds system rows
   - template seeding seeds the same rows
   - system rows cannot be deleted
@@ -447,13 +447,13 @@ systemAttributes: {
   - element validation ignores system rows
   - snapshot round-trip keeps contract stable
 
-- [ ] `@universo/schema-ddl`
+- [ ] `@universo-react/schema-ddl`
   - generated table with all lifecycle families enabled
   - generated table with delete disabled
   - generated table with delete enabled but deleted_at/deleted_by disabled
   - generated table with publish/archive family subsets
 
-- [ ] `@universo/applications-backend`
+- [ ] `@universo-react/applications-backend`
   - runtime list/update/delete flows in soft-delete mode
   - runtime delete in hard-delete mode
   - sync/value/enumeration flows without `_app_deleted_at` and/or `_app_deleted_by`
@@ -461,7 +461,7 @@ systemAttributes: {
   - release-bundle export/import preserves lifecycle contract
   - ordinary runtime attribute metadata endpoints do not expose lifecycle system fields as editable business fields
 
-- [ ] `@universo/metahubs-frontend`
+- [ ] `@universo-react/metahubs-frontend`
   - tab-order rendering
   - Settings visibility from all catalog tabs
   - system rows render localized labels and types
@@ -484,12 +484,12 @@ systemAttributes: {
 
 Recommended validation sequence during implementation:
 
-1. `pnpm --filter @universo/types build`
-2. `pnpm --filter @universo/utils test`
-3. `pnpm --filter @universo/metahubs-backend test`
-4. `pnpm --filter @universo/schema-ddl test`
-5. `pnpm --filter @universo/applications-backend test`
-6. `pnpm --filter @universo/metahubs-frontend test`
+1. `pnpm --filter @universo-react/types build`
+2. `pnpm --filter @universo-react/utils test`
+3. `pnpm --filter @universo-react/metahubs-backend test`
+4. `pnpm --filter @universo-react/schema-ddl test`
+5. `pnpm --filter @universo-react/applications-backend test`
+6. `pnpm --filter @universo-react/metahubs-frontend test`
 7. `pnpm build`
 
 ---

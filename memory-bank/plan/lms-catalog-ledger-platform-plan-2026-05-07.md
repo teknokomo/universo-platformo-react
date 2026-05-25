@@ -45,11 +45,11 @@ The latest implementation pass closed the remaining QA blockers that were still 
 
 Focused validation completed:
 
--   `pnpm --filter @universo/applications-backend test -- --runTestsByPath src/tests/shared/publicRuntimeAccess.test.ts src/tests/routes/publicApplicationsRoutes.test.ts src/tests/routes/applicationsRoutes.test.ts src/tests/services/runtimeLedgersService.test.ts src/tests/services/runtimePostingMovements.test.ts`
--   `pnpm --filter @universo/applications-backend lint`
--   `pnpm --filter @universo/applications-backend build`
--   `pnpm --filter @universo/schema-ddl build`
--   `pnpm --filter @universo/schema-ddl test`
+-   `pnpm --filter @universo-react/applications-backend test -- --runTestsByPath src/tests/shared/publicRuntimeAccess.test.ts src/tests/routes/publicApplicationsRoutes.test.ts src/tests/routes/applicationsRoutes.test.ts src/tests/services/runtimeLedgersService.test.ts src/tests/services/runtimePostingMovements.test.ts`
+-   `pnpm --filter @universo-react/applications-backend lint`
+-   `pnpm --filter @universo-react/applications-backend build`
+-   `pnpm --filter @universo-react/schema-ddl build`
+-   `pnpm --filter @universo-react/schema-ddl test`
 -   `node --check tools/testing/e2e/support/backend/api-session.mjs`
 -   `node --check tools/testing/e2e/specs/flows/snapshot-import-lms-runtime.spec.ts`
 -   `node tools/testing/e2e/run-playwright-suite.mjs --project chromium --grep "lms snapshot fixture imports"`
@@ -65,24 +65,24 @@ Local repository context:
     -   `.backup/Каталоги-и-ресурсы.md`
     -   `.backup/Расширение-платформы-для-LMS.md`
 -   Package READMEs:
-    -   `packages/metahubs-backend/base/README.md`
-    -   `packages/metahubs-frontend/base/README.md`
-    -   `packages/applications-backend/base/README.md`
-    -   `packages/apps-template-mui/README.md`
-    -   `packages/universo-template-mui/base/README.md`
+    -   `packages/universo-react-metahubs-backend/base/README.md`
+    -   `packages/universo-react-metahubs-frontend/base/README.md`
+    -   `packages/universo-react-applications-backend/base/README.md`
+    -   `packages/universo-react-apps-template-mui/README.md`
+    -   `packages/universo-react-template-mui/base/README.md`
 -   Current implementation files:
-    -   `packages/universo-types/base/src/common/entityComponents.ts`
-    -   `packages/universo-types/base/src/common/metahubs.ts`
-    -   `packages/metahubs-backend/base/src/domains/templates/data/standardEntityTypeDefinitions.ts`
-    -   `packages/metahubs-frontend/base/src/domains/entities/ui/BuiltinEntityCollectionPage.tsx`
-    -   `packages/metahubs-frontend/base/src/domains/entities/ui/EntityInstanceListContent.tsx`
-    -   `packages/metahubs-frontend/base/src/domains/entities/ui/entityInstanceListHelpers.ts`
-    -   `packages/metahubs-backend/base/src/domains/templates/data/lms.template.ts`
-    -   `packages/schema-ddl/base/src/SchemaGenerator.ts`
-    -   `packages/schema-ddl/base/src/builtinEntityKinds.ts`
-    -   `packages/applications-backend/base/src/controllers/runtimeRowsController.ts`
-    -   `packages/applications-backend/base/src/services/runtimeScriptsService.ts`
-    -   `packages/apps-template-mui/src/dashboard/**`
+    -   `packages/universo-react-types/base/src/common/entityComponents.ts`
+    -   `packages/universo-react-types/base/src/common/metahubs.ts`
+    -   `packages/universo-react-metahubs-backend/base/src/domains/templates/data/standardEntityTypeDefinitions.ts`
+    -   `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/BuiltinEntityCollectionPage.tsx`
+    -   `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/EntityInstanceListContent.tsx`
+    -   `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/entityInstanceListHelpers.ts`
+    -   `packages/universo-react-metahubs-backend/base/src/domains/templates/data/lms.template.ts`
+    -   `packages/universo-react-schema-ddl/base/src/SchemaGenerator.ts`
+    -   `packages/universo-react-schema-ddl/base/src/builtinEntityKinds.ts`
+    -   `packages/universo-react-applications-backend/base/src/controllers/runtimeRowsController.ts`
+    -   `packages/universo-react-applications-backend/base/src/services/runtimeScriptsService.ts`
+    -   `packages/universo-react-apps-template-mui/src/dashboard/**`
     -   `.backup/templates/dashboard/**`
     -   `tools/testing/e2e/support/lmsFixtureContract.ts`
     -   `tools/testing/e2e/specs/generators/metahubs-lms-app-export.spec.ts`
@@ -123,7 +123,7 @@ External research:
 13. Script attachment kinds, lifecycle events, capability allowlists, and default capabilities currently know only the existing kinds and CRUD lifecycle. Ledger and posting must be added to the shared script contract and tests before template scripts can rely on them.
 14. The LMS fixture contract currently guards old LMS widget removal and baseline LMS entities. It must be expanded to assert Ledgers, record behavior, posting scripts, generated reports, workspace-scoped facts, and the metahub menu order.
 15. The application control panel already has an application-owned layout override layer in `ApplicationLayouts.tsx`, backed by `applicationLayoutsController.ts` and `_app_layouts` / `_app_widgets`. This is the correct place for application-wide menu, dashboard, and layout choices after a metahub publication is synced.
-16. The application layout editor already uses shared authoring patterns: `LayoutAuthoringList`, `LayoutAuthoringDetails`, `ApplicationMenuWidgetEditorDialog`, `ApplicationColumnsContainerEditorDialog`, `ApplicationWidgetBehaviorEditorDialog`, and existing widget schemas in `@universo/types`. New LMS-like dashboard/report behavior should extend these generic contracts instead of adding LMS-specific editors.
+16. The application layout editor already uses shared authoring patterns: `LayoutAuthoringList`, `LayoutAuthoringDetails`, `ApplicationMenuWidgetEditorDialog`, `ApplicationColumnsContainerEditorDialog`, `ApplicationWidgetBehaviorEditorDialog`, and existing widget schemas in `@universo-react/types`. New LMS-like dashboard/report behavior should extend these generic contracts instead of adding LMS-specific editors.
 17. `ApplicationMenuWidgetEditorDialog` already uses `EntityFormDialog` and validates menu hrefs through `isSafeMenuHref`. If report or ledger navigation needs menu entries, the shared menu item schema and runtime menu builder must be extended centrally; do not add ad hoc menu item shapes in runtime code.
 18. `ApplicationSettings.tsx` currently exposes only generic settings and workspace limits, and the backend validates `settings` with a strict `applicationDialogSettingsSchema`. Any new application-wide defaults for reports, dashboard sections, or runtime datasource policies must be added as generic typed settings, not as unvalidated LMS-specific JSON.
 19. Publication snapshots already carry entity type definitions, system fields, scripts, layouts, layout widgets, and runtime policy. Ledger config and Catalog record behavior must be included in the same deterministic snapshot, restore, hash, and sync paths.
@@ -261,67 +261,67 @@ Backend settings validation should stay strict. Extending `applicationDialogSett
 
 ### Shared Types
 
--   `packages/universo-types/base/src/common/entityComponents.ts`
--   `packages/universo-types/base/src/common/metahubs.ts`
--   `packages/universo-types/base/src/common/scripts.ts`
--   `packages/universo-types/base/src/common/applicationLayouts.ts`
--   New suggested file: `packages/universo-types/base/src/common/ledgers.ts`
--   New suggested file: `packages/universo-types/base/src/common/recordBehavior.ts`
+-   `packages/universo-react-types/base/src/common/entityComponents.ts`
+-   `packages/universo-react-types/base/src/common/metahubs.ts`
+-   `packages/universo-react-types/base/src/common/scripts.ts`
+-   `packages/universo-react-types/base/src/common/applicationLayouts.ts`
+-   New suggested file: `packages/universo-react-types/base/src/common/ledgers.ts`
+-   New suggested file: `packages/universo-react-types/base/src/common/recordBehavior.ts`
 
 ### Schema DDL
 
--   `packages/schema-ddl/base/src/builtinEntityKinds.ts`
--   `packages/schema-ddl/base/src/SchemaGenerator.ts`
--   `packages/schema-ddl/base/src/SchemaMigrator.ts`
--   `packages/schema-ddl/base/src/diff.ts`
--   `packages/schema-ddl/base/src/snapshot.ts`
--   `packages/schema-ddl/base/src/systemTables.ts`
+-   `packages/universo-react-schema-ddl/base/src/builtinEntityKinds.ts`
+-   `packages/universo-react-schema-ddl/base/src/SchemaGenerator.ts`
+-   `packages/universo-react-schema-ddl/base/src/SchemaMigrator.ts`
+-   `packages/universo-react-schema-ddl/base/src/diff.ts`
+-   `packages/universo-react-schema-ddl/base/src/snapshot.ts`
+-   `packages/universo-react-schema-ddl/base/src/systemTables.ts`
 
 ### Metahubs Backend
 
--   `packages/metahubs-backend/base/src/domains/templates/data/standardEntityTypeDefinitions.ts`
--   New suggested preset: `packages/metahubs-backend/base/src/domains/templates/data/ledger.entity-preset.ts`
--   `packages/metahubs-backend/base/src/domains/templates/data/lms.template.ts`
--   Entity services/controllers under `packages/metahubs-backend/base/src/domains/entities/**`
--   Metadata field validation under `packages/metahubs-backend/base/src/domains/entities/metadata/**`
+-   `packages/universo-react-metahubs-backend/base/src/domains/templates/data/standardEntityTypeDefinitions.ts`
+-   New suggested preset: `packages/universo-react-metahubs-backend/base/src/domains/templates/data/ledger.entity-preset.ts`
+-   `packages/universo-react-metahubs-backend/base/src/domains/templates/data/lms.template.ts`
+-   Entity services/controllers under `packages/universo-react-metahubs-backend/base/src/domains/entities/**`
+-   Metadata field validation under `packages/universo-react-metahubs-backend/base/src/domains/entities/metadata/**`
 -   Publication snapshot serializer/import/restore services
 
 ### Applications Backend
 
 -   Runtime sync and DDL:
-    -   `packages/applications-backend/base/src/routes/sync/**`
-    -   `packages/applications-backend/base/src/services/publishedApplicationSnapshotEntities.ts`
+    -   `packages/universo-react-applications-backend/base/src/routes/sync/**`
+    -   `packages/universo-react-applications-backend/base/src/services/publishedApplicationSnapshotEntities.ts`
 -   Runtime CRUD and commands:
-    -   `packages/applications-backend/base/src/controllers/runtimeRowsController.ts`
-    -   `packages/applications-backend/base/src/shared/runtimeHelpers.ts`
+    -   `packages/universo-react-applications-backend/base/src/controllers/runtimeRowsController.ts`
+    -   `packages/universo-react-applications-backend/base/src/shared/runtimeHelpers.ts`
     -   New suggested services: `runtimeRecordCommandService.ts`, `runtimeLedgerService.ts`, `runtimeNumberingService.ts`
 -   Runtime scripts:
-    -   `packages/applications-backend/base/src/services/runtimeScriptsService.ts`
+    -   `packages/universo-react-applications-backend/base/src/services/runtimeScriptsService.ts`
 -   Application control panel persistence:
-    -   `packages/applications-backend/base/src/controllers/applicationsController.ts`
-    -   `packages/applications-backend/base/src/controllers/applicationLayoutsController.ts`
-    -   `packages/applications-backend/base/src/persistence/applicationsStore.ts`
-    -   `packages/applications-backend/base/src/persistence/applicationLayoutsStore.ts`
+    -   `packages/universo-react-applications-backend/base/src/controllers/applicationsController.ts`
+    -   `packages/universo-react-applications-backend/base/src/controllers/applicationLayoutsController.ts`
+    -   `packages/universo-react-applications-backend/base/src/persistence/applicationsStore.ts`
+    -   `packages/universo-react-applications-backend/base/src/persistence/applicationLayoutsStore.ts`
 
 ### Frontend
 
 -   Metahub authoring:
-    -   `packages/metahubs-frontend/base/src/domains/entities/**`
-    -   settings and i18n under `packages/metahubs-frontend/base/src/i18n/**`
+    -   `packages/universo-react-metahubs-frontend/base/src/domains/entities/**`
+    -   settings and i18n under `packages/universo-react-metahubs-frontend/base/src/i18n/**`
 -   Application control panel:
-    -   `packages/applications-frontend/base/src/pages/ApplicationSettings.tsx`
-    -   `packages/applications-frontend/base/src/pages/ApplicationLayouts.tsx`
-    -   `packages/applications-frontend/base/src/components/layouts/ApplicationMenuWidgetEditorDialog.tsx`
-    -   `packages/applications-frontend/base/src/components/layouts/ApplicationColumnsContainerEditorDialog.tsx`
-    -   `packages/applications-frontend/base/src/components/layouts/ApplicationWidgetBehaviorEditorDialog.tsx`
-    -   related `packages/applications-frontend/base/src/i18n/**` keys
+    -   `packages/universo-react-applications-frontend/base/src/pages/ApplicationSettings.tsx`
+    -   `packages/universo-react-applications-frontend/base/src/pages/ApplicationLayouts.tsx`
+    -   `packages/universo-react-applications-frontend/base/src/components/layouts/ApplicationMenuWidgetEditorDialog.tsx`
+    -   `packages/universo-react-applications-frontend/base/src/components/layouts/ApplicationColumnsContainerEditorDialog.tsx`
+    -   `packages/universo-react-applications-frontend/base/src/components/layouts/ApplicationWidgetBehaviorEditorDialog.tsx`
+    -   related `packages/universo-react-applications-frontend/base/src/i18n/**` keys
 -   Published app template:
-    -   `packages/apps-template-mui/src/dashboard/**`
-    -   `packages/apps-template-mui/src/hooks/useCrudDashboard.ts`
-    -   `packages/apps-template-mui/src/workspaces/**`
-    -   `packages/apps-template-mui/src/i18n/**`
+    -   `packages/universo-react-apps-template-mui/src/dashboard/**`
+    -   `packages/universo-react-apps-template-mui/src/hooks/useCrudDashboard.ts`
+    -   `packages/universo-react-apps-template-mui/src/workspaces/**`
+    -   `packages/universo-react-apps-template-mui/src/i18n/**`
 -   Shared MUI:
-    -   `packages/universo-template-mui/base/src/components/dashboard/**`
+    -   `packages/universo-react-template-mui/base/src/components/dashboard/**`
     -   shared cards, tables, chart wrappers, tabs, toolbar primitives
 
 ### Fixtures, Tests, Docs
@@ -817,7 +817,7 @@ LIMIT $4 OFFSET $5;
 
 ### Script Roles And Capabilities
 
-Extend shared script capabilities in `@universo/types`:
+Extend shared script capabilities in `@universo-react/types`:
 
 -   `ledger.read`
 -   `ledger.write`
@@ -1071,7 +1071,7 @@ Do not add an LMS settings route, an LMS dashboard editor, or report-specific me
 
 ### Runtime Dashboard
 
-Keep `packages/apps-template-mui` as the only published app runtime shell.
+Keep `packages/universo-react-apps-template-mui` as the only published app runtime shell.
 
 Restore visual parity with `.backup/templates/dashboard` by:
 
@@ -1103,7 +1103,7 @@ Do not add LMS-specific widgets. Instead extend existing generic widgets:
     -   status distribution.
 -   menu widget should remain the navigation contract for Pages, Catalogs, Reports, and Workspaces.
 -   application-level widget overrides should stay in the existing `_app_layouts` / `_app_widgets` model and keep source sync state semantics.
--   any new widget config schema must live in `@universo/types` with strict Zod parsing and be reused by metahub authoring, application authoring, sync, and runtime rendering.
+-   any new widget config schema must live in `@universo-react/types` with strict Zod parsing and be reused by metahub authoring, application authoring, sync, and runtime rendering.
 
 MUI X Data Grid guidance supports server-side pagination/filtering/sorting for large datasets. The generic table widget should therefore send pagination, sort, and filter models to the backend rather than filtering only the current page.
 
@@ -1122,7 +1122,7 @@ The plan now covers every material requirement from the original task:
 -   iSpring-like LMS functionality is mapped to configuration objects: reference Catalogs, transactional Catalogs, Pages, Sets, Enumerations, Ledgers, scripts, layouts, generic widgets, and reports.
 -   The metahub left menu requirement is explicit: Ledgers appear immediately after Enumerations through `ui.sidebarOrder: 60`.
 -   Shared UI reuse is explicit: Ledger must use the generic entity instance route/content, and any common list/dialog/header changes must be made in shared components rather than in a new kind-specific screen.
--   Runtime application UI remains based on `packages/apps-template-mui` and the original MUI dashboard composition in `.backup/templates/dashboard`.
+-   Runtime application UI remains based on `packages/universo-react-apps-template-mui` and the original MUI dashboard composition in `.backup/templates/dashboard`.
 -   LMS-specific hardcoding remains forbidden. New reports, cards, tables, menus, and dashboards are generic widget/datasource/schema extensions.
 -   Script attachments are part of the design, but posting remains platform-owned and fail-closed. Scripts return declarative movements or use a restricted SDK.
 -   The Playwright-generated LMS snapshot remains the final product artifact and receives contract assertions for real working functionality, not only static fixture shape.
@@ -1150,8 +1150,8 @@ The plan now covers every material requirement from the original task:
 
 ### Phase 1 - Shared Types And Entity Component Model
 
--   [x] Add shared `recordBehavior` types in `@universo/types`.
--   [x] Add shared `ledger` types in `@universo/types`.
+-   [x] Add shared `recordBehavior` types in `@universo-react/types`.
+-   [x] Add shared `ledger` types in `@universo-react/types`.
 -   [x] Extend `ComponentManifest` with identity/record lifecycle/posting/ledger capabilities.
 -   [x] Extend component dependency validation.
 -   [x] Add `ledger` to built-in entity kind values, settings kinds, surface labels, menu metadata, and script attachment kinds.
@@ -1171,7 +1171,7 @@ The plan now covers every material requirement from the original task:
     -   standard entity mocks,
     -   menu icon registry metadata if a new icon name is used.
 -   [x] Set standard Ledger menu metadata to `sidebarSection: 'objects'` and `sidebarOrder: 60`, after Enumerations.
--   [x] Add EN/RU i18n keys in `packages/universo-i18n` where shared labels belong.
+-   [x] Add EN/RU i18n keys in `packages/universo-react-i18n` where shared labels belong.
 -   [x] Add direct type tests for:
     -   component dependency validation,
     -   built-in kind recognition,
@@ -1210,7 +1210,7 @@ The plan now covers every material requirement from the original task:
 
 ### Phase 3 - Schema DDL And Snapshot Support
 
--   [x] Update `@universo/schema-ddl` built-in kind helpers to include `ledger`.
+-   [x] Update `@universo-react/schema-ddl` built-in kind helpers to include `ledger`.
 -   [x] Extend schema snapshot generation to persist record behavior and ledger config deterministically.
 -   [x] Extend `SnapshotSerializer`, snapshot restore/import, `resolveExecutablePayloadEntities(...)`, and publication hash normalization so `ledger` objects, `config.ledger`, and `config.recordBehavior` round-trip without lossy normalization.
 -   [x] Extend physical table generation:
@@ -1288,7 +1288,7 @@ The plan now covers every material requirement from the original task:
 
 ### Phase 7 - Generic Runtime Dashboard/Data Widgets
 
--   [x] Extend dashboard widget config schemas in `@universo/types`.
+-   [x] Extend dashboard widget config schemas in `@universo-react/types`.
 -   [x] Add generic datasource descriptors:
     -   `records.list`,
     -   `ledger.facts`,
@@ -1312,7 +1312,7 @@ The plan now covers every material requirement from the original task:
     -   no LMS-specific settings keys.
 -   [x] Update `applicationsController` strict settings schema, frontend `ApplicationDialogSettings` types, defaults, and EN/RU i18n together for every new application setting.
 -   [x] Preserve layout source sync semantics when application admins override metahub-provided report/dashboard widgets.
--   [x] Move reusable dashboard card/chart primitives to `@universo/template-mui` only when they are domain-neutral.
+-   [x] Move reusable dashboard card/chart primitives to `@universo-react/template-mui` only when they are domain-neutral.
 -   [x] Fix workspace management UI to match original MUI dashboard card/grid style.
 -   [x] Add Playwright screenshots for:
     -   runtime dashboard desktop,
@@ -1446,12 +1446,12 @@ The plan now covers every material requirement from the original task:
     -   mobile runtime.
 -   [x] Static checks:
 
-    -   `pnpm --filter @universo/types build`
-    -   `pnpm --filter @universo/schema-ddl build`
-    -   `pnpm --filter @universo/metahubs-backend test`
-    -   `pnpm --filter @universo/applications-backend test`
-    -   `pnpm --filter @universo/metahubs-frontend test`
-    -   `pnpm --filter @universo/apps-template-mui test`
+    -   `pnpm --filter @universo-react/types build`
+    -   `pnpm --filter @universo-react/schema-ddl build`
+    -   `pnpm --filter @universo-react/metahubs-backend test`
+    -   `pnpm --filter @universo-react/applications-backend test`
+    -   `pnpm --filter @universo-react/metahubs-frontend test`
+    -   `pnpm --filter @universo-react/apps-template-mui test`
     -   `pnpm docs:i18n:check`
     -   `pnpm build`
 

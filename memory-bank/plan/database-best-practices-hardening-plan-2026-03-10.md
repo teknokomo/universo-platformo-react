@@ -43,7 +43,7 @@
 
 ## Overview
 
-The project's backend database layer (`@universo/database`, persistence stores, RLS middleware, schema-ddl) was recently migrated from TypeORM to Knex 3.1.0 with raw SQL stores. This migration introduced **critical runtime bugs** that were invisible during TypeScript compilation and unit testing (which mocks `knex.raw()`):
+The project's backend database layer (`@universo-react/database`, persistence stores, RLS middleware, schema-ddl) was recently migrated from TypeORM to Knex 3.1.0 with raw SQL stores. This migration introduced **critical runtime bugs** that were invisible during TypeScript compilation and unit testing (which mocks `knex.raw()`):
 
 1. **ALL 200+ SQL queries use PostgreSQL `$1` placeholders** — but Knex `raw()` only recognizes `?` placeholders. Every parameterized query fails at runtime with "Expected N bindings, saw 0".
 2. **Supabase UP-test uses Supavisor in transaction mode** (port 6543) — incompatible with session-level `set_config()` and `pg_try_advisory_lock()` that the RLS and DDL layers depend on.
@@ -57,7 +57,7 @@ This plan addresses ALL of these issues in a safe, phased order with full test c
 This plan should be read as a **companion hardening/closure plan**, not as a replacement for the earlier unified migration roadmap.
 
 What is already implemented outside this plan:
-1. Unified migration platform packages (`@universo/migrations-core`, `@universo/migrations-platform`, `@universo/migrations-catalog`, `@universo/schema-ddl`)
+1. Unified migration platform packages (`@universo-react/migrations-core`, `@universo-react/migrations-platform`, `@universo-react/migrations-catalog`, `@universo-react/schema-ddl`)
 2. Canonical definition lifecycle storage (`definition_registry`, `definition_revisions`, `definition_exports`, `definition_drafts`, `approval_events`)
 3. CLI support for `migration:status`, `migration:plan`, `migration:diff`, `migration:export`
 4. Native SQL platform migrations for metahubs/applications/admin/profile and removal of TypeORM from the target migration flow
@@ -80,14 +80,14 @@ What this plan intentionally does **not** add:
 
 | Package | Files Affected | Reason |
 |---------|---------------|--------|
-| `@universo/database` | `knexExecutor.ts`, `KnexClient.ts`, new test files | Core executor fix, connection strategy |
-| `@universo/auth-backend` | `rlsContext.ts`, `ensureAuthWithRls.ts`, `permissionService.ts` | Binding format + RLS transaction wrapping |
-| `@universo/metahubs-backend` | 8 persistence stores, routes | Binding format migration |
-| `@universo/applications-backend` | 3 persistence stores, routes | Binding format migration |
-| `@universo/admin-backend` | 4 persistence stores | Binding format migration |
-| `@universo/profile-backend` | 1 persistence store | Binding format migration |
-| `@universo/schema-ddl` | `locking.ts` | Advisory lock mode (session → transaction-level) |
-| `@universo/migrations-core` | `runner.ts` | Advisory lock mode |
+| `@universo-react/database` | `knexExecutor.ts`, `KnexClient.ts`, new test files | Core executor fix, connection strategy |
+| `@universo-react/auth-backend` | `rlsContext.ts`, `ensureAuthWithRls.ts`, `permissionService.ts` | Binding format + RLS transaction wrapping |
+| `@universo-react/metahubs-backend` | 8 persistence stores, routes | Binding format migration |
+| `@universo-react/applications-backend` | 3 persistence stores, routes | Binding format migration |
+| `@universo-react/admin-backend` | 4 persistence stores | Binding format migration |
+| `@universo-react/profile-backend` | 1 persistence store | Binding format migration |
+| `@universo-react/schema-ddl` | `locking.ts` | Advisory lock mode (session → transaction-level) |
+| `@universo-react/migrations-core` | `runner.ts` | Advisory lock mode |
 | Supabase (UP-test) | RLS policies | Performance: `auth.uid()` → `(select auth.uid())` |
 
 ### Unchanged Packages
@@ -107,12 +107,12 @@ knex.raw('SELECT $1::text', ['abc']).toSQL()
 → ERROR: Expected 1 bindings, saw 0
 ```
 
-### Solution: `convertPgBindings()` utility in `@universo/database`
+### Solution: `convertPgBindings()` utility in `@universo-react/database`
 
 Add a conversion function in the executor layer that transparently maps `$1`→`?` style, handling repeated parameter references:
 
 ```typescript
-// packages/universo-database/base/src/pgBindings.ts
+// packages/universo-react-database/base/src/pgBindings.ts
 
 /**
  * Convert PostgreSQL $1, $2, ... placeholders to Knex ? format.
@@ -194,8 +194,8 @@ export function createKnexExecutor(knex: Knex): DbExecutor {
 
 ### Steps
 
-- [ ] **1.1** Create `packages/universo-database/base/src/pgBindings.ts` with `convertPgBindings()`
-- [ ] **1.2** Create `packages/universo-database/base/src/__tests__/pgBindings.test.ts` covering:
+- [ ] **1.1** Create `packages/universo-react-database/base/src/pgBindings.ts` with `convertPgBindings()`
+- [ ] **1.2** Create `packages/universo-react-database/base/src/__tests__/pgBindings.test.ts` covering:
   - Simple `$1` → `?` conversion
   - Multiple parameters `$1, $2, $3`
   - Repeated parameters `$6, $6` → duplicated bindings
@@ -213,7 +213,7 @@ export function createKnexExecutor(knex: Knex): DbExecutor {
   - The `runQuery()` helper falls back to `getKnex().raw(sql, params)` which bypasses the executor and `convertPgBindings`. All SQL in this file uses `$1` placeholders.
   - **Fix**: Replace with a pool executor: `const exec = createKnexExecutor(getKnex()); return exec.query<T>(sql, params)`
   - This ensures `convertPgBindings` is applied universally.
-- [ ] **1.6** Re-export `convertPgBindings` from `@universo/database` index for any future direct-raw consumers
+- [ ] **1.6** Re-export `convertPgBindings` from `@universo-react/database` index for any future direct-raw consumers
 - [ ] **1.7** Run all existing tests → must remain green (executor mocks still work, new real behavior tested via pgBindings.test.ts)
 - [ ] **1.8** Run `pnpm build` → 27/27 green
 
@@ -348,7 +348,7 @@ For a persistent Express server with a Knex connection pool (max 15), **session 
       }
   }
   ```
-- [ ] **2.5** Document connection modes in `packages/universo-database/base/README.md`
+- [ ] **2.5** Document connection modes in `packages/universo-react-database/base/README.md`
 - [ ] **2.6** Run integration test against UP-test with session mode to validate
 
 ### Potential Challenges
@@ -526,7 +526,7 @@ Similarly, `admin.is_superuser(auth.uid())` is called without subquery wrapping.
 
 ### Steps
 
-- [ ] **5.1** Create a platform migration in `@universo/migrations-platform` that rewrites all 16 RLS policies:
+- [ ] **5.1** Create a platform migration in `@universo-react/migrations-platform` that rewrites all 16 RLS policies:
   ```sql
   -- Example for applications.applications:
   DROP POLICY IF EXISTS "Allow users to manage their own applications" ON applications.applications;
@@ -623,7 +623,7 @@ Current tests mock `knex.raw()` entirely. They validate logic flow but NOT:
 #### 7B. Executor integration tests with real Knex formatting
 
 ```typescript
-// packages/universo-database/base/src/__tests__/knexExecutor.integration.test.ts
+// packages/universo-react-database/base/src/__tests__/knexExecutor.integration.test.ts
 describe('Executor Integration (requires PG)', () => {
     let knex: Knex
     
@@ -696,7 +696,7 @@ describe('Executor Integration (requires PG)', () => {
 #### 7C. RLS middleware integration test
 
 ```typescript
-// packages/auth-backend/base/src/tests/integration/rlsMiddleware.integration.test.ts
+// packages/universo-react-auth-backend/base/src/tests/integration/rlsMiddleware.integration.test.ts
 describe('RLS middleware integration', () => {
     it('sets and clears JWT claims within transaction', async () => {
         // Verify that:
@@ -718,7 +718,7 @@ describe('RLS middleware integration', () => {
 For each persistence store, add a test that validates SQL compilation through the real `convertPgBindings` path:
 
 ```typescript
-// packages/metahubs-backend/base/src/tests/persistence/sqlCompilation.test.ts
+// packages/universo-react-metahubs-backend/base/src/tests/persistence/sqlCompilation.test.ts
 describe('Store SQL compilation', () => {
     it('all store queries produce valid Knex bindings', () => {
         // Import all store functions
@@ -731,9 +731,9 @@ describe('Store SQL compilation', () => {
 
 ### Steps
 
-- [ ] **7.1** Create `knexExecutor.integration.test.ts` in `@universo/database` (requires PG for CI, uses temp tables)
+- [ ] **7.1** Create `knexExecutor.integration.test.ts` in `@universo-react/database` (requires PG for CI, uses temp tables)
 - [ ] **7.2** Add `DATABASE_TEST_URL` env variable support and document in README
-- [ ] **7.3** Create RLS middleware integration test in `@universo/auth-backend`
+- [ ] **7.3** Create RLS middleware integration test in `@universo-react/auth-backend`
 - [ ] **7.4** Create SQL compilation regression test for each backend persistence store
 - [ ] **7.5** Add `test:integration` script to root `package.json` for CI
 - [ ] **7.6** Ensure all 237+ existing tests remain green
@@ -773,7 +773,7 @@ describe('Store SQL compilation', () => {
       process.exit(0)
   })
   ```
-- [ ] **8.5** Document all env variables in `@universo/database/README.md`:
+- [ ] **8.5** Document all env variables in `@universo-react/database/README.md`:
   - `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_USER`, `DATABASE_PASSWORD`, `DATABASE_NAME`
   - `DATABASE_POOL_MAX`, `DATABASE_KNEX_POOL_DEBUG`
   - `DATABASE_KNEX_ACQUIRE_TIMEOUT_MS`, `DATABASE_KNEX_IDLE_TIMEOUT_MS`, `DATABASE_KNEX_CREATE_TIMEOUT_MS`
@@ -787,7 +787,7 @@ describe('Store SQL compilation', () => {
 
 ### Problem
 
-The tracked `.env` file at `packages/universo-core-backend/base/.env` may still contain real secrets despite previous sanitization pass. The committed `.env` must be placeholder-only.
+The tracked `.env` file at `packages/universo-react-core-backend/base/.env` may still contain real secrets despite previous sanitization pass. The committed `.env` must be placeholder-only.
 
 ### Steps
 
@@ -1060,7 +1060,7 @@ Phase 13 (Legacy Surface Removal) ← can run late, after functional correctness
 ## i18n Notes
 
 All new error messages, log messages, and user-facing text must be internationalized:
-- Error messages for binding validation: add to `@universo/i18n` under `database.errors.*`
+- Error messages for binding validation: add to `@universo-react/i18n` under `database.errors.*`
 - Health check responses: localized via existing error middleware
 - Connection mode warnings: server-side only (English OK for logs)
 
@@ -1070,18 +1070,18 @@ All new error messages, log messages, and user-facing text must be international
 
 | Package | Changes | Export Changes |
 |---------|---------|---------------|
-| `@universo/database` | `convertPgBindings`, updated executors, health check | New export: `convertPgBindings` |
-| `@universo/utils` | No changes | — |
-| `@universo/types` | No changes | — |
-| `@universo/migrations-platform` | New migration: RLS policy optimization | New migration file |
-| `@universo/schema-ddl` | Advisory lock mode update | No export changes |
-| `@universo/migrations-core` | Advisory lock mode update | No export changes |
+| `@universo-react/database` | `convertPgBindings`, updated executors, health check | New export: `convertPgBindings` |
+| `@universo-react/utils` | No changes | — |
+| `@universo-react/types` | No changes | — |
+| `@universo-react/migrations-platform` | New migration: RLS policy optimization | New migration file |
+| `@universo-react/schema-ddl` | Advisory lock mode update | No export changes |
+| `@universo-react/migrations-core` | Advisory lock mode update | No export changes |
 | Various backend packages | Phase 10: TypeORM comment cleanup | No export changes |
 | AGENTS.md, docs/ | Phase 10: documentation updates | — |
-| `@universo/admin-backend` | Phase 11: soft-delete columns + store updates | No export changes |
-| `@universo/migrations-platform` | Phase 11: admin soft-delete DDL migration | New migration file |
+| `@universo-react/admin-backend` | Phase 11: soft-delete columns + store updates | No export changes |
+| `@universo-react/migrations-platform` | Phase 11: admin soft-delete DDL migration | New migration file |
 | Existing backend/frontend test suites | Phase 12: full acceptance coverage using existing routes/UI | No new UI components |
-| `@universo/admin-backend`, neutral SQL utilities | Phase 13: remove deprecated DataSource-named surface | Export cleanup |
+| `@universo-react/admin-backend`, neutral SQL utilities | Phase 13: remove deprecated DataSource-named surface | Export cleanup |
 
 ---
 

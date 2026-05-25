@@ -119,7 +119,7 @@ Complete the transition to a **fully entity-first architecture** by:
 
 ### Step 1.1: Rename legacyBuiltinObjectCompatibility.ts → entityDeletePatterns.ts
 
-**Rename**: `packages/metahubs-backend/base/src/domains/entities/services/legacyBuiltinObjectCompatibility.ts` → `entityDeletePatterns.ts`
+**Rename**: `packages/universo-react-metahubs-backend/base/src/domains/entities/services/legacyBuiltinObjectCompatibility.ts` → `entityDeletePatterns.ts`
 
 This file exports genuinely useful delete/reorder patterns (`executeBlockedDelete`, `executeHubScopedDelete`, `executeLegacyReorder`) currently used by `entityInstancesController`. Rename types too:
 - `LegacyBuiltinDeleteOutcome` → `EntityDeleteOutcome`
@@ -133,11 +133,11 @@ Update the single import in `entityInstancesController.ts` to use the new path/n
 
 ### Step 1.2: Create EntityBehaviorService interface
 
-**New file**: `packages/metahubs-backend/base/src/domains/entities/services/EntityBehaviorService.ts`
+**New file**: `packages/universo-react-metahubs-backend/base/src/domains/entities/services/EntityBehaviorService.ts`
 
 ```typescript
-import type { SqlQueryable } from '@universo/utils'
-import type { ResolvedEntityType } from '@universo/types'
+import type { SqlQueryable } from '@universo-react/utils'
+import type { ResolvedEntityType } from '@universo-react/types'
 
 export interface BlockingReferencesResult {
   items: Array<{ id: string; name: unknown; kind: string; targetKind?: string }>
@@ -171,7 +171,7 @@ export interface EntityBehaviorService {
 
 ### Step 1.3: Create behavior registry
 
-**New file**: `packages/metahubs-backend/base/src/domains/entities/services/behaviorRegistry.ts`
+**New file**: `packages/universo-react-metahubs-backend/base/src/domains/entities/services/behaviorRegistry.ts`
 
 ```typescript
 const behaviorServices = new Map<string, EntityBehaviorService>()
@@ -187,7 +187,7 @@ export function getBehaviorService(kindKey: string): EntityBehaviorService | nul
 
 ### Step 1.4: Extract neutral standard-kind capabilities
 
-**New directory**: `packages/metahubs-backend/base/src/domains/entities/services/standardKindCapabilities/`
+**New directory**: `packages/universo-react-metahubs-backend/base/src/domains/entities/services/standardKindCapabilities/`
 
 Extract legacy domain logic into neutral capability helpers instead of permanent per-kind service classes. The final merged state must not ship `HubBehaviorService`, `CatalogBehaviorService`, `SetBehaviorService`, or `EnumerationBehaviorService` as the architecture surface.
 
@@ -201,7 +201,7 @@ These modules remain private helpers under `domains/entities/services/**`; kind-
 
 ### Step 1.5: Assemble standard-kind registrations inside the entity registry
 
-**New file**: `packages/metahubs-backend/base/src/domains/entities/services/standardKindBehaviorRegistry.ts`
+**New file**: `packages/universo-react-metahubs-backend/base/src/domains/entities/services/standardKindBehaviorRegistry.ts`
 
 Register `catalog`, `hub`, `set`, and `enumeration` behavior through neutral `EntityBehaviorService` objects keyed by `kindKey`:
 
@@ -225,8 +225,8 @@ Requirements:
 ### Step 1.6: Write focused registry/capability tests
 
 **New test files**:
-- `packages/metahubs-backend/base/src/tests/services/behaviorRegistry.test.ts`
-- `packages/metahubs-backend/base/src/tests/services/standardKindCapabilities.test.ts`
+- `packages/universo-react-metahubs-backend/base/src/tests/services/behaviorRegistry.test.ts`
+- `packages/universo-react-metahubs-backend/base/src/tests/services/standardKindCapabilities.test.ts`
 
 Each test validates:
 - Registry resolution returns the expected behavior object for each standard kind
@@ -256,7 +256,7 @@ If the safest migration path temporarily introduces kind-specific extraction fil
 
 ### Step 2.1: Expand entityInstancesController with behavior hooks
 
-**File**: `packages/metahubs-backend/base/src/domains/entities/controllers/entityInstancesController.ts`
+**File**: `packages/universo-react-metahubs-backend/base/src/domains/entities/controllers/entityInstancesController.ts`
 
 Modify the controller factory to accept `resolveBehavior` function. For each CRUD operation:
 - `create`: Call `behavior.validateCreate()` before insert, `behavior.afterCreate()` after insert
@@ -312,7 +312,7 @@ listHubChildren: (childKind: string) => createHandler(async (req, res, { metahub
 
 ### Step 2.3: Simplify entityInstancesRoutes.ts
 
-**File**: `packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts`
+**File**: `packages/universo-react-metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts`
 
 - Remove ALL imports from `../../hubs/controllers/`, `../../catalogs/controllers/`, `../../sets/controllers/`, `../../enumerations/controllers/`
 - Remove `dispatchEntityRoute()` function
@@ -347,7 +347,7 @@ export function createEntityInstancesRoutes(...): Router {
 
 ### Step 2.4: Update entityInstancesRoutes tests
 
-**File**: `packages/metahubs-backend/base/src/tests/routes/entityInstancesRoutes.test.ts`
+**File**: `packages/universo-react-metahubs-backend/base/src/tests/routes/entityInstancesRoutes.test.ts`
 
 Update test suite to:
 - Test all CRUD for each standard kind (`catalog`, `hub`, `set`, `enumeration`) through unified endpoint
@@ -358,7 +358,7 @@ Update test suite to:
 
 ### Step 2.5: Eliminate isBuiltinMetahubObjectKind from MetahubObjectsService
 
-**File**: `packages/metahubs-backend/base/src/domains/metahubs/services/MetahubObjectsService.ts`
+**File**: `packages/universo-react-metahubs-backend/base/src/domains/metahubs/services/MetahubObjectsService.ts`
 
 Remove the private `isBuiltinMetahubObjectKind()` function and its `BUILTIN_METAHUB_OBJECT_KINDS` constant. Replace its 3 internal usages:
 
@@ -369,7 +369,7 @@ This eliminates the last production `isBuiltin` branching, completing the entity
 
 ### Step 2.6: Remove business-named object wrappers from MetahubObjectsService
 
-**File**: `packages/metahubs-backend/base/src/domains/metahubs/services/MetahubObjectsService.ts`
+**File**: `packages/universo-react-metahubs-backend/base/src/domains/metahubs/services/MetahubObjectsService.ts`
 
 After the route/controller cutover no permanent backend API should still advertise business-shaped wrappers such as `createCatalog()`, `createSet()`, or `createEnumeration()` when `createObject()` already provides the generic implementation.
 
@@ -397,10 +397,10 @@ Requirements:
 ### Step 3.1: Delete legacy backend domain directories
 
 ```
-packages/metahubs-backend/base/src/domains/hubs/           ← DELETE
-packages/metahubs-backend/base/src/domains/catalogs/       ← DELETE
-packages/metahubs-backend/base/src/domains/sets/           ← DELETE
-packages/metahubs-backend/base/src/domains/enumerations/   ← DELETE
+packages/universo-react-metahubs-backend/base/src/domains/hubs/           ← DELETE
+packages/universo-react-metahubs-backend/base/src/domains/catalogs/       ← DELETE
+packages/universo-react-metahubs-backend/base/src/domains/sets/           ← DELETE
+packages/universo-react-metahubs-backend/base/src/domains/enumerations/   ← DELETE
 ```
 
 **Pre-deletion audit**: Before deleting, verify every exported function is either:
@@ -410,16 +410,16 @@ packages/metahubs-backend/base/src/domains/enumerations/   ← DELETE
 
 ### Step 3.2: Clean up router.ts
 
-**File**: `packages/metahubs-backend/base/src/domains/router.ts`
+**File**: `packages/universo-react-metahubs-backend/base/src/domains/router.ts`
 
 Remove any stale imports from deleted folders. Verify only entity-owned routes remain.
 
 ### Step 3.3: Consolidate child-resource routes to entity-only paths
 
 **Files**:
-- `packages/metahubs-backend/base/src/domains/attributes/routes/attributesRoutes.ts`
-- `packages/metahubs-backend/base/src/domains/constants/routes/constantsRoutes.ts`
-- `packages/metahubs-backend/base/src/domains/elements/routes/elementsRoutes.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/attributes/routes/attributesRoutes.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/constants/routes/constantsRoutes.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/elements/routes/elementsRoutes.ts`
 
 Remove legacy path shapes (① and ②), keep only entity-owned paths (③ and ④):
 
@@ -453,7 +453,7 @@ Delete test files that test removed controllers/routes:
 ### Step 3.5: Remove legacy compatibility utilities
 
 Delete if still present:
-- `packages/metahubs-backend/base/src/domains/shared/legacyCompatibility.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/shared/legacyCompatibility.ts`
 - Any `*Compatibility.ts` service files
 - `resolveLegacyCompatible*()` functions in `shared/`
 
@@ -479,7 +479,7 @@ Run `pnpm --filter metahubs-backend build` and fix all import errors caused by d
 
 ### Step 4.1: Expand unified entity API client
 
-**File**: `packages/metahubs-frontend/base/src/domains/entities/api/entityInstances.ts`
+**File**: `packages/universo-react-metahubs-frontend/base/src/domains/entities/api/entityInstances.ts`
 
 Add kind-specific sub-resource endpoints currently spread across managed* API files:
 - `listHubChildren(metahubId, hubId, childKind, params)` — catalogs/sets/enums under a hub
@@ -497,7 +497,7 @@ export const listHubChildren = (metahubId: string, hubId: string, childKind: str
 
 ### Step 4.2: Expand unified hooks
 
-**File**: `packages/metahubs-frontend/base/src/domains/entities/hooks/queries.ts`
+**File**: `packages/universo-react-metahubs-frontend/base/src/domains/entities/hooks/queries.ts`
 
 Consolidate ALL per-kind query hooks into universal ones:
 
@@ -521,7 +521,7 @@ export function useHubChildrenQuery(metahubId: string | undefined, hubId: string
 }
 ```
 
-**File**: `packages/metahubs-frontend/base/src/domains/entities/hooks/mutations.ts`
+**File**: `packages/universo-react-metahubs-frontend/base/src/domains/entities/hooks/mutations.ts`
 
 Consolidate ALL per-kind mutation hooks:
 
@@ -541,7 +541,7 @@ export function useCreateEntityInstance(metahubId: string) {
 
 ### Step 4.3: Unify query key tree
 
-**File**: `packages/metahubs-frontend/base/src/domains/shared/queryKeys.ts`
+**File**: `packages/universo-react-metahubs-frontend/base/src/domains/shared/queryKeys.ts`
 
 Replace dual tree with single entity-scoped tree (as designed in creative document Section F):
 
@@ -658,7 +658,7 @@ Remove legacy URL pattern generation entirely — entity-owned paths only.
 
 ### Step 5.1: Create `enumerationValues/` child-resource domain
 
-**New directory**: `packages/metahubs-frontend/base/src/domains/enumerationValues/`
+**New directory**: `packages/universo-react-metahubs-frontend/base/src/domains/enumerationValues/`
 
 This parallels the existing `attributes/`, `constants/`, `elements/` child-resource domains. The `OptionValueList.tsx` (1474 lines) currently embedded in `managedEnumerations/ui/` is a true child-resource component (CRUD for values within an enumeration instance) — not an instance-level surface like `EnumerationList.tsx`.
 
@@ -679,7 +679,7 @@ managedEnumerations/hooks/ (value-specific parts) → enumerationValues/hooks/
 
 ### Step 5.2: Create a neutral entity renderer registry
 
-**New directory**: `packages/metahubs-frontend/base/src/domains/entities/ui/renderers/`
+**New directory**: `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/renderers/`
 
 **Final architecture uses entity-owned registry files**, not one permanent renderer file per business kind:
 ```
@@ -699,7 +699,7 @@ Requirements:
 
 ### Step 5.3: Create GenericEntityRenderer
 
-**New file**: `packages/metahubs-frontend/base/src/domains/entities/ui/renderers/genericEntityRenderer.tsx`
+**New file**: `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/renderers/genericEntityRenderer.tsx`
 
 For custom entity kinds that don't have specialized renderers. Uses fully generic entity list/create/edit/delete UI.
 
@@ -713,7 +713,7 @@ Move to `entities/ui/shared/` any sub-components from managed* folders that are 
 
 ### Step 5.5: Simplify EntityInstanceList to routing shell
 
-**File**: `packages/metahubs-frontend/base/src/domains/entities/ui/EntityInstanceList.tsx`
+**File**: `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/EntityInstanceList.tsx`
 
 Replace current delegation logic (~1400 lines) with a thin lazy-loaded registry shell:
 
@@ -740,7 +740,7 @@ Delete `ManagedStandardKindSurfaces.tsx` — no longer needed since renderers ar
 
 ### Step 5.7: Update GeneralPage.tsx import
 
-**File**: `packages/metahubs-frontend/base/src/domains/general/ui/GeneralPage.tsx`
+**File**: `packages/universo-react-metahubs-frontend/base/src/domains/general/ui/GeneralPage.tsx`
 
 Verify the import updated in Step 5.1 works:
 ```typescript
@@ -751,11 +751,11 @@ Verify the import updated in Step 5.1 works:
 ### Step 5.8: Delete managed* folders + dead code
 
 ```
-packages/metahubs-frontend/base/src/domains/managedCatalogs/    ← DELETE
-packages/metahubs-frontend/base/src/domains/managedHubs/        ← DELETE
-packages/metahubs-frontend/base/src/domains/managedSets/        ← DELETE
-packages/metahubs-frontend/base/src/domains/managedEnumerations/ ← DELETE
-packages/metahubs-frontend/base/src/domains/layout/             ← DELETE (dead code: empty api/ + ui/ folders, distinct from live layouts/)
+packages/universo-react-metahubs-frontend/base/src/domains/managedCatalogs/    ← DELETE
+packages/universo-react-metahubs-frontend/base/src/domains/managedHubs/        ← DELETE
+packages/universo-react-metahubs-frontend/base/src/domains/managedSets/        ← DELETE
+packages/universo-react-metahubs-frontend/base/src/domains/managedEnumerations/ ← DELETE
+packages/universo-react-metahubs-frontend/base/src/domains/layout/             ← DELETE (dead code: empty api/ + ui/ folders, distinct from live layouts/)
 ```
 
 **Pre-deletion verification**: Run `pnpm --filter metahubs-frontend build` BEFORE deleting to confirm the full grep-driven Phase 4.5 inventory is already rewritten and `enumerationValues/` domain is wired.
@@ -763,17 +763,17 @@ packages/metahubs-frontend/base/src/domains/layout/             ← DELETE (dead
 ### Step 5.9: Delete old shared route utilities
 
 ```
-packages/metahubs-frontend/base/src/domains/shared/managedMetadataRoutePaths.ts ← DELETE (replaced by shared/entityRoutePaths.ts in Phase 4.7)
-packages/metahubs-frontend/base/src/domains/shared/__tests__/entityMetadataRoutePaths.test.ts ← DELETE or rewrite for entityRoutePaths
+packages/universo-react-metahubs-frontend/base/src/domains/shared/managedMetadataRoutePaths.ts ← DELETE (replaced by shared/entityRoutePaths.ts in Phase 4.7)
+packages/universo-react-metahubs-frontend/base/src/domains/shared/__tests__/entityMetadataRoutePaths.test.ts ← DELETE or rewrite for entityRoutePaths
 ```
 
 ### Step 5.10: Update package exports and imports
 
-Update `packages/metahubs-frontend/base/src/index.ts` and all internal imports to reflect new locations.
+Update `packages/universo-react-metahubs-frontend/base/src/index.ts` and all internal imports to reflect new locations.
 
 ### Step 5.11: Fix MainRoutes.tsx imports
 
-**File**: `packages/universo-core-frontend/base/src/routes/MainRoutes.tsx`
+**File**: `packages/universo-react-core-frontend/base/src/routes/MainRoutes.tsx`
 
 Remove lazy imports for `ManagedCatalogEntitySurface`, `ManagedHubEntitySurface`, etc. The route tree should use `EntityInstanceList` as the sole entry for all entity kinds, loaded from `metahubs-frontend`.
 
@@ -810,7 +810,7 @@ Requirements:
 
 ### Step 6.1: Verify sidebar is clean
 
-**File**: `packages/universo-template-mui/base/src/navigation/menuConfigs.ts`
+**File**: `packages/universo-react-template-mui/base/src/navigation/menuConfigs.ts`
 
 Verify:
 - No hardcoded standard kind menu items remain
@@ -819,7 +819,7 @@ Verify:
 
 ### Step 6.2: Clean breadcrumb legacy references
 
-**File**: `packages/universo-template-mui/base/src/components/dashboard/NavbarBreadcrumbs.tsx`
+**File**: `packages/universo-react-template-mui/base/src/components/dashboard/NavbarBreadcrumbs.tsx`
 
 - Remove any remaining `LEGACY_COMPATIBLE_ENTITY_LABEL_KEYS` mappings if stale
 - Verify all breadcrumb paths use entity-owned URLs
@@ -828,7 +828,7 @@ Verify:
 
 ### Step 6.3: Finalize MainRoutes.tsx
 
-**File**: `packages/universo-core-frontend/base/src/routes/MainRoutes.tsx`
+**File**: `packages/universo-react-core-frontend/base/src/routes/MainRoutes.tsx`
 
 - Remove any remaining legacy redirects if no longer needed
 - Verify clean entity-only route tree
@@ -836,14 +836,14 @@ Verify:
 
 ### Step 6.4: Clean up EntitiesWorkspace
 
-**File**: `packages/metahubs-frontend/base/src/domains/entities/ui/EntitiesWorkspace.tsx`
+**File**: `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/EntitiesWorkspace.tsx`
 
 - Remove any `source` / `isBuiltin` / `includeBuiltins` references
 - Verify entity type list shows ALL types equally (no builtin/custom badge, no "Source" column)
 
 ### Step 6.5: Remove standard-kind special casing from entity type management
 
-**File**: `packages/metahubs-frontend/base/src/domains/entities/ui/EntitiesWorkspace.tsx`
+**File**: `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/EntitiesWorkspace.tsx`
 
 Eliminate the remaining "system-managed/built-in standard kinds" behavior:
 - Remove `isSystemManagedEntityType(kindKey) => isStandardEntityKind(kindKey)` and all derived `row.isSystemManaged` UI branching
@@ -857,9 +857,9 @@ This aligns the UI with the product rule: standard kinds are now ordinary entity
 ### Step 6.6: Remove public Managed* surfaces and stale consumer contracts
 
 **Files**:
-- `packages/metahubs-frontend/base/src/index.ts`
-- `packages/universo-template-mui/base/src/types/external-modules.d.ts`
-- `packages/metahubs-frontend/base/README.md`
+- `packages/universo-react-metahubs-frontend/base/src/index.ts`
+- `packages/universo-react-template-mui/base/src/types/external-modules.d.ts`
+- `packages/universo-react-metahubs-frontend/base/README.md`
 
 Explicitly remove public exports and consumer contracts that preserve the transitional surface model:
 - Delete `ManagedHubEntitySurface`, `ManagedCatalogEntitySurface`, `ManagedSetEntitySurface`, `ManagedEnumerationEntitySurface` exports
@@ -922,7 +922,7 @@ Check that `metahubs.json` (EN + RU) has all required keys for the create option
 
 ### Step 8.1: Verify/update TemplateSeedExecutor
 
-**File**: `packages/metahubs-backend/base/src/domains/templates/services/TemplateSeedExecutor.ts`
+**File**: `packages/universo-react-metahubs-backend/base/src/domains/templates/services/TemplateSeedExecutor.ts`
 
 > **Note (H5 fix)**: The existing executor uses a **3-pass** flow (not 4-pass as previously stated):
 > 1. **Pass 1**: Insert all entities and build complete codename→id map
@@ -940,7 +940,7 @@ Verify this 3-pass flow handles all preset default instance scenarios correctly:
 
 ### Step 8.2: Verify preset default instance VLC data
 
-**Preset files**: `packages/metahubs-backend/base/src/domains/templates/data/presets/`
+**Preset files**: `packages/universo-react-metahubs-backend/base/src/domains/templates/data/presets/`
 
 Each preset's `defaultInstances[]` should contain:
 - `codename: string` — machine identifier
@@ -953,7 +953,7 @@ Each preset's `defaultInstances[]` should contain:
 
 ### Step 8.3: Write focused seed tests
 
-**File**: `packages/metahubs-backend/base/src/tests/services/TemplateSeedExecutor.test.ts`
+**File**: `packages/universo-react-metahubs-backend/base/src/tests/services/TemplateSeedExecutor.test.ts`
 
 Tests:
 - Create metahub with all presets → verify all entity types + default instances exist
@@ -978,21 +978,21 @@ Tests:
 
 ### Step 9.1: Verify managedStandardKinds.ts is clean
 
-**File**: `packages/schema-ddl/base/src/managedStandardKinds.ts`
+**File**: `packages/universo-react-schema-ddl/base/src/managedStandardKinds.ts`
 
 - No legacy compatibility mapping references
 - Direct kind checks only: `kind === 'hub'`, `kind === 'catalog'`, etc.
 
 ### Step 9.2: Verify SchemaGenerator uses direct kinds
 
-**File**: `packages/schema-ddl/base/src/SchemaGenerator.ts`
+**File**: `packages/universo-react-schema-ddl/base/src/SchemaGenerator.ts`
 
 - No `resolveLegacyCompatible*()` calls
 - No `custom.*-v2` pattern matching
 
 ### Step 9.3: Simplify runtimeRowsController.ts
 
-**File**: `packages/applications-backend/base/src/controllers/runtimeRowsController.ts`
+**File**: `packages/universo-react-applications-backend/base/src/controllers/runtimeRowsController.ts`
 
 - Remove any remaining legacy kind translation SQL
 - Direct `kind` column reads for behavior classification
@@ -1000,7 +1000,7 @@ Tests:
 
 ### Step 9.4: Verify SnapshotSerializer is clean
 
-**File**: `packages/metahubs-backend/base/src/domains/publications/services/SnapshotSerializer.ts`
+**File**: `packages/universo-react-metahubs-backend/base/src/domains/publications/services/SnapshotSerializer.ts`
 
 - No `isBuiltin` serialization
 - All entity types exported equally (preset-based and custom)
@@ -1036,8 +1036,8 @@ Platform-level `documentTables` capabilities outside metahubs may remain if they
 ### Step 10.1: Clean metahubs namespace
 
 **Files**:
-- `packages/universo-i18n/base/src/locales/en/metahubs.json`
-- `packages/universo-i18n/base/src/locales/ru/metahubs.json`
+- `packages/universo-react-i18n/base/src/locales/en/metahubs.json`
+- `packages/universo-react-i18n/base/src/locales/ru/metahubs.json`
 
 - Remove unused legacy menu title keys (only if no longer referenced)
 - Keep all UI component keys used by renderers (dialog labels, field names, error messages)
@@ -1314,9 +1314,9 @@ Using screenshots from Phase 12.3:
 
 ### Step 14.6: Update package READMEs
 
-- `packages/metahubs-frontend/base/README.md` — remove legacy domain references
-- `packages/metahubs-backend/base/README.md` — update architecture description
-- `packages/universo-template-mui/base/README.md` — update menu/breadcrumb documentation
+- `packages/universo-react-metahubs-frontend/base/README.md` — remove legacy domain references
+- `packages/universo-react-metahubs-backend/base/README.md` — update architecture description
+- `packages/universo-react-template-mui/base/README.md` — update menu/breadcrumb documentation
 
 ### Checklist — Phase 14:
 - [ ] 14.1: Rewrite architecture docs (EN first, then RU)
@@ -1367,13 +1367,13 @@ npx playwright test
 ### Step 15.5: OpenAPI validation
 
 ```bash
-pnpm --filter @universo/rest-docs validate
+pnpm --filter @universo-react/rest-docs validate
 ```
 
 ### Step 15.6: Regenerate OpenAPI from new routes
 
 ```bash
-cd packages/universo-rest-docs && node scripts/generate-openapi-source.js
+cd packages/universo-react-rest-docs && node scripts/generate-openapi-source.js
 ```
 
 Verify generated spec contains only entity-owned routes for entity CRUD.
@@ -1451,26 +1451,26 @@ Run documentation screenshot generator. Review all screenshots for correct UI. F
 ### Files to DELETE (~65+ files)
 
 **Backend legacy domains (4 directories, ~30 files)**:
-- `packages/metahubs-backend/base/src/domains/hubs/` (controllers, routes, services)
-- `packages/metahubs-backend/base/src/domains/catalogs/` (controllers, routes, services)
-- `packages/metahubs-backend/base/src/domains/sets/` (controllers, routes, services)
-- `packages/metahubs-backend/base/src/domains/enumerations/` (controllers, routes, services)
+- `packages/universo-react-metahubs-backend/base/src/domains/hubs/` (controllers, routes, services)
+- `packages/universo-react-metahubs-backend/base/src/domains/catalogs/` (controllers, routes, services)
+- `packages/universo-react-metahubs-backend/base/src/domains/sets/` (controllers, routes, services)
+- `packages/universo-react-metahubs-backend/base/src/domains/enumerations/` (controllers, routes, services)
 
 **Frontend managed domains (4 directories + dead code, ~25 files)**:
-- `packages/metahubs-frontend/base/src/domains/managedCatalogs/`
-- `packages/metahubs-frontend/base/src/domains/managedHubs/`
-- `packages/metahubs-frontend/base/src/domains/managedSets/`
-- `packages/metahubs-frontend/base/src/domains/managedEnumerations/`
-- `packages/metahubs-frontend/base/src/domains/entities/ui/ManagedStandardKindSurfaces.tsx`
-- `packages/metahubs-frontend/base/src/domains/layout/` (dead empty folders — M1 fix)
-- `packages/metahubs-frontend/base/src/domains/shared/managedMetadataRoutePaths.ts` (M2 fix)
-- `packages/metahubs-frontend/base/src/domains/shared/__tests__/entityMetadataRoutePaths.test.ts`
+- `packages/universo-react-metahubs-frontend/base/src/domains/managedCatalogs/`
+- `packages/universo-react-metahubs-frontend/base/src/domains/managedHubs/`
+- `packages/universo-react-metahubs-frontend/base/src/domains/managedSets/`
+- `packages/universo-react-metahubs-frontend/base/src/domains/managedEnumerations/`
+- `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/ManagedStandardKindSurfaces.tsx`
+- `packages/universo-react-metahubs-frontend/base/src/domains/layout/` (dead empty folders — M1 fix)
+- `packages/universo-react-metahubs-frontend/base/src/domains/shared/managedMetadataRoutePaths.ts` (M2 fix)
+- `packages/universo-react-metahubs-frontend/base/src/domains/shared/__tests__/entityMetadataRoutePaths.test.ts`
 
 **Frontend top-level child-resource domains (delete after relocation under entities-owned subtree)**:
-- `packages/metahubs-frontend/base/src/domains/attributes/`
-- `packages/metahubs-frontend/base/src/domains/constants/`
-- `packages/metahubs-frontend/base/src/domains/elements/`
-- `packages/metahubs-frontend/base/src/domains/enumerationValues/`
+- `packages/universo-react-metahubs-frontend/base/src/domains/attributes/`
+- `packages/universo-react-metahubs-frontend/base/src/domains/constants/`
+- `packages/universo-react-metahubs-frontend/base/src/domains/elements/`
+- `packages/universo-react-metahubs-frontend/base/src/domains/enumerationValues/`
 
 **Legacy test files**:
 - Backend: `hubsRoutes.test.ts`, `catalogsRoutes.test.ts`, `setsRoutes.test.ts`, `enumerationsRoutes.test.ts`

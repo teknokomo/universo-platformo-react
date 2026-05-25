@@ -86,5 +86,5 @@ pnpm start
 
 # 3. Walk through the checklist above
 # 4. For automated migration validation:
-pnpm --filter @universo/migrations-platform test
+pnpm --filter @universo-react/migrations-platform test
 ```

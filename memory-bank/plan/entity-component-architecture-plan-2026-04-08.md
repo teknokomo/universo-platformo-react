@@ -26,7 +26,7 @@ The long-term architecture still converges toward a generic entity domain with d
 6. **Service-bound lifecycle safety** — Action/Event dispatch must run through transaction-aware mutation services, not only HTTP route handlers
 7. **Full snapshot/shared-contract migration** — snapshot format v2 → v3 plus shared type updates (`MetahubSnapshotFormatVersion`, script attachment contracts, runtime/widget config contracts)
 8. **Full i18n** — all new text in EN + RU
-9. **Reuse existing UI primitives** — prefer `EntityFormDialog`, `createEntityActions()`, `useListDialogs()`, `FlowListTable`, `ViewHeader`, `EntityScriptsTab`, `LayoutList`, and other existing shared components; new UI building blocks must first be extracted generically into `@universo/template-mui`
+9. **Reuse existing UI primitives** — prefer `EntityFormDialog`, `createEntityActions()`, `useListDialogs()`, `FlowListTable`, `ViewHeader`, `EntityScriptsTab`, `LayoutList`, and other existing shared components; new UI building blocks must first be extracted generically into `@universo-react/template-mui`
 10. **Future-ready** — ComponentManifest JSON remains the stable contract for future AOT compilation and advanced Zerocode extensions
 11. **Policy reuse over duplication** — Catalog-compatible entity presets must reuse the existing platform system-attribute policy/seed helpers and current shared layout/script contracts instead of re-implementing them in parallel
 12. **Capability gating over wishful manifests** — no component is exposed for arbitrary custom types until the corresponding design-time service, publication contract, and runtime UI path are proven generic or explicitly adapter-backed
@@ -39,13 +39,13 @@ The long-term architecture still converges toward a generic entity domain with d
 
 | Package | Change | Phase |
 |---|---|---|
-| `@universo/types` | `MetaEntityKind` type evolution → `EntityKind`, `EntityTypeDefinition`, `ComponentManifest` (with ECAE), snapshot v3/shared contract widening, script attachment contract widening | 1–3 |
-| `@universo/metahubs-backend` | Shared entity services, coexistence-safe compatibility layer, transaction-aware lifecycle dispatch, entity type service, snapshot serializer/restore refactor | 1–3 |
-| `@universo/metahubs-frontend` | `Entities` workspace below `Common`, generic-but-coexisting list/form surfaces, dynamic menu publication zone, shared `GeneralTabFields` extraction, Catalogs v2 parity flow | 1–3 |
-| `@universo/schema-ddl` | Custom table prefix support in `generateTableName()` | 3 |
-| `@universo/applications-backend` | Generic entity awareness in sync/runtime controllers, catalog-centric selector removal, runtime script attachment widening | 3 |
-| `@universo/applications-frontend` | Runtime adapter/page genericization away from catalog-only route state, published-section routing, page-surface parity for entity-based sections | 3 |
-| `@universo/apps-template-mui` | Runtime UI genericization for entity-based sections, page-surface/data-form reuse, and widget config widening beyond catalog-only assumptions | 3 |
+| `@universo-react/types` | `MetaEntityKind` type evolution → `EntityKind`, `EntityTypeDefinition`, `ComponentManifest` (with ECAE), snapshot v3/shared contract widening, script attachment contract widening | 1–3 |
+| `@universo-react/metahubs-backend` | Shared entity services, coexistence-safe compatibility layer, transaction-aware lifecycle dispatch, entity type service, snapshot serializer/restore refactor | 1–3 |
+| `@universo-react/metahubs-frontend` | `Entities` workspace below `Common`, generic-but-coexisting list/form surfaces, dynamic menu publication zone, shared `GeneralTabFields` extraction, Catalogs v2 parity flow | 1–3 |
+| `@universo-react/schema-ddl` | Custom table prefix support in `generateTableName()` | 3 |
+| `@universo-react/applications-backend` | Generic entity awareness in sync/runtime controllers, catalog-centric selector removal, runtime script attachment widening | 3 |
+| `@universo-react/applications-frontend` | Runtime adapter/page genericization away from catalog-only route state, published-section routing, page-surface parity for entity-based sections | 3 |
+| `@universo-react/apps-template-mui` | Runtime UI genericization for entity-based sections, page-surface/data-form reuse, and widget config widening beyond catalog-only assumptions | 3 |
 | `@universo/universo-template-mui` | Reuse-first extensions only: `EntityFormDialog` dynamic tab composition, `DynamicEntityFormDialog` schema-driven editors, `createEntityActions()` integration, no bespoke dialog orchestration | 2–3 |
 | `@universo/universo-migrations-platform` | New `_mhb_entity_type_definitions`, `_mhb_actions`, `_mhb_event_bindings` system tables | 2 |
 | `@universo/universo-i18n` | New i18n keys for Entity Types UI, ECAE, components (EN + RU) | 2 |
@@ -133,7 +133,7 @@ The Entities/Zerocode rollout must be built on top of existing frontend primitiv
 - `useListDialogs()` for modal state orchestration
 - `FlowListTable`, `ViewHeader`, `EntityScriptsTab`, `LayoutList`, `HubSelectionPanel`, and existing localized input/codename helpers
 
-The current wave should prefer **form-driven Zerocode MVP** over a brand-new canvas UI if parity can be reached with existing shared components. The dialog rule is strict: `EntityFormDialog` owns metadata-object authoring shells and mixed tab composition, while `DynamicEntityFormDialog` owns attribute-driven value/data editors. New UI primitives are justified only when extracted generically into `@universo/template-mui`.
+The current wave should prefer **form-driven Zerocode MVP** over a brand-new canvas UI if parity can be reached with existing shared components. The dialog rule is strict: `EntityFormDialog` owns metadata-object authoring shells and mixed tab composition, while `DynamicEntityFormDialog` owns attribute-driven value/data editors. New UI primitives are justified only when extracted generically into `@universo-react/template-mui`.
 
 ---
 
@@ -143,7 +143,7 @@ The current wave should prefer **form-driven Zerocode MVP** over a brand-new can
 
 ### Step 1.1: Entity Kind Type Evolution
 
-**File**: `packages/universo-types/base/src/common/metahubs.ts`
+**File**: `packages/universo-react-types/base/src/common/metahubs.ts`
 
 Current:
 ```typescript
@@ -174,14 +174,14 @@ export function isBuiltinKind(kind: string): kind is BuiltinEntityKind {
 
 **Validation**: existing code continues using `MetaEntityKind` type — zero impact.
 
-- [ ] Add `EntityKind` type to `@universo/types`
+- [ ] Add `EntityKind` type to `@universo-react/types`
 - [ ] Add `isBuiltinKind()` helper
 - [ ] Add `BuiltinEntityKinds` re-export
-- [ ] Build `@universo/types` — verify zero downstream breakage
+- [ ] Build `@universo-react/types` — verify zero downstream breakage
 
 ### Step 1.2: Component Manifest Interface
 
-**File**: NEW `packages/universo-types/base/src/common/entityComponents.ts`
+**File**: NEW `packages/universo-react-types/base/src/common/entityComponents.ts`
 
 ```typescript
 export interface ComponentConfig {
@@ -281,13 +281,13 @@ export function validateComponentDependencies(manifest: ComponentManifest): stri
 }
 ```
 
-- [ ] Create `entityComponents.ts` in `@universo/types`
+- [ ] Create `entityComponents.ts` in `@universo-react/types`
 - [ ] Export `ComponentManifest`, `COMPONENT_DEPENDENCIES`, `validateComponentDependencies()`
 - [ ] Add unit tests for dependency validation
 
 ### Step 1.3: Entity Type Definition Interface
 
-**File**: NEW `packages/universo-types/base/src/common/entityTypeDefinition.ts`
+**File**: NEW `packages/universo-react-types/base/src/common/entityTypeDefinition.ts`
 
 ```typescript
 import type { ComponentManifest } from './entityComponents'
@@ -314,13 +314,13 @@ export interface ResolvedEntityType extends EntityTypeDefinition {
 }
 ```
 
-- [ ] Create `entityTypeDefinition.ts` in `@universo/types`
+- [ ] Create `entityTypeDefinition.ts` in `@universo-react/types`
 - [ ] Export all interfaces
 - [ ] Re-export from package index
 
 ### Step 1.3b: Shared Contract Widening
 
-**Files**: `packages/universo-types/base/src/common/metahubs.ts`, `packages/universo-types/base/src/common/scripts.ts`, runtime/widget config types that currently narrow attachments to catalog-only contracts
+**Files**: `packages/universo-react-types/base/src/common/metahubs.ts`, `packages/universo-react-types/base/src/common/scripts.ts`, runtime/widget config types that currently narrow attachments to catalog-only contracts
 
 The current codebase already exposes several cross-package contracts that must be widened before generic entities can flow safely through publication/runtime:
 
@@ -335,7 +335,7 @@ The current codebase already exposes several cross-package contracts that must b
 
 ### Step 1.4: Built-in Type Registry (Code Registry)
 
-**File**: NEW `packages/universo-types/base/src/common/builtinEntityTypes.ts`
+**File**: NEW `packages/universo-react-types/base/src/common/builtinEntityTypes.ts`
 
 ```typescript
 import { MetaEntityKind } from './metahubs'
@@ -485,14 +485,14 @@ export const BUILTIN_ENTITY_TYPE_REGISTRY = new Map<string, EntityTypeDefinition
 ])
 ```
 
-- [ ] Create `builtinEntityTypes.ts` in `@universo/types`
+- [ ] Create `builtinEntityTypes.ts` in `@universo-react/types`
 - [ ] Export `BUILTIN_ENTITY_TYPE_REGISTRY` and all `*_TYPE` constants
 - [ ] Add unit tests verifying all built-in types pass `validateComponentDependencies()`
 - [ ] Re-export from package index
 
 ### Step 1.5: Component Registry (Backend)
 
-**File**: NEW `packages/metahubs-backend/base/src/domains/shared/componentRegistry.ts`
+**File**: NEW `packages/universo-react-metahubs-backend/base/src/domains/shared/componentRegistry.ts`
 
 ```typescript
 export interface ComponentDescriptor {
@@ -599,7 +599,7 @@ export const COMPONENT_REGISTRY: Record<string, ComponentDescriptor> = {
 }
 
 export function getEnabledComponents(
-    manifest: import('@universo/types').ComponentManifest
+    manifest: import('@universo-react/types').ComponentManifest
 ): string[] {
     return Object.entries(manifest)
         .filter(([, config]) => config && typeof config === 'object' && config.enabled)
@@ -613,11 +613,11 @@ export function getEnabledComponents(
 
 ### Step 1.6: Entity Type Resolver (Backend Service)
 
-**File**: NEW `packages/metahubs-backend/base/src/domains/shared/entityTypeResolver.ts`
+**File**: NEW `packages/universo-react-metahubs-backend/base/src/domains/shared/entityTypeResolver.ts`
 
 ```typescript
-import { BUILTIN_ENTITY_TYPE_REGISTRY, isBuiltinKind } from '@universo/types'
-import type { ResolvedEntityType, EntityKind } from '@universo/types'
+import { BUILTIN_ENTITY_TYPE_REGISTRY, isBuiltinKind } from '@universo-react/types'
+import type { ResolvedEntityType, EntityKind } from '@universo-react/types'
 
 export class EntityTypeResolver {
     /**
@@ -654,8 +654,8 @@ export class EntityTypeResolver {
 
 ### Step 1.7: Validate Phase 1
 
-- [ ] `pnpm --filter @universo/types build` — passes
-- [ ] `pnpm --filter @universo/metahubs-backend build` — passes
+- [ ] `pnpm --filter @universo-react/types build` — passes
+- [ ] `pnpm --filter @universo-react/metahubs-backend build` — passes
 - [ ] `pnpm build` — full workspace build passes (30 packages)
 - [ ] All existing focused tests remain green
 - [ ] No user-visible changes — pure refactor confirmed
@@ -670,7 +670,7 @@ export class EntityTypeResolver {
 
 Before the main refactor, extract the duplicated `GeneralTabFields` component (~40 lines, 100% identical across CatalogList, SetList, EnumerationList) into a shared location.
 
-**File**: NEW `packages/metahubs-frontend/base/src/domains/shared/ui/GeneralTabFields.tsx`
+**File**: NEW `packages/universo-react-metahubs-frontend/base/src/domains/shared/ui/GeneralTabFields.tsx`
 
 This eliminates ~120 lines of pure duplication and creates the shared foundation for the generic entity form.
 
@@ -680,7 +680,7 @@ This eliminates ~120 lines of pure duplication and creates the shared foundation
 
 ### Step 2.1: Add ECAE System Tables
 
-**File**: `packages/metahubs-backend/base/src/domains/metahubs/services/systemTableDefinitions.ts`
+**File**: `packages/universo-react-metahubs-backend/base/src/domains/metahubs/services/systemTableDefinitions.ts`
 
 Add three new table definitions to the system table registry:
 
@@ -773,7 +773,7 @@ Add three new table definitions to the system table registry:
 
 ### Step 2.2: Entity Type CRUD Service + ECAE Services
 
-**File**: NEW `packages/metahubs-backend/base/src/domains/entities/services/EntityTypeService.ts`
+**File**: NEW `packages/universo-react-metahubs-backend/base/src/domains/entities/services/EntityTypeService.ts`
 
 ```typescript
 export class EntityTypeService {
@@ -807,7 +807,7 @@ export class EntityTypeService {
 }
 ```
 
-**File**: NEW `packages/metahubs-backend/base/src/domains/entities/services/ActionService.ts`
+**File**: NEW `packages/universo-react-metahubs-backend/base/src/domains/entities/services/ActionService.ts`
 
 ```typescript
 export class ActionService {
@@ -820,7 +820,7 @@ export class ActionService {
 }
 ```
 
-**File**: NEW `packages/metahubs-backend/base/src/domains/entities/services/EventBindingService.ts`
+**File**: NEW `packages/universo-react-metahubs-backend/base/src/domains/entities/services/EventBindingService.ts`
 
 ```typescript
 export class EventBindingService {
@@ -833,7 +833,7 @@ export class EventBindingService {
 }
 ```
 
-**File**: NEW `packages/metahubs-backend/base/src/domains/entities/services/EntityEventRouter.ts`
+**File**: NEW `packages/universo-react-metahubs-backend/base/src/domains/entities/services/EntityEventRouter.ts`
 
 ```typescript
 /**
@@ -883,7 +883,7 @@ export type LifecycleEvent =
     | 'onValidate' | 'beforeWrite' | 'afterWrite'
 ```
 
-**File**: NEW `packages/metahubs-backend/base/src/domains/entities/services/EntityMutationService.ts`
+**File**: NEW `packages/universo-react-metahubs-backend/base/src/domains/entities/services/EntityMutationService.ts`
 
 ```typescript
 /**
@@ -911,7 +911,7 @@ export class EntityMutationService {
 
 ### Step 2.3: Entity Type CRUD Routes + ECAE Routes
 
-**File**: NEW `packages/metahubs-backend/base/src/domains/entities/routes/entityTypeRoutes.ts`
+**File**: NEW `packages/universo-react-metahubs-backend/base/src/domains/entities/routes/entityTypeRoutes.ts`
 
 ```
 GET    /metahub/:metahubId/entity-types              — list all (custom + built-in info)
@@ -921,7 +921,7 @@ PATCH  /metahub/:metahubId/entity-type/:typeId        — update custom type
 DELETE /metahub/:metahubId/entity-type/:typeId        — delete custom type
 ```
 
-**File**: NEW `packages/metahubs-backend/base/src/domains/entities/routes/actionsRoutes.ts`
+**File**: NEW `packages/universo-react-metahubs-backend/base/src/domains/entities/routes/actionsRoutes.ts`
 
 ```
 GET    /metahub/:metahubId/entity/:entityId/actions        — list actions for entity
@@ -930,7 +930,7 @@ PATCH  /metahub/:metahubId/entity/:entityId/action/:id     — update action
 DELETE /metahub/:metahubId/entity/:entityId/action/:id     — delete action
 ```
 
-**File**: NEW `packages/metahubs-backend/base/src/domains/entities/routes/eventBindingsRoutes.ts`
+**File**: NEW `packages/universo-react-metahubs-backend/base/src/domains/entities/routes/eventBindingsRoutes.ts`
 
 ```
 GET    /metahub/:metahubId/entity/:entityId/events          — list event bindings
@@ -951,7 +951,7 @@ DELETE /metahub/:metahubId/entity/:entityId/event/:id        — unbind
 
 ### Step 2.4: Extend Entity Type Resolver for DB Types
 
-**File**: `packages/metahubs-backend/base/src/domains/shared/entityTypeResolver.ts`
+**File**: `packages/universo-react-metahubs-backend/base/src/domains/shared/entityTypeResolver.ts`
 
 ```typescript
 export class EntityTypeResolver {
@@ -977,7 +977,7 @@ export class EntityTypeResolver {
 
 ### Step 2.5: Generic Entity Instance CRUD Routes
 
-**File**: NEW `packages/metahubs-backend/base/src/domains/entities/routes/entityRoutes.ts`
+**File**: NEW `packages/universo-react-metahubs-backend/base/src/domains/entities/routes/entityRoutes.ts`
 
 ```
 GET    /metahub/:metahubId/entities?kind=<kind>                — list entities by kind
@@ -1058,7 +1058,7 @@ Required rules for the current wave:
 
 ### Step 2.6: Entity Types Frontend — API Layer
 
-**File**: NEW `packages/metahubs-frontend/base/src/domains/entities/api/entityTypes.ts`
+**File**: NEW `packages/universo-react-metahubs-frontend/base/src/domains/entities/api/entityTypes.ts`
 
 ```typescript
 export const listEntityTypes = (metahubId: string) => 
@@ -1077,7 +1077,7 @@ export const createEntityType = (metahubId: string, data: CreateEntityTypePayloa
 
 ### Step 2.7: `Entities` Workspace — Builder Page
 
-**File**: NEW `packages/metahubs-frontend/base/src/domains/entities/ui/EntitiesWorkspace.tsx`
+**File**: NEW `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/EntitiesWorkspace.tsx`
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -1101,7 +1101,7 @@ export const createEntityType = (metahubId: string, data: CreateEntityTypePayloa
 └─────────────────────────────────────────────────────────┘
 ```
 
-**File**: NEW `packages/metahubs-frontend/base/src/domains/entities/ui/EntityTypeFormDialog.tsx`
+**File**: NEW `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/EntityTypeFormDialog.tsx`
 
 Tabs:
 1. **General** — CodenameField, name/description VLC, icon picker, table prefix
@@ -1119,7 +1119,7 @@ Tabs:
 
 ### Step 2.8: i18n Keys
 
-**Files**: `packages/universo-i18n/` — add new translation keys
+**Files**: `packages/universo-react-i18n/` — add new translation keys
 
 ```json
 // EN
@@ -1228,9 +1228,9 @@ Tabs:
 
 ### Step 2.9: Validate Phase 2
 
-- [ ] `pnpm --filter @universo/types build` — passes
-- [ ] `pnpm --filter @universo/metahubs-backend build` — passes
-- [ ] `pnpm --filter @universo/metahubs-frontend build` — passes
+- [ ] `pnpm --filter @universo-react/types build` — passes
+- [ ] `pnpm --filter @universo-react/metahubs-backend build` — passes
+- [ ] `pnpm --filter @universo-react/metahubs-frontend build` — passes
 - [ ] `pnpm build` — full workspace passes
 - [ ] Focused backend route tests — all green (entity types, actions, event bindings, generic CRUD)
 - [ ] Focused frontend component tests — all green
@@ -1245,7 +1245,7 @@ Tabs:
 
 ### Step 3.1: Generic Entity Instance List Page
 
-**File**: NEW `packages/metahubs-frontend/base/src/domains/entities/ui/EntityInstanceList.tsx`
+**File**: NEW `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/EntityInstanceList.tsx`
 
 Generic list page that renders differently based on the resolved entity type's component manifest:
 - ViewHeader with search and Create button
@@ -1278,7 +1278,7 @@ Catalogs v2 must also reuse the existing Attributes / System Attributes / Predef
 
 ### Step 3.2: Dynamic Sidebar Sections + Published Menu Zone
 
-**File**: `packages/metahubs-frontend/base/src/menu-items/metahubDashboard.ts`
+**File**: `packages/universo-react-metahubs-frontend/base/src/menu-items/metahubDashboard.ts`
 
 Extend the dashboard menu builder to accept custom entity types:
 
@@ -1327,7 +1327,7 @@ Metahub
 
 ### Step 3.3: Component-Driven Snapshot Serialization + Format v3
 
-**File**: `packages/metahubs-backend/base/src/domains/publications/services/SnapshotSerializer.ts`
+**File**: `packages/universo-react-metahubs-backend/base/src/domains/publications/services/SnapshotSerializer.ts`
 
 **Current problem**: SnapshotSerializer has explicit per-kind branching — `findAllByKind('catalog')`, `findAllByKind('set')`, `findAllByKind('enumeration')` with separate processing loops. Adding a new kind requires changes in 3+ places.
 
@@ -1399,7 +1399,7 @@ interface MetahubSnapshot {
 
 ### Step 3.4: DDL Pipeline for Custom Types
 
-**File**: `packages/schema-ddl/base/src/`
+**File**: `packages/universo-react-schema-ddl/base/src/`
 
 Extend `generateTableName()` to accept custom prefixes:
 
@@ -1410,7 +1410,7 @@ export function generateTableName(entityId: string, kind: string, prefix?: strin
 }
 ```
 
-**File**: `packages/applications-backend/base/src/services/`
+**File**: `packages/universo-react-applications-backend/base/src/services/`
 
 Extend sync context to resolve custom entity types and generate correct DDL:
 

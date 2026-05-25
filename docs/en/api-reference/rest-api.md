@@ -35,7 +35,7 @@ applications, connectors, admin, public metahub, and metahub design-time APIs.
 ## Interactive Documentation Source
 
 The interactive Swagger and OpenAPI presentation layer is provided by
-`@universo/rest-docs`.
+`@universo-react/rest-docs`.
 
 That package regenerates its `src/openapi/index.yml` file from the live backend
 route files before validation and build so the published route inventory stays
