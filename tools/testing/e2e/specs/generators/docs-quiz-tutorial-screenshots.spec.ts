@@ -24,7 +24,7 @@ import { buildEntityMenuItemSelector, buildEntityMenuTriggerSelector, entityDial
 import {
     QUIZ_CENTERED_LAYOUT_CONFIG,
     QUIZ_REMOVED_LAYOUT_WIDGET_KEYS,
-    QUIZ_SCRIPT_CODENAME,
+    QUIZ_MODULE_CODENAME,
     QUIZ_WIDGET_SOURCE
 } from '../../support/quizFixtureContract'
 import { createLocalizedContent } from '@universo/utils'
@@ -41,7 +41,7 @@ const LOCALE_COPY = {
     en: {
         applications: 'Applications',
         connectors: 'Connectors',
-        scriptsTab: 'Scripts',
+        modulesTab: 'Modules',
         dragHint: 'Drag widgets between zones to change runtime composition.',
         quizWidget: 'Quiz widget',
         publications: 'Publications',
@@ -53,7 +53,7 @@ const LOCALE_COPY = {
     ru: {
         applications: 'Приложения',
         connectors: 'Коннекторы',
-        scriptsTab: 'Скрипты',
+        modulesTab: 'Модули',
         dragHint: 'Перетаскивайте виджеты между зонами, чтобы изменить состав рантайм-интерфейса.',
         quizWidget: 'Виджет квиза',
         publications: 'Публикации',
@@ -147,7 +147,7 @@ async function applyCenteredQuizLayout(api: ApiContext, metahubId: string, layou
     }
 }
 
-async function openMetahubScriptsDialog(
+async function openMetahubModulesDialog(
     page: Parameters<typeof test>[0]['page'],
     metahubId: string,
     metahubName: string,
@@ -168,8 +168,8 @@ async function openMetahubScriptsDialog(
 
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible()
-    await dialog.getByRole('tab', { name: labels.scriptsTab, exact: true }).click()
-    await expect(dialog.getByTestId('entity-scripts-layout')).toBeVisible({ timeout: 30_000 })
+    await dialog.getByRole('tab', { name: labels.modulesTab, exact: true }).click()
+    await expect(dialog.getByTestId('entity-modules-layout')).toBeVisible({ timeout: 30_000 })
 
     return dialog
 }
@@ -219,10 +219,10 @@ test.describe('Docs Quiz Tutorial Screenshots', () => {
         await applyCenteredQuizLayout(api, metahub.id, layoutId)
 
         await expectJsonResponse(
-            await sendWithCsrf(api, 'POST', `/api/v1/metahub/${metahub.id}/scripts`, {
-                codename: QUIZ_SCRIPT_CODENAME,
+            await sendWithCsrf(api, 'POST', `/api/v1/metahub/${metahub.id}/modules`, {
+                codename: QUIZ_MODULE_CODENAME,
                 name: 'Space quiz widget',
-                description: 'Quiz widget script used by the GitBook tutorial screenshots',
+                description: 'Quiz widget module used by the GitBook tutorial screenshots',
                 attachedToKind: 'metahub',
                 attachedToId: null,
                 moduleRole: 'widget',
@@ -231,7 +231,7 @@ test.describe('Docs Quiz Tutorial Screenshots', () => {
                 sourceCode: QUIZ_WIDGET_SOURCE,
                 isActive: true
             }),
-            'Creating quiz widget script'
+            'Creating quiz widget module'
         )
 
         await expectJsonResponse(
@@ -240,7 +240,7 @@ test.describe('Docs Quiz Tutorial Screenshots', () => {
                 widgetKey: 'quizWidget',
                 config: {
                     attachedToKind: 'metahub',
-                    scriptCodename: QUIZ_SCRIPT_CODENAME
+                    moduleCodename: QUIZ_MODULE_CODENAME
                 }
             }),
             'Assigning quiz widget to layout'
@@ -320,10 +320,10 @@ test.describe('Docs Quiz Tutorial Screenshots', () => {
             await expect(page.getByRole('heading', { name: labels.connectors })).toBeVisible({ timeout: 30_000 })
             await page.screenshot({ path: path.join(platformScreenshotsDir, 'application-connectors.png') })
 
-            const scriptsDialog = await openMetahubScriptsDialog(page, metahub.id, metahubName, labels)
-            await scriptsDialog.screenshot({ path: path.join(screenshotsDir, 'metahub-scripts.png') })
-            await scriptsDialog.getByTestId(entityDialogSelectors.cancelButton).click()
-            await expect(scriptsDialog).toHaveCount(0)
+            const modulesDialog = await openMetahubModulesDialog(page, metahub.id, metahubName, labels)
+            await modulesDialog.screenshot({ path: path.join(screenshotsDir, 'metahub-modules.png') })
+            await modulesDialog.getByTestId(entityDialogSelectors.cancelButton).click()
+            await expect(modulesDialog).toHaveCount(0)
 
             await page.goto(`/metahub/${metahub.id}/resources/layouts/${layoutId}`)
             await expect(page.getByText(labels.dragHint)).toBeVisible({ timeout: 30_000 })
@@ -340,7 +340,7 @@ test.describe('Docs Quiz Tutorial Screenshots', () => {
             await page.screenshot({ path: path.join(screenshotsDir, 'runtime-quiz.png') })
 
             for (const screenshotName of [
-                'metahub-scripts.png',
+                'metahub-modules.png',
                 'layout-quiz-widget.png',
                 'application-settings-general.png',
                 'runtime-quiz.png',

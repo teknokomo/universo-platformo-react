@@ -142,15 +142,15 @@ describe('TemplateManifestValidator', () => {
         const setManifest = cloneTemplate(setEntityPreset)
         const enumerationManifest = cloneTemplate(enumerationEntityPreset)
 
-        expect(hubManifest.entityType.capabilities.scripting).toEqual({ enabled: true })
+        expect(hubManifest.entityType.capabilities.modules).toEqual({ enabled: true })
         expect(hubManifest.entityType.capabilities.actions).toEqual({ enabled: true })
         expect(hubManifest.entityType.capabilities.events).toEqual({ enabled: true })
 
-        expect(setManifest.entityType.capabilities.scripting).toEqual({ enabled: true })
+        expect(setManifest.entityType.capabilities.modules).toEqual({ enabled: true })
         expect(setManifest.entityType.capabilities.actions).toEqual({ enabled: true })
         expect(setManifest.entityType.capabilities.events).toEqual({ enabled: true })
 
-        expect(enumerationManifest.entityType.capabilities.scripting).toEqual({ enabled: true })
+        expect(enumerationManifest.entityType.capabilities.modules).toEqual({ enabled: true })
         expect(enumerationManifest.entityType.capabilities.actions).toEqual({ enabled: true })
         expect(enumerationManifest.entityType.capabilities.events).toEqual({ enabled: true })
     })
@@ -437,7 +437,7 @@ describe('TemplateManifestValidator', () => {
             { presetCodename: 'set', includedByDefault: true },
             { presetCodename: 'enumeration', includedByDefault: true }
         ])
-        expect(manifest.seed.scripts?.map((script) => script.codename)).not.toContain('AutoEnrollmentRuleScript')
+        expect(manifest.seed.modules?.map((module) => module.codename)).not.toContain('AutoEnrollmentRuleModule')
         for (const codename of [
             'QuizResponses',
             'QuizAttempts',
@@ -522,7 +522,7 @@ describe('TemplateManifestValidator', () => {
                         to: 'Issued',
                         requiredCapabilities: ['certificate.issue'],
                         postingCommand: 'post',
-                        scriptCodename: 'CertificateIssuePostingScript'
+                        moduleCodename: 'CertificateIssuePostingModule'
                     },
                     {
                         codename: 'RevokeCertificate',
@@ -530,7 +530,7 @@ describe('TemplateManifestValidator', () => {
                         to: 'Revoked',
                         requiredCapabilities: ['certificate.revoke'],
                         postingCommand: 'post',
-                        scriptCodename: 'CertificateIssuePostingScript'
+                        moduleCodename: 'CertificateIssuePostingModule'
                     }
                 ]
             },
@@ -591,7 +591,7 @@ describe('TemplateManifestValidator', () => {
                         to: 'Approved',
                         requiredCapabilities: ['gamification.points.adjust'],
                         postingCommand: 'post',
-                        scriptCodename: 'PointTransactionPostingScript'
+                        moduleCodename: 'PointTransactionPostingModule'
                     },
                     {
                         codename: 'ReversePointAdjustment',
@@ -599,7 +599,7 @@ describe('TemplateManifestValidator', () => {
                         to: 'Reversed',
                         requiredCapabilities: ['gamification.points.adjust'],
                         postingCommand: 'void',
-                        scriptCodename: 'PointTransactionPostingScript'
+                        moduleCodename: 'PointTransactionPostingModule'
                     }
                 ]
             },
@@ -634,7 +634,7 @@ describe('TemplateManifestValidator', () => {
                             statusFieldCodename: 'Status',
                             requiredCapabilities: expectedAction.requiredCapabilities,
                             ...(expectedAction.postingCommand ? { postingCommand: expectedAction.postingCommand } : {}),
-                            ...(expectedAction.scriptCodename ? { scriptCodename: expectedAction.scriptCodename } : {})
+                            ...(expectedAction.moduleCodename ? { moduleCodename: expectedAction.moduleCodename } : {})
                         })
                     ])
                 )
@@ -643,38 +643,38 @@ describe('TemplateManifestValidator', () => {
                 expect(() => workflowActionSchema.parse(action)).not.toThrow()
             }
         }
-        expect(manifest.seed.scripts).toEqual(
+        expect(manifest.seed.modules).toEqual(
             expect.arrayContaining([
                 expect.objectContaining({
-                    codename: 'EnrollmentPostingScript',
+                    codename: 'EnrollmentPostingModule',
                     attachedToKind: 'object',
                     attachedToEntityCodename: 'Enrollments',
                     moduleRole: 'lifecycle',
                     capabilities: expect.arrayContaining(['lifecycle', 'posting', 'ledger.write'])
                 }),
                 expect.objectContaining({
-                    codename: 'QuizAttemptPostingScript',
+                    codename: 'QuizAttemptPostingModule',
                     attachedToKind: 'object',
                     attachedToEntityCodename: 'QuizAttempts',
                     moduleRole: 'lifecycle',
                     capabilities: expect.arrayContaining(['lifecycle', 'posting', 'ledger.write'])
                 }),
                 expect.objectContaining({
-                    codename: 'ContentCompletionPostingScript',
+                    codename: 'ContentCompletionPostingModule',
                     attachedToKind: 'object',
                     attachedToEntityCodename: 'ContentProgress',
                     moduleRole: 'lifecycle',
                     capabilities: expect.arrayContaining(['lifecycle', 'posting', 'ledger.write'])
                 }),
                 expect.objectContaining({
-                    codename: 'CertificateIssuePostingScript',
+                    codename: 'CertificateIssuePostingModule',
                     attachedToKind: 'object',
                     attachedToEntityCodename: 'CertificateIssues',
                     moduleRole: 'lifecycle',
                     capabilities: expect.arrayContaining(['lifecycle', 'posting', 'ledger.write'])
                 }),
                 expect.objectContaining({
-                    codename: 'PointTransactionPostingScript',
+                    codename: 'PointTransactionPostingModule',
                     attachedToKind: 'object',
                     attachedToEntityCodename: 'PointTransactions',
                     moduleRole: 'lifecycle',

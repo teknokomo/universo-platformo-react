@@ -9,8 +9,8 @@ export const STANDARD_HUB_DESCRIPTION = vlc(
 
 export const STANDARD_OBJECT_NAME = vlc('Objects', 'Объекты')
 export const STANDARD_OBJECT_DESCRIPTION = vlc(
-    'Standard object entity type with schema, hierarchy, references, scripts, and runtime layout support.',
-    'Стандартный тип объекта со схемой, иерархией, связями, скриптами и поддержкой runtime layout.'
+    'Standard object entity type with schema, hierarchy, references, modules, and runtime layout support.',
+    'Стандартный тип объекта со схемой, иерархией, связями, модулями и поддержкой runtime layout.'
 )
 
 export const STANDARD_SET_NAME = vlc('Sets', 'Наборы')
@@ -48,7 +48,7 @@ export const HUB_TYPE_CAPABILITIES: EntityTypeCapabilities = {
     relations: false,
     actions: { enabled: true },
     events: { enabled: true },
-    scripting: { enabled: true },
+    modules: { enabled: true },
     blockContent: false,
     layoutConfig: false,
     runtimeBehavior: false,
@@ -104,7 +104,7 @@ export const OBJECT_TYPE_CAPABILITIES: EntityTypeCapabilities = {
     relations: { enabled: true, allowedRelationTypes: ['manyToOne'] },
     actions: { enabled: true },
     events: { enabled: true },
-    scripting: { enabled: true },
+    modules: { enabled: true },
     blockContent: false,
     layoutConfig: { enabled: true },
     runtimeBehavior: { enabled: true },
@@ -117,7 +117,7 @@ export const OBJECT_TYPE_CAPABILITIES: EntityTypeCapabilities = {
 
 export const OBJECT_TYPE_UI: EntityTypeUIConfig = {
     iconName: 'IconDatabase',
-    tabs: ['general', 'behavior', 'ledgerSchema', 'hubs', 'layout', 'scripts'],
+    tabs: ['general', 'behavior', 'ledgerSchema', 'hubs', 'layout', 'modules'],
     sidebarSection: 'objects',
     sidebarOrder: 30,
     nameKey: 'metahubs:objects.title',
@@ -136,7 +136,7 @@ export const SET_TYPE_CAPABILITIES: EntityTypeCapabilities = {
     relations: false,
     actions: { enabled: true },
     events: { enabled: true },
-    scripting: { enabled: true },
+    modules: { enabled: true },
     blockContent: false,
     layoutConfig: { enabled: true },
     runtimeBehavior: false,
@@ -149,7 +149,7 @@ export const SET_TYPE_CAPABILITIES: EntityTypeCapabilities = {
 
 export const SET_TYPE_UI: EntityTypeUIConfig = {
     iconName: 'IconStack2',
-    tabs: ['general', 'hubs', 'scripts'],
+    tabs: ['general', 'hubs', 'modules'],
     sidebarSection: 'objects',
     sidebarOrder: 40,
     nameKey: 'metahubs:sets.title',
@@ -177,7 +177,7 @@ export const ENUMERATION_TYPE_CAPABILITIES: EntityTypeCapabilities = {
     relations: false,
     actions: { enabled: true },
     events: { enabled: true },
-    scripting: { enabled: true },
+    modules: { enabled: true },
     blockContent: false,
     layoutConfig: false,
     runtimeBehavior: false,
@@ -190,7 +190,7 @@ export const ENUMERATION_TYPE_CAPABILITIES: EntityTypeCapabilities = {
 
 export const ENUMERATION_TYPE_UI: EntityTypeUIConfig = {
     iconName: 'IconFiles',
-    tabs: ['general', 'hubs', 'scripts'],
+    tabs: ['general', 'hubs', 'modules'],
     sidebarSection: 'objects',
     sidebarOrder: 50,
     nameKey: 'metahubs:enumerations.title',
@@ -218,7 +218,7 @@ export const PAGE_TYPE_CAPABILITIES: EntityTypeCapabilities = {
     relations: false,
     actions: { enabled: true },
     events: { enabled: true },
-    scripting: { enabled: true },
+    modules: { enabled: true },
     blockContent: {
         enabled: true,
         storage: 'objectConfig',
@@ -238,7 +238,7 @@ export const PAGE_TYPE_CAPABILITIES: EntityTypeCapabilities = {
 
 export const PAGE_TYPE_UI: EntityTypeUIConfig = {
     iconName: 'IconFileText',
-    tabs: ['general', 'hubs', 'content', 'layout', 'scripts'],
+    tabs: ['general', 'hubs', 'content', 'layout', 'modules'],
     sidebarSection: 'objects',
     sidebarOrder: 20,
     nameKey: 'metahubs:pages.title',
@@ -256,7 +256,7 @@ export const LEDGER_TYPE_CAPABILITIES: EntityTypeCapabilities = {
     relations: { enabled: true, allowedRelationTypes: ['manyToOne'] },
     actions: { enabled: true },
     events: { enabled: true },
-    scripting: { enabled: true },
+    modules: { enabled: true },
     blockContent: false,
     layoutConfig: { enabled: true },
     runtimeBehavior: { enabled: true },
@@ -269,7 +269,7 @@ export const LEDGER_TYPE_CAPABILITIES: EntityTypeCapabilities = {
 
 export const LEDGER_TYPE_UI: EntityTypeUIConfig = {
     iconName: 'IconReceipt',
-    tabs: ['general', 'ledgerSchema', 'hubs', 'layout', 'scripts'],
+    tabs: ['general', 'ledgerSchema', 'hubs', 'layout', 'modules'],
     sidebarSection: 'objects',
     sidebarOrder: 60,
     nameKey: 'metahubs:ledgers.title',

@@ -11,7 +11,7 @@ const createEntityTypeComponents = () => ({
     relations: false,
     actions: { enabled: true },
     events: { enabled: true },
-    scripting: false,
+    modules: false,
     layoutConfig: false,
     runtimeBehavior: false,
     physicalTable: { enabled: true, prefix: 'cust' }
@@ -542,7 +542,7 @@ describe('SnapshotSerializer system field propagation', () => {
                         relations: false,
                         actions: false,
                         events: false,
-                        scripting: false,
+                        modules: false,
                         layoutConfig: false,
                         runtimeBehavior: false,
                         physicalTable: false
@@ -674,8 +674,8 @@ describe('SnapshotSerializer system field propagation', () => {
                     id: 'action-1',
                     codename: createCodenameVlc('sync_customer'),
                     presentation: { name: { en: 'Sync customer' } },
-                    actionType: 'script',
-                    scriptId: 'script-1',
+                    actionType: 'module',
+                    moduleId: 'module-1',
                     config: { mode: 'sync' },
                     sortOrder: 2
                 }
@@ -729,8 +729,8 @@ describe('SnapshotSerializer system field propagation', () => {
             actions: [
                 expect.objectContaining({
                     id: 'action-1',
-                    actionType: 'script',
-                    scriptId: 'script-1'
+                    actionType: 'module',
+                    moduleId: 'module-1'
                 })
             ],
             eventBindings: [

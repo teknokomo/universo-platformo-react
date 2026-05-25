@@ -6,7 +6,7 @@
 
 Universo Platformo is a configuration-first platform that lets organizations
 build their own data and process applications on a small, fixed set of
-**entity-type primitives** plus **embedded scripts** — the same way
+**entity-type primitives** plus **embedded modules** — the same way
 1C:Enterprise 8.x exposes a configuration model, but more flexible.
 
 A **metahub** is the canonical configuration unit. From a metahub the
@@ -67,28 +67,28 @@ with.
 
 ### Platform-level entity type presets (7)
 
-| Preset | Codename | Role |
-|---|---|---|
-| Hub | `hub` (`tree-entity`) | Top-level hierarchy / nesting |
-| Object | `object` | Core entity. Covers Catalog/Document/Register-style behavior via `recordBehavior` mode + `posting` / `ledgerSchema` capabilities |
-| Page | `page` | Editor.js-authored block content |
-| Set | `set` (`value-group`) | Typed fixed values (constants) |
-| Enumeration | `enumeration` (`option-list`) | Closed list of named values |
-| Ledger | `ledger` | Specialized append-only register; alternative to Object + `config.ledger` |
-| Constants Library | `fixed-values-library` | Set-style preset for typed constants without runtime publication widgets |
+| Preset            | Codename                      | Role                                                                                                                             |
+| ----------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Hub               | `hub` (`tree-entity`)         | Top-level hierarchy / nesting                                                                                                    |
+| Object            | `object`                      | Core entity. Covers Catalog/Document/Register-style behavior via `recordBehavior` mode + `posting` / `ledgerSchema` capabilities |
+| Page              | `page`                        | Editor.js-authored block content                                                                                                 |
+| Set               | `set` (`value-group`)         | Typed fixed values (constants)                                                                                                   |
+| Enumeration       | `enumeration` (`option-list`) | Closed list of named values                                                                                                      |
+| Ledger            | `ledger`                      | Specialized append-only register; alternative to Object + `config.ledger`                                                        |
+| Constants Library | `fixed-values-library`        | Set-style preset for typed constants without runtime publication widgets                                                         |
 
-Plus cross-cutting capabilities: **attached scripts** (TypeScript inside
+Plus cross-cutting capabilities: **attached modules** (TypeScript inside
 isolated-vm, server or client) and **workspaces inside published
 applications** (multi-tenant runtime isolation).
 
 ### Metahub templates (4)
 
-| Template | Codename | Default presets |
-|---|---|---|
-| Basic (default) | `basic` | hub, page, object, set, enumeration |
-| Basic Demo | `basic-demo` | basic + sample data |
-| Empty | `empty` | _(none)_ — user picks via constructor |
-| LMS | `lms` | basic preset set, plus seeded LMS objects (incl. ledger-style Objects with `config.ledger`) |
+| Template        | Codename     | Default presets                                                                             |
+| --------------- | ------------ | ------------------------------------------------------------------------------------------- |
+| Basic (default) | `basic`      | hub, page, object, set, enumeration                                                         |
+| Basic Demo      | `basic-demo` | basic + sample data                                                                         |
+| Empty           | `empty`      | _(none)_ — user picks via constructor                                                       |
+| LMS             | `lms`        | basic preset set, plus seeded LMS objects (incl. ledger-style Objects with `config.ledger`) |
 
 Future templates (planned) include a **1C-compatible** template that
 exposes a full 1C:Enterprise metadata-object map.
@@ -104,7 +104,7 @@ Metahub                Application                Workspace
 ─────────────────      ────────────────────       ─────────────────────
 Entity types,          Global settings:           Day-to-day end-user
 relationships,         feature toggles,           content: created,
-attached scripts,      branding, defaults,        edited, copied, and
+attached modules,      branding, defaults,        edited, copied, and
 seeded content,        access policies            deleted by users
 default layouts                                   with sufficient role
 ```
@@ -119,35 +119,40 @@ The repository is a PNPM workspace orchestrated by Turbo. Active feature
 packages today:
 
 ### Core shell
-- `universo-core-backend`, `universo-core-frontend`
+
+-   `universo-core-backend`, `universo-core-frontend`
 
 ### Legacy feature packages (in scope for app migration)
-- `metahubs-backend`, `metahubs-frontend`
-- `applications-backend`, `applications-frontend`
-- `admin-backend`, `admin-frontend`
-- `profile-backend`, `profile-frontend`
-- `start-backend`, `start-frontend`
-- `auth-backend`, `auth-frontend`
+
+-   `metahubs-backend`, `metahubs-frontend`
+-   `applications-backend`, `applications-frontend`
+-   `admin-backend`, `admin-frontend`
+-   `profile-backend`, `profile-frontend`
+-   `start-backend`, `start-frontend`
+-   `auth-backend`, `auth-frontend`
 
 ### UI templates
-- `universo-template-mui` (legacy template; used by the feature packages above)
-- `apps-template-mui` (new published-application template; **kept isolated** from `universo-template-mui` and from the legacy feature packages — duplication is intentional)
+
+-   `universo-template-mui` (legacy template; used by the feature packages above)
+-   `apps-template-mui` (new published-application template; **kept isolated** from `universo-template-mui` and from the legacy feature packages — duplication is intentional)
 
 ### Infrastructure
-- `universo-database` — Knex singleton, three-tier executors
-- `universo-types` — shared domain types
-- `universo-utils` — validators, serializers
-- `universo-i18n` — centralized i18n runtime
-- `universo-api-client` — shared API client
-- `universo-block-editor` — Editor.js wrapper
-- `universo-store` — shared Redux + abilities
-- `universo-rest-docs` — OpenAPI / Swagger surface
+
+-   `universo-database` — Knex singleton, three-tier executors
+-   `universo-types` — shared domain types
+-   `universo-utils` — validators, serializers
+-   `universo-i18n` — centralized i18n runtime
+-   `universo-api-client` — shared API client
+-   `universo-block-editor` — Editor.js wrapper
+-   `universo-store` — shared Redux + abilities
+-   `universo-rest-docs` — OpenAPI / Swagger surface
 
 ### DDL and migrations
-- `schema-ddl` — runtime schema generation, migration, diff utilities
-- `universo-migrations-core` — core migration runtime
-- `universo-migrations-platform` — platform-wide migration registry
-- `universo-migrations-catalog` — catalog storage for migration history
+
+-   `schema-ddl` — runtime schema generation, migration, diff utilities
+-   `universo-migrations-core` — core migration runtime
+-   `universo-migrations-platform` — platform-wide migration registry
+-   `universo-migrations-catalog` — catalog storage for migration history
 
 This list will shrink over time as legacy feature packages are replaced
 by applications shipped through `apps-template-mui`.

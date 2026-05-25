@@ -1,4 +1,4 @@
-import type { ObjectRecordBehavior, ScriptPostingMovement } from '@universo/types'
+import type { ObjectRecordBehavior, ModulePostingMovement } from '@universo/types'
 import type { DbExecutor } from '@universo/utils'
 import { z } from 'zod'
 import { UpdateFailure } from '../shared/runtimeHelpers'
@@ -42,8 +42,8 @@ const normalizeLedgerCodename = (value: string): string => value.trim().toLowerC
 export class RuntimePostingMovementService {
     constructor(private readonly ledgers = new RuntimeLedgerService()) {}
 
-    normalizeMovementResults(results: unknown[], behavior: ObjectRecordBehavior): ScriptPostingMovement[] {
-        const movements: ScriptPostingMovement[] = []
+    normalizeMovementResults(results: unknown[], behavior: ObjectRecordBehavior): ModulePostingMovement[] {
+        const movements: ModulePostingMovement[] = []
 
         for (const result of results) {
             if (result === null || result === undefined) {
@@ -161,7 +161,7 @@ export class RuntimePostingMovementService {
         return reversed
     }
 
-    private normalizeMovement(rawMovement: unknown): ScriptPostingMovement {
+    private normalizeMovement(rawMovement: unknown): ModulePostingMovement {
         if (!isPlainRecord(rawMovement)) {
             throw this.invalidPayload('Posting movement must be an object')
         }
@@ -186,7 +186,7 @@ export class RuntimePostingMovementService {
         return { ledgerCodename, facts }
     }
 
-    private assertDeclaredLedgers(movements: ScriptPostingMovement[], behavior: ObjectRecordBehavior): void {
+    private assertDeclaredLedgers(movements: ModulePostingMovement[], behavior: ObjectRecordBehavior): void {
         if (movements.length === 0) {
             return
         }

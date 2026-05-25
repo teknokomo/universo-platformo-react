@@ -15,14 +15,10 @@ export interface PublicationSnapshotHashInput {
     fixedValues?: Record<string, unknown>
     sharedComponents?: unknown
     sharedFixedValues?: unknown
-    /** @deprecated use sharedFixedValues */
-    sharedConstants?: unknown
     sharedOptionValues?: unknown
-    /** @deprecated use sharedOptionValues */
-    sharedEnumerationValues?: unknown
     sharedEntityOverrides?: unknown
     systemFields?: Record<string, ObjectSystemFieldsSnapshot | SnapshotRecord>
-    scripts?: unknown
+    modules?: unknown
     layouts?: unknown
     scopedLayouts?: unknown
     layoutZoneWidgets?: unknown
@@ -71,7 +67,7 @@ const normalizeLayout = (layoutValue: unknown): Record<string, unknown> => {
     }
 }
 
-const normalizeScriptManifest = (manifestValue: unknown): Record<string, unknown> => {
+const normalizeModuleManifest = (manifestValue: unknown): Record<string, unknown> => {
     const manifest = asRecord(manifestValue)
 
     return {
@@ -105,25 +101,25 @@ const normalizeScriptManifest = (manifestValue: unknown): Record<string, unknown
     }
 }
 
-const normalizeScript = (scriptValue: unknown): Record<string, unknown> => {
-    const script = asRecord(scriptValue)
+const normalizeModule = (scriptValue: unknown): Record<string, unknown> => {
+    const module = asRecord(scriptValue)
 
     return {
-        id: typeof script.id === 'string' ? script.id : '',
-        codename: normalizeCodenameValue(script.codename),
-        presentation: script.presentation ?? {},
-        attachedToKind: typeof script.attachedToKind === 'string' ? script.attachedToKind : '',
-        attachedToId: typeof script.attachedToId === 'string' ? script.attachedToId : null,
-        moduleRole: typeof script.moduleRole === 'string' ? script.moduleRole : '',
-        sourceKind: typeof script.sourceKind === 'string' ? script.sourceKind : '',
-        sdkApiVersion: typeof script.sdkApiVersion === 'string' ? script.sdkApiVersion : '',
-        sourceCode: typeof script.sourceCode === 'string' ? script.sourceCode : null,
-        manifest: normalizeScriptManifest(script.manifest),
-        serverBundle: typeof script.serverBundle === 'string' ? script.serverBundle : null,
-        clientBundle: typeof script.clientBundle === 'string' ? script.clientBundle : null,
-        checksum: typeof script.checksum === 'string' ? script.checksum : '',
-        isActive: script.isActive !== false,
-        config: script.config ?? {}
+        id: typeof module.id === 'string' ? module.id : '',
+        codename: normalizeCodenameValue(module.codename),
+        presentation: module.presentation ?? {},
+        attachedToKind: typeof module.attachedToKind === 'string' ? module.attachedToKind : '',
+        attachedToId: typeof module.attachedToId === 'string' ? module.attachedToId : null,
+        moduleRole: typeof module.moduleRole === 'string' ? module.moduleRole : '',
+        sourceKind: typeof module.sourceKind === 'string' ? module.sourceKind : '',
+        sdkApiVersion: typeof module.sdkApiVersion === 'string' ? module.sdkApiVersion : '',
+        sourceCode: typeof module.sourceCode === 'string' ? module.sourceCode : null,
+        manifest: normalizeModuleManifest(module.manifest),
+        serverBundle: typeof module.serverBundle === 'string' ? module.serverBundle : null,
+        clientBundle: typeof module.clientBundle === 'string' ? module.clientBundle : null,
+        checksum: typeof module.checksum === 'string' ? module.checksum : '',
+        isActive: module.isActive !== false,
+        config: module.config ?? {}
     }
 }
 
@@ -331,11 +327,9 @@ export const normalizePublicationSnapshotForHash = (
 
     const sharedComponents = asArray<unknown>(snapshot.sharedComponents).map(normalizeField).sort(compareBySortOrderCodenameAndId)
 
-    const sharedConstants = asArray<unknown>(snapshot.sharedFixedValues ?? snapshot.sharedConstants)
-        .map(normalizeConstant)
-        .sort(compareBySortOrderCodenameAndId)
+    const sharedFixedValues = asArray<unknown>(snapshot.sharedFixedValues).map(normalizeConstant).sort(compareBySortOrderCodenameAndId)
 
-    const sharedEnumerationValues = asArray<unknown>(snapshot.sharedOptionValues ?? snapshot.sharedEnumerationValues)
+    const sharedOptionValues = asArray<unknown>(snapshot.sharedOptionValues)
         .map(normalizeEnumerationValue)
         .sort(compareBySortOrderCodenameAndId)
 
@@ -365,8 +359,8 @@ export const normalizePublicationSnapshotForHash = (
             return compareStrings(left.id as string, right.id as string)
         })
 
-    const scripts = asArray<unknown>(snapshot.scripts)
-        .map(normalizeScript)
+    const modules = asArray<unknown>(snapshot.modules)
+        .map(normalizeModule)
         .sort((left, right) => {
             if ((left.attachedToKind as string) !== (right.attachedToKind as string)) {
                 return compareStrings(left.attachedToKind as string, right.attachedToKind as string)
@@ -494,11 +488,11 @@ export const normalizePublicationSnapshotForHash = (
         optionValues,
         fixedValues,
         sharedComponents,
-        sharedConstants,
-        sharedEnumerationValues,
+        sharedFixedValues,
+        sharedOptionValues,
         sharedEntityOverrides,
         systemFields,
-        scripts,
+        modules,
         layouts,
         scopedLayouts,
         layoutZoneWidgets,

@@ -588,7 +588,7 @@ describe('ApplicationWidgetBehaviorEditorDialog', () => {
         fireEvent.change(screen.getByLabelText('Required capabilities 1'), { target: { value: '  workflow.execute, reports.read  ' } })
         fireEvent.change(screen.getByLabelText('Status field codename 1'), { target: { value: '  ReviewStatus  ' } })
         fireEvent.change(screen.getByLabelText('Status column name 1'), { target: { value: '  review_status  ' } })
-        fireEvent.change(screen.getByLabelText('Script codename 1'), { target: { value: '  AssignmentReviewScript  ' } })
+        fireEvent.change(screen.getByLabelText('Module codename 1'), { target: { value: '  AssignmentReviewModule  ' } })
         fireEvent.mouseDown(screen.getByLabelText('Posting command 1'))
         fireEvent.click(screen.getByRole('option', { name: 'Post' }))
         fireEvent.mouseDown(screen.getByLabelText('Confirmation required 1'))
@@ -612,7 +612,7 @@ describe('ApplicationWidgetBehaviorEditorDialog', () => {
                         title: 'Accept submission?',
                         message: 'This updates the review status.'
                     },
-                    scriptCodename: 'AssignmentReviewScript',
+                    moduleCodename: 'AssignmentReviewModule',
                     postingCommand: 'post'
                 }
             ]

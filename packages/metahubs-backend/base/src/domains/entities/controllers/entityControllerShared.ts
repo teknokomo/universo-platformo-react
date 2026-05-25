@@ -53,7 +53,7 @@ import { EntityEventRouter } from '../services/EntityEventRouter'
 import { EntityMutationService } from '../services/EntityMutationService'
 import { MetahubTreeEntitiesService } from '../../metahubs/services/MetahubTreeEntitiesService'
 import { executeBlockedDelete, type EntityDeleteOutcome } from '../services/entityDeletePatterns'
-import { MetahubScriptsService } from '../../scripts/services/MetahubScriptsService'
+import { MetahubModulesService } from '../../modules/services/MetahubModulesService'
 import { resolveEntityMetadataAclPermission, resolveEntityMetadataSettingKey } from '../../shared/entityMetadataKinds'
 import { toTimestamp } from '../../shared/timestamps'
 import type { EntityBehaviorDeleteContext, EntityBehaviorService } from '../services/EntityBehaviorService'
@@ -299,8 +299,8 @@ export const createEntityServices = (
     const resolver = new EntityTypeResolver(entityTypeService)
     const actionService = new ActionService(exec, schemaService, entityTypeService)
     const eventBindingService = new EventBindingService(exec, schemaService, entityTypeService)
-    const scriptsService = new MetahubScriptsService(exec, schemaService)
-    const actionExecutionService = new EntityActionExecutionService(scriptsService)
+    const modulesService = new MetahubModulesService(exec, schemaService)
+    const actionExecutionService = new EntityActionExecutionService(modulesService)
     const eventRouter = new EntityEventRouter(eventBindingService, actionService)
     const mutationService = new EntityMutationService(exec, schemaService, eventRouter)
 

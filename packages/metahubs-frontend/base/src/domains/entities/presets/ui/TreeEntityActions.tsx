@@ -34,7 +34,7 @@ import {
     normalizeLocale
 } from '../../../../utils/localizedInput'
 import { CodenameField, ContainerParentSelectionPanel } from '../../../../components'
-import { createScriptsTab } from '../../../scripts/ui/EntityScriptsTab'
+import { createModulesTab } from '../../../modules/ui/EntityModulesTab'
 
 export type TreeEntityFormValues = Record<string, unknown>
 const ensureFormValues = (values?: TreeEntityFormValues | null): TreeEntityFormValues => values ?? {}
@@ -472,7 +472,7 @@ export const buildFormTabs = (
 
         if (editingEntityId && metahubId) {
             baseTabs.push(
-                createScriptsTab({
+                createModulesTab({
                     t: ctx.t,
                     metahubId,
                     attachedToKind: 'hub',

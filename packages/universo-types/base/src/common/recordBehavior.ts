@@ -45,7 +45,7 @@ export interface RecordLifecycleBehavior {
 export interface RecordPostingBehavior {
     mode: RecordPostingMode
     targetLedgers: string[]
-    scriptCodename?: string
+    moduleCodename?: string
 }
 
 export interface ObjectRecordBehavior {
@@ -204,7 +204,7 @@ export const objectRecordBehaviorSchema = z
             .object({
                 mode: z.enum(RECORD_POSTING_MODES),
                 targetLedgers: z.array(z.string().trim().min(1).max(128)).max(64),
-                scriptCodename: z.string().trim().min(1).max(128).optional()
+                moduleCodename: z.string().trim().min(1).max(128).optional()
             })
             .strict(),
         immutability: z.enum(RECORD_IMMUTABILITY_MODES)
@@ -250,8 +250,8 @@ export const normalizeObjectRecordBehavior = (value: unknown): ObjectRecordBehav
         posting: {
             mode: normalizeEnumValue(posting.mode, RECORD_POSTING_MODE_SET, DEFAULT_OBJECT_RECORD_BEHAVIOR.posting.mode),
             targetLedgers: normalizeStringList(posting.targetLedgers, 64, 128),
-            ...(normalizeOptionalString(posting.scriptCodename, 128)
-                ? { scriptCodename: normalizeOptionalString(posting.scriptCodename, 128) }
+            ...(normalizeOptionalString(posting.moduleCodename, 128)
+                ? { moduleCodename: normalizeOptionalString(posting.moduleCodename, 128) }
                 : {})
         },
         immutability: normalizeEnumValue(raw.immutability, RECORD_IMMUTABILITY_MODE_SET, DEFAULT_OBJECT_RECORD_BEHAVIOR.immutability)

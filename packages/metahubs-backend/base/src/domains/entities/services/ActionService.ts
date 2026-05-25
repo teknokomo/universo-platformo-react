@@ -1,5 +1,5 @@
 import { qSchemaTable } from '@universo/database'
-import { isEnabledCapabilityConfig, type ScriptModuleRole } from '@universo/types'
+import { isEnabledCapabilityConfig, type ModuleRole } from '@universo/types'
 import { queryMany, queryOne, queryOneOrThrow, type DbExecutor, type SqlQueryable } from '@universo/utils/database'
 import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
 import { codenamePrimaryTextSql, ensureCodenameValue, getCodenameText } from '../../shared/codename'
@@ -9,11 +9,11 @@ import { EntityTypeService } from './EntityTypeService'
 
 const TABLE = '_mhb_actions'
 const OBJECTS_TABLE = '_mhb_objects'
-const SCRIPTS_TABLE = '_mhb_scripts'
+const MODULES_TABLE = '_mhb_modules'
 const ACTIVE_CLAUSE = '_upl_deleted = false AND _mhb_deleted = false'
 
 type JsonRecord = Record<string, unknown>
-type EntityActionType = 'script' | 'builtin'
+type EntityActionType = 'module' | 'builtin'
 
 interface StoredEntityActionRow {
     id: string
@@ -21,7 +21,7 @@ interface StoredEntityActionRow {
     codename: unknown
     presentation: unknown
     action_type: EntityActionType
-    script_id: string | null
+    module_id: string | null
     config: unknown
     sort_order: number
     _upl_version?: number
@@ -39,7 +39,7 @@ export interface MetahubEntityAction {
     codename: JsonRecord
     presentation: JsonRecord
     actionType: EntityActionType
-    scriptId: string | null
+    moduleId: string | null
     config: JsonRecord
     sortOrder: number
     version: number
@@ -51,7 +51,7 @@ export interface CreateEntityActionInput {
     codename: unknown
     presentation?: JsonRecord
     actionType: EntityActionType
-    scriptId?: string | null
+    moduleId?: string | null
     config?: JsonRecord
     sortOrder?: number
     createdBy?: string | null
@@ -61,7 +61,7 @@ export interface UpdateEntityActionInput {
     codename?: unknown
     presentation?: JsonRecord
     actionType?: EntityActionType
-    scriptId?: string | null
+    moduleId?: string | null
     config?: JsonRecord
     sortOrder?: number
     updatedBy?: string | null
@@ -77,11 +77,11 @@ const ensureJsonRecord = (value: unknown): JsonRecord => {
 }
 
 const normalizeActionType = (value: unknown): EntityActionType => {
-    if (value === 'script' || value === 'builtin') {
+    if (value === 'module' || value === 'builtin') {
         return value
     }
 
-    throw new MetahubValidationError('Entity action type must be either script or builtin')
+    throw new MetahubValidationError('Entity action type must be either module or builtin')
 }
 
 const normalizeSortOrder = (value: unknown): number | undefined => {
@@ -107,7 +107,7 @@ export class ActionService {
             codename: ensureCodenameValue(row.codename),
             presentation: ensureJsonRecord(row.presentation),
             actionType: row.action_type,
-            scriptId: row.script_id,
+            moduleId: row.module_id,
             config: ensureJsonRecord(row.config),
             sortOrder: Number(row.sort_order ?? 0),
             version: Number(row._upl_version ?? 1),
@@ -171,16 +171,16 @@ export class ActionService {
         }
     }
 
-    private async assertScriptExists(schemaName: string, scriptId: string, db: SqlQueryable): Promise<void> {
-        const qt = qSchemaTable(schemaName, SCRIPTS_TABLE)
-        const scriptRow = await queryOne<{ id: string; module_role: ScriptModuleRole }>(
+    private async assertModuleExists(schemaName: string, moduleId: string, db: SqlQueryable): Promise<void> {
+        const qt = qSchemaTable(schemaName, MODULES_TABLE)
+        const moduleRow = await queryOne<{ id: string; module_role: ModuleRole }>(
             db,
             `SELECT id, module_role FROM ${qt} WHERE id = $1 AND ${ACTIVE_CLAUSE} LIMIT 1`,
-            [scriptId]
+            [moduleId]
         )
 
-        if (!scriptRow) {
-            throw new MetahubNotFoundError('Script', scriptId)
+        if (!moduleRow) {
+            throw new MetahubNotFoundError('Module', moduleId)
         }
     }
 
@@ -227,15 +227,15 @@ export class ActionService {
                 })
             }
 
-            const resolvedScriptId = actionType === 'script' ? input.scriptId ?? null : null
-            if (actionType === 'script' && !resolvedScriptId) {
-                throw new MetahubValidationError('Script actions require a scriptId')
+            const resolvedModuleId = actionType === 'module' ? input.moduleId ?? null : null
+            if (actionType === 'module' && !resolvedModuleId) {
+                throw new MetahubValidationError('Module actions require a moduleId')
             }
-            if (actionType === 'builtin' && input.scriptId) {
-                throw new MetahubValidationError('Builtin actions cannot reference a scriptId')
+            if (actionType === 'builtin' && input.moduleId) {
+                throw new MetahubValidationError('Builtin actions cannot reference a moduleId')
             }
-            if (resolvedScriptId) {
-                await this.assertScriptExists(schemaName, resolvedScriptId, tx)
+            if (resolvedModuleId) {
+                await this.assertModuleExists(schemaName, resolvedModuleId, tx)
             }
 
             const sortOrder = normalizeSortOrder(input.sortOrder) ?? (await this.getNextSortOrder(schemaName, input.objectId, tx))
@@ -247,7 +247,7 @@ export class ActionService {
                     codename,
                     presentation,
                     action_type,
-                    script_id,
+                    module_id,
                     config,
                     sort_order,
                     _upl_created_at,
@@ -271,7 +271,7 @@ export class ActionService {
                     JSON.stringify(codename),
                     JSON.stringify(presentation),
                     actionType,
-                    resolvedScriptId,
+                    resolvedModuleId,
                     JSON.stringify(config),
                     sortOrder,
                     new Date(),
@@ -304,14 +304,14 @@ export class ActionService {
             }
 
             const nextActionType = input.actionType !== undefined ? normalizeActionType(input.actionType) : existing.action_type
-            const nextScriptId =
-                nextActionType === 'script' ? (input.scriptId !== undefined ? input.scriptId : existing.script_id) ?? null : null
+            const nextModuleId =
+                nextActionType === 'module' ? (input.moduleId !== undefined ? input.moduleId : existing.module_id) ?? null : null
 
-            if (nextActionType === 'script' && !nextScriptId) {
-                throw new MetahubValidationError('Script actions require a scriptId')
+            if (nextActionType === 'module' && !nextModuleId) {
+                throw new MetahubValidationError('Module actions require a moduleId')
             }
-            if (nextScriptId) {
-                await this.assertScriptExists(schemaName, nextScriptId, tx)
+            if (nextModuleId) {
+                await this.assertModuleExists(schemaName, nextModuleId, tx)
             }
 
             const updateData = {
@@ -320,7 +320,7 @@ export class ActionService {
                     input.presentation !== undefined ? ensureJsonRecord(input.presentation) : ensureJsonRecord(existing.presentation)
                 ),
                 action_type: nextActionType,
-                script_id: nextScriptId,
+                module_id: nextModuleId,
                 config: JSON.stringify(input.config !== undefined ? ensureJsonRecord(input.config) : ensureJsonRecord(existing.config)),
                 sort_order: normalizeSortOrder(input.sortOrder) ?? existing.sort_order,
                 _upl_updated_at: new Date(),

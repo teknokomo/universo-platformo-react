@@ -132,7 +132,7 @@ function ResourcePreviewBody({ source, onOpenPage }: { source: ResourceSource; o
                 component='iframe'
                 title={t('resourcePreview.embedFrameTitle', 'Embedded resource')}
                 src={source.url}
-                sandbox='allow-scripts allow-same-origin allow-presentation'
+                sandbox='allow-modules allow-same-origin allow-presentation'
                 allow='fullscreen; picture-in-picture'
                 referrerPolicy='strict-origin-when-cross-origin'
                 sx={{ ...frameSx, aspectRatio: '16 / 9', minHeight: 240 }}

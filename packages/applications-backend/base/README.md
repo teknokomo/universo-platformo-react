@@ -23,11 +23,11 @@ It exposes authenticated CRUD routes, application membership guards, connector f
 -   Manage application-side layouts, including metahub lineage, application-owned copies, defaults, activation, and widget activity.
 -   Materialize curated runtime menu contracts from `menuWidget` config, including explicit section items, hub/object codename resolution, overflow items, start-page selection, and workspace entry placement.
 -   Own transactional Object commands for `recordBehavior`: atomic record numbering, `post` / `unpost` / `void` transitions, lifecycle hooks, and posted-row immutability checks.
--   Apply declarative `beforePost` script movements through the generic Ledger service inside the posting transaction.
+-   Apply declarative `beforePost` module movements through the generic Ledger service inside the posting transaction.
 -   Expose generic runtime Ledger metadata, fact append/reversal, fact listing, and projection query routes for standard `ledger` entities without making Ledgers normal row-CRUD sections.
 -   Provide a generic runtime report runner for Object-backed report definitions. The runner validates shared report contracts, resolves table and column identifiers from published metadata, parameterizes SQL values, and fails closed for unavailable fields.
--   Execute published runtime scripts through a fail-closed server bridge that only exposes non-lifecycle server methods from `rpc.client` scripts and reuses runtime row helpers, workspace context, and permission maps.
--   Expose `ctx.ledger` to runtime scripts only when `ledger.read` or `ledger.write` capabilities are declared.
+-   Execute published runtime modules through a fail-closed server bridge that only exposes non-lifecycle server methods from `rpc.client` modules and reuses runtime row helpers, workspace context, and permission maps.
+-   Expose `ctx.ledger` to runtime modules only when `ledger.read` or `ledger.write` capabilities are declared.
 -   Persist schema sync state in `applications.obj_applications` through SQL-first stores.
 -   Keep runtime release metadata in the same central sync-state surface.
 -   Reuse shared guards, identifier helpers, and query helpers from the database standard packages.
@@ -59,7 +59,7 @@ It exposes authenticated CRUD routes, application membership guards, connector f
 -   Successful sync writes `schema_status`, `schema_snapshot`, and `installed_release_metadata` into `applications.obj_applications`.
 -   Workspace-enabled applications also persist a workspace contract marker inside the canonical runtime snapshot lineage so incremental sync keeps workspace DDL intact.
 -   Layout sync preserves application-owned layouts, marks locally modified metahub layouts as conflicts instead of overwriting them, and keeps excluded metahub layouts excluded on later syncs.
--   Active runtime script codenames are unique per `(attached_to_kind, attached_to_id, module_role, codename)` scope, and sync repairs the scoped index for existing schemas.
+-   Active runtime module codenames are unique per `(attached_to_kind, attached_to_id, module_role, codename)` scope, and sync repairs the scoped index for existing schemas.
 -   Advisory locking serializes sync work per application before schema changes begin.
 -   Maintenance and error states are persisted through the same central store contract.
 

@@ -26,7 +26,7 @@ export const workflowActionSchema = z
         statusColumnName: codenameSchema.optional(),
         requiredCapabilities: z.array(codenameSchema).max(32).default([]),
         confirmation: workflowActionConfirmationSchema.optional(),
-        scriptCodename: codenameSchema.optional(),
+        moduleCodename: codenameSchema.optional(),
         postingCommand: z.enum(WORKFLOW_POSTING_COMMANDS).optional()
     })
     .strict()

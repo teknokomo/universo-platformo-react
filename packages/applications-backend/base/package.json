@@ -23,8 +23,12 @@
     },
     "typesVersions": {
         "*": {
-            "platform-definition": ["./dist/platform/systemAppDefinition.d.ts"],
-            "platform-migrations": ["./dist/platform/migrations/index.d.ts"]
+            "platform-definition": [
+                "./dist/platform/systemAppDefinition.d.ts"
+            ],
+            "platform-migrations": [
+                "./dist/platform/migrations/index.d.ts"
+            ]
         }
     },
     "scripts": {
@@ -51,14 +55,14 @@
         "@universo/migrations-core": "workspace:*",
         "@universo/profile-backend": "workspace:*",
         "@universo/schema-ddl": "workspace:*",
-        "@universo/scripting-engine": "workspace:*",
         "@universo/types": "workspace:*",
         "@universo/utils": "workspace:*",
         "express": "^4.18.2",
         "http-errors": "catalog:",
         "json-stable-stringify": "catalog:",
         "knex": "catalog:",
-        "zod": "catalog:"
+        "zod": "catalog:",
+        "@universo/modules-engine": "workspace:*"
     },
     "devDependencies": {
         "@types/express": "^4.17.21",

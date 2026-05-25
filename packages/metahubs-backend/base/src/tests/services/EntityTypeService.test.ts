@@ -27,7 +27,7 @@ describe('EntityTypeService', () => {
             relations: false,
             actions: { enabled: true },
             events: { enabled: true },
-            scripting: false,
+            modules: false,
             layoutConfig: false,
             runtimeBehavior: false,
             physicalTable: false
@@ -76,7 +76,7 @@ describe('EntityTypeService', () => {
                             relations: false,
                             actions: { enabled: true },
                             events: { enabled: true },
-                            scripting: false,
+                            modules: false,
                             layoutConfig: false,
                             runtimeBehavior: false,
                             physicalTable: false
@@ -107,7 +107,7 @@ describe('EntityTypeService', () => {
                             relations: false,
                             actions: { enabled: true },
                             events: { enabled: true },
-                            scripting: false,
+                            modules: false,
                             layoutConfig: false,
                             runtimeBehavior: false,
                             physicalTable: false
@@ -155,7 +155,7 @@ describe('EntityTypeService', () => {
                             relations: false,
                             actions: { enabled: true },
                             events: { enabled: true },
-                            scripting: false,
+                            modules: false,
                             layoutConfig: false,
                             runtimeBehavior: false,
                             physicalTable: false
@@ -204,7 +204,7 @@ describe('EntityTypeService', () => {
                     relations: false,
                     actions: false,
                     events: false,
-                    scripting: false,
+                    modules: false,
                     layoutConfig: false,
                     runtimeBehavior: false,
                     physicalTable: false
@@ -382,7 +382,7 @@ describe('EntityTypeService', () => {
                             relations: false,
                             actions: { enabled: true },
                             events: { enabled: true },
-                            scripting: false,
+                            modules: false,
                             layoutConfig: false,
                             runtimeBehavior: false,
                             physicalTable: false
@@ -417,7 +417,7 @@ describe('EntityTypeService', () => {
                 relations: false,
                 actions: { enabled: true },
                 events: { enabled: true },
-                scripting: false,
+                modules: false,
                 layoutConfig: false,
                 runtimeBehavior: false,
                 physicalTable: false
@@ -457,7 +457,7 @@ describe('EntityTypeService', () => {
                             relations: false,
                             actions: { enabled: true },
                             events: { enabled: true },
-                            scripting: false,
+                            modules: false,
                             layoutConfig: false,
                             runtimeBehavior: false,
                             physicalTable: false
@@ -494,7 +494,7 @@ describe('EntityTypeService', () => {
                     relations: false,
                     actions: { enabled: true },
                     events: { enabled: true },
-                    scripting: false,
+                    modules: false,
                     layoutConfig: false,
                     runtimeBehavior: false,
                     physicalTable: false
@@ -544,7 +544,7 @@ describe('EntityTypeService', () => {
                     relations: false,
                     actions: { enabled: true },
                     events: { enabled: true },
-                    scripting: false,
+                    modules: false,
                     layoutConfig: false,
                     runtimeBehavior: false,
                     physicalTable: false
@@ -583,7 +583,7 @@ describe('EntityTypeService', () => {
                             relations: false,
                             actions: { enabled: true },
                             events: { enabled: true },
-                            scripting: false,
+                            modules: false,
                             layoutConfig: false,
                             runtimeBehavior: false,
                             physicalTable: false
@@ -618,7 +618,7 @@ describe('EntityTypeService', () => {
                 relations: false,
                 actions: { enabled: true },
                 events: { enabled: true },
-                scripting: false,
+                modules: false,
                 layoutConfig: false,
                 runtimeBehavior: false,
                 physicalTable: false
@@ -661,7 +661,7 @@ describe('EntityTypeService', () => {
                             relations: false,
                             actions: { enabled: true },
                             events: { enabled: true },
-                            scripting: false,
+                            modules: false,
                             layoutConfig: false,
                             runtimeBehavior: false,
                             physicalTable: false
@@ -704,7 +704,7 @@ describe('EntityTypeService', () => {
                 relations: false,
                 actions: { enabled: true },
                 events: { enabled: true },
-                scripting: false,
+                modules: false,
                 layoutConfig: false,
                 runtimeBehavior: false,
                 physicalTable: false
@@ -752,7 +752,7 @@ describe('EntityTypeService', () => {
                     relations: false,
                     actions: { enabled: true },
                     events: { enabled: true },
-                    scripting: false,
+                    modules: false,
                     layoutConfig: false,
                     runtimeBehavior: false,
                     physicalTable: false
@@ -793,7 +793,7 @@ describe('EntityTypeService', () => {
                     relations: false,
                     actions: { enabled: true },
                     events: { enabled: true },
-                    scripting: false,
+                    modules: false,
                     layoutConfig: false,
                     runtimeBehavior: false,
                     physicalTable: false
@@ -842,7 +842,7 @@ describe('EntityTypeService', () => {
                             relations: false,
                             actions: { enabled: true },
                             events: { enabled: true },
-                            scripting: false,
+                            modules: false,
                             layoutConfig: false,
                             runtimeBehavior: false,
                             physicalTable: false
@@ -883,7 +883,7 @@ describe('EntityTypeService', () => {
                             relations: false,
                             actions: { enabled: true },
                             events: { enabled: true },
-                            scripting: false,
+                            modules: false,
                             layoutConfig: false,
                             runtimeBehavior: false,
                             physicalTable: false
@@ -937,7 +937,7 @@ describe('EntityTypeService', () => {
                             relations: false,
                             actions: { enabled: true },
                             events: { enabled: true },
-                            scripting: false,
+                            modules: false,
                             layoutConfig: false,
                             runtimeBehavior: false,
                             physicalTable: false
@@ -977,7 +977,7 @@ describe('EntityTypeService', () => {
                             relations: false,
                             actions: { enabled: true },
                             events: { enabled: true },
-                            scripting: false,
+                            modules: false,
                             layoutConfig: false,
                             runtimeBehavior: false,
                             physicalTable: false
@@ -1032,7 +1032,7 @@ describe('EntityTypeService', () => {
                             relations: false,
                             actions: false,
                             events: false,
-                            scripting: false,
+                            modules: false,
                             layoutConfig: false,
                             runtimeBehavior: false,
                             physicalTable: false
@@ -1088,7 +1088,7 @@ describe('EntityTypeService', () => {
                             relations: false,
                             actions: false,
                             events: false,
-                            scripting: false,
+                            modules: false,
                             layoutConfig: false,
                             runtimeBehavior: false,
                             physicalTable: false
@@ -1128,7 +1128,7 @@ describe('EntityTypeService', () => {
                             relations: false,
                             actions: false,
                             events: false,
-                            scripting: false,
+                            modules: false,
                             layoutConfig: false,
                             runtimeBehavior: false,
                             physicalTable: false

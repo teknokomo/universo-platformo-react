@@ -5,7 +5,7 @@ description: Runtime-руководство по стандартным Ledger e
 # Руководство по Регистрам
 
 Регистры являются стандартными `ledger` entities для append-only операционных фактов.
-Они предназначены для отчётов, projections, posting и script-controlled audit trails.
+Они предназначены для отчётов, projections, posting и module-controlled audit trails.
 
 ![Рабочее пространство сущностей для стандартных типов метаданных](../.gitbook/assets/entities/entities-workspace.png)
 
@@ -22,12 +22,12 @@ description: Runtime-руководство по стандартным Ledger e
 
 Опубликованные приложения предоставляют операции Регистров через отдельные runtime routes:
 
-- `GET /api/v1/applications/:applicationId/runtime/ledgers`
-- `GET /api/v1/applications/:applicationId/runtime/ledgers/:ledgerId/facts`
-- `POST /api/v1/applications/:applicationId/runtime/ledgers/:ledgerId/facts`
-- `POST /api/v1/applications/:applicationId/runtime/ledgers/:ledgerId/facts/reverse`
-- `POST /api/v1/applications/:applicationId/runtime/ledgers/:ledgerId/query`
-- `GET /api/v1/applications/:applicationId/runtime/ledgers/:ledgerId/projections/:projectionCodename`
+-   `GET /api/v1/applications/:applicationId/runtime/ledgers`
+-   `GET /api/v1/applications/:applicationId/runtime/ledgers/:ledgerId/facts`
+-   `POST /api/v1/applications/:applicationId/runtime/ledgers/:ledgerId/facts`
+-   `POST /api/v1/applications/:applicationId/runtime/ledgers/:ledgerId/facts/reverse`
+-   `POST /api/v1/applications/:applicationId/runtime/ledgers/:ledgerId/query`
+-   `GET /api/v1/applications/:applicationId/runtime/ledgers/:ledgerId/projections/:projectionCodename`
 
 Регистры намеренно исключены из generic runtime row CRUD.
 Это хранилища фактов, а не редактируемые списки записей.
@@ -36,9 +36,9 @@ description: Runtime-руководство по стандартным Ledger e
 
 Ledger configuration управляет тем, кто может добавлять или сторнировать факты:
 
-- `manual` разрешает прямые авторизованные API или script calls.
-- `registrar` разрешает platform registrar flows, например Object posting.
-- `mixed` разрешает оба режима, если у вызывающего есть нужные permission и capability.
+-   `manual` разрешает прямые авторизованные API или module calls.
+-   `registrar` разрешает platform registrar flows, например Object posting.
+-   `mixed` разрешает оба режима, если у вызывающего есть нужные permission и capability.
 
 Registrar-only Регистры также могут ограничивать разрешённые registrar kinds.
 Object posting записывает факты с registrar kind `object`.

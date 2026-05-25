@@ -26,7 +26,7 @@ const request = require('supertest') as typeof import('supertest')
 import { createMockDbExecutor, createMockDataStore } from '../utils/dbMocks'
 import { createApplicationsRoutes } from '../../routes/applicationsRoutes'
 import { ROLE_PERMISSIONS } from '../../routes/guards'
-import { RuntimeScriptsService } from '../../services/runtimeScriptsService'
+import { RuntimeModulesService } from '../../services/runtimeModulesService'
 import { buildRuntimeRecordAccessClause, type RuntimeObjectCollectionAttr } from '../../controllers/runtimeRowsController'
 
 describe('Applications Routes', () => {
@@ -51,7 +51,7 @@ describe('Applications Routes', () => {
 
     const buildRuntimeSchemaName = (applicationId: string) => `app_${applicationId.replace(/-/g, '')}`
 
-    const runtimeScriptsTableFragment = (schemaName: string) => `FROM "${schemaName}"."_app_scripts"`
+    const runtimeModulesTableFragment = (schemaName: string) => `FROM "${schemaName}"."_app_modules"`
 
     const buildOwnerOrSharedRuntimeConfig = (sharedObjectCodename = 'ContentAccessEntries') => ({
         runtimeLibrary: {
@@ -2084,8 +2084,8 @@ describe('Applications Routes', () => {
         })
     })
 
-    describe('GET /applications/:applicationId/runtime/scripts', () => {
-        it('filters runtime scripts by attachment and strips bundle bodies from the list surface', async () => {
+    describe('GET /applications/:applicationId/runtime/modules', () => {
+        it('filters runtime modules by attachment and strips bundle bodies from the list surface', async () => {
             const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334479'
             const runtimeSchemaName = buildRuntimeSchemaName(runtimeApplicationId)
             const runtimeLinkedCollectionId = '018f8a78-7b8f-7c1d-a111-22223333447a'
@@ -2108,13 +2108,13 @@ describe('Applications Routes', () => {
             const originalManagerQueryImpl = (dataSource.manager.query as jest.Mock).getMockImplementation()
             const runtimeQueryImpl = async (sql: string, params?: unknown[]) => {
                 if (sql.includes('SELECT to_regclass($1) AS table_name')) {
-                    return [{ table_name: `${runtimeSchemaName}._app_scripts` }]
+                    return [{ table_name: `${runtimeSchemaName}._app_modules` }]
                 }
 
-                if (sql.includes(runtimeScriptsTableFragment(runtimeSchemaName))) {
+                if (sql.includes(runtimeModulesTableFragment(runtimeSchemaName))) {
                     return [
                         {
-                            id: 'script-1',
+                            id: 'module-1',
                             codename: 'quiz-widget',
                             presentation: {
                                 name: {
@@ -2128,7 +2128,7 @@ describe('Applications Routes', () => {
                             source_kind: 'embedded',
                             sdk_api_version: '1.0.0',
                             manifest: {
-                                className: 'QuizWidgetScript',
+                                className: 'QuizWidgetModule',
                                 sdkApiVersion: '1.0.0',
                                 moduleRole: 'widget',
                                 sourceKind: 'embedded',
@@ -2139,10 +2139,10 @@ describe('Applications Routes', () => {
                             client_bundle: 'module.exports = class ClientWidget {}',
                             checksum: 'object-checksum',
                             is_active: true,
-                            config: {}
+                            config: { apiKey: 'secret-api-key', token: 'secret-token' }
                         },
                         {
-                            id: 'script-2',
+                            id: 'module-2',
                             codename: 'metahub-widget',
                             presentation: {
                                 name: {
@@ -2156,7 +2156,7 @@ describe('Applications Routes', () => {
                             source_kind: 'embedded',
                             sdk_api_version: '1.0.0',
                             manifest: {
-                                className: 'MetahubWidgetScript',
+                                className: 'MetahubWidgetModule',
                                 sdkApiVersion: '1.0.0',
                                 moduleRole: 'widget',
                                 sourceKind: 'embedded',
@@ -2170,7 +2170,7 @@ describe('Applications Routes', () => {
                             config: {}
                         },
                         {
-                            id: 'script-3',
+                            id: 'module-3',
                             codename: 'server-only-widget',
                             presentation: {
                                 name: {
@@ -2184,7 +2184,7 @@ describe('Applications Routes', () => {
                             source_kind: 'embedded',
                             sdk_api_version: '1.0.0',
                             manifest: {
-                                className: 'ServerOnlyWidgetScript',
+                                className: 'ServerOnlyWidgetModule',
                                 sdkApiVersion: '1.0.0',
                                 moduleRole: 'widget',
                                 sourceKind: 'embedded',
@@ -2198,7 +2198,7 @@ describe('Applications Routes', () => {
                             config: {}
                         },
                         {
-                            id: 'script-4',
+                            id: 'module-4',
                             codename: 'other-object-widget',
                             presentation: {
                                 name: {
@@ -2212,7 +2212,7 @@ describe('Applications Routes', () => {
                             source_kind: 'embedded',
                             sdk_api_version: '1.0.0',
                             manifest: {
-                                className: 'OtherCatalogWidgetScript',
+                                className: 'OtherObjectWidgetModule',
                                 sdkApiVersion: '1.0.0',
                                 moduleRole: 'widget',
                                 sourceKind: 'embedded',
@@ -2233,13 +2233,13 @@ describe('Applications Routes', () => {
 
             const runtimeManagerQueryImpl = async (sql: string, params?: unknown[]) => {
                 if (sql.includes('SELECT to_regclass($1) AS table_name')) {
-                    return [{ table_name: `${runtimeSchemaName}._app_scripts` }]
+                    return [{ table_name: `${runtimeSchemaName}._app_modules` }]
                 }
 
-                if (sql.includes(runtimeScriptsTableFragment(runtimeSchemaName))) {
+                if (sql.includes(runtimeModulesTableFragment(runtimeSchemaName))) {
                     return [
                         {
-                            id: 'script-server-only',
+                            id: 'module-server-only',
                             codename: 'server-only-widget',
                             presentation: {
                                 name: {
@@ -2253,7 +2253,7 @@ describe('Applications Routes', () => {
                             source_kind: 'embedded',
                             sdk_api_version: '1.0.0',
                             manifest: {
-                                className: 'ServerOnlyWidgetScript',
+                                className: 'ServerOnlyWidgetModule',
                                 sdkApiVersion: '1.0.0',
                                 moduleRole: 'module',
                                 sourceKind: 'embedded',
@@ -2277,24 +2277,27 @@ describe('Applications Routes', () => {
 
             const app = buildApp(dataSource)
             const response = await request(app)
-                .get(`/applications/${runtimeApplicationId}/runtime/scripts`)
+                .get(`/applications/${runtimeApplicationId}/runtime/modules`)
                 .query({ attachedToKind: 'object', attachedToId: runtimeLinkedCollectionId })
                 .expect(200)
 
             expect(response.body.items).toEqual([
                 expect.objectContaining({
-                    id: 'script-1',
+                    id: 'module-1',
                     codename: 'quiz-widget',
                     attachedToKind: 'object',
                     attachedToId: runtimeLinkedCollectionId,
-                    clientBundle: null,
-                    serverBundle: null
+                    config: {}
                 })
             ])
+            expect(response.body.items[0]).not.toHaveProperty('clientBundle')
+            expect(response.body.items[0]).not.toHaveProperty('serverBundle')
+            expect(JSON.stringify(response.body)).not.toContain('module.exports')
+            expect(JSON.stringify(response.body)).not.toContain('secret-api-key')
         })
     })
 
-    describe('GET /applications/:applicationId/runtime/scripts/:scriptId/client', () => {
+    describe('GET /applications/:applicationId/runtime/modules/:moduleId/client', () => {
         it('returns the client bundle body with cache validators', async () => {
             const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334480'
             const runtimeSchemaName = buildRuntimeSchemaName(runtimeApplicationId)
@@ -2312,13 +2315,13 @@ describe('Applications Routes', () => {
                 role: 'member'
             })
 
-            jest.spyOn(RuntimeScriptsService.prototype, 'getClientScriptBundle').mockResolvedValue({
+            jest.spyOn(RuntimeModulesService.prototype, 'getClientModuleBundle').mockResolvedValue({
                 bundle: 'export default class RuntimeQuizWidget {}',
                 checksum: 'bundle-checksum'
             })
 
             const app = buildApp(dataSource)
-            const response = await request(app).get(`/applications/${runtimeApplicationId}/runtime/scripts/script-1/client`).expect(200)
+            const response = await request(app).get(`/applications/${runtimeApplicationId}/runtime/modules/module-1/client`).expect(200)
 
             expect(response.text).toBe('export default class RuntimeQuizWidget {}')
             expect(response.headers['content-type']).toContain('application/javascript')
@@ -2344,14 +2347,14 @@ describe('Applications Routes', () => {
                 role: 'member'
             })
 
-            jest.spyOn(RuntimeScriptsService.prototype, 'getClientScriptBundle').mockResolvedValue({
+            jest.spyOn(RuntimeModulesService.prototype, 'getClientModuleBundle').mockResolvedValue({
                 bundle: 'export default class RuntimeQuizWidget {}',
                 checksum: 'bundle-checksum-304'
             })
 
             const app = buildApp(dataSource)
             const response = await request(app)
-                .get(`/applications/${runtimeApplicationId}/runtime/scripts/script-2/client`)
+                .get(`/applications/${runtimeApplicationId}/runtime/modules/module-2/client`)
                 .set('If-None-Match', '"bundle-checksum-304"')
                 .expect(304)
 
@@ -2360,16 +2363,16 @@ describe('Applications Routes', () => {
         })
     })
 
-    describe('POST /applications/:applicationId/runtime/scripts/:scriptId/call', () => {
-        const buildRuntimeScriptsRouteDataSource = (applicationId: string, scriptRow: Record<string, unknown>) => {
+    describe('POST /applications/:applicationId/runtime/modules/:moduleId/call', () => {
+        const buildRuntimeModulesRouteDataSource = (applicationId: string, moduleRow: Record<string, unknown>) => {
             const runtimeSchemaName = buildRuntimeSchemaName(applicationId)
             const managerQuery = jest.fn(async (sql: string) => {
                 if (sql.includes('SELECT to_regclass($1) AS table_name')) {
-                    return [{ table_name: `${runtimeSchemaName}._app_scripts` }]
+                    return [{ table_name: `${runtimeSchemaName}._app_modules` }]
                 }
 
-                if (sql.includes(runtimeScriptsTableFragment(runtimeSchemaName))) {
-                    return [scriptRow]
+                if (sql.includes(runtimeModulesTableFragment(runtimeSchemaName))) {
+                    return [moduleRow]
                 }
 
                 return []
@@ -2428,26 +2431,26 @@ describe('Applications Routes', () => {
                 role: 'member'
             })
 
-            jest.spyOn(RuntimeScriptsService.prototype, 'callServerMethod').mockRejectedValue(
-                new Error('Script capability "rpc.client" is not enabled for this module')
+            jest.spyOn(RuntimeModulesService.prototype, 'callServerMethod').mockRejectedValue(
+                new Error('Module capability "rpc.client" is not enabled for this module')
             )
 
             const app = buildApp(dataSource)
             const response = await request(app)
-                .post(`/applications/${runtimeApplicationId}/runtime/scripts/script-3/call`)
+                .post(`/applications/${runtimeApplicationId}/runtime/modules/module-3/call`)
                 .send({ methodName: 'submit', args: [] })
                 .expect(403)
 
             expect(response.body).toEqual({
-                error: 'Script capability "rpc.client" is not enabled for this module'
+                error: 'Module capability "rpc.client" is not enabled for this module'
             })
         })
 
-        it('rejects real runtime RPC calls when the script does not declare rpc.client', async () => {
+        it('rejects real runtime RPC calls when the module does not declare rpc.client', async () => {
             const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334483'
             const runtimeLinkedCollectionId = '018f8a78-7b8f-7c1d-a111-222233334483'
-            const dataSource = buildRuntimeScriptsRouteDataSource(runtimeApplicationId, {
-                id: 'script-server-only',
+            const dataSource = buildRuntimeModulesRouteDataSource(runtimeApplicationId, {
+                id: 'module-server-only',
                 codename: 'server-only-widget',
                 presentation: {
                     name: {
@@ -2461,7 +2464,7 @@ describe('Applications Routes', () => {
                 source_kind: 'embedded',
                 sdk_api_version: '1.0.0',
                 manifest: {
-                    className: 'ServerOnlyWidgetScript',
+                    className: 'ServerOnlyWidgetModule',
                     sdkApiVersion: '1.0.0',
                     moduleRole: 'module',
                     sourceKind: 'embedded',
@@ -2477,20 +2480,20 @@ describe('Applications Routes', () => {
 
             const app = buildApp(dataSource)
             const response = await request(app)
-                .post(`/applications/${runtimeApplicationId}/runtime/scripts/script-server-only/call`)
+                .post(`/applications/${runtimeApplicationId}/runtime/modules/module-server-only/call`)
                 .send({ methodName: 'submit', args: [] })
                 .expect(403)
 
             expect(response.body).toEqual({
-                error: 'Script capability "rpc.client" is not enabled for this module'
+                error: 'Module capability "rpc.client" is not enabled for this module'
             })
         })
 
         it('rejects lifecycle handlers on the public runtime RPC route', async () => {
             const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-222233334484'
             const runtimeLinkedCollectionId = '018f8a78-7b8f-7c1d-a111-222233334484'
-            const dataSource = buildRuntimeScriptsRouteDataSource(runtimeApplicationId, {
-                id: 'script-lifecycle',
+            const dataSource = buildRuntimeModulesRouteDataSource(runtimeApplicationId, {
+                id: 'module-lifecycle',
                 codename: 'object-lifecycle',
                 presentation: {
                     name: {
@@ -2504,14 +2507,14 @@ describe('Applications Routes', () => {
                 source_kind: 'embedded',
                 sdk_api_version: '1.0.0',
                 manifest: {
-                    className: 'CatalogLifecycleScript',
+                    className: 'CatalogLifecycleModule',
                     sdkApiVersion: '1.0.0',
                     moduleRole: 'lifecycle',
                     sourceKind: 'embedded',
                     capabilities: ['lifecycle'],
                     methods: [{ name: 'afterCreate', target: 'server', eventName: 'afterCreate' }]
                 },
-                server_bundle: 'module.exports = class LifecycleScript {}',
+                server_bundle: 'module.exports = class LifecycleModule {}',
                 client_bundle: null,
                 checksum: 'lifecycle-checksum',
                 is_active: true,
@@ -2520,12 +2523,12 @@ describe('Applications Routes', () => {
 
             const app = buildApp(dataSource)
             const response = await request(app)
-                .post(`/applications/${runtimeApplicationId}/runtime/scripts/script-lifecycle/call`)
+                .post(`/applications/${runtimeApplicationId}/runtime/modules/module-lifecycle/call`)
                 .send({ methodName: 'afterCreate', args: [] })
                 .expect(403)
 
             expect(response.body).toEqual({
-                error: 'Runtime script lifecycle handlers are not callable through public RPC'
+                error: 'Runtime module lifecycle handlers are not callable through public RPC'
             })
         })
     })
@@ -5638,7 +5641,7 @@ describe('Applications Routes', () => {
 
         it('uses physical DELETE when lifecycle contract is hard delete', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
-            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeScriptsService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
+            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
 
             applicationUserRepo.findOne.mockResolvedValue({
                 userId: 'test-user-id',
@@ -5705,7 +5708,7 @@ describe('Applications Routes', () => {
 
         it('applies expected-version predicate to hard-delete runtime mutations', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
-            jest.spyOn(RuntimeScriptsService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
+            jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
 
             applicationUserRepo.findOne.mockResolvedValue({
                 userId: 'test-user-id',
@@ -5764,7 +5767,7 @@ describe('Applications Routes', () => {
             const sourceQueries: Array<{ sql: string; params?: unknown[] }> = []
             const mutationQueries: Array<{ sql: string; params?: unknown[] }> = []
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
-            jest.spyOn(RuntimeScriptsService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
+            jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
 
             applicationUserRepo.findOne.mockResolvedValue({
                 userId: 'test-user-id',
@@ -5909,7 +5912,7 @@ describe('Applications Routes', () => {
 
         it('rejects stale-version runtime delete before mutating the runtime table', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
-            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeScriptsService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
+            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
 
             applicationUserRepo.findOne.mockResolvedValue({
                 userId: 'test-user-id',
@@ -5966,7 +5969,7 @@ describe('Applications Routes', () => {
 
         it('applies expected-version predicate to runtime delete mutations', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
-            jest.spyOn(RuntimeScriptsService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
+            jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
 
             applicationUserRepo.findOne.mockResolvedValue({
                 userId: 'test-user-id',
@@ -6022,7 +6025,7 @@ describe('Applications Routes', () => {
 
         it('rejects runtime delete when version changes between read and mutation', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
-            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeScriptsService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
+            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
 
             applicationUserRepo.findOne.mockResolvedValue({
                 userId: 'test-user-id',
@@ -6087,7 +6090,7 @@ describe('Applications Routes', () => {
 
         it('restores a soft-deleted runtime row with optimistic concurrency', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
-            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeScriptsService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
+            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
 
             applicationUserRepo.findOne.mockResolvedValue({
                 userId: 'test-user-id',
@@ -6160,7 +6163,7 @@ describe('Applications Routes', () => {
             const runtimeSchemaName = buildRuntimeSchemaName(runtimeApplicationId)
             const runtimeSchemaIdent = `"${runtimeSchemaName}"`
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
-            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeScriptsService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
+            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
             let updateAttempted = false
             let limitLockAttempted = false
 
@@ -6257,7 +6260,7 @@ describe('Applications Routes', () => {
             const sourceQueries: Array<{ sql: string; params?: unknown[] }> = []
             const mutationQueries: Array<{ sql: string; params?: unknown[] }> = []
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
-            jest.spyOn(RuntimeScriptsService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
+            jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
 
             applicationUserRepo.findOne.mockResolvedValue({
                 userId: 'test-user-id',
@@ -6581,7 +6584,7 @@ describe('Applications Routes', () => {
 
         it('rejects stale-version runtime restore before mutating the runtime table', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
-            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeScriptsService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
+            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
 
             applicationUserRepo.findOne.mockResolvedValue({
                 userId: 'test-user-id',
@@ -6638,7 +6641,7 @@ describe('Applications Routes', () => {
 
         it('rejects runtime restore when version changes between read and mutation', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
-            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeScriptsService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
+            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
 
             applicationUserRepo.findOne.mockResolvedValue({
                 userId: 'test-user-id',
@@ -8170,7 +8173,7 @@ describe('Applications Routes', () => {
         it('dispatches beforeCopy inside the transaction and afterCopy after commit', async () => {
             const { dataSource, applicationRepo, applicationUserRepo, txExecutor } = buildDataSource()
             const dispatchLifecycleEventSpy = jest
-                .spyOn(RuntimeScriptsService.prototype, 'dispatchLifecycleEvent')
+                .spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent')
                 .mockResolvedValue(undefined)
 
             applicationUserRepo.findOne.mockResolvedValue({
@@ -9439,7 +9442,7 @@ describe('Applications Routes', () => {
 
         it('posts draft records with atomic numbering and posting metadata', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
-            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeScriptsService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
+            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             mockRecordCatalogQueries(dataSource, {
@@ -9496,7 +9499,7 @@ describe('Applications Routes', () => {
             const sourceQueries: Array<{ sql: string; params?: unknown[] }> = []
             const updateQueries: Array<{ sql: string; params?: unknown[] }> = []
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
-            jest.spyOn(RuntimeScriptsService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
+            jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'member', false, {
                 rolePolicies: {
@@ -9594,7 +9597,7 @@ describe('Applications Routes', () => {
         it('appends declarative posting movements before afterPost runs', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
             const dispatchLifecycleEventSpy = jest
-                .spyOn(RuntimeScriptsService.prototype, 'dispatchLifecycleEvent')
+                .spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent')
                 .mockImplementation(async (params) =>
                     params.payload.eventName === 'beforePost'
                         ? [
@@ -9719,7 +9722,7 @@ describe('Applications Routes', () => {
 
         it('reverses persisted posting movements before unposting a posted record', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
-            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeScriptsService.prototype, 'dispatchLifecycleEvent').mockResolvedValue([])
+            const dispatchLifecycleEventSpy = jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue([])
             const sourceFactId = '018f8a78-7b8f-7c1d-a111-222233334579'
             const reversedFactId = '018f8a78-7b8f-7c1d-a111-222233334580'
 
@@ -9870,7 +9873,7 @@ describe('Applications Routes', () => {
         it('fails closed when declarative posting movements contain invalid ledger fields', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
             const dispatchLifecycleEventSpy = jest
-                .spyOn(RuntimeScriptsService.prototype, 'dispatchLifecycleEvent')
+                .spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent')
                 .mockImplementation(async (params) =>
                     params.payload.eventName === 'beforePost'
                         ? [

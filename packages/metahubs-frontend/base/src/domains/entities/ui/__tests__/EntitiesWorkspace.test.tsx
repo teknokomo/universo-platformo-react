@@ -345,7 +345,7 @@ describe('EntitiesWorkspace', () => {
                             dataSchema: { enabled: true },
                             treeAssignment: { enabled: true },
                             layoutConfig: { enabled: true },
-                            scripting: { enabled: true }
+                            modules: { enabled: true }
                         },
                         updatedAt: '2026-04-09T12:00:00.000Z'
                     }

@@ -18,7 +18,7 @@ import {
     QUIZ_CENTERED_LAYOUT_CONFIG,
     QUIZ_FIXTURE_FILENAME,
     QUIZ_REMOVED_LAYOUT_WIDGET_KEYS,
-    QUIZ_SCRIPT_CODENAME,
+    QUIZ_MODULE_CODENAME,
     QUIZ_WIDGET_SOURCE,
     assertQuizFixtureEnvelopeContract,
     buildQuizLiveMetahubCodename,
@@ -141,10 +141,10 @@ test.describe('Metahubs Quiz App Export', () => {
         await applyCenteredQuizLayout(api, metahub.id, layoutId)
 
         await expectJsonResponse(
-            await sendWithCsrf(api, 'POST', `/api/v1/metahub/${metahub.id}/scripts`, {
-                codename: QUIZ_SCRIPT_CODENAME,
+            await sendWithCsrf(api, 'POST', `/api/v1/metahub/${metahub.id}/modules`, {
+                codename: QUIZ_MODULE_CODENAME,
                 name: 'Space quiz widget',
-                description: 'Canonical Space Quiz widget script for snapshot export',
+                description: 'Canonical Space Quiz widget module for snapshot export',
                 attachedToKind: 'metahub',
                 attachedToId: null,
                 moduleRole: 'widget',
@@ -153,7 +153,7 @@ test.describe('Metahubs Quiz App Export', () => {
                 sourceCode: QUIZ_WIDGET_SOURCE,
                 isActive: true
             }),
-            'Creating quiz widget script'
+            'Creating quiz widget module'
         )
 
         await expectJsonResponse(
@@ -162,7 +162,7 @@ test.describe('Metahubs Quiz App Export', () => {
                 widgetKey: 'quizWidget',
                 config: {
                     attachedToKind: 'metahub',
-                    scriptCodename: QUIZ_SCRIPT_CODENAME
+                    moduleCodename: QUIZ_MODULE_CODENAME
                 }
             }),
             'Assigning quiz widget to layout'
@@ -176,7 +176,7 @@ test.describe('Metahubs Quiz App Export', () => {
                 const response = await listLayoutZoneWidgets(api, metahub.id, layoutId)
                 const items = response?.items ?? []
                 const quizWidget = items.find(
-                    (item) => item.widgetKey === 'quizWidget' && item.config?.scriptCodename === QUIZ_SCRIPT_CODENAME
+                    (item) => item.widgetKey === 'quizWidget' && item.config?.moduleCodename === QUIZ_MODULE_CODENAME
                 )
                 const removableWidgetKeys = new Set<string>(QUIZ_REMOVED_LAYOUT_WIDGET_KEYS)
                 const hasLegacyWidgets = items.some((item) => removableWidgetKeys.has(String(item?.widgetKey ?? '')))

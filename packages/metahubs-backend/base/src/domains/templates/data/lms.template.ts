@@ -12,7 +12,7 @@ type LmsWorkflowActionOptions = {
     statusFieldCodename?: string
     requiredCapabilities: string[]
     postingCommand?: WorkflowAction['postingCommand']
-    scriptCodename?: string
+    moduleCodename?: string
     confirmation?: {
         titleEn: string
         titleRu: string
@@ -34,7 +34,7 @@ const buildLmsWorkflowAction = ({
     statusFieldCodename = 'Status',
     requiredCapabilities,
     postingCommand,
-    scriptCodename,
+    moduleCodename,
     confirmation
 }: LmsWorkflowActionOptions): WorkflowAction => ({
     codename,
@@ -44,7 +44,7 @@ const buildLmsWorkflowAction = ({
     statusFieldCodename,
     requiredCapabilities,
     ...(postingCommand ? { postingCommand } : {}),
-    ...(scriptCodename ? { scriptCodename } : {}),
+    ...(moduleCodename ? { moduleCodename } : {}),
     ...(confirmation
         ? {
               confirmation: {
@@ -186,7 +186,7 @@ const LMS_CERTIFICATE_ISSUE_WORKFLOW_ACTIONS: WorkflowAction[] = [
         to: 'Issued',
         requiredCapabilities: ['certificate.issue'],
         postingCommand: 'post',
-        scriptCodename: 'CertificateIssuePostingScript',
+        moduleCodename: 'CertificateIssuePostingModule',
         confirmation: {
             titleEn: 'Issue certificate',
             titleRu: 'Выдать сертификат',
@@ -204,7 +204,7 @@ const LMS_CERTIFICATE_ISSUE_WORKFLOW_ACTIONS: WorkflowAction[] = [
         to: 'Revoked',
         requiredCapabilities: ['certificate.revoke'],
         postingCommand: 'post',
-        scriptCodename: 'CertificateIssuePostingScript',
+        moduleCodename: 'CertificateIssuePostingModule',
         confirmation: {
             titleEn: 'Revoke certificate',
             titleRu: 'Отозвать сертификат',
@@ -281,7 +281,7 @@ const LMS_POINT_TRANSACTION_WORKFLOW_ACTIONS: WorkflowAction[] = [
         to: 'Approved',
         requiredCapabilities: ['gamification.points.adjust'],
         postingCommand: 'post',
-        scriptCodename: 'PointTransactionPostingScript',
+        moduleCodename: 'PointTransactionPostingModule',
         confirmation: {
             titleEn: 'Approve point adjustment',
             titleRu: 'Подтвердить изменение баллов',
@@ -299,7 +299,7 @@ const LMS_POINT_TRANSACTION_WORKFLOW_ACTIONS: WorkflowAction[] = [
         to: 'Reversed',
         requiredCapabilities: ['gamification.points.adjust'],
         postingCommand: 'void',
-        scriptCodename: 'PointTransactionPostingScript',
+        moduleCodename: 'PointTransactionPostingModule',
         confirmation: {
             titleEn: 'Reverse point adjustment',
             titleRu: 'Сторнировать изменение баллов',
@@ -1997,7 +1997,7 @@ const buildTransactionalObjectConfig = ({
     ...(workflowActions.length > 0 ? { workflowActions } : {})
 })
 
-const LMS_ENROLLMENT_POSTING_SCRIPT_SOURCE = `import { ExtensionScript, OnEvent } from '@universo/extension-sdk'
+const LMS_ENROLLMENT_POSTING_MODULE_SOURCE = `import { ExtensionModule, OnEvent } from '@universo/extension-sdk'
 
 const readRecordValue = (record, ...keys) => {
     if (!record || typeof record !== 'object') {
@@ -2018,7 +2018,7 @@ const toNumber = (value, fallback = 0) => {
     return Number.isFinite(numeric) ? numeric : fallback
 }
 
-export default class EnrollmentPostingScript extends ExtensionScript {
+export default class EnrollmentPostingModule extends ExtensionModule {
     @OnEvent('beforePost')
     async buildProgressMovement(payload) {
         const row = payload?.previousRow ?? {}
@@ -2056,7 +2056,7 @@ export default class EnrollmentPostingScript extends ExtensionScript {
 }
 `
 
-const LMS_QUIZ_ATTEMPT_POSTING_SCRIPT_SOURCE = `import { ExtensionScript, OnEvent } from '@universo/extension-sdk'
+const LMS_QUIZ_ATTEMPT_POSTING_MODULE_SOURCE = `import { ExtensionModule, OnEvent } from '@universo/extension-sdk'
 
 const readRecordValue = (record, ...keys) => {
     if (!record || typeof record !== 'object') {
@@ -2077,7 +2077,7 @@ const toNumber = (value, fallback = 0) => {
     return Number.isFinite(numeric) ? numeric : fallback
 }
 
-export default class QuizAttemptPostingScript extends ExtensionScript {
+export default class QuizAttemptPostingModule extends ExtensionModule {
     @OnEvent('beforePost')
     async buildQuizAttemptMovements(payload) {
         const row = payload?.previousRow ?? {}
@@ -2128,7 +2128,7 @@ export default class QuizAttemptPostingScript extends ExtensionScript {
 }
 `
 
-const LMS_CONTENT_COMPLETION_POSTING_SCRIPT_SOURCE = `import { ExtensionScript, OnEvent } from '@universo/extension-sdk'
+const LMS_CONTENT_COMPLETION_POSTING_MODULE_SOURCE = `import { ExtensionModule, OnEvent } from '@universo/extension-sdk'
 
 const readRecordValue = (record, ...keys) => {
     if (!record || typeof record !== 'object') {
@@ -2149,7 +2149,7 @@ const toNumber = (value, fallback = 0) => {
     return Number.isFinite(numeric) ? numeric : fallback
 }
 
-export default class ContentCompletionPostingScript extends ExtensionScript {
+export default class ContentCompletionPostingModule extends ExtensionModule {
     @OnEvent('beforePost')
     async buildContentProgressMovement(payload) {
         const row = payload?.previousRow ?? {}
@@ -2184,7 +2184,7 @@ export default class ContentCompletionPostingScript extends ExtensionScript {
 }
 `
 
-const LMS_CERTIFICATE_ISSUE_POSTING_SCRIPT_SOURCE = `import { ExtensionScript, OnEvent } from '@universo/extension-sdk'
+const LMS_CERTIFICATE_ISSUE_POSTING_MODULE_SOURCE = `import { ExtensionModule, OnEvent } from '@universo/extension-sdk'
 
 const readRecordValue = (record, ...keys) => {
     if (!record || typeof record !== 'object') {
@@ -2200,7 +2200,7 @@ const readRecordValue = (record, ...keys) => {
     return null
 }
 
-export default class CertificateIssuePostingScript extends ExtensionScript {
+export default class CertificateIssuePostingModule extends ExtensionModule {
     @OnEvent('beforePost')
     async buildCertificateMovements(payload) {
         const row = payload?.previousRow ?? {}
@@ -2253,7 +2253,7 @@ export default class CertificateIssuePostingScript extends ExtensionScript {
 }
 `
 
-const LMS_POINT_TRANSACTION_POSTING_SCRIPT_SOURCE = `import { ExtensionScript, OnEvent } from '@universo/extension-sdk'
+const LMS_POINT_TRANSACTION_POSTING_MODULE_SOURCE = `import { ExtensionModule, OnEvent } from '@universo/extension-sdk'
 
 const readRecordValue = (record, ...keys) => {
     if (!record || typeof record !== 'object') {
@@ -2274,7 +2274,7 @@ const toNumber = (value, fallback = 0) => {
     return Number.isFinite(numeric) ? numeric : fallback
 }
 
-export default class PointTransactionPostingScript extends ExtensionScript {
+export default class PointTransactionPostingModule extends ExtensionModule {
     @OnEvent('beforePost')
     async buildPointMovements(payload) {
         const row = payload?.previousRow ?? {}
@@ -5056,7 +5056,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         posting: {
                             mode: 'manual',
                             targetLedgers: ['ProgressLedger'],
-                            scriptCodename: 'EnrollmentPostingScript'
+                            moduleCodename: 'EnrollmentPostingModule'
                         },
                         immutability: 'posted'
                     },
@@ -5943,8 +5943,8 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 kind: 'object',
                 name: vlc('Notification Rules', 'Правила уведомлений'),
                 description: vlc(
-                    'Generic notification rules triggered by scripts and workflow events.',
-                    'Универсальные правила уведомлений от скриптов и workflow-событий.'
+                    'Generic notification rules triggered by modules and workflow events.',
+                    'Универсальные правила уведомлений от модулей и workflow-событий.'
                 ),
                 components: [
                     {
@@ -5977,8 +5977,8 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 kind: 'object',
                 name: vlc('Notification Outbox', 'Очередь уведомлений'),
                 description: vlc(
-                    'Script-generated notification events awaiting delivery.',
-                    'События уведомлений от скриптов, ожидающие доставки.'
+                    'Module-generated notification events awaiting delivery.',
+                    'События уведомлений от модулей, ожидающие доставки.'
                 ),
                 config: buildTransactionalObjectConfig({
                     prefix: 'NTF-',
@@ -6640,10 +6640,10 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 { codename: 'Gamification', name: vlc('Gamification', 'Геймификация'), sortOrder: 4 }
             ]
         },
-        scripts: [
+        modules: [
             {
-                codename: 'EnrollmentPostingScript',
-                name: vlc('Enrollment Posting Script', 'Скрипт проведения записи'),
+                codename: 'EnrollmentPostingModule',
+                name: vlc('Enrollment Posting Module', 'Модуль проведения записи'),
                 description: vlc(
                     'Posts enrollment records into the generic Progress Ledger.',
                     'Проводит записи на обучение в универсальный регистр прогресса.'
@@ -6654,11 +6654,11 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 sourceKind: 'embedded',
                 sdkApiVersion: '1.0.0',
                 capabilities: ['records.read', 'metadata.read', 'lifecycle', 'posting', 'ledger.write'],
-                sourceCode: LMS_ENROLLMENT_POSTING_SCRIPT_SOURCE
+                sourceCode: LMS_ENROLLMENT_POSTING_MODULE_SOURCE
             },
             {
-                codename: 'QuizAttemptPostingScript',
-                name: vlc('Quiz Attempt Posting Script', 'Скрипт проведения попытки теста'),
+                codename: 'QuizAttemptPostingModule',
+                name: vlc('Quiz Attempt Posting Module', 'Модуль проведения попытки теста'),
                 description: vlc(
                     'Posts quiz attempt records into score and learning activity Ledgers.',
                     'Проводит попытки тестов в регистры оценок и учебной активности.'
@@ -6669,11 +6669,11 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 sourceKind: 'embedded',
                 sdkApiVersion: '1.0.0',
                 capabilities: ['records.read', 'metadata.read', 'lifecycle', 'posting', 'ledger.write'],
-                sourceCode: LMS_QUIZ_ATTEMPT_POSTING_SCRIPT_SOURCE
+                sourceCode: LMS_QUIZ_ATTEMPT_POSTING_MODULE_SOURCE
             },
             {
-                codename: 'ContentCompletionPostingScript',
-                name: vlc('Content Completion Posting Script', 'Скрипт проведения завершения контента'),
+                codename: 'ContentCompletionPostingModule',
+                name: vlc('Content Completion Posting Module', 'Модуль проведения завершения контента'),
                 description: vlc(
                     'Posts content completion progress records into the progress Ledger.',
                     'Проводит записи прогресса контента в регистр прогресса.'
@@ -6684,11 +6684,11 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 sourceKind: 'embedded',
                 sdkApiVersion: '1.0.0',
                 capabilities: ['records.read', 'metadata.read', 'lifecycle', 'posting', 'ledger.write'],
-                sourceCode: LMS_CONTENT_COMPLETION_POSTING_SCRIPT_SOURCE
+                sourceCode: LMS_CONTENT_COMPLETION_POSTING_MODULE_SOURCE
             },
             {
-                codename: 'CertificateIssuePostingScript',
-                name: vlc('Certificate Issue Posting Script', 'Скрипт проведения выдачи сертификата'),
+                codename: 'CertificateIssuePostingModule',
+                name: vlc('Certificate Issue Posting Module', 'Модуль проведения выдачи сертификата'),
                 description: vlc(
                     'Posts certificate issue records into certificate and notification Ledgers.',
                     'Проводит выдачи сертификатов в регистры сертификатов и уведомлений.'
@@ -6699,11 +6699,11 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 sourceKind: 'embedded',
                 sdkApiVersion: '1.0.0',
                 capabilities: ['records.read', 'metadata.read', 'lifecycle', 'posting', 'ledger.write'],
-                sourceCode: LMS_CERTIFICATE_ISSUE_POSTING_SCRIPT_SOURCE
+                sourceCode: LMS_CERTIFICATE_ISSUE_POSTING_MODULE_SOURCE
             },
             {
-                codename: 'PointTransactionPostingScript',
-                name: vlc('Point Transaction Posting Script', 'Скрипт проведения операций с баллами'),
+                codename: 'PointTransactionPostingModule',
+                name: vlc('Point Transaction Posting Module', 'Модуль проведения операций с баллами'),
                 description: vlc(
                     'Posts manual point adjustments into the generic Points Ledger.',
                     'Проводит ручные корректировки баллов в универсальный регистр баллов.'
@@ -6714,7 +6714,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 sourceKind: 'embedded',
                 sdkApiVersion: '1.0.0',
                 capabilities: ['records.read', 'metadata.read', 'lifecycle', 'posting', 'ledger.write'],
-                sourceCode: LMS_POINT_TRANSACTION_POSTING_SCRIPT_SOURCE
+                sourceCode: LMS_POINT_TRANSACTION_POSTING_MODULE_SOURCE
             }
         ],
         settings: [

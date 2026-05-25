@@ -24,7 +24,7 @@ export const fixedValuesLibraryEntityPreset: EntityTypePresetManifest = {
         ui: {
             ...SET_TYPE_UI,
             nameKey: 'Constants Library',
-            descriptionKey: 'Set-style custom entity for typed constants, scripts, and lightweight design-time automation.'
+            descriptionKey: 'Set-style custom entity for typed constants, modules, and lightweight design-time automation.'
         },
         presentation: {},
         config: {}

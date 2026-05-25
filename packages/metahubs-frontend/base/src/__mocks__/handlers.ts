@@ -258,14 +258,14 @@ export const handlers = [
                                   relations: { enabled: true, allowedRelationTypes: ['manyToOne'] },
                                   actions: { enabled: true },
                                   events: { enabled: true },
-                                  scripting: { enabled: true },
+                                  modules: { enabled: true },
                                   layoutConfig: { enabled: true },
                                   runtimeBehavior: { enabled: true },
                                   physicalTable: { enabled: true, prefix: 'objx' }
                               },
                               ui: {
                                   iconName: 'IconDatabase',
-                                  tabs: ['general', 'hubs', 'layout', 'scripts'],
+                                  tabs: ['general', 'hubs', 'layout', 'modules'],
                                   sidebarSection: 'objects',
                                   nameKey: 'Objects',
                                   descriptionKey: 'ObjectCollectionEntity-compatible entity preset'
@@ -379,7 +379,7 @@ export const handlers = [
                 id: 'xss-test',
                 name: 'XSS Test',
                 // HTML-encoded XSS payloads - safe to use in tests, components should escape this
-                description: '&lt;script&gt;alert("XSS")&lt;/script&gt;&lt;img src=x onerror="alert(1)"&gt;'
+                description: '&lt;module&gt;alert("XSS")&lt;/module&gt;&lt;img src=x onerror="alert(1)"&gt;'
             }
         })
     })

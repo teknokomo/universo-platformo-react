@@ -33,7 +33,7 @@ import {
     normalizeLocale
 } from '../../../../utils/localizedInput'
 import { ContainerSelectionPanel } from '../../../../components'
-import { createScriptsTab } from '../../../scripts/ui/EntityScriptsTab'
+import { createModulesTab } from '../../../modules/ui/EntityModulesTab'
 import GeneralTabFields from '../../../shared/ui/GeneralTabFields'
 
 /**
@@ -345,7 +345,7 @@ export const buildFormTabs = (
 
         if (editingEntityId && metahubId) {
             tabs.push(
-                createScriptsTab({
+                createModulesTab({
                     t: ctx.t,
                     metahubId,
                     attachedToKind: 'set',

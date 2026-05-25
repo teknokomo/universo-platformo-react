@@ -169,7 +169,7 @@ jest.mock(
 )
 
 jest.mock(
-    '@universo/scripting-engine',
+    '@universo/modules-engine',
     () => ({
         assertIsolatedVmRuntimeAvailable: (...args: unknown[]) => mockAssertIsolatedVmRuntimeAvailable(...args)
     }),
@@ -340,7 +340,7 @@ describe('App.initDatabase', () => {
         expect(mockDestroyKnex).not.toHaveBeenCalled()
     })
 
-    it('fails fast when scripting runtime compatibility validation fails', async () => {
+    it('fails fast when modules runtime compatibility validation fails', async () => {
         mockAssertIsolatedVmRuntimeAvailable.mockRejectedValueOnce(new Error('isolated-vm bootstrap failed'))
         const app = new App()
 

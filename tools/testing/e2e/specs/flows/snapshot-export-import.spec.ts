@@ -342,19 +342,9 @@ test.describe('Snapshot Export/Import Flow', () => {
                   >)
                 : {}
         )
-        const importedSharedAttributes = Array.isArray(importedSnapshot.sharedComponents)
-            ? importedSnapshot.sharedComponents
-            : Array.isArray(importedSnapshot.sharedAttributes)
-            ? importedSnapshot.sharedAttributes
-            : []
-        const importedSharedConstants = Array.isArray(importedSnapshot.sharedFixedValues)
-            ? importedSnapshot.sharedFixedValues
-            : Array.isArray(importedSnapshot.sharedConstants)
-            ? importedSnapshot.sharedConstants
-            : []
-        const importedSharedEnumerationValues = Array.isArray(importedSnapshot.sharedEnumerationValues)
-            ? importedSnapshot.sharedEnumerationValues
-            : Array.isArray(importedSnapshot.sharedOptionValues)
+        const importedSharedAttributes = Array.isArray(importedSnapshot.sharedComponents) ? importedSnapshot.sharedComponents : []
+        const importedSharedConstants = Array.isArray(importedSnapshot.sharedFixedValues) ? importedSnapshot.sharedFixedValues : []
+        const importedSharedEnumerationValues = Array.isArray(importedSnapshot.sharedOptionValues)
             ? importedSnapshot.sharedOptionValues
             : []
         const importedSharedEntityOverrides = Array.isArray(importedSnapshot.sharedEntityOverrides)

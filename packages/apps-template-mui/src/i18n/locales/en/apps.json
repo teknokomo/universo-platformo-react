@@ -349,11 +349,11 @@
         "defaultTitle": "Statistics",
         "missingContext": "Stats viewer widget is available only inside the application runtime surface.",
         "loading": "Loading statistics...",
-        "loadScriptsError": "Failed to load widget scripts.",
+        "loadModulesError": "Failed to load widget modules.",
         "loadModelError": "Failed to load statistics data.",
         "loadBundleError": "Failed to load the widget client bundle.",
         "emptyTitle": "Stats viewer is not configured",
-        "emptyDescription": "Attach an active widget script and expose a mount() method to render statistics here."
+        "emptyDescription": "Attach an active widget module and expose a mount() method to render statistics here."
     },
     "qrCode": {
         "defaultTitle": "Scan QR Code",

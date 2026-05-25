@@ -9,23 +9,23 @@ A metahub authors the source model, a publication freezes a release candidate, a
 
 ## What An Application Owns
 
-- the linked publication reference used for runtime delivery;
-- connector and schema-sync state;
-- runtime members and access boundaries;
-- application-control-panel settings;
-- the final runtime route at `/a/:applicationId`.
+-   the linked publication reference used for runtime delivery;
+-   connector and schema-sync state;
+-   runtime members and access boundaries;
+-   application-control-panel settings;
+-   the final runtime route at `/a/:applicationId`.
 
 ## Main Surfaces
 
 ![Applications list](../.gitbook/assets/platform/applications-list.png)
 
-| Surface | Purpose |
-| --- | --- |
-| Overview | Status cards and high-level health for the linked runtime. |
-| Connectors | Manage publication linkage and schema sync. |
-| Migrations | Review runtime schema state and history. |
-| Settings | Configure application-specific control-panel behavior and workspace limits. |
-| Runtime | Serve the published end-user surface. |
+| Surface    | Purpose                                                                     |
+| ---------- | --------------------------------------------------------------------------- |
+| Overview   | Status cards and high-level health for the linked runtime.                  |
+| Connectors | Manage publication linkage and schema sync.                                 |
+| Migrations | Review runtime schema state and history.                                    |
+| Settings   | Configure application-specific control-panel behavior and workspace limits. |
+| Runtime    | Serve the published end-user surface.                                       |
 
 ## Control-Panel Settings
 
@@ -36,15 +36,15 @@ Those settings are stored in `applications.obj_applications.settings` and are re
 
 ![Application settings](../.gitbook/assets/quiz-tutorial/application-settings-general.png)
 
-| Setting | Meaning |
-| --- | --- |
-| Dialog size preset | Default control-panel dialog width for application-admin dialogs. |
-| Allow fullscreen | Whether dialogs can expand to fullscreen. |
-| Allow resize | Whether the resize handle is available. |
-| Close behavior | Whether dialogs stay strict-modal or allow outside-click close. |
-| Visibility | Whether the application is closed or public. Changing public to closed blocks new direct joins and public runtime link resolution. |
-| Workspace mode | Read-only after creation because it controls runtime schema structure. |
-| Workspace limits | Per-workspace row limits for supported objects. |
+| Setting            | Meaning                                                                                                                            |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Dialog size preset | Default control-panel dialog width for application-admin dialogs.                                                                  |
+| Allow fullscreen   | Whether dialogs can expand to fullscreen.                                                                                          |
+| Allow resize       | Whether the resize handle is available.                                                                                            |
+| Close behavior     | Whether dialogs stay strict-modal or allow outside-click close.                                                                    |
+| Visibility         | Whether the application is closed or public. Changing public to closed blocks new direct joins and public runtime link resolution. |
+| Workspace mode     | Read-only after creation because it controls runtime schema structure.                                                             |
+| Workspace limits   | Per-workspace row limits for supported objects.                                                                                    |
 
 ## Scope Boundary
 
@@ -71,7 +71,7 @@ This keeps applications aligned with the broader platform goal of collaborative 
 
 ![Published runtime quiz](../.gitbook/assets/quiz-tutorial/runtime-quiz.png)
 
-In the quiz tutorial flow, the metahub owns the widget script and layout placement, while the application owns runtime delivery and control-panel ergonomics.
+In the quiz tutorial flow, the metahub owns the widget module and layout placement, while the application owns runtime delivery and control-panel ergonomics.
 That means the quiz questions and widget placement come from the publication, but the size and close behavior of connector dialogs come from the application settings record.
 The copy flow preserves those application settings so copied applications keep the same control-panel dialog behavior.
 

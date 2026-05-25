@@ -17,8 +17,8 @@ export function createPublicApplicationsRoutes(
     router.get('/public/a/:applicationId/runtime', readLimiter, asyncHandler(guest.getRuntime))
     router.post('/public/a/:applicationId/runtime/guest-submit', writeLimiter, asyncHandler(guest.submitGuestQuiz))
     router.post('/public/a/:applicationId/runtime/guest-progress', writeLimiter, asyncHandler(guest.updateGuestProgress))
-    router.get('/public/a/:applicationId/runtime/scripts', readLimiter, asyncHandler(guest.listPublicScripts))
-    router.get('/public/a/:applicationId/runtime/scripts/:scriptId/client', readLimiter, asyncHandler(guest.getPublicClientBundle))
+    router.get('/public/a/:applicationId/runtime/modules', readLimiter, asyncHandler(guest.listPublicModules))
+    router.get('/public/a/:applicationId/runtime/modules/:moduleId/client', readLimiter, asyncHandler(guest.getPublicClientBundle))
 
     return router
 }

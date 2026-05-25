@@ -22,8 +22,8 @@ vi.mock('react-i18next', async (importOriginal) => {
     }
 })
 
-vi.mock('../../../scripts/api/scriptsApi', () => ({
-    scriptsApi: {
+vi.mock('../../../modules/api/modulesApi', () => ({
+    modulesApi: {
         list: mocks.list
     }
 }))
@@ -50,8 +50,8 @@ const createVisibleDomRect = (): DOMRect =>
         toJSON: () => ({})
     } as DOMRect)
 
-const createScriptRecord = (overrides: Record<string, unknown> = {}) => ({
-    id: 'script-1',
+const createModuleRecord = (overrides: Record<string, unknown> = {}) => ({
+    id: 'module-1',
     version: 1,
     codename: {
         _schema: 'v1',
@@ -81,7 +81,7 @@ const createScriptRecord = (overrides: Record<string, unknown> = {}) => ({
     moduleRole: 'widget',
     sourceKind: 'embedded',
     sdkApiVersion: '1.0.0',
-    sourceCode: 'export default class SpaceQuizWidget extends ExtensionScript {}',
+    sourceCode: 'export default class SpaceQuizWidget extends ExtensionModule {}',
     manifest: {
         className: 'SpaceQuizWidget',
         sdkApiVersion: '1.0.0',
@@ -118,10 +118,10 @@ describe('QuizWidgetEditorDialog', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(createVisibleDomRect)
-        mocks.list.mockResolvedValue([createScriptRecord()])
+        mocks.list.mockResolvedValue([createModuleRecord()])
     })
 
-    it('loads active widget scripts for the selected attachment kind and saves normalized config', async () => {
+    it('loads active widget modules for the selected attachment kind and saves normalized config', async () => {
         const user = userEvent.setup()
         const { onSave } = renderDialog()
 
@@ -129,26 +129,31 @@ describe('QuizWidgetEditorDialog', () => {
             expect(mocks.list).toHaveBeenCalledWith('metahub-1', { attachedToKind: 'metahub' })
         })
 
-        await user.click(screen.getAllByRole('combobox')[1])
+        expect(screen.getByRole('combobox', { name: 'Quiz module' })).toBeInTheDocument()
+        expect(screen.queryByLabelText(/Module codename/i)).not.toBeInTheDocument()
+        expect(screen.queryByLabelText(/Mount method/i)).not.toBeInTheDocument()
+
+        await user.click(screen.getByRole('combobox', { name: 'Quiz module' }))
         await user.click(screen.getByRole('option', { name: 'Space Quiz Widget (quiz-widget)' }))
         await user.type(screen.getByLabelText('Widget title override'), 'Mission Control Quiz')
-        await user.type(screen.getByLabelText('Mount method'), 'mountQuiz')
+        await user.click(screen.getByRole('button', { name: 'Advanced actions' }))
+        await user.type(screen.getByLabelText('Content loader'), 'mountQuiz')
         await user.click(screen.getByRole('button', { name: 'Save' }))
 
         expect(onSave).toHaveBeenCalledWith({
             title: 'Mission Control Quiz',
-            scriptCodename: 'quiz-widget',
+            moduleCodename: 'quiz-widget',
             attachedToKind: 'metahub',
             mountMethodName: 'mountQuiz'
         })
     })
 
-    it('reloads script options when the attachment kind changes', async () => {
+    it('reloads module options when the attachment kind changes', async () => {
         const user = userEvent.setup()
 
-        mocks.list.mockResolvedValueOnce([createScriptRecord()]).mockResolvedValueOnce([
-            createScriptRecord({
-                id: 'script-2',
+        mocks.list.mockResolvedValueOnce([createModuleRecord()]).mockResolvedValueOnce([
+            createModuleRecord({
+                id: 'module-2',
                 codename: {
                     _schema: 'v1',
                     _primary: 'en',

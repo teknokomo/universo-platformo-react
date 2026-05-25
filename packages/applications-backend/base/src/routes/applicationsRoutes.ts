@@ -7,7 +7,7 @@ import { createRuntimeRowsController } from '../controllers/runtimeRowsControlle
 import { createRuntimeChildRowsController } from '../controllers/runtimeChildRowsController'
 import { createRuntimeLedgersController } from '../controllers/runtimeLedgersController'
 import { createRuntimeReportsController } from '../controllers/runtimeReportsController'
-import { createRuntimeScriptsController } from '../controllers/runtimeScriptsController'
+import { createRuntimeModulesController } from '../controllers/runtimeModulesController'
 import { createRuntimeWorkspaceController } from '../controllers/runtimeWorkspaceController'
 import { createApplicationLayoutsController } from '../controllers/applicationLayoutsController'
 
@@ -25,7 +25,7 @@ export function createApplicationsRoutes(
     const childRows = createRuntimeChildRowsController(getDbExecutor)
     const ledgers = createRuntimeLedgersController(getDbExecutor)
     const reports = createRuntimeReportsController(getDbExecutor)
-    const runtimeScripts = createRuntimeScriptsController(getDbExecutor)
+    const runtimeModules = createRuntimeModulesController(getDbExecutor)
     const workspace = createRuntimeWorkspaceController(getDbExecutor)
     const layouts = createApplicationLayoutsController(getDbExecutor)
 
@@ -84,9 +84,9 @@ export function createApplicationsRoutes(
     router.patch('/:applicationId/runtime/rows/:rowId', writeLimiter, asyncHandler(runtime.bulkUpdateRow))
     router.patch('/:applicationId/runtime/:rowId', writeLimiter, asyncHandler(runtime.updateCell))
     router.delete('/:applicationId/runtime/rows/:rowId', writeLimiter, asyncHandler(runtime.deleteRow))
-    router.get('/:applicationId/runtime/scripts', readLimiter, asyncHandler(runtimeScripts.listScripts))
-    router.get('/:applicationId/runtime/scripts/:scriptId/client', readLimiter, asyncHandler(runtimeScripts.getClientBundle))
-    router.post('/:applicationId/runtime/scripts/:scriptId/call', writeLimiter, asyncHandler(runtimeScripts.callMethod))
+    router.get('/:applicationId/runtime/modules', readLimiter, asyncHandler(runtimeModules.listModules))
+    router.get('/:applicationId/runtime/modules/:moduleId/client', readLimiter, asyncHandler(runtimeModules.getClientBundle))
+    router.post('/:applicationId/runtime/modules/:moduleId/call', writeLimiter, asyncHandler(runtimeModules.callMethod))
     router.post('/:applicationId/runtime/reports/run', readLimiter, asyncHandler(reports.runReport))
     router.post('/:applicationId/runtime/reports/export', readLimiter, asyncHandler(reports.exportReport))
     router.get('/:applicationId/runtime/ledgers', readLimiter, asyncHandler(ledgers.listLedgers))

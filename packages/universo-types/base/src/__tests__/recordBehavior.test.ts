@@ -65,7 +65,7 @@ describe('record behavior contracts', () => {
                 posting: {
                     mode: 'manual',
                     targetLedgers: ['ProgressLedger', 'ProgressLedger', 'ScoreLedger'],
-                    scriptCodename: ' EnrollmentPostingScript '
+                    moduleCodename: ' EnrollmentPostingModule '
                 },
                 immutability: 'posted'
             }
@@ -96,7 +96,7 @@ describe('record behavior contracts', () => {
             posting: {
                 mode: 'manual',
                 targetLedgers: ['ProgressLedger', 'ScoreLedger'],
-                scriptCodename: 'EnrollmentPostingScript'
+                moduleCodename: 'EnrollmentPostingModule'
             },
             immutability: 'posted'
         })

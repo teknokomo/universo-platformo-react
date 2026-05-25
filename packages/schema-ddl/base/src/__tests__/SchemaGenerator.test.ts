@@ -568,11 +568,11 @@ describe('SchemaGenerator', () => {
             expect(createdTables).not.toContain('_app_values')
         })
 
-        it('creates a scoped active codename index for runtime scripts', async () => {
+        it('creates a scoped active codename index for runtime modules', async () => {
             await generator.ensureSystemTables('metahubs')
 
             const rawSqlCalls = mockKnex.raw.mock.calls.map(([sql]) => String(sql))
-            const scopedIndexSql = rawSqlCalls.find((sql) => sql.includes('idx_app_scripts_codename_active'))
+            const scopedIndexSql = rawSqlCalls.find((sql) => sql.includes('idx_app_modules_codename_active'))
 
             expect(scopedIndexSql).toBeDefined()
             expect(scopedIndexSql).toContain('attached_to_kind')
@@ -989,7 +989,7 @@ describe('SchemaGenerator', () => {
                     relations: false,
                     actions: false,
                     events: false,
-                    scripting: false,
+                    modules: false,
                     blockContent: false,
                     layoutConfig: false,
                     runtimeBehavior: false,

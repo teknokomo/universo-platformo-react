@@ -11,16 +11,16 @@ This section describes the platform as it exists in the repository today.
 
 ![Platform application list](../.gitbook/assets/platform/applications-list.png)
 
-| Layer | Current state |
-| --- | --- |
-| Platform shell | Running in this repository. |
-| Auth and onboarding | Running in this repository. |
-| Profiles and admin flows | Running in this repository. |
-| Metahubs, publications, applications | Running in this repository. |
-| LMS system | Running in this repository. |
+| Layer                                                            | Current state               |
+| ---------------------------------------------------------------- | --------------------------- |
+| Platform shell                                                   | Running in this repository. |
+| Auth and onboarding                                              | Running in this repository. |
+| Profiles and admin flows                                         | Running in this repository. |
+| Metahubs, publications, applications                             | Running in this repository. |
+| LMS system                                                       | Running in this repository. |
 | Entity types (Hubs, Objects, Sets, Enumerations, Pages, Ledgers) | Running in this repository. |
-| Workspaces and connectors | Running in this repository. |
-| Scripting system | Running in this repository. |
+| Workspaces and connectors                                        | Running in this repository. |
+| Modules system                                                   | Running in this repository. |
 
 ## Reading Strategy
 

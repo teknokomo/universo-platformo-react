@@ -8,6 +8,7 @@ import { loadTsconfigAliases } from '../../tools/testing/frontend/loadTsconfigAl
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const srcDir = path.resolve(__dirname, 'src')
 const utilsOptimisticCrudSrcFile = path.resolve(__dirname, '../universo-utils/base/src/optimisticCrud.ts')
+const modulesEngineSrcFile = path.resolve(__dirname, '../modules-engine/base/src/index.ts')
 const tsconfigAliases = loadTsconfigAliases(path.resolve(__dirname, 'tsconfig.json'), __dirname)
 const coverageEnabled = process.env.VITEST_COVERAGE !== 'false'
 const enforceCoverageThresholds = process.env.VITEST_ENFORCE_COVERAGE === 'true'
@@ -19,6 +20,7 @@ export default mergeConfig(
         resolve: {
             alias: {
                 '@universo/utils/optimistic-crud': utilsOptimisticCrudSrcFile,
+                '@universo/modules-engine': modulesEngineSrcFile,
                 ...tsconfigAliases,
                 '@': srcDir
             }

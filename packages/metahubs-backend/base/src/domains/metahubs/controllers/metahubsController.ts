@@ -70,7 +70,7 @@ import { MetahubComponentsService } from '../services/MetahubComponentsService'
 import { MetahubRecordsService } from '../services/MetahubRecordsService'
 import { MetahubOptionValuesService } from '../services/MetahubOptionValuesService'
 import { MetahubFixedValuesService } from '../services/MetahubFixedValuesService'
-import { MetahubScriptsService } from '../../scripts/services/MetahubScriptsService'
+import { MetahubModulesService } from '../../modules/services/MetahubModulesService'
 import { MetahubSettingsService } from '../../settings/services/MetahubSettingsService'
 import { EntityTypeService } from '../../entities/services/EntityTypeService'
 import { ActionService } from '../../entities/services/ActionService'
@@ -2020,7 +2020,7 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
             const treeEntitiesService = new MetahubTreeEntitiesService(exec, schemaService)
             const optionValuesService = new MetahubOptionValuesService(exec, schemaService)
             const fixedValuesService = new MetahubFixedValuesService(exec, schemaService)
-            const scriptsService = new MetahubScriptsService(exec, schemaService)
+            const modulesService = new MetahubModulesService(exec, schemaService)
             const entityTypeService = new EntityTypeService(exec, schemaService)
             const actionService = new ActionService(exec, schemaService, entityTypeService)
             const eventBindingService = new EventBindingService(exec, schemaService, entityTypeService)
@@ -2031,7 +2031,7 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                 treeEntitiesService,
                 optionValuesService,
                 fixedValuesService,
-                scriptsService,
+                modulesService,
                 new SharedContainerService(exec, schemaService),
                 new SharedEntityOverridesService(exec, schemaService),
                 entityTypeService,
@@ -2171,7 +2171,7 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
         const treeEntitiesService = new MetahubTreeEntitiesService(exec, schemaService)
         const optionValuesService = new MetahubOptionValuesService(exec, schemaService)
         const fixedValuesService = new MetahubFixedValuesService(exec, schemaService)
-        const scriptsService = new MetahubScriptsService(exec, schemaService)
+        const modulesService = new MetahubModulesService(exec, schemaService)
 
         const entityTypeService = new EntityTypeService(exec, schemaService)
         const actionService = new ActionService(exec, schemaService, entityTypeService)
@@ -2183,7 +2183,7 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
             treeEntitiesService,
             optionValuesService,
             fixedValuesService,
-            scriptsService,
+            modulesService,
             new SharedContainerService(exec, schemaService),
             new SharedEntityOverridesService(exec, schemaService),
             entityTypeService,
@@ -2200,18 +2200,18 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
 
         await attachLayoutsToSnapshot({ schemaService, snapshot, metahubId, userId })
 
-        const exportedScripts = Array.isArray(snapshot.scripts) ? snapshot.scripts : []
-        const liveScripts = exportedScripts.length > 0 ? await scriptsService.listScripts(metahubId, { onlyActive: true }, userId) : []
-        const liveScriptById = new Map(liveScripts.filter((script) => script.isActive).map((script) => [script.id, script]))
+        const exportedModules = Array.isArray(snapshot.modules) ? snapshot.modules : []
+        const liveModules = exportedModules.length > 0 ? await modulesService.listModules(metahubId, { onlyActive: true }, userId) : []
+        const liveModuleById = new Map(liveModules.filter((module) => module.isActive).map((module) => [module.id, module]))
         const exportSnapshot = {
             ...snapshot,
-            scripts:
-                exportedScripts.length > 0
-                    ? exportedScripts.map((script) => {
-                          const liveScript = liveScriptById.get(script.id)
-                          return liveScript?.sourceCode ? { ...script, sourceCode: liveScript.sourceCode } : script
+            modules:
+                exportedModules.length > 0
+                    ? exportedModules.map((module) => {
+                          const liveModule = liveModuleById.get(module.id)
+                          return liveModule?.sourceCode ? { ...module, sourceCode: liveModule.sourceCode } : module
                       })
-                    : snapshot.scripts
+                    : snapshot.modules
         }
 
         const envelope = buildSnapshotEnvelope({

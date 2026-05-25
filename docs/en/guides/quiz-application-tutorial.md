@@ -1,20 +1,20 @@
 ---
-description: Browser-authored tutorial for building a quiz application with metahub scripts, layout wiring, application settings, and runtime verification.
+description: Browser-authored tutorial for building a quiz application with metahub modules, layout wiring, application settings, and runtime verification.
 ---
 
 # Quiz Application Tutorial
 
 This tutorial walks through the real browser-authored path used by the repository's Playwright coverage.
-By the end, you will have a metahub-hosted quiz widget script, a layout that renders the widget, a linked application, and a verified runtime quiz.
+By the end, you will have a metahub-hosted quiz widget module, a layout that renders the widget, a linked application, and a verified runtime quiz.
 
 The quiz application remains intentionally independent from the LMS template.
-In the LMS MVP, the same quiz widget can be embedded from a learning-content item, but the committed quiz fixture and tutorial still represent the standalone scripting-powered quiz path.
+In the LMS MVP, the same quiz widget can be embedded from a learning-content item, but the committed quiz fixture and tutorial still represent the standalone modules-powered quiz path.
 
 ## Before You Start
 
-- Use an environment where metahubs, publications, and applications are already available.
-- Sign in with a user that can manage the target metahub and the linked application.
-- Keep the current scripting contract in mind: only embedded scripts and `sdkApiVersion = 1.0.0` are supported.
+-   Use an environment where metahubs, publications, and applications are already available.
+-   Sign in with a user that can manage the target metahub and the linked application.
+-   Keep the current modules contract in mind: only embedded modules and `sdkApiVersion = 1.0.0` are supported.
 
 ## Step 1: Open Or Create The Metahub
 
@@ -22,23 +22,23 @@ In the LMS MVP, the same quiz widget can be embedded from a learning-content ite
 2. Verify that you can reach Resources and Publications, then use the Layouts tab inside Resources when needed.
 3. If you are starting from scratch, create the metahub first and keep its default branch active.
 
-## Step 2: Create The Quiz Widget Script
+## Step 2: Create The Quiz Widget Module
 
-1. Open the metahub edit dialog and switch to the Scripts tab.
-2. Create a new script with the `widget` role.
+1. Open the metahub edit dialog and switch to the Modules tab.
+2. Create a new module with the `widget` role.
 3. Use `quiz-widget` as the codename.
 4. Keep the source kind as Embedded.
-5. Save the script after pasting the quiz widget source or after adapting the starter template.
+5. Save the module after pasting the quiz widget source or after adapting the starter template.
 
-![Metahub scripts tab](../.gitbook/assets/quiz-tutorial/metahub-scripts.png)
+![Metahub modules tab](../.gitbook/assets/quiz-tutorial/metahub-modules.png)
 
-The browser-authored Playwright flow uses this step to prove that the quiz script is visible in the true metahub-level Scripts scope.
+The browser-authored Playwright flow uses this step to prove that the quiz module is visible in the true metahub-level Modules scope.
 
 ## Step 3: Attach The Widget To A Layout
 
 1. Open Resources -> Layouts and select the layout that should host the quiz.
 2. Add or edit a `quizWidget` widget in the center zone.
-3. Set `scriptCodename` to `quiz-widget`.
+3. Set `moduleCodename` to `quiz-widget`.
 4. Save the layout and verify that the widget stays in the layout details view.
 
 ![Layout details with quiz widget](../.gitbook/assets/quiz-tutorial/layout-quiz-widget.png)
@@ -52,7 +52,7 @@ The shipped quiz contract keeps the quiz widget centered so the runtime is focus
 3. Create a linked application from that publication, or update the existing linked application.
 4. Run the schema creation or sync flow if the application still needs runtime tables.
 
-This is the point where publication data, layout data, and script bundles move from the metahub side into the application side.
+This is the point where publication data, layout data, and module bundles move from the metahub side into the application side.
 
 ## Step 5: Tune Application Settings
 
@@ -75,20 +75,20 @@ They do not change the quiz content or layout owned by the metahub publication.
 
 ![Quiz widget runtime view](../.gitbook/assets/quiz-tutorial/runtime-quiz.png)
 
-The shipped starter expects a client `mount()` method and a server `submit()` method, so a working runtime proves both client and server script paths.
+The shipped starter expects a client `mount()` method and a server `submit()` method, so a working runtime proves both client and server module paths.
 
 ## Troubleshooting
 
-- If the script saves but never appears at runtime, republish the metahub and resync the application.
-- If the widget renders without data, verify that the layout widget `scriptCodename` exactly matches the saved script codename.
-- If runtime RPC calls fail, verify that the script role and capabilities still expose the client RPC path.
-- If control-panel dialogs ignore your preferred size, verify that you changed application settings rather than metahub or admin settings.
-- If you need a known-good reference, inspect `tools/testing/e2e/specs/generators/metahubs-quiz-app-export.spec.ts` and the committed `tools/fixtures/metahubs-quiz-app-snapshot.json` fixture.
+-   If the module saves but never appears at runtime, republish the metahub and resync the application.
+-   If the widget renders without data, verify that the layout widget `moduleCodename` exactly matches the saved module codename.
+-   If runtime RPC calls fail, verify that the module role and capabilities still expose the client RPC path.
+-   If control-panel dialogs ignore your preferred size, verify that you changed application settings rather than metahub or admin settings.
+-   If you need a known-good reference, inspect `tools/testing/e2e/specs/generators/metahubs-quiz-app-export.spec.ts` and the committed `tools/fixtures/metahubs-quiz-app-snapshot.json` fixture.
 
 ## Related Reading
 
-- [LMS Overview](lms-overview.md)
-- [Metahub Scripting](metahub-scripting.md)
-- [Metahubs](../platform/metahubs.md)
-- [Applications](../platform/applications.md)
-- [Admin](../platform/admin.md)
+-   [LMS Overview](lms-overview.md)
+-   [Metahub Modules](metahub-modules.md)
+-   [Metahubs](../platform/metahubs.md)
+-   [Applications](../platform/applications.md)
+-   [Admin](../platform/admin.md)

@@ -13,11 +13,16 @@ Its responsibility is to publish a current OpenAPI path inventory for the mounte
 The package is intentionally split into three stages:
 
 1. Source generation
-  - `scripts/generate-openapi-source.js` scans the live route files in the backend packages and rebuilds `src/openapi/index.yml`.
+
+-   `modules/generate-openapi-source.js` scans the live route files in the backend packages and rebuilds `src/openapi/index.yml`.
+
 2. Runtime bundling
-  - `scripts/bundle-openapi.js` bundles the generated YAML into `dist/openapi-bundled.yml`.
+
+-   `modules/bundle-openapi.js` bundles the generated YAML into `dist/openapi-bundled.yml`.
+
 3. Documentation serving
-  - `src/index.ts` loads the bundled YAML and exposes Swagger UI at `/api-docs`.
+
+-   `src/index.ts` loads the bundled YAML and exposes Swagger UI at `/api-docs`.
 
 This flow makes the route inventory reproducible from repository code instead of relying on a manually curated historical taxonomy.
 
@@ -33,11 +38,11 @@ Keeping a hand-maintained mirror inside the docs package would let deleted domai
 
 The generated OpenAPI file currently guarantees:
 
-- the current path inventory
-- the current HTTP method inventory per path
-- path parameter extraction from Express-style `:param` segments
-- public versus bearer-protected route distinction where the repository surface makes that clear
-- generic request and response envelopes suitable for interactive exploration and QA
+-   the current path inventory
+-   the current HTTP method inventory per path
+-   path parameter extraction from Express-style `:param` segments
+-   public versus bearer-protected route distinction where the repository surface makes that clear
+-   generic request and response envelopes suitable for interactive exploration and QA
 
 The generated file does not yet attempt to infer detailed request-body or response-body schemas from handlers.
 That deeper schema modeling can be added later only if it is sourced from stable contracts instead of best-effort guesswork.
@@ -46,29 +51,29 @@ That deeper schema modeling can be added later only if it is sourced from stable
 
 The generated inventory covers these mounted route families:
 
-- system health and ping
-- auth
-- public locales
-- profile
-- onboarding
-- admin domains
-- applications, connectors, and application runtime sync
-- public metahub and metahub design-time domains
+-   system health and ping
+-   auth
+-   public locales
+-   profile
+-   onboarding
+-   admin domains
+-   applications, connectors, and application runtime sync
+-   public metahub and metahub design-time domains
 
 This list is intentionally aligned with the current backend package structure rather than with removed workspace-era terminology.
 
 ## Operational Guidance
 
-- Run `pnpm --filter @universo/rest-docs generate:openapi` whenever route mounts change.
-- Run `pnpm --filter @universo/rest-docs validate` before shipping docs changes.
-- Run `pnpm --filter @universo/rest-docs build` before starting the standalone Swagger server.
-- Treat Swagger as an operator and QA aid, not as proof that all payload schemas are stable.
+-   Run `pnpm --filter @universo/rest-docs generate:openapi` whenever route mounts change.
+-   Run `pnpm --filter @universo/rest-docs validate` before shipping docs changes.
+-   Run `pnpm --filter @universo/rest-docs build` before starting the standalone Swagger server.
+-   Treat Swagger as an operator and QA aid, not as proof that all payload schemas are stable.
 
 ## Extension Rules
 
 When new route packages are added to the mounted backend surface:
 
-1. Add the route file to `routeSources` in `scripts/generate-openapi-source.js`.
+1. Add the route file to `routeSources` in `modules/generate-openapi-source.js`.
 2. Assign the correct mount prefix, tag, and security mode.
 3. Regenerate the OpenAPI source.
 4. Update package and GitBook documentation if the new route family changes user-facing guidance.

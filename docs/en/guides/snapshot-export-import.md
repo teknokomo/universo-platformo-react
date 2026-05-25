@@ -14,10 +14,10 @@ in the same or a different Universo Platformo instance.
 
 A **snapshot envelope** is a self-contained JSON file that includes:
 
-- **kind**: `metahub_snapshot_bundle`
-- **bundleVersion**: `1` (for forward compatibility)
-- **snapshot**: the full metahub state — entities, layouts, scripts, shared components/constants/values, and shared override rows
-- **snapshotHash**: SHA-256 integrity hash computed from normalized snapshot data
+-   **kind**: `metahub_snapshot_bundle`
+-   **bundleVersion**: `1` (for forward compatibility)
+-   **snapshot**: the full metahub state — entities, layouts, modules, shared components/constants/values, and shared override rows
+-   **snapshotHash**: SHA-256 integrity hash computed from normalized snapshot data
 
 ## Exporting
 
@@ -67,8 +67,8 @@ metahub snapshot without going through publication versions.
     },
     "entities": { ... },
     "sharedComponents": [ ... ],
-    "sharedConstants": [ ... ],
-    "sharedEnumerationValues": [ ... ],
+    "sharedFixedValues": [ ... ],
+    "sharedOptionValues": [ ... ],
     "sharedEntityOverrides": [ ... ]
   },
   "snapshotHash": "sha256-hex-string"
@@ -77,50 +77,50 @@ metahub snapshot without going through publication versions.
 
 ### Envelope Fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `kind` | `string` | Always `metahub_snapshot_bundle` |
-| `bundleVersion` | `number` | Schema version (currently `1`) |
-| `exportedAt` | `string` | ISO 8601 export timestamp |
-| `snapshot` | `object` | Full metahub state data |
-| `snapshotHash` | `string` | SHA-256 hash of normalized snapshot |
+| Field           | Type     | Description                         |
+| --------------- | -------- | ----------------------------------- |
+| `kind`          | `string` | Always `metahub_snapshot_bundle`    |
+| `bundleVersion` | `number` | Schema version (currently `1`)      |
+| `exportedAt`    | `string` | ISO 8601 export timestamp           |
+| `snapshot`      | `object` | Full metahub state data             |
+| `snapshotHash`  | `string` | SHA-256 hash of normalized snapshot |
 
 ## Shared Authoring Data
 
-- `sharedComponents`, `sharedConstants`, and `sharedEnumerationValues` preserve the Resources-workspace shared pools.
-- `sharedEntityOverrides` preserves per-target exclusions, inactive overrides, and sparse sort-order changes.
-- Publication runtime loading materializes those shared sections before application sync and runtime deserialization.
-- Snapshot import recreates the shared containers first and then remaps shared override targets to the restored objects.
+-   `sharedComponents`, `sharedFixedValues`, and `sharedOptionValues` preserve the Resources-workspace shared pools.
+-   `sharedEntityOverrides` preserves per-target exclusions, inactive overrides, and sparse sort-order changes.
+-   Publication runtime loading materializes those shared sections before application sync and runtime deserialization.
+-   Snapshot import recreates the shared containers first and then remaps shared override targets to the restored objects.
 
 ## Security Considerations
 
-- **Hash Verification**: On import, the system recomputes the SHA-256 hash of
-  the snapshot and compares it with `snapshotHash`. Tampered files are rejected
-  with a `400 Bad Request` error.
-- **Nesting Depth Limit**: JSON payloads with nesting exceeding 50 levels are
-  rejected to prevent stack overflow attacks.
-- **Prototype Pollution Protection**: Keys like `__proto__`, `constructor`, and
-  `prototype` are stripped from imported JSON before processing.
-- **Entity Count Limits**: The total number of entities in a snapshot is
-  validated against configurable limits.
-- **Size Limit**: The import endpoint accepts payloads up to 50 MB.
-- **CSRF Protection**: All import (POST) endpoints require a valid CSRF token
-  via the `x-csrf-token` header.
+-   **Hash Verification**: On import, the system recomputes the SHA-256 hash of
+    the snapshot and compares it with `snapshotHash`. Tampered files are rejected
+    with a `400 Bad Request` error.
+-   **Nesting Depth Limit**: JSON payloads with nesting exceeding 50 levels are
+    rejected to prevent stack overflow attacks.
+-   **Prototype Pollution Protection**: Keys like `__proto__`, `constructor`, and
+    `prototype` are stripped from imported JSON before processing.
+-   **Entity Count Limits**: The total number of entities in a snapshot is
+    validated against configurable limits.
+-   **Size Limit**: The import endpoint accepts payloads up to 50 MB.
+-   **CSRF Protection**: All import (POST) endpoints require a valid CSRF token
+    via the `x-csrf-token` header.
 
 ## API Endpoints
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/v1/metahub/:id/export` | Export full metahub as snapshot |
-| `POST` | `/api/v1/metahubs/import` | Import snapshot as new metahub |
-| `GET` | `/api/v1/metahub/:id/publication/:pubId/versions/:verId/export` | Export a publication version |
-| `POST` | `/api/v1/metahub/:id/publication/:pubId/versions/import` | Import snapshot as new version |
+| Method | Path                                                            | Description                     |
+| ------ | --------------------------------------------------------------- | ------------------------------- |
+| `GET`  | `/api/v1/metahub/:id/export`                                    | Export full metahub as snapshot |
+| `POST` | `/api/v1/metahubs/import`                                       | Import snapshot as new metahub  |
+| `GET`  | `/api/v1/metahub/:id/publication/:pubId/versions/:verId/export` | Export a publication version    |
+| `POST` | `/api/v1/metahub/:id/publication/:pubId/versions/import`        | Import snapshot as new version  |
 
 ## Troubleshooting
 
-- **"Hash mismatch"**: The file may have been modified after export. Re-export
-  from the source.
-- **"Invalid envelope"**: The imported file does not match the expected schema.
-  Ensure it was exported from a compatible Universo Platformo version.
-- **"Entity limit exceeded"**: The snapshot contains more entities than the
-  configured maximum. Contact your administrator to increase limits if needed.
+-   **"Hash mismatch"**: The file may have been modified after export. Re-export
+    from the source.
+-   **"Invalid envelope"**: The imported file does not match the expected schema.
+    Ensure it was exported from a compatible Universo Platformo version.
+-   **"Entity limit exceeded"**: The snapshot contains more entities than the
+    configured maximum. Contact your administrator to increase limits if needed.

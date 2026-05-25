@@ -408,39 +408,39 @@ describe('SnapshotRestoreService', () => {
         expect(insertedRows['_mhb_objects']).toBeUndefined()
     })
 
-    it('restores a legacy snapshot that omits v3 entity metadata sections', async () => {
+    it('restores a snapshot that omits v3 entity metadata sections', async () => {
         const snapshot = makeMinimalSnapshot({
-            scripts: [
+            modules: [
                 {
-                    id: 'old-script-id',
+                    id: 'old-module-id',
                     codename: {
                         _schema: '1',
                         _primary: 'en',
                         locales: {
-                            en: { content: 'legacy_hook', version: 1, isActive: true }
+                            en: { content: 'module_hook', version: 1, isActive: true }
                         }
                     },
-                    presentation: { name: { en: 'Legacy hook' } },
+                    presentation: { name: { en: 'Module hook' } },
                     attachedToKind: 'metahub',
                     attachedToId: null,
-                    moduleRole: 'shared',
+                    moduleRole: 'module',
                     sourceKind: 'embedded',
                     sdkApiVersion: '1.0.0',
                     manifest: {
-                        className: 'LegacyHook',
+                        className: 'ModuleHook',
                         sdkApiVersion: '1.0.0',
-                        moduleRole: 'shared',
+                        moduleRole: 'module',
                         sourceKind: 'embedded',
-                        capabilities: ['rpc.server'],
+                        capabilities: ['records.read', 'metadata.read'],
                         methods: []
                     },
-                    serverBundle: 'legacy-server-bundle',
+                    serverBundle: 'module-server-bundle',
                     clientBundle: null,
-                    checksum: 'legacy-checksum',
+                    checksum: 'module-checksum',
                     isActive: true,
                     config: {},
                     sourceCode:
-                        "import { ExtensionScript } from '@universo/extension-sdk'\nexport default class LegacyHook extends ExtensionScript {}"
+                        "import { ExtensionModule } from '@universo/extension-sdk'\nexport default class ModuleHook extends ExtensionModule {}"
                 }
             ],
             entityTypeDefinitions: undefined
@@ -453,10 +453,10 @@ describe('SnapshotRestoreService', () => {
 
         expect(insertedRows['_mhb_objects']).toHaveLength(1)
         expect(insertedRows['_mhb_components']).toHaveLength(1)
-        expect(insertedRows['_mhb_scripts']).toHaveLength(1)
-        expect(insertedRows['_mhb_scripts']![0]).toMatchObject({
+        expect(insertedRows['_mhb_modules']).toHaveLength(1)
+        expect(insertedRows['_mhb_modules']![0]).toMatchObject({
             codename: expect.objectContaining({ _schema: '1' }),
-            source_code: expect.stringContaining('LegacyHook extends ExtensionScript')
+            source_code: expect.stringContaining('ModuleHook extends ExtensionModule')
         })
         expect(insertedRows['_mhb_entity_type_definitions']).toBeUndefined()
         expect(insertedRows['_mhb_actions']).toBeUndefined()
@@ -571,7 +571,7 @@ describe('SnapshotRestoreService', () => {
 
         await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
 
-        expect(deletedTables).toEqual(['_mhb_scripts', '_mhb_widgets', '_mhb_layout_widget_overrides', '_mhb_layouts'])
+        expect(deletedTables).toEqual(['_mhb_modules', '_mhb_widgets', '_mhb_layout_widget_overrides', '_mhb_layouts'])
         expect(insertedRows['_mhb_layouts']).toHaveLength(1)
         expect(insertedRows['_mhb_layouts']![0]).toMatchObject({
             scope_entity_id: null,
@@ -586,7 +586,7 @@ describe('SnapshotRestoreService', () => {
         })
     })
 
-    it('restores scripts with sourceCode and remaps attachment ids', async () => {
+    it('restores modules with sourceCode and remaps attachment ids', async () => {
         const snapshot = makeMinimalSnapshot({
             entities: {
                 'old-object-id': {
@@ -610,9 +610,9 @@ describe('SnapshotRestoreService', () => {
                     ]
                 }
             },
-            scripts: [
+            modules: [
                 {
-                    id: 'script-metahub-id',
+                    id: 'module-metahub-id',
                     codename: 'quiz-widget',
                     presentation: { name: { en: 'Quiz widget' } },
                     attachedToKind: 'metahub',
@@ -632,12 +632,12 @@ describe('SnapshotRestoreService', () => {
                     clientBundle: 'client bundle',
                     checksum: 'checksum-metahub',
                     isActive: true,
-                    config: { scriptCodename: 'quiz-widget' },
+                    config: { moduleCodename: 'quiz-widget' },
                     sourceCode:
-                        "import { ExtensionScript } from '@universo/extension-sdk'\nexport default class QuizWidget extends ExtensionScript {}"
+                        "import { ExtensionModule } from '@universo/extension-sdk'\nexport default class QuizWidget extends ExtensionModule {}"
                 },
                 {
-                    id: 'script-component-id',
+                    id: 'module-component-id',
                     codename: 'component-hook',
                     presentation: { name: { en: 'Component hook' } },
                     attachedToKind: 'component',
@@ -659,7 +659,7 @@ describe('SnapshotRestoreService', () => {
                     isActive: true,
                     config: {},
                     sourceCode:
-                        "import { ExtensionScript } from '@universo/extension-sdk'\nexport default class ComponentHook extends ExtensionScript {}"
+                        "import { ExtensionModule } from '@universo/extension-sdk'\nexport default class ComponentHook extends ExtensionModule {}"
                 }
             ]
         } as unknown as Partial<MetahubSnapshot>)
@@ -669,20 +669,133 @@ describe('SnapshotRestoreService', () => {
 
         await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
 
-        expect(deletedTables).toContain('_mhb_scripts')
-        expect(insertedRows['_mhb_scripts']).toHaveLength(2)
-        expect(insertedRows['_mhb_scripts']![0]).toMatchObject({
+        expect(deletedTables).toContain('_mhb_modules')
+        expect(insertedRows['_mhb_modules']).toHaveLength(2)
+        expect(insertedRows['_mhb_modules']![0]).toMatchObject({
             attached_to_kind: 'metahub',
             attached_to_id: null,
-            source_code: expect.stringContaining('QuizWidget extends ExtensionScript'),
+            source_code: expect.stringContaining('QuizWidget extends ExtensionModule'),
+            server_bundle: null,
+            client_bundle: null,
             _mhb_published: true
         })
-        expect(insertedRows['_mhb_scripts']![1]).toMatchObject({
+        expect(insertedRows['_mhb_modules']![1]).toMatchObject({
             attached_to_kind: 'component',
             attached_to_id: 'generated-id-2',
-            source_code: expect.stringContaining('ComponentHook extends ExtensionScript'),
-            server_bundle: 'component server bundle'
+            source_code: expect.stringContaining('ComponentHook extends ExtensionModule'),
+            server_bundle: null,
+            client_bundle: null
         })
+        expect(insertedRows['_mhb_modules']![0].checksum).not.toBe('checksum-metahub')
+        expect(insertedRows['_mhb_modules']![1].checksum).not.toBe('checksum-component')
+    })
+
+    it('restores general library modules with null attachment ids', async () => {
+        const snapshot = makeMinimalSnapshot({
+            modules: [
+                {
+                    id: 'module-library-id',
+                    codename: 'quiz-library',
+                    presentation: { name: { en: 'Quiz library' } },
+                    attachedToKind: 'general',
+                    attachedToId: null,
+                    moduleRole: 'library',
+                    sourceKind: 'embedded',
+                    sdkApiVersion: '1.0.0',
+                    manifest: {
+                        className: 'QuizLibrary',
+                        sdkApiVersion: '1.0.0',
+                        moduleRole: 'library',
+                        sourceKind: 'embedded',
+                        capabilities: ['metadata.read'],
+                        methods: []
+                    },
+                    serverBundle: 'library server bundle',
+                    clientBundle: 'library client bundle',
+                    checksum: 'checksum-library',
+                    isActive: true,
+                    config: {},
+                    sourceCode:
+                        "import { ExtensionModule } from '@universo/extension-sdk'\nexport default class QuizLibrary extends ExtensionModule {}"
+                }
+            ]
+        } as unknown as Partial<MetahubSnapshot>)
+
+        const { knex, insertedRows } = createMockKnex()
+        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+
+        await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
+
+        expect(insertedRows['_mhb_modules']).toHaveLength(1)
+        expect(insertedRows['_mhb_modules']![0]).toMatchObject({
+            attached_to_kind: 'general',
+            attached_to_id: null,
+            module_role: 'library',
+            source_code: expect.stringContaining('QuizLibrary extends ExtensionModule'),
+            server_bundle: null,
+            client_bundle: null
+        })
+        expect(insertedRows['_mhb_modules']![0].checksum).not.toBe('checksum-library')
+    })
+
+    it.each([
+        ['unsupported attachment kind', { attachedToKind: 'external' }, 'Snapshot module attachment kind is not supported'],
+        [
+            'legacy shared role',
+            {
+                moduleRole: 'shared',
+                manifest: { moduleRole: 'shared', sourceKind: 'embedded', sdkApiVersion: '1.0.0', capabilities: [], methods: [] }
+            },
+            'Snapshot module role is not supported'
+        ],
+        [
+            'general non-library role',
+            { attachedToKind: 'general', moduleRole: 'widget' },
+            'General snapshot modules must use the library module role'
+        ],
+        ['library outside general scope', { moduleRole: 'library' }, 'Library snapshot modules must use the general attachment scope'],
+        ['manifest role mismatch', { manifest: { moduleRole: 'widget' } }, 'Snapshot module role does not match its manifest'],
+        [
+            'external source kind',
+            { sourceKind: 'external', manifest: { sourceKind: 'external' } },
+            'Only embedded snapshot module sources are supported'
+        ]
+    ])('rejects invalid snapshot module metadata: %s', async (_caseName, overrides, expectedMessage) => {
+        const baseModule = {
+            id: 'module-invalid-id',
+            codename: 'invalid-module',
+            presentation: { name: { en: 'Invalid module' } },
+            attachedToKind: 'metahub',
+            attachedToId: null,
+            moduleRole: 'module',
+            sourceKind: 'embedded',
+            sdkApiVersion: '1.0.0',
+            manifest: {
+                className: 'InvalidModule',
+                sdkApiVersion: '1.0.0',
+                moduleRole: 'module',
+                sourceKind: 'embedded',
+                capabilities: ['records.read', 'metadata.read'],
+                methods: []
+            },
+            serverBundle: 'server bundle',
+            clientBundle: null,
+            checksum: 'checksum-invalid',
+            isActive: true,
+            config: {},
+            sourceCode:
+                "import { ExtensionModule } from '@universo/extension-sdk'\nexport default class InvalidModule extends ExtensionModule {}"
+        }
+
+        const snapshot = makeMinimalSnapshot({
+            modules: [{ ...baseModule, ...overrides } as never]
+        } as unknown as Partial<MetahubSnapshot>)
+
+        const { knex, insertedRows } = createMockKnex()
+        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+
+        await expect(service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')).rejects.toThrow(expectedMessage)
+        expect(insertedRows['_mhb_modules']).toBeUndefined()
     })
 
     it('restores snapshot v3 custom entity definitions with remapped actions and event bindings', async () => {
@@ -702,8 +815,8 @@ describe('SnapshotRestoreService', () => {
                             id: 'old-action-id',
                             codename: 'sync_customer',
                             presentation: { name: { en: 'Sync customer' } },
-                            actionType: 'script',
-                            scriptId: 'old-script-id',
+                            actionType: 'module',
+                            moduleId: 'old-module-id',
                             config: { mode: 'sync' },
                             sortOrder: 1
                         }
@@ -737,7 +850,7 @@ describe('SnapshotRestoreService', () => {
                         relations: false,
                         actions: { enabled: true },
                         events: { enabled: true },
-                        scripting: false,
+                        modules: false,
                         layoutConfig: false,
                         runtimeBehavior: false,
                         physicalTable: { enabled: true, prefix: 'cust' }
@@ -752,9 +865,9 @@ describe('SnapshotRestoreService', () => {
                     published: true
                 }
             },
-            scripts: [
+            modules: [
                 {
-                    id: 'old-script-id',
+                    id: 'old-module-id',
                     codename: 'customer_hook',
                     presentation: { name: { en: 'Customer hook' } },
                     attachedToKind: 'metahub',
@@ -776,7 +889,7 @@ describe('SnapshotRestoreService', () => {
                     isActive: true,
                     config: {},
                     sourceCode:
-                        "import { ExtensionScript } from '@universo/extension-sdk'\nexport default class CustomerHook extends ExtensionScript {}"
+                        "import { ExtensionModule } from '@universo/extension-sdk'\nexport default class CustomerHook extends ExtensionModule {}"
                 }
             ]
         } as unknown as Partial<MetahubSnapshot>)
@@ -796,7 +909,7 @@ describe('SnapshotRestoreService', () => {
         expect(insertedRows['_mhb_event_bindings']).toHaveLength(1)
 
         const objectRow = insertedRows['_mhb_objects']![0] as Record<string, unknown>
-        const scriptRow = insertedRows['_mhb_scripts']![0] as Record<string, unknown>
+        const moduleRow = insertedRows['_mhb_modules']![0] as Record<string, unknown>
         const actionRow = insertedRows['_mhb_actions']![0] as Record<string, unknown>
         const eventBindingRow = insertedRows['_mhb_event_bindings']![0] as Record<string, unknown>
 
@@ -806,8 +919,8 @@ describe('SnapshotRestoreService', () => {
         })
         expect(actionRow).toMatchObject({
             object_id: objectRow.id,
-            action_type: 'script',
-            script_id: scriptRow.id
+            action_type: 'module',
+            module_id: moduleRow.id
         })
         expect(eventBindingRow).toMatchObject({
             object_id: objectRow.id,
@@ -826,7 +939,7 @@ describe('SnapshotRestoreService', () => {
 
         await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
 
-        expect(deletedTables).toEqual(['_mhb_scripts', '_mhb_widgets', '_mhb_layout_widget_overrides', '_mhb_layouts'])
+        expect(deletedTables).toEqual(['_mhb_modules', '_mhb_widgets', '_mhb_layout_widget_overrides', '_mhb_layouts'])
         expect(insertedRows['_mhb_layouts']).toBeUndefined()
         expect(insertedRows['_mhb_widgets']).toBeUndefined()
     })

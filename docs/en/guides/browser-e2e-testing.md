@@ -41,7 +41,7 @@ The generated files are:
 
 The generated backend file is based on `.env.e2e` when present, then `.env`, then `.env.e2e.example`, then `.env.example`. The generator keeps unrelated application settings and replaces only local Supabase/PostgreSQL values plus E2E execution defaults.
 
-The E2E local scripts set `UNIVERSO_ENV_FILE` and `UNIVERSO_FRONTEND_ENV_FILE` explicitly. The normal `build:e2e` and `test:e2e:*` commands continue to use `.env.e2e.local` / `.env.e2e` and remain available for hosted Supabase validation.
+The E2E local modules set `UNIVERSO_ENV_FILE` and `UNIVERSO_FRONTEND_ENV_FILE` explicitly. The normal `build:e2e` and `test:e2e:*` commands continue to use `.env.e2e.local` / `.env.e2e` and remain available for hosted Supabase validation.
 
 Dedicated E2E local ports:
 
@@ -56,7 +56,7 @@ Shared/main Supabase mode is only for manual debugging. It requires `E2E_ALLOW_M
 -   Real login and least-privilege navigation boundaries.
 -   Metahub create, copy, delete, settings, members, and publication flows.
 -   Entity-type authoring through the real Entities workspace, including preset-backed creation and manual creation from the `empty` metahub template.
--   Shared Resources flows for layouts, components, constants, values, and shared scripts.
+-   Shared Resources flows for layouts, components, constants, values, and shared modules.
 -   Runtime-facing publication and linked-application flows.
 -   Snapshot export/import fixtures that match the currently shipped entity-first schema.
 -   GitBook screenshot generators that open the real UI and capture the real product state.

@@ -1454,7 +1454,7 @@ type SnapshotEntity = {
     }
 }
 type SnapshotElement = { id?: string; data?: Record<string, unknown> }
-type SnapshotScript = Record<string, unknown>
+type SnapshotModule = Record<string, unknown>
 type SnapshotLayoutWidget = Record<string, unknown>
 
 export type SnapshotEnvelope = Record<string, unknown> & {
@@ -1466,7 +1466,7 @@ export type SnapshotEnvelope = Record<string, unknown> & {
         elements?: Record<string, SnapshotElement[]>
         fixedValues?: Record<string, Array<Record<string, unknown>>>
         optionValues?: Record<string, Array<Record<string, unknown>>>
-        scripts?: SnapshotScript[]
+        modules?: SnapshotModule[]
         layouts?: Array<Record<string, unknown>>
         scopedLayouts?: Array<Record<string, unknown>>
         layoutZoneWidgets?: SnapshotLayoutWidget[]
@@ -1575,7 +1575,7 @@ type RequiredWorkflowAction = {
     statusFieldCodename?: string
     requiredCapabilities: string[]
     postingCommand?: 'post' | 'unpost' | 'void'
-    scriptCodename?: string
+    moduleCodename?: string
 }
 
 const REQUIRED_WORKFLOW_ACTIONS: RequiredWorkflowAction[] = [
@@ -1656,7 +1656,7 @@ const REQUIRED_WORKFLOW_ACTIONS: RequiredWorkflowAction[] = [
         to: 'Issued',
         requiredCapabilities: ['certificate.issue'],
         postingCommand: 'post',
-        scriptCodename: 'CertificateIssuePostingScript'
+        moduleCodename: 'CertificateIssuePostingModule'
     },
     {
         entityCodename: 'CertificateIssues',
@@ -1665,7 +1665,7 @@ const REQUIRED_WORKFLOW_ACTIONS: RequiredWorkflowAction[] = [
         to: 'Revoked',
         requiredCapabilities: ['certificate.revoke'],
         postingCommand: 'post',
-        scriptCodename: 'CertificateIssuePostingScript'
+        moduleCodename: 'CertificateIssuePostingModule'
     },
     {
         entityCodename: 'DevelopmentPlanTasks',
@@ -1718,7 +1718,7 @@ const REQUIRED_WORKFLOW_ACTIONS: RequiredWorkflowAction[] = [
         to: 'Approved',
         requiredCapabilities: ['gamification.points.adjust'],
         postingCommand: 'post',
-        scriptCodename: 'PointTransactionPostingScript'
+        moduleCodename: 'PointTransactionPostingModule'
     },
     {
         entityCodename: 'PointTransactions',
@@ -1727,7 +1727,7 @@ const REQUIRED_WORKFLOW_ACTIONS: RequiredWorkflowAction[] = [
         to: 'Reversed',
         requiredCapabilities: ['gamification.points.adjust'],
         postingCommand: 'void',
-        scriptCodename: 'PointTransactionPostingScript'
+        moduleCodename: 'PointTransactionPostingModule'
     },
     {
         entityCodename: 'BadgeIssues',
@@ -2170,12 +2170,12 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         }
     }
 
-    const scripts = Array.isArray(envelope.snapshot?.scripts) ? envelope.snapshot.scripts : []
-    const forbiddenScriptCodenames = new Set(['lms-module-viewer', 'lms-stats-viewer'])
-    for (const script of scripts) {
-        const scriptCodename = readLocalizedText(script?.codename, 'en')
-        if (scriptCodename && forbiddenScriptCodenames.has(scriptCodename)) {
-            errors.push(`LMS fixture must not export legacy dashboard script ${scriptCodename}`)
+    const modules = Array.isArray(envelope.snapshot?.modules) ? envelope.snapshot.modules : []
+    const forbiddenModuleCodenames = new Set(['lms-module-viewer', 'lms-stats-viewer'])
+    for (const module of modules) {
+        const moduleCodename = readLocalizedText(module?.codename, 'en')
+        if (moduleCodename && forbiddenModuleCodenames.has(moduleCodename)) {
+            errors.push(`LMS fixture must not export legacy dashboard module ${moduleCodename}`)
         }
     }
 
@@ -3156,9 +3156,9 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
                 `LMS ${expectedWorkflowAction.entityCodename}.${expectedWorkflowAction.actionCodename} must declare postingCommand=${expectedWorkflowAction.postingCommand}`
             )
         }
-        if (expectedWorkflowAction.scriptCodename && parsedAction.data.scriptCodename !== expectedWorkflowAction.scriptCodename) {
+        if (expectedWorkflowAction.moduleCodename && parsedAction.data.moduleCodename !== expectedWorkflowAction.moduleCodename) {
             errors.push(
-                `LMS ${expectedWorkflowAction.entityCodename}.${expectedWorkflowAction.actionCodename} must bind script ${expectedWorkflowAction.scriptCodename}`
+                `LMS ${expectedWorkflowAction.entityCodename}.${expectedWorkflowAction.actionCodename} must bind module ${expectedWorkflowAction.moduleCodename}`
             )
         }
     }
@@ -3236,53 +3236,53 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
             errors.push(`LMS Enrollments.${fieldCodename} must declare form requiredWhen metadata`)
         }
     }
-    if (scripts.some((candidate) => readLocalizedText(candidate?.codename, 'en') === 'AutoEnrollmentRuleScript')) {
-        errors.push('LMS fixture must not include AutoEnrollmentRuleScript until canonical auto-enrollment target rules are modeled')
+    if (modules.some((candidate) => readLocalizedText(candidate?.codename, 'en') === 'AutoEnrollmentRuleModule')) {
+        errors.push('LMS fixture must not include AutoEnrollmentRuleModule until canonical auto-enrollment target rules are modeled')
     }
-    for (const requiredScript of [
-        { codename: 'EnrollmentPostingScript', attachedTo: 'Enrollments', capabilities: ['lifecycle', 'posting', 'ledger.write'] },
-        { codename: 'QuizAttemptPostingScript', attachedTo: 'QuizAttempts', capabilities: ['lifecycle', 'posting', 'ledger.write'] },
+    for (const requiredModule of [
+        { codename: 'EnrollmentPostingModule', attachedTo: 'Enrollments', capabilities: ['lifecycle', 'posting', 'ledger.write'] },
+        { codename: 'QuizAttemptPostingModule', attachedTo: 'QuizAttempts', capabilities: ['lifecycle', 'posting', 'ledger.write'] },
         {
-            codename: 'ContentCompletionPostingScript',
+            codename: 'ContentCompletionPostingModule',
             attachedTo: 'ContentProgress',
             capabilities: ['lifecycle', 'posting', 'ledger.write']
         },
         {
-            codename: 'CertificateIssuePostingScript',
+            codename: 'CertificateIssuePostingModule',
             attachedTo: 'CertificateIssues',
             capabilities: ['lifecycle', 'posting', 'ledger.write']
         },
         {
-            codename: 'PointTransactionPostingScript',
+            codename: 'PointTransactionPostingModule',
             attachedTo: 'PointTransactions',
             capabilities: ['lifecycle', 'posting', 'ledger.write']
         }
     ]) {
-        const script = scripts.find((candidate) => readLocalizedText(candidate?.codename, 'en') === requiredScript.codename)
-        if (!script) {
-            errors.push(`LMS fixture must include the ${requiredScript.codename} lifecycle script`)
+        const module = modules.find((candidate) => readLocalizedText(candidate?.codename, 'en') === requiredModule.codename)
+        if (!module) {
+            errors.push(`LMS fixture must include the ${requiredModule.codename} lifecycle module`)
             continue
         }
-        const manifest = script.manifest && typeof script.manifest === 'object' ? (script.manifest as Record<string, unknown>) : null
+        const manifest = module.manifest && typeof module.manifest === 'object' ? (module.manifest as Record<string, unknown>) : null
         const capabilities = Array.isArray(manifest?.capabilities) ? manifest.capabilities : []
-        const attachedEntity = entityByCodename.get(requiredScript.attachedTo)
-        if (script.attachedToKind !== 'object' || !attachedEntity?.id || script.attachedToId !== attachedEntity.id) {
-            errors.push(`LMS ${requiredScript.codename} must be attached to ${requiredScript.attachedTo}`)
+        const attachedEntity = entityByCodename.get(requiredModule.attachedTo)
+        if (module.attachedToKind !== 'object' || !attachedEntity?.id || module.attachedToId !== attachedEntity.id) {
+            errors.push(`LMS ${requiredModule.codename} must be attached to ${requiredModule.attachedTo}`)
         }
-        for (const capability of requiredScript.capabilities) {
+        for (const capability of requiredModule.capabilities) {
             if (!capabilities.includes(capability)) {
-                errors.push(`LMS ${requiredScript.codename} must declare ${capability} capability`)
+                errors.push(`LMS ${requiredModule.codename} must declare ${capability} capability`)
             }
         }
     }
 
-    const enrollmentPostingScript = scripts.find((script) => readLocalizedText(script?.codename, 'en') === 'EnrollmentPostingScript')
-    if (!enrollmentPostingScript) {
-        errors.push('LMS fixture must include the EnrollmentPostingScript lifecycle script')
+    const enrollmentPostingModule = modules.find((module) => readLocalizedText(module?.codename, 'en') === 'EnrollmentPostingModule')
+    if (!enrollmentPostingModule) {
+        errors.push('LMS fixture must include the EnrollmentPostingModule lifecycle module')
     } else {
         const manifest =
-            enrollmentPostingScript.manifest && typeof enrollmentPostingScript.manifest === 'object'
-                ? (enrollmentPostingScript.manifest as Record<string, unknown>)
+            enrollmentPostingModule.manifest && typeof enrollmentPostingModule.manifest === 'object'
+                ? (enrollmentPostingModule.manifest as Record<string, unknown>)
                 : {}
         const capabilities = Array.isArray(manifest.capabilities) ? manifest.capabilities : []
         const methods = Array.isArray(manifest.methods) ? manifest.methods : []
@@ -3293,19 +3293,19 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
                 (method as Record<string, unknown>).target === 'server' &&
                 (method as Record<string, unknown>).eventName === 'beforePost'
         )
-        if (enrollmentPostingScript.attachedToKind !== 'object' || enrollmentPostingScript.attachedToId !== enrollmentEntity?.id) {
-            errors.push('LMS EnrollmentPostingScript must be attached to the Enrollments object')
+        if (enrollmentPostingModule.attachedToKind !== 'object' || enrollmentPostingModule.attachedToId !== enrollmentEntity?.id) {
+            errors.push('LMS EnrollmentPostingModule must be attached to the Enrollments object')
         }
-        if (enrollmentPostingScript.moduleRole !== 'lifecycle') {
-            errors.push('LMS EnrollmentPostingScript must use the lifecycle module role')
+        if (enrollmentPostingModule.moduleRole !== 'lifecycle') {
+            errors.push('LMS EnrollmentPostingModule must use the lifecycle module role')
         }
         for (const capability of ['metadata.read', 'lifecycle', 'posting', 'ledger.write']) {
             if (!capabilities.includes(capability)) {
-                errors.push(`LMS EnrollmentPostingScript must declare ${capability}`)
+                errors.push(`LMS EnrollmentPostingModule must declare ${capability}`)
             }
         }
         if (!hasBeforePost) {
-            errors.push('LMS EnrollmentPostingScript must declare a beforePost server handler')
+            errors.push('LMS EnrollmentPostingModule must declare a beforePost server handler')
         }
     }
     const exportedFixedValues = Object.values(envelope.snapshot?.fixedValues ?? {}).flat()

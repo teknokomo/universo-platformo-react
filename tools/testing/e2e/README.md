@@ -43,9 +43,9 @@ This directory contains the browser-testing foundation for agent-driven verifica
 -   `specs/generators/*`: on-demand snapshot generators that create metahub configurations and export persistent fixture files. Excluded from normal test runs; invoked explicitly via `pnpm run test:e2e:generators`.
 -   `specs/visual/*`: screenshot assertions for layout regression detection.
 -   `restart-safe-check.mjs`: sequential built-app start/stop/start validation for fresh-db restart safety.
--   `dialog-idle-diagnostics.mjs`: bounded diagnostics script that keeps a create dialog open, captures Chromium metrics via CDP, and stores trace/heap artifacts for idle resource investigation.
+-   `dialog-idle-diagnostics.mjs`: bounded diagnostics module that keeps a create dialog open, captures Chromium metrics via CDP, and stores trace/heap artifacts for idle resource investigation.
 -   `support/backend/e2eFullReset.mjs`: guarded full reset/inspection helpers for project-owned schemas, `upl_migrations`, and Supabase auth users.
--   `support/backend/e2eDatabase.mjs`: shared direct PostgreSQL connection and advisory-lock helpers for hosted E2E maintenance scripts.
+-   `support/backend/e2eDatabase.mjs`: shared direct PostgreSQL connection and advisory-lock helpers for hosted E2E maintenance modules.
 -   `support/backend/run-e2e-doctor.mjs`: CLI report for leftover project-owned schemas, auth users, and local E2E artifacts.
 -   `support/backend/*`: provisioning, API login, run manifest, and cleanup helpers.
 -   `support/browser/preferences.ts`: browser-local helpers for locale/theme preferences used by the targeted matrix assertions.
@@ -299,7 +299,7 @@ Artifacts and failure media:
 -   Regular Playwright test runs already write failure screenshots, traces, and HTML report data under `test-results/` and `playwright-report/`.
 -   The suite config currently keeps `trace: 'retain-on-failure'`, `screenshot: 'only-on-failure'`, and `video: 'retain-on-failure'`.
 
-Manual video capture is also possible, but Playwright does not provide a dedicated `playwright video` CLI subcommand. Use a short inline Node script with the Playwright library when you need a reviewable recording:
+Manual video capture is also possible, but Playwright does not provide a dedicated `playwright video` CLI subcommand. Use a short inline Node module with the Playwright library when you need a reviewable recording:
 
 ```bash
 pnpm exec node --input-type=module <<'EOF'
@@ -355,7 +355,7 @@ Use this default sequence for agent-driven implementation:
 17. For `publication -> linked application` setup, wait for the publication to report a ready active version before creating the linked application; if creation still fails, treat it as a real product defect and keep the helper fail-closed instead of masking it with retries
 18. Keep the targeted matrix slice focused: verify Russian rendering and dark theme through dedicated matrix specs instead of cloning every CRUD flow into multiple locale/theme projects
 19. Use `test:e2e:restart-safe` whenever bootstrap, migrations, or first-run initialization changes so second-start regressions on a fresh database are caught before manual QA
-20. Use `test:e2e:diagnostics` when a create/edit dialog appears to idle hot; the script records Chromium performance metrics and a Playwright trace instead of trying to infer CPU churn from DOM assertions alone
+20. Use `test:e2e:diagnostics` when a create/edit dialog appears to idle hot; the module records Chromium performance metrics and a Playwright trace instead of trying to infer CPU churn from DOM assertions alone
 
 ## Safety Rules
 

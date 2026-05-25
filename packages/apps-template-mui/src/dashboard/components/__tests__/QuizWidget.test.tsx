@@ -5,7 +5,7 @@ import QuizWidget from '../QuizWidget'
 import { DashboardDetailsProvider } from '../../DashboardDetailsContext'
 
 const mocks = vi.hoisted(() => ({
-    executeClientScriptMethod: vi.fn()
+    executeClientModuleMethod: vi.fn()
 }))
 
 vi.mock('react-i18next', () => ({
@@ -31,8 +31,8 @@ vi.mock('react-i18next', () => ({
     })
 }))
 
-vi.mock('../../runtime/browserScriptRuntime', () => ({
-    executeClientScriptMethod: mocks.executeClientScriptMethod
+vi.mock('../../runtime/browserModuleRuntime', () => ({
+    executeClientModuleMethod: mocks.executeClientModuleMethod
 }))
 
 const createQueryClient = () =>
@@ -53,7 +53,7 @@ const renderWidget = (details?: Record<string, unknown>) => {
     return render(
         <QueryClientProvider client={queryClient}>
             <DashboardDetailsProvider value={details as never}>
-                <QuizWidget config={{ attachedToKind: 'object', scriptCodename: 'quiz-widget' }} />
+                <QuizWidget config={{ attachedToKind: 'object', moduleCodename: 'quiz-widget' }} />
             </DashboardDetailsProvider>
         </QueryClientProvider>
     )
@@ -68,13 +68,13 @@ describe('QuizWidget', () => {
             vi.fn(async (input: string | URL) => {
                 const url = String(input)
 
-                if (url.includes('/runtime/scripts?attachedToKind=object&attachedToId=object-1')) {
+                if (url.includes('/runtime/modules?attachedToKind=object&attachedToId=object-1')) {
                     return {
                         ok: true,
                         json: async () => ({
                             items: [
                                 {
-                                    id: 'script-1',
+                                    id: 'module-1',
                                     codename: 'quiz-widget',
                                     attachedToKind: 'object',
                                     attachedToId: 'object-1',
@@ -104,7 +104,7 @@ describe('QuizWidget', () => {
                     } as Response
                 }
 
-                if (url.endsWith('/runtime/scripts/script-1/client')) {
+                if (url.endsWith('/runtime/modules/module-1/client')) {
                     return {
                         ok: true,
                         text: async () => 'module.exports = class QuizWidgetRuntime {}'
@@ -115,7 +115,7 @@ describe('QuizWidget', () => {
             })
         )
 
-        mocks.executeClientScriptMethod.mockImplementation(async ({ methodName }: { methodName: string }) => {
+        mocks.executeClientModuleMethod.mockImplementation(async ({ methodName }: { methodName: string }) => {
             if (methodName === 'mount') {
                 return {
                     title: 'Space Quiz',
@@ -158,7 +158,34 @@ describe('QuizWidget', () => {
     it('renders an informative state when the runtime context is missing', () => {
         renderWidget(undefined)
 
-        expect(screen.getByText('Quiz widget is available only inside the application runtime surface.')).toBeInTheDocument()
+        expect(screen.getByText('This quiz is available only in a published application.')).toBeInTheDocument()
+    })
+
+    it('keeps runtime empty and error messages free of implementation terms', async () => {
+        vi.mocked(fetch).mockImplementation(async (input: string | URL) => {
+            const url = String(input)
+
+            if (url.includes('/runtime/modules?attachedToKind=object&attachedToId=object-1')) {
+                return {
+                    ok: true,
+                    json: async () => ({ items: [] })
+                } as Response
+            }
+
+            throw new Error(`Unexpected fetch request: ${url}`)
+        })
+
+        renderWidget({
+            applicationId: 'app-1',
+            objectCollectionId: 'object-1',
+            apiBaseUrl: '/api/v1'
+        })
+
+        expect(await screen.findByText('Quiz widget is not configured')).toBeInTheDocument()
+        expect(
+            screen.getByText('Choose an active quiz source for this page or application before publishing the quiz.')
+        ).toBeInTheDocument()
+        expect(screen.queryByText(/module|bundle|method|mount|submit|sourceCode|serverBundle|clientBundle/i)).not.toBeInTheDocument()
     })
 
     it('renders quiz questions, submits the current answer payload, and shows the completion score', async () => {
@@ -177,14 +204,14 @@ describe('QuizWidget', () => {
             expect(screen.getByText('Score: 1 / 1')).toBeInTheDocument()
         })
 
-        expect(mocks.executeClientScriptMethod).toHaveBeenCalledWith(
+        expect(mocks.executeClientModuleMethod).toHaveBeenCalledWith(
             expect.objectContaining({
                 methodName: 'mount',
                 args: ['en']
             })
         )
 
-        expect(mocks.executeClientScriptMethod).toHaveBeenCalledWith(
+        expect(mocks.executeClientModuleMethod).toHaveBeenCalledWith(
             expect.objectContaining({
                 methodName: 'submit',
                 args: [
@@ -202,7 +229,7 @@ describe('QuizWidget', () => {
     })
 
     it('shows a manual next action after an incorrect answer', async () => {
-        mocks.executeClientScriptMethod.mockImplementation(async ({ methodName }: { methodName: string; args?: unknown[] }) => {
+        mocks.executeClientModuleMethod.mockImplementation(async ({ methodName }: { methodName: string; args?: unknown[] }) => {
             if (methodName === 'mount') {
                 return {
                     title: 'Space Quiz',
@@ -284,7 +311,7 @@ describe('QuizWidget', () => {
                         } as never
                     }
                 >
-                    <QuizWidget config={{ attachedToKind: 'object', scriptCodename: 'quiz-widget', quizId: 'quiz-42' }} />
+                    <QuizWidget config={{ attachedToKind: 'object', moduleCodename: 'quiz-widget', quizId: 'quiz-42' }} />
                 </DashboardDetailsProvider>
             </QueryClientProvider>
         )
@@ -294,7 +321,7 @@ describe('QuizWidget', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Check answer' }))
 
         await waitFor(() => {
-            expect(mocks.executeClientScriptMethod).toHaveBeenCalledWith(
+            expect(mocks.executeClientModuleMethod).toHaveBeenCalledWith(
                 expect.objectContaining({
                     methodName: 'mount',
                     args: [{ locale: 'en', quizId: 'quiz-42' }]
@@ -302,7 +329,7 @@ describe('QuizWidget', () => {
             )
         })
 
-        expect(mocks.executeClientScriptMethod).toHaveBeenCalledWith(
+        expect(mocks.executeClientModuleMethod).toHaveBeenCalledWith(
             expect.objectContaining({
                 methodName: 'submit',
                 args: [
@@ -317,7 +344,7 @@ describe('QuizWidget', () => {
     it('sanitizes unsafe runtime quiz text while preserving localized display values', async () => {
         const unsafeUuid = '550e8400-e29b-41d4-a716-446655440000'
 
-        mocks.executeClientScriptMethod.mockImplementation(async ({ methodName }: { methodName: string }) => {
+        mocks.executeClientModuleMethod.mockImplementation(async ({ methodName }: { methodName: string }) => {
             if (methodName === 'mount') {
                 return {
                     title: unsafeUuid,
@@ -418,7 +445,7 @@ describe('QuizWidget', () => {
     })
 
     it('allows navigating back to a previous question while preserving the selected answer', async () => {
-        mocks.executeClientScriptMethod.mockImplementation(async ({ methodName }: { methodName: string; args?: unknown[] }) => {
+        mocks.executeClientModuleMethod.mockImplementation(async ({ methodName }: { methodName: string; args?: unknown[] }) => {
             if (methodName === 'mount') {
                 return {
                     title: 'Space Quiz',

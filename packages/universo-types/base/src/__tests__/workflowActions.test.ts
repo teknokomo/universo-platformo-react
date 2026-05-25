@@ -13,7 +13,7 @@ describe('workflow action contracts', () => {
             required: true,
             message: 'Accept this submission?'
         },
-        scriptCodename: 'AssignmentReviewScript',
+        moduleCodename: 'AssignmentReviewModule',
         postingCommand: 'post'
     })
 

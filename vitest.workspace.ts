@@ -8,7 +8,7 @@ export default defineWorkspace([
     'packages/metapanel-frontend/base/vitest.config.ts',
     'packages/metahubs-frontend/base/vitest.config.ts',
     'packages/profile-frontend/base/vitest.config.ts',
-    'packages/scripting-engine/base/vitest.config.ts',
+    'packages/modules-engine/base/vitest.config.ts',
     'packages/start-frontend/base/vitest.config.ts',
     'packages/universo-types/base/vitest.config.ts',
     'packages/universo-utils/base/vitest.config.ts',

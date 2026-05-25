@@ -20,12 +20,12 @@ import {
 } from '@mui/material'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSnackbar } from 'notistack'
-import { SCRIPT_LIFECYCLE_EVENTS, type MetahubScriptRecord, type ScriptAttachmentKind } from '@universo/types'
+import { MODULE_LIFECYCLE_EVENTS, type MetahubModuleRecord, type ModuleAttachmentKind } from '@universo/types'
 import type { TabConfig } from '@universo/template-mui/components/dialogs'
 import { extractAxiosError } from '@universo/utils'
 
 import { getLocalizedContentText } from '../../../utils/localizedInput'
-import { scriptsApi } from '../../scripts/api/scriptsApi'
+import { modulesApi } from '../../modules/api/modulesApi'
 import {
     createEntityAction,
     createEntityEventBinding,
@@ -45,8 +45,8 @@ type ActionDraft = {
     id: string | null
     codename: string
     name: string
-    actionType: 'script' | 'builtin'
-    scriptId: string
+    actionType: 'module' | 'builtin'
+    moduleId: string
     sortOrder: string
     configText: string
     version?: number
@@ -62,7 +62,7 @@ type EventBindingDraft = {
     version?: number
 }
 
-const EVENT_NAME_OPTIONS = [...SCRIPT_LIFECYCLE_EVENTS, 'onValidate', 'beforeWrite', 'afterWrite'] as const
+const EVENT_NAME_OPTIONS = [...MODULE_LIFECYCLE_EVENTS, 'onValidate', 'beforeWrite', 'afterWrite'] as const
 
 const panelSx = {
     border: 1,
@@ -130,16 +130,16 @@ const buildActionLabel = (action: MetahubEntityAction): string => {
     return getLocalizedContentText(action.codename, 'en', action.id) || action.id
 }
 
-const buildScriptLabel = (script: MetahubScriptRecord): string => {
-    return getLocalizedContentText(script.presentation?.name, 'en', script.id) || script.id
+const buildModuleLabel = (module: MetahubModuleRecord): string => {
+    return getLocalizedContentText(module.presentation?.name, 'en', module.id) || module.id
 }
 
 const createActionDraft = (action?: MetahubEntityAction | null): ActionDraft => ({
     id: action?.id ?? null,
     codename: action ? getLocalizedContentText(action.codename, 'en', action.id) || '' : '',
     name: action ? readRecordString(action.presentation, 'name') : '',
-    actionType: action?.actionType ?? 'script',
-    scriptId: action?.scriptId ?? '',
+    actionType: action?.actionType ?? 'module',
+    moduleId: action?.moduleId ?? '',
     sortOrder: typeof action?.sortOrder === 'number' ? String(action.sortOrder) : '',
     configText: stringifyJson(action?.config),
     version: action?.version
@@ -158,8 +158,8 @@ const createEventBindingDraft = (binding?: MetahubEventBinding | null): EventBin
 const queryKeys = {
     actions: (metahubId: string, entityId: string) => ['metahub-entity-actions', metahubId, entityId] as const,
     bindings: (metahubId: string, entityId: string) => ['metahub-entity-event-bindings', metahubId, entityId] as const,
-    scripts: (metahubId: string, attachedToKind: ScriptAttachmentKind, entityId: string) =>
-        ['metahub-entity-automation-scripts', metahubId, attachedToKind, entityId] as const
+    modules: (metahubId: string, attachedToKind: ModuleAttachmentKind, entityId: string) =>
+        ['metahub-entity-automation-modules', metahubId, attachedToKind, entityId] as const
 }
 
 const EntityActionsTab = ({
@@ -171,7 +171,7 @@ const EntityActionsTab = ({
     t: TranslationFn
     metahubId: string | null | undefined
     entityId: string | null
-    attachedToKind: ScriptAttachmentKind
+    attachedToKind: ModuleAttachmentKind
 }) => {
     const queryClient = useQueryClient()
     const { enqueueSnackbar } = useSnackbar()
@@ -188,17 +188,17 @@ const EntityActionsTab = ({
         staleTime: 30_000
     })
 
-    const scriptsQuery = useQuery({
-        queryKey: canLoad ? queryKeys.scripts(metahubId!, attachedToKind, entityId!) : ['metahub-entity-automation-scripts', 'empty'],
-        queryFn: () => scriptsApi.list(metahubId!, { attachedToKind, attachedToId: entityId! }),
+    const modulesQuery = useQuery({
+        queryKey: canLoad ? queryKeys.modules(metahubId!, attachedToKind, entityId!) : ['metahub-entity-automation-modules', 'empty'],
+        queryFn: () => modulesApi.list(metahubId!, { attachedToKind, attachedToId: entityId! }),
         enabled: canLoad,
         staleTime: 30_000
     })
 
     const actions = useMemo(() => actionsQuery.data ?? [], [actionsQuery.data])
-    const scripts = useMemo(() => scriptsQuery.data ?? [], [scriptsQuery.data])
+    const modules = useMemo(() => modulesQuery.data ?? [], [modulesQuery.data])
     const selectedAction = useMemo(() => actions.find((action) => action.id === selectedActionId) ?? null, [actions, selectedActionId])
-    const scriptNameById = useMemo(() => new Map(scripts.map((script) => [script.id, buildScriptLabel(script)])), [scripts])
+    const moduleNameById = useMemo(() => new Map(modules.map((module) => [module.id, buildModuleLabel(module)])), [modules])
 
     useEffect(() => {
         if (!selectedActionId) {
@@ -224,7 +224,7 @@ const EntityActionsTab = ({
                 codename: nextDraft.codename.trim(),
                 presentation: nextDraft.name.trim().length > 0 ? { name: nextDraft.name.trim() } : {},
                 actionType: nextDraft.actionType,
-                scriptId: nextDraft.actionType === 'script' ? nextDraft.scriptId || null : null,
+                moduleId: nextDraft.actionType === 'module' ? nextDraft.moduleId || null : null,
                 sortOrder: parseOptionalInteger(
                     nextDraft.sortOrder,
                     t('entities.instances.automation.actions.fields.sortOrder', 'Sort order')
@@ -244,7 +244,7 @@ const EntityActionsTab = ({
                 codename: nextDraft.codename.trim(),
                 presentation: nextDraft.name.trim().length > 0 ? { name: nextDraft.name.trim() } : {},
                 actionType: nextDraft.actionType,
-                scriptId: nextDraft.actionType === 'script' ? nextDraft.scriptId || null : null,
+                moduleId: nextDraft.actionType === 'module' ? nextDraft.moduleId || null : null,
                 sortOrder: parseOptionalInteger(
                     nextDraft.sortOrder,
                     t('entities.instances.automation.actions.fields.sortOrder', 'Sort order')
@@ -289,8 +289,8 @@ const EntityActionsTab = ({
             return
         }
 
-        if (draft.actionType === 'script' && draft.scriptId.trim().length === 0) {
-            setFormError(t('entities.instances.automation.actions.validation.scriptRequired', 'Select a script for script actions.'))
+        if (draft.actionType === 'module' && draft.moduleId.trim().length === 0) {
+            setFormError(t('entities.instances.automation.actions.validation.moduleRequired', 'Select a module for module actions.'))
             return
         }
 
@@ -347,7 +347,7 @@ const EntityActionsTab = ({
             <Alert severity='info'>
                 {t(
                     'entities.instances.automation.actions.description',
-                    'Actions describe reusable automation steps for this entity instance. Script actions can be bound to lifecycle events in the Events tab.'
+                    'Actions describe reusable automation steps for this entity instance. Module actions can be bound to lifecycle events in the Events tab.'
                 )}
             </Alert>
 
@@ -380,10 +380,10 @@ const EntityActionsTab = ({
                             <ListItemText
                                 primary={buildActionLabel(action)}
                                 secondary={
-                                    action.actionType === 'script'
-                                        ? `${t('entities.instances.automation.actions.type.script', 'Script')} · ${
-                                              scriptNameById.get(action.scriptId ?? '') ??
-                                              t('entities.instances.automation.actions.noScript', 'No script')
+                                    action.actionType === 'module'
+                                        ? `${t('entities.instances.automation.actions.type.module', 'Module')} · ${
+                                              moduleNameById.get(action.moduleId ?? '') ??
+                                              t('entities.instances.automation.actions.noModule', 'No module')
                                           }`
                                         : t('entities.instances.automation.actions.type.builtin', 'Platform action')
                                 }
@@ -446,31 +446,31 @@ const EntityActionsTab = ({
                                     setDraft((prev) => ({
                                         ...prev,
                                         actionType: event.target.value as ActionDraft['actionType'],
-                                        scriptId: event.target.value === 'builtin' ? '' : prev.scriptId
+                                        moduleId: event.target.value === 'builtin' ? '' : prev.moduleId
                                     }))
                                 }
                                 disabled={isSaving}
                             >
-                                <MenuItem value='script'>{t('entities.instances.automation.actions.type.script', 'Script')}</MenuItem>
+                                <MenuItem value='module'>{t('entities.instances.automation.actions.type.module', 'Module')}</MenuItem>
                                 <MenuItem value='builtin'>
                                     {t('entities.instances.automation.actions.type.builtin', 'Platform action')}
                                 </MenuItem>
                             </Select>
                         </FormControl>
 
-                        <FormControl size='small' fullWidth disabled={isSaving || draft.actionType !== 'script'}>
-                            <InputLabel>{t('entities.instances.automation.actions.fields.script', 'Script')}</InputLabel>
+                        <FormControl size='small' fullWidth disabled={isSaving || draft.actionType !== 'module'}>
+                            <InputLabel>{t('entities.instances.automation.actions.fields.module', 'Module')}</InputLabel>
                             <Select
-                                label={t('entities.instances.automation.actions.fields.script', 'Script')}
-                                value={draft.scriptId}
-                                onChange={(event) => setDraft((prev) => ({ ...prev, scriptId: String(event.target.value) }))}
+                                label={t('entities.instances.automation.actions.fields.module', 'Module')}
+                                value={draft.moduleId}
+                                onChange={(event) => setDraft((prev) => ({ ...prev, moduleId: String(event.target.value) }))}
                             >
                                 <MenuItem value=''>
-                                    {t('entities.instances.automation.actions.fields.scriptPlaceholder', 'Select a script')}
+                                    {t('entities.instances.automation.actions.fields.modulePlaceholder', 'Select a module')}
                                 </MenuItem>
-                                {scripts.map((script) => (
-                                    <MenuItem key={script.id} value={script.id}>
-                                        {buildScriptLabel(script)}
+                                {modules.map((module) => (
+                                    <MenuItem key={module.id} value={module.id}>
+                                        {buildModuleLabel(module)}
                                     </MenuItem>
                                 ))}
                             </Select>
@@ -487,11 +487,11 @@ const EntityActionsTab = ({
                         />
                     </Stack>
 
-                    {draft.actionType === 'script' && scripts.length === 0 ? (
+                    {draft.actionType === 'module' && modules.length === 0 ? (
                         <Alert severity='warning'>
                             {t(
-                                'entities.instances.automation.actions.noScriptsAvailable',
-                                'No scripts are attached to this entity yet. Add one in the Scripts tab or switch this action to a platform action.'
+                                'entities.instances.automation.actions.noModulesAvailable',
+                                'No modules are attached to this entity yet. Add one in the Modules tab or switch this action to a platform action.'
                             )}
                         </Alert>
                     ) : null}
@@ -534,7 +534,7 @@ const EntityEventBindingsTab = ({
     t: TranslationFn
     metahubId: string | null | undefined
     entityId: string | null
-    attachedToKind: ScriptAttachmentKind
+    attachedToKind: ModuleAttachmentKind
 }) => {
     const queryClient = useQueryClient()
     const { enqueueSnackbar } = useSnackbar()
@@ -558,31 +558,31 @@ const EntityEventBindingsTab = ({
         staleTime: 30_000
     })
 
-    const scriptsQuery = useQuery({
-        queryKey: canLoad ? queryKeys.scripts(metahubId!, attachedToKind, entityId!) : ['metahub-entity-automation-scripts', 'empty'],
-        queryFn: () => scriptsApi.list(metahubId!, { attachedToKind, attachedToId: entityId! }),
+    const modulesQuery = useQuery({
+        queryKey: canLoad ? queryKeys.modules(metahubId!, attachedToKind, entityId!) : ['metahub-entity-automation-modules', 'empty'],
+        queryFn: () => modulesApi.list(metahubId!, { attachedToKind, attachedToId: entityId! }),
         enabled: canLoad,
         staleTime: 30_000
     })
 
     const actions = useMemo(() => actionsQuery.data ?? [], [actionsQuery.data])
     const bindings = useMemo(() => bindingsQuery.data ?? [], [bindingsQuery.data])
-    const scripts = useMemo(() => scriptsQuery.data ?? [], [scriptsQuery.data])
+    const modules = useMemo(() => modulesQuery.data ?? [], [modulesQuery.data])
     const selectedBinding = useMemo(
         () => bindings.find((binding) => binding.id === selectedBindingId) ?? null,
         [bindings, selectedBindingId]
     )
-    const scriptNameById = useMemo(() => new Map(scripts.map((script) => [script.id, buildScriptLabel(script)])), [scripts])
+    const moduleNameById = useMemo(() => new Map(modules.map((module) => [module.id, buildModuleLabel(module)])), [modules])
     const actionLabelById = useMemo(
         () =>
             new Map(
                 actions.map((action) => {
                     const baseLabel = buildActionLabel(action)
-                    const scriptSuffix = action.actionType === 'script' ? scriptNameById.get(action.scriptId ?? '') : null
-                    return [action.id, scriptSuffix ? `${baseLabel} · ${scriptSuffix}` : baseLabel]
+                    const moduleSuffix = action.actionType === 'module' ? moduleNameById.get(action.moduleId ?? '') : null
+                    return [action.id, moduleSuffix ? `${baseLabel} · ${moduleSuffix}` : baseLabel]
                 })
             ),
-        [actions, scriptNameById]
+        [actions, moduleNameById]
     )
 
     useEffect(() => {
@@ -903,7 +903,7 @@ export const createEntityActionsTab = (params: {
     t: TranslationFn
     metahubId: string | null | undefined
     entityId: string | null
-    attachedToKind: ScriptAttachmentKind
+    attachedToKind: ModuleAttachmentKind
 }): TabConfig => ({
     id: 'actions',
     label: params.t('entities.instances.tabs.actions', 'Actions'),
@@ -916,7 +916,7 @@ export const createEntityEventsTab = (params: {
     t: TranslationFn
     metahubId: string | null | undefined
     entityId: string | null
-    attachedToKind: ScriptAttachmentKind
+    attachedToKind: ModuleAttachmentKind
 }): TabConfig => ({
     id: 'events',
     label: params.t('entities.instances.tabs.events', 'Events'),

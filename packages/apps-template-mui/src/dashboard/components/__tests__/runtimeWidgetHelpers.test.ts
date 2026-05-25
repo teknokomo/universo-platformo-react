@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-    createClientScriptContext,
-    fetchRuntimeScripts,
-    filterRuntimeWidgetScripts,
-    selectRuntimeWidgetScript
+    createClientModuleContext,
+    fetchRuntimeModules,
+    filterRuntimeWidgetModules,
+    selectRuntimeWidgetModule
 } from '../runtimeWidgetHelpers'
 
 describe('runtimeWidgetHelpers', () => {
@@ -11,28 +11,28 @@ describe('runtimeWidgetHelpers', () => {
         vi.clearAllMocks()
     })
 
-    it('filters widget scripts down to unique client-capable widget entries', () => {
-        const filtered = filterRuntimeWidgetScripts([
+    it('filters widget modules down to unique client-capable widget entries', () => {
+        const filtered = filterRuntimeWidgetModules([
             {
-                id: 'script-1',
+                id: 'module-1',
                 codename: 'widget-a',
                 moduleRole: 'widget',
                 manifest: { methods: [{ name: 'mount', target: 'client' }] }
             },
             {
-                id: 'script-1',
+                id: 'module-1',
                 codename: 'widget-a-duplicate',
                 moduleRole: 'widget',
                 manifest: { methods: [{ name: 'mount', target: 'client' }] }
             },
             {
-                id: 'script-2',
+                id: 'module-2',
                 codename: 'server-only',
                 moduleRole: 'widget',
                 manifest: { methods: [{ name: 'mount', target: 'server' }] }
             },
             {
-                id: 'script-3',
+                id: 'module-3',
                 codename: 'not-widget',
                 moduleRole: 'automation',
                 manifest: { methods: [{ name: 'mount', target: 'client' }] }
@@ -43,27 +43,27 @@ describe('runtimeWidgetHelpers', () => {
         expect(filtered[0]?.codename).toBe('widget-a')
     })
 
-    it('selects a named runtime widget script or falls back to the first one', () => {
-        const scripts = [
-            { id: 'script-1', codename: 'widget-a' },
-            { id: 'script-2', codename: 'widget-b' }
+    it('selects a named runtime widget module or falls back to the first one', () => {
+        const modules = [
+            { id: 'module-1', codename: 'widget-a' },
+            { id: 'module-2', codename: 'widget-b' }
         ] as never
 
-        expect(selectRuntimeWidgetScript(scripts, 'widget-b')?.id).toBe('script-2')
-        expect(selectRuntimeWidgetScript(scripts, null)?.id).toBe('script-1')
+        expect(selectRuntimeWidgetModule(modules, 'widget-b')?.id).toBe('module-2')
+        expect(selectRuntimeWidgetModule(modules, null)?.id).toBe('module-1')
     })
 
-    it('fetches runtime scripts with the attached entity in the query string', async () => {
+    it('fetches runtime modules with the attached entity in the query string', async () => {
         const fetchMock = vi.fn(async () => ({
             ok: true,
             json: async () => ({
-                items: [{ id: 'script-1', codename: 'widget-runtime' }]
+                items: [{ id: 'module-1', codename: 'widget-runtime' }]
             })
         }))
 
         vi.stubGlobal('fetch', fetchMock)
 
-        const items = await fetchRuntimeScripts({
+        const items = await fetchRuntimeModules({
             apiBaseUrl: '/api/v1',
             applicationId: 'app-1',
             attachedToKind: 'object',
@@ -71,18 +71,18 @@ describe('runtimeWidgetHelpers', () => {
         })
 
         expect(fetchMock).toHaveBeenCalledWith(
-            expect.stringContaining('/api/v1/applications/app-1/runtime/scripts?attachedToKind=object&attachedToId=object-1'),
+            expect.stringContaining('/api/v1/applications/app-1/runtime/modules?attachedToKind=object&attachedToId=object-1'),
             { credentials: 'include' }
         )
-        expect(items).toEqual([{ id: 'script-1', codename: 'widget-runtime' }])
+        expect(items).toEqual([{ id: 'module-1', codename: 'widget-runtime' }])
     })
 
     it('creates a client context that exposes metadata only when the capability is enabled', async () => {
-        const context = createClientScriptContext({
+        const context = createClientModuleContext({
             apiBaseUrl: '/api/v1',
             applicationId: 'app-1',
-            script: {
-                id: 'script-1',
+            module: {
+                id: 'module-1',
                 codename: 'widget-runtime',
                 attachedToKind: 'object',
                 attachedToId: 'object-1',
@@ -97,6 +97,6 @@ describe('runtimeWidgetHelpers', () => {
             kind: 'object',
             id: 'object-1'
         })
-        await expect(context.callServerMethod('mount', [])).rejects.toThrow('Script capability "rpc.client" is not enabled for this script')
+        await expect(context.callServerMethod('mount', [])).rejects.toThrow('Module capability "rpc.client" is not enabled for this module')
     })
 })

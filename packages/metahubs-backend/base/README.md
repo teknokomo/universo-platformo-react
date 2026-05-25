@@ -39,12 +39,12 @@ It combines SQL-first domain services with isolated DDL boundaries, template see
 -   The default LMS layout uses the shared dashboard shell (`menuWidget`, `appNavbar`, `header`, `detailsTitle`, `detailsTable`) instead of binding global LMS-only module, statistics, or QR widgets.
 -   The LMS menu disables `autoShowAllSections`, exposes curated primary sections directly in the sidebar, and starts from the Learner Home Page via `startPage`.
 -   Learning Content layouts use generic runtime widgets and datasource contracts, including `records.union` for unified libraries and deleted-row queries for trash views.
--   Snapshot export/import tests assert that the committed LMS fixture does not reintroduce removed global dashboard widgets, demo dashboard surfaces, or metahub-level widget scripts.
+-   Snapshot export/import tests assert that the committed LMS fixture does not reintroduce removed global dashboard widgets, demo dashboard surfaces, or metahub-level widget modules.
 
 ## Main Responsibilities
 
 -   Expose authenticated CRUD routes for design-time metahub resources.
--   Keep design-time script source and bundle surfaces behind `manageMetahub` permission instead of broad member-level reads.
+-   Keep design-time module source and bundle surfaces behind `manageMetahub` permission instead of broad member-level reads.
 -   Expose public read-only routes for published metahub data.
 -   Initialize rate limiters and assemble the full metahubs router tree.
 -   Seed platform templates through the unified platform migration flow.
@@ -57,7 +57,7 @@ It combines SQL-first domain services with isolated DDL boundaries, template see
 -   Dynamic schema, table, and column identifiers go through shared quoting helpers.
 -   Domain SQL is schema-qualified and parameterized with PostgreSQL-style bindings.
 -   Copy, delete, restore, and reorder flows must preserve active-row and fail-closed contracts.
--   Active design-time script codenames are unique only inside the attachment scope tuple `(attached_to_kind, attached_to_id, module_role)`.
+-   Active design-time module codenames are unique only inside the attachment scope tuple `(attached_to_kind, attached_to_id, module_role)`.
 -   Package-local DDL helpers are the only valid place for raw Knex and schema-ddl transport wiring.
 
 ## DDL And Publication Boundaries
@@ -69,7 +69,7 @@ It combines SQL-first domain services with isolated DDL boundaries, template see
 
 ## Router Composition
 
--   `createMetahubsServiceRoutes()` mounts metahubs, branches, publications, migrations, entity types, entity instances, entity-owned metadata routes for field definitions, fixed values, and records, plus actions, event bindings, layouts, scripts, shared entity overrides, settings, and templates.
+-   `createMetahubsServiceRoutes()` mounts metahubs, branches, publications, migrations, entity types, entity instances, entity-owned metadata routes for field definitions, fixed values, and records, plus actions, event bindings, layouts, modules, shared entity overrides, settings, and templates.
 -   `createPublicMetahubsServiceRoutes()` exposes public published-metahub reads without authentication.
 -   Package services and persistence helpers stay reusable outside the top-level router composition.
 -   Tests prove service-level contracts directly where route tests use mocks.

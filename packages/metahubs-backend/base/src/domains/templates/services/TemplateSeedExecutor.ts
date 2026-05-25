@@ -5,14 +5,14 @@ import type {
     TemplateSeedScopedLayout,
     TemplateSeedZoneWidget,
     TemplateSeedElement,
-    TemplateSeedScript,
+    TemplateSeedModule,
     DashboardLayoutWidgetKey,
     DashboardLayoutZone,
     CodenameAlphabet,
     CodenameStyle,
     VersionedLocalizedContent
 } from '@universo/types'
-import { compileScriptSource } from '@universo/scripting-engine'
+import { compileModuleSource } from '@universo/modules-engine'
 import { normalizeCodenameForStyle } from '@universo/utils/validation/codename'
 import { buildDashboardLayoutConfig } from '../../shared'
 import { toJsonbValue } from '../../shared/jsonb'
@@ -175,8 +175,8 @@ export class TemplateSeedExecutor {
             // 5. Create zone widgets after all layout codenames have been registered.
             await this.createZoneWidgets(trx, seed.layoutZoneWidgets, layoutIdMap)
 
-            if (seed.scripts?.length) {
-                await this.createScripts(trx, seed.scripts, entityIdMap)
+            if (seed.modules?.length) {
+                await this.createModules(trx, seed.modules, entityIdMap)
             }
         })
     }
@@ -897,21 +897,21 @@ export class TemplateSeedExecutor {
         }
     }
 
-    private async createScripts(qb: Knex, scripts: TemplateSeedScript[], entityIdMap: Map<string, string>): Promise<void> {
+    private async createModules(qb: Knex, modules: TemplateSeedModule[], entityIdMap: Map<string, string>): Promise<void> {
         const now = new Date()
 
-        for (const script of scripts) {
+        for (const module of modules) {
             const attachedToId =
-                script.attachedToKind === 'metahub' || script.attachedToKind === 'general'
+                module.attachedToKind === 'metahub' || module.attachedToKind === 'general'
                     ? null
-                    : script.attachedToEntityCodename
-                    ? resolveEntityIdByCodename(entityIdMap, script.attachedToEntityCodename, script.attachedToKind)
+                    : module.attachedToEntityCodename
+                    ? resolveEntityIdByCodename(entityIdMap, module.attachedToEntityCodename, module.attachedToKind)
                     : null
 
-            if (script.attachedToKind !== 'metahub' && script.attachedToKind !== 'general' && !attachedToId) {
+            if (module.attachedToKind !== 'metahub' && module.attachedToKind !== 'general' && !attachedToId) {
                 log.warn(
-                    `Script target ${script.attachedToKind}:${script.attachedToEntityCodename ?? '[missing]'} not found, skipping ${
-                        script.codename
+                    `Module target ${module.attachedToKind}:${module.attachedToEntityCodename ?? '[missing]'} not found, skipping ${
+                        module.codename
                     }`
                 )
                 continue
@@ -919,51 +919,51 @@ export class TemplateSeedExecutor {
 
             const existing = await qb
                 .withSchema(this.schemaName)
-                .from('_mhb_scripts')
+                .from('_mhb_modules')
                 .where({
-                    attached_to_kind: script.attachedToKind,
+                    attached_to_kind: module.attachedToKind,
                     attached_to_id: attachedToId,
-                    module_role: script.moduleRole,
+                    module_role: module.moduleRole,
                     _upl_deleted: false,
                     _mhb_deleted: false
                 })
-                .whereRaw(`${codenamePrimaryTextSql('codename')} = ?`, [script.codename])
+                .whereRaw(`${codenamePrimaryTextSql('codename')} = ?`, [module.codename])
                 .first()
 
             if (existing) {
                 continue
             }
 
-            const artifact = await compileScriptSource({
-                codename: script.codename,
-                sourceCode: script.sourceCode,
-                sdkApiVersion: script.sdkApiVersion,
-                moduleRole: script.moduleRole,
-                sourceKind: script.sourceKind,
-                capabilities: script.capabilities
+            const artifact = await compileModuleSource({
+                codename: module.codename,
+                sourceCode: module.sourceCode,
+                sdkApiVersion: module.sdkApiVersion,
+                moduleRole: module.moduleRole,
+                sourceKind: module.sourceKind,
+                capabilities: module.capabilities
             })
 
             await qb
                 .withSchema(this.schemaName)
-                .into('_mhb_scripts')
+                .into('_mhb_modules')
                 .insert({
-                    codename: ensureCodenameValue(script.codename),
+                    codename: ensureCodenameValue(module.codename),
                     presentation: {
-                        name: script.name,
-                        description: script.description ?? null
+                        name: module.name,
+                        description: module.description ?? null
                     },
-                    attached_to_kind: script.attachedToKind,
+                    attached_to_kind: module.attachedToKind,
                     attached_to_id: attachedToId,
                     module_role: artifact.manifest.moduleRole,
                     source_kind: artifact.manifest.sourceKind,
                     sdk_api_version: artifact.manifest.sdkApiVersion,
-                    source_code: script.sourceCode,
+                    source_code: module.sourceCode,
                     manifest: artifact.manifest,
                     server_bundle: artifact.serverBundle,
                     client_bundle: artifact.clientBundle,
                     checksum: artifact.checksum,
-                    is_active: script.isActive !== false,
-                    config: script.config ?? {},
+                    is_active: module.isActive !== false,
+                    config: module.config ?? {},
                     _upl_created_at: now,
                     _upl_created_by: null,
                     _upl_updated_at: now,

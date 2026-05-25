@@ -11,7 +11,7 @@ import {
     disposeApiContext,
     getAssignableRoles,
     listMetahubEntityTypes,
-    listMetahubScripts,
+    listMetahubModules,
     listMetahubMembers,
     sendWithCsrf
 } from '../../support/backend/api-session.mjs'
@@ -46,7 +46,7 @@ type EntityListPayload = {
 type ActionRecord = {
     id?: string
     actionType?: string
-    scriptId?: string | null
+    moduleId?: string | null
     codename?: unknown
 }
 
@@ -243,9 +243,9 @@ function buildKindSuffix(runId: string): string {
     return normalized.slice(-8) || 'e2e'
 }
 
-const GENERIC_ENTITY_WIDGET_SOURCE = `import { ExtensionScript, AtClient } from '@universo/extension-sdk'
+const GENERIC_ENTITY_WIDGET_SOURCE = `import { ExtensionModule, AtClient } from '@universo/extension-sdk'
 
-export default class GenericEntityWidget extends ExtensionScript {
+export default class GenericEntityWidget extends ExtensionModule {
     @AtClient()
     async mount() {
         return { ok: true }
@@ -333,7 +333,7 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
         await expect(createDialog.getByRole('checkbox', { name: 'Publish to dynamic menu' })).toBeChecked()
         await expect(createDialog.getByRole('checkbox', { name: 'Hubs' })).toBeChecked()
         await expect(createDialog.getByRole('checkbox', { name: 'Layout' })).toBeChecked()
-        await expect(createDialog.getByRole('checkbox', { name: 'Scripts' })).toBeChecked()
+        await expect(createDialog.getByRole('checkbox', { name: 'Modules' })).toBeChecked()
         await createDialog.getByRole('tab', { name: 'Components' }).click()
         await expect(createDialog.getByRole('checkbox', { name: 'Data schema' })).toBeChecked()
         await expect(createDialog.getByRole('checkbox', { name: 'Physical table' })).toBeChecked()
@@ -427,7 +427,7 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
         await expect(entityEditDialog).toBeVisible()
         await expect(entityEditDialog.getByRole('tab', { name: 'Components' })).toBeVisible()
         await expect(entityEditDialog.getByRole('tab', { name: 'Layout' })).toBeVisible()
-        await expect(entityEditDialog.getByRole('tab', { name: 'Scripts' })).toBeVisible()
+        await expect(entityEditDialog.getByRole('tab', { name: 'Modules' })).toBeVisible()
 
         const entityEditResponse = waitForSettledMutationResponse(
             page,
@@ -585,7 +585,7 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
     }
 })
 
-test('@flow metahub custom entity instances author scripts actions and events through the browser with custom attachment kinds', async ({
+test('@flow metahub custom entity instances author modules actions and events through the browser with custom attachment kinds', async ({
     page,
     runManifest
 }) => {
@@ -596,16 +596,16 @@ test('@flow metahub custom entity instances author scripts actions and events th
         password: runManifest.testUser.password
     })
 
-    const metahubName = `E2E ${runManifest.runId} custom entity scripts`
-    const metahubCodename = `${runManifest.runId}-custom-entity-scripts`
-    const kindSuffix = buildKindSuffix(`${runManifest.runId}-scripts`)
+    const metahubName = `E2E ${runManifest.runId} custom entity modules`
+    const metahubCodename = `${runManifest.runId}-custom-entity-modules`
+    const kindSuffix = buildKindSuffix(`${runManifest.runId}-modules`)
     const customKindKey = `custom.entity-${kindSuffix}`
     const customTypeName = `Entity ${kindSuffix}`
     const typeCodename = `Document${kindSuffix}`
     const entityName = `${customTypeName} Instance`
     const entityCodename = `entity-instance-${kindSuffix}`
-    const scriptName = `${customTypeName} Widget`
-    const scriptCodename = `entity-widget-${kindSuffix}`
+    const moduleName = `${customTypeName} Widget`
+    const moduleCodename = `entity-widget-${kindSuffix}`
     const actionName = `${customTypeName} Render Action`
     const actionCodename = `entity-render-${kindSuffix}`
     const bindingPriority = '10'
@@ -618,7 +618,7 @@ test('@flow metahub custom entity instances author scripts actions and events th
         })
 
         if (!metahub?.id) {
-            throw new Error('Metahub creation did not return an id for custom entity scripts coverage')
+            throw new Error('Metahub creation did not return an id for custom entity modules coverage')
         }
 
         await recordCreatedMetahub({
@@ -642,23 +642,23 @@ test('@flow metahub custom entity instances author scripts actions and events th
                 relations: false,
                 actions: { enabled: true },
                 events: { enabled: true },
-                scripting: { enabled: true },
+                modules: { enabled: true },
                 layoutConfig: false,
                 runtimeBehavior: false,
                 physicalTable: { enabled: true, prefix: `ent${kindSuffix.slice(0, 6) || 'e2e'}` }
             },
             ui: {
                 iconName: 'IconLayoutDashboard',
-                tabs: ['general', 'scripts'],
+                tabs: ['general', 'modules'],
                 sidebarSection: 'objects',
                 nameKey: customTypeName,
-                descriptionKey: 'Custom entity script browser proof'
+                descriptionKey: 'Custom entity module browser proof'
             },
             published: false
         })
 
         if (!createdEntityType.id) {
-            throw new Error('Entity type creation did not return an id for custom entity scripts coverage')
+            throw new Error('Entity type creation did not return an id for custom entity modules coverage')
         }
 
         await applyBrowserPreferences(page, { language: 'en' })
@@ -677,18 +677,18 @@ test('@flow metahub custom entity instances author scripts actions and events th
         const createEntityResponse = waitForSettledMutationResponse(
             page,
             (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/entities`),
-            { label: 'Creating generic entity instance for script coverage' }
+            { label: 'Creating generic entity instance for module coverage' }
         )
 
         await createEntityDialog.getByTestId(entityDialogSelectors.submitButton).click()
 
         const createdEntity = await parseJsonResponse<{ id?: string }>(
             await createEntityResponse,
-            'Creating generic entity instance for script coverage'
+            'Creating generic entity instance for module coverage'
         )
 
         if (!createdEntity.id) {
-            throw new Error('Create entity instance response did not contain an id for custom entity scripts coverage')
+            throw new Error('Create entity instance response did not contain an id for custom entity modules coverage')
         }
 
         await expect(page.getByText(entityName, { exact: true })).toBeVisible()
@@ -696,13 +696,13 @@ test('@flow metahub custom entity instances author scripts actions and events th
 
         let editEntityDialog = page.getByRole('dialog', { name: 'Edit Entity' })
         await expect(editEntityDialog).toBeVisible()
-        await editEntityDialog.getByRole('tab', { name: 'Scripts' }).click()
-        await expect(editEntityDialog.getByRole('heading', { name: 'Attached scripts' })).toBeVisible()
+        await editEntityDialog.getByRole('tab', { name: 'Modules' }).click()
+        await expect(editEntityDialog.getByRole('heading', { name: 'Attached modules' })).toBeVisible()
 
         await editEntityDialog.getByRole('combobox').first().click()
         await page.getByRole('option', { name: 'Widget' }).click()
-        await editEntityDialog.getByLabel('Name').first().fill(scriptName)
-        await editEntityDialog.getByLabel('Codename').first().fill(scriptCodename)
+        await editEntityDialog.getByLabel('Name').first().fill(moduleName)
+        await editEntityDialog.getByLabel('Codename').first().fill(moduleCodename)
 
         const editorContent = editEntityDialog.locator('.cm-content').first()
         await expect(editorContent).toBeVisible()
@@ -711,26 +711,26 @@ test('@flow metahub custom entity instances author scripts actions and events th
         await page.keyboard.press('Delete')
         await page.keyboard.insertText(GENERIC_ENTITY_WIDGET_SOURCE)
 
-        const createScriptRequest = page.waitForRequest(
-            (request) => request.method() === 'POST' && request.url().endsWith(`/api/v1/metahub/${metahub.id}/scripts`)
+        const createModuleRequest = page.waitForRequest(
+            (request) => request.method() === 'POST' && request.url().endsWith(`/api/v1/metahub/${metahub.id}/modules`)
         )
-        const createScriptResponse = page.waitForResponse(
+        const createModuleResponse = page.waitForResponse(
             (response) =>
-                response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/scripts`) && response.ok()
+                response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/modules`) && response.ok()
         )
 
-        await editEntityDialog.getByRole('button', { name: 'Create script' }).click()
+        await editEntityDialog.getByRole('button', { name: 'Create module' }).click()
 
-        const request = await createScriptRequest
+        const request = await createModuleRequest
         const requestPayload = request.postDataJSON()
         expect(requestPayload?.attachedToKind).toBe(customKindKey)
         expect(requestPayload?.attachedToId).toBe(createdEntity.id)
         expect(requestPayload?.sourceCode).toContain('GenericEntityWidget')
 
-        const response = await createScriptResponse
-        const createdScript = await response.json()
-        expect(typeof createdScript?.id).toBe('string')
-        expect(createdScript?.attachedToKind).toBe(customKindKey)
+        const response = await createModuleResponse
+        const createdModule = await response.json()
+        expect(typeof createdModule?.id).toBe('string')
+        expect(createdModule?.attachedToKind).toBe(customKindKey)
 
         await editEntityDialog.getByTestId(entityDialogSelectors.cancelButton).click()
         await expect(editEntityDialog).toHaveCount(0)
@@ -746,7 +746,7 @@ test('@flow metahub custom entity instances author scripts actions and events th
         await actionsPanel.getByLabel('Action codename').fill(actionCodename)
 
         await actionsPanel.getByRole('combobox').nth(1).click()
-        await page.getByRole('option', { name: scriptName, exact: true }).click()
+        await page.getByRole('option', { name: moduleName, exact: true }).click()
 
         const createActionResponse = waitForSettledMutationResponse(
             page,
@@ -758,7 +758,7 @@ test('@flow metahub custom entity instances author scripts actions and events th
 
         await actionsPanel.getByRole('button', { name: 'Create action' }).click()
 
-        const createdAction = await parseJsonResponse<{ id?: string; scriptId?: string | null; actionType?: string }>(
+        const createdAction = await parseJsonResponse<{ id?: string; moduleId?: string | null; actionType?: string }>(
             await createActionResponse,
             'Creating entity action for custom entity automation coverage'
         )
@@ -767,8 +767,8 @@ test('@flow metahub custom entity instances author scripts actions and events th
             throw new Error('Create action response did not contain an id for custom entity automation coverage')
         }
 
-        expect(createdAction?.scriptId).toBe(createdScript.id)
-        expect(createdAction?.actionType).toBe('script')
+        expect(createdAction?.moduleId).toBe(createdModule.id)
+        expect(createdAction?.actionType).toBe('module')
         await expect(actionsPanel.getByText(actionName, { exact: true })).toBeVisible()
 
         await editEntityDialog.getByRole('tab', { name: 'Events' }).click()
@@ -804,21 +804,21 @@ test('@flow metahub custom entity instances author scripts actions and events th
         expect(createdBinding?.eventName).toBe('afterUpdate')
         expect(createdBinding?.isActive).toBe(true)
         expect(createdBinding?.priority).toBe(Number(bindingPriority))
-        await expect(eventsPanel.getByText(`afterUpdate → ${actionName} · ${scriptName}`)).toBeVisible()
+        await expect(eventsPanel.getByText(`afterUpdate → ${actionName} · ${moduleName}`)).toBeVisible()
 
-        const persistedScripts = await listMetahubScripts(api, metahub.id, {
+        const persistedModules = await listMetahubModules(api, metahub.id, {
             attachedToKind: customKindKey,
             attachedToId: createdEntity.id,
             limit: 100,
             offset: 0
         })
-        expect(Array.isArray(persistedScripts?.items)).toBe(true)
-        expect(persistedScripts.items?.some((script) => script.id === createdScript.id)).toBe(true)
+        expect(Array.isArray(persistedModules?.items)).toBe(true)
+        expect(persistedModules.items?.some((module) => module.id === createdModule.id)).toBe(true)
 
         const persistedActions = await listEntityActionsViaApi(api, metahub.id, createdEntity.id)
         const persistedAction = persistedActions.items?.find((action) => action.id === createdAction.id)
-        expect(persistedAction?.scriptId).toBe(createdScript.id)
-        expect(persistedAction?.actionType).toBe('script')
+        expect(persistedAction?.moduleId).toBe(createdModule.id)
+        expect(persistedAction?.actionType).toBe('module')
         expect(readLocalizedText(persistedAction?.codename)).toBe(actionCodename)
 
         const persistedBindings = await listEntityEventBindingsViaApi(api, metahub.id, createdEntity.id)
@@ -909,14 +909,14 @@ test('@flow @permission object-style entity instances stay read-only for metahub
                 relations: { enabled: true, allowedRelationTypes: ['manyToOne'] },
                 actions: { enabled: true },
                 events: { enabled: true },
-                scripting: { enabled: true },
+                modules: { enabled: true },
                 layoutConfig: { enabled: true },
                 runtimeBehavior: { enabled: true },
                 physicalTable: { enabled: true, prefix: `cv${kindSuffix.slice(0, 6) || 'read'}` }
             },
             ui: {
                 iconName: 'IconDatabase',
-                tabs: ['general', 'hubs', 'layout', 'scripts'],
+                tabs: ['general', 'hubs', 'layout', 'modules'],
                 sidebarSection: 'objects',
                 nameKey: customName,
                 descriptionKey: 'Object-style read-only ACL proof'

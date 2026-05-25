@@ -9,7 +9,7 @@ import { createEntityComponentRoutes } from './entities/metadata/component/route
 import { createEntityRecordRoutes } from './entities/metadata/record/routes'
 import { createEntityFixedValueRoutes } from './entities/metadata/fixedValue/routes'
 import { createLayoutsRoutes } from './layouts/routes/layoutsRoutes'
-import { createScriptsRoutes } from './scripts/routes/scriptsRoutes'
+import { createModulesRoutes } from './modules/routes/modulesRoutes'
 import { createTemplatesRoutes } from './templates/routes/templatesRoutes'
 import { createPublicMetahubsRoutes } from './metahubs/routes/publicMetahubsRoutes'
 import { createMetahubMigrationsRoutes } from './metahubs/routes/metahubMigrationsRoutes'
@@ -85,7 +85,7 @@ export function createMetahubsServiceRoutes(ensureAuth: RequestHandler, getDbExe
     router.use('/', createEntityFixedValueRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createEntityRecordRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createLayoutsRoutes(ensureAuth, getDbExecutor, read, write))
-    router.use('/', createScriptsRoutes(ensureAuth, getDbExecutor, read, write))
+    router.use('/', createModulesRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createSharedEntityOverridesRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createEntityTypesRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createEntityInstancesRoutes(ensureAuth, getDbExecutor, read, write))
@@ -157,7 +157,7 @@ export { createEntityComponentRoutes } from './entities/metadata/component/route
 export { createEntityFixedValueRoutes } from './entities/metadata/fixedValue/routes'
 export { createEntityRecordRoutes } from './entities/metadata/record/routes'
 export { createLayoutsRoutes } from './layouts/routes/layoutsRoutes'
-export { createScriptsRoutes } from './scripts/routes/scriptsRoutes'
+export { createModulesRoutes } from './modules/routes/modulesRoutes'
 export { createSharedEntityOverridesRoutes } from './shared/routes/sharedEntityOverridesRoutes'
 export { createEntityTypesRoutes } from './entities/routes/entityTypesRoutes'
 export { createEntityInstancesRoutes } from './entities/routes/entityInstancesRoutes'

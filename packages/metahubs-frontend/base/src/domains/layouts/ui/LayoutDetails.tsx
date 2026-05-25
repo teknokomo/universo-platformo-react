@@ -238,8 +238,8 @@ export default function LayoutDetails() {
             }
             if (widget.widgetKey === 'quizWidget') {
                 const cfg = widget.config as QuizWidgetConfig | undefined
-                const configuredScriptCodename = typeof cfg?.scriptCodename === 'string' ? cfg.scriptCodename.trim() : ''
-                return configuredScriptCodename ? `${base}: ${configuredScriptCodename}` : base
+                const configuredModuleCodename = typeof cfg?.moduleCodename === 'string' ? cfg.moduleCodename.trim() : ''
+                return configuredModuleCodename ? `${base}: ${configuredModuleCodename}` : base
             }
             return base
         },

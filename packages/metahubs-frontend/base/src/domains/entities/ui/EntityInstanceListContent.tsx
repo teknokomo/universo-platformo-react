@@ -65,8 +65,8 @@ import { useEntityPermissions } from '../../settings/hooks/useEntityPermissions'
 import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
 import { invalidateEntitiesQueries, metahubsQueryKeys } from '../../shared'
 import GeneralTabFields from '../../shared/ui/GeneralTabFields'
-import { createScriptsTab } from '../../scripts/ui/EntityScriptsTab'
-import { scriptsApi } from '../../scripts/api/scriptsApi'
+import { createModulesTab } from '../../modules/ui/EntityModulesTab'
+import { modulesApi } from '../../modules/api/modulesApi'
 import { createEntityActionsTab, createEntityEventsTab } from './EntityAutomationTab'
 import { ObjectCollectionDeleteDialog } from '../../../components'
 import type { MetahubEntityInstance, UpdateEntityInstancePayload } from '../api'
@@ -138,12 +138,12 @@ const resolveComponentCodename = (field: Component, uiLocale: string): string =>
     return getLocalizedContentText(field.codename, uiLocale, getVLCString(field.codename, 'en') || field.id) || field.id
 }
 
-const scriptToRecordBehaviorOption = (
-    script: Awaited<ReturnType<typeof scriptsApi.list>>[number],
+const moduleToRecordBehaviorOption = (
+    module: Awaited<ReturnType<typeof modulesApi.list>>[number],
     uiLocale: string
 ): RecordBehaviorOption => {
-    const codename = getLocalizedContentText(script.codename, uiLocale, script.id) || script.id
-    const label = getLocalizedContentText(script.presentation?.name, uiLocale, codename) || codename
+    const codename = getLocalizedContentText(module.codename, uiLocale, module.id) || module.id
+    const label = getLocalizedContentText(module.presentation?.name, uiLocale, codename) || codename
     return { codename, label }
 }
 
@@ -460,8 +460,8 @@ const EntityInstanceListContent = () => {
             supportsLedgerSchema(entityType.capabilities) &&
             (requestedTabs.has('ledgerSchema') || hasLedgerConfig(entityType.config))
     )
-    const showScriptsTab = Boolean(
-        entityType && isEnabledCapabilityConfig(entityType.capabilities?.scripting) && requestedTabs.has('scripts')
+    const showModulesTab = Boolean(
+        entityType && isEnabledCapabilityConfig(entityType.capabilities?.modules) && requestedTabs.has('modules')
     )
     const showActionsTab = Boolean(entityType && isEnabledCapabilityConfig(entityType.capabilities?.actions))
     const showEventsTab = Boolean(entityType && isEnabledCapabilityConfig(entityType.capabilities?.events))
@@ -649,13 +649,13 @@ const EntityInstanceListContent = () => {
         enabled: Boolean((showBehaviorTab || showLedgerSchemaTab) && metahubId && behaviorDialogEntityId && resolvedKindKey),
         staleTime: 30 * 1000
     })
-    const behaviorScriptsQuery = useQuery({
+    const behaviorModulesQuery = useQuery({
         queryKey:
             metahubId && behaviorDialogEntityId
-                ? ['metahubs', metahubId, 'recordBehavior', behaviorAttachedToKind, behaviorDialogEntityId, 'scripts']
-                : ['metahubs', 'recordBehavior', 'scripts', 'empty'],
+                ? ['metahubs', metahubId, 'recordBehavior', behaviorAttachedToKind, behaviorDialogEntityId, 'modules']
+                : ['metahubs', 'recordBehavior', 'modules', 'empty'],
         queryFn: () =>
-            scriptsApi.list(metahubId!, {
+            modulesApi.list(metahubId!, {
                 attachedToKind: behaviorAttachedToKind,
                 attachedToId: behaviorDialogEntityId
             }),
@@ -676,9 +676,9 @@ const EntityInstanceListContent = () => {
                 : null,
         [behaviorComponentsQuery.data?.items, behaviorComponentsQuery.isSuccess, preferredVlcLocale]
     )
-    const behaviorScriptOptions = useMemo(
-        () => (behaviorScriptsQuery.data ?? []).map((script) => scriptToRecordBehaviorOption(script, preferredVlcLocale)),
-        [behaviorScriptsQuery.data, preferredVlcLocale]
+    const behaviorModuleOptions = useMemo(
+        () => (behaviorModulesQuery.data ?? []).map((module) => moduleToRecordBehaviorOption(module, preferredVlcLocale)),
+        [behaviorModulesQuery.data, preferredVlcLocale]
     )
     const ledgerEntityKindOptions = useMemo(
         () =>
@@ -1292,7 +1292,7 @@ const EntityInstanceListContent = () => {
                             capabilities={entityType.capabilities}
                             fieldOptions={options.mode === 'create' ? [] : behaviorFieldOptions}
                             ledgerOptions={behaviorLedgerOptions}
-                            scriptOptions={options.mode === 'create' ? [] : behaviorScriptOptions}
+                            moduleOptions={options.mode === 'create' ? [] : behaviorModuleOptions}
                             errors={errors}
                         />
                     )
@@ -1427,9 +1427,9 @@ const EntityInstanceListContent = () => {
                 })
             }
 
-            if (options.mode === 'edit' && options.entityId && showScriptsTab && metahubId) {
+            if (options.mode === 'edit' && options.entityId && showModulesTab && metahubId) {
                 tabs.push(
-                    createScriptsTab({
+                    createModulesTab({
                         t: translate,
                         metahubId,
                         attachedToKind: resolvedKindKey,
@@ -1474,7 +1474,7 @@ const EntityInstanceListContent = () => {
             containerSelectionLabels,
             behaviorFieldOptions,
             behaviorLedgerOptions,
-            behaviorScriptOptions,
+            behaviorModuleOptions,
             ledgerEntityKindOptions,
             componentsEmptyDescription,
             componentsEmptyTitle,
@@ -1493,7 +1493,7 @@ const EntityInstanceListContent = () => {
             showLayoutTab,
             showLedgerSchemaTab,
             showPageBlocksTab,
-            showScriptsTab,
+            showModulesTab,
             t,
             treeAssignmentTabId,
             translate,

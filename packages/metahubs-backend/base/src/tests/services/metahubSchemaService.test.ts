@@ -224,7 +224,7 @@ describe('MetahubSchemaService (read_only mode)', () => {
             '_mhb_layout_widget_overrides',
             '_mhb_shared_entity_overrides',
             '_mhb_migrations',
-            '_mhb_scripts',
+            '_mhb_modules',
             '_mhb_entity_type_definitions',
             '_mhb_actions',
             '_mhb_event_bindings'

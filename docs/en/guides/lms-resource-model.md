@@ -36,7 +36,7 @@ Those capabilities should be added through generic storage/runtime primitives, n
 
 ## Runtime Behavior
 
-Published applications render resources through existing dashboard widgets, Page navigation, runtime rows, and scripts.
+Published applications render resources through existing dashboard widgets, Page navigation, runtime rows, and modules.
 The unified content library uses a generic `records.union` datasource over resources, courses, and tracks.
 Trash views use the same datasource shape with `lifecycleState=deleted`.
 Progress is stored in Object records and Object-backed ledgers such as `ProgressLedger` and `LearningActivityLedger`.

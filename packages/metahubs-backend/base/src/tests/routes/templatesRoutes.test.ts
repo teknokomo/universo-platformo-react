@@ -98,14 +98,14 @@ describe('templatesRoutes', () => {
                             relations: { enabled: true, allowedRelationTypes: ['manyToOne'] },
                             actions: { enabled: true },
                             events: { enabled: true },
-                            scripting: { enabled: true },
+                            modules: { enabled: true },
                             layoutConfig: { enabled: true },
                             runtimeBehavior: { enabled: true },
                             physicalTable: { enabled: true, prefix: 'catx' }
                         },
                         ui: {
                             iconName: 'IconDatabase',
-                            tabs: ['general', 'hubs', 'layout', 'scripts'],
+                            tabs: ['general', 'hubs', 'layout', 'modules'],
                             sidebarSection: 'objects',
                             nameKey: 'Objects'
                         }

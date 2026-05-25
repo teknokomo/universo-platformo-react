@@ -43,7 +43,7 @@ description: Пошаговая настройка канонического LM
 
 ## 3. Держите продуктовый контракт fixture стабильным
 
-Импортированный LMS-макет должен оставаться без старых глобальных dashboard widgets и старых widget scripts метахаба. Исполняемый fixture contract и no-fork guard проверяют, что текущий рантайм использует metadata-defined Learning Content widgets вместо retired dashboard/script shortcuts.
+Импортированный LMS-макет должен оставаться без старых глобальных dashboard widgets и старых widget modules метахаба. Исполняемый fixture contract и no-fork guard проверяют, что текущий рантайм использует metadata-defined Learning Content widgets вместо retired dashboard/module shortcuts.
 
 Не редактируйте payload-ы экспортированного snapshot вручную. Обновляйте генератор или контракт fixture, затем выполняйте повторный экспорт через Playwright или механически пересобирайте snapshot с пересчитанным `snapshotHash` только для deterministic fixture maintenance tasks.
 

@@ -11,18 +11,18 @@ It is separate from target-object CRUD because it owns the shared design contrac
 
 ## Tabs
 
-- Layouts: shared layouts and entity-specific layout overrides.
-- Components: shared component pools reused by compatible entity types with the `dataSchema` capability.
-- Constants: shared constant pools reused by compatible entity types with the `fixedValues` capability.
-- Values: shared enumeration-value pools reused by compatible entity types with the `optionValues` capability.
-- Scripts: resources-scoped library scripts imported through `@shared/<codename>`.
+-   Layouts: shared layouts and entity-specific layout overrides.
+-   Components: shared component pools reused by compatible entity types with the `dataSchema` capability.
+-   Constants: shared constant pools reused by compatible entity types with the `fixedValues` capability.
+-   Values: shared enumeration-value pools reused by compatible entity types with the `optionValues` capability.
+-   Modules: resources-scoped library modules imported through `@shared/<codename>`.
 
 ## Operator Rules
 
-- Open Resources when the asset should be shared first and overridden only sparsely per target.
-- Open a target entity when you need to inspect the merged inherited result.
-- Keep per-target exclusions and active-state changes sparse instead of cloning shared rows.
-- Publish and sync the linked application to verify the runtime materialization of the shared asset.
+-   Open Resources when the asset should be shared first and overridden only sparsely per target.
+-   Open a target entity when you need to inspect the merged inherited result.
+-   Keep per-target exclusions and active-state changes sparse instead of cloning shared rows.
+-   Publish and sync the linked application to verify the runtime materialization of the shared asset.
 
 ## Runtime Outcome
 
@@ -31,8 +31,8 @@ This keeps authoring reusable while keeping runtime tables flat and predictable.
 
 ## Related Reading
 
-- [Shared Components](shared-components.md)
-- [Shared Constants](shared-fixed-values.md)
-- [Shared Values](shared-option-values.md)
-- [Shared Scripts](shared-scripts.md)
-- [Metahubs](../metahubs.md)
+-   [Shared Components](shared-components.md)
+-   [Shared Constants](shared-fixed-values.md)
+-   [Shared Values](shared-option-values.md)
+-   [Shared Modules](shared-modules.md)
+-   [Metahubs](../metahubs.md)

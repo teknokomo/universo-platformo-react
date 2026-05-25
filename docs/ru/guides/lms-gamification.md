@@ -1,5 +1,5 @@
 ---
-description: Геймификация и достижения LMS, смоделированные через Objects, Ledgers, workflows, scripts и reports.
+description: Геймификация и достижения LMS, смоделированные через Objects, Ledgers, workflows, modules и reports.
 ---
 
 # Геймификация LMS
@@ -27,7 +27,7 @@ Application constants, например `GamificationEnabled` и `DefaultPointAw
 
 `PointTransactions` является transactional Object.
 Workflow actions `ApprovePointAdjustment` и `ReversePointAdjustment` хранятся в Object metadata и разрешаются generic runtime workflow service.
-Approved point transactions могут запускать `PointTransactionPostingScript`, который добавляет movement facts в `PointsLedger`.
+Approved point transactions могут запускать `PointTransactionPostingModule`, который добавляет movement facts в `PointsLedger`.
 
 `BadgeIssues` использует тот же metadata-driven pattern с actions `IssueBadge` и `RevokeBadge`.
 Runtime permissions остаются fail-closed: action buttons появляются только когда resolved capability policy явно разрешает их, а backend workflow mutations остаются source of truth.

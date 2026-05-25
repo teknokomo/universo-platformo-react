@@ -1,10 +1,10 @@
 import { qSchemaTable } from '@universo/database'
-import { ScriptEngine } from '@universo/scripting-engine'
-import { hasScriptCapability, isServerScriptMethodTarget, type MetahubScriptRecord, type ScriptAttachmentKind } from '@universo/types'
+import { ModuleEngine } from '@universo/modules-engine'
+import { hasModuleCapability, isServerModuleMethodTarget, type MetahubModuleRecord, type ModuleAttachmentKind } from '@universo/types'
 import { queryOne, type DbExecutor } from '@universo/utils/database'
 import { codenamePrimaryTextSql, getCodenameText } from '../../shared/codename'
 import { createLogger } from '../../../utils/logger'
-import { MetahubScriptsService } from '../../scripts/services/MetahubScriptsService'
+import { MetahubModulesService } from '../../modules/services/MetahubModulesService'
 import type { EntityActionExecutionRequest, EntityActionExecutor } from './EntityEventRouter'
 
 const log = createLogger('EntityActionExecutionService')
@@ -76,32 +76,32 @@ const normalizeLifecycleRow = (row: StoredLifecycleObjectRow): Record<string, un
 }
 
 export class EntityActionExecutionService {
-    constructor(private readonly scriptsService: MetahubScriptsService, private readonly engine: ScriptEngine = new ScriptEngine()) {}
+    constructor(private readonly modulesService: MetahubModulesService, private readonly engine: ModuleEngine = new ModuleEngine()) {}
 
     readonly execute: EntityActionExecutor = async (request) => {
-        if (request.action.actionType !== 'script') {
+        if (request.action.actionType !== 'module') {
             log.warn(`Skipping unsupported entity action type ${request.action.actionType} for action ${request.action.id}`)
             return
         }
 
-        if (!request.action.scriptId) {
-            log.warn(`Skipping script entity action ${request.action.id} without a scriptId`)
+        if (!request.action.moduleId) {
+            log.warn(`Skipping module entity action ${request.action.id} without a moduleId`)
             return
         }
 
-        const script = await this.scriptsService.getScriptByIdInSchema(request.schemaName, request.action.scriptId, request.executor)
-        if (!script) {
-            log.warn(`Skipping entity action ${request.action.id} because script ${request.action.scriptId} was not found`)
+        const module = await this.modulesService.getModuleByIdInSchema(request.schemaName, request.action.moduleId, request.executor)
+        if (!module) {
+            log.warn(`Skipping entity action ${request.action.id} because module ${request.action.moduleId} was not found`)
             return
         }
 
-        if (!script.serverBundle) {
-            log.warn(`Skipping entity action ${request.action.id} because script ${script.id} has no server bundle`)
+        if (!module.serverBundle) {
+            log.warn(`Skipping entity action ${request.action.id} because module ${module.id} has no server bundle`)
             return
         }
 
-        const hasMatchingHandler = script.manifest.methods.some(
-            (method) => isServerScriptMethodTarget(method.target) && method.eventName === request.eventName
+        const hasMatchingHandler = module.manifest.methods.some(
+            (method) => isServerModuleMethodTarget(method.target) && method.eventName === request.eventName
         )
         if (!hasMatchingHandler) {
             return
@@ -110,8 +110,8 @@ export class EntityActionExecutionService {
         const currentRow = await this.findObjectRow(request.schemaName, request.objectId, request.executor)
 
         await this.engine.dispatchEvent({
-            bundle: script.serverBundle,
-            manifest: script.manifest,
+            bundle: module.serverBundle,
+            manifest: module.manifest,
             eventName: request.eventName,
             payload: {
                 eventName: request.eventName as never,
@@ -130,11 +130,11 @@ export class EntityActionExecutionService {
                     actionCodename: getCodenameText(request.action.codename),
                     actionType: request.action.actionType,
                     actionConfig: ensureJsonRecord(request.action.config),
-                    scriptId: script.id,
-                    scriptCodename: getCodenameText(script.codename)
+                    moduleId: module.id,
+                    moduleCodename: getCodenameText(module.codename)
                 }
             },
-            context: this.createExecutionContext(request, script)
+            context: this.createExecutionContext(request, module)
         })
     }
 
@@ -169,24 +169,24 @@ export class EntityActionExecutionService {
         return row ? normalizeLifecycleRow(row) : null
     }
 
-    private createExecutionContext(request: EntityActionExecutionRequest, script: MetahubScriptRecord): Record<string, unknown> {
-        const canReadMetadata = hasScriptCapability(script.manifest, 'metadata.read')
-        const canReadRecords = hasScriptCapability(script.manifest, 'records.read')
-        const canWriteRecords = hasScriptCapability(script.manifest, 'records.write')
-        const canCallServerMethod = hasScriptCapability(script.manifest, 'rpc.client')
+    private createExecutionContext(request: EntityActionExecutionRequest, module: MetahubModuleRecord): Record<string, unknown> {
+        const canReadMetadata = hasModuleCapability(module.manifest, 'metadata.read')
+        const canReadRecords = hasModuleCapability(module.manifest, 'records.read')
+        const canWriteRecords = hasModuleCapability(module.manifest, 'records.write')
+        const canCallServerMethod = hasModuleCapability(module.manifest, 'rpc.client')
 
         const denyCapability = async (capability: string): Promise<never> => {
-            throw new Error(`Script capability "${capability}" is not enabled for this module`)
+            throw new Error(`Module capability "${capability}" is not enabled for this module`)
         }
 
         const denyUnsupported = async (feature: string): Promise<never> => {
-            throw new Error(`${feature} is not available in metahub entity lifecycle scripts yet`)
+            throw new Error(`${feature} is not available in metahub entity lifecycle modules yet`)
         }
 
         return {
             metahubId: request.metahubId,
-            scriptId: script.id,
-            scriptCodename: getCodenameText(script.codename),
+            moduleId: module.id,
+            moduleCodename: getCodenameText(module.codename),
             records: {
                 list: canReadRecords ? async () => denyUnsupported('records.list()') : async () => denyCapability('records.read'),
                 get: canReadRecords ? async () => denyUnsupported('records.get()') : async () => denyCapability('records.read'),
@@ -207,12 +207,12 @@ export class EntityActionExecutionService {
             metadata: {
                 getAttachedEntity: canReadMetadata
                     ? async () => ({
-                          kind: script.attachedToKind,
-                          id: script.attachedToId ?? null
+                          kind: module.attachedToKind,
+                          id: module.attachedToId ?? null
                       })
                     : async () => denyCapability('metadata.read'),
                 getByCodename: canReadMetadata
-                    ? async (kind: ScriptAttachmentKind, codename: string) => {
+                    ? async (kind: ModuleAttachmentKind, codename: string) => {
                           return this.findMetadataByCodename(request, kind, codename)
                       }
                     : async () => denyCapability('metadata.read')
@@ -225,7 +225,7 @@ export class EntityActionExecutionService {
 
     private async findMetadataByCodename(
         request: EntityActionExecutionRequest,
-        kind: ScriptAttachmentKind,
+        kind: ModuleAttachmentKind,
         codename: string
     ): Promise<Record<string, unknown> | null> {
         const normalizedCodename = String(codename).trim()

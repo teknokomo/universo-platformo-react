@@ -83,7 +83,7 @@ import {
 import ComponentFormFields, { PresentationTabFields } from './ComponentFormFields'
 import { shouldForceFirstComponentDefaults, shouldLockDisplayComponentToggle } from './componentDisplayRules'
 import SharedEntitySettingsFields from '../../../../shared/ui/SharedEntitySettingsFields'
-import { createScriptsTab } from '../../../../scripts/ui/EntityScriptsTab'
+import { createModulesTab } from '../../../../modules/ui/EntityModulesTab'
 import { readSharedExcludedTargetIdsField, SHARED_EXCLUDED_TARGET_IDS_FIELD } from '../../../../shared/sharedEntityExclusions'
 
 const _DIALOG_SAVE_CANCEL = { __dialogCancelled: true } as const
@@ -473,7 +473,7 @@ const componentActions: readonly ActionDescriptor<ComponentDisplay, ComponentLoc
                                     </Stack>
                                 )
                             },
-                            createScriptsTab({
+                            createModulesTab({
                                 t: ctx.t,
                                 metahubId: contextExtras.metahubId,
                                 attachedToKind: 'component',

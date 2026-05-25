@@ -6,68 +6,76 @@
 
 ## Информация о пакете
 
-| Поле | Значение |
-|------|----------|
-| **Версия** | 0.1.0 |
-| **Тип** | React Frontend пакет (TypeScript) |
-| **Статус** | ✅ Активная разработка |
-| **Фреймворк** | React 18 + TypeScript + Material-UI v7 |
-| **Имя пакета** | `@universo/apps-template-mui` |
+| Поле           | Значение                               |
+| -------------- | -------------------------------------- |
+| **Версия**     | 0.1.0                                  |
+| **Тип**        | React Frontend пакет (TypeScript)      |
+| **Статус**     | ✅ Активная разработка                 |
+| **Фреймворк**  | React 18 + TypeScript + Material-UI v7 |
+| **Имя пакета** | `@universo/apps-template-mui`          |
 
 ## Ключевые возможности
 
 ### 🖥️ Система дашбордов
-- **Зонная компоновка**: 4 зоны дашборда — left (боковая панель), right (боковая панель), center (основной контент), top (заголовок/навбар)
-- **Рендеринг на основе данных**: Виджеты рендерятся из конфигурации `ZoneWidgets`, а не из захардкоженного JSX
-- **DashboardDetailsContext**: React Context, предоставляющий данные таблицы (строки, колонки, пагинация) вложенным виджетам
-- **Конфиг макета**: Булевые флаги видимости (`showSideMenu`, `showHeader`, `showColumnsContainer` и т.д.)
+
+-   **Зонная компоновка**: 4 зоны дашборда — left (боковая панель), right (боковая панель), center (основной контент), top (заголовок/навбар)
+-   **Рендеринг на основе данных**: Виджеты рендерятся из конфигурации `ZoneWidgets`, а не из захардкоженного JSX
+-   **DashboardDetailsContext**: React Context, предоставляющий данные таблицы (строки, колонки, пагинация) вложенным виджетам
+-   **Конфиг макета**: Булевые флаги видимости (`showSideMenu`, `showHeader`, `showColumnsContainer` и т.д.)
 
 ### 📊 Виджет ColumnsContainer
-- **Многоколоночная сетка**: Рендерит `ColumnsContainerConfig` как MUI Grid с настраиваемой шириной колонок (12-юнитовая сетка)
-- **Вложенные виджеты**: Каждая колонка может содержать несколько виджетов через `ColumnsContainerColumnWidget[]`
-- **Защита от рекурсии**: `MAX_CONTAINER_DEPTH=1` предотвращает бесконечную вложенность columnsContainer
-- **Сид по умолчанию**: 2-колоночный макет — 9/12 `detailsTable` + 3/12 `productTree`
+
+-   **Многоколоночная сетка**: Рендерит `ColumnsContainerConfig` как MUI Grid с настраиваемой шириной колонок (12-юнитовая сетка)
+-   **Вложенные виджеты**: Каждая колонка может содержать несколько виджетов через `ColumnsContainerColumnWidget[]`
+-   **Защита от рекурсии**: `MAX_CONTAINER_DEPTH=1` предотвращает бесконечную вложенность columnsContainer
+-   **Сид по умолчанию**: 2-колоночный макет — 9/12 `detailsTable` + 3/12 `productTree`
 
 ### 🧩 Рендерер виджетов
-- **Общий рендерер**: `renderWidget()` маппит ключи виджетов в конкретные React-компоненты
-- **Поддерживаемые виджеты**: `brandSelector`, `divider`, `menuWidget`, `spacer`, `infoCard`, `userProfile`, `productTree`, `usersByCountryChart`, `detailsTable`, `relationBuilder`, `columnsContainer`
-- **Union datasources**: `detailsTable` умеет рендерить `records.union`, резолвя несколько runtime-разделов из metadata и запрашивая их через обычный `fetchAppData`
-- **Конструктор связей**: `relationBuilder` удерживает дочерние записи в контексте выбранной родительской строки и переиспользует общие CRUD-диалоги, picker-ы записей и сохранённую сортировку строк
-- **Резолвинг меню**: 2-уровневый фолбэк — ID виджета → карта menus → легаси одиночный menu проп
-- **Общие runtime-поверхности**: Агрегации сохранённых отчётов, предпросмотр ресурсов, политики последовательностей и workflow-действия задаются через общие метаданные, а не через LMS-специфичные форки виджетов
+
+-   **Общий рендерер**: `renderWidget()` маппит ключи виджетов в конкретные React-компоненты
+-   **Поддерживаемые виджеты**: `brandSelector`, `divider`, `menuWidget`, `spacer`, `infoCard`, `userProfile`, `productTree`, `usersByCountryChart`, `detailsTable`, `relationBuilder`, `columnsContainer`
+-   **Union datasources**: `detailsTable` умеет рендерить `records.union`, резолвя несколько runtime-разделов из metadata и запрашивая их через обычный `fetchAppData`
+-   **Конструктор связей**: `relationBuilder` удерживает дочерние записи в контексте выбранной родительской строки и переиспользует общие CRUD-диалоги, picker-ы записей и сохранённую сортировку строк
+-   **Резолвинг меню**: 2-уровневый фолбэк — ID виджета → карта menus → легаси одиночный menu проп
+-   **Общие runtime-поверхности**: Агрегации сохранённых отчётов, предпросмотр ресурсов, политики последовательностей и workflow-действия задаются через общие метаданные, а не через LMS-специфичные форки виджетов
 
 ### 📝 CRUD-компоненты
-- **FormDialog**: Универсальный модальный диалог с настраиваемыми полями, правилами валидации и интеграцией Zod
-- **ConfirmDeleteDialog**: Диалог подтверждения для операций удаления
-- **CrudDialogs**: Объединённый компонент диалогов создания/редактирования/удаления
-- **RowActionsMenu**: Меню действий для каждой строки с опциями редактирования/удаления
-- **useCrudDashboard**: Headless-хук контроллера, управляющий состоянием CRUD и вызовами API
-- **Workflow-действия**: Метаданные действий строк отображаются только при явно разрешённых runtime-capabilities
-- **Создание блочного контента**: JSON-поля с `editorjsBlockContent` используют общий пакет `@universo/block-editor` вместо сырого JSON и отдельной runtime-копии редактора
-- **ResourcePreview**: Общий безопасный предпросмотр ресурсов с локализованными состояниями deferred/unsupported
-- **Отчёты и экспорт**: Опубликованный runtime умеет показывать сохранённые отчёты через общие details-виджеты и экспортировать серверно определённые CSV-отчёты
-- **Trash-aware операции**: Runtime-списки могут запрашивать `lifecycleState=deleted`, delete-вызовы передают optimistic row version, а adapters предоставляют restore-вызовы для общего soft-delete contract
-- **Progress page player**: Metadata-страницы отображают Editor.js page blocks с оглавлением/progress controls и сохраняют завершение через общий runtime progress API.
+
+-   **FormDialog**: Универсальный модальный диалог с настраиваемыми полями, правилами валидации и интеграцией Zod
+-   **ConfirmDeleteDialog**: Диалог подтверждения для операций удаления
+-   **CrudDialogs**: Объединённый компонент диалогов создания/редактирования/удаления
+-   **RowActionsMenu**: Меню действий для каждой строки с опциями редактирования/удаления
+-   **useCrudDashboard**: Headless-хук контроллера, управляющий состоянием CRUD и вызовами API
+-   **Workflow-действия**: Метаданные действий строк отображаются только при явно разрешённых runtime-capabilities
+-   **Создание блочного контента**: JSON-поля с `editorjsBlockContent` используют общий пакет `@universo/block-editor` вместо сырого JSON и отдельной runtime-копии редактора
+-   **ResourcePreview**: Общий безопасный предпросмотр ресурсов с локализованными состояниями deferred/unsupported
+-   **Отчёты и экспорт**: Опубликованный runtime умеет показывать сохранённые отчёты через общие details-виджеты и экспортировать серверно определённые CSV-отчёты
+-   **Trash-aware операции**: Runtime-списки могут запрашивать `lifecycleState=deleted`, delete-вызовы передают optimistic row version, а adapters предоставляют restore-вызовы для общего soft-delete contract
+-   **Progress page player**: Metadata-страницы отображают Editor.js page blocks с оглавлением/progress controls и сохраняют завершение через общий runtime progress API.
 
 ### 🧱 Runtime UI-примитивы
-- **Локальные примитивы**: `ViewHeaderMUI`, `ToolbarControls`, `ItemCard`, `FlowListTable`, `PaginationControls` и `useViewPreference` находятся в `src/components/runtime-ui`
-- **Граница пакета**: Исходники runtime защищены тестом, который запрещает импорты из `@universo/template-mui`
-- **Визуальная согласованность**: Таблицы, карточки записей, карточки рабочих пространств и карточки метрик сохраняют исходные отступы и outlined-поверхности MUI dashboard
+
+-   **Локальные примитивы**: `ViewHeaderMUI`, `ToolbarControls`, `ItemCard`, `FlowListTable`, `PaginationControls` и `useViewPreference` находятся в `src/components/runtime-ui`
+-   **Граница пакета**: Исходники runtime защищены тестом, который запрещает импорты из `@universo/template-mui`
+-   **Визуальная согласованность**: Таблицы, карточки записей, карточки рабочих пространств и карточки метрик сохраняют исходные отступы и outlined-поверхности MUI dashboard
 
 ### 🧑‍🤝‍🧑 Runtime Workspaces
-- **WorkspaceSwitcher**: Быстрое переключение текущего рабочего пространства в desktop/mobile shell
-- **RuntimeWorkspacesPage**: Полноценный раздел управления рабочими пространствами в существующей области details
-- **Workspace APIs**: Типизированные helper-ы и query keys для списков, участников, default workspace и shared workspace операций
-- **Размещение навигации**: Пункт рабочих пространств может быть основным, скрытым или перенесённым в overflow без отдельного LMS-only компонента
+
+-   **WorkspaceSwitcher**: Быстрое переключение текущего рабочего пространства в desktop/mobile shell
+-   **RuntimeWorkspacesPage**: Полноценный раздел управления рабочими пространствами в существующей области details
+-   **Workspace APIs**: Типизированные helper-ы и query keys для списков, участников, default workspace и shared workspace операций
+-   **Размещение навигации**: Пункт рабочих пространств может быть основным, скрытым или перенесённым в overflow без отдельного LMS-only компонента
 
 ### 🔌 Фабрика маршрутов
-- **createAppRuntimeRoute()**: Создаёт маршрут react-router-dom v6 для рантайм-представления приложения
-- **Поддержка гардов**: Опциональный компонент-обёртка (напр., AuthGuard) для защиты маршрута
-- **Путь по умолчанию**: паттерн `a/:applicationId/*` с полноэкранным минимальным макетом
+
+-   **createAppRuntimeRoute()**: Создаёт маршрут react-router-dom v6 для рантайм-представления приложения
+-   **Поддержка гардов**: Опциональный компонент-обёртка (напр., AuthGuard) для защиты маршрута
+-   **Путь по умолчанию**: паттерн `a/:applicationId/*` с полноэкранным минимальным макетом
 
 ### 🌍 Интернационализация
-- **appsTranslations**: Сайд-эффект регистрации i18n-ресурсов для домена приложений
-- **Утилиты локализации**: `getDataGridLocaleText()` для переопределения локали MUI DataGrid
+
+-   **appsTranslations**: Сайд-эффект регистрации i18n-ресурсов для домена приложений
+-   **Утилиты локализации**: `getDataGridLocaleText()` для переопределения локали MUI DataGrid
 
 ## Установка
 
@@ -126,8 +134,8 @@ import ApplicationRuntime from './ApplicationRuntime'
 import AuthGuard from './AuthGuard'
 
 const runtimeRoute = createAppRuntimeRoute({
-  component: ApplicationRuntime,
-  guard: AuthGuard,
+    component: ApplicationRuntime,
+    guard: AuthGuard
 })
 
 // Использовать в дочерних MinimalRoutes:
@@ -140,18 +148,14 @@ const runtimeRoute = createAppRuntimeRoute({
 import { useCrudDashboard, CrudDialogs } from '@universo/apps-template-mui'
 
 function MyDashboard({ adapter }) {
-  const crud = useCrudDashboard({ adapter })
+    const crud = useCrudDashboard({ adapter })
 
-  return (
-    <>
-      <AppsDashboard
-        details={crud.details}
-        layoutConfig={crud.layoutConfig}
-        zoneWidgets={crud.zoneWidgets}
-      />
-      <CrudDialogs {...crud.dialogs} />
-    </>
-  )
+    return (
+        <>
+            <AppsDashboard details={crud.details} layoutConfig={crud.layoutConfig} zoneWidgets={crud.zoneWidgets} />
+            <CrudDialogs {...crud.dialogs} />
+        </>
+    )
 }
 ```
 
@@ -161,7 +165,7 @@ function MyDashboard({ adapter }) {
 import { DashboardApp } from '@universo/apps-template-mui'
 
 // Рендерит автономный дашборд со своими i18n и темой
-<DashboardApp adapter={myAdapter} />
+;<DashboardApp adapter={myAdapter} />
 ```
 
 ## Архитектура
@@ -268,40 +272,43 @@ packages/apps-template-mui/
 ## Основные типы
 
 ### DashboardProps
+
 ```typescript
 interface DashboardProps {
-  layoutConfig?: DashboardLayoutConfig  // Булевые флаги видимости
-  zoneWidgets?: ZoneWidgets             // Конфиги виджетов по зонам
-  details?: DashboardDetailsSlot        // Данные таблицы для виджетов деталей
-  menu?: DashboardMenuSlot              // Легаси одиночное меню (устарело)
-  menus?: DashboardMenusMap             // Карта меню по ID виджетов
+    layoutConfig?: DashboardLayoutConfig // Булевые флаги видимости
+    zoneWidgets?: ZoneWidgets // Конфиги виджетов по зонам
+    details?: DashboardDetailsSlot // Данные таблицы для виджетов деталей
+    menu?: DashboardMenuSlot // Легаси одиночное меню (устарело)
+    menus?: DashboardMenusMap // Карта меню по ID виджетов
 }
 ```
 
 ### ZoneWidgetItem
+
 ```typescript
 interface ZoneWidgetItem {
-  id: string
-  widgetKey: string                     // Идентификатор типа виджета
-  sortOrder: number
-  config: Record<string, unknown>       // Конфигурация, специфичная для виджета
-  isActive?: boolean
+    id: string
+    widgetKey: string // Идентификатор типа виджета
+    sortOrder: number
+    config: Record<string, unknown> // Конфигурация, специфичная для виджета
+    isActive?: boolean
 }
 ```
 
 ### DashboardDetailsSlot
+
 ```typescript
 interface DashboardDetailsSlot {
-  title: string
-  rows: Array<Record<string, unknown> & { id: string }>
-  columns: GridColDef[]
-  loading?: boolean
-  rowCount?: number
-  paginationModel?: GridPaginationModel
-  onPaginationModelChange?: (model: GridPaginationModel) => void
-  pageSizeOptions?: number[]
-  actions?: React.ReactNode             // Действия панели (напр., кнопка «Создать»)
-  localeText?: Partial<GridLocaleText>  // Переопределения локали MUI DataGrid
+    title: string
+    rows: Array<Record<string, unknown> & { id: string }>
+    columns: GridColDef[]
+    loading?: boolean
+    rowCount?: number
+    paginationModel?: GridPaginationModel
+    onPaginationModelChange?: (model: GridPaginationModel) => void
+    pageSizeOptions?: number[]
+    actions?: React.ReactNode // Действия панели (напр., кнопка «Создать»)
+    localeText?: Partial<GridLocaleText> // Переопределения локали MUI DataGrid
 }
 ```
 
@@ -312,14 +319,14 @@ interface DashboardDetailsSlot {
 
 ```typescript
 interface DashboardLayoutConfig {
-  // ... существующие булевые флаги (showSideMenu, showHeader и т.д.)
+    // ... существующие булевые флаги (showSideMenu, showHeader и т.д.)
 
-  // Настройки отображения (опционально — при отсутствии используется классический табличный режим)
-  showViewToggle?: boolean       // Показать переключатель режима карточки/таблица
-  defaultViewMode?: 'table' | 'card'  // Начальный режим отображения
-  showFilterBar?: boolean        // Показать поле поиска в панели инструментов
-  cardColumns?: number           // Количество колонок в карточном виде (2–4)
-  rowHeight?: number | 'auto'    // Фиксированная высота в пикселях или 'auto' для авторазмера
+    // Настройки отображения (опционально — при отсутствии используется классический табличный режим)
+    showViewToggle?: boolean // Показать переключатель режима карточки/таблица
+    defaultViewMode?: 'table' | 'card' // Начальный режим отображения
+    showFilterBar?: boolean // Показать поле поиска в панели инструментов
+    cardColumns?: number // Количество колонок в карточном виде (2–4)
+    rowHeight?: number | 'auto' // Фиксированная высота в пикселях или 'auto' для авторазмера
 }
 ```
 
@@ -332,7 +339,8 @@ interface DashboardLayoutConfig {
 
 ## Разработка
 
-### Доступные скрипты
+### Доступные модули
+
 ```bash
 # Разработка
 pnpm build                       # Проверка типов (noEmit)
@@ -344,15 +352,18 @@ pnpm lint                        # Запуск ESLint
 ```
 
 ### Конфигурация TypeScript
+
 Пакет использует строгую конфигурацию TypeScript с режимом сборки `noEmit`.
 Исходные файлы потребляются напрямую другими пакетами рабочей области через `main`/`module`, указывающие на `./src/index.ts`.
 
 ## Связанные пакеты
-- [`@universo/metahubs-frontend`](../metahubs-frontend/base/README-RU.md) — UI управления метахабами
-- [`@universo/metahubs-backend`](../metahubs-backend/base/README-RU.md) — Бэкенд-сервис
-- [`@universo/types`](../universo-types/base/README-RU.md) — Общие TypeScript-типы
-- [`@universo/i18n`](../universo-i18n/base/README-RU.md) — Общие ресурсы локализации
-- [`@universo/utils`](../universo-utils/base/README-RU.md) — Общие runtime-хелперы и нормализация
+
+-   [`@universo/metahubs-frontend`](../metahubs-frontend/base/README-RU.md) — UI управления метахабами
+-   [`@universo/metahubs-backend`](../metahubs-backend/base/README-RU.md) — Бэкенд-сервис
+-   [`@universo/types`](../universo-types/base/README-RU.md) — Общие TypeScript-типы
+-   [`@universo/i18n`](../universo-i18n/base/README-RU.md) — Общие ресурсы локализации
+-   [`@universo/utils`](../universo-utils/base/README-RU.md) — Общие runtime-хелперы и нормализация
 
 ---
-*Часть [Universo Platformo](../../README-RU.md) — Пакетная платформа бизнес-приложений*
+
+_Часть [Universo Platformo](../../README-RU.md) — Пакетная платформа бизнес-приложений_

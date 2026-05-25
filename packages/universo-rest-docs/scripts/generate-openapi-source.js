@@ -38,7 +38,7 @@ const tagDescriptions = {
     Constants: 'Constant CRUD, reorder, move, and copy endpoints.',
     Records: 'Record CRUD, reorder, move, and copy endpoints.',
     Layouts: 'Layout CRUD and zone-widget endpoints.',
-    Scripts: 'Metahub script CRUD and source-management endpoints.',
+    Modules: 'Metahub module CRUD and source-management endpoints.',
     'Shared Entity Overrides': 'Metahub-level shared entity override endpoints.',
     Settings: 'Metahub settings and metahub setting-key endpoints.',
     Templates: 'Template catalog endpoints.'
@@ -209,9 +209,9 @@ const routeSources = [
         security: bearerSecurity
     },
     {
-        file: 'packages/metahubs-backend/base/src/domains/scripts/routes/scriptsRoutes.ts',
+        file: 'packages/metahubs-backend/base/src/domains/modules/routes/modulesRoutes.ts',
         mountPrefix: '',
-        tag: 'Scripts',
+        tag: 'Modules',
         security: bearerSecurity
     },
     {

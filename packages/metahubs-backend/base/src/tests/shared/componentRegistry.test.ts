@@ -20,7 +20,7 @@ describe('capabilityRegistry', () => {
             relations: false,
             actions: { enabled: true },
             events: false,
-            scripting: false,
+            modules: false,
             blockContent: false,
             layoutConfig: false,
             runtimeBehavior: false,

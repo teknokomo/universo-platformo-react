@@ -6,7 +6,7 @@
 
 Universo Platformo extends an inherited upstream shell into a
 **configuration platform**: organizations describe their domain on a
-small, stable set of entity-type primitives, attach scripts, and ship
+small, stable set of entity-type primitives, attach modules, and ship
 the result as an **application** that runs in workspaces with multi-user
 collaboration.
 
@@ -135,7 +135,7 @@ the application control panel.
     `recordBehavior` mode and capabilities.
 -   Use Pages for authored content (knowledge base, articles,
     onboarding instructions).
--   Attach TypeScript scripts for validation, derived values, and
+-   Attach TypeScript modules for validation, derived values, and
     domain transitions.
 
 ### Multi-Tenant Workspaces

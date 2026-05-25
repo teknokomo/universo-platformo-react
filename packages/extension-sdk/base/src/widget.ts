@@ -1,10 +1,10 @@
-import type { ScriptAttachmentKind } from '@universo/types'
+import type { ModuleAttachmentKind } from '@universo/types'
 import type { ExecutionTarget } from './types'
 
 export interface WidgetExtensionConfig {
-    attachedToKind?: ScriptAttachmentKind
+    attachedToKind?: ModuleAttachmentKind
     attachedToId?: string | null
-    scriptCodename?: string
+    moduleCodename?: string
     mountMethodName?: string
     submitMethodName?: string
     executionTarget?: ExecutionTarget

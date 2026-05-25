@@ -4,6 +4,41 @@
 
 ---
 
+## Active: Scripts To Modules Rename (2026-05-25)
+
+> Goal: rename the metahub attached TypeScript-code capability from Scripts/Scripting to Modules across code, database contracts, API routes, UI, i18n, fixtures, docs, and tests with no legacy compatibility layer.
+
+### IMPLEMENT Action Plan
+
+-   [x] Establish the implementation ledger for Scripts -> Modules rename.
+-   [x] Rename shared type contracts, capability keys, package boundaries, and engine/SDK public names.
+-   [x] Rename backend database tables, route families, stores, services, migrations, snapshots, template seeds, and action attachment contracts.
+-   [x] Rename frontend APIs, MUI authoring surfaces, runtime widget contracts, i18n keys, and visible labels while reusing existing UI primitives.
+-   [x] Rename fixtures, E2E flows, docs screenshot generators, and GitBook documentation with EN/RU parity.
+-   [x] Close final rename residue in test helper names and rerun the no-legacy grep inventory.
+-   [x] Run Prettier and targeted Jest/Vitest/backend/frontend/docs checks; run local minimal Supabase Playwright evidence where feasible.
+-   [x] Update active context and progress with the final implementation outcome.
+
+### QA Fix Action Plan
+
+-   [x] Harden snapshot module restore so imported snapshots cannot bypass module compilation boundaries.
+-   [x] Validate snapshot module attachment kinds with the same module attachment contract as design-time APIs.
+-   [x] Remove the out-of-scope library compatibility allowance from module updates.
+-   [x] Add regression tests for the QA findings and rerun focused backend verification.
+
+### Final QA Fix Action Plan
+
+-   [x] Enforce the runtime client-module visibility predicate on direct client bundle fetches.
+-   [x] Remove unrelated deprecated snapshot compatibility aliases found during the final QA pass.
+-   [x] Add regression tests and rerun focused backend/frontend/docs checks.
+
+### Post-QA Closure Action Plan
+
+-   [x] Update current EN/RU snapshot docs and Memory Bank architecture notes to use `sharedFixedValues` and `sharedOptionValues`.
+-   [x] Fix the modules quiz runtime E2E fixture so the published runtime exercises the real client-to-server submit flow.
+-   [x] Re-run focused formatting, docs, unit/build, and local minimal Supabase Playwright checks.
+-   [x] Record the final closure status in Memory Bank.
+
 ## Recently Closed: LMS User Guide Screenshot QA (2026-05-24)
 
 -   [x] Add a global duplicate screenshot gate for all localized LMS user-guide PNG assets.
@@ -52,18 +87,18 @@
 ### Phase 3: Build and Test Validation
 
 -   [x] Step 3.1: Run full build (pnpm build) - PASSED (3m1s)
--   [x] Step 3.2: Run linting (pnpm lint) - PASSED (scripting-engine fixed)
+-   [x] Step 3.2: Run linting (pnpm lint) - PASSED (modules-engine fixed)
 -   [x] Step 3.3: Run unit tests (pnpm test:vitest) - PASSED (911 tests, 173s)
 -   [ ] Step 3.4: Run E2E smoke tests (pnpm test:e2e:smoke)
 -   [ ] Step 3.5: Run Playwright flow tests (pnpm test:e2e:flows)
--   [x] Step 3.6: Verify scripting engine runtime (pnpm benchmark) - PASSED (mean: 1.47ms, p95: 2.16ms)
+-   [x] Step 3.6: Verify modules engine runtime (pnpm benchmark) - PASSED (mean: 1.47ms, p95: 2.16ms)
 
 ### Validation Summary (2026-05-07)
 
 -   Build: All 30 packages built successfully
--   Lint: Fixed prettier formatting in scripting-engine
+-   Lint: Fixed prettier formatting in modules-engine
 -   Unit tests: 911 tests passed across 161 test files
--   Scripting engine: isolated-vm 6.x works correctly with Node.js 22
+-   Modules engine: isolated-vm 6.x works correctly with Node.js 22
 -   Remaining: E2E tests (require running server)
 
 ### Phase 4: CI/CD Pipeline Update

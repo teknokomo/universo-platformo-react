@@ -1,7 +1,7 @@
 {
     "name": "@universo/extension-sdk",
     "version": "0.1.0",
-    "description": "Scripting SDK primitives for Universo metahub extensions",
+    "description": "Module SDK primitives for Universo metahub extensions",
     "main": "./src/index.ts",
     "module": "./src/index.ts",
     "types": "./src/index.ts",

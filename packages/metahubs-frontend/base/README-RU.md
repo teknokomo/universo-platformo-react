@@ -6,56 +6,63 @@
 
 ## Информация о пакете
 
-- **Пакет**: `@universo/metahubs-frontend`
-- **Версия**: `0.1.0`
-- **Тип**: React Frontend Package (Modern)
-- **Фреймворк**: React 18 + TypeScript + Material-UI
-- **Система сборки**: tsdown (двойная сборка - CJS + ESM)
-- **Тестирование**: Vitest + React Testing Library
+-   **Пакет**: `@universo/metahubs-frontend`
+-   **Версия**: `0.1.0`
+-   **Тип**: React Frontend Package (Modern)
+-   **Фреймворк**: React 18 + TypeScript + Material-UI
+-   **Система сборки**: tsdown (двойная сборка - CJS + ESM)
+-   **Тестирование**: Vitest + React Testing Library
 
 ## Ключевые функции
 
 ### 🌍 Управление метахабами
-- **Entity-First навигация**: Метахабы открывают board, resources, entities и вложенные entity-owned authoring flows
-- **Полная изоляция данных**: Данные из разных метахабов полностью разделены
-- **Ролевой доступ**: Пользовательские роли и разрешения для контроля доступа
-- **Контекстная навигация**: Навигация с учётом метахаба с хлебными крошками и сохранением сайдбара
+
+-   **Entity-First навигация**: Метахабы открывают board, resources, entities и вложенные entity-owned authoring flows
+-   **Полная изоляция данных**: Данные из разных метахабов полностью разделены
+-   **Ролевой доступ**: Пользовательские роли и разрешения для контроля доступа
+-   **Контекстная навигация**: Навигация с учётом метахаба с хлебными крошками и сохранением сайдбара
 
 ### 🗂️ Типы сущностей и общие ресурсы
-- **Типы сущностей**: Platform-provided standard kinds и пользовательские виды работают в одном authoring workspace
-- **Tree Entities**: Иерархические контейнеры управляют вложенным authoring-ом и navigation с учётом publication
-- **Linked Collections**: Переиспользуемые schema/data surfaces живут на entity-owned child routes
-- **Shared Resources**: Общие layout-ы, metadata pools и scripts доступны на выделенной поверхности `/resources`
+
+-   **Типы сущностей**: Platform-provided standard kinds и пользовательские виды работают в одном authoring workspace
+-   **Tree Entities**: Иерархические контейнеры управляют вложенным authoring-ом и navigation с учётом publication
+-   **Linked Collections**: Переиспользуемые schema/data surfaces живут на entity-owned child routes
+-   **Shared Resources**: Общие layout-ы, metadata pools и modules доступны на выделенной поверхности `/resources`
 
 ### 🎨 Пользовательский интерфейс
-- **Интеграция Material-UI**: Согласованные UI-компоненты с современной системой дизайна
-- **Адаптивный дизайн**: Оптимизирован для настольных и мобильных устройств
-- **Табличное и карточное представление**: Гибкое отображение данных с пагинацией и поиском
-- **Диалоговые формы**: Модальные формы для создания и редактирования сущностей
+
+-   **Интеграция Material-UI**: Согласованные UI-компоненты с современной системой дизайна
+-   **Адаптивный дизайн**: Оптимизирован для настольных и мобильных устройств
+-   **Табличное и карточное представление**: Гибкое отображение данных с пагинацией и поиском
+-   **Диалоговые формы**: Модальные формы для создания и редактирования сущностей
 
 ### 🔧 Технические функции
-- **TypeScript-First**: Полная реализация на TypeScript со строгой типизацией
-- **Интеграция React Query**: Продвинутая загрузка данных и кэширование
-- **Интернационализация**: Английские и русские переводы с i18next
-- **Валидация форм**: Комплексная валидация с Zod схемами
-- **Интеграция API**: RESTful API клиент с аутентификацией
+
+-   **TypeScript-First**: Полная реализация на TypeScript со строгой типизацией
+-   **Интеграция React Query**: Продвинутая загрузка данных и кэширование
+-   **Интернационализация**: Английские и русские переводы с i18next
+-   **Валидация форм**: Комплексная валидация с Zod схемами
+-   **Интеграция API**: RESTful API клиент с аутентификацией
 
 ### 🧩 Standard Metadata Entity Routes
-- **Entities Workspace**: Platform-provided standard kinds и пользовательские виды настраиваются из единого entities workspace и публикуются через dynamic metahub menu.
-- **Unified Authoring**: Стандартные и пользовательские типы сущностей разделяют одни и те же workspace actions и generic entity route contract.
-- **Entity-Owned Surfaces**: Standard kinds рендерятся через entity-owned route components, а shared resources остаются на выделенной поверхности `/resources`.
-- **Владение маршрутами**: Detail tabs остаются под `/metahub/:id/entities/:kindKey/...`, а ресурсы метахаба под `/metahub/:id/resources/...`; удалённые top-level authoring routes `/hubs`, `/objects`, `/sets` и `/enumerations` больше не входят в shipped frontend contract.
-- **Runtime Boundary**: Runtime sections материализуются из published entity metadata после publication sync вместо V2-specific compatibility aliases.
+
+-   **Entities Workspace**: Platform-provided standard kinds и пользовательские виды настраиваются из единого entities workspace и публикуются через dynamic metahub menu.
+-   **Unified Authoring**: Стандартные и пользовательские типы сущностей разделяют одни и те же workspace actions и generic entity route contract.
+-   **Entity-Owned Surfaces**: Standard kinds рендерятся через entity-owned route components, а shared resources остаются на выделенной поверхности `/resources`.
+-   **Владение маршрутами**: Detail tabs остаются под `/metahub/:id/entities/:kindKey/...`, а ресурсы метахаба под `/metahub/:id/resources/...`; удалённые top-level authoring routes `/hubs`, `/objects`, `/sets` и `/enumerations` больше не входят в shipped frontend contract.
+-   **Runtime Boundary**: Runtime sections материализуются из published entity metadata после publication sync вместо V2-specific compatibility aliases.
 
 ### 📋 Выбор шаблона
-- **Компонент TemplateSelector**: Выпадающий селектор для выбора шаблона метахаба при создании
-- **API шаблонов**: Загрузка доступных шаблонов через эндпоинт `GET /templates`
-- **Хук TanStack Query**: Хук `useTemplates()` с кэшированием и состояниями загрузки
-- **Шаблон по умолчанию**: Если шаблон не выбран явно, бэкенд автоматически назначает базовый шаблон «basic»
+
+-   **Компонент TemplateSelector**: Выпадающий селектор для выбора шаблона метахаба при создании
+-   **API шаблонов**: Загрузка доступных шаблонов через эндпоинт `GET /templates`
+-   **Хук TanStack Query**: Хук `useTemplates()` с кэшированием и состояниями загрузки
+-   **Шаблон по умолчанию**: Если шаблон не выбран явно, бэкенд автоматически назначает базовый шаблон «basic»
 
 ## Установка и настройка
 
 ### Предварительные требования
+
 ```bash
 # Системные требования
 Node.js >= 22.6.0
@@ -63,6 +70,7 @@ PNPM >= 10.0.0
 ```
 
 ### Установка
+
 ```bash
 # Установить зависимости
 pnpm install
@@ -75,6 +83,7 @@ pnpm --filter @universo/metahubs-frontend dev
 ```
 
 ### Интеграция
+
 ```tsx
 // Импорт компонентов в ваше React-приложение
 import {
@@ -104,10 +113,11 @@ import { metahubsTranslations } from '@universo/metahubs-frontend'
 ## Архитектура
 
 ### Entity-First модель маршрутов
+
 ```
 Metahub
   ├── Shared Resources (/resources)
-  │   ├── Layouts / metadata pools / scripts
+  │   ├── Layouts / metadata pools / modules
   │   └── Переиспользуемые authoring-поверхности для platform-wide assets
   └── Entity Type (/entities/:kindKey)
       └── Entity Instance (/entities/:kindKey/instance/:entityId)
@@ -116,17 +126,19 @@ Metahub
 ```
 
 ### Ключевые концепции
-- **Метахабы**: Организационные единицы верхнего уровня, обеспечивающие полную изоляцию данных
-- **Shared Resources**: Общие layout-ы, metadata pools и переиспользуемые scripts на выделенной поверхности `/resources`
-- **Типы сущностей**: Platform-provided standard kinds и пользовательские виды, публикуемые через unified entities workspace
-- **Экземпляры сущностей**: Design-time объекты, настраиваемые на generic entity routes с role-aware actions
-- **Дочерние ресурсы**: Field definitions, records и standard child collections, смонтированные под entity-owned routes
+
+-   **Метахабы**: Организационные единицы верхнего уровня, обеспечивающие полную изоляцию данных
+-   **Shared Resources**: Общие layout-ы, metadata pools и переиспользуемые modules на выделенной поверхности `/resources`
+-   **Типы сущностей**: Platform-provided standard kinds и пользовательские виды, публикуемые через unified entities workspace
+-   **Экземпляры сущностей**: Design-time объекты, настраиваемые на generic entity routes с role-aware actions
+-   **Дочерние ресурсы**: Field definitions, records и standard child collections, смонтированные под entity-owned routes
 
 ### Стратегия изоляции данных
-- Полное разделение между метахабами — отсутствие видимости между ними
-- Все операции поддерживают контекст метахаба через URL-маршрутизацию
-- Фронтенд и бэкенд валидация предотвращают создание сиротских сущностей
-- Ролевой контроль доступа для разрешений метахабов
+
+-   Полное разделение между метахабами — отсутствие видимости между ними
+-   Все операции поддерживают контекст метахаба через URL-маршрутизацию
+-   Фронтенд и бэкенд валидация предотвращают создание сиротских сущностей
+-   Ролевой контроль доступа для разрешений метахабов
 
 ## Структура файлов
 
@@ -144,7 +156,7 @@ packages/metahubs-frontend/base/
 │   │   ├── metahubs/     # Список, доска, создание и members UX
 │   │   ├── migrations/   # Migration guard и migration-status UX
 │   │   ├── publications/ # Publication authoring и published data surfaces
-│   │   ├── scripts/      # Script editor и bundle authoring flows
+│   │   ├── modules/      # Module editor и bundle authoring flows
 │   │   ├── settings/     # Настройки метахаба, permissions и helpers
 │   │   ├── shared/       # Cross-domain API helpers, query keys, shared UI
 │   │   └── templates/    # Выбор шаблонов и preset-aware create flows
@@ -167,6 +179,7 @@ packages/metahubs-frontend/base/
 ## Основные компоненты
 
 ### MetahubList
+
 Основной компонент для отображения и управления метахабами:
 
 ```tsx
@@ -180,6 +193,7 @@ import { MetahubList } from '@universo/metahubs-frontend'
 ```
 
 ### MetahubBoard
+
 Компонент панели управления для аналитики метахабов:
 
 ```tsx
@@ -192,6 +206,7 @@ import { MetahubBoard } from '@universo/metahubs-frontend'
 ```
 
 ### StandardEntityCollectionPage
+
 Entity-owned компонент для отображения стандартных экземпляров метаданных через единую динамическую поверхность маршрутов:
 
 ```tsx
@@ -204,6 +219,7 @@ import { StandardEntityCollectionPage } from '@universo/metahubs-frontend'
 ```
 
 ### StandardEntityChildCollectionPage
+
 Entity-owned компонент для отображения вложенных стандартных коллекций из контекста родительской сущности:
 
 ```tsx
@@ -216,6 +232,7 @@ import { StandardEntityChildCollectionPage } from '@universo/metahubs-frontend'
 ```
 
 ### FieldDefinitionList / RecordList
+
 Компоненты для управления entity-owned metadata и records:
 
 ```tsx
@@ -228,6 +245,7 @@ import { FieldDefinitionList, RecordList } from '@universo/metahubs-frontend'
 ```
 
 ### TemplateSelector
+
 Компонент для выбора шаблона метахаба при создании:
 
 ```tsx
@@ -241,6 +259,7 @@ import { TemplateSelector } from '@universo/metahubs-frontend'
 ```
 
 ### ColumnsContainerEditorDialog
+
 Визуальный редактор многоколоночных макетов с поддержкой drag-and-drop:
 
 ```tsx
@@ -269,6 +288,7 @@ import { ColumnsContainerEditorDialog } from '@universo/metahubs-frontend'
 Если нужен программный доступ, обращайтесь напрямую к backend-эндпоинтам.
 
 ### Example (custom client)
+
 ```typescript
 import axios from 'axios'
 
@@ -278,6 +298,7 @@ const { data: metahub } = await api.get('/metahub/123')
 ```
 
 ### React Query Example
+
 ```typescript
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
@@ -285,21 +306,23 @@ import axios from 'axios'
 const api = axios.create({ baseURL: '/api/v1' })
 
 function useMetahubs() {
-  return useQuery({
-    queryKey: ['metahubs', 'list'],
-    queryFn: async () => (await api.get('/metahubs')).data
-  })
+    return useQuery({
+        queryKey: ['metahubs', 'list'],
+        queryFn: async () => (await api.get('/metahubs')).data
+    })
 }
 ```
 
 ## Разработка
 
 ### Предварительные требования
-- Node.js 22.22.2 recommended (>=22.6.0 required)
-- pnpm 10.x
-- TypeScript 5+
 
-### Доступные скрипты
+-   Node.js 22.22.2 recommended (>=22.6.0 required)
+-   pnpm 10.x
+-   TypeScript 5+
+
+### Доступные модули
+
 ```bash
 # Разработка
 pnpm dev              # Запуск сервера разработки
@@ -318,14 +341,17 @@ pnpm type-check       # Проверка типов TypeScript
 ```
 
 ### Система сборки
+
 Данный пакет использует `tsdown` для двойного вывода сборки:
-- **CommonJS**: `dist/index.js` (для совместимости с устаревшими системами)
-- **ES Modules**: `dist/index.mjs` (для современных сборщиков)
-- **Типы**: `dist/index.d.ts` (объявления TypeScript)
+
+-   **CommonJS**: `dist/index.js` (для совместимости с устаревшими системами)
+-   **ES Modules**: `dist/index.mjs` (для современных сборщиков)
+-   **Типы**: `dist/index.d.ts` (объявления TypeScript)
 
 ## Тестирование
 
 ### Структура тестов
+
 ```
 src/
 ├── __tests__/
@@ -337,6 +363,7 @@ src/
 ```
 
 ### Запуск тестов
+
 ```bash
 pnpm test                    # Запуск всех тестов
 pnpm test:watch              # Режим наблюдения
@@ -347,6 +374,7 @@ pnpm test -- --reporter=verbose  # Подробный вывод
 ## Конфигурация
 
 ### Переменные окружения
+
 ```bash
 # Конфигурация API
 VITE_API_URL=http://localhost:3000
@@ -358,21 +386,25 @@ VITE_AUTH_PROVIDER=supabase
 ```
 
 ### Конфигурация TypeScript
+
 Пакет использует строгую конфигурацию TypeScript:
-- Включены строгие проверки null
-- Нет неявных типов any
-- Строгие типы функций
-- Включены все строгие опции компилятора
+
+-   Включены строгие проверки null
+-   Нет неявных типов any
+-   Строгие типы функций
+-   Включены все строгие опции компилятора
 
 ## Участие в разработке
 
 ### Стиль кода
-- Следуйте конфигурации ESLint
-- Используйте Prettier для форматирования
-- Предпочитайте TypeScript вместо JavaScript
-- Используйте функциональные компоненты с хуками
+
+-   Следуйте конфигурации ESLint
+-   Используйте Prettier для форматирования
+-   Предпочитайте TypeScript вместо JavaScript
+-   Используйте функциональные компоненты с хуками
 
 ### Процесс Pull Request
+
 1. Создайте feature ветку от `main`
 2. Реализуйте изменения с тестами
 3. Обновите документацию
@@ -380,7 +412,9 @@ VITE_AUTH_PROVIDER=supabase
 5. Отправьте PR с описанием
 
 ### Соглашение о коммитах
+
 Следуйте соглашению conventional commits:
+
 ```bash
 feat(metahubs): добавить функцию поиска
 fix(api): обработка пустого ответа
@@ -388,15 +422,17 @@ docs(readme): обновить руководство по установке
 ```
 
 ## Связанные пакеты
-- [`@universo/metahubs-backend`](../../metahubs-backend/base/README-RU.md) - Бэкенд сервис
-- [`@universo/template-mui`](../../universo-template-mui/base/README-RU.md) - UI компоненты
-- [`@universo/types`](../../universo-types/base/README-RU.md) - Общие типы
+
+-   [`@universo/metahubs-backend`](../../metahubs-backend/base/README-RU.md) - Бэкенд сервис
+-   [`@universo/template-mui`](../../universo-template-mui/base/README-RU.md) - UI компоненты
+-   [`@universo/types`](../../universo-types/base/README-RU.md) - Общие типы
 
 ## Общие абстракции
 
 ### Паттерн декомпозиции компонентов
 
 Каждый List-компонент разделён на три слоя:
+
 1. **List-компонент** (`domains/<domain>/ui/<Domain>List.tsx`) — UI-рендеринг, диалоги, действия.
 2. **Data-хук** (`domains/<domain>/hooks/use<Domain>ListData.ts`) — React Query логика, пагинация, трансформации данных.
 3. **Утилиты** (`domains/<domain>/ui/<domain>ListUtils.ts`) — вспомогательные функции для форматирования, фильтрации, сортировки.
@@ -407,7 +443,7 @@ docs(readme): обновить руководство по установке
 
 ```ts
 const handleError = createDomainErrorHandler({
-    LIMIT_REACHED: (data, t) => t('components.limitReached', { limit: data.limit }),
+    LIMIT_REACHED: (data, t) => t('components.limitReached', { limit: data.limit })
 })
 
 // В мутации: handleError(error, t, enqueueSnackbar, 'components.createError')
@@ -434,4 +470,5 @@ const handleError = createDomainErrorHandler({
 Рекурсивный пагинатор, который получает все страницы и возвращает единый `PaginatedResponse`.
 
 ---
-*Часть [Universo Platformo](../../../README-RU.md) - Пакетная бизнес-платформа*
+
+_Часть [Universo Platformo](../../../README-RU.md) - Пакетная бизнес-платформа_

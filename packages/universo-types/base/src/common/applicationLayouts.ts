@@ -8,7 +8,7 @@ import {
     statCardMetricDatasourceSchema
 } from './runtimeDataSources'
 import { RESOURCE_TYPES, resourceSourceSchema } from './resourceSources'
-import { SCRIPT_ATTACHMENT_KIND_PATTERN } from './scripts'
+import { MODULE_ATTACHMENT_KIND_PATTERN } from './modules'
 import { sequencePolicySchema } from './sequenceCompletion'
 import { reportDefinitionSchema } from './lmsPlatform'
 import { workflowActionSchema } from './workflowActions'
@@ -49,7 +49,7 @@ const sharedBehaviorSchema = z
     })
     .strict()
 
-const scriptAttachmentKindSchema = z.string().trim().regex(SCRIPT_ATTACHMENT_KIND_PATTERN).nullable().optional()
+const moduleAttachmentKindSchema = z.string().trim().regex(MODULE_ATTACHMENT_KIND_PATTERN).nullable().optional()
 
 const genericWidgetConfigSchema = z.record(z.unknown()).default({})
 const localizedWidgetTextSchema = z.union([z.string().min(1).max(160), applicationLayoutLocalizedContentSchema])
@@ -246,10 +246,10 @@ export const detailsTabsWidgetConfigSchema = z
 
 export type DetailsTabsWidgetConfig = z.infer<typeof detailsTabsWidgetConfigSchema>
 
-const scriptBackedWidgetConfigSchema = z
+const moduleBackedWidgetConfigSchema = z
     .object({
-        scriptCodename: z.string().nullable().optional(),
-        attachedToKind: scriptAttachmentKindSchema,
+        moduleCodename: z.string().nullable().optional(),
+        attachedToKind: moduleAttachmentKindSchema,
         mountMethodName: z.string().nullable().optional(),
         emptyStateTitle: z.string().nullable().optional(),
         emptyStateDescription: z.string().nullable().optional(),
@@ -257,7 +257,7 @@ const scriptBackedWidgetConfigSchema = z
     })
     .strict()
 
-export const quizWidgetConfigSchema = scriptBackedWidgetConfigSchema
+export const quizWidgetConfigSchema = moduleBackedWidgetConfigSchema
     .extend({
         quizId: z.string().nullable().optional(),
         submitMethodName: z.string().nullable().optional(),

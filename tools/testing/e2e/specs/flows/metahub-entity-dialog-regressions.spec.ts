@@ -208,7 +208,7 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
         await expect(editSetDialog).toBeVisible()
         await expect(editSetDialog.getByRole('tab', { name: 'General' })).toBeVisible()
         await expect(editSetDialog.getByRole('tab', { name: 'Hubs' })).toBeVisible()
-        await expect(editSetDialog.getByRole('tab', { name: 'Scripts' })).toBeVisible()
+        await expect(editSetDialog.getByRole('tab', { name: 'Modules' })).toBeVisible()
         await expect(editSetDialog.getByLabel('Name').first()).toBeVisible()
         await expect(editSetDialog.getByLabel('Description').first()).toBeVisible()
         await expect(editSetDialog.getByLabel('Codename').first()).toBeVisible()
@@ -232,10 +232,10 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
             .toBeGreaterThan(initialDialogBox.width + 100)
 
         await editSetDialog.getByTestId('dialog-toggle-fullscreen').click()
-        await editSetDialog.getByRole('tab', { name: 'Scripts' }).click()
-        await expect(editSetDialog.getByTestId('entity-scripts-layout')).toHaveAttribute('data-layout-mode', 'compact')
-        await expect(editSetDialog.getByTestId('entity-scripts-list-toggle')).toBeVisible()
-        await expect(editSetDialog.getByTestId('entity-scripts-editor-shell')).toBeVisible()
+        await editSetDialog.getByRole('tab', { name: 'Modules' }).click()
+        await expect(editSetDialog.getByTestId('entity-modules-layout')).toHaveAttribute('data-layout-mode', 'compact')
+        await expect(editSetDialog.getByTestId('entity-modules-list-toggle')).toBeVisible()
+        await expect(editSetDialog.getByTestId('entity-modules-editor-shell')).toBeVisible()
         await expectNoHorizontalOverflow(editSetDialog, 'Edit Set dialog')
         await expectViewportWithoutHorizontalOverflow(page)
 

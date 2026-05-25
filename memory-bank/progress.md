@@ -55,6 +55,41 @@
 
 ---
 
+## 2026-05-25 - Scripts To Modules Final QA Fix Closure
+
+### Summary
+
+Closed the final QA issues found after the Scripts to Modules rename implementation. Runtime client bundle downloads now use the same client-visible module predicate as the runtime module list, so direct bundle access cannot expose a module that has a client bundle but no client-targeted manifest methods. Deprecated snapshot compatibility aliases unrelated to the no-legacy rename contract were removed from application sync contracts, snapshot restore/serialization, canonical snapshot hashing, fixture contracts, and E2E import assertions. Committed fixture hashes were refreshed from the current canonical hash implementation.
+
+### Verification
+
+-   `pnpm --filter @universo/utils test -- publicationSnapshotHash snapshotArchive snapshotFixtures`
+-   `pnpm --filter @universo/applications-backend test -- runtimeModulesService applicationsRoutes publicApplicationsRoutes`
+-   `pnpm --filter @universo/metahubs-backend test -- SnapshotRestoreService SnapshotSerializer`
+-   `pnpm docs:i18n:check`
+-   `pnpm --filter @universo/applications-backend lint`
+-   `pnpm --filter @universo/metahubs-backend lint`
+-   `pnpm --filter @universo/utils lint`
+-   `pnpm --filter @universo/utils build`
+-   `pnpm --filter @universo/applications-backend build`
+-   `pnpm --filter @universo/metahubs-backend build`
+-   No Playwright rerun in this pass: the remaining fixes were backend/security and snapshot-hash contract changes, with prior module runtime browser evidence already recorded for the UI rename.
+
+## 2026-05-25 - Scripts To Modules QA Fix Closure
+
+### Summary
+
+Closed the backend QA findings from the Scripts to Modules rename implementation. Snapshot module restore now stores source and normalized metadata only, drops imported precompiled bundles, derives a local restore checksum, and relies on publication-time compilation before modules reach application runtime. Snapshot module attachment kinds now fail closed unless they are known module anchors or match the kind of the restored source entity. Module updates no longer preserve out-of-scope library modules as legacy-compatible state.
+
+### Verification
+
+-   `pnpm --filter @universo/metahubs-backend test -- SnapshotRestoreService MetahubModulesService`
+-   `pnpm --filter @universo/metahubs-backend test -- SnapshotSerializer publicationsController`
+-   `pnpm --filter @universo/applications-backend test -- syncModulePersistence runtimeModulesService applicationsRoutes`
+-   `pnpm --filter @universo/metahubs-backend lint`
+-   `pnpm --filter @universo/metahubs-backend build`
+-   `git diff --check`
+
 ## 2026-05-24 - LMS User Guide Final QA Gate Closure
 
 ### Summary
@@ -816,7 +851,7 @@ Closed the remaining QA findings for the LMS Learning Content release gate. Runt
 
 ### 2026-05-18: LMS Learning Content Auto-Enrollment QA Remediation ✅
 
--   Removed `AutoEnrollmentRuleScript` from the active LMS template and regenerated `tools/fixtures...
+-   Removed `AutoEnrollmentRuleModule` from the active LMS template and regenerated `tools/fixtures...
 
 ### 2026-05-20: LMS Learning Content Runtime Table Defaults Bridge ✅
 
@@ -945,3 +980,20 @@ Closed the remaining QA findings for the LMS Learning Content release gate. Runt
 ### 2026-05-23: LMS Guest Public Workspace Isolation QA Closure ✅
 
 -   Scoped public guest runtime record reads, child TABLE reads, access-link lookup, and access-lin...
+
+### 2026-05-25: Scripts To Modules Rename ✅
+
+-   Completed the no-legacy rename of the metahub attached TypeScript-code capability from Scripts/Scripting to Modules across packages, routes, database contracts, snapshots, fixtures, tests, SDK names, and GitBook docs.
+-   Renamed runtime and design-time contracts to `modules`, `_mhb_modules`, `_app_modules`, `/modules`, `/module/:moduleId`, `/runtime/modules`, `moduleId`, `moduleCodename`, `ModuleRole`, and `@universo/modules-engine`.
+-   Updated LMS template and fixture posting handlers to `*PostingModule` codenames/classes and refreshed the LMS fixture snapshot hash.
+-   Replaced stale UI capability helpers and localized module-action validation keys; module list role labels now use localized labels instead of raw enum values.
+-   Verified no domain `scripts`/`scripting` leftovers remain outside allowed HTML/security/package-script/external-API contexts.
+-   Refreshed workspace links with `pnpm install`, resolving the stale `@universo/core-backend` dependency symlink after the engine package was renamed to `@universo/modules-engine`.
+-   Validation passed: local Supabase smoke Vitest, targeted `@universo/types`, applications-backend, metahubs-backend, metahubs-frontend, applications-frontend, and modules-engine tests/builds; `pnpm docs:i18n:check`; `build:e2e` on local minimal Supabase; and the two Chromium module runtime Playwright flows.
+-   Browser evidence captured at `test-results/flows-application-runtime--70ed6-before-runtime-verification-chromium/quiz-modules-authoring-dialog.png` and `test-results/flows-application-runtime--e26b0--the-real-a-browser-surface-chromium/quiz-modules-runtime-en.png`.
+
+### 2026-05-25: Scripts To Modules Post-QA Closure ✅
+
+-   Updated current snapshot documentation and Memory Bank architecture notes to use the renamed snapshot contracts `sharedFixedValues`, `sharedOptionValues`, and `sharedComponents`.
+-   Fixed the modules quiz runtime E2E fixture so the client-visible `submit` module calls the server-side `validateAnswer` module and the Playwright oracle verifies the real `/runtime/modules/.../call` request.
+-   Re-ran focused formatting, GitBook i18n parity, backend/frontend unit tests, package builds, and local minimal Supabase Chromium Playwright for the quiz widget modules flow.

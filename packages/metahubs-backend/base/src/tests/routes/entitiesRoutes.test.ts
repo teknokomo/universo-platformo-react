@@ -148,7 +148,7 @@ describe('Entity ECAE routes', () => {
         mockActionService.listByObjectId.mockResolvedValue([{ id: 'action-1', objectId: 'object-1', actionType: 'builtin' }])
         mockActionService.getById.mockResolvedValue({ id: 'action-1', objectId: 'object-1', actionType: 'builtin' })
         mockActionService.create.mockResolvedValue({ id: 'action-1', objectId: 'object-1', actionType: 'builtin' })
-        mockActionService.update.mockResolvedValue({ id: 'action-1', objectId: 'object-1', actionType: 'script' })
+        mockActionService.update.mockResolvedValue({ id: 'action-1', objectId: 'object-1', actionType: 'module' })
         mockActionService.delete.mockResolvedValue(undefined)
 
         mockEventBindingService.listByObjectId.mockResolvedValue([{ id: 'binding-1', objectId: 'object-1', eventName: 'beforeCreate' }])
@@ -256,7 +256,7 @@ describe('Entity ECAE routes', () => {
                     relations: false,
                     actions: { enabled: true },
                     events: { enabled: true },
-                    scripting: false,
+                    modules: false,
                     layoutConfig: false,
                     runtimeBehavior: false,
                     physicalTable: false
@@ -459,7 +459,7 @@ describe('Entity ECAE routes', () => {
     it('rejects invalid action payloads before the service layer', async () => {
         const app = buildApp()
 
-        const response = await request(app).post('/metahub/metahub-1/object/object-1/actions').send({ codename: 'run-script' }).expect(400)
+        const response = await request(app).post('/metahub/metahub-1/object/object-1/actions').send({ codename: 'run-module' }).expect(400)
 
         expect(response.body.error).toBe('Invalid input')
         expect(mockActionService.create).not.toHaveBeenCalled()
@@ -470,14 +470,14 @@ describe('Entity ECAE routes', () => {
 
         const response = await request(app)
             .patch('/metahub/metahub-1/action/action-1')
-            .send({ actionType: 'script', scriptId: 'script-1', expectedVersion: 2 })
+            .send({ actionType: 'module', moduleId: 'module-1', expectedVersion: 2 })
             .expect(200)
 
-        expect(response.body.actionType).toBe('script')
+        expect(response.body.actionType).toBe('module')
         expect(mockActionService.update).toHaveBeenCalledWith(
             'metahub-1',
             'action-1',
-            expect.objectContaining({ actionType: 'script', scriptId: 'script-1', expectedVersion: 2 }),
+            expect.objectContaining({ actionType: 'module', moduleId: 'module-1', expectedVersion: 2 }),
             'user-1'
         )
     })

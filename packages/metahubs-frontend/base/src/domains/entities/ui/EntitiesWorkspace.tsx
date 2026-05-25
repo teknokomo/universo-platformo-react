@@ -85,7 +85,7 @@ import { EntityTypePresetSelector } from './EntityTypePresetSelector'
 type EntityTypeFormValues = Record<string, unknown>
 
 type EntitiesViewMode = 'card' | 'list'
-type SupportedEntityTab = 'general' | 'behavior' | 'ledgerSchema' | 'treeEntities' | 'layout' | 'scripts'
+type SupportedEntityTab = 'general' | 'behavior' | 'ledgerSchema' | 'treeEntities' | 'layout' | 'modules'
 
 const STRUCTURED_ENTITY_TAB_LABELS: Record<SupportedEntityTab, string> = {
     general: 'General',
@@ -93,7 +93,7 @@ const STRUCTURED_ENTITY_TAB_LABELS: Record<SupportedEntityTab, string> = {
     ledgerSchema: 'Ledger schema',
     treeEntities: 'Hubs',
     layout: 'Layout',
-    scripts: 'Scripts'
+    modules: 'Modules'
 }
 
 const RESOURCE_SURFACE_CAPABILITY_ORDER = ENTITY_RESOURCE_SURFACE_CAPABILITIES
@@ -120,13 +120,13 @@ type EntityTypeMenuContext = ActionContext<EntityTypeDisplayRow>
 
 const ENTITY_KIND_KEY_PATTERN = /^[a-z][a-z0-9._-]{0,63}$/
 const DIALOG_SAVE_CANCEL = { __dialogCancelled: true }
-const STRUCTURED_ENTITY_TABS: readonly SupportedEntityTab[] = ['general', 'behavior', 'ledgerSchema', 'treeEntities', 'layout', 'scripts']
+const STRUCTURED_ENTITY_TABS: readonly SupportedEntityTab[] = ['general', 'behavior', 'ledgerSchema', 'treeEntities', 'layout', 'modules']
 const OPTIONAL_ENTITY_TABS: readonly Exclude<SupportedEntityTab, 'general'>[] = [
     'behavior',
     'ledgerSchema',
     'treeEntities',
     'layout',
-    'scripts'
+    'modules'
 ]
 const RELATION_TYPE_SEPARATOR_PATTERN = /[\n,]/
 const ENTITY_TYPE_MENU_KIND = 'entity-type'
@@ -153,7 +153,7 @@ const DEFAULT_COMPONENTS_TEMPLATE: EntityTypeCapabilities = {
     relations: false,
     actions: { enabled: true },
     events: { enabled: true },
-    scripting: { enabled: true },
+    modules: { enabled: true },
     blockContent: false,
     layoutConfig: { enabled: true },
     runtimeBehavior: { enabled: true },
@@ -540,7 +540,7 @@ const normalizeEntityTypeCapabilitiesForBuilder = (value: unknown): EntityTypeCa
         relations,
         actions: isEnabledCapabilityConfig(source.actions as never) ? { enabled: true } : false,
         events: isEnabledCapabilityConfig(source.events as never) ? { enabled: true } : false,
-        scripting: isEnabledCapabilityConfig(source.scripting as never) ? { enabled: true } : false,
+        modules: isEnabledCapabilityConfig(source.modules as never) ? { enabled: true } : false,
         blockContent: isEnabledCapabilityConfig(source.blockContent as never)
             ? {
                   enabled: true,
@@ -2024,22 +2024,22 @@ const EntitiesWorkspace = () => {
                                 </Box>
                                 <Box sx={COMPONENT_SECTION_SX}>
                                     <Stack spacing={1.5}>
-                                        <Typography variant='subtitle2'>{t('entities.capabilities.scripting', 'Scripting')}</Typography>
+                                        <Typography variant='subtitle2'>{t('entities.capabilities.modules', 'Modules')}</Typography>
                                         <Typography variant='body2' color='text.secondary'>
                                             {t(
-                                                'entities.capabilities.scriptingHelper',
-                                                'Exposes the existing EntityScriptsTab for script attachments and reuse.'
+                                                'entities.capabilities.modulesHelper',
+                                                'Exposes the existing EntityModulesTab for module attachments and reuse.'
                                             )}
                                         </Typography>
                                         <FormControlLabel
                                             control={
                                                 <Checkbox
-                                                    checked={isEnabledCapabilityConfig(capabilities.scripting)}
-                                                    onChange={(event) => setComponentEnabled('scripting', event.target.checked)}
+                                                    checked={isEnabledCapabilityConfig(capabilities.modules)}
+                                                    onChange={(event) => setComponentEnabled('modules', event.target.checked)}
                                                     disabled={isLoading || isStructureLocked}
                                                 />
                                             }
-                                            label={t('entities.capabilities.scripting', 'Scripting')}
+                                            label={t('entities.capabilities.modules', 'Modules')}
                                         />
                                     </Stack>
                                 </Box>
@@ -2225,7 +2225,7 @@ const EntitiesWorkspace = () => {
                                         <Typography variant='body2' color='text.secondary'>
                                             {t(
                                                 'entities.capabilities.postingHelper',
-                                                'Enables record posting settings and ledger movement scripts.'
+                                                'Enables record posting settings and ledger movement modules.'
                                             )}
                                         </Typography>
                                         <FormControlLabel

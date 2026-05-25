@@ -20,12 +20,12 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { type QuizWidgetConfig } from '@universo/types'
 import { useDashboardDetails } from '../DashboardDetailsContext'
-import { executeClientScriptMethod } from '../runtime/browserScriptRuntime'
+import { executeClientModuleMethod } from '../runtime/browserModuleRuntime'
 import {
-    createClientScriptContext,
+    createClientModuleContext,
     fetchRuntimeClientBundle,
-    fetchRuntimeScripts,
-    isClientScriptMethodTarget
+    fetchRuntimeModules,
+    isClientModuleMethodTarget
 } from './runtimeWidgetHelpers'
 import { formatRuntimeSafeValue } from '../../utils/displayValue'
 
@@ -215,16 +215,16 @@ export default function QuizWidget({ config }: { config?: Record<string, unknown
     const mountMethodName = widgetConfig.mountMethodName || 'mount'
     const submitMethodName = widgetConfig.submitMethodName || 'submit'
 
-    const scriptsQuery = useQuery({
-        queryKey: ['quiz-widget-scripts', applicationId, objectCollectionId, widgetConfig.scriptCodename, widgetConfig.attachedToKind],
+    const modulesQuery = useQuery({
+        queryKey: ['quiz-widget-modules', applicationId, objectCollectionId, widgetConfig.moduleCodename, widgetConfig.attachedToKind],
         enabled: Boolean(applicationId),
         queryFn: async () => {
             const shouldQueryObject = widgetConfig.attachedToKind !== 'metahub' && Boolean(objectCollectionId)
             const shouldQueryMetahub = widgetConfig.attachedToKind !== 'object'
 
-            const [objectScripts, metahubScripts] = await Promise.all([
+            const [objectModules, metahubModules] = await Promise.all([
                 shouldQueryObject
-                    ? fetchRuntimeScripts({
+                    ? fetchRuntimeModules({
                           apiBaseUrl,
                           applicationId: applicationId!,
                           attachedToKind: 'object',
@@ -232,39 +232,39 @@ export default function QuizWidget({ config }: { config?: Record<string, unknown
                       })
                     : Promise.resolve([]),
                 shouldQueryMetahub
-                    ? fetchRuntimeScripts({ apiBaseUrl, applicationId: applicationId!, attachedToKind: 'metahub' })
+                    ? fetchRuntimeModules({ apiBaseUrl, applicationId: applicationId!, attachedToKind: 'metahub' })
                     : Promise.resolve([])
             ])
 
-            const items = [...objectScripts, ...metahubScripts].filter(
-                (script, index, array) =>
-                    script.moduleRole === 'widget' &&
-                    script.manifest.methods.some((method) => isClientScriptMethodTarget(method.target)) &&
-                    array.findIndex((candidate) => candidate.id === script.id) === index
+            const items = [...objectModules, ...metahubModules].filter(
+                (module, index, array) =>
+                    module.moduleRole === 'widget' &&
+                    module.manifest.methods.some((method) => isClientModuleMethodTarget(method.target)) &&
+                    array.findIndex((candidate) => candidate.id === module.id) === index
             )
 
-            const selected = widgetConfig.scriptCodename
-                ? items.find((script) => script.codename === widgetConfig.scriptCodename) ?? null
+            const selected = widgetConfig.moduleCodename
+                ? items.find((module) => module.codename === widgetConfig.moduleCodename) ?? null
                 : items[0] ?? null
 
             return { items, selected }
         }
     })
 
-    const selectedScript = scriptsQuery.data?.selected ?? null
+    const selectedModule = modulesQuery.data?.selected ?? null
 
     const clientBundleQuery = useQuery({
-        queryKey: ['quiz-widget-client-bundle', applicationId, selectedScript?.id],
-        enabled: Boolean(applicationId && selectedScript),
+        queryKey: ['quiz-widget-client-bundle', applicationId, selectedModule?.id],
+        enabled: Boolean(applicationId && selectedModule),
         queryFn: async () => {
-            if (!applicationId || !selectedScript) {
+            if (!applicationId || !selectedModule) {
                 return null
             }
 
             return await fetchRuntimeClientBundle({
                 apiBaseUrl,
                 applicationId,
-                scriptId: selectedScript.id
+                moduleId: selectedModule.id
             })
         }
     })
@@ -272,22 +272,22 @@ export default function QuizWidget({ config }: { config?: Record<string, unknown
     const clientBundle = clientBundleQuery.data
 
     const quizModelQuery = useQuery({
-        queryKey: ['quiz-widget-model', selectedScript?.id, objectCollectionId, mountMethodName, widgetConfig.quizId],
-        enabled: Boolean(applicationId && selectedScript && clientBundle),
+        queryKey: ['quiz-widget-model', selectedModule?.id, objectCollectionId, mountMethodName, widgetConfig.quizId],
+        enabled: Boolean(applicationId && selectedModule && clientBundle),
         queryFn: async () => {
-            if (!applicationId || !selectedScript || !clientBundle) {
+            if (!applicationId || !selectedModule || !clientBundle) {
                 return null
             }
 
-            if (!selectedScript.manifest.methods.some((method) => method.name === mountMethodName)) {
+            if (!selectedModule.manifest.methods.some((method) => method.name === mountMethodName)) {
                 return null
             }
 
-            const rawModel = await executeClientScriptMethod({
+            const rawModel = await executeClientModuleMethod({
                 bundle: clientBundle,
                 methodName: mountMethodName,
                 args: widgetConfig.quizId ? [{ locale: i18n.language, quizId: widgetConfig.quizId }] : [i18n.language],
-                context: createClientScriptContext({ apiBaseUrl, applicationId, script: selectedScript })
+                context: createClientModuleContext({ apiBaseUrl, applicationId, module: selectedModule })
             })
 
             return normalizeQuizModel(rawModel, i18n.language, {
@@ -355,7 +355,7 @@ export default function QuizWidget({ config }: { config?: Record<string, unknown
 
     const submitMutation = useMutation({
         mutationFn: async (): Promise<QuizSubmissionPacket> => {
-            if (!applicationId || !selectedScript || !clientBundle || !quizModel || !currentQuestion) {
+            if (!applicationId || !selectedModule || !clientBundle || !quizModel || !currentQuestion) {
                 return {
                     result: null,
                     responses: submittedResponses
@@ -367,20 +367,17 @@ export default function QuizWidget({ config }: { config?: Record<string, unknown
                 [currentQuestion.id]: currentAnswer
             }
 
-            if (!selectedScript.manifest.methods.some((method) => method.name === submitMethodName)) {
+            if (!selectedModule.manifest.methods.some((method) => method.name === submitMethodName)) {
                 return {
                     result: {
                         questionId: currentQuestion.id,
-                        message: t(
-                            'answersCaptured',
-                            'Answers captured locally. Add a submit() method in the widget script to validate them.'
-                        )
+                        message: t('answersCaptured', 'Answers saved locally. Add answer checking before publishing to show feedback here.')
                     },
                     responses: nextResponses
                 }
             }
 
-            const rawResult = await executeClientScriptMethod({
+            const rawResult = await executeClientModuleMethod({
                 bundle: clientBundle,
                 methodName: submitMethodName,
                 args: [
@@ -392,7 +389,7 @@ export default function QuizWidget({ config }: { config?: Record<string, unknown
                         locale: i18n.language
                     }
                 ],
-                context: createClientScriptContext({ apiBaseUrl, applicationId, script: selectedScript })
+                context: createClientModuleContext({ apiBaseUrl, applicationId, module: selectedModule })
             })
 
             return {
@@ -484,39 +481,35 @@ export default function QuizWidget({ config }: { config?: Record<string, unknown
     }
 
     if (!applicationId) {
-        return (
-            <Alert severity='info'>
-                {t('missingRuntimeContext', 'Quiz widget is available only inside the application runtime surface.')}
-            </Alert>
-        )
+        return <Alert severity='info'>{t('missingRuntimeContext', 'This quiz is available only in a published application.')}</Alert>
     }
 
-    if (scriptsQuery.isLoading || clientBundleQuery.isLoading || quizModelQuery.isLoading) {
+    if (modulesQuery.isLoading || clientBundleQuery.isLoading || quizModelQuery.isLoading) {
         return (
             <Card variant='outlined'>
                 <CardContent>
                     <Stack direction='row' spacing={1.5} alignItems='center'>
                         <CircularProgress size={20} />
-                        <Typography variant='body2'>{t('loading', 'Loading quiz widget...')}</Typography>
+                        <Typography variant='body2'>{t('loading', 'Loading quiz...')}</Typography>
                     </Stack>
                 </CardContent>
             </Card>
         )
     }
 
-    if (scriptsQuery.isError) {
-        return <Alert severity='error'>{t('loadScriptsError', 'Failed to load widget scripts.')}</Alert>
+    if (modulesQuery.isError) {
+        return <Alert severity='error'>{t('loadModulesError', 'Failed to load the quiz setup.')}</Alert>
     }
 
     if (quizModelQuery.isError) {
-        return <Alert severity='error'>{t('loadQuizError', 'Failed to load quiz content from the widget script.')}</Alert>
+        return <Alert severity='error'>{t('loadQuizError', 'Failed to load quiz content.')}</Alert>
     }
 
     if (clientBundleQuery.isError) {
-        return <Alert severity='error'>{t('loadBundleError', 'Failed to load the widget client bundle.')}</Alert>
+        return <Alert severity='error'>{t('loadBundleError', 'Failed to prepare the quiz.')}</Alert>
     }
 
-    if (!selectedScript || !quizModel) {
+    if (!selectedModule || !quizModel) {
         const emptyStateTitle = readDisplayString(
             widgetConfig.emptyStateTitle,
             i18n.language,
@@ -525,10 +518,7 @@ export default function QuizWidget({ config }: { config?: Record<string, unknown
         const emptyStateDescription = readDisplayString(
             widgetConfig.emptyStateDescription,
             i18n.language,
-            t(
-                'emptyDescription',
-                'Attach an active widget script to the current object or metahub and expose a mount() method to render quiz content here.'
-            )
+            t('emptyDescription', 'Choose an active quiz source for this page or application before publishing the quiz.')
         )
 
         return (

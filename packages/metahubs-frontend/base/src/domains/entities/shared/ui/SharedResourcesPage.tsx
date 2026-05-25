@@ -17,11 +17,11 @@ import { ComponentListContent } from '../../metadata/component/ui/ComponentList'
 import { FixedValueListContent } from '../../metadata/fixedValue/ui/FixedValueList'
 import { SelectableOptionListContent } from '../../metadata/optionValue/ui/SelectableOptionList'
 import { LayoutListContent } from '../../../layouts/ui/LayoutList'
-import { EntityScriptsTab } from '../../../scripts/ui/EntityScriptsTab'
+import { EntityModulesTab } from '../../../modules/ui/EntityModulesTab'
 import { useSharedContainerIds } from '../../../shared/hooks/useSharedContainerIds'
 import { useAllEntityTypesQuery } from '../../hooks/queries'
 
-type SharedResourcesTab = 'layouts' | 'components' | 'fixedValues' | 'optionValues' | 'scripts'
+type SharedResourcesTab = 'layouts' | 'components' | 'fixedValues' | 'optionValues' | 'modules'
 
 interface TabConfig {
     value: SharedResourcesTab
@@ -172,7 +172,7 @@ export default function SharedResourcesPage() {
         return [
             { value: 'layouts', label: t('general.tabs.layouts', 'Layouts'), visible: true },
             ...resourceTabs,
-            { value: 'scripts', label: t('general.tabs.scripts', 'Scripts'), visible: true }
+            { value: 'modules', label: t('general.tabs.modules', 'Modules'), visible: true }
         ]
     }, [entityTypesQuery.data?.items, i18n.language, t, translateSurfaceTitle])
 
@@ -298,8 +298,8 @@ export default function SharedResourcesPage() {
                 {RESOURCE_SURFACE_REGISTRY.map((entry) =>
                     effectiveTab === entry.tab ? <Box key={entry.tab}>{renderSharedContent(entry.poolKind)}</Box> : null
                 )}
-                {effectiveTab === 'scripts' ? (
-                    <EntityScriptsTab metahubId={metahubId} attachedToKind='general' attachedToId={null} t={t} />
+                {effectiveTab === 'modules' ? (
+                    <EntityModulesTab metahubId={metahubId} attachedToKind='general' attachedToId={null} t={t} />
                 ) : null}
             </Box>
         </MainCard>

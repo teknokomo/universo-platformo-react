@@ -8,7 +8,7 @@
  * Usage:
  *   node tools/create-metahubs-self-hosted-app.mjs [--base-url http://localhost:3000] [--cookie "..."]
  *
- * The script requires an authenticated session. Supply the session cookie via --cookie.
+ * The module requires an authenticated session. Supply the session cookie via --cookie.
  */
 
 import fs from 'node:fs'
@@ -140,7 +140,7 @@ async function waitForDefaultLayoutId(metahubId, { attempts = 20, delayMs = 500 
 /* ────── Main flow ────── */
 
 async function main() {
-    console.log('─── Metahubs Self-Hosted App Creation Script ───')
+    console.log('─── Metahubs Self-Hosted App Creation Module ───')
     console.log(`API: ${API}\n`)
 
     // 1. Obtain CSRF

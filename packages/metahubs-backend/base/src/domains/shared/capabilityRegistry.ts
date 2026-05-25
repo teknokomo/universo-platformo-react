@@ -80,10 +80,10 @@ export const CAPABILITY_REGISTRY: Record<keyof EntityTypeCapabilities, BackendCa
         requiresPhysicalTable: false,
         supportedKinds: null
     },
-    scripting: {
-        key: 'scripting',
-        tables: ['_mhb_scripts'],
-        dependencies: [...CAPABILITY_DEPENDENCIES.scripting],
+    modules: {
+        key: 'modules',
+        tables: ['_mhb_modules'],
+        dependencies: [...CAPABILITY_DEPENDENCIES.modules],
         requiresPhysicalTable: false,
         supportedKinds: null
     },
@@ -131,7 +131,7 @@ export const CAPABILITY_REGISTRY: Record<keyof EntityTypeCapabilities, BackendCa
     },
     posting: {
         key: 'posting',
-        tables: ['_mhb_scripts'],
+        tables: ['_mhb_modules'],
         dependencies: [...CAPABILITY_DEPENDENCIES.posting],
         requiresPhysicalTable: true,
         supportedKinds: ['object']

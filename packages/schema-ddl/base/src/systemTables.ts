@@ -14,7 +14,7 @@ const SYSTEM_TABLE_ORDER = [
     '_app_record_counters',
     '_app_components',
     '_app_values',
-    '_app_scripts',
+    '_app_modules',
     '_app_layouts',
     '_app_widgets'
 ] as const
