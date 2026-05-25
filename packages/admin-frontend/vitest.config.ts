@@ -4,10 +4,11 @@ import { defineConfig, mergeConfig } from 'vitest/config'
 
 import baseConfig from '../../tools/testing/frontend/vitest.base.config'
 import { loadTsconfigAliases } from '../../tools/testing/frontend/loadTsconfigAliases'
+import { resolveWorkspacePackagePath } from '../../tools/testing/frontend/resolveWorkspacePackage'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const srcDir = path.resolve(__dirname, 'src')
-const templateMuiSrcDir = path.resolve(__dirname, '../universo-template-mui/src')
+const templateMuiSrcDir = resolveWorkspacePackagePath('@universo/template-mui', __dirname, 'src')
 const tsconfigAliases = loadTsconfigAliases(path.resolve(__dirname, 'tsconfig.json'), __dirname)
 
 export default mergeConfig(
