@@ -602,7 +602,7 @@ TemplateSeeder.seed() is called
       │
       ▼
 Read JSON files from filesystem:
-  packages/metahubs-backend/base/src/templates/*.template.json
+  packages/universo-react-metahubs-backend/base/src/templates/*.template.json
       │
       ▼
 For each template JSON file:
@@ -626,7 +626,7 @@ For each template JSON file:
 ### Integration Point
 
 ```typescript
-// In packages/metahubs-backend/base/src/index.ts or startup hook
+// In packages/universo-react-metahubs-backend/base/src/index.ts or startup hook
 
 import { TemplateSeeder } from './domains/templates/services/TemplateSeeder'
 
@@ -650,7 +650,7 @@ Same approach as `SnapshotSerializer.calculateHash()`:
 ### Filesystem Location
 
 ```
-packages/metahubs-backend/base/src/templates/
+packages/universo-react-metahubs-backend/base/src/templates/
 ├── basic.template.json        ← "Basic" starter template
 ├── index.ts                   ← exports template file paths for seeder
 └── (future) crm.template.json
@@ -808,7 +808,7 @@ GET /api/v1/metahubs/templates
 - Default selection: the first system template marked `is_system: true` and `sort_order: 0`
 - If only one template exists, the selector auto-selects it and can be hidden
 - POST /metahubs body adds optional `templateId` field
-- Frontend package: `packages/metahubs-frontend/base/`
+- Frontend package: `packages/universo-react-metahubs-frontend/base/`
 
 ---
 

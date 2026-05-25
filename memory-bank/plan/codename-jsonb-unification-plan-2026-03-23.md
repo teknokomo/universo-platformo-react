@@ -51,12 +51,12 @@ The 2026-03-24 QA remediation closed the remaining gaps that mattered for live r
 ### Verified Repository Reality
 
 1. The currently checked-out codebase still preserves the now-rejected dual-field contract in persistence, routes, snapshots, frontend hooks, and Memory Bank architecture notes.
-2. `packages/schema-ddl/base/src/SchemaGenerator.ts` still defines `_app_objects.codename` and `_app_attributes.codename` as `VARCHAR(100)` with string-only unique indexes.
-3. `packages/applications-backend/base/src/routes/applicationsRoutes.ts`, `applicationSyncRoutes.ts`, and `applicationWorkspaces.ts` still order and filter by plain `codename` text.
-4. `packages/metahubs-frontend/base/src/components/useCodenameDuplicateCheck.ts` still treats plain codename and localized codename as separate sources and flattens both into one duplicate set.
-5. `packages/universo-template-mui/base/src/hooks/useCodenameVlcSync.ts` exists only because the current UI edits two codename representations at once.
-6. `packages/metahubs-frontend/base/src/domains/settings/hooks/useCodenameConfig.ts` still exposes `general.codenameLocalizedEnabled`, which becomes obsolete once codename is always JSONB.
-7. `packages/metahubs-backend/base/src/domains/publications/services/SnapshotSerializer.ts` still serializes localized codename through `presentation.codename` instead of a unified `codename` field.
+2. `packages/universo-react-schema-ddl/base/src/SchemaGenerator.ts` still defines `_app_objects.codename` and `_app_attributes.codename` as `VARCHAR(100)` with string-only unique indexes.
+3. `packages/universo-react-applications-backend/base/src/routes/applicationsRoutes.ts`, `applicationSyncRoutes.ts`, and `applicationWorkspaces.ts` still order and filter by plain `codename` text.
+4. `packages/universo-react-metahubs-frontend/base/src/components/useCodenameDuplicateCheck.ts` still treats plain codename and localized codename as separate sources and flattens both into one duplicate set.
+5. `packages/universo-react-template-mui/base/src/hooks/useCodenameVlcSync.ts` exists only because the current UI edits two codename representations at once.
+6. `packages/universo-react-metahubs-frontend/base/src/domains/settings/hooks/useCodenameConfig.ts` still exposes `general.codenameLocalizedEnabled`, which becomes obsolete once codename is always JSONB.
+7. `packages/universo-react-metahubs-backend/base/src/domains/publications/services/SnapshotSerializer.ts` still serializes localized codename through `presentation.codename` instead of a unified `codename` field.
 8. Root docs and GitBook pages still describe system-app/schema flows using the current mixed codename contracts.
 
 ### External Evidence
@@ -75,7 +75,7 @@ The 2026-03-24 QA remediation closed the remaining gaps that mattered for live r
 Use one shared type everywhere:
 
 ```ts
-import type { VersionedLocalizedContent } from '@universo/types'
+import type { VersionedLocalizedContent } from '@universo-react/types'
 
 export type CodenameContent = VersionedLocalizedContent<string>
 ```
@@ -158,14 +158,14 @@ This is the recommended performance/safety pattern for the migration because it 
 
 | Area | Packages / Surfaces | Planned Change |
 | --- | --- | --- |
-| Shared types and validation | `packages/universo-types`, `packages/universo-utils` | Make JSONB codename the only accepted shared contract and expose reusable extraction / validation / normalization helpers |
-| Metahub system definitions | `packages/metahubs-backend/base/src/platform/systemAppDefinition.ts` and support SQL migrations | Replace dual-field metahub codename schema with one JSON field |
-| Admin roles system definitions | `packages/admin-backend/base/src/platform/systemAppDefinition.ts` | Replace string role codename with JSON field |
-| Metahub persistence + routes | `packages/metahubs-backend/base/src/persistence`, `domains/*/routes`, services | Read/write only JSON codename and remove `codename_localized` branching |
-| Runtime metadata | `packages/schema-ddl`, `packages/applications-backend` | Convert `_app_objects` and `_app_attributes` codename to JSONB and refactor sort/lookup/index logic |
-| Publications | `packages/metahubs-backend/base/src/domains/publications/services` | Serialize one codename field end-to-end |
-| Frontend authoring | `packages/metahubs-frontend`, `packages/admin-frontend`, `packages/universo-template-mui` | Remove dual-representation UI logic and edit one VLC codename object |
-| Published apps | `packages/apps-template-mui` | Verify published runtime consumers use the resolved primary codename contract |
+| Shared types and validation | `packages/universo-react-types`, `packages/universo-react-utils` | Make JSONB codename the only accepted shared contract and expose reusable extraction / validation / normalization helpers |
+| Metahub system definitions | `packages/universo-react-metahubs-backend/base/src/platform/systemAppDefinition.ts` and support SQL migrations | Replace dual-field metahub codename schema with one JSON field |
+| Admin roles system definitions | `packages/universo-react-admin-backend/base/src/platform/systemAppDefinition.ts` | Replace string role codename with JSON field |
+| Metahub persistence + routes | `packages/universo-react-metahubs-backend/base/src/persistence`, `domains/*/routes`, services | Read/write only JSON codename and remove `codename_localized` branching |
+| Runtime metadata | `packages/universo-react-schema-ddl`, `packages/universo-react-applications-backend` | Convert `_app_objects` and `_app_attributes` codename to JSONB and refactor sort/lookup/index logic |
+| Publications | `packages/universo-react-metahubs-backend/base/src/domains/publications/services` | Serialize one codename field end-to-end |
+| Frontend authoring | `packages/universo-react-metahubs-frontend`, `packages/universo-react-admin-frontend`, `packages/universo-react-template-mui` | Remove dual-representation UI logic and edit one VLC codename object |
+| Published apps | `packages/universo-react-apps-template-mui` | Verify published runtime consumers use the resolved primary codename contract |
 | Documentation | root `README*`, package `README*`, `docs/en`, `docs/ru` | Update architecture and operational docs for the new single-field contract |
 | Tests | backend/frontend/shared packages | Add unit, integration, snapshot, schema, and regression coverage |
 
@@ -186,8 +186,8 @@ This is the recommended performance/safety pattern for the migration because it 
 
 ### Phase 2: Introduce Shared Codename Primitives
 
-- [ ] In `packages/universo-types`, add a dedicated codename alias/type and Zod schema built on top of the existing VLC schema instead of ad hoc string/JSON unions.
-- [ ] In `packages/universo-utils`, add one shared helper set for:
+- [ ] In `packages/universo-react-types`, add a dedicated codename alias/type and Zod schema built on top of the existing VLC schema instead of ad hoc string/JSON unions.
+- [ ] In `packages/universo-react-utils`, add one shared helper set for:
   - extracting the primary codename string
   - validating the primary locale presence
   - sanitizing all locale values under the configured codename policy
@@ -218,7 +218,7 @@ export const CodenameContentSchema = LocalizedStringSchema.superRefine((value, c
 
 ### Phase 4: Replace Runtime Metadata Contracts
 
-- [ ] In `packages/schema-ddl`, change `_app_objects.codename` and `_app_attributes.codename` from `VARCHAR` to `JSONB`.
+- [ ] In `packages/universo-react-schema-ddl`, change `_app_objects.codename` and `_app_attributes.codename` from `VARCHAR` to `JSONB`.
 - [ ] Replace string-only unique indexes with expression indexes over the extracted primary codename.
 - [ ] Replace string-based ordering helpers with safe ordering on `upl_codename_primary_text(codename)`.
 - [ ] Rework runtime DDL generation so all new metadata tables start with the JSONB contract on a fresh database.
@@ -267,7 +267,7 @@ const sql = `
 - [ ] Remove `useCodenameVlcSync` from codename editing flows because there will be only one codename value source.
 - [ ] Remove the `general.codenameLocalizedEnabled` platform/metahub setting from backend contracts, admin settings UI, and metahub settings hooks.
 - [ ] Refactor codename form components so they edit one VLC object directly.
-- [ ] Keep the UX inside `packages/universo-template-mui` patterns instead of inventing a parallel form system.
+- [ ] Keep the UX inside `packages/universo-react-template-mui` patterns instead of inventing a parallel form system.
 - [ ] Update all touched labels, helper texts, warnings, and validation strings through package-local i18n resources.
 - [ ] Where touched frontend data fetching already uses TanStack Query, follow current repository direction: explicit query keys, explicit invalidation, no ad hoc local duplicate state caches.
 
@@ -281,9 +281,9 @@ const [codename, setCodename] = React.useState<VersionedLocalizedContent<string>
 
 ### Phase 8: Align Runtime Consumers And Published Apps
 
-- [ ] Audit `packages/apps-template-mui` and related runtime consumers for assumptions that `codename` is plain text.
+- [ ] Audit `packages/universo-react-apps-template-mui` and related runtime consumers for assumptions that `codename` is plain text.
 - [ ] Ensure runtime table/list sorting, display, and admin links resolve the primary codename from JSONB consistently.
-- [ ] Keep published-app package boundaries clean: shared helpers belong in `@universo/types` / `@universo/utils`, not copied into published-app templates.
+- [ ] Keep published-app package boundaries clean: shared helpers belong in `@universo-react/types` / `@universo-react/utils`, not copied into published-app templates.
 
 ### Phase 9: Execute The Full Test Strategy
 
@@ -378,16 +378,16 @@ const [codename, setCodename] = React.useState<VersionedLocalizedContent<string>
 ## Design Notes
 
 1. Reuse the existing VLC structure instead of inventing a second JSON schema.
-2. Prefer shared codename helpers in `@universo/types` and `@universo/utils` rather than per-package utility drift.
+2. Prefer shared codename helpers in `@universo-react/types` and `@universo-react/utils` rather than per-package utility drift.
 3. Keep SQL-first backend patterns: stores/services/routes should continue using explicit SQL and shared quoting helpers where identifiers are dynamic.
 4. Avoid introducing a second persisted “machine codename” column. Expression helpers and indexes are the preferred compromise between single-source storage and SQL performance.
-5. Frontend changes should stay aligned with `@universo/template-mui` primitives and the ongoing TanStack Query direction instead of bespoke local state/data-fetch abstractions.
+5. Frontend changes should stay aligned with `@universo-react/template-mui` primitives and the ongoing TanStack Query direction instead of bespoke local state/data-fetch abstractions.
 
 ---
 
 ## Dependencies And Coordination Points
 
-1. `@universo/types` and `@universo/utils` must land first because all other packages depend on the codename contract.
+1. `@universo-react/types` and `@universo-react/utils` must land first because all other packages depend on the codename contract.
 2. Fixed-system-app definitions and schema-ddl runtime metadata changes must stay aligned; otherwise design-time and runtime codename shapes will diverge again.
 3. Publication serializer changes must be coordinated with applications runtime sync and release-bundle normalization.
 4. Frontend package work depends on backend DTO finalization and the removal of the old settings flag.

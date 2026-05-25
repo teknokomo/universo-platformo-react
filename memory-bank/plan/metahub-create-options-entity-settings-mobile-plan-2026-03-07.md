@@ -29,59 +29,59 @@ Eight functional blocks requested:
 
 | Package | Scope |
 |---------|-------|
-| `@universo/types` | New `MetahubCreateOptions` type |
-| `@universo/metahubs-backend` | POST /metahubs Zod schema, `createInitialBranch` pipeline, template split, seed entity filtering |
-| `@universo/metahubs-frontend` | MetahubActions.tsx (Options tab), MetahubList.tsx (pass createOptions), HubList/AttributeList/ConstantList/OptionValueList/PublicationVersionList (Settings tab as edit dialog), i18n EN+RU |
-| `@universo/template-mui` | AppNavbar.tsx, ViewHeader.tsx, SideMenuMobile.tsx, SideMenu.tsx, CardAlert.tsx, MainLayoutMUI.tsx |
-| `@universo/i18n` | Common logout keys |
+| `@universo-react/types` | New `MetahubCreateOptions` type |
+| `@universo-react/metahubs-backend` | POST /metahubs Zod schema, `createInitialBranch` pipeline, template split, seed entity filtering |
+| `@universo-react/metahubs-frontend` | MetahubActions.tsx (Options tab), MetahubList.tsx (pass createOptions), HubList/AttributeList/ConstantList/OptionValueList/PublicationVersionList (Settings tab as edit dialog), i18n EN+RU |
+| `@universo-react/template-mui` | AppNavbar.tsx, ViewHeader.tsx, SideMenuMobile.tsx, SideMenu.tsx, CardAlert.tsx, MainLayoutMUI.tsx |
+| `@universo-react/i18n` | Common logout keys |
 
 ### Key Files
 
 **Types:**
-- `packages/universo-types/base/src/common/metahubs.ts` — `MetahubCreateOptions` type
+- `packages/universo-react-types/base/src/common/metahubs.ts` — `MetahubCreateOptions` type
 
 **Backend (template + API):**
-- `packages/metahubs-backend/base/src/domains/templates/data/basic.template.ts` — modified basic template
-- `packages/metahubs-backend/base/src/domains/templates/data/basic-demo.template.ts` — NEW file
-- `packages/metahubs-backend/base/src/domains/templates/data/index.ts` — template registry
-- `packages/metahubs-backend/base/src/domains/shared/layoutDefaults.ts` — widget defaults
-- `packages/metahubs-backend/base/src/domains/metahubs/routes/metahubsRoutes.ts` — POST /metahubs
-- `packages/metahubs-backend/base/src/domains/branches/services/MetahubBranchesService.ts` — createInitialBranch
-- `packages/metahubs-backend/base/src/domains/metahubs/services/MetahubSchemaService.ts` — initSystemTables
-- `packages/metahubs-backend/base/src/domains/templates/services/TemplateSeedExecutor.ts` — apply()
+- `packages/universo-react-metahubs-backend/base/src/domains/templates/data/basic.template.ts` — modified basic template
+- `packages/universo-react-metahubs-backend/base/src/domains/templates/data/basic-demo.template.ts` — NEW file
+- `packages/universo-react-metahubs-backend/base/src/domains/templates/data/index.ts` — template registry
+- `packages/universo-react-metahubs-backend/base/src/domains/shared/layoutDefaults.ts` — widget defaults
+- `packages/universo-react-metahubs-backend/base/src/domains/metahubs/routes/metahubsRoutes.ts` — POST /metahubs
+- `packages/universo-react-metahubs-backend/base/src/domains/branches/services/MetahubBranchesService.ts` — createInitialBranch
+- `packages/universo-react-metahubs-backend/base/src/domains/metahubs/services/MetahubSchemaService.ts` — initSystemTables
+- `packages/universo-react-metahubs-backend/base/src/domains/templates/services/TemplateSeedExecutor.ts` — apply()
 
 **Frontend (create dialog + entity settings tabs):**
-- `packages/metahubs-frontend/base/src/domains/metahubs/ui/MetahubActions.tsx` — Options tab in create dialog
-- `packages/metahubs-frontend/base/src/domains/metahubs/ui/MetahubList.tsx` — create handler passes `createOptions`
-- `packages/metahubs-frontend/base/src/domains/metahubs/api/metahubsApi.ts` — API client
-- `packages/metahubs-frontend/base/src/domains/hubs/ui/HubList.tsx` — hub detail (hub-scoped) → Settings tab → edit dialog
-- `packages/metahubs-frontend/base/src/domains/hubs/ui/HubActions.tsx` — reused `buildInitialValues`, `buildFormTabs`, `validateHubForm`, `toPayload`
-- `packages/metahubs-frontend/base/src/domains/attributes/ui/AttributeList.tsx` — catalog detail → Settings tab → edit dialog
-- `packages/metahubs-frontend/base/src/domains/catalogs/ui/CatalogActions.tsx` — reused edit logic
-- `packages/metahubs-frontend/base/src/domains/constants/ui/ConstantList.tsx` — set detail (NO tabs → add tabs) → Settings tab → edit dialog
-- `packages/metahubs-frontend/base/src/domains/sets/ui/SetActions.tsx` — reused edit logic
-- `packages/metahubs-frontend/base/src/domains/enumerations/ui/OptionValueList.tsx` — enumeration detail (NO tabs → add tabs) → Settings tab → edit dialog
-- `packages/metahubs-frontend/base/src/domains/enumerations/ui/EnumerationActions.tsx` — reused edit logic
-- `packages/metahubs-frontend/base/src/domains/publications/ui/PublicationVersionList.tsx` — publication detail → Settings tab → edit dialog
-- `packages/metahubs-frontend/base/src/domains/publications/ui/PublicationActions.tsx` — reused edit logic
+- `packages/universo-react-metahubs-frontend/base/src/domains/metahubs/ui/MetahubActions.tsx` — Options tab in create dialog
+- `packages/universo-react-metahubs-frontend/base/src/domains/metahubs/ui/MetahubList.tsx` — create handler passes `createOptions`
+- `packages/universo-react-metahubs-frontend/base/src/domains/metahubs/api/metahubsApi.ts` — API client
+- `packages/universo-react-metahubs-frontend/base/src/domains/hubs/ui/HubList.tsx` — hub detail (hub-scoped) → Settings tab → edit dialog
+- `packages/universo-react-metahubs-frontend/base/src/domains/hubs/ui/HubActions.tsx` — reused `buildInitialValues`, `buildFormTabs`, `validateHubForm`, `toPayload`
+- `packages/universo-react-metahubs-frontend/base/src/domains/attributes/ui/AttributeList.tsx` — catalog detail → Settings tab → edit dialog
+- `packages/universo-react-metahubs-frontend/base/src/domains/catalogs/ui/CatalogActions.tsx` — reused edit logic
+- `packages/universo-react-metahubs-frontend/base/src/domains/constants/ui/ConstantList.tsx` — set detail (NO tabs → add tabs) → Settings tab → edit dialog
+- `packages/universo-react-metahubs-frontend/base/src/domains/sets/ui/SetActions.tsx` — reused edit logic
+- `packages/universo-react-metahubs-frontend/base/src/domains/enumerations/ui/OptionValueList.tsx` — enumeration detail (NO tabs → add tabs) → Settings tab → edit dialog
+- `packages/universo-react-metahubs-frontend/base/src/domains/enumerations/ui/EnumerationActions.tsx` — reused edit logic
+- `packages/universo-react-metahubs-frontend/base/src/domains/publications/ui/PublicationVersionList.tsx` — publication detail → Settings tab → edit dialog
+- `packages/universo-react-metahubs-frontend/base/src/domains/publications/ui/PublicationActions.tsx` — reused edit logic
 
 **i18n:**
-- `packages/metahubs-frontend/base/src/i18n/locales/en/metahubs.json` — EN translations
-- `packages/metahubs-frontend/base/src/i18n/locales/ru/metahubs.json` — RU translations
-- `packages/universo-i18n/base/src/locales/en/core/common.json` — logout keys EN
-- `packages/universo-i18n/base/src/locales/ru/core/common.json` — logout keys RU
+- `packages/universo-react-metahubs-frontend/base/src/i18n/locales/en/metahubs.json` — EN translations
+- `packages/universo-react-metahubs-frontend/base/src/i18n/locales/ru/metahubs.json` — RU translations
+- `packages/universo-react-i18n/base/src/locales/en/core/common.json` — logout keys EN
+- `packages/universo-react-i18n/base/src/locales/ru/core/common.json` — logout keys RU
 
 **Template-MUI (mobile + logout):**
-- `packages/universo-template-mui/base/src/components/dashboard/AppNavbar.tsx`
-- `packages/universo-template-mui/base/src/components/headers/ViewHeader.tsx`
-- `packages/universo-template-mui/base/src/components/dashboard/SideMenuMobile.tsx`
-- `packages/universo-template-mui/base/src/components/dashboard/SideMenu.tsx`
-- `packages/universo-template-mui/base/src/components/dashboard/CardAlert.tsx`
-- `packages/universo-template-mui/base/src/layout/MainLayoutMUI.tsx` — add `<ConfirmDialog />`
+- `packages/universo-react-template-mui/base/src/components/dashboard/AppNavbar.tsx`
+- `packages/universo-react-template-mui/base/src/components/headers/ViewHeader.tsx`
+- `packages/universo-react-template-mui/base/src/components/dashboard/SideMenuMobile.tsx`
+- `packages/universo-react-template-mui/base/src/components/dashboard/SideMenu.tsx`
+- `packages/universo-react-template-mui/base/src/components/dashboard/CardAlert.tsx`
+- `packages/universo-react-template-mui/base/src/layout/MainLayoutMUI.tsx` — add `<ConfirmDialog />`
 
 **Documentation:**
-- `packages/metahubs-backend/base/MIGRATIONS.md` / `MIGRATIONS-RU.md`
-- `packages/metahubs-frontend/base/MIGRATIONS.md` / `MIGRATIONS-RU.md`
+- `packages/universo-react-metahubs-backend/base/MIGRATIONS.md` / `MIGRATIONS-RU.md`
+- `packages/universo-react-metahubs-frontend/base/MIGRATIONS.md` / `MIGRATIONS-RU.md`
 - `AGENTS.md`
 
 ---
@@ -90,9 +90,9 @@ Eight functional blocks requested:
 
 ### Phase 1: Types & Contracts (shared foundation)
 
-- [ ] **Step 1.1** — Add `MetahubCreateOptions` type to `@universo/types`
+- [ ] **Step 1.1** — Add `MetahubCreateOptions` type to `@universo-react/types`
 
-  **File**: `packages/universo-types/base/src/common/metahubs.ts`
+  **File**: `packages/universo-react-types/base/src/common/metahubs.ts`
 
   Add after existing template types:
 
@@ -114,7 +114,7 @@ Eight functional blocks requested:
   }
   ```
 
-- [ ] **Step 1.2** — Export `MetahubCreateOptions` from `@universo/types` index
+- [ ] **Step 1.2** — Export `MetahubCreateOptions` from `@universo-react/types` index
 
   Ensure the new type is accessible from external packages via the standard import path.
 
@@ -124,7 +124,7 @@ Eight functional blocks requested:
 
 - [ ] **Step 2.1** — Split basic template: create `basic-demo.template.ts`
 
-  **File (new)**: `packages/metahubs-backend/base/src/domains/templates/data/basic-demo.template.ts`
+  **File (new)**: `packages/universo-react-metahubs-backend/base/src/domains/templates/data/basic-demo.template.ts`
 
   The **basic-demo** template (renamed from current basic):
   - Codename: `'basic-demo'`
@@ -159,7 +159,7 @@ Eight functional blocks requested:
 
 - [ ] **Step 2.2** — Modify **basic** template to be minimal
 
-  **File**: `packages/metahubs-backend/base/src/domains/templates/data/basic.template.ts`
+  **File**: `packages/universo-react-metahubs-backend/base/src/domains/templates/data/basic.template.ts`
 
   Changes:
   - Name stays: `vlc('Basic', 'Базовый')`
@@ -197,7 +197,7 @@ Eight functional blocks requested:
 
 - [ ] **Step 2.3** — Register `basicDemoTemplate` in template registry
 
-  **File**: `packages/metahubs-backend/base/src/domains/templates/data/index.ts`
+  **File**: `packages/universo-react-metahubs-backend/base/src/domains/templates/data/index.ts`
 
   ```typescript
   import { basicTemplate } from './basic.template'
@@ -209,7 +209,7 @@ Eight functional blocks requested:
 
 - [ ] **Step 2.4** — Add `createOptions` to POST /metahubs Zod schema
 
-  **File**: `packages/metahubs-backend/base/src/domains/metahubs/routes/metahubsRoutes.ts`
+  **File**: `packages/universo-react-metahubs-backend/base/src/domains/metahubs/routes/metahubsRoutes.ts`
 
   Add to the schema object after `templateId`:
 
@@ -236,7 +236,7 @@ Eight functional blocks requested:
 
 - [ ] **Step 2.5** — Thread `createOptions` through `MetahubBranchesService.createInitialBranch`
 
-  **File**: `packages/metahubs-backend/base/src/domains/branches/services/MetahubBranchesService.ts`
+  **File**: `packages/universo-react-metahubs-backend/base/src/domains/branches/services/MetahubBranchesService.ts`
 
   Update the `createInitialBranch` method signature to accept `createOptions?: MetahubCreateOptions`.
   Pass it down to `schemaService.initializeSchema()` (or `initSystemTables()`):
@@ -257,7 +257,7 @@ Eight functional blocks requested:
 
 - [ ] **Step 2.6** — Filter seed entities in `MetahubSchemaService.initSystemTables`
 
-  **File**: `packages/metahubs-backend/base/src/domains/metahubs/services/MetahubSchemaService.ts`
+  **File**: `packages/universo-react-metahubs-backend/base/src/domains/metahubs/services/MetahubSchemaService.ts`
 
   Before calling `TemplateSeedExecutor.apply(seed)`, filter entities based on `createOptions`:
 
@@ -375,7 +375,7 @@ Eight functional blocks requested:
 
 - [ ] **Step 3.1** — Add `MetahubCreateOptionsTab` component in `MetahubList.tsx`
 
-  **File**: `packages/metahubs-frontend/base/src/domains/metahubs/ui/MetahubList.tsx`
+  **File**: `packages/universo-react-metahubs-frontend/base/src/domains/metahubs/ui/MetahubList.tsx`
 
   New component defined **inside MetahubList.tsx** (not MetahubActions.tsx), placed before the component or as a separate inline:
 
@@ -437,7 +437,7 @@ Eight functional blocks requested:
 
 - [ ] **Step 3.2** — Add "Options" tab to `buildFormTabs` in MetahubList.tsx
 
-  **File**: `packages/metahubs-frontend/base/src/domains/metahubs/ui/MetahubList.tsx`
+  **File**: `packages/universo-react-metahubs-frontend/base/src/domains/metahubs/ui/MetahubList.tsx`
 
   The create dialog's local `buildFormTabs` useCallback (line 320) currently returns 2 tabs: `general` (with `GeneralTabFields` + `showTemplateSelector`) and `storage`.
 
@@ -495,7 +495,7 @@ Eight functional blocks requested:
 
 - [ ] **Step 3.3** — Wire `handleCreateMetahub` to extract and pass `createOptions`
 
-  **File**: `packages/metahubs-frontend/base/src/domains/metahubs/ui/MetahubList.tsx`
+  **File**: `packages/universo-react-metahubs-frontend/base/src/domains/metahubs/ui/MetahubList.tsx`
 
   1. Update `localizedFormDefaults` (line 315) to include create option defaults:
 
@@ -545,7 +545,7 @@ Eight functional blocks requested:
 
 - [ ] **Step 3.4** — Update metahubs API client to accept `createOptions`
 
-  **File**: `packages/metahubs-frontend/base/src/domains/metahubs/api/metahubsApi.ts`
+  **File**: `packages/universo-react-metahubs-frontend/base/src/domains/metahubs/api/metahubsApi.ts`
 
   Add `createOptions?: MetahubCreateOptions` to the create payload type and include in POST body.
 
@@ -555,7 +555,7 @@ Eight functional blocks requested:
 >
 > **Pattern**: Each detail page manages a `editDialogOpen` state. When the "Settings" tab is clicked, we set `editDialogOpen = true` and render `<EntityFormDialog>` with the same `tabs`, `initialExtraValues`, `validate`, `canSave`, `onSave` callbacks that the `ActionDescriptor[id='edit']` in the respective `*Actions.tsx` uses. This avoids code duplication by calling the same builder functions (`buildInitialValues`, `buildFormTabs`, `toPayload`, etc.) that already exist.
 >
-> **ActionContext construction (H2 fix)**: Each detail page must construct an `ActionContext` object for the builder functions. The reference implementation is `createHubContext` in `HubList.tsx` (line ~632). The `ActionContext<TEntity, TData>` interface (from `@universo/template-mui`) has these fields:
+> **ActionContext construction (H2 fix)**: Each detail page must construct an `ActionContext` object for the builder functions. The reference implementation is `createHubContext` in `HubList.tsx` (line ~632). The `ActionContext<TEntity, TData>` interface (from `@universo-react/template-mui`) has these fields:
 > - **Required**: `entity: TEntity`, `entityKind: string`, `t: (key, params?) => string`
 > - **Optional but used**: `api?: { updateEntity?, deleteEntity? }`, `helpers?: { enqueueSnackbar?, confirm?, refreshList?, openDeleteDialog? }`, `meta?: Record<string, any>`, `[key: string]: any` (index signature for extra fields like `hubMap`, `uiLocale`)
 >
@@ -582,7 +582,7 @@ Eight functional blocks requested:
 
 - [ ] **Step 4.1** — Add "Settings" tab + edit dialog overlay in `HubList.tsx`
 
-  **File**: `packages/metahubs-frontend/base/src/domains/hubs/ui/HubList.tsx`
+  **File**: `packages/universo-react-metahubs-frontend/base/src/domains/hubs/ui/HubList.tsx`
 
   Current hub-scoped tabs (line ~1057): `Hubs`, `Catalogs`, `Sets`, `Enumerations`
 
@@ -705,7 +705,7 @@ Eight functional blocks requested:
 
 - [ ] **Step 4.2** — Add "Settings" tab + edit dialog overlay in `AttributeList.tsx`
 
-  **File**: `packages/metahubs-frontend/base/src/domains/attributes/ui/AttributeList.tsx`
+  **File**: `packages/universo-react-metahubs-frontend/base/src/domains/attributes/ui/AttributeList.tsx`
 
   Current tabs (line ~1233): `Attributes`, `Elements`
 
@@ -785,7 +785,7 @@ Eight functional blocks requested:
 
 - [ ] **Step 4.3** — Add NEW tab structure + "Settings" tab + edit dialog overlay in `ConstantList.tsx`
 
-  **File**: `packages/metahubs-frontend/base/src/domains/constants/ui/ConstantList.tsx`
+  **File**: `packages/universo-react-metahubs-frontend/base/src/domains/constants/ui/ConstantList.tsx`
 
   **This page currently has NO `<Tabs>` component.** Must add one from scratch.
 
@@ -868,7 +868,7 @@ Eight functional blocks requested:
 
 - [ ] **Step 4.4** — Add NEW tab structure + "Settings" tab + edit dialog overlay in `OptionValueList.tsx`
 
-  **File**: `packages/metahubs-frontend/base/src/domains/enumerations/ui/OptionValueList.tsx`
+  **File**: `packages/universo-react-metahubs-frontend/base/src/domains/enumerations/ui/OptionValueList.tsx`
 
   **This page currently has NO `<Tabs>` component.** Must add one from scratch.
 
@@ -904,7 +904,7 @@ Eight functional blocks requested:
 
 - [ ] **Step 4.5** — Add "Settings" tab + edit dialog overlay in `PublicationVersionList.tsx`
 
-  **File**: `packages/metahubs-frontend/base/src/domains/publications/ui/PublicationVersionList.tsx`
+  **File**: `packages/universo-react-metahubs-frontend/base/src/domains/publications/ui/PublicationVersionList.tsx`
 
   Current tabs (line ~400): `Versions`, `Applications`
 
@@ -984,7 +984,7 @@ Eight functional blocks requested:
 
 - [ ] **Step 5.1** — Clean up `AppNavbar.tsx`
 
-  **File**: `packages/universo-template-mui/base/src/components/dashboard/AppNavbar.tsx`
+  **File**: `packages/universo-react-template-mui/base/src/components/dashboard/AppNavbar.tsx`
 
   - Remove hardcoded "Kiberplano" text
   - Remove `CustomIcon` component and its usage
@@ -1006,7 +1006,7 @@ Eight functional blocks requested:
 
 - [ ] **Step 5.2** — Make `ViewHeader.tsx` responsive with CollapsibleSearch
 
-  **File**: `packages/universo-template-mui/base/src/components/headers/ViewHeader.tsx`
+  **File**: `packages/universo-react-template-mui/base/src/components/headers/ViewHeader.tsx`
 
   Current layout: single row with title+back+edit on left, search+filters+children on right. Search is `display: { xs: 'none', sm: 'flex' }` — completely hidden on mobile.
 
@@ -1112,7 +1112,7 @@ Eight functional blocks requested:
 
 - [ ] **Step 5.3** — Clean up `SideMenuMobile.tsx` and make Logout functional
 
-  **File**: `packages/universo-template-mui/base/src/components/dashboard/SideMenuMobile.tsx`
+  **File**: `packages/universo-react-template-mui/base/src/components/dashboard/SideMenuMobile.tsx`
 
   Changes:
   1. Comment out Avatar/Name/notification bell block (lines ~39-49)
@@ -1120,7 +1120,7 @@ Eight functional blocks requested:
   3. Make Logout functional using `useAuth().logout()` with `useConfirm()` confirmation
 
   ```tsx
-  import { useAuth } from '@universo/auth-frontend'
+  import { useAuth } from '@universo-react/auth-frontend'
   import { useConfirm } from '../../hooks/useConfirm'
   import { useTranslation } from 'react-i18next'
 
@@ -1170,7 +1170,7 @@ Eight functional blocks requested:
 
 - [ ] **Step 5.4** — Comment out `CardAlert.tsx` internal content
 
-  **File**: `packages/universo-template-mui/base/src/components/dashboard/CardAlert.tsx`
+  **File**: `packages/universo-react-template-mui/base/src/components/dashboard/CardAlert.tsx`
 
   Keep the component file but return `null`. This way existing imports don't break:
 
@@ -1183,7 +1183,7 @@ Eight functional blocks requested:
 
 - [ ] **Step 5.5** — Add `<ConfirmDialog />` to `MainLayoutMUI.tsx`
 
-  **File**: `packages/universo-template-mui/base/src/layout/MainLayoutMUI.tsx`
+  **File**: `packages/universo-react-template-mui/base/src/layout/MainLayoutMUI.tsx`
 
   `ConfirmContextProvider` is already rendered at line 33. But **no `<ConfirmDialog />` is rendered at this level** — it's only rendered per-page where needed. Since `SideMenu` and `SideMenuMobile` live inside `MainLayoutMUI`, their `useConfirm()` calls need a `ConfirmDialog` at this level.
 
@@ -1213,12 +1213,12 @@ Eight functional blocks requested:
 
 - [ ] **Step 6.1** — Add Logout item to `SideMenu.tsx`
 
-  **File**: `packages/universo-template-mui/base/src/components/dashboard/SideMenu.tsx`
+  **File**: `packages/universo-react-template-mui/base/src/components/dashboard/SideMenu.tsx`
 
   The desktop SideMenu is a permanent left drawer. The bottom section (avatar/options) is already commented out. Add a Logout button at the bottom:
 
   ```tsx
-  import { useAuth } from '@universo/auth-frontend'
+  import { useAuth } from '@universo-react/auth-frontend'
   import { useConfirm } from '../../hooks/useConfirm'
   import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded'
   import { Button, Stack } from '@mui/material'
@@ -1268,7 +1268,7 @@ Eight functional blocks requested:
 
   The existing `"logout": "Logout"` key is a **flat key** at the root of `common.json` (EN line 63, RU line 63). We keep the same flat pattern for the new confirmation keys. Do NOT add a nested `auth` object.
 
-  **Files**: `packages/universo-i18n/base/src/locales/en/core/common.json` and `ru/core/common.json`
+  **Files**: `packages/universo-react-i18n/base/src/locales/en/core/common.json` and `ru/core/common.json`
 
   Add these **flat keys** adjacent to the existing `"logout"` key:
 
@@ -1292,7 +1292,7 @@ Eight functional blocks requested:
 
 - [ ] **Step 7.1** — Add create options i18n keys (EN + RU)
 
-  **Files**: `packages/metahubs-frontend/base/src/i18n/locales/{en,ru}/metahubs.json`
+  **Files**: `packages/universo-react-metahubs-frontend/base/src/i18n/locales/{en,ru}/metahubs.json`
 
   EN:
   ```json
@@ -1330,7 +1330,7 @@ Eight functional blocks requested:
 
 ### Phase 8: Documentation Updates
 
-- [ ] **Step 8.1** — Update `packages/metahubs-backend/base/MIGRATIONS.md`
+- [ ] **Step 8.1** — Update `packages/universo-react-metahubs-backend/base/MIGRATIONS.md`
 
   Add section about the template split and `createOptions` feature:
 
@@ -1352,9 +1352,9 @@ Eight functional blocks requested:
   Branch and Layout are always created regardless of options.
   ```
 
-- [ ] **Step 8.2** — Update `packages/metahubs-backend/base/MIGRATIONS-RU.md` (same content in Russian)
+- [ ] **Step 8.2** — Update `packages/universo-react-metahubs-backend/base/MIGRATIONS-RU.md` (same content in Russian)
 
-- [ ] **Step 8.3** — Update `packages/metahubs-frontend/base/MIGRATIONS.md` and `MIGRATIONS-RU.md`
+- [ ] **Step 8.3** — Update `packages/universo-react-metahubs-frontend/base/MIGRATIONS.md` and `MIGRATIONS-RU.md`
 
   Document the new "Options" tab in create dialog and the "Settings" tab (edit dialog overlay) in entity detail views.
 
@@ -1367,20 +1367,20 @@ Eight functional blocks requested:
 - [ ] **Step 9.1** — Lint touched packages
 
   ```bash
-  pnpm --filter @universo/types lint
-  pnpm --filter @universo/metahubs-backend lint
-  pnpm --filter @universo/metahubs-frontend lint
-  pnpm --filter @universo/template-mui lint
+  pnpm --filter @universo-react/types lint
+  pnpm --filter @universo-react/metahubs-backend lint
+  pnpm --filter @universo-react/metahubs-frontend lint
+  pnpm --filter @universo-react/template-mui lint
   ```
 
 - [ ] **Step 9.2** — Build touched packages individually
 
   ```bash
-  pnpm --filter @universo/types build
-  pnpm --filter @universo/i18n build
-  pnpm --filter @universo/metahubs-backend build
-  pnpm --filter @universo/metahubs-frontend build
-  pnpm --filter @universo/template-mui build
+  pnpm --filter @universo-react/types build
+  pnpm --filter @universo-react/i18n build
+  pnpm --filter @universo-react/metahubs-backend build
+  pnpm --filter @universo-react/metahubs-frontend build
+  pnpm --filter @universo-react/template-mui build
   ```
 
 - [ ] **Step 9.3** — Full project build
@@ -1392,8 +1392,8 @@ Eight functional blocks requested:
 - [ ] **Step 9.4** — Run existing tests
 
   ```bash
-  pnpm --filter @universo/metahubs-backend test
-  pnpm --filter @universo/metahubs-frontend test
+  pnpm --filter @universo-react/metahubs-backend test
+  pnpm --filter @universo-react/metahubs-frontend test
   ```
 
 ---
@@ -1416,7 +1416,7 @@ Making `buildInitialValues`, `buildFormTabs`, `toPayload`, and validation functi
 The absolute-positioned expanded search on mobile needs the parent container to have `position: relative`. Verify the action bar container already has this or add it. The `OutlinedInput` autoFocus should grab keyboard focus immediately on expansion.
 
 ### 6. Auth Context Availability in Template-MUI
-`SideMenu.tsx` and `SideMenuMobile.tsx` are in `@universo/template-mui`, which already has `@universo/auth-frontend` as a dependency (used in `AppAppBar.tsx`, `AuthGuard.tsx`, `ResourceGuard.tsx`, `AdminGuard.tsx`). The `useAuth()` hook is confirmed available.
+`SideMenu.tsx` and `SideMenuMobile.tsx` are in `@universo-react/template-mui`, which already has `@universo-react/auth-frontend` as a dependency (used in `AppAppBar.tsx`, `AuthGuard.tsx`, `ResourceGuard.tsx`, `AdminGuard.tsx`). The `useAuth()` hook is confirmed available.
 
 ### 7. Multiple ConfirmDialog Instances
 With `<ConfirmDialog />` added at `MainLayoutMUI` level (Step 5.5), and also rendered per-page (e.g., `HubList.tsx`, `SettingsPage.tsx`), there may be two active ConfirmDialog components reading the same context. This is safe because only one shows when `confirmState.show === true`, and the z-index (`modal + 20`) ensures proper stacking.
@@ -1425,7 +1425,7 @@ With `<ConfirmDialog />` added at `MainLayoutMUI` level (Step 5.5), and also ren
 
 ## Dependencies
 
-- `@universo/types` must build first (Phase 1) before backend/frontend phases
+- `@universo-react/types` must build first (Phase 1) before backend/frontend phases
 - Backend template changes (Phase 2) are independent of frontend tabs/dialogs (Phases 3-4)
 - Mobile/Logout changes (Phases 5-6) are fully independent and can be parallelized
 - i18n keys (Phase 7) should be added before or alongside frontend component changes
@@ -1486,4 +1486,4 @@ This plan revision addresses all issues from QA reports #1, #2, and #3:
 | M1 | Double-close in onSave + autoCloseOnSuccess | ✅ Removed manual `setEditDialogOpen(false)` from onSave, relying on autoCloseOnSuccess |
 | M2 | `entity.hubs` in seed is dead metadata | ✅ Removed hubs from seed entities in Step 2.7, updated Potential Challenges #1 |
 | M3 | `usePublicationDetails` re-import not noted | ✅ Added explicit note in Step 4.5 about re-importing the hook |
-| L2 | @universo/i18n missing from build verification | ✅ Added to Step 9.2 |
+| L2 | @universo-react/i18n missing from build verification | ✅ Added to Step 9.2 |

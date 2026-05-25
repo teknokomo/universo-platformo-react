@@ -1,4 +1,4 @@
-import { createLocalizedContent } from '@universo/utils'
+import { createLocalizedContent } from '@universo-react/utils'
 import { expect, test } from '../../fixtures/test'
 import { createLoggedInApiContext, createMetahub, disposeApiContext, listMetahubSettings } from '../../support/backend/api-session.mjs'
 import { waitForSettledMutationResponse } from '../../support/browser/network'

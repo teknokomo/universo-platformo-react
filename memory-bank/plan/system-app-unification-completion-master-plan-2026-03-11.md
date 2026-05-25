@@ -47,8 +47,8 @@ The completion program must keep the following constraints explicit throughout a
    - Database persistence must store validated JSON/JSONB payloads, checksums, provenance, and review metadata only.
 
 7. Current UI shells remain in service during this program.
-   - Admin, Metahubs, Profile, and Applications management stay on their current packages plus `@universo/template-mui`.
-   - Published application runtime stays on `@universo/apps-template-mui`.
+   - Admin, Metahubs, Profile, and Applications management stay on their current packages plus `@universo-react/template-mui`.
+   - Published application runtime stays on `@universo-react/apps-template-mui`.
 
 8. New packages, interfaces, and UI components are allowed only when they solve a real ownership or safety problem.
    - The plan must prefer extending existing `universo-*` packages and existing UI primitives before inventing new abstraction layers.
@@ -59,7 +59,7 @@ The completion program must keep the following constraints explicit throughout a
 
 ### What is already implemented
 
-- Unified platform migrations run through `@universo/migrations-platform` and are no longer assembled only as one manual hardcoded list.
+- Unified platform migrations run through `@universo-react/migrations-platform` and are no longer assembled only as one manual hardcoded list.
 - Package-owned `SystemAppDefinition` manifests already exist for `admin`, `metahubs`, `applications`, and `profiles`.
 - Built-in metahub template bootstrap has already moved into the migration lifecycle.
 - Registry storage for `upl_migrations.definition_registry`, `definition_revisions`, `definition_exports`, `definition_drafts`, and `approval_events` already exists.
@@ -84,13 +84,13 @@ The completion program must keep the following constraints explicit throughout a
 1. `SystemAppDefinition` currently carries only `key`, `displayName`, `ownerPackage`, `schemaTarget`, `summary`, and `migrations`.
    - It does not yet model `engineVersion`, `structureVersion`, `configurationVersion`, runtime capabilities, repeatable seed packs, or explicit export contracts.
 
-2. `SchemaTarget` currently supports only the fixed-schema variant in `@universo/migrations-core`.
+2. `SchemaTarget` currently supports only the fixed-schema variant in `@universo-react/migrations-core`.
    - Dynamic and managed custom targets are still handled outside the shared contract.
 
-3. `@universo/schema-ddl` still validates only managed dynamic schemas through `isManagedDynamicSchemaName(...)`.
+3. `@universo-react/schema-ddl` still validates only managed dynamic schemas through `isManagedDynamicSchemaName(...)`.
    - Fixed system schemas are therefore not yet governed by the same compiler-facing contract.
 
-4. Runtime application sync is still hosted in `packages/metahubs-backend/base/src/domains/applications/routes/applicationSyncRoutes.ts`.
+4. Runtime application sync is still hosted in `packages/universo-react-metahubs-backend/base/src/domains/applications/routes/applicationSyncRoutes.ts`.
    - This keeps the transitional ownership model in place and blocks full architecture convergence.
 
 5. The codebase has strong package-level tests, but it does not yet prove the full user path on a fresh database:
@@ -244,13 +244,13 @@ The QA review for this session identified several constraints that must stay exp
    - Treat rollback as roll-forward with checkpoints, not as a universal `down` promise.
 
 6. Current UI stays operational
-   - Admin / Metahubs / Profile / Applications management continue using their current packages and `@universo/template-mui` during this program.
-   - `@universo/apps-template-mui` remains the runtime shell for published applications.
+   - Admin / Metahubs / Profile / Applications management continue using their current packages and `@universo-react/template-mui` during this program.
+   - `@universo-react/apps-template-mui` remains the runtime shell for published applications.
 
 7. Shared types/utilities live in the right packages
-   - Shared contracts -> `@universo/types` or `@universo/migrations-core` when migration-specific.
-   - Shared helpers -> `@universo/utils`.
-   - Shared i18n namespaces -> `@universo/i18n`.
+   - Shared contracts -> `@universo-react/types` or `@universo-react/migrations-core` when migration-specific.
+   - Shared helpers -> `@universo-react/utils`.
+   - Shared i18n namespaces -> `@universo-react/i18n`.
 
 8. Everything new is i18n-first
    - New status codes and diagnostics must be key/params-based.
@@ -487,7 +487,7 @@ Goal:
 - Remove the split between fixed-schema contracts and runtime-schema compiler behavior.
 
 Tasks:
-- Refactor `@universo/schema-ddl` to consume the shared naming/qualification layer.
+- Refactor `@universo-react/schema-ddl` to consume the shared naming/qualification layer.
 - Keep helper-level safety boundaries inside helpers, not only at route level.
 - Add safe qualification helpers for tables, functions, indexes, triggers, policies, and history tables.
 - Support future managed custom names without enabling unsafe arbitrary identifiers.
@@ -749,14 +749,14 @@ Tests:
 
 ### Package integration layer
 
-- `@universo/migrations-core`
-- `@universo/migrations-catalog`
-- `@universo/migrations-platform`
-- `@universo/schema-ddl`
-- `@universo/metahubs-backend`
-- `@universo/applications-backend`
-- `@universo/profile-backend`
-- `@universo/auth-backend`
+- `@universo-react/migrations-core`
+- `@universo-react/migrations-catalog`
+- `@universo-react/migrations-platform`
+- `@universo-react/schema-ddl`
+- `@universo-react/metahubs-backend`
+- `@universo-react/applications-backend`
+- `@universo-react/profile-backend`
+- `@universo-react/auth-backend`
 
 ### Cross-package integration layer
 

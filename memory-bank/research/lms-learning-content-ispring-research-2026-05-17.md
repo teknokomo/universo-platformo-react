@@ -66,8 +66,8 @@ Local project sources:
 - `memory-bank/activeContext.md`
 - `docs/en/guides/lms-overview.md`
 - `docs/en/guides/lms-resource-model.md`
-- `packages/apps-template-mui/README.md`
-- `packages/metahubs-backend/base/src/domains/templates/data/lms.template.ts`
+- `packages/universo-react-apps-template-mui/README.md`
+- `packages/universo-react-metahubs-backend/base/src/domains/templates/data/lms.template.ts`
 - `tools/testing/e2e/specs/generators/metahubs-lms-app-export.spec.ts`
 - `tools/testing/e2e/support/lmsFixtureContract.ts`
 
@@ -95,7 +95,7 @@ The original brief asks to improve a semi-finished LMS configuration generated f
 2. The implementation must preserve Universo's architecture: Metahub -> Application settings -> Workspace runtime.
 3. Workspaces stay the main operational boundary; iSpring-style Projects are a Learning Content concept inside a Workspace.
 4. Core logic should use the existing universal Entity type set: Hubs, Pages, Objects with Components, Sets, Enumerations, ledgers, and attached TypeScript scripts.
-5. The published application should use `packages/apps-template-mui` and the original MUI dashboard style, not a new LMS-only frontend.
+5. The published application should use `packages/universo-react-apps-template-mui` and the original MUI dashboard style, not a new LMS-only frontend.
 6. Existing generic table/card widgets and runtime UI should be extended before adding new widget types.
 7. Broad file import/player support, SCORM/xAPI, internal messages, and AI generation are late phases.
 8. The final artifact must be a Playwright-generated LMS snapshot, not hand-edited JSON.
@@ -166,7 +166,7 @@ Editor.js source implications:
 - Editor.js is block-style and stores output as JSON with `time`, `blocks`, and `version`.
 - Block `type` names come from the configured tools, so Universo must normalize tool names before persistence.
 - Editor.js provides sanitizer support, but backend validation must still be the source of truth for stored block content.
-- The existing `@universo/block-editor` package should remain the integration point; the LMS should not add a second editor integration.
+- The existing `@universo-react/block-editor` package should remain the integration point; the LMS should not add a second editor integration.
 
 ### Links
 
@@ -284,8 +284,8 @@ Additional corrections for PLAN:
 
 The current project already has:
 
-- `@universo/apps-template-mui` as an independent MUI v7 published-app runtime with generic CRUD, workflow actions, block-content authoring, resource preview, saved reports, workspaces, and dashboard widgets.
-- Shared resource source validation in `@universo/types`.
+- `@universo-react/apps-template-mui` as an independent MUI v7 published-app runtime with generic CRUD, workflow actions, block-content authoring, resource preview, saved reports, workspaces, and dashboard widgets.
+- Shared resource source validation in `@universo-react/types`.
 - Existing LMS template Objects for Learning Resources, Courses, Course Sections, Learning Tracks, Track Steps, Assignments, Reports, knowledge/development/gamification entities, and ledgers.
 - A Playwright LMS product generator at `tools/testing/e2e/specs/generators/metahubs-lms-app-export.spec.ts`.
 - A committed snapshot contract at `tools/testing/e2e/support/lmsFixtureContract.ts`.

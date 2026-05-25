@@ -33,10 +33,10 @@ description: Fixed system-app convergence model for application-like schemas.
 
 ## Границы ответственности
 
-- `@universo/migrations-platform` владеет manifest loading, schema plan compilation и fixed-schema bootstrap orchestration.
-- `@universo/metahubs-backend` владеет publication runtime sources и publication authoring logic.
-- `@universo/applications-backend` владеет application runtime sync и diff routes.
-- `@universo/core-backend` композирует publication source seam с application-owned sync routes.
+- `@universo-react/migrations-platform` владеет manifest loading, schema plan compilation и fixed-schema bootstrap orchestration.
+- `@universo-react/metahubs-backend` владеет publication runtime sources и publication authoring logic.
+- `@universo-react/applications-backend` владеет application runtime sync и diff routes.
+- `@universo-react/core-backend` композирует publication source seam с application-owned sync routes.
 
 ## Контракт приёмки
 

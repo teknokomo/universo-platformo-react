@@ -723,45 +723,45 @@ This reduces route-level guesswork and prevents future regressions.
 
 ### Backend: Applications Platform Schema
 
-- `packages/applications-backend/base/src/platform/systemAppDefinition.ts`
-- `packages/applications-backend/base/src/platform/migrations/...`
+- `packages/universo-react-applications-backend/base/src/platform/systemAppDefinition.ts`
+- `packages/universo-react-applications-backend/base/src/platform/migrations/...`
 - related migration registration in `universo-migrations-platform`
 
 ### Backend: Persistence / Stores
 
-- `packages/applications-backend/base/src/persistence/applicationsStore.ts`
+- `packages/universo-react-applications-backend/base/src/persistence/applicationsStore.ts`
 - new runtime workspace-aware stores/helpers
 - new immutable-flag and join/leave persistence helpers
 
 ### Backend: Routes
 
-- `packages/applications-backend/base/src/routes/applicationsRoutes.ts`
-- `packages/applications-backend/base/src/routes/applicationSyncRoutes.ts`
+- `packages/universo-react-applications-backend/base/src/routes/applicationsRoutes.ts`
+- `packages/universo-react-applications-backend/base/src/routes/applicationSyncRoutes.ts`
 - potentially dedicated settings routes if split improves clarity
 - shared member-removal / leave domain service if route duplication appears
 
 ### Frontend: Applications Admin
 
-- `packages/applications-frontend/base/src/pages/ApplicationList.tsx`
-- `packages/applications-frontend/base/src/pages/ApplicationActions.tsx`
-- `packages/applications-frontend/base/src/menu-items/applicationDashboard.ts`
+- `packages/universo-react-applications-frontend/base/src/pages/ApplicationList.tsx`
+- `packages/universo-react-applications-frontend/base/src/pages/ApplicationActions.tsx`
+- `packages/universo-react-applications-frontend/base/src/menu-items/applicationDashboard.ts`
 - new settings screens and join/leave flows
 - member pages if workspace creation is triggered on member add
 
 ### Frontend: Runtime UI
 
-- `packages/applications-frontend/base/src/pages/ApplicationRuntime.tsx`
-- `packages/applications-frontend/base/src/api/runtimeAdapter.ts`
-- `packages/applications-frontend/base/src/api/queryKeys.ts`
-- `packages/apps-template-mui/...`
+- `packages/universo-react-applications-frontend/base/src/pages/ApplicationRuntime.tsx`
+- `packages/universo-react-applications-frontend/base/src/api/runtimeAdapter.ts`
+- `packages/universo-react-applications-frontend/base/src/api/queryKeys.ts`
+- `packages/universo-react-apps-template-mui/...`
 
 ### Shared Packages
 
-- `packages/universo-types`
+- `packages/universo-react-types`
   - shared enums and DTOs for runtime access / quotas / membership state if reused
-- `packages/universo-utils`
+- `packages/universo-react-utils`
   - workspace-aware SQL helpers, lock-key helpers, reusable validation
-- `packages/universo-i18n`
+- `packages/universo-react-i18n`
   - only if a string truly belongs to a shared base namespace
 
 ### Documentation
@@ -1028,11 +1028,11 @@ Important:
 ### Phase 12: Shared Types, Helpers, And Query Contracts
 
 - [x] Add shared DTOs/enums only where cross-package reuse is real.
-- [x] Use `@universo/types` for shared contracts:
+- [x] Use `@universo-react/types` for shared contracts:
   - membership state
   - workspace quota payload
   - immutable option DTOs if reused
-- [x] Use `@universo/utils` for:
+- [x] Use `@universo-react/utils` for:
   - lock key builders
   - workspace SQL helpers
   - validation helpers
@@ -1185,9 +1185,9 @@ A workspace tombstone gives the required user-facing semantics with safer runtim
 
 - `pnpm-workspace.yaml` remains the source of truth for library versions.
 - TanStack Query v5 patterns must remain aligned with current repo usage.
-- New shared types belong in `@universo/types` only when reused across packages.
-- New reusable helpers belong in `@universo/utils`.
-- New application runtime UI behavior must remain compatible with `@universo/apps-template-mui`.
+- New shared types belong in `@universo-react/types` only when reused across packages.
+- New reusable helpers belong in `@universo-react/utils`.
+- New application runtime UI behavior must remain compatible with `@universo-react/apps-template-mui`.
 - All text must be internationalized immediately.
 - UUID v7 remains mandatory.
 

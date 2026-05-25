@@ -4,7 +4,7 @@
 > Mode: PLAN  
 > Complexity: Level 4 (major backend architecture refactor)  
 > Status: DRAFT v2 (QA-reviewed, SQL-first refinement)  
-> Scope: Fully remove TypeORM-based migrations and TypeORM-based runtime/repository usage from `@universo/metahubs-backend` and `@universo/applications-backend`, while keeping the current Metahubs and Applications behavior on a fresh database.
+> Scope: Fully remove TypeORM-based migrations and TypeORM-based runtime/repository usage from `@universo-react/metahubs-backend` and `@universo-react/applications-backend`, while keeping the current Metahubs and Applications behavior on a fresh database.
 
 ---
 
@@ -16,7 +16,7 @@ The platform already completed the first migration-platform slice:
 - Metahubs and Applications platform schemas already run from native SQL definitions,
 - runtime schema history is partially mirrored into `upl_migrations`.
 
-However, `@universo/metahubs-backend` and `@universo/applications-backend` still depend on TypeORM for:
+However, `@universo-react/metahubs-backend` and `@universo-react/applications-backend` still depend on TypeORM for:
 
 - entity definitions,
 - repositories and query builders,
@@ -64,9 +64,9 @@ Additional QA review confirms that the overall direction is correct, but the pla
 3. **Do not invent new UI families for this task**
    - This refactor is backend/persistence/migration work.
    - If minimal operator/admin UI is needed later, it must reuse existing shells and patterns from:
-     - `@universo/migration-guard-shared`
+     - `@universo-react/migration-guard-shared`
      - `@universo/universo-template-mui`
-     - `@universo/apps-template-mui`
+     - `@universo-react/apps-template-mui`
    - No parallel migration editor shell or custom “technical backend UI” should appear in this task.
 
 4. **Performance and observability must be explicit**
@@ -113,20 +113,20 @@ As of this QA pass, the plan covers all numbered parts of the original technical
 ### What is already migrated
 
 - Backend startup no longer uses `TypeORM.runMigrations()`.
-- Metahubs and Applications platform schemas are registered in `@universo/migrations-platform` through native SQL definitions.
+- Metahubs and Applications platform schemas are registered in `@universo-react/migrations-platform` through native SQL definitions.
 - New migration history is recorded in `upl_migrations`.
 - Runtime application/metahub migration events already mirror into the global catalog.
 
 ### What still depends on TypeORM
 
 1. **Package public surfaces**
-   - `packages/metahubs-backend/base/src/index.ts`
-   - `packages/applications-backend/base/src/index.ts`
+   - `packages/universo-react-metahubs-backend/base/src/index.ts`
+   - `packages/universo-react-applications-backend/base/src/index.ts`
    - still export `metahubsEntities`, `applicationsEntities`, and old migration arrays.
 
 2. **Package-local `src/database` folders**
-   - `packages/metahubs-backend/base/src/database/**`
-   - `packages/applications-backend/base/src/database/**`
+   - `packages/universo-react-metahubs-backend/base/src/database/**`
+   - `packages/universo-react-applications-backend/base/src/database/**`
    - still contain TypeORM entities and compatibility migration wrappers.
 
 3. **Route and guard layers**
@@ -135,11 +135,11 @@ As of this QA pass, the plan covers all numbered parts of the original technical
    - still depend on `QueryRunner`-aware guards.
 
 4. **Request-scoped RLS**
-   - `packages/auth-backend/base/src/middlewares/ensureAuthWithRls.ts`
+   - `packages/universo-react-auth-backend/base/src/middlewares/ensureAuthWithRls.ts`
    - still creates a TypeORM `QueryRunner` per request.
 
 5. **Core backend entity registration**
-   - `packages/universo-core-backend/base/src/database/entities/index.ts`
+   - `packages/universo-react-core-backend/base/src/database/entities/index.ts`
    - still aggregates TypeORM entities from Metahubs and Applications.
 
 6. **Template seeding and schema services**
@@ -276,8 +276,8 @@ Avoid:
 
 ### Shared infrastructure placement
 
-- Shared DB session types/helpers: `@universo/utils/database`
-- Shared persistence types/DTOs: `@universo/types`
+- Shared DB session types/helpers: `@universo-react/utils/database`
+- Shared persistence types/DTOs: `@universo-react/types`
 - Shared migration platform: `@universo/migrations-*`
 - Domain-specific persistence modules stay inside their own packages
 
@@ -315,8 +315,8 @@ With something like:
 
 At final closure:
 
-- `packages/metahubs-backend/base/src/database` must not exist.
-- `packages/applications-backend/base/src/database` must not exist.
+- `packages/universo-react-metahubs-backend/base/src/database` must not exist.
+- `packages/universo-react-applications-backend/base/src/database` must not exist.
 - neither package may depend on `typeorm` in `package.json`.
 - neither package may export TypeORM entities or migration arrays.
 
@@ -326,33 +326,33 @@ At final closure:
 
 ### Shared / platform infrastructure
 
-- `packages/universo-utils/base/src/database/*`
-- `packages/universo-types/base/*`
-- `packages/universo-core-backend/base/src/DataSource.ts`
-- `packages/universo-core-backend/base/src/database/entities/index.ts`
-- `packages/universo-core-backend/base/src/routes/index.ts`
-- `packages/auth-backend/base/src/middlewares/ensureAuthWithRls.ts`
-- `packages/auth-backend/base/src/services/permissionService.ts`
-- `packages/admin-backend/base/src/services/*`
-- `packages/universo-migrations-platform/base/src/platformMigrations.ts`
+- `packages/universo-react-utils/base/src/database/*`
+- `packages/universo-react-types/base/*`
+- `packages/universo-react-core-backend/base/src/DataSource.ts`
+- `packages/universo-react-core-backend/base/src/database/entities/index.ts`
+- `packages/universo-react-core-backend/base/src/routes/index.ts`
+- `packages/universo-react-auth-backend/base/src/middlewares/ensureAuthWithRls.ts`
+- `packages/universo-react-auth-backend/base/src/services/permissionService.ts`
+- `packages/universo-react-admin-backend/base/src/services/*`
+- `packages/universo-react-migrations-platform/base/src/platformMigrations.ts`
 
 ### Applications backend
 
-- `packages/applications-backend/base/package.json`
-- `packages/applications-backend/base/src/index.ts`
-- `packages/applications-backend/base/src/routes/*`
-- `packages/applications-backend/base/src/utils/*`
-- `packages/applications-backend/base/src/database/**` (to be removed)
+- `packages/universo-react-applications-backend/base/package.json`
+- `packages/universo-react-applications-backend/base/src/index.ts`
+- `packages/universo-react-applications-backend/base/src/routes/*`
+- `packages/universo-react-applications-backend/base/src/utils/*`
+- `packages/universo-react-applications-backend/base/src/database/**` (to be removed)
 
 ### Metahubs backend
 
-- `packages/metahubs-backend/base/package.json`
-- `packages/metahubs-backend/base/src/index.ts`
-- `packages/metahubs-backend/base/src/domains/router.ts`
-- `packages/metahubs-backend/base/src/domains/**/routes/*`
-- `packages/metahubs-backend/base/src/domains/**/services/*`
-- `packages/metahubs-backend/base/src/utils/*`
-- `packages/metahubs-backend/base/src/database/**` (to be removed)
+- `packages/universo-react-metahubs-backend/base/package.json`
+- `packages/universo-react-metahubs-backend/base/src/index.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/router.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/**/routes/*`
+- `packages/universo-react-metahubs-backend/base/src/domains/**/services/*`
+- `packages/universo-react-metahubs-backend/base/src/utils/*`
+- `packages/universo-react-metahubs-backend/base/src/database/**` (to be removed)
 
 ### Tests / tooling
 
@@ -394,7 +394,7 @@ Deliverable:
 
 ### Phase 1. Introduce the neutral DB session contract
 
-- Expand the shared request/session contract in `@universo/utils/database` into a full neutral API:
+- Expand the shared request/session contract in `@universo-react/utils/database` into a full neutral API:
   - `DbSession`
   - `DbTransaction`
   - `RequestDbSession`
@@ -622,7 +622,7 @@ This phase prepares the future self-hosted “Metahubs as application” model.
 
 - Delete `metahubsEntities` and `applicationsEntities` exports.
 - Remove Metahubs/Applications entities from:
-  - `packages/universo-core-backend/base/src/database/entities/index.ts`
+  - `packages/universo-react-core-backend/base/src/database/entities/index.ts`
 - Ensure core backend no longer expects those packages to contribute TypeORM entities.
 
 Potential companion refactor:
@@ -633,8 +633,8 @@ Potential companion refactor:
 ### Phase 12. Remove `typeorm` from package dependencies
 
 - Remove `typeorm` from:
-  - `packages/metahubs-backend/base/package.json`
-  - `packages/applications-backend/base/package.json`
+  - `packages/universo-react-metahubs-backend/base/package.json`
+  - `packages/universo-react-applications-backend/base/package.json`
 - Remove obsolete TypeORM-only helpers, exports, docs, and tests from those packages.
 - Update READMEs and migration docs to describe the new persistence and migration model.
 
@@ -749,8 +749,8 @@ This section translates the phases into concrete implementation batches that can
 
 - freeze the final Definition of Done in active planning/tracking docs,
 - document exact deletion criteria for:
-  - `packages/applications-backend/base/src/database`
-  - `packages/metahubs-backend/base/src/database`
+  - `packages/universo-react-applications-backend/base/src/database`
+  - `packages/universo-react-metahubs-backend/base/src/database`
 - identify the current highest-risk TypeORM entry points and mark them as migration blockers.
 
 **Files/packages**
@@ -773,13 +773,13 @@ This section translates the phases into concrete implementation batches that can
 **Scope**
 
 - finalize `DbSession` / `RequestDbSession` / transaction reuse contract,
-- expose safe helpers from `@universo/utils/database`,
+- expose safe helpers from `@universo-react/utils/database`,
 - add row/query helper utilities that stay SQL-first and parameterized.
 
 **Primary packages**
 
-- `@universo/utils`
-- `@universo/types` if shared types are needed
+- `@universo-react/utils`
+- `@universo-react/types` if shared types are needed
 
 **No-go**
 
@@ -805,10 +805,10 @@ This section translates the phases into concrete implementation batches that can
 
 **Primary packages**
 
-- `@universo/auth-backend`
-- `@universo/admin-backend`
-- `@universo/core-backend`
-- `@universo/utils`
+- `@universo-react/auth-backend`
+- `@universo-react/admin-backend`
+- `@universo-react/core-backend`
+- `@universo-react/utils`
 
 **Critical tests**
 
@@ -839,7 +839,7 @@ This section translates the phases into concrete implementation batches that can
 
 **Primary package**
 
-- `@universo/applications-backend`
+- `@universo-react/applications-backend`
 
 **Critical tests**
 
@@ -918,7 +918,7 @@ This section translates the phases into concrete implementation batches that can
 
 **Exit criteria**
 
-- `packages/applications-backend/base/src/database` is deleted,
+- `packages/universo-react-applications-backend/base/src/database` is deleted,
 - `applications-backend/package.json` has no `typeorm`,
 - package public API no longer exposes TypeORM-era surfaces.
 
@@ -941,7 +941,7 @@ This section translates the phases into concrete implementation batches that can
 
 **Primary package**
 
-- `@universo/metahubs-backend`
+- `@universo-react/metahubs-backend`
 
 **Important**
 
@@ -1037,7 +1037,7 @@ This section translates the phases into concrete implementation batches that can
 
 **Exit criteria**
 
-- `packages/metahubs-backend/base/src/database` is deleted,
+- `packages/universo-react-metahubs-backend/base/src/database` is deleted,
 - `metahubs-backend/package.json` has no `typeorm`,
 - package public API no longer exposes TypeORM-era surfaces.
 
@@ -1121,7 +1121,7 @@ Each PR should be mergeable on its own and must not leave the workspace in a hal
 
 ### Applications backend: when `src/database` may be deleted
 
-Delete `packages/applications-backend/base/src/database` only after all of the following are true:
+Delete `packages/universo-react-applications-backend/base/src/database` only after all of the following are true:
 
 - no `typeorm` imports remain under `src/routes`, `src/utils`, or `src/index.ts`,
 - no `DataSource` appears in public route factory contracts for Applications,
@@ -1132,7 +1132,7 @@ Delete `packages/applications-backend/base/src/database` only after all of the f
 
 ### Metahubs backend: when `src/database` may be deleted
 
-Delete `packages/metahubs-backend/base/src/database` only after all of the following are true:
+Delete `packages/universo-react-metahubs-backend/base/src/database` only after all of the following are true:
 
 - no `typeorm` imports remain under `src/domains/**` or `src/utils`,
 - `MetahubSchemaService`, branch services, publications, and application-sync flows no longer use `DataSource` / `EntityManager`,
@@ -1393,12 +1393,12 @@ Before final closure:
 ### Milestone B
 
 - `applications-backend` fully off TypeORM,
-- `packages/applications-backend/base/src/database` deleted.
+- `packages/universo-react-applications-backend/base/src/database` deleted.
 
 ### Milestone C
 
 - `metahubs-backend` fully off TypeORM,
-- `packages/metahubs-backend/base/src/database` deleted.
+- `packages/universo-react-metahubs-backend/base/src/database` deleted.
 
 ### Milestone D
 
@@ -1413,8 +1413,8 @@ The task is complete only when all of the following are true:
 
 - Metahubs and Applications platform migrations are native Universo migrations.
 - Metahubs and Applications runtime flows use the unified migration platform and shared runtime-history model.
-- `@universo/metahubs-backend` does not depend on TypeORM.
-- `@universo/applications-backend` does not depend on TypeORM.
+- `@universo-react/metahubs-backend` does not depend on TypeORM.
+- `@universo-react/applications-backend` does not depend on TypeORM.
 - both packages have no `src/database` directory.
 - no TypeORM entities or migration arrays are exported from those packages.
 - request-scoped RLS works without TypeORM QueryRunner for the touched domains.

@@ -15,16 +15,16 @@ The first draft was too narrow because it described a Catalog-only tab. The code
 - `posting`
 - `ledgerSchema`
 
-These components are defined in `packages/universo-types/base/src/common/entityComponents.ts` and are already enabled in `CATALOG_TYPE_COMPONENTS`. Therefore, the UI must be driven by entity type capabilities and `ui.tabs`, not by a direct `kind === 'catalog'` branch. The standard Catalog preset should enable the behavior tab, and Basic, Basic Demo, and LMS templates should inherit it through the preset flow.
+These components are defined in `packages/universo-react-types/base/src/common/entityComponents.ts` and are already enabled in `CATALOG_TYPE_COMPONENTS`. Therefore, the UI must be driven by entity type capabilities and `ui.tabs`, not by a direct `kind === 'catalog'` branch. The standard Catalog preset should enable the behavior tab, and Basic, Basic Demo, and LMS templates should inherit it through the preset flow.
 
 ## Problem Statement
 
 The platform already has backend/runtime support for transactional Catalog behavior:
 
-- `packages/universo-types/base/src/common/recordBehavior.ts` defines `CatalogRecordBehavior`.
-- `packages/schema-ddl/base/src/SchemaGenerator.ts` materializes system columns from `config.recordBehavior`.
-- `packages/applications-backend/base/src/services/runtimeRecordBehavior.ts` and `runtimeRowsController.ts` execute numbering, lifecycle, posting, and immutability rules.
-- `packages/apps-template-mui` reads `recordBehavior` and exposes record commands.
+- `packages/universo-react-types/base/src/common/recordBehavior.ts` defines `CatalogRecordBehavior`.
+- `packages/universo-react-schema-ddl/base/src/SchemaGenerator.ts` materializes system columns from `config.recordBehavior`.
+- `packages/universo-react-applications-backend/base/src/services/runtimeRecordBehavior.ts` and `runtimeRowsController.ts` execute numbering, lifecycle, posting, and immutability rules.
+- `packages/universo-react-apps-template-mui` reads `recordBehavior` and exposes record commands.
 - The LMS template seeds Catalogs with `recordBehavior`.
 
 The missing piece is the metahub authoring UI. Entity instance create/edit dialogs currently expose only `General`, `Hubs`, `Attributes`, `Layouts`, `Scripts`, `Actions`, and `Events`; they do not expose `config.recordBehavior` even when the entity type declares `identityFields`, `recordLifecycle`, and `posting`. As a result, users cannot discover or configure the new Catalog functionality from the constructor.
@@ -37,7 +37,7 @@ There is also an i18n defect in the script editor: `posting`, `ledger.read`, and
 - `buildConfigPayload` only persists hub assignment options into `config`.
 - `buildInitialFormValues` in `entityInstanceListHelpers.ts` does not hydrate `recordBehavior`.
 - `EntityScriptsTab.tsx` has raw fallback for new capabilities.
-- `packages/apps-template-mui/src/api/api.ts` defines a local `recordBehaviorSchema`, duplicating a contract that belongs in shared types.
+- `packages/universo-react-apps-template-mui/src/api/api.ts` defines a local `recordBehaviorSchema`, duplicating a contract that belongs in shared types.
 - `CATALOG_TYPE_COMPONENTS` already enables `identityFields`, `recordLifecycle`, and `posting`.
 - `CATALOG_TYPE_UI.tabs` currently does not include a structured `behavior` tab.
 - `EntitiesWorkspace.tsx` exposes structured tab toggles only for `treeEntities`, `layout`, and `scripts`; it does not yet expose `behavior`.
@@ -101,7 +101,7 @@ This preserves the current metahub-to-application publication flow. The publishe
 
 ### 2. Add Shared Validation Instead of UI-Only Shapes
 
-Move the duplicated `zod` schema from `apps-template-mui` into `@universo/types` next to the TypeScript contract:
+Move the duplicated `zod` schema from `apps-template-mui` into `@universo-react/types` next to the TypeScript contract:
 
 ```ts
 export const catalogRecordBehaviorSchema = z.object({
@@ -186,15 +186,15 @@ The behavior tab toggle must be disabled or pruned when the relevant components 
 
 Files:
 
-- `packages/universo-types/base/src/common/recordBehavior.ts`
-- `packages/universo-types/base/src/index.ts`
-- `packages/apps-template-mui/src/api/api.ts`
-- `packages/schema-ddl/base/src/SchemaGenerator.ts`
-- `packages/applications-backend/base/src/services/runtimeRecordBehavior.ts`
+- `packages/universo-react-types/base/src/common/recordBehavior.ts`
+- `packages/universo-react-types/base/src/index.ts`
+- `packages/universo-react-apps-template-mui/src/api/api.ts`
+- `packages/universo-react-schema-ddl/base/src/SchemaGenerator.ts`
+- `packages/universo-react-applications-backend/base/src/services/runtimeRecordBehavior.ts`
 
 Steps:
 
-1. Add `catalogRecordBehaviorSchema` and `normalizeCatalogRecordBehavior` to `@universo/types`.
+1. Add `catalogRecordBehaviorSchema` and `normalizeCatalogRecordBehavior` to `@universo-react/types`.
 2. Reuse the shared schema in `apps-template-mui` instead of the local duplicate.
 3. Replace ad hoc partial merges in `SchemaGenerator` and runtime services with the shared normalizer.
 4. Add unit tests for partial configs, invalid enum values, duplicate/empty ledgers, empty lifecycle states, and default behavior.
@@ -203,9 +203,9 @@ Steps:
 
 Files:
 
-- `packages/metahubs-frontend/base/src/domains/entities/ui/EntitiesWorkspace.tsx`
-- `packages/metahubs-backend/base/src/domains/templates/data/standardEntityTypeDefinitions.ts`
-- `packages/universo-types/base/src/common/entityComponents.ts`
+- `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/EntitiesWorkspace.tsx`
+- `packages/universo-react-metahubs-backend/base/src/domains/templates/data/standardEntityTypeDefinitions.ts`
+- `packages/universo-react-types/base/src/common/entityComponents.ts`
 
 Steps:
 
@@ -227,7 +227,7 @@ Steps:
 
 New file:
 
-- `packages/metahubs-frontend/base/src/domains/entities/ui/RecordBehaviorFields.tsx`
+- `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/RecordBehaviorFields.tsx`
 
 Responsibilities:
 
@@ -296,9 +296,9 @@ Steps:
 
 Files:
 
-- `packages/metahubs-frontend/base/src/domains/scripts/ui/EntityScriptsTab.tsx`
-- `packages/metahubs-frontend/base/src/i18n/locales/en/metahubs.json`
-- `packages/metahubs-frontend/base/src/i18n/locales/ru/metahubs.json`
+- `packages/universo-react-metahubs-frontend/base/src/domains/scripts/ui/EntityScriptsTab.tsx`
+- `packages/universo-react-metahubs-frontend/base/src/i18n/locales/en/metahubs.json`
+- `packages/universo-react-metahubs-frontend/base/src/i18n/locales/ru/metahubs.json`
 
 Steps:
 
@@ -313,9 +313,9 @@ Steps:
 
 Files:
 
-- `packages/metahubs-backend/base/src/domains/templates/data/standardEntityTypeDefinitions.ts`
-- `packages/metahubs-backend/base/src/domains/templates/data/linked-collection.entity-preset.ts`
-- `packages/metahubs-backend/base/src/domains/templates/data/lms.template.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/templates/data/standardEntityTypeDefinitions.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/templates/data/linked-collection.entity-preset.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/templates/data/lms.template.ts`
 - `tools/testing/e2e/support/lmsFixtureContract.ts`
 - Product Playwright generator that creates `tools/fixtures/metahubs-lms-app-snapshot.json`
 
@@ -344,11 +344,11 @@ node tools/testing/e2e/run-playwright-suite.mjs --project generators --grep "Met
 
 Unit and component tests:
 
-- `packages/universo-types/base/src/__tests__/recordBehavior.test.ts`
-- `packages/metahubs-frontend/base/src/domains/entities/ui/__tests__/RecordBehaviorFields.test.tsx`
-- `packages/metahubs-frontend/base/src/domains/entities/ui/__tests__/EntitiesWorkspace.behaviorTab.test.tsx`
-- `packages/metahubs-frontend/base/src/domains/entities/ui/__tests__/EntityInstanceList.recordBehavior.test.tsx`
-- `packages/metahubs-frontend/base/src/domains/scripts/ui/__tests__/EntityScriptsTab.capabilities.test.tsx`
+- `packages/universo-react-types/base/src/__tests__/recordBehavior.test.ts`
+- `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/__tests__/RecordBehaviorFields.test.tsx`
+- `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/__tests__/EntitiesWorkspace.behaviorTab.test.tsx`
+- `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/__tests__/EntityInstanceList.recordBehavior.test.tsx`
+- `packages/universo-react-metahubs-frontend/base/src/domains/scripts/ui/__tests__/EntityScriptsTab.capabilities.test.tsx`
 
 Coverage targets:
 
@@ -378,7 +378,7 @@ Update GitBook-style docs:
 - `docs/ru/guides/transactional-catalogs.md`
 - `docs/ru/architecture/ledgers.md`
 - English equivalents if present or create them if missing.
-- Relevant package READMEs for `@universo/types`, `schema-ddl`, and `apps-template-mui` if shared contract changes.
+- Relevant package READMEs for `@universo-react/types`, `schema-ddl`, and `apps-template-mui` if shared contract changes.
 
 Docs must explain:
 
@@ -394,8 +394,8 @@ Docs must explain:
 Run targeted checks first:
 
 ```bash
-pnpm --filter @universo/types test
-pnpm --filter @universo/types build
+pnpm --filter @universo-react/types test
+pnpm --filter @universo-react/types build
 pnpm --filter metahubs-frontend test -- RecordBehaviorFields EntitiesWorkspace EntityInstanceList EntityScriptsTab
 pnpm --filter metahubs-frontend build
 pnpm --filter apps-template-mui test -- recordBehavior RowActionsMenu
@@ -435,7 +435,7 @@ The full root build can be left for the user if local resources are constrained,
   Mitigation: use compact MUI sections inside the existing dialog; no nested cards.
 
 - Risk: duplicated schema diverges again.
-  Mitigation: export the shared schema from `@universo/types` and delete the local duplicate in `apps-template-mui`.
+  Mitigation: export the shared schema from `@universo-react/types` and delete the local duplicate in `apps-template-mui`.
 
 - Risk: script capability labels regress when capabilities are added.
   Mitigation: test every `SCRIPT_CAPABILITIES` value against the label map.

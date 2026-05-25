@@ -12,7 +12,7 @@
 
 The platform already creates the fixed data structure and global roles on first startup, but it still requires a manual SQL step to create the first superuser.
 
-The goal of this plan is to add a **safe, idempotent, startup-time superuser bootstrap** controlled by environment variables in `packages/universo-core-backend/base/.env` and `.env.example`.
+The goal of this plan is to add a **safe, idempotent, startup-time superuser bootstrap** controlled by environment variables in `packages/universo-react-core-backend/base/.env` and `.env.example`.
 
 When enabled, the backend must:
 
@@ -37,11 +37,11 @@ The implementation should reuse current package boundaries instead of inventing 
    - Without documenting it, the future startup bootstrap will appear broken on a fresh install even though the code path is valid.
 
 2. **`BaseCommand` does not currently support `SERVICE_ROLE_KEY` or future bootstrap env overrides.**
-   - `packages/universo-core-backend/base/src/commands/base.ts` only forwards a subset of env values into `process.env`.
+   - `packages/universo-react-core-backend/base/src/commands/base.ts` only forwards a subset of env values into `process.env`.
    - If the feature is implemented only in `.env` but not in CLI overrides, command-based runs and CI flows will drift.
 
 3. **Admin-side user provisioning logic is currently route-local and duplicated in shape.**
-   - `packages/admin-backend/base/src/routes/globalUsersRoutes.ts` already provisions auth users and rolls them back on role assignment failure.
+   - `packages/universo-react-admin-backend/base/src/routes/globalUsersRoutes.ts` already provisions auth users and rolls them back on role assignment failure.
    - Startup bootstrap would currently duplicate the same create-user / role-sync / rollback logic unless it is extracted.
 
 4. **Admin-side provisioning currently trusts the `auth.users -> profiles.cat_profiles` trigger without explicit repair.**
@@ -54,7 +54,7 @@ The implementation should reuse current package boundaries instead of inventing 
    - The bootstrap plan should reuse this service instead of creating a second nickname/profile repair implementation.
 
 6. **The repository already has an advisory-lock helper suitable for bootstrap serialization.**
-   - `@universo/utils/database` exports `withAdvisoryLock(...)`.
+   - `@universo-react/utils/database` exports `withAdvisoryLock(...)`.
    - That gives us an existing concurrency control primitive for multi-instance startup without creating a custom lock subsystem.
 
 7. **Current documentation structure is only partially populated.**
@@ -100,14 +100,14 @@ The safest repository-aligned approach is:
 
 | Area | Package / Location | Planned Responsibility |
 |---|---|---|
-| Startup lifecycle | `packages/universo-core-backend/base/src/index.ts` | Trigger bootstrap after migrations and fixed-role seed |
-| Startup config | `packages/universo-core-backend/base/.env.example`, `.env`, `src/commands/base.ts` | Add env contract and CLI parity |
-| Shared provisioning logic | `packages/admin-backend/base/src/services/*` | Extract reusable auth-user provisioning / rollback / role-sync helper |
-| Global access / role assignment | `packages/admin-backend/base/src/services/globalAccessService.ts` | Reuse or extend role resolution / superuser sync helpers |
-| Profile repair | `packages/profile-backend/base/src/services/profileService.ts` | Reuse existing `getOrCreateProfile()` |
-| Auth route parity | `packages/auth-backend/base/src/routes/auth.ts` | Keep semantics aligned, avoid divergent cleanup / repair logic |
-| Core-backend tests | `packages/universo-core-backend/base/src/__tests__/App.initDatabase.test.ts` | Add startup bootstrap test coverage |
-| Admin-backend tests | `packages/admin-backend/base/src/tests/routes/dashboardAndGlobalUsersRoutes.test.ts` and new service tests | Cover shared provisioning helper and route reuse |
+| Startup lifecycle | `packages/universo-react-core-backend/base/src/index.ts` | Trigger bootstrap after migrations and fixed-role seed |
+| Startup config | `packages/universo-react-core-backend/base/.env.example`, `.env`, `src/commands/base.ts` | Add env contract and CLI parity |
+| Shared provisioning logic | `packages/universo-react-admin-backend/base/src/services/*` | Extract reusable auth-user provisioning / rollback / role-sync helper |
+| Global access / role assignment | `packages/universo-react-admin-backend/base/src/services/globalAccessService.ts` | Reuse or extend role resolution / superuser sync helpers |
+| Profile repair | `packages/universo-react-profile-backend/base/src/services/profileService.ts` | Reuse existing `getOrCreateProfile()` |
+| Auth route parity | `packages/universo-react-auth-backend/base/src/routes/auth.ts` | Keep semantics aligned, avoid divergent cleanup / repair logic |
+| Core-backend tests | `packages/universo-react-core-backend/base/src/__tests__/App.initDatabase.test.ts` | Add startup bootstrap test coverage |
+| Admin-backend tests | `packages/universo-react-admin-backend/base/src/tests/routes/dashboardAndGlobalUsersRoutes.test.ts` and new service tests | Cover shared provisioning helper and route reuse |
 | README docs | root `README.md`, `README-RU.md`, package READMEs | Document env, security warnings, first-run behavior |
 | GitBook docs | `docs/en/*`, `docs/ru/*`, `SUMMARY.md` | Add configuration/auth/bootstrap documentation |
 
@@ -133,7 +133,7 @@ It should not be exported to frontend bundles or general browser runtime env hel
 
 **Decision**:
 
-- implement a local config parser in `@universo/core-backend`,
+- implement a local config parser in `@universo-react/core-backend`,
 - keep only generic boolean / number parsers in shared utils,
 - avoid pushing private startup config into shared browser-facing env surfaces.
 
@@ -144,7 +144,7 @@ Startup bootstrap should not duplicate it.
 
 **Decision**:
 
-- extract a reusable service in `@universo/admin-backend`,
+- extract a reusable service in `@universo-react/admin-backend`,
 - let both the admin route and startup bootstrap call the same provisioning pipeline,
 - keep route parsing / HTTP responses in the route layer and all create-user / repair / rollback logic in the service layer.
 
@@ -267,7 +267,7 @@ When `BOOTSTRAP_SUPERUSER_ENABLED=false`:
 
 ### Phase 1: Extract A Reusable Provisioning Service
 
-- [ ] **1.1** Create a new internal service in `@universo/admin-backend` for provisioning a Supabase auth user and synchronizing global roles.
+- [ ] **1.1** Create a new internal service in `@universo-react/admin-backend` for provisioning a Supabase auth user and synchronizing global roles.
 - [ ] **1.2** Move route-local cleanup logic out of `globalUsersRoutes.ts` into the reusable service layer.
 - [ ] **1.3** Reuse `GlobalAccessService.setUserRoles(...)` for canonical superuser assignment.
 - [ ] **1.4** Add a helper that resolves role IDs by codename inside the service layer so startup code does not need to know admin schema details.
@@ -355,12 +355,12 @@ When `BOOTSTRAP_SUPERUSER_ENABLED=false`:
 ### Phase 6: README And GitBook Documentation
 
 - [ ] **6.1** Update root `README.md` and `README-RU.md` with first-run bootstrap behavior and env warnings.
-- [ ] **6.2** Update `packages/universo-core-backend/base/README.md` and `README-RU.md` with:
+- [ ] **6.2** Update `packages/universo-react-core-backend/base/README.md` and `README-RU.md` with:
   - startup lifecycle addition,
   - required `SERVICE_ROLE_KEY`,
   - bootstrap superuser env contract,
   - security warning about demo credentials.
-- [ ] **6.3** Update `packages/admin-backend/base/README.md` and `README-RU.md` to note that admin route provisioning and startup bootstrap share the same backend provisioning pipeline.
+- [ ] **6.3** Update `packages/universo-react-admin-backend/base/README.md` and `README-RU.md` to note that admin route provisioning and startup bootstrap share the same backend provisioning pipeline.
 - [ ] **6.4** Create or update GitBook pages in `docs/en` and `docs/ru` for:
   - getting-started configuration,
   - authentication / authorization architecture,

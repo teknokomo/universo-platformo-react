@@ -1,4 +1,4 @@
-import { createLocalizedContent } from '@universo/utils'
+import { createLocalizedContent } from '@universo-react/utils'
 import { expect, test } from '../../fixtures/test'
 import { applyBrowserPreferences } from '../../support/browser/preferences'
 import {

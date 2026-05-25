@@ -22,7 +22,7 @@ Modules currently cover four product needs:
 | --- | --- |
 | Source kind | Only `embedded` authoring is enabled in the UI. |
 | SDK compatibility | Only `sdkApiVersion = 1.0.0` is supported. |
-| Imports | `@universo/extension-sdk` is always allowed; consumer modules may also import Resources workspace libraries through `@shared/<codename>`. |
+| Imports | `@universo-react/extension-sdk` is always allowed; consumer modules may also import Resources workspace libraries through `@shared/<codename>`. |
 | Roles | `module`, `lifecycle`, `widget`, and `library`. |
 | Attachment scopes | `general` in the Resources workspace for `library`, plus metahub, hub, object, set, enumeration, and component for executable consumers. |
 | Client runtime | Browser Worker runtime with fail-closed fallback when Worker is unavailable or execution exceeds the runtime budget. |

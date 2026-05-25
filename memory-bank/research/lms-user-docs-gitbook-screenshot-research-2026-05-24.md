@@ -54,7 +54,7 @@ How should the project produce a detailed bilingual GitBook user guide for the L
    `docs-quiz-tutorial-screenshots.spec.ts` explicitly sets `1440x900` and captures some full viewport screenshots, while `docs-entity-screenshots.spec.ts` captures an element-only dialog screenshot for `metahub-entities-create-dialog.png`. The new LMS user documentation should default to whole-window screenshots at `1920x1080` and reserve element screenshots for deliberate close-up exceptions.
 
 5. The TanStack Query Devtools banner should be absent by default, but docs generation should assert it.
-   `packages/universo-core-frontend/base/src/index.tsx` renders `ReactQueryDevtools` only when `NODE_ENV === 'development'` and `VITE_ENABLE_QUERY_DEVTOOLS === 'true'`. Documentation screenshot generation should still force the flag off and assert that no visible TanStack/React Query devtools launcher appears before each captured screenshot.
+   `packages/universo-react-core-frontend/base/src/index.tsx` renders `ReactQueryDevtools` only when `NODE_ENV === 'development'` and `VITE_ENABLE_QUERY_DEVTOOLS === 'true'`. Documentation screenshot generation should still force the flag off and assert that no visible TanStack/React Query devtools launcher appears before each captured screenshot.
 
 6. Existing E2E names are unsuitable for documentation screenshots.
    Many flow specs intentionally create visible names that start with `E2E ...`. That is acceptable for regression tests, but documentation generators should create user-facing names such as "Learning Portal", "Requirements Library", "Compliance Refresh Course", and matching Russian labels, not run-id based E2E labels.

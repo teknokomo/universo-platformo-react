@@ -8,7 +8,7 @@
 
 ## Overview
 
-Enable a runtime-configurable full Supabase database reset at platform startup via the `.env` / `.env.example` configuration files. This reuses the proven E2E cleanup logic from `e2eFullReset.mjs` but adapts it for the production startup path in `packages/universo-core-backend/base/src/`. The feature gives users a safe, logged, advisory-locked way to wipe all platform data and start fresh — useful for manual testing, demo resets, and cleaning up stale databases.
+Enable a runtime-configurable full Supabase database reset at platform startup via the `.env` / `.env.example` configuration files. This reuses the proven E2E cleanup logic from `e2eFullReset.mjs` but adapts it for the production startup path in `packages/universo-react-core-backend/base/src/`. The feature gives users a safe, logged, advisory-locked way to wipe all platform data and start fresh — useful for manual testing, demo resets, and cleaning up stale databases.
 
 ---
 
@@ -16,12 +16,12 @@ Enable a runtime-configurable full Supabase database reset at platform startup v
 
 | Area | Files / Packages |
 |---|---|
-| **Backend startup** | `packages/universo-core-backend/base/src/index.ts` |
-| **New module** | `packages/universo-core-backend/base/src/bootstrap/startupReset.ts` |
-| **Environment config** | `packages/universo-core-backend/base/.env.example`, `.env` |
-| **Database utils** | `packages/universo-database` (getPoolExecutor, getKnex), `packages/universo-utils/database` (withAdvisoryLock, queryMany) |
-| **Admin client** | `packages/universo-core-backend/base/src/utils/supabaseAdmin.ts` (reuse existing `createSupabaseAdminClient`) |
-| **Migrations platform** | `packages/universo-migrations-platform` (reuse `registeredSystemAppDefinitions`) |
+| **Backend startup** | `packages/universo-react-core-backend/base/src/index.ts` |
+| **New module** | `packages/universo-react-core-backend/base/src/bootstrap/startupReset.ts` |
+| **Environment config** | `packages/universo-react-core-backend/base/.env.example`, `.env` |
+| **Database utils** | `packages/universo-react-database` (getPoolExecutor, getKnex), `packages/universo-react-utils/database` (withAdvisoryLock, queryMany) |
+| **Admin client** | `packages/universo-react-core-backend/base/src/utils/supabaseAdmin.ts` (reuse existing `createSupabaseAdminClient`) |
+| **Migrations platform** | `packages/universo-react-migrations-platform` (reuse `registeredSystemAppDefinitions`) |
 | **Tests** | New `__tests__/startupReset.test.ts`, updated `__tests__/App.initDatabase.test.ts` |
 | **Documentation** | `docs/ru/getting-started/configuration.md`, `docs/en/getting-started/configuration.md` |
 | **Memory bank** | `memory-bank/progress.md`, `memory-bank/tasks.md` |
@@ -76,20 +76,20 @@ Mirror the block in the active `.env` file with `FULL_DATABASE_RESET=false` (dis
 Create a new module that implements the full reset logic. This reuses the **same algorithmic approach** as `e2eFullReset.mjs` but uses the project's TypeScript/DbExecutor stack:
 
 ```typescript
-// packages/universo-core-backend/base/src/bootstrap/startupReset.ts
+// packages/universo-react-core-backend/base/src/bootstrap/startupReset.ts
 
 import logger from '../utils/logger'
-import { getPoolExecutor } from '@universo/database'
+import { getPoolExecutor } from '@universo-react/database'
 import { createSupabaseAdminClient } from '../utils/supabaseAdmin'
-import { withAdvisoryLock, queryMany } from '@universo/utils/database'
-import { registeredSystemAppDefinitions } from '@universo/migrations-platform'
+import { withAdvisoryLock, queryMany } from '@universo-react/utils/database'
+import { registeredSystemAppDefinitions } from '@universo-react/migrations-platform'
 ```
 
 **Key design decisions (QA-verified):**
 
-1. **DbExecutor, not Knex directly** — QA found that `packages/universo-core-backend` uses `DbExecutor.query()` for all SQL, never `knex.raw()` directly. The plan correctly uses `getPoolExecutor()` + `withAdvisoryLock` which gives a `DbExecutor` transaction (`tx`). All schema discovery and DROP operations use `tx.query(sql, params)` with `$1` parameterized bindings, consistent with the project's SQL-first pattern.
+1. **DbExecutor, not Knex directly** — QA found that `packages/universo-react-core-backend` uses `DbExecutor.query()` for all SQL, never `knex.raw()` directly. The plan correctly uses `getPoolExecutor()` + `withAdvisoryLock` which gives a `DbExecutor` transaction (`tx`). All schema discovery and DROP operations use `tx.query(sql, params)` with `$1` parameterized bindings, consistent with the project's SQL-first pattern.
 
-2. **Advisory lock** — Uses `withAdvisoryLock` from `@universo/utils/database` — the exact same API used by `bootstrapSuperuser.ts`:
+2. **Advisory lock** — Uses `withAdvisoryLock` from `@universo-react/utils/database` — the exact same API used by `bootstrapSuperuser.ts`:
    ```typescript
    withAdvisoryLock<T>(executor: DbExecutor, lockKey: string, work: (tx: DbExecutor) => Promise<T>, options?: { timeoutMs?: number }): Promise<T>
    ```
@@ -100,7 +100,7 @@ import { registeredSystemAppDefinitions } from '@universo/migrations-platform'
    - Never drop `public` or other infrastructure schemas
    - Validate each schema name against `FIXED_SCHEMA_NAME_PATTERN`
 
-4. **Fixed schema discovery** — Import `registeredSystemAppDefinitions` directly from `@universo/migrations-platform` (verified: this is the correct public export name). Extract fixed schemas the same way as E2E's `loadFixedProjectSchemaNames()`.
+4. **Fixed schema discovery** — Import `registeredSystemAppDefinitions` directly from `@universo-react/migrations-platform` (verified: this is the correct public export name). Extract fixed schemas the same way as E2E's `loadFixedProjectSchemaNames()`.
 
 5. **Auth user deletion** — Use `supabaseAdmin.auth.admin.deleteUser(userId)` via `createSupabaseAdminClient` — the exact same method used in `index.ts` (line 290), `admin-backend/authUserProvisioningService.ts`, and E2E `api-session.mjs`.
 
@@ -193,7 +193,7 @@ export async function executeStartupFullReset(): Promise<StartupResetReport | { 
 }
 ```
 
-**QA correction**: The original plan used `knex.raw()` for SQL operations. QA verified that `packages/universo-core-backend` consistently uses `DbExecutor.query()` with `$1` parameterized bindings, never `knex.raw()`. All operations inside `withAdvisoryLock` use `tx` (the `DbExecutor` from the transaction).
+**QA correction**: The original plan used `knex.raw()` for SQL operations. QA verified that `packages/universo-react-core-backend` consistently uses `DbExecutor.query()` with `$1` parameterized bindings, never `knex.raw()`. All operations inside `withAdvisoryLock` use `tx` (the `DbExecutor` from the transaction).
 
 ---
 
@@ -333,7 +333,7 @@ Already covered in Phase 1 — the comments in `.env.example` serve as inline do
 
 ### Challenge 1: DbExecutor vs raw `pg` Client (RESOLVED by QA)
 
-The E2E reset uses `pg.Client` directly for SQL operations. The startup reset uses `DbExecutor.query()` via `withAdvisoryLock` → `getPoolExecutor()`. QA verified this is the correct pattern — `bootstrapSuperuser.ts` uses the identical approach, and `packages/universo-core-backend` has zero `knex.raw()` calls in production code. The `withAdvisoryLock` API provides a transaction-scoped `DbExecutor` (`tx`) as the callback parameter, which is exactly what we need.
+The E2E reset uses `pg.Client` directly for SQL operations. The startup reset uses `DbExecutor.query()` via `withAdvisoryLock` → `getPoolExecutor()`. QA verified this is the correct pattern — `bootstrapSuperuser.ts` uses the identical approach, and `packages/universo-react-core-backend` has zero `knex.raw()` calls in production code. The `withAdvisoryLock` API provides a transaction-scoped `DbExecutor` (`tx`) as the callback parameter, which is exactly what we need.
 
 ### Challenge 2: Advisory Lock API Compatibility (RESOLVED by QA)
 
@@ -341,7 +341,7 @@ Verified: `withAdvisoryLock` signature is `withAdvisoryLock<T>(executor: DbExecu
 
 ### Challenge 3: Fixed Schema Discovery at Startup (RESOLVED by QA)
 
-Verified: `registeredSystemAppDefinitions` is the correct public export name from `@universo/migrations-platform`. The backend already imports from this package in `initDatabase()` (via `validateRegisteredSystemAppDefinitions`, `validateRegisteredSystemAppSchemaGenerationPlans`, etc.), so it's guaranteed to be built and available at startup.
+Verified: `registeredSystemAppDefinitions` is the correct public export name from `@universo-react/migrations-platform`. The backend already imports from this package in `initDatabase()` (via `validateRegisteredSystemAppDefinitions`, `validateRegisteredSystemAppSchemaGenerationPlans`, etc.), so it's guaranteed to be built and available at startup.
 
 ### Challenge 4: Cascade Effects
 
@@ -367,7 +367,7 @@ The `withAdvisoryLock` function uses `pg_advisory_xact_lock` which requires sess
 
 #### Issue 1: Incorrect database access pattern (CRITICAL — Fixed)
 
-**Problem:** The original plan proposed using `getKnex().raw()` for SQL operations. QA verified that `packages/universo-core-backend` has **zero** `knex.raw()` calls in production code. All SQL goes through `DbExecutor.query()` with `$1` parameterized bindings.
+**Problem:** The original plan proposed using `getKnex().raw()` for SQL operations. QA verified that `packages/universo-react-core-backend` has **zero** `knex.raw()` calls in production code. All SQL goes through `DbExecutor.query()` with `$1` parameterized bindings.
 
 **Fix:** All SQL operations now use `tx.query(sql, params)` — the `DbExecutor` provided by `withAdvisoryLock`'s transaction callback.
 
@@ -445,12 +445,12 @@ withAdvisoryLock(getPoolExecutor(), LOCK_KEY, async (tx) => { /* all ops use tx 
 
 | File | Action | Description |
 |---|---|---|
-| `packages/universo-core-backend/base/.env.example` | MODIFY | Add "Danger Zone" block with FULL_DATABASE_RESET |
-| `packages/universo-core-backend/base/.env` | MODIFY | Add FULL_DATABASE_RESET=false |
-| `packages/universo-core-backend/base/src/bootstrap/startupReset.ts` | CREATE | New module with reset logic (reuses DbExecutor, withAdvisoryLock, registeredSystemAppDefinitions) |
-| `packages/universo-core-backend/base/src/index.ts` | MODIFY | Call `executeStartupFullReset()` before existing init logic |
-| `packages/universo-core-backend/base/src/__tests__/startupReset.test.ts` | CREATE | Unit tests for reset module |
-| `packages/universo-core-backend/base/src/__tests__/App.initDatabase.test.ts` | MODIFY | Add reset integration test cases |
+| `packages/universo-react-core-backend/base/.env.example` | MODIFY | Add "Danger Zone" block with FULL_DATABASE_RESET |
+| `packages/universo-react-core-backend/base/.env` | MODIFY | Add FULL_DATABASE_RESET=false |
+| `packages/universo-react-core-backend/base/src/bootstrap/startupReset.ts` | CREATE | New module with reset logic (reuses DbExecutor, withAdvisoryLock, registeredSystemAppDefinitions) |
+| `packages/universo-react-core-backend/base/src/index.ts` | MODIFY | Call `executeStartupFullReset()` before existing init logic |
+| `packages/universo-react-core-backend/base/src/__tests__/startupReset.test.ts` | CREATE | Unit tests for reset module |
+| `packages/universo-react-core-backend/base/src/__tests__/App.initDatabase.test.ts` | MODIFY | Add reset integration test cases |
 | `docs/ru/getting-started/configuration.md` | MODIFY | Add danger zone section |
 | `docs/en/getting-started/configuration.md` | MODIFY | Add danger zone section |
 | `memory-bank/progress.md` | MODIFY | Record completed work |

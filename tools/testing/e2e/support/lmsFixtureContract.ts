@@ -1,4 +1,4 @@
-import { buildVLC, computeSnapshotHash } from '@universo/utils'
+import { buildVLC, computeSnapshotHash } from '@universo-react/utils'
 import {
     catalogPublicationPolicySchema,
     isDeferredResourceSource,
@@ -7,7 +7,7 @@ import {
     reportDefinitionSchema,
     resourceDefinitionSchema,
     workflowActionSchema
-} from '@universo/types'
+} from '@universo-react/types'
 
 export const LMS_FIXTURE_FILENAME = 'metahubs-lms-app-snapshot.json'
 const LMS_EXPECTED_BUNDLE_VERSION = 1

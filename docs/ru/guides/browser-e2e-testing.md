@@ -13,8 +13,8 @@
 
 ## Контракт окружения
 
--   Храните секреты браузерных тестов в `packages/universo-core-backend/.env.e2e.local`.
--   Храните необязательные переопределения фронтенда в `packages/universo-core-frontend/.env.e2e.local`.
+-   Храните секреты браузерных тестов в `packages/universo-react-core-backend/.env.e2e.local`.
+-   Храните необязательные переопределения фронтенда в `packages/universo-react-core-frontend/.env.e2e.local`.
 -   По умолчанию используйте выделенный тестовый проект Supabase.
 -   Никогда не коммитьте реальные секреты, сгенерированное состояние авторизации или production credentials.
 -   Держите рантайм Playwright детерминированным: timezone, locale, reduced motion, очистка артефактов и явные navigation/action timeouts должны оставаться зафиксированными.
@@ -36,8 +36,8 @@ pnpm run test:e2e:smoke:local-supabase
 
 Сгенерированные файлы:
 
--   `packages/universo-core-backend/.env.e2e.local-supabase`
--   `packages/universo-core-frontend/.env.e2e.local-supabase`
+-   `packages/universo-react-core-backend/.env.e2e.local-supabase`
+-   `packages/universo-react-core-frontend/.env.e2e.local-supabase`
 
 Сгенерированный файл бэкенда создаётся на основе `.env.e2e`, если он есть, затем `.env`, затем `.env.e2e.example`, затем `.env.example`. Генератор сохраняет не связанные с Supabase настройки приложения и заменяет только локальные значения Supabase/PostgreSQL и значения по умолчанию для E2E.
 

@@ -24,7 +24,7 @@ import {
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
 import { repoRoot } from '../../support/env/load-e2e-env.mjs'
 import { pageSpacingSelectors, toolbarSelectors } from '../../support/selectors/contracts'
-import { createLocalizedContent } from '@universo/utils'
+import { createLocalizedContent } from '@universo-react/utils'
 
 type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
 

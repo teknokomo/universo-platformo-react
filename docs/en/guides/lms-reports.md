@@ -28,7 +28,7 @@ Gamification reports read ordinary Object rows such as `LeaderboardSnapshots` an
 
 ## Safe Runner
 
-The backend report runner validates the report definition with shared schemas from `@universo/types`.
+The backend report runner validates the report definition with shared schemas from `@universo-react/types`.
 Runtime API calls do not send a raw report definition.
 They send exactly one saved report reference, either `reportId` or `reportCodename`, and the backend loads the JSON `Definition` from the published `Reports` Object in the current workspace.
 

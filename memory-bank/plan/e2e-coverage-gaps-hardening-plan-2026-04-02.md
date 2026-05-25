@@ -79,7 +79,7 @@ The follow-up must stay aligned with the repository’s current architectural di
 
 ### Shared UI and Interaction Rules
 
-- Reuse `@universo/template-mui` building blocks first
+- Reuse `@universo-react/template-mui` building blocks first
 - Reuse existing `EntityFormDialog`, `DynamicEntityFormDialog`, `ConfirmDeleteDialog`, `BaseEntityMenu`, `ToolbarControls`, `FlowListTable`, and `useListDialogs`
 - Do not add new product-facing dialogs or alternate admin/runtime CRUD pages just to make tests easier
 - Do not add test-only widgets, counters, banners, or hidden routes when the same assertion can be made through an existing page and backend helper
@@ -87,15 +87,15 @@ The follow-up must stay aligned with the repository’s current architectural di
 ### Shared Code Placement Rules
 
 - If a new helper is needed only for Playwright, place it under `tools/testing/e2e/support/*`
-- If a new type becomes reusable beyond E2E, place it in `packages/universo-types`
-- If a new pure utility becomes reusable beyond E2E, place it in `packages/universo-utils`
-- If a new shared UI helper or selector becomes broadly reusable, prefer `packages/universo-template-mui` over feature-local duplication
-- For published-application runtime surfaces, continue to treat `packages/apps-template-mui` as the source of truth for runtime CRUD interaction patterns
+- If a new type becomes reusable beyond E2E, place it in `packages/universo-react-types`
+- If a new pure utility becomes reusable beyond E2E, place it in `packages/universo-react-utils`
+- If a new shared UI helper or selector becomes broadly reusable, prefer `packages/universo-react-template-mui` over feature-local duplication
+- For published-application runtime surfaces, continue to treat `packages/universo-react-apps-template-mui` as the source of truth for runtime CRUD interaction patterns
 
 ### i18n and Text Rules
 
 - Every new user-visible string must be internationalized immediately
-- Shared language keys should go into `packages/universo-i18n` when they are cross-package concepts
+- Shared language keys should go into `packages/universo-react-i18n` when they are cross-package concepts
 - Feature-specific strings should follow the current namespace structure of the owning package
 - Browser tests should prefer asserting existing translated labels/headings already present in the UI rather than introducing new text just for testability
 

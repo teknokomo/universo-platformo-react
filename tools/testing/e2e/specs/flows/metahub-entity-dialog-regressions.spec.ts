@@ -1,5 +1,5 @@
 import type { Locator, Page, Response } from '@playwright/test'
-import { createLocalizedContent, getVLCString } from '@universo/utils'
+import { createLocalizedContent, getVLCString } from '@universo-react/utils'
 import { expect, test } from '../../fixtures/test'
 import { waitForSettledMutationResponse } from '../../support/browser/network'
 import {

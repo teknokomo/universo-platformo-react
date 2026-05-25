@@ -1,5 +1,5 @@
 import type { Page, TestInfo } from '@playwright/test'
-import { createLocalizedContent } from '@universo/utils'
+import { createLocalizedContent } from '@universo-react/utils'
 import { expect, test } from '../../fixtures/test'
 import {
     copyApplicationLayout,

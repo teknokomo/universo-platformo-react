@@ -9,7 +9,7 @@ Learning Tracks, Quizzes, or related LMS surfaces.
 ## Template And Preset Set
 
 The LMS configuration starts from the `lms` metahub template
-(`packages/metahubs-backend/src/domains/templates/data/lms.template.ts`).
+(`packages/universo-react-metahubs-backend/src/domains/templates/data/lms.template.ts`).
 
 Active presets in the LMS template are the same five as the `basic`
 template:
@@ -95,9 +95,9 @@ list inline.
 LMS-specific labels, icons, and logic must compose from the generic
 primitives in:
 
--   `packages/apps-template-mui` — dashboards, data grids, cards, form
+-   `packages/universo-react-apps-template-mui` — dashboards, data grids, cards, form
     dialogs;
--   `packages/universo-template-mui` — shared template components.
+-   `packages/universo-react-template-mui` — shared template components.
 
 LMS naming, copy, and icons live in metadata or i18n resources, not in
 widget code. Before proposing an LMS-only widget, verify the existing

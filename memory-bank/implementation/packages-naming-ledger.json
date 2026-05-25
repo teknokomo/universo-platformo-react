@@ -1,0 +1,262 @@
+{
+  "generatedAt": "2026-05-25T19:37:31.075Z",
+  "packageCount": 32,
+  "packages": [
+    {
+      "oldDirectoryName": "admin-backend",
+      "oldDirectory": "packages/admin-backend",
+      "oldPackageName": "@universo/admin-backend",
+      "newDirectoryName": "universo-react-admin-backend",
+      "newDirectory": "packages/universo-react-admin-backend",
+      "newPackageName": "@universo-react/admin-backend"
+    },
+    {
+      "oldDirectoryName": "admin-frontend",
+      "oldDirectory": "packages/admin-frontend",
+      "oldPackageName": "@universo/admin-frontend",
+      "newDirectoryName": "universo-react-admin-frontend",
+      "newDirectory": "packages/universo-react-admin-frontend",
+      "newPackageName": "@universo-react/admin-frontend"
+    },
+    {
+      "oldDirectoryName": "universo-api-client",
+      "oldDirectory": "packages/universo-api-client",
+      "oldPackageName": "@universo/api-client",
+      "newDirectoryName": "universo-react-api-client",
+      "newDirectory": "packages/universo-react-api-client",
+      "newPackageName": "@universo-react/api-client"
+    },
+    {
+      "oldDirectoryName": "applications-backend",
+      "oldDirectory": "packages/applications-backend",
+      "oldPackageName": "@universo/applications-backend",
+      "newDirectoryName": "universo-react-applications-backend",
+      "newDirectory": "packages/universo-react-applications-backend",
+      "newPackageName": "@universo-react/applications-backend"
+    },
+    {
+      "oldDirectoryName": "applications-frontend",
+      "oldDirectory": "packages/applications-frontend",
+      "oldPackageName": "@universo/applications-frontend",
+      "newDirectoryName": "universo-react-applications-frontend",
+      "newDirectory": "packages/universo-react-applications-frontend",
+      "newPackageName": "@universo-react/applications-frontend"
+    },
+    {
+      "oldDirectoryName": "apps-template-mui",
+      "oldDirectory": "packages/apps-template-mui",
+      "oldPackageName": "@universo/apps-template-mui",
+      "newDirectoryName": "universo-react-apps-template-mui",
+      "newDirectory": "packages/universo-react-apps-template-mui",
+      "newPackageName": "@universo-react/apps-template-mui"
+    },
+    {
+      "oldDirectoryName": "auth-backend",
+      "oldDirectory": "packages/auth-backend",
+      "oldPackageName": "@universo/auth-backend",
+      "newDirectoryName": "universo-react-auth-backend",
+      "newDirectory": "packages/universo-react-auth-backend",
+      "newPackageName": "@universo-react/auth-backend"
+    },
+    {
+      "oldDirectoryName": "auth-frontend",
+      "oldDirectory": "packages/auth-frontend",
+      "oldPackageName": "@universo/auth-frontend",
+      "newDirectoryName": "universo-react-auth-frontend",
+      "newDirectory": "packages/universo-react-auth-frontend",
+      "newPackageName": "@universo-react/auth-frontend"
+    },
+    {
+      "oldDirectoryName": "universo-block-editor",
+      "oldDirectory": "packages/universo-block-editor",
+      "oldPackageName": "@universo/block-editor",
+      "newDirectoryName": "universo-react-block-editor",
+      "newDirectory": "packages/universo-react-block-editor",
+      "newPackageName": "@universo-react/block-editor"
+    },
+    {
+      "oldDirectoryName": "universo-core-backend",
+      "oldDirectory": "packages/universo-core-backend",
+      "oldPackageName": "@universo/core-backend",
+      "newDirectoryName": "universo-react-core-backend",
+      "newDirectory": "packages/universo-react-core-backend",
+      "newPackageName": "@universo-react/core-backend"
+    },
+    {
+      "oldDirectoryName": "universo-core-frontend",
+      "oldDirectory": "packages/universo-core-frontend",
+      "oldPackageName": "@universo/core-frontend",
+      "newDirectoryName": "universo-react-core-frontend",
+      "newDirectory": "packages/universo-react-core-frontend",
+      "newPackageName": "@universo-react/core-frontend"
+    },
+    {
+      "oldDirectoryName": "universo-database",
+      "oldDirectory": "packages/universo-database",
+      "oldPackageName": "@universo/database",
+      "newDirectoryName": "universo-react-database",
+      "newDirectory": "packages/universo-react-database",
+      "newPackageName": "@universo-react/database"
+    },
+    {
+      "oldDirectoryName": "extension-sdk",
+      "oldDirectory": "packages/extension-sdk",
+      "oldPackageName": "@universo/extension-sdk",
+      "newDirectoryName": "universo-react-extension-sdk",
+      "newDirectory": "packages/universo-react-extension-sdk",
+      "newPackageName": "@universo-react/extension-sdk"
+    },
+    {
+      "oldDirectoryName": "universo-i18n",
+      "oldDirectory": "packages/universo-i18n",
+      "oldPackageName": "@universo/i18n",
+      "newDirectoryName": "universo-react-i18n",
+      "newDirectory": "packages/universo-react-i18n",
+      "newPackageName": "@universo-react/i18n"
+    },
+    {
+      "oldDirectoryName": "metahubs-backend",
+      "oldDirectory": "packages/metahubs-backend",
+      "oldPackageName": "@universo/metahubs-backend",
+      "newDirectoryName": "universo-react-metahubs-backend",
+      "newDirectory": "packages/universo-react-metahubs-backend",
+      "newPackageName": "@universo-react/metahubs-backend"
+    },
+    {
+      "oldDirectoryName": "metahubs-frontend",
+      "oldDirectory": "packages/metahubs-frontend",
+      "oldPackageName": "@universo/metahubs-frontend",
+      "newDirectoryName": "universo-react-metahubs-frontend",
+      "newDirectory": "packages/universo-react-metahubs-frontend",
+      "newPackageName": "@universo-react/metahubs-frontend"
+    },
+    {
+      "oldDirectoryName": "metapanel-frontend",
+      "oldDirectory": "packages/metapanel-frontend",
+      "oldPackageName": "@universo/metapanel-frontend",
+      "newDirectoryName": "universo-react-metapanel-frontend",
+      "newDirectory": "packages/universo-react-metapanel-frontend",
+      "newPackageName": "@universo-react/metapanel-frontend"
+    },
+    {
+      "oldDirectoryName": "migration-guard-shared",
+      "oldDirectory": "packages/migration-guard-shared",
+      "oldPackageName": "@universo/migration-guard-shared",
+      "newDirectoryName": "universo-react-migration-guard-shared",
+      "newDirectory": "packages/universo-react-migration-guard-shared",
+      "newPackageName": "@universo-react/migration-guard-shared"
+    },
+    {
+      "oldDirectoryName": "universo-migrations-catalog",
+      "oldDirectory": "packages/universo-migrations-catalog",
+      "oldPackageName": "@universo/migrations-catalog",
+      "newDirectoryName": "universo-react-migrations-catalog",
+      "newDirectory": "packages/universo-react-migrations-catalog",
+      "newPackageName": "@universo-react/migrations-catalog"
+    },
+    {
+      "oldDirectoryName": "universo-migrations-core",
+      "oldDirectory": "packages/universo-migrations-core",
+      "oldPackageName": "@universo/migrations-core",
+      "newDirectoryName": "universo-react-migrations-core",
+      "newDirectory": "packages/universo-react-migrations-core",
+      "newPackageName": "@universo-react/migrations-core"
+    },
+    {
+      "oldDirectoryName": "universo-migrations-platform",
+      "oldDirectory": "packages/universo-migrations-platform",
+      "oldPackageName": "@universo/migrations-platform",
+      "newDirectoryName": "universo-react-migrations-platform",
+      "newDirectory": "packages/universo-react-migrations-platform",
+      "newPackageName": "@universo-react/migrations-platform"
+    },
+    {
+      "oldDirectoryName": "modules-engine",
+      "oldDirectory": "packages/modules-engine",
+      "oldPackageName": "@universo/modules-engine",
+      "newDirectoryName": "universo-react-modules-engine",
+      "newDirectory": "packages/universo-react-modules-engine",
+      "newPackageName": "@universo-react/modules-engine"
+    },
+    {
+      "oldDirectoryName": "profile-backend",
+      "oldDirectory": "packages/profile-backend",
+      "oldPackageName": "@universo/profile-backend",
+      "newDirectoryName": "universo-react-profile-backend",
+      "newDirectory": "packages/universo-react-profile-backend",
+      "newPackageName": "@universo-react/profile-backend"
+    },
+    {
+      "oldDirectoryName": "profile-frontend",
+      "oldDirectory": "packages/profile-frontend",
+      "oldPackageName": "@universo/profile-frontend",
+      "newDirectoryName": "universo-react-profile-frontend",
+      "newDirectory": "packages/universo-react-profile-frontend",
+      "newPackageName": "@universo-react/profile-frontend"
+    },
+    {
+      "oldDirectoryName": "universo-rest-docs",
+      "oldDirectory": "packages/universo-rest-docs",
+      "oldPackageName": "@universo/rest-docs",
+      "newDirectoryName": "universo-react-rest-docs",
+      "newDirectory": "packages/universo-react-rest-docs",
+      "newPackageName": "@universo-react/rest-docs"
+    },
+    {
+      "oldDirectoryName": "schema-ddl",
+      "oldDirectory": "packages/schema-ddl",
+      "oldPackageName": "@universo/schema-ddl",
+      "newDirectoryName": "universo-react-schema-ddl",
+      "newDirectory": "packages/universo-react-schema-ddl",
+      "newPackageName": "@universo-react/schema-ddl"
+    },
+    {
+      "oldDirectoryName": "start-backend",
+      "oldDirectory": "packages/start-backend",
+      "oldPackageName": "@universo/start-backend",
+      "newDirectoryName": "universo-react-start-backend",
+      "newDirectory": "packages/universo-react-start-backend",
+      "newPackageName": "@universo-react/start-backend"
+    },
+    {
+      "oldDirectoryName": "start-frontend",
+      "oldDirectory": "packages/start-frontend",
+      "oldPackageName": "@universo/start-frontend",
+      "newDirectoryName": "universo-react-start-frontend",
+      "newDirectory": "packages/universo-react-start-frontend",
+      "newPackageName": "@universo-react/start-frontend"
+    },
+    {
+      "oldDirectoryName": "universo-store",
+      "oldDirectory": "packages/universo-store",
+      "oldPackageName": "@universo/store",
+      "newDirectoryName": "universo-react-store",
+      "newDirectory": "packages/universo-react-store",
+      "newPackageName": "@universo-react/store"
+    },
+    {
+      "oldDirectoryName": "universo-template-mui",
+      "oldDirectory": "packages/universo-template-mui",
+      "oldPackageName": "@universo/template-mui",
+      "newDirectoryName": "universo-react-template-mui",
+      "newDirectory": "packages/universo-react-template-mui",
+      "newPackageName": "@universo-react/template-mui"
+    },
+    {
+      "oldDirectoryName": "universo-types",
+      "oldDirectory": "packages/universo-types",
+      "oldPackageName": "@universo/types",
+      "newDirectoryName": "universo-react-types",
+      "newDirectory": "packages/universo-react-types",
+      "newPackageName": "@universo-react/types"
+    },
+    {
+      "oldDirectoryName": "universo-utils",
+      "oldDirectory": "packages/universo-utils",
+      "oldPackageName": "@universo/utils",
+      "newDirectoryName": "universo-react-utils",
+      "newDirectory": "packages/universo-react-utils",
+      "newPackageName": "@universo-react/utils"
+    }
+  ]
+}

@@ -58,10 +58,10 @@ All primary LMS concepts are represented as ordinary metahub entities.
 Page content is edited in the metahub on the entity-owned content route:
 `/metahub/:metahubId/entities/:kindKey/instance/:entityId/content`.
 
-The authoring surface uses the official Editor.js core and tools through the shared `@universo/template-mui` editor adapter.
+The authoring surface uses the official Editor.js core and tools through the shared `@universo-react/template-mui` editor adapter.
 The backend does not persist raw Editor.js `OutputData`; it normalizes supported blocks into the canonical Page block schema and rejects unsafe text, unsupported blocks, and unsafe URLs before persistence.
 Published applications do not bundle Editor.js for rendering.
-`packages/apps-template-mui` renders the canonical Page blocks through the existing runtime dashboard components.
+`packages/universo-react-apps-template-mui` renders the canonical Page blocks through the existing runtime dashboard components.
 
 ## Widget Layer
 

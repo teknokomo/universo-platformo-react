@@ -41,64 +41,64 @@ Both changes affect the same DDL pipeline (`naming.ts` → `snapshot.ts` → `di
 
 ## Affected Areas (Files by Package)
 
-### Package 1: `@universo/schema-ddl` (Core DDL Engine)
+### Package 1: `@universo-react/schema-ddl` (Core DDL Engine)
 
 | File | Changes | Lines |
 |---|---|---|
-| [naming.ts](packages/schema-ddl/base/src/naming.ts) | Replace `generateTabularTableName()` → `generateChildTableName()` | L48-56 |
-| [types.ts](packages/schema-ddl/base/src/types.ts) | No changes needed (`columnName` already stores child table name) | L7-21 |
-| [snapshot.ts](packages/schema-ddl/base/src/snapshot.ts) | Use new `generateChildTableName()`, increment snapshot version | L4, 28, 34 |
-| [diff.ts](packages/schema-ddl/base/src/diff.ts) | Update table name resolution for TABLE fields | L174, 264 |
-| [SchemaGenerator.ts](packages/schema-ddl/base/src/SchemaGenerator.ts) | 3 calls to `generateTabularTableName` (L143, L302, L1029) + 18 refs to `_app_enum_values` → `_app_values` | L5, 113, 117, 143, 291-401, 432, 438, 827-885, 953, 958, 1029 |
-| [SchemaMigrator.ts](packages/schema-ddl/base/src/SchemaMigrator.ts) | Update FK target + tabular table creation | L299, 341-400 |
-| [index.ts](packages/schema-ddl/base/src/index.ts) | Update public exports | L28 |
+| [naming.ts](packages/universo-react-schema-ddl/base/src/naming.ts) | Replace `generateTabularTableName()` → `generateChildTableName()` | L48-56 |
+| [types.ts](packages/universo-react-schema-ddl/base/src/types.ts) | No changes needed (`columnName` already stores child table name) | L7-21 |
+| [snapshot.ts](packages/universo-react-schema-ddl/base/src/snapshot.ts) | Use new `generateChildTableName()`, increment snapshot version | L4, 28, 34 |
+| [diff.ts](packages/universo-react-schema-ddl/base/src/diff.ts) | Update table name resolution for TABLE fields | L174, 264 |
+| [SchemaGenerator.ts](packages/universo-react-schema-ddl/base/src/SchemaGenerator.ts) | 3 calls to `generateTabularTableName` (L143, L302, L1029) + 18 refs to `_app_enum_values` → `_app_values` | L5, 113, 117, 143, 291-401, 432, 438, 827-885, 953, 958, 1029 |
+| [SchemaMigrator.ts](packages/universo-react-schema-ddl/base/src/SchemaMigrator.ts) | Update FK target + tabular table creation | L299, 341-400 |
+| [index.ts](packages/universo-react-schema-ddl/base/src/index.ts) | Update public exports | L28 |
 | Tests: `naming.test.ts` (15+ refs), `snapshot.test.ts` (3 refs), `diff.test.ts` (7 refs), `SchemaMigrator.test.ts` (2 refs) | Rewrite tests with new naming | - |
 
-### Package 2: `@universo/metahubs-backend`
+### Package 2: `@universo-react/metahubs-backend`
 
 | File | Changes | Lines |
 |---|---|---|
-| [ddl/index.ts](packages/metahubs-backend/base/src/domains/ddl/index.ts) | **Re-export**: `generateTabularTableName` → `generateChildTableName` | L22 |
-| [systemTableDefinitions.ts](packages/metahubs-backend/base/src/domains/metahubs/services/systemTableDefinitions.ts) | `_mhb_enum_values` → `_mhb_values` | L170 |
-| [MetahubEnumerationValuesService.ts](packages/metahubs-backend/base/src/domains/metahubs/services/MetahubEnumerationValuesService.ts) | 25+ refs: table name + index names | all |
-| [applicationSyncRoutes.ts](packages/metahubs-backend/base/src/domains/applications/routes/applicationSyncRoutes.ts) | `generateTabularTableName` → `generateChildTableName`, `_app_enum_values` → `_app_values` | L33, 451, 676 |
-| [TemplateSeedExecutor.ts](packages/metahubs-backend/base/src/domains/templates/services/TemplateSeedExecutor.ts) | 3 refs to `_mhb_enum_values` (L428, L442, L457) | - |
-| [TemplateSeedMigrator.ts](packages/metahubs-backend/base/src/domains/templates/services/TemplateSeedMigrator.ts) | 3 refs to `_mhb_enum_values` (L615, L633, L648) | - |
+| [ddl/index.ts](packages/universo-react-metahubs-backend/base/src/domains/ddl/index.ts) | **Re-export**: `generateTabularTableName` → `generateChildTableName` | L22 |
+| [systemTableDefinitions.ts](packages/universo-react-metahubs-backend/base/src/domains/metahubs/services/systemTableDefinitions.ts) | `_mhb_enum_values` → `_mhb_values` | L170 |
+| [MetahubEnumerationValuesService.ts](packages/universo-react-metahubs-backend/base/src/domains/metahubs/services/MetahubEnumerationValuesService.ts) | 25+ refs: table name + index names | all |
+| [applicationSyncRoutes.ts](packages/universo-react-metahubs-backend/base/src/domains/applications/routes/applicationSyncRoutes.ts) | `generateTabularTableName` → `generateChildTableName`, `_app_enum_values` → `_app_values` | L33, 451, 676 |
+| [TemplateSeedExecutor.ts](packages/universo-react-metahubs-backend/base/src/domains/templates/services/TemplateSeedExecutor.ts) | 3 refs to `_mhb_enum_values` (L428, L442, L457) | - |
+| [TemplateSeedMigrator.ts](packages/universo-react-metahubs-backend/base/src/domains/templates/services/TemplateSeedMigrator.ts) | 3 refs to `_mhb_enum_values` (L615, L633, L648) | - |
 | Tests: `structureVersions.test.ts` (1 ref), `metahubSchemaService.test.ts` (1 ref) | Update table names | - |
 
-### Package 3: `@universo/applications-backend`
+### Package 3: `@universo-react/applications-backend`
 
 | File | Changes | Lines |
 |---|---|---|
-| [applicationsRoutes.ts](packages/applications-backend/base/src/routes/applicationsRoutes.ts) | 5x `generateTabularTableName` → resolve from `_app_attributes`, 2x `_app_enum_values` → `_app_values` | L7, 591, 734, 1286, 1501, 1891, 2160, 2250 |
+| [applicationsRoutes.ts](packages/universo-react-applications-backend/base/src/routes/applicationsRoutes.ts) | 5x `generateTabularTableName` → resolve from `_app_attributes`, 2x `_app_enum_values` → `_app_values` | L7, 591, 734, 1286, 1501, 1891, 2160, 2250 |
 | Tests: `applicationsRoutes.test.ts` | 2x SQL pattern `_app_enum_values` → `_app_values` (L751, L803) | - |
 
 ### Package 4: `apps-template-mui` (Frontend)
 
 | File | Changes | Lines |
 |---|---|---|
-| [api/api.ts](packages/apps-template-mui/src/api/api.ts) | No structural changes (uses URL-based API) | - |
-| [components/RuntimeInlineTabularEditor.tsx](packages/apps-template-mui/src/components/RuntimeInlineTabularEditor.tsx) | `_tp_sort_order` refs stay (column name unchanged) | L133, 189, 209 |
-| [components/TabularPartEditor.tsx](packages/apps-template-mui/src/components/TabularPartEditor.tsx) | `_tp_sort_order` refs stay | L76, 85 |
+| [api/api.ts](packages/universo-react-apps-template-mui/src/api/api.ts) | No structural changes (uses URL-based API) | - |
+| [components/RuntimeInlineTabularEditor.tsx](packages/universo-react-apps-template-mui/src/components/RuntimeInlineTabularEditor.tsx) | `_tp_sort_order` refs stay (column name unchanged) | L133, 189, 209 |
+| [components/TabularPartEditor.tsx](packages/universo-react-apps-template-mui/src/components/TabularPartEditor.tsx) | `_tp_sort_order` refs stay | L76, 85 |
 | i18n: en/apps.json, ru/apps.json | No changes needed | - |
 
-### Package 5: `@universo/metahubs-frontend`
+### Package 5: `@universo-react/metahubs-frontend`
 
 | File | Changes | Lines |
 |---|---|---|
-| [types.ts](packages/metahubs-frontend/base/src/types.ts) | Comment update: `_mhb_enum_values` → `_mhb_values` | L355 |
+| [types.ts](packages/universo-react-metahubs-frontend/base/src/types.ts) | Comment update: `_mhb_enum_values` → `_mhb_values` | L355 |
 
-### Package 6: `@universo/types`
+### Package 6: `@universo-react/types`
 
 | File | Changes | Lines |
 |---|---|---|
-| [common/metahubs.ts](packages/universo-types/base/src/common/metahubs.ts) | Comment updates only | L253, 289 |
+| [common/metahubs.ts](packages/universo-react-types/base/src/common/metahubs.ts) | Comment updates only | L253, 289 |
 
 ---
 
 ## Implementation Plan (Step-by-Step)
 
-### Phase 1: Core DDL Engine (`@universo/schema-ddl`)
+### Phase 1: Core DDL Engine (`@universo-react/schema-ddl`)
 
 > All subsequent packages depend on this. Must be completed first.
 
@@ -398,7 +398,7 @@ await this.generator.createTabularTable(schemaName, parentTableName, tableField,
 
 #### Step 1.8: Update tests
 
-All test files in `packages/schema-ddl/base/src/__tests__/`:
+All test files in `packages/universo-react-schema-ddl/base/src/__tests__/`:
 
 - `naming.test.ts` (15+ refs): Replace import and all usages of `generateTabularTableName` → `generateChildTableName`. Update all expected values from `{parent}_tp_{id12}` → `tbl_{uuid32}`. Note: new function takes only 1 argument (`attributeId`), not 2.
 - `snapshot.test.ts` (3 refs):
@@ -412,13 +412,13 @@ All test files in `packages/schema-ddl/base/src/__tests__/`:
 
 ---
 
-### Phase 2: Metahub Backend (`@universo/metahubs-backend`)
+### Phase 2: Metahub Backend (`@universo-react/metahubs-backend`)
 
 #### Step 2.0: Update re-export in `ddl/index.ts`
 
-**File**: `packages/metahubs-backend/base/src/domains/ddl/index.ts` (L22)
+**File**: `packages/universo-react-metahubs-backend/base/src/domains/ddl/index.ts` (L22)
 
-This file re-exports pure functions from `@universo/schema-ddl`. Must update to re-export the renamed function:
+This file re-exports pure functions from `@universo-react/schema-ddl`. Must update to re-export the renamed function:
 
 ```typescript
 // Before
@@ -428,7 +428,7 @@ export {
     generateColumnName,
     generateTabularTableName,
     ...
-} from '@universo/schema-ddl'
+} from '@universo-react/schema-ddl'
 
 // After
 export {
@@ -437,10 +437,10 @@ export {
     generateColumnName,
     generateChildTableName,
     ...
-} from '@universo/schema-ddl'
+} from '@universo-react/schema-ddl'
 ```
 
-> **Why this matters**: `applicationSyncRoutes.ts` imports `generateTabularTableName` from `'../../ddl'` (this file), NOT directly from `@universo/schema-ddl`. Without updating this re-export, Step 2.3 will fail to compile.
+> **Why this matters**: `applicationSyncRoutes.ts` imports `generateTabularTableName` from `'../../ddl'` (this file), NOT directly from `@universo-react/schema-ddl`. Without updating this re-export, Step 2.3 will fail to compile.
 
 #### Step 2.1: Rename `_mhb_enum_values` in `systemTableDefinitions.ts`
 
@@ -483,10 +483,10 @@ Replace all 25+ occurrences of `'_mhb_enum_values'` → `'_mhb_values'` (string 
 **Change** at L33 (import):
 ```typescript
 // Before
-import { generateTabularTableName, ... } from '@universo/schema-ddl'
+import { generateTabularTableName, ... } from '@universo-react/schema-ddl'
 
 // After
-import { generateChildTableName, ... } from '@universo/schema-ddl'
+import { generateChildTableName, ... } from '@universo-react/schema-ddl'
 ```
 
 **Change** at L451 (seed TABLE child rows):
@@ -525,17 +525,17 @@ In `TemplateSeedExecutor.ts` and `TemplateSeedMigrator.ts`:
 
 ---
 
-### Phase 3: Applications Backend (`@universo/applications-backend`)
+### Phase 3: Applications Backend (`@universo-react/applications-backend`)
 
 #### Step 3.1: Update import in `applicationsRoutes.ts`
 
 **Change** at L7:
 ```typescript
 // Before
-import { cloneSchemaWithExecutor, generateSchemaName, isValidSchemaName, generateTabularTableName } from '@universo/schema-ddl'
+import { cloneSchemaWithExecutor, generateSchemaName, isValidSchemaName, generateTabularTableName } from '@universo-react/schema-ddl'
 
 // After
-import { cloneSchemaWithExecutor, generateSchemaName, isValidSchemaName, generateChildTableName } from '@universo/schema-ddl'
+import { cloneSchemaWithExecutor, generateSchemaName, isValidSchemaName, generateChildTableName } from '@universo-react/schema-ddl'
 ```
 
 #### Step 3.2: Replace 5 calls to `generateTabularTableName`
@@ -604,7 +604,7 @@ At types.ts L355:
 /** Stores value options in _mhb_values. */
 ```
 
-#### Step 4.3: `@universo/types` — Comment updates only
+#### Step 4.3: `@universo-react/types` — Comment updates only
 
 At common/metahubs.ts L253, L289:
 ```typescript
@@ -618,15 +618,15 @@ At common/metahubs.ts L253, L289:
 #### Step 5.1: Build verification
 ```bash
 # Build the core DDL package first (dependency for all backends)
-pnpm --filter @universo/schema-ddl build
+pnpm --filter @universo-react/schema-ddl build
 
 # Build affected backend packages
-pnpm --filter @universo/metahubs-backend build
-pnpm --filter @universo/applications-backend build
+pnpm --filter @universo-react/metahubs-backend build
+pnpm --filter @universo-react/applications-backend build
 
 # Build affected frontend packages
 pnpm --filter apps-template-mui build
-pnpm --filter @universo/metahubs-frontend build
+pnpm --filter @universo-react/metahubs-frontend build
 
 # Full workspace build
 pnpm build
@@ -634,9 +634,9 @@ pnpm build
 
 #### Step 5.2: Lint verification
 ```bash
-pnpm --filter @universo/schema-ddl lint
-pnpm --filter @universo/metahubs-backend lint
-pnpm --filter @universo/applications-backend lint
+pnpm --filter @universo-react/schema-ddl lint
+pnpm --filter @universo-react/metahubs-backend lint
+pnpm --filter @universo-react/applications-backend lint
 ```
 
 #### Step 5.3: Global grep for remnants
@@ -713,7 +713,7 @@ tbl_<UUIDv7> ──────┤    junction table: tbl_<UUIDv7>_parents
 
 ## Summary Checklist
 
-### Phase 1: `@universo/schema-ddl` (6 source files + 4 test files)
+### Phase 1: `@universo-react/schema-ddl` (6 source files + 4 test files)
 - [ ] Step 1.1: Rename `generateTabularTableName` → `generateChildTableName` in `naming.ts`
 - [ ] Step 1.2: Update public exports in `index.ts`
 - [ ] Step 1.3: Verify `types.ts` — no changes needed
@@ -726,7 +726,7 @@ tbl_<UUIDv7> ──────┤    junction table: tbl_<UUIDv7>_parents
 - [ ] Step 1.7: Update `SchemaMigrator.ts` — FK target table name
 - [ ] Step 1.8: Update all DDL tests (naming 15+, snapshot 3, diff 7, migrator 2)
 
-### Phase 2: `@universo/metahubs-backend` (6+ source files + 2 test files)
+### Phase 2: `@universo-react/metahubs-backend` (6+ source files + 2 test files)
 - [ ] Step 2.0: Update re-export `generateTabularTableName` → `generateChildTableName` in `ddl/index.ts`
 - [ ] Step 2.1: Rename `_mhb_enum_values` → `_mhb_values` in `systemTableDefinitions.ts`
 - [ ] Step 2.2: Update `MetahubEnumerationValuesService.ts` (25+ refs)
@@ -734,7 +734,7 @@ tbl_<UUIDv7> ──────┤    junction table: tbl_<UUIDv7>_parents
 - [ ] Step 2.4: Update template seed files (2 files, 6 refs total)
 - [ ] Step 2.5: Update tests
 
-### Phase 3: `@universo/applications-backend` (1 source file + 1 test file)
+### Phase 3: `@universo-react/applications-backend` (1 source file + 1 test file)
 - [ ] Step 3.1: Update import in `applicationsRoutes.ts`
 - [ ] Step 3.2: Replace 5 calls to `generateTabularTableName`
 - [ ] Step 3.3: Replace 2 `_app_enum_values` references
@@ -744,7 +744,7 @@ tbl_<UUIDv7> ──────┤    junction table: tbl_<UUIDv7>_parents
 ### Phase 4: Frontend (comment-only changes)
 - [ ] Step 4.1: Verify `apps-template-mui` — no changes needed
 - [ ] Step 4.2: Update comment in `metahubs-frontend` types.ts
-- [ ] Step 4.3: Update comments in `@universo/types`
+- [ ] Step 4.3: Update comments in `@universo-react/types`
 
 ### Phase 5: Verification
 - [ ] Step 5.1: Build verification (`pnpm build`)

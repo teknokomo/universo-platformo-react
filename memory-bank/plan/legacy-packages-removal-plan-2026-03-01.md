@@ -80,17 +80,17 @@ All cross-references in routes, entities, migrations, menus, breadcrumbs, hooks,
 
 ## Plan Steps (Execution Order)
 
-### Phase 1: @universo/types Cleanup (Foundation — must be first!)
+### Phase 1: @universo-react/types Cleanup (Foundation — must be first!)
 
-Other packages import from `@universo/types`, so removing types first prevents build cascade issues.
+Other packages import from `@universo-react/types`, so removing types first prevents build cascade issues.
 
 - [ ] **Step 1.1**: Remove validation schema files
 
   Delete these 4 files entirely:
-  - `packages/universo-types/base/src/validation/clusters.ts`
-  - `packages/universo-types/base/src/validation/projects.ts`
-  - `packages/universo-types/base/src/validation/organizations.ts`
-  - `packages/universo-types/base/src/validation/storages.ts`
+  - `packages/universo-react-types/base/src/validation/clusters.ts`
+  - `packages/universo-react-types/base/src/validation/projects.ts`
+  - `packages/universo-react-types/base/src/validation/organizations.ts`
+  - `packages/universo-react-types/base/src/validation/storages.ts`
 
   Note: there is no `campaigns.ts` in validation/ — campaigns schemas are only in the backend package.
 
@@ -107,7 +107,7 @@ Other packages import from `@universo/types`, so removing types first prevents b
 
 - [ ] **Step 1.3**: Clean up PermissionSubject type and PERMISSION_SUBJECTS array
 
-  File: `packages/universo-types/base/src/common/admin.ts`
+  File: `packages/universo-react-types/base/src/common/admin.ts`
 
   **Before** (lines 248-287):
   ```typescript
@@ -319,7 +319,7 @@ Other packages import from `@universo/types`, so removing types first prevents b
 
 - [ ] **Step 3.1**: Clean PermissionSubjects in admin-backend schema
 
-  File: `packages/admin-backend/base/src/schemas/index.ts`
+  File: `packages/universo-react-admin-backend/base/src/schemas/index.ts`
 
   **Before** (lines 68-86):
   ```typescript
@@ -364,7 +364,7 @@ Other packages import from `@universo/types`, so removing types first prevents b
 
 - [ ] **Step 3.2**: Remove admin i18n subject translations
 
-  File: `packages/admin-frontend/base/src/i18n/en/admin.json`
+  File: `packages/universo-react-admin-frontend/base/src/i18n/en/admin.json`
 
   **REMOVE** from `roles.permissions.subjects`:
   ```json
@@ -375,7 +375,7 @@ Other packages import from `@universo/types`, so removing types first prevents b
   "campaigns": "Campaigns",
   ```
 
-  File: `packages/admin-frontend/base/src/i18n/ru/admin.json`
+  File: `packages/universo-react-admin-frontend/base/src/i18n/ru/admin.json`
 
   **REMOVE** same keys with Russian translations.
 
@@ -505,7 +505,7 @@ Other packages import from `@universo/types`, so removing types first prevents b
 
 - [ ] **Step 4.7**: Clean breadcrumb hooks
 
-  File: `packages/universo-template-mui/base/src/hooks/useBreadcrumbName.ts`
+  File: `packages/universo-react-template-mui/base/src/hooks/useBreadcrumbName.ts`
 
   **REMOVE** 5 hook definitions (lines 205-253):
   ```typescript
@@ -518,7 +518,7 @@ Other packages import from `@universo/types`, so removing types first prevents b
 
   Also remove corresponding `truncateOrganizationName`, `truncateClusterName`, `truncateProjectName`, `truncateCampaignName`, `truncateStorageName` definitions (they use `createTruncateFunction`).
 
-  File: `packages/universo-template-mui/base/src/hooks/index.ts`
+  File: `packages/universo-react-template-mui/base/src/hooks/index.ts`
 
   **REMOVE** 10 re-exports:
   ```typescript
@@ -536,7 +536,7 @@ Other packages import from `@universo/types`, so removing types first prevents b
 
 - [ ] **Step 4.8**: Update test file
 
-  File: `packages/universo-template-mui/base/src/hooks/__tests__/useBreadcrumbName.test.ts`
+  File: `packages/universo-react-template-mui/base/src/hooks/__tests__/useBreadcrumbName.test.ts`
 
   Remove test cases for `useClusterName` and any other removed hooks.
 
@@ -630,12 +630,12 @@ Other packages import from `@universo/types`, so removing types first prevents b
 
   Verify no lint errors in modified files:
   ```bash
-  pnpm --filter @universo/template-mui lint
+  pnpm --filter @universo-react/template-mui lint
   pnpm --filter /core-backend lint
   pnpm --filter /core-frontend lint
-  pnpm --filter @universo/types lint
-  pnpm --filter @universo/admin-backend lint
-  pnpm --filter @universo/admin-frontend lint
+  pnpm --filter @universo-react/types lint
+  pnpm --filter @universo-react/admin-backend lint
+  pnpm --filter @universo-react/admin-frontend lint
   ```
 
 ---

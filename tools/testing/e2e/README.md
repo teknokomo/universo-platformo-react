@@ -55,10 +55,10 @@ This directory contains the browser-testing foundation for agent-driven verifica
 
 Use dedicated local-only files:
 
--   `packages/universo-core-backend/.env.e2e.local`
--   `packages/universo-core-frontend/.env.e2e.local`
--   `packages/universo-core-backend/.env.e2e.local-supabase` for optional local Supabase E2E runs
--   `packages/universo-core-frontend/.env.e2e.local-supabase` for optional local Supabase E2E runs
+-   `packages/universo-react-core-backend/.env.e2e.local`
+-   `packages/universo-react-core-frontend/.env.e2e.local`
+-   `packages/universo-react-core-backend/.env.e2e.local-supabase` for optional local Supabase E2E runs
+-   `packages/universo-react-core-frontend/.env.e2e.local-supabase` for optional local Supabase E2E runs
 
 Commit only the standard `.example` variants. The `*.local-supabase` files are generated from the selected local Supabase CLI profile and must stay untracked. Never commit real secrets or generated storage state.
 

@@ -19,11 +19,11 @@ All changes recorded in `memory-bank/` per `.gemini/rules/memory-bank.md` rules.
 `RecordList.tsx` and `InlineTableEditor.tsx` reference ~40 keys under `records.*` namespace that don't exist in either locale file. This causes `records.title` to show as raw text in Catalog tabs (confirmed by user's screenshot).
 
 **Files**:
-- [en/metahubs.json](packages/metahubs-frontend/base/src/i18n/locales/en/metahubs.json) — add `"records"` top-level section
-- [ru/metahubs.json](packages/metahubs-frontend/base/src/i18n/locales/ru/metahubs.json) — add matching Russian translations
+- [en/metahubs.json](packages/universo-react-metahubs-frontend/base/src/i18n/locales/en/metahubs.json) — add `"records"` top-level section
+- [ru/metahubs.json](packages/universo-react-metahubs-frontend/base/src/i18n/locales/ru/metahubs.json) — add matching Russian translations
 
 ### A.2: Add missing `tabs.treeEntities` keys (9 components)
-Components in [presets/ui/](packages/metahubs-frontend/base/src/domains/entities/presets/ui/) reference `hubs.tabs.treeEntities`, `catalogs.tabs.treeEntities`, `sets.tabs.treeEntities`, `enumerations.tabs.treeEntities` but these keys don't exist. Fallback shows raw `'TreeEntities'` or Russian `'Хабы'`.
+Components in [presets/ui/](packages/universo-react-metahubs-frontend/base/src/domains/entities/presets/ui/) reference `hubs.tabs.treeEntities`, `catalogs.tabs.treeEntities`, `sets.tabs.treeEntities`, `enumerations.tabs.treeEntities` but these keys don't exist. Fallback shows raw `'TreeEntities'` or Russian `'Хабы'`.
 
 **Files**: Same two locale files — add `"treeEntities"` key to each entity type's `tabs` section.
 
@@ -31,19 +31,19 @@ Components in [presets/ui/](packages/metahubs-frontend/base/src/domains/entities
 Untranslated strings in `deleteDialog` sections for hubs, catalogs, sets, enumerations, fixedValues. Systematic replacement of all English fragments:
 - `"Удалить hub"` → `"Удалить хаб"`, `"Set удалён"` → `"Набор удалён"`, etc.
 
-**File**: [ru/metahubs.json](packages/metahubs-frontend/base/src/i18n/locales/ru/metahubs.json)
+**File**: [ru/metahubs.json](packages/universo-react-metahubs-frontend/base/src/i18n/locales/ru/metahubs.json)
 
 ### A.4: Fix mixed pluralization in RU sets section
 Keys `constantsCount_few` / `constantsCount_many` should be `fixedValuesCount_few` / `fixedValuesCount_many`.
 
-**File**: [ru/metahubs.json](packages/metahubs-frontend/base/src/i18n/locales/ru/metahubs.json) under `sets` section
+**File**: [ru/metahubs.json](packages/universo-react-metahubs-frontend/base/src/i18n/locales/ru/metahubs.json) under `sets` section
 
 ### A.5: Fix EN/RU key asymmetry
 - Add `optionValues.copy.generalHint` to EN (exists only in RU)
 - Align `branches.copy.options.copyTreeEntities` naming between EN/RU
 
 ### Verification
-- `pnpm --filter @universo/metahubs-frontend build`
+- `pnpm --filter @universo-react/metahubs-frontend build`
 - Focused Vitest for RecordList, i18n, entity preset tests
 - Playwright screenshot of Catalogs section to verify `records.title` is fixed
 
@@ -58,7 +58,7 @@ Keys `constantsCount_few` / `constantsCount_many` should be `fixedValuesCount_fe
 - Entity types with `fixedValues: { enabled: true }` → participate in shared fixed values pool
 - Entity types with `optionValues: { enabled: true }` → participate in shared option values pool
 
-Current shared pool mapping is hardcoded in [shared.ts](packages/universo-types/base/src/common/shared.ts) (`SHARED_POOL_TO_TARGET_KIND`). The Resources section tabs are static in [SharedResourcesPage.tsx](packages/metahubs-frontend/base/src/domains/entities/shared/ui/SharedResourcesPage.tsx).
+Current shared pool mapping is hardcoded in [shared.ts](packages/universo-react-types/base/src/common/shared.ts) (`SHARED_POOL_TO_TARGET_KIND`). The Resources section tabs are static in [SharedResourcesPage.tsx](packages/universo-react-metahubs-frontend/base/src/domains/entities/shared/ui/SharedResourcesPage.tsx).
 
 **Approach**: Make Resources section tabs dynamic by reading entity type definitions from the metahub. If any entity type has the relevant component enabled, show the corresponding tab. This makes the shared pool system work for future custom entity types too — without adding new fields.
 
@@ -68,7 +68,7 @@ Current RU labels are abbreviated/unclear:
 - `"Списки значений"` → `"Значения перечислений"` (Enumeration values)
 - `"Фиксированные значения"` stays (already correct)
 
-**File**: [ru/metahubs.json](packages/metahubs-frontend/base/src/i18n/locales/ru/metahubs.json) — `general.tabs` section
+**File**: [ru/metahubs.json](packages/universo-react-metahubs-frontend/base/src/i18n/locales/ru/metahubs.json) — `general.tabs` section
 
 ### B.2: Make Resources tabs dynamic
 Instead of hardcoded 5 tabs, dynamically render based on entity type definitions:
@@ -77,7 +77,7 @@ Instead of hardcoded 5 tabs, dynamically render based on entity type definitions
 - MUI `Tabs`/`Tab` — already used in SharedResourcesPage.tsx (lines 91-102)
 - `useSharedContainerIds` hook — already exists
 - `FieldDefinitionListContent`, `FixedValueListContent`, `SelectableOptionListContent`, `LayoutListContent`, `EntityScriptsTab` — all existing
-- `ViewHeader` from `@universo/template-mui` — already used
+- `ViewHeader` from `@universo-react/template-mui` — already used
 
 **What changes**:
 - Add a hook/query to fetch entity type definitions for the current metahub
@@ -85,7 +85,7 @@ Instead of hardcoded 5 tabs, dynamically render based on entity type definitions
 - Layouts and Scripts tabs always show (they're not tied to entity types)
 
 **Files to modify**:
-- [SharedResourcesPage.tsx](packages/metahubs-frontend/base/src/domains/entities/shared/ui/SharedResourcesPage.tsx) — dynamic tab rendering
+- [SharedResourcesPage.tsx](packages/universo-react-metahubs-frontend/base/src/domains/entities/shared/ui/SharedResourcesPage.tsx) — dynamic tab rendering
 - No new components needed
 
 ### B.3: Update empty state descriptions
@@ -242,15 +242,15 @@ Phase A (i18n) ──→ Phase B (Resources + dynamic tabs) ──→ Phase E (D
 
 | Area | Files |
 |------|-------|
-| i18n EN | [en/metahubs.json](packages/metahubs-frontend/base/src/i18n/locales/en/metahubs.json) |
-| i18n RU | [ru/metahubs.json](packages/metahubs-frontend/base/src/i18n/locales/ru/metahubs.json) |
-| Resources UI | [SharedResourcesPage.tsx](packages/metahubs-frontend/base/src/domains/entities/shared/ui/SharedResourcesPage.tsx) |
-| Shared types | [shared.ts](packages/universo-types/base/src/common/shared.ts) |
-| ComponentManifest | [entityComponents.ts](packages/universo-types/base/src/common/entityComponents.ts) |
-| Entity type defs | [standardEntityTypeDefinitions.ts](packages/metahubs-backend/base/src/domains/templates/data/standardEntityTypeDefinitions.ts) |
-| Shared container svc | [SharedContainerService.ts](packages/metahubs-backend/base/src/domains/shared/services/SharedContainerService.ts) |
-| Snapshot hash | [publicationSnapshotHash.ts](packages/universo-utils/base/src/serialization/publicationSnapshotHash.ts) |
-| Snapshot archive | [snapshotArchive.ts](packages/universo-utils/base/src/snapshot/snapshotArchive.ts) |
+| i18n EN | [en/metahubs.json](packages/universo-react-metahubs-frontend/base/src/i18n/locales/en/metahubs.json) |
+| i18n RU | [ru/metahubs.json](packages/universo-react-metahubs-frontend/base/src/i18n/locales/ru/metahubs.json) |
+| Resources UI | [SharedResourcesPage.tsx](packages/universo-react-metahubs-frontend/base/src/domains/entities/shared/ui/SharedResourcesPage.tsx) |
+| Shared types | [shared.ts](packages/universo-react-types/base/src/common/shared.ts) |
+| ComponentManifest | [entityComponents.ts](packages/universo-react-types/base/src/common/entityComponents.ts) |
+| Entity type defs | [standardEntityTypeDefinitions.ts](packages/universo-react-metahubs-backend/base/src/domains/templates/data/standardEntityTypeDefinitions.ts) |
+| Shared container svc | [SharedContainerService.ts](packages/universo-react-metahubs-backend/base/src/domains/shared/services/SharedContainerService.ts) |
+| Snapshot hash | [publicationSnapshotHash.ts](packages/universo-react-utils/base/src/serialization/publicationSnapshotHash.ts) |
+| Snapshot archive | [snapshotArchive.ts](packages/universo-react-utils/base/src/snapshot/snapshotArchive.ts) |
 | Self-hosted fixture | [metahubs-self-hosted-app-snapshot.json](tools/fixtures/metahubs-self-hosted-app-snapshot.json) |
 | Quiz fixture | [metahubs-quiz-app-snapshot.json](tools/fixtures/metahubs-quiz-app-snapshot.json) |
 | Self-hosted generator | [metahubs-self-hosted-app-export.spec.ts](tools/testing/e2e/specs/generators/metahubs-self-hosted-app-export.spec.ts) |
@@ -265,8 +265,8 @@ Phase A (i18n) ──→ Phase B (Resources + dynamic tabs) ──→ Phase E (D
 - No legacy code preservation (test DB recreated)
 - Playwright CLI on port 3100 (not `pnpm dev`)
 - All text i18n-ready immediately (UUID v7, TanStack Query)
-- Shared types → `packages/universo-types`, shared utils → `packages/universo-utils`
-- Common UI → `packages/universo-template-mui`, common i18n → `packages/universo-i18n`
+- Shared types → `packages/universo-react-types`, shared utils → `packages/universo-react-utils`
+- Common UI → `packages/universo-react-template-mui`, common i18n → `packages/universo-react-i18n`
 - **No new UI components** — reuse existing MUI Tabs/Tab, FieldDefinitionListContent, FixedValueListContent, etc.
 - **No new fields in ComponentManifest** — derive shared pool participation from existing `dataSchema`/`fixedValues`/`optionValues` flags
 

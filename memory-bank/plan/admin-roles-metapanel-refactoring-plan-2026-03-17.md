@@ -66,7 +66,7 @@ New ENV flag: `AUTO_ROLE_AFTER_ONBOARDING=true|false`.
 - `false`: completion only marks onboarding finished; the user remains in the `/start` completion state until an admin grants an additional role.
 
 ### AD-5: Метапанель Is a Separate Frontend Package
-New package: `packages/metapanel-frontend/base/` — follows the same dual-build TSX pattern as other frontend packages (tsdown, `dist/` output). Provides dashboard stat cards. **Important**: `MainGrid` has hardcoded cards and does not accept a `cards` prop. Метапанель renders `StatCard` components directly in a `Grid` layout.
+New package: `packages/universo-react-metapanel-frontend/base/` — follows the same dual-build TSX pattern as other frontend packages (tsdown, `dist/` output). Provides dashboard stat cards. **Important**: `MainGrid` has hardcoded cards and does not accept a `cards` prop. Метапанель renders `StatCard` components directly in a `Grid` layout.
 
 ### AD-6: Menu Visibility Is Role-Based, Section-Aware, and Separate From Footer Actions
 Role-based visibility uses role codenames from `useHasGlobalAccess().globalRoles`, but it must model the real shell structure instead of only `rootMenuItems`:
@@ -110,7 +110,7 @@ Authorization refresh after role/lifecycle changes must call `useAbility().refre
 
 ### Step 0.1 — Extend CASL Subjects
 
-**File**: `packages/universo-types/base/src/abilities/index.ts`
+**File**: `packages/universo-react-types/base/src/abilities/index.ts`
 
 Current `Subjects` type: `'Publication' | 'Admin' | 'Role' | 'Instance' | 'all'`
 
@@ -145,17 +145,17 @@ const MODULE_TO_SUBJECT: Record<string, Subjects> = {
 }
 ```
 
-Export the shared module-to-subject map from `@universo/types` so frontend ability builders do not keep a second drift-prone version.
+Export the shared module-to-subject map from `@universo-react/types` so frontend ability builders do not keep a second drift-prone version.
 
 ### Step 0.2 — Synchronize `AbilityContextProvider` Subject Mapping
 
-**File**: `packages/universo-store/base/src/context/AbilityContextProvider.jsx`
+**File**: `packages/universo-react-store/base/src/context/AbilityContextProvider.jsx`
 
-The current frontend ability layer has its own local `MODULE_TO_SUBJECT` map. Update it to consume the shared exported map from `@universo/types`, or at minimum mirror the same subjects exactly (`applications`, `metahubs`, `profile`, `onboarding`). This step is required so the new backend role seeds and menu/routing logic are reflected in the actual client-side CASL state.
+The current frontend ability layer has its own local `MODULE_TO_SUBJECT` map. Update it to consume the shared exported map from `@universo-react/types`, or at minimum mirror the same subjects exactly (`applications`, `metahubs`, `profile`, `onboarding`). This step is required so the new backend role seeds and menu/routing logic are reflected in the actual client-side CASL state.
 
 ### Step 0.3 — Extend Admin Types
 
-**File**: `packages/universo-types/base/src/common/admin.ts`
+**File**: `packages/universo-react-types/base/src/common/admin.ts`
 
 Add new types:
 
@@ -197,7 +197,7 @@ export interface AdminCreateUserPayload {
 
 ### Step 0.4 — Add Section-Aware Role Menu Mapping
 
-**File**: `packages/universo-types/base/src/common/admin.ts`
+**File**: `packages/universo-react-types/base/src/common/admin.ts`
 
 ```typescript
 export interface RoleMenuVisibility {
@@ -214,7 +214,7 @@ export const ROLE_MENU_VISIBILITY: Record<string, RoleMenuVisibility> = {
 ```
 
 **Checklist:**
-- [ ] 0.1 — Extend Subjects type and export the shared module-to-subject map from `@universo/types`
+- [ ] 0.1 — Extend Subjects type and export the shared module-to-subject map from `@universo-react/types`
 - [ ] 0.2 — Synchronize `AbilityContextProvider` with the shared subject map / new subjects
 - [ ] 0.3 — Add multi-role types, copy payload, create-user payload, list item types
 - [ ] 0.4 — Add section-aware `ROLE_MENU_VISIBILITY` mapping
@@ -227,7 +227,7 @@ export const ROLE_MENU_VISIBILITY: Record<string, RoleMenuVisibility> = {
 
 ### Step 1.1 — Seed `registered` and `user` System Roles
 
-**File**: `packages/admin-backend/base/src/platform/migrations/index.ts`
+**File**: `packages/universo-react-admin-backend/base/src/platform/migrations/index.ts`
 
 Add to the `support` SQL array (after existing superuser seed):
 
@@ -312,11 +312,11 @@ WHERE r.codename = 'user'
 ### Step 1.3 — Introduce a Privileged System-Role Provisioning Helper
 
 **Files**:
-- `packages/auth-backend/base/src/routes/auth.ts`
-- `packages/start-backend/base/src/routes/index.ts`
-- `packages/start-backend/base/src/routes/onboardingRoutes.ts`
-- `packages/universo-core-backend/base/src/index.ts`
-- `packages/universo-core-backend/base/src/routes/index.ts`
+- `packages/universo-react-auth-backend/base/src/routes/auth.ts`
+- `packages/universo-react-start-backend/base/src/routes/index.ts`
+- `packages/universo-react-start-backend/base/src/routes/onboardingRoutes.ts`
+- `packages/universo-react-core-backend/base/src/index.ts`
+- `packages/universo-react-core-backend/base/src/routes/index.ts`
 
 Do **not** duplicate raw admin-role SQL independently in `auth-backend` and `start-backend`. Introduce one small privileged callback contract injected from bootstrap code:
 
@@ -334,7 +334,7 @@ export type AssignSystemRole = (input: AssignSystemRoleInput) => Promise<void>
 
 ### Step 1.4 — Auto-Assign `registered` Role After Registration
 
-**File**: `packages/auth-backend/base/src/routes/auth.ts`
+**File**: `packages/universo-react-auth-backend/base/src/routes/auth.ts`
 
 After successful user creation (after profile wait loop + consent update), call the injected helper instead of embedding admin SQL in the auth package:
 
@@ -351,8 +351,8 @@ await assignSystemRole?.({
 ### Step 1.5 — Onboarding Completion Role Transition Via the Same Helper
 
 **Files**:
-- `packages/start-backend/base/src/routes/index.ts`
-- `packages/start-backend/base/src/routes/onboardingRoutes.ts`
+- `packages/universo-react-start-backend/base/src/routes/index.ts`
+- `packages/universo-react-start-backend/base/src/routes/onboardingRoutes.ts`
 
 Extend `createStartServiceRoutes(...)` and `createOnboardingRoutes(...)` to receive the same privileged callback. The `/complete` handler remains the single authoritative lifecycle mutation and, when `AUTO_ROLE_AFTER_ONBOARDING !== 'false'`, adds `user` through the injected helper:
 
@@ -371,7 +371,7 @@ if (autoRole) {
 
 ### Step 1.6 — Add Required ENV Variables to `.env.example`
 
-**File**: `packages/universo-core-backend/base/.env.example`
+**File**: `packages/universo-react-core-backend/base/.env.example`
 
 ```bash
 # Onboarding
@@ -385,7 +385,7 @@ SERVICE_ROLE_KEY=your_service_role_key
 
 ### Step 1.6 — Role Copy Backend Route
 
-**File**: `packages/admin-backend/base/src/routes/rolesRoutes.ts`
+**File**: `packages/universo-react-admin-backend/base/src/routes/rolesRoutes.ts`
 
 Add POST `/:id/copy` endpoint inside `createRolesRoutes()` factory:
 
@@ -469,7 +469,7 @@ router.post('/:id/copy',
 
 ### Step 1.7 — Multi-Role Set Endpoint (With Superuser Exclusivity)
 
-**File**: `packages/admin-backend/base/src/routes/globalUsersRoutes.ts`
+**File**: `packages/universo-react-admin-backend/base/src/routes/globalUsersRoutes.ts`
 
 Add PUT `/:memberId/roles` inside `createGlobalUsersRoutes()` factory. This route uses `globalAccessService` internally (following existing pattern — globalUsersRoutes does NOT receive `getDbExecutor` directly).
 
@@ -519,7 +519,7 @@ router.put('/:memberId/roles',
 
 ### Step 1.8 — Add `setUserRoles` to GlobalAccessService
 
-**File**: `packages/admin-backend/base/src/services/globalAccessService.ts`
+**File**: `packages/universo-react-admin-backend/base/src/services/globalAccessService.ts`
 
 Add method with superuser exclusivity enforcement inside a single transaction:
 
@@ -585,7 +585,7 @@ async function setUserRoles(
 
 ### Step 1.9 — Admin-Side User Creation Endpoint
 
-**File**: `packages/admin-backend/base/src/routes/globalUsersRoutes.ts`
+**File**: `packages/universo-react-admin-backend/base/src/routes/globalUsersRoutes.ts`
 
 Add POST `/create-user` endpoint. Requires `supabaseAdmin` client injected into factory config:
 
@@ -646,7 +646,7 @@ router.post('/create-user',
 )
 ```
 
-**Note**: Extend `createGlobalUsersRoutes()` factory config to accept `supabaseAdmin` client, and build that client in `packages/universo-core-backend/base/src/routes/index.ts` from `SUPABASE_URL` + `SERVICE_ROLE_KEY`:
+**Note**: Extend `createGlobalUsersRoutes()` factory config to accept `supabaseAdmin` client, and build that client in `packages/universo-react-core-backend/base/src/routes/index.ts` from `SUPABASE_URL` + `SERVICE_ROLE_KEY`:
 ```typescript
 export function createGlobalUsersRoutes(config: {
   globalAccessService: GlobalAccessService
@@ -657,7 +657,7 @@ export function createGlobalUsersRoutes(config: {
 
 ### Step 1.10 — Update Backend User List to Return Multiple Roles + Users Without Roles
 
-**File**: `packages/admin-backend/base/src/services/globalAccessService.ts`
+**File**: `packages/universo-react-admin-backend/base/src/services/globalAccessService.ts`
 
 Update `listGlobalUsers()` to use LEFT JOIN and include users without roles:
 
@@ -694,11 +694,11 @@ This replaces the current INNER JOIN pattern so that **users without any role** 
 ### Step 1.11 — Introduce Dedicated Admin Dashboard Stats Contract
 
 **Files**:
-- `packages/admin-backend/base/src/routes/dashboardRoutes.ts` *(new)*
-- `packages/universo-core-backend/base/src/routes/index.ts`
-- `packages/admin-frontend/base/src/api/adminApi.ts`
-- `packages/admin-frontend/base/src/types.ts`
-- `packages/admin-frontend/base/src/pages/AdminBoard.tsx`
+- `packages/universo-react-admin-backend/base/src/routes/dashboardRoutes.ts` *(new)*
+- `packages/universo-react-core-backend/base/src/routes/index.ts`
+- `packages/universo-react-admin-frontend/base/src/api/adminApi.ts`
+- `packages/universo-react-admin-frontend/base/src/types.ts`
+- `packages/universo-react-admin-frontend/base/src/pages/AdminBoard.tsx`
 
 Add `GET /api/v1/admin/dashboard/stats` and move both AdminBoard and Метапанель to that contract. Do **not** overload `/admin/global-users/stats`, because the metapanel cards aggregate multiple domains.
 
@@ -718,7 +718,7 @@ Applications and MetaHubs counts must be real active-row counts, not placeholder
 
 ### Step 1.12 — One-Time Data Migration for Existing Users
 
-**File**: `packages/admin-backend/base/src/platform/migrations/index.ts`
+**File**: `packages/universo-react-admin-backend/base/src/platform/migrations/index.ts`
 
 Add migration SQL to `support` array (after role and permission seeds):
 
@@ -760,7 +760,7 @@ WHERE (p.onboarding_completed IS NULL OR p.onboarding_completed = false)
 
 ### Step 1.13 — Verify `/auth/permissions` Covers Menu Filtering and Ability Refresh
 
-**File**: `packages/auth-backend/base/src/services/permissionService.ts`
+**File**: `packages/universo-react-auth-backend/base/src/services/permissionService.ts`
 
 The existing `getFullPermissions()` already returns `globalRoles` with codenames and metadata. No backend shape change is required here, but Phase 4/5 must consume this endpoint through `AbilityContextProvider.refreshAbility()` instead of assuming TanStack Query ownership.
 
@@ -788,12 +788,12 @@ The existing `getFullPermissions()` already returns `globalRoles` with codenames
 
 ### Step 2.1 — Create RoleFormDialog for Create/Edit/Copy (Basic Fields Only)
 
-**File**: `packages/admin-frontend/base/src/components/RoleFormDialog.tsx` *(new)*
+**File**: `packages/universo-react-admin-frontend/base/src/components/RoleFormDialog.tsx` *(new)*
 
-Uses `EntityFormDialog` from `@universo/template-mui`. **No permissions tab** in this dialog — permissions are managed on the Role Detail Page per TZ requirement.
+Uses `EntityFormDialog` from `@universo-react/template-mui`. **No permissions tab** in this dialog — permissions are managed on the Role Detail Page per TZ requirement.
 
 ```tsx
-import { EntityFormDialog } from '@universo/template-mui'
+import { EntityFormDialog } from '@universo-react/template-mui'
 import { useTranslation } from 'react-i18next'
 import { ColorPicker } from './ColorPicker' // existing component
 
@@ -887,7 +887,7 @@ After creating a role → navigate to the new role's detail page: `/admin/instan
 
 ### Step 2.2 — Refactor RoleEdit.tsx Into Tabbed Layout
 
-**File**: `packages/admin-frontend/base/src/pages/RoleEdit.tsx` *(existing, refactor)*
+**File**: `packages/universo-react-admin-frontend/base/src/pages/RoleEdit.tsx` *(existing, refactor)*
 
 Refactor the existing monolithic page into a tabbed layout with two tabs. The existing `PermissionMatrix` component (from `../components/PermissionMatrix`) is already table-based with MUI `<Table>` and `showSelectAll` — it is **reused as-is**.
 
@@ -909,7 +909,7 @@ Basic form fields (codename, color, name, description) remain above the tabs, al
 import { Tabs, Tab, Box, Chip, Alert, Switch, FormControlLabel, Button, Stack, Divider } from '@mui/material'
 import { PermissionMatrix } from '../components/PermissionMatrix'
 import { ColorPicker } from '../components/ColorPicker'
-import { getVLCString } from '@universo/utils'
+import { getVLCString } from '@universo-react/utils'
 
 return (
   <Stack spacing={2}>
@@ -1015,17 +1015,17 @@ return (
 - Rename i18n label "Уникальный идентификатор" → "Кодовое имя"
 - Existing `PermissionMatrix` is **reused as-is** (no new component)
 - Existing `ColorPicker` from `../components/ColorPicker` is reused (NOT `ColorPickerField`)
-- Uses `getVLCString(field, locale)` from `@universo/utils` (NOT `getVlcContent`)
+- Uses `getVLCString(field, locale)` from `@universo-react/utils` (NOT `getVlcContent`)
 
 ### Step 2.3 — Update RolesList.tsx to Use BaseEntityMenu + Dialog
 
-**File**: `packages/admin-frontend/base/src/pages/RolesList.tsx` *(existing, refactor)*
+**File**: `packages/universo-react-admin-frontend/base/src/pages/RolesList.tsx` *(existing, refactor)*
 
 Add `BaseEntityMenu` with action descriptors for create/copy/delete. The "edit" action navigates to the Role Detail Page (does not open dialog).
 
 ```tsx
-import { BaseEntityMenu } from '@universo/template-mui'
-import type { ActionDescriptor } from '@universo/template-mui'
+import { BaseEntityMenu } from '@universo-react/template-mui'
+import type { ActionDescriptor } from '@universo-react/template-mui'
 
 const roleActionDescriptors: ActionDescriptor<RoleListItem>[] = [
   {
@@ -1083,7 +1083,7 @@ The "Add Role" button opens `RoleFormDialog` in create mode. On successful creat
 
 ### Step 2.4 — Add TanStack Query Mutations for Role CRUD + Copy
 
-**File**: `packages/admin-frontend/base/src/hooks/useRoleMutations.ts` *(new)*
+**File**: `packages/universo-react-admin-frontend/base/src/hooks/useRoleMutations.ts` *(new)*
 
 ```tsx
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -1140,15 +1140,15 @@ export function useRoleMutations() {
 
 ### Step 3.1 — Create UserFormDialog With Two Tabs
 
-**File**: `packages/admin-frontend/base/src/components/UserFormDialog.tsx` *(new)*
+**File**: `packages/universo-react-admin-frontend/base/src/components/UserFormDialog.tsx` *(new)*
 
 Uses `EntityFormDialog` with `hideDefaultFields` (no name/description) and **two tabs per TZ п.6**:
 - Tab 1: "Основное" (General) — user info (email, registration date, onboarding status; for create mode: email + password fields)
 - Tab 2: "Роли" (Roles) — EntitySelectionPanel for multi-role assignment
 
 ```tsx
-import { EntityFormDialog, EntitySelectionPanel } from '@universo/template-mui'
-import { getVLCString } from '@universo/utils'
+import { EntityFormDialog, EntitySelectionPanel } from '@universo-react/template-mui'
+import { getVLCString } from '@universo-react/utils'
 
 interface UserFormDialogProps {
   open: boolean
@@ -1285,7 +1285,7 @@ export const UserFormDialog: React.FC<UserFormDialogProps> = ({
 
 ### Step 3.2 — Update InstanceUsers.tsx for Multi-Role Display + Roleless Users
 
-**File**: `packages/admin-frontend/base/src/pages/InstanceUsers.tsx` *(existing, refactor)*
+**File**: `packages/universo-react-admin-frontend/base/src/pages/InstanceUsers.tsx` *(existing, refactor)*
 
 Update user cards/table to show multiple role chips and display users without roles:
 
@@ -1333,7 +1333,7 @@ Replace existing `MemberFormDialog` usage with the new `UserFormDialog` from Ste
 
 ### Step 4.1 — Refactor `OnboardingWizard` to Sync Selections Only
 
-**File**: `packages/start-frontend/base/src/components/OnboardingWizard.tsx`
+**File**: `packages/universo-react-start-frontend/base/src/components/OnboardingWizard.tsx`
 
 The wizard should continue saving selections on the last data step, but it must stop calling `completeOnboarding()` before the completion screen is shown. The last data step should only:
 - call `syncSelections(...)`
@@ -1344,7 +1344,7 @@ This removes the current duplicate-completion seam and aligns the flow with the 
 
 ### Step 4.2 — Update `CompletionStep.tsx`
 
-**File**: `packages/start-frontend/base/src/components/CompletionStep.tsx` *(existing, modify)*
+**File**: `packages/universo-react-start-frontend/base/src/components/CompletionStep.tsx` *(existing, modify)*
 
 Add a primary "Start Acting" button that calls `completeOnboarding()`, then refreshes authorization via `useAbility().refreshAbility()`:
 
@@ -1410,12 +1410,12 @@ When `AUTO_ROLE_AFTER_ONBOARDING=false`, the user remains registered-only even a
 
 ### Step 5.1 — Create `metapanel-frontend` Package
 
-**Directory**: `packages/metapanel-frontend/base/`
+**Directory**: `packages/universo-react-metapanel-frontend/base/`
 
 Structure:
 
 ```
-packages/metapanel-frontend/
+packages/universo-react-metapanel-frontend/
   base/
     src/
       index.ts              # Package entry
@@ -1430,7 +1430,7 @@ packages/metapanel-frontend/
 
 ```json
 {
-  "name": "@universo/metapanel-frontend",
+  "name": "@universo-react/metapanel-frontend",
   "version": "0.1.0",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
@@ -1440,10 +1440,10 @@ packages/metapanel-frontend/
     "lint": "eslint src/"
   },
   "dependencies": {
-    "@universo/template-mui": "workspace:*",
-    "@universo/store": "workspace:*",
-    "@universo/types": "workspace:*",
-    "@universo/i18n": "workspace:*",
+    "@universo-react/template-mui": "workspace:*",
+    "@universo-react/store": "workspace:*",
+    "@universo-react/types": "workspace:*",
+    "@universo-react/i18n": "workspace:*",
     "react": "^18.0.0",
     "@mui/material": "^5.0.0",
     "@tabler/icons-react": "^3.0.0"
@@ -1453,7 +1453,7 @@ packages/metapanel-frontend/
 
 ### Step 5.2 — MetapanelDashboard Component
 
-**File**: `packages/metapanel-frontend/base/src/MetapanelDashboard.tsx`
+**File**: `packages/universo-react-metapanel-frontend/base/src/MetapanelDashboard.tsx`
 
 Uses `StatCard` directly in a responsive `Grid` layout. **Important**: `MainGrid` has hardcoded cards and does NOT accept a `cards` prop. The dashboard composes `StatCard` + `Grid` directly.
 
@@ -1462,7 +1462,7 @@ Uses `StatCard` directly in a responsive `Grid` layout. **Important**: `MainGrid
 Use the dedicated dashboard stats contract from Phase 1, not `/admin/global-users/stats`.
 
 ```tsx
-import { StatCard } from '@universo/template-mui'
+import { StatCard } from '@universo-react/template-mui'
 import { Box, Typography, Grid } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
@@ -1518,9 +1518,9 @@ export const MetapanelDashboard: React.FC = () => {
 ### Step 5.3 — Add Explicit `/start` Route and Root Home Resolver
 
 **Files**:
-- `packages/universo-template-mui/base/src/routes/MainRoutesMUI.tsx`
-- `packages/start-frontend/base/src/views/StartPage.tsx`
-- `packages/start-frontend/base/src/views/AuthenticatedStartPage.tsx`
+- `packages/universo-react-template-mui/base/src/routes/MainRoutesMUI.tsx`
+- `packages/universo-react-start-frontend/base/src/views/StartPage.tsx`
+- `packages/universo-react-start-frontend/base/src/views/AuthenticatedStartPage.tsx`
 
 Routing changes required by the live shell architecture:
 - `/` becomes a resolver route: guest landing for unauthenticated visitors, `/start` for registered-only authenticated users, `/metapanel` for users with any non-registered role
@@ -1531,7 +1531,7 @@ Add a small resolver component or route element that reads auth + global roles a
 
 ### Step 5.4 — Add Метапанель to `rootMenuItems`
 
-**File**: `packages/universo-template-mui/base/src/navigation/menuConfigs.ts`
+**File**: `packages/universo-react-template-mui/base/src/navigation/menuConfigs.ts`
 
 Add Метапанель as the first item:
 
@@ -1552,8 +1552,8 @@ export const rootMenuItems: TemplateMenuItem[] = [
 ### Step 5.5 — Create `RegisteredUserGuard` and `StartAccessGuard`
 
 **Files**:
-- `packages/universo-template-mui/base/src/components/routing/RegisteredUserGuard.tsx` *(new)*
-- `packages/universo-template-mui/base/src/components/routing/StartAccessGuard.tsx` *(new)*
+- `packages/universo-react-template-mui/base/src/components/routing/RegisteredUserGuard.tsx` *(new)*
+- `packages/universo-react-template-mui/base/src/components/routing/StartAccessGuard.tsx` *(new)*
 
 `RegisteredUserGuard` blocks registered-only users from the main shell. `StartAccessGuard` does the inverse for `/start`: authenticated users with any non-registered role are redirected to `/metapanel`.
 
@@ -1562,10 +1562,10 @@ Properly typed — no `(r: any)` cast:
 ```tsx
 import React from 'react'
 import { Navigate } from 'react-router-dom'
-import { useAuth } from '@universo/auth-frontend'
-import { useHasGlobalAccess } from '@universo/store'
+import { useAuth } from '@universo-react/auth-frontend'
+import { useHasGlobalAccess } from '@universo-react/store'
 import { Loader } from '../feedback/loading'
-import type { GlobalRoleInfo } from '@universo/types'
+import type { GlobalRoleInfo } from '@universo-react/types'
 
 export const RegisteredUserGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, loading: authLoading } = useAuth()
@@ -1591,14 +1591,14 @@ Wrap the **entire** main shell with `RegisteredUserGuard`; do not only guard `/m
 
 ### Step 5.6 — Add Section-Aware Role-Based Menu Filtering
 
-**File**: `packages/universo-template-mui/base/src/components/dashboard/MenuContent.tsx` *(existing, modify)*
+**File**: `packages/universo-react-template-mui/base/src/components/dashboard/MenuContent.tsx` *(existing, modify)*
 
 Add filtering logic to the real shell structure, not only to `rootMenuItems`:
 
 ```tsx
-import { useHasGlobalAccess } from '@universo/store'
-import { ROLE_MENU_VISIBILITY } from '@universo/types'
-import type { GlobalRoleInfo } from '@universo/types'
+import { useHasGlobalAccess } from '@universo-react/store'
+import { ROLE_MENU_VISIBILITY } from '@universo-react/types'
+import type { GlobalRoleInfo } from '@universo-react/types'
 
 // Inside MenuContent component
 const { globalRoles, isSuperuser, canAccessAdminPanel } = useHasGlobalAccess()
@@ -1634,10 +1634,10 @@ const showMetahubsSection = isSuperuser || shellVisibility.showMetahubsSection
 
 ### Step 5.7 — Add `/metapanel` Route and Wrap the Main Shell
 
-**File**: `packages/universo-template-mui/base/src/routes/MainRoutesMUI.tsx` *(existing, modify)*
+**File**: `packages/universo-react-template-mui/base/src/routes/MainRoutesMUI.tsx` *(existing, modify)*
 
 ```tsx
-import { MetapanelDashboard } from '@universo/metapanel-frontend'
+import { MetapanelDashboard } from '@universo-react/metapanel-frontend'
 import { RegisteredUserGuard } from '../components/routing/RegisteredUserGuard'
 import { StartAccessGuard } from '../components/routing/StartAccessGuard'
 
@@ -1647,13 +1647,13 @@ import { StartAccessGuard } from '../components/routing/StartAccessGuard'
 
 ### Step 5.8 — Register i18n Namespace & Package Entry
 
-**File**: `packages/metapanel-frontend/base/src/index.ts`
+**File**: `packages/universo-react-metapanel-frontend/base/src/index.ts`
 
 ```typescript
 export { MetapanelDashboard } from './MetapanelDashboard'
 ```
 
-Add metapanel i18n namespace files under `packages/universo-i18n/base/` for EN and RU locales.
+Add metapanel i18n namespace files under `packages/universo-react-i18n/base/` for EN and RU locales.
 
 **Checklist:**
 - [ ] 5.1 — Create `metapanel-frontend` package with dual-build (tsdown, tsconfig.json + tsconfig.esm.json)
@@ -1673,21 +1673,21 @@ Add metapanel i18n namespace files under `packages/universo-i18n/base/` for EN a
 
 | Package | File | Coverage |
 |---|---|---|
-| `@universo/types` | `src/abilities/__tests__/index.test.ts` | New subjects map, defineAbilitiesFor with new subjects |
-| `@universo/admin-backend` | `src/tests/routes/rolesRoutes.test.ts` | Role copy route (codename validation, permissions copy, transaction rollback, duplicate codename 409) |
-| `@universo/admin-backend` | `src/tests/routes/globalUsersRoutes.test.ts` | Multi-role set (superuser exclusivity, self-modification 400, Zod UUID array validation), user creation (Supabase call, role assignment) |
-| `@universo/admin-backend` | `src/tests/services/globalAccessService.test.ts` | `setUserRoles` (transaction, superuser clears others, empty roleIds removes all, invalid UUID 400) |
-| `@universo/auth-backend` | `src/tests/routes/auth.test.ts` | Registration auto-assigns `registered` role |
-| `@universo/start-backend` | `src/tests/routes/onboardingRoutes.test.ts` | Onboarding completion adds `user` role (ENV true), no role when ENV false |
-| `@universo/admin-frontend` | `src/components/__tests__/RoleFormDialog.test.tsx` | Create/edit/copy modes, codename validation, no permissions tab, copyPermissions checkbox |
-| `@universo/admin-frontend` | `src/pages/__tests__/RoleEdit.test.tsx` | Tab switching, PermissionMatrix on tab 1, Settings on tab 2, superuser lock |
-| `@universo/admin-frontend` | `src/components/__tests__/UserFormDialog.test.tsx` | Two tabs (Основное + Роли), EntitySelectionPanel, create mode (email+password), edit mode (read-only info) |
-| `@universo/start-frontend` | `src/components/__tests__/CompletionStep.test.tsx` | CTA calls `completeOnboarding`, uses `refreshAbility`, redirects based on roles |
-| `@universo/start-frontend` | `src/components/__tests__/OnboardingWizard.test.tsx` | Last data step only calls `syncSelections`, not `completeOnboarding` |
-| `@universo/metapanel-frontend` | `src/__tests__/MetapanelDashboard.test.tsx` | Renders 3 stat cards, loading state, correct stat labels |
-| `@universo/template-mui` | `src/components/routing/__tests__/RegisteredUserGuard.test.tsx` | Registered-only users are blocked from the main shell; user+registered and superuser pass through |
-| `@universo/template-mui` | `src/components/routing/__tests__/StartAccessGuard.test.tsx` | Registered-only users can access `/start`; non-registered users redirect to `/metapanel` |
-| `@universo/template-mui` | `src/routes/__tests__/HomeRouteResolver.test.tsx` | `/` resolves guest vs `/start` vs `/metapanel` correctly |
+| `@universo-react/types` | `src/abilities/__tests__/index.test.ts` | New subjects map, defineAbilitiesFor with new subjects |
+| `@universo-react/admin-backend` | `src/tests/routes/rolesRoutes.test.ts` | Role copy route (codename validation, permissions copy, transaction rollback, duplicate codename 409) |
+| `@universo-react/admin-backend` | `src/tests/routes/globalUsersRoutes.test.ts` | Multi-role set (superuser exclusivity, self-modification 400, Zod UUID array validation), user creation (Supabase call, role assignment) |
+| `@universo-react/admin-backend` | `src/tests/services/globalAccessService.test.ts` | `setUserRoles` (transaction, superuser clears others, empty roleIds removes all, invalid UUID 400) |
+| `@universo-react/auth-backend` | `src/tests/routes/auth.test.ts` | Registration auto-assigns `registered` role |
+| `@universo-react/start-backend` | `src/tests/routes/onboardingRoutes.test.ts` | Onboarding completion adds `user` role (ENV true), no role when ENV false |
+| `@universo-react/admin-frontend` | `src/components/__tests__/RoleFormDialog.test.tsx` | Create/edit/copy modes, codename validation, no permissions tab, copyPermissions checkbox |
+| `@universo-react/admin-frontend` | `src/pages/__tests__/RoleEdit.test.tsx` | Tab switching, PermissionMatrix on tab 1, Settings on tab 2, superuser lock |
+| `@universo-react/admin-frontend` | `src/components/__tests__/UserFormDialog.test.tsx` | Two tabs (Основное + Роли), EntitySelectionPanel, create mode (email+password), edit mode (read-only info) |
+| `@universo-react/start-frontend` | `src/components/__tests__/CompletionStep.test.tsx` | CTA calls `completeOnboarding`, uses `refreshAbility`, redirects based on roles |
+| `@universo-react/start-frontend` | `src/components/__tests__/OnboardingWizard.test.tsx` | Last data step only calls `syncSelections`, not `completeOnboarding` |
+| `@universo-react/metapanel-frontend` | `src/__tests__/MetapanelDashboard.test.tsx` | Renders 3 stat cards, loading state, correct stat labels |
+| `@universo-react/template-mui` | `src/components/routing/__tests__/RegisteredUserGuard.test.tsx` | Registered-only users are blocked from the main shell; user+registered and superuser pass through |
+| `@universo-react/template-mui` | `src/components/routing/__tests__/StartAccessGuard.test.tsx` | Registered-only users can access `/start`; non-registered users redirect to `/metapanel` |
+| `@universo-react/template-mui` | `src/routes/__tests__/HomeRouteResolver.test.tsx` | `/` resolves guest vs `/start` vs `/metapanel` correctly |
 
 ### Integration Tests
 
@@ -2069,13 +2069,13 @@ Summary of all changes made based on QA analysis:
 | 6 | ТЗ п.6: Users without roles not visible in list | Step 1.10 updates `listGlobalUsers` to LEFT JOIN + show roleless users. |
 | 7 | ТЗ п.8: Create role → then add permissions inside | Dialog has NO permissions tab. After create → navigate to detail page to add permissions. |
 | 8 | `ColorPickerField` doesn't exist | Fixed → uses existing `ColorPicker` from `admin-frontend/components/ColorPicker`. |
-| 9 | `getVlcContent()` wrong function name | Fixed → `getVLCString(field, locale)` from `@universo/utils` everywhere. |
+| 9 | `getVlcContent()` wrong function name | Fixed → `getVLCString(field, locale)` from `@universo-react/utils` everywhere. |
 | 10 | `MainGrid` doesn't accept `cards` prop | Fixed → MetapanelDashboard uses `StatCard` + `Grid` directly. Documented in AD-5. |
 | 11 | Multi-role grant missing transaction wrapper | Fixed → Step 1.8 `setUserRoles()` wraps DELETE+INSERT in `exec.transaction()`. |
 | 12 | Route factory pattern not followed correctly | Fixed → Steps 1.6-1.9 work within existing `createRolesRoutes()`/`createGlobalUsersRoutes()` factories. |
 | 13 | Missing Zod validation on copy codename | Added `CopyRoleSchema` with `z.string().regex(/^[a-z][a-z0-9_]*$/)` in Step 1.6. |
 | 14 | Missing self-modification guard on multi-role endpoint | Added `memberId === currentUserId` check in Step 1.7. |
-| 15 | `RegisteredUserGuard` uses `(r: any)` | Fixed → uses typed `GlobalRoleInfo` from `@universo/types` in Step 5.4. |
+| 15 | `RegisteredUserGuard` uses `(r: any)` | Fixed → uses typed `GlobalRoleInfo` from `@universo-react/types` in Step 5.4. |
 | 16 | Missing one-time data migration as explicit step | Added Step 1.12 with idempotent SQL. |
 | 17 | Plan assumed TanStack Query owned permissions refresh | Fixed → **AD-12** + Phase 4 now use `useAbility().refreshAbility()` from `AbilityContextProvider`. |
 | 18 | Completion mutation was duplicated before and after the completion screen | Fixed → **AD-4** + Phase 4 move `completeOnboarding()` exclusively to the completion CTA. |

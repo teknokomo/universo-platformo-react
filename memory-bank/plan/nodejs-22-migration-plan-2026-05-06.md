@@ -124,7 +124,7 @@ The goal is to migrate the Universo Platformo project from Node.js 20.19.4 to No
 
 - [ ] **Step 2.3**: Verify server startup scripts
   - Check that `--no-node-snapshot` flag is present in:
-    - `packages/universo-core-backend/base/bin/run` (start script)
+    - `packages/universo-react-core-backend/base/bin/run` (start script)
     - Development scripts
     - Any Docker entrypoints
   - Already documented in `memory-bank/creative/creative-metahub-scripting-extension-system.md`
@@ -515,7 +515,7 @@ If critical issues are discovered:
 ### Positive Findings
 
 1. **`--no-node-snapshot` flag already implemented**
-   - `packages/universo-core-backend/base/bin/run` already handles this
+   - `packages/universo-react-core-backend/base/bin/run` already handles this
    - No additional work needed
 
 2. **No import assertions usage**

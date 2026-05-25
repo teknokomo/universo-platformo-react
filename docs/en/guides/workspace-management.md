@@ -35,6 +35,6 @@ The current implementation uses:
 
 - `WorkspaceSwitcher`
 - `RuntimeWorkspacesPage`
-- shared card/list primitives from `@universo/template-mui`
+- shared card/list primitives from `@universo-react/template-mui`
 
-These components live in `packages/apps-template-mui`. The workspace page is rendered through the existing dashboard details content slot, so published applications keep the same header, mobile navbar, side menu, and data-view styling as other runtime sections.
+These components live in `packages/universo-react-apps-template-mui`. The workspace page is rendered through the existing dashboard details content slot, so published applications keep the same header, mobile navbar, side menu, and data-view styling as other runtime sections.

@@ -33,9 +33,9 @@ The latest codebase already contains several important cleanups:
 - Metahub template create options are now represented by generic `presetToggles`, not the older fixed `createHub/createCatalog/createSet/createEnumeration` flags.
 - Application creation still exposes `workspacesEnabled`, which is no longer the right architectural layer for this decision.
 - Publication versions do not yet carry an explicit runtime workspace policy in the snapshot.
-- `packages/apps-template-mui` mostly follows the original MUI dashboard shell, but newer runtime pages and cards need stricter parity with `.backup/templates/dashboard`.
+- `packages/universo-react-apps-template-mui` mostly follows the original MUI dashboard shell, but newer runtime pages and cards need stricter parity with `.backup/templates/dashboard`.
 - The current LMS product fixture is still too module-centric and does not yet model pages, knowledge base content, development plans, supervisor views, reports, or realistic learning workflows deeply enough.
-- `packages/apps-template-mui` already has reusable primitives from `@universo/template-mui`: `ItemCard`, `FlowListTable`, `ToolbarControls`, and `ViewHeaderMUI`. New runtime wrappers should be introduced only when these existing pieces cannot be composed cleanly.
+- `packages/universo-react-apps-template-mui` already has reusable primitives from `@universo-react/template-mui`: `ItemCard`, `FlowListTable`, `ToolbarControls`, and `ViewHeaderMUI`. New runtime wrappers should be introduced only when these existing pieces cannot be composed cleanly.
 - `quizWidget` still exists for the separate quiz product path. The LMS product snapshot should not use it unless it is first refactored into a generic script-backed runtime widget contract.
 
 ## QA Clarifications Applied
@@ -360,7 +360,7 @@ Reuse first:
 - `ViewHeaderMUI`
 - existing side menu and navbar widgets
 
-Candidate reusable primitives in `packages/apps-template-mui` only if the existing pieces cannot be composed cleanly:
+Candidate reusable primitives in `packages/universo-react-apps-template-mui` only if the existing pieces cannot be composed cleanly:
 
 - `RuntimeSectionShell`
 - `RuntimeCardGrid`
@@ -376,17 +376,17 @@ These should be generic and reusable for LMS, knowledge base, reports, and non-L
 
 Files to inspect before coding:
 
-- `packages/metahubs-backend/base/src/domains/templates/data/basic.template.ts`
-- `packages/metahubs-backend/base/src/domains/templates/data/basic-demo.template.ts`
-- `packages/metahubs-backend/base/src/domains/templates/data/lms.template.ts`
-- `packages/metahubs-backend/base/src/domains/templates/data/standardEntityTypeDefinitions.ts`
-- `packages/metahubs-backend/base/src/domains/publications/publicationsController.ts`
-- `packages/metahubs-frontend/base/src/features/publications/PublicationVersionList.tsx`
-- `packages/applications-backend/base/src/domains/applications/applicationsController.ts`
-- `packages/applications-backend/base/src/domains/applications/syncController.ts`
-- `packages/applications-frontend/base/src/features/applications/ApplicationList.tsx`
-- `packages/apps-template-mui/src/dashboard/Dashboard.tsx`
-- `packages/apps-template-mui/src/dashboard/runtime/RuntimeWorkspacesPage.tsx`
+- `packages/universo-react-metahubs-backend/base/src/domains/templates/data/basic.template.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/templates/data/basic-demo.template.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/templates/data/lms.template.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/templates/data/standardEntityTypeDefinitions.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/publications/publicationsController.ts`
+- `packages/universo-react-metahubs-frontend/base/src/features/publications/PublicationVersionList.tsx`
+- `packages/universo-react-applications-backend/base/src/domains/applications/applicationsController.ts`
+- `packages/universo-react-applications-backend/base/src/domains/applications/syncController.ts`
+- `packages/universo-react-applications-frontend/base/src/features/applications/ApplicationList.tsx`
+- `packages/universo-react-apps-template-mui/src/dashboard/Dashboard.tsx`
+- `packages/universo-react-apps-template-mui/src/dashboard/runtime/RuntimeWorkspacesPage.tsx`
 - `tools/testing/e2e/support/lmsFixtureContract.ts`
 - `tools/testing/e2e/specs/generators/metahubs-lms-app-export.spec.ts`
 
@@ -401,8 +401,8 @@ Baseline tasks:
 
 Packages:
 
-- `packages/universo-types`
-- `packages/universo-utils`
+- `packages/universo-react-types`
+- `packages/universo-react-utils`
 - backend packages that validate payloads
 - frontend packages that render policy controls
 
@@ -428,13 +428,13 @@ Acceptance checks:
 
 Packages:
 
-- `packages/universo-types`
-- `packages/metahubs-backend`
-- `packages/metahubs-frontend`
-- `packages/schema-ddl`
-- `packages/applications-backend`
-- `packages/apps-template-mui`
-- `packages/universo-i18n`
+- `packages/universo-react-types`
+- `packages/universo-react-metahubs-backend`
+- `packages/universo-react-metahubs-frontend`
+- `packages/universo-react-schema-ddl`
+- `packages/universo-react-applications-backend`
+- `packages/universo-react-apps-template-mui`
+- `packages/universo-react-i18n`
 
 Tasks:
 
@@ -515,10 +515,10 @@ Acceptance checks:
 
 Packages:
 
-- `packages/metahubs-backend`
-- `packages/metahubs-frontend`
-- `packages/universo-types`
-- `packages/universo-i18n`
+- `packages/universo-react-metahubs-backend`
+- `packages/universo-react-metahubs-frontend`
+- `packages/universo-react-types`
+- `packages/universo-react-i18n`
 
 Tasks:
 
@@ -563,10 +563,10 @@ Acceptance checks:
 
 Packages:
 
-- `packages/applications-backend`
-- `packages/applications-frontend`
-- `packages/metahubs-backend` where linked-app creation currently passes workspace flags
-- `packages/universo-i18n`
+- `packages/universo-react-applications-backend`
+- `packages/universo-react-applications-frontend`
+- `packages/universo-react-metahubs-backend` where linked-app creation currently passes workspace flags
+- `packages/universo-react-i18n`
 
 Tasks:
 
@@ -672,8 +672,8 @@ Acceptance checks:
 
 Packages:
 
-- `packages/apps-template-mui`
-- possibly `packages/universo-template-mui`
+- `packages/universo-react-apps-template-mui`
+- possibly `packages/universo-react-template-mui`
 
 Tasks:
 
@@ -723,10 +723,10 @@ Acceptance checks:
 
 Packages:
 
-- `packages/apps-template-mui`
-- `packages/metahubs-backend`
-- `packages/metahubs-frontend`
-- `packages/universo-types`
+- `packages/universo-react-apps-template-mui`
+- `packages/universo-react-metahubs-backend`
+- `packages/universo-react-metahubs-frontend`
+- `packages/universo-react-types`
 
 Tasks:
 
@@ -976,17 +976,17 @@ Playwright tests:
 Validation commands:
 
 ```bash
-pnpm --filter @universo/types test
-pnpm --filter @universo/utils test
-pnpm --filter @universo/schema-ddl test
-pnpm --filter @universo/metahubs-backend test
-pnpm --filter @universo/metahubs-frontend test
-pnpm --filter @universo/applications-backend test
-pnpm --filter @universo/applications-frontend test
-pnpm --filter @universo/apps-template-mui test
-pnpm --filter @universo/metahubs-backend build
-pnpm --filter @universo/applications-backend build
-pnpm --filter @universo/apps-template-mui build
+pnpm --filter @universo-react/types test
+pnpm --filter @universo-react/utils test
+pnpm --filter @universo-react/schema-ddl test
+pnpm --filter @universo-react/metahubs-backend test
+pnpm --filter @universo-react/metahubs-frontend test
+pnpm --filter @universo-react/applications-backend test
+pnpm --filter @universo-react/applications-frontend test
+pnpm --filter @universo-react/apps-template-mui test
+pnpm --filter @universo-react/metahubs-backend build
+pnpm --filter @universo-react/applications-backend build
+pnpm --filter @universo-react/apps-template-mui build
 ```
 
 Run the root build only as the final cross-package validation step:
@@ -1020,12 +1020,12 @@ Docs to update in GitBook format:
 
 Package READMEs to update:
 
-- `packages/metahubs-backend/base/README.md`
-- `packages/metahubs-frontend/base/README.md`
-- `packages/applications-backend/base/README.md`
-- `packages/applications-frontend/base/README.md`
-- `packages/apps-template-mui/README.md`
-- `packages/universo-template-mui/base/README.md` if shared MUI primitives move there.
+- `packages/universo-react-metahubs-backend/base/README.md`
+- `packages/universo-react-metahubs-frontend/base/README.md`
+- `packages/universo-react-applications-backend/base/README.md`
+- `packages/universo-react-applications-frontend/base/README.md`
+- `packages/universo-react-apps-template-mui/README.md`
+- `packages/universo-react-template-mui/base/README.md` if shared MUI primitives move there.
 
 Memory bank updates after implementation:
 
@@ -1038,7 +1038,7 @@ All memory-bank updates must be written in English.
 
 ## Detailed File-Level Work Map
 
-### `packages/universo-types`
+### `packages/universo-react-types`
 
 - Add `WorkspaceModePolicy`.
 - Add runtime policy snapshot interfaces.
@@ -1048,14 +1048,14 @@ All memory-bank updates must be written in English.
 - Extend `ComponentManifest`, component dependency validation, and tests so every standard type explicitly sets `blockContent`.
 - Export all new types from package entry points.
 
-### `packages/universo-utils`
+### `packages/universo-react-utils`
 
 - Add workspace policy resolver.
 - Add parse/assert helpers for policy transitions.
 - Add Editor.js output validation helpers if they are not backend-specific.
 - Keep helpers framework-neutral.
 
-### `packages/metahubs-backend`
+### `packages/universo-react-metahubs-backend`
 
 - Register Page preset.
 - Add Page to Basic, Basic Demo, and LMS template defaults.
@@ -1067,7 +1067,7 @@ All memory-bank updates must be written in English.
 - Update import/export and product fixture validation.
 - Keep all SQL schema-qualified and parameterized.
 
-### `packages/schema-ddl`
+### `packages/universo-react-schema-ddl`
 
 - Add `hasPhysicalRuntimeTable(entity)` or equivalent as the single runtime DDL predicate.
 - Register `page` as a standard metadata-only kind without making every unknown kind nonphysical.
@@ -1075,7 +1075,7 @@ All memory-bank updates must be written in English.
 - Store `NULL` table names for nonphysical runtime objects in `_app_objects`.
 - Add tests proving Page produces metadata only and no fallback `obj_*` table.
 
-### `packages/metahubs-frontend`
+### `packages/universo-react-metahubs-frontend`
 
 - Add Page preset labels and create-option UI.
 - Add Page content support through the existing entity instance dialog/tab flow.
@@ -1083,7 +1083,7 @@ All memory-bank updates must be written in English.
 - Add irreversible warnings.
 - Remove stale UI assumptions about fixed standard preset keys.
 
-### `packages/applications-backend`
+### `packages/universo-react-applications-backend`
 
 - Remove application-create workspace decision.
 - Add `rel_connector_publications.schema_options`.
@@ -1095,7 +1095,7 @@ All memory-bank updates must be written in English.
 - Block downgrade for workspace-enabled schemas.
 - Add focused store and controller tests.
 
-### `packages/applications-frontend`
+### `packages/universo-react-applications-frontend`
 
 - Remove workspace checkbox from application creation flows.
 - Add connector schema settings UI.
@@ -1103,7 +1103,7 @@ All memory-bank updates must be written in English.
 - Add warnings and disabled states based on policy.
 - Update i18n.
 
-### `packages/apps-template-mui`
+### `packages/universo-react-apps-template-mui`
 
 - Add generic Page renderer.
 - Improve runtime card and workspace page layout to match the original MUI template.

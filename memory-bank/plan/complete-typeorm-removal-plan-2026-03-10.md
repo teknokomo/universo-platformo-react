@@ -6,16 +6,16 @@
 
 > **Constraint**: Fresh test database — no legacy data to preserve. No schema/template version increase required. All legacy TypeORM code can be removed without compatibility shims.
 
-> **QA Review**: Plan updated 2026-03-10 after comprehensive QA analysis and a second-pass architecture review. Changes: FINDING-1 (set_config security fix), FINDING-2 (pinned-connection transaction architecture), FINDING-3 (circular dep → new `@universo/database` package), FINDING-4 (localesRoutes RLS distinction), FINDING-5 (pool budget moved to Phase 0), FINDING-6 (interface unification), FINDING-7 (parameter binding convention), FINDING-8 (`knex.raw().connection()` pattern), FINDING-9 (legacyChecksumAliases moved to Phase 0), FINDING-10 (no unnecessary new public interfaces), FINDING-11 (`schema-ddl` must stay DI-only), FINDING-12 (reuse existing definition lifecycle catalog), FINDING-13 (explicit metahub/application runtime convergence track), ТЗ gaps (definition lifecycle, editor readiness, convergence semantics added to Phase 9).
+> **QA Review**: Plan updated 2026-03-10 after comprehensive QA analysis and a second-pass architecture review. Changes: FINDING-1 (set_config security fix), FINDING-2 (pinned-connection transaction architecture), FINDING-3 (circular dep → new `@universo-react/database` package), FINDING-4 (localesRoutes RLS distinction), FINDING-5 (pool budget moved to Phase 0), FINDING-6 (interface unification), FINDING-7 (parameter binding convention), FINDING-8 (`knex.raw().connection()` pattern), FINDING-9 (legacyChecksumAliases moved to Phase 0), FINDING-10 (no unnecessary new public interfaces), FINDING-11 (`schema-ddl` must stay DI-only), FINDING-12 (reuse existing definition lifecycle catalog), FINDING-13 (explicit metahub/application runtime convergence track), ТЗ gaps (definition lifecycle, editor readiness, convergence semantics added to Phase 9).
 
 ---
 
-## Phase 0: Foundation — `@universo/database` Package, Pool, Checksum Cleanup
+## Phase 0: Foundation — `@universo-react/database` Package, Pool, Checksum Cleanup
 
 ### Overview
 Three sub-phases that establish the infrastructure for ALL subsequent work:
 
-**0A. New `@universo/database` package** — Currently `KnexClient` lives inside `packages/metahubs-backend/base/src/domains/ddl/KnexClient.ts` and is imported by `core-backend` from `@universo/metahubs-backend`. Placing the new singleton in `core-backend` would create a **circular dependency** (`core-backend → metahubs-backend` for route wiring AND `metahubs-backend → core-backend` for KnexClient). Solution: extract into a dedicated leaf-level `@universo/database` package that everything can depend on without cycles.
+**0A. New `@universo-react/database` package** — Currently `KnexClient` lives inside `packages/universo-react-metahubs-backend/base/src/domains/ddl/KnexClient.ts` and is imported by `core-backend` from `@universo-react/metahubs-backend`. Placing the new singleton in `core-backend` would create a **circular dependency** (`core-backend → metahubs-backend` for route wiring AND `metahubs-backend → core-backend` for KnexClient). Solution: extract into a dedicated leaf-level `@universo-react/database` package that everything can depend on without cycles.
 
 **0B. Pool budget simplification** — With TypeORM being removed, the entire connection pool belongs to Knex. The dual-pool budget split logic (`connectionBudget / 3` for Knex, remainder for TypeORM) must be simplified NOW, not in Phase 9, to avoid budget confusion during intermediate phases.
 
@@ -23,19 +23,19 @@ Three sub-phases that establish the infrastructure for ALL subsequent work:
 
 ### Steps
 
-#### 0A. Create `@universo/database` package
+#### 0A. Create `@universo-react/database` package
 
-- [ ] **0A.1** Create `packages/universo-database/base/` with:
-  - `package.json` — deps: `knex`, `pg`; peerDep on `@universo/utils` (for `parsePositiveInt`)
+- [ ] **0A.1** Create `packages/universo-react-database/base/` with:
+  - `package.json` — deps: `knex`, `pg`; peerDep on `@universo-react/utils` (for `parsePositiveInt`)
   - `tsconfig.json` + build config (same pattern as `universo-utils`)
   - `src/KnexClient.ts` — Knex singleton (copied from `metahubs-backend/domains/ddl/KnexClient.ts`)
   - `src/knexExecutor.ts` — `createKnexExecutor()` and `createRlsExecutor()` factories (see Phase 1 for details)
   - `src/index.ts` — barrel exports
 
 ```typescript
-// packages/universo-database/base/src/KnexClient.ts
+// packages/universo-react-database/base/src/KnexClient.ts
 import knex, { type Knex } from 'knex'
-import { parsePositiveInt } from '@universo/utils'
+import { parsePositiveInt } from '@universo-react/utils'
 
 let instance: Knex | null = null
 
@@ -70,16 +70,16 @@ export async function destroyKnex(): Promise<void> {
 }
 ```
 
-- [ ] **0A.2** Update `metahubs-backend` to import from `@universo/database` instead of local `domains/ddl/KnexClient.ts`
-  - Redirect `metahubs-backend/base/src/domains/ddl/index.ts` re-export to `@universo/database`
+- [ ] **0A.2** Update `metahubs-backend` to import from `@universo-react/database` instead of local `domains/ddl/KnexClient.ts`
+  - Redirect `metahubs-backend/base/src/domains/ddl/index.ts` re-export to `@universo-react/database`
   - All ~20 internal consumers in metahubs-backend keep their `../../ddl` import unchanged — only the barrel re-export changes
   - Delete the original `KnexClient.ts` from metahubs-backend
 
-- [ ] **0A.3** Update `core-backend/base/src/index.ts` (`App.initDatabase()`) to use `getKnex()` from `@universo/database`
-  - Remove the `import { KnexClient } from '@universo/metahubs-backend'` dependency
+- [ ] **0A.3** Update `core-backend/base/src/index.ts` (`App.initDatabase()`) to use `getKnex()` from `@universo-react/database`
+  - Remove the `import { KnexClient } from '@universo-react/metahubs-backend'` dependency
 
-- [ ] **0A.4** Preserve `@universo/schema-ddl` as a DI-only package
-  - Verify `schema-ddl` does NOT import `@universo/database`, `@universo/metahubs-backend`, or any singleton runtime wrapper
+- [ ] **0A.4** Preserve `@universo-react/schema-ddl` as a DI-only package
+  - Verify `schema-ddl` does NOT import `@universo-react/database`, `@universo-react/metahubs-backend`, or any singleton runtime wrapper
   - Keep `createDDLServices(knex)` as the canonical entrypoint; only runtime wrappers (`metahubs-backend/domains/ddl`, core-backend bootstrap) should bind the singleton
   - Update any stale comments/docs that imply `schema-ddl` depends on the metahubs-local Knex singleton
 
@@ -100,13 +100,13 @@ export async function destroyKnex(): Promise<void> {
 - [ ] **0C.4** Clean up `platformMigrations.ts` — remove all `legacyChecksumAliases` wrappers from migration registrations
 
 ### Tests
-- [ ] **0.T1** Unit test for new `@universo/database` KnexClient: initialization, singleton behavior, destroy cleanup
+- [ ] **0.T1** Unit test for new `@universo-react/database` KnexClient: initialization, singleton behavior, destroy cleanup
 - [ ] **0.T2** Update runner tests for simplified checksum logic (no alias matching)
-- [ ] **0.T3** Verify `pnpm --filter @universo/database build` + `pnpm --filter @universo/core-backend build` + `pnpm --filter @universo/metahubs-backend build`
+- [ ] **0.T3** Verify `pnpm --filter @universo-react/database build` + `pnpm --filter @universo-react/core-backend build` + `pnpm --filter @universo-react/metahubs-backend build`
 
 ### Risk
 - Low — KnexClient singleton pattern is battle-tested; legacyChecksumAliases are irrelevant on fresh DB
-- **Circular dependency solved**: `@universo/database` is a leaf package — nothing depends on IT except consumers
+- **Circular dependency solved**: `@universo-react/database` is a leaf package — nothing depends on IT except consumers
 
 ---
 
@@ -125,12 +125,12 @@ export async function destroyKnex(): Promise<void> {
 
 ### Steps
 
-- [ ] **1.1** Implement executor factories in `packages/universo-database/base/src/knexExecutor.ts`
+- [ ] **1.1** Implement executor factories in `packages/universo-react-database/base/src/knexExecutor.ts`
 
 ```typescript
-// packages/universo-database/base/src/knexExecutor.ts
+// packages/universo-react-database/base/src/knexExecutor.ts
 import type { Knex } from 'knex'
-import type { DbExecutor, DbSession } from '@universo/utils'
+import type { DbExecutor, DbSession } from '@universo-react/utils'
 
 /**
  * Pool-level executor — acquires connections from pool per-query.
@@ -220,12 +220,12 @@ export function createRlsExecutor(knex: Knex, connection: unknown): DbExecutor {
 }
 ```
 
-- [ ] **1.2** Create `packages/auth-backend/base/src/middlewares/knexRlsSession.ts` — Knex-based RLS session manager
+- [ ] **1.2** Create `packages/universo-react-auth-backend/base/src/middlewares/knexRlsSession.ts` — Knex-based RLS session manager
 
 ```typescript
-// packages/auth-backend/base/src/middlewares/knexRlsSession.ts
+// packages/universo-react-auth-backend/base/src/middlewares/knexRlsSession.ts
 import type { Knex } from 'knex'
-import { createDbSession, type DbSession } from '@universo/utils'
+import { createDbSession, type DbSession } from '@universo-react/utils'
 
 interface RlsConnectionHandle {
   connection: unknown  // raw pg connection from pool
@@ -265,7 +265,7 @@ export async function acquireRlsSession(knex: Knex): Promise<RlsConnectionHandle
 ```
 
 - [ ] **1.3** Rewrite `ensureAuthWithRls.ts` to use `acquireRlsSession(getKnex())` instead of `DataSource.createQueryRunner()`
-  - Replace `import type { DataSource } from 'typeorm'` → import `getKnex` from `@universo/database`
+  - Replace `import type { DataSource } from 'typeorm'` → import `getKnex` from `@universo-react/database`
   - Replace `ds.createQueryRunner()` → `await acquireRlsSession(getKnex())`
   - Replace `runner.query(sql, params)` → `rlsHandle.session.query(sql, params)`
   - Replace `runner.release()` → `session.release()`
@@ -275,7 +275,7 @@ export async function acquireRlsSession(knex: Knex): Promise<RlsConnectionHandle
   - **Create `DbExecutor` via `createRlsExecutor(getKnex(), rlsHandle.connection)`** — this executor stays on the pinned connection for ALL queries and transactions within the request
   - Attach the RLS executor to `req.dbContext` via `createRequestDbContext(dbSession, rlsExecutor)`
 
-  **CRITICAL**: The `DbSession` and `DbExecutor` created from this Knex session must provide the same request-scoped isolation guarantees. Reuse `createDbSession()` and `createRequestDbContext()` from `@universo/utils`; do NOT add a second public request-scoped contract just for the Knex transport.
+  **CRITICAL**: The `DbSession` and `DbExecutor` created from this Knex session must provide the same request-scoped isolation guarantees. Reuse `createDbSession()` and `createRequestDbContext()` from `@universo-react/utils`; do NOT add a second public request-scoped contract just for the Knex transport.
 
 - [ ] **1.4** Update `createEnsureAuthWithRls()` factory signature
   - Change from `{ getDataSource: () => DataSource }` to `{ getKnex: () => Knex }`
@@ -291,7 +291,7 @@ export async function acquireRlsSession(knex: Knex): Promise<RlsConnectionHandle
 - [ ] **1.T2** Unit test for `createRlsExecutor`: query on pinned connection, **top-level transaction uses BEGIN/COMMIT/ROLLBACK on same connection, nested transaction uses SAVEPOINT/RELEASE SAVEPOINT** (NOT knex.transaction)
 - [ ] **1.T3** Unit test for `createKnexExecutor`: query passthrough, transaction via knex.transaction, nested transaction
 - [ ] **1.T4** Integration test: `ensureAuthWithRls` with mock Knex → verify RLS claims are set and cleaned up
-- [ ] **1.T5** Verify `pnpm --filter @universo/auth-backend build` passes
+- [ ] **1.T5** Verify `pnpm --filter @universo-react/auth-backend build` passes
 
 ### Risk
 - **High** — this is the core authentication/authorization middleware
@@ -317,7 +317,7 @@ Admin-backend has 6 TypeORM entities and 4 route files + 1 service that deeply u
 
 #### 2A. Admin Persistence Stores
 
-- [ ] **2A.1** Create `packages/admin-backend/base/src/persistence/rolesStore.ts`
+- [ ] **2A.1** Create `packages/universo-react-admin-backend/base/src/persistence/rolesStore.ts`
   - SQL-first helpers for admin.roles CRUD: listRoles, getRoleById, getRoleByCodename, createRole, updateRole, deleteRole
   - SQL-first helpers for admin.role_permissions: listPermissions, setPermissions, deletePermissions
   - SQL-first helpers for admin.user_roles: listUserRoles, countUserRoles, assignRole, revokeRole
@@ -326,8 +326,8 @@ Admin-backend has 6 TypeORM entities and 4 route files + 1 service that deeply u
   - JOIN pattern for roles + permissions: `LEFT JOIN admin.role_permissions rp ON rp.role_id = r.id`
 
 ```typescript
-// Example: packages/admin-backend/base/src/persistence/rolesStore.ts
-import type { DbExecutor } from '@universo/utils/database'
+// Example: packages/universo-react-admin-backend/base/src/persistence/rolesStore.ts
+import type { DbExecutor } from '@universo-react/utils/database'
 
 export async function listRoles(exec: DbExecutor, options: {
   search?: string; page?: number; limit?: number; sortBy?: string; sortOrder?: string
@@ -359,21 +359,21 @@ export async function listRoles(exec: DbExecutor, options: {
 }
 ```
 
-- [ ] **2A.2** Create `packages/admin-backend/base/src/persistence/localesStore.ts`
+- [ ] **2A.2** Create `packages/universo-react-admin-backend/base/src/persistence/localesStore.ts`
   - SQL-first helpers for admin.locales CRUD
   - Include `transformLocale()` (existing camelCase transformation)
   - Transactional batch updates (e.g., set-default-locale atomically)
 
-- [ ] **2A.3** Create `packages/admin-backend/base/src/persistence/instancesStore.ts`
+- [ ] **2A.3** Create `packages/universo-react-admin-backend/base/src/persistence/instancesStore.ts`
   - SQL-first helpers for admin.instances CRUD (read-only + update)
   - Stats query (count users, roles)
 
-- [ ] **2A.4** Create `packages/admin-backend/base/src/persistence/settingsStore.ts`
+- [ ] **2A.4** Create `packages/universo-react-admin-backend/base/src/persistence/settingsStore.ts`
   - SQL-first helpers for admin.settings upsert
   - Category/key lookup with JSONB
   - Transactional batch upsert
 
-- [ ] **2A.5** Create `packages/admin-backend/base/src/persistence/index.ts` — barrel re-export
+- [ ] **2A.5** Create `packages/universo-react-admin-backend/base/src/persistence/index.ts` — barrel re-export
 
 #### 2B. Port Admin Routes to SQL-First
 
@@ -410,25 +410,25 @@ export async function listRoles(exec: DbExecutor, options: {
 
 #### 2D. Admin Cleanup
 
-- [ ] **2D.1** Delete all TypeORM entity files: `packages/admin-backend/base/src/database/entities/*.ts`
-- [ ] **2D.2** Delete `packages/admin-backend/base/src/database/` directory entirely (entities + TypeORM migrations)
+- [ ] **2D.1** Delete all TypeORM entity files: `packages/universo-react-admin-backend/base/src/database/entities/*.ts`
+- [ ] **2D.2** Delete `packages/universo-react-admin-backend/base/src/database/` directory entirely (entities + TypeORM migrations)
   - TypeORM migration files (`1733400000000-CreateAdminSchema.ts`, `1733500000000-AddCodenameAutoConvertMixedSetting.ts`) are superseded by native SQL definitions in `platform/migrations/`
-- [ ] **2D.3** Remove `typeorm` from `packages/admin-backend/base/package.json` dependencies
+- [ ] **2D.3** Remove `typeorm` from `packages/universo-react-admin-backend/base/package.json` dependencies
 - [ ] **2D.4** Remove legacy `getRequestManager` re-exports from `admin-backend/base/src/utils/`
-- [ ] **2D.5** Update admin-backend route factory to accept `getKnex: () => Knex` (from `@universo/database`) instead of `getDataSource: () => DataSource`
+- [ ] **2D.5** Update admin-backend route factory to accept `getKnex: () => Knex` (from `@universo-react/database`) instead of `getDataSource: () => DataSource`
   - Wire up `createKnexExecutor(getKnex())` for all admin route handlers
 
 ### Tests
-- [ ] **2.T1** Create `packages/admin-backend/base/src/tests/persistence/rolesStore.test.ts` — test all role CRUD SQL helpers with mock DbExecutor
-- [ ] **2.T2** Create `packages/admin-backend/base/src/tests/persistence/localesStore.test.ts`
-- [ ] **2.T3** Create `packages/admin-backend/base/src/tests/persistence/instancesStore.test.ts`
-- [ ] **2.T4** Create `packages/admin-backend/base/src/tests/persistence/settingsStore.test.ts`
-- [ ] **2.T5** Create `packages/admin-backend/base/src/tests/routes/rolesRoutes.test.ts` — test route handlers with mock stores
-- [ ] **2.T6** Create `packages/admin-backend/base/src/tests/routes/localesRoutes.test.ts`
-- [ ] **2.T7** Create `packages/admin-backend/base/src/tests/routes/instancesRoutes.test.ts`
-- [ ] **2.T8** Create `packages/admin-backend/base/src/tests/routes/adminSettingsRoutes.test.ts`
-- [ ] **2.T9** Create `packages/admin-backend/base/src/tests/services/globalAccessService.test.ts`
-- [ ] **2.T10** Verify `pnpm --filter @universo/admin-backend build` + `pnpm --filter @universo/admin-backend test`
+- [ ] **2.T1** Create `packages/universo-react-admin-backend/base/src/tests/persistence/rolesStore.test.ts` — test all role CRUD SQL helpers with mock DbExecutor
+- [ ] **2.T2** Create `packages/universo-react-admin-backend/base/src/tests/persistence/localesStore.test.ts`
+- [ ] **2.T3** Create `packages/universo-react-admin-backend/base/src/tests/persistence/instancesStore.test.ts`
+- [ ] **2.T4** Create `packages/universo-react-admin-backend/base/src/tests/persistence/settingsStore.test.ts`
+- [ ] **2.T5** Create `packages/universo-react-admin-backend/base/src/tests/routes/rolesRoutes.test.ts` — test route handlers with mock stores
+- [ ] **2.T6** Create `packages/universo-react-admin-backend/base/src/tests/routes/localesRoutes.test.ts`
+- [ ] **2.T7** Create `packages/universo-react-admin-backend/base/src/tests/routes/instancesRoutes.test.ts`
+- [ ] **2.T8** Create `packages/universo-react-admin-backend/base/src/tests/routes/adminSettingsRoutes.test.ts`
+- [ ] **2.T9** Create `packages/universo-react-admin-backend/base/src/tests/services/globalAccessService.test.ts`
+- [ ] **2.T10** Verify `pnpm --filter @universo-react/admin-backend build` + `pnpm --filter @universo-react/admin-backend test`
 
 ### Risk
 - Medium — admin routes are relatively straightforward CRUD; the proven store pattern from applications-backend is directly applicable
@@ -443,11 +443,11 @@ Profile-backend has 1 TypeORM entity (`Profile`) and 1 service (`ProfileService`
 
 ### Steps
 
-- [ ] **3.1** Create `packages/profile-backend/base/src/persistence/profileStore.ts`
+- [ ] **3.1** Create `packages/universo-react-profile-backend/base/src/persistence/profileStore.ts`
 
 ```typescript
 // SQL-first profile CRUD
-import type { DbExecutor } from '@universo/utils/database'
+import type { DbExecutor } from '@universo-react/utils/database'
 
 export async function findProfileByUserId(exec: DbExecutor, userId: string) {
   const rows = await exec.query(
@@ -518,19 +518,19 @@ export async function isNicknameAvailable(exec: DbExecutor, nickname: string, ex
   - Instantiate `ProfileService(rlsExecutor)` instead of `ProfileService(repo)`
   - Do NOT use `createKnexExecutor(getKnex())` here — profile tables have RLS policies
 
-- [ ] **3.4** Delete TypeORM entity: `packages/profile-backend/base/src/database/entities/Profile.ts`
-- [ ] **3.5** Delete TypeORM migration files: `packages/profile-backend/base/src/database/migrations/postgres/*.ts`
+- [ ] **3.4** Delete TypeORM entity: `packages/universo-react-profile-backend/base/src/database/entities/Profile.ts`
+- [ ] **3.5** Delete TypeORM migration files: `packages/universo-react-profile-backend/base/src/database/migrations/postgres/*.ts`
   - Superseded by native SQL definitions in `platform/migrations/`
-- [ ] **3.6** Delete `packages/profile-backend/base/src/database/` directory
-- [ ] **3.7** Delete `packages/profile-backend/base/src/tests/utils/typeormMocks.ts`
-- [ ] **3.8** Remove `typeorm` from `packages/profile-backend/base/package.json`
+- [ ] **3.6** Delete `packages/universo-react-profile-backend/base/src/database/` directory
+- [ ] **3.7** Delete `packages/universo-react-profile-backend/base/src/tests/utils/typeormMocks.ts`
+- [ ] **3.8** Remove `typeorm` from `packages/universo-react-profile-backend/base/package.json`
 - [ ] **3.9** Export profile store from package public API for cross-package consumers (start-backend uses Profile)
 
 ### Tests
-- [ ] **3.T1** Create `packages/profile-backend/base/src/tests/persistence/profileStore.test.ts`
-- [ ] **3.T2** Rewrite `packages/profile-backend/base/src/tests/services/profileService.test.ts` — use mock DbExecutor instead of mock Repository
-- [ ] **3.T3** Rewrite `packages/profile-backend/base/src/tests/routes/profileRoutes.test.ts` — use mock stores
-- [ ] **3.T4** Verify `pnpm --filter @universo/profile-backend build` + `pnpm --filter @universo/profile-backend test`
+- [ ] **3.T1** Create `packages/universo-react-profile-backend/base/src/tests/persistence/profileStore.test.ts`
+- [ ] **3.T2** Rewrite `packages/universo-react-profile-backend/base/src/tests/services/profileService.test.ts` — use mock DbExecutor instead of mock Repository
+- [ ] **3.T3** Rewrite `packages/universo-react-profile-backend/base/src/tests/routes/profileRoutes.test.ts` — use mock stores
+- [ ] **3.T4** Verify `pnpm --filter @universo-react/profile-backend build` + `pnpm --filter @universo-react/profile-backend test`
 
 ### Risk
 - Low — straightforward Repository → SQL replacement
@@ -552,41 +552,41 @@ export async function isNicknameAvailable(exec: DbExecutor, nickname: string, ex
 - [ ] **4A.1** Rewrite `start-backend/routes/onboardingRoutes.ts`
   - Replace `getRequestManager(req, ds).findOne(Profile, ...)` → SQL via `getRequestDbExecutor(req).query('SELECT onboarding_completed FROM public.profiles WHERE user_id = $1', [userId])`
   - Replace `manager.update(Profile, ...)` → SQL via `exec.query('UPDATE public.profiles SET onboarding_completed = true WHERE user_id = $1', [userId])`
-  - Remove `import { Profile } from '@universo/profile-backend'`
-  - Remove `import { getRequestManager } from '@universo/utils/database/legacy'`
+  - Remove `import { Profile } from '@universo-react/profile-backend'`
+  - Remove `import { getRequestManager } from '@universo-react/utils/database/legacy'`
 
 - [ ] **4A.2** Update `start-backend/routes/index.ts` route factory
   - Start-backend onboarding is behind `ensureAuthWithRls` — use `getRequestDbExecutor(req)` for RLS executor
   - Remove `import type { DataSource } from 'typeorm'`
 
-- [ ] **4A.3** Remove `typeorm` from `packages/start-backend/base/package.json`
+- [ ] **4A.3** Remove `typeorm` from `packages/universo-react-start-backend/base/package.json`
 
 #### 4B. Auth Backend
 
-- [ ] **4B.1** Rewrite `auth.ts` routes to use `getKnex()` from `@universo/database` raw queries instead of `DataSource.query()`
+- [ ] **4B.1** Rewrite `auth.ts` routes to use `getKnex()` from `@universo-react/database` raw queries instead of `DataSource.query()`
   - `dataSource.query(sql, params)` → `getKnex().raw(sql, params).then(r => r.rows)`
   - This is mostly a transport swap — the SQL is already raw
 
 - [ ] **4B.2** Rewrite `permissionService.ts`
-  - Replace `getDataSource().query(sql, params)` → `getKnex().raw(sql, params)` (from `@universo/database`)
+  - Replace `getDataSource().query(sql, params)` → `getKnex().raw(sql, params)` (from `@universo-react/database`)
   - Change interface from `DataSource` to `Knex`
 
 - [ ] **4B.3** Update `abilityMiddleware.ts` type imports — remove `DataSource` type
 
 - [ ] **4B.4** Update `guards/createAccessGuards.ts` and `guards/types.ts` — remove `DataSource` type references
 
-- [ ] **4B.5** Delete `AuthUser` TypeORM entity: `packages/auth-backend/base/src/database/entities/AuthUser.ts`
+- [ ] **4B.5** Delete `AuthUser` TypeORM entity: `packages/universo-react-auth-backend/base/src/database/entities/AuthUser.ts`
   - AuthUser is read-only (maps to Supabase `auth.users`)
   - It was used only by admin routes for email lookup — those will use direct SQL after Phase 2
-  - Create a lightweight TypeScript interface `AuthUserRow` in `@universo/types` instead
+  - Create a lightweight TypeScript interface `AuthUserRow` in `@universo-react/types` instead
 
-- [ ] **4B.6** Remove `typeorm` from `packages/auth-backend/base/package.json`
+- [ ] **4B.6** Remove `typeorm` from `packages/universo-react-auth-backend/base/package.json`
 
 ### Tests
-- [ ] **4.T1** Create `packages/start-backend/base/src/tests/routes/onboardingRoutes.test.ts` — test the 2 SQL operations
-- [ ] **4.T2** Create `packages/auth-backend/base/src/tests/middlewares/ensureAuthWithRls.test.ts` — test Knex RLS session lifecycle
-- [ ] **4.T3** Create `packages/auth-backend/base/src/tests/services/permissionService.test.ts` — test permission SQL queries
-- [ ] **4.T4** Verify `pnpm --filter @universo/auth-backend build` + `pnpm --filter @universo/start-backend build`
+- [ ] **4.T1** Create `packages/universo-react-start-backend/base/src/tests/routes/onboardingRoutes.test.ts` — test the 2 SQL operations
+- [ ] **4.T2** Create `packages/universo-react-auth-backend/base/src/tests/middlewares/ensureAuthWithRls.test.ts` — test Knex RLS session lifecycle
+- [ ] **4.T3** Create `packages/universo-react-auth-backend/base/src/tests/services/permissionService.test.ts` — test permission SQL queries
+- [ ] **4.T4** Verify `pnpm --filter @universo-react/auth-backend build` + `pnpm --filter @universo-react/start-backend build`
 
 ### Risk
 - Medium for auth — this is security-critical code
@@ -602,34 +602,34 @@ After Phases 1-4, no package uses TypeORM DataSource/EntityManager/Repository an
 
 ### Steps
 
-- [ ] **5.1** Delete `packages/universo-core-backend/base/src/DataSource.ts`
-- [ ] **5.2** Delete `packages/universo-core-backend/base/src/database/entities/index.ts` (entity registry)
-- [ ] **5.3** Delete `packages/universo-core-backend/base/src/utils/typeormDataSource.ts`
-- [ ] **5.4** Delete `packages/universo-core-backend/base/src/utils/rlsHelpers.ts`
-- [ ] **5.5** Rewrite `packages/universo-core-backend/base/src/index.ts` (App class)
+- [ ] **5.1** Delete `packages/universo-react-core-backend/base/src/DataSource.ts`
+- [ ] **5.2** Delete `packages/universo-react-core-backend/base/src/database/entities/index.ts` (entity registry)
+- [ ] **5.3** Delete `packages/universo-react-core-backend/base/src/utils/typeormDataSource.ts`
+- [ ] **5.4** Delete `packages/universo-react-core-backend/base/src/utils/rlsHelpers.ts`
+- [ ] **5.5** Rewrite `packages/universo-react-core-backend/base/src/index.ts` (App class)
   - Remove `import { DataSource } from 'typeorm'`
   - Remove `AppDataSource: DataSource` field
-  - `initDatabase()`: use `initKnex()` from `@universo/database` → `runRegisteredPlatformMigrations(getKnex(), logger)`
+  - `initDatabase()`: use `initKnex()` from `@universo-react/database` → `runRegisteredPlatformMigrations(getKnex(), logger)`
   - Rewire startup template seeding: `seedMetahubTemplates(createKnexExecutor(getKnex()))` instead of `createDataSourceExecutor(this.AppDataSource)`
-  - `stopApp()`: use `destroyKnex()` from `@universo/database` instead of `AppDataSource.destroy()`
+  - `stopApp()`: use `destroyKnex()` from `@universo-react/database` instead of `AppDataSource.destroy()`
   - Remove entity count diagnostics (TypeORM-specific)
 
-- [ ] **5.6** Rewrite `packages/universo-core-backend/base/src/routes/index.ts`
-  - Replace all `getDataSource` references with `getKnex` from `@universo/database`
+- [ ] **5.6** Rewrite `packages/universo-react-core-backend/base/src/routes/index.ts`
+  - Replace all `getDataSource` references with `getKnex` from `@universo-react/database`
   - Pass `getKnex` to auth middleware (`createEnsureAuthWithRls({ getKnex })`)
   - Pass `() => createKnexExecutor(getKnex())` to admin routes (non-RLS)
   - Pass `() => getRequestDbExecutor(req)` to metahubs/applications routes (RLS via pinned-connection executor on req.dbContext)
   - Remove `import { getDataSource } from '../DataSource'`
 
-- [ ] **5.7** Remove `typeorm` from `packages/universo-core-backend/base/package.json`
+- [ ] **5.7** Remove `typeorm` from `packages/universo-react-core-backend/base/package.json`
 
-- [ ] **5.8** Update `packages/universo-core-backend/base/test/setup.ts` — remove TypeORM mocks
-- [ ] **5.9** Rewrite `packages/universo-core-backend/base/test/routes/botsRoutes.test.ts` — remove DataSource mock
-- [ ] **5.10** Rewrite `packages/universo-core-backend/base/test/services/workspaceAccessService.test.ts` — remove DataSource/Repository mocks
+- [ ] **5.8** Update `packages/universo-react-core-backend/base/test/setup.ts` — remove TypeORM mocks
+- [ ] **5.9** Rewrite `packages/universo-react-core-backend/base/test/routes/botsRoutes.test.ts` — remove DataSource mock
+- [ ] **5.10** Rewrite `packages/universo-react-core-backend/base/test/services/workspaceAccessService.test.ts` — remove DataSource/Repository mocks
 
 ### Tests
-- [ ] **5.T1** Rewrite `packages/universo-core-backend/base/src/__tests__/App.initDatabase.test.ts` — mock `getKnex` from `@universo/database` instead of DataSource
-- [ ] **5.T2** Verify `pnpm --filter @universo/core-backend build` + `pnpm --filter @universo/core-backend test`
+- [ ] **5.T1** Rewrite `packages/universo-react-core-backend/base/src/__tests__/App.initDatabase.test.ts` — mock `getKnex` from `@universo-react/database` instead of DataSource
+- [ ] **5.T2** Verify `pnpm --filter @universo-react/core-backend build` + `pnpm --filter @universo-react/core-backend test`
 
 ### Risk
 - Medium — this is the central app bootstrap file
@@ -640,49 +640,49 @@ After Phases 1-4, no package uses TypeORM DataSource/EntityManager/Repository an
 ## Phase 6: Utils Legacy Cleanup + Interface Unification
 
 ### Overview
-Remove the deprecated legacy TypeORM compatibility layer from `@universo/utils/database`. Additionally, unify the three duplicate SQL executor interfaces (QA FINDING-6):
-- `DbExecutor` (`@universo/utils/database/manager.ts`): `query() + transaction() + isReleased()` — full contract
+Remove the deprecated legacy TypeORM compatibility layer from `@universo-react/utils/database`. Additionally, unify the three duplicate SQL executor interfaces (QA FINDING-6):
+- `DbExecutor` (`@universo-react/utils/database/manager.ts`): `query() + transaction() + isReleased()` — full contract
 - `SqlExecutor` (`applications-backend/persistence/applicationsStore.ts`, `connectorsStore.ts`): `query()` only — defined locally
 - `SqlQueryable` (`metahubs-backend/persistence/types.ts`): `query()` only — defined locally
 
-After TypeORM removal, consolidate into two canonical interfaces in `@universo/utils`:
+After TypeORM removal, consolidate into two canonical interfaces in `@universo-react/utils`:
 - `DbExecutor` — full contract (query + transaction + isReleased) — for routes/services
 - `SqlQueryable` — read-only contract (query only) — for persistence stores
 
 ### Steps
 
-- [ ] **6.1** Delete `packages/universo-utils/base/src/database/legacyManager.ts`
-- [ ] **6.2** Delete `packages/universo-utils/base/src/database/legacy.ts` (the barrel re-export)
-- [ ] **6.3** Clean up `packages/universo-utils/base/src/database/manager.ts`
+- [ ] **6.1** Delete `packages/universo-react-utils/base/src/database/legacyManager.ts`
+- [ ] **6.2** Delete `packages/universo-react-utils/base/src/database/legacy.ts` (the barrel re-export)
+- [ ] **6.3** Clean up `packages/universo-react-utils/base/src/database/manager.ts`
   - Remove `import type { DataSource, EntityManager } from 'typeorm'`
   - Remove `dbLegacyManager?: EntityManager` from `RequestWithDbContext`
-  - Remove `createDataSourceExecutor()` (replaced by `createKnexExecutor` in `@universo/database`)
+  - Remove `createDataSourceExecutor()` (replaced by `createKnexExecutor` in `@universo-react/database`)
   - Remove `createManagerExecutor` import from legacyManager
   - Export `SqlQueryable` interface: `{ query<T>(sql: string, parameters?: unknown[]): Promise<T[]> }` — canonical read-only SQL contract
   - Note: persistence stores across packages can then import `SqlQueryable` from one place
-- [ ] **6.4** Update `packages/universo-utils/base/src/database/userLookup.ts`
+- [ ] **6.4** Update `packages/universo-react-utils/base/src/database/userLookup.ts`
   - Replace `DataSource.query()` → `getKnex().raw()` or accept `DbExecutor` parameter
   - Change import from `DataSource` to accept `DbExecutor`
-- [ ] **6.5** Clean up test mocks in `packages/universo-utils/base/src/database/__tests__/manager.test.ts`
+- [ ] **6.5** Clean up test mocks in `packages/universo-react-utils/base/src/database/__tests__/manager.test.ts`
   - Remove all TypeORM-related test cases (getRequestManager, dbLegacyManager, etc.)
   - Keep only neutral DbSession/DbExecutor tests
 - [ ] **6.6** Delete `tools/testing/backend/typeormMocks.ts` — shared TypeORM test mock utility
 
 #### 6G. Interface Unification (QA FINDING-6)
 
-- [ ] **6G.1** Replace local `SqlExecutor` in `applications-backend/persistence/applicationsStore.ts` and `connectorsStore.ts` with import from `@universo/utils`
-  - Change `import type { SqlExecutor }` (locally defined) → `import type { SqlQueryable } from '@universo/utils'`
+- [ ] **6G.1** Replace local `SqlExecutor` in `applications-backend/persistence/applicationsStore.ts` and `connectorsStore.ts` with import from `@universo-react/utils`
+  - Change `import type { SqlExecutor }` (locally defined) → `import type { SqlQueryable } from '@universo-react/utils'`
   - Rename parameter types from `SqlExecutor` to `SqlQueryable` in all store functions
   - This is a type-only change — no runtime impact
-- [ ] **6G.2** Verify `metahubs-backend/persistence/types.ts` `SqlQueryable` matches the canonical definition in `@universo/utils`
-  - If identical: replace local definition with re-export: `export type { SqlQueryable } from '@universo/utils'`
-  - If different: reconcile (the `@universo/utils` definition is canonical)
-- [ ] **6G.3** Update persistence barrel re-exports to export `SqlQueryable` from `@universo/utils`
+- [ ] **6G.2** Verify `metahubs-backend/persistence/types.ts` `SqlQueryable` matches the canonical definition in `@universo-react/utils`
+  - If identical: replace local definition with re-export: `export type { SqlQueryable } from '@universo-react/utils'`
+  - If different: reconcile (the `@universo-react/utils` definition is canonical)
+- [ ] **6G.3** Update persistence barrel re-exports to export `SqlQueryable` from `@universo-react/utils`
 
 ### Tests
-- [ ] **6.T1** Verify `pnpm --filter @universo/utils build` + `pnpm --filter @universo/utils test`
-- [ ] **6.T2** Verify no remaining `@universo/utils/database/legacy` imports anywhere
-- [ ] **6.T3** Verify `pnpm --filter @universo/metahubs-backend build` + `pnpm --filter @universo/applications-backend build` (interface unification)
+- [ ] **6.T1** Verify `pnpm --filter @universo-react/utils build` + `pnpm --filter @universo-react/utils test`
+- [ ] **6.T2** Verify no remaining `@universo-react/utils/database/legacy` imports anywhere
+- [ ] **6.T3** Verify `pnpm --filter @universo-react/metahubs-backend build` + `pnpm --filter @universo-react/applications-backend build` (interface unification)
 
 ### Risk
 - Low — this is cleanup after all consumers are migrated
@@ -749,7 +749,7 @@ After TypeORM is fully removed, finish the migration system itself and close the
 
 #### 9A. Dry-Run Mode and Migration CLI
 
-- [ ] **9A.1** Add `dryRun` as a FIRST-CLASS capability in `@universo/migrations-core`
+- [ ] **9A.1** Add `dryRun` as a FIRST-CLASS capability in `@universo-react/migrations-core`
   - Extend `RunPlatformMigrationsOptions` / `RunPlatformMigrationsResult` to support dry-run metadata (`planned`, `blocked`, `reviewRequired`) instead of hiding it behind a thin wrapper script
   - `runPlatformMigrations({ dryRun: true })` must validate, acquire the same catalog context, and return the ordered execution plan without mutating DB state
   - Keep `runRegisteredPlatformMigrations(...)` as the single entrypoint, but extend its signature/options rather than adding a second near-duplicate runner
@@ -793,9 +793,9 @@ After TypeORM is fully removed, finish the migration system itself and close the
 #### 9C. Runtime Convergence: Metahub Structure → Shared Application Definition Kernel
 
 - [ ] **9C.1** Explicitly converge metahub/application runtime definition lifecycle on shared Universo packages
-  - Promote the shared kernel in `@universo/schema-ddl` + `@universo/migrations-*` as the canonical runtime engine
+  - Promote the shared kernel in `@universo-react/schema-ddl` + `@universo/migrations-*` as the canonical runtime engine
   - Reduce metahub-specific runtime migration code to thin adapters where business semantics differ, instead of keeping a parallel metahub-only migration architecture forever
-  - Preserve current external behavior of `packages/metahubs-frontend` and `packages/universo-template-mui` — NO new UI surface required in this task
+  - Preserve current external behavior of `packages/universo-react-metahubs-frontend` and `packages/universo-react-template-mui` — NO new UI surface required in this task
 
 - [ ] **9C.2** Formalize the semantic mapping required by the ТЗ
   - Define: “metahub structure” = application schema definition for the built-in Metahubs application
@@ -814,10 +814,10 @@ After TypeORM is fully removed, finish the migration system itself and close the
 #### 9D. KnexClient Deduplication Final Cleanup
 
 - [ ] **9D.1** Verify `metahubs-backend` no longer has any local copy of `KnexClient.ts`
-  - If a thin re-export still exists in `domains/ddl/index.ts`, verify it's just `export { getKnex } from '@universo/database'`
+  - If a thin re-export still exists in `domains/ddl/index.ts`, verify it's just `export { getKnex } from '@universo-react/database'`
   - No orphan pool monitoring or connection config in metahubs-backend
 
-- [ ] **9D.2** Verify pool monitoring works correctly with the single `@universo/database` instance
+- [ ] **9D.2** Verify pool monitoring works correctly with the single `@universo-react/database` instance
 
 ### Tests
 - [ ] **9.T1** Add tests for dry-run mode
@@ -834,7 +834,7 @@ Phase 0 (Knex Singleton + Pool + Checksum Cleanup)
   ↓
 Phase 1 (RLS Middleware + Executor Factories) ← depends on Phase 0
   ↓
-Phase 2 (Admin SQL-First) ← depends on Phase 1 (needs createKnexExecutor from @universo/database)
+Phase 2 (Admin SQL-First) ← depends on Phase 1 (needs createKnexExecutor from @universo-react/database)
 Phase 3 (Profile SQL-First) ← can run in parallel with Phase 2
   ↓
 Phase 4 (Start + Auth cleanup) ← depends on Phases 2 & 3 (AuthUser entity, Profile entity removed)
@@ -852,16 +852,16 @@ Phase 9 (Definition Lifecycle + Runtime Convergence + Final ТЗ Completeness) �
 
 ### Package Dependency (No Cycles)
 ```
-@universo/utils          ← leaf (DbExecutor, DbSession, SqlQueryable interfaces)
+@universo-react/utils          ← leaf (DbExecutor, DbSession, SqlQueryable interfaces)
   ↑
-@universo/database       ← leaf (KnexClient singleton, createKnexExecutor, createRlsExecutor)
-  ↑                        depends on: @universo/utils (interfaces), knex, pg
+@universo-react/database       ← leaf (KnexClient singleton, createKnexExecutor, createRlsExecutor)
+  ↑                        depends on: @universo-react/utils (interfaces), knex, pg
   |
-@universo/auth-backend   ← acquireRlsSession uses @universo/database
-@universo/admin-backend  ← persistence stores use DbExecutor from @universo/utils
-@universo/metahubs-backend ← domains/ddl re-exports getKnex from @universo/database
-@universo/applications-backend ← persistence stores use DbExecutor from @universo/utils
-@universo/core-backend   ← route wiring, imports from ALL above (no reverse dependency)
+@universo-react/auth-backend   ← acquireRlsSession uses @universo-react/database
+@universo-react/admin-backend  ← persistence stores use DbExecutor from @universo-react/utils
+@universo-react/metahubs-backend ← domains/ddl re-exports getKnex from @universo-react/database
+@universo-react/applications-backend ← persistence stores use DbExecutor from @universo-react/utils
+@universo-react/core-backend   ← route wiring, imports from ALL above (no reverse dependency)
 ```
 
 ---
@@ -870,7 +870,7 @@ Phase 9 (Definition Lifecycle + Runtime Convergence + Final ТЗ Completeness) �
 
 | Metric | Count |
 |--------|-------|
-| New packages to create | 1 (`@universo/database` — Knex singleton + executor factories) |
+| New packages to create | 1 (`@universo-react/database` — Knex singleton + executor factories) |
 | TypeORM entities to delete | 8 (AuthUser, Profile, AdminSetting, Role, RolePermission, UserRole, Instance, Locale) |
 | TypeORM migration files to delete | 6 (2 admin + 4 profile) — already superseded by native SQL definitions |
 | SQL-first persistence stores to create | 5 (rolesStore, localesStore, instancesStore, settingsStore, profileStore) |
@@ -880,7 +880,7 @@ Phase 9 (Definition Lifecycle + Runtime Convergence + Final ТЗ Completeness) �
 | Package.json to clean | 5 (core-backend, auth-backend, admin-backend, profile-backend, start-backend) |
 | Test files to create | ~22 new test files (including executor + RLS session tests) |
 | Test files to rewrite | ~5 existing test files |
-| Packages with zero remaining TypeORM | ALL (27/27 after adding `@universo/database`) |
+| Packages with zero remaining TypeORM | ALL (27/27 after adding `@universo-react/database`) |
 | Interfaces unified | 3 → 2 (SqlExecutor+SqlQueryable → SqlQueryable) |
 | Migration CLI tools to add | 4 (migration:status, migration:plan, migration:export, migration:diff) |
 | Existing catalog lifecycle primitives reused | 5 (`definition_registry`, `definition_revisions`, `definition_exports`, `approval_events`, `definition_drafts`) |
@@ -892,17 +892,17 @@ Phase 9 (Definition Lifecycle + Runtime Convergence + Final ТЗ Completeness) �
 
 1. **No version increment** — schema/template versions stay at `0.1.0`
 2. **Fresh test database** — all `upl_migrations` entries will be fresh; no backward compatibility needed
-3. **All texts i18n-ready** — any new user-facing strings must have EN/RU keys in `@universo/i18n`
+3. **All texts i18n-ready** — any new user-facing strings must have EN/RU keys in `@universo-react/i18n`
 4. **UUID v7** — all new `INSERT` queries use `public.uuid_generate_v7()` for ID generation
 5. **Parameterized SQL** — all queries MUST use parameterized placeholders. NO string interpolation for values.
 6. **Parameter binding convention (QA FINDING-7)** — existing persistence stores use PostgreSQL-native `$1, $2` syntax (from TypeORM era). `knex.raw(sql, params)` with pg driver passes `$1`-style SQL through to PostgreSQL driver which handles it natively. Therefore: **keep `$1, $2` syntax in all persistence stores** — no mass-rewrite needed. For new Knex-level infrastructure code (executor factories, locking), use `?` placeholders (Knex convention, converted to `$1` automatically). **Never mix `?` and `$1` in the same query.** Validate in Phase 0.T1.
-7. **Identifier safety** — table/column/schema names that come from user input must go through `quoteIdentifier()` from `@universo/migrations-core/identifiers`
+7. **Identifier safety** — table/column/schema names that come from user input must go through `quoteIdentifier()` from `@universo-react/migrations-core/identifiers`
 8. **RLS preservation** — request-scoped `set_config('request.jwt.claims', ...)` behavior MUST be preserved through the Knex migration. **Use `createRlsExecutor` for RLS routes, `createKnexExecutor` for non-RLS routes.**
 9. **Soft-delete parity** — all list/count queries must include `COALESCE(_upl_deleted, false) = false` where applicable (follows existing pattern)
 10. **Two executor types (QA FINDING-2)** — `createRlsExecutor(knex, connection)` for pinned-connection RLS routes (top-level transactions via BEGIN/COMMIT on same connection, nested via SAVEPOINT); `createKnexExecutor(knex)` for pool-level non-RLS routes (transactions via knex.transaction). Never use `createKnexExecutor` in RLS-protected request handlers — it would lose JWT claims.
 11. **set_config is_local parameter (QA FINDING-1)** — ALWAYS `false` (session-level). `true` is transaction-local and is a no-op outside explicit transactions. Confirmed correct in existing `rlsContext.ts` line 58 and `ensureAuthWithRls.ts` cleanup.
 12. **No redundant public DB interfaces (QA FINDING-10)** — reuse `DbSession`, `DbExecutor`, and `RequestDbContext`. Any transport-specific connection handle stays internal to the middleware module.
-13. **`schema-ddl` must stay DI-only (QA FINDING-11)** — do not couple `@universo/schema-ddl` to `@universo/database` or package-local singletons. Bind the singleton only in runtime wrappers.
+13. **`schema-ddl` must stay DI-only (QA FINDING-11)** — do not couple `@universo-react/schema-ddl` to `@universo-react/database` or package-local singletons. Bind the singleton only in runtime wrappers.
 14. **Canonical definition lifecycle (QA FINDING-12)** — reuse the existing `upl_migrations` definition tables and `DefinitionRegistryStore` flows for DB/file/export/draft metadata. Do NOT create a second registry.
 15. **Metahub/application convergence (QA FINDING-13)** — treat the current metahub runtime model as a transitional adapter over the shared Universo migration kernel, while preserving exact schema and UI contract parity until old metahub packages are intentionally retired.
 
@@ -914,7 +914,7 @@ Phase 9 (Definition Lifecycle + Runtime Convergence + Final ТЗ Completeness) �
 |---------|----------|--------------------|
 | F-1: set_config `true` → `false` | CRITICAL | Phase 1.2 (`acquireRlsSession.release()`), Execution Note 11 |
 | F-2: knex.transaction() loses RLS | CRITICAL | Phase 1.1 (`createRlsExecutor` with BEGIN/COMMIT/ROLLBACK), Execution Note 10 |
-| F-3: Circular dep (core↔metahubs) | HIGH | Phase 0A (new `@universo/database` package), Dependency Graph |
+| F-3: Circular dep (core↔metahubs) | HIGH | Phase 0A (new `@universo-react/database` package), Dependency Graph |
 | F-4: localesRoutes `ds.transaction()` | HIGH | Phase 2 Overview (admin = no RLS = pool executor), Phase 2B.2 |
 | F-5: Pool budget deferred to Phase 9 | MEDIUM | Moved to Phase 0B |
 | F-6: Duplicate SQL executor interfaces | MEDIUM | Phase 6G (SqlExecutor → SqlQueryable unification) |

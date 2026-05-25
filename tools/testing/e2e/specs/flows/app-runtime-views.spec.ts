@@ -1,4 +1,4 @@
-import { createLocalizedContent } from '@universo/utils'
+import { createLocalizedContent } from '@universo-react/utils'
 import { test, expect } from '../../fixtures/test'
 import { waitForSettledMutationResponse } from '../../support/browser/network'
 import { expectHeightsAligned, expectLeftEdgeAligned, expectRightEdgeAligned } from '../../support/browser/spacing'

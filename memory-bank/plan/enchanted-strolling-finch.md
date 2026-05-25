@@ -17,7 +17,7 @@ The goal is to build an LMS (Learning Management System) MVP entirely as metahub
 **Impact**: Quiz questions with nested options TABLE is impossible. Options must be stored as JSON array within each question row.
 
 ### 2. Widget keys are predefined in types
-`DASHBOARD_LAYOUT_WIDGETS` in `packages/universo-types/base/src/common/metahubs.ts` defines all valid widget keys. New LMS widget keys must be ADDED to this array.
+`DASHBOARD_LAYOUT_WIDGETS` in `packages/universo-react-types/base/src/common/metahubs.ts` defines all valid widget keys. New LMS widget keys must be ADDED to this array.
 
 ### 3. REF fields cannot target hub entities
 Only catalog, set, enumeration are valid REF targets. Module references via hub IDs must use STRING type.
@@ -43,46 +43,46 @@ Expose the existing workspace database infrastructure as user-facing UI in the a
 
 ### 0.1 Backend: Runtime Workspace API
 
-**Create** `packages/applications-backend/base/src/controllers/runtimeWorkspaceController.ts`
+**Create** `packages/universo-react-applications-backend/base/src/controllers/runtimeWorkspaceController.ts`
 - `GET /applications/:applicationId/runtime/workspaces` — list current user's workspaces
 - `POST /applications/:applicationId/runtime/workspaces` — create workspace (type: 'shared')
 - `PATCH /applications/:applicationId/runtime/workspaces/:workspaceId/default` — set default workspace
 - `POST /applications/:applicationId/runtime/workspaces/:workspaceId/members` — invite member (by userId)
 - `DELETE /applications/:applicationId/runtime/workspaces/:workspaceId/members/:userId` — remove member
 
-**Create** `packages/applications-backend/base/src/services/runtimeWorkspaceService.ts`
+**Create** `packages/universo-react-applications-backend/base/src/services/runtimeWorkspaceService.ts`
 - Extract reusable query functions from existing `applicationWorkspaces.ts`:
   - `listUserWorkspaces(executor, schemaName, userId)`
   - `createSharedWorkspace(executor, schemaName, input)`
   - `setDefaultWorkspace(executor, schemaName, userId, workspaceId)`
   - `addWorkspaceMember(executor, schemaName, workspaceId, userId, roleCodename)`
   - `removeWorkspaceMember(executor, schemaName, workspaceId, userId)`
-- Reuse existing `qSchemaTable`, `qColumn` from `@universo/database` for SQL identifiers
+- Reuse existing `qSchemaTable`, `qColumn` from `@universo-react/database` for SQL identifiers
 - Reuse existing parameterized query patterns from `applicationWorkspaces.ts`
 
-**Modify** `packages/applications-backend/base/src/routes/index.ts` — register workspace routes
-**Modify** `packages/applications-backend/base/src/shared/runtimeHelpers.ts` — expose workspace info in runtime GET response
+**Modify** `packages/universo-react-applications-backend/base/src/routes/index.ts` — register workspace routes
+**Modify** `packages/universo-react-applications-backend/base/src/shared/runtimeHelpers.ts` — expose workspace info in runtime GET response
 
 ### 0.2 Frontend: Workspace Components
 
-**Create** `packages/apps-template-mui/src/dashboard/components/WorkspaceSwitcher.tsx`
+**Create** `packages/universo-react-apps-template-mui/src/dashboard/components/WorkspaceSwitcher.tsx`
 - Reuse `SelectContent.tsx` pattern from existing dashboard (Mui Select with avatar)
 - Dropdown in `AppNavbar.tsx` showing current workspace name
 - On change: PATCH default workspace, invalidate TanStack Query cache
 - Only rendered when `workspacesEnabled` is true and workspace context exists
 
-**Create** `packages/apps-template-mui/src/dashboard/components/WorkspaceManagerDialog.tsx`
+**Create** `packages/universo-react-apps-template-mui/src/dashboard/components/WorkspaceManagerDialog.tsx`
 - Reuse existing `FormDialog.tsx` pattern for workspace creation form
 - Reuse existing `ConfirmDeleteDialog.tsx` for member removal confirmation
 - Member list with role badges (owner/member) — reuse MUI Chip component
 - Use `useMutation` + optimistic updates pattern (same as existing CRUD patterns)
 
-**Modify** `packages/apps-template-mui/src/dashboard/components/AppNavbar.tsx` — add `WorkspaceSwitcher`
-**Modify** `packages/apps-template-mui/src/dashboard/DashboardDetailsContext.tsx` — add workspace fields to context
+**Modify** `packages/universo-react-apps-template-mui/src/dashboard/components/AppNavbar.tsx` — add `WorkspaceSwitcher`
+**Modify** `packages/universo-react-apps-template-mui/src/dashboard/DashboardDetailsContext.tsx` — add workspace fields to context
 
 ### 0.3 i18n for Workspace UI
 
-**Modify** `packages/apps-template-mui/src/i18n/locales/en/apps.json` and `.../ru/apps.json`:
+**Modify** `packages/universo-react-apps-template-mui/src/i18n/locales/en/apps.json` and `.../ru/apps.json`:
 - `workspace.title`, `workspace.switch`, `workspace.create`, `workspace.invite`, `workspace.members`, `workspace.personal`, `workspace.roleOwner`, `workspace.roleMember`, `workspace.limitReached`, etc.
 
 ### 0.4 Verification
@@ -100,10 +100,10 @@ Define the exact metahub entity structure for the LMS. All LMS logic is data (en
 
 ### 1.1 LMS Template File
 
-**Create** `packages/metahubs-backend/base/src/domains/templates/data/lms.template.ts`
+**Create** `packages/universo-react-metahubs-backend/base/src/domains/templates/data/lms.template.ts`
 - Follow pattern from `basic.template.ts` (uses `vlc()` helper, `MetahubTemplateManifest`)
 - Reuse entity presets from `standardEntityTypeDefinitions.ts` where applicable
-- Register in `packages/metahubs-backend/base/src/domains/templates/data/index.ts`
+- Register in `packages/universo-react-metahubs-backend/base/src/domains/templates/data/index.ts`
 
 ### 1.2 Entity Structure (Corrected for TABLE Constraints)
 
@@ -254,7 +254,7 @@ class LmsStatsViewer extends ExtensionScript {
 
 ### 2A. Type Extensions for New Widgets
 
-**Modify** `packages/universo-types/base/src/common/metahubs.ts`
+**Modify** `packages/universo-react-types/base/src/common/metahubs.ts`
 - Add new entries to `DASHBOARD_LAYOUT_WIDGETS` array (around line 797):
   ```typescript
   { key: 'moduleViewerWidget', allowedZones: ['center'] as const, multiInstance: false },
@@ -265,7 +265,7 @@ class LmsStatsViewer extends ExtensionScript {
 
 ### 2B. New Widget Components
 
-**Create** `packages/apps-template-mui/src/dashboard/components/ModuleViewerWidget.tsx`
+**Create** `packages/universo-react-apps-template-mui/src/dashboard/components/ModuleViewerWidget.tsx`
 - Follow exact `QuizWidget.tsx` architecture: fetch scripts → load client bundle → call mount() → render
 - Use same `fetchRuntimeScripts`, `callRuntimeScriptMethod`, `createClientScriptContext` helpers
 - Renders content items: text (rendered as Typography), images (Card with img), video embeds, quiz references
@@ -273,19 +273,19 @@ class LmsStatsViewer extends ExtensionScript {
 - Progress bar (MUI LinearProgress) showing completion percentage
 - Previous/next navigation between content items
 
-**Create** `packages/apps-template-mui/src/dashboard/components/StatsViewerWidget.tsx`
+**Create** `packages/universo-react-apps-template-mui/src/dashboard/components/StatsViewerWidget.tsx`
 - Same script-driven pattern as QuizWidget
 - Displays completion rate cards (reuse `StatCard.tsx` from existing dashboard)
 - MUI X Charts for bar charts (already in dependencies via `@mui/x-charts`)
 - Aggregates data via `lms-stats-viewer` script RPC
 
-**Create** `packages/apps-template-mui/src/dashboard/components/QRCodeWidget.tsx`
+**Create** `packages/universo-react-apps-template-mui/src/dashboard/components/QRCodeWidget.tsx`
 - Lightweight component: receives URL from widget config
 - Uses `qrcode` npm package for client-side SVG generation
 - "Copy link" button (reuse existing snackbar notification pattern)
 - Config: `{ url: string, size: number, title: VLC }`
 
-**Modify** `packages/apps-template-mui/src/dashboard/components/widgetRenderer.tsx`
+**Modify** `packages/universo-react-apps-template-mui/src/dashboard/components/widgetRenderer.tsx`
 - Add cases after existing `case 'quizWidget':` at line 121:
   ```typescript
   case 'moduleViewerWidget':
@@ -298,14 +298,14 @@ class LmsStatsViewer extends ExtensionScript {
 
 ### 2C. Guest/Anonymous Access
 
-**Create** `packages/applications-backend/base/src/shared/publicRuntimeAccess.ts`
+**Create** `packages/universo-react-applications-backend/base/src/shared/publicRuntimeAccess.ts`
 - `resolvePublicRuntimeSchema(executor, input)` — variant of `resolveRuntimeSchema` WITHOUT userId requirement
 - Validates application exists and has valid published schema
 - Sets workspace context to null
 - Restricts access to specific catalogs only (modules, quizzes — not student lists)
 - Uses existing `getPoolExecutor()` pattern
 
-**Create** `packages/applications-backend/base/src/controllers/runtimeGuestController.ts`
+**Create** `packages/universo-react-applications-backend/base/src/controllers/runtimeGuestController.ts`
 - `GET /public/a/:applicationId/links/:slug` — resolve access link by slug
 - `POST /public/a/:applicationId/guest-session` — create guest student record
   - Body: `{ displayName: string, accessLinkId?: string }`
@@ -313,18 +313,18 @@ class LmsStatsViewer extends ExtensionScript {
 - `GET /public/a/:applicationId/runtime` — read-only runtime data for guest
 - `POST /public/a/:applicationId/runtime/guest-submit` — submit quiz response as guest
 
-**Modify** `packages/applications-backend/base/src/routes/index.ts`
+**Modify** `packages/universo-react-applications-backend/base/src/routes/index.ts`
 - Register public routes WITHOUT `ensureAuth` middleware
-- Apply rate limiting using existing `@universo/utils` rate-limiting helpers
+- Apply rate limiting using existing `@universo-react/utils` rate-limiting helpers
 
-**Create** `packages/apps-template-mui/src/standalone/GuestApp.tsx`
+**Create** `packages/universo-react-apps-template-mui/src/standalone/GuestApp.tsx`
 - Minimal layout: no workspace switcher, no member management
 - Name entry form on first visit → creates guest session
 - Renders `ModuleViewerWidget` or `QuizWidget` based on access link target
 - Stores guest session token in localStorage
 - Reuse existing MUI components (TextField, Button, Card)
 
-**Modify** `packages/apps-template-mui/src/routes/createAppRoutes.tsx`
+**Modify** `packages/universo-react-apps-template-mui/src/routes/createAppRoutes.tsx`
 - Add route for `/public/a/:applicationId/links/:slug` → renders `GuestApp`
 - No auth guard on this route
 
@@ -483,18 +483,18 @@ Phase 6 (README) ── final
 
 | File | Purpose |
 |------|---------|
-| `packages/applications-backend/base/src/services/applicationWorkspaces.ts` | All existing workspace SQL — foundation for Phase 0 backend |
-| `packages/apps-template-mui/src/dashboard/components/widgetRenderer.tsx` | Widget dispatch — new LMS widgets must register here |
-| `packages/apps-template-mui/src/dashboard/components/QuizWidget.tsx` | Reference widget pattern — new widgets follow this exactly |
-| `packages/metahubs-backend/base/src/domains/templates/data/basic.template.ts` | Template pattern with `vlc()` helper |
-| `packages/metahubs-backend/base/src/domains/templates/data/basic-demo.template.ts` | Demo template with full widgets |
-| `packages/universo-types/base/src/common/metahubs.ts` | Widget key definitions (line 767-799), `TABLE_CHILD_DATA_TYPES` (line 747) |
+| `packages/universo-react-applications-backend/base/src/services/applicationWorkspaces.ts` | All existing workspace SQL — foundation for Phase 0 backend |
+| `packages/universo-react-apps-template-mui/src/dashboard/components/widgetRenderer.tsx` | Widget dispatch — new LMS widgets must register here |
+| `packages/universo-react-apps-template-mui/src/dashboard/components/QuizWidget.tsx` | Reference widget pattern — new widgets follow this exactly |
+| `packages/universo-react-metahubs-backend/base/src/domains/templates/data/basic.template.ts` | Template pattern with `vlc()` helper |
+| `packages/universo-react-metahubs-backend/base/src/domains/templates/data/basic-demo.template.ts` | Demo template with full widgets |
+| `packages/universo-react-types/base/src/common/metahubs.ts` | Widget key definitions (line 767-799), `TABLE_CHILD_DATA_TYPES` (line 747) |
 | `tools/testing/e2e/support/quizFixtureContract.ts` | Quiz fixture contract — pattern for LMS fixture |
-| `packages/applications-backend/base/src/shared/runtimeHelpers.ts` | Runtime schema resolution — extend with public access |
-| `packages/apps-template-mui/src/dashboard/DashboardDetailsContext.tsx` | Dashboard context — add workspace fields |
-| `packages/apps-template-mui/src/components/dialogs/FormDialog.tsx` | 1,322-line form dialog — reuse for all LMS forms |
-| `packages/apps-template-mui/src/crud-dashboard/components/EmployeeList.tsx` | CRUD list pattern — reuse for class/student management |
-| `packages/apps-template-mui/src/api/api.ts` | API functions — reuse `fetchAppRow`, `createAppRow` etc. |
+| `packages/universo-react-applications-backend/base/src/shared/runtimeHelpers.ts` | Runtime schema resolution — extend with public access |
+| `packages/universo-react-apps-template-mui/src/dashboard/DashboardDetailsContext.tsx` | Dashboard context — add workspace fields |
+| `packages/universo-react-apps-template-mui/src/components/dialogs/FormDialog.tsx` | 1,322-line form dialog — reuse for all LMS forms |
+| `packages/universo-react-apps-template-mui/src/crud-dashboard/components/EmployeeList.tsx` | CRUD list pattern — reuse for class/student management |
+| `packages/universo-react-apps-template-mui/src/api/api.ts` | API functions — reuse `fetchAppRow`, `createAppRow` etc. |
 
 ---
 

@@ -20,7 +20,7 @@ This wave must stay aligned with the original constraints:
 - Do not invent new metadata entity kinds.
 - Do not bump the metahub schema or template version solely for this work.
 - Reuse the existing application/workspace access model for the multi-user MVP instead of inventing a parallel metahub-specific user/role subsystem inside the published app.
-- Reuse current package boundaries and modern shared packages (`@universo/types`, `@universo/utils`, `@universo/template-mui`, `@universo-i18n`).
+- Reuse current package boundaries and modern shared packages (`@universo-react/types`, `@universo-react/utils`, `@universo-react/template-mui`, `@universo-i18n`).
 - Use UUID v7, i18n-first text handling, and snapshot-compatible JSONB/VLC contracts.
 
 ---
@@ -51,7 +51,7 @@ This wave must stay aligned with the original constraints:
 5. Catalog create/update/copy route schemas do **not** yet accept typed runtime/edit-surface config, so Phase 1 must explicitly extend controller validation instead of assuming generic JSONB passthrough is already available.
 6. Attribute `uiConfig` already has an existing `widget` seam including `textarea`, but that seam is not yet exposed as a coherent metahub authoring/runtime contract for STRING multiline behavior.
 7. The current fixture replacement is cross-cutting: the generator spec, CLI helper, E2E flows, docs, and memory-bank references all currently point to `tools/fixtures/self-model-metahub-snapshot.json`, so the rename/rebuild must be coordinated rather than treated as a single-file swap.
-8. `packages/applications-backend/base/src/routes/sync/syncTypes.ts` still defines an older `dashboardLayoutConfigSchema` that lacks the enhanced runtime fields already present in `apps-template-mui`, so the next wave needs one shared schema source of truth instead of package-local drift.
+8. `packages/universo-react-applications-backend/base/src/routes/sync/syncTypes.ts` still defines an older `dashboardLayoutConfigSchema` that lacks the enhanced runtime fields already present in `apps-template-mui`, so the next wave needs one shared schema source of truth instead of package-local drift.
 
 ---
 
@@ -70,15 +70,15 @@ This wave must stay aligned with the original constraints:
 
 | Area | Planned Change |
 | --- | --- |
-| `packages/metahubs-backend` | Persist and validate per-catalog runtime/editing config; extend snapshot/self-model generation; expose metahub export in a stable user-facing path if UI action is added |
-| `packages/metahubs-frontend` | Add catalog-level Layout/Presentation tabs, attribute multiline/editor controls, entity editing-surface controls, and clearer export/import affordances |
-| `packages/applications-backend` | Align sync/install/export schemas with the shared runtime config contracts so enhanced view settings are not silently dropped during publication sync |
-| `packages/apps-template-mui` | Refactor runtime list surface to preserve built-in DataGrid features while layering catalog-specific toolbar/card/list/reorder behavior |
-| `packages/migration-guard-shared` | Reuse the shared migration guard shell only if the self-hosted app needs the same blocking/optional migration UX semantics |
-| `packages/universo-template-mui` | Extend shared form/page/list primitives only where generic reuse is clear and leaf-package direction remains valid |
-| `packages/universo-types` | Add typed config schemas for catalog runtime config, entity editing-surface config, and attribute editor config |
-| `packages/universo-utils` | Add safe config normalization/resolution helpers and snapshot upgrade defaults |
-| `packages/universo-i18n` | Add shared EN/RU keys for new catalog/attribute settings and runtime controls |
+| `packages/universo-react-metahubs-backend` | Persist and validate per-catalog runtime/editing config; extend snapshot/self-model generation; expose metahub export in a stable user-facing path if UI action is added |
+| `packages/universo-react-metahubs-frontend` | Add catalog-level Layout/Presentation tabs, attribute multiline/editor controls, entity editing-surface controls, and clearer export/import affordances |
+| `packages/universo-react-applications-backend` | Align sync/install/export schemas with the shared runtime config contracts so enhanced view settings are not silently dropped during publication sync |
+| `packages/universo-react-apps-template-mui` | Refactor runtime list surface to preserve built-in DataGrid features while layering catalog-specific toolbar/card/list/reorder behavior |
+| `packages/universo-react-migration-guard-shared` | Reuse the shared migration guard shell only if the self-hosted app needs the same blocking/optional migration UX semantics |
+| `packages/universo-react-template-mui` | Extend shared form/page/list primitives only where generic reuse is clear and leaf-package direction remains valid |
+| `packages/universo-react-types` | Add typed config schemas for catalog runtime config, entity editing-surface config, and attribute editor config |
+| `packages/universo-react-utils` | Add safe config normalization/resolution helpers and snapshot upgrade defaults |
+| `packages/universo-react-i18n` | Add shared EN/RU keys for new catalog/attribute settings and runtime controls |
 | `tools/testing/e2e` | Add screenshot-driven baseline audit, new end-to-end authoring/publish/import checks, and regenerate self-model V2 fixture |
 | `tools/fixtures` | Replace the current self-model fixture with a renamed, localized, seeded V2 artifact |
 | `docs/` + package READMEs | Document per-catalog runtime config, page-surface editing, self-model generator V2, and snapshot/self-hosting workflow |
@@ -153,7 +153,7 @@ Implications:
 
 ### 8. Make Runtime Config Schemas Shared Across Authoring, Sync, And Runtime
 
-The catalog/runtime config contracts must have one typed source of truth in `@universo/types`, then be reused by `metahubs-backend`, `metahubs-frontend`, `applications-backend`, and `apps-template-mui`.
+The catalog/runtime config contracts must have one typed source of truth in `@universo-react/types`, then be reused by `metahubs-backend`, `metahubs-frontend`, `applications-backend`, and `apps-template-mui`.
 
 Implications:
 
@@ -200,7 +200,7 @@ type CatalogRuntimeViewConfig = {
 
 This keeps the contract intentionally close to the current layout-level keys and avoids introducing a second nested settings grammar before the MVP proves it is necessary.
 
-The Zod schema for this contract should live once in `@universo/types` and be imported by authoring, sync, and runtime packages rather than copied locally.
+The Zod schema for this contract should live once in `@universo-react/types` and be imported by authoring, sync, and runtime packages rather than copied locally.
 
 ### Attribute UI Config
 
@@ -255,9 +255,9 @@ Deliverables:
 
 ### Phase 1 — Metadata Contract Hardening
 
-- [x] Define typed schemas in `@universo/types` for catalog runtime config, entity editing-surface config, and attribute editor config.
+- [x] Define typed schemas in `@universo-react/types` for catalog runtime config, entity editing-surface config, and attribute editor config.
 - [x] Extract the enhanced dashboard/runtime config shape into a shared schema contract so `apps-template-mui` and `applications-backend` stop maintaining divergent copies.
-- [x] Add normalization helpers in `@universo/utils` for config parsing, defaulting, merge precedence, and safe snapshot upgrade behavior.
+- [x] Add normalization helpers in `@universo-react/utils` for config parsing, defaulting, merge precedence, and safe snapshot upgrade behavior.
 - [x] Extend catalog create/update/copy route schemas so the new catalog runtime/editing fields are validated explicitly instead of relying on raw JSONB writes.
 - [x] Extend backend request validation so catalog/object config accepts only the approved shape and rejects malformed editing/view settings.
 - [x] Extend attribute `uiConfig` validation with multiline editor settings using the existing `widget` seam plus row-count hints, and update the shared sanitize helpers so create/edit/copy flows stay consistent.

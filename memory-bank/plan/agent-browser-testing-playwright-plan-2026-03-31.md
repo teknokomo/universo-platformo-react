@@ -65,11 +65,11 @@ This plan intentionally does **not** replace the existing `Vitest` / `Jest` stac
 **Recommended naming pattern:**
 
 - committed examples:
-  - `packages/universo-core-backend/base/.env.e2e.example`
-  - `packages/universo-core-frontend/base/.env.e2e.example`
+  - `packages/universo-react-core-backend/base/.env.e2e.example`
+  - `packages/universo-react-core-frontend/base/.env.e2e.example`
 - ignored local secrets:
-  - `packages/universo-core-backend/base/.env.e2e.local`
-  - `packages/universo-core-frontend/base/.env.e2e.local`
+  - `packages/universo-react-core-backend/base/.env.e2e.local`
+  - `packages/universo-react-core-frontend/base/.env.e2e.local`
 
 **Why `.env.e2e.local` and not `.env.autotest`:**
 
@@ -96,7 +96,7 @@ The plan must respect the following repository realities:
 1. `pnpm dev` must **not** be automatically run by agents.
 2. Reliable full validation currently expects **root `pnpm build`** before runtime verification.
 3. `pnpm start` runs the built backend/frontend composition, which matches the user's requested workflow.
-4. Backend env loading is currently hardcoded to `packages/universo-core-backend/base/.env`.
+4. Backend env loading is currently hardcoded to `packages/universo-react-core-backend/base/.env`.
 5. Frontend Vite config currently calls `dotenv.config()` without a first-class E2E env-selection contract.
 6. Nested `.env.e2e.local` files are **not currently ignored by git**, so adding the new env convention requires explicit `.gitignore` work.
 7. Authentication uses **session + CSRF + Supabase identity**, so E2E login must handle browser cookies and CSRF correctly.
@@ -221,8 +221,8 @@ Introduce a deterministic and safe env selection mechanism that supports:
   - `playwright-report`
   - `test-results`
 - [ ] Add committed example files:
-  - `packages/universo-core-backend/base/.env.e2e.example`
-  - `packages/universo-core-frontend/base/.env.e2e.example`
+  - `packages/universo-react-core-backend/base/.env.e2e.example`
+  - `packages/universo-react-core-frontend/base/.env.e2e.example`
 - [ ] Add a shared backend env loader that supports:
   - `UNIVERSO_ENV_FILE`
   - optional `UNIVERSO_ENV_TARGET=e2e`

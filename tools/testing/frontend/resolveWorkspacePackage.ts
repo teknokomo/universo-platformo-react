@@ -2,9 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 function findWorkspaceRoot(startDir: string): string {
-    let currentDir = path.resolve(startDir)
-
-    while (true) {
+    for (let currentDir = path.resolve(startDir); currentDir.length > 0; currentDir = path.dirname(currentDir)) {
         if (fs.existsSync(path.join(currentDir, 'pnpm-workspace.yaml'))) {
             return currentDir
         }
@@ -13,7 +11,6 @@ function findWorkspaceRoot(startDir: string): string {
         if (parentDir === currentDir) {
             throw new Error(`Could not find pnpm-workspace.yaml above ${startDir}`)
         }
-        currentDir = parentDir
     }
 }
 

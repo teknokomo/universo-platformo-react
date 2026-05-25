@@ -138,15 +138,15 @@ Keep the custom runner as the single source of startup truth:
 -   E2E env target: `UNIVERSO_ENV_TARGET=e2e`.
 -   Backend env file for hosted dedicated mode: `.env.e2e.local` or `.env.e2e`.
 -   Backend env file for local dedicated mode: `.env.e2e.local-supabase`.
--   Frontend env file for local dedicated mode: `packages/universo-core-frontend/base/.env.e2e.local-supabase`.
+-   Frontend env file for local dedicated mode: `packages/universo-react-core-frontend/base/.env.e2e.local-supabase`.
 -   Never start `pnpm dev` from agents or E2E wrapper commands.
 
 The local E2E scripts should start the dedicated local Supabase instance automatically:
 
 ```json
 {
-    "build:e2e:local-supabase": "pnpm supabase:e2e:start:minimal && pnpm env:e2e:local-supabase && pnpm doctor:e2e:local-supabase && cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/base/.env.e2e.local-supabase pnpm run build:e2e",
-    "test:e2e:smoke:local-supabase": "pnpm supabase:e2e:start:minimal && pnpm env:e2e:local-supabase && pnpm doctor:e2e:local-supabase && cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/base/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs --grep @smoke"
+    "build:e2e:local-supabase": "pnpm supabase:e2e:start:minimal && pnpm env:e2e:local-supabase && pnpm doctor:e2e:local-supabase && cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-react-core-frontend/base/.env.e2e.local-supabase pnpm run build:e2e",
+    "test:e2e:smoke:local-supabase": "pnpm supabase:e2e:start:minimal && pnpm env:e2e:local-supabase && pnpm doctor:e2e:local-supabase && cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-react-core-frontend/base/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs --grep @smoke"
 }
 ```
 
@@ -205,12 +205,12 @@ This keeps the upstream/generic Playwright guidance readable while making the pr
     -   `tools/testing/e2e/README.md`
     -   `tools/testing/e2e/README-RU.md`
 -   Env examples:
-    -   `packages/universo-core-backend/base/.env.example`
-    -   `packages/universo-core-backend/base/.env.e2e.example`
+    -   `packages/universo-react-core-backend/base/.env.example`
+    -   `packages/universo-react-core-backend/base/.env.e2e.example`
     -   frontend env examples if matching user-visible comments are needed
 -   Docs:
-    -   `packages/universo-core-backend/base/README.md`
-    -   `packages/universo-core-backend/base/README-RU.md`
+    -   `packages/universo-react-core-backend/base/README.md`
+    -   `packages/universo-react-core-backend/base/README-RU.md`
     -   `docs/en/getting-started/configuration.md`
     -   `docs/ru/getting-started/configuration.md`
     -   `docs/en/guides/browser-e2e-testing.md`

@@ -1,0 +1,250 @@
+import type { CodenameVLC, VersionedLocalizedContent, LocalizedContentEntry, LocaleCode } from '@universo-react/types'
+import { DEFAULT_LOCALE } from '@universo-react/types'
+
+/**
+ * Create a new localized content object with initial content
+ */
+export function createLocalizedContent<T = string>(
+    primaryLocale: LocaleCode = DEFAULT_LOCALE,
+    initialContent: T
+): VersionedLocalizedContent<T> {
+    const now = new Date().toISOString()
+    return {
+        _schema: '1',
+        _primary: primaryLocale,
+        locales: {
+            [primaryLocale]: {
+                content: initialContent,
+                version: 1,
+                isActive: true,
+                createdAt: now,
+                updatedAt: now
+            }
+        }
+    }
+}
+
+/**
+ * Add or update a locale in localized content
+ * Returns a new object (immutable)
+ */
+export function updateLocalizedContentLocale<T = string>(
+    content: VersionedLocalizedContent<T>,
+    locale: LocaleCode,
+    newContent: T
+): VersionedLocalizedContent<T> {
+    const now = new Date().toISOString()
+    const existing = content.locales[locale]
+
+    const entry: LocalizedContentEntry<T> = existing
+        ? {
+              ...existing,
+              content: newContent,
+              version: existing.version + 1,
+              updatedAt: now
+          }
+        : {
+              content: newContent,
+              version: 1,
+              isActive: true,
+              createdAt: now,
+              updatedAt: now
+          }
+
+    return {
+        ...content,
+        locales: {
+            ...content.locales,
+            [locale]: entry
+        }
+    }
+}
+
+/**
+ * Resolve content from localized content for a given locale with fallback chain
+ *
+ * @param content - The localized content object
+ * @param locale - Requested locale
+ * @param fallback - Fallback value if nothing found (guarantees return type)
+ * @returns Resolved content (guaranteed when fallback provided)
+ */
+// eslint-disable-next-line no-redeclare
+export function resolveLocalizedContent<T = string>(
+    content: VersionedLocalizedContent<T> | null | undefined,
+    locale: LocaleCode,
+    fallback: T
+): T
+
+/**
+ * Resolve content from localized content for a given locale with fallback chain
+ *
+ * @param content - The localized content object
+ * @param locale - Requested locale
+ * @returns Resolved content or undefined
+ */
+// eslint-disable-next-line no-redeclare
+export function resolveLocalizedContent<T = string>(
+    content: VersionedLocalizedContent<T> | null | undefined,
+    locale: LocaleCode
+): T | undefined
+
+// Implementation
+// eslint-disable-next-line no-redeclare
+export function resolveLocalizedContent<T = string>(
+    content: VersionedLocalizedContent<T> | null | undefined,
+    locale: LocaleCode,
+    fallback?: T
+): T | undefined {
+    if (!content || !content.locales) {
+        return fallback
+    }
+
+    // 1. Try requested locale
+    const requested = content.locales[locale]
+    if (requested?.isActive && requested.content !== undefined) {
+        return requested.content
+    }
+
+    // 2. Try primary locale
+    const primary = content.locales[content._primary]
+    if (primary?.isActive && primary.content !== undefined) {
+        return primary.content
+    }
+
+    // 3. Try any active locale
+    for (const entry of Object.values(content.locales)) {
+        if (entry?.isActive && entry.content !== undefined) {
+            return entry.content
+        }
+    }
+
+    return fallback
+}
+
+/**
+ * Get list of available locales in localized content
+ */
+export function getLocalizedContentLocales<T = string>(content: VersionedLocalizedContent<T> | null | undefined): LocaleCode[] {
+    if (!content?.locales) return []
+    return Object.keys(content.locales).filter((k) => content.locales[k]?.isActive)
+}
+
+/**
+ * Filter localized content to keep only non-empty locale entries.
+ * Returns null when no locales have content.
+ */
+export function filterLocalizedContent<T = string>(
+    content: VersionedLocalizedContent<T> | null | undefined
+): VersionedLocalizedContent<T> | null {
+    if (!content?.locales) return null
+
+    const filteredLocales: Record<string, LocalizedContentEntry<T>> = {}
+
+    for (const [localeCode, entry] of Object.entries(content.locales)) {
+        if (!entry || entry.content === undefined || entry.content === null) continue
+        if (entry.isActive === false) continue
+        if (typeof entry.content === 'string' && entry.content.trim() === '') continue
+        filteredLocales[localeCode] = entry
+    }
+
+    if (Object.keys(filteredLocales).length === 0) {
+        return null
+    }
+
+    const primary = filteredLocales[content._primary] ? content._primary : Object.keys(filteredLocales)[0]
+
+    return {
+        _schema: content._schema,
+        _primary: primary,
+        locales: filteredLocales as typeof content.locales
+    }
+}
+
+/**
+ * Type guard to check if object is localized content format
+ */
+export function isLocalizedContent(obj: unknown): obj is VersionedLocalizedContent<unknown> {
+    return typeof obj === 'object' && obj !== null && '_schema' in obj && (obj as Record<string, unknown>)._schema === '1'
+}
+
+/**
+ * Quickly build a VLC object with en + ru content.
+ * Convenience wrapper over createLocalizedContent + updateLocalizedContentLocale
+ * designed for frontend code that always provides exactly two locales.
+ */
+export function buildVLC(enContent: string, ruContent: string): VersionedLocalizedContent<string> {
+    let vlc = createLocalizedContent('en', enContent)
+    if (ruContent) {
+        vlc = updateLocalizedContentLocale(vlc, 'ru', ruContent)
+    }
+    return vlc
+}
+
+/**
+ * Ensure a value is in VLC format.
+ * - If already VLC, returns it as-is.
+ * - If a plain string, wraps it into a VLC using the given locale.
+ * - Otherwise returns null.
+ */
+export function ensureVLC(value: unknown, locale: LocaleCode): VersionedLocalizedContent<string> | null {
+    if (isLocalizedContent(value)) {
+        return value as VersionedLocalizedContent<string>
+    }
+    if (typeof value === 'string') {
+        return createLocalizedContent(locale, value)
+    }
+    return null
+}
+
+/** Wrap a primary codename string into the canonical codename VLC format. */
+export function createCodenameVLC(primaryLocale: LocaleCode = DEFAULT_LOCALE, codename: string): CodenameVLC {
+    return createLocalizedContent(primaryLocale, codename)
+}
+
+/** Ensure a value is represented as canonical codename VLC. */
+export function ensureCodenameVLC(value: unknown, locale: LocaleCode = DEFAULT_LOCALE): CodenameVLC | null {
+    const ensured = ensureVLC(value, locale)
+    return ensured ? (ensured as CodenameVLC) : null
+}
+
+/**
+ * When localizedEnabled is false, strip all locale variants except the primary.
+ * Returns the original VLC unchanged when localizedEnabled is true or undefined.
+ */
+export function enforceSingleLocaleCodename(
+    vlc: VersionedLocalizedContent<string>,
+    localizedEnabled: boolean | undefined
+): VersionedLocalizedContent<string> {
+    if (localizedEnabled !== false) return vlc
+    const primary = vlc._primary
+    const primaryEntry = vlc.locales?.[primary]
+    const localeKeys = Object.keys(vlc.locales ?? {})
+
+    if (!primaryEntry || localeKeys.length <= 1) return vlc
+
+    return {
+        _schema: vlc._schema,
+        _primary: primary,
+        locales: {
+            [primary]: primaryEntry
+        }
+    }
+}
+
+// Re-export sanitize utilities for backend use
+export { sanitizeLocalizedInput, buildLocalizedContent } from './sanitize'
+
+// Re-export getter utilities for frontend/backend use
+export {
+    getVLCString,
+    getVLCPrimaryString,
+    getCodenamePrimary,
+    getVLCStringWithFallback,
+    getSimpleLocalizedValue,
+    normalizeLocale,
+    type SimpleLocalizedInput,
+    type VersatileLocalizedContent
+} from './getters'
+
+// Re-export display converter utility
+export { mapBaseVlcFields } from './mapBaseVlcFields'

@@ -4,13 +4,14 @@ description: Объясняет, как организован PNPM-моноре
 
 # Структура монорепозитория
 
-Рабочее пространство использует PNPM workspaces и Turborepo. Пакеты следуют
-плоской схеме `packages/<name>/package.json` и находятся через единственный
-workspace-глоб `packages/*`.
+Рабочее пространство использует PNPM workspaces и Turborepo. Активные React
+пакеты следуют плоской схеме `packages/universo-react-<name>/package.json`,
+используют соответствующие имена `@universo-react/<name>` и находятся через
+единственный workspace-глоб `packages/*`.
 
 ## Основные группы пакетов
 
--   Core shell packages: `@universo/core-backend`, `@universo/core-frontend`.
+-   Core shell packages: `@universo-react/core-backend`, `@universo-react/core-frontend`.
 -   Функциональные пакеты: auth, start, profile, metahubs, applications, admin.
 -   Инфраструктурные пакеты: database, schema-ddl, migrations, types, utils, i18n.
 -   Пакеты поддержки UI: template-mui, apps-template-mui, store.

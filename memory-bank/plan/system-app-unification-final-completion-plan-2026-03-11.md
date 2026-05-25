@@ -16,7 +16,7 @@ This final plan exists because the previous plans solved only part of the origin
 The platform already achieved important migration unification milestones:
 
 - TypeORM is no longer the active migration engine.
-- platform bootstrap runs through the shared `@universo/migrations-platform` runtime,
+- platform bootstrap runs through the shared `@universo-react/migrations-platform` runtime,
 - system app manifests exist for `public`, `admin`, `profiles`, `metahubs`, and `applications`,
 - `upl_migrations.definition_*` storage is now alive,
 - fresh bootstrap creates fixed schemas and dynamic runtime schemas successfully.
@@ -49,7 +49,7 @@ The new acceptance target is:
    - Example: `metahubsSystemAppDefinition` still uses `CreateMetahubsSchema1766351182000`.
    - Example: `applicationsSystemAppDefinition` still uses `CreateApplicationsSchema1800000000000`.
 
-2. `@universo/migrations-platform` currently synchronizes **platform migration definitions** to `upl_migrations.definition_*`.
+2. `@universo-react/migrations-platform` currently synchronizes **platform migration definitions** to `upl_migrations.definition_*`.
    - Logical keys in `definition_registry` are currently shaped like:
      - `platform_migration.platform_schema.metahubs.CreateMetahubsSchema1766351182000::custom`
    - This means the registry is still about migration-definition metadata, not about system-app manifest bundles and compiled desired artifacts.
@@ -93,7 +93,7 @@ The new acceptance target is:
 5. `profiles.profiles` is now active and `public.profiles` is gone in the current `UP-test` database.
    - This means the profile schema split is already effectively cut over in the current environment.
 
-6. The runtime application schema compiler already exists in `@universo/schema-ddl`.
+6. The runtime application schema compiler already exists in `@universo-react/schema-ddl`.
    - It creates `_app_*` system tables and business tables.
    - It is therefore the correct foundation for final convergence.
 
@@ -149,10 +149,10 @@ It is now “make platform bootstrap, fixed system apps, dynamic apps, and futur
 3. No TypeORM fallback or compatibility layer should be reintroduced.
 4. No artificial version bump for Metahub structure/template just because bootstrap architecture changes.
 5. Current UI packages remain active during this program:
-   - `@universo/template-mui` for current system shells,
-   - `@universo/apps-template-mui` for published runtime apps.
-6. All new user-visible text must be i18n-first through `@universo/i18n`.
-7. Shared types/utilities must go to `@universo/types` and `@universo/utils` instead of duplicating contracts locally.
+   - `@universo-react/template-mui` for current system shells,
+   - `@universo-react/apps-template-mui` for published runtime apps.
+6. All new user-visible text must be i18n-first through `@universo-react/i18n`.
+7. Shared types/utilities must go to `@universo-react/types` and `@universo-react/utils` instead of duplicating contracts locally.
 8. New packages are allowed only if they remove a real ownership or dependency problem.
 9. Database-stored definitions must stay declarative, never executable.
 10. Compiler-generated SQL and security-definer functions must not rely on ambient `search_path`.
@@ -265,26 +265,26 @@ Example logical key families:
 
 ## Affected Areas
 
-- `packages/universo-migrations-core`
-- `packages/universo-migrations-platform`
-- `packages/universo-migrations-catalog`
-- `packages/schema-ddl`
-- `packages/universo-core-backend`
-- `packages/metahubs-backend`
-- `packages/applications-backend`
-- `packages/admin-backend`
-- `packages/profile-backend`
-- `packages/auth-backend`
-- `packages/start-backend`
-- `packages/universo-types`
-- `packages/universo-utils`
-- `packages/universo-i18n`
-- `packages/universo-template-mui`
-- `packages/apps-template-mui`
-- `packages/metahubs-frontend`
-- `packages/applications-frontend`
-- `packages/admin-frontend`
-- `packages/profile-frontend`
+- `packages/universo-react-migrations-core`
+- `packages/universo-react-migrations-platform`
+- `packages/universo-react-migrations-catalog`
+- `packages/universo-react-schema-ddl`
+- `packages/universo-react-core-backend`
+- `packages/universo-react-metahubs-backend`
+- `packages/universo-react-applications-backend`
+- `packages/universo-react-admin-backend`
+- `packages/universo-react-profile-backend`
+- `packages/universo-react-auth-backend`
+- `packages/universo-react-start-backend`
+- `packages/universo-react-types`
+- `packages/universo-react-utils`
+- `packages/universo-react-i18n`
+- `packages/universo-react-template-mui`
+- `packages/universo-react-apps-template-mui`
+- `packages/universo-react-metahubs-frontend`
+- `packages/universo-react-applications-frontend`
+- `packages/universo-react-admin-frontend`
+- `packages/universo-react-profile-frontend`
 
 ---
 
@@ -317,12 +317,12 @@ This matrix is required to prevent hidden cross-package drift and to avoid over-
 2. No frontend work should begin before the backend/storage contract for that slice is frozen.
 
 3. No package should introduce a private ad-hoc manifest/DDL helper if the same need belongs in:
-   - `@universo/migrations-core`
-   - `@universo/migrations-platform`
-   - `@universo/migrations-catalog`
-   - `@universo/schema-ddl`
-   - `@universo/types`
-   - `@universo/utils`
+   - `@universo-react/migrations-core`
+   - `@universo-react/migrations-platform`
+   - `@universo-react/migrations-catalog`
+   - `@universo-react/schema-ddl`
+   - `@universo-react/types`
+   - `@universo-react/utils`
 
 4. Every implementation wave must end with:
    - focused package lint/test/build,
@@ -373,8 +373,8 @@ This matrix is required to prevent hidden cross-package drift and to avoid over-
   - `seedPacks`
   - `uiShell`
   - `exportPolicy`
-- Move shared manifest types into `@universo/types` only if ownership becomes cross-package enough to justify it.
-- Keep validation in `@universo/migrations-core`.
+- Move shared manifest types into `@universo-react/types` only if ownership becomes cross-package enough to justify it.
+- Keep validation in `@universo-react/migrations-core`.
 - Add explicit capability flags for:
   - core `_app_*` layer,
   - metadata `_app_*` layer,
@@ -666,7 +666,7 @@ This matrix is required to prevent hidden cross-package drift and to avoid over-
 export const metahubsSystemAppDefinition: SystemAppDefinition = {
   key: 'metahubs',
   displayName: 'Metahubs',
-  ownerPackage: '@universo/metahubs-backend',
+  ownerPackage: '@universo-react/metahubs-backend',
   engineVersion: '0.1.0',
   structureVersion: '0.1.0',
   configurationVersion: '0.1.0',

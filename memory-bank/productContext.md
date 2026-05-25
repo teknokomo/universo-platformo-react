@@ -32,7 +32,7 @@ introducing new platform-level types for each product.
 -   **Operational stability**: pool budgets aligned with Supabase
     limits; pool error telemetry enabled.
 -   **Shared runtime DDL**: all schema generation lives in
-    `@universo/schema-ddl` to avoid coupling between feature packages.
+    `@universo-react/schema-ddl` to avoid coupling between feature packages.
 
 ## Primary Configuration: LMS
 

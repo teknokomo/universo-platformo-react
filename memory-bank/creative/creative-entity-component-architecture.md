@@ -29,7 +29,7 @@
 
 ### Current State
 
-- `MetaEntityKind` is a TypeScript const enum in `@universo/types` with 5 hardcoded values
+- `MetaEntityKind` is a TypeScript const enum in `@universo-react/types` with 5 hardcoded values
 - `_mhb_objects.kind VARCHAR` stores the discriminator
 - `MetahubObjectsService.createObject()` branches on `kind` for runtime table generation (`catalog | document → physical table`)
 - Frontend routing, sidebar sections, and dialog tab compositions are all wired to specific kind values
@@ -96,7 +96,7 @@ CREATE TABLE _mhb_entity_type_definitions (
 Entity types defined as TypeScript objects in code, registered at application startup. Similar to Strapi content-type definitions but compiled.
 
 ```typescript
-// packages/universo-types/base/src/entityTypes/catalogType.ts
+// packages/universo-react-types/base/src/entityTypes/catalogType.ts
 export const CATALOG_TYPE_DEFINITION: EntityTypeDefinition = {
     kindKey: 'catalog',
     isBuiltin: true,
@@ -214,12 +214,12 @@ export function isBuiltinKind(kind: EntityKind): kind is BuiltinEntityKind {
 **Risk:** MEDIUM — Phase 1 (code registry) is inherently safe. Phase 2 (data definitions) introduces the dynamic layer but is optional and can be gated behind a feature flag.
 
 **Files affected:**
-- `packages/universo-types/base/src/common/metahubs.ts` — `MetaEntityKind` type evolution
-- `packages/metahubs-backend/base/src/domains/metahubs/services/MetahubObjectsService.ts` — type resolution
-- `packages/metahubs-backend/base/src/domains/router.ts` — generic entity routes
-- `packages/metahubs-frontend/base/src/domains/catalogs/ui/CatalogList.tsx` — dynamic tab composition
-- `packages/schema-ddl/base/src/` — table name generation for custom kinds
-- `packages/universo-types/base/src/common/shared.ts` — shared pool kind extension
+- `packages/universo-react-types/base/src/common/metahubs.ts` — `MetaEntityKind` type evolution
+- `packages/universo-react-metahubs-backend/base/src/domains/metahubs/services/MetahubObjectsService.ts` — type resolution
+- `packages/universo-react-metahubs-backend/base/src/domains/router.ts` — generic entity routes
+- `packages/universo-react-metahubs-frontend/base/src/domains/catalogs/ui/CatalogList.tsx` — dynamic tab composition
+- `packages/universo-react-schema-ddl/base/src/` — table name generation for custom kinds
+- `packages/universo-react-types/base/src/common/shared.ts` — shared pool kind extension
 
 ---
 
@@ -389,7 +389,7 @@ export interface ComponentStorageDescriptor {
 Keep existing domain directories and services as-is. Introduce a lightweight component registry that maps component keys to their domain-level functions via convention-based hooks, without requiring a strict interface protocol.
 
 ```typescript
-// packages/metahubs-backend/base/src/domains/shared/componentRegistry.ts
+// packages/universo-react-metahubs-backend/base/src/domains/shared/componentRegistry.ts
 
 export interface ComponentDescriptor {
     key: string
@@ -494,10 +494,10 @@ export class MetahubAttributesService {
 **Risk:** LOW-MEDIUM — the registry is purely additive. Existing code does not change. The convention hooks are added incrementally.
 
 **Files affected:**
-- NEW: `packages/metahubs-backend/base/src/domains/shared/componentRegistry.ts`
-- `packages/metahubs-backend/base/src/domains/publications/services/SnapshotSerializer.ts` — registry-driven iteration
-- `packages/metahubs-backend/base/src/domains/metahubs/services/MetahubObjectsService.ts` — component validation on create
-- Frontend: `packages/metahubs-frontend/base/src/domains/catalogs/ui/CatalogList.tsx` — registry-driven tab composition
+- NEW: `packages/universo-react-metahubs-backend/base/src/domains/shared/componentRegistry.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/publications/services/SnapshotSerializer.ts` — registry-driven iteration
+- `packages/universo-react-metahubs-backend/base/src/domains/metahubs/services/MetahubObjectsService.ts` — component validation on create
+- Frontend: `packages/universo-react-metahubs-frontend/base/src/domains/catalogs/ui/CatalogList.tsx` — registry-driven tab composition
 
 ---
 
@@ -839,10 +839,10 @@ Custom entity types use prefixed kind values (e.g., `entity:custom_registry`) an
 4. Phase 4 (future): Deprecate per-kind routes via response headers and documentation. Remove only on a major version boundary.
 
 **Files affected:**
-- NEW: `packages/metahubs-backend/base/src/domains/entities/routes/entityRoutes.ts`
-- NEW: `packages/metahubs-backend/base/src/domains/entities/controllers/entityController.ts`
-- NEW: `packages/metahubs-frontend/base/src/domains/entities/` — complete frontend domain
-- `packages/metahubs-backend/base/src/domains/router.ts` — register generic entity routes
+- NEW: `packages/universo-react-metahubs-backend/base/src/domains/entities/routes/entityRoutes.ts`
+- NEW: `packages/universo-react-metahubs-backend/base/src/domains/entities/controllers/entityController.ts`
+- NEW: `packages/universo-react-metahubs-frontend/base/src/domains/entities/` — complete frontend domain
+- `packages/universo-react-metahubs-backend/base/src/domains/router.ts` — register generic entity routes
 - Existing routes: **no modifications**
 
 ---
@@ -1035,11 +1035,11 @@ private async serializeEntity(
 **Rationale:** This approach naturally aligns the snapshot pipeline with the component registry from Area 2. Instead of maintaining per-kind hardcoded branches in the serializer, each entity is serialized based on its resolved type's component manifest. The snapshot format remains backward-compatible (version 1 with optional `entityTypeDefinitions` section), and DDL/runtime paths need minimal changes because they already operate on kind-agnostic string values.
 
 **Files affected:**
-- `packages/metahubs-backend/base/src/domains/publications/services/SnapshotSerializer.ts` — component-driven serialization
-- `packages/metahubs-backend/base/src/domains/metahubs/services/SnapshotRestoreService.ts` — component-driven import
-- `packages/schema-ddl/base/src/` — custom table prefix support in `generateTableName()`
-- `packages/applications-backend/base/src/services/publishedApplicationSnapshotEntities.ts` — custom kind awareness
-- `packages/applications-backend/base/src/controllers/syncController.ts` — custom kind DDL
+- `packages/universo-react-metahubs-backend/base/src/domains/publications/services/SnapshotSerializer.ts` — component-driven serialization
+- `packages/universo-react-metahubs-backend/base/src/domains/metahubs/services/SnapshotRestoreService.ts` — component-driven import
+- `packages/universo-react-schema-ddl/base/src/` — custom table prefix support in `generateTableName()`
+- `packages/universo-react-applications-backend/base/src/services/publishedApplicationSnapshotEntities.ts` — custom kind awareness
+- `packages/universo-react-applications-backend/base/src/controllers/syncController.ts` — custom kind DDL
 
 ---
 
@@ -1124,7 +1124,7 @@ private async serializeEntity(
 ### Implementation Phases
 
 **Phase 1 — Registry Foundation (pure refactor, no user-visible change):**
-- Extract `MetaEntityKind` into a type registry in `@universo/types`
+- Extract `MetaEntityKind` into a type registry in `@universo-react/types`
 - Create `COMPONENT_REGISTRY` with descriptors for all 8 existing components
 - Add `isBuiltinKind()` and `resolveEntityType()` utility functions
 - No database changes, no route changes, no UI changes
@@ -1169,22 +1169,22 @@ private async serializeEntity(
 ## Interaction With Existing Code Summary
 
 ### Packages Unaffected (No Changes Needed)
-- `packages/universo-core-backend/` — no metahub-specific code
-- `packages/universo-core-frontend/` — no metahub-specific code
-- `packages/auth-backend/`, `packages/auth-frontend/` — orthogonal
-- `packages/admin-backend/`, `packages/admin-frontend/` — orthogonal (settings API unchanged)
-- `packages/profile-backend/`, `packages/profile-frontend/` — orthogonal
-- `packages/universo-i18n/` — unchanged (new i18n keys added by metahubs packages)
+- `packages/universo-react-core-backend/` — no metahub-specific code
+- `packages/universo-react-core-frontend/` — no metahub-specific code
+- `packages/universo-react-auth-backend/`, `packages/universo-react-auth-frontend/` — orthogonal
+- `packages/universo-react-admin-backend/`, `packages/universo-react-admin-frontend/` — orthogonal (settings API unchanged)
+- `packages/universo-react-profile-backend/`, `packages/universo-react-profile-frontend/` — orthogonal
+- `packages/universo-react-i18n/` — unchanged (new i18n keys added by metahubs packages)
 
 ### Packages Modified
 | Package | Change Type | Phase |
 |---|---|---|
-| `@universo/types` | Type evolution: `MetaEntityKind` → `EntityKind`, new interfaces | 1 |
-| `@universo/metahubs-backend` | Component registry, generic routes, serializer refactor | 1-2 |
-| `@universo/metahubs-frontend` | Entity Types admin page, generic instance page, dynamic sidebar | 2-3 |
-| `@universo/schema-ddl` | Custom table prefix support | 3 |
-| `@universo/applications-backend` | Custom kind awareness in sync/runtime | 3 |
-| `@universo/template-mui` | Possible `EntityFormDialog` extension for dynamic tab composition | 2-3 |
+| `@universo-react/types` | Type evolution: `MetaEntityKind` → `EntityKind`, new interfaces | 1 |
+| `@universo-react/metahubs-backend` | Component registry, generic routes, serializer refactor | 1-2 |
+| `@universo-react/metahubs-frontend` | Entity Types admin page, generic instance page, dynamic sidebar | 2-3 |
+| `@universo-react/schema-ddl` | Custom table prefix support | 3 |
+| `@universo-react/applications-backend` | Custom kind awareness in sync/runtime | 3 |
+| `@universo-react/template-mui` | Possible `EntityFormDialog` extension for dynamic tab composition | 2-3 |
 | `@universo/universo-migrations-platform` | New migration for `_mhb_entity_type_definitions` | 2 |
 
 ---

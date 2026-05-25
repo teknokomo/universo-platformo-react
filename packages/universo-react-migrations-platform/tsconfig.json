@@ -1,0 +1,28 @@
+{
+    "compilerOptions": {
+        "target": "ES2020",
+        "module": "CommonJS",
+        "lib": ["ES2020"],
+        "outDir": "./dist",
+        "baseUrl": ".",
+        "paths": {
+            "@universo-react/database": ["../universo-react-database/dist/index.d.ts", "../universo-react-database/src/index.ts"],
+            "@universo-react/migrations-core": ["../universo-react-migrations-core/dist/index.d.ts", "../universo-react-migrations-core/src/index.ts"],
+            "@universo-react/migrations-catalog": [
+                "../universo-react-migrations-catalog/dist/index.d.ts",
+                "../universo-react-migrations-catalog/src/index.ts"
+            ],
+            "@universo-react/schema-ddl": ["../universo-react-schema-ddl/dist/index.d.ts", "../universo-react-schema-ddl/src/index.ts"],
+            "@universo-react/types": ["../universo-react-types/dist/index"]
+        },
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "declaration": true,
+        "sourceMap": true,
+        "types": ["node"]
+    },
+    "include": ["src/**/*"],
+    "exclude": ["node_modules", "dist", "src/__tests__/**/*"]
+}

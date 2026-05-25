@@ -50,14 +50,14 @@ The platform already contains important building blocks:
 - Object-backed posting/unposting/voiding and ledger movements;
 - reports runner with saved report definitions;
 - script attachment and restricted runtime script capabilities;
-- metahub Page authoring with Editor.js in `packages/universo-template-mui`;
-- published app Page rendering in `packages/apps-template-mui`;
+- metahub Page authoring with Editor.js in `packages/universo-react-template-mui`;
+- published app Page rendering in `packages/universo-react-apps-template-mui`;
 - LMS template entities for courses, modules, tracks, assignments, training events, certificates, reports, knowledge base, development plans, notifications, enrollments, progress, and ledgers.
 
 ### Confirmed Gaps
 
 1. Published apps can create/edit generic Object records, but they cannot author rich Editor.js content inside the app.
-2. `packages/apps-template-mui` renders page blocks but does not include an Editor.js authoring surface.
+2. `packages/universo-react-apps-template-mui` renders page blocks but does not include an Editor.js authoring surface.
 3. Runtime JSON fields are edited as raw JSON text, so authored lessons, articles, and instructions are not viable for normal admins.
 4. LMS resource source types exist in shared contracts, but runtime preview/player behavior is incomplete and the fixture seeds only a narrow page/video subset.
 5. Sequence and completion contracts exist, but enforcement is not yet a generic runtime engine.
@@ -65,8 +65,8 @@ The platform already contains important building blocks:
 7. The LMS menu still uses surrogate routes: Knowledge points to `Quizzes`, Development points to `Classes`.
 8. Assignment, training, certificate, and notification entities exist, but the snapshot generator does not yet seed and prove enough realistic rows.
 9. Reports are operational at the backend level, but report homes, saved filters, exports, scheduled reports, and persona-specific report UX need more work.
-10. Some application UI still drifts from the original `packages/apps-template-mui` dashboard style and should be re-aligned with `.backup/templates/dashboard`.
-11. `packages/apps-template-mui` still imports shared UI utilities from `@universo/template-mui`, which conflicts with the long-term boundary where published apps must be independent from the old Universo template package.
+10. Some application UI still drifts from the original `packages/universo-react-apps-template-mui` dashboard style and should be re-aligned with `.backup/templates/dashboard`.
+11. `packages/universo-react-apps-template-mui` still imports shared UI utilities from `@universo-react/template-mui`, which conflicts with the long-term boundary where published apps must be independent from the old Universo template package.
 12. The current `quizWidget` is a specialized LMS-shaped widget. It should either become a generic script-driven assessment widget or stay explicitly quarantined while no new LMS-specific widgets are added.
 13. The roadmap must explicitly keep full messenger/chat, SCORM/xAPI package runtime, broad file upload/storage, and office-document conversion as late phases. Early phases may only add safe metadata shells and placeholders for these capabilities.
 14. Published runtime permissions must be fail-closed everywhere. The current app wrapper must not treat missing `permissions` as create/edit/delete access.
@@ -102,35 +102,35 @@ Add new platform behavior to Object only when it is generic: workflow actions, s
 
 ### Remove Published App Dependency on the Old Template Package
 
-Before adding more published-app features, break the current dependency from `packages/apps-template-mui` to `@universo/template-mui`.
+Before adding more published-app features, break the current dependency from `packages/universo-react-apps-template-mui` to `@universo-react/template-mui`.
 
 Required actions:
 
-- inventory all imports from `@universo/template-mui` inside `packages/apps-template-mui`;
-- move app-runtime primitives such as view headers, toolbar controls, item cards, list tables, pagination controls, and view preferences into `packages/apps-template-mui` or a neutral shared UI package;
-- avoid importing `packages/universo-template-mui` from `packages/apps-template-mui`;
-- add a boundary test or lint script that fails if `packages/apps-template-mui/src` imports `@universo/template-mui`;
-- keep `packages/applications-frontend` free to use admin/metapanel components from `@universo/template-mui` until those are migrated separately.
+- inventory all imports from `@universo-react/template-mui` inside `packages/universo-react-apps-template-mui`;
+- move app-runtime primitives such as view headers, toolbar controls, item cards, list tables, pagination controls, and view preferences into `packages/universo-react-apps-template-mui` or a neutral shared UI package;
+- avoid importing `packages/universo-react-template-mui` from `packages/universo-react-apps-template-mui`;
+- add a boundary test or lint script that fails if `packages/universo-react-apps-template-mui/src` imports `@universo-react/template-mui`;
+- keep `packages/universo-react-applications-frontend` free to use admin/metapanel components from `@universo-react/template-mui` until those are migrated separately.
 
-This is not only a cleanup task. It protects the future replacement of `packages/universo-template-mui` by `packages/apps-template-mui`.
+This is not only a cleanup task. It protects the future replacement of `packages/universo-react-template-mui` by `packages/universo-react-apps-template-mui`.
 
 ### Extract Editor.js into a Shared Content Package
 
 Preferred direction:
 
-- create a new shared package, for example `@universo/block-editor` or `@universo/content-blocks`;
-- keep canonical block schemas, normalization, and safe storage validation in `@universo/types`;
-- move reusable Editor.js UI integration, Editor.js tool loading, localized editor helpers, and renderer helpers from `packages/universo-template-mui` into the new package;
-- consume it from both `packages/universo-template-mui` and `packages/apps-template-mui`;
-- keep package boundaries clean because `packages/universo-template-mui` is expected to be replaced by `packages/apps-template-mui` later.
+- create a new shared package, for example `@universo-react/block-editor` or `@universo/content-blocks`;
+- keep canonical block schemas, normalization, and safe storage validation in `@universo-react/types`;
+- move reusable Editor.js UI integration, Editor.js tool loading, localized editor helpers, and renderer helpers from `packages/universo-react-template-mui` into the new package;
+- consume it from both `packages/universo-react-template-mui` and `packages/universo-react-apps-template-mui`;
+- keep package boundaries clean because `packages/universo-react-template-mui` is expected to be replaced by `packages/universo-react-apps-template-mui` later.
 
 Fallback for a smaller first slice:
 
-- copy the current `EditorJsBlockEditor` implementation into `packages/apps-template-mui`;
+- copy the current `EditorJsBlockEditor` implementation into `packages/universo-react-apps-template-mui`;
 - immediately wrap it behind an internal API compatible with the future shared package;
 - schedule extraction before expanding content authoring.
 
-The shared package is the better option because it prevents another copy/paste fork of a security-sensitive editor integration. The package must depend on `@universo/types`, not redefine block content schemas.
+The shared package is the better option because it prevents another copy/paste fork of a security-sensitive editor integration. The package must depend on `@universo-react/types`, not redefine block content schemas.
 
 Repository package requirements:
 
@@ -138,8 +138,8 @@ Repository package requirements:
 - write the package in TypeScript/TSX;
 - provide CJS and ESM builds into `dist/`;
 - publish correct `main`, `module`, `types`, and `exports` entries;
-- keep UI text externalized through `@universo/i18n`;
-- do not duplicate canonical block schemas outside `@universo/types`.
+- keep UI text externalized through `@universo-react/i18n`;
+- do not duplicate canonical block schemas outside `@universo-react/types`.
 
 ### Runtime Content Model
 
@@ -231,8 +231,8 @@ Acceptance:
 
 ### Phase 0.5. Published App Package Boundary Cleanup
 
-1. Remove direct runtime imports from `@universo/template-mui` inside `packages/apps-template-mui`.
-2. Move or duplicate the minimum app-runtime UI primitives into `packages/apps-template-mui` first:
+1. Remove direct runtime imports from `@universo-react/template-mui` inside `packages/universo-react-apps-template-mui`.
+2. Move or duplicate the minimum app-runtime UI primitives into `packages/universo-react-apps-template-mui` first:
    - `ViewHeaderMUI`;
    - `ToolbarControls`;
    - `ItemCard`;
@@ -241,19 +241,19 @@ Acceptance:
    - `useViewPreference`;
    - related lightweight types used only by the published app runtime.
 3. If a primitive is also useful outside published apps, create a neutral shared UI package instead of depending on the old template package.
-4. Keep admin/metapanel screens in `packages/applications-frontend` unchanged unless the implementation slice already touches them.
-5. Add a dependency boundary check, for example a small `rg`-based script or ESLint restriction, that fails on `@universo/template-mui` imports from `packages/apps-template-mui/src`.
+4. Keep admin/metapanel screens in `packages/universo-react-applications-frontend` unchanged unless the implementation slice already touches them.
+5. Add a dependency boundary check, for example a small `rg`-based script or ESLint restriction, that fails on `@universo-react/template-mui` imports from `packages/universo-react-apps-template-mui/src`.
 
 Acceptance:
 
-- `packages/apps-template-mui/src` has no imports from `@universo/template-mui`;
-- `packages/apps-template-mui/package.json` no longer depends on `@universo/template-mui`;
+- `packages/universo-react-apps-template-mui/src` has no imports from `@universo-react/template-mui`;
+- `packages/universo-react-apps-template-mui/package.json` no longer depends on `@universo-react/template-mui`;
 - app runtime screens still match the existing MUI dashboard style;
 - workspace, table, card, and menu screenshots show no UI regression.
 
 ### Phase 0.6. Fail-Closed Runtime Permissions and Scoped Capability Baseline
 
-1. Align runtime permission defaults across `packages/applications-frontend`, `packages/apps-template-mui`, and `packages/applications-backend`.
+1. Align runtime permission defaults across `packages/universo-react-applications-frontend`, `packages/universo-react-apps-template-mui`, and `packages/universo-react-applications-backend`.
 2. In the published runtime wrapper, treat `permissions.createContent`, `permissions.editContent`, `permissions.deleteContent`, and `permissions.readReports` as allowed only when the value is explicitly `true`.
 3. Disable inline cell editing, row actions, create/copy/delete actions, and workflow buttons unless the corresponding permission is explicitly allowed.
 4. Add a shared helper for resolving runtime permissions from untrusted API payloads.
@@ -274,17 +274,17 @@ Acceptance:
 
 ### Phase 1. App-Side Rich Content Authoring
 
-1. Create or extract the shared block editor package without moving canonical schemas out of `@universo/types`.
+1. Create or extract the shared block editor package without moving canonical schemas out of `@universo-react/types`.
 2. Build the shared package with repository-compliant CJS and ESM outputs, `dist/`, package exports, and package-name workspace imports.
 3. Add a generic JSON field UI profile for block content.
 4. Preserve the safe block schema and strict validation already used by metahub Pages.
-5. Extend `packages/apps-template-mui/src/components/dialogs/FormDialog.tsx` so `FieldConfig` can carry sanitized `uiConfig`.
-6. Extend `packages/apps-template-mui/src/utils/columns.tsx` so `toFieldConfigs()` keeps safe `uiConfig` for all top-level and TABLE child fields.
+5. Extend `packages/universo-react-apps-template-mui/src/components/dialogs/FormDialog.tsx` so `FieldConfig` can carry sanitized `uiConfig`.
+6. Extend `packages/universo-react-apps-template-mui/src/utils/columns.tsx` so `toFieldConfigs()` keeps safe `uiConfig` for all top-level and TABLE child fields.
 7. Extend `FormDialog` through its existing `renderField` override or a built-in JSON widget branch.
 8. Add backend-side write validation for JSON fields that declare `uiConfig.widget = editorjsBlockContent`, using `normalizePageBlockContentForStorage()` and component-level `allowedBlockTypes` / `maxBlocks`.
 9. Add a concrete LMS metadata field for authored content, for example `LearningResources.BlockContent` or a generic `ContentPages.BlockContent` Object, rather than storing authored lesson text only inside `LearningResources.Source`.
 10. Keep `Source` as a locator/launch descriptor and `BlockContent` as the editable lesson/article content payload.
-11. Add localized UI strings to `packages/universo-i18n` and app package locales.
+11. Add localized UI strings to `packages/universo-react-i18n` and app package locales.
 12. Support both dialog and page edit surfaces for long content.
 13. Add read-only preview rendering for block-content JSON inside record detail views.
 
@@ -292,7 +292,7 @@ Illustrative schema:
 
 ```ts
 import { z } from 'zod'
-import { SUPPORTED_PAGE_BLOCK_TYPES } from '@universo/types'
+import { SUPPORTED_PAGE_BLOCK_TYPES } from '@universo-react/types'
 
 const blockTypeSchema = z.enum(SUPPORTED_PAGE_BLOCK_TYPES)
 
@@ -345,7 +345,7 @@ Acceptance:
 - app admins can create a Learning Resource with rich block content without raw JSON;
 - app admins can edit Knowledge Article content inside the published app;
 - metahub Page authoring still works;
-- app runtime still does not import from `packages/universo-template-mui`;
+- app runtime still does not import from `packages/universo-react-template-mui`;
 - JSON block-content fields are normalized on both client and server before persistence;
 - tests cover normalization, validation, i18n, create, edit, reload, and preview;
 - the new block editor package follows repository package conventions and does not introduce cross-package relative imports.
@@ -361,7 +361,7 @@ Acceptance:
    - `embed`;
    - `file`;
    - `scorm` as a deferred adapter placeholder only.
-2. Add a generic Resource Preview component in `packages/apps-template-mui`.
+2. Add a generic Resource Preview component in `packages/universo-react-apps-template-mui`.
 3. Move safe external URL validation into shared contracts and reuse it from `resourceSourceSchema`, thumbnail/resource preview config, and block-content validation.
 4. Add safe URL, MIME, and embed validation in backend stores/services.
 5. Allow only `http` and `https` resource URLs in early phases, reject credentials in URLs, and define an explicit embed allowlist/sandbox policy before rendering embeds.
@@ -761,7 +761,7 @@ Acceptance:
 Unit and contract tests:
 
 - block content normalization and validation;
-- `apps-template-mui` package-boundary check forbids imports from `@universo/template-mui`;
+- `apps-template-mui` package-boundary check forbids imports from `@universo-react/template-mui`;
 - safe URL parsing;
 - shared resource source schema rejects unsafe protocols, URL credentials, unsupported MIME types, and unapproved embeds;
 - sequence availability rules;
@@ -921,8 +921,8 @@ This order produces visible, testable value early and avoids building reports or
 Mitigation:
 
 - extract the editor into a neutral shared package;
-- forbid imports from `packages/universo-template-mui` into `packages/apps-template-mui`;
-- keep renderer/editor UI helpers in the shared package and canonical block schemas in `@universo/types`;
+- forbid imports from `packages/universo-react-template-mui` into `packages/universo-react-apps-template-mui`;
+- keep renderer/editor UI helpers in the shared package and canonical block schemas in `@universo-react/types`;
 - add a package-boundary test.
 
 ### Risk: JSON Config Sprawl
@@ -1009,7 +1009,7 @@ The roadmap is complete when:
 - reports are meaningful and exportable;
 - workspace isolation is proven;
 - MUI template style is consistent with the original dashboard;
-- `packages/apps-template-mui` no longer imports `@universo/template-mui`;
+- `packages/universo-react-apps-template-mui` no longer imports `@universo-react/template-mui`;
 - `Knowledge` and `Development` navigation opens real portal pages instead of surrogate operational collections;
 - shared resource schemas reject unsafe URLs, credentialed URLs, unsupported MIME types, and unapproved embeds;
 - advanced SCORM/xAPI/file/messenger capabilities are either fully implemented in the late phase or clearly hidden/marked unsupported;

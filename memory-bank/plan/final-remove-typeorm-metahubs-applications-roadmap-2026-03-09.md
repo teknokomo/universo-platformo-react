@@ -5,7 +5,7 @@
 > Complexity: Level 4 (major backend refactor)  
 > Status: DRAFT v3 (rebased to current code state)  
 > Supersedes: `remove-typeorm-from-metahubs-applications-plan-2026-03-09.md` for execution sequencing  
-> Scope: fully remove TypeORM migrations, TypeORM persistence, and TypeORM-looking package structure from `@universo/metahubs-backend` and `@universo/applications-backend`, while preserving the original technical brief behavior on a fresh database.
+> Scope: fully remove TypeORM migrations, TypeORM persistence, and TypeORM-looking package structure from `@universo-react/metahubs-backend` and `@universo-react/applications-backend`, while preserving the original technical brief behavior on a fresh database.
 
 ---
 
@@ -32,8 +32,8 @@ This plan defines the final removal path.
 
 At true closure:
 
-1. `@universo/applications-backend` has no `typeorm` dependency, no `src/database`, and no TypeORM imports.
-2. `@universo/metahubs-backend` has no `typeorm` dependency, no `src/database`, and no TypeORM imports.
+1. `@universo-react/applications-backend` has no `typeorm` dependency, no `src/database`, and no TypeORM imports.
+2. `@universo-react/metahubs-backend` has no `typeorm` dependency, no `src/database`, and no TypeORM imports.
 3. request-scoped DB work for these packages runs through a neutral Knex-based session/executor contract.
 4. the full fresh-database acceptance flow from the original technical brief is validated.
 5. no legacy compatibility wrappers remain in those two packages.
@@ -71,8 +71,8 @@ At the planning level, the original technical brief is fully covered by this roa
 
 Reviewed:
 
-- `packages/applications-backend/base/README.md`
-- `packages/metahubs-backend/base/README.md`
+- `packages/universo-react-applications-backend/base/README.md`
+- `packages/universo-react-metahubs-backend/base/README.md`
 - existing `memory-bank` migration plans
 - `.backup/deep-research-report-migrations.md`
 - current TypeORM usage map across:
@@ -131,31 +131,31 @@ Interpretation used in this plan:
 
 TypeORM still remains in or around:
 
-- `packages/applications-backend/base/src/routes/index.ts`
-- `packages/applications-backend/base/src/routes/guards.ts`
-- `packages/applications-backend/base/src/routes/applicationsRoutes.ts` (remaining mixed flow)
-- `packages/applications-backend/base/src/persistence/applicationsStore.ts` (`DataSource`-typed seams still present)
-- `packages/applications-backend/base/src/database/**`
-- `packages/applications-backend/base/src/utils/queryHelpers.ts`
+- `packages/universo-react-applications-backend/base/src/routes/index.ts`
+- `packages/universo-react-applications-backend/base/src/routes/guards.ts`
+- `packages/universo-react-applications-backend/base/src/routes/applicationsRoutes.ts` (remaining mixed flow)
+- `packages/universo-react-applications-backend/base/src/persistence/applicationsStore.ts` (`DataSource`-typed seams still present)
+- `packages/universo-react-applications-backend/base/src/database/**`
+- `packages/universo-react-applications-backend/base/src/utils/queryHelpers.ts`
 
 #### Metahubs backend
 
 TypeORM is still widespread across:
 
-- `packages/metahubs-backend/base/src/domains/router.ts`
-- `packages/metahubs-backend/base/src/domains/**/routes/*`
-- `packages/metahubs-backend/base/src/domains/**/services/*`
-- `packages/metahubs-backend/base/src/domains/publications/helpers/createLinkedApplication.ts`
-- `packages/metahubs-backend/base/src/utils/queryHelpers.ts`
-- `packages/metahubs-backend/base/src/database/**`
+- `packages/universo-react-metahubs-backend/base/src/domains/router.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/**/routes/*`
+- `packages/universo-react-metahubs-backend/base/src/domains/**/services/*`
+- `packages/universo-react-metahubs-backend/base/src/domains/publications/helpers/createLinkedApplication.ts`
+- `packages/universo-react-metahubs-backend/base/src/utils/queryHelpers.ts`
+- `packages/universo-react-metahubs-backend/base/src/database/**`
 
 #### Shared backend transport
 
 TypeORM still remains in:
 
-- `packages/auth-backend/base/src/middlewares/ensureAuthWithRls.ts`
-- `packages/auth-backend/base/src/guards/*`
-- `packages/auth-backend/base/src/services/permissionService.ts`
+- `packages/universo-react-auth-backend/base/src/middlewares/ensureAuthWithRls.ts`
+- `packages/universo-react-auth-backend/base/src/guards/*`
+- `packages/universo-react-auth-backend/base/src/services/permissionService.ts`
 - README/docs that still instruct developers to use `DataSource`, `EntityManager`, or `QueryRunner`.
 
 ### Structural conclusion
@@ -243,7 +243,7 @@ src/database/*
 
 ### Shared transport target shape
 
-- `@universo/utils/database` owns:
+- `@universo-react/utils/database` owns:
   - `DbSession`
   - `DbExecutor`
   - request attachment/access helpers
@@ -402,13 +402,13 @@ Scope:
 
 Deliverables:
 
-- no `typeorm` import anywhere under `packages/applications-backend/base/src/routes`,
-- no `typeorm` import anywhere under `packages/applications-backend/base/src/persistence`,
+- no `typeorm` import anywhere under `packages/universo-react-applications-backend/base/src/routes`,
+- no `typeorm` import anywhere under `packages/universo-react-applications-backend/base/src/persistence`,
 - no entity-typed guard surface in `applications-backend`.
 
 Exit gate:
 
-- `rg "typeorm|getRepository\\(|createQueryBuilder\\(|EntityManager|QueryRunner" packages/applications-backend/base/src/routes packages/applications-backend/base/src/persistence packages/applications-backend/base/src/utils` returns nothing relevant.
+- `rg "typeorm|getRepository\\(|createQueryBuilder\\(|EntityManager|QueryRunner" packages/universo-react-applications-backend/base/src/routes packages/universo-react-applications-backend/base/src/persistence packages/universo-react-applications-backend/base/src/utils` returns nothing relevant.
 
 ### Batch 3. Remove `applications-backend/src/database`
 
@@ -422,8 +422,8 @@ Scope:
 
 Exit gate:
 
-- `packages/applications-backend/base/src/database` does not exist,
-- `packages/applications-backend/base/package.json` has no `typeorm`,
+- `packages/universo-react-applications-backend/base/src/database` does not exist,
+- `packages/universo-react-applications-backend/base/package.json` has no `typeorm`,
 - package build, tests, and root build are green.
 
 ### Batch 4. Replace internal RLS QueryRunner transport
@@ -526,8 +526,8 @@ Scope:
 
 Exit gate:
 
-- `packages/metahubs-backend/base/src/database` does not exist,
-- `packages/metahubs-backend/base/package.json` has no `typeorm`.
+- `packages/universo-react-metahubs-backend/base/src/database` does not exist,
+- `packages/universo-react-metahubs-backend/base/package.json` has no `typeorm`.
 
 ### Batch 9. Remove core registry / package-surface residue
 
@@ -703,8 +703,8 @@ Fresh DB only:
 - Remove documentation that tells developers to use `EntityManager`, `QueryRunner`, or package-local `DataSource` patterns in those packages.
 - Keep all new user-facing or operator-facing texts i18n-ready.
 - Put shared types/utilities only in:
-  - `@universo/types`
-  - `@universo/utils`
+  - `@universo-react/types`
+  - `@universo-react/utils`
 - Do not create backend-only ad hoc helper packages unless they are clearly reusable.
 
 ---
@@ -713,12 +713,12 @@ Fresh DB only:
 
 The roadmap is closed only when all of the following are true:
 
-1. `packages/applications-backend/base/src/database` does not exist.
-2. `packages/metahubs-backend/base/src/database` does not exist.
-3. `packages/applications-backend/base/package.json` has no `typeorm`.
-4. `packages/metahubs-backend/base/package.json` has no `typeorm`.
-5. `applications-backend` has no `typeorm` imports.
-6. `metahubs-backend` has no `typeorm` imports.
+1. `packages/universo-react-applications-backend/base/src/database` does not exist.
+2. `packages/universo-react-metahubs-backend/base/src/database` does not exist.
+3. `packages/universo-react-applications-backend/base/package.json` has no `typeorm`.
+4. `packages/universo-react-metahubs-backend/base/package.json` has no `typeorm`.
+5. `universo-react-applications-backend` has no `typeorm` imports.
+6. `universo-react-metahubs-backend` has no `typeorm` imports.
 7. request-scoped DB execution for these packages does not use `QueryRunner`.
 8. `metahubs` schema still matches the intended exact platform structure.
 9. runtime `mhb_*` and `app_*` schema flows still work.

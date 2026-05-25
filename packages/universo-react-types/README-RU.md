@@ -1,0 +1,95 @@
+# @universo-react/types
+
+> 🔧 Основные протоколы и типы ECS домена для Universo Platformo
+
+## Информация о пакете
+
+| Поле           | Значение                             |
+| -------------- | ------------------------------------ |
+| **Имя пакета** | `@universo-react/types`                    |
+| **Версия**     | Смотрите `package.json`              |
+| **Тип**        | TypeScript-first (Типы и интерфейсы) |
+| **Сборка**     | ES модуль с определениями типов      |
+| **Назначение** | Основные протоколы и типы ECS домена |
+
+## 🚀 Ключевые возможности
+
+-   🔧 **ECS компоненты** - Система Entity-Component-System типов
+-   🌐 **Networking DTO** - Intent/Ack/Snapshot/Delta/Event протоколы
+-   ❌ **Коды ошибок** - Стандартизированные коды ошибок
+-   📦 **Версионирование протоколов** - Контроль версий протоколов
+-   📋 **Строгая типизация** - Полная поддержка TypeScript
+-   🔄 **Обратная совместимость** - Сохранение совместимости версий
+-   🧾 **Record Behavior Types** - Общие контракты нумерации, lifecycle и posting для Object
+-   📊 **Ledger Types** - Общие контракты append-only Ledger configuration, field roles, source policies и projections
+
+## Описание
+
+Базовые типы протокола и доменные типы ECS для Universo Platformo.
+
+### Область применения:
+
+-   Компоненты ECS
+-   Сетевые DTO (Intent/Ack/Snapshot/Delta/Event)
+-   Коды ошибок
+-   Версия протокола
+-   Metahub entity component manifests
+-   Контракты Object `recordBehavior` и Ledger configuration
+
+### Вне области применения:
+
+-   Типы UPDL для этапа проектирования
+-   Типы публикации (остаются в соответствующих пакетах)
+
+## Правила совместимости
+
+-   **Не переименовывайте** существующие поля и не меняйте их семантику
+-   **Добавляйте новые поля** только как опциональные, чтобы сохранять обратную совместимость
+-   **Расширяйте** объединения компонентов и событий добавлением новых ключей
+
+## Object и Ledger Contracts
+
+`common/recordBehavior` определяет общий metadata contract, который превращает стандартный Object в reference, transactional или hybrid collection.
+Он описывает identity fields, atomic numbering, effective dates, lifecycle states, posting target ledgers и immutability проведённых строк.
+
+`common/ledgers` определяет стандартную Ledger configuration.
+Code-facing kind остаётся `ledger`; русская UI-метка: "Регистры".
+Ledgers классифицируют обычные field definitions через `fieldRoles` и используют source policies, чтобы различать manual writes и registrar-owned posting writes.
+
+## Установка (workspace)
+
+Пакет расположен по пути `packages/universo-react-types` и подключается другими пакетами монорепозитория через `workspace:*`.
+
+## Тестирование
+
+Запуск тестов регрессии на уровне типов с помощью Vitest:
+
+```bash
+pnpm --filter @universo-react/types test
+```
+
+## Вклад в разработку
+
+При вкладе в этот пакет:
+
+1. Следуйте лучшим практикам TypeScript и поддерживайте строгую типизацию
+2. Документируйте все экспортируемые типы с помощью JSDoc комментариев
+3. Убедитесь, что определения типов соответствуют схемам бэкенда
+4. Обновляйте документацию EN и RU
+5. Следуйте стандартам кодирования проекта
+6. Добавляйте тесты для сложных type guards и утилит
+
+## Связанная документация
+
+-   [Индекс пакетов](../../README-RU.md)
+-   [Core Backend](../universo-react-core-backend/README-RU.md)
+-   [Core Frontend](../universo-react-core-frontend/README-RU.md)
+-   [Документация TypeScript](https://www.typescriptlang.org/docs/)
+
+## Лицензия
+
+Omsk Open License
+
+---
+
+_Universo Platformo | Пакет Types_

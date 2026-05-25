@@ -18,11 +18,11 @@ workspace packages**, each with its own backend and frontend:
 - `start-backend` / `start-frontend` — onboarding and start flows
 - `auth-backend` / `auth-frontend` — authentication
 
-Most of these packages render their UI via `packages/universo-template-mui`,
+Most of these packages render their UI via `packages/universo-react-template-mui`,
 the original MUI template that the platform has been built on top of for a
 long time.
 
-In parallel, a new template package — `packages/apps-template-mui` — is
+In parallel, a new template package — `packages/universo-react-apps-template-mui` — is
 being grown to render **published applications**. It shares the same MUI
 foundation but is being built as the **runtime surface for any
 application**, including the future versions of metahubs, admin, profile,

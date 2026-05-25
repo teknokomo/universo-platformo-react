@@ -201,7 +201,7 @@ Additionally, `SnapshotRestoreService` comments explicitly reference "3-pass cre
 
 #### M1: `layout/` Domain Contains Empty Folders — Not in Deletion List
 
-**Reality**: `packages/metahubs-frontend/base/src/domains/layout/` has two empty subfolders:
+**Reality**: `packages/universo-react-metahubs-frontend/base/src/domains/layout/` has two empty subfolders:
 - `layout/api/` — empty
 - `layout/ui/` — empty
 
@@ -215,7 +215,7 @@ This is dead code distinct from the live `layouts/` domain (note plural/singular
 
 #### M2: `managedMetadataRoutePaths.ts` in shared/ Needs Cleanup
 
-**Reality**: `packages/metahubs-frontend/base/src/domains/shared/managedMetadataRoutePaths.ts` contains dual-mode path builders (legacy + entity-owned patterns). After migration, only entity-owned patterns should remain.
+**Reality**: `packages/universo-react-metahubs-frontend/base/src/domains/shared/managedMetadataRoutePaths.ts` contains dual-mode path builders (legacy + entity-owned patterns). After migration, only entity-owned patterns should remain.
 
 The plan mentions removing legacy URL shapes from backend routes (Phase 3.3) but doesn't address this frontend utility file.
 

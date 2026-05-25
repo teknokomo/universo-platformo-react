@@ -64,8 +64,8 @@ Non-negotiable runtime UI rules:
 ## Project Structure & Module Organization
 
 -   Monorepo with feature apps under `packages/`.
-    -   Examples: `packages/publish-frontend` (React front end), `packages/publish-backend` (Node/Express back end), `packages/updl` (UPDL tools).
-    -   Workspace packages use the flat `packages/<name>/package.json` layout.
+    -   Examples: `packages/universo-react-applications-frontend` (React front end), `packages/universo-react-applications-backend` (Node/Express back end), `packages/universo-react-modules-engine` (server-side modules runtime).
+    -   Workspace packages use the flat `packages/universo-react-<name>/package.json` layout and the matching npm name `@universo-react/<name>`.
 -   Front-end apps include `i18n/` with default locales `en/` and `ru/`.
 -   Context docs and planning live in `memory-bank/` (`productContext`, `techContext`, `progress`, `tasks`).
 
@@ -73,10 +73,10 @@ Non-negotiable runtime UI rules:
 
 -   `pnpm install`: Install workspace dependencies.
 -   `pnpm dev`: Start development servers (run from the target app directory when applicable). Important: due to repo size and resource usage, only the user should run this locally; agents must not run it automatically.
--   `pnpm --filter <package> build`: Build a single package to validate it quickly (e.g., lint/type errors). Note: changes are fully applied across the workspace only after a full root rebuild.
+-   `pnpm --filter <package> build`: Build a single package to validate it quickly (e.g., `pnpm --filter @universo-react/applications-frontend build`). Note: changes are fully applied across the workspace only after a full root rebuild.
 -   `pnpm build` (root): Full workspace rebuild; required to propagate changes (even for a single package) and ensure cross-dependency consistency.
 -   `pnpm start`: Run production server(s) for built apps.
--   `pnpm lint`: Run ESLint across the workspace.
+-   `pnpm lint`: Run ESLint across the workspace. For checking specific packages, use `pnpm --filter <package> lint` (e.g., `pnpm --filter @universo-react/applications-frontend lint`) to avoid long execution times.
 
 ## Coding Style & Naming Conventions
 
@@ -84,7 +84,7 @@ Non-negotiable runtime UI rules:
 -   Indentation: 2 spaces; avoid trailing whitespace.
 -   React: `PascalCase` components, `camelCase` hooks/utils, `kebab-case` folders/files.
 -   i18n keys use dot notation (e.g., `auth.login.button`).
--   Branch names use English only (e.g., `feature/publish-workflow`, `fix/updl-parser`).
+-   Branch names use English only (e.g., `feature/application-workflow`, `fix/modules-parser`).
 
 ## Testing Guidelines
 
@@ -94,7 +94,7 @@ Non-negotiable runtime UI rules:
 
 ## Commit & Pull Request Guidelines
 
--   Use Conventional Commits: `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, with optional scope (e.g., `feat(publish-frontend): add i18n loader`).
+-   Use Conventional Commits: `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, with optional scope (e.g., `feat(applications-frontend): add i18n loader`).
 -   PRs include: clear description, linked issues, screenshots for UI, and notes on env vars or migrations.
 -   Small, focused PRs are preferred; include `packages/*` paths in the scope when relevant.
 
@@ -107,7 +107,7 @@ Non-negotiable runtime UI rules:
 
 ## 1. General Principles
 
-1.  **Review Local READMEs**: Before starting a task, always review the `README.md` in the relevant package's directory (e.g., `packages/profile-frontend/README.md`).
+1.  **Review Local READMEs**: Before starting a task, always review the `README.md` in the relevant package's directory (e.g., `packages/universo-react-profile-frontend/README.md`).
 2.  **Adhere to Linters**: Always follow the project's configured linters when writing code to ensure consistency and quality.
 3.  **Language**: Respond to the user in Russian. However, all code comments and all information in the `memory-bank` folder must be written in English only.
 
@@ -115,24 +115,24 @@ Non-negotiable runtime UI rules:
 
 ### 2.1. Workspace Imports
 
--   **DO**: When importing from another local package in the monorepo, always use the full PNPM workspace package name as defined in its `package.json` (e.g., `import { something } from '@universo/types'`).
+-   **DO**: When importing from another local package in the monorepo, always use the full PNPM workspace package name as defined in its `package.json` (e.g., `import { something } from '@universo-react/types'`).
 -   **DO NOT**: Never use relative paths (`../`) to import across package boundaries.
 -   **WHY**: This ensures correct module resolution via PNPM workspaces, prevents circular dependencies, and is critical for eventually extracting packages into separate repositories.
 
 ### 2.2. Frontend Packages (TSX)
 
 -   **Technology**: New frontend packages must be written in **TypeScript (TSX)**.
--   **Build System**: Each new package must feature a dual-build system (similar to `packages/space-builder-frontend`) to compile TSX into both **CommonJS** and **ES Modules**.
+-   **Build System**: Each new package must feature a dual-build system (similar to `packages/universo-react-admin-frontend`) to compile TSX into both **CommonJS** and **ES Modules**.
     -   Use two `tsconfig.json` files (`tsconfig.json` for CJS, `tsconfig.esm.json` for ESM).
     -   The compiled JavaScript output must be placed in a `dist/` directory within the package.
--   **Integration**: The package's `package.json` must correctly specify the `main` (for CJS) and `module` (for ESM) entry points, pointing to the compiled files in `dist/`. This allows new TSX components to be directly imported into the existing codebase (`packages/universo-core-frontend`) as standard dependencies.
+-   **Integration**: The package's `package.json` must correctly specify the `main` (for CJS) and `module` (for ESM) entry points, pointing to the compiled files in `dist/`. This allows new TSX components to be directly imported into the existing codebase (`packages/universo-react-core-frontend`) as standard dependencies.
 
 ### 2.3. Backend Packages (Knex + SQL Migrations)
 
 -   **Data Access Pattern**: Direct database calls (e.g., to the Supabase client) are forbidden. All database interaction **must** go through **store modules** that use `DbExecutor.query()` with raw SQL.
 -   **Database Target**: Currently, all schemas and migrations should be written for **PostgreSQL**, as it is the only database in use (via Supabase).
 -   **Creating a New Service**: When creating a new backend service in `packages/` that requires database access, you must:
-    1.  **Define SQL Migrations**: Create platform migration definitions in your package's `src/migrations/` directory using `createSchemaMigrationDefinition()` from `@universo/schema-ddl`.
-    2.  **Register Migrations**: Import your migration definition into `packages/universo-migrations-platform/src/platformMigrations.ts` and add it to the `platformMigrations` array.
+    1.  **Define SQL Migrations**: Create platform migration definitions in your package's `src/migrations/` directory using `createSchemaMigrationDefinition()` from `@universo-react/schema-ddl`.
+    2.  **Register Migrations**: Import your migration definition into `packages/universo-react-migrations-platform/src/platformMigrations.ts` and add it to the `platformMigrations` array.
     3.  **Create Store Modules**: Write store files (e.g., `myStore.ts`) that accept a `DbExecutor` and run SQL queries via `executor.query(sql, params)`. Use `$1`, `$2`, etc. for PostgreSQL bind parameters.
-    4.  **Use Request Executor**: In route handlers, obtain the request-scoped executor via `getRequestDbExecutor(req, getDbExecutor())` from `@universo/utils`. This ensures RLS context is applied.
+    4.  **Use Request Executor**: In route handlers, obtain the request-scoped executor via `getRequestDbExecutor(req, getDbExecutor())` from `@universo-react/utils`. This ensures RLS context is applied.

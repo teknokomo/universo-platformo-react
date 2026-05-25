@@ -53,7 +53,7 @@ The rebuilt fixture must stop behaving like an internal E2E artifact and start b
 
 ### F-2: The default LMS template still seeds a placeholder QR target
 
-- [packages/metahubs-backend/base/src/domains/templates/data/lms.template.ts](../../../packages/metahubs-backend/base/src/domains/templates/data/lms.template.ts) sets the QR widget URL to `https://example.com/lms/demo-module`.
+- [packages/universo-react-metahubs-backend/base/src/domains/templates/data/lms.template.ts](../../../packages/universo-react-metahubs-backend/base/src/domains/templates/data/lms.template.ts) sets the QR widget URL to `https://example.com/lms/demo-module`.
 - This makes the template and the snapshot non-self-contained until later browser setup patches the widget config.
 
 ### F-3: The imported demo is not self-contained for runtime widget discovery
@@ -61,7 +61,7 @@ The rebuilt fixture must stop behaving like an internal E2E artifact and start b
 - The exported snapshot contains module and stats scripts plus widget config references.
 - The module viewer widget config currently uses `attachedToKind: 'catalog'`, while the exported fixture module script is attached to `metahub`.
 - This can break runtime script discovery after clean import because runtime script filtering is attachment-aware before codename selection.
-- Likely runtime seam: [packages/apps-template-mui/src/dashboard/components/runtimeWidgetHelpers.ts](../../../packages/apps-template-mui/src/dashboard/components/runtimeWidgetHelpers.ts) and [packages/applications-backend/base/src/services/runtimeScriptsService.ts](../../../packages/applications-backend/base/src/services/runtimeScriptsService.ts).
+- Likely runtime seam: [packages/universo-react-apps-template-mui/src/dashboard/components/runtimeWidgetHelpers.ts](../../../packages/universo-react-apps-template-mui/src/dashboard/components/runtimeWidgetHelpers.ts) and [packages/universo-react-applications-backend/base/src/services/runtimeScriptsService.ts](../../../packages/universo-react-applications-backend/base/src/services/runtimeScriptsService.ts).
 
 ### F-4: The fixture contract is too weak for product-grade demo guarantees
 
@@ -109,26 +109,26 @@ The rebuilt fixture must stop behaving like an internal E2E artifact and start b
 
 ### Backend / Template / Snapshot
 
-- [packages/metahubs-backend/base/src/domains/templates/data/lms.template.ts](../../../packages/metahubs-backend/base/src/domains/templates/data/lms.template.ts)
-- [packages/metahubs-backend/base/src/domains/templates/services/TemplateManifestValidator.ts](../../../packages/metahubs-backend/base/src/domains/templates/services/TemplateManifestValidator.ts)
-- [packages/metahubs-backend/base/src/domains/publications/services/SnapshotSerializer.ts](../../../packages/metahubs-backend/base/src/domains/publications/services/SnapshotSerializer.ts)
-- [packages/applications-backend/base/src/services/runtimeScriptsService.ts](../../../packages/applications-backend/base/src/services/runtimeScriptsService.ts)
-- [packages/applications-backend/base/src/routes/sync/syncScriptPersistence.ts](../../../packages/applications-backend/base/src/routes/sync/syncScriptPersistence.ts)
+- [packages/universo-react-metahubs-backend/base/src/domains/templates/data/lms.template.ts](../../../packages/universo-react-metahubs-backend/base/src/domains/templates/data/lms.template.ts)
+- [packages/universo-react-metahubs-backend/base/src/domains/templates/services/TemplateManifestValidator.ts](../../../packages/universo-react-metahubs-backend/base/src/domains/templates/services/TemplateManifestValidator.ts)
+- [packages/universo-react-metahubs-backend/base/src/domains/publications/services/SnapshotSerializer.ts](../../../packages/universo-react-metahubs-backend/base/src/domains/publications/services/SnapshotSerializer.ts)
+- [packages/universo-react-applications-backend/base/src/services/runtimeScriptsService.ts](../../../packages/universo-react-applications-backend/base/src/services/runtimeScriptsService.ts)
+- [packages/universo-react-applications-backend/base/src/routes/sync/syncScriptPersistence.ts](../../../packages/universo-react-applications-backend/base/src/routes/sync/syncScriptPersistence.ts)
 
 ### Frontend Runtime
 
-- [packages/apps-template-mui/src/dashboard/components/ModuleViewerWidget.tsx](../../../packages/apps-template-mui/src/dashboard/components/ModuleViewerWidget.tsx)
-- [packages/apps-template-mui/src/dashboard/components/StatsViewerWidget.tsx](../../../packages/apps-template-mui/src/dashboard/components/StatsViewerWidget.tsx)
-- [packages/apps-template-mui/src/dashboard/components/QRCodeWidget.tsx](../../../packages/apps-template-mui/src/dashboard/components/QRCodeWidget.tsx)
-- [packages/apps-template-mui/src/dashboard/components/runtimeWidgetHelpers.ts](../../../packages/apps-template-mui/src/dashboard/components/runtimeWidgetHelpers.ts)
-- [packages/apps-template-mui/src/standalone/GuestApp.tsx](../../../packages/apps-template-mui/src/standalone/GuestApp.tsx)
+- [packages/universo-react-apps-template-mui/src/dashboard/components/ModuleViewerWidget.tsx](../../../packages/universo-react-apps-template-mui/src/dashboard/components/ModuleViewerWidget.tsx)
+- [packages/universo-react-apps-template-mui/src/dashboard/components/StatsViewerWidget.tsx](../../../packages/universo-react-apps-template-mui/src/dashboard/components/StatsViewerWidget.tsx)
+- [packages/universo-react-apps-template-mui/src/dashboard/components/QRCodeWidget.tsx](../../../packages/universo-react-apps-template-mui/src/dashboard/components/QRCodeWidget.tsx)
+- [packages/universo-react-apps-template-mui/src/dashboard/components/runtimeWidgetHelpers.ts](../../../packages/universo-react-apps-template-mui/src/dashboard/components/runtimeWidgetHelpers.ts)
+- [packages/universo-react-apps-template-mui/src/standalone/GuestApp.tsx](../../../packages/universo-react-apps-template-mui/src/standalone/GuestApp.tsx)
 
 ### Types / Shared Utilities / i18n
 
-- [packages/universo-types/base/src/common/metahubs.ts](../../../packages/universo-types/base/src/common/metahubs.ts)
-- [packages/universo-i18n/base](../../../packages/universo-i18n/base)
-- [packages/apps-template-mui/src/i18n](../../../packages/apps-template-mui/src/i18n)
-- [packages/metahubs-frontend/base/src/i18n](../../../packages/metahubs-frontend/base/src/i18n)
+- [packages/universo-react-types/base/src/common/metahubs.ts](../../../packages/universo-react-types/base/src/common/metahubs.ts)
+- [packages/universo-react-i18n/base](../../../packages/universo-react-i18n/base)
+- [packages/universo-react-apps-template-mui/src/i18n](../../../packages/universo-react-apps-template-mui/src/i18n)
+- [packages/universo-react-metahubs-frontend/base/src/i18n](../../../packages/universo-react-metahubs-frontend/base/src/i18n)
 
 ### Playwright / Fixtures / Docs
 
@@ -392,20 +392,20 @@ Every touched EN doc must be mirrored by an RU counterpart with the same structu
 
 ### Likely backend/template files
 
-- `packages/metahubs-backend/base/src/domains/templates/data/lms.template.ts`
-- `packages/metahubs-backend/base/src/domains/templates/services/TemplateManifestValidator.ts`
-- `packages/metahubs-backend/base/src/domains/publications/services/SnapshotSerializer.ts`
-- `packages/applications-backend/base/src/services/runtimeScriptsService.ts`
-- `packages/applications-backend/base/src/routes/sync/syncScriptPersistence.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/templates/data/lms.template.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/templates/services/TemplateManifestValidator.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/publications/services/SnapshotSerializer.ts`
+- `packages/universo-react-applications-backend/base/src/services/runtimeScriptsService.ts`
+- `packages/universo-react-applications-backend/base/src/routes/sync/syncScriptPersistence.ts`
 
 ### Likely frontend/runtime files
 
-- `packages/apps-template-mui/src/dashboard/components/runtimeWidgetHelpers.ts`
-- `packages/apps-template-mui/src/dashboard/components/ModuleViewerWidget.tsx`
-- `packages/apps-template-mui/src/dashboard/components/StatsViewerWidget.tsx`
-- `packages/apps-template-mui/src/dashboard/components/QRCodeWidget.tsx`
-- `packages/apps-template-mui/src/standalone/GuestApp.tsx`
-- relevant EN/RU locale files in `packages/apps-template-mui/src/i18n`
+- `packages/universo-react-apps-template-mui/src/dashboard/components/runtimeWidgetHelpers.ts`
+- `packages/universo-react-apps-template-mui/src/dashboard/components/ModuleViewerWidget.tsx`
+- `packages/universo-react-apps-template-mui/src/dashboard/components/StatsViewerWidget.tsx`
+- `packages/universo-react-apps-template-mui/src/dashboard/components/QRCodeWidget.tsx`
+- `packages/universo-react-apps-template-mui/src/standalone/GuestApp.tsx`
+- relevant EN/RU locale files in `packages/universo-react-apps-template-mui/src/i18n`
 
 ### Likely Playwright / fixture files
 

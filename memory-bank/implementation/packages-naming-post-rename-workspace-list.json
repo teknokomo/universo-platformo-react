@@ -1,0 +1,200 @@
+[
+  {
+    "name": "universo-platformo-react",
+    "version": "upr-0.65.0-alpha",
+    "path": "/home/vladimir/GigaProjects/upstream-universo-platformo-react",
+    "private": true
+  },
+  {
+    "name": "@universo-react/admin-backend",
+    "version": "0.1.0",
+    "path": "/home/vladimir/GigaProjects/upstream-universo-platformo-react/packages/universo-react-admin-backend",
+    "private": false
+  },
+  {
+    "name": "@universo-react/admin-frontend",
+    "version": "0.1.0",
+    "path": "/home/vladimir/GigaProjects/upstream-universo-platformo-react/packages/universo-react-admin-frontend",
+    "private": false
+  },
+  {
+    "name": "@universo-react/api-client",
+    "version": "0.1.0",
+    "path": "/home/vladimir/GigaProjects/upstream-universo-platformo-react/packages/universo-react-api-client",
+    "private": false
+  },
+  {
+    "name": "@universo-react/applications-backend",
+    "version": "0.1.0",
+    "path": "/home/vladimir/GigaProjects/upstream-universo-platformo-react/packages/universo-react-applications-backend",
+    "private": false
+  },
+  {
+    "name": "@universo-react/applications-frontend",
+    "version": "0.1.0",
+    "path": "/home/vladimir/GigaProjects/upstream-universo-platformo-react/packages/universo-react-applications-frontend",
+    "private": false
+  },
+  {
+    "name": "@universo-react/apps-template-mui",
+    "version": "0.1.0",
+    "path": "/home/vladimir/GigaProjects/upstream-universo-platformo-react/packages/universo-react-apps-template-mui",
+    "private": true
+  },
+  {
+    "name": "@universo-react/auth-backend",
+    "version": "0.1.0",
+    "path": "/home/vladimir/GigaProjects/upstream-universo-platformo-react/packages/universo-react-auth-backend",
+    "private": true
+  },
+  {
+    "name": "@universo-react/auth-frontend",
+    "version": "0.1.0",
+    "path": "/home/vladimir/GigaProjects/upstream-universo-platformo-react/packages/universo-react-auth-frontend",
+    "private": true
+  },
+  {
+    "name": "@universo-react/block-editor",
+    "version": "0.1.0",
+    "path": "/home/vladimir/GigaProjects/upstream-universo-platformo-react/packages/universo-react-block-editor",
+    "private": true
+  },
+  {
+    "name": "@universo-react/core-backend",
+    "version": "0.1.0",
+    "path": "/home/vladimir/GigaProjects/upstream-universo-platformo-react/packages/universo-react-core-backend",
+    "private": false
+  },
+  {
+    "name": "@universo-react/core-frontend",
+    "version": "0.1.0",
+    "path": "/home/vladimir/GigaProjects/upstream-universo-platformo-react/packages/universo-react-core-frontend",
+    "private": false
+  },
+  {
+    "name": "@universo-react/database",
+    "version": "0.1.0",
+    "path": "/home/vladimir/GigaProjects/upstream-universo-platformo-react/packages/universo-react-database",
+    "private": false
+  },
+  {
+    "name": "@universo-react/extension-sdk",
+    "version": "0.1.0",
+    "path": "/home/vladimir/GigaProjects/upstream-universo-platformo-react/packages/universo-react-extension-sdk",
+    "private": false
+  },
+  {
+    "name": "@universo-react/i18n",
+    "version": "0.1.0",
+    "path": "/home/vladimir/GigaProjects/upstream-universo-platformo-react/packages/universo-react-i18n",
+    "private": false
+  },
+  {
+    "name": "@universo-react/metahubs-backend",
+    "version": "0.1.0",
+    "path": "/home/vladimir/GigaProjects/upstream-universo-platformo-react/packages/universo-react-metahubs-backend",
+    "private": false
+  },
+  {
+    "name": "@universo-react/metahubs-frontend",
+    "version": "0.1.0",
+    "path": "/home/vladimir/GigaProjects/upstream-universo-platformo-react/packages/universo-react-metahubs-frontend",
+    "private": false
+  },
+  {
+    "name": "@universo-react/metapanel-frontend",
+    "version": "0.1.0",
+    "path": "/home/vladimir/GigaProjects/upstream-universo-platformo-react/packages/universo-react-metapanel-frontend",
+    "private": false
+  },
+  {
+    "name": "@universo-react/migration-guard-shared",
+    "version": "0.1.0",
+    "path": "/home/vladimir/GigaProjects/upstream-universo-platformo-react/packages/universo-react-migration-guard-shared",
+    "private": true
+  },
+  {
+    "name": "@universo-react/migrations-catalog",
+    "version": "0.1.0",
+    "path": "/home/vladimir/GigaProjects/upstream-universo-platformo-react/packages/universo-react-migrations-catalog",
+    "private": false
+  },
+  {
+    "name": "@universo-react/migrations-core",
+    "version": "0.1.0",
+    "path": "/home/vladimir/GigaProjects/upstream-universo-platformo-react/packages/universo-react-migrations-core",
+    "private": false
+  },
+  {
+    "name": "@universo-react/migrations-platform",
+    "version": "0.1.0",
+    "path": "/home/vladimir/GigaProjects/upstream-universo-platformo-react/packages/universo-react-migrations-platform",
+    "private": false
+  },
+  {
+    "name": "@universo-react/modules-engine",
+    "version": "0.1.0",
+    "path": "/home/vladimir/GigaProjects/upstream-universo-platformo-react/packages/universo-react-modules-engine",
+    "private": false
+  },
+  {
+    "name": "@universo-react/profile-backend",
+    "version": "0.1.0",
+    "path": "/home/vladimir/GigaProjects/upstream-universo-platformo-react/packages/universo-react-profile-backend",
+    "private": false
+  },
+  {
+    "name": "@universo-react/profile-frontend",
+    "version": "0.1.0",
+    "path": "/home/vladimir/GigaProjects/upstream-universo-platformo-react/packages/universo-react-profile-frontend",
+    "private": false
+  },
+  {
+    "name": "@universo-react/rest-docs",
+    "version": "0.1.0",
+    "path": "/home/vladimir/GigaProjects/upstream-universo-platformo-react/packages/universo-react-rest-docs",
+    "private": false
+  },
+  {
+    "name": "@universo-react/schema-ddl",
+    "version": "0.1.0",
+    "path": "/home/vladimir/GigaProjects/upstream-universo-platformo-react/packages/universo-react-schema-ddl",
+    "private": false
+  },
+  {
+    "name": "@universo-react/start-backend",
+    "version": "0.1.0",
+    "path": "/home/vladimir/GigaProjects/upstream-universo-platformo-react/packages/universo-react-start-backend",
+    "private": false
+  },
+  {
+    "name": "@universo-react/start-frontend",
+    "version": "0.1.0",
+    "path": "/home/vladimir/GigaProjects/upstream-universo-platformo-react/packages/universo-react-start-frontend",
+    "private": false
+  },
+  {
+    "name": "@universo-react/store",
+    "version": "0.1.0",
+    "path": "/home/vladimir/GigaProjects/upstream-universo-platformo-react/packages/universo-react-store",
+    "private": false
+  },
+  {
+    "name": "@universo-react/template-mui",
+    "version": "0.1.0",
+    "path": "/home/vladimir/GigaProjects/upstream-universo-platformo-react/packages/universo-react-template-mui",
+    "private": false
+  },
+  {
+    "name": "@universo-react/types",
+    "version": "0.1.0",
+    "path": "/home/vladimir/GigaProjects/upstream-universo-platformo-react/packages/universo-react-types",
+    "private": true
+  },
+  {
+    "name": "@universo-react/utils",
+    "version": "0.1.0",
+    "path": "/home/vladimir/GigaProjects/upstream-universo-platformo-react/packages/universo-react-utils",
+    "private": true
+  }
+]

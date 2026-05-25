@@ -7,14 +7,14 @@
 ## 1. Корректность уровня доступа
 
 - [ ] Аутентифицированные обработчики маршрутов используют `getRequestDbExecutor(req, getDbExecutor())` (Tier 1, RLS-скоуп)
-- [ ] Код администрирования/начальной загрузки использует `getPoolExecutor()` из `@universo/database` (Tier 2, без RLS)
-- [ ] Код DDL/миграций использует `getKnex()` из `@universo/database` (Tier 3)
+- [ ] Код администрирования/начальной загрузки использует `getPoolExecutor()` из `@universo-react/database` (Tier 2, без RLS)
+- [ ] Код DDL/миграций использует `getKnex()` из `@universo-react/database` (Tier 3)
 - [ ] Tier 3 доступ изолирован в явных DDL boundaries вроде package-local `src/ddl/`, а не смешан с route/store кодом
 - [ ] Нет прямого импорта Knex в доменных обработчиках маршрутов или хранилищах
 
 ## 2. Безопасность идентификаторов
 
-- [ ] Все динамические имена схем/таблиц/колонок используют `qSchema()`, `qTable()`, `qColumn()` или `qSchemaTable()` из `@universo/database`
+- [ ] Все динамические имена схем/таблиц/колонок используют `qSchema()`, `qTable()`, `qColumn()` или `qSchemaTable()` из `@universo-react/database`
 - [ ] Нет шаблонной интерполяции строк (`${...}`) для идентификаторов в SQL
 - [ ] Все пользовательские значения используют параметры привязки (`$1`, `$2`, ...)
 

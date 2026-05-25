@@ -15,7 +15,7 @@ The English documentation remains the canonical source. The Russian documentatio
 - The current code and package READMEs already describe the entity-first contract:
   standard kinds are direct entity type presets, `empty.template.ts` exists, `EntityTypeUIConfig.resourceSurfaces` exists, and resource surface labels are persisted localized metadata.
 - The current backend package tree confirms the entity-owned model:
-  `packages/metahubs-backend/base/src/domains/entities/**` owns entity routes and metadata seams, while the old hardcoded top-level domain folders for `catalogs`, `attributes`, `enumerations`, `elements`, `hubs`, `sets`, and `constants` are not present as active domain directories.
+  `packages/universo-react-metahubs-backend/base/src/domains/entities/**` owns entity routes and metadata seams, while the old hardcoded top-level domain folders for `catalogs`, `attributes`, `enumerations`, `elements`, `hubs`, `sets`, and `constants` are not present as active domain directories.
 - `docs/en` and `docs/ru` now have matching GitBook page trees and are checked as 78 EN/RU page pairs.
 - Line-count parity, heading count parity, code fence parity, list parity, table parity, and image parity are now enforced by `tools/docs/check-i18n-docs.mjs`.
 - RU metahub front matter issues were fixed and the checker now fails malformed front matter.
@@ -41,21 +41,21 @@ Use these sources to decide whether documentation text is current:
 - Root README files:
   `README.md`, `README-RU.md`
 - Package README files:
-  `packages/metahubs-frontend/base/README.md`,
-  `packages/metahubs-backend/base/README.md`,
-  `packages/applications-frontend/base/README.md`,
-  `packages/applications-backend/base/README.md`,
-  `packages/universo-types/base/README.md`,
-  `packages/universo-template-mui/base/README.md`,
-  `packages/apps-template-mui/README.md`,
-  `packages/universo-i18n/base/README.md`
+  `packages/universo-react-metahubs-frontend/base/README.md`,
+  `packages/universo-react-metahubs-backend/base/README.md`,
+  `packages/universo-react-applications-frontend/base/README.md`,
+  `packages/universo-react-applications-backend/base/README.md`,
+  `packages/universo-react-types/base/README.md`,
+  `packages/universo-react-template-mui/base/README.md`,
+  `packages/universo-react-apps-template-mui/README.md`,
+  `packages/universo-react-i18n/base/README.md`
 - Current implementation:
-  `packages/metahubs-backend/base/src/domains/templates/data/**`,
-  `packages/metahubs-backend/base/src/domains/entities/**`,
-  `packages/metahubs-frontend/base/src/domains/entities/**`,
-  `packages/metahubs-frontend/base/src/domains/shared/**`,
-  `packages/applications-backend/base/src/routes/sync/**`,
-  `packages/applications-frontend/base/src/**`
+  `packages/universo-react-metahubs-backend/base/src/domains/templates/data/**`,
+  `packages/universo-react-metahubs-backend/base/src/domains/entities/**`,
+  `packages/universo-react-metahubs-frontend/base/src/domains/entities/**`,
+  `packages/universo-react-metahubs-frontend/base/src/domains/shared/**`,
+  `packages/universo-react-applications-backend/base/src/routes/sync/**`,
+  `packages/universo-react-applications-frontend/base/src/**`
 - E2E and generator flows:
   `tools/testing/e2e/specs/flows/**`,
   `tools/testing/e2e/specs/generators/**`,
@@ -311,10 +311,10 @@ Use targeted validation first:
 
 ```bash
 I18N_SCOPE=all pnpm docs:i18n:check
-pnpm --filter @universo/metahubs-frontend lint
-pnpm --filter @universo/metahubs-backend lint
-pnpm --filter @universo/metahubs-frontend test
-pnpm --filter @universo/metahubs-backend test
+pnpm --filter @universo-react/metahubs-frontend lint
+pnpm --filter @universo-react/metahubs-backend lint
+pnpm --filter @universo-react/metahubs-frontend test
+pnpm --filter @universo-react/metahubs-backend test
 ```
 
 Use the E2E wrapper for screenshots and product proof:

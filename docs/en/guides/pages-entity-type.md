@@ -224,9 +224,9 @@ Page content is stored as normalized JSON in the `_mhb_entities` table:
 
 The platform uses:
 
--   **Component**: `EditorJsBlockEditor` from `@universo/template-mui`
--   **Backend Validation**: `PageBlockContentSchema` from `@universo/types`
--   **Runtime Rendering**: Generic block renderers in `@universo/apps-template-mui`
+-   **Component**: `EditorJsBlockEditor` from `@universo-react/template-mui`
+-   **Backend Validation**: `PageBlockContentSchema` from `@universo-react/types`
+-   **Runtime Rendering**: Generic block renderers in `@universo-react/apps-template-mui`
 
 ### Capabilities
 

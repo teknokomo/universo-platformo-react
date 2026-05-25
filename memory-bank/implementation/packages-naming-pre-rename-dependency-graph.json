@@ -1,0 +1,1879 @@
+{
+  "generatedAt": "2026-05-25T19:37:00.671Z",
+  "packageCount": 32,
+  "packages": [
+    {
+      "directory": "packages/admin-backend",
+      "name": "@universo/admin-backend",
+      "dependencySections": {
+        "dependencies": {
+          "@supabase/supabase-js": "^2.45.4",
+          "@universo/auth-backend": "workspace:*",
+          "@universo/migrations-core": "workspace:*",
+          "@universo/profile-backend": "workspace:*",
+          "@universo/types": "workspace:*",
+          "@universo/utils": "workspace:*",
+          "express": "^4.18.2",
+          "http-errors": "catalog:",
+          "zod": "catalog:"
+        },
+        "devDependencies": {
+          "@types/express": "^4.17.21",
+          "@types/http-errors": "catalog:",
+          "@types/jest": "^29.5.12",
+          "@types/node": "catalog:",
+          "@universo/database": "workspace:*",
+          "eslint": "catalog:",
+          "jest": "^29.7.0",
+          "rimraf": "^5.0.5",
+          "ts-jest": "^29.1.2",
+          "typescript": "catalog:"
+        },
+        "peerDependencies": {},
+        "optionalDependencies": {}
+      },
+      "workspaceEdges": [
+        {
+          "dependencyName": "@universo/auth-backend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/migrations-core",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/profile-backend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/types",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/utils",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/database",
+          "range": "workspace:*",
+          "section": "devDependencies"
+        }
+      ]
+    },
+    {
+      "directory": "packages/admin-frontend",
+      "name": "@universo/admin-frontend",
+      "dependencySections": {
+        "dependencies": {
+          "@emotion/react": "^11.14.0",
+          "@emotion/styled": "^11.14.1",
+          "@mui/material": "catalog:",
+          "@tabler/icons-react": "^3.30.0",
+          "@tanstack/react-query": "catalog:",
+          "@universo/auth-frontend": "workspace:*",
+          "@universo/i18n": "workspace:*",
+          "@universo/store": "workspace:*",
+          "@universo/types": "workspace:*",
+          "@universo/utils": "workspace:*",
+          "axios": "catalog:",
+          "i18next": "catalog:",
+          "react-i18next": "catalog:",
+          "typescript": "catalog:"
+        },
+        "devDependencies": {
+          "@testing-library/jest-dom": "catalog:",
+          "@testing-library/react": "catalog:",
+          "@types/react": "catalog:",
+          "eslint": "catalog:",
+          "rimraf": "^5.0.5",
+          "tsdown": "catalog:",
+          "vitest": "catalog:"
+        },
+        "peerDependencies": {
+          "react": ">=18",
+          "react-dom": ">=18",
+          "react-router-dom": ">=6"
+        },
+        "optionalDependencies": {}
+      },
+      "workspaceEdges": [
+        {
+          "dependencyName": "@universo/auth-frontend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/i18n",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/store",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/types",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/utils",
+          "range": "workspace:*",
+          "section": "dependencies"
+        }
+      ]
+    },
+    {
+      "directory": "packages/universo-api-client",
+      "name": "@universo/api-client",
+      "dependencySections": {
+        "dependencies": {
+          "@universo/utils": "workspace:*",
+          "axios": "catalog:"
+        },
+        "devDependencies": {
+          "@types/node": "catalog:",
+          "@universo/auth-frontend": "workspace:*",
+          "eslint": "catalog:",
+          "tsdown": "catalog:",
+          "typescript": "catalog:"
+        },
+        "peerDependencies": {
+          "@tanstack/react-query": "^5.90.3",
+          "@universo/auth-frontend": ">=0.1.0"
+        },
+        "optionalDependencies": {}
+      },
+      "workspaceEdges": [
+        {
+          "dependencyName": "@universo/utils",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/auth-frontend",
+          "range": "workspace:*",
+          "section": "devDependencies"
+        },
+        {
+          "dependencyName": "@universo/auth-frontend",
+          "range": ">=0.1.0",
+          "section": "peerDependencies"
+        }
+      ]
+    },
+    {
+      "directory": "packages/applications-backend",
+      "name": "@universo/applications-backend",
+      "dependencySections": {
+        "dependencies": {
+          "@universo/admin-backend": "workspace:*",
+          "@universo/auth-backend": "workspace:*",
+          "@universo/database": "workspace:*",
+          "@universo/migrations-core": "workspace:*",
+          "@universo/modules-engine": "workspace:*",
+          "@universo/profile-backend": "workspace:*",
+          "@universo/schema-ddl": "workspace:*",
+          "@universo/types": "workspace:*",
+          "@universo/utils": "workspace:*",
+          "express": "^4.18.2",
+          "http-errors": "catalog:",
+          "json-stable-stringify": "catalog:",
+          "knex": "catalog:",
+          "zod": "catalog:"
+        },
+        "devDependencies": {
+          "@types/express": "^4.17.21",
+          "@types/http-errors": "catalog:",
+          "@types/jest": "^29.5.12",
+          "@types/node": "catalog:",
+          "@types/supertest": "^6.0.2",
+          "eslint": "catalog:",
+          "express-rate-limit": "catalog:",
+          "jest": "^29.7.0",
+          "rimraf": "^5.0.5",
+          "supertest": "^6.3.4",
+          "ts-jest": "^29.1.2",
+          "typescript": "catalog:"
+        },
+        "peerDependencies": {},
+        "optionalDependencies": {}
+      },
+      "workspaceEdges": [
+        {
+          "dependencyName": "@universo/admin-backend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/auth-backend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/database",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/migrations-core",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/modules-engine",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/profile-backend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/schema-ddl",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/types",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/utils",
+          "range": "workspace:*",
+          "section": "dependencies"
+        }
+      ]
+    },
+    {
+      "directory": "packages/applications-frontend",
+      "name": "@universo/applications-frontend",
+      "dependencySections": {
+        "dependencies": {
+          "@emotion/react": "^11.14.0",
+          "@emotion/styled": "^11.14.1",
+          "@mui/lab": "catalog:",
+          "@mui/material": "catalog:",
+          "@mui/x-tree-view": "catalog:",
+          "@tabler/icons-react": "^3.30.0",
+          "@universo/apps-template-mui": "workspace:*",
+          "@universo/auth-frontend": "workspace:*",
+          "@universo/i18n": "workspace:*",
+          "@universo/migration-guard-shared": "workspace:*",
+          "@universo/store": "workspace:*",
+          "@universo/template-mui": "workspace:*",
+          "@universo/types": "workspace:*",
+          "@universo/utils": "workspace:*",
+          "axios": "catalog:",
+          "react": "catalog:",
+          "react-i18next": "catalog:",
+          "typescript": "catalog:"
+        },
+        "devDependencies": {
+          "@codemirror/lang-javascript": "catalog:",
+          "@codemirror/lang-json": "catalog:",
+          "@codemirror/state": "catalog:",
+          "@codemirror/theme-one-dark": "catalog:",
+          "@codemirror/view": "catalog:",
+          "@hookform/resolvers": "catalog:",
+          "@mui/icons-material": "catalog:",
+          "@mui/x-charts": "catalog:",
+          "@mui/x-data-grid": "catalog:",
+          "@mui/x-data-grid-pro": "catalog:",
+          "@mui/x-date-pickers": "catalog:",
+          "@mui/x-date-pickers-pro": "catalog:",
+          "@mui/x-tree-view": "catalog:",
+          "@tanstack/react-query": "catalog:",
+          "@testing-library/jest-dom": "catalog:",
+          "@testing-library/react": "catalog:",
+          "@testing-library/user-event": "catalog:",
+          "@types/node": "catalog:",
+          "@types/react": "catalog:",
+          "@uiw/codemirror-theme-sublime": "catalog:",
+          "@uiw/codemirror-theme-vscode": "catalog:",
+          "@uiw/react-codemirror": "catalog:",
+          "axe-core": "^4.8.0",
+          "codemirror": "catalog:",
+          "dayjs": "catalog:",
+          "eslint": "catalog:",
+          "framer-motion": "catalog:",
+          "html-react-parser": "catalog:",
+          "i18next": "catalog:",
+          "i18next-browser-languagedetector": "catalog:",
+          "jest-axe": "^9.0.0",
+          "msw": "^2.0.0",
+          "notistack": "catalog:",
+          "react-code-blocks": "catalog:",
+          "react-color": "catalog:",
+          "react-datepicker": "catalog:",
+          "react-hook-form": "catalog:",
+          "react-markdown": "catalog:",
+          "react-perfect-scrollbar": "catalog:",
+          "react-redux": "catalog:",
+          "react-router-dom": "^6.0.0",
+          "react-syntax-highlighter": "catalog:",
+          "reactflow": "catalog:",
+          "rimraf": "^5.0.5",
+          "tsdown": "catalog:",
+          "use-debounce": "catalog:",
+          "vitest": "catalog:",
+          "zod": "catalog:"
+        },
+        "peerDependencies": {
+          "react": ">=18",
+          "react-dom": ">=18",
+          "react-router-dom": "^6.0.0"
+        },
+        "optionalDependencies": {}
+      },
+      "workspaceEdges": [
+        {
+          "dependencyName": "@universo/apps-template-mui",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/auth-frontend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/i18n",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/migration-guard-shared",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/store",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/template-mui",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/types",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/utils",
+          "range": "workspace:*",
+          "section": "dependencies"
+        }
+      ]
+    },
+    {
+      "directory": "packages/apps-template-mui",
+      "name": "@universo/apps-template-mui",
+      "dependencySections": {
+        "dependencies": {
+          "@emotion/react": "catalog:",
+          "@emotion/styled": "catalog:",
+          "@mui/icons-material": "catalog:",
+          "@mui/material": "catalog:",
+          "@mui/x-charts": "catalog:",
+          "@mui/x-data-grid": "catalog:",
+          "@mui/x-date-pickers": "catalog:",
+          "@mui/x-tree-view": "catalog:",
+          "@react-spring/web": "catalog:",
+          "@tanstack/react-query": "catalog:",
+          "@universo/block-editor": "workspace:*",
+          "@universo/i18n": "workspace:*",
+          "@universo/modules-engine": "workspace:*",
+          "@universo/types": "workspace:*",
+          "@universo/utils": "workspace:*",
+          "dayjs": "catalog:",
+          "qrcode": "^1.5.4",
+          "react": "catalog:",
+          "react-dom": "catalog:",
+          "uuidv7": "catalog:",
+          "zod": "catalog:"
+        },
+        "devDependencies": {
+          "@testing-library/jest-dom": "catalog:",
+          "@testing-library/react": "catalog:",
+          "@types/qrcode": "^1.5.5",
+          "@vitejs/plugin-react": "catalog:",
+          "eslint": "catalog:",
+          "typescript": "catalog:",
+          "vite": "catalog:",
+          "vitest": "catalog:"
+        },
+        "peerDependencies": {
+          "react": ">=18",
+          "react-dom": ">=18"
+        },
+        "optionalDependencies": {}
+      },
+      "workspaceEdges": [
+        {
+          "dependencyName": "@universo/block-editor",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/i18n",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/modules-engine",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/types",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/utils",
+          "range": "workspace:*",
+          "section": "dependencies"
+        }
+      ]
+    },
+    {
+      "directory": "packages/auth-backend",
+      "name": "@universo/auth-backend",
+      "dependencySections": {
+        "dependencies": {
+          "@supabase/supabase-js": "^2.45.4",
+          "@universo/database": "workspace:^",
+          "@universo/types": "workspace:^",
+          "@universo/utils": "workspace:^",
+          "express": "^4.19.2",
+          "express-rate-limit": "^7.4.0",
+          "express-session": "^1.18.2",
+          "jose": "^5.9.6",
+          "passport": "^0.7.0",
+          "passport-local": "^1.0.0",
+          "zod": "^3.23.8"
+        },
+        "devDependencies": {
+          "@types/express": "^4.17.21",
+          "@types/express-session": "^1.18.2",
+          "@types/jest": "^29.5.12",
+          "@types/node": "catalog:",
+          "@types/passport": "^1.0.16",
+          "@types/passport-local": "^1.0.38",
+          "eslint": "catalog:",
+          "jest": "^29.7.0",
+          "rimraf": "^5.0.5",
+          "ts-jest": "^29.1.2",
+          "typescript": "catalog:"
+        },
+        "peerDependencies": {},
+        "optionalDependencies": {}
+      },
+      "workspaceEdges": [
+        {
+          "dependencyName": "@universo/database",
+          "range": "workspace:^",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/types",
+          "range": "workspace:^",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/utils",
+          "range": "workspace:^",
+          "section": "dependencies"
+        }
+      ]
+    },
+    {
+      "directory": "packages/auth-frontend",
+      "name": "@universo/auth-frontend",
+      "dependencySections": {
+        "dependencies": {
+          "@universo/utils": "workspace:*",
+          "axios": "catalog:"
+        },
+        "devDependencies": {
+          "@mui/icons-material": "catalog:",
+          "@mui/material": "catalog:",
+          "@mui/system": "catalog:",
+          "@tabler/icons-react": "^3.30.0",
+          "@types/react": "^18.3.3",
+          "@types/react-dom": "^18.3.2",
+          "react": "catalog:",
+          "react-dom": "catalog:",
+          "rimraf": "^5.0.5",
+          "tsdown": "catalog:",
+          "typescript": "catalog:"
+        },
+        "peerDependencies": {
+          "@mui/icons-material": ">=7",
+          "@mui/material": ">=7",
+          "@mui/system": ">=7",
+          "@tabler/icons-react": "^3.30.0",
+          "@yandex/smart-captcha": "catalog:",
+          "react": "^18.2.0",
+          "react-dom": "^18.2.0",
+          "react-router-dom": "catalog:"
+        },
+        "optionalDependencies": {}
+      },
+      "workspaceEdges": [
+        {
+          "dependencyName": "@universo/utils",
+          "range": "workspace:*",
+          "section": "dependencies"
+        }
+      ]
+    },
+    {
+      "directory": "packages/universo-block-editor",
+      "name": "@universo/block-editor",
+      "dependencySections": {
+        "dependencies": {
+          "@editorjs/delimiter": "catalog:",
+          "@editorjs/editorjs": "catalog:",
+          "@editorjs/embed": "catalog:",
+          "@editorjs/header": "catalog:",
+          "@editorjs/image": "catalog:",
+          "@editorjs/list": "catalog:",
+          "@editorjs/quote": "catalog:",
+          "@editorjs/table": "catalog:",
+          "@mui/material": "catalog:",
+          "@universo/types": "workspace:*"
+        },
+        "devDependencies": {
+          "@testing-library/react": "catalog:",
+          "@types/node": "catalog:",
+          "@types/react": "catalog:",
+          "eslint": "catalog:",
+          "rimraf": "^5.0.5",
+          "tsdown": "catalog:",
+          "typescript": "catalog:",
+          "vitest": "catalog:"
+        },
+        "peerDependencies": {
+          "react": ">=18",
+          "react-dom": ">=18"
+        },
+        "optionalDependencies": {}
+      },
+      "workspaceEdges": [
+        {
+          "dependencyName": "@universo/types",
+          "range": "workspace:*",
+          "section": "dependencies"
+        }
+      ]
+    },
+    {
+      "directory": "packages/universo-core-backend",
+      "name": "@universo/core-backend",
+      "dependencySections": {
+        "dependencies": {
+          "@google-cloud/logging-winston": "^6.0.0",
+          "@oclif/core": "4.0.7",
+          "@supabase/supabase-js": "^2.45.4",
+          "@universo/admin-backend": "workspace:*",
+          "@universo/applications-backend": "workspace:*",
+          "@universo/auth-backend": "workspace:*",
+          "@universo/core-frontend": "workspace:^",
+          "@universo/database": "workspace:*",
+          "@universo/metahubs-backend": "workspace:*",
+          "@universo/migrations-platform": "workspace:*",
+          "@universo/modules-engine": "workspace:*",
+          "@universo/profile-backend": "workspace:*",
+          "@universo/start-backend": "workspace:*",
+          "@universo/utils": "workspace:*",
+          "cookie-parser": "^1.4.7",
+          "cors": "^2.8.5",
+          "csrf": "^3.1.0",
+          "dotenv": "^16.0.0",
+          "express": "^4.17.3",
+          "express-rate-limit": "^6.9.0",
+          "express-session": "^1.18.2",
+          "global-agent": "^3.0.0",
+          "helmet": "^7.1.0",
+          "http-status-codes": "^2.3.0",
+          "passport": "^0.7.0",
+          "passport-local": "^1.0.0",
+          "pg": "^8.11.1",
+          "reflect-metadata": "^0.1.13",
+          "s3-streamlogger": "^1.11.0",
+          "sanitize-html": "^2.11.0",
+          "winston": "^3.9.0"
+        },
+        "devDependencies": {
+          "@types/cookie-parser": "^1.4.8",
+          "@types/cors": "^2.8.12",
+          "@types/express-session": "^1.18.2",
+          "@types/jest": "^29.5.12",
+          "@types/passport": "^1.0.16",
+          "@types/passport-local": "^1.0.38",
+          "@types/sanitize-html": "^2.9.5",
+          "jest": "^29.7.0",
+          "nodemon": "^2.0.22",
+          "oclif": "^3",
+          "rimraf": "^5.0.5",
+          "run-script-os": "^1.1.6",
+          "shx": "^0.3.3",
+          "ts-jest": "^29.1.2",
+          "ts-node": "^10.7.0",
+          "tsc-watch": "^6.0.4",
+          "typescript": "catalog:"
+        },
+        "peerDependencies": {},
+        "optionalDependencies": {}
+      },
+      "workspaceEdges": [
+        {
+          "dependencyName": "@universo/admin-backend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/applications-backend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/auth-backend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/core-frontend",
+          "range": "workspace:^",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/database",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/metahubs-backend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/migrations-platform",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/modules-engine",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/profile-backend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/start-backend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/utils",
+          "range": "workspace:*",
+          "section": "dependencies"
+        }
+      ]
+    },
+    {
+      "directory": "packages/universo-core-frontend",
+      "name": "@universo/core-frontend",
+      "dependencySections": {
+        "dependencies": {
+          "@casl/react": "^5.0.0",
+          "@emotion/cache": "^11.4.0",
+          "@emotion/react": "^11.10.6",
+          "@emotion/styled": "^11.10.6",
+          "@mui/base": "5.0.0-beta.40",
+          "@mui/icons-material": "catalog:",
+          "@mui/material": "catalog:",
+          "@mui/system": "catalog:",
+          "@mui/x-charts": "catalog:",
+          "@mui/x-data-grid": "catalog:",
+          "@tabler/icons-react": "^3.30.0",
+          "@tanstack/react-query": "catalog:",
+          "@universo/admin-frontend": "workspace:*",
+          "@universo/api-client": "workspace:*",
+          "@universo/applications-frontend": "workspace:*",
+          "@universo/auth-frontend": "workspace:*",
+          "@universo/i18n": "workspace:*",
+          "@universo/metahubs-frontend": "workspace:*",
+          "@universo/metapanel-frontend": "workspace:*",
+          "@universo/profile-frontend": "workspace:*",
+          "@universo/start-frontend": "workspace:*",
+          "@universo/store": "workspace:*",
+          "@universo/template-mui": "workspace:*",
+          "@universo/types": "workspace:*",
+          "@universo/utils": "workspace:*",
+          "@yandex/smart-captcha": "catalog:",
+          "axios": "catalog:",
+          "clsx": "^1.1.1",
+          "dotenv": "^16.0.0",
+          "framer-motion": "^4.1.13",
+          "notistack": "^2.0.4",
+          "prop-types": "^15.7.2",
+          "react": "catalog:",
+          "react-dom": "catalog:",
+          "react-perfect-scrollbar": "^1.5.8",
+          "react-redux": "catalog:",
+          "react-router": "catalog:",
+          "react-router-dom": "catalog:",
+          "redux": "catalog:"
+        },
+        "devDependencies": {
+          "@tanstack/react-query-devtools": "^5.90.2",
+          "@testing-library/jest-dom": "catalog:",
+          "@testing-library/react": "catalog:",
+          "@testing-library/user-event": "catalog:",
+          "@vitejs/plugin-react": "^4.3.4",
+          "rimraf": "^5.0.5",
+          "sass": "^1.42.1",
+          "typescript": "catalog:",
+          "vite": "catalog:"
+        },
+        "peerDependencies": {},
+        "optionalDependencies": {}
+      },
+      "workspaceEdges": [
+        {
+          "dependencyName": "@universo/admin-frontend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/api-client",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/applications-frontend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/auth-frontend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/i18n",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/metahubs-frontend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/metapanel-frontend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/profile-frontend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/start-frontend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/store",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/template-mui",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/types",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/utils",
+          "range": "workspace:*",
+          "section": "dependencies"
+        }
+      ]
+    },
+    {
+      "directory": "packages/universo-database",
+      "name": "@universo/database",
+      "dependencySections": {
+        "dependencies": {
+          "@universo/migrations-core": "workspace:*",
+          "@universo/utils": "workspace:*",
+          "knex": "catalog:",
+          "pg": "^8.11.1"
+        },
+        "devDependencies": {
+          "@types/jest": "^29.5.12",
+          "@types/node": "catalog:",
+          "eslint": "catalog:",
+          "jest": "^29.7.0",
+          "rimraf": "^5.0.5",
+          "ts-jest": "^29.1.2",
+          "typescript": "catalog:"
+        },
+        "peerDependencies": {},
+        "optionalDependencies": {}
+      },
+      "workspaceEdges": [
+        {
+          "dependencyName": "@universo/migrations-core",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/utils",
+          "range": "workspace:*",
+          "section": "dependencies"
+        }
+      ]
+    },
+    {
+      "directory": "packages/extension-sdk",
+      "name": "@universo/extension-sdk",
+      "dependencySections": {
+        "dependencies": {
+          "@universo/types": "workspace:*"
+        },
+        "devDependencies": {
+          "@types/node": "catalog:",
+          "eslint": "catalog:",
+          "typescript": "catalog:"
+        },
+        "peerDependencies": {
+          "typescript": ">=5.8.0"
+        },
+        "optionalDependencies": {}
+      },
+      "workspaceEdges": [
+        {
+          "dependencyName": "@universo/types",
+          "range": "workspace:*",
+          "section": "dependencies"
+        }
+      ]
+    },
+    {
+      "directory": "packages/universo-i18n",
+      "name": "@universo/i18n",
+      "dependencySections": {
+        "dependencies": {
+          "i18next": "catalog:",
+          "i18next-browser-languagedetector": "catalog:",
+          "react-i18next": "catalog:"
+        },
+        "devDependencies": {
+          "@types/node": "catalog:",
+          "@types/react": "catalog:",
+          "eslint": "catalog:",
+          "typescript": "catalog:"
+        },
+        "peerDependencies": {
+          "react": "^18.3.1"
+        },
+        "optionalDependencies": {}
+      },
+      "workspaceEdges": []
+    },
+    {
+      "directory": "packages/metahubs-backend",
+      "name": "@universo/metahubs-backend",
+      "dependencySections": {
+        "dependencies": {
+          "@universo/admin-backend": "workspace:*",
+          "@universo/applications-backend": "workspace:*",
+          "@universo/auth-backend": "workspace:*",
+          "@universo/database": "workspace:*",
+          "@universo/migration-guard-shared": "workspace:*",
+          "@universo/migrations-catalog": "workspace:*",
+          "@universo/migrations-core": "workspace:*",
+          "@universo/modules-engine": "workspace:*",
+          "@universo/profile-backend": "workspace:*",
+          "@universo/schema-ddl": "workspace:*",
+          "@universo/types": "workspace:*",
+          "@universo/utils": "workspace:*",
+          "express": "^4.18.2",
+          "http-errors": "catalog:",
+          "json-stable-stringify": "catalog:",
+          "knex": "catalog:",
+          "zod": "catalog:"
+        },
+        "devDependencies": {
+          "@types/express": "^4.17.21",
+          "@types/http-errors": "catalog:",
+          "@types/jest": "^29.5.12",
+          "@types/node": "catalog:",
+          "@types/supertest": "^6.0.2",
+          "eslint": "catalog:",
+          "express-rate-limit": "catalog:",
+          "jest": "^29.7.0",
+          "rimraf": "^5.0.5",
+          "supertest": "^6.3.4",
+          "ts-jest": "^29.1.2",
+          "typescript": "catalog:"
+        },
+        "peerDependencies": {},
+        "optionalDependencies": {}
+      },
+      "workspaceEdges": [
+        {
+          "dependencyName": "@universo/admin-backend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/applications-backend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/auth-backend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/database",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/migration-guard-shared",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/migrations-catalog",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/migrations-core",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/modules-engine",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/profile-backend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/schema-ddl",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/types",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/utils",
+          "range": "workspace:*",
+          "section": "dependencies"
+        }
+      ]
+    },
+    {
+      "directory": "packages/metahubs-frontend",
+      "name": "@universo/metahubs-frontend",
+      "dependencySections": {
+        "dependencies": {
+          "@dnd-kit/core": "^6.3.1",
+          "@dnd-kit/sortable": "^8.0.0",
+          "@dnd-kit/utilities": "^3.2.2",
+          "@emotion/react": "^11.14.0",
+          "@emotion/styled": "^11.14.1",
+          "@mui/lab": "catalog:",
+          "@mui/material": "catalog:",
+          "@mui/x-tree-view": "catalog:",
+          "@tabler/icons-react": "^3.30.0",
+          "@tanstack/react-query": "catalog:",
+          "@universo/auth-frontend": "workspace:*",
+          "@universo/i18n": "workspace:*",
+          "@universo/migration-guard-shared": "workspace:*",
+          "@universo/template-mui": "workspace:*",
+          "@universo/types": "workspace:*",
+          "@universo/utils": "workspace:*",
+          "axios": "catalog:",
+          "react": "catalog:",
+          "react-i18next": "catalog:",
+          "typescript": "catalog:"
+        },
+        "devDependencies": {
+          "@codemirror/autocomplete": "^6.20.1",
+          "@codemirror/lang-javascript": "catalog:",
+          "@codemirror/lang-json": "catalog:",
+          "@codemirror/state": "catalog:",
+          "@codemirror/theme-one-dark": "catalog:",
+          "@codemirror/view": "catalog:",
+          "@hookform/resolvers": "catalog:",
+          "@mui/icons-material": "catalog:",
+          "@mui/x-charts": "catalog:",
+          "@mui/x-data-grid": "catalog:",
+          "@mui/x-data-grid-pro": "catalog:",
+          "@mui/x-date-pickers": "catalog:",
+          "@mui/x-date-pickers-pro": "catalog:",
+          "@mui/x-tree-view": "catalog:",
+          "@testing-library/jest-dom": "catalog:",
+          "@testing-library/react": "catalog:",
+          "@testing-library/user-event": "catalog:",
+          "@types/node": "catalog:",
+          "@types/react": "catalog:",
+          "@uiw/codemirror-theme-sublime": "catalog:",
+          "@uiw/codemirror-theme-vscode": "catalog:",
+          "@uiw/react-codemirror": "catalog:",
+          "axe-core": "^4.8.0",
+          "codemirror": "catalog:",
+          "dayjs": "catalog:",
+          "eslint": "catalog:",
+          "framer-motion": "catalog:",
+          "html-react-parser": "catalog:",
+          "i18next": "catalog:",
+          "i18next-browser-languagedetector": "catalog:",
+          "jest-axe": "^9.0.0",
+          "msw": "^2.0.0",
+          "notistack": "catalog:",
+          "react-code-blocks": "catalog:",
+          "react-color": "catalog:",
+          "react-datepicker": "catalog:",
+          "react-dom": "catalog:",
+          "react-hook-form": "catalog:",
+          "react-markdown": "catalog:",
+          "react-perfect-scrollbar": "catalog:",
+          "react-redux": "catalog:",
+          "react-router-dom": "^6.0.0",
+          "react-syntax-highlighter": "catalog:",
+          "reactflow": "catalog:",
+          "rimraf": "^5.0.5",
+          "tsdown": "catalog:",
+          "vitest": "catalog:",
+          "zod": "catalog:"
+        },
+        "peerDependencies": {
+          "react": ">=18",
+          "react-dom": ">=18",
+          "react-router-dom": "^6.0.0"
+        },
+        "optionalDependencies": {}
+      },
+      "workspaceEdges": [
+        {
+          "dependencyName": "@universo/auth-frontend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/i18n",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/migration-guard-shared",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/template-mui",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/types",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/utils",
+          "range": "workspace:*",
+          "section": "dependencies"
+        }
+      ]
+    },
+    {
+      "directory": "packages/metapanel-frontend",
+      "name": "@universo/metapanel-frontend",
+      "dependencySections": {
+        "dependencies": {
+          "@emotion/react": "^11.14.0",
+          "@emotion/styled": "^11.14.1",
+          "@mui/icons-material": "catalog:",
+          "@mui/material": "catalog:",
+          "@mui/x-charts": "catalog:",
+          "@tanstack/react-query": "catalog:",
+          "@universo/auth-frontend": "workspace:*",
+          "@universo/i18n": "workspace:*",
+          "@universo/template-mui": "workspace:*",
+          "@universo/types": "workspace:*",
+          "i18next": "catalog:",
+          "react-i18next": "catalog:"
+        },
+        "devDependencies": {
+          "@testing-library/jest-dom": "catalog:",
+          "@testing-library/react": "catalog:",
+          "@types/react": "catalog:",
+          "eslint": "catalog:",
+          "rimraf": "^5.0.5",
+          "tsdown": "catalog:",
+          "vitest": "catalog:"
+        },
+        "peerDependencies": {
+          "react": ">=18",
+          "react-dom": ">=18",
+          "react-router-dom": ">=6"
+        },
+        "optionalDependencies": {}
+      },
+      "workspaceEdges": [
+        {
+          "dependencyName": "@universo/auth-frontend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/i18n",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/template-mui",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/types",
+          "range": "workspace:*",
+          "section": "dependencies"
+        }
+      ]
+    },
+    {
+      "directory": "packages/migration-guard-shared",
+      "name": "@universo/migration-guard-shared",
+      "dependencySections": {
+        "dependencies": {
+          "@universo/types": "workspace:*",
+          "@universo/utils": "workspace:*"
+        },
+        "devDependencies": {
+          "rimraf": "^6.0.1",
+          "tsdown": "catalog:",
+          "typescript": "catalog:"
+        },
+        "peerDependencies": {
+          "@mui/material": ">=5.0.0",
+          "@tanstack/react-query": ">=5.0.0",
+          "react": ">=18.0.0",
+          "react-dom": ">=18.0.0"
+        },
+        "optionalDependencies": {}
+      },
+      "workspaceEdges": [
+        {
+          "dependencyName": "@universo/types",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/utils",
+          "range": "workspace:*",
+          "section": "dependencies"
+        }
+      ]
+    },
+    {
+      "directory": "packages/universo-migrations-catalog",
+      "name": "@universo/migrations-catalog",
+      "dependencySections": {
+        "dependencies": {
+          "@universo/migrations-core": "workspace:*",
+          "json-stable-stringify": "catalog:",
+          "knex": "catalog:"
+        },
+        "devDependencies": {
+          "@types/jest": "^29.5.12",
+          "@types/node": "catalog:",
+          "eslint": "catalog:",
+          "jest": "^29.7.0",
+          "rimraf": "^5.0.5",
+          "ts-jest": "^29.1.2",
+          "typescript": "catalog:"
+        },
+        "peerDependencies": {},
+        "optionalDependencies": {}
+      },
+      "workspaceEdges": [
+        {
+          "dependencyName": "@universo/migrations-core",
+          "range": "workspace:*",
+          "section": "dependencies"
+        }
+      ]
+    },
+    {
+      "directory": "packages/universo-migrations-core",
+      "name": "@universo/migrations-core",
+      "dependencySections": {
+        "dependencies": {
+          "@universo/types": "workspace:*",
+          "json-stable-stringify": "catalog:",
+          "knex": "catalog:",
+          "uuidv7": "catalog:"
+        },
+        "devDependencies": {
+          "@types/jest": "^29.5.12",
+          "@types/node": "catalog:",
+          "eslint": "catalog:",
+          "jest": "^29.7.0",
+          "rimraf": "^5.0.5",
+          "ts-jest": "^29.1.2",
+          "typescript": "catalog:"
+        },
+        "peerDependencies": {},
+        "optionalDependencies": {}
+      },
+      "workspaceEdges": [
+        {
+          "dependencyName": "@universo/types",
+          "range": "workspace:*",
+          "section": "dependencies"
+        }
+      ]
+    },
+    {
+      "directory": "packages/universo-migrations-platform",
+      "name": "@universo/migrations-platform",
+      "dependencySections": {
+        "dependencies": {
+          "@universo/admin-backend": "workspace:*",
+          "@universo/applications-backend": "workspace:*",
+          "@universo/database": "workspace:*",
+          "@universo/metahubs-backend": "workspace:*",
+          "@universo/migrations-catalog": "workspace:*",
+          "@universo/migrations-core": "workspace:*",
+          "@universo/profile-backend": "workspace:*",
+          "@universo/schema-ddl": "workspace:*",
+          "@universo/start-backend": "workspace:*",
+          "@universo/types": "workspace:*",
+          "@universo/utils": "workspace:*",
+          "knex": "catalog:"
+        },
+        "devDependencies": {
+          "@types/jest": "^29.5.12",
+          "@types/node": "catalog:",
+          "eslint": "catalog:",
+          "jest": "^29.7.0",
+          "rimraf": "^5.0.5",
+          "ts-jest": "^29.1.2",
+          "typescript": "catalog:"
+        },
+        "peerDependencies": {},
+        "optionalDependencies": {}
+      },
+      "workspaceEdges": [
+        {
+          "dependencyName": "@universo/admin-backend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/applications-backend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/database",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/metahubs-backend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/migrations-catalog",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/migrations-core",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/profile-backend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/schema-ddl",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/start-backend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/types",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/utils",
+          "range": "workspace:*",
+          "section": "dependencies"
+        }
+      ]
+    },
+    {
+      "directory": "packages/modules-engine",
+      "name": "@universo/modules-engine",
+      "dependencySections": {
+        "dependencies": {
+          "@universo/extension-sdk": "workspace:*",
+          "@universo/types": "workspace:*",
+          "acorn": "^8.16.0",
+          "esbuild": "0.25.0",
+          "isolated-vm": "^6.1.2",
+          "typescript": "catalog:"
+        },
+        "devDependencies": {
+          "@types/node": "catalog:",
+          "eslint": "catalog:",
+          "rimraf": "^5.0.5",
+          "tsdown": "catalog:"
+        },
+        "peerDependencies": {},
+        "optionalDependencies": {}
+      },
+      "workspaceEdges": [
+        {
+          "dependencyName": "@universo/extension-sdk",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/types",
+          "range": "workspace:*",
+          "section": "dependencies"
+        }
+      ]
+    },
+    {
+      "directory": "packages/profile-backend",
+      "name": "@universo/profile-backend",
+      "dependencySections": {
+        "dependencies": {
+          "@universo/migrations-core": "workspace:*",
+          "@universo/types": "workspace:*",
+          "@universo/utils": "workspace:*",
+          "express": "^4.18.2",
+          "express-rate-limit": "catalog:"
+        },
+        "devDependencies": {
+          "@types/express": "^4.17.21",
+          "@types/jest": "^29.5.0",
+          "@types/node": "catalog:",
+          "@types/supertest": "^6.0.0",
+          "eslint": "catalog:",
+          "jest": "^29.5.0",
+          "rimraf": "^5.0.5",
+          "supertest": "^6.3.0",
+          "ts-jest": "^29.1.0",
+          "typescript": "catalog:"
+        },
+        "peerDependencies": {},
+        "optionalDependencies": {}
+      },
+      "workspaceEdges": [
+        {
+          "dependencyName": "@universo/migrations-core",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/types",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/utils",
+          "range": "workspace:*",
+          "section": "dependencies"
+        }
+      ]
+    },
+    {
+      "directory": "packages/profile-frontend",
+      "name": "@universo/profile-frontend",
+      "dependencySections": {
+        "dependencies": {
+          "@universo/auth-frontend": "workspace:*",
+          "@universo/i18n": "workspace:*",
+          "@universo/template-mui": "workspace:*",
+          "react": "catalog:",
+          "typescript": "catalog:"
+        },
+        "devDependencies": {
+          "@testing-library/jest-dom": "^6.4.5",
+          "@testing-library/react": "^14.1.2",
+          "@testing-library/user-event": "^14.5.2",
+          "@types/node": "catalog:",
+          "@types/react": "^18.2.55",
+          "eslint": "catalog:",
+          "rimraf": "^5.0.5",
+          "tsdown": "catalog:",
+          "vitest": "catalog:"
+        },
+        "peerDependencies": {},
+        "optionalDependencies": {}
+      },
+      "workspaceEdges": [
+        {
+          "dependencyName": "@universo/auth-frontend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/i18n",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/template-mui",
+          "range": "workspace:*",
+          "section": "dependencies"
+        }
+      ]
+    },
+    {
+      "directory": "packages/universo-rest-docs",
+      "name": "@universo/rest-docs",
+      "dependencySections": {
+        "dependencies": {
+          "@asteasolutions/zod-to-openapi": "^8.1.0",
+          "@universo/types": "workspace:*",
+          "express": "^4.18.2",
+          "swagger-ui-express": "^5.0.1",
+          "yaml": "2.8.3",
+          "zod": "^4.1.12"
+        },
+        "devDependencies": {
+          "@redocly/openapi-cli": "^1.0.0-beta.95",
+          "@types/express": "^4.17.21",
+          "@types/swagger-ui-express": "^4.1.6",
+          "tsc-watch": "^6.2.1",
+          "typescript": "catalog:"
+        },
+        "peerDependencies": {},
+        "optionalDependencies": {}
+      },
+      "workspaceEdges": [
+        {
+          "dependencyName": "@universo/types",
+          "range": "workspace:*",
+          "section": "dependencies"
+        }
+      ]
+    },
+    {
+      "directory": "packages/schema-ddl",
+      "name": "@universo/schema-ddl",
+      "dependencySections": {
+        "dependencies": {
+          "@universo/migrations-catalog": "workspace:*",
+          "@universo/migrations-core": "workspace:*",
+          "@universo/types": "workspace:*",
+          "@universo/utils": "workspace:*",
+          "knex": "catalog:"
+        },
+        "devDependencies": {
+          "@types/jest": "^29.5.12",
+          "@types/node": "catalog:",
+          "eslint": "catalog:",
+          "jest": "^29.7.0",
+          "rimraf": "^5.0.5",
+          "ts-jest": "^29.1.2",
+          "typescript": "catalog:"
+        },
+        "peerDependencies": {
+          "knex": ">=3.0.0"
+        },
+        "optionalDependencies": {}
+      },
+      "workspaceEdges": [
+        {
+          "dependencyName": "@universo/migrations-catalog",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/migrations-core",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/types",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/utils",
+          "range": "workspace:*",
+          "section": "dependencies"
+        }
+      ]
+    },
+    {
+      "directory": "packages/start-backend",
+      "name": "@universo/start-backend",
+      "dependencySections": {
+        "dependencies": {
+          "@universo/migrations-core": "workspace:*",
+          "@universo/profile-backend": "workspace:*",
+          "@universo/types": "workspace:*",
+          "@universo/utils": "workspace:*",
+          "express": "^4.18.2",
+          "http-errors": "catalog:",
+          "zod": "^3.25.76"
+        },
+        "devDependencies": {
+          "@types/express": "^4.17.21",
+          "@types/http-errors": "catalog:",
+          "@types/jest": "^29.5.12",
+          "@types/node": "catalog:",
+          "@types/supertest": "^6.0.0",
+          "eslint": "catalog:",
+          "express-rate-limit": "catalog:",
+          "jest": "^29.7.0",
+          "rimraf": "^5.0.5",
+          "supertest": "^6.3.0",
+          "ts-jest": "^29.1.2",
+          "typescript": "catalog:"
+        },
+        "peerDependencies": {},
+        "optionalDependencies": {}
+      },
+      "workspaceEdges": [
+        {
+          "dependencyName": "@universo/migrations-core",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/profile-backend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/types",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/utils",
+          "range": "workspace:*",
+          "section": "dependencies"
+        }
+      ]
+    },
+    {
+      "directory": "packages/start-frontend",
+      "name": "@universo/start-frontend",
+      "dependencySections": {
+        "dependencies": {
+          "@emotion/react": "^11.14.0",
+          "@emotion/styled": "^11.14.1",
+          "@mui/icons-material": "catalog:",
+          "@mui/material": "catalog:",
+          "@universo/auth-frontend": "workspace:*",
+          "@universo/i18n": "workspace:*",
+          "@universo/store": "workspace:*",
+          "@universo/types": "workspace:*",
+          "@universo/utils": "workspace:*",
+          "axios": "catalog:",
+          "i18next": "catalog:",
+          "react": "catalog:",
+          "react-i18next": "catalog:",
+          "react-router-dom": "catalog:",
+          "typescript": "catalog:"
+        },
+        "devDependencies": {
+          "@testing-library/jest-dom": "^6.4.5",
+          "@testing-library/react": "^14.1.2",
+          "@testing-library/user-event": "^14.5.2",
+          "@types/react": "catalog:",
+          "@types/react-dom": "catalog:",
+          "eslint": "catalog:",
+          "rimraf": "^5.0.5",
+          "tsdown": "catalog:",
+          "vitest": "catalog:"
+        },
+        "peerDependencies": {
+          "react": ">=18",
+          "react-dom": ">=18",
+          "react-router-dom": "^6.0.0"
+        },
+        "optionalDependencies": {}
+      },
+      "workspaceEdges": [
+        {
+          "dependencyName": "@universo/auth-frontend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/i18n",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/store",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/types",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/utils",
+          "range": "workspace:*",
+          "section": "dependencies"
+        }
+      ]
+    },
+    {
+      "directory": "packages/universo-store",
+      "name": "@universo/store",
+      "dependencySections": {
+        "dependencies": {
+          "@casl/ability": "^6.7.5",
+          "@casl/react": "^5.0.0",
+          "@universo/types": "workspace:*",
+          "redux": "^5.0.1"
+        },
+        "devDependencies": {
+          "tsdown": "catalog:",
+          "typescript": "catalog:"
+        },
+        "peerDependencies": {
+          "react": "^18.3.1",
+          "react-redux": "^9.1.0"
+        },
+        "optionalDependencies": {}
+      },
+      "workspaceEdges": [
+        {
+          "dependencyName": "@universo/types",
+          "range": "workspace:*",
+          "section": "dependencies"
+        }
+      ]
+    },
+    {
+      "directory": "packages/universo-template-mui",
+      "name": "@universo/template-mui",
+      "dependencySections": {
+        "dependencies": {
+          "@dnd-kit/core": "^6.3.1",
+          "@dnd-kit/sortable": "^8.0.0",
+          "@dnd-kit/utilities": "^3.2.2",
+          "@emotion/react": "catalog:",
+          "@emotion/styled": "catalog:",
+          "@hookform/resolvers": "catalog:",
+          "@mui/icons-material": "catalog:",
+          "@mui/material": "catalog:",
+          "@mui/x-charts": "catalog:",
+          "@mui/x-data-grid": "catalog:",
+          "@mui/x-data-grid-pro": "catalog:",
+          "@mui/x-date-pickers": "catalog:",
+          "@mui/x-date-pickers-pro": "catalog:",
+          "@mui/x-tree-view": "catalog:",
+          "@tanstack/react-query": "catalog:",
+          "@universo/admin-frontend": "workspace:*",
+          "@universo/auth-frontend": "workspace:*",
+          "@universo/block-editor": "workspace:*",
+          "@universo/i18n": "workspace:*",
+          "@universo/start-frontend": "workspace:*",
+          "@universo/store": "workspace:*",
+          "@universo/types": "workspace:*",
+          "@universo/utils": "workspace:*",
+          "dayjs": "catalog:",
+          "html-react-parser": "^5.1.10",
+          "prop-types": "^15.8.1",
+          "react-hook-form": "catalog:",
+          "react-redux": "catalog:",
+          "use-debounce": "^10.0.6"
+        },
+        "devDependencies": {
+          "@testing-library/jest-dom": "catalog:",
+          "@testing-library/react": "catalog:",
+          "@testing-library/user-event": "catalog:",
+          "@types/node": "catalog:",
+          "@types/react": "catalog:",
+          "eslint": "catalog:",
+          "identity-obj-proxy": "^3.0.0",
+          "jest": "^29.7.0",
+          "jest-environment-jsdom": "^29.7.0",
+          "rimraf": "^5.0.5",
+          "ts-jest": "^29.2.5",
+          "tsdown": "catalog:",
+          "typescript": "catalog:"
+        },
+        "peerDependencies": {
+          "react": "^18.2.0",
+          "react-dom": "^18.2.0",
+          "react-router-dom": "catalog:"
+        },
+        "optionalDependencies": {}
+      },
+      "workspaceEdges": [
+        {
+          "dependencyName": "@universo/admin-frontend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/auth-frontend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/block-editor",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/i18n",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/start-frontend",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/store",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/types",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/utils",
+          "range": "workspace:*",
+          "section": "dependencies"
+        }
+      ]
+    },
+    {
+      "directory": "packages/universo-types",
+      "name": "@universo/types",
+      "dependencySections": {
+        "dependencies": {
+          "zod": "catalog:"
+        },
+        "devDependencies": {
+          "@types/node": "catalog:",
+          "eslint": "catalog:",
+          "rimraf": "^5.0.5",
+          "tsdown": "catalog:",
+          "typescript": "catalog:",
+          "vitest": "catalog:"
+        },
+        "peerDependencies": {},
+        "optionalDependencies": {}
+      },
+      "workspaceEdges": []
+    },
+    {
+      "directory": "packages/universo-utils",
+      "name": "@universo/utils",
+      "dependencySections": {
+        "dependencies": {
+          "@justrelate/slugify": "catalog:",
+          "@tanstack/react-query": "catalog:",
+          "@universo/i18n": "workspace:*",
+          "@universo/types": "workspace:*",
+          "async-mutex": "catalog:",
+          "axios": "catalog:",
+          "dayjs": "catalog:",
+          "express-rate-limit": "catalog:",
+          "ioredis": "catalog:",
+          "json-stable-stringify": "catalog:",
+          "rate-limit-redis": "catalog:",
+          "uuidv7": "catalog:",
+          "zod": "3.25.76"
+        },
+        "devDependencies": {
+          "@types/node": "catalog:",
+          "eslint": "catalog:",
+          "rimraf": "^5.0.5",
+          "tsdown": "catalog:",
+          "typescript": "catalog:",
+          "vitest": "catalog:"
+        },
+        "peerDependencies": {
+          "express": "^4.18.0"
+        },
+        "optionalDependencies": {}
+      },
+      "workspaceEdges": [
+        {
+          "dependencyName": "@universo/i18n",
+          "range": "workspace:*",
+          "section": "dependencies"
+        },
+        {
+          "dependencyName": "@universo/types",
+          "range": "workspace:*",
+          "section": "dependencies"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { defineConfig, mergeConfig } from 'vitest/config'
+
+import baseConfig from '../../tools/testing/frontend/vitest.base.config'
+import { loadTsconfigAliases } from '../../tools/testing/frontend/loadTsconfigAliases'
+import { resolveWorkspacePackagePath } from '../../tools/testing/frontend/resolveWorkspacePackage'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const srcDir = path.resolve(__dirname, 'src')
+const templateMuiSrcDir = resolveWorkspacePackagePath('@universo-react/template-mui', __dirname, 'src')
+const tsconfigAliases = loadTsconfigAliases(path.resolve(__dirname, 'tsconfig.json'), __dirname)
+
+export default mergeConfig(
+    baseConfig,
+    defineConfig({
+        root: __dirname,
+        resolve: {
+            alias: {
+                ...tsconfigAliases,
+                '@universo-react/template-mui/components/dialogs': path.resolve(templateMuiSrcDir, 'components/dialogs/index.ts'),
+                '@universo-react/template-mui': path.resolve(templateMuiSrcDir, 'index.ts'),
+                '@': srcDir
+            }
+        },
+        test: {
+            globals: true,
+            include: ['src/**/*.{test,spec}.{ts,tsx,js,jsx}']
+        },
+        esbuild: {
+            loader: 'tsx',
+            include: [/src\/.*\.[jt]sx?$/, /tools\/testing\/frontend\/.*\.[jt]sx?$/],
+            jsx: 'automatic'
+        }
+    })
+)

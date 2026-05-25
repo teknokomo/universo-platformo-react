@@ -341,7 +341,7 @@ function resolveSharedBehavior(entity: { ui_config?: unknown; config?: unknown }
 **Type changes:**
 
 ```typescript
-// In @universo/types/common/scripts.ts:
+// In @universo-react/types/common/scripts.ts:
 export const SCRIPT_ATTACHMENT_KINDS = [
   'metahub', 'catalog', 'hub', 'set', 'enumeration', 'attribute',
   'general'  // NEW: shared/common scripts

@@ -61,14 +61,14 @@ pnpm start:allclean
 ### Backend (cleanup — remove dead flag path)
 | File | Action | Description |
 |------|--------|-------------|
-| `packages/universo-core-backend/base/src/commands/start.ts` | MODIFY | Remove `--reset-db` flag (no longer reachable, dead code) |
+| `packages/universo-react-core-backend/base/src/commands/start.ts` | MODIFY | Remove `--reset-db` flag (no longer reachable, dead code) |
 
 ### Tests
 | File | Action | Description |
 |------|--------|-------------|
-| `packages/universo-core-backend/base/src/__tests__/startupReset.test.ts` | MODIFY | Add tests for `_FORCE_DATABASE_RESET` env var flow |
-| `packages/universo-core-backend/base/src/__tests__/App.initDatabase.test.ts` | MODIFY | Verify env var triggers force reset |
-| NEW: `packages/universo-core-backend/base/src/__tests__/start-command.test.ts` | CREATE | Verify `--reset-db` flag is removed cleanly |
+| `packages/universo-react-core-backend/base/src/__tests__/startupReset.test.ts` | MODIFY | Add tests for `_FORCE_DATABASE_RESET` env var flow |
+| `packages/universo-react-core-backend/base/src/__tests__/App.initDatabase.test.ts` | MODIFY | Verify env var triggers force reset |
+| NEW: `packages/universo-react-core-backend/base/src/__tests__/start-command.test.ts` | CREATE | Verify `--reset-db` flag is removed cleanly |
 
 ### Documentation
 | File | Action | Description |
@@ -88,12 +88,12 @@ pnpm start:allclean
   - **Why**: Env vars are inherited by child processes; CLI flags are lost by `run-script-os → npm` chain. `cross-env` ensures cross-platform compatibility.
 
 - [x] **Step 1.2**: Remove `--reset-db` flag from `start.ts` (dead code)
-  - **File**: `packages/universo-core-backend/base/src/commands/start.ts:9-24`
+  - **File**: `packages/universo-react-core-backend/base/src/commands/start.ts:9-24`
   - **Remove**: `'reset-db'` flag definition and the `if (flags['reset-db'])` block
   - **Why**: The flag is unreachable through `run-script-os`. Keeping it creates false confidence. Env var approach is simpler and actually works.
 
 - [x] **Step 1.3**: Verify `index.ts` env var check is correct — also removed stale comment referencing deleted flag
-  - **File**: `packages/universo-core-backend/base/src/index.ts:83-85`
+  - **File**: `packages/universo-react-core-backend/base/src/index.ts:83-85`
   - **Current code is correct** — no changes needed:
     ```typescript
     const forceReset = process.env._FORCE_DATABASE_RESET === 'true'
@@ -101,14 +101,14 @@ pnpm start:allclean
     ```
 
 - [x] **Step 1.4**: Verify `executeStartupFullReset` handles force correctly
-  - **File**: `packages/universo-core-backend/base/src/bootstrap/startupReset.ts:300-367`
+  - **File**: `packages/universo-react-core-backend/base/src/bootstrap/startupReset.ts:300-367`
   - **Current code is correct** — `options?.force === true` bypasses `FULL_DATABASE_RESET` env check
   - **No changes needed**
 
 ### Phase 2: Testing
 
 - [x] **Step 2.1**: Add unit tests for `_FORCE_DATABASE_RESET` env var flow — already covered in existing startupReset.test.ts (7 force mode tests)
-  - **File**: `packages/universo-core-backend/base/src/__tests__/startupReset.test.ts`
+  - **File**: `packages/universo-react-core-backend/base/src/__tests__/startupReset.test.ts`
   - **Test cases**:
     1. `_FORCE_DATABASE_RESET=true` + `FULL_DATABASE_RESET=false` → force reset executes
     2. `_FORCE_DATABASE_RESET=true` + `NODE_ENV=production` → blocked by production guard
@@ -143,7 +143,7 @@ pnpm start:allclean
     ```
 
 - [x] **Step 2.2**: Add integration test for `App.initDatabase` env var path — already covered in existing App.initDatabase.test.ts (3 env var tests)
-  - **File**: `packages/universo-core-backend/base/src/__tests__/App.initDatabase.test.ts`
+  - **File**: `packages/universo-react-core-backend/base/src/__tests__/App.initDatabase.test.ts`
   - **Test**: Set `_FORCE_DATABASE_RESET=true`, verify `executeStartupFullReset` is called with `{ force: true }`
   - **Example**:
     ```typescript
@@ -168,7 +168,7 @@ pnpm start:allclean
     ```
 
 - [x] **Step 2.3**: Verify `--reset-db` flag is fully removed — created start-command.test.ts
-  - **File**: NEW `packages/universo-core-backend/base/src/__tests__/start-command.test.ts`
+  - **File**: NEW `packages/universo-react-core-backend/base/src/__tests__/start-command.test.ts`
   - **Test**: Verify `Start` command has no `reset-db` flag in its definition
   - **Example**:
     ```typescript
@@ -183,7 +183,7 @@ pnpm start:allclean
     ```
 
 - [x] **Step 2.4**: Build and run existing tests — 59 tests pass, 0 failures
-  - Run `pnpm --filter @universo/core-backend build`
+  - Run `pnpm --filter @universo-react/core-backend build`
   - Run `pnpm test:vitest`
   - Verify no regressions
 
@@ -211,7 +211,7 @@ pnpm start:allclean
   - **Check**: If `start:allclean` is mentioned, verify description is accurate
 
 - [x] **Step 3.4**: Update `.env.example` if needed — file protected by permissions, could not verify
-  - **File**: `packages/universo-core-backend/base/.env.example`
+  - **File**: `packages/universo-react-core-backend/base/.env.example`
   - **Check**: Verify the DANGER ZONE section still correctly describes the relationship between `FULL_DATABASE_RESET` env var and `start:allclean` command
 
 ### Phase 4: Final Verification
@@ -255,6 +255,6 @@ pnpm start:allclean
 
 The fix is **2 file changes**:
 1. `package.json:30` — change script command
-2. `packages/universo-core-backend/base/src/commands/start.ts` — remove dead flag
+2. `packages/universo-react-core-backend/base/src/commands/start.ts` — remove dead flag
 
 Everything else is tests, documentation, and verification.

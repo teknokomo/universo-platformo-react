@@ -31,7 +31,7 @@ Users with enough workspace permissions can create, edit, copy, delete, and rest
 
 ## Published UI
 
-The LMS template uses the existing `packages/apps-template-mui` dashboard primitives:
+The LMS template uses the existing `packages/universo-react-apps-template-mui` dashboard primitives:
 
 -   the normal sidebar menu;
 -   `detailsTable`;

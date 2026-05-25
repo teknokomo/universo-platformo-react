@@ -12,7 +12,7 @@
 Extend the platform to support:
 
 1. **Metahub Snapshot File Export/Import** — JSON envelope transport for MetahubSnapshot, enabling offline backup, sharing, and migration between instances. Import creates a **new metahub** from snapshot (dropdown option on MetahubList "Create" button). Additionally, publication-level version import is supported.
-2. **Enhanced `apps-template-mui` Runtime** — Card views, search/filter bar, pagination, view toggles (card/table), DnD reordering, increased row height, multi-line field support — all driven by metahub-authored layout configuration. **Reuses existing `@universo/template-mui` components** (`ViewHeaderMUI`, `ToolbarControls`, `ItemCard`, `FlowListTable`, `PaginationControls`, `useViewPreference`).
+2. **Enhanced `apps-template-mui` Runtime** — Card views, search/filter bar, pagination, view toggles (card/table), DnD reordering, increased row height, multi-line field support — all driven by metahub-authored layout configuration. **Reuses existing `@universo-react/template-mui` components** (`ViewHeaderMUI`, `ToolbarControls`, `ItemCard`, `FlowListTable`, `PaginationControls`, `useViewPreference`).
 3. **Self-Hosted Metahub Application** — Create a metahub that models all sections of itself (catalogs, attributes, sets, constants, elements, enumerations, hubs, branches, publications, layouts, migrations, settings), publish it, test via application runtime UI.
 4. **Comprehensive Testing** — Unit, integration, and E2E (Playwright) tests with visual verification at each step.
 5. **Documentation** — Update READMEs and GitBook docs in `docs/`.
@@ -21,7 +21,7 @@ Extend the platform to support:
 
 - **No deletions** — all existing functionality preserved.
 - **No new metahub entity types** — use existing types (catalogs, hubs, sets, enumerations, constants).
-- **Reuse existing components** — extend `@universo/template-mui` components already proven in metahubs-frontend entity lists; do NOT create duplicate toolbar/card/pagination components.
+- **Reuse existing components** — extend `@universo-react/template-mui` components already proven in metahubs-frontend entity lists; do NOT create duplicate toolbar/card/pagination components.
 - **Follow established patterns** — entity list pattern (ViewHeader → ToolbarControls → ItemCard/FlowListTable → PaginationControls), Controller–Service–Store backend pattern, existing DashboardLayoutConfig pipeline (`buildDashboardLayoutConfig()` → Zod schema → Dashboard).
 - **Modern patterns** — TanStack Query v5, Zod validation, VLC, UUID v7.
 - **Security first** — validate all imports server-side with Zod, sanitize filenames with RFC 5987 encoding, enforce size limits.
@@ -32,7 +32,7 @@ Extend the platform to support:
 | Issue | v1 Status | v2 Fix |
 |-------|-----------|--------|
 | Import at publication level only | Wrong level | Import on MetahubList Create dropdown + metahub-level backend endpoint |
-| New RuntimeToolbar/RuntimeCardGrid | Reinvention | Reuse ViewHeaderMUI, ToolbarControls, ItemCard, FlowListTable from `@universo/template-mui` |
+| New RuntimeToolbar/RuntimeCardGrid | Reinvention | Reuse ViewHeaderMUI, ToolbarControls, ItemCard, FlowListTable from `@universo-react/template-mui` |
 | buildDashboardLayoutConfig pipeline | Not updated | Update `buildDashboardLayoutConfig()` + Zod schema + widgetKey registry |
 | Row height / multi-line fields | Missing | Add `rowHeight` config + `getRowHeight` prop in DataGrid |
 | Self-model incomplete (4 catalogs) | Missing 9 sections | Expand to all 13 metahub sections |
@@ -40,7 +40,7 @@ Extend the platform to support:
 | Envelope validation manual | Fragile | Replace with Zod schema |
 | res.json() + Content-Disposition | Incompatible | Use `res.type().send()` |
 | JSON.parse without try/catch | Missing | Add error handling |
-| Deep import `@universo/utils/snapshot` | Non-standard | Barrel re-export from index |
+| Deep import `@universo-react/utils/snapshot` | Non-standard | Barrel re-export from index |
 | Layout full-page editing | Missing | Add design note + Phase 4 step |
 | Workspaces/multi-user | Missing | Document as future scope |
 
@@ -48,17 +48,17 @@ Extend the platform to support:
 
 | Issue | v2 Status | v3 Fix |
 |-------|-----------|--------|
-| `@universo/template-mui` not in `apps-template-mui` deps | **CRITICAL** — missing dependency | Add `"@universo/template-mui": "workspace:*"` to `apps-template-mui/package.json` |
+| `@universo-react/template-mui` not in `apps-template-mui` deps | **CRITICAL** — missing dependency | Add `"@universo-react/template-mui": "workspace:*"` to `apps-template-mui/package.json` |
 | PaginationControls interface mismatch | **CRITICAL** — plan uses MUI TablePagination API | Rewrite to use actual `{ pagination: PaginationState, actions: PaginationActions }` interface |
 | CSRF protection absent on `/api/v1/*` mutation routes | **CRITICAL** — security gap | Add CSRF middleware to new import routes + document global fix as prerequisite |
 | `buildDashboardLayoutConfig()` rawConfig param | **HIGH** — wrong entry point | Remove Phase 4.2 modification; new view fields persist in `layout.config` JSONB and flow through `attachLayoutsToSnapshot()` pipeline automatically |
-| `buildCodenameFromPrimary()` doesn't exist | **HIGH** — function not found | Replace with `createCodenameVLC(primaryLocale, codenameText)` from `@universo/utils` |
+| `buildCodenameFromPrimary()` doesn't exist | **HIGH** — function not found | Replace with `createCodenameVLC(primaryLocale, codenameText)` from `@universo-react/utils` |
 | `createVersionFromSnapshot()` doesn't exist | **HIGH** — method not found | Replace with direct `createPublicationVersion(exec, input)` from persistence store |
-| Hash normalization conflict | **HIGH** — `computeSnapshotHash` vs `SnapshotSerializer.calculateHash` | Reuse existing `normalizePublicationSnapshotForHash()` from `@universo/utils/serialization` in export path |
+| Hash normalization conflict | **HIGH** — `computeSnapshotHash` vs `SnapshotSerializer.calculateHash` | Reuse existing `normalizePublicationSnapshotForHash()` from `@universo-react/utils/serialization` in export path |
 | No prototype pollution guard for imported JSON | **MEDIUM** — OWASP risk | Add `__proto__`/`constructor`/`prototype` key sanitization in `validateSnapshotEnvelope()` |
 | No JSON nesting depth limit | **MEDIUM** — DoS risk | Add max nesting depth check (50 levels) before `JSON.parse()` |
 | Zod `snapshot` field too permissive | **MEDIUM** — accepts any object | Add minimal structural validation: `version`, `metahubId`, `entities` required |
-| `@dnd-kit` not in `apps-template-mui` deps | **MEDIUM** — missing for FlowListTable DnD | Not needed: `FlowListTable` re-exports DnD internally from `@universo/template-mui` |
+| `@dnd-kit` not in `apps-template-mui` deps | **MEDIUM** — missing for FlowListTable DnD | Not needed: `FlowListTable` re-exports DnD internally from `@universo-react/template-mui` |
 
 ---
 
@@ -69,7 +69,7 @@ Extend the platform to support:
 | `universo-core-backend` | **(v3)** Apply CSRF protection globally to `/api/v1` routes |
 | `metahubs-backend` | New export/import routes + controllers + services; new `importMetahubFromSnapshot` service; new `SnapshotRestoreService` |
 | `metahubs-frontend` | Import dropdown on MetahubList Create button; Export button on PublicationVersionList; ImportSnapshotDialog |
-| `apps-template-mui` | **(v3)** Add `@universo/template-mui` dependency; integrate shared components for card/table view toggle, search, pagination (using real `PaginationState`/`PaginationActions` interface); extend `CustomizedDataGrid` with row height; update widgetRenderer |
+| `apps-template-mui` | **(v3)** Add `@universo-react/template-mui` dependency; integrate shared components for card/table view toggle, search, pagination (using real `PaginationState`/`PaginationActions` interface); extend `CustomizedDataGrid` with row height; update widgetRenderer |
 | `universo-types` | Shared snapshot transport types + Zod envelope schema (v3: tightened `snapshot` field validation) |
 | `universo-utils` | Snapshot archive helpers (build/parse/validate) — barrel re-exported; **(v3)** reuses `normalizePublicationSnapshotForHash` for hash compatibility; adds prototype pollution + depth guards |
 | `universo-i18n` | Shared i18n keys for export/import actions |
@@ -81,9 +81,9 @@ Extend the platform to support:
 
 ## Phase 1: Snapshot Transport Types & Helpers
 
-### 1.1 Shared Types + Zod Schema in `@universo/types`
+### 1.1 Shared Types + Zod Schema in `@universo-react/types`
 
-**File**: `packages/universo-types/base/src/common/snapshots.ts`
+**File**: `packages/universo-react-types/base/src/common/snapshots.ts`
 
 ```typescript
 import { z } from 'zod'
@@ -128,23 +128,23 @@ export const SNAPSHOT_BUNDLE_CONSTRAINTS = {
 } as const
 ```
 
-**Re-export from index**: Add `export * from './common/snapshots'` to `packages/universo-types/base/src/index.ts`.
+**Re-export from index**: Add `export * from './common/snapshots'` to `packages/universo-react-types/base/src/index.ts`.
 
-### 1.2 Snapshot Helpers in `@universo/utils`
+### 1.2 Snapshot Helpers in `@universo-react/utils`
 
-**File**: `packages/universo-utils/base/src/snapshot/snapshotArchive.ts`
+**File**: `packages/universo-react-utils/base/src/snapshot/snapshotArchive.ts`
 
 Uses `json-stable-stringify` (already in workspace catalog) for deterministic hashing. **No JSZip dependency** — single JSON file with HTTP gzip compression.
 
 > **Design Decision**: Ship a single `.json` file (not `.zip`) for V1. The envelope is self-contained. Gzip HTTP compression handles wire size. This avoids adding JSZip dependency (supply chain risk, bundle size). The spec mentioning "archive" is satisfied by the self-contained envelope format. V2 can add multi-file ZIP if needed, gated by `bundleVersion: 2`.
 
-> **CRITICAL (v3)**: Must reuse the existing `normalizePublicationSnapshotForHash()` from `@universo/utils/serialization` for hash computation to stay compatible with `SnapshotSerializer.calculateHash()`. The existing normalization sorts entities, fields, and elements deterministically and normalizes absent optional keys. Using raw `stableStringify(snapshot)` without normalization would produce different hashes.
+> **CRITICAL (v3)**: Must reuse the existing `normalizePublicationSnapshotForHash()` from `@universo-react/utils/serialization` for hash computation to stay compatible with `SnapshotSerializer.calculateHash()`. The existing normalization sorts entities, fields, and elements deterministically and normalizes absent optional keys. Using raw `stableStringify(snapshot)` without normalization would produce different hashes.
 
 ```typescript
 import { createHash } from 'node:crypto'
 import stableStringify from 'json-stable-stringify'
-import type { MetahubSnapshotTransportEnvelope } from '@universo/types'
-import { MetahubSnapshotTransportEnvelopeSchema, SNAPSHOT_BUNDLE_CONSTRAINTS } from '@universo/types'
+import type { MetahubSnapshotTransportEnvelope } from '@universo-react/types'
+import { MetahubSnapshotTransportEnvelopeSchema, SNAPSHOT_BUNDLE_CONSTRAINTS } from '@universo-react/types'
 import { normalizePublicationSnapshotForHash } from '../serialization'
 import type { PublicationSnapshotHashInput } from '../serialization'
 
@@ -266,9 +266,9 @@ export function validateSnapshotEnvelope(
 }
 ```
 
-**Barrel re-export**: Add `export * from './snapshot/snapshotArchive'` to `packages/universo-utils/base/src/index.ts`. All consumers import via `import { computeSnapshotHash, buildSnapshotEnvelope, validateSnapshotEnvelope } from '@universo/utils'`.
+**Barrel re-export**: Add `export * from './snapshot/snapshotArchive'` to `packages/universo-react-utils/base/src/index.ts`. All consumers import via `import { computeSnapshotHash, buildSnapshotEnvelope, validateSnapshotEnvelope } from '@universo-react/utils'`.
 
-**Tests**: `packages/universo-utils/base/src/snapshot/__tests__/snapshotArchive.test.ts`
+**Tests**: `packages/universo-react-utils/base/src/snapshot/__tests__/snapshotArchive.test.ts`
 
 ---
 
@@ -276,7 +276,7 @@ export function validateSnapshotEnvelope(
 
 ### 2.0 CSRF Protection Prerequisite (NEW in v3)
 
-**File**: `packages/universo-core-backend/base/src/index.ts`
+**File**: `packages/universo-react-core-backend/base/src/index.ts`
 
 The existing CSRF middleware (`createCsrfProtection()`) is currently only applied to `/api/v1/auth` routes. All other `/api/v1/*` mutation routes (metahubs, admin, applications) are **unprotected** against CSRF attacks. This is a pre-existing gap, but adding a 50MB JSON import endpoint significantly raises the risk.
 
@@ -296,7 +296,7 @@ this.app.use('/api/v1', csrfProtection, apiV1Router)  // ← CSRF applied global
 
 ### 2.1 Publication Version Export
 
-**File**: `packages/metahubs-backend/base/src/domains/publications/routes/publicationsRoutes.ts` (extend existing)
+**File**: `packages/universo-react-metahubs-backend/base/src/domains/publications/routes/publicationsRoutes.ts` (extend existing)
 
 New endpoint: `GET /metahub/:metahubId/publication/:publicationId/versions/:versionId/export`
 
@@ -363,7 +363,7 @@ Calls `SnapshotSerializer.serializeMetahub()` + `attachLayoutsToSnapshot()` to b
 
 ### 2.3 Import Metahub from Snapshot (PRIMARY import path)
 
-**File**: `packages/metahubs-backend/base/src/domains/metahubs/routes/metahubsRoutes.ts` (extend existing)
+**File**: `packages/universo-react-metahubs-backend/base/src/domains/metahubs/routes/metahubsRoutes.ts` (extend existing)
 
 New endpoint: `POST /metahubs/import`
 
@@ -396,7 +396,7 @@ async importFromSnapshot(req: Request, res: Response) {
 
   // 2. Extract metahub metadata from envelope
   //    Generate new codename with "-imported" suffix to avoid collisions
-  //    Uses createCodenameVLC from @universo/utils (verified v3)
+  //    Uses createCodenameVLC from @universo-react/utils (verified v3)
   const sourceCodename = getCodenamePrimary(envelope.metahub.codename)
   const importedCodename = createCodenameVLC(
     DEFAULT_LOCALE,
@@ -461,7 +461,7 @@ async importFromSnapshot(req: Request, res: Response) {
 
 ### 2.4 SnapshotRestoreService (NEW)
 
-**File**: `packages/metahubs-backend/base/src/domains/metahubs/services/SnapshotRestoreService.ts`
+**File**: `packages/universo-react-metahubs-backend/base/src/domains/metahubs/services/SnapshotRestoreService.ts`
 
 This service restores metahub branch schema entities from a snapshot. It uses the existing entity creation services to replay the snapshot into a fresh branch.
 
@@ -515,7 +515,7 @@ export class SnapshotRestoreService {
 
 ### 2.5 Publication Version Import (SECONDARY path)
 
-**File**: `packages/metahubs-backend/base/src/domains/publications/routes/publicationsRoutes.ts` (extend existing)
+**File**: `packages/universo-react-metahubs-backend/base/src/domains/publications/routes/publicationsRoutes.ts` (extend existing)
 
 New endpoint: `POST /metahub/:metahubId/publication/:publicationId/versions/import`
 
@@ -596,7 +596,7 @@ router.post(
 
 ### 3.1 i18n Keys
 
-**File**: `packages/universo-i18n/base/src/locales/en/common.json` (extend)
+**File**: `packages/universo-react-i18n/base/src/locales/en/common.json` (extend)
 
 ```json
 {
@@ -624,7 +624,7 @@ Mirror in `ru/common.json` with Russian translations.
 
 ### 3.2 MetahubList — Import Dropdown on Create Button
 
-**Modified in**: `packages/metahubs-frontend/base/src/domains/metahubs/ui/MetahubList.tsx`
+**Modified in**: `packages/universo-react-metahubs-frontend/base/src/domains/metahubs/ui/MetahubList.tsx`
 
 The existing MetahubList already uses `ToolbarControls` with `primaryAction`. Add `primaryActionMenuItems` to create a split-button with "Import" dropdown option. This follows the exact same pattern already used in `HubList.tsx`, `CatalogList.tsx`, `SetList.tsx`.
 
@@ -686,7 +686,7 @@ const handleImportConfirm = useCallback(async (file: File) => {
 
 ### 3.3 Import Mutation Hooks
 
-**File**: `packages/metahubs-frontend/base/src/domains/metahubs/hooks/mutations.ts` (extend)
+**File**: `packages/universo-react-metahubs-frontend/base/src/domains/metahubs/hooks/mutations.ts` (extend)
 
 ```typescript
 /** Import a new metahub from snapshot (primary path) */
@@ -705,7 +705,7 @@ export function useImportMetahubFromSnapshot() {
 }
 ```
 
-**File**: `packages/metahubs-frontend/base/src/domains/publications/hooks/versionMutations.ts` (extend)
+**File**: `packages/universo-react-metahubs-frontend/base/src/domains/publications/hooks/versionMutations.ts` (extend)
 
 ```typescript
 /** Import a snapshot as a new publication version (secondary path) */
@@ -737,7 +737,7 @@ export function useImportSnapshotVersion(metahubId: string, publicationId: strin
 
 ### 3.4 ImportSnapshotDialog (shared component)
 
-**File**: `packages/metahubs-frontend/base/src/domains/publications/ui/ImportSnapshotDialog.tsx`
+**File**: `packages/universo-react-metahubs-frontend/base/src/domains/publications/ui/ImportSnapshotDialog.tsx`
 
 ```tsx
 import { useState, useCallback } from 'react'
@@ -745,8 +745,8 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   Button, Alert, Typography, CircularProgress
 } from '@mui/material'
-import { useTranslation } from '@universo/i18n'
-import { SNAPSHOT_BUNDLE_CONSTRAINTS } from '@universo/types'
+import { useTranslation } from '@universo-react/i18n'
+import { SNAPSHOT_BUNDLE_CONSTRAINTS } from '@universo-react/types'
 
 interface ImportSnapshotDialogProps {
   open: boolean
@@ -832,7 +832,7 @@ export function ImportSnapshotDialog({
 
 Add an "Export" action to `PublicationVersionList.tsx` row actions menu.
 
-**API function** in `packages/metahubs-frontend/base/src/domains/publications/api/publications.ts`:
+**API function** in `packages/universo-react-metahubs-frontend/base/src/domains/publications/api/publications.ts`:
 
 ```typescript
 export async function exportPublicationVersion(
@@ -862,9 +862,9 @@ export async function exportPublicationVersion(
 
 ## Phase 4: Enhanced `apps-template-mui` Runtime Views
 
-### Design Principle: Reuse `@universo/template-mui`
+### Design Principle: Reuse `@universo-react/template-mui`
 
-All metahub entity lists (CatalogList, AttributeList, ElementList, EnumerationList, HubList, BranchList, PublicationList, MetahubList) already use a proven **pattern** from `@universo/template-mui`:
+All metahub entity lists (CatalogList, AttributeList, ElementList, EnumerationList, HubList, BranchList, PublicationList, MetahubList) already use a proven **pattern** from `@universo-react/template-mui`:
 
 ```
 ViewHeaderMUI (title + search + children slot)
@@ -879,18 +879,18 @@ The `apps-template-mui` dashboard MUST adopt the **same components** rather than
 
 ### 4.0 Dependency Prerequisites (NEW in v3)
 
-**File**: `packages/apps-template-mui/package.json`
+**File**: `packages/universo-react-apps-template-mui/package.json`
 
-`@universo/template-mui` is **NOT** currently listed as a dependency of `apps-template-mui`. This must be added before any imports work.
+`@universo-react/template-mui` is **NOT** currently listed as a dependency of `apps-template-mui`. This must be added before any imports work.
 
 ```json
 "dependencies": {
   // ... existing deps ...
-  "@universo/template-mui": "workspace:*"
+  "@universo-react/template-mui": "workspace:*"
 }
 ```
 
-> **Note on `@dnd-kit`**: `FlowListTable` internally imports from `@dnd-kit` via `@universo/template-mui`, which re-exports the needed DnD context. No separate `@dnd-kit` dependency is needed in `apps-template-mui` — it's a transitive dependency through `@universo/template-mui`.
+> **Note on `@dnd-kit`**: `FlowListTable` internally imports from `@dnd-kit` via `@universo-react/template-mui`, which re-exports the needed DnD context. No separate `@dnd-kit` dependency is needed in `apps-template-mui` — it's a transitive dependency through `@universo-react/template-mui`.
 
 ### 4.1 DashboardLayoutConfig Extensions
 
@@ -936,7 +936,7 @@ export interface DashboardLayoutConfig {
 
 ### 4.3 Update Zod Schema in `apps-template-mui`
 
-**File**: `packages/apps-template-mui/src/api/api.ts`
+**File**: `packages/universo-react-apps-template-mui/src/api/api.ts`
 
 ```typescript
 export const dashboardLayoutConfigSchema = z.object({
@@ -952,11 +952,11 @@ export const dashboardLayoutConfigSchema = z.object({
 
 ### 4.4 Integrate Shared Components in MainGrid
 
-**Modified in**: `packages/apps-template-mui/src/dashboard/components/MainGrid.tsx`
+**Modified in**: `packages/universo-react-apps-template-mui/src/dashboard/components/MainGrid.tsx`
 
-The `detailsTable` widget rendering path will be enhanced. When the new layout config flags are enabled, `MainGrid` imports and renders the shared `@universo/template-mui` components.
+The `detailsTable` widget rendering path will be enhanced. When the new layout config flags are enabled, `MainGrid` imports and renders the shared `@universo-react/template-mui` components.
 
-> **v3 fix**: Import from `@universo/template-mui` (added as dependency in Phase 4.0). PaginationControls uses `{ pagination: PaginationState, actions: PaginationActions }` interface — NOT MUI TablePagination props.
+> **v3 fix**: Import from `@universo-react/template-mui` (added as dependency in Phase 4.0). PaginationControls uses `{ pagination: PaginationState, actions: PaginationActions }` interface — NOT MUI TablePagination props.
 
 ```tsx
 import {
@@ -969,7 +969,7 @@ import {
     type PaginationActions,
     FlowListTable,
     useViewPreference,
-} from '@universo/template-mui'
+} from '@universo-react/template-mui'
 
 // Inside the details section rendering:
 function EnhancedDetailsSection({
@@ -1114,7 +1114,7 @@ function EnhancedDetailsSection({
 
 ### 4.5 Extend CustomizedDataGrid with Row Height
 
-**File**: `packages/apps-template-mui/src/dashboard/components/CustomizedDataGrid.tsx`
+**File**: `packages/universo-react-apps-template-mui/src/dashboard/components/CustomizedDataGrid.tsx`
 
 Add optional `rowHeight` prop to support increased row height and multi-line fields.
 
@@ -1159,11 +1159,11 @@ export default function CustomizedDataGrid({
 
 ### 4.6 DnD Row Reordering
 
-When `enableRowReordering` is true in layout config, replace `CustomizedDataGrid` with `FlowListTable` from `@universo/template-mui` which already has full `@dnd-kit` support (sortable rows, drag handles, etc.). This is the same component used for attribute/element ordering in `metahubs-frontend`.
+When `enableRowReordering` is true in layout config, replace `CustomizedDataGrid` with `FlowListTable` from `@universo-react/template-mui` which already has full `@dnd-kit` support (sortable rows, drag handles, etc.). This is the same component used for attribute/element ordering in `metahubs-frontend`.
 
 ### 4.7 i18n Updates for `apps-template-mui`
 
-**File**: `packages/apps-template-mui/src/i18n/en.json` (extend)
+**File**: `packages/universo-react-apps-template-mui/src/i18n/en.json` (extend)
 
 ```json
 {
@@ -1187,7 +1187,7 @@ Mirror in `ru.json`.
 
 ### 5.1 Add New Layout Config Fields to UI
 
-**File**: `packages/metahubs-frontend/base/src/domains/layouts/ui/LayoutDetails.tsx` (extend)
+**File**: `packages/universo-react-metahubs-frontend/base/src/domains/layouts/ui/LayoutDetails.tsx` (extend)
 
 The existing `LayoutDetails.tsx` manages zones and widgets with drag-and-drop. Add a new **"Application View Settings"** section (Accordion or Panel) below the existing zone management, with form controls for the new config fields:
 
@@ -1263,16 +1263,16 @@ This script is used for development/testing and is not production code. The expo
 
 | Test File | Coverage |
 |-----------|----------|
-| `packages/universo-utils/base/src/snapshot/__tests__/snapshotArchive.test.ts` | `computeSnapshotHash()` — round-trip compatibility with `SnapshotSerializer.calculateHash()`, `buildSnapshotEnvelope()`, `validateSnapshotEnvelope()` — valid, tampered, oversized, missing fields, Zod validation errors, prototype pollution keys stripped, nesting depth exceeded, snapshot without required `version`/`metahubId`/`entities` rejected |
+| `packages/universo-react-utils/base/src/snapshot/__tests__/snapshotArchive.test.ts` | `computeSnapshotHash()` — round-trip compatibility with `SnapshotSerializer.calculateHash()`, `buildSnapshotEnvelope()`, `validateSnapshotEnvelope()` — valid, tampered, oversized, missing fields, Zod validation errors, prototype pollution keys stripped, nesting depth exceeded, snapshot without required `version`/`metahubId`/`entities` rejected |
 
 ### 7.2 Integration Tests
 
 | Test File | Coverage |
 |-----------|----------|
-| `packages/metahubs-backend/base/src/tests/routes/publicationsRoutes.test.ts` | Export endpoint (200, 404), Version import endpoint (201, 400 invalid, 400 tampered hash, 404 missing pub) |
-| `packages/metahubs-backend/base/src/tests/routes/metahubsRoutes.test.ts` | Metahub import endpoint (201 creates metahub+publication+version, 400 invalid envelope, 401 unauthorized) |
-| `packages/metahubs-backend/base/src/tests/services/SnapshotRestoreService.test.ts` | Round-trip: serialize → export → import → entities match original |
-| `packages/metahubs-backend/base/src/tests/services/SnapshotSerializer.test.ts` (extend) | Round-trip: serialize → export envelope → validate → deserialize produces equivalent entity definitions |
+| `packages/universo-react-metahubs-backend/base/src/tests/routes/publicationsRoutes.test.ts` | Export endpoint (200, 404), Version import endpoint (201, 400 invalid, 400 tampered hash, 404 missing pub) |
+| `packages/universo-react-metahubs-backend/base/src/tests/routes/metahubsRoutes.test.ts` | Metahub import endpoint (201 creates metahub+publication+version, 400 invalid envelope, 401 unauthorized) |
+| `packages/universo-react-metahubs-backend/base/src/tests/services/SnapshotRestoreService.test.ts` | Round-trip: serialize → export → import → entities match original |
+| `packages/universo-react-metahubs-backend/base/src/tests/services/SnapshotSerializer.test.ts` (extend) | Round-trip: serialize → export envelope → validate → deserialize produces equivalent entity definitions |
 
 ### 7.3 E2E Tests (Playwright)
 
@@ -1379,8 +1379,8 @@ Mirror both pages in `docs/ru/guides/`.
 
 ### 8.2 README Updates
 
-- `packages/apps-template-mui/README.md` — document new `DashboardLayoutConfig` fields and shared component integration
-- `packages/metahubs-backend/base/README.md` — document export/import API endpoints
+- `packages/universo-react-apps-template-mui/README.md` — document new `DashboardLayoutConfig` fields and shared component integration
+- `packages/universo-react-metahubs-backend/base/README.md` — document export/import API endpoints
 
 ---
 
@@ -1389,13 +1389,13 @@ Mirror both pages in `docs/ru/guides/`.
 | Step | Phase | Tasks | Key Files |
 |------|-------|-------|-----------|
 | 0 | 2.0 | **[PREREQ]** Apply CSRF protection globally to `/api/v1` routes | 1 file (`core-backend/index.ts`) |
-| 1 | 1.1 | Shared types + Zod schema in `@universo/types` | 2 files |
-| 2 | 1.2 | Snapshot helpers in `@universo/utils` (with hash normalization compat + security guards) + tests | 3 files |
+| 1 | 1.1 | Shared types + Zod schema in `@universo-react/types` | 2 files |
+| 2 | 1.2 | Snapshot helpers in `@universo-react/utils` (with hash normalization compat + security guards) + tests | 3 files |
 | 3 | 2.1–2.2 | Backend export routes (publication + direct) | 2 files |
 | 4 | 2.3–2.5 | Backend import routes (metahub + version) + SnapshotRestoreService | 4 files |
 | 5 | 7.1–7.2 | Unit + integration tests for Phases 1–2 | 4 files |
 | 6 | 3.1–3.5 | Frontend export/import UI + i18n (MetahubList dropdown, dialogs, mutations) | 5 files |
-| 7 | 4.0 | Add `@universo/template-mui` dependency to `apps-template-mui/package.json` | 1 file |
+| 7 | 4.0 | Add `@universo-react/template-mui` dependency to `apps-template-mui/package.json` | 1 file |
 | 8 | 4.1, 4.3–4.7 | `apps-template-mui` enhancements (reuse shared components, PaginationControls adapter, row height, Zod schema) | 4 files |
 | 9 | 5.1–5.2 | Layout config extensions (UI + view settings in config JSONB) | 2 files |
 | 10 | 6.1–6.4 | Self-model metahub creation script + fixture | 2 files |
@@ -1423,7 +1423,7 @@ Mirror both pages in `docs/ru/guides/`.
 
 8. **Codename Collision on Import** — Imported metahub codename may collide with existing. Mitigation: auto-generate imported codename with timestamp suffix; user can rename after import.
 
-9. **(v3) Hash Normalization Compatibility** — `computeSnapshotHash()` must produce the same hash as `SnapshotSerializer.calculateHash()` for the same snapshot. Mitigation: both now use `normalizePublicationSnapshotForHash()` from `@universo/utils/serialization`. Round-trip test: serialize → export → import → re-hash must match.
+9. **(v3) Hash Normalization Compatibility** — `computeSnapshotHash()` must produce the same hash as `SnapshotSerializer.calculateHash()` for the same snapshot. Mitigation: both now use `normalizePublicationSnapshotForHash()` from `@universo-react/utils/serialization`. Round-trip test: serialize → export → import → re-hash must match.
 
 10. **(v3) CSRF Protection Regression Risk** — Applying `csrfProtection` globally to `/api/v1` may break existing unauthenticated or public endpoints if they exist. Mitigation: the CSRF middleware already skips GET/HEAD/OPTIONS; verify with full E2E suite. The existing frontend API client already sends CSRF tokens via `x-csrf-token` header.
 
@@ -1435,7 +1435,7 @@ Mirror both pages in `docs/ru/guides/`.
 
 ## Dependencies & Coordination
 
-- **No new npm dependencies** — uses existing `json-stable-stringify`, `node:crypto`, `@mui/*`, `@tanstack/react-query`, `@dnd-kit/*` from workspace catalog. `@universo/template-mui` is an existing workspace package (added as explicit dependency to `apps-template-mui` in Phase 4.0).
+- **No new npm dependencies** — uses existing `json-stable-stringify`, `node:crypto`, `@mui/*`, `@tanstack/react-query`, `@dnd-kit/*` from workspace catalog. `@universo-react/template-mui` is an existing workspace package (added as explicit dependency to `apps-template-mui` in Phase 4.0).
 - **No database migrations** — all new data fits existing JSONB columns (`config`, `snapshot_json`).
 - **No upstream shell changes** — all changes are in feature packages, except the CSRF fix in `universo-core-backend` (Phase 2.0) which fixes a pre-existing security gap.
 - **Backward compatible** — existing publications, applications, and layouts continue to work unchanged.
@@ -1456,7 +1456,7 @@ Mirror both pages in `docs/ru/guides/`.
 
 > **NOTE**: This deviates from the spec's mention of "archive with multiple JSON files." This was a conscious V1 simplification. If the user requires ZIP format from the start, update `bundleVersion` handling and add JSZip dependency.
 
-### Reuse Strategy: `@universo/template-mui` Components
+### Reuse Strategy: `@universo-react/template-mui` Components
 
 **Chosen: Integrate existing components** rather than creating new `RuntimeToolbar`/`RuntimeCardGrid`. Rationale:
 - `ViewHeaderMUI`, `ToolbarControls`, `ItemCard`, `FlowListTable`, `PaginationControls` are already proven across 8+ entity lists
@@ -1466,7 +1466,7 @@ Mirror both pages in `docs/ru/guides/`.
 
 > **(v3)**: `PaginationControls` uses `{ pagination: PaginationState, actions: PaginationActions }` interface — NOT MUI TablePagination props. Phase 4.4 includes a pagination state/actions adapter that bridges DataGrid's paginationModel to this interface.
 
-> **(v3)**: `@universo/template-mui` must be added as an explicit dependency of `apps-template-mui` (currently missing). Phase 4.0 handles this.
+> **(v3)**: `@universo-react/template-mui` must be added as an explicit dependency of `apps-template-mui` (currently missing). Phase 4.0 handles this.
 
 ### Import at Metahub Level
 
@@ -1488,7 +1488,7 @@ Mirror both pages in `docs/ru/guides/`.
 
 ### Hash Compatibility Strategy (NEW in v3)
 
-**Chosen: Reuse `normalizePublicationSnapshotForHash()`** from `@universo/utils/serialization`. Rationale:
+**Chosen: Reuse `normalizePublicationSnapshotForHash()`** from `@universo-react/utils/serialization`. Rationale:
 - `SnapshotSerializer.calculateHash()` already uses this normalization (sorts entities, fields, elements deterministically; normalizes absent optional keys)
 - A naïve `stableStringify(rawSnapshot)` would produce **different** hashes for the same logical snapshot
 - Export path: `computeSnapshotHash()` → `normalizePublicationSnapshotForHash()` → `stableStringify()` → SHA-256

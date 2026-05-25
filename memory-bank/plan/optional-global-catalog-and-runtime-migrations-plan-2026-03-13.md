@@ -41,9 +41,9 @@ This plan keeps the original technical brief intact, but it refines one earlier 
 
 ### Repository Findings
 
-- `@universo/core-backend` startup always calls `syncRegisteredPlatformDefinitionsToCatalog(...)` after fixed-schema bootstrap, which keeps `upl_migrations` in the critical startup path.
-- `@universo/schema-ddl` already uses local per-schema history (`_app_migrations`) as the canonical runtime migration log for dynamic application schemas.
-- `@universo/metahubs-backend` already uses local per-schema history (`_mhb_migrations`) as the canonical runtime migration log for branch schemas.
+- `@universo-react/core-backend` startup always calls `syncRegisteredPlatformDefinitionsToCatalog(...)` after fixed-schema bootstrap, which keeps `upl_migrations` in the critical startup path.
+- `@universo-react/schema-ddl` already uses local per-schema history (`_app_migrations`) as the canonical runtime migration log for dynamic application schemas.
+- `@universo-react/metahubs-backend` already uses local per-schema history (`_mhb_migrations`) as the canonical runtime migration log for branch schemas.
 - `MigrationManager.recordMigration(...)`, `SystemTableMigrator`, and `MetahubSchemaService` all also call `mirrorToGlobalCatalog(...)`, so runtime flows still have a hard dependency on the global catalog.
 - Fixed system-app schema generation currently creates `_app_migrations` tables through schema-ddl, but `applySystemAppSchemaGenerationPlan(...)` does not record baseline rows, so those local history tables remain empty.
 - `PlatformMigrationCatalog.ensureStorage()` auto-creates `upl_migrations` storage; multiple CLI/doctor/sync helpers assume that storage can be checked or created on demand.
@@ -120,10 +120,10 @@ UPL_GLOBAL_MIGRATION_CATALOG_ENABLED=false
 
 Required integration points:
 
-- `packages/universo-core-backend/base/.env`
-- `packages/universo-core-backend/base/.env.example`
-- `packages/universo-core-backend/base/src/commands/base.ts`
-- small shared config helper in `@universo/utils`, following the existing env-helper pattern already used for admin feature flags
+- `packages/universo-react-core-backend/base/.env`
+- `packages/universo-react-core-backend/base/.env.example`
+- `packages/universo-react-core-backend/base/src/commands/base.ts`
+- small shared config helper in `@universo-react/utils`, following the existing env-helper pattern already used for admin feature flags
 
 ### Expected Semantics
 
@@ -153,39 +153,39 @@ Design rule: parse once, pass through dependency injection, do not scatter raw `
 
 ### Core Startup
 
-- `packages/universo-core-backend/base/src/index.ts`
+- `packages/universo-react-core-backend/base/src/index.ts`
 - startup logging and telemetry around skipped/active catalog sync
 
 ### Shared Migration Contracts
 
-- `packages/universo-migrations-core/base/src/types.ts`
-- `packages/universo-migrations-core/base/src/runner.ts`
-- `packages/universo-migrations-catalog/base/src/PlatformMigrationCatalog.ts`
-- `packages/universo-migrations-catalog/base/src/mirrorToGlobalCatalog.ts`
-- `packages/universo-migrations-catalog/base/src/DefinitionRegistryStore.ts`
+- `packages/universo-react-migrations-core/base/src/types.ts`
+- `packages/universo-react-migrations-core/base/src/runner.ts`
+- `packages/universo-react-migrations-catalog/base/src/PlatformMigrationCatalog.ts`
+- `packages/universo-react-migrations-catalog/base/src/mirrorToGlobalCatalog.ts`
+- `packages/universo-react-migrations-catalog/base/src/DefinitionRegistryStore.ts`
 
 ### Runtime Migration Writers
 
-- `packages/schema-ddl/base/src/MigrationManager.ts`
-- `packages/metahubs-backend/base/src/domains/metahubs/services/SystemTableMigrator.ts`
-- `packages/metahubs-backend/base/src/domains/metahubs/services/MetahubSchemaService.ts`
+- `packages/universo-react-schema-ddl/base/src/MigrationManager.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/metahubs/services/SystemTableMigrator.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/metahubs/services/MetahubSchemaService.ts`
 
 ### Fixed System-App Bootstrap
 
-- `packages/universo-migrations-platform/base/src/systemAppSchemaCompiler.ts`
-- `packages/universo-migrations-platform/base/src/platformMigrations.ts`
+- `packages/universo-react-migrations-platform/base/src/systemAppSchemaCompiler.ts`
+- `packages/universo-react-migrations-platform/base/src/platformMigrations.ts`
 - related startup/compiler tests
 
 ### CLI / Doctor / Export / Bundle Surfaces
 
-- `packages/universo-migrations-platform/base/src/cli.ts`
+- `packages/universo-react-migrations-platform/base/src/cli.ts`
 - doctor/status/export helpers in `platformMigrations.ts`
 
 ### Documentation And i18n
 
 - operator docs / architecture docs
 - new flag documentation
-- any UI or CLI user-facing text through `@universo/i18n` when applicable
+- any UI or CLI user-facing text through `@universo-react/i18n` when applicable
 
 ---
 
@@ -207,7 +207,7 @@ Deliverable:
 
 ### Phase 1: Introduce Shared Catalog Config Helper
 
-- [ ] Add a small env helper in `@universo/utils` that mirrors the existing `adminConfig` style: parse once, expose a focused config getter, avoid raw env checks in callers.
+- [ ] Add a small env helper in `@universo-react/utils` that mirrors the existing `adminConfig` style: parse once, expose a focused config getter, avoid raw env checks in callers.
 - [ ] Extend core-backend command flags to accept the new env toggle.
 - [ ] Add `.env.example` documentation with secure default `false`.
 - [ ] Add `.env` local-development placeholder/comment entry without exposing secrets in documentation.
@@ -321,7 +321,7 @@ Recommended release contract:
 
 ### Phase 6: Make CLI / Doctor / Export Explicitly Capability-Aware
 
-- [ ] Review all CLI commands in `@universo/migrations-platform`.
+- [ ] Review all CLI commands in `@universo-react/migrations-platform`.
 - [ ] Commands that require the definition registry must fail fast with a clear message when disabled.
 - [ ] Commands that can operate without the global catalog should continue to work.
 - [ ] Doctor output must distinguish:
@@ -409,7 +409,7 @@ The plan must keep those roles separate:
 
 ### 3. CLI/Doctor Surface Area
 
-`@universo/migrations-platform` currently has many helpers that assume `PlatformMigrationCatalog.isStorageReady()` can be called safely. Disabled mode must not produce confusing false-negative health output.
+`@universo-react/migrations-platform` currently has many helpers that assume `PlatformMigrationCatalog.isStorageReady()` can be called safely. Disabled mode must not produce confusing false-negative health output.
 
 ### 4. Enabled-Mode Audit Strictness
 
@@ -463,8 +463,8 @@ If the older acceptance wording is left unchanged, future implementation or QA c
 
 ## Dependencies And Coordination
 
-- Shared helpers/types should go to `@universo/utils` and `@universo/types` only when there is a real reused contract; avoid exporting a new shared type layer just to wrap one feature flag.
-- Any operator-facing UI/CLI text must be internationalized through `@universo/i18n`.
+- Shared helpers/types should go to `@universo-react/utils` and `@universo-react/types` only when there is a real reused contract; avoid exporting a new shared type layer just to wrap one feature flag.
+- Any operator-facing UI/CLI text must be internationalized through `@universo-react/i18n`.
 - The plan must preserve UUID v7 usage everywhere.
 - The plan must preserve current `apps-template-mui` / `universo-template-mui` separation; this work is backend/runtime architecture first, not a UI rewrite.
 - Existing frontend shells remain the default reuse path; do not invent a new admin settings page, migration guard variant, or bundle-management UI in this wave unless the backend cutover proves a concrete missing operator need.

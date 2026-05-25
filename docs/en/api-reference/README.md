@@ -5,7 +5,7 @@ description: Overview of the current REST and OpenAPI documentation surface.
 # API Reference
 
 The public API surface in this repository is REST-oriented and documented through
-the live backend route packages plus the standalone `@universo/rest-docs` package.
+the live backend route packages plus the standalone `@universo-react/rest-docs` package.
 
 ## What This Section Covers
 

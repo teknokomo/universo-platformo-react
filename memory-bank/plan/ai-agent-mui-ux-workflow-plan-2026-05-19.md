@@ -30,9 +30,9 @@ This is a workflow and quality-system change, not a new LMS-specific UI feature.
 -   `.claude/agents`, `.github/agents`, `.qoder/agents`, and `.kiro/steering/custom_modes` already exist, so the project already maintains per-tool instruction files.
 -   `.codex/agents` and `.gemini/agents` do not yet exist. Codex custom agents should be added under `.codex/agents/*.toml`; Gemini custom subagents should be added under `.gemini/agents/*.md`.
 -   Current mode files (`plan`, `implement`, `qa`) are generic and do not yet enforce a runtime UX quality gate.
--   `packages/apps-template-mui/src/components/dialogs/FormDialog.tsx` already supports `textarea`, row counts, hidden fields, resource-source widgets, localized validation, and REF/select controls.
--   `packages/apps-template-mui/src/utils/columns.tsx` already supports `gridHidden`, custom renderers, REF labels, and textarea cell rendering.
--   `packages/apps-template-mui/src/utils/displayValue.ts` still falls back to `JSON.stringify()` for opaque objects. That fallback can remain useful for diagnostics, but UX gates must prevent it from leaking into normal user-facing surfaces.
+-   `packages/universo-react-apps-template-mui/src/components/dialogs/FormDialog.tsx` already supports `textarea`, row counts, hidden fields, resource-source widgets, localized validation, and REF/select controls.
+-   `packages/universo-react-apps-template-mui/src/utils/columns.tsx` already supports `gridHidden`, custom renderers, REF labels, and textarea cell rendering.
+-   `packages/universo-react-apps-template-mui/src/utils/displayValue.ts` still falls back to `JSON.stringify()` for opaque objects. That fallback can remain useful for diagnostics, but UX gates must prevent it from leaking into normal user-facing surfaces.
 -   `tools/testing/e2e/specs/flows/snapshot-import-lms-runtime.spec.ts` already has browser navigation, screenshots, console issue collection, and a local page-overflow assertion, but the UX checks are not reusable and do not detect raw IDs, raw JSON cells, single-line descriptions, or untranslated/internal validation text.
 -   Existing workspace member UI already uses human-readable email/name and role chips instead of requiring users to manually type user IDs. This is a useful local precedent for the UX contract.
 
@@ -125,7 +125,7 @@ This is a workflow and quality-system change, not a new LMS-specific UI feature.
 
 -   [ ] Add `.agents/skills/mui-runtime-ux-patterns/SKILL.md`.
 
-    -   Define when to use: any work touching MUI runtime screens, `packages/apps-template-mui`, `packages/universo-template-mui`, application layouts, metahub template metadata, DataGrid/table/card renderers, CRUD dialogs, or UI E2E flows.
+    -   Define when to use: any work touching MUI runtime screens, `packages/universo-react-apps-template-mui`, `packages/universo-react-template-mui`, application layouts, metahub template metadata, DataGrid/table/card renderers, CRUD dialogs, or UI E2E flows.
     -   Require a "UI Contract" before implementation: field semantics, control type, display value, hidden fields, default values, localization, responsive behavior, and validation state.
     -   Forbid raw editable `*Id`, `OwnerId`, `UserId`, `AssignedUserId`, and UUID-only fields on normal user-facing surfaces unless explicitly marked admin/debug.
     -   Require semantic long-text fields (`description`, `notes`, `summary`, `details`, `body`, `instructions`, `feedback`, `comment`) to use multiline controls by default.
@@ -363,9 +363,9 @@ This is a workflow and quality-system change, not a new LMS-specific UI feature.
 
 -   [ ] Run focused package validation if TypeScript source changes:
 
-    -   `pnpm --filter @universo/apps-template-mui lint`
-    -   `pnpm --filter @universo/apps-template-mui test`
-    -   `pnpm --filter @universo/apps-template-mui build`
+    -   `pnpm --filter @universo-react/apps-template-mui lint`
+    -   `pnpm --filter @universo-react/apps-template-mui test`
+    -   `pnpm --filter @universo-react/apps-template-mui build`
 
 -   [ ] Run focused E2E validation for the new UX canary:
 
@@ -374,7 +374,7 @@ This is a workflow and quality-system change, not a new LMS-specific UI feature.
         -   `pnpm env:e2e:local-supabase`
         -   `pnpm doctor:e2e:local-supabase`
     -   Run the target Playwright spec through the repository runner, for example:
-        -   `cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-core-frontend/base/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs flows/lms-runtime-ux-regressions.spec.ts --project chromium`
+        -   `cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-react-core-frontend/base/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs flows/lms-runtime-ux-regressions.spec.ts --project chromium`
     -   If the new checks live inside `snapshot-import-lms-runtime.spec.ts`, run that focused spec instead.
 
 -   [ ] Update Memory Bank after implementation:

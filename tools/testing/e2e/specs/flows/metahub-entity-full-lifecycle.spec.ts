@@ -4,7 +4,7 @@
  * publish → sync application → verify runtime sections.
  */
 import type { Response } from '@playwright/test'
-import { createLocalizedContent } from '@universo/utils'
+import { createLocalizedContent } from '@universo-react/utils'
 
 import { expect, test } from '../../fixtures/test'
 import {

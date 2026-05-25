@@ -305,38 +305,38 @@ Phase 4: Routing in apps-template-mui (route factory export)
 ## Files Affected (Summary)
 
 ### Phase 1 — Split detailsSidePanel (8 files)
-- `packages/universo-types/base/src/common/metahubs.ts` — add `productTree`, `usersByCountryChart` keys
-- `packages/metahubs-backend/base/src/domains/shared/layoutDefaults.ts` — add defaults
-- `packages/apps-template-mui/src/dashboard/components/MainGrid.tsx` — split rendering
-- `packages/apps-template-mui/src/dashboard/Dashboard.tsx` — add show* flags
-- `packages/apps-template-mui/src/hooks/useCrudDashboard.ts` — add defaults
-- `packages/apps-template-mui/src/api/api.ts` — no change (config-driven)
+- `packages/universo-react-types/base/src/common/metahubs.ts` — add `productTree`, `usersByCountryChart` keys
+- `packages/universo-react-metahubs-backend/base/src/domains/shared/layoutDefaults.ts` — add defaults
+- `packages/universo-react-apps-template-mui/src/dashboard/components/MainGrid.tsx` — split rendering
+- `packages/universo-react-apps-template-mui/src/dashboard/Dashboard.tsx` — add show* flags
+- `packages/universo-react-apps-template-mui/src/hooks/useCrudDashboard.ts` — add defaults
+- `packages/universo-react-apps-template-mui/src/api/api.ts` — no change (config-driven)
 - i18n files — add widget labels
 
 ### Phase 3 — Right Drawer (10 files)
-- `packages/apps-template-mui/src/dashboard/components/SideMenuRight.tsx` — NEW
-- `packages/apps-template-mui/src/dashboard/components/SideMenuMobileRight.tsx` — NEW
-- `packages/apps-template-mui/src/dashboard/components/SideMenuMobile.tsx` — anchor change
-- `packages/apps-template-mui/src/dashboard/components/widgetRenderer.tsx` — NEW (extracted)
-- `packages/apps-template-mui/src/dashboard/Dashboard.tsx` — add right drawer + mobile state
-- `packages/apps-template-mui/src/dashboard/components/AppNavbar.tsx` — dual toggle
-- `packages/apps-template-mui/src/api/api.ts` — Zod schema update
-- `packages/applications-backend/base/src/routes/applicationsRoutes.ts` — zone filter
-- `packages/universo-types/base/src/common/metahubs.ts` — allowedZones updates
+- `packages/universo-react-apps-template-mui/src/dashboard/components/SideMenuRight.tsx` — NEW
+- `packages/universo-react-apps-template-mui/src/dashboard/components/SideMenuMobileRight.tsx` — NEW
+- `packages/universo-react-apps-template-mui/src/dashboard/components/SideMenuMobile.tsx` — anchor change
+- `packages/universo-react-apps-template-mui/src/dashboard/components/widgetRenderer.tsx` — NEW (extracted)
+- `packages/universo-react-apps-template-mui/src/dashboard/Dashboard.tsx` — add right drawer + mobile state
+- `packages/universo-react-apps-template-mui/src/dashboard/components/AppNavbar.tsx` — dual toggle
+- `packages/universo-react-apps-template-mui/src/api/api.ts` — Zod schema update
+- `packages/universo-react-applications-backend/base/src/routes/applicationsRoutes.ts` — zone filter
+- `packages/universo-react-types/base/src/common/metahubs.ts` — allowedZones updates
 
 ### Phase 2 — columnsContainer (6 files)
-- `packages/universo-types/base/src/common/metahubs.ts` — add type + widget key
-- `packages/metahubs-frontend/.../ColumnsContainerEditorDialog.tsx` — NEW
-- `packages/metahubs-frontend/.../LayoutDetails.tsx` — editor trigger
-- `packages/apps-template-mui/src/dashboard/components/MainGrid.tsx` — container rendering
-- `packages/metahubs-backend/.../layoutDefaults.ts` — default config
+- `packages/universo-react-types/base/src/common/metahubs.ts` — add type + widget key
+- `packages/universo-react-metahubs-frontend/.../ColumnsContainerEditorDialog.tsx` — NEW
+- `packages/universo-react-metahubs-frontend/.../LayoutDetails.tsx` — editor trigger
+- `packages/universo-react-apps-template-mui/src/dashboard/components/MainGrid.tsx` — container rendering
+- `packages/universo-react-metahubs-backend/.../layoutDefaults.ts` — default config
 - i18n files
 
 ### Phase 4 — Routing (4 files)
-- `packages/apps-template-mui/src/routes/` — NEW route factory
-- `packages/universo-template-mui/.../MainRoutesMUI.tsx` — import from factory
-- `packages/apps-template-mui/src/index.ts` — export routes
-- `packages/apps-template-mui/package.json` — no change expected
+- `packages/universo-react-apps-template-mui/src/routes/` — NEW route factory
+- `packages/universo-react-template-mui/.../MainRoutesMUI.tsx` — import from factory
+- `packages/universo-react-apps-template-mui/src/index.ts` — export routes
+- `packages/universo-react-apps-template-mui/package.json` — no change expected
 
 ### DnD Validation (1 file, Phase 2/3)
-- `packages/metahubs-frontend/.../LayoutDetails.tsx` — allowedZones check in handleDragEnd + visual feedback
+- `packages/universo-react-metahubs-frontend/.../LayoutDetails.tsx` — allowedZones check in handleDragEnd + visual feedback

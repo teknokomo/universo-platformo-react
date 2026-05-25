@@ -30,12 +30,12 @@ The target state is: **metahub templates seed all standard and custom entity typ
 
 ### What already works
 
-- Standard entity presets define component manifests and resource surfaces in `packages/metahubs-backend/base/src/domains/templates/data/standardEntityTypeDefinitions.ts`.
+- Standard entity presets define component manifests and resource surfaces in `packages/universo-react-metahubs-backend/base/src/domains/templates/data/standardEntityTypeDefinitions.ts`.
 - Basic and Basic Demo templates include presets for `hub`, `catalog`, `set`, and `enumeration`.
 - `MetahubSchemaService.syncEntityTypePresets(...)` persists enabled presets into `_mhb_entity_type_definitions`.
 - `SharedResourcesPage.tsx` uses `useAllEntityTypesQuery(...)`, `isEnabledComponentConfig(...)`, and `ui.resourceSurfaces` to decide whether to show `fieldDefinitions`, `fixedValues`, and `optionValues`.
 - The Entities builder already exposes editable `resourceSurfaces` fields for custom entity types.
-- Existing reusable UI foundations already cover the required UX: `EntityFormDialog`, `LocalizedInlineField`, `GeneralTabFields`, `BaseEntityMenu`, `FlowListTable`, `ToolbarControls`, and the shared layout/list shells from `@universo/template-mui`. This plan should reuse those instead of inventing a new form/dialog system.
+- Existing reusable UI foundations already cover the required UX: `EntityFormDialog`, `LocalizedInlineField`, `GeneralTabFields`, `BaseEntityMenu`, `FlowListTable`, `ToolbarControls`, and the shared layout/list shells from `@universo-react/template-mui`. This plan should reuse those instead of inventing a new form/dialog system.
 
 ### What is still too hardcoded
 
@@ -57,27 +57,27 @@ The target state is: **metahub templates seed all standard and custom entity typ
 
 ## Affected Areas
 
-- `packages/universo-types/base/src/common/entityTypeDefinition.ts`
-- `packages/universo-types/base/src/common/entityComponents.ts`
-- `packages/metahubs-backend/base/src/domains/templates/data/*entity-preset.ts`
-- `packages/metahubs-backend/base/src/domains/templates/data/standardEntityTypeDefinitions.ts`
-- `packages/metahubs-backend/base/src/domains/templates/services/TemplateManifestValidator.ts`
-- `packages/metahubs-backend/base/src/domains/metahubs/services/MetahubSchemaService.ts`
-- `packages/metahubs-backend/base/src/domains/publications/services/SnapshotSerializer.ts`
-- `packages/metahubs-backend/base/src/domains/metahubs/services/SnapshotRestoreService.ts`
-- `packages/metahubs-backend/base/src/domains/entities/services/EntityTypeService.ts`
-- `packages/metahubs-frontend/base/src/domains/entities/shared/ui/SharedResourcesPage.tsx`
-- `packages/metahubs-frontend/base/src/domains/entities/ui/EntitiesWorkspace.tsx`
-- `packages/metahubs-frontend/base/src/domains/entities/ui/EntityInstanceListContent.tsx`
-- `packages/metahubs-frontend/base/src/domains/entities/metadata/**`
-- `packages/metahubs-frontend/base/src/domains/entities/presets/**`
-- `packages/metahubs-frontend/base/src/i18n/locales/{en,ru}/metahubs.json`
-- `packages/applications-backend/base/src/services/applicationReleaseBundle.ts`
-- `packages/applications-backend/base/src/services/applicationSyncContracts.ts`
-- `packages/applications-backend/base/src/services/publishedApplicationSnapshotEntities.ts`
-- `packages/applications-backend/base/src/routes/sync/**`
-- `packages/universo-i18n/base/src/locales/**` if shared menu labels are affected
-- `packages/apps-template-mui/src/**` only if published runtime UI starts reading entity type metadata
+- `packages/universo-react-types/base/src/common/entityTypeDefinition.ts`
+- `packages/universo-react-types/base/src/common/entityComponents.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/templates/data/*entity-preset.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/templates/data/standardEntityTypeDefinitions.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/templates/services/TemplateManifestValidator.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/metahubs/services/MetahubSchemaService.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/publications/services/SnapshotSerializer.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/metahubs/services/SnapshotRestoreService.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/entities/services/EntityTypeService.ts`
+- `packages/universo-react-metahubs-frontend/base/src/domains/entities/shared/ui/SharedResourcesPage.tsx`
+- `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/EntitiesWorkspace.tsx`
+- `packages/universo-react-metahubs-frontend/base/src/domains/entities/ui/EntityInstanceListContent.tsx`
+- `packages/universo-react-metahubs-frontend/base/src/domains/entities/metadata/**`
+- `packages/universo-react-metahubs-frontend/base/src/domains/entities/presets/**`
+- `packages/universo-react-metahubs-frontend/base/src/i18n/locales/{en,ru}/metahubs.json`
+- `packages/universo-react-applications-backend/base/src/services/applicationReleaseBundle.ts`
+- `packages/universo-react-applications-backend/base/src/services/applicationSyncContracts.ts`
+- `packages/universo-react-applications-backend/base/src/services/publishedApplicationSnapshotEntities.ts`
+- `packages/universo-react-applications-backend/base/src/routes/sync/**`
+- `packages/universo-react-i18n/base/src/locales/**` if shared menu labels are affected
+- `packages/universo-react-apps-template-mui/src/**` only if published runtime UI starts reading entity type metadata
 - Playwright specs under `tools/testing/e2e/specs/flows/`
 - GitBook docs under `docs/en/**` and `docs/ru/**`
 
@@ -116,9 +116,9 @@ Example safe audit pattern:
 ```ts
 const forbiddenHardcodedLabels = ['Attributes', 'Constants', 'Values', 'Атрибуты', 'Константы', 'Значения']
 const allowedPaths = [
-  'packages/metahubs-backend/base/src/domains/templates/data',
-  'packages/metahubs-frontend/base/src/i18n/locales',
-  'packages/universo-i18n/base/src/locales'
+  'packages/universo-react-metahubs-backend/base/src/domains/templates/data',
+  'packages/universo-react-metahubs-frontend/base/src/i18n/locales',
+  'packages/universo-react-i18n/base/src/locales'
 ]
 ```
 
@@ -126,12 +126,12 @@ const allowedPaths = [
 
 - [ ] Extend `EntityResourceSurfaceDefinition` with localized title metadata.
 - [ ] Keep `titleKey` only as an optional temporary input accepted by validators during the transition; the updated standard presets should store VLC `title` values directly.
-- [ ] Add pure shared validators/helpers to `@universo/types`:
+- [ ] Add pure shared validators/helpers to `@universo-react/types`:
   - `normalizeEntityResourceSurfaceDefinition(...)`
   - `validateEntityResourceSurfacesAgainstComponents(...)`
-- [ ] Add locale/title resolution in a browser-safe utility layer (`@universo/utils/vlc` or a metahubs frontend shared helper), not in a React/i18n-dependent type module.
+- [ ] Add locale/title resolution in a browser-safe utility layer (`@universo-react/utils/vlc` or a metahubs frontend shared helper), not in a React/i18n-dependent type module.
 - [ ] Move duplicated regex/capability/order logic out of frontend/backend files into shared utilities.
-- [ ] Add `@universo/types` Vitest coverage for normalization, duplicate capability rejection, route segment validation, and component mismatch.
+- [ ] Add `@universo-react/types` Vitest coverage for normalization, duplicate capability rejection, route segment validation, and component mismatch.
 
 Example target type:
 
@@ -236,7 +236,7 @@ const RESOURCE_RENDERERS: Record<EntityResourceSurfaceCapability, ResourceRender
 ### Phase 5: Make Entity Builder Resource Surfaces Data-First
 
 - [ ] Remove local `RESOURCE_SURFACE_METADATA` defaults from `EntitiesWorkspace.tsx`.
-- [ ] Use shared `@universo/types` helpers for resource surface defaults and validation.
+- [ ] Use shared `@universo-react/types` helpers for resource surface defaults and validation.
 - [ ] Add localized title fields in the entity-type form using the existing `EntityFormDialog` + `LocalizedInlineField` + VLC helpers; do not add a new form framework or bespoke localized-input component.
 - [ ] Reuse `GeneralTabFields`, existing `TabConfig` patterns, existing action descriptors, and the current `BaseEntityMenu` action flow.
 - [ ] Ensure all UI strings are EN/RU i18n keys, with no visible English fallback as the intended runtime copy.
@@ -263,7 +263,7 @@ const RESOURCE_RENDERERS: Record<EntityResourceSurfaceCapability, ResourceRender
   - `EntityTypeResourceSurfacesEditor.tsx`
   - `EntityTypeListTable.tsx`
   - `EntitiesWorkspace.tsx` as orchestration only.
-- [ ] Treat extracted components as thin wrappers over existing `@universo/template-mui` primitives. Do not create a parallel design system, new table component, or new dialog component.
+- [ ] Treat extracted components as thin wrappers over existing `@universo-react/template-mui` primitives. Do not create a parallel design system, new table component, or new dialog component.
 - [ ] Split `FieldDefinitionList.tsx` into data hooks, dialog/actions, table rendering, and type-settings editor.
 - [ ] Split `RecordList.tsx` into field-model construction, record table, record dialog, inline table editor integration, and mutation orchestration.
 - [ ] Extract shared list shell logic from `LinkedCollectionList`, `ValueGroupList`, `OptionListList`, and `TreeEntityList` only where it removes real duplication and keeps the current UX identical.
@@ -322,7 +322,7 @@ const row = await queryOneOrThrow<EntityTypeRow>(
   - is preserved by snapshot export/import;
   - changes the publication/release snapshot hash where metadata fidelity requires it;
   - does not produce table/column DDL changes during application schema sync.
-- [ ] If `packages/apps-template-mui` or public runtime pages begin to display entity type resource labels, add a typed selector and tests there instead of reading arbitrary snapshot JSON inline.
+- [ ] If `packages/universo-react-apps-template-mui` or public runtime pages begin to display entity type resource labels, add a typed selector and tests there instead of reading arbitrary snapshot JSON inline.
 
 Example release-bundle assertion:
 
@@ -336,12 +336,12 @@ expect(bundle.bootstrap.payload.entities).toEqual(previousStructuralEntities)
 
 ### Phase 10: Deep Test System
 
-- [ ] `@universo/types` Vitest:
+- [ ] `@universo-react/types` Vitest:
   - resource surface normalization;
   - localized title resolution;
   - component/capability validation;
   - duplicate route/key/capability rejection.
-- [ ] `@universo/metahubs-backend` Jest:
+- [ ] `@universo-react/metahubs-backend` Jest:
   - template preset sync persists definitions;
   - no synthetic fallback;
   - safe standard entity type resource-label update;
@@ -353,7 +353,7 @@ expect(bundle.bootstrap.payload.entities).toEqual(previousStructuralEntities)
   - application release bundle preserves design-time entity type metadata without DDL drift;
   - shared pool creation;
   - SQL fail-closed mutation paths.
-- [ ] `@universo/metahubs-frontend` Vitest:
+- [ ] `@universo-react/metahubs-frontend` Vitest:
   - `SharedResourcesPage`;
   - entity type resource surface editor;
   - query invalidation after entity type updates;
@@ -382,7 +382,7 @@ node tools/testing/e2e/run-playwright-suite.mjs specs/flows/metahub-entity-resou
   - custom entity resource title;
   - conflict/fail-closed state;
   - entity type form resource surfaces editor.
-- [ ] If database state must be inspected, use the e2e credentials from `packages/universo-core-backend/base/.env.e2e` and verify:
+- [ ] If database state must be inspected, use the e2e credentials from `packages/universo-react-core-backend/base/.env.e2e` and verify:
   - `_mhb_entity_type_definitions` rows exist;
   - `ui_config.resourceSurfaces` contains expected localized titles;
   - latest publication snapshot contains matching `entityTypeDefinitions`;
@@ -391,11 +391,11 @@ node tools/testing/e2e/run-playwright-suite.mjs specs/flows/metahub-entity-resou
 
 ### Phase 12: Documentation And README Updates
 
-- [ ] Update `packages/metahubs-backend/base/README.md`:
+- [ ] Update `packages/universo-react-metahubs-backend/base/README.md`:
   - entity type presets are the only standard definition source;
   - no synthetic fallback;
   - resource surface validation and seed flow.
-- [ ] Update `packages/metahubs-frontend/base/README.md`:
+- [ ] Update `packages/universo-react-metahubs-frontend/base/README.md`:
   - Resources tab derivation;
   - custom resource surface title editing;
   - testing expectations.
@@ -422,15 +422,15 @@ node tools/testing/e2e/run-playwright-suite.mjs specs/flows/metahub-entity-resou
 - [ ] Run focused package checks:
 
 ```bash
-pnpm --filter @universo/types test
-pnpm --filter @universo/types build
-pnpm --filter @universo/metahubs-backend test -- --runInBand src/tests/services/EntityTypeService.test.ts src/tests/services/templateManifestValidator.test.ts
-pnpm --filter @universo/metahubs-frontend exec vitest run src/domains/entities/shared/ui/__tests__/SharedResourcesPage.test.tsx src/domains/entities/ui/__tests__/EntitiesWorkspace.test.tsx
-pnpm --filter @universo/metahubs-frontend lint
-pnpm --filter @universo/metahubs-backend build
-pnpm --filter @universo/metahubs-frontend build
-pnpm --filter @universo/applications-backend test -- --runInBand src/tests/services/applicationReleaseBundle.test.ts src/tests/routes/applicationSyncRoutes.test.ts
-pnpm --filter @universo/applications-backend build
+pnpm --filter @universo-react/types test
+pnpm --filter @universo-react/types build
+pnpm --filter @universo-react/metahubs-backend test -- --runInBand src/tests/services/EntityTypeService.test.ts src/tests/services/templateManifestValidator.test.ts
+pnpm --filter @universo-react/metahubs-frontend exec vitest run src/domains/entities/shared/ui/__tests__/SharedResourcesPage.test.tsx src/domains/entities/ui/__tests__/EntitiesWorkspace.test.tsx
+pnpm --filter @universo-react/metahubs-frontend lint
+pnpm --filter @universo-react/metahubs-backend build
+pnpm --filter @universo-react/metahubs-frontend build
+pnpm --filter @universo-react/applications-backend test -- --runInBand src/tests/services/applicationReleaseBundle.test.ts src/tests/routes/applicationSyncRoutes.test.ts
+pnpm --filter @universo-react/applications-backend build
 ```
 
 - [ ] Run Playwright proof on the built/e2e path:
@@ -448,7 +448,7 @@ pnpm build
 - [ ] Run final hardcoding audit:
 
 ```bash
-rg -n "SYNTHETIC_BUILTIN_ENTITY_TYPES|getSyntheticBuiltinEntityType|DEFAULT_RESOURCE_TAB_LABELS|RESOURCE_SURFACE_KIND_PRIORITY|Attributes|Constants|Values|Атрибуты|Константы|Значения" packages/metahubs-frontend/base/src packages/metahubs-backend/base/src packages/universo-types/base/src
+rg -n "SYNTHETIC_BUILTIN_ENTITY_TYPES|getSyntheticBuiltinEntityType|DEFAULT_RESOURCE_TAB_LABELS|RESOURCE_SURFACE_KIND_PRIORITY|Attributes|Constants|Values|Атрибуты|Константы|Значения" packages/universo-react-metahubs-frontend/base/src packages/universo-react-metahubs-backend/base/src packages/universo-react-types/base/src
 ```
 
 Every remaining match must be in approved seed, i18n, tests, or documentation paths.
@@ -473,9 +473,9 @@ node tools/lint-db-access.mjs
 
 ## Dependencies
 
-- `@universo/types` must land first for shared resource surface contracts.
-- `@universo/metahubs-backend` service changes must land before frontend assumes no synthetic fallback.
-- `@universo/metahubs-frontend` resource rendering changes depend on backend returning persisted `ui.resourceSurfaces`.
+- `@universo-react/types` must land first for shared resource surface contracts.
+- `@universo-react/metahubs-backend` service changes must land before frontend assumes no synthetic fallback.
+- `@universo-react/metahubs-frontend` resource rendering changes depend on backend returning persisted `ui.resourceSurfaces`.
 - Docs and screenshots depend on green Playwright verification.
 
 ---

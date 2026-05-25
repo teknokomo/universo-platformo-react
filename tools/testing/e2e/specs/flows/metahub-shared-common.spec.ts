@@ -1,5 +1,5 @@
 import type { Locator, Page, Response, TestInfo } from '@playwright/test'
-import { createLocalizedContent } from '@universo/utils'
+import { createLocalizedContent } from '@universo-react/utils'
 import { expect, test } from '../../fixtures/test'
 import { applyBrowserPreferences } from '../../support/browser/preferences'
 import { waitForSettledMutationResponse } from '../../support/browser/network'
@@ -61,7 +61,7 @@ type RuntimeState = {
     }>
 }
 
-const SHARED_LIBRARY_SOURCE = `import { SharedLibraryModule } from '@universo/extension-sdk'
+const SHARED_LIBRARY_SOURCE = `import { SharedLibraryModule } from '@universo-react/extension-sdk'
 
 export default class QuizSharedLibrary extends SharedLibraryModule {
   static buildTitle(locale = 'en') {
@@ -88,7 +88,7 @@ export default class QuizSharedLibrary extends SharedLibraryModule {
 }
 `
 
-const SHARED_WIDGET_SOURCE = `import { AtClient, AtServer, ExtensionModule } from '@universo/extension-sdk'
+const SHARED_WIDGET_SOURCE = `import { AtClient, AtServer, ExtensionModule } from '@universo-react/extension-sdk'
 import QuizSharedLibrary from '@shared/quiz-shared'
 
 const buildQuiz = (locale = 'en') => ({
@@ -993,15 +993,15 @@ test('@flow Common shared library authoring fails closed on circular @shared imp
     const libraryBName = 'Circular shared B'
     const libraryACodename = 'shared-a'
     const libraryBCodename = 'shared-b'
-    const libraryABaseSource = `import { SharedLibraryModule } from '@universo/extension-sdk'
+    const libraryABaseSource = `import { SharedLibraryModule } from '@universo-react/extension-sdk'
 
 export default class SharedA extends SharedLibraryModule {}
 `
-    const libraryBBaseSource = `import { SharedLibraryModule } from '@universo/extension-sdk'
+    const libraryBBaseSource = `import { SharedLibraryModule } from '@universo-react/extension-sdk'
 
 export default class SharedB extends SharedLibraryModule {}
 `
-    const libraryAWithDependency = `import { SharedLibraryModule } from '@universo/extension-sdk'
+    const libraryAWithDependency = `import { SharedLibraryModule } from '@universo-react/extension-sdk'
 import SharedB from '@shared/shared-b'
 
 export default class SharedA extends SharedLibraryModule {
@@ -1010,7 +1010,7 @@ export default class SharedA extends SharedLibraryModule {
   }
 }
 `
-    const libraryBWithCycle = `import { SharedLibraryModule } from '@universo/extension-sdk'
+    const libraryBWithCycle = `import { SharedLibraryModule } from '@universo-react/extension-sdk'
 import SharedA from '@shared/shared-a'
 
 export default class SharedB extends SharedLibraryModule {

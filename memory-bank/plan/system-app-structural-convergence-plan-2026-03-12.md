@@ -82,8 +82,8 @@ The `_mhb_*` prefix stays correct and untouched in **metahub branch schemas** (`
 3. **No TypeORM** — SQL-first via Knex.js query builder only
 4. **No metahub version bump** — structure/template versions stay unchanged
 5. **Current UI shells remain** — `universo-template-mui` + `apps-template-mui`
-6. **All text i18n-first** via `@universo/i18n`
-7. **Shared types/utils** via `@universo/types` and `@universo/utils`
+6. **All text i18n-first** via `@universo-react/i18n`
+7. **Shared types/utils** via `@universo-react/types` and `@universo-react/utils`
 8. **TanStack Query** patterns for frontend data fetching
 9. **pnpm workspace** — centralized version management
 10. **Reconcile migrations removed** — since DB is fresh, no legacy bridge code needed
@@ -111,7 +111,7 @@ Comprehensive QA review identified corrections required before implementation. A
 
 ### Utility Strategy Decision
 
-The codebase already has two complementary utility layers in `@universo/utils/database/`:
+The codebase already has two complementary utility layers in `@universo-react/utils/database/`:
 - **Object-based** (`systemFields.ts`): `getUplCreateFields()`, `getAppCreateFields()`, `getUplDeleteFields()`, `getAppDeleteFields()` — return `Record<string, unknown>` for Knex-style `.insert()` / `.update()`.
 - **Condition-based** (`softDelete.ts`): `getAppDeleteConditions()`, `getMhbDeleteConditions()`, `getUplDeleteConditions()` — return `Record<string, boolean>` for Knex `.where()`.
 
@@ -250,11 +250,11 @@ This replaces the current mixed predicates:
 **Goal**: Remove all reconcile-bridge migrations and fold incremental migrations into main creation SQL. Since the DB is fresh, reconcile migrations are dead code, and incremental migrations can be absorbed into one clean creation migration per schema.
 
 **1A. Remove reconcile migrations (files + exports + registration):**
-- `packages/admin-backend/base/src/platform/migrations/index.ts` — remove `reconcileLegacyAdminSchemaNamesMigrationDefinition` (both the definition and its registration in the migrations array)
-- `packages/applications-backend/base/src/platform/migrations/` — remove reconcile migration file + registration
-- `packages/metahubs-backend/base/src/platform/migrations/1766351182500-ReconcileLegacyMetahubsSchemaNames.sql.ts` — delete file + remove registration
-- `packages/profile-backend/base/src/platform/migrations/` — remove reconcile migrations for public.profiles and profiles.profiles
-- `packages/universo-migrations-platform/base/src/` — remove legacy fixed-schema inspection gates (doctor, startup checks)
+- `packages/universo-react-admin-backend/base/src/platform/migrations/index.ts` — remove `reconcileLegacyAdminSchemaNamesMigrationDefinition` (both the definition and its registration in the migrations array)
+- `packages/universo-react-applications-backend/base/src/platform/migrations/` — remove reconcile migration file + registration
+- `packages/universo-react-metahubs-backend/base/src/platform/migrations/1766351182500-ReconcileLegacyMetahubsSchemaNames.sql.ts` — delete file + remove registration
+- `packages/universo-react-profile-backend/base/src/platform/migrations/` — remove reconcile migrations for public.profiles and profiles.profiles
+- `packages/universo-react-migrations-platform/base/src/` — remove legacy fixed-schema inspection gates (doctor, startup checks)
 
 **1B. Fold incremental migration definitions into main creation SQL:**
 - `admin-backend`: fold `addAdminSoftDeleteColumnsMigrationDefinition`, `addCodenameAutoConvertMixedSettingMigrationDefinition` into the main creation migration
@@ -450,7 +450,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = admin, public, auth, pg_t
 conditions.push('r._upl_deleted = false')
 
 // AFTER
-import { activeAppRowCondition } from '@universo/utils'
+import { activeAppRowCondition } from '@universo-react/utils'
 conditions.push(activeAppRowCondition('r'))
 // Produces: "r._upl_deleted = false AND r._app_deleted = false"
 ```
@@ -479,9 +479,9 @@ executor.query(`
 `, [codename, name, description, color, isSuperuser, isSystem, userId])
 ```
 
-> **Note**: INSERT continues using explicit column lists with parameter placeholders (current proven pattern across all stores). The `getUplCreateFields()` / `getAppCreateFields()` object-based helpers from `@universo/utils` remain available for future Knex query-builder adoption, but are not mixed into raw SQL stores.
+> **Note**: INSERT continues using explicit column lists with parameter placeholders (current proven pattern across all stores). The `getUplCreateFields()` / `getAppCreateFields()` object-based helpers from `@universo-react/utils` remain available for future Knex query-builder adoption, but are not mixed into raw SQL stores.
 
-**Validation**: Focused lint/test/build for `@universo/admin-backend`.
+**Validation**: Focused lint/test/build for `@universo-react/admin-backend`.
 
 ---
 
@@ -627,9 +627,9 @@ async function deleteProfileByUserId(executor: DbExecutor, userId: string, delet
 The auth module inserts/updates profiles during registration/login. These queries must include system fields.
 
 **Affected files:**
-- `packages/auth-backend/base/src/routes/auth.ts` — INSERT/UPDATE profile queries
+- `packages/universo-react-auth-backend/base/src/routes/auth.ts` — INSERT/UPDATE profile queries
 
-**Validation**: Focused lint/test/build for `@universo/profile-backend`, `@universo/auth-backend`.
+**Validation**: Focused lint/test/build for `@universo-react/profile-backend`, `@universo-react/auth-backend`.
 
 > **Future work note (C5)**: Switching profiles from physical DELETE to soft-delete means deleted profile rows accumulate. A purge/garbage-collection mechanism (e.g., scheduled cleanup of rows where `_upl_purge_after < now()`) should be considered as future tech debt. This convergence only adds the soft-delete capability — the purge strategy is out of scope.
 
@@ -737,12 +737,12 @@ Phase 1B handles folding incremental definitions. This step just verifies the re
 - `metahubsQueryHelpers.ts`
 
 **Affected files (types — must not be missed):**
-- `packages/metahubs-backend/base/src/persistence/types.ts` — replace `MhbSystemFields` interface (lines 30-42) with `AppSystemFields` using `_app_*` field names
-- `packages/metahubs-backend/base/src/persistence/types.ts` — update SQL aliases (lines 202-209) from `_mhb_*` to `_app_*` mappings
+- `packages/universo-react-metahubs-backend/base/src/persistence/types.ts` — replace `MhbSystemFields` interface (lines 30-42) with `AppSystemFields` using `_app_*` field names
+- `packages/universo-react-metahubs-backend/base/src/persistence/types.ts` — update SQL aliases (lines 202-209) from `_mhb_*` to `_app_*` mappings
 
 **Affected files (cross-package):**
-- `packages/applications-backend/base/src/persistence/connectorsStore.ts` — update `metahubActiveRowPredicate()` to use `activeAppRowCondition()`, drop COALESCE wrappers
-- `packages/applications-backend/base/src/persistence/applicationsStore.ts` — drop COALESCE wrappers from `activeRowPredicate()`, replace with `activeAppRowCondition()`
+- `packages/universo-react-applications-backend/base/src/persistence/connectorsStore.ts` — update `metahubActiveRowPredicate()` to use `activeAppRowCondition()`, drop COALESCE wrappers
+- `packages/universo-react-applications-backend/base/src/persistence/applicationsStore.ts` — drop COALESCE wrappers from `activeRowPredicate()`, replace with `activeAppRowCondition()`
 
 ```typescript
 // BEFORE (metahubsQueryHelpers.ts)
@@ -752,16 +752,16 @@ export function activeMetahubRowCondition(alias?: string): string {
 }
 
 // AFTER
-import { activeAppRowCondition } from '@universo/utils'
+import { activeAppRowCondition } from '@universo-react/utils'
 // This helper already returns: "alias._upl_deleted = false AND alias._app_deleted = false"
 export { activeAppRowCondition as activeMetahubRowCondition }
 ```
 
 All stores must switch from `_mhb_*` column references to `_app_*`. The INSERT operations must include `_app_*` fields instead of `_mhb_*`.
 
-> **IMPORTANT**: The `getMhbDeleteConditions()` function in `@universo/utils/database/softDelete.ts` must **remain** unchanged — it is used by dynamic metahub branch schemas (`mhb_<uuid>_bN`) which still use `_mhb_*` fields. Only the `metahubs` **platform catalog** schema switches to `_app_*`.
+> **IMPORTANT**: The `getMhbDeleteConditions()` function in `@universo-react/utils/database/softDelete.ts` must **remain** unchanged — it is used by dynamic metahub branch schemas (`mhb_<uuid>_bN`) which still use `_mhb_*` fields. Only the `metahubs` **platform catalog** schema switches to `_app_*`.
 
-**Validation**: Focused lint/test/build for `@universo/metahubs-backend`.
+**Validation**: Focused lint/test/build for `@universo-react/metahubs-backend`.
 
 #### 4.6. Fix `rel_connector_publications` missing system fields (applications-backend)
 
@@ -784,24 +784,24 @@ _app_owner_id UUID,
 _app_access_level VARCHAR(20) NOT NULL DEFAULT 'private'
 ```
 
-**Affected file**: `packages/applications-backend/base/src/platform/migrations/1800000000000-CreateApplicationsSchema.sql.ts`
+**Affected file**: `packages/universo-react-applications-backend/base/src/platform/migrations/1800000000000-CreateApplicationsSchema.sql.ts`
 
 **Also update**: `connectorsStore.ts` queries to include the new fields in INSERT/UPDATE operations where applicable.
 
-**Validation**: Focused lint/test/build for `@universo/applications-backend`.
+**Validation**: Focused lint/test/build for `@universo-react/applications-backend`.
 
 ---
 
-### Phase 5: Add string-based SQL helpers to existing `@universo/utils` database module
+### Phase 5: Add string-based SQL helpers to existing `@universo-react/utils` database module
 
-**Goal**: Extend the existing `@universo/utils/database/softDelete.ts` with SQL-string helpers for raw parameterized SQL stores.
+**Goal**: Extend the existing `@universo-react/utils/database/softDelete.ts` with SQL-string helpers for raw parameterized SQL stores.
 
 > **Context**: The `softDelete.ts` file already contains condition-based helpers (`getAppDeleteConditions`, `getMhbDeleteConditions`, `getUplDeleteConditions`) returning `Record<string, boolean>` for Knex `.where()`. The new string-based helpers complement these for the raw `executor.query()` pattern used by ALL current stores. The companion `systemFields.ts` contains object-based create/update helpers that remain unchanged. No existing API is changed or replaced.
 
 > **Placement rationale**: `activeAppRowCondition()` and `softDeleteSetClause()` are deletion/filtering predicates, making `softDelete.ts` the natural home (alongside existing condition-based helpers). `systemFields.ts` retains its focus on create/update field generation.
 
 ```typescript
-// packages/universo-utils/base/src/database/softDelete.ts — ADD to existing file
+// packages/universo-react-utils/base/src/database/softDelete.ts — ADD to existing file
 
 /**
  * Returns the standard active-row SQL predicate for application-like tables.
@@ -837,7 +837,7 @@ export function softDeleteSetClause(deletedByParam: string): string {
 }
 ```
 
-**Validation**: `@universo/utils` build green.
+**Validation**: `@universo-react/utils` build green.
 
 ---
 
@@ -855,10 +855,10 @@ export function softDeleteSetClause(deletedByParam: string): string {
 - Verify `structureVersion` stays at `0.1.0` (no artificial bump per non-negotiable constraint #4)
 
 **Affected files:**
-- `packages/admin-backend/base/src/platform/systemAppDefinition.ts`
-- `packages/profile-backend/base/src/platform/systemAppDefinition.ts`
-- `packages/metahubs-backend/base/src/platform/systemAppDefinition.ts`
-- `packages/applications-backend/base/src/platform/systemAppDefinition.ts`
+- `packages/universo-react-admin-backend/base/src/platform/systemAppDefinition.ts`
+- `packages/universo-react-profile-backend/base/src/platform/systemAppDefinition.ts`
+- `packages/universo-react-metahubs-backend/base/src/platform/systemAppDefinition.ts`
+- `packages/universo-react-applications-backend/base/src/platform/systemAppDefinition.ts`
 
 **Validation**: Focused lint/test/build for each package.
 
@@ -873,7 +873,7 @@ export function softDeleteSetClause(deletedByParam: string): string {
 Admin routes return raw DB rows. The row types must include system fields:
 
 ```typescript
-// packages/universo-types — add/update admin types
+// packages/universo-react-types — add/update admin types
 export interface AdminRoleRow {
     id: string
     codename: string
@@ -904,10 +904,10 @@ Profile routes use a controller pattern. Update the `ProfileRow` type to include
 Metahub frontend already handles `_mhb_*` fields from API responses. The column rename to `_app_*` will require updating frontend type definitions and any explicit field references.
 
 **Affected files:**
-- `packages/metahubs-frontend/base/src/` — types that reference `_mhb_deleted`, `mhbDeleted`, etc. (only in comments and types — ~3 locations)
-- `packages/metahubs-backend/base/src/persistence/types.ts` — `MhbSystemFields` interface → rename to `AppSystemFields` or equivalent
-- `packages/metahubs-backend/base/src/persistence/types.ts` — SQL aliases mapping `_mhb_*` → camelCase must be updated to `_app_*` → camelCase
-- `packages/applications-frontend/base/src/` — minimal changes (already uses `_app_*`)
+- `packages/universo-react-metahubs-frontend/base/src/` — types that reference `_mhb_deleted`, `mhbDeleted`, etc. (only in comments and types — ~3 locations)
+- `packages/universo-react-metahubs-backend/base/src/persistence/types.ts` — `MhbSystemFields` interface → rename to `AppSystemFields` or equivalent
+- `packages/universo-react-metahubs-backend/base/src/persistence/types.ts` — SQL aliases mapping `_mhb_*` → camelCase must be updated to `_app_*` → camelCase
+- `packages/universo-react-applications-frontend/base/src/` — minimal changes (already uses `_app_*`)
 
 #### 7.4. Backend response format consistency note
 
@@ -925,7 +925,7 @@ This pre-existing inconsistency is NOT in scope for this convergence. However, w
 
 **Goal**: Verify the metadata bootstrap correctly populates `_app_objects` and `_app_attributes` for the new column structure.
 
-The `bootstrapSystemAppStructureMetadata` function in `@universo/migrations-platform` uses the `businessTables` from each `systemAppDefinition` to populate metadata. After updating the manifests in Phase 6, the bootstrap should automatically produce correct metadata.
+The `bootstrapSystemAppStructureMetadata` function in `@universo-react/migrations-platform` uses the `businessTables` from each `systemAppDefinition` to populate metadata. After updating the manifests in Phase 6, the bootstrap should automatically produce correct metadata.
 
 Verify that after bootstrap:
 - Each schema's `_app_objects` has rows for all business tables
@@ -949,7 +949,7 @@ After Phase 1 removed registrations and Phase 2-4 replaced SQL content, delete a
 
 #### 9.2. Remove legacy inspection gates
 
-Remove from `@universo/migrations-platform`:
+Remove from `@universo-react/migrations-platform`:
 - `inspectLegacyFixedSchemaLeftovers()` function
 - Legacy doctor/startup checks that look for old table names
 - References to these in `initDatabase()`
@@ -958,14 +958,14 @@ Remove from `@universo/migrations-platform`:
 
 ```bash
 # Find any remaining _mhb_ references in platform stores (should be zero after Phase 4)
-grep -r "_mhb_" packages/metahubs-backend/base/src/persistence/ --include="*.ts"
-grep -r "_mhb_" packages/metahubs-backend/base/src/platform/ --include="*.ts"
+grep -r "_mhb_" packages/universo-react-metahubs-backend/base/src/persistence/ --include="*.ts"
+grep -r "_mhb_" packages/universo-react-metahubs-backend/base/src/platform/ --include="*.ts"
 # Exception: systemTableDefinitions.ts is EXPECTED to have _mhb_ — it defines branch schemas
 
 # Find old column names in stores
-grep -r "created_at\b" packages/admin-backend/base/src/persistence/ --include="*.ts"
-grep -r "updated_at\b" packages/admin-backend/base/src/persistence/ --include="*.ts"
-grep -r "created_at\b" packages/profile-backend/base/src/persistence/ --include="*.ts"
+grep -r "created_at\b" packages/universo-react-admin-backend/base/src/persistence/ --include="*.ts"
+grep -r "updated_at\b" packages/universo-react-admin-backend/base/src/persistence/ --include="*.ts"
+grep -r "created_at\b" packages/universo-react-profile-backend/base/src/persistence/ --include="*.ts"
 
 # Find any remaining COALESCE wrappers around NOT NULL system fields
 grep -r "COALESCE.*_upl_deleted\|COALESCE.*_app_deleted" packages/ --include="*.ts"
@@ -1001,7 +1001,7 @@ For each schema, add a test that:
 - Validates seed SQL includes system field defaults
 
 ```typescript
-// Example: packages/admin-backend/base/src/platform/__tests__/adminMigrations.test.ts
+// Example: packages/universo-react-admin-backend/base/src/platform/__tests__/adminMigrations.test.ts
 describe('admin schema creation SQL', () => {
     it('includes full _upl_* system fields for cfg_instances', () => {
         const sql = createAdminSchemaMigrationDefinition.up
@@ -1043,7 +1043,7 @@ describe('admin schema creation SQL', () => {
 #### 10.2. Unit tests — Store active-row predicates
 
 ```typescript
-// Example: packages/admin-backend/base/src/persistence/__tests__/rolesStore.test.ts
+// Example: packages/universo-react-admin-backend/base/src/persistence/__tests__/rolesStore.test.ts
 describe('rolesStore', () => {
     it('filters active rows with dual-flag predicate', () => {
         // Mock executor and verify SQL includes correct WHERE clause
@@ -1081,7 +1081,7 @@ describe('rolesStore', () => {
 #### 10.3. Unit tests — systemAppDefinition manifests
 
 ```typescript
-// Example: packages/admin-backend/base/src/platform/__tests__/systemAppDefinition.test.ts
+// Example: packages/universo-react-admin-backend/base/src/platform/__tests__/systemAppDefinition.test.ts
 describe('adminSystemAppDefinition', () => {
     it('declares appCoreTables capability', () => {
         expect(adminSystemAppDefinition.targetStructureCapabilities.appCoreTables).toBe(true)
@@ -1115,7 +1115,7 @@ describe('adminSystemAppDefinition', () => {
 #### 10.3a. Unit tests — SECURITY DEFINER function SQL (BUG FIX verification)
 
 ```typescript
-// packages/admin-backend/base/src/platform/__tests__/adminFunctions.test.ts
+// packages/universo-react-admin-backend/base/src/platform/__tests__/adminFunctions.test.ts
 describe('admin SECURITY DEFINER functions', () => {
     const functions = [
         'has_permission', 'get_user_permissions', 'is_superuser',
@@ -1165,7 +1165,7 @@ describe('admin SECURITY DEFINER functions', () => {
 #### 10.4. Integration tests — Bootstrap metadata verification
 
 ```typescript
-// packages/universo-migrations-platform/base/src/__tests__/bootstrapMetadata.test.ts
+// packages/universo-react-migrations-platform/base/src/__tests__/bootstrapMetadata.test.ts
 describe('bootstrapSystemAppStructureMetadata', () => {
     it('populates _app_objects for all admin business tables', async () => {
         // After bootstrap, query admin._app_objects
@@ -1203,7 +1203,7 @@ describe('bootstrapSystemAppStructureMetadata', () => {
 #### 10.5. Structural parity tests — Fixed vs Dynamic schemas
 
 ```typescript
-// packages/universo-migrations-platform/base/src/__tests__/schemaParity.test.ts
+// packages/universo-react-migrations-platform/base/src/__tests__/schemaParity.test.ts
 describe('fixed schema structural parity with dynamic app schemas', () => {
     const requiredUplColumns = [
         '_upl_created_at', '_upl_created_by', '_upl_updated_at', '_upl_updated_by',
@@ -1376,19 +1376,19 @@ After all code changes, run through:
 
 | Package | Files touched | Nature of change |
 |---|---|---|
-| `@universo/utils` | 1-2 | Extend `softDelete.ts` with `activeAppRowCondition`, `softDeleteSetClause` string helpers; `systemFields.ts` unchanged |
-| `@universo/admin-backend` | ~10 | SQL migration (rewrite), 5 SECURITY DEFINER functions × 3 versions (dual-flag fix), 4 stores, routes, systemAppDefinition |
-| `@universo/profile-backend` | ~5 | SQL migration, store, systemAppDefinition |
-| `@universo/auth-backend` | ~2 | Profile INSERT/UPDATE queries |
-| `@universo/metahubs-backend` | ~14 | SQL migration, 4+ stores, query helpers, `MhbSystemFields` → `AppSystemFields` type, SQL aliases, RLS, systemAppDefinition |
-| `@universo/applications-backend` | ~6 | SQL migration (fix `rel_connector_publications` missing fields), cross-schema join updates, `COALESCE` removal, systemAppDefinition verification |
-| `@universo/migrations-platform` | ~5 | Remove legacy inspection, update bootstrap validation |
-| `@universo/migrations-core` | ~1 | Update capability resolution if needed |
-| `@universo/types` | ~2 | Update shared row/response types |
-| `@universo/metahubs-frontend` | ~3 | Type updates for `_mhb_*` → `_app_*` |
-| `@universo/applications-frontend` | ~1 | Minimal (already correct) |
-| `@universo/admin-frontend` | ~3 | Row type updates, `created_at`/`updated_at` → `createdAt`/`updatedAt` |
-| `@universo/profile-frontend` | ~1 | Row type updates |
+| `@universo-react/utils` | 1-2 | Extend `softDelete.ts` with `activeAppRowCondition`, `softDeleteSetClause` string helpers; `systemFields.ts` unchanged |
+| `@universo-react/admin-backend` | ~10 | SQL migration (rewrite), 5 SECURITY DEFINER functions × 3 versions (dual-flag fix), 4 stores, routes, systemAppDefinition |
+| `@universo-react/profile-backend` | ~5 | SQL migration, store, systemAppDefinition |
+| `@universo-react/auth-backend` | ~2 | Profile INSERT/UPDATE queries |
+| `@universo-react/metahubs-backend` | ~14 | SQL migration, 4+ stores, query helpers, `MhbSystemFields` → `AppSystemFields` type, SQL aliases, RLS, systemAppDefinition |
+| `@universo-react/applications-backend` | ~6 | SQL migration (fix `rel_connector_publications` missing fields), cross-schema join updates, `COALESCE` removal, systemAppDefinition verification |
+| `@universo-react/migrations-platform` | ~5 | Remove legacy inspection, update bootstrap validation |
+| `@universo-react/migrations-core` | ~1 | Update capability resolution if needed |
+| `@universo-react/types` | ~2 | Update shared row/response types |
+| `@universo-react/metahubs-frontend` | ~3 | Type updates for `_mhb_*` → `_app_*` |
+| `@universo-react/applications-frontend` | ~1 | Minimal (already correct) |
+| `@universo-react/admin-frontend` | ~3 | Row type updates, `created_at`/`updated_at` → `createdAt`/`updatedAt` |
+| `@universo-react/profile-frontend` | ~1 | Row type updates |
 | Tests (new) | ~20+ | Unit (mock executor), SECURITY DEFINER SQL analysis, integration, parity tests |
 
 **Total: ~75-85 files**

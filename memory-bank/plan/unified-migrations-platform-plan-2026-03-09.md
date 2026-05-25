@@ -38,12 +38,12 @@ Additional QA review confirmed that the general architecture direction is correc
 
 1. **No unnecessary new frontend shells or migration-specific UI systems**
    - Reuse the existing shared migration guard stack:
-     - `@universo/migration-guard-shared`
+     - `@universo-react/migration-guard-shared`
      - `MigrationGuardShell`
      - shared status/query options
    - Reuse existing MUI shell/layout patterns from:
-     - `packages/universo-template-mui/base`
-     - `packages/apps-template-mui`
+     - `packages/universo-react-template-mui/base`
+     - `packages/universo-react-apps-template-mui`
    - Reuse existing diff/review interaction patterns already present in:
      - `ApplicationMigrationGuard`
      - `MetahubMigrationGuard`
@@ -53,8 +53,8 @@ Additional QA review confirmed that the general architecture direction is correc
 2. **Future desired-state editing must reuse the current permission architecture**
    - Do not invent a separate migration-editor ACL model.
    - Future editor permissions must layer on top of existing:
-     - global admin RBAC in `@universo/admin-backend`,
-     - auth permission service in `@universo/auth-backend`,
+     - global admin RBAC in `@universo-react/admin-backend`,
+     - auth permission service in `@universo-react/auth-backend`,
      - current metahub/application role models (`owner`, `admin`, `editor`, etc.).
    - The migration system may add new permission subjects/actions, but should not introduce a parallel authorization subsystem.
 
@@ -152,7 +152,7 @@ What is additionally explicit after the third QA pass:
    - Application runtime migrations: `<app_schema>._app_migrations`.
 
 2. **TypeORM still boots platform schema creation at server startup**
-   - `packages/universo-core-backend/base/src/index.ts` calls `runMigrations({ transaction: 'each' })`.
+   - `packages/universo-react-core-backend/base/src/index.ts` calls `runMigrations({ transaction: 'each' })`.
 
 3. **Metahubs runtime schema lifecycle is already a custom migration system**
    - `MetahubSchemaService.ensureSchema()` supports `read_only`, `initialize`, and `apply_migrations`.
@@ -185,7 +185,7 @@ What is additionally explicit after the third QA pass:
    - Applications expose `status`, diff, sync, pending destructive confirmation.
 
 10. **Testing coverage exists but is still uneven**
-    - `@universo/schema-ddl` has focused unit tests.
+    - `@universo-react/schema-ddl` has focused unit tests.
     - Metahub migration routes and schema service have some tests.
     - There is not yet a deep end-to-end migration test matrix across:
       - platform schema bootstrap,
@@ -298,11 +298,11 @@ The current test surface is good for local features, but not yet sufficient for 
 
 Recommended new package set:
 
-- `@universo/migrations-core`
+- `@universo-react/migrations-core`
 - `@universo/migrations-knex`
-- `@universo/migrations-catalog`
+- `@universo-react/migrations-catalog`
 - `@universo/migrations-declarative`
-- `@universo/migrations-platform`
+- `@universo-react/migrations-platform`
 
 Optional later split if needed:
 
@@ -426,15 +426,15 @@ Architecturally:
 
 Operationally for this task:
 
-- keep current `packages/metahubs-frontend` and `packages/universo-template-mui` behavior,
-- do not force immediate runtime UI convergence with `packages/apps-template-mui`,
+- keep current `packages/universo-react-metahubs-frontend` and `packages/universo-react-template-mui` behavior,
+- do not force immediate runtime UI convergence with `packages/universo-react-apps-template-mui`,
 - but design backend and migration contracts so that future convergence is straightforward.
 
 ---
 
 ## Proposed Package and Responsibility Map
 
-### `@universo/migrations-core`
+### `@universo-react/migrations-core`
 
 Responsibilities:
 
@@ -448,7 +448,7 @@ Responsibilities:
 - failure classification,
 - migration event hooks.
 
-### `@universo/migrations-catalog`
+### `@universo-react/migrations-catalog`
 
 Responsibilities:
 
@@ -470,13 +470,13 @@ Responsibilities:
 
 Responsibilities:
 
-- wrap and evolve current `@universo/schema-ddl`,
+- wrap and evolve current `@universo-react/schema-ddl`,
 - desired-state snapshots,
 - diff generation,
 - declarative plan output,
 - runtime schema sync orchestration.
 
-### `@universo/migrations-platform`
+### `@universo-react/migrations-platform`
 
 Responsibilities:
 
@@ -650,7 +650,7 @@ This preserves current runtime observability while introducing a platform-wide s
   - quoted identifiers in raw SQL,
   - UUIDv7-based generated schema naming for `mhb_*` and `app_*`,
   - fixed schema names such as `metahubs`, `applications`, `admin`, `profile`.
-- [ ] Place shared types in `@universo/types` where they are cross-package API surface.
+- [ ] Place shared types in `@universo-react/types` where they are cross-package API surface.
 - [ ] Place helper types and non-API internals inside the new migration packages.
 
 ## Phase 3: Build the migration catalog layer
@@ -717,9 +717,9 @@ This preserves current runtime observability while introducing a platform-wide s
   - compatibility window,
   - cleanup/drop phase after validation.
 
-## Phase 6: Migrate `@universo/schema-ddl` into the unified declarative layer
+## Phase 6: Migrate `@universo-react/schema-ddl` into the unified declarative layer
 
-- [ ] Keep `@universo/schema-ddl` as the implementation core for runtime declarative migration logic.
+- [ ] Keep `@universo-react/schema-ddl` as the implementation core for runtime declarative migration logic.
 - [ ] Either:
   - keep it as a lower-level package consumed by `@universo/migrations-declarative`,
   - or fold it into `@universo/migrations-declarative` with stable export shims.
@@ -864,13 +864,13 @@ This preserves current runtime observability while introducing a platform-wide s
 
 ## Phase 14: Shared package integration cleanup
 
-- [ ] Add shared migration DTOs/status enums to `@universo/types`.
-- [ ] Add shared utility helpers to `@universo/utils`:
+- [ ] Add shared migration DTOs/status enums to `@universo-react/types`.
+- [ ] Add shared utility helpers to `@universo-react/utils`:
   - checksum helpers,
   - stable stringify wrappers,
   - migration status formatting helpers,
   - drift classification helpers.
-- [ ] Keep cross-app i18n keys in `@universo/i18n`.
+- [ ] Keep cross-app i18n keys in `@universo-react/i18n`.
 - [ ] Keep frontend migration guard shells in shared UI packages.
 - [ ] Keep migration review UI aligned with existing shared components rather than introducing parallel widgets.
 - [ ] Respect centralized dependency versions in `pnpm-workspace.yaml`.
@@ -880,8 +880,8 @@ This preserves current runtime observability while introducing a platform-wide s
 - [ ] Unify migration status response rendering between Metahubs and Applications.
 - [ ] Keep all new text i18n-ready from the start.
 - [ ] Reuse existing route shells and page composition:
-  - Metahubs flows stay under `packages/universo-template-mui/base`,
-  - application runtime/admin flows stay compatible with `packages/apps-template-mui`,
+  - Metahubs flows stay under `packages/universo-react-template-mui/base`,
+  - application runtime/admin flows stay compatible with `packages/universo-react-apps-template-mui`,
   - no duplicate migration-specific host layout layer.
 - [ ] Add shared i18n keys for:
   - checksum drift,
@@ -1205,35 +1205,35 @@ Why this is safe:
 
 ### New packages
 
-- `packages/universo-migrations-core`
-- `packages/universo-migrations-catalog`
+- `packages/universo-react-migrations-core`
+- `packages/universo-react-migrations-catalog`
 - `packages/universo-migrations-knex`
 - `packages/universo-migrations-declarative`
-- `packages/universo-migrations-platform`
+- `packages/universo-react-migrations-platform`
 
 ### Existing backend packages
 
-- `packages/universo-core-backend/base`
-- `packages/metahubs-backend/base`
-- `packages/applications-backend/base`
-- `packages/auth-backend/base`
-- `packages/admin-backend/base`
-- `packages/profile-backend/base`
-- `packages/schema-ddl/base`
+- `packages/universo-react-core-backend/base`
+- `packages/universo-react-metahubs-backend/base`
+- `packages/universo-react-applications-backend/base`
+- `packages/universo-react-auth-backend/base`
+- `packages/universo-react-admin-backend/base`
+- `packages/universo-react-profile-backend/base`
+- `packages/universo-react-schema-ddl/base`
 
 ### Shared packages
 
-- `packages/universo-types/base`
-- `packages/universo-utils/base`
-- `packages/universo-i18n/base`
-- `packages/migration-guard-shared/base`
+- `packages/universo-react-types/base`
+- `packages/universo-react-utils/base`
+- `packages/universo-react-i18n/base`
+- `packages/universo-react-migration-guard-shared/base`
 
 ### Frontend packages
 
-- `packages/metahubs-frontend/base`
-- `packages/applications-frontend/base`
-- `packages/universo-template-mui/base`
-- `packages/apps-template-mui`
+- `packages/universo-react-metahubs-frontend/base`
+- `packages/universo-react-applications-frontend/base`
+- `packages/universo-react-template-mui/base`
+- `packages/universo-react-apps-template-mui`
 
 ### Database surface
 
@@ -1311,5 +1311,5 @@ The following design choices should be explicitly confirmed before implementatio
 
 - Should the new global migration catalog live in `public` or in a dedicated schema such as `upl_migrations`?
 - Should local runtime history tables (`_mhb_migrations`, `_app_migrations`) remain first-class UI data sources, or become only local caches with the global catalog as the API source of truth?
-- Should `@universo/schema-ddl` remain as a low-level package, or be folded into a broader migration-declarative package with compatibility exports?
+- Should `@universo-react/schema-ddl` remain as a low-level package, or be folded into a broader migration-declarative package with compatibility exports?
 - Should the first implementation of the post-TypeORM DB context abstraction be introduced in this same initiative, or tracked as a tightly-coupled follow-up phase after migration parity is achieved?

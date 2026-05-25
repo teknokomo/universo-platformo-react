@@ -10,13 +10,13 @@ The new model should make `_app_layouts/_app_widgets` the application-owned runt
 
 ## Current Code Findings
 
-- Metahub layout UI lives in `packages/metahubs-frontend/base/src/domains/layouts/ui/LayoutList.tsx` and `LayoutDetails.tsx`.
-- Metahub layout backend lives in `packages/metahubs-backend/base/src/domains/layouts/services/MetahubLayoutsService.ts` and routes under `/api/v1/metahub/:metahubId/layout...`.
-- Publication snapshot layout export is attached in `packages/metahubs-backend/base/src/domains/shared/snapshotLayouts.ts`.
-- Application runtime materialization happens in `packages/applications-backend/base/src/routes/sync/syncLayoutPersistence.ts`.
-- Runtime layout normalization and catalog-layout flattening happen in `packages/applications-backend/base/src/routes/sync/syncHelpers.ts`.
-- Application runtime layout tables are created by `packages/schema-ddl/base/src/SchemaGenerator.ts`.
-- Application admin menu and pages live in `packages/applications-frontend/base/src/menu-items/applicationDashboard.ts` and `packages/universo-core-frontend/base/src/routes/MainRoutes.tsx`.
+- Metahub layout UI lives in `packages/universo-react-metahubs-frontend/base/src/domains/layouts/ui/LayoutList.tsx` and `LayoutDetails.tsx`.
+- Metahub layout backend lives in `packages/universo-react-metahubs-backend/base/src/domains/layouts/services/MetahubLayoutsService.ts` and routes under `/api/v1/metahub/:metahubId/layout...`.
+- Publication snapshot layout export is attached in `packages/universo-react-metahubs-backend/base/src/domains/shared/snapshotLayouts.ts`.
+- Application runtime materialization happens in `packages/universo-react-applications-backend/base/src/routes/sync/syncLayoutPersistence.ts`.
+- Runtime layout normalization and catalog-layout flattening happen in `packages/universo-react-applications-backend/base/src/routes/sync/syncHelpers.ts`.
+- Application runtime layout tables are created by `packages/universo-react-schema-ddl/base/src/SchemaGenerator.ts`.
+- Application admin menu and pages live in `packages/universo-react-applications-frontend/base/src/menu-items/applicationDashboard.ts` and `packages/universo-react-core-frontend/base/src/routes/MainRoutes.tsx`.
 - Sync diff UI currently only reports coarse markers: `ui.layout.update`, `ui.layouts.update`, and `ui.layout.zones.update`.
 - No existing application admin page exposes `_app_layouts/_app_widgets` as editable layout resources.
 
@@ -56,29 +56,29 @@ This matches the existing application admin page model and keeps layouts as a re
 
 ## Affected Areas
 
-- `packages/schema-ddl/base`
+- `packages/universo-react-schema-ddl/base`
   - Extend runtime system table DDL for `_app_layouts` and `_app_widgets`.
   - Add idempotent repair/ensure logic because clean test databases are expected, but sync must still tolerate partially-created schemas.
-- `packages/applications-backend/base`
+- `packages/universo-react-applications-backend/base`
   - Add application layout domain routes, controller, service/store modules.
   - Replace unconditional layout sync persistence with merge-aware policy handling.
   - Expand diff payloads with structured layout conflicts and sync resolution choices.
-- `packages/applications-frontend/base`
+- `packages/universo-react-applications-frontend/base`
   - Add Application Admin `Layouts` route and menu item.
   - Add API hooks/mutations for application layouts.
   - Extend connector diff dialog with layout conflict resolution controls.
-- `packages/universo-template-mui/base`
+- `packages/universo-react-template-mui/base`
   - Extract domain-neutral layout list/detail shell components from metahubs frontend.
   - Keep metahub/application API wiring in consumer packages.
-- `packages/universo-types/base`
+- `packages/universo-react-types/base`
   - Add shared DTOs and Zod schemas for application layout provenance, sync policy, conflict summaries, and layout mutation payloads.
-- `packages/universo-utils/base`
+- `packages/universo-react-utils/base`
   - Add stable layout hash helpers and lineage normalization helpers.
-- `packages/universo-i18n/base` and package-local i18n resources
+- `packages/universo-react-i18n/base` and package-local i18n resources
   - Add EN/RU keys for shared source badges and application layout UI.
-- `packages/universo-core-frontend/base`
+- `packages/universo-react-core-frontend/base`
   - Wire lazy route for the new application layouts page.
-- `packages/apps-template-mui`
+- `packages/universo-react-apps-template-mui`
   - Verify runtime continues consuming active/default application layout rows without metahub-only assumptions.
 - `docs/en`, `docs/ru`
   - Update GitBook platform/guides/architecture pages and summaries.
@@ -89,7 +89,7 @@ This matches the existing application admin page model and keeps layouts as a re
 
 ### Phase 1 — Shared Contracts And Hashing
 
-- [ ] Add shared types in `@universo/types`, for example:
+- [ ] Add shared types in `@universo-react/types`, for example:
 
 ```ts
 export type ApplicationLayoutSourceKind = 'metahub' | 'application'
@@ -114,7 +114,7 @@ export type ApplicationLayoutSyncResolution =
   - structured layout sync diff items;
   - sync request `layoutResolutionPolicy`.
 - [ ] Add Zod schemas for every public payload and response used by the new routes. Keep runtime response schemas aligned with `apps-template-mui` expectations so the application admin API cannot store widget configs that the published runtime cannot parse.
-- [ ] Add `normalizeApplicationLayoutForHash(...)` and `hashApplicationLayoutContent(...)` in `@universo/utils`.
+- [ ] Add `normalizeApplicationLayoutForHash(...)` and `hashApplicationLayoutContent(...)` in `@universo-react/utils`.
 - [ ] Include both layout row fields and widget rows in the hash. Exclude volatile fields: versions, timestamps, user ids, `sync_state`, and source markers.
 - [ ] Use canonical stable serialization and plain sanitized objects only. Do not hash raw database rows or fields with unstable ordering.
 
@@ -169,7 +169,7 @@ Example hash input shape:
 
 ### Phase 3 — Backend Application Layout Domain
 
-- [ ] Create `packages/applications-backend/base/src/services/applicationLayoutsService.ts`.
+- [ ] Create `packages/universo-react-applications-backend/base/src/services/applicationLayoutsService.ts`.
 - [ ] Create SQL-first persistence helpers under `persistence/applicationLayoutsStore.ts`.
 - [ ] Add controller/routes:
   - `GET /api/v1/applications/:applicationId/layout-scopes`
@@ -201,7 +201,7 @@ Example hash input shape:
   - widget key/zone validation must use `DASHBOARD_LAYOUT_WIDGETS`;
   - widget config validation must use the same schemas and allow-lists as runtime rendering, including nested `columnsContainer` child widgets.
 - [ ] Use optimistic concurrency for editor mutations. Include `_upl_version` in detail responses and require `expectedVersion` or an equivalent conditional update for PATCH/DELETE/move/toggle flows so two admins cannot silently overwrite each other.
-- [ ] Wrap multi-row layout mutations in one request-scoped transaction and acquire a transaction-scoped advisory lock for the affected application layout or scope before changing default flags, widget ordering, or source lineage. Use the existing database lock helper pattern from `@universo/utils/database`.
+- [ ] Wrap multi-row layout mutations in one request-scoped transaction and acquire a transaction-scoped advisory lock for the affected application layout or scope before changing default flags, widget ordering, or source lineage. Use the existing database lock helper pattern from `@universo-react/utils/database`.
 - [ ] Use schema-qualified, parameterized SQL for runtime schema access:
 
 ```ts
@@ -286,10 +286,10 @@ await executor.query(
 ### Phase 5 — Shared UI Extraction
 
 - [ ] Keep extraction minimal and evidence-driven:
-  - first reuse existing `@universo/template-mui` primitives (`ItemCard`, `FlowListTable`, `ToolbarControls`, `EntityFormDialog`, `ConfirmDeleteDialog`, `ViewHeaderMUI`, `PaginationControls`);
+  - first reuse existing `@universo-react/template-mui` primitives (`ItemCard`, `FlowListTable`, `ToolbarControls`, `EntityFormDialog`, `ConfirmDeleteDialog`, `ViewHeaderMUI`, `PaginationControls`);
   - extract only layout-specific pieces that are currently trapped in `metahubs-frontend` and are needed by both metahub and application layout screens;
   - avoid creating parallel replacements for existing generic cards, tables, dialogs, pagination, or toolbar controls.
-- [ ] Move reusable layout UI pieces from `packages/metahubs-frontend` to `packages/universo-template-mui`, keeping domain-specific API hooks out of the shared package:
+- [ ] Move reusable layout UI pieces from `packages/universo-react-metahubs-frontend` to `packages/universo-react-template-mui`, keeping domain-specific API hooks out of the shared package:
   - layout list/card/table presentational components;
   - layout form fields;
   - layout source/status badge component;
@@ -304,12 +304,12 @@ await executor.query(
   - API calls under `/applications/:applicationId/layouts`;
   - permission mapping from application role/details;
   - application route path builders.
-- [ ] Avoid placing business wording in `@universo/template-mui`; pass labels, tooltips, and i18n keys from consumers.
+- [ ] Avoid placing business wording in `@universo-react/template-mui`; pass labels, tooltips, and i18n keys from consumers.
 - [ ] Preserve accessibility behavior during extraction: keyboard sorting/focus management where already present, aria labels for icon-only actions, and visible disabled/error states for locked conflict decisions.
 
 ### Phase 6 — Application Admin UI
 
-- [ ] Add `ApplicationLayouts.tsx` page and export it from `@universo/applications-frontend`.
+- [ ] Add `ApplicationLayouts.tsx` page and export it from `@universo-react/applications-frontend`.
 - [ ] Add `applicationsQueryKeys.layouts(...)`, `layoutDetail(...)`, `layoutScopes(...)`, and `layoutZoneWidgets(...)` factories plus invalidation helpers. Mutations must invalidate layout lists/details, connector diff, runtime previews, and migration status where affected.
 - [ ] Add menu entry:
   - id: `layouts`
@@ -389,7 +389,7 @@ await executor.query(
   - `ConnectorDiffDialog` conflict resolution form behavior;
   - stale-diff UI recovery;
   - i18n resource merge tests.
-- [ ] Shared UI tests in `@universo/template-mui`:
+- [ ] Shared UI tests in `@universo-react/template-mui`:
   - extracted layout list/detail presentational components;
   - zone editor drag/toggle/accessibility behavior where feasible.
 - [ ] Playwright:
@@ -412,10 +412,10 @@ await executor.query(
 ### Phase 10 — Documentation
 
 - [ ] Update package READMEs:
-  - `packages/applications-frontend/base/README.md`
-  - `packages/applications-backend/base/README.md`
-  - `packages/universo-template-mui/base/README.md`
-  - `packages/apps-template-mui/README.md` if runtime behavior notes change.
+  - `packages/universo-react-applications-frontend/base/README.md`
+  - `packages/universo-react-applications-backend/base/README.md`
+  - `packages/universo-react-template-mui/base/README.md`
+  - `packages/universo-react-apps-template-mui/README.md` if runtime behavior notes change.
 - [ ] Add/update GitBook docs:
   - `docs/en/platform/applications.md`
   - `docs/ru/platform/applications.md`
@@ -441,21 +441,21 @@ await executor.query(
 - Widget override inheritance exists in metahubs, but application runtime rows are already materialized. The application UI should edit materialized rows directly, not reintroduce metahub inheritance semantics unless a later feature explicitly needs that.
 - Conflict detection needs stable hash normalization. Direct JSON stringify or timestamp comparisons will produce false conflicts.
 - The diff dialog must not overload destructive schema confirmation. Layout conflict resolution is a separate decision surface.
-- Shared UI extraction can easily leak metahub-specific imports into `@universo/template-mui`; extracted components must receive behavior through props.
+- Shared UI extraction can easily leak metahub-specific imports into `@universo-react/template-mui`; extracted components must receive behavior through props.
 
 ## Validation Commands
 
 Targeted validation after implementation:
 
 ```bash
-pnpm --filter @universo/types build
-pnpm --filter @universo/utils test
-pnpm --filter @universo/template-mui test
-pnpm --filter @universo/applications-backend test -- --runInBand src/tests/services/applicationLayouts*.test.ts src/tests/services/syncLayout*.test.ts src/tests/routes/applicationSyncRoutes.test.ts
-pnpm --filter @universo/applications-frontend exec vitest run src/pages/__tests__/ApplicationLayouts.test.tsx src/components/__tests__/ConnectorDiffDialog.test.tsx src/api/__tests__/apiWrappers.test.ts
-pnpm --filter @universo/applications-frontend lint
-pnpm --filter @universo/applications-backend build
-pnpm --filter @universo/applications-frontend build
+pnpm --filter @universo-react/types build
+pnpm --filter @universo-react/utils test
+pnpm --filter @universo-react/template-mui test
+pnpm --filter @universo-react/applications-backend test -- --runInBand src/tests/services/applicationLayouts*.test.ts src/tests/services/syncLayout*.test.ts src/tests/routes/applicationSyncRoutes.test.ts
+pnpm --filter @universo-react/applications-frontend exec vitest run src/pages/__tests__/ApplicationLayouts.test.tsx src/components/__tests__/ConnectorDiffDialog.test.tsx src/api/__tests__/apiWrappers.test.ts
+pnpm --filter @universo-react/applications-frontend lint
+pnpm --filter @universo-react/applications-backend build
+pnpm --filter @universo-react/applications-frontend build
 pnpm build
 node tools/testing/e2e/run-playwright-suite.mjs specs/flows/application-layout-management.spec.ts
 ```
@@ -470,7 +470,7 @@ Do not run `pnpm dev`; the project rule reserves dev server startup for the user
 - [ ] App-owned layouts survive connector sync, release bundle export/import, and public/runtime rendering.
 - [ ] Connector sync reports updated/removed/default-collision layout conflicts before writing data and requires explicit admin decisions for destructive or divergent cases.
 - [ ] Runtime only renders active default layouts and active widgets, while the application editor still exposes inactive widgets for reactivation.
-- [ ] Shared layout UI is extracted only where reused by both metahub and application packages, with no metahub-specific imports inside `@universo/template-mui`.
+- [ ] Shared layout UI is extracted only where reused by both metahub and application packages, with no metahub-specific imports inside `@universo-react/template-mui`.
 - [ ] All new user-facing text is localized in EN/RU, with package-local keys unless text is genuinely shared.
 - [ ] Targeted Jest, Vitest, package builds, root build, and Playwright screenshot proof pass.
 - [ ] GitBook docs and package READMEs describe the final lifecycle and conflict model.

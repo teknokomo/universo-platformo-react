@@ -9,15 +9,15 @@ identity and request-scoped database context.
 
 ## Current Model
 
-- Backend auth routes and middleware live in `@universo/auth-backend`.
-- Frontend auth helpers and UI flows live in `@universo/auth-frontend`.
+- Backend auth routes and middleware live in `@universo-react/auth-backend`.
+- Frontend auth helpers and UI flows live in `@universo-react/auth-frontend`.
 - Clients use session-aware requests and CSRF protection.
 - Request-scoped RLS context is applied for protected database operations.
 - Server-side provisioning flows use the Supabase Admin API through a server-only client built from `SUPABASE_URL` + `SERVICE_ROLE_KEY`.
 
 ## Startup Superuser Bootstrap
 
-During the first platform startup, `@universo/core-backend` can automatically create or confirm a bootstrap superuser when `BOOTSTRAP_SUPERUSER_ENABLED=true`.
+During the first platform startup, `@universo-react/core-backend` can automatically create or confirm a bootstrap superuser when `BOOTSTRAP_SUPERUSER_ENABLED=true`.
 
 The flow is intentionally strict:
 

@@ -19,8 +19,8 @@ import {
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedMetahub, recordCreatedApplication } from '../../support/backend/run-manifest.mjs'
 import { repoRoot } from '../../support/env/load-e2e-env.mjs'
-import { SHARED_OBJECT_KINDS } from '@universo/types'
-import { buildVLC, createLocalizedContent, validateSnapshotEnvelope } from '@universo/utils'
+import { SHARED_OBJECT_KINDS } from '@universo-react/types'
+import { buildVLC, createLocalizedContent, validateSnapshotEnvelope } from '@universo-react/utils'
 import {
     SELF_HOSTED_APP_CANONICAL_METAHUB,
     SELF_HOSTED_APP_FIXTURE_FILENAME,

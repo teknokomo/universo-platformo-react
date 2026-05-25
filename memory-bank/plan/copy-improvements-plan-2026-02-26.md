@@ -43,7 +43,7 @@
 
 ## 2.3 Архитектурный нюанс
 
-- `@universo/metahubs-backend` уже зависит от `@universo/applications-backend`.
+- `@universo-react/metahubs-backend` уже зависит от `@universo-react/applications-backend`.
 - Обратную зависимость добавлять нельзя (получится цикл), поэтому для опции `Создать схему приложения` нельзя делать прямой вызов sync-логики из `applications-backend` через импорт из `metahubs-backend`.
 - Безопасный вариант: оркестрация `copy -> sync` на frontend-уровне (или вынесение sync-core в отдельный общий пакет).
 
@@ -53,31 +53,31 @@
 
 ## 3.1 Frontend
 
-- `packages/metahubs-frontend/base/src/domains/metahubs/ui/MetahubActions.tsx`
-- `packages/metahubs-frontend/base/src/domains/branches/ui/BranchActions.tsx`
-- `packages/metahubs-frontend/base/src/domains/branches/ui/BranchList.tsx` (если унифицировать create/copy)
-- `packages/metahubs-frontend/base/src/domains/branches/api/branches.ts`
-- `packages/metahubs-frontend/base/src/types.ts`
-- `packages/metahubs-frontend/base/src/i18n/locales/{ru,en}/metahubs.json`
+- `packages/universo-react-metahubs-frontend/base/src/domains/metahubs/ui/MetahubActions.tsx`
+- `packages/universo-react-metahubs-frontend/base/src/domains/branches/ui/BranchActions.tsx`
+- `packages/universo-react-metahubs-frontend/base/src/domains/branches/ui/BranchList.tsx` (если унифицировать create/copy)
+- `packages/universo-react-metahubs-frontend/base/src/domains/branches/api/branches.ts`
+- `packages/universo-react-metahubs-frontend/base/src/types.ts`
+- `packages/universo-react-metahubs-frontend/base/src/i18n/locales/{ru,en}/metahubs.json`
 
-- `packages/applications-frontend/base/src/pages/ApplicationActions.tsx`
-- `packages/applications-frontend/base/src/pages/ApplicationList.tsx`
-- `packages/applications-frontend/base/src/api/applications.ts`
-- `packages/applications-frontend/base/src/hooks/mutations.ts`
-- `packages/applications-frontend/base/src/i18n/locales/{ru,en}/applications.json`
+- `packages/universo-react-applications-frontend/base/src/pages/ApplicationActions.tsx`
+- `packages/universo-react-applications-frontend/base/src/pages/ApplicationList.tsx`
+- `packages/universo-react-applications-frontend/base/src/api/applications.ts`
+- `packages/universo-react-applications-frontend/base/src/hooks/mutations.ts`
+- `packages/universo-react-applications-frontend/base/src/i18n/locales/{ru,en}/applications.json`
 
 ## 3.2 Backend
 
-- `packages/applications-backend/base/src/routes/applicationsRoutes.ts`
-- `packages/metahubs-backend/base/src/domains/branches/routes/branchesRoutes.ts`
-- `packages/metahubs-backend/base/src/domains/branches/services/MetahubBranchesService.ts`
+- `packages/universo-react-applications-backend/base/src/routes/applicationsRoutes.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/branches/routes/branchesRoutes.ts`
+- `packages/universo-react-metahubs-backend/base/src/domains/branches/services/MetahubBranchesService.ts`
 
 ## 3.3 Tests
 
-- `packages/applications-backend/base/src/tests/routes/applicationsRoutes.test.ts`
-- `packages/applications-frontend/base/src/api/__tests__/apiWrappers.test.ts`
-- `packages/applications-frontend/base/src/hooks/__tests__/mutations.test.tsx`
-- `packages/applications-frontend/base/src/pages/__tests__/actionDescriptors.coverage.test.tsx`
+- `packages/universo-react-applications-backend/base/src/tests/routes/applicationsRoutes.test.ts`
+- `packages/universo-react-applications-frontend/base/src/api/__tests__/apiWrappers.test.ts`
+- `packages/universo-react-applications-frontend/base/src/hooks/__tests__/mutations.test.tsx`
+- `packages/universo-react-applications-frontend/base/src/pages/__tests__/actionDescriptors.coverage.test.tsx`
 - (добавить) тесты веток frontend/backend для новых copy-options.
 
 ---
@@ -154,13 +154,13 @@
 
 ## Phase D — Рефакторинг и качество
 
-- [ ] D1. Вынести типы опций в `@universo/types` (общий контракт frontend/backend).
-- [ ] D2. Вынести helpers зависимостей/нормализации опций в `@universo/utils`.
+- [ ] D1. Вынести типы опций в `@universo-react/types` (общий контракт frontend/backend).
+- [ ] D2. Вынести helpers зависимостей/нормализации опций в `@universo-react/utils`.
 - [ ] D3. Проверка линтерами и сборкой целевых пакетов:
-  - `pnpm --filter @universo/metahubs-frontend lint`
-  - `pnpm --filter @universo/applications-frontend lint`
-  - `pnpm --filter @universo/metahubs-backend lint`
-  - `pnpm --filter @universo/applications-backend lint`
+  - `pnpm --filter @universo-react/metahubs-frontend lint`
+  - `pnpm --filter @universo-react/applications-frontend lint`
+  - `pnpm --filter @universo-react/metahubs-backend lint`
+  - `pnpm --filter @universo-react/applications-backend lint`
   - точечные тесты изменённых пакетов.
 
 ---
@@ -275,7 +275,7 @@ await ds.transaction(async (tx) => {
   - `applications-frontend` <-> `metahubs-backend` (`/application/:id/sync`),
   - `metahubs-frontend` <-> `metahubs-backend` (branch copy options).
 - i18n:
-  - ключи в доменных namespace + использование `common` из `@universo/i18n` где возможно.
+  - ключи в доменных namespace + использование `common` из `@universo-react/i18n` где возможно.
 - UUID:
   - использовать текущий UUID v7 pipeline (как и сейчас в БД/DDL).
 
@@ -315,7 +315,7 @@ The gaps below must be fixed before implementation starts.
 
 - Remove `copySettings` from MVP branch copy options.
   - Reason: not explicitly requested; adds unnecessary UI and behavioral scope.
-- Treat Phase D (`@universo/types`, `@universo/utils` extraction) as optional post-MVP hardening.
+- Treat Phase D (`@universo-react/types`, `@universo-react/utils` extraction) as optional post-MVP hardening.
   - Reason: this refactor is valuable but not required to satisfy the user story.
 - Application copy must reset runtime schema state for every copied application when schema is not explicitly created.
   - Required reset fields: `schemaStatus`, `schemaSyncedAt`, `schemaError`, `schemaSnapshot`, `appStructureVersion`, `lastSyncedPublicationVersionId`.

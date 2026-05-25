@@ -33,10 +33,10 @@ All four schemas now bootstrap as application-like fixed schemas.
 
 ## Ownership Boundaries
 
-- `@universo/migrations-platform` owns manifest loading, schema plan compilation, and fixed-schema bootstrap orchestration.
-- `@universo/metahubs-backend` owns publication runtime sources and publication authoring logic.
-- `@universo/applications-backend` owns application runtime sync and diff routes.
-- `@universo/core-backend` composes the publication source seam with the application-owned sync routes.
+- `@universo-react/migrations-platform` owns manifest loading, schema plan compilation, and fixed-schema bootstrap orchestration.
+- `@universo-react/metahubs-backend` owns publication runtime sources and publication authoring logic.
+- `@universo-react/applications-backend` owns application runtime sync and diff routes.
+- `@universo-react/core-backend` composes the publication source seam with the application-owned sync routes.
 
 ## Acceptance Contract
 

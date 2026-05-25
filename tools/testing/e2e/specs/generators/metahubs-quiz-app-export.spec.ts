@@ -12,7 +12,7 @@ import {
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
 import { repoRoot } from '../../support/env/load-e2e-env.mjs'
-import { validateSnapshotEnvelope } from '@universo/utils'
+import { validateSnapshotEnvelope } from '@universo-react/utils'
 import {
     QUIZ_CANONICAL_METAHUB,
     QUIZ_CENTERED_LAYOUT_CONFIG,

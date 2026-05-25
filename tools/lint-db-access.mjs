@@ -18,52 +18,52 @@ const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const ROOT = join(__dirname, '..')
 
 const DOMAIN_PACKAGES = [
-    'packages/metahubs-backend/src',
-    'packages/applications-backend/src',
-    'packages/admin-backend/src',
-    'packages/profile-backend/src',
-    'packages/auth-backend/src',
-    'packages/start-backend/src'
+    'packages/universo-react-metahubs-backend/src',
+    'packages/universo-react-applications-backend/src',
+    'packages/universo-react-admin-backend/src',
+    'packages/universo-react-profile-backend/src',
+    'packages/universo-react-auth-backend/src',
+    'packages/universo-react-start-backend/src'
 ]
 
 // Path patterns to exclude (legitimate Tier 3 infrastructure)
 const EXCLUDED_PATTERNS = [
     // auth-backend: ensureAuthWithRls middleware legitimately uses getKnex() for RLS
-    /packages\/auth-backend\/.*\/middlewares\//,
+    /packages\/universo-react-auth-backend\/.*\/middlewares\//,
     // metahubs-backend DDL subsystem: legitimate Knex usage for DDL
-    /packages\/metahubs-backend\/.*\/domains\/ddl\//,
-    /packages\/metahubs-backend\/.*\/services\/SystemTableDDLGenerator\.ts$/,
-    /packages\/metahubs-backend\/.*\/services\/SystemTableMigrator\.ts$/,
-    /packages\/metahubs-backend\/.*\/services\/structureVersions\.ts$/,
+    /packages\/universo-react-metahubs-backend\/.*\/domains\/ddl\//,
+    /packages\/universo-react-metahubs-backend\/.*\/services\/SystemTableDDLGenerator\.ts$/,
+    /packages\/universo-react-metahubs-backend\/.*\/services\/SystemTableMigrator\.ts$/,
+    /packages\/universo-react-metahubs-backend\/.*\/services\/structureVersions\.ts$/,
     // metahubs-backend template seed subsystem: Knex-based seed/migration flow via MetahubSchemaService
-    /packages\/metahubs-backend\/.*\/templates\/services\//,
+    /packages\/universo-react-metahubs-backend\/.*\/templates\/services\//,
     // MetahubSchemaService: DDL orchestrator using Knex for advisory locks, migration recording, seed flow
-    /packages\/metahubs-backend\/.*\/services\/MetahubSchemaService\.ts$/,
+    /packages\/universo-react-metahubs-backend\/.*\/services\/MetahubSchemaService\.ts$/,
     // MetahubBranchesService: uses Knex for advisory locks during branch create/delete
-    /packages\/metahubs-backend\/.*\/services\/MetahubBranchesService\.ts$/,
+    /packages\/universo-react-metahubs-backend\/.*\/services\/MetahubBranchesService\.ts$/,
     // metahubs-backend DDL-adjacent services: build SQL descriptors / index SQL, not executable interpolation
-    /packages\/metahubs-backend\/.*\/services\/systemTableDefinitions\.ts$/,
-    /packages\/metahubs-backend\/.*\/services\/systemTableDiff\.ts$/,
+    /packages\/universo-react-metahubs-backend\/.*\/services\/systemTableDefinitions\.ts$/,
+    /packages\/universo-react-metahubs-backend\/.*\/services\/systemTableDiff\.ts$/,
     // metahubs-backend platform migration seed files: Tier 3 Knex-based migrations
-    /packages\/metahubs-backend\/.*\/platform\/migrations\//,
+    /packages\/universo-react-metahubs-backend\/.*\/platform\/migrations\//,
     // Snapshot restore runs as an explicit package-local transactional restore boundary.
-    /packages\/metahubs-backend\/.*\/services\/SnapshotRestoreService\.ts$/,
+    /packages\/universo-react-metahubs-backend\/.*\/services\/SnapshotRestoreService\.ts$/,
     // applications-backend DDL boundary: legitimate Knex usage for schema sync/runtime metadata orchestration
-    /packages\/applications-backend\/.*\/ddl\//,
+    /packages\/universo-react-applications-backend\/.*\/ddl\//,
     // applications-backend platform migration seed files: Tier 3 SQL migration definitions
-    /packages\/applications-backend\/.*\/platform\/migrations\//
+    /packages\/universo-react-applications-backend\/.*\/platform\/migrations\//
 ]
 
 const RULES = [
     {
         name: 'no-knex-import',
         pattern: /import\s+(?:type\s+)?(?:\{[^}]*\}|[\w*]+)\s+from\s+['"]knex['"]/,
-        message: "Domain code must not import from 'knex' — use @universo/database or @universo/utils/database contracts"
+        message: "Domain code must not import from 'knex' — use @universo-react/database or @universo-react/utils/database contracts"
     },
     {
         name: 'no-knex-client-singleton',
         pattern: /KnexClient\.getInstance\(\)/,
-        message: 'KnexClient.getInstance() is banned — use getPoolExecutor() from @universo/database'
+        message: 'KnexClient.getInstance() is banned — use getPoolExecutor() from @universo-react/database'
     },
     {
         name: 'no-knex-client-import',
@@ -73,17 +73,17 @@ const RULES = [
     {
         name: 'no-get-knex-in-domain',
         pattern: /\bgetKnex\s*\(/,
-        message: 'getKnex() in domain code is banned — use getPoolExecutor() from @universo/database'
+        message: 'getKnex() in domain code is banned — use getPoolExecutor() from @universo-react/database'
     },
     {
         name: 'no-unsafe-schema-table-interpolation',
         pattern: /`[^`]*"\$\{[^}]+\}"\s*\.\s*"\$\{[^}]+\}"[^`]*`/,
-        message: 'Unsafe schema.table interpolation — use qSchemaTable() from @universo/database'
+        message: 'Unsafe schema.table interpolation — use qSchemaTable() from @universo-react/database'
     },
     {
         name: 'no-unsafe-identifier-in-sql',
         pattern: /(?:^|[\s(])(?:SELECT|FROM|JOIN|INTO|UPDATE|DELETE\s+FROM|WHERE|SET|INSERT|CREATE|ALTER|DROP)\s+[^`]*"\$\{/i,
-        message: 'Unsafe identifier interpolation in SQL — use qSchemaTable()/qColumn() from @universo/database'
+        message: 'Unsafe identifier interpolation in SQL — use qSchemaTable()/qColumn() from @universo-react/database'
     }
 ]
 

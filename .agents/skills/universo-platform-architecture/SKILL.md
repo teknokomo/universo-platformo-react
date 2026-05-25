@@ -1,6 +1,6 @@
 ---
 name: universo-platform-architecture
-description: Use when planning, implementing, or reviewing work that touches metahub configurations, the metahub→application→workspace placement of behavior, the platform-level entity type presets (Hub, Object, Page, Set, Enumeration, Ledger, Constants Library), the Entity Type Constructor, metahub templates (basic, basic-demo, empty, lms), LMS-style configurations, the legacy feature packages (metahubs-*, applications-*, admin-*, profile-*, start-*) being migrated to applications, the apps-template-mui transition, the pseudo-app bootstrap pattern, the planned first-run Setup Wizard and marketplace, or the platform DB layer status (Knex + raw SQL through DbExecutor, three-tier executors, @universo/schema-ddl, the post-TypeORM transitional state). Encodes the two-level type system, the `recordBehavior` mechanism that lets Object cover Catalog/Document/Register-style behavior, the strengthen-existing-type rule, and the practical rules for development during the architectural transition.
+description: Use when planning, implementing, or reviewing work that touches metahub configurations, the metahub→application→workspace placement of behavior, the platform-level entity type presets (Hub, Object, Page, Set, Enumeration, Ledger, Constants Library), the Entity Type Constructor, metahub templates (basic, basic-demo, empty, lms), LMS-style configurations, the legacy feature packages (metahubs-*, applications-*, admin-*, profile-*, start-*) being migrated to applications, the apps-template-mui transition, the pseudo-app bootstrap pattern, the planned first-run Setup Wizard and marketplace, or the platform DB layer status (Knex + raw SQL through DbExecutor, three-tier executors, @universo-react/schema-ddl, the post-TypeORM transitional state). Encodes the two-level type system, the `recordBehavior` mechanism that lets Object cover Catalog/Document/Register-style behavior, the strengthen-existing-type rule, and the practical rules for development during the architectural transition.
 metadata:
     version: '1.3.0'
     scope: 'universo-platform-architecture'
@@ -59,7 +59,7 @@ here instead of restating them.
 -   The **Setup Wizard** that will run on first launch to install system
     applications and marketplace applications.
 -   The **DB layer status**: the platform replaced TypeORM with Knex +
-    raw SQL through `DbExecutor.query()`, plus `@universo/schema-ddl` for
+    raw SQL through `DbExecutor.query()`, plus `@universo-react/schema-ddl` for
     DDL/migrations. The layer is work-in-progress; new code stays on the
     current path (three-tier executors, parameterized schema-qualified
     SQL) and broad rewrites are routed through a dedicated discussion.
@@ -104,8 +104,8 @@ these concepts, confirm and record:
     flags, labels, icons) into shared widgets. Configuration-specific data
     belongs in metadata or i18n resources; widgets stay generic.
 -   LMS-specific or any other configuration-specific UI must compose from
-    the primitives in `packages/apps-template-mui` and
-    `packages/universo-template-mui` (dashboards, data grids, cards, form
+    the primitives in `packages/universo-react-apps-template-mui` and
+    `packages/universo-react-template-mui` (dashboards, data grids, cards, form
     dialogs). New widget types are justified only when the visual or
     interaction model truly cannot be expressed by the existing widget set.
 -   During the architectural transition, do not block tasks on the
@@ -121,7 +121,7 @@ these concepts, confirm and record:
 ### Platform-Level Entity Type Presets
 
 The platform registers seven presets in `builtinEntityTypePresets`
-(`packages/metahubs-backend/src/domains/templates/data/index.ts`).
+(`packages/universo-react-metahubs-backend/src/domains/templates/data/index.ts`).
 Each preset carries an `EntityTypeCapabilities` set that drives its
 behavior.
 
@@ -239,7 +239,7 @@ from authoring decisions (such as `config.recordBehavior` on Object).
 -   Read `references/db-layer-status.md` when work touches database
     access, migrations, or proposes changes to the data-access stack
     (Knex + raw SQL through `DbExecutor.query()`, three-tier executor
-    pattern, `@universo/schema-ddl`).
+    pattern, `@universo-react/schema-ddl`).
 
 ## Adjacent Skills
 

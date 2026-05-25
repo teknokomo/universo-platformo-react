@@ -18,22 +18,22 @@ module.exports = {
     moduleNameMapper: {
         '^@testing/backend/(.*)$': path.join(__dirname, '$1'),
         '^@/(.*)$': '<rootDir>/src/$1',
-        '^@universo/auth-backend$': path.join(repoRoot, 'packages/auth-backend/dist/index.js'),
-        '^@universo/auth-backend/(.*)$': path.join(repoRoot, 'packages/auth-backend/dist/$1'),
-        '^@universo/database$': path.join(repoRoot, 'packages/universo-database/src/index.ts'),
-        '^@universo/database/(.*)$': path.join(repoRoot, 'packages/universo-database/src/$1'),
-        '^@universo/types$': path.join(repoRoot, 'packages/universo-types/src/index.ts'),
-        '^@universo/types/(.*)$': path.join(repoRoot, 'packages/universo-types/src/$1'),
-        '^@universo/modules-engine$': path.join(repoRoot, 'packages/modules-engine/src/index.ts'),
-        '^@universo/modules-engine/(.*)$': path.join(repoRoot, 'packages/modules-engine/src/$1'),
-        '^@universo/utils$': path.join(repoRoot, 'packages/universo-utils/src/index.ts'),
-        '^@universo/utils/database$': path.join(repoRoot, 'packages/universo-utils/src/database/index.ts'),
-        '^@universo/utils/database/(.*)$': path.join(repoRoot, 'packages/universo-utils/src/database/$1'),
-        '^@universo/utils/(.*)$': path.join(repoRoot, 'packages/universo-utils/src/$1'),
-        '^@universo/migrations-core$': path.join(repoRoot, 'packages/universo-migrations-core/src/index.ts'),
-        '^@universo/migrations-core/(.*)$': path.join(repoRoot, 'packages/universo-migrations-core/src/$1'),
-        '^@universo/migrations-catalog$': path.join(repoRoot, 'packages/universo-migrations-catalog/src/index.ts'),
-        '^@universo/migrations-catalog/(.*)$': path.join(repoRoot, 'packages/universo-migrations-catalog/src/$1')
+        '^@universo-react/auth-backend$': path.join(repoRoot, 'packages/universo-react-auth-backend/dist/index.js'),
+        '^@universo-react/auth-backend/(.*)$': path.join(repoRoot, 'packages/universo-react-auth-backend/dist/$1'),
+        '^@universo-react/database$': path.join(repoRoot, 'packages/universo-react-database/src/index.ts'),
+        '^@universo-react/database/(.*)$': path.join(repoRoot, 'packages/universo-react-database/src/$1'),
+        '^@universo-react/types$': path.join(repoRoot, 'packages/universo-react-types/src/index.ts'),
+        '^@universo-react/types/(.*)$': path.join(repoRoot, 'packages/universo-react-types/src/$1'),
+        '^@universo-react/modules-engine$': path.join(repoRoot, 'packages/universo-react-modules-engine/src/index.ts'),
+        '^@universo-react/modules-engine/(.*)$': path.join(repoRoot, 'packages/universo-react-modules-engine/src/$1'),
+        '^@universo-react/utils$': path.join(repoRoot, 'packages/universo-react-utils/src/index.ts'),
+        '^@universo-react/utils/database$': path.join(repoRoot, 'packages/universo-react-utils/src/database/index.ts'),
+        '^@universo-react/utils/database/(.*)$': path.join(repoRoot, 'packages/universo-react-utils/src/database/$1'),
+        '^@universo-react/utils/(.*)$': path.join(repoRoot, 'packages/universo-react-utils/src/$1'),
+        '^@universo-react/migrations-core$': path.join(repoRoot, 'packages/universo-react-migrations-core/src/index.ts'),
+        '^@universo-react/migrations-core/(.*)$': path.join(repoRoot, 'packages/universo-react-migrations-core/src/$1'),
+        '^@universo-react/migrations-catalog$': path.join(repoRoot, 'packages/universo-react-migrations-catalog/src/index.ts'),
+        '^@universo-react/migrations-catalog/(.*)$': path.join(repoRoot, 'packages/universo-react-migrations-catalog/src/$1')
     },
     collectCoverageFrom: [
         '<rootDir>/src/**/*.{ts,tsx}',
@@ -51,6 +51,6 @@ module.exports = {
             }
         ]
     },
-    transformIgnorePatterns: ['node_modules/(?!@universo)', 'packages/.*/dist'],
+    transformIgnorePatterns: ['node_modules/(?!@universo-react)', 'packages/.*/dist'],
     modulePathIgnorePatterns: ['<rootDir>/dist']
 }

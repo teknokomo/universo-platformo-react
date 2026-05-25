@@ -28,10 +28,10 @@ Knex remains the shared transport and DDL engine, but day-to-day domain logic ta
 
 ## Allowed Tier 3 Boundaries
 
-- `@universo/schema-ddl` and migration packages own direct Knex DDL orchestration.
-- `@universo/database` owns the shared Knex lifecycle and executor factories.
-- `@universo/applications-backend` keeps raw Knex behind `src/ddl/index.ts` for runtime sync DDL orchestration.
-- `@universo/metahubs-backend` keeps raw Knex inside its DDL seams and schema-ddl integration paths.
+- `@universo-react/schema-ddl` and migration packages own direct Knex DDL orchestration.
+- `@universo-react/database` owns the shared Knex lifecycle and executor factories.
+- `@universo-react/applications-backend` keeps raw Knex behind `src/ddl/index.ts` for runtime sync DDL orchestration.
+- `@universo-react/metahubs-backend` keeps raw Knex inside its DDL seams and schema-ddl integration paths.
 - These boundaries may bridge back into executor-style contracts, but route and store code outside them stay SQL-first.
 
 ## Request Flow

@@ -18,7 +18,7 @@ Each layer normalizes the same shared manifest contract so role, source kind, an
 ## Safety Boundaries
 
 - Embedded authoring is the only supported source mode in v1.
-- Embedded modules may import from `@universo/extension-sdk`, and consumer modules may additionally import Resources workspace libraries through `@shared/<codename>`; other static imports, `require()`, dynamic `import()`, and `import.meta` fail compilation.
+- Embedded modules may import from `@universo-react/extension-sdk`, and consumer modules may additionally import Resources workspace libraries through `@shared/<codename>`; other static imports, `require()`, dynamic `import()`, and `import.meta` fail compilation.
 - The `general` attachment scope is reserved for `library`, and new `library` authoring is rejected outside the Resources workspace before bundles are stored.
 - Shared libraries must stay pure: decorators, runtime ctx access, and executable runtime entrypoints are rejected during validation.
 - Dependency-sensitive shared-library deletes, codename changes, and circular `@shared/*` graphs fail closed before publication sync can produce runtime state.
@@ -29,6 +29,6 @@ Each layer normalizes the same shared manifest contract so role, source kind, an
 
 ## Related Surfaces
 
-- `@universo/extension-sdk` defines the author-facing base class and decorators.
-- `@universo/modules-engine` owns compilation, bundle splitting, isolate pooling, and health monitoring.
+- `@universo-react/extension-sdk` defines the author-facing base class and decorators.
+- `@universo-react/modules-engine` owns compilation, bundle splitting, isolate pooling, and health monitoring.
 - Applications runtime routes expose list, client bundle, and server call endpoints for published modules.

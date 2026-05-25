@@ -31,19 +31,19 @@ The first practical use case is a **Space Quiz** dashboard widget — 10 space-t
 
 | Package | Type | Location | Purpose |
 |---------|------|----------|---------|
-| `@universo/extension-sdk` | Source-only (peerDeps) | `packages/extension-sdk/base/` | Stable SDK contract for script authors: TypeScript types, decorators, registry metadata, `ExtensionScript` base class |
+| `@universo-react/extension-sdk` | Source-only (peerDeps) | `packages/universo-react-extension-sdk/base/` | Stable SDK contract for script authors: TypeScript types, decorators, registry metadata, `ExtensionScript` base class |
 | `@universo/scripting-engine` | Built (tsdown) | `packages/scripting-engine/base/` | V8 isolate pool, event router, script compiler, RPC handler |
 
 ## Affected Existing Packages (8)
 
 | Package | Scope of changes |
 |---------|-----------------|
-| `@universo/types` | Add `ScriptManifest`, `MetahubScriptSnapshot` types; extend snapshot schema |
-| `@universo/schema-ddl` | Add `_mhb_scripts` to branch system tables; add `_app_scripts` to runtime tables |
-| `@universo/metahubs-backend` | New `scripts` domain (controller/service/store); extend `SnapshotSerializer` |
-| `@universo/metahubs-frontend` | New `scripts` domain (hooks/pages); CodeMirror 6 editor integration (already in project) |
-| `@universo/applications-backend` | `scriptRpcRoutes`; extend `syncEngine` with `persistPublishedScripts()` |
-| `@universo/apps-template-mui` | `quizWidget` case in `widgetRenderer`; `QuizWidget` component (standard React, no generic ScriptedWidgetHost in v1) |
+| `@universo-react/types` | Add `ScriptManifest`, `MetahubScriptSnapshot` types; extend snapshot schema |
+| `@universo-react/schema-ddl` | Add `_mhb_scripts` to branch system tables; add `_app_scripts` to runtime tables |
+| `@universo-react/metahubs-backend` | New `scripts` domain (controller/service/store); extend `SnapshotSerializer` |
+| `@universo-react/metahubs-frontend` | New `scripts` domain (hooks/pages); CodeMirror 6 editor integration (already in project) |
+| `@universo-react/applications-backend` | `scriptRpcRoutes`; extend `syncEngine` with `persistPublishedScripts()` |
+| `@universo-react/apps-template-mui` | `quizWidget` case in `widgetRenderer`; `QuizWidget` component (standard React, no generic ScriptedWidgetHost in v1) |
 | `@universo/universo-i18n` | New `scripting` and `quiz` i18n namespaces |
 | `@universo/universo-migrations-platform` | Migration for `_app_scripts` in runtime schemas |
 
@@ -51,9 +51,9 @@ The first practical use case is a **Space Quiz** dashboard widget — 10 space-t
 
 ## Phase 1: SDK + Engine Foundation
 
-### Step 1.1: Create `@universo/extension-sdk` package
+### Step 1.1: Create `@universo-react/extension-sdk` package
 
-- [ ] Create `packages/extension-sdk/base/` directory structure
+- [ ] Create `packages/universo-react-extension-sdk/base/` directory structure
 - [ ] Create `package.json` with source-only pattern (peerDependencies, no `main` to dist)
 - [ ] Add to `pnpm-workspace.yaml`
 - [ ] Add centralized version to root `pnpm-workspace.yaml` `catalog:`
@@ -61,7 +61,7 @@ The first practical use case is a **Space Quiz** dashboard widget — 10 space-t
 **Key files:**
 
 ```
-packages/extension-sdk/base/
+packages/universo-react-extension-sdk/base/
 ├── package.json
 ├── tsconfig.json
 ├── src/
@@ -82,7 +82,7 @@ packages/extension-sdk/base/
 ```
 
 > **GDExtension analogue in Universo:** the direct analogue is not a native shared library loader. It is the combination of:
-> - `@universo/extension-sdk` as the stable host contract,
+> - `@universo-react/extension-sdk` as the stable host contract,
 > - a versioned manifest (`sdkApiVersion`) produced at publish time,
 > - registry metadata (module role, attachment kind, lifecycle handlers, declared capabilities),
 > - and the runtime `ScriptEngine` that loads compiled bundles into isolated sandboxes.
@@ -150,9 +150,9 @@ export abstract class ExtensionScript {
 ```
 
 > **SDK package constraints (IMPORTANT):**
-> - `@universo/extension-sdk` is a **source-only** package — it has no build step and no `dist/` output
+> - `@universo-react/extension-sdk` is a **source-only** package — it has no build step and no `dist/` output
 > - It is a **peerDependency** of `@universo/scripting-engine` (backend only)
-> - **Frontend packages must NOT import `@universo/extension-sdk` directly** — the frontend `tsconfig.json` does not enable `experimentalDecorators` and decorator syntax will fail to compile through the frontend build pipeline
+> - **Frontend packages must NOT import `@universo-react/extension-sdk` directly** — the frontend `tsconfig.json` does not enable `experimentalDecorators` and decorator syntax will fail to compile through the frontend build pipeline
 > - Script authors write TypeScript in the embedded CodeMirror editor; their code is compiled by `ScriptCompiler` (esbuild) on the server at publication time, not by the project's frontend tsc
 > - SDK types are provided to the CodeMirror editor for autocompletion via a custom `CompletionSource` (string-based, no TS import required)
 > - The compiled client-side script bundles (plain JavaScript) are served via the `/scripts/:scriptId/client` endpoint and loaded by the browser — no decorator syntax in the output
@@ -278,7 +278,7 @@ export class RecordsBridge {
 
 > **Security constraint:** `RecordAPI` / `MetadataAPI` are the public scripting surface. Raw SQL is not part of the v1 extension SDK. This matches the original requirement to address data by metadata kind and codename, reduces sandbox attack surface, and avoids leaking the runtime schema model into user scripts.
 
-### Step 1.3: Add shared types to `@universo/types`
+### Step 1.3: Add shared types to `@universo-react/types`
 
 - [ ] Add `ScriptManifest` and `EventHandlerManifest` types
 - [ ] Add `MetahubScriptSnapshot` type for snapshot transport
@@ -287,7 +287,7 @@ export class RecordsBridge {
 **Code example:**
 
 ```typescript
-// packages/universo-types/base/src/common/scripts.ts
+// packages/universo-react-types/base/src/common/scripts.ts
 
 export interface ScriptManifest {
   scriptId: string
@@ -331,7 +331,7 @@ export interface MetahubScriptSnapshot {
 }
 ```
 
-### Step 1.4: Add `_mhb_scripts` table to `@universo/schema-ddl`
+### Step 1.4: Add `_mhb_scripts` table to `@universo-react/schema-ddl`
 
 - [ ] Add `_mhb_scripts` as a system table definition in `SchemaGenerator`
 - [ ] Include standard `_upl_*` and `_mhb_*` lifecycle fields
@@ -411,7 +411,7 @@ CREATE TABLE IF NOT EXISTS <schema>._mhb_scripts (
 **Code example:**
 
 ```typescript
-// packages/universo-i18n/base/src/namespaces/scripting.ts
+// packages/universo-react-i18n/base/src/namespaces/scripting.ts
 import { registerNamespace } from '../registry'
 
 registerNamespace('scripting', {
@@ -486,7 +486,7 @@ registerNamespace('scripting', {
 
 ## Phase 2: Metahub Integration (Script CRUD + Editor)
 
-### Step 2.1: Scripts domain in `@universo/metahubs-backend`
+### Step 2.1: Scripts domain in `@universo-react/metahubs-backend`
 
 - [ ] Create `domains/scripts/` directory following Controller–Service–Store pattern
 - [ ] Implement `scriptsStore.ts` (CRUD against `_mhb_scripts` via `DbExecutor.query()`)
@@ -516,7 +516,7 @@ Supported create/update payload fields must include:
 **Code example — scriptsStore.ts:**
 
 ```typescript
-import type { DbExecutor } from '@universo/utils'
+import type { DbExecutor } from '@universo-react/utils'
 
 export async function listScripts(
   executor: DbExecutor,
@@ -632,7 +632,7 @@ snapshot.scripts = compilation.scripts.map(s => ({
 }))
 ```
 
-### Step 2.3: Script editor UI in `@universo/metahubs-frontend`
+### Step 2.3: Script editor UI in `@universo-react/metahubs-frontend`
 
 - [ ] Create `domains/scripts/` directory with hooks, components, utils
 - [ ] Add "Scripts" / "Модули" tab to entity editing dialogs using the existing `buildFormTabs()` + `TabConfig` pattern:
@@ -725,7 +725,7 @@ export function useCreateScript(metahubId: string, branchId: string) {
 }
 ```
 
-**CodeMirror 6 integration**: Reuse the existing `@uiw/react-codemirror` (^4.23.0) and `@codemirror/lang-javascript` (^6.2.4) packages already in the project catalog. Add a custom `CompletionSource` via `@codemirror/autocomplete` to provide `@universo/extension-sdk` type completions (class names, decorator names, lifecycle event names). Use VSCode theme (`@uiw/codemirror-theme-vscode`) already in the catalog for consistent look. **Do NOT add Monaco Editor** — the project standardizes on CodeMirror 6.
+**CodeMirror 6 integration**: Reuse the existing `@uiw/react-codemirror` (^4.23.0) and `@codemirror/lang-javascript` (^6.2.4) packages already in the project catalog. Add a custom `CompletionSource` via `@codemirror/autocomplete` to provide `@universo-react/extension-sdk` type completions (class names, decorator names, lifecycle event names). Use VSCode theme (`@uiw/codemirror-theme-vscode`) already in the catalog for consistent look. **Do NOT add Monaco Editor** — the project standardizes on CodeMirror 6.
 
 ### Step 2.4: Unit/integration tests for Phase 2
 
@@ -832,7 +832,7 @@ async function persistPublishedScripts(
 }
 ```
 
-### Step 3.3: Script RPC routes in `@universo/applications-backend`
+### Step 3.3: Script RPC routes in `@universo-react/applications-backend`
 
 - [ ] Create `scriptRpcRoutes.ts` with POST `/:applicationId/script-rpc` endpoint
 - [ ] Zod validation for RPC body (`scriptId`, `method` regex-validated, `args` array)
@@ -893,12 +893,12 @@ router.post('/:applicationId/script-rpc',
 - [ ] Capability gating: widget scripts cannot obtain write APIs, undeclared capabilities are not injected
 - [ ] Health monitor: failing scripts trip circuit breaker and recover after cooldown
 
-### Step 3.6: CRUD lifecycle hook injection in `@universo/applications-backend`
+### Step 3.6: CRUD lifecycle hook injection in `@universo-react/applications-backend`
 
 The scripting system must intercept element create/update/delete operations to fire lifecycle events (`OnBeforeElementCreate`, `OnAfterElementCreate`, etc.). Currently the applications-backend has no hook/interceptor pattern in its CRUD pipeline — store functions execute raw SQL directly.
 
 - [ ] Create `ScriptLifecycleInterceptor` class in `@universo/scripting-engine`
-- [ ] Add wrapper layer around element store operations in `@universo/applications-backend`
+- [ ] Add wrapper layer around element store operations in `@universo-react/applications-backend`
 - [ ] Wire `EventRouter` lifecycle dispatch into the wrapper layer
 
 **Design: Interceptor wrapper pattern**
@@ -1011,7 +1011,7 @@ const result = await interceptor.wrapOperation(
 - [ ] Add `case 'quizWidget':` to `renderWidget()` switch
 - [ ] Create `QuizWidget.tsx` component with MUI Card/Button/LinearProgress
 
-> **Note**: `ScriptedWidgetHost` (generic host for dynamically-rendered script-driven UI trees via `WidgetRenderResult`) is **deferred to a future phase** beyond this plan. For v1, `QuizWidget` is a standard hardcoded React component that calls server RPC methods for data and scoring. This avoids the complexity of a generic serializable UI tree renderer while delivering the full Quiz use case. The `widget.ts` types in `@universo/extension-sdk` should still define the `WidgetExtension` interface for future use, but `WidgetRenderResult` and `ScriptedWidgetHost` are not implemented in this plan.
+> **Note**: `ScriptedWidgetHost` (generic host for dynamically-rendered script-driven UI trees via `WidgetRenderResult`) is **deferred to a future phase** beyond this plan. For v1, `QuizWidget` is a standard hardcoded React component that calls server RPC methods for data and scoring. This avoids the complexity of a generic serializable UI tree renderer while delivering the full Quiz use case. The `widget.ts` types in `@universo-react/extension-sdk` should still define the `WidgetExtension` interface for future use, but `WidgetRenderResult` and `ScriptedWidgetHost` are not implemented in this plan.
 
 **Code example — QuizWidget.tsx (key rendering):**
 
@@ -1129,7 +1129,7 @@ registerNamespace('quiz', {
 
 ### Step 5.4: Documentation
 
-- [ ] `packages/extension-sdk/base/README.md` — SDK API reference, decorator usage, lifecycle events
+- [ ] `packages/universo-react-extension-sdk/base/README.md` — SDK API reference, decorator usage, lifecycle events
 - [ ] `packages/scripting-engine/base/README.md` — engine architecture, configuration, deployment
 - [ ] Update `docs/en/guides/` and `docs/ru/guides/` with scripting user guide (GitBook)
 - [ ] Update `docs/en/api-reference/` with script RPC endpoint docs
@@ -1167,15 +1167,15 @@ registerNamespace('quiz', {
 ## Dependencies Graph
 
 ```
-@universo/extension-sdk (source-only, no deps)
+@universo-react/extension-sdk (source-only, no deps)
          │
          ▼
 @universo/scripting-engine
 ├── isolated-vm
 ├── esbuild
 ├── acorn
-├── @universo/extension-sdk (peerDep)
-└── @universo/types (peerDep)
+├── @universo-react/extension-sdk (peerDep)
+└── @universo-react/types (peerDep)
          │
     ┌────┴────────┐
     ▼             ▼
@@ -1210,23 +1210,23 @@ Before considering implementation complete:
 ## Implementation Checklist (Summary)
 
 ### Phase 1 — SDK + Engine Foundation
-- [x] Step 1.1: Create `@universo/extension-sdk` package
+- [x] Step 1.1: Create `@universo-react/extension-sdk` package
 - [x] Step 1.2: Create `@universo/scripting-engine` package
-- [x] Step 1.3: Add shared types to `@universo/types`
-- [x] Step 1.4: Add `_mhb_scripts` table to `@universo/schema-ddl`
+- [x] Step 1.3: Add shared types to `@universo-react/types`
+- [x] Step 1.4: Add `_mhb_scripts` table to `@universo-react/schema-ddl`
 - [x] Step 1.5: Unit tests for Phase 1
 - [x] Step 1.6: i18n namespaces for scripting
 
 ### Phase 2 — Metahub Integration
-- [x] Step 2.1: Scripts domain in `@universo/metahubs-backend`
+- [x] Step 2.1: Scripts domain in `@universo-react/metahubs-backend`
 - [x] Step 2.2: Extend `SnapshotSerializer`
-- [x] Step 2.3: Script editor UI in `@universo/metahubs-frontend`
+- [x] Step 2.3: Script editor UI in `@universo-react/metahubs-frontend`
 - [x] Step 2.4: Tests for Phase 2
 
 ### Phase 3 — Runtime Integration
 - [x] Step 3.1: Add `_app_scripts` to runtime schema
 - [x] Step 3.2: Extend `syncEngine` with script persistence
-- [x] Step 3.3: Script RPC routes in `@universo/applications-backend`
+- [x] Step 3.3: Script RPC routes in `@universo-react/applications-backend`
 - [x] Step 3.4: Client script bundle endpoint
 - [x] Step 3.5: Tests for Phase 3
 

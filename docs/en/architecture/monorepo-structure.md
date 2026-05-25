@@ -4,13 +4,14 @@ description: Explain how the PNPM monorepo is organized.
 
 # Monorepo Structure
 
-The workspace uses PNPM workspaces and Turborepo. Packages follow the flat
-`packages/<name>/package.json` layout and are discovered with the single
+The workspace uses PNPM workspaces and Turborepo. Active React packages follow
+the flat `packages/universo-react-<name>/package.json` layout, use matching
+`@universo-react/<name>` package names, and are discovered with the single
 `packages/*` workspace glob.
 
 ## Main Package Groups
 
--   Core shell packages: `@universo/core-backend`, `@universo/core-frontend`.
+-   Core shell packages: `@universo-react/core-backend`, `@universo-react/core-frontend`.
 -   Feature packages: auth, start, profile, metahubs, applications, admin.
 -   Infrastructure packages: database, schema-ddl, migrations, types, utils, i18n.
 -   UI support packages: template-mui, apps-template-mui, store.

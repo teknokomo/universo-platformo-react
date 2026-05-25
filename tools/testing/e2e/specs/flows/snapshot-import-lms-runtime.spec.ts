@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import type { Locator, Page, Response } from '@playwright/test'
-import { buildVLC, createLocalizedContent } from '@universo/utils'
+import { buildVLC, createLocalizedContent } from '@universo-react/utils'
 import { expect, test } from '../../fixtures/test'
 import { waitForSettledMutationResponse } from '../../support/browser/network'
 import { applyBrowserPreferences } from '../../support/browser/preferences'
