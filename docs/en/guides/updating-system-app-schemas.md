@@ -11,22 +11,22 @@ at runtime when the platform detects a change.
 
 ## Prerequisites
 
-- Understanding of the monorepo package structure.
-- Familiarity with `SystemAppDefinition` manifests in backend packages.
-- Read [System App Migration Lifecycle](../architecture/system-app-migration-lifecycle.md)
-  for the architectural context behind these steps.
+-   Understanding of the monorepo package structure.
+-   Familiarity with `SystemAppDefinition` manifests in backend packages.
+-   Read [System App Migration Lifecycle](../architecture/system-app-migration-lifecycle.md)
+    for the architectural context behind these steps.
 
 ## Where Definitions Live
 
 Each fixed system app has a `SystemAppDefinition` manifest in its backend
 package:
 
-| System App     | Manifest File                                                          |
-|----------------|------------------------------------------------------------------------|
-| admin          | `packages/admin-backend/base/src/platform/systemAppDefinition.ts`      |
-| profiles       | `packages/profile-backend/base/src/platform/systemAppDefinition.ts`    |
-| metahubs       | `packages/metahubs-backend/base/src/platform/systemAppDefinition.ts`   |
-| applications   | `packages/applications-backend/base/src/platform/systemAppDefinition.ts` |
+| System App   | Manifest File                                                       |
+| ------------ | ------------------------------------------------------------------- |
+| admin        | `packages/admin-backend/src/platform/systemAppDefinition.ts`        |
+| profiles     | `packages/profile-backend/src/platform/systemAppDefinition.ts`      |
+| metahubs     | `packages/metahubs-backend/src/platform/systemAppDefinition.ts`     |
+| applications | `packages/applications-backend/src/platform/systemAppDefinition.ts` |
 
 The manifest declares business tables, fields, data types, and
 capabilities. It is the single source of truth for the schema shape of
@@ -117,12 +117,12 @@ applications._app_migrations
 
 Each row contains:
 
-| Column                 | Content                                            |
-|------------------------|----------------------------------------------------|
-| `name`                 | Migration name (e.g. `baseline_admin_structure_0_1_0`) |
+| Column                 | Content                                                            |
+| ---------------------- | ------------------------------------------------------------------ |
+| `name`                 | Migration name (e.g. `baseline_admin_structure_0_1_0`)             |
 | `meta`                 | JSONB with `snapshotBefore`, `snapshotAfter`, `changes`, `summary` |
-| `publication_snapshot` | Always `null` for system apps                      |
-| `_upl_created_at`      | Timestamp of when the migration was applied         |
+| `publication_snapshot` | Always `null` for system apps                                      |
+| `_upl_created_at`      | Timestamp of when the migration was applied                        |
 
 ## SQL Migration Files vs. Manifest-Driven Changes
 
@@ -130,13 +130,13 @@ System apps may also have SQL migration entries in their `migrations` array
 (the `kind: 'sql'` entries). These are separate from the manifest-driven
 schema generation and serve a different purpose:
 
-- **`pre_schema_generation`** SQL migrations run before `SchemaGenerator`
-  creates tables. They typically create the schema itself or set up helper
-  functions.
-- **`post_schema_generation`** SQL migrations run after tables exist. They
-  add indexes, RLS policies, seed data, or database functions.
-- **Manifest-driven changes** (via `targetBusinessTables`) are handled
-  entirely by the diff engine and recorded in `_app_migrations`.
+-   **`pre_schema_generation`** SQL migrations run before `SchemaGenerator`
+    creates tables. They typically create the schema itself or set up helper
+    functions.
+-   **`post_schema_generation`** SQL migrations run after tables exist. They
+    add indexes, RLS policies, seed data, or database functions.
+-   **Manifest-driven changes** (via `targetBusinessTables`) are handled
+    entirely by the diff engine and recorded in `_app_migrations`.
 
 ## CLI Commands
 
@@ -163,18 +163,18 @@ pnpm migration doctor
 
 ## Common Mistakes
 
-- **Forgetting to build before restart.** The server loads compiled JS from
-  `dist/`. If you change the TypeScript source but skip the build step, the
-  old manifest is used and no migration runs.
-- **Referencing a removed column in application code.** The diff engine will
-  drop it, but queries that still use it will fail at runtime.
-- **Mismatched `currentBusinessTables` and `targetBusinessTables`.** Keep them
-  in sync unless you are intentionally modeling a migration from one shape to
-  another.
+-   **Forgetting to build before restart.** The server loads compiled JS from
+    `dist/`. If you change the TypeScript source but skip the build step, the
+    old manifest is used and no migration runs.
+-   **Referencing a removed column in application code.** The diff engine will
+    drop it, but queries that still use it will fail at runtime.
+-   **Mismatched `currentBusinessTables` and `targetBusinessTables`.** Keep them
+    in sync unless you are intentionally modeling a migration from one shape to
+    another.
 
 ## Related Pages
 
-- [System App Migration Lifecycle](../architecture/system-app-migration-lifecycle.md)
-- [Fixed System-App Convergence](../architecture/system-app-convergence.md)
-- [Database Design](../architecture/database.md)
-- [Creating Packages](../contributing/creating-packages.md)
+-   [System App Migration Lifecycle](../architecture/system-app-migration-lifecycle.md)
+-   [Fixed System-App Convergence](../architecture/system-app-convergence.md)
+-   [Database Design](../architecture/database.md)
+-   [Creating Packages](../contributing/creating-packages.md)

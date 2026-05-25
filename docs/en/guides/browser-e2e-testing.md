@@ -13,8 +13,8 @@ Use the Playwright browser suite when a change must be validated through the rea
 
 ## Environment Contract
 
--   Keep browser-test secrets in `packages/universo-core-backend/base/.env.e2e.local`.
--   Keep optional frontend overrides in `packages/universo-core-frontend/base/.env.e2e.local`.
+-   Keep browser-test secrets in `packages/universo-core-backend/.env.e2e.local`.
+-   Keep optional frontend overrides in `packages/universo-core-frontend/.env.e2e.local`.
 -   Use a dedicated Supabase test project by default.
 -   Never commit real secrets, generated auth state, or production credentials.
 -   Keep Playwright runtime deterministic: timezone, locale, reduced motion, cleanup of artifacts, and explicit navigation/action timeouts must stay pinned.
@@ -36,8 +36,8 @@ This starts a dedicated local Supabase E2E project, not the manual development l
 
 The generated files are:
 
--   `packages/universo-core-backend/base/.env.e2e.local-supabase`
--   `packages/universo-core-frontend/base/.env.e2e.local-supabase`
+-   `packages/universo-core-backend/.env.e2e.local-supabase`
+-   `packages/universo-core-frontend/.env.e2e.local-supabase`
 
 The generated backend file is based on `.env.e2e` when present, then `.env`, then `.env.e2e.example`, then `.env.example`. The generator keeps unrelated application settings and replaces only local Supabase/PostgreSQL values plus E2E execution defaults.
 

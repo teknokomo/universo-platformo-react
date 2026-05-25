@@ -25,6 +25,15 @@
 -   Allowed residual `script` terms are limited to HTML/security contexts, package manager `scripts`, shell/E2E scripts, external TypeScript/node APIs such as `ts.ScriptTarget`, `node:vm Script`, and isolated-vm `compileScript`.
 -   Details: progress.md#2026-05-25
 
+## Recent Focus: Flatten Base Directory Layout (Complete)
+
+-   Removed the unused `packages/<name>/base` package-root layer from active workspace packages.
+-   Active package roots now use `packages/<name>/package.json`; `pnpm-workspace.yaml` uses `packages/*`.
+-   Updated workspace, Turbo/package export, local Supabase, E2E runner, OpenAPI/docs tooling, agent, Kiro, GitBook, and package README references to the flat layout.
+-   Added `tools/check-no-package-base-paths.mjs` and root `check:no-package-base-paths` to fail closed on stale active package-base paths and layout guidance.
+-   Verified the final closure with Prettier, stale-path check, package directory inventory, full build, full lint, full Vitest workspace run, and local minimal Supabase Playwright smoke.
+-   Agents still must not run `pnpm dev`; Playwright evidence uses the repository E2E runner on `http://127.0.0.1:3100`.
+
 ## Recent Focus: Object Collections And Components Rename (Complete)
 
 -   Replaced Catalogs/Attributes with Objects/Components across UI and metadata.
@@ -37,7 +46,7 @@
 ## Recent Focus: Local Supabase Env Profile Generation (Complete)
 
 -   Local Supabase env generation derives backend profiles from normal env source order.
--   Development source order: `packages/universo-core-backend/base/.env`, `.env.example`, minimal fallback.
+-   Development source order: `packages/universo-core-backend/.env`, `.env.example`, minimal fallback.
 -   E2E source order: `.env.e2e`, `.env`, `.env.e2e.example`, `.env.example`, fallback.
 -   Preserves unrelated application settings, replaces only connection values and safe missing defaults.
 -   README and GitBook docs describe preserved-settings workflow, hosted/local switching, and local E2E stack.

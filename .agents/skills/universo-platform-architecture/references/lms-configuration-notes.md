@@ -9,7 +9,7 @@ Learning Tracks, Quizzes, or related LMS surfaces.
 ## Template And Preset Set
 
 The LMS configuration starts from the `lms` metahub template
-(`packages/metahubs-backend/base/src/domains/templates/data/lms.template.ts`).
+(`packages/metahubs-backend/src/domains/templates/data/lms.template.ts`).
 
 Active presets in the LMS template are the same five as the `basic`
 template:

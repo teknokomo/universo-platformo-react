@@ -361,11 +361,11 @@ Source files are consumed directly by other workspace packages via `main`/`modul
 
 ## Related Packages
 
--   [`@universo/metahubs-frontend`](../metahubs-frontend/base/README.md) — Metahub management UI
--   [`@universo/metahubs-backend`](../metahubs-backend/base/README.md) — Backend service
--   [`@universo/types`](../universo-types/base/README.md) — Shared TypeScript types
--   [`@universo/i18n`](../universo-i18n/base/README.md) — Shared localization resources
--   [`@universo/utils`](../universo-utils/base/README.md) — Shared runtime normalization and utility helpers
+-   [`@universo/metahubs-frontend`](../metahubs-frontend/README.md) — Metahub management UI
+-   [`@universo/metahubs-backend`](../metahubs-backend/README.md) — Backend service
+-   [`@universo/types`](../universo-types/README.md) — Shared TypeScript types
+-   [`@universo/i18n`](../universo-i18n/README.md) — Shared localization resources
+-   [`@universo/utils`](../universo-utils/README.md) — Shared runtime normalization and utility helpers
 
 ---
 

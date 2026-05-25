@@ -1,0 +1,44 @@
+{
+    "name": "@universo/schema-ddl",
+    "version": "0.1.0",
+    "description": "Schema DDL utilities for Universo Platformo - runtime schema generation, migration, and diff calculation",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "clean": "rimraf dist",
+        "build": "pnpm run clean && tsc",
+        "dev": "tsc -w",
+        "lint": "eslint --ext .ts src/",
+        "test": "node ../../tools/testing/backend/run-jest.cjs --config ./jest.config.js",
+        "test:watch": "jest --config ./jest.config.js --watch"
+    },
+    "keywords": [
+        "universo",
+        "platformo",
+        "schema",
+        "ddl",
+        "migration",
+        "typescript"
+    ],
+    "author": "Vladimir Levadnij and Teknokomo",
+    "license": "Omsk Open License",
+    "dependencies": {
+        "@universo/migrations-catalog": "workspace:*",
+        "@universo/migrations-core": "workspace:*",
+        "@universo/utils": "workspace:*",
+        "@universo/types": "workspace:*",
+        "knex": "catalog:"
+    },
+    "devDependencies": {
+        "@types/jest": "^29.5.12",
+        "@types/node": "catalog:",
+        "eslint": "catalog:",
+        "jest": "^29.7.0",
+        "rimraf": "^5.0.5",
+        "ts-jest": "^29.1.2",
+        "typescript": "catalog:"
+    },
+    "peerDependencies": {
+        "knex": ">=3.0.0"
+    }
+}

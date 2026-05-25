@@ -205,7 +205,7 @@ pnpm --filter @universo/metahubs-frontend build
 
 ### Environment Setup
 
-Create `.env` in `packages/universo-core-backend/base/`:
+Create `.env` in `packages/universo-core-backend/`:
 
 ```bash
 SUPABASE_URL=your_supabase_url
@@ -215,7 +215,7 @@ DATABASE_URL=your_postgres_url
 ```
 
 After refactoring, Supabase configuration is consolidated to
-`packages/universo-core-backend/base/`.
+`packages/universo-core-backend/`.
 
 ## Coding Standards & Guidelines
 

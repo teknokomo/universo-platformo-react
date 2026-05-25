@@ -1,7 +1,5 @@
 packages:
     - 'packages/*'
-    - 'packages/*/base'
-    # NOTE: packages/apps-template-mui is included via packages/*.
 
 # Supply chain security — mitigate compromised package attacks
 # See: https://pnpm.io/supply-chain-security

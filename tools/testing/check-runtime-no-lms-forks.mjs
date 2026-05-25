@@ -3,7 +3,7 @@ import { readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 
 const ROOT = process.cwd()
-const SCANNED_DIRS = ['packages/apps-template-mui/src', 'packages/applications-frontend/base/src', 'packages/applications-backend/base/src']
+const SCANNED_DIRS = ['packages/apps-template-mui/src', 'packages/applications-frontend/src', 'packages/applications-backend/src']
 
 const LMS_BRANCH_PATTERNS = [
     /template\s*={2,3}\s*['"`]lms['"`]/,

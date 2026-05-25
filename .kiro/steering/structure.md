@@ -13,7 +13,7 @@ This is a PNPM workspace with Turbo build orchestration. The project extends an 
 ```
 universo-platformo-react/
 ├── packages/              # All workspace packages
-│   ├── */base/            # Most packages use base/ subdirectory
+│   ├── */                 # Flat workspace packages
 │   └── README.md          # Package documentation
 ├── docs/                  # Documentation (en/es/ru)
 ├── docker/                # Docker configurations
@@ -87,29 +87,26 @@ universo-platformo-react/
 
 ## Package Structure Convention
 
-Most packages follow this structure:
+Workspace packages follow this structure:
 
 ```
 packages/{package-name}/
-└── base/                 # Core functionality
-    ├── src/              # Source code
-    │   ├── api/          # API clients (frontend)
-    │   ├── components/   # React components (frontend)
-    │   ├── controllers/  # Express controllers (backend)
-    │   ├── domains/      # Domain modules
-    │   ├── i18n/         # Internationalization
-    │   ├── routes/       # Express routes (backend)
-    │   ├── services/     # Business logic (backend)
-    │   └── index.ts      # Entry point
-    ├── dist/             # Compiled output
-    ├── package.json      # Dependencies and modules
-    ├── tsconfig.json     # TypeScript config
-    └── README.md         # Package documentation
+├── src/              # Source code
+│   ├── api/          # API clients (frontend)
+│   ├── components/   # React components (frontend)
+│   ├── controllers/  # Express controllers (backend)
+│   ├── domains/      # Domain modules
+│   ├── i18n/         # Internationalization
+│   ├── routes/       # Express routes (backend)
+│   ├── services/     # Business logic (backend)
+│   └── index.ts      # Entry point
+├── dist/             # Compiled output
+├── package.json      # Dependencies and modules
+├── tsconfig.json     # TypeScript config
+└── README.md         # Package documentation
 ```
 
-**Exceptions:**
-
--   `apps-template-mui` and `universo-rest-docs` are package roots without a `base/` layer
+All active workspace packages use the flat `packages/<name>/package.json` layout.
 
 ## Workspace Configuration
 
@@ -121,7 +118,7 @@ packages/{package-name}/
 
 -   Use `pnpm` not `npm`
 -   Frontend apps end with `-frontend`, backend with `-backend`
--   Most packages use `packages/*/base/` structure
+-   Most packages use `packages/*/` structure
 -   Cross-package imports use workspace package names (e.g., `@universo/types`)
 -   Never use relative paths (`../`) to import across package boundaries
 

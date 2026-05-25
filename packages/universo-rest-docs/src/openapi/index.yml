@@ -93,9 +93,9 @@ paths:
         - Admin Global Users
       summary: GET /admin/global-users
       description: Auto-generated from
-        packages/admin-backend/base/src/routes/globalUsersRoutes.ts. This
-        operation is mounted on the live backend route surface and should be
-        treated as current repository truth.
+        packages/admin-backend/src/routes/globalUsersRoutes.ts. This operation
+        is mounted on the live backend route surface and should be treated as
+        current repository truth.
       operationId: Admin_Global_Users_get_admin_global_users
       parameters: []
       responses:
@@ -122,9 +122,9 @@ paths:
         - Admin Global Users
       summary: POST /admin/global-users
       description: Auto-generated from
-        packages/admin-backend/base/src/routes/globalUsersRoutes.ts. This
-        operation is mounted on the live backend route surface and should be
-        treated as current repository truth.
+        packages/admin-backend/src/routes/globalUsersRoutes.ts. This operation
+        is mounted on the live backend route surface and should be treated as
+        current repository truth.
       operationId: Admin_Global_Users_post_admin_global_users
       parameters: []
       responses:
@@ -159,9 +159,9 @@ paths:
         - Admin Global Users
       summary: PATCH /admin/global-users/{memberId}
       description: Auto-generated from
-        packages/admin-backend/base/src/routes/globalUsersRoutes.ts. This
-        operation is mounted on the live backend route surface and should be
-        treated as current repository truth.
+        packages/admin-backend/src/routes/globalUsersRoutes.ts. This operation
+        is mounted on the live backend route surface and should be treated as
+        current repository truth.
       operationId: Admin_Global_Users_patch_admin_global_users_memberId
       parameters:
         - name: memberId
@@ -199,9 +199,9 @@ paths:
         - Admin Global Users
       summary: DELETE /admin/global-users/{memberId}
       description: Auto-generated from
-        packages/admin-backend/base/src/routes/globalUsersRoutes.ts. This
-        operation is mounted on the live backend route surface and should be
-        treated as current repository truth.
+        packages/admin-backend/src/routes/globalUsersRoutes.ts. This operation
+        is mounted on the live backend route surface and should be treated as
+        current repository truth.
       operationId: Admin_Global_Users_delete_admin_global_users_memberId
       parameters:
         - name: memberId
@@ -236,9 +236,9 @@ paths:
         - Admin Global Users
       summary: PUT /admin/global-users/{memberId}/roles
       description: Auto-generated from
-        packages/admin-backend/base/src/routes/globalUsersRoutes.ts. This
-        operation is mounted on the live backend route surface and should be
-        treated as current repository truth.
+        packages/admin-backend/src/routes/globalUsersRoutes.ts. This operation
+        is mounted on the live backend route surface and should be treated as
+        current repository truth.
       operationId: Admin_Global_Users_put_admin_global_users_memberId_roles
       parameters:
         - name: memberId
@@ -277,9 +277,9 @@ paths:
         - Admin Global Users
       summary: POST /admin/global-users/create-user
       description: Auto-generated from
-        packages/admin-backend/base/src/routes/globalUsersRoutes.ts. This
-        operation is mounted on the live backend route surface and should be
-        treated as current repository truth.
+        packages/admin-backend/src/routes/globalUsersRoutes.ts. This operation
+        is mounted on the live backend route surface and should be treated as
+        current repository truth.
       operationId: Admin_Global_Users_post_admin_global_users_create_user
       parameters: []
       responses:
@@ -314,9 +314,9 @@ paths:
         - Admin Global Users
       summary: GET /admin/global-users/me
       description: Auto-generated from
-        packages/admin-backend/base/src/routes/globalUsersRoutes.ts. This
-        operation is mounted on the live backend route surface and should be
-        treated as current repository truth.
+        packages/admin-backend/src/routes/globalUsersRoutes.ts. This operation
+        is mounted on the live backend route surface and should be treated as
+        current repository truth.
       operationId: Admin_Global_Users_get_admin_global_users_me
       parameters: []
       responses:
@@ -343,9 +343,9 @@ paths:
         - Admin Global Users
       summary: GET /admin/global-users/stats
       description: Auto-generated from
-        packages/admin-backend/base/src/routes/globalUsersRoutes.ts. This
-        operation is mounted on the live backend route surface and should be
-        treated as current repository truth.
+        packages/admin-backend/src/routes/globalUsersRoutes.ts. This operation
+        is mounted on the live backend route surface and should be treated as
+        current repository truth.
       operationId: Admin_Global_Users_get_admin_global_users_stats
       parameters: []
       responses:
@@ -372,9 +372,9 @@ paths:
         - Admin Instances
       summary: GET /admin/instances
       description: Auto-generated from
-        packages/admin-backend/base/src/routes/instancesRoutes.ts. This
-        operation is mounted on the live backend route surface and should be
-        treated as current repository truth.
+        packages/admin-backend/src/routes/instancesRoutes.ts. This operation is
+        mounted on the live backend route surface and should be treated as
+        current repository truth.
       operationId: Admin_Instances_get_admin_instances
       parameters: []
       responses:
@@ -401,9 +401,9 @@ paths:
         - Admin Instances
       summary: GET /admin/instances/{id}
       description: Auto-generated from
-        packages/admin-backend/base/src/routes/instancesRoutes.ts. This
-        operation is mounted on the live backend route surface and should be
-        treated as current repository truth.
+        packages/admin-backend/src/routes/instancesRoutes.ts. This operation is
+        mounted on the live backend route surface and should be treated as
+        current repository truth.
       operationId: Admin_Instances_get_admin_instances_id
       parameters:
         - name: id
@@ -435,9 +435,9 @@ paths:
         - Admin Instances
       summary: PUT /admin/instances/{id}
       description: Auto-generated from
-        packages/admin-backend/base/src/routes/instancesRoutes.ts. This
-        operation is mounted on the live backend route surface and should be
-        treated as current repository truth.
+        packages/admin-backend/src/routes/instancesRoutes.ts. This operation is
+        mounted on the live backend route surface and should be treated as
+        current repository truth.
       operationId: Admin_Instances_put_admin_instances_id
       parameters:
         - name: id
@@ -476,9 +476,9 @@ paths:
         - Admin Instances
       summary: GET /admin/instances/{id}/stats
       description: Auto-generated from
-        packages/admin-backend/base/src/routes/instancesRoutes.ts. This
-        operation is mounted on the live backend route surface and should be
-        treated as current repository truth.
+        packages/admin-backend/src/routes/instancesRoutes.ts. This operation is
+        mounted on the live backend route surface and should be treated as
+        current repository truth.
       operationId: Admin_Instances_get_admin_instances_id_stats
       parameters:
         - name: id
@@ -511,8 +511,8 @@ paths:
         - Admin Locales
       summary: GET /admin/locales
       description: Auto-generated from
-        packages/admin-backend/base/src/routes/localesRoutes.ts. This operation
-        is mounted on the live backend route surface and should be treated as
+        packages/admin-backend/src/routes/localesRoutes.ts. This operation is
+        mounted on the live backend route surface and should be treated as
         current repository truth.
       operationId: Admin_Locales_get_admin_locales
       parameters: []
@@ -539,8 +539,8 @@ paths:
         - Admin Locales
       summary: POST /admin/locales
       description: Auto-generated from
-        packages/admin-backend/base/src/routes/localesRoutes.ts. This operation
-        is mounted on the live backend route surface and should be treated as
+        packages/admin-backend/src/routes/localesRoutes.ts. This operation is
+        mounted on the live backend route surface and should be treated as
         current repository truth.
       operationId: Admin_Locales_post_admin_locales
       parameters: []
@@ -576,8 +576,8 @@ paths:
         - Admin Locales
       summary: GET /admin/locales/{id}
       description: Auto-generated from
-        packages/admin-backend/base/src/routes/localesRoutes.ts. This operation
-        is mounted on the live backend route surface and should be treated as
+        packages/admin-backend/src/routes/localesRoutes.ts. This operation is
+        mounted on the live backend route surface and should be treated as
         current repository truth.
       operationId: Admin_Locales_get_admin_locales_id
       parameters:
@@ -610,8 +610,8 @@ paths:
         - Admin Locales
       summary: PATCH /admin/locales/{id}
       description: Auto-generated from
-        packages/admin-backend/base/src/routes/localesRoutes.ts. This operation
-        is mounted on the live backend route surface and should be treated as
+        packages/admin-backend/src/routes/localesRoutes.ts. This operation is
+        mounted on the live backend route surface and should be treated as
         current repository truth.
       operationId: Admin_Locales_patch_admin_locales_id
       parameters:
@@ -650,8 +650,8 @@ paths:
         - Admin Locales
       summary: DELETE /admin/locales/{id}
       description: Auto-generated from
-        packages/admin-backend/base/src/routes/localesRoutes.ts. This operation
-        is mounted on the live backend route surface and should be treated as
+        packages/admin-backend/src/routes/localesRoutes.ts. This operation is
+        mounted on the live backend route surface and should be treated as
         current repository truth.
       operationId: Admin_Locales_delete_admin_locales_id
       parameters:
@@ -687,7 +687,7 @@ paths:
         - Admin Roles
       summary: GET /admin/roles
       description: Auto-generated from
-        packages/admin-backend/base/src/routes/rolesRoutes.ts. This operation is
+        packages/admin-backend/src/routes/rolesRoutes.ts. This operation is
         mounted on the live backend route surface and should be treated as
         current repository truth.
       operationId: Admin_Roles_get_admin_roles
@@ -715,7 +715,7 @@ paths:
         - Admin Roles
       summary: POST /admin/roles
       description: Auto-generated from
-        packages/admin-backend/base/src/routes/rolesRoutes.ts. This operation is
+        packages/admin-backend/src/routes/rolesRoutes.ts. This operation is
         mounted on the live backend route surface and should be treated as
         current repository truth.
       operationId: Admin_Roles_post_admin_roles
@@ -752,7 +752,7 @@ paths:
         - Admin Roles
       summary: GET /admin/roles/{id}
       description: Auto-generated from
-        packages/admin-backend/base/src/routes/rolesRoutes.ts. This operation is
+        packages/admin-backend/src/routes/rolesRoutes.ts. This operation is
         mounted on the live backend route surface and should be treated as
         current repository truth.
       operationId: Admin_Roles_get_admin_roles_id
@@ -786,7 +786,7 @@ paths:
         - Admin Roles
       summary: PATCH /admin/roles/{id}
       description: Auto-generated from
-        packages/admin-backend/base/src/routes/rolesRoutes.ts. This operation is
+        packages/admin-backend/src/routes/rolesRoutes.ts. This operation is
         mounted on the live backend route surface and should be treated as
         current repository truth.
       operationId: Admin_Roles_patch_admin_roles_id
@@ -826,7 +826,7 @@ paths:
         - Admin Roles
       summary: DELETE /admin/roles/{id}
       description: Auto-generated from
-        packages/admin-backend/base/src/routes/rolesRoutes.ts. This operation is
+        packages/admin-backend/src/routes/rolesRoutes.ts. This operation is
         mounted on the live backend route surface and should be treated as
         current repository truth.
       operationId: Admin_Roles_delete_admin_roles_id
@@ -863,7 +863,7 @@ paths:
         - Admin Roles
       summary: POST /admin/roles/{id}/copy
       description: Auto-generated from
-        packages/admin-backend/base/src/routes/rolesRoutes.ts. This operation is
+        packages/admin-backend/src/routes/rolesRoutes.ts. This operation is
         mounted on the live backend route surface and should be treated as
         current repository truth.
       operationId: Admin_Roles_post_admin_roles_id_copy
@@ -906,7 +906,7 @@ paths:
         - Admin Roles
       summary: GET /admin/roles/{id}/users
       description: Auto-generated from
-        packages/admin-backend/base/src/routes/rolesRoutes.ts. This operation is
+        packages/admin-backend/src/routes/rolesRoutes.ts. This operation is
         mounted on the live backend route surface and should be treated as
         current repository truth.
       operationId: Admin_Roles_get_admin_roles_id_users
@@ -941,7 +941,7 @@ paths:
         - Admin Roles
       summary: GET /admin/roles/assignable
       description: Auto-generated from
-        packages/admin-backend/base/src/routes/rolesRoutes.ts. This operation is
+        packages/admin-backend/src/routes/rolesRoutes.ts. This operation is
         mounted on the live backend route surface and should be treated as
         current repository truth.
       operationId: Admin_Roles_get_admin_roles_assignable
@@ -970,9 +970,9 @@ paths:
         - Admin Settings
       summary: GET /admin/settings
       description: Auto-generated from
-        packages/admin-backend/base/src/routes/adminSettingsRoutes.ts. This
-        operation is mounted on the live backend route surface and should be
-        treated as current repository truth.
+        packages/admin-backend/src/routes/adminSettingsRoutes.ts. This operation
+        is mounted on the live backend route surface and should be treated as
+        current repository truth.
       operationId: Admin_Settings_get_admin_settings
       parameters: []
       responses:
@@ -999,9 +999,9 @@ paths:
         - Admin Settings
       summary: GET /admin/settings/{category}
       description: Auto-generated from
-        packages/admin-backend/base/src/routes/adminSettingsRoutes.ts. This
-        operation is mounted on the live backend route surface and should be
-        treated as current repository truth.
+        packages/admin-backend/src/routes/adminSettingsRoutes.ts. This operation
+        is mounted on the live backend route surface and should be treated as
+        current repository truth.
       operationId: Admin_Settings_get_admin_settings_category
       parameters:
         - name: category
@@ -1033,9 +1033,9 @@ paths:
         - Admin Settings
       summary: PUT /admin/settings/{category}
       description: Auto-generated from
-        packages/admin-backend/base/src/routes/adminSettingsRoutes.ts. This
-        operation is mounted on the live backend route surface and should be
-        treated as current repository truth.
+        packages/admin-backend/src/routes/adminSettingsRoutes.ts. This operation
+        is mounted on the live backend route surface and should be treated as
+        current repository truth.
       operationId: Admin_Settings_put_admin_settings_category
       parameters:
         - name: category
@@ -1074,9 +1074,9 @@ paths:
         - Admin Settings
       summary: GET /admin/settings/{category}/{key}
       description: Auto-generated from
-        packages/admin-backend/base/src/routes/adminSettingsRoutes.ts. This
-        operation is mounted on the live backend route surface and should be
-        treated as current repository truth.
+        packages/admin-backend/src/routes/adminSettingsRoutes.ts. This operation
+        is mounted on the live backend route surface and should be treated as
+        current repository truth.
       operationId: Admin_Settings_get_admin_settings_category_key
       parameters:
         - name: category
@@ -1114,9 +1114,9 @@ paths:
         - Admin Settings
       summary: PUT /admin/settings/{category}/{key}
       description: Auto-generated from
-        packages/admin-backend/base/src/routes/adminSettingsRoutes.ts. This
-        operation is mounted on the live backend route surface and should be
-        treated as current repository truth.
+        packages/admin-backend/src/routes/adminSettingsRoutes.ts. This operation
+        is mounted on the live backend route surface and should be treated as
+        current repository truth.
       operationId: Admin_Settings_put_admin_settings_category_key
       parameters:
         - name: category
@@ -1160,9 +1160,9 @@ paths:
         - Admin Settings
       summary: DELETE /admin/settings/{category}/{key}
       description: Auto-generated from
-        packages/admin-backend/base/src/routes/adminSettingsRoutes.ts. This
-        operation is mounted on the live backend route surface and should be
-        treated as current repository truth.
+        packages/admin-backend/src/routes/adminSettingsRoutes.ts. This operation
+        is mounted on the live backend route surface and should be treated as
+        current repository truth.
       operationId: Admin_Settings_delete_admin_settings_category_key
       parameters:
         - name: category
@@ -1203,9 +1203,9 @@ paths:
         - Application Runtime Sync
       summary: GET /application/{applicationId}/diff
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationSyncRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationSyncRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Application_Runtime_Sync_get_application_applicationId_diff
       parameters:
         - name: applicationId
@@ -1238,7 +1238,7 @@ paths:
         - Application Migrations
       summary: GET /application/{applicationId}/migration/{migrationId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/applications/routes/applicationMigrationsRoutes.ts.
+        packages/metahubs-backend/src/domains/applications/routes/applicationMigrationsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Application_Migrations_get_application_applicationId_migration_migrationId
@@ -1279,7 +1279,7 @@ paths:
         - Application Migrations
       summary: GET /application/{applicationId}/migration/{migrationId}/analyze
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/applications/routes/applicationMigrationsRoutes.ts.
+        packages/metahubs-backend/src/domains/applications/routes/applicationMigrationsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Application_Migrations_get_application_applicationId_migration_migrationId_analyze
@@ -1320,7 +1320,7 @@ paths:
         - Application Migrations
       summary: POST /application/{applicationId}/migration/{migrationId}/rollback
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/applications/routes/applicationMigrationsRoutes.ts.
+        packages/metahubs-backend/src/domains/applications/routes/applicationMigrationsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Application_Migrations_post_application_applicationId_migration_migrationId_rollback
@@ -1369,7 +1369,7 @@ paths:
         - Application Migrations
       summary: GET /application/{applicationId}/migrations
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/applications/routes/applicationMigrationsRoutes.ts.
+        packages/metahubs-backend/src/domains/applications/routes/applicationMigrationsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Application_Migrations_get_application_applicationId_migrations
@@ -1404,7 +1404,7 @@ paths:
         - Application Migrations
       summary: GET /application/{applicationId}/migrations/status
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/applications/routes/applicationMigrationsRoutes.ts.
+        packages/metahubs-backend/src/domains/applications/routes/applicationMigrationsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Application_Migrations_get_application_applicationId_migrations_status
@@ -1439,9 +1439,9 @@ paths:
         - Application Runtime Sync
       summary: GET /application/{applicationId}/release-bundle
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationSyncRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationSyncRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Application_Runtime_Sync_get_application_applicationId_release_bundle
       parameters:
         - name: applicationId
@@ -1474,9 +1474,9 @@ paths:
         - Application Runtime Sync
       summary: POST /application/{applicationId}/release-bundle/apply
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationSyncRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationSyncRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Application_Runtime_Sync_post_application_applicationId_release_bundle_apply
       parameters:
         - name: applicationId
@@ -1517,9 +1517,9 @@ paths:
         - Application Runtime Sync
       summary: POST /application/{applicationId}/sync
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationSyncRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationSyncRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Application_Runtime_Sync_post_application_applicationId_sync
       parameters:
         - name: applicationId
@@ -1560,9 +1560,9 @@ paths:
         - Applications
       summary: GET /applications
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_get_applications
       parameters: []
       responses:
@@ -1588,9 +1588,9 @@ paths:
         - Applications
       summary: POST /applications
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_post_applications
       parameters: []
       responses:
@@ -1625,9 +1625,9 @@ paths:
         - Applications
       summary: GET /applications/{applicationId}
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_get_applications_applicationId
       parameters:
         - name: applicationId
@@ -1659,9 +1659,9 @@ paths:
         - Applications
       summary: PATCH /applications/{applicationId}
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_patch_applications_applicationId
       parameters:
         - name: applicationId
@@ -1699,9 +1699,9 @@ paths:
         - Applications
       summary: DELETE /applications/{applicationId}
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_delete_applications_applicationId
       parameters:
         - name: applicationId
@@ -1736,7 +1736,7 @@ paths:
         - Connectors
       summary: GET /applications/{applicationId}/connectors
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/connectorsRoutes.ts. This
+        packages/applications-backend/src/routes/connectorsRoutes.ts. This
         operation is mounted on the live backend route surface and should be
         treated as current repository truth.
       operationId: Connectors_get_applications_applicationId_connectors
@@ -1770,7 +1770,7 @@ paths:
         - Connectors
       summary: POST /applications/{applicationId}/connectors
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/connectorsRoutes.ts. This
+        packages/applications-backend/src/routes/connectorsRoutes.ts. This
         operation is mounted on the live backend route surface and should be
         treated as current repository truth.
       operationId: Connectors_post_applications_applicationId_connectors
@@ -1813,7 +1813,7 @@ paths:
         - Connectors
       summary: GET /applications/{applicationId}/connectors/{connectorId}
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/connectorsRoutes.ts. This
+        packages/applications-backend/src/routes/connectorsRoutes.ts. This
         operation is mounted on the live backend route surface and should be
         treated as current repository truth.
       operationId: Connectors_get_applications_applicationId_connectors_connectorId
@@ -1853,7 +1853,7 @@ paths:
         - Connectors
       summary: PATCH /applications/{applicationId}/connectors/{connectorId}
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/connectorsRoutes.ts. This
+        packages/applications-backend/src/routes/connectorsRoutes.ts. This
         operation is mounted on the live backend route surface and should be
         treated as current repository truth.
       operationId: Connectors_patch_applications_applicationId_connectors_connectorId
@@ -1899,7 +1899,7 @@ paths:
         - Connectors
       summary: DELETE /applications/{applicationId}/connectors/{connectorId}
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/connectorsRoutes.ts. This
+        packages/applications-backend/src/routes/connectorsRoutes.ts. This
         operation is mounted on the live backend route surface and should be
         treated as current repository truth.
       operationId: Connectors_delete_applications_applicationId_connectors_connectorId
@@ -1942,7 +1942,7 @@ paths:
         - Connectors
       summary: GET /applications/{applicationId}/connectors/{connectorId}/publications
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/connectorsRoutes.ts. This
+        packages/applications-backend/src/routes/connectorsRoutes.ts. This
         operation is mounted on the live backend route surface and should be
         treated as current repository truth.
       operationId: Connectors_get_applications_applicationId_connectors_connectorId_publications
@@ -1982,7 +1982,7 @@ paths:
         - Connectors
       summary: POST /applications/{applicationId}/connectors/{connectorId}/publications
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/connectorsRoutes.ts. This
+        packages/applications-backend/src/routes/connectorsRoutes.ts. This
         operation is mounted on the live backend route surface and should be
         treated as current repository truth.
       operationId: Connectors_post_applications_applicationId_connectors_connectorId_publications
@@ -2032,7 +2032,7 @@ paths:
       summary: DELETE
         /applications/{applicationId}/connectors/{connectorId}/publications/{linkId}
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/connectorsRoutes.ts. This
+        packages/applications-backend/src/routes/connectorsRoutes.ts. This
         operation is mounted on the live backend route surface and should be
         treated as current repository truth.
       operationId: Connectors_delete_applications_applicationId_connectors_connectorId_publications_linkId
@@ -2081,9 +2081,9 @@ paths:
         - Applications
       summary: POST /applications/{applicationId}/copy
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_post_applications_applicationId_copy
       parameters:
         - name: applicationId
@@ -2124,9 +2124,9 @@ paths:
         - Applications
       summary: POST /applications/{applicationId}/join
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_post_applications_applicationId_join
       parameters:
         - name: applicationId
@@ -2167,9 +2167,9 @@ paths:
         - Applications
       summary: GET /applications/{applicationId}/layout-scopes
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_get_applications_applicationId_layout_scopes
       parameters:
         - name: applicationId
@@ -2202,9 +2202,9 @@ paths:
         - Applications
       summary: GET /applications/{applicationId}/layouts
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_get_applications_applicationId_layouts
       parameters:
         - name: applicationId
@@ -2236,9 +2236,9 @@ paths:
         - Applications
       summary: POST /applications/{applicationId}/layouts
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_post_applications_applicationId_layouts
       parameters:
         - name: applicationId
@@ -2279,9 +2279,9 @@ paths:
         - Applications
       summary: GET /applications/{applicationId}/layouts/{layoutId}
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_get_applications_applicationId_layouts_layoutId
       parameters:
         - name: applicationId
@@ -2319,9 +2319,9 @@ paths:
         - Applications
       summary: PATCH /applications/{applicationId}/layouts/{layoutId}
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_patch_applications_applicationId_layouts_layoutId
       parameters:
         - name: applicationId
@@ -2365,9 +2365,9 @@ paths:
         - Applications
       summary: DELETE /applications/{applicationId}/layouts/{layoutId}
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_delete_applications_applicationId_layouts_layoutId
       parameters:
         - name: applicationId
@@ -2408,9 +2408,9 @@ paths:
         - Applications
       summary: POST /applications/{applicationId}/layouts/{layoutId}/copy
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_post_applications_applicationId_layouts_layoutId_copy
       parameters:
         - name: applicationId
@@ -2457,9 +2457,9 @@ paths:
         - Applications
       summary: PUT /applications/{applicationId}/layouts/{layoutId}/zone-widget
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_put_applications_applicationId_layouts_layoutId_zone_widget
       parameters:
         - name: applicationId
@@ -2505,9 +2505,9 @@ paths:
       summary: DELETE
         /applications/{applicationId}/layouts/{layoutId}/zone-widget/{widgetId}
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_delete_applications_applicationId_layouts_layoutId_zone_widget_widgetId
       parameters:
         - name: applicationId
@@ -2555,9 +2555,9 @@ paths:
       summary: PATCH
         /applications/{applicationId}/layouts/{layoutId}/zone-widget/{widgetId}/config
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_patch_applications_applicationId_layouts_layoutId_zone_widget_widgetId_config
       parameters:
         - name: applicationId
@@ -2609,9 +2609,9 @@ paths:
       summary: PATCH
         /applications/{applicationId}/layouts/{layoutId}/zone-widget/{widgetId}/toggle-active
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_patch_applications_applicationId_layouts_layoutId_zone_widget_widgetId_toggle_active
       parameters:
         - name: applicationId
@@ -2662,9 +2662,9 @@ paths:
         - Applications
       summary: GET /applications/{applicationId}/layouts/{layoutId}/zone-widgets
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_get_applications_applicationId_layouts_layoutId_zone_widgets
       parameters:
         - name: applicationId
@@ -2703,9 +2703,9 @@ paths:
         - Applications
       summary: PATCH /applications/{applicationId}/layouts/{layoutId}/zone-widgets/move
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_patch_applications_applicationId_layouts_layoutId_zone_widgets_move
       parameters:
         - name: applicationId
@@ -2750,9 +2750,9 @@ paths:
         - Applications
       summary: GET /applications/{applicationId}/layouts/{layoutId}/zone-widgets/object
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_get_applications_applicationId_layouts_layoutId_zone_widgets_object
       parameters:
         - name: applicationId
@@ -2791,9 +2791,9 @@ paths:
         - Applications
       summary: POST /applications/{applicationId}/leave
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_post_applications_applicationId_leave
       parameters:
         - name: applicationId
@@ -2834,9 +2834,9 @@ paths:
         - Applications
       summary: GET /applications/{applicationId}/members
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_get_applications_applicationId_members
       parameters:
         - name: applicationId
@@ -2868,9 +2868,9 @@ paths:
         - Applications
       summary: POST /applications/{applicationId}/members
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_post_applications_applicationId_members
       parameters:
         - name: applicationId
@@ -2911,9 +2911,9 @@ paths:
         - Applications
       summary: PATCH /applications/{applicationId}/members/{memberId}
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_patch_applications_applicationId_members_memberId
       parameters:
         - name: applicationId
@@ -2957,9 +2957,9 @@ paths:
         - Applications
       summary: DELETE /applications/{applicationId}/members/{memberId}
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_delete_applications_applicationId_members_memberId
       parameters:
         - name: applicationId
@@ -3000,9 +3000,9 @@ paths:
         - Applications
       summary: GET /applications/{applicationId}/runtime
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_get_applications_applicationId_runtime
       parameters:
         - name: applicationId
@@ -3035,9 +3035,9 @@ paths:
         - Applications
       summary: PATCH /applications/{applicationId}/runtime/{rowId}
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_patch_applications_applicationId_runtime_rowId
       parameters:
         - name: applicationId
@@ -3082,9 +3082,9 @@ paths:
         - Applications
       summary: POST /applications/{applicationId}/runtime/datasources/records/union
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_post_applications_applicationId_runtime_datasources_records_union
       parameters:
         - name: applicationId
@@ -3125,9 +3125,9 @@ paths:
         - Applications
       summary: GET /applications/{applicationId}/runtime/ledgers
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_get_applications_applicationId_runtime_ledgers
       parameters:
         - name: applicationId
@@ -3160,9 +3160,9 @@ paths:
         - Applications
       summary: GET /applications/{applicationId}/runtime/ledgers/{ledgerId}/facts
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_get_applications_applicationId_runtime_ledgers_ledgerId_facts
       parameters:
         - name: applicationId
@@ -3200,9 +3200,9 @@ paths:
         - Applications
       summary: POST /applications/{applicationId}/runtime/ledgers/{ledgerId}/facts
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_post_applications_applicationId_runtime_ledgers_ledgerId_facts
       parameters:
         - name: applicationId
@@ -3250,9 +3250,9 @@ paths:
       summary: PATCH
         /applications/{applicationId}/runtime/ledgers/{ledgerId}/facts/{factId}
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_patch_applications_applicationId_runtime_ledgers_ledgerId_facts_factId
       parameters:
         - name: applicationId
@@ -3303,9 +3303,9 @@ paths:
       summary: DELETE
         /applications/{applicationId}/runtime/ledgers/{ledgerId}/facts/{factId}
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_delete_applications_applicationId_runtime_ledgers_ledgerId_facts_factId
       parameters:
         - name: applicationId
@@ -3353,9 +3353,9 @@ paths:
       summary: POST
         /applications/{applicationId}/runtime/ledgers/{ledgerId}/facts/reverse
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_post_applications_applicationId_runtime_ledgers_ledgerId_facts_reverse
       parameters:
         - name: applicationId
@@ -3403,9 +3403,9 @@ paths:
       summary: GET
         /applications/{applicationId}/runtime/ledgers/{ledgerId}/projections/{projectionCodename}
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_get_applications_applicationId_runtime_ledgers_ledgerId_projections_projectionCodename
       parameters:
         - name: applicationId
@@ -3450,9 +3450,9 @@ paths:
         - Applications
       summary: POST /applications/{applicationId}/runtime/ledgers/{ledgerId}/query
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_post_applications_applicationId_runtime_ledgers_ledgerId_query
       parameters:
         - name: applicationId
@@ -3499,9 +3499,9 @@ paths:
         - Applications
       summary: GET /applications/{applicationId}/runtime/modules
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_get_applications_applicationId_runtime_modules
       parameters:
         - name: applicationId
@@ -3534,9 +3534,9 @@ paths:
         - Applications
       summary: POST /applications/{applicationId}/runtime/modules/{moduleId}/call
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_post_applications_applicationId_runtime_modules_moduleId_call
       parameters:
         - name: applicationId
@@ -3583,9 +3583,9 @@ paths:
         - Applications
       summary: GET /applications/{applicationId}/runtime/modules/{moduleId}/client
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_get_applications_applicationId_runtime_modules_moduleId_client
       parameters:
         - name: applicationId
@@ -3624,9 +3624,9 @@ paths:
         - Applications
       summary: POST /applications/{applicationId}/runtime/progress/content
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_post_applications_applicationId_runtime_progress_content
       parameters:
         - name: applicationId
@@ -3667,9 +3667,9 @@ paths:
         - Applications
       summary: POST /applications/{applicationId}/runtime/reports/export
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_post_applications_applicationId_runtime_reports_export
       parameters:
         - name: applicationId
@@ -3710,9 +3710,9 @@ paths:
         - Applications
       summary: POST /applications/{applicationId}/runtime/reports/run
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_post_applications_applicationId_runtime_reports_run
       parameters:
         - name: applicationId
@@ -3753,9 +3753,9 @@ paths:
         - Applications
       summary: POST /applications/{applicationId}/runtime/rows
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_post_applications_applicationId_runtime_rows
       parameters:
         - name: applicationId
@@ -3797,9 +3797,9 @@ paths:
       summary: GET
         /applications/{applicationId}/runtime/rows/{recordId}/tabular/{componentId}
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_get_applications_applicationId_runtime_rows_recordId_tabular_componentId
       parameters:
         - name: applicationId
@@ -3844,9 +3844,9 @@ paths:
       summary: POST
         /applications/{applicationId}/runtime/rows/{recordId}/tabular/{componentId}
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_post_applications_applicationId_runtime_rows_recordId_tabular_componentId
       parameters:
         - name: applicationId
@@ -3900,9 +3900,9 @@ paths:
       summary: PATCH
         /applications/{applicationId}/runtime/rows/{recordId}/tabular/{componentId}/{childRowId}
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_patch_applications_applicationId_runtime_rows_recordId_tabular_componentId_childRowId
       parameters:
         - name: applicationId
@@ -3959,9 +3959,9 @@ paths:
       summary: DELETE
         /applications/{applicationId}/runtime/rows/{recordId}/tabular/{componentId}/{childRowId}
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_delete_applications_applicationId_runtime_rows_recordId_tabular_componentId_childRowId
       parameters:
         - name: applicationId
@@ -4015,9 +4015,9 @@ paths:
       summary: POST
         /applications/{applicationId}/runtime/rows/{recordId}/tabular/{componentId}/{childRowId}/copy
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_post_applications_applicationId_runtime_rows_recordId_tabular_componentId_childRowId_copy
       parameters:
         - name: applicationId
@@ -4076,9 +4076,9 @@ paths:
         - Applications
       summary: GET /applications/{applicationId}/runtime/rows/{rowId}
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_get_applications_applicationId_runtime_rows_rowId
       parameters:
         - name: applicationId
@@ -4116,9 +4116,9 @@ paths:
         - Applications
       summary: PATCH /applications/{applicationId}/runtime/rows/{rowId}
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_patch_applications_applicationId_runtime_rows_rowId
       parameters:
         - name: applicationId
@@ -4162,9 +4162,9 @@ paths:
         - Applications
       summary: DELETE /applications/{applicationId}/runtime/rows/{rowId}
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_delete_applications_applicationId_runtime_rows_rowId
       parameters:
         - name: applicationId
@@ -4205,9 +4205,9 @@ paths:
         - Applications
       summary: POST /applications/{applicationId}/runtime/rows/{rowId}/copy
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_post_applications_applicationId_runtime_rows_rowId_copy
       parameters:
         - name: applicationId
@@ -4255,9 +4255,9 @@ paths:
       summary: POST
         /applications/{applicationId}/runtime/rows/{rowId}/library/{relationKey}
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_post_applications_applicationId_runtime_rows_rowId_library_relationKey
       parameters:
         - name: applicationId
@@ -4310,9 +4310,9 @@ paths:
         - Applications
       summary: POST /applications/{applicationId}/runtime/rows/{rowId}/post
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_post_applications_applicationId_runtime_rows_rowId_post
       parameters:
         - name: applicationId
@@ -4359,9 +4359,9 @@ paths:
         - Applications
       summary: POST /applications/{applicationId}/runtime/rows/{rowId}/restore
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_post_applications_applicationId_runtime_rows_rowId_restore
       parameters:
         - name: applicationId
@@ -4408,9 +4408,9 @@ paths:
         - Applications
       summary: POST /applications/{applicationId}/runtime/rows/{rowId}/unpost
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_post_applications_applicationId_runtime_rows_rowId_unpost
       parameters:
         - name: applicationId
@@ -4457,9 +4457,9 @@ paths:
         - Applications
       summary: POST /applications/{applicationId}/runtime/rows/{rowId}/void
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_post_applications_applicationId_runtime_rows_rowId_void
       parameters:
         - name: applicationId
@@ -4507,9 +4507,9 @@ paths:
       summary: POST
         /applications/{applicationId}/runtime/rows/{rowId}/workflow/{actionCodename}
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_post_applications_applicationId_runtime_rows_rowId_workflow_actionCodename
       parameters:
         - name: applicationId
@@ -4562,9 +4562,9 @@ paths:
         - Applications
       summary: POST /applications/{applicationId}/runtime/rows/reorder
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_post_applications_applicationId_runtime_rows_reorder
       parameters:
         - name: applicationId
@@ -4605,9 +4605,9 @@ paths:
         - Applications
       summary: GET /applications/{applicationId}/runtime/workspaces
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_get_applications_applicationId_runtime_workspaces
       parameters:
         - name: applicationId
@@ -4639,9 +4639,9 @@ paths:
         - Applications
       summary: POST /applications/{applicationId}/runtime/workspaces
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_post_applications_applicationId_runtime_workspaces
       parameters:
         - name: applicationId
@@ -4682,9 +4682,9 @@ paths:
         - Applications
       summary: GET /applications/{applicationId}/runtime/workspaces/{workspaceId}
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_get_applications_applicationId_runtime_workspaces_workspaceId
       parameters:
         - name: applicationId
@@ -4722,9 +4722,9 @@ paths:
         - Applications
       summary: PATCH /applications/{applicationId}/runtime/workspaces/{workspaceId}
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_patch_applications_applicationId_runtime_workspaces_workspaceId
       parameters:
         - name: applicationId
@@ -4768,9 +4768,9 @@ paths:
         - Applications
       summary: DELETE /applications/{applicationId}/runtime/workspaces/{workspaceId}
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_delete_applications_applicationId_runtime_workspaces_workspaceId
       parameters:
         - name: applicationId
@@ -4811,9 +4811,9 @@ paths:
         - Applications
       summary: POST /applications/{applicationId}/runtime/workspaces/{workspaceId}/copy
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_post_applications_applicationId_runtime_workspaces_workspaceId_copy
       parameters:
         - name: applicationId
@@ -4861,9 +4861,9 @@ paths:
       summary: PATCH
         /applications/{applicationId}/runtime/workspaces/{workspaceId}/default
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_patch_applications_applicationId_runtime_workspaces_workspaceId_default
       parameters:
         - name: applicationId
@@ -4909,9 +4909,9 @@ paths:
       summary: GET
         /applications/{applicationId}/runtime/workspaces/{workspaceId}/members
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_get_applications_applicationId_runtime_workspaces_workspaceId_members
       parameters:
         - name: applicationId
@@ -4950,9 +4950,9 @@ paths:
       summary: POST
         /applications/{applicationId}/runtime/workspaces/{workspaceId}/members
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_post_applications_applicationId_runtime_workspaces_workspaceId_members
       parameters:
         - name: applicationId
@@ -5000,9 +5000,9 @@ paths:
       summary: DELETE
         /applications/{applicationId}/runtime/workspaces/{workspaceId}/members/{userId}
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_delete_applications_applicationId_runtime_workspaces_workspaceId_members_userId
       parameters:
         - name: applicationId
@@ -5049,9 +5049,9 @@ paths:
         - Applications
       summary: GET /applications/{applicationId}/settings/limits
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_get_applications_applicationId_settings_limits
       parameters:
         - name: applicationId
@@ -5083,9 +5083,9 @@ paths:
         - Applications
       summary: PUT /applications/{applicationId}/settings/limits
       description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+        packages/applications-backend/src/routes/applicationsRoutes.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Applications_put_applications_applicationId_settings_limits
       parameters:
         - name: applicationId
@@ -5123,9 +5123,9 @@ paths:
       tags:
         - Auth
       summary: GET /auth/auth-config
-      description: Auto-generated from packages/auth-backend/base/src/routes/auth.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+      description: Auto-generated from packages/auth-backend/src/routes/auth.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Auth_get_auth_auth_config
       parameters: []
       responses:
@@ -5146,9 +5146,9 @@ paths:
       tags:
         - Auth
       summary: GET /auth/captcha-config
-      description: Auto-generated from packages/auth-backend/base/src/routes/auth.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+      description: Auto-generated from packages/auth-backend/src/routes/auth.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Auth_get_auth_captcha_config
       parameters: []
       responses:
@@ -5169,9 +5169,9 @@ paths:
       tags:
         - Auth
       summary: GET /auth/csrf
-      description: Auto-generated from packages/auth-backend/base/src/routes/auth.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+      description: Auto-generated from packages/auth-backend/src/routes/auth.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Auth_get_auth_csrf
       parameters: []
       responses:
@@ -5192,9 +5192,9 @@ paths:
       tags:
         - Auth
       summary: POST /auth/login
-      description: Auto-generated from packages/auth-backend/base/src/routes/auth.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+      description: Auto-generated from packages/auth-backend/src/routes/auth.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Auth_post_auth_login
       parameters: []
       responses:
@@ -5223,9 +5223,9 @@ paths:
       tags:
         - Auth
       summary: POST /auth/logout
-      description: Auto-generated from packages/auth-backend/base/src/routes/auth.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+      description: Auto-generated from packages/auth-backend/src/routes/auth.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Auth_post_auth_logout
       parameters: []
       responses:
@@ -5254,9 +5254,9 @@ paths:
       tags:
         - Auth
       summary: GET /auth/me
-      description: Auto-generated from packages/auth-backend/base/src/routes/auth.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+      description: Auto-generated from packages/auth-backend/src/routes/auth.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Auth_get_auth_me
       parameters: []
       responses:
@@ -5277,9 +5277,9 @@ paths:
       tags:
         - Auth
       summary: GET /auth/permissions
-      description: Auto-generated from packages/auth-backend/base/src/routes/auth.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+      description: Auto-generated from packages/auth-backend/src/routes/auth.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Auth_get_auth_permissions
       parameters: []
       responses:
@@ -5300,9 +5300,9 @@ paths:
       tags:
         - Auth
       summary: POST /auth/refresh
-      description: Auto-generated from packages/auth-backend/base/src/routes/auth.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+      description: Auto-generated from packages/auth-backend/src/routes/auth.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Auth_post_auth_refresh
       parameters: []
       responses:
@@ -5331,9 +5331,9 @@ paths:
       tags:
         - Auth
       summary: POST /auth/register
-      description: Auto-generated from packages/auth-backend/base/src/routes/auth.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
+      description: Auto-generated from packages/auth-backend/src/routes/auth.ts. This
+        operation is mounted on the live backend route surface and should be
+        treated as current repository truth.
       operationId: Auth_post_auth_register
       parameters: []
       responses:
@@ -5384,9 +5384,9 @@ paths:
         - Public Locales
       summary: GET /locales/content
       description: Auto-generated from
-        packages/admin-backend/base/src/routes/publicLocalesRoutes.ts. This
-        operation is mounted on the live backend route surface and should be
-        treated as current repository truth.
+        packages/admin-backend/src/routes/publicLocalesRoutes.ts. This operation
+        is mounted on the live backend route surface and should be treated as
+        current repository truth.
       operationId: Public_Locales_get_locales_content
       parameters: []
       responses:
@@ -5408,9 +5408,9 @@ paths:
         - Public Locales
       summary: GET /locales/ui
       description: Auto-generated from
-        packages/admin-backend/base/src/routes/publicLocalesRoutes.ts. This
-        operation is mounted on the live backend route surface and should be
-        treated as current repository truth.
+        packages/admin-backend/src/routes/publicLocalesRoutes.ts. This operation
+        is mounted on the live backend route surface and should be treated as
+        current repository truth.
       operationId: Public_Locales_get_locales_ui
       parameters: []
       responses:
@@ -5432,7 +5432,7 @@ paths:
         - Metahubs
       summary: GET /metahub/{metahubId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/metahubs/routes/metahubsRoutes.ts.
+        packages/metahubs-backend/src/domains/metahubs/routes/metahubsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Metahubs_get_metahub_metahubId
@@ -5466,7 +5466,7 @@ paths:
         - Metahubs
       summary: PUT /metahub/{metahubId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/metahubs/routes/metahubsRoutes.ts.
+        packages/metahubs-backend/src/domains/metahubs/routes/metahubsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Metahubs_put_metahub_metahubId
@@ -5506,7 +5506,7 @@ paths:
         - Metahubs
       summary: DELETE /metahub/{metahubId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/metahubs/routes/metahubsRoutes.ts.
+        packages/metahubs-backend/src/domains/metahubs/routes/metahubsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Metahubs_delete_metahub_metahubId
@@ -5543,7 +5543,7 @@ paths:
         - Entity Actions
       summary: GET /metahub/{metahubId}/action/{actionId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/actionsRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/actionsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entity_Actions_get_metahub_metahubId_action_actionId
@@ -5583,7 +5583,7 @@ paths:
         - Entity Actions
       summary: PATCH /metahub/{metahubId}/action/{actionId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/actionsRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/actionsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entity_Actions_patch_metahub_metahubId_action_actionId
@@ -5629,7 +5629,7 @@ paths:
         - Entity Actions
       summary: DELETE /metahub/{metahubId}/action/{actionId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/actionsRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/actionsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entity_Actions_delete_metahub_metahubId_action_actionId
@@ -5672,7 +5672,7 @@ paths:
         - Metahubs
       summary: GET /metahub/{metahubId}/board/summary
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/metahubs/routes/metahubsRoutes.ts.
+        packages/metahubs-backend/src/domains/metahubs/routes/metahubsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Metahubs_get_metahub_metahubId_board_summary
@@ -5707,7 +5707,7 @@ paths:
         - Branches
       summary: GET /metahub/{metahubId}/branch/{branchId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/branches/routes/branchesRoutes.ts.
+        packages/metahubs-backend/src/domains/branches/routes/branchesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Branches_get_metahub_metahubId_branch_branchId
@@ -5747,7 +5747,7 @@ paths:
         - Branches
       summary: PATCH /metahub/{metahubId}/branch/{branchId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/branches/routes/branchesRoutes.ts.
+        packages/metahubs-backend/src/domains/branches/routes/branchesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Branches_patch_metahub_metahubId_branch_branchId
@@ -5793,7 +5793,7 @@ paths:
         - Branches
       summary: DELETE /metahub/{metahubId}/branch/{branchId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/branches/routes/branchesRoutes.ts.
+        packages/metahubs-backend/src/domains/branches/routes/branchesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Branches_delete_metahub_metahubId_branch_branchId
@@ -5836,7 +5836,7 @@ paths:
         - Branches
       summary: POST /metahub/{metahubId}/branch/{branchId}/activate
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/branches/routes/branchesRoutes.ts.
+        packages/metahubs-backend/src/domains/branches/routes/branchesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Branches_post_metahub_metahubId_branch_branchId_activate
@@ -5885,7 +5885,7 @@ paths:
         - Branches
       summary: GET /metahub/{metahubId}/branch/{branchId}/blocking-users
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/branches/routes/branchesRoutes.ts.
+        packages/metahubs-backend/src/domains/branches/routes/branchesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Branches_get_metahub_metahubId_branch_branchId_blocking_users
@@ -5926,7 +5926,7 @@ paths:
         - Branches
       summary: POST /metahub/{metahubId}/branch/{branchId}/default
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/branches/routes/branchesRoutes.ts.
+        packages/metahubs-backend/src/domains/branches/routes/branchesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Branches_post_metahub_metahubId_branch_branchId_default
@@ -5975,7 +5975,7 @@ paths:
         - Branches
       summary: GET /metahub/{metahubId}/branches
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/branches/routes/branchesRoutes.ts.
+        packages/metahubs-backend/src/domains/branches/routes/branchesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Branches_get_metahub_metahubId_branches
@@ -6009,7 +6009,7 @@ paths:
         - Branches
       summary: POST /metahub/{metahubId}/branches
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/branches/routes/branchesRoutes.ts.
+        packages/metahubs-backend/src/domains/branches/routes/branchesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Branches_post_metahub_metahubId_branches
@@ -6052,7 +6052,7 @@ paths:
         - Branches
       summary: GET /metahub/{metahubId}/branches/options
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/branches/routes/branchesRoutes.ts.
+        packages/metahubs-backend/src/domains/branches/routes/branchesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Branches_get_metahub_metahubId_branches_options
@@ -6087,7 +6087,7 @@ paths:
         - Metahubs
       summary: POST /metahub/{metahubId}/copy
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/metahubs/routes/metahubsRoutes.ts.
+        packages/metahubs-backend/src/domains/metahubs/routes/metahubsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Metahubs_post_metahub_metahubId_copy
@@ -6130,7 +6130,7 @@ paths:
         - Entities
       summary: GET /metahub/{metahubId}/entities
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_get_metahub_metahubId_entities
@@ -6164,7 +6164,7 @@ paths:
         - Entities
       summary: POST /metahub/{metahubId}/entities
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_post_metahub_metahubId_entities
@@ -6207,7 +6207,7 @@ paths:
         - Entities
       summary: GET /metahub/{metahubId}/entities/{kindKey}/instance/{entityId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_get_metahub_metahubId_entities_kindKey_instance_entityId
@@ -6253,7 +6253,7 @@ paths:
         - Entities
       summary: PATCH /metahub/{metahubId}/entities/{kindKey}/instance/{entityId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_patch_metahub_metahubId_entities_kindKey_instance_entityId
@@ -6305,7 +6305,7 @@ paths:
         - Entities
       summary: DELETE /metahub/{metahubId}/entities/{kindKey}/instance/{entityId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_delete_metahub_metahubId_entities_kindKey_instance_entityId
@@ -6355,7 +6355,7 @@ paths:
       summary: GET
         /metahub/{metahubId}/entities/{kindKey}/instance/{entityId}/blocking-dependencies
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_get_metahub_metahubId_entities_kindKey_instance_entityId_blocking_dependencies
@@ -6403,7 +6403,7 @@ paths:
       summary: GET
         /metahub/{metahubId}/entities/{kindKey}/instance/{entityId}/blocking-references
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_get_metahub_metahubId_entities_kindKey_instance_entityId_blocking_references
@@ -6450,7 +6450,7 @@ paths:
         - Entities
       summary: POST /metahub/{metahubId}/entities/{kindKey}/instance/{entityId}/copy
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_post_metahub_metahubId_entities_kindKey_instance_entityId_copy
@@ -6506,7 +6506,7 @@ paths:
       summary: DELETE
         /metahub/{metahubId}/entities/{kindKey}/instance/{entityId}/permanent
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_delete_metahub_metahubId_entities_kindKey_instance_entityId_permanent
@@ -6555,7 +6555,7 @@ paths:
         - Entities
       summary: POST /metahub/{metahubId}/entities/{kindKey}/instance/{entityId}/restore
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_post_metahub_metahubId_entities_kindKey_instance_entityId_restore
@@ -6611,7 +6611,7 @@ paths:
       summary: GET
         /metahub/{metahubId}/entities/{kindKey}/instance/{optionListId}/value/{valueId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_get_metahub_metahubId_entities_kindKey_instance_optionListId_value_valueId
@@ -6664,7 +6664,7 @@ paths:
       summary: PATCH
         /metahub/{metahubId}/entities/{kindKey}/instance/{optionListId}/value/{valueId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_patch_metahub_metahubId_entities_kindKey_instance_optionListId_value_valueId
@@ -6723,7 +6723,7 @@ paths:
       summary: DELETE
         /metahub/{metahubId}/entities/{kindKey}/instance/{optionListId}/value/{valueId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_delete_metahub_metahubId_entities_kindKey_instance_optionListId_value_valueId
@@ -6779,7 +6779,7 @@ paths:
       summary: GET
         /metahub/{metahubId}/entities/{kindKey}/instance/{optionListId}/value/{valueId}/blocking-references
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_get_metahub_metahubId_entities_kindKey_instance_optionListId_value_valueId_blocking_references
@@ -6833,7 +6833,7 @@ paths:
       summary: POST
         /metahub/{metahubId}/entities/{kindKey}/instance/{optionListId}/value/{valueId}/copy
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_post_metahub_metahubId_entities_kindKey_instance_optionListId_value_valueId_copy
@@ -6895,7 +6895,7 @@ paths:
       summary: PATCH
         /metahub/{metahubId}/entities/{kindKey}/instance/{optionListId}/value/{valueId}/move
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_patch_metahub_metahubId_entities_kindKey_instance_optionListId_value_valueId_move
@@ -6955,7 +6955,7 @@ paths:
       summary: GET
         /metahub/{metahubId}/entities/{kindKey}/instance/{optionListId}/values
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_get_metahub_metahubId_entities_kindKey_instance_optionListId_values
@@ -7002,7 +7002,7 @@ paths:
       summary: POST
         /metahub/{metahubId}/entities/{kindKey}/instance/{optionListId}/values
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_post_metahub_metahubId_entities_kindKey_instance_optionListId_values
@@ -7058,7 +7058,7 @@ paths:
       summary: PATCH
         /metahub/{metahubId}/entities/{kindKey}/instance/{optionListId}/values/reorder
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_patch_metahub_metahubId_entities_kindKey_instance_optionListId_values_reorder
@@ -7112,7 +7112,7 @@ paths:
       summary: GET
         /metahub/{metahubId}/entities/{kindKey}/instance/{treeEntityId}/instance/{entityId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_get_metahub_metahubId_entities_kindKey_instance_treeEntityId_instance_entityId
@@ -7165,7 +7165,7 @@ paths:
       summary: PATCH
         /metahub/{metahubId}/entities/{kindKey}/instance/{treeEntityId}/instance/{entityId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_patch_metahub_metahubId_entities_kindKey_instance_treeEntityId_instance_entityId
@@ -7224,7 +7224,7 @@ paths:
       summary: DELETE
         /metahub/{metahubId}/entities/{kindKey}/instance/{treeEntityId}/instance/{entityId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_delete_metahub_metahubId_entities_kindKey_instance_treeEntityId_instance_entityId
@@ -7280,7 +7280,7 @@ paths:
       summary: GET
         /metahub/{metahubId}/entities/{kindKey}/instance/{treeEntityId}/instance/{optionListId}/value/{valueId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_get_metahub_metahubId_entities_kindKey_instance_treeEntityId_instance_optionListId_value_valueId
@@ -7339,7 +7339,7 @@ paths:
       summary: PATCH
         /metahub/{metahubId}/entities/{kindKey}/instance/{treeEntityId}/instance/{optionListId}/value/{valueId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_patch_metahub_metahubId_entities_kindKey_instance_treeEntityId_instance_optionListId_value_valueId
@@ -7404,7 +7404,7 @@ paths:
       summary: DELETE
         /metahub/{metahubId}/entities/{kindKey}/instance/{treeEntityId}/instance/{optionListId}/value/{valueId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_delete_metahub_metahubId_entities_kindKey_instance_treeEntityId_instance_optionListId_value_valueId
@@ -7466,7 +7466,7 @@ paths:
       summary: GET
         /metahub/{metahubId}/entities/{kindKey}/instance/{treeEntityId}/instance/{optionListId}/value/{valueId}/blocking-references
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_get_metahub_metahubId_entities_kindKey_instance_treeEntityId_instance_optionListId_value_valueId_blocking_references
@@ -7526,7 +7526,7 @@ paths:
       summary: POST
         /metahub/{metahubId}/entities/{kindKey}/instance/{treeEntityId}/instance/{optionListId}/value/{valueId}/copy
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_post_metahub_metahubId_entities_kindKey_instance_treeEntityId_instance_optionListId_value_valueId_copy
@@ -7594,7 +7594,7 @@ paths:
       summary: PATCH
         /metahub/{metahubId}/entities/{kindKey}/instance/{treeEntityId}/instance/{optionListId}/value/{valueId}/move
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_patch_metahub_metahubId_entities_kindKey_instance_treeEntityId_instance_optionListId_value_valueId_move
@@ -7660,7 +7660,7 @@ paths:
       summary: GET
         /metahub/{metahubId}/entities/{kindKey}/instance/{treeEntityId}/instance/{optionListId}/values
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_get_metahub_metahubId_entities_kindKey_instance_treeEntityId_instance_optionListId_values
@@ -7713,7 +7713,7 @@ paths:
       summary: POST
         /metahub/{metahubId}/entities/{kindKey}/instance/{treeEntityId}/instance/{optionListId}/values
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_post_metahub_metahubId_entities_kindKey_instance_treeEntityId_instance_optionListId_values
@@ -7775,7 +7775,7 @@ paths:
       summary: PATCH
         /metahub/{metahubId}/entities/{kindKey}/instance/{treeEntityId}/instance/{optionListId}/values/reorder
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_patch_metahub_metahubId_entities_kindKey_instance_treeEntityId_instance_optionListId_values_reorder
@@ -7835,7 +7835,7 @@ paths:
       summary: GET
         /metahub/{metahubId}/entities/{kindKey}/instance/{treeEntityId}/instance/{valueGroupId}/fixed-value-codenames
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/metadata/fixedValue/routes.ts.
+        packages/metahubs-backend/src/domains/entities/metadata/fixedValue/routes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Constants_get_metahub_metahubId_entities_kindKey_instance_treeEntityId_instance_valueGroupId_fixed_value_codenames
@@ -7889,7 +7889,7 @@ paths:
       summary: GET
         /metahub/{metahubId}/entities/{kindKey}/instance/{treeEntityId}/instances
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_get_metahub_metahubId_entities_kindKey_instance_treeEntityId_instances
@@ -7936,7 +7936,7 @@ paths:
       summary: POST
         /metahub/{metahubId}/entities/{kindKey}/instance/{treeEntityId}/instances
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_post_metahub_metahubId_entities_kindKey_instance_treeEntityId_instances
@@ -7992,7 +7992,7 @@ paths:
       summary: PATCH
         /metahub/{metahubId}/entities/{kindKey}/instance/{treeEntityId}/instances/reorder
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_patch_metahub_metahubId_entities_kindKey_instance_treeEntityId_instances_reorder
@@ -8046,7 +8046,7 @@ paths:
       summary: GET
         /metahub/{metahubId}/entities/{kindKey}/instance/{valueGroupId}/fixed-value-codenames
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/metadata/fixedValue/routes.ts.
+        packages/metahubs-backend/src/domains/entities/metadata/fixedValue/routes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Constants_get_metahub_metahubId_entities_kindKey_instance_valueGroupId_fixed_value_codenames
@@ -8093,7 +8093,7 @@ paths:
         - Entities
       summary: GET /metahub/{metahubId}/entities/{kindKey}/instances
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_get_metahub_metahubId_entities_kindKey_instances
@@ -8133,7 +8133,7 @@ paths:
         - Entities
       summary: POST /metahub/{metahubId}/entities/{kindKey}/instances
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_post_metahub_metahubId_entities_kindKey_instances
@@ -8182,7 +8182,7 @@ paths:
         - Entities
       summary: PATCH /metahub/{metahubId}/entities/{kindKey}/instances/reorder
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_patch_metahub_metahubId_entities_kindKey_instances_reorder
@@ -8229,7 +8229,7 @@ paths:
         - Entities
       summary: GET /metahub/{metahubId}/entities/{kindKey}/instances/trash
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_get_metahub_metahubId_entities_kindKey_instances_trash
@@ -8270,7 +8270,7 @@ paths:
         - Entities
       summary: POST /metahub/{metahubId}/entities/reorder
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_post_metahub_metahubId_entities_reorder
@@ -8313,7 +8313,7 @@ paths:
         - Entity Types
       summary: GET /metahub/{metahubId}/entity-type/{entityTypeId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityTypesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityTypesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entity_Types_get_metahub_metahubId_entity_type_entityTypeId
@@ -8353,7 +8353,7 @@ paths:
         - Entity Types
       summary: PATCH /metahub/{metahubId}/entity-type/{entityTypeId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityTypesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityTypesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entity_Types_patch_metahub_metahubId_entity_type_entityTypeId
@@ -8399,7 +8399,7 @@ paths:
         - Entity Types
       summary: DELETE /metahub/{metahubId}/entity-type/{entityTypeId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityTypesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityTypesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entity_Types_delete_metahub_metahubId_entity_type_entityTypeId
@@ -8442,7 +8442,7 @@ paths:
         - Entity Types
       summary: GET /metahub/{metahubId}/entity-types
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityTypesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityTypesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entity_Types_get_metahub_metahubId_entity_types
@@ -8476,7 +8476,7 @@ paths:
         - Entity Types
       summary: POST /metahub/{metahubId}/entity-types
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityTypesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityTypesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entity_Types_post_metahub_metahubId_entity_types
@@ -8519,7 +8519,7 @@ paths:
         - Entities
       summary: GET /metahub/{metahubId}/entity/{entityId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_get_metahub_metahubId_entity_entityId
@@ -8559,7 +8559,7 @@ paths:
         - Entities
       summary: PATCH /metahub/{metahubId}/entity/{entityId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_patch_metahub_metahubId_entity_entityId
@@ -8605,7 +8605,7 @@ paths:
         - Entities
       summary: DELETE /metahub/{metahubId}/entity/{entityId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_delete_metahub_metahubId_entity_entityId
@@ -8648,7 +8648,7 @@ paths:
         - Entities
       summary: POST /metahub/{metahubId}/entity/{entityId}/copy
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_post_metahub_metahubId_entity_entityId_copy
@@ -8697,7 +8697,7 @@ paths:
         - Entities
       summary: DELETE /metahub/{metahubId}/entity/{entityId}/permanent
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_delete_metahub_metahubId_entity_entityId_permanent
@@ -8740,7 +8740,7 @@ paths:
         - Entities
       summary: POST /metahub/{metahubId}/entity/{entityId}/restore
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entities_post_metahub_metahubId_entity_entityId_restore
@@ -8789,7 +8789,7 @@ paths:
         - Event Bindings
       summary: GET /metahub/{metahubId}/event-binding/{bindingId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/eventBindingsRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/eventBindingsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Event_Bindings_get_metahub_metahubId_event_binding_bindingId
@@ -8829,7 +8829,7 @@ paths:
         - Event Bindings
       summary: PATCH /metahub/{metahubId}/event-binding/{bindingId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/eventBindingsRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/eventBindingsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Event_Bindings_patch_metahub_metahubId_event_binding_bindingId
@@ -8875,7 +8875,7 @@ paths:
         - Event Bindings
       summary: DELETE /metahub/{metahubId}/event-binding/{bindingId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/eventBindingsRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/eventBindingsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Event_Bindings_delete_metahub_metahubId_event_binding_bindingId
@@ -8918,7 +8918,7 @@ paths:
         - Metahubs
       summary: GET /metahub/{metahubId}/export
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/metahubs/routes/metahubsRoutes.ts.
+        packages/metahubs-backend/src/domains/metahubs/routes/metahubsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Metahubs_get_metahub_metahubId_export
@@ -8953,7 +8953,7 @@ paths:
         - Layouts
       summary: GET /metahub/{metahubId}/layout/{layoutId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/layouts/routes/layoutsRoutes.ts.
+        packages/metahubs-backend/src/domains/layouts/routes/layoutsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Layouts_get_metahub_metahubId_layout_layoutId
@@ -8993,7 +8993,7 @@ paths:
         - Layouts
       summary: PATCH /metahub/{metahubId}/layout/{layoutId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/layouts/routes/layoutsRoutes.ts.
+        packages/metahubs-backend/src/domains/layouts/routes/layoutsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Layouts_patch_metahub_metahubId_layout_layoutId
@@ -9039,7 +9039,7 @@ paths:
         - Layouts
       summary: DELETE /metahub/{metahubId}/layout/{layoutId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/layouts/routes/layoutsRoutes.ts.
+        packages/metahubs-backend/src/domains/layouts/routes/layoutsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Layouts_delete_metahub_metahubId_layout_layoutId
@@ -9082,7 +9082,7 @@ paths:
         - Layouts
       summary: POST /metahub/{metahubId}/layout/{layoutId}/copy
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/layouts/routes/layoutsRoutes.ts.
+        packages/metahubs-backend/src/domains/layouts/routes/layoutsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Layouts_post_metahub_metahubId_layout_layoutId_copy
@@ -9131,7 +9131,7 @@ paths:
         - Layouts
       summary: PUT /metahub/{metahubId}/layout/{layoutId}/zone-widget
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/layouts/routes/layoutsRoutes.ts.
+        packages/metahubs-backend/src/domains/layouts/routes/layoutsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Layouts_put_metahub_metahubId_layout_layoutId_zone_widget
@@ -9178,7 +9178,7 @@ paths:
         - Layouts
       summary: DELETE /metahub/{metahubId}/layout/{layoutId}/zone-widget/{widgetId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/layouts/routes/layoutsRoutes.ts.
+        packages/metahubs-backend/src/domains/layouts/routes/layoutsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Layouts_delete_metahub_metahubId_layout_layoutId_zone_widget_widgetId
@@ -9228,7 +9228,7 @@ paths:
       summary: PATCH
         /metahub/{metahubId}/layout/{layoutId}/zone-widget/{widgetId}/config
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/layouts/routes/layoutsRoutes.ts.
+        packages/metahubs-backend/src/domains/layouts/routes/layoutsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Layouts_patch_metahub_metahubId_layout_layoutId_zone_widget_widgetId_config
@@ -9282,7 +9282,7 @@ paths:
       summary: GET
         /metahub/{metahubId}/layout/{layoutId}/zone-widget/{widgetId}/scope-visibility
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/layouts/routes/layoutsRoutes.ts.
+        packages/metahubs-backend/src/domains/layouts/routes/layoutsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Layouts_get_metahub_metahubId_layout_layoutId_zone_widget_widgetId_scope_visibility
@@ -9330,7 +9330,7 @@ paths:
       summary: PATCH
         /metahub/{metahubId}/layout/{layoutId}/zone-widget/{widgetId}/scope-visibility/{scopeEntityId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/layouts/routes/layoutsRoutes.ts.
+        packages/metahubs-backend/src/domains/layouts/routes/layoutsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Layouts_patch_metahub_metahubId_layout_layoutId_zone_widget_widgetId_scope_visibility_scopeEntityId
@@ -9390,7 +9390,7 @@ paths:
       summary: PATCH
         /metahub/{metahubId}/layout/{layoutId}/zone-widget/{widgetId}/toggle-active
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/layouts/routes/layoutsRoutes.ts.
+        packages/metahubs-backend/src/domains/layouts/routes/layoutsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Layouts_patch_metahub_metahubId_layout_layoutId_zone_widget_widgetId_toggle_active
@@ -9443,7 +9443,7 @@ paths:
         - Layouts
       summary: GET /metahub/{metahubId}/layout/{layoutId}/zone-widgets
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/layouts/routes/layoutsRoutes.ts.
+        packages/metahubs-backend/src/domains/layouts/routes/layoutsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Layouts_get_metahub_metahubId_layout_layoutId_zone_widgets
@@ -9484,7 +9484,7 @@ paths:
         - Layouts
       summary: PATCH /metahub/{metahubId}/layout/{layoutId}/zone-widgets/move
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/layouts/routes/layoutsRoutes.ts.
+        packages/metahubs-backend/src/domains/layouts/routes/layoutsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Layouts_patch_metahub_metahubId_layout_layoutId_zone_widgets_move
@@ -9531,7 +9531,7 @@ paths:
         - Layouts
       summary: GET /metahub/{metahubId}/layout/{layoutId}/zone-widgets/object
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/layouts/routes/layoutsRoutes.ts.
+        packages/metahubs-backend/src/domains/layouts/routes/layoutsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Layouts_get_metahub_metahubId_layout_layoutId_zone_widgets_object
@@ -9572,7 +9572,7 @@ paths:
         - Layouts
       summary: GET /metahub/{metahubId}/layouts
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/layouts/routes/layoutsRoutes.ts.
+        packages/metahubs-backend/src/domains/layouts/routes/layoutsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Layouts_get_metahub_metahubId_layouts
@@ -9606,7 +9606,7 @@ paths:
         - Layouts
       summary: POST /metahub/{metahubId}/layouts
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/layouts/routes/layoutsRoutes.ts.
+        packages/metahubs-backend/src/domains/layouts/routes/layoutsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Layouts_post_metahub_metahubId_layouts
@@ -9649,7 +9649,7 @@ paths:
         - Metahubs
       summary: PATCH /metahub/{metahubId}/member/{memberId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/metahubs/routes/metahubsRoutes.ts.
+        packages/metahubs-backend/src/domains/metahubs/routes/metahubsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Metahubs_patch_metahub_metahubId_member_memberId
@@ -9695,7 +9695,7 @@ paths:
         - Metahubs
       summary: DELETE /metahub/{metahubId}/member/{memberId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/metahubs/routes/metahubsRoutes.ts.
+        packages/metahubs-backend/src/domains/metahubs/routes/metahubsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Metahubs_delete_metahub_metahubId_member_memberId
@@ -9738,7 +9738,7 @@ paths:
         - Metahubs
       summary: GET /metahub/{metahubId}/members
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/metahubs/routes/metahubsRoutes.ts.
+        packages/metahubs-backend/src/domains/metahubs/routes/metahubsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Metahubs_get_metahub_metahubId_members
@@ -9772,7 +9772,7 @@ paths:
         - Metahubs
       summary: POST /metahub/{metahubId}/members
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/metahubs/routes/metahubsRoutes.ts.
+        packages/metahubs-backend/src/domains/metahubs/routes/metahubsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Metahubs_post_metahub_metahubId_members
@@ -9815,7 +9815,7 @@ paths:
         - Metahub Migrations
       summary: GET /metahub/{metahubId}/migrations
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/metahubs/routes/metahubMigrationsRoutes.ts.
+        packages/metahubs-backend/src/domains/metahubs/routes/metahubMigrationsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Metahub_Migrations_get_metahub_metahubId_migrations
@@ -9850,7 +9850,7 @@ paths:
         - Metahub Migrations
       summary: POST /metahub/{metahubId}/migrations/apply
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/metahubs/routes/metahubMigrationsRoutes.ts.
+        packages/metahubs-backend/src/domains/metahubs/routes/metahubMigrationsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Metahub_Migrations_post_metahub_metahubId_migrations_apply
@@ -9893,7 +9893,7 @@ paths:
         - Metahub Migrations
       summary: POST /metahub/{metahubId}/migrations/plan
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/metahubs/routes/metahubMigrationsRoutes.ts.
+        packages/metahubs-backend/src/domains/metahubs/routes/metahubMigrationsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Metahub_Migrations_post_metahub_metahubId_migrations_plan
@@ -9936,7 +9936,7 @@ paths:
         - Metahub Migrations
       summary: GET /metahub/{metahubId}/migrations/status
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/metahubs/routes/metahubMigrationsRoutes.ts.
+        packages/metahubs-backend/src/domains/metahubs/routes/metahubMigrationsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Metahub_Migrations_get_metahub_metahubId_migrations_status
@@ -9971,7 +9971,7 @@ paths:
         - Modules
       summary: GET /metahub/{metahubId}/module/{moduleId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/modules/routes/modulesRoutes.ts.
+        packages/metahubs-backend/src/domains/modules/routes/modulesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Modules_get_metahub_metahubId_module_moduleId
@@ -10011,7 +10011,7 @@ paths:
         - Modules
       summary: PATCH /metahub/{metahubId}/module/{moduleId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/modules/routes/modulesRoutes.ts.
+        packages/metahubs-backend/src/domains/modules/routes/modulesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Modules_patch_metahub_metahubId_module_moduleId
@@ -10057,7 +10057,7 @@ paths:
         - Modules
       summary: DELETE /metahub/{metahubId}/module/{moduleId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/modules/routes/modulesRoutes.ts.
+        packages/metahubs-backend/src/domains/modules/routes/modulesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Modules_delete_metahub_metahubId_module_moduleId
@@ -10100,7 +10100,7 @@ paths:
         - Modules
       summary: GET /metahub/{metahubId}/modules
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/modules/routes/modulesRoutes.ts.
+        packages/metahubs-backend/src/domains/modules/routes/modulesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Modules_get_metahub_metahubId_modules
@@ -10134,7 +10134,7 @@ paths:
         - Modules
       summary: POST /metahub/{metahubId}/modules
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/modules/routes/modulesRoutes.ts.
+        packages/metahubs-backend/src/domains/modules/routes/modulesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Modules_post_metahub_metahubId_modules
@@ -10177,7 +10177,7 @@ paths:
         - Entity Actions
       summary: GET /metahub/{metahubId}/object/{objectId}/actions
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/actionsRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/actionsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entity_Actions_get_metahub_metahubId_object_objectId_actions
@@ -10217,7 +10217,7 @@ paths:
         - Entity Actions
       summary: POST /metahub/{metahubId}/object/{objectId}/actions
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/actionsRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/actionsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Entity_Actions_post_metahub_metahubId_object_objectId_actions
@@ -10266,7 +10266,7 @@ paths:
         - Event Bindings
       summary: GET /metahub/{metahubId}/object/{objectId}/event-bindings
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/eventBindingsRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/eventBindingsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Event_Bindings_get_metahub_metahubId_object_objectId_event_bindings
@@ -10306,7 +10306,7 @@ paths:
         - Event Bindings
       summary: POST /metahub/{metahubId}/object/{objectId}/event-bindings
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/entities/routes/eventBindingsRoutes.ts.
+        packages/metahubs-backend/src/domains/entities/routes/eventBindingsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Event_Bindings_post_metahub_metahubId_object_objectId_event_bindings
@@ -10355,7 +10355,7 @@ paths:
         - Publications
       summary: GET /metahub/{metahubId}/publication/{publicationId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/publications/routes/publicationsRoutes.ts.
+        packages/metahubs-backend/src/domains/publications/routes/publicationsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Publications_get_metahub_metahubId_publication_publicationId
@@ -10395,7 +10395,7 @@ paths:
         - Publications
       summary: PATCH /metahub/{metahubId}/publication/{publicationId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/publications/routes/publicationsRoutes.ts.
+        packages/metahubs-backend/src/domains/publications/routes/publicationsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Publications_patch_metahub_metahubId_publication_publicationId
@@ -10441,7 +10441,7 @@ paths:
         - Publications
       summary: DELETE /metahub/{metahubId}/publication/{publicationId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/publications/routes/publicationsRoutes.ts.
+        packages/metahubs-backend/src/domains/publications/routes/publicationsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Publications_delete_metahub_metahubId_publication_publicationId
@@ -10484,7 +10484,7 @@ paths:
         - Publications
       summary: GET /metahub/{metahubId}/publication/{publicationId}/applications
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/publications/routes/publicationsRoutes.ts.
+        packages/metahubs-backend/src/domains/publications/routes/publicationsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Publications_get_metahub_metahubId_publication_publicationId_applications
@@ -10524,7 +10524,7 @@ paths:
         - Publications
       summary: POST /metahub/{metahubId}/publication/{publicationId}/applications
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/publications/routes/publicationsRoutes.ts.
+        packages/metahubs-backend/src/domains/publications/routes/publicationsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Publications_post_metahub_metahubId_publication_publicationId_applications
@@ -10573,7 +10573,7 @@ paths:
         - Publications
       summary: GET /metahub/{metahubId}/publication/{publicationId}/diff
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/publications/routes/publicationsRoutes.ts.
+        packages/metahubs-backend/src/domains/publications/routes/publicationsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Publications_get_metahub_metahubId_publication_publicationId_diff
@@ -10614,7 +10614,7 @@ paths:
         - Publications
       summary: POST /metahub/{metahubId}/publication/{publicationId}/sync
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/publications/routes/publicationsRoutes.ts.
+        packages/metahubs-backend/src/domains/publications/routes/publicationsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Publications_post_metahub_metahubId_publication_publicationId_sync
@@ -10663,7 +10663,7 @@ paths:
         - Publications
       summary: GET /metahub/{metahubId}/publication/{publicationId}/versions
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/publications/routes/publicationsRoutes.ts.
+        packages/metahubs-backend/src/domains/publications/routes/publicationsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Publications_get_metahub_metahubId_publication_publicationId_versions
@@ -10703,7 +10703,7 @@ paths:
         - Publications
       summary: POST /metahub/{metahubId}/publication/{publicationId}/versions
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/publications/routes/publicationsRoutes.ts.
+        packages/metahubs-backend/src/domains/publications/routes/publicationsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Publications_post_metahub_metahubId_publication_publicationId_versions
@@ -10753,7 +10753,7 @@ paths:
       summary: PATCH
         /metahub/{metahubId}/publication/{publicationId}/versions/{versionId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/publications/routes/publicationsRoutes.ts.
+        packages/metahubs-backend/src/domains/publications/routes/publicationsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Publications_patch_metahub_metahubId_publication_publicationId_versions_versionId
@@ -10806,7 +10806,7 @@ paths:
       summary: DELETE
         /metahub/{metahubId}/publication/{publicationId}/versions/{versionId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/publications/routes/publicationsRoutes.ts.
+        packages/metahubs-backend/src/domains/publications/routes/publicationsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Publications_delete_metahub_metahubId_publication_publicationId_versions_versionId
@@ -10856,7 +10856,7 @@ paths:
       summary: POST
         /metahub/{metahubId}/publication/{publicationId}/versions/{versionId}/activate
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/publications/routes/publicationsRoutes.ts.
+        packages/metahubs-backend/src/domains/publications/routes/publicationsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Publications_post_metahub_metahubId_publication_publicationId_versions_versionId_activate
@@ -10912,7 +10912,7 @@ paths:
       summary: GET
         /metahub/{metahubId}/publication/{publicationId}/versions/{versionId}/export
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/publications/routes/publicationsRoutes.ts.
+        packages/metahubs-backend/src/domains/publications/routes/publicationsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Publications_get_metahub_metahubId_publication_publicationId_versions_versionId_export
@@ -10959,7 +10959,7 @@ paths:
         - Publications
       summary: POST /metahub/{metahubId}/publication/{publicationId}/versions/import
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/publications/routes/publicationsRoutes.ts.
+        packages/metahubs-backend/src/domains/publications/routes/publicationsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Publications_post_metahub_metahubId_publication_publicationId_versions_import
@@ -11008,7 +11008,7 @@ paths:
         - Publications
       summary: GET /metahub/{metahubId}/publications
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/publications/routes/publicationsRoutes.ts.
+        packages/metahubs-backend/src/domains/publications/routes/publicationsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Publications_get_metahub_metahubId_publications
@@ -11042,7 +11042,7 @@ paths:
         - Publications
       summary: POST /metahub/{metahubId}/publications
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/publications/routes/publicationsRoutes.ts.
+        packages/metahubs-backend/src/domains/publications/routes/publicationsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Publications_post_metahub_metahubId_publications
@@ -11085,7 +11085,7 @@ paths:
         - Settings
       summary: GET /metahub/{metahubId}/setting/{key}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/settings/routes/settingsRoutes.ts.
+        packages/metahubs-backend/src/domains/settings/routes/settingsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Settings_get_metahub_metahubId_setting_key
@@ -11125,7 +11125,7 @@ paths:
         - Settings
       summary: DELETE /metahub/{metahubId}/setting/{key}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/settings/routes/settingsRoutes.ts.
+        packages/metahubs-backend/src/domains/settings/routes/settingsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Settings_delete_metahub_metahubId_setting_key
@@ -11168,7 +11168,7 @@ paths:
         - Settings
       summary: GET /metahub/{metahubId}/settings
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/settings/routes/settingsRoutes.ts.
+        packages/metahubs-backend/src/domains/settings/routes/settingsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Settings_get_metahub_metahubId_settings
@@ -11202,7 +11202,7 @@ paths:
         - Settings
       summary: PUT /metahub/{metahubId}/settings
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/settings/routes/settingsRoutes.ts.
+        packages/metahubs-backend/src/domains/settings/routes/settingsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Settings_put_metahub_metahubId_settings
@@ -11243,7 +11243,7 @@ paths:
         - Shared Entity Overrides
       summary: GET /metahub/{metahubId}/shared-containers
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/shared/routes/sharedEntityOverridesRoutes.ts.
+        packages/metahubs-backend/src/domains/shared/routes/sharedEntityOverridesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Shared_Entity_Overrides_get_metahub_metahubId_shared_containers
@@ -11278,7 +11278,7 @@ paths:
         - Shared Entity Overrides
       summary: POST /metahub/{metahubId}/shared-containers/ensure
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/shared/routes/sharedEntityOverridesRoutes.ts.
+        packages/metahubs-backend/src/domains/shared/routes/sharedEntityOverridesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Shared_Entity_Overrides_post_metahub_metahubId_shared_containers_ensure
@@ -11321,7 +11321,7 @@ paths:
         - Shared Entity Overrides
       summary: GET /metahub/{metahubId}/shared-entity-overrides
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/shared/routes/sharedEntityOverridesRoutes.ts.
+        packages/metahubs-backend/src/domains/shared/routes/sharedEntityOverridesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Shared_Entity_Overrides_get_metahub_metahubId_shared_entity_overrides
@@ -11355,7 +11355,7 @@ paths:
         - Shared Entity Overrides
       summary: PATCH /metahub/{metahubId}/shared-entity-overrides
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/shared/routes/sharedEntityOverridesRoutes.ts.
+        packages/metahubs-backend/src/domains/shared/routes/sharedEntityOverridesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Shared_Entity_Overrides_patch_metahub_metahubId_shared_entity_overrides
@@ -11395,7 +11395,7 @@ paths:
         - Shared Entity Overrides
       summary: DELETE /metahub/{metahubId}/shared-entity-overrides
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/shared/routes/sharedEntityOverridesRoutes.ts.
+        packages/metahubs-backend/src/domains/shared/routes/sharedEntityOverridesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Shared_Entity_Overrides_delete_metahub_metahubId_shared_entity_overrides
@@ -11432,7 +11432,7 @@ paths:
         - Metahubs
       summary: GET /metahubs
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/metahubs/routes/metahubsRoutes.ts.
+        packages/metahubs-backend/src/domains/metahubs/routes/metahubsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Metahubs_get_metahubs
@@ -11460,7 +11460,7 @@ paths:
         - Metahubs
       summary: POST /metahubs
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/metahubs/routes/metahubsRoutes.ts.
+        packages/metahubs-backend/src/domains/metahubs/routes/metahubsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Metahubs_post_metahubs
@@ -11497,7 +11497,7 @@ paths:
         - Metahubs
       summary: GET /metahubs/codename-defaults
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/metahubs/routes/metahubsRoutes.ts.
+        packages/metahubs-backend/src/domains/metahubs/routes/metahubsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Metahubs_get_metahubs_codename_defaults
@@ -11526,7 +11526,7 @@ paths:
         - Metahubs
       summary: POST /metahubs/import
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/metahubs/routes/metahubsRoutes.ts.
+        packages/metahubs-backend/src/domains/metahubs/routes/metahubsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Metahubs_post_metahubs_import
@@ -11563,9 +11563,9 @@ paths:
         - Onboarding
       summary: POST /onboarding/complete
       description: Auto-generated from
-        packages/start-backend/base/src/routes/onboardingRoutes.ts. This
-        operation is mounted on the live backend route surface and should be
-        treated as current repository truth.
+        packages/start-backend/src/routes/onboardingRoutes.ts. This operation is
+        mounted on the live backend route surface and should be treated as
+        current repository truth.
       operationId: Onboarding_post_onboarding_complete
       parameters: []
       responses:
@@ -11600,9 +11600,9 @@ paths:
         - Onboarding
       summary: GET /onboarding/items
       description: Auto-generated from
-        packages/start-backend/base/src/routes/onboardingRoutes.ts. This
-        operation is mounted on the live backend route surface and should be
-        treated as current repository truth.
+        packages/start-backend/src/routes/onboardingRoutes.ts. This operation is
+        mounted on the live backend route surface and should be treated as
+        current repository truth.
       operationId: Onboarding_get_onboarding_items
       parameters: []
       responses:
@@ -11629,9 +11629,9 @@ paths:
         - Onboarding
       summary: POST /onboarding/selections
       description: Auto-generated from
-        packages/start-backend/base/src/routes/onboardingRoutes.ts. This
-        operation is mounted on the live backend route surface and should be
-        treated as current repository truth.
+        packages/start-backend/src/routes/onboardingRoutes.ts. This operation is
+        mounted on the live backend route surface and should be treated as
+        current repository truth.
       operationId: Onboarding_post_onboarding_selections
       parameters: []
       responses:
@@ -11666,9 +11666,9 @@ paths:
         - System
       summary: GET /ping
       description: Auto-generated from
-        packages/universo-core-backend/base/src/routes/ping/index.ts. This
-        operation is mounted on the live backend route surface and should be
-        treated as current repository truth.
+        packages/universo-core-backend/src/routes/ping/index.ts. This operation
+        is mounted on the live backend route surface and should be treated as
+        current repository truth.
       operationId: System_get_ping
       parameters: []
       responses:
@@ -11690,9 +11690,9 @@ paths:
         - Profile
       summary: POST /profile
       description: Auto-generated from
-        packages/profile-backend/base/src/routes/profileRoutes.ts. This
-        operation is mounted on the live backend route surface and should be
-        treated as current repository truth.
+        packages/profile-backend/src/routes/profileRoutes.ts. This operation is
+        mounted on the live backend route surface and should be treated as
+        current repository truth.
       operationId: Profile_post_profile
       parameters: []
       responses:
@@ -11726,9 +11726,9 @@ paths:
         - Profile
       summary: GET /profile
       description: Auto-generated from
-        packages/profile-backend/base/src/routes/profileRoutes.ts. This
-        operation is mounted on the live backend route surface and should be
-        treated as current repository truth.
+        packages/profile-backend/src/routes/profileRoutes.ts. This operation is
+        mounted on the live backend route surface and should be treated as
+        current repository truth.
       operationId: Profile_get_profile
       parameters: []
       responses:
@@ -11755,9 +11755,9 @@ paths:
         - Profile
       summary: GET /profile/{userId}
       description: Auto-generated from
-        packages/profile-backend/base/src/routes/profileRoutes.ts. This
-        operation is mounted on the live backend route surface and should be
-        treated as current repository truth.
+        packages/profile-backend/src/routes/profileRoutes.ts. This operation is
+        mounted on the live backend route surface and should be treated as
+        current repository truth.
       operationId: Profile_get_profile_userId
       parameters:
         - name: userId
@@ -11789,9 +11789,9 @@ paths:
         - Profile
       summary: PUT /profile/{userId}
       description: Auto-generated from
-        packages/profile-backend/base/src/routes/profileRoutes.ts. This
-        operation is mounted on the live backend route surface and should be
-        treated as current repository truth.
+        packages/profile-backend/src/routes/profileRoutes.ts. This operation is
+        mounted on the live backend route surface and should be treated as
+        current repository truth.
       operationId: Profile_put_profile_userId
       parameters:
         - name: userId
@@ -11829,9 +11829,9 @@ paths:
         - Profile
       summary: DELETE /profile/{userId}
       description: Auto-generated from
-        packages/profile-backend/base/src/routes/profileRoutes.ts. This
-        operation is mounted on the live backend route surface and should be
-        treated as current repository truth.
+        packages/profile-backend/src/routes/profileRoutes.ts. This operation is
+        mounted on the live backend route surface and should be treated as
+        current repository truth.
       operationId: Profile_delete_profile_userId
       parameters:
         - name: userId
@@ -11866,9 +11866,9 @@ paths:
         - Profile
       summary: GET /profile/check-nickname/{nickname}
       description: Auto-generated from
-        packages/profile-backend/base/src/routes/profileRoutes.ts. This
-        operation is mounted on the live backend route surface and should be
-        treated as current repository truth.
+        packages/profile-backend/src/routes/profileRoutes.ts. This operation is
+        mounted on the live backend route surface and should be treated as
+        current repository truth.
       operationId: Profile_get_profile_check_nickname_nickname
       parameters:
         - name: nickname
@@ -11896,9 +11896,9 @@ paths:
         - Profile
       summary: GET /profile/me
       description: Auto-generated from
-        packages/profile-backend/base/src/routes/profileRoutes.ts. This
-        operation is mounted on the live backend route surface and should be
-        treated as current repository truth.
+        packages/profile-backend/src/routes/profileRoutes.ts. This operation is
+        mounted on the live backend route surface and should be treated as
+        current repository truth.
       operationId: Profile_get_profile_me
       parameters: []
       responses:
@@ -11925,9 +11925,9 @@ paths:
         - Profile
       summary: GET /profile/settings
       description: Auto-generated from
-        packages/profile-backend/base/src/routes/profileRoutes.ts. This
-        operation is mounted on the live backend route surface and should be
-        treated as current repository truth.
+        packages/profile-backend/src/routes/profileRoutes.ts. This operation is
+        mounted on the live backend route surface and should be treated as
+        current repository truth.
       operationId: Profile_get_profile_settings
       parameters: []
       responses:
@@ -11953,9 +11953,9 @@ paths:
         - Profile
       summary: PUT /profile/settings
       description: Auto-generated from
-        packages/profile-backend/base/src/routes/profileRoutes.ts. This
-        operation is mounted on the live backend route surface and should be
-        treated as current repository truth.
+        packages/profile-backend/src/routes/profileRoutes.ts. This operation is
+        mounted on the live backend route surface and should be treated as
+        current repository truth.
       operationId: Profile_put_profile_settings
       parameters: []
       responses:
@@ -11988,7 +11988,7 @@ paths:
         - Public Metahubs
       summary: GET /public/metahub/{slug}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/metahubs/routes/publicMetahubsRoutes.ts.
+        packages/metahubs-backend/src/domains/metahubs/routes/publicMetahubsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Public_Metahubs_get_public_metahub_slug
@@ -12018,7 +12018,7 @@ paths:
         - Public Metahubs
       summary: GET /public/metahub/{slug}/tree-entities
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/metahubs/routes/publicMetahubsRoutes.ts.
+        packages/metahubs-backend/src/domains/metahubs/routes/publicMetahubsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Public_Metahubs_get_public_metahub_slug_tree_entities
@@ -12048,7 +12048,7 @@ paths:
         - Public Metahubs
       summary: GET /public/metahub/{slug}/tree-entity/{treeEntityCodename}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/metahubs/routes/publicMetahubsRoutes.ts.
+        packages/metahubs-backend/src/domains/metahubs/routes/publicMetahubsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Public_Metahubs_get_public_metahub_slug_tree_entity_treeEntityCodename
@@ -12085,7 +12085,7 @@ paths:
       summary: GET
         /public/metahub/{slug}/tree-entity/{treeEntityCodename}/object/{objectCollectionCodename}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/metahubs/routes/publicMetahubsRoutes.ts.
+        packages/metahubs-backend/src/domains/metahubs/routes/publicMetahubsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Public_Metahubs_get_public_metahub_slug_tree_entity_treeEntityCodename_object_objectCollectionCodename
@@ -12128,7 +12128,7 @@ paths:
       summary: GET
         /public/metahub/{slug}/tree-entity/{treeEntityCodename}/object/{objectCollectionCodename}/components
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/metahubs/routes/publicMetahubsRoutes.ts.
+        packages/metahubs-backend/src/domains/metahubs/routes/publicMetahubsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Public_Metahubs_get_public_metahub_slug_tree_entity_treeEntityCodename_object_objectCollectionCodename_components
@@ -12171,7 +12171,7 @@ paths:
       summary: GET
         /public/metahub/{slug}/tree-entity/{treeEntityCodename}/object/{objectCollectionCodename}/record/{recordId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/metahubs/routes/publicMetahubsRoutes.ts.
+        packages/metahubs-backend/src/domains/metahubs/routes/publicMetahubsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Public_Metahubs_get_public_metahub_slug_tree_entity_treeEntityCodename_object_objectCollectionCodename_record_recordId
@@ -12220,7 +12220,7 @@ paths:
       summary: GET
         /public/metahub/{slug}/tree-entity/{treeEntityCodename}/object/{objectCollectionCodename}/records
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/metahubs/routes/publicMetahubsRoutes.ts.
+        packages/metahubs-backend/src/domains/metahubs/routes/publicMetahubsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Public_Metahubs_get_public_metahub_slug_tree_entity_treeEntityCodename_object_objectCollectionCodename_records
@@ -12262,7 +12262,7 @@ paths:
         - Public Metahubs
       summary: GET /public/metahub/{slug}/tree-entity/{treeEntityCodename}/objects
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/metahubs/routes/publicMetahubsRoutes.ts.
+        packages/metahubs-backend/src/domains/metahubs/routes/publicMetahubsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Public_Metahubs_get_public_metahub_slug_tree_entity_treeEntityCodename_objects
@@ -12298,7 +12298,7 @@ paths:
         - Publications
       summary: GET /publications/available
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/publications/routes/publicationsRoutes.ts.
+        packages/metahubs-backend/src/domains/publications/routes/publicationsRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Publications_get_publications_available
@@ -12327,7 +12327,7 @@ paths:
         - Templates
       summary: GET /templates
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/templates/routes/templatesRoutes.ts.
+        packages/metahubs-backend/src/domains/templates/routes/templatesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Templates_get_templates
@@ -12356,7 +12356,7 @@ paths:
         - Templates
       summary: GET /templates/{templateId}
       description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/templates/routes/templatesRoutes.ts.
+        packages/metahubs-backend/src/domains/templates/routes/templatesRoutes.ts.
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Templates_get_templates_templateId

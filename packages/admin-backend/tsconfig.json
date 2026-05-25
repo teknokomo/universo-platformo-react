@@ -1,0 +1,19 @@
+{
+    "extends": "../../tsconfig.json",
+    "compilerOptions": {
+        "outDir": "./dist",
+        "rootDir": "./src",
+        "baseUrl": ".",
+        "declaration": true,
+        "declarationMap": true,
+        "composite": true,
+        "emitDecoratorMetadata": true,
+        "experimentalDecorators": true,
+        "types": ["node"],
+        "module": "Node16",
+        "moduleResolution": "node16",
+        "target": "ES2020"
+    },
+    "include": ["src/**/*"],
+    "exclude": ["node_modules", "dist", "src/tests/**/*", "**/*.test.ts", "**/*.spec.ts"]
+}

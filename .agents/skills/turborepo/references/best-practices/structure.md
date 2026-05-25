@@ -9,8 +9,8 @@ Detailed guidance on structuring a Turborepo monorepo.
 ```yaml
 # pnpm-workspace.yaml
 packages:
-  - "apps/*"
-  - "packages/*"
+    - 'apps/*'
+    - 'packages/*'
 ```
 
 ### npm/yarn/bun
@@ -18,7 +18,7 @@ packages:
 ```json
 // package.json
 {
-  "workspaces": ["apps/*", "packages/*"]
+    "workspaces": ["apps/*", "packages/*"]
 }
 ```
 
@@ -26,27 +26,27 @@ packages:
 
 ```json
 {
-  "name": "my-monorepo",
-  "private": true,
-  "packageManager": "pnpm@10.0.0",
-  "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev",
-    "lint": "turbo run lint",
-    "test": "turbo run test"
-  },
-  "devDependencies": {
-    "turbo": "latest"
-  }
+    "name": "my-monorepo",
+    "private": true,
+    "packageManager": "pnpm@10.0.0",
+    "scripts": {
+        "build": "turbo run build",
+        "dev": "turbo run dev",
+        "lint": "turbo run lint",
+        "test": "turbo run test"
+    },
+    "devDependencies": {
+        "turbo": "latest"
+    }
 }
 ```
 
 Key points:
 
-- `private: true` - Prevents accidental publishing
-- `packageManager` - Enforces consistent package manager version
-- **Scripts only delegate to `turbo run`** - No actual build logic here!
-- Minimal devDependencies (just turbo and repo tools)
+-   `private: true` - Prevents accidental publishing
+-   `packageManager` - Enforces consistent package manager version
+-   **Scripts only delegate to `turbo run`** - No actual build logic here!
+-   Minimal devDependencies (just turbo and repo tools)
 
 ## Always Prefer Package Tasks
 
@@ -85,9 +85,9 @@ Package tasks enable Turborepo to:
 ```json
 // AVOID unless necessary - sequential, not parallelized, can't filter
 {
-  "scripts": {
-    "lint": "eslint apps/web && eslint apps/api && eslint packages/ui"
-  }
+    "scripts": {
+        "lint": "eslint apps/web && eslint apps/api && eslint packages/ui"
+    }
 }
 ```
 
@@ -95,21 +95,21 @@ Package tasks enable Turborepo to:
 
 ```json
 {
-  "$schema": "https://v2-9-8.turborepo.dev/schema.json",
-  "tasks": {
-    "build": {
-      "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
-    },
-    "lint": {},
-    "test": {
-      "dependsOn": ["build"]
-    },
-    "dev": {
-      "cache": false,
-      "persistent": true
+    "$schema": "https://v2-9-8.turborepo.dev/schema.json",
+    "tasks": {
+        "build": {
+            "dependsOn": ["^build"],
+            "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
+        },
+        "lint": {},
+        "test": {
+            "dependsOn": ["build"]
+        },
+        "dev": {
+            "cache": false,
+            "persistent": true
+        }
     }
-  }
 }
 ```
 
@@ -117,26 +117,26 @@ With `futureFlags.globalConfiguration`, global settings move under a `global` ke
 
 ```json
 {
-  "$schema": "https://v2-9-8.turborepo.dev/schema.json",
-  "futureFlags": { "globalConfiguration": true },
-  "global": {
-    "inputs": ["tsconfig.json"],
-    "env": ["CI"]
-  },
-  "tasks": {
-    "build": {
-      "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
+    "$schema": "https://v2-9-8.turborepo.dev/schema.json",
+    "futureFlags": { "globalConfiguration": true },
+    "global": {
+        "inputs": ["tsconfig.json"],
+        "env": ["CI"]
     },
-    "lint": {},
-    "test": {
-      "dependsOn": ["build"]
-    },
-    "dev": {
-      "cache": false,
-      "persistent": true
+    "tasks": {
+        "build": {
+            "dependsOn": ["^build"],
+            "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
+        },
+        "lint": {},
+        "test": {
+            "dependsOn": ["build"]
+        },
+        "dev": {
+            "cache": false,
+            "persistent": true
+        }
     }
-  }
 }
 ```
 
@@ -149,10 +149,10 @@ You can group packages by adding more workspace paths:
 ```yaml
 # pnpm-workspace.yaml
 packages:
-  - "apps/*"
-  - "packages/*"
-  - "packages/config/*" # Grouped configs
-  - "packages/features/*" # Feature packages
+    - 'apps/*'
+    - 'packages/*'
+    - 'packages/config/*' # Grouped configs
+    - 'packages/features/*' # Feature packages
 ```
 
 This allows:
@@ -175,7 +175,7 @@ packages/
 ```yaml
 # BAD: Nested wildcards cause ambiguous behavior
 packages:
-  - "packages/**" # Don't do this!
+    - 'packages/**' # Don't do this!
 ```
 
 ## Package Anatomy
@@ -194,13 +194,13 @@ packages/ui/
 
 ```json
 {
-  "name": "@repo/ui", // Unique, namespaced name
-  "version": "0.0.0", // Version (can be 0.0.0 for internal)
-  "private": true, // Prevents accidental publishing
-  "exports": {
-    // Entry points
-    "./button": "./src/button.tsx"
-  }
+    "name": "@repo/ui", // Unique, namespaced name
+    "version": "0.0.0", // Version (can be 0.0.0 for internal)
+    "private": true, // Prevents accidental publishing
+    "exports": {
+        // Entry points
+        "./button": "./src/button.tsx"
+    }
 }
 ```
 
@@ -220,16 +220,16 @@ packages/
 ```
 
 ```json
-// packages/typescript-config/base.json
+// packages/typescript-config.json
 {
-  "compilerOptions": {
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "moduleResolution": "bundler",
-    "module": "ESNext",
-    "target": "ES2022"
-  }
+    "compilerOptions": {
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "moduleResolution": "bundler",
+        "module": "ESNext",
+        "target": "ES2022"
+    }
 }
 ```
 
@@ -238,13 +238,13 @@ packages/
 ```json
 // packages/ui/tsconfig.json
 {
-  "extends": "@repo/typescript-config/library.json",
-  "compilerOptions": {
-    "outDir": "dist",
-    "rootDir": "src"
-  },
-  "include": ["src"],
-  "exclude": ["node_modules", "dist"]
+    "extends": "@repo/typescript-config/library.json",
+    "compilerOptions": {
+        "outDir": "dist",
+        "rootDir": "src"
+    },
+    "include": ["src"],
+    "exclude": ["node_modules", "dist"]
 }
 ```
 
@@ -268,12 +268,12 @@ packages/
 ```json
 // packages/eslint-config/package.json
 {
-  "name": "@repo/eslint-config",
-  "exports": {
-    "./base": "./base.js",
-    "./next": "./next.js",
-    "./library": "./library.js"
-  }
+    "name": "@repo/eslint-config",
+    "exports": {
+        "./base": "./base.js",
+        "./next": "./next.js",
+        "./library": "./library.js"
+    }
 }
 ```
 
@@ -282,16 +282,16 @@ packages/
 ```js
 // apps/web/.eslintrc.js
 module.exports = {
-  extends: ["@repo/eslint-config/next"]
-};
+    extends: ['@repo/eslint-config/next']
+}
 ```
 
 ## Lockfile
 
 A lockfile is **required** for:
 
-- Reproducible builds
-- Turborepo to understand package dependencies
-- Cache correctness
+-   Reproducible builds
+-   Turborepo to understand package dependencies
+-   Cache correctness
 
 Without a lockfile, you'll see unpredictable behavior.
