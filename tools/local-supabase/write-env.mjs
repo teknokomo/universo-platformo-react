@@ -19,22 +19,22 @@ import {
 import { ensureLocalSupabaseProject, getLocalSupabaseProfile, runSupabaseCli } from './profiles.mjs'
 
 const backendBaseEnvCandidatesByTarget = {
-    dev: ['packages/universo-core-backend/base/.env', 'packages/universo-core-backend/base/.env.example'],
+    dev: ['packages/universo-core-backend/.env', 'packages/universo-core-backend/.env.example'],
     e2e: [
-        'packages/universo-core-backend/base/.env.e2e',
-        'packages/universo-core-backend/base/.env',
-        'packages/universo-core-backend/base/.env.e2e.example',
-        'packages/universo-core-backend/base/.env.example'
+        'packages/universo-core-backend/.env.e2e',
+        'packages/universo-core-backend/.env',
+        'packages/universo-core-backend/.env.e2e.example',
+        'packages/universo-core-backend/.env.example'
     ]
 }
 
 const frontendBaseEnvCandidatesByTarget = {
-    dev: ['packages/universo-core-frontend/base/.env', 'packages/universo-core-frontend/base/.env.example'],
+    dev: ['packages/universo-core-frontend/.env', 'packages/universo-core-frontend/.env.example'],
     e2e: [
-        'packages/universo-core-frontend/base/.env.e2e',
-        'packages/universo-core-frontend/base/.env',
-        'packages/universo-core-frontend/base/.env.e2e.example',
-        'packages/universo-core-frontend/base/.env.example'
+        'packages/universo-core-frontend/.env.e2e',
+        'packages/universo-core-frontend/.env',
+        'packages/universo-core-frontend/.env.e2e.example',
+        'packages/universo-core-frontend/.env.example'
     ]
 }
 

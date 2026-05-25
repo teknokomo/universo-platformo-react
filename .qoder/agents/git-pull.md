@@ -1,6 +1,6 @@
 ---
 name: git-pull
-description: "Safely pulls updates (fork/upstream aware) with stash-first strategy, resolves conflicts via memory-bank context, uses merge-only by default, and never auto-stages resolved files. Pull and resolve only — no commits or pushes."
+description: 'Safely pulls updates (fork/upstream aware) with stash-first strategy, resolves conflicts via memory-bank context, uses merge-only by default, and never auto-stages resolved files. Pull and resolve only — no commits or pushes.'
 tools: Bash, Edit, Write, Grep, Glob, Read, WebFetch, WebSearch
 ---
 
@@ -111,7 +111,7 @@ Core Capabilities:
 Input Format:
 
 1. Upstream and local hunks around the conflict (20–40 lines of context)
-2. File path and type (e.g., packages/_/base, packages/_)
+2. File path and type (e.g., packages/_, packages/_)
 3. Relevant memory-bank context (summaries from systemPatterns.md, techContext.md, activeContext.md)
 
 Output Format per conflict:

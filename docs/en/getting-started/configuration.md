@@ -6,7 +6,7 @@ description: Configure backend and frontend environment files for local startup.
 
 ## Backend Environment
 
-Create a local `.env` file in `packages/universo-core-backend/base` and provide at least the Supabase/PostgreSQL and auth settings required by the backend.
+Create a local `.env` file in `packages/universo-core-backend` and provide at least the Supabase/PostgreSQL and auth settings required by the backend.
 
 Typical values include the Supabase URL, anonymous key, JWT secret, database connection settings, session configuration, and other deployment-specific secrets.
 
@@ -32,7 +32,7 @@ Important notes:
 
 ## Frontend Environment
 
-If you need frontend overrides, create a local `.env` file in `packages/universo-core-frontend/base`.
+If you need frontend overrides, create a local `.env` file in `packages/universo-core-frontend`.
 
 Typical values include UI host or port settings such as `VITE_PORT`.
 
@@ -60,12 +60,12 @@ pnpm supabase:local:start
 
 This command uses the committed `supabase/config.toml`, creates a Docker network bound to `127.0.0.1`, starts Supabase through the CLI, and writes:
 
--   `packages/universo-core-backend/base/.env.local-supabase`
--   `packages/universo-core-frontend/base/.env.local-supabase`
+-   `packages/universo-core-backend/.env.local-supabase`
+-   `packages/universo-core-frontend/.env.local-supabase`
 
 The generated files are ignored by git. They contain local Supabase keys and must not be copied into tracked files.
 
-Backend profile generation preserves the full environment contract. The writer uses `packages/universo-core-backend/base/.env` as the preferred base, falls back to `packages/universo-core-backend/base/.env.example`, and uses a minimal generated profile only if neither file exists. It then replaces only local Supabase/PostgreSQL connection values, `NODE_ENV`, `UNIVERSO_ENV_TARGET`, and missing safe defaults. Existing settings such as bootstrap superuser flags, database reset flags, auth rate limits, storage settings, admin flags, and other feature toggles remain inherited from the base env file. Hosted-only values such as `DATABASE_SSL_KEY_BASE64`, `SUPABASE_JWKS_URL`, and `SUPABASE_JWT_ISSUER` are removed so local Supabase can use its own direct Postgres connection and local JWT secret.
+Backend profile generation preserves the full environment contract. The writer uses `packages/universo-core-backend/.env` as the preferred base, falls back to `packages/universo-core-backend/.env.example`, and uses a minimal generated profile only if neither file exists. It then replaces only local Supabase/PostgreSQL connection values, `NODE_ENV`, `UNIVERSO_ENV_TARGET`, and missing safe defaults. Existing settings such as bootstrap superuser flags, database reset flags, auth rate limits, storage settings, admin flags, and other feature toggles remain inherited from the base env file. Hosted-only values such as `DATABASE_SSL_KEY_BASE64`, `SUPABASE_JWKS_URL`, and `SUPABASE_JWT_ISSUER` are removed so local Supabase can use its own direct Postgres connection and local JWT secret.
 
 This means you normally keep a hosted Supabase setup in the standard `.env`, while `pnpm env:local-supabase` derives a disposable `.env.local-supabase` profile from it and swaps only the local Supabase credentials and direct Postgres connection.
 

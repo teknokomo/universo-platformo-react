@@ -5,7 +5,7 @@ const path = require('path')
 
 const { routeSources, repoRoot } = require('./generate-openapi-source')
 
-const metahubsRouterPath = path.join(repoRoot, 'packages/metahubs-backend/base/src/domains/router.ts')
+const metahubsRouterPath = path.join(repoRoot, 'packages/metahubs-backend/src/domains/router.ts')
 const routerDir = path.dirname(metahubsRouterPath)
 
 const normalizeRepoPath = (absolutePath) => path.relative(repoRoot, absolutePath).replace(/\\/g, '/')
@@ -55,7 +55,7 @@ const fileContent = fs.readFileSync(metahubsRouterPath, 'utf8')
 const importedRouteFactories = extractImportedRouteFactories(fileContent)
 const mountedRouteFiles = extractMountedRouteFiles(fileContent, importedRouteFactories)
 const documentedRouteFiles = new Set(
-    routeSources.map((source) => source.file).filter((filePath) => filePath.startsWith('packages/metahubs-backend/base/src/domains/'))
+    routeSources.map((source) => source.file).filter((filePath) => filePath.startsWith('packages/metahubs-backend/src/domains/'))
 )
 
 const missingInDocs = Array.from(mountedRouteFiles)
@@ -67,7 +67,7 @@ const staleInDocs = Array.from(documentedRouteFiles)
 
 if (missingInDocs.length > 0 || staleInDocs.length > 0) {
     const lines = [
-        '[verify-route-sources] Metahubs OpenAPI routeSources are out of sync with packages/metahubs-backend/base/src/domains/router.ts'
+        '[verify-route-sources] Metahubs OpenAPI routeSources are out of sync with packages/metahubs-backend/src/domains/router.ts'
     ]
 
     if (missingInDocs.length > 0) {

@@ -12,7 +12,7 @@ describe('Playwright agent skill repository rules', () => {
         expect(skill).toContain('Universo Platformo Repository Rules')
         expect(skill).toContain('http://127.0.0.1:3100')
         expect(skill).toContain('do not run `pnpm dev`')
-        expect(skill).toContain('packages/universo-core-backend/base/.env.e2e')
+        expect(skill).toContain('packages/universo-core-backend/.env.e2e')
         expect(skill).toContain('minimal stack')
     })
 

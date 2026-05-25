@@ -358,11 +358,11 @@ pnpm lint                        # Запуск ESLint
 
 ## Связанные пакеты
 
--   [`@universo/metahubs-frontend`](../metahubs-frontend/base/README-RU.md) — UI управления метахабами
--   [`@universo/metahubs-backend`](../metahubs-backend/base/README-RU.md) — Бэкенд-сервис
--   [`@universo/types`](../universo-types/base/README-RU.md) — Общие TypeScript-типы
--   [`@universo/i18n`](../universo-i18n/base/README-RU.md) — Общие ресурсы локализации
--   [`@universo/utils`](../universo-utils/base/README-RU.md) — Общие runtime-хелперы и нормализация
+-   [`@universo/metahubs-frontend`](../metahubs-frontend/README-RU.md) — UI управления метахабами
+-   [`@universo/metahubs-backend`](../metahubs-backend/README-RU.md) — Бэкенд-сервис
+-   [`@universo/types`](../universo-types/README-RU.md) — Общие TypeScript-типы
+-   [`@universo/i18n`](../universo-i18n/README-RU.md) — Общие ресурсы локализации
+-   [`@universo/utils`](../universo-utils/README-RU.md) — Общие runtime-хелперы и нормализация
 
 ---
 

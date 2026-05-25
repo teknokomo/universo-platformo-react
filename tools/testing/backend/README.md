@@ -7,32 +7,32 @@ Reusable Jest configuration, setup helpers, and mocks for backend services live 
 Add the shared configuration to a backend app by importing the base config from `tools/testing/backend/jest.base.config.cjs` and extending it if necessary:
 
 ```js
-// packages/example-backend/base/jest.config.cjs
+// packages/example-backend/jest.config.cjs
 const baseConfig = require('../../tools/testing/backend/jest.base.config.cjs')
 
 module.exports = {
-  ...baseConfig,
-  displayName: 'example-backend',
-  // Add overrides such as custom coverage exclusions when needed.
+    ...baseConfig,
+    displayName: 'example-backend'
+    // Add overrides such as custom coverage exclusions when needed.
 }
 ```
 
 The base configuration provides:
 
-- `ts-jest` preset with the workspace `tsconfig.json` so path aliases just work.
-- Node test environment, source roots, and default `testMatch` patterns.
-- Consistent coverage collection that excludes generated artefacts.
-- `setupFilesAfterEnv` pointing to `setupAfterEnv.ts` (described below).
-- Module name mapping for `@testing/backend/*` so tests can import shared helpers without relative paths.
+-   `ts-jest` preset with the workspace `tsconfig.json` so path aliases just work.
+-   Node test environment, source roots, and default `testMatch` patterns.
+-   Consistent coverage collection that excludes generated artefacts.
+-   `setupFilesAfterEnv` pointing to `setupAfterEnv.ts` (described below).
+-   Module name mapping for `@testing/backend/*` so tests can import shared helpers without relative paths.
 
 ## Runtime setup (`setupAfterEnv.ts`)
 
 The setup file runs after the Jest environment is created and is responsible for:
 
-- Registering reusable globals: `createMockSupabaseClient`.
-- Providing a default mock implementation for `@supabase/supabase-js`'s `createClient`.
-- Adding the custom matcher `toHaveBeenCalledOnceWith` to Jest's `expect`.
-- Clearing mocks after every test and forcing `NODE_ENV` to `test` when it is not defined.
+-   Registering reusable globals: `createMockSupabaseClient`.
+-   Providing a default mock implementation for `@supabase/supabase-js`'s `createClient`.
+-   Adding the custom matcher `toHaveBeenCalledOnceWith` to Jest's `expect`.
+-   Clearing mocks after every test and forcing `NODE_ENV` to `test` when it is not defined.
 
 ## Supabase client mock
 
@@ -40,9 +40,9 @@ The setup file runs after the Jest environment is created and is responsible for
 
 ```ts
 const supabase = createMockSupabaseClient({
-  auth: {
-    getSession: jest.fn().mockResolvedValue({ data: { session: mockSession } })
-  }
+    auth: {
+        getSession: jest.fn().mockResolvedValue({ data: { session: mockSession } })
+    }
 })
 ```
 
@@ -52,8 +52,8 @@ Because `setupAfterEnv.ts` automatically assigns this factory to `global.createM
 
 The `mocks/` subfolder exposes higher-level helpers tailored for service and route unit tests:
 
-- `createSupabaseClientMock` – declarative Supabase table mocking that records filters, payloads, and return values without duplicating query-builder scaffolding in every test.
-- `createFlowDataServiceMock` – lightweight mock for services that depend on `FlowDataService` so route tests can inject deterministic behaviour.
+-   `createSupabaseClientMock` – declarative Supabase table mocking that records filters, payloads, and return values without duplicating query-builder scaffolding in every test.
+-   `createFlowDataServiceMock` – lightweight mock for services that depend on `FlowDataService` so route tests can inject deterministic behaviour.
 
 These utilities are published via the `@testing/backend/mocks` alias and complement the lower-level factories from `setupAfterEnv.ts`.
 

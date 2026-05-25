@@ -77,7 +77,7 @@ Website: [https://universo.pro](https://universo.pro)
 ## Project Structure
 
 -   The repository is a PNPM + Turborepo monorepo with root-level documentation, planning records in `memory-bank`, engineering tools, and package workspaces.
--   Most runtime workspaces follow the `packages/<name>/base` convention, while package roots such as `packages/apps-template-mui` and `packages/universo-rest-docs` provide shared UI scaffolding and documentation services.
+-   Runtime workspaces use the flat `packages/<name>/package.json` layout, including shared UI scaffolding packages such as `packages/apps-template-mui` and documentation services such as `packages/universo-rest-docs`.
 -   The backend side is organized around a SQL-first PostgreSQL/Supabase runtime, modular migration tooling, schema-definition utilities, and feature packages for authentication, onboarding, profile, metahubs, applications, and administration.
 -   The frontend side is organized around a React shell, shared UI/state/i18n packages, and feature packages for onboarding, authentication, profile, metahubs, applications, and administration.
 -   In the metahubs and admin domains, fixed schemas, runtime metadata, and authoring flows converge on one persisted `codename JSONB` contract built on versioned localized content (VLC), and platform migrations upgrade legacy dual-field codename storage into the same shape.
@@ -90,8 +90,10 @@ These are the top-level priorities that guide development across the whole Unive
 1. **Universo Platformo general development.** Stabilise Universo Platformo React, move it from alpha to beta and then to a stable release, and start porting platform work to other technology stacks such as Rust and Godot, so the same platform direction becomes available across implementations.
 2. **Architecture refactor toward "everything is an Application".** Turn every product surface — including the metahub configurator, admin tools, and similar feature areas — into Applications, while keeping some of them as system Applications. Add a first-run Setup Wizard that lets the operator choose which Applications to install. In parallel, evolve the database and migrations layer — currently built on Knex.js, Raw SQL, and a request-scoped `DbExecutor` — toward maximum performance, reliability, and security.
 3. **Metahub template expansion.** Significantly increase the number of entity-type presets and grow the entity-type constructor, then assemble those presets into metahub templates that reproduce the architecture of established platforms (including 1C:Enterprise) and into industry templates such as PR, CRM, LMS, ERP, and LDM.
-4. **Universo MMOOMM development.** An open-world MMO across parallel universes with different economic systems (capitalist, socialist, and others), where players explore, trade, build empires, fight interstellar wars, and cooperate in real time. MMOOMM blends science fiction, strategy, RPG, and life-simulation elements on top of the same Universo Platformo core.
-5. **Universo Kiberplano development.** An integrated planning and execution environment that connects tasks, resources, capacities, people, organizations, software agents, and robots inside one coordinated system. Kiberplano combines ERP-style planning, multi-agent orchestration, robot and digital-twin integration, distributed nodes (personal, organizational, regional), scenario simulation, and a virtual-to-physical bridge for real-world execution.
+4. **Integration Mechanisms.** Develop Universo Platformo as an integration platform that can connect external services, APIs, databases, file storage systems, enterprise systems, communication channels, and specialized tools. In the long term, this layer should become a universal bridge between Universo Applications, external digital services, users, software agents, and robotic systems.
+5. **Artificial Intelligence.** Develop functionality related to the use of artificial intelligence: AI assistants, agent-based workflows, data generation and analysis, support for configuring Applications, workflow automation, intelligent search, document processing, and decision support. AI should become not a separate add-on, but an embedded tool for working with Universo Platformo Applications, data, processes, and integrations.
+6. **Universo MMOOMM development.** An open-world MMO across parallel universes with different economic systems (capitalist, socialist, and others), where players explore, trade, build empires, fight interstellar wars, and cooperate in real time. MMOOMM blends science fiction, strategy, RPG, and life-simulation elements on top of the same Universo Platformo core.
+7. **Universo Kiberplano development.** An integrated planning and execution environment that connects tasks, resources, capacities, people, organizations, software agents, and robots inside one coordinated system. Kiberplano combines ERP-style planning, multi-agent orchestration, robot and digital-twin integration, distributed nodes (personal, organizational, regional), scenario simulation, and a virtual-to-physical bridge for real-world execution.
 
 ## Universo Platformo Functionality (in development)
 
@@ -170,7 +172,7 @@ Each implementation shares the same strategic direction, and the high-level abst
 
 3. Configure environment variables.
 
-    - Create `.env` in `packages/universo-core-backend/base`.
+    - Create `.env` in `packages/universo-core-backend`.
     - Add the required Supabase/PostgreSQL settings:
         ```
         SUPABASE_URL=your_supabase_url
@@ -185,7 +187,7 @@ Each implementation shares the same strategic direction, and the high-level abst
     - `SERVICE_ROLE_KEY` is required for server-side provisioning tasks such as startup superuser bootstrap and admin-side user creation.
     - `BOOTSTRAP_SUPERUSER_EMAIL` and `BOOTSTRAP_SUPERUSER_PASSWORD` are demo credentials for first local bootstrap only. Change both before any real deployment.
     - `NODE_ENV=development` enables development features like database reset. Never use in production.
-    - Optionally create `.env` in `packages/universo-core-frontend/base` for UI-specific settings such as `VITE_PORT`.
+    - Optionally create `.env` in `packages/universo-core-frontend` for UI-specific settings such as `VITE_PORT`.
 
 4. Build the workspace.
 
@@ -211,7 +213,7 @@ Each implementation shares the same strategic direction, and the high-level abst
 
 ### Supabase Options
 
-The default `pnpm start` and `pnpm start:allclean` commands use the normal `.env` files. They can point to a hosted Supabase project or to a local Supabase instance if you write local Supabase values directly into `packages/universo-core-backend/base/.env`.
+The default `pnpm start` and `pnpm start:allclean` commands use the normal `.env` files. They can point to a hosted Supabase project or to a local Supabase instance if you write local Supabase values directly into `packages/universo-core-backend/.env`.
 
 For routine local work, the recommended Docker-based flow keeps hosted and local settings separate by generating gitignored local profiles:
 

@@ -20,7 +20,7 @@ These repository-specific rules override the generic Playwright guidance below w
 -   The E2E application runs on `http://127.0.0.1:3100`, not port `3000`.
 -   The normal manual application can run on port `3000`; do not confuse it with E2E.
 -   For screenshots and browser CLI checks, target `http://127.0.0.1:3100` unless the user explicitly asks for the manual app.
--   Use hosted dedicated Supabase by default through `packages/universo-core-backend/base/.env.e2e` or `.env.e2e.local`.
+-   Use hosted dedicated Supabase by default through `packages/universo-core-backend/.env.e2e` or `.env.e2e.local`.
 -   Use local Supabase only when the user asks for it, when hosted Supabase is unavailable, or when the local-Supabase workflow is the target of the task.
 -   For local Supabase E2E, use the dedicated E2E Supabase instance and the minimal stack by default.
 -   Use the full local Supabase stack only when Storage, Realtime, Edge Functions, or logging/analytics are under test.

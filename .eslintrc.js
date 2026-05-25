@@ -45,7 +45,7 @@ module.exports = {
             }
         },
         {
-            files: ['packages/metahubs-backend/base/src/tests/**/*.ts'],
+            files: ['packages/metahubs-backend/src/tests/**/*.ts'],
             rules: {
                 '@typescript-eslint/no-explicit-any': 'off',
                 '@typescript-eslint/no-empty-function': 'off'

@@ -31,6 +31,8 @@ jobs:
                   cache: 'pnpm'
                   cache-dependency-path: 'pnpm-lock.yaml'
             - run: pnpm install
+            - name: Check flattened package layout
+              run: pnpm check:no-package-base-paths
             - run: pnpm lint
             - name: Lint database access standard
               run: node tools/lint-db-access.mjs

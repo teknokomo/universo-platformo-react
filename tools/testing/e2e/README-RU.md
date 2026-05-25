@@ -55,10 +55,10 @@
 
 Используйте выделенные локальные файлы:
 
--   `packages/universo-core-backend/base/.env.e2e.local`
--   `packages/universo-core-frontend/base/.env.e2e.local`
--   `packages/universo-core-backend/base/.env.e2e.local-supabase` для необязательных E2E-запусков на локальном Supabase
--   `packages/universo-core-frontend/base/.env.e2e.local-supabase` для необязательных E2E-запусков на локальном Supabase
+-   `packages/universo-core-backend/.env.e2e.local`
+-   `packages/universo-core-frontend/.env.e2e.local`
+-   `packages/universo-core-backend/.env.e2e.local-supabase` для необязательных E2E-запусков на локальном Supabase
+-   `packages/universo-core-frontend/.env.e2e.local-supabase` для необязательных E2E-запусков на локальном Supabase
 
 Коммитьте только стандартные `.example` варианты. Файлы `*.local-supabase` генерируются из выбранного локального профиля Supabase CLI и должны оставаться неотслеживаемыми. Никогда не коммитьте реальные секреты или сгенерированное состояние хранилища браузера.
 

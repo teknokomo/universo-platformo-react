@@ -121,7 +121,7 @@ these concepts, confirm and record:
 ### Platform-Level Entity Type Presets
 
 The platform registers seven presets in `builtinEntityTypePresets`
-(`packages/metahubs-backend/base/src/domains/templates/data/index.ts`).
+(`packages/metahubs-backend/src/domains/templates/data/index.ts`).
 Each preset carries an `EntityTypeCapabilities` set that drives its
 behavior.
 

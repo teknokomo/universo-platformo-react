@@ -8,7 +8,7 @@ description: 'Repository Guidelines for the project'
 
 -   Monorepo with feature apps under `packages/`.
     -   Examples: `packages/publish-frontend` (React front end), `packages/publish-backend` (Node/Express back end), `packages/updl` (UPDL tools).
-    -   Each app contains a `base/` directory for the default implementation.
+    -   Workspace packages use the flat `packages/<name>/package.json` layout.
 -   Front-end apps include `i18n/` with default locales `en/` and `ru/`.
 -   Context docs and planning live in `memory-bank/` (`productContext`, `techContext`, `progress`, `tasks`).
 
@@ -39,7 +39,7 @@ description: 'Repository Guidelines for the project'
 
 -   Use Conventional Commits: `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, with optional scope (e.g., `feat(publish-frontend): add i18n loader`).
 -   PRs include: clear description, linked issues, screenshots for UI, and notes on env vars or migrations.
--   Small, focused PRs are preferred; include `packages/*/base` paths in the scope when relevant.
+-   Small, focused PRs are preferred; include `packages/*` paths in the scope when relevant.
 
 ## Security & Configuration Tips
 

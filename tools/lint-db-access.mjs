@@ -18,12 +18,12 @@ const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const ROOT = join(__dirname, '..')
 
 const DOMAIN_PACKAGES = [
-    'packages/metahubs-backend/base/src',
-    'packages/applications-backend/base/src',
-    'packages/admin-backend/base/src',
-    'packages/profile-backend/base/src',
-    'packages/auth-backend/base/src',
-    'packages/start-backend/base/src'
+    'packages/metahubs-backend/src',
+    'packages/applications-backend/src',
+    'packages/admin-backend/src',
+    'packages/profile-backend/src',
+    'packages/auth-backend/src',
+    'packages/start-backend/src'
 ]
 
 // Path patterns to exclude (legitimate Tier 3 infrastructure)
@@ -58,7 +58,7 @@ const RULES = [
     {
         name: 'no-knex-import',
         pattern: /import\s+(?:type\s+)?(?:\{[^}]*\}|[\w*]+)\s+from\s+['"]knex['"]/,
-        message: 'Domain code must not import from \'knex\' — use @universo/database or @universo/utils/database contracts'
+        message: "Domain code must not import from 'knex' — use @universo/database or @universo/utils/database contracts"
     },
     {
         name: 'no-knex-client-singleton',

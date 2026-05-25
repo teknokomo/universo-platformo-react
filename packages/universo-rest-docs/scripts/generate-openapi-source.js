@@ -46,188 +46,188 @@ const tagDescriptions = {
 
 const routeSources = [
     {
-        file: 'packages/universo-core-backend/base/src/routes/ping/index.ts',
+        file: 'packages/universo-core-backend/src/routes/ping/index.ts',
         mountPrefix: '/ping',
         tag: 'System',
         security: publicSecurity
     },
     {
-        file: 'packages/auth-backend/base/src/routes/auth.ts',
+        file: 'packages/auth-backend/src/routes/auth.ts',
         mountPrefix: '/auth',
         tag: 'Auth',
         security: publicSecurity
     },
     {
-        file: 'packages/admin-backend/base/src/routes/publicLocalesRoutes.ts',
+        file: 'packages/admin-backend/src/routes/publicLocalesRoutes.ts',
         mountPrefix: '/locales',
         tag: 'Public Locales',
         security: publicSecurity
     },
     {
-        file: 'packages/profile-backend/base/src/routes/profileRoutes.ts',
+        file: 'packages/profile-backend/src/routes/profileRoutes.ts',
         mountPrefix: '/profile',
         tag: 'Profile',
         security: bearerSecurity,
         publicPathMatchers: [/^\/check-nickname\//]
     },
     {
-        file: 'packages/start-backend/base/src/routes/onboardingRoutes.ts',
+        file: 'packages/start-backend/src/routes/onboardingRoutes.ts',
         mountPrefix: '/onboarding',
         tag: 'Onboarding',
         security: bearerSecurity
     },
     {
-        file: 'packages/admin-backend/base/src/routes/globalUsersRoutes.ts',
+        file: 'packages/admin-backend/src/routes/globalUsersRoutes.ts',
         mountPrefix: '/admin/global-users',
         tag: 'Admin Global Users',
         security: bearerSecurity
     },
     {
-        file: 'packages/admin-backend/base/src/routes/instancesRoutes.ts',
+        file: 'packages/admin-backend/src/routes/instancesRoutes.ts',
         mountPrefix: '/admin/instances',
         tag: 'Admin Instances',
         security: bearerSecurity
     },
     {
-        file: 'packages/admin-backend/base/src/routes/rolesRoutes.ts',
+        file: 'packages/admin-backend/src/routes/rolesRoutes.ts',
         mountPrefix: '/admin/roles',
         tag: 'Admin Roles',
         security: bearerSecurity
     },
     {
-        file: 'packages/admin-backend/base/src/routes/localesRoutes.ts',
+        file: 'packages/admin-backend/src/routes/localesRoutes.ts',
         mountPrefix: '/admin/locales',
         tag: 'Admin Locales',
         security: bearerSecurity
     },
     {
-        file: 'packages/admin-backend/base/src/routes/adminSettingsRoutes.ts',
+        file: 'packages/admin-backend/src/routes/adminSettingsRoutes.ts',
         mountPrefix: '/admin/settings',
         tag: 'Admin Settings',
         security: bearerSecurity
     },
     {
-        file: 'packages/applications-backend/base/src/routes/applicationsRoutes.ts',
+        file: 'packages/applications-backend/src/routes/applicationsRoutes.ts',
         mountPrefix: '/applications',
         tag: 'Applications',
         security: bearerSecurity
     },
     {
-        file: 'packages/applications-backend/base/src/routes/connectorsRoutes.ts',
+        file: 'packages/applications-backend/src/routes/connectorsRoutes.ts',
         mountPrefix: '',
         tag: 'Connectors',
         security: bearerSecurity
     },
     {
-        file: 'packages/applications-backend/base/src/routes/applicationSyncRoutes.ts',
+        file: 'packages/applications-backend/src/routes/applicationSyncRoutes.ts',
         mountPrefix: '',
         tag: 'Application Runtime Sync',
         security: bearerSecurity
     },
     {
-        file: 'packages/metahubs-backend/base/src/domains/metahubs/routes/publicMetahubsRoutes.ts',
+        file: 'packages/metahubs-backend/src/domains/metahubs/routes/publicMetahubsRoutes.ts',
         mountPrefix: '/public/metahub',
         tag: 'Public Metahubs',
         security: publicSecurity
     },
     {
-        file: 'packages/metahubs-backend/base/src/domains/metahubs/routes/metahubsRoutes.ts',
+        file: 'packages/metahubs-backend/src/domains/metahubs/routes/metahubsRoutes.ts',
         mountPrefix: '',
         tag: 'Metahubs',
         security: bearerSecurity
     },
     {
-        file: 'packages/metahubs-backend/base/src/domains/branches/routes/branchesRoutes.ts',
+        file: 'packages/metahubs-backend/src/domains/branches/routes/branchesRoutes.ts',
         mountPrefix: '',
         tag: 'Branches',
         security: bearerSecurity
     },
     {
-        file: 'packages/metahubs-backend/base/src/domains/publications/routes/publicationsRoutes.ts',
+        file: 'packages/metahubs-backend/src/domains/publications/routes/publicationsRoutes.ts',
         mountPrefix: '',
         tag: 'Publications',
         security: bearerSecurity
     },
     {
-        file: 'packages/metahubs-backend/base/src/domains/metahubs/routes/metahubMigrationsRoutes.ts',
+        file: 'packages/metahubs-backend/src/domains/metahubs/routes/metahubMigrationsRoutes.ts',
         mountPrefix: '',
         tag: 'Metahub Migrations',
         security: bearerSecurity
     },
     {
-        file: 'packages/metahubs-backend/base/src/domains/applications/routes/applicationMigrationsRoutes.ts',
+        file: 'packages/metahubs-backend/src/domains/applications/routes/applicationMigrationsRoutes.ts',
         mountPrefix: '',
         tag: 'Application Migrations',
         security: bearerSecurity
     },
     {
-        file: 'packages/metahubs-backend/base/src/domains/entities/routes/entityInstancesRoutes.ts',
+        file: 'packages/metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts',
         mountPrefix: '',
         tag: 'Entities',
         security: bearerSecurity
     },
     {
-        file: 'packages/metahubs-backend/base/src/domains/entities/routes/entityTypesRoutes.ts',
+        file: 'packages/metahubs-backend/src/domains/entities/routes/entityTypesRoutes.ts',
         mountPrefix: '',
         tag: 'Entity Types',
         security: bearerSecurity
     },
     {
-        file: 'packages/metahubs-backend/base/src/domains/entities/routes/actionsRoutes.ts',
+        file: 'packages/metahubs-backend/src/domains/entities/routes/actionsRoutes.ts',
         mountPrefix: '',
         tag: 'Entity Actions',
         security: bearerSecurity
     },
     {
-        file: 'packages/metahubs-backend/base/src/domains/entities/routes/eventBindingsRoutes.ts',
+        file: 'packages/metahubs-backend/src/domains/entities/routes/eventBindingsRoutes.ts',
         mountPrefix: '',
         tag: 'Event Bindings',
         security: bearerSecurity
     },
     {
-        file: 'packages/metahubs-backend/base/src/domains/entities/metadata/component/routes.ts',
+        file: 'packages/metahubs-backend/src/domains/entities/metadata/component/routes.ts',
         mountPrefix: '',
         tag: 'Attributes',
         security: bearerSecurity
     },
     {
-        file: 'packages/metahubs-backend/base/src/domains/entities/metadata/fixedValue/routes.ts',
+        file: 'packages/metahubs-backend/src/domains/entities/metadata/fixedValue/routes.ts',
         mountPrefix: '',
         tag: 'Constants',
         security: bearerSecurity
     },
     {
-        file: 'packages/metahubs-backend/base/src/domains/entities/metadata/record/routes.ts',
+        file: 'packages/metahubs-backend/src/domains/entities/metadata/record/routes.ts',
         mountPrefix: '',
         tag: 'Records',
         security: bearerSecurity
     },
     {
-        file: 'packages/metahubs-backend/base/src/domains/layouts/routes/layoutsRoutes.ts',
+        file: 'packages/metahubs-backend/src/domains/layouts/routes/layoutsRoutes.ts',
         mountPrefix: '',
         tag: 'Layouts',
         security: bearerSecurity
     },
     {
-        file: 'packages/metahubs-backend/base/src/domains/modules/routes/modulesRoutes.ts',
+        file: 'packages/metahubs-backend/src/domains/modules/routes/modulesRoutes.ts',
         mountPrefix: '',
         tag: 'Modules',
         security: bearerSecurity
     },
     {
-        file: 'packages/metahubs-backend/base/src/domains/shared/routes/sharedEntityOverridesRoutes.ts',
+        file: 'packages/metahubs-backend/src/domains/shared/routes/sharedEntityOverridesRoutes.ts',
         mountPrefix: '',
         tag: 'Shared Entity Overrides',
         security: bearerSecurity
     },
     {
-        file: 'packages/metahubs-backend/base/src/domains/settings/routes/settingsRoutes.ts',
+        file: 'packages/metahubs-backend/src/domains/settings/routes/settingsRoutes.ts',
         mountPrefix: '',
         tag: 'Settings',
         security: bearerSecurity
     },
     {
-        file: 'packages/metahubs-backend/base/src/domains/templates/routes/templatesRoutes.ts',
+        file: 'packages/metahubs-backend/src/domains/templates/routes/templatesRoutes.ts',
         mountPrefix: '',
         tag: 'Templates',
         security: bearerSecurity

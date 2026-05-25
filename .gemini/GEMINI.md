@@ -62,46 +62,52 @@ Non-negotiable runtime UI rules:
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- Monorepo with feature apps under `packages/`.
-  - Examples: `packages/publish-frontend` (React front end), `packages/publish-backend` (Node/Express back end), `packages/updl` (UPDL tools).
-  - Each app contains a `base/` directory for the default implementation.
-- Front-end apps include `i18n/` with default locales `en/` and `ru/`.
-- Context docs and planning live in `memory-bank/` (`productContext`, `techContext`, `progress`, `tasks`).
+
+-   Monorepo with feature apps under `packages/`.
+    -   Examples: `packages/publish-frontend` (React front end), `packages/publish-backend` (Node/Express back end), `packages/updl` (UPDL tools).
+    -   Workspace packages use the flat `packages/<name>/package.json` layout.
+-   Front-end apps include `i18n/` with default locales `en/` and `ru/`.
+-   Context docs and planning live in `memory-bank/` (`productContext`, `techContext`, `progress`, `tasks`).
 
 ## Build, Test, and Development Commands
-- `pnpm install`: Install workspace dependencies.
-- `pnpm dev`: Start development servers (run from the target app directory when applicable). Important: due to repo size and resource usage, only the user should run this locally; agents must not run it automatically.
-- `pnpm --filter <package> build`: Build a single package to validate it quickly (e.g., lint/type errors). Note: changes are fully applied across the workspace only after a full root rebuild.
-- `pnpm build` (root): Full workspace rebuild; required to propagate changes (even for a single package) and ensure cross-dependency consistency.
-- `pnpm start`: Run production server(s) for built apps.
-- `pnpm lint`: Run ESLint across the workspace.
+
+-   `pnpm install`: Install workspace dependencies.
+-   `pnpm dev`: Start development servers (run from the target app directory when applicable). Important: due to repo size and resource usage, only the user should run this locally; agents must not run it automatically.
+-   `pnpm --filter <package> build`: Build a single package to validate it quickly (e.g., lint/type errors). Note: changes are fully applied across the workspace only after a full root rebuild.
+-   `pnpm build` (root): Full workspace rebuild; required to propagate changes (even for a single package) and ensure cross-dependency consistency.
+-   `pnpm start`: Run production server(s) for built apps.
+-   `pnpm lint`: Run ESLint across the workspace.
 
 ## Coding Style & Naming Conventions
-- Prefer TypeScript where present; otherwise modern ES modules.
-- Indentation: 2 spaces; avoid trailing whitespace.
-- React: `PascalCase` components, `camelCase` hooks/utils, `kebab-case` folders/files.
-- i18n keys use dot notation (e.g., `auth.login.button`).
-- Branch names use English only (e.g., `feature/publish-workflow`, `fix/updl-parser`).
+
+-   Prefer TypeScript where present; otherwise modern ES modules.
+-   Indentation: 2 spaces; avoid trailing whitespace.
+-   React: `PascalCase` components, `camelCase` hooks/utils, `kebab-case` folders/files.
+-   i18n keys use dot notation (e.g., `auth.login.button`).
+-   Branch names use English only (e.g., `feature/publish-workflow`, `fix/updl-parser`).
 
 ## Testing Guidelines
-- Tests live near code in `__tests__/` or `tests/` when present.
-- Write unit tests for utilities and integration tests for API routes.
-- Run via `pnpm test` if configured in the target app; otherwise document manual steps in the PR.
+
+-   Tests live near code in `__tests__/` or `tests/` when present.
+-   Write unit tests for utilities and integration tests for API routes.
+-   Run via `pnpm test` if configured in the target app; otherwise document manual steps in the PR.
 
 ## Commit & Pull Request Guidelines
-- Use Conventional Commits: `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, with optional scope (e.g., `feat(publish-frontend): add i18n loader`).
-- PRs include: clear description, linked issues, screenshots for UI, and notes on env vars or migrations.
-- Small, focused PRs are preferred; include `packages/*/base` paths in the scope when relevant.
+
+-   Use Conventional Commits: `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, with optional scope (e.g., `feat(publish-frontend): add i18n loader`).
+-   PRs include: clear description, linked issues, screenshots for UI, and notes on env vars or migrations.
+-   Small, focused PRs are preferred; include `packages/*` paths in the scope when relevant.
 
 ## Security & Configuration Tips
-- Never commit secrets. Use `.env`/`.env.local` and keep Supabase keys private.
-- If provided, copy example envs (e.g., `cp .env.example .env`) and update per app.
+
+-   Never commit secrets. Use `.env`/`.env.local` and keep Supabase keys private.
+-   If provided, copy example envs (e.g., `cp .env.example .env`) and update per app.
 
 # Recommendations
 
 ## 1. General Principles
 
-1.  **Review Local READMEs**: Before starting a task, always review the `README.md` in the relevant package's directory (e.g., `packages/profile-frontend/base/README.md`).
+1.  **Review Local READMEs**: Before starting a task, always review the `README.md` in the relevant package's directory (e.g., `packages/profile-frontend/README.md`).
 2.  **Adhere to Linters**: Always follow the project's configured linters when writing code to ensure consistency and quality.
 3.  **Language**: Respond to the user in Russian. However, all code comments and all information in the `memory-bank` folder must be written in English only.
 
@@ -109,24 +115,24 @@ Non-negotiable runtime UI rules:
 
 ### 2.1. Workspace Imports
 
-*   **DO**: When importing from another local package in the monorepo, always use the full PNPM workspace package name as defined in its `package.json` (e.g., `import { something } from '@universo/types'`).
-*   **DO NOT**: Never use relative paths (`../`) to import across package boundaries.
-*   **WHY**: This ensures correct module resolution via PNPM workspaces, prevents circular dependencies, and is critical for eventually extracting packages into separate repositories.
+-   **DO**: When importing from another local package in the monorepo, always use the full PNPM workspace package name as defined in its `package.json` (e.g., `import { something } from '@universo/types'`).
+-   **DO NOT**: Never use relative paths (`../`) to import across package boundaries.
+-   **WHY**: This ensures correct module resolution via PNPM workspaces, prevents circular dependencies, and is critical for eventually extracting packages into separate repositories.
 
 ### 2.2. Frontend Packages (TSX)
 
-*   **Technology**: New frontend packages must be written in **TypeScript (TSX)**.
-*   **Build System**: Each new package must feature a dual-build system (similar to `packages/space-builder-frontend`) to compile TSX into both **CommonJS** and **ES Modules**.
-    *   Use two `tsconfig.json` files (`tsconfig.json` for CJS, `tsconfig.esm.json` for ESM).
-    *   The compiled JavaScript output must be placed in a `dist/` directory within the package.
-*   **Integration**: The package's `package.json` must correctly specify the `main` (for CJS) and `module` (for ESM) entry points, pointing to the compiled files in `dist/`. This allows new TSX components to be directly imported into the existing codebase (`packages/universo-core-frontend/base`) as standard dependencies.
+-   **Technology**: New frontend packages must be written in **TypeScript (TSX)**.
+-   **Build System**: Each new package must feature a dual-build system (similar to `packages/space-builder-frontend`) to compile TSX into both **CommonJS** and **ES Modules**.
+    -   Use two `tsconfig.json` files (`tsconfig.json` for CJS, `tsconfig.esm.json` for ESM).
+    -   The compiled JavaScript output must be placed in a `dist/` directory within the package.
+-   **Integration**: The package's `package.json` must correctly specify the `main` (for CJS) and `module` (for ESM) entry points, pointing to the compiled files in `dist/`. This allows new TSX components to be directly imported into the existing codebase (`packages/universo-core-frontend`) as standard dependencies.
 
 ### 2.3. Backend Packages (Knex + SQL Migrations)
 
-*   **Data Access Pattern**: Direct database calls (e.g., to the Supabase client) are forbidden. All database interaction **must** go through **store modules** that use `DbExecutor.query()` with raw SQL.
-*   **Database Target**: Currently, all schemas and migrations should be written for **PostgreSQL**, as it is the only database in use (via Supabase).
-*   **Creating a New Service**: When creating a new backend service in `packages/` that requires database access, you must:
+-   **Data Access Pattern**: Direct database calls (e.g., to the Supabase client) are forbidden. All database interaction **must** go through **store modules** that use `DbExecutor.query()` with raw SQL.
+-   **Database Target**: Currently, all schemas and migrations should be written for **PostgreSQL**, as it is the only database in use (via Supabase).
+-   **Creating a New Service**: When creating a new backend service in `packages/` that requires database access, you must:
     1.  **Define SQL Migrations**: Create platform migration definitions in your package's `src/migrations/` directory using `createSchemaMigrationDefinition()` from `@universo/schema-ddl`.
-    2.  **Register Migrations**: Import your migration definition into `packages/universo-migrations-platform/base/src/platformMigrations.ts` and add it to the `platformMigrations` array.
+    2.  **Register Migrations**: Import your migration definition into `packages/universo-migrations-platform/src/platformMigrations.ts` and add it to the `platformMigrations` array.
     3.  **Create Store Modules**: Write store files (e.g., `myStore.ts`) that accept a `DbExecutor` and run SQL queries via `executor.query(sql, params)`. Use `$1`, `$2`, etc. for PostgreSQL bind parameters.
     4.  **Use Request Executor**: In route handlers, obtain the request-scoped executor via `getRequestDbExecutor(req, getDbExecutor())` from `@universo/utils`. This ensures RLS context is applied.

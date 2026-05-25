@@ -4,6 +4,66 @@
 
 ---
 
+## Active: Flatten Base Directory Layout (2026-05-25)
+
+> Goal: remove the unused `base/` package-root layer from all active
+> workspaces, update tooling/documentation references, and prove pnpm/Turbo,
+> tests, local Supabase, OpenAPI, docs, and runtime UX gates still work.
+
+### IMPLEMENT Action Plan
+
+-   [x] Establish the live package inventory and implementation ledger.
+-   [x] Move tracked package files with `git mv`, preserve ignored local env
+        profiles, and clean rebuildable generated artifacts under old `base/`
+        directories.
+-   [x] Rewrite workspace, root script, package config, test harness, local
+        Supabase, OpenAPI, docs, agent, and manager path references.
+-   [x] Add a fail-closed stale `base/` path checker covering root-relative,
+        relative, and Windows-style paths.
+-   [x] Regenerate workspace lock/importer metadata with `pnpm install` and
+        verify pnpm/Turbo package discovery against the implementation ledger.
+-   [x] Run formatting, targeted static/unit/build/docs checks, package-local
+        script oracles, and local Supabase validation.
+-   [x] Run local minimal Supabase Playwright evidence for smoke/runtime UX
+        flows without using `pnpm dev`.
+-   [x] Update Memory Bank progress and active context with the final outcome.
+
+### Post-QA Closure Action Plan
+
+-   [x] Remove active stale documentation that still describes package roots as
+        `base/` directories.
+-   [x] Extend the stale package-base checker so standalone active layout
+        guidance and package tree snippets fail closed.
+-   [x] Verify the new `start-frontend` views components barrel is intentional
+        and required by package exports/build.
+-   [x] Run formatting and focused validation after the QA follow-up fixes.
+-   [x] Record the closure outcome in Memory Bank.
+
+### Final QA Closure Action Plan
+
+-   [x] Add the new stale-path checker and `start-frontend` views components
+        barrel to the tracked change set.
+-   [x] Fix the `@universo/core-backend` Jest command import regression.
+-   [x] Include all flat-package Vitest configs in the root Vitest workspace.
+-   [x] Wire the stale package-base guard into CI and agent verification gates.
+-   [x] Strengthen local Supabase tests for exact flattened frontend env paths.
+-   [x] Run formatting, focused Jest/Vitest/tooling checks, full validation,
+        and local minimal Supabase Playwright smoke.
+-   [x] Record the final QA closure outcome in Memory Bank.
+
+### Final Index And Backend Matrix Closure Action Plan
+
+-   [x] Sync the Git index with the flat package layout and include the Memory
+        Bank plan, research, and implementation ledger artifacts in the tracked
+        change set.
+-   [x] Re-verify the root workspace development dependencies required by the
+        E2E/tooling entry points after flattening.
+-   [x] Run the backend Jest package matrix that was not fully covered by the
+        previous QA closure.
+-   [x] Re-run stale-path, formatting, and Git whitespace guards against the
+        worktree and staged index.
+-   [x] Record the final closure outcome in Memory Bank.
+
 ## Active: Scripts To Modules Rename (2026-05-25)
 
 > Goal: rename the metahub attached TypeScript-code capability from Scripts/Scripting to Modules across code, database contracts, API routes, UI, i18n, fixtures, docs, and tests with no legacy compatibility layer.
