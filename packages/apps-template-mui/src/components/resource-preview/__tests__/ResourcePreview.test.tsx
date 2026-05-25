@@ -150,7 +150,7 @@ describe('ResourcePreview', () => {
         expect(screen.queryByText('embed')).not.toBeInTheDocument()
         const frame = screen.getByTitle('Embedded resource')
         expect(frame).toHaveAttribute('src', 'https://www.youtube.com/embed/demo')
-        expect(frame).toHaveAttribute('sandbox', 'allow-modules allow-same-origin allow-presentation')
+        expect(frame).toHaveAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation')
     })
 
     it('fails closed for unsafe embed hosts', () => {
