@@ -20,7 +20,7 @@
 
 1. **Spec asks for a PAGE with TABS** — "interface same as other sections, only there will be tabs right away". This means a tabbed page at `/metahub/:metahubId/general` (like SettingsPage with its 6 tabs), NOT a collapsible sidebar menu group.
 
-2. **`type: 'collapse'` is not even rendered by the real sidebar**: The actual sidebar renderer is `MenuContent.tsx` in `universo-template-mui`, which uses `TemplateMenuItem = TemplateMenuEntry | TemplateMenuDivider` — **no collapse type is supported**. The `MenuItem` interface in `metahubDashboard.ts` defines `'collapse'` in its union type, but `metahubDashboard.ts` is **never consumed** by the sidebar renderer. The real menu comes from `getMetahubMenuItems()` in `menuConfigs.ts` which has a completely different type system.
+2. **`type: 'collapse'` is not even rendered by the real sidebar**: The actual sidebar renderer is `MenuContent.tsx` in `universo-react-template-mui`, which uses `TemplateMenuItem = TemplateMenuEntry | TemplateMenuDivider` — **no collapse type is supported**. The `MenuItem` interface in `metahubDashboard.ts` defines `'collapse'` in its union type, but `metahubDashboard.ts` is **never consumed** by the sidebar renderer. The real menu comes from `getMetahubMenuItems()` in `menuConfigs.ts` which has a completely different type system.
 
 3. **TWO menu systems exist** — plan only addresses one:
    - `packages/universo-react-metahubs-frontend/base/src/menu-items/metahubDashboard.ts` → exported as `metahubsDashboard` but **NOT imported** anywhere for rendering

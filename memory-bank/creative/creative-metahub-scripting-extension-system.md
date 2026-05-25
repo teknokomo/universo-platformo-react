@@ -3,7 +3,7 @@
 > **Created**: 2026-04-05
 > **Status**: Design complete, ready for PLAN
 > **Complexity**: Level 4+ (Major/Complex, cross-cutting)
-> **Scope**: New packages `@universo-react/extension-sdk`, `@universo/scripting-engine`; touched packages: `metahubs-backend`, `metahubs-frontend`, `applications-backend`, `apps-template-mui`, `universo-types`, `schema-ddl`, `universo-i18n`
+> **Scope**: New packages `@universo-react/extension-sdk`, `@universo/scripting-engine`; touched packages: `universo-react-metahubs-backend`, `universo-react-metahubs-frontend`, `universo-react-applications-backend`, `universo-react-apps-template-mui`, `universo-react-types`, `universo-react-schema-ddl`, `universo-react-i18n`
 > **Analogies**: GDExtension (Godot Engine), 1С:Предприятие 8.x module objects
 
 > **QA note (2026-04-05):** This creative document remains the alternative-analysis archive. The implementation source of truth is the corrected plan in `memory-bank/plan/metahub-scripting-extension-system-plan-2026-04-05.md`. Where they differ, the plan wins. Key superseded decisions include: Monaco Editor → CodeMirror 6, public raw SQL API → domain-safe RecordAPI/MetadataAPI, and object-only attachment → generic `attached_to_kind` / `attached_to_id` model with explicit `module_role` and `source_kind` seams.
@@ -1786,8 +1786,8 @@ export class DatabaseBridge {
 | `@universo-react/metahubs-frontend` | New `scripts` domain (hooks/pages); Monaco editor integration |
 | `@universo-react/applications-backend` | `scriptRpcRoutes`; extend `syncEngine` with `persistPublishedScripts()` |
 | `@universo-react/apps-template-mui` | `quizWidget` case in `widgetRenderer`; `QuizWidget` + `ScriptedWidgetHost` components |
-| `@universo/universo-i18n` | New `scripting` and `quiz` namespaces |
-| `@universo/universo-migrations-platform` | Migration for `_app_scripts` in runtime schemas |
+| `@universo-react/i18n` | New `scripting` and `quiz` namespaces |
+| `@universo-react/migrations-platform` | Migration for `_app_scripts` in runtime schemas |
 
 ---
 

@@ -31,7 +31,7 @@ Before implementation, produce or verify a UI Contract for every touched screen,
 -   Validation messages must be localized and user-facing. Raw Zod/internal messages are defects on localized surfaces.
 -   Reuse existing MUI dashboard/app-template primitives before creating new widgets or layouts.
 -   Fix generic runtime metadata/rendering behavior where possible. Do not add LMS-only UI forks for generic problems.
--   `packages/universo-react-apps-template-mui` must stay isolated from the legacy template packages. It must not depend on `packages/universo-react-template-mui` or any feature package scheduled for removal during the architectural transition (`metahubs-*`, `applications-*`, `admin-*`, `profile-*`, `start-*`). Component duplication between those packages and `apps-template-mui` is acceptable and intentional during the transition. See `references/apps-template-isolation.md`.
+-   `packages/universo-react-apps-template-mui` must stay isolated from the legacy template packages. It must not depend on `packages/universo-react-template-mui` or any feature package scheduled for removal during the architectural transition (`universo-react-metahubs-*`, `universo-react-applications-*`, `universo-react-admin-*`, `universo-react-profile-*`, `universo-react-start-*`). Component duplication between those packages and `universo-react-apps-template-mui` is acceptable and intentional during the transition. See `references/apps-template-isolation.md`.
 
 ## References
 

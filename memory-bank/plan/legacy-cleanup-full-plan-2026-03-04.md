@@ -73,18 +73,18 @@ Remove **38 legacy legacy upstream/UPDL packages** from the monorepo, clean all 
 | `legacy-core-backend` | Migrate essential code → `universo-core-backend`, then delete |
 | `legacy-core-frontend` | Rename to `universo-core-frontend`, clean legacy imports |
 | `legacy-store` | Rename to `@universo-react/store` (or merge into core-frontend — user decision needed) |
-| `legacy-template-mui` | Rename to `@universo/legacy-mui` or merge shared components — user decision needed |
+| `legacy-template-mui` | Rename to `@universo-react/legacy-mui` or merge shared components — user decision needed |
 
 ---
 
 ## Packages to KEEP (after cleanup: ~23)
 
-`admin-backend`, `admin-frontend`, `applications-backend`, `applications-frontend`,
-`apps-template-mui`, `auth-backend`, `auth-frontend`, `metahubs-backend`, `metahubs-frontend`,
-`migration-guard-shared`, `profile-backend`, `profile-frontend`, `schema-ddl`,
-`start-backend`, `start-frontend`, `universo-api-client`, `universo-core-backend` (enriched),
-`universo-core-frontend` (renamed), `universo-i18n`, `universo-rest-docs`,
-`universo-template-mui`, `universo-types`, `universo-utils`,
+`universo-react-admin-backend`, `universo-react-admin-frontend`, `universo-react-applications-backend`, `universo-react-applications-frontend`,
+`universo-react-apps-template-mui`, `universo-react-auth-backend`, `universo-react-auth-frontend`, `universo-react-metahubs-backend`, `universo-react-metahubs-frontend`,
+`universo-react-migration-guard-shared`, `universo-react-profile-backend`, `universo-react-profile-frontend`, `universo-react-schema-ddl`,
+`universo-react-start-backend`, `universo-react-start-frontend`, `universo-react-api-client`, `universo-react-core-backend` (enriched),
+`universo-react-core-frontend` (renamed), `universo-react-i18n`, `universo-react-rest-docs`,
+`universo-react-template-mui`, `universo-react-types`, `universo-react-utils`,
 `legacy-store` (renamed to `@universo-react/store`), `legacy-template-mui` (renamed to legacy or merged)
 
 ---
@@ -115,7 +115,7 @@ Remove **38 legacy legacy upstream/UPDL packages** from the monorepo, clean all 
 | File | What to change |
 |------|----------------|
 | `src/index.jsx` (129L) | Remove 10+ i18n imports from deleted packages, remove `setupBuilders()`, remove `browserModuleMap`, change `/store` → `@universo-react/store` |
-| `src/App.jsx` (218L) | Change `/template-mui` → new location, remove CaslDebugger TODO |
+| `src/App.jsx` (218L) | Change `/template-mui` → `@universo-react/template-mui`, remove CaslDebugger TODO |
 | `package.json` (128L) | Remove 9+ deps on deleted frontend packages, remove `reactflow`, `legacy-embed`, `legacy-react-json-view`, `codemirror*`, `react-code-blocks`, etc. |
 | `vite.config.js` | Remove optimizeDeps for deleted packages |
 

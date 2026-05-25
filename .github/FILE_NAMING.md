@@ -65,7 +65,7 @@ File naming should be **consistent**, **predictable**, and **semantic**. The con
 
 ```
 ✅ universo-react-applications-frontend/
-✅ universo-template-mui/
+✅ universo-react-template-mui/
 ✅ memory-bank/
 ✅ menu-items/
 ```

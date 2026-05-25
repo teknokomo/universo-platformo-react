@@ -717,8 +717,8 @@ The roadmap is closed only when all of the following are true:
 2. `packages/universo-react-metahubs-backend/base/src/database` does not exist.
 3. `packages/universo-react-applications-backend/base/package.json` has no `typeorm`.
 4. `packages/universo-react-metahubs-backend/base/package.json` has no `typeorm`.
-5. `applications-backend` has no `typeorm` imports.
-6. `metahubs-backend` has no `typeorm` imports.
+5. `universo-react-applications-backend` has no `typeorm` imports.
+6. `universo-react-metahubs-backend` has no `typeorm` imports.
 7. request-scoped DB execution for these packages does not use `QueryRunner`.
 8. `metahubs` schema still matches the intended exact platform structure.
 9. runtime `mhb_*` and `app_*` schema flows still work.
