@@ -1,4 +1,4 @@
-import type { ScriptAttachmentKind, ScriptCapability, ScriptEventName, ScriptModuleRole, ScriptSourceKind } from '@universo/types'
+import type { ModuleAttachmentKind, ModuleCapability, ModuleEventName, ModuleRole, ModuleSourceKind } from '@universo/types'
 import type { HttpAPI } from './apis/http'
 import type { I18nAPI } from './apis/i18n'
 import type { ExtensionLedgerApi } from './apis/ledgers'
@@ -10,39 +10,39 @@ import type { StateAPI } from './apis/state'
 export const EXECUTION_TARGETS = ['server', 'client', 'server_and_client'] as const
 export type ExecutionTarget = (typeof EXECUTION_TARGETS)[number]
 
-export type LifecycleEvent = ScriptEventName
+export type LifecycleEvent = ModuleEventName
 
 export interface EventContext<TPayload = unknown> {
     eventName: LifecycleEvent
     payload?: TPayload
     applicationId?: string
     metahubId?: string
-    scriptId?: string
-    scriptCodename?: string
+    moduleId?: string
+    moduleCodename?: string
 }
 
-export interface ScriptContext {
+export interface ModuleContext {
     applicationId?: string
     metahubId?: string
-    scriptId?: string
-    scriptCodename?: string
+    moduleId?: string
+    moduleCodename?: string
     records: ExtensionRecordApi
     ledger: ExtensionLedgerApi
     metadata: ExtensionMetadataApi
     callServerMethod(methodName: string, args: unknown[]): Promise<unknown>
-    emit?(eventName: ScriptEventName, payload?: unknown): Promise<unknown>
+    emit?(eventName: ModuleEventName, payload?: unknown): Promise<unknown>
     http?: HttpAPI
     state?: StateAPI
     log?: LogAPI
     i18n?: I18nAPI
 }
 
-export type ExtensionScriptContext = ScriptContext
+export type ExtensionModuleContext = ModuleContext
 
-export interface ExtensionScriptMetadata {
+export interface ExtensionModuleMetadata {
     sdkApiVersion?: string
-    moduleRole?: ScriptModuleRole
-    sourceKind?: ScriptSourceKind
-    capabilities?: ScriptCapability[]
-    attachedToKind?: ScriptAttachmentKind | null
+    moduleRole?: ModuleRole
+    sourceKind?: ModuleSourceKind
+    capabilities?: ModuleCapability[]
+    attachedToKind?: ModuleAttachmentKind | null
 }

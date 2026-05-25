@@ -14,10 +14,10 @@ Metahubs now use one entity-first constructor for both platform presets and user
 
 An entity type defines:
 
-- its `kindKey`
-- localized presentation and codename metadata
-- the component manifest that enables schema, records, fixed values, option values, scripts, layouts, runtime behavior, and other capabilities
-- UI settings such as icon, sidebar placement, authoring tabs, and resource-surface metadata
+-   its `kindKey`
+-   localized presentation and codename metadata
+-   the component manifest that enables schema, records, fixed values, option values, modules, layouts, runtime behavior, and other capabilities
+-   UI settings such as icon, sidebar placement, authoring tabs, and resource-surface metadata
 
 Platform presets and custom types use the same storage table and the same validation path.
 
@@ -29,9 +29,9 @@ Every design-time object inside a metahub is an entity instance linked to one en
 
 The Resources workspace no longer hardcodes the visible metadata tab titles. Entity types describe resource surfaces through `ui.resourceSurfaces`, which binds a stable key and route segment to one compatible capability:
 
-- `dataSchema` for components
-- `fixedValues` for constants
-- `optionValues` for values
+-   `dataSchema` for components
+-   `fixedValues` for constants
+-   `optionValues` for values
 
 The shared Resources page renders only capabilities that are actually enabled somewhere in the metahub, but the title, stable key, and route segment come from the entity-type contract instead of page-level string maps.
 
@@ -41,16 +41,16 @@ The shared Resources page renders only capabilities that are actually enabled so
 
 Built-in templates define which optional presets are seeded during metahub creation:
 
-- `basic`: minimal authoring-ready workspace
-- `basic-demo`: demo-heavy starter with sample seeded content
-- `empty`: no optional entity-type presets; the user starts from the Entities workspace and creates types manually
+-   `basic`: minimal authoring-ready workspace
+-   `basic-demo`: demo-heavy starter with sample seeded content
+-   `empty`: no optional entity-type presets; the user starts from the Entities workspace and creates types manually
 
 Each preset can seed:
 
-- one entity-type definition
-- optional default instances
-- shared metadata defaults
-- layouts and widgets
+-   one entity-type definition
+-   optional default instances
+-   shared metadata defaults
+-   layouts and widgets
 
 ## Runtime And Behavior
 
@@ -60,26 +60,26 @@ The behavior registry still matters, but it is a specialization layer, not the o
 
 Important design-time routes include:
 
-- `/metahub/{metahubId}/entity-types`
-- `/metahub/{metahubId}/entity-type/{entityTypeId}`
-- `/metahub/{metahubId}/entities`
-- `/metahub/{metahubId}/entity/{entityId}`
-- `/metahub/{metahubId}/shared-containers`
-- `/metahub/{metahubId}/shared-entity-overrides`
+-   `/metahub/{metahubId}/entity-types`
+-   `/metahub/{metahubId}/entity-type/{entityTypeId}`
+-   `/metahub/{metahubId}/entities`
+-   `/metahub/{metahubId}/entity/{entityId}`
+-   `/metahub/{metahubId}/shared-containers`
+-   `/metahub/{metahubId}/shared-entity-overrides`
 
-The Resources workspace uses shared containers for layouts, components, constants, values, and shared scripts. Entity-instance pages use the same capability model but operate on one concrete object.
+The Resources workspace uses shared containers for layouts, components, constants, values, and shared modules. Entity-instance pages use the same capability model but operate on one concrete object.
 
 ## Safety Rules
 
-- Entity-type keys and codenames stay unique inside one metahub schema.
-- Resource surfaces must use unique keys and unique compatible capabilities.
-- A resource surface is rejected when its matching component is disabled.
-- Delete flows fail closed when dependent instances still exist.
-- Shared authoring keeps sparse override rows instead of destructive duplication of shared metadata.
+-   Entity-type keys and codenames stay unique inside one metahub schema.
+-   Resource surfaces must use unique keys and unique compatible capabilities.
+-   A resource surface is rejected when its matching component is disabled.
+-   Delete flows fail closed when dependent instances still exist.
+-   Shared authoring keeps sparse override rows instead of destructive duplication of shared metadata.
 
 ## Related Reading
 
-- [Frontend Architecture](frontend.md)
-- [Backend Architecture](backend.md)
-- [Custom Entity Types Guide](../guides/custom-entity-types.md)
-- [Metahub Schema](metahub-schema.md)
+-   [Frontend Architecture](frontend.md)
+-   [Backend Architecture](backend.md)
+-   [Custom Entity Types Guide](../guides/custom-entity-types.md)
+-   [Metahub Schema](metahub-schema.md)

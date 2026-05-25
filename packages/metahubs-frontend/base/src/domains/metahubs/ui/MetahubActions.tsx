@@ -47,7 +47,7 @@ import {
 } from '../../../utils/localizedInput'
 import { CodenameField } from '../../../components'
 import { TemplateSelector } from '../../templates/ui/TemplateSelector'
-import { createScriptsTab } from '../../scripts/ui/EntityScriptsTab'
+import { createModulesTab } from '../../modules/ui/EntityModulesTab'
 
 const buildInitialValues = (ctx: ActionContext<MetahubDisplay, MetahubLocalizedPayload>) => {
     const metahubMap = ctx.metahubMap as Map<string, Metahub> | undefined
@@ -363,7 +363,7 @@ const buildEditTabs = (
 
     if (options?.editingEntityId) {
         tabs.push(
-            createScriptsTab({
+            createModulesTab({
                 t: ctx.t,
                 metahubId: ctx.entity.id,
                 attachedToKind: 'metahub',

@@ -53,14 +53,14 @@ const presetManifest = {
             relations: { enabled: true, allowedRelationTypes: ['manyToOne'] },
             actions: { enabled: true },
             events: { enabled: true },
-            scripting: { enabled: true },
+            modules: { enabled: true },
             layoutConfig: { enabled: true },
             runtimeBehavior: { enabled: true },
             physicalTable: { enabled: true, prefix: 'catx' }
         },
         ui: {
             iconName: 'IconDatabase',
-            tabs: ['general', 'hubs', 'layout', 'scripts'],
+            tabs: ['general', 'hubs', 'layout', 'modules'],
             sidebarSection: 'objects' as const,
             sidebarOrder: 20,
             resourceSurfaces: [
@@ -133,7 +133,7 @@ describe('entityTypePreset helpers', () => {
         expect(patch).toMatchObject({
             kindKey: 'object',
             iconName: 'IconDatabase',
-            tabs: ['general', 'hubs', 'layout', 'scripts'],
+            tabs: ['general', 'hubs', 'layout', 'modules'],
             customTabsInput: '',
             sidebarSection: 'objects',
             sidebarOrder: 20,

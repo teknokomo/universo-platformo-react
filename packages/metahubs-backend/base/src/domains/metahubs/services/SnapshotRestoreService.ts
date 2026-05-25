@@ -1,15 +1,28 @@
 import type { Knex } from 'knex'
+import { createHash } from 'crypto'
 import { createLocalizedContent, getCodenamePrimary } from '@universo/utils'
 import {
+    assertSupportedModuleSdkApiVersion,
+    findDisallowedModuleCapabilities,
+    isKnownModuleAttachmentKind,
+    isModuleAttachmentKind,
+    MODULE_AUTHORING_SOURCE_KINDS,
+    MODULE_ROLES,
+    MODULE_SOURCE_KINDS,
     SHARED_ENTITY_KIND_TO_POOL_KIND,
     SHARED_POOL_TO_ENTITY_KIND,
     SHARED_POOL_TO_TARGET_KIND,
     isEnabledCapabilityConfig,
     normalizeLedgerConfigFromConfig,
+    normalizeModuleCapabilities,
     normalizePageBlockContentForStorage,
     supportsLedgerSchema,
     validateLedgerConfigReferences,
     type BlockContentCapabilityConfig,
+    type ModuleManifest,
+    type ModuleAttachmentKind,
+    type ModuleRole,
+    type ModuleSourceKind,
     type PageBlockContentValidationOptions,
     type SharedEntityKind,
     type SharedObjectKind
@@ -31,13 +44,21 @@ import { createLogger } from '../../../utils/logger'
 
 const log = createLogger('SnapshotRestoreService')
 
-type SnapshotScript = NonNullable<MetahubSnapshot['scripts']>[number] & {
+type SnapshotModule = NonNullable<MetahubSnapshot['modules']>[number] & {
     sourceCode?: string
 }
 
 type SharedEntityIdMaps = Record<SharedEntityKind, Map<string, string>>
 
-const getScriptCodenameText = (codename: SnapshotScript['codename']): string => getCodenamePrimary(codename) ?? '[unknown]'
+const getModuleCodenameText = (codename: SnapshotModule['codename']): string => getCodenamePrimary(codename) ?? '[unknown]'
+
+const isGeneralModuleScope = (attachedToKind: string, attachedToId: string | null): boolean =>
+    attachedToKind === 'general' && attachedToId === null
+
+const isNullableModuleScope = (attachedToKind: string): boolean => attachedToKind === 'metahub' || attachedToKind === 'general'
+
+const createRestoredModuleChecksum = (sourceCode: string, manifest: ModuleManifest): string =>
+    createHash('sha256').update(sourceCode).update(JSON.stringify(manifest)).digest('hex')
 
 const getEntityCodenameText = (codename: MetaEntitySnapshot['codename']): string => {
     if (typeof codename === 'string') return codename
@@ -83,8 +104,8 @@ export class SnapshotRestoreService {
             const sharedEntityIdMaps = await this.restoreSharedEntities(trx, snapshot, entityIdMap, constantIdMap, userId)
             await this.restoreSharedEntityOverrides(trx, snapshot, entityIdMap, sharedEntityIdMaps, userId)
             await this.restoreElements(trx, snapshot, entityIdMap, userId)
-            const scriptIdMap = await this.restoreScripts(trx, metahubId, snapshot, entityIdMap, componentIdMap, userId)
-            const actionIdMap = await this.restoreActions(trx, snapshot, entityIdMap, scriptIdMap, userId)
+            const moduleIdMap = await this.restoreModules(trx, metahubId, snapshot, entityIdMap, componentIdMap, userId)
+            const actionIdMap = await this.restoreActions(trx, snapshot, entityIdMap, moduleIdMap, userId)
             await this.restoreEventBindings(trx, snapshot, entityIdMap, actionIdMap, userId)
             await this.restoreLayouts(trx, snapshot, entityIdMap, userId)
             await this.restoreSettings(trx, snapshot, userId)
@@ -260,7 +281,7 @@ export class SnapshotRestoreService {
 
         const sharedComponents = snapshot.sharedComponents ?? snapshot.sharedComponents ?? []
         const sharedFixedValues = snapshot.sharedFixedValues ?? []
-        const sharedEnumerationValues = snapshot.sharedOptionValues ?? snapshot.sharedEnumerationValues ?? []
+        const sharedOptionValues = snapshot.sharedOptionValues ?? []
 
         const sharedContainerIds: Partial<Record<SharedEntityKind, string>> = {}
 
@@ -272,7 +293,7 @@ export class SnapshotRestoreService {
             sharedContainerIds.constant = await this.createSharedContainer(qb, SHARED_ENTITY_KIND_TO_POOL_KIND.constant, userId, now)
         }
 
-        if (sharedEnumerationValues.length > 0) {
+        if (sharedOptionValues.length > 0) {
             sharedContainerIds.value = await this.createSharedContainer(qb, SHARED_ENTITY_KIND_TO_POOL_KIND.value, userId, now)
         }
 
@@ -341,7 +362,7 @@ export class SnapshotRestoreService {
         }
 
         if (sharedContainerIds.value) {
-            for (const value of sharedEnumerationValues) {
+            for (const value of sharedOptionValues) {
                 const [inserted] = await qb
                     .withSchema(this.schemaName)
                     .into('_mhb_values')
@@ -824,9 +845,9 @@ export class SnapshotRestoreService {
         }
     }
 
-    // ── Pass 3d: Scripts ──────────────────────────────────────────────────
+    // ── Pass 3d: Modules ──────────────────────────────────────────────────
 
-    private async restoreScripts(
+    private async restoreModules(
         qb: Knex.Transaction,
         metahubId: string,
         snapshot: MetahubSnapshot,
@@ -834,45 +855,58 @@ export class SnapshotRestoreService {
         componentIdMap: Map<string, string>,
         userId: string
     ): Promise<Map<string, string>> {
-        const scripts = (snapshot.scripts ?? []) as SnapshotScript[]
+        const modules = (snapshot.modules ?? []) as SnapshotModule[]
         const now = new Date()
-        const scriptIdMap = new Map<string, string>()
+        const moduleIdMap = new Map<string, string>()
 
-        await qb.withSchema(this.schemaName).from('_mhb_scripts').del()
+        await qb.withSchema(this.schemaName).from('_mhb_modules').del()
 
-        if (!scripts.length) return scriptIdMap
+        if (!modules.length) return moduleIdMap
 
-        for (const script of scripts) {
-            const attachedToId = this.resolveScriptAttachmentId(script, metahubId, entityIdMap, componentIdMap)
-            const scriptCodenameText = getScriptCodenameText(script.codename)
+        const entityKindById = new Map(Object.entries(snapshot.entities ?? {}).map(([entityId, entity]) => [entityId, entity.kind]))
 
-            if (script.attachedToKind !== 'metahub' && !attachedToId) {
+        for (const module of modules) {
+            const attachedToId = this.resolveModuleAttachmentId(module, metahubId, entityIdMap, componentIdMap)
+            const moduleCodenameText = getModuleCodenameText(module.codename)
+            const attachedToKind = typeof module.attachedToKind === 'string' ? module.attachedToKind.trim() : ''
+            const sourceEntityKind =
+                typeof module.attachedToId === 'string' && module.attachedToId.length > 0
+                    ? entityKindById.get(module.attachedToId)
+                    : undefined
+            const restoredModule = this.validateSnapshotModule(
+                module,
+                attachedToId,
+                isKnownModuleAttachmentKind(attachedToKind) || sourceEntityKind === attachedToKind
+            )
+            const sourceCode = this.resolveModuleSourceCode(module)
+
+            if (!isNullableModuleScope(restoredModule.attachedToKind) && !attachedToId) {
                 log.warn(
-                    `Script attachment ${script.attachedToKind}:${
-                        script.attachedToId ?? '[null]'
-                    } not found during snapshot restore, skipping script ${scriptCodenameText}`
+                    `Module attachment ${module.attachedToKind}:${
+                        module.attachedToId ?? '[null]'
+                    } not found during snapshot restore, skipping module ${moduleCodenameText}`
                 )
                 continue
             }
 
             const [inserted] = await qb
                 .withSchema(this.schemaName)
-                .into('_mhb_scripts')
+                .into('_mhb_modules')
                 .insert({
-                    codename: ensureCodenameValue(script.codename),
-                    presentation: script.presentation ?? { name: {} },
-                    attached_to_kind: script.attachedToKind,
+                    codename: ensureCodenameValue(module.codename),
+                    presentation: module.presentation ?? { name: {} },
+                    attached_to_kind: restoredModule.attachedToKind,
                     attached_to_id: attachedToId,
-                    module_role: script.moduleRole,
-                    source_kind: script.sourceKind,
-                    sdk_api_version: script.sdkApiVersion,
-                    source_code: this.resolveScriptSourceCode(script),
-                    manifest: script.manifest ?? {},
-                    server_bundle: script.serverBundle ?? null,
-                    client_bundle: script.clientBundle ?? null,
-                    checksum: script.checksum,
-                    is_active: script.isActive !== false,
-                    config: script.config ?? {},
+                    module_role: restoredModule.moduleRole,
+                    source_kind: restoredModule.sourceKind,
+                    sdk_api_version: restoredModule.sdkApiVersion,
+                    source_code: sourceCode,
+                    manifest: restoredModule.manifest,
+                    server_bundle: null,
+                    client_bundle: null,
+                    checksum: createRestoredModuleChecksum(sourceCode, restoredModule.manifest),
+                    is_active: module.isActive !== false,
+                    config: module.config ?? {},
                     _upl_created_at: now,
                     _upl_created_by: userId,
                     _upl_updated_at: now,
@@ -887,19 +921,141 @@ export class SnapshotRestoreService {
                 })
                 .returning('id')
 
-            if (typeof script.id === 'string' && inserted?.id) {
-                scriptIdMap.set(script.id, inserted.id)
+            if (typeof module.id === 'string' && inserted?.id) {
+                moduleIdMap.set(module.id, inserted.id)
             }
         }
 
-        return scriptIdMap
+        return moduleIdMap
+    }
+
+    private validateSnapshotModule(
+        module: SnapshotModule,
+        attachedToId: string | null,
+        isSupportedAttachmentKind: boolean
+    ): {
+        attachedToKind: ModuleAttachmentKind
+        moduleRole: ModuleRole
+        sourceKind: ModuleSourceKind
+        sdkApiVersion: string
+        manifest: ModuleManifest
+    } {
+        const moduleCodename = getModuleCodenameText(module.codename)
+        const attachedToKind = typeof module.attachedToKind === 'string' ? module.attachedToKind.trim() : ''
+
+        if (!attachedToKind) {
+            throw new MetahubValidationError('Snapshot module attachment kind is required', { moduleCodename })
+        }
+
+        if (!isModuleAttachmentKind(attachedToKind) || !isSupportedAttachmentKind) {
+            throw new MetahubValidationError('Snapshot module attachment kind is not supported', {
+                moduleCodename,
+                attachedToKind
+            })
+        }
+
+        if (!MODULE_ROLES.includes(module.moduleRole as ModuleRole)) {
+            throw new MetahubValidationError('Snapshot module role is not supported', {
+                moduleCodename,
+                moduleRole: module.moduleRole
+            })
+        }
+
+        if (!MODULE_SOURCE_KINDS.includes(module.sourceKind as ModuleSourceKind)) {
+            throw new MetahubValidationError('Snapshot module source kind is not supported', {
+                moduleCodename,
+                sourceKind: module.sourceKind
+            })
+        }
+
+        if (!MODULE_AUTHORING_SOURCE_KINDS.includes(module.sourceKind as (typeof MODULE_AUTHORING_SOURCE_KINDS)[number])) {
+            throw new MetahubValidationError('Only embedded snapshot module sources are supported', {
+                moduleCodename,
+                sourceKind: module.sourceKind
+            })
+        }
+
+        const moduleRole = module.moduleRole as ModuleRole
+        const sourceKind = module.sourceKind as ModuleSourceKind
+        const sdkApiVersion = assertSupportedModuleSdkApiVersion(module.sdkApiVersion)
+        const resolvedAttachedToId = isNullableModuleScope(attachedToKind) ? null : attachedToId
+
+        if (isGeneralModuleScope(attachedToKind, resolvedAttachedToId) && moduleRole !== 'library') {
+            throw new MetahubValidationError('General snapshot modules must use the library module role', {
+                moduleCodename,
+                attachedToKind,
+                attachedToId: resolvedAttachedToId,
+                moduleRole
+            })
+        }
+
+        if (moduleRole === 'library' && !isGeneralModuleScope(attachedToKind, resolvedAttachedToId)) {
+            throw new MetahubValidationError('Library snapshot modules must use the general attachment scope', {
+                moduleCodename,
+                attachedToKind,
+                attachedToId: resolvedAttachedToId,
+                moduleRole
+            })
+        }
+
+        const rawManifest = module.manifest && typeof module.manifest === 'object' ? (module.manifest as Partial<ModuleManifest>) : {}
+
+        if (rawManifest.moduleRole !== undefined && rawManifest.moduleRole !== moduleRole) {
+            throw new MetahubValidationError('Snapshot module role does not match its manifest', {
+                moduleCodename,
+                moduleRole,
+                manifestModuleRole: rawManifest.moduleRole
+            })
+        }
+
+        if (rawManifest.sourceKind !== undefined && rawManifest.sourceKind !== sourceKind) {
+            throw new MetahubValidationError('Snapshot module source kind does not match its manifest', {
+                moduleCodename,
+                sourceKind,
+                manifestSourceKind: rawManifest.sourceKind
+            })
+        }
+
+        const manifestSdkApiVersion = assertSupportedModuleSdkApiVersion(rawManifest.sdkApiVersion ?? sdkApiVersion)
+        if (manifestSdkApiVersion !== sdkApiVersion) {
+            throw new MetahubValidationError('Snapshot module SDK version does not match its manifest', {
+                moduleCodename,
+                sdkApiVersion,
+                manifestSdkApiVersion
+            })
+        }
+
+        const invalidCapabilities = findDisallowedModuleCapabilities(moduleRole, rawManifest.capabilities)
+        if (invalidCapabilities.length > 0) {
+            throw new MetahubValidationError('Snapshot module capabilities are not allowed for the selected module role', {
+                moduleCodename,
+                moduleRole,
+                invalidCapabilities
+            })
+        }
+
+        return {
+            attachedToKind,
+            moduleRole,
+            sourceKind,
+            sdkApiVersion,
+            manifest: {
+                className: typeof rawManifest.className === 'string' ? rawManifest.className : 'ExtensionModuleModule',
+                sdkApiVersion,
+                moduleRole,
+                sourceKind,
+                capabilities: normalizeModuleCapabilities(moduleRole, rawManifest.capabilities),
+                methods: Array.isArray(rawManifest.methods) ? rawManifest.methods : [],
+                checksum: undefined
+            }
+        }
     }
 
     private async restoreActions(
         qb: Knex.Transaction,
         snapshot: MetahubSnapshot,
         entityIdMap: Map<string, string>,
-        scriptIdMap: Map<string, string>,
+        moduleIdMap: Map<string, string>,
         userId: string
     ): Promise<Map<string, string>> {
         const actionIdMap = new Map<string, string>()
@@ -918,9 +1074,9 @@ export class SnapshotRestoreService {
             }
 
             for (const action of actions) {
-                const scriptId = action.scriptId ? scriptIdMap.get(action.scriptId) ?? null : null
-                if (action.actionType === 'script' && action.scriptId && !scriptId) {
-                    log.warn(`Action ${action.id} references missing script ${action.scriptId}, skipping restore`)
+                const moduleId = action.moduleId ? moduleIdMap.get(action.moduleId) ?? null : null
+                if (action.actionType === 'module' && action.moduleId && !moduleId) {
+                    log.warn(`Action ${action.id} references missing module ${action.moduleId}, skipping restore`)
                     continue
                 }
 
@@ -932,7 +1088,7 @@ export class SnapshotRestoreService {
                         codename: ensureCodenameValue(action.codename),
                         presentation: action.presentation ?? {},
                         action_type: action.actionType,
-                        script_id: scriptId,
+                        module_id: moduleId,
                         config: action.config ?? {},
                         sort_order: action.sortOrder ?? 0,
                         _upl_created_at: now,
@@ -1012,44 +1168,48 @@ export class SnapshotRestoreService {
         }
     }
 
-    private resolveScriptAttachmentId(
-        script: SnapshotScript,
+    private resolveModuleAttachmentId(
+        module: SnapshotModule,
         metahubId: string,
         entityIdMap: Map<string, string>,
         componentIdMap: Map<string, string>
     ): string | null {
-        if (script.attachedToKind === 'metahub') {
+        if (module.attachedToKind === 'metahub') {
             return null
         }
 
-        if (typeof script.attachedToId !== 'string' || script.attachedToId.length === 0) {
+        if (module.attachedToKind === 'general') {
             return null
         }
 
-        if (script.attachedToKind === 'component') {
-            return componentIdMap.get(script.attachedToId) ?? null
-        }
-
-        if (script.attachedToId === metahubId) {
+        if (typeof module.attachedToId !== 'string' || module.attachedToId.length === 0) {
             return null
         }
 
-        return entityIdMap.get(script.attachedToId) ?? null
+        if (module.attachedToKind === 'component') {
+            return componentIdMap.get(module.attachedToId) ?? null
+        }
+
+        if (module.attachedToId === metahubId) {
+            return null
+        }
+
+        return entityIdMap.get(module.attachedToId) ?? null
     }
 
-    private resolveScriptSourceCode(script: SnapshotScript): string {
-        if (typeof script.sourceCode === 'string' && script.sourceCode.trim().length > 0) {
-            return script.sourceCode
+    private resolveModuleSourceCode(module: SnapshotModule): string {
+        if (typeof module.sourceCode === 'string' && module.sourceCode.trim().length > 0) {
+            return module.sourceCode
         }
 
-        const normalizedCodename = getScriptCodenameText(script.codename).replace(/[^a-zA-Z0-9]/g, '_') || 'ImportedSnapshotScript'
+        const normalizedCodename = getModuleCodenameText(module.codename).replace(/[^a-zA-Z0-9]/g, '_') || 'ImportedSnapshotModule'
 
         return [
             '// Imported from metahub snapshot.',
             '// Original authoring source was not embedded in this snapshot export.',
-            "import { ExtensionScript } from '@universo/extension-sdk'",
+            "import { ExtensionModule } from '@universo/extension-sdk'",
             '',
-            `export default class ${normalizedCodename}ImportedSnapshot extends ExtensionScript {}`
+            `export default class ${normalizedCodename}ImportedSnapshot extends ExtensionModule {}`
         ].join('\n')
     }
 

@@ -31,13 +31,13 @@ describe('ActionService', () => {
         await expect(
             service.create('metahub-1', {
                 objectId: 'object-1',
-                codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'run-script' } } },
+                codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'run-module' } } },
                 actionType: 'builtin'
             })
         ).rejects.toThrow('does not enable actions')
     })
 
-    it('requires an existing script for script actions', async () => {
+    it('requires an existing module for module actions', async () => {
         const queryMock = jest.fn(async (sql: string) => {
             if (sql.includes(`FROM "${schemaName}"."_mhb_objects"`)) {
                 return [{ id: 'object-1', kind: 'object' }]
@@ -45,7 +45,7 @@ describe('ActionService', () => {
             if (sql.includes(`FROM "${schemaName}"."_mhb_actions"`) && sql.includes('codename')) {
                 return []
             }
-            if (sql.includes(`FROM "${schemaName}"."_mhb_scripts"`)) {
+            if (sql.includes(`FROM "${schemaName}"."_mhb_modules"`)) {
                 return []
             }
             return []
@@ -60,11 +60,11 @@ describe('ActionService', () => {
         await expect(
             service.create('metahub-1', {
                 objectId: 'object-1',
-                codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'run-script' } } },
-                actionType: 'script',
-                scriptId: 'script-404'
+                codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'run-module' } } },
+                actionType: 'module',
+                moduleId: 'module-404'
             })
-        ).rejects.toThrow('Script not found')
+        ).rejects.toThrow('Module not found')
     })
 
     it('creates a builtin action for an action-enabled object', async () => {
@@ -83,10 +83,10 @@ describe('ActionService', () => {
                     {
                         id: 'action-1',
                         object_id: 'object-1',
-                        codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'run-script' } } },
+                        codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'run-module' } } },
                         presentation: {},
                         action_type: 'builtin',
-                        script_id: null,
+                        module_id: null,
                         config: {},
                         sort_order: 1,
                         _upl_version: 1
@@ -104,7 +104,7 @@ describe('ActionService', () => {
 
         const result = await service.create('metahub-1', {
             objectId: 'object-1',
-            codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'run-script' } } },
+            codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'run-module' } } },
             actionType: 'builtin'
         })
 

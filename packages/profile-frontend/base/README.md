@@ -6,31 +6,34 @@ React frontend for user profile management and authentication in Universo Platfo
 
 ## Package Information
 
-- **Version**: 0.1.0
-- **Type**: Frontend React Package (TypeScript)
-- **Status**: ✅ Active Development
-- **Architecture**: Modern with dual build system (CJS + ESM)
+-   **Version**: 0.1.0
+-   **Type**: Frontend React Package (TypeScript)
+-   **Status**: ✅ Active Development
+-   **Architecture**: Modern with dual build system (CJS + ESM)
 
 ## Key Features
 
 ### User Profile Management
-- **Profile Data**: Display and edit user nickname, first name, last name
-- **Email Updates**: Secure email address changes through Supabase auth
-- **Password Management**: Secure password updates with current password verification
-- **Real-time Validation**: Client-side form validation with immediate feedback
+
+-   **Profile Data**: Display and edit user nickname, first name, last name
+-   **Email Updates**: Secure email address changes through Supabase auth
+-   **Password Management**: Secure password updates with current password verification
+-   **Real-time Validation**: Client-side form validation with immediate feedback
 
 ### Security & Authentication
-- **JWT Token Integration**: Bearer token authentication with automatic refresh
-- **Current Password Verification**: Required verification before password changes
-- **Secure API Communication**: All requests authenticated and encrypted
-- **Input Validation**: Comprehensive client-side and server-side validation
+
+-   **JWT Token Integration**: Bearer token authentication with automatic refresh
+-   **Current Password Verification**: Required verification before password changes
+-   **Secure API Communication**: All requests authenticated and encrypted
+-   **Input Validation**: Comprehensive client-side and server-side validation
 
 ### User Experience
-- **Internationalization**: Multi-language support (English/Russian)
-- **Responsive Design**: Mobile-friendly Material-UI components
-- **Loading States**: Visual indicators for all asynchronous operations
-- **Error Handling**: Comprehensive error messages with localization
-- **Success Feedback**: Clear confirmation messages for successful operations
+
+-   **Internationalization**: Multi-language support (English/Russian)
+-   **Responsive Design**: Mobile-friendly Material-UI components
+-   **Loading States**: Visual indicators for all asynchronous operations
+-   **Error Handling**: Comprehensive error messages with localization
+-   **Success Feedback**: Clear confirmation messages for successful operations
 
 ## Installation
 
@@ -65,48 +68,52 @@ packages/profile-frontend/base/
 ## Usage
 
 ### Basic Component Integration
+
 ```tsx
 import { ProfilePage } from '@universo/profile-frontend'
 
 // Use in your React application
 function UserProfileRoute() {
-  return <ProfilePage />
+    return <ProfilePage />
 }
 ```
 
 ### With Router Integration
+
 ```tsx
 import { Routes, Route } from 'react-router-dom'
 import { ProfilePage } from '@universo/profile-frontend'
 
 function AppRoutes() {
-  return (
-    <Routes>
-      <Route path="/profile" element={<ProfilePage />} />
-    </Routes>
-  )
+    return (
+        <Routes>
+            <Route path='/profile' element={<ProfilePage />} />
+        </Routes>
+    )
 }
 ```
 
 ### Authentication Required
+
 ```tsx
 import { ProfilePage } from '@universo/profile-frontend'
 import { useAuth } from '@universo/auth-frontend'
 
 function ProtectedProfile() {
-  const { user, isAuthenticated } = useAuth()
+    const { user, isAuthenticated } = useAuth()
 
-  if (!isAuthenticated) {
-    return <div>Please log in to view your profile</div>
-  }
+    if (!isAuthenticated) {
+        return <div>Please log in to view your profile</div>
+    }
 
-  return <ProfilePage />
+    return <ProfilePage />
 }
 ```
 
 ## API Integration
 
 ### Profile Data Endpoints
+
 ```http
 # Get user profile
 GET /api/v1/profile/:userId
@@ -125,6 +132,7 @@ Content-Type: application/json
 ```
 
 ### Authentication Endpoints
+
 ```http
 # Update user email
 PUT /api/v1/auth/email
@@ -147,88 +155,93 @@ Content-Type: application/json
 ```
 
 ### Response Handling
+
 ```typescript
 // API response handling with proper error management
 const handleApiResponse = async (response: Response) => {
-  const data = await response.json()
+    const data = await response.json()
 
-  if (!response.ok) {
-    throw new Error(data.error || data.message || 'Operation failed')
-  }
+    if (!response.ok) {
+        throw new Error(data.error || data.message || 'Operation failed')
+    }
 
-  return data
+    return data
 }
 
 // Example usage
 try {
-  const response = await fetch('/api/v1/profile/123', {
-    headers: { Authorization: `Bearer ${token}` }
-  })
-  const result = await handleApiResponse(response)
-  console.log('Profile data:', result.data)
+    const response = await fetch('/api/v1/profile/123', {
+        headers: { Authorization: `Bearer ${token}` }
+    })
+    const result = await handleApiResponse(response)
+    console.log('Profile data:', result.data)
 } catch (error) {
-  console.error('Profile fetch failed:', error.message)
+    console.error('Profile fetch failed:', error.message)
 }
 ```
 
 ## Component Architecture
 
 ### Profile Page Structure
+
 ```tsx
 // Main Profile component structure
 const Profile = () => {
-  // State management
-  const [profile, setProfile] = useState({
-    nickname: '',
-    first_name: '',
-    last_name: ''
-  })
+    // State management
+    const [profile, setProfile] = useState({
+        nickname: '',
+        first_name: '',
+        last_name: ''
+    })
 
-  // Authentication integration
-  const { user, getAccessToken } = useAuth()
-  const { t } = useTranslation('profile')
+    // Authentication integration
+    const { user, getAccessToken } = useAuth()
+    const { t } = useTranslation('profile')
 
-  // Form sections
-  return (
-    <MainCard title={t('title')}>
-      <ProfileSection />
-      <EmailSection />
-      <PasswordSection />
-    </MainCard>
-  )
+    // Form sections
+    return (
+        <MainCard title={t('title')}>
+            <ProfileSection />
+            <EmailSection />
+            <PasswordSection />
+        </MainCard>
+    )
 }
 ```
 
 ### Form Validation
+
 ```typescript
 // Client-side validation logic
 const validateProfile = (data) => {
-  const errors = {}
+    const errors = {}
 
-  if (!data.nickname?.trim()) {
-    errors.nickname = 'Nickname is required'
-  }
+    if (!data.nickname?.trim()) {
+        errors.nickname = 'Nickname is required'
+    }
 
-  if (data.email && !/\S+@\S+\.\S+/.test(data.email)) {
-    errors.email = 'Invalid email format'
-  }
+    if (data.email && !/\S+@\S+\.\S+/.test(data.email)) {
+        errors.email = 'Invalid email format'
+    }
 
-  if (data.newPassword && data.newPassword.length < 6) {
-    errors.password = 'Password must be at least 6 characters'
-  }
+    if (data.newPassword && data.newPassword.length < 6) {
+        errors.password = 'Password must be at least 6 characters'
+    }
 
-  return { isValid: Object.keys(errors).length === 0, errors }
+    return { isValid: Object.keys(errors).length === 0, errors }
 }
 ```
 
 ## Development
 
 ### Prerequisites
-- Node.js 22.22.2 recommended (>=22.6.0 required)
-- pnpm 10.x
-- TypeScript 5+
 
-### Available Scripts
+-   Node.js 22.22.2 recommended (>=22.6.0 required)
+-   pnpm 10.x
+-   TypeScript 5+
+
+### Available Modules
+
 ```bash
 # Development
 pnpm build              # Build for production (dual CJS/ESM)
@@ -244,12 +257,15 @@ pnpm type-check         # TypeScript compilation check
 ```
 
 ### Build System
+
 This package uses `tsdown` for dual-build output:
-- **CommonJS**: `dist/index.js` (for legacy compatibility)
-- **ES Modules**: `dist/index.mjs` (for modern bundlers)
-- **Types**: `dist/index.d.ts` (TypeScript declarations)
+
+-   **CommonJS**: `dist/index.js` (for legacy compatibility)
+-   **ES Modules**: `dist/index.mjs` (for modern bundlers)
+-   **Types**: `dist/index.d.ts` (TypeScript declarations)
 
 ### Development Workflow
+
 ```bash
 # Start development mode
 pnpm --filter @universo/profile-frontend dev
@@ -264,6 +280,7 @@ pnpm --filter @universo/profile-frontend build
 ## Testing
 
 ### Test Structure
+
 ```
 src/
 ├── pages/
@@ -274,32 +291,34 @@ src/
 ```
 
 ### Testing Approach
+
 ```typescript
 // Example component test
 import { render, screen, fireEvent } from '@testing-library/react'
 import { Profile } from '../Profile'
 
 describe('Profile Component', () => {
-  test('renders profile form fields', () => {
-    render(<Profile />)
+    test('renders profile form fields', () => {
+        render(<Profile />)
 
-    expect(screen.getByLabelText(/nickname/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/email/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /update/i })).toBeInTheDocument()
-  })
+        expect(screen.getByLabelText(/nickname/i)).toBeInTheDocument()
+        expect(screen.getByLabelText(/email/i)).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: /update/i })).toBeInTheDocument()
+    })
 
-  test('validates required fields', async () => {
-    render(<Profile />)
+    test('validates required fields', async () => {
+        render(<Profile />)
 
-    const submitButton = screen.getByRole('button', { name: /update/i })
-    fireEvent.click(submitButton)
+        const submitButton = screen.getByRole('button', { name: /update/i })
+        fireEvent.click(submitButton)
 
-    expect(await screen.findByText(/nickname is required/i)).toBeInTheDocument()
-  })
+        expect(await screen.findByText(/nickname is required/i)).toBeInTheDocument()
+    })
 })
 ```
 
 ### Running Tests
+
 ```bash
 pnpm test                    # Run all tests
 pnpm test -- --watch         # Watch mode
@@ -309,20 +328,23 @@ pnpm test -- --coverage      # With coverage report
 ## Security Considerations
 
 ### Authentication Flow
-- **JWT Token Management**: Automatic token refresh and validation
-- **Secure API Communication**: All requests use HTTPS with Bearer tokens
-- **Current Password Verification**: Required for password changes
-- **Input Sanitization**: Client-side validation prevents XSS attacks
+
+-   **JWT Token Management**: Automatic token refresh and validation
+-   **Secure API Communication**: All requests use HTTPS with Bearer tokens
+-   **Current Password Verification**: Required for password changes
+-   **Input Sanitization**: Client-side validation prevents XSS attacks
 
 ### Data Protection
-- **Sensitive Data Handling**: Passwords never stored in component state
-- **Secure Transmission**: All data encrypted in transit
-- **User Isolation**: Each user can only access their own profile data
-- **Error Information**: Error messages don't leak sensitive system information
+
+-   **Sensitive Data Handling**: Passwords never stored in component state
+-   **Secure Transmission**: All data encrypted in transit
+-   **User Isolation**: Each user can only access their own profile data
+-   **Error Information**: Error messages don't leak sensitive system information
 
 ## Integration Requirements
 
 ### Required Dependencies
+
 ```typescript
 // Required peer dependencies
 import { useAuth } from '@universo/auth-frontend'
@@ -331,6 +353,7 @@ import { MainCard } from '@universo/template-mui'
 ```
 
 ### Environment Configuration
+
 ```bash
 # Required API endpoints
 REACT_APP_API_BASE_URL=https://api.example.com
@@ -341,42 +364,49 @@ REACT_APP_AUTH_ENDPOINT=/api/v1/auth
 ## Configuration
 
 ### TypeScript Configuration
+
 The package uses strict TypeScript configuration:
-- Strict null checks enabled
-- No implicit any types
-- Strict function types
-- All compiler strict options enabled
+
+-   Strict null checks enabled
+-   No implicit any types
+-   Strict function types
+-   All compiler strict options enabled
 
 ### Build Configuration
+
 ```typescript
 // tsdown.config.ts
 export default {
-  entry: ['src/index.ts'],
-  format: ['cjs', 'esm'],
-  dts: true,
-  sourcemap: true,
-  clean: true
+    entry: ['src/index.ts'],
+    format: ['cjs', 'esm'],
+    dts: true,
+    sourcemap: true,
+    clean: true
 }
 ```
 
 ## Contributing
 
 ### Code Style
-- Follow ESLint configuration
-- Use TypeScript for new components
-- Follow React best practices
-- Write comprehensive tests
+
+-   Follow ESLint configuration
+-   Use TypeScript for new components
+-   Follow React best practices
+-   Write comprehensive tests
 
 ### Pull Request Process
+
 1. Create feature branch from `main`
 2. Implement changes with tests
 3. Update documentation
 4. Submit PR with description
 
 ## Related Packages
-- [`@universo/profile-backend`](../../profile-backend/base/README.md) - Backend profile service
-- [`@universo/auth-frontend`](../../auth-frontend/base/README.md) - Authentication frontend
-- [`@universo/i18n`](../../universo-i18n/base/README.md) - Internationalization
+
+-   [`@universo/profile-backend`](../../profile-backend/base/README.md) - Backend profile service
+-   [`@universo/auth-frontend`](../../auth-frontend/base/README.md) - Authentication frontend
+-   [`@universo/i18n`](../../universo-i18n/base/README.md) - Internationalization
 
 ---
-*Part of [Universo Platformo](../../../README.md) - A package-based business platform*
+
+_Part of [Universo Platformo](../../../README.md) - A package-based business platform_

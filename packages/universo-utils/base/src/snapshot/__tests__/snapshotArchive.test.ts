@@ -38,23 +38,23 @@ function makeMinimalSnapshot(): MetahubSnapshotTransportEnvelope['snapshot'] {
 function makeSnapshotWithExtendedSections(): Record<string, unknown> {
     return {
         ...makeMinimalSnapshot(),
-        scripts: [
+        modules: [
             {
-                id: 'script-1',
-                codename: createCodenameVlc('quiz_script', 'скрипт_викторины'),
-                presentation: { name: { en: 'Quiz Script' } },
+                id: 'module-1',
+                codename: createCodenameVlc('quiz_module', 'модуль_викторины'),
+                presentation: { name: { en: 'Quiz Module' } },
                 attachedToKind: 'metahub',
                 attachedToId: null,
-                moduleRole: 'shared',
+                moduleRole: 'widget',
                 sourceKind: 'embedded',
                 sdkApiVersion: '1.0.0',
                 sourceCode: 'export const value = 1',
                 manifest: {
                     className: 'QuizModule',
                     sdkApiVersion: '1.0.0',
-                    moduleRole: 'shared',
+                    moduleRole: 'widget',
                     sourceKind: 'embedded',
-                    capabilities: ['rpc.server', 'rpc.client'],
+                    capabilities: ['metadata.read', 'rpc.client'],
                     methods: [{ name: 'publish', target: 'server' }],
                     checksum: 'manifest-1'
                 },
@@ -154,11 +154,11 @@ describe('computeSnapshotHash', () => {
         expect(computeSnapshotHash(snap1)).not.toBe(computeSnapshotHash(snap2))
     })
 
-    it('produces different hashes when scripts change', () => {
+    it('produces different hashes when modules change', () => {
         const snap1 = makeSnapshotWithExtendedSections()
         const snap2 = makeSnapshotWithExtendedSections()
 
-        ;((snap2.scripts as Array<Record<string, unknown>>)[0] as Record<string, unknown>).sourceCode = 'export const value = 2'
+        ;((snap2.modules as Array<Record<string, unknown>>)[0] as Record<string, unknown>).sourceCode = 'export const value = 2'
 
         expect(computeSnapshotHash(snap1)).not.toBe(computeSnapshotHash(snap2))
     })
@@ -220,7 +220,7 @@ describe('validateSnapshotEnvelope', () => {
         expect(() => validateSnapshotEnvelope(envelope)).toThrow('hash mismatch')
     })
 
-    it('rejects tampered scripts in extended snapshot sections', () => {
+    it('rejects tampered modules in extended snapshot sections', () => {
         const snapshot = makeSnapshotWithExtendedSections()
         const envelope = buildSnapshotEnvelope({
             snapshot: snapshot as MetahubSnapshotTransportEnvelope['snapshot'],
@@ -232,7 +232,7 @@ describe('validateSnapshotEnvelope', () => {
         })
 
         ;(
-            ((envelope.snapshot as Record<string, unknown>).scripts as Array<Record<string, unknown>>)[0] as Record<string, unknown>
+            ((envelope.snapshot as Record<string, unknown>).modules as Array<Record<string, unknown>>)[0] as Record<string, unknown>
         ).checksum = 'checksum-2'
 
         expect(() => validateSnapshotEnvelope(envelope)).toThrow('hash mismatch')

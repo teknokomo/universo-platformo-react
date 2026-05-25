@@ -4,10 +4,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 
 const mockLayoutList = vi.fn()
-const mockCreateScriptsTab = vi.fn((props: Record<string, unknown>) => ({
-    id: 'scripts',
-    label: 'Scripts',
-    content: <div data-testid='scripts-tab' data-attached-kind={String(props.attachedToKind)} />
+const mockCreateModulesTab = vi.fn((props: Record<string, unknown>) => ({
+    id: 'modules',
+    label: 'Modules',
+    content: <div data-testid='modules-tab' data-attached-kind={String(props.attachedToKind)} />
 }))
 
 vi.mock('../../../../layouts/ui/LayoutList', () => ({
@@ -17,8 +17,8 @@ vi.mock('../../../../layouts/ui/LayoutList', () => ({
     }
 }))
 
-vi.mock('../../../../scripts/ui/EntityScriptsTab', () => ({
-    createScriptsTab: (props: Record<string, unknown>) => mockCreateScriptsTab(props)
+vi.mock('../../../../modules/ui/EntityModulesTab', () => ({
+    createModulesTab: (props: Record<string, unknown>) => mockCreateModulesTab(props)
 }))
 
 import {
@@ -118,10 +118,10 @@ const createOptionListContext = (metahubId: string | null): OptionListActionCont
 describe('Settings-origin shared form tabs', () => {
     beforeEach(() => {
         mockLayoutList.mockReset()
-        mockCreateScriptsTab.mockClear()
+        mockCreateModulesTab.mockClear()
     })
 
-    it('renders the entity layout manager and scripts tab when the edit context carries metahubId', () => {
+    it('renders the entity layout manager and modules tab when the edit context carries metahubId', () => {
         const tabs = buildObjectCollectionFormTabs(
             createObjectCollectionContext('metahub-1'),
             [baseHub] as never[],
@@ -133,7 +133,7 @@ describe('Settings-origin shared form tabs', () => {
             errors: {}
         })
 
-        expect(tabs.map((tab) => tab.id)).toEqual(['general', 'treeEntities', 'layout', 'scripts'])
+        expect(tabs.map((tab) => tab.id)).toEqual(['general', 'treeEntities', 'layout', 'modules'])
 
         const layoutTab = tabs.find((tab) => tab.id === 'layout')
         renderWithProviders(layoutTab?.content)
@@ -159,7 +159,7 @@ describe('Settings-origin shared form tabs', () => {
             errors: {}
         })
 
-        expect(tabs.map((tab) => tab.id)).toEqual(['general', 'treeEntities', 'layout', 'scripts'])
+        expect(tabs.map((tab) => tab.id)).toEqual(['general', 'treeEntities', 'layout', 'modules'])
 
         const layoutTab = tabs.find((tab) => tab.id === 'layout')
         renderWithProviders(layoutTab?.content)
@@ -173,7 +173,7 @@ describe('Settings-origin shared form tabs', () => {
         )
     })
 
-    it('uses the active object-collection kind for scripts tabs instead of the base object kind', () => {
+    it('uses the active object-collection kind for modules tabs instead of the base object kind', () => {
         const tabs = buildObjectCollectionFormTabs(
             createObjectCollectionContext('metahub-1', {
                 routeKindKey: 'documentObject',
@@ -188,8 +188,8 @@ describe('Settings-origin shared form tabs', () => {
             errors: {}
         })
 
-        expect(tabs.map((tab) => tab.id)).toContain('scripts')
-        expect(mockCreateScriptsTab).toHaveBeenCalledWith(
+        expect(tabs.map((tab) => tab.id)).toContain('modules')
+        expect(mockCreateModulesTab).toHaveBeenCalledWith(
             expect.objectContaining({
                 attachedToKind: 'documentObject',
                 attachedToId: 'object-1',
@@ -232,7 +232,7 @@ describe('Settings-origin shared form tabs', () => {
                 posting: {
                     mode: 'manual',
                     targetLedgers: ['ProgressLedger'],
-                    scriptCodename: 'EnrollmentPostingScript'
+                    moduleCodename: 'EnrollmentPostingModule'
                 }
             }
         })
@@ -246,7 +246,7 @@ describe('Settings-origin shared form tabs', () => {
                         posting: expect.objectContaining({
                             mode: 'manual',
                             targetLedgers: ['ProgressLedger'],
-                            scriptCodename: 'EnrollmentPostingScript'
+                            moduleCodename: 'EnrollmentPostingModule'
                         })
                     })
                 },
@@ -256,7 +256,7 @@ describe('Settings-origin shared form tabs', () => {
         )
     })
 
-    it('includes scripts tabs for set and enumeration edit contexts when metahubId is present', () => {
+    it('includes modules tabs for set and enumeration edit contexts when metahubId is present', () => {
         const setTabs = buildValueGroupFormTabs(
             createValueGroupContext('metahub-1'),
             [baseHub] as never[],
@@ -278,7 +278,7 @@ describe('Settings-origin shared form tabs', () => {
             errors: {}
         })
 
-        expect(setTabs.map((tab) => tab.id)).toContain('scripts')
-        expect(enumerationTabs.map((tab) => tab.id)).toContain('scripts')
+        expect(setTabs.map((tab) => tab.id)).toContain('modules')
+        expect(enumerationTabs.map((tab) => tab.id)).toContain('modules')
     })
 })

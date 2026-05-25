@@ -37,7 +37,7 @@ import {
     normalizeRuntimeRecordBehavior,
     RuntimeRecordCommandService
 } from '../services/runtimeRecordBehavior'
-import { RuntimeScriptsService } from '../services/runtimeScriptsService'
+import { RuntimeModulesService } from '../services/runtimeModulesService'
 import { RuntimePostingMovementService } from '../services/runtimePostingMovements'
 import { applyWorkflowAction, type WorkflowStatusValueMap } from '../services/runtimeWorkflowActions'
 import type { RolePermission } from '../routes/guards'
@@ -4203,9 +4203,9 @@ const dispatchRuntimeLifecycle = async (params: {
         metadata?: Record<string, unknown>
     }
 }): Promise<unknown[]> => {
-    const scriptsService = new RuntimeScriptsService()
+    const modulesService = new RuntimeModulesService()
 
-    return scriptsService.dispatchLifecycleEvent({
+    return modulesService.dispatchLifecycleEvent({
         executor: params.manager,
         applicationId: params.applicationId,
         schemaName: params.schemaName,

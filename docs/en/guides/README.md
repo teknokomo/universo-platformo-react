@@ -14,7 +14,7 @@ to work with the current platform shape and how to approach common tasks safely.
 -   [Application Template View Settings](app-template-views.md) — layout-level runtime display settings.
 -   [Creating Applications](creating-application.md) — application and connector creation flow.
 -   [Publishing Content](publishing-content.md) — release handoff from metahub to application.
--   [Metahub Scripting](metahub-scripting.md) — executable scopes, shared libraries, and fail-closed authoring rules.
+-   [Metahub Modules](metahub-modules.md) — executable scopes, shared libraries, and fail-closed authoring rules.
 -   [Updating System App Schemas](updating-system-app-schemas.md) — how to add, change, or remove fields and tables in fixed system app manifests.
 -   [Pages Entity Type](pages-entity-type.md) — Rich content authoring with Editor.js integration.
 -   [Transactional Objects](transactional-objects.md) — Working with ledger-backed transactional entities.

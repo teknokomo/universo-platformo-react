@@ -406,7 +406,7 @@
                 "requiredCapabilities": "Required capabilities",
                 "statusFieldCodename": "Status field codename",
                 "statusColumnName": "Status column name",
-                "scriptCodename": "Script codename",
+                "moduleCodename": "Module codename",
                 "postingCommand": "Posting command",
                 "confirmationRequired": "Confirmation required",
                 "confirmationTitle": "Confirmation title",

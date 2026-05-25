@@ -11,7 +11,7 @@ const mockLayoutListContent = vi.fn()
 const mockComponentListContent = vi.fn()
 const mockFixedValueListContent = vi.fn()
 const mockSelectableOptionListContent = vi.fn()
-const mockEntityScriptsTab = vi.fn()
+const mockEntityModulesTab = vi.fn()
 const mockUseSharedContainerIds = vi.fn()
 const mockUseAllEntityTypesQuery = vi.fn()
 
@@ -53,10 +53,10 @@ vi.mock('../../../metadata/optionValue/ui/SelectableOptionList', () => ({
     }
 }))
 
-vi.mock('../../../../scripts/ui/EntityScriptsTab', () => ({
-    EntityScriptsTab: (props: Record<string, unknown>) => {
-        mockEntityScriptsTab(props)
-        return <div data-testid='shared-resources-scripts-content'>scripts-content</div>
+vi.mock('../../../../modules/ui/EntityModulesTab', () => ({
+    EntityModulesTab: (props: Record<string, unknown>) => {
+        mockEntityModulesTab(props)
+        return <div data-testid='shared-resources-modules-content'>modules-content</div>
     }
 }))
 
@@ -122,7 +122,7 @@ describe('SharedResourcesPage', () => {
         expect(screen.getByRole('tab', { name: 'Компоненты' })).toBeInTheDocument()
         expect(screen.getByRole('tab', { name: 'Константы' })).toBeInTheDocument()
         expect(screen.getByRole('tab', { name: 'Значения' })).toBeInTheDocument()
-        expect(screen.getByRole('tab', { name: 'Скрипты' })).toBeInTheDocument()
+        expect(screen.getByRole('tab', { name: 'Модули' })).toBeInTheDocument()
         expect(screen.getByTestId('metahub-shared-resources-content')).toBeInTheDocument()
         expect(screen.getByTestId('shared-resources-layouts-content')).toBeInTheDocument()
         expect(screen.queryByTestId('standalone-layout-list')).not.toBeInTheDocument()
@@ -186,12 +186,12 @@ describe('SharedResourcesPage', () => {
             })
         )
 
-        await user.click(screen.getByRole('tab', { name: 'Скрипты' }))
+        await user.click(screen.getByRole('tab', { name: 'Модули' }))
 
-        expect(screen.getByRole('tab', { name: 'Скрипты' })).toHaveAttribute('aria-selected', 'true')
-        expect(screen.getByTestId('shared-resources-scripts-content')).toBeInTheDocument()
+        expect(screen.getByRole('tab', { name: 'Модули' })).toHaveAttribute('aria-selected', 'true')
+        expect(screen.getByTestId('shared-resources-modules-content')).toBeInTheDocument()
         expect(screen.queryByTestId('shared-resources-layouts-content')).not.toBeInTheDocument()
-        expect(mockEntityScriptsTab).toHaveBeenCalledWith(
+        expect(mockEntityModulesTab).toHaveBeenCalledWith(
             expect.objectContaining({
                 metahubId: 'metahub-1',
                 attachedToKind: 'general',
@@ -222,7 +222,7 @@ describe('SharedResourcesPage', () => {
         )
 
         expect(screen.getByRole('tab', { name: 'Макеты' })).toBeInTheDocument()
-        expect(screen.getByRole('tab', { name: 'Скрипты' })).toBeInTheDocument()
+        expect(screen.getByRole('tab', { name: 'Модули' })).toBeInTheDocument()
         expect(screen.queryByRole('tab', { name: 'Компоненты' })).not.toBeInTheDocument()
         expect(screen.queryByRole('tab', { name: 'Константы' })).not.toBeInTheDocument()
         expect(screen.queryByRole('tab', { name: 'Значения' })).not.toBeInTheDocument()

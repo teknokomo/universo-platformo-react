@@ -130,7 +130,7 @@ export const SELF_HOSTED_APP_HUB_ENTITY_TYPE = createSelfHostedAppEntityType({
         hierarchy: false,
         nestedCollections: false,
         relations: false,
-        scripting: { enabled: true },
+        modules: { enabled: true },
         actions: { enabled: true },
         events: { enabled: true },
         layoutConfig: false,
@@ -163,7 +163,7 @@ export const SELF_HOSTED_APP_OBJECT_ENTITY_TYPE = createSelfHostedAppEntityType(
         hierarchy: { enabled: true, supportsFolders: true },
         nestedCollections: false,
         relations: { enabled: true, allowedRelationTypes: ['manyToOne'] },
-        scripting: { enabled: true },
+        modules: { enabled: true },
         actions: { enabled: true },
         events: { enabled: true },
         layoutConfig: { enabled: true },
@@ -171,7 +171,7 @@ export const SELF_HOSTED_APP_OBJECT_ENTITY_TYPE = createSelfHostedAppEntityType(
     },
     ui: {
         iconName: 'IconDatabase',
-        tabs: ['behavior', 'general', 'hubs', 'layout', 'ledgerSchema', 'scripts'],
+        tabs: ['behavior', 'general', 'hubs', 'layout', 'ledgerSchema', 'modules'],
         sidebarSection: 'objects',
         sidebarOrder: 30,
         nameKey: 'metahubs:objects.title'
@@ -199,7 +199,7 @@ export const SELF_HOSTED_APP_SET_ENTITY_TYPE = createSelfHostedAppEntityType({
         hierarchy: false,
         nestedCollections: false,
         relations: false,
-        scripting: { enabled: true },
+        modules: { enabled: true },
         actions: { enabled: true },
         events: { enabled: true },
         layoutConfig: { enabled: true },
@@ -208,7 +208,7 @@ export const SELF_HOSTED_APP_SET_ENTITY_TYPE = createSelfHostedAppEntityType({
     },
     ui: {
         iconName: 'IconStack2',
-        tabs: ['general', 'hubs', 'scripts'],
+        tabs: ['general', 'hubs', 'modules'],
         sidebarSection: 'objects',
         sidebarOrder: 40,
         nameKey: 'metahubs:sets.title'
@@ -232,7 +232,7 @@ export const SELF_HOSTED_APP_ENUMERATION_ENTITY_TYPE = createSelfHostedAppEntity
         hierarchy: false,
         nestedCollections: false,
         relations: false,
-        scripting: { enabled: true },
+        modules: { enabled: true },
         actions: { enabled: true },
         events: { enabled: true },
         layoutConfig: false,
@@ -241,7 +241,7 @@ export const SELF_HOSTED_APP_ENUMERATION_ENTITY_TYPE = createSelfHostedAppEntity
     },
     ui: {
         iconName: 'IconFiles',
-        tabs: ['general', 'hubs', 'scripts'],
+        tabs: ['general', 'hubs', 'modules'],
         sidebarSection: 'objects',
         sidebarOrder: 50,
         nameKey: 'metahubs:enumerations.title'
@@ -580,7 +580,8 @@ const findSectionEntity = (entities, section) =>
     entities.find(
         (entity) =>
             entity?.kind === section.kind &&
-            (readCodenameText(entity?.codename) === section.codename || readLocalizedText(entity?.presentation?.name, 'en') === section.name.en)
+            (readCodenameText(entity?.codename) === section.codename ||
+                readLocalizedText(entity?.presentation?.name, 'en') === section.name.en)
     )
 
 export function buildSelfHostedAppLiveMetahubName(suffix) {
@@ -607,11 +608,7 @@ const findDefaultLayout = (envelope) => {
     const layouts = Array.isArray(envelope?.snapshot?.layouts) ? envelope.snapshot.layouts : []
     const defaultLayoutId = envelope?.snapshot?.defaultLayoutId
 
-    return (
-        layouts.find((layout) => layout?.id === defaultLayoutId) ??
-        layouts.find((layout) => layout?.isDefault) ??
-        null
-    )
+    return layouts.find((layout) => layout?.id === defaultLayoutId) ?? layouts.find((layout) => layout?.isDefault) ?? null
 }
 
 const assertSelfHostedAppEntityTypeDefinition = (entityTypeDefinitions, expectedEntityType, errors) => {
@@ -659,8 +656,8 @@ const assertSelfHostedAppEntityTypeDefinition = (entityTypeDefinitions, expected
         persistedEntityType.capabilities && typeof persistedEntityType.capabilities === 'object'
             ? persistedEntityType.capabilities
             : persistedEntityType.components && typeof persistedEntityType.components === 'object'
-                ? persistedEntityType.components
-                : {}
+            ? persistedEntityType.components
+            : {}
     const persistedPhysicalTable =
         persistedComponents.physicalTable && typeof persistedComponents.physicalTable === 'object'
             ? persistedComponents.physicalTable
@@ -718,15 +715,17 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
     if (!isLocalizedCodenameObject(envelope?.metahub?.codename)) {
         errors.push('Self-hosted app fixture metahub codename must be exported as a localized codename object')
     }
-    if ([metahubNameEn, metahubNameRu, metahubCodename, metahubCodenameRu].some((value) => typeof value === 'string' && /e2e|runid|self-model|imported-/i.test(value))) {
+    if (
+        [metahubNameEn, metahubNameRu, metahubCodename, metahubCodenameRu].some(
+            (value) => typeof value === 'string' && /e2e|runid|self-model|imported-/i.test(value)
+        )
+    ) {
         errors.push('Self-hosted app fixture identity still contains run-specific or legacy self-model markers')
     }
 
     const structureVersion = envelope?.snapshot?.versionEnvelope?.structureVersion
     if (structureVersion !== SELF_HOSTED_APP_STRUCTURE_VERSION) {
-        errors.push(
-            `Self-hosted app fixture structureVersion drifted: ${String(structureVersion)} != ${SELF_HOSTED_APP_STRUCTURE_VERSION}`
-        )
+        errors.push(`Self-hosted app fixture structureVersion drifted: ${String(structureVersion)} != ${SELF_HOSTED_APP_STRUCTURE_VERSION}`)
     }
 
     const entities = Object.values(envelope?.snapshot?.entities ?? {})
@@ -738,14 +737,21 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
         assertSelfHostedAppEntityTypeDefinition(entityTypeDefinitions, expectedEntityType, errors)
     }
 
-    if (entities.some((entity) => entity.kind === 'object' && (readCodenameText(entity?.codename) === 'Components' || readLocalizedText(entity.presentation?.name, 'en') === 'Components'))) {
+    if (
+        entities.some(
+            (entity) =>
+                entity.kind === 'object' &&
+                (readCodenameText(entity?.codename) === 'Components' || readLocalizedText(entity.presentation?.name, 'en') === 'Components')
+        )
+    ) {
         errors.push('Self-hosted app fixture still contains the deprecated standalone Components object')
     }
     if (
         entities.some(
             (entity) =>
                 entity.kind === 'object' &&
-                (readCodenameText(entity?.codename) === 'enum_values' || readLocalizedText(entity?.presentation?.name, 'en') === 'Enumeration Values')
+                (readCodenameText(entity?.codename) === 'enum_values' ||
+                    readLocalizedText(entity?.presentation?.name, 'en') === 'Enumeration Values')
         )
     ) {
         errors.push('Self-hosted app fixture still contains the deprecated standalone Enumeration Values object')
@@ -753,15 +759,12 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
     if (
         entities.some(
             (entity) =>
-                entity.kind === 'object' &&
-                ['Elements', 'Constants'].includes(readLocalizedText(entity?.presentation?.name, 'en') || '')
+                entity.kind === 'object' && ['Elements', 'Constants'].includes(readLocalizedText(entity?.presentation?.name, 'en') || '')
         )
     ) {
         errors.push('Self-hosted app fixture still contains legacy Elements / Constants object labels')
     }
-    if (
-        entities.some((entity) => ['MainHub', 'MainObject', 'MainSet', 'MainEnumeration'].includes(readCodenameText(entity?.codename)))
-    ) {
+    if (entities.some((entity) => ['MainHub', 'MainObject', 'MainSet', 'MainEnumeration'].includes(readCodenameText(entity?.codename)))) {
         errors.push('Self-hosted app fixture still contains legacy type-suffixed Main codenames')
     }
 
@@ -791,28 +794,20 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
         }
     }
 
-    const scripts = Array.isArray(envelope?.snapshot?.scripts) ? envelope.snapshot.scripts : []
-    for (const script of scripts) {
-        if (!isLocalizedCodenameObject(script?.codename) || !readCodenameText(script?.codename)) {
-            errors.push(`Script ${String(script?.id || '<unknown>')} must keep codename as a localized snapshot object`)
+    const modules = Array.isArray(envelope?.snapshot?.modules) ? envelope.snapshot.modules : []
+    for (const module of modules) {
+        if (!isLocalizedCodenameObject(module?.codename) || !readCodenameText(module?.codename)) {
+            errors.push(`Module ${String(module?.id || '<unknown>')} must keep codename as a localized snapshot object`)
         }
     }
 
     const sharedComponents = Array.isArray(envelope?.snapshot?.sharedComponents)
         ? envelope.snapshot.sharedComponents
         : Array.isArray(envelope?.snapshot?.sharedComponents)
-            ? envelope.snapshot.sharedComponents
-            : []
-    const sharedConstants = Array.isArray(envelope?.snapshot?.sharedFixedValues)
-        ? envelope.snapshot.sharedFixedValues
-        : Array.isArray(envelope?.snapshot?.sharedConstants)
-            ? envelope.snapshot.sharedConstants
-            : []
-    const sharedEnumerationValues = Array.isArray(envelope?.snapshot?.sharedOptionValues)
-        ? envelope.snapshot.sharedOptionValues
-        : Array.isArray(envelope?.snapshot?.sharedEnumerationValues)
-            ? envelope.snapshot.sharedEnumerationValues
-            : []
+        ? envelope.snapshot.sharedComponents
+        : []
+    const sharedFixedValues = Array.isArray(envelope?.snapshot?.sharedFixedValues) ? envelope.snapshot.sharedFixedValues : []
+    const sharedOptionValues = Array.isArray(envelope?.snapshot?.sharedOptionValues) ? envelope.snapshot.sharedOptionValues : []
     const sharedEntityOverrides = Array.isArray(envelope?.snapshot?.sharedEntityOverrides) ? envelope.snapshot.sharedEntityOverrides : []
 
     const canonicalSharedComponent = sharedComponents.find(
@@ -824,7 +819,7 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
         errors.push('Self-hosted app fixture must include the canonical shared component')
     }
 
-    const canonicalSharedConstant = sharedConstants.find(
+    const canonicalSharedConstant = sharedFixedValues.find(
         (item) =>
             readCodenameText(item?.codename) === SELF_HOSTED_APP_SHARED_ENTITIES.constant.codename.en ||
             readLocalizedText(item?.presentation?.name, 'en') === SELF_HOSTED_APP_SHARED_ENTITIES.constant.name.en
@@ -833,7 +828,7 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
         errors.push('Self-hosted app fixture must include the canonical shared constant')
     }
 
-    const canonicalSharedEnumerationValue = sharedEnumerationValues.find(
+    const canonicalSharedEnumerationValue = sharedOptionValues.find(
         (item) =>
             readCodenameText(item?.codename) === SELF_HOSTED_APP_SHARED_ENTITIES.enumerationValue.codename.en ||
             readLocalizedText(item?.presentation?.name, 'en') === SELF_HOSTED_APP_SHARED_ENTITIES.enumerationValue.name.en
@@ -887,19 +882,17 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
         }
 
         const topLevelLayoutConfig =
-            envelope?.snapshot?.layoutConfig && typeof envelope.snapshot.layoutConfig === 'object'
-                ? envelope.snapshot.layoutConfig
-                : {}
+            envelope?.snapshot?.layoutConfig && typeof envelope.snapshot.layoutConfig === 'object' ? envelope.snapshot.layoutConfig : {}
         for (const [key, expectedValue] of Object.entries(SELF_HOSTED_APP_LAYOUT.runtimeConfig)) {
             if (topLevelLayoutConfig[key] !== expectedValue) {
-                errors.push(`Top-level snapshot layout config drifted for ${key}: ${String(topLevelLayoutConfig[key])} != ${String(expectedValue)}`)
+                errors.push(
+                    `Top-level snapshot layout config drifted for ${key}: ${String(topLevelLayoutConfig[key])} != ${String(expectedValue)}`
+                )
             }
         }
 
         const layoutWidgets = Array.isArray(envelope?.snapshot?.layoutZoneWidgets) ? envelope.snapshot.layoutZoneWidgets : []
-        const menuWidgets = layoutWidgets.filter(
-            (widget) => widget?.layoutId === defaultLayout.id && widget?.widgetKey === 'menuWidget'
-        )
+        const menuWidgets = layoutWidgets.filter((widget) => widget?.layoutId === defaultLayout.id && widget?.widgetKey === 'menuWidget')
         const activeMenuWidgets = menuWidgets.filter((widget) => widget?.isActive !== false)
         const menuWidget = activeMenuWidgets[0] ?? menuWidgets[0]
         if (activeMenuWidgets.length !== 1) {
@@ -986,9 +979,7 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
         const actualKeys = new Set(settingsRows.map((row) => row?.data?.Key).filter((key) => typeof key === 'string'))
 
         if (settingsRows.length !== SELF_HOSTED_APP_SETTINGS_BASELINE.length) {
-            errors.push(
-                `Settings baseline row count drifted: ${settingsRows.length} != ${SELF_HOSTED_APP_SETTINGS_BASELINE.length}`
-            )
+            errors.push(`Settings baseline row count drifted: ${settingsRows.length} != ${SELF_HOSTED_APP_SETTINGS_BASELINE.length}`)
         }
 
         for (const expectedRow of SELF_HOSTED_APP_SETTINGS_BASELINE) {
@@ -998,9 +989,7 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
         }
 
         const scopedLayouts = Array.isArray(envelope?.snapshot?.scopedLayouts) ? envelope.snapshot.scopedLayouts : []
-        const settingsScopedLayouts = scopedLayouts.filter(
-            (layout) => layout?.scopeEntityId === settingsObject.id
-        )
+        const settingsScopedLayouts = scopedLayouts.filter((layout) => layout?.scopeEntityId === settingsObject.id)
 
         if (settingsScopedLayouts.length !== 1) {
             errors.push(
@@ -1042,7 +1031,9 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
             })) {
                 if (settingsLayoutConfig[key] !== expectedValue) {
                     errors.push(
-                        `Settings entity-scoped layout runtime config drifted for ${key}: ${String(settingsLayoutConfig[key])} != ${String(expectedValue)}`
+                        `Settings entity-scoped layout runtime config drifted for ${key}: ${String(settingsLayoutConfig[key])} != ${String(
+                            expectedValue
+                        )}`
                     )
                 }
             }
@@ -1055,7 +1046,9 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
             for (const [key, expectedValue] of Object.entries(SELF_HOSTED_APP_SETTINGS_LAYOUT.objectBehavior)) {
                 if (settingsObjectBehavior[key] !== expectedValue) {
                     errors.push(
-                        `Settings entity-scoped layout objectBehavior drifted for ${key}: ${String(settingsObjectBehavior[key])} != ${String(expectedValue)}`
+                        `Settings entity-scoped layout objectBehavior drifted for ${key}: ${String(
+                            settingsObjectBehavior[key]
+                        )} != ${String(expectedValue)}`
                     )
                 }
             }
@@ -1064,7 +1057,9 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
                 (widget) => widget?.layoutId === defaultLayout?.id && widget?.widgetKey === 'detailsTitle' && widget?.isActive !== false
             )
             if (!defaultDetailsTitleWidget?.id) {
-                errors.push('Self-hosted app fixture default layout is missing the active detailsTitle widget needed for Settings overrides')
+                errors.push(
+                    'Self-hosted app fixture default layout is missing the active detailsTitle widget needed for Settings overrides'
+                )
             } else {
                 const detailsTitleOverride = layoutWidgetOverrides.find(
                     (override) =>

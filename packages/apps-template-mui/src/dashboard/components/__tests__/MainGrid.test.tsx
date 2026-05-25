@@ -1236,7 +1236,7 @@ describe('MainGrid enhanced runtime details', () => {
                             zone: 'center',
                             widgetKey: 'quizWidget',
                             sortOrder: 1,
-                            config: { scriptCodename: 'quiz-widget' }
+                            config: { moduleCodename: 'quiz-widget' }
                         }
                     ]}
                 />
@@ -1264,7 +1264,7 @@ describe('MainGrid enhanced runtime details', () => {
                             zone: 'center',
                             widgetKey: 'quizWidget',
                             sortOrder: 1,
-                            config: { scriptCodename: 'quiz-widget' }
+                            config: { moduleCodename: 'quiz-widget' }
                         }
                     ]}
                 />

@@ -9,8 +9,8 @@ export interface MetahubEntityAction {
     objectId: string
     codename: VersionedLocalizedContent<string> | string | JsonRecord | null
     presentation: JsonRecord
-    actionType: 'script' | 'builtin'
-    scriptId: string | null
+    actionType: 'module' | 'builtin'
+    moduleId: string | null
     config: JsonRecord
     sortOrder: number
     version: number
@@ -20,8 +20,8 @@ export interface MetahubEntityAction {
 export interface EntityActionPayload {
     codename: VersionedLocalizedContent<string> | string | JsonRecord
     presentation?: JsonRecord
-    actionType: 'script' | 'builtin'
-    scriptId?: string | null
+    actionType: 'module' | 'builtin'
+    moduleId?: string | null
     config?: JsonRecord
     sortOrder?: number
 }

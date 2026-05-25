@@ -23,7 +23,7 @@ import { createGlobalAccessService } from '@universo/admin-backend'
 import { initializeRateLimiters as initializeMetahubsRateLimiters, seedTemplates } from '@universo/metahubs-backend'
 import { getKnex, destroyKnex, checkDatabaseHealth, registerGracefulShutdown, getPoolExecutor } from '@universo/database'
 import { initializeRateLimiters as initializeApplicationsRateLimiters } from '@universo/applications-backend'
-import { assertIsolatedVmRuntimeAvailable } from '@universo/scripting-engine'
+import { assertIsolatedVmRuntimeAvailable } from '@universo/modules-engine'
 import {
     ensureRegisteredSystemAppSchemaGenerationPlans,
     bootstrapRegisteredSystemAppStructureMetadata,
@@ -85,7 +85,7 @@ export class App {
 
             logger.info('📦 [server]: Knex is initializing...')
             await assertIsolatedVmRuntimeAvailable()
-            logger.info('[server]: Scripting runtime compatibility verified')
+            logger.info('[server]: Modules runtime compatibility verified')
             const globalMigrationObjectEnabled = isGlobalMigrationObjectEnabled()
 
             const validation = validateRegisteredPlatformMigrations()

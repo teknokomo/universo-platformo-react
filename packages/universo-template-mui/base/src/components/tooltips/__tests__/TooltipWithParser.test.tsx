@@ -6,7 +6,7 @@ jest.mock('html-react-parser', () => ({
     __esModule: true,
     default: (html: string) => {
         // Simulate XSS protection: strip <script> tags
-        const sanitized = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+        const sanitized = html.replace(/<script\b[^<]*(?:(?!<\/module>)<[^<]*)*<\/module>/gi, '')
         return sanitized
     }
 }))
@@ -40,17 +40,17 @@ describe('TooltipWithParser', () => {
     })
 
     describe('XSS Protection', () => {
-        it('should strip script tags from HTML content', () => {
+        it('should strip module tags from HTML content', () => {
             const maliciousHtml = '<strong>Safe</strong><script>alert("XSS")</script>'
             const expectedSanitized = '<strong>Safe</strong>'
             render(<TooltipWithParser title={maliciousHtml} />)
 
             const icon = screen.getByRole('button')
-            // Script tag should be removed by html-react-parser mock
+            // Module tag should be removed by html-react-parser mock
             expect(icon).toHaveAccessibleName(expectedSanitized)
         })
 
-        it('should handle multiple script injection attempts', () => {
+        it('should handle multiple module injection attempts', () => {
             const maliciousHtml = '<p>Text</p><script>alert(1)</script><script>console.log(2)</script>'
             const expectedSanitized = '<p>Text</p>'
             render(<TooltipWithParser title={maliciousHtml} />)

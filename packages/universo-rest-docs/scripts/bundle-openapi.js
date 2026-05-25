@@ -3,7 +3,7 @@
 /**
  * Bundle OpenAPI specification
  *
- * This script bundles the modular OpenAPI YAML files from src/openapi/
+ * This module bundles the modular OpenAPI YAML files from src/openapi/
  * into a single bundled file in dist/openapi-bundled.yml for production use.
  */
 

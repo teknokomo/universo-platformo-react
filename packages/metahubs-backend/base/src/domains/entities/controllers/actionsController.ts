@@ -9,8 +9,8 @@ const createActionSchema = z
     .object({
         codename: codenameInputSchema,
         presentation: z.record(z.unknown()).optional(),
-        actionType: z.enum(['script', 'builtin']),
-        scriptId: z.string().min(1).nullable().optional(),
+        actionType: z.enum(['module', 'builtin']),
+        moduleId: z.string().min(1).nullable().optional(),
         config: z.record(z.unknown()).optional(),
         sortOrder: z.number().int().min(0).optional()
     })
@@ -20,8 +20,8 @@ const updateActionSchema = z
     .object({
         codename: codenameInputSchema.optional(),
         presentation: z.record(z.unknown()).optional(),
-        actionType: z.enum(['script', 'builtin']).optional(),
-        scriptId: z.string().min(1).nullable().optional(),
+        actionType: z.enum(['module', 'builtin']).optional(),
+        moduleId: z.string().min(1).nullable().optional(),
         config: z.record(z.unknown()).optional(),
         sortOrder: z.number().int().min(0).optional(),
         expectedVersion: z.number().int().positive().optional()
@@ -65,7 +65,7 @@ export function createActionsController(createHandler: ReturnType<typeof createM
                     codename: parsed.data.codename,
                     presentation: parsed.data.presentation,
                     actionType: parsed.data.actionType,
-                    scriptId: parsed.data.scriptId,
+                    moduleId: parsed.data.moduleId,
                     config: parsed.data.config,
                     sortOrder: parsed.data.sortOrder
                 },
@@ -92,7 +92,7 @@ export function createActionsController(createHandler: ReturnType<typeof createM
                     codename: parsed.data.codename,
                     presentation: parsed.data.presentation,
                     actionType: parsed.data.actionType,
-                    scriptId: parsed.data.scriptId,
+                    moduleId: parsed.data.moduleId,
                     config: parsed.data.config,
                     sortOrder: parsed.data.sortOrder,
                     expectedVersion: parsed.data.expectedVersion

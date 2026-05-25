@@ -143,7 +143,7 @@ const seedEnumerationValueSchema = z.object({
     isDefault: z.boolean().optional()
 })
 
-const seedScriptSchema = z.object({
+const seedModuleSchema = z.object({
     codename: z.string().min(1).max(100),
     name: vlcSchema,
     description: vlcSchema.optional(),
@@ -183,7 +183,7 @@ const seedSchema = z.object({
     entities: z.array(seedEntitySchema).optional(),
     elements: z.record(z.array(seedElementSchema)).optional(),
     optionValues: z.record(z.array(seedEnumerationValueSchema)).optional(),
-    scripts: z.array(seedScriptSchema).optional()
+    modules: z.array(seedModuleSchema).optional()
 })
 
 const templateMetaSchema = z.object({
@@ -220,7 +220,7 @@ const componentManifestSchema = z.object({
     ]),
     actions: z.union([componentConfigSchema, z.literal(false)]),
     events: z.union([componentConfigSchema, z.literal(false)]),
-    scripting: z.union([componentConfigSchema, z.literal(false)]),
+    modules: z.union([componentConfigSchema, z.literal(false)]),
     blockContent: z.union([
         componentConfigSchema.extend({
             storage: z.enum(['objectConfig', 'recordJsonb']),
@@ -524,36 +524,36 @@ export const templateManifestSchema = baseTemplateManifestSchema.superRefine((ma
         }
     }
 
-    const scripts = manifest.seed.scripts ?? []
-    const scriptKeySet = new Set<string>()
-    for (let index = 0; index < scripts.length; index += 1) {
-        const script = scripts[index]
-        const scopeKey = `${script.attachedToKind}:${script.attachedToEntityCodename ?? ''}:${script.moduleRole}:${script.codename}`
-        if (scriptKeySet.has(scopeKey)) {
+    const modules = manifest.seed.modules ?? []
+    const moduleKeySet = new Set<string>()
+    for (let index = 0; index < modules.length; index += 1) {
+        const module = modules[index]
+        const scopeKey = `${module.attachedToKind}:${module.attachedToEntityCodename ?? ''}:${module.moduleRole}:${module.codename}`
+        if (moduleKeySet.has(scopeKey)) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
-                path: ['seed', 'scripts', index, 'codename'],
-                message: `Duplicate script identity: ${scopeKey}`
+                path: ['seed', 'modules', index, 'codename'],
+                message: `Duplicate module identity: ${scopeKey}`
             })
         }
-        scriptKeySet.add(scopeKey)
+        moduleKeySet.add(scopeKey)
 
-        if (script.attachedToKind !== 'metahub' && script.attachedToKind !== 'general') {
-            const targetCodename = script.attachedToEntityCodename
+        if (module.attachedToKind !== 'metahub' && module.attachedToKind !== 'general') {
+            const targetCodename = module.attachedToEntityCodename
             if (!targetCodename) {
                 ctx.addIssue({
                     code: z.ZodIssueCode.custom,
-                    path: ['seed', 'scripts', index, 'attachedToEntityCodename'],
-                    message: `Script attached to ${script.attachedToKind} must declare attachedToEntityCodename`
+                    path: ['seed', 'modules', index, 'attachedToEntityCodename'],
+                    message: `Module attached to ${module.attachedToKind} must declare attachedToEntityCodename`
                 })
                 continue
             }
 
-            if (!entityByKindCodename.has(`${script.attachedToKind}:${targetCodename}`)) {
+            if (!entityByKindCodename.has(`${module.attachedToKind}:${targetCodename}`)) {
                 ctx.addIssue({
                     code: z.ZodIssueCode.custom,
-                    path: ['seed', 'scripts', index, 'attachedToEntityCodename'],
-                    message: `Script references unknown ${script.attachedToKind} entity codename: ${targetCodename}`
+                    path: ['seed', 'modules', index, 'attachedToEntityCodename'],
+                    message: `Module references unknown ${module.attachedToKind} entity codename: ${targetCodename}`
                 })
             }
         }

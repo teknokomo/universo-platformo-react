@@ -1288,12 +1288,12 @@ export class SchemaGenerator {
             `)
         }
 
-        const hasScripts = await knex.schema.withSchema(schemaName).hasTable('_app_scripts')
-        console.log(`[SchemaGenerator] _app_scripts exists: ${hasScripts}`)
+        const hasModules = await knex.schema.withSchema(schemaName).hasTable('_app_modules')
+        console.log(`[SchemaGenerator] _app_modules exists: ${hasModules}`)
 
-        if (!hasScripts) {
-            console.log(`[SchemaGenerator] Creating _app_scripts...`)
-            await knex.schema.withSchema(schemaName).createTable('_app_scripts', (table) => {
+        if (!hasModules) {
+            console.log(`[SchemaGenerator] Creating _app_modules...`)
+            await knex.schema.withSchema(schemaName).createTable('_app_modules', (table) => {
                 table.uuid('id').primary()
                 table.string('codename', 100).notNullable()
                 table.jsonb('presentation').notNullable().defaultTo('{}')
@@ -1336,14 +1336,14 @@ export class SchemaGenerator {
                 table.timestamp('_app_deleted_at', { useTz: true }).nullable()
                 table.uuid('_app_deleted_by').nullable()
 
-                table.index(['attached_to_kind', 'attached_to_id'], 'idx_app_scripts_attachment')
-                table.index(['module_role'], 'idx_app_scripts_module_role')
-                table.index(['checksum'], 'idx_app_scripts_checksum')
+                table.index(['attached_to_kind', 'attached_to_id'], 'idx_app_modules_attachment')
+                table.index(['module_role'], 'idx_app_modules_module_role')
+                table.index(['checksum'], 'idx_app_modules_checksum')
             })
 
             await knex.raw(`
-                CREATE UNIQUE INDEX IF NOT EXISTS idx_app_scripts_codename_active
-                ON "${schemaName}"._app_scripts (
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_app_modules_codename_active
+                ON "${schemaName}"._app_modules (
                     attached_to_kind,
                     COALESCE(attached_to_id, '00000000-0000-0000-0000-000000000000'::uuid),
                     module_role,
@@ -1351,11 +1351,11 @@ export class SchemaGenerator {
                 )
                 WHERE _upl_deleted = false AND _app_deleted = false
             `)
-            console.log(`[SchemaGenerator] _app_scripts created`)
+            console.log(`[SchemaGenerator] _app_modules created`)
         }
 
         await knex.raw(`
-            ALTER TABLE "${schemaName}"."_app_scripts"
+            ALTER TABLE "${schemaName}"."_app_modules"
             ALTER COLUMN "attached_to_kind" TYPE VARCHAR(${ENTITY_KIND_DB_LENGTH})
         `)
 

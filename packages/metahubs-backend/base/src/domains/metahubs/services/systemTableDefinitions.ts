@@ -445,11 +445,11 @@ const mhbSharedEntityOverrides: SystemTableDef = {
     ]
 }
 
-const SCRIPT_SCOPE_NULL_ATTACHMENT_UUID = '00000000-0000-0000-0000-000000000000'
+const MODULE_SCOPE_NULL_ATTACHMENT_UUID = '00000000-0000-0000-0000-000000000000'
 
-const mhbScriptsV2: SystemTableDef = {
-    name: '_mhb_scripts',
-    description: 'Compiled extension scripts attached to metahub entities',
+const mhbModulesV2: SystemTableDef = {
+    name: '_mhb_modules',
+    description: 'Compiled extension modules attached to metahub entities',
     columns: [
         { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
         { name: 'codename', type: 'jsonb', nullable: false, defaultTo: '{}' },
@@ -468,11 +468,11 @@ const mhbScriptsV2: SystemTableDef = {
         { name: 'config', type: 'jsonb', nullable: false, defaultTo: '{}' }
     ],
     indexes: [
-        { name: 'idx_mhb_scripts_attachment', columns: ['attached_to_kind', 'attached_to_id'] },
-        { name: 'idx_mhb_scripts_module_role', columns: ['module_role'] },
-        { name: 'idx_mhb_scripts_checksum', columns: ['checksum'] },
+        { name: 'idx_mhb_modules_attachment', columns: ['attached_to_kind', 'attached_to_id'] },
+        { name: 'idx_mhb_modules_module_role', columns: ['module_role'] },
+        { name: 'idx_mhb_modules_checksum', columns: ['checksum'] },
         {
-            name: 'idx_mhb_scripts_codename_active_unique',
+            name: 'idx_mhb_modules_codename_active_unique',
             columns: [codenamePrimaryTextSql('codename')],
             unique: true,
             where: '_upl_deleted = false AND _mhb_deleted = false'
@@ -480,17 +480,17 @@ const mhbScriptsV2: SystemTableDef = {
     ]
 }
 
-const mhbScripts: SystemTableDef = {
-    ...mhbScriptsV2,
+const mhbModules: SystemTableDef = {
+    ...mhbModulesV2,
     indexes: [
-        { name: 'idx_mhb_scripts_attachment', columns: ['attached_to_kind', 'attached_to_id'] },
-        { name: 'idx_mhb_scripts_module_role', columns: ['module_role'] },
-        { name: 'idx_mhb_scripts_checksum', columns: ['checksum'] },
+        { name: 'idx_mhb_modules_attachment', columns: ['attached_to_kind', 'attached_to_id'] },
+        { name: 'idx_mhb_modules_module_role', columns: ['module_role'] },
+        { name: 'idx_mhb_modules_checksum', columns: ['checksum'] },
         {
-            name: 'idx_mhb_scripts_codename_active_unique',
+            name: 'idx_mhb_modules_codename_active_unique',
             columns: [
                 'attached_to_kind',
-                `COALESCE(attached_to_id, '${SCRIPT_SCOPE_NULL_ATTACHMENT_UUID}'::uuid)`,
+                `COALESCE(attached_to_id, '${MODULE_SCOPE_NULL_ATTACHMENT_UUID}'::uuid)`,
                 'module_role',
                 codenamePrimaryTextSql('codename')
             ],
@@ -537,17 +537,17 @@ const mhbActions: SystemTableDef = {
         { name: 'codename', type: 'jsonb', nullable: false },
         { name: 'presentation', type: 'jsonb', nullable: false, defaultTo: '{}' },
         { name: 'action_type', type: 'string', length: 32, nullable: false },
-        { name: 'script_id', type: 'uuid', nullable: true },
+        { name: 'module_id', type: 'uuid', nullable: true },
         { name: 'config', type: 'jsonb', nullable: false, defaultTo: '{}' },
         { name: 'sort_order', type: 'integer', nullable: false, defaultTo: 0 }
     ],
     foreignKeys: [
         { column: 'object_id', referencesTable: '_mhb_objects', referencesColumn: 'id', onDelete: 'CASCADE' },
-        { column: 'script_id', referencesTable: '_mhb_scripts', referencesColumn: 'id', onDelete: 'SET NULL' }
+        { column: 'module_id', referencesTable: '_mhb_modules', referencesColumn: 'id', onDelete: 'SET NULL' }
     ],
     indexes: [
         { name: 'idx_mhb_actions_object_id', columns: ['object_id'] },
-        { name: 'idx_mhb_actions_script_id', columns: ['script_id'] },
+        { name: 'idx_mhb_actions_module_id', columns: ['module_id'] },
         { name: 'idx_mhb_actions_object_sort', columns: ['object_id', 'sort_order'] },
         {
             name: 'idx_mhb_actions_object_codename_active',
@@ -605,8 +605,8 @@ export const SYSTEM_TABLES_V1: SystemTableDef[] = [
     mhbMigrations
 ]
 
-export const SYSTEM_TABLES_V2: SystemTableDef[] = [...SYSTEM_TABLES_V1, mhbScriptsV2]
-export const SYSTEM_TABLES_V3: SystemTableDef[] = [...SYSTEM_TABLES_V1, mhbScripts]
+export const SYSTEM_TABLES_V2: SystemTableDef[] = [...SYSTEM_TABLES_V1, mhbModulesV2]
+export const SYSTEM_TABLES_V3: SystemTableDef[] = [...SYSTEM_TABLES_V1, mhbModules]
 export const SYSTEM_TABLES: SystemTableDef[] = [...SYSTEM_TABLES_V3, mhbEntityTypeDefinitions, mhbActions, mhbEventBindings]
 
 /**

@@ -11,10 +11,7 @@
             "@universo/admin-backend": ["../../admin-backend/base/dist/index.d.ts"],
             "@universo/migrations-core": ["../../universo-migrations-core/base/dist/index.d.ts"],
             "@universo/schema-ddl": ["../../schema-ddl/base/dist/index.d.ts"],
-            "@universo/scripting-engine": [
-                "../../scripting-engine/base/dist/index.d.ts",
-                "../../scripting-engine/base/src/index.ts"
-            ]
+            "@universo/modules-engine": ["../../modules-engine/base/dist/index.d.ts", "../../modules-engine/base/src/index.ts"]
         },
         "strict": true,
         "esModuleInterop": true,

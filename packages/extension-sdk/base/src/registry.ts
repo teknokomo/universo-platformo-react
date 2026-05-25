@@ -1,60 +1,60 @@
 import {
-    assertSupportedScriptSdkApiVersion,
-    DEFAULT_SCRIPT_MODULE_ROLE,
-    DEFAULT_SCRIPT_SDK_API_VERSION,
-    DEFAULT_SCRIPT_SOURCE_KIND,
-    normalizeScriptCapabilities,
-    normalizeScriptModuleRole,
-    normalizeScriptSourceKind,
-    type ScriptCapability,
-    type ScriptModuleRole,
-    type ScriptSourceKind,
-    type SupportedScriptSdkApiVersion
+    assertSupportedModuleSdkApiVersion,
+    DEFAULT_MODULE_ROLE,
+    DEFAULT_MODULE_SDK_API_VERSION,
+    DEFAULT_MODULE_SOURCE_KIND,
+    normalizeModuleCapabilities,
+    normalizeModuleRole,
+    normalizeModuleSourceKind,
+    type ModuleCapability,
+    type ModuleRole,
+    type ModuleSourceKind,
+    type SupportedModuleSdkApiVersion
 } from '@universo/types'
-import type { ExtensionScriptMetadata } from './types'
+import type { ExtensionModuleMetadata } from './types'
 
-export const EXTENSION_SDK_API_VERSION = DEFAULT_SCRIPT_SDK_API_VERSION
-export const EXTENSION_SCRIPT_METADATA = Symbol.for('@universo/extension-sdk/metadata')
+export const EXTENSION_SDK_API_VERSION = DEFAULT_MODULE_SDK_API_VERSION
+export const EXTENSION_MODULE_METADATA = Symbol.for('@universo/extension-sdk/metadata')
 
-export interface ResolvedExtensionScriptMetadata {
-    sdkApiVersion: SupportedScriptSdkApiVersion
-    moduleRole: ScriptModuleRole
-    sourceKind: ScriptSourceKind
-    capabilities: ScriptCapability[]
+export interface ResolvedExtensionModuleMetadata {
+    sdkApiVersion: SupportedModuleSdkApiVersion
+    moduleRole: ModuleRole
+    sourceKind: ModuleSourceKind
+    capabilities: ModuleCapability[]
 }
 
-type ExtensionScriptConstructor = abstract new (...args: never[]) => object
+type ExtensionModuleConstructor = abstract new (...args: never[]) => object
 
-export const resolveExtensionScriptMetadata = (metadata: ExtensionScriptMetadata = {}): ResolvedExtensionScriptMetadata => {
-    const moduleRole = normalizeScriptModuleRole(metadata.moduleRole ?? DEFAULT_SCRIPT_MODULE_ROLE)
-    const sourceKind = normalizeScriptSourceKind(metadata.sourceKind ?? DEFAULT_SCRIPT_SOURCE_KIND)
+export const resolveExtensionModuleMetadata = (metadata: ExtensionModuleMetadata = {}): ResolvedExtensionModuleMetadata => {
+    const moduleRole = normalizeModuleRole(metadata.moduleRole ?? DEFAULT_MODULE_ROLE)
+    const sourceKind = normalizeModuleSourceKind(metadata.sourceKind ?? DEFAULT_MODULE_SOURCE_KIND)
 
     return {
-        sdkApiVersion: assertSupportedScriptSdkApiVersion(metadata.sdkApiVersion ?? EXTENSION_SDK_API_VERSION),
+        sdkApiVersion: assertSupportedModuleSdkApiVersion(metadata.sdkApiVersion ?? EXTENSION_SDK_API_VERSION),
         moduleRole,
         sourceKind,
-        capabilities: normalizeScriptCapabilities(moduleRole, metadata.capabilities)
+        capabilities: normalizeModuleCapabilities(moduleRole, metadata.capabilities)
     }
 }
 
-export const bindExtensionScriptMetadata = <TClass extends ExtensionScriptConstructor>(
-    scriptClass: TClass,
-    metadata: ExtensionScriptMetadata = {}
+export const bindExtensionModuleMetadata = <TClass extends ExtensionModuleConstructor>(
+    moduleClass: TClass,
+    metadata: ExtensionModuleMetadata = {}
 ): TClass => {
-    Object.defineProperty(scriptClass, EXTENSION_SCRIPT_METADATA, {
+    Object.defineProperty(moduleClass, EXTENSION_MODULE_METADATA, {
         configurable: true,
         enumerable: false,
         writable: false,
-        value: resolveExtensionScriptMetadata(metadata)
+        value: resolveExtensionModuleMetadata(metadata)
     })
 
-    return scriptClass
+    return moduleClass
 }
 
-export const getBoundExtensionScriptMetadata = (value: unknown): ResolvedExtensionScriptMetadata | null => {
+export const getBoundExtensionModuleMetadata = (value: unknown): ResolvedExtensionModuleMetadata | null => {
     if (!value || (typeof value !== 'function' && typeof value !== 'object')) {
         return null
     }
 
-    return (value as Record<PropertyKey, unknown>)[EXTENSION_SCRIPT_METADATA] as ResolvedExtensionScriptMetadata | null
+    return (value as Record<PropertyKey, unknown>)[EXTENSION_MODULE_METADATA] as ResolvedExtensionModuleMetadata | null
 }

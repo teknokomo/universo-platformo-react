@@ -22,7 +22,7 @@ const capabilities: EntityTypeCapabilities = {
     identityFields: { enabled: true, allowNumber: true, allowEffectiveDate: true },
     recordLifecycle: { enabled: true, allowCustomStates: true },
     posting: { enabled: true, allowManualPosting: true, allowAutomaticPosting: true },
-    scripting: { enabled: true },
+    modules: { enabled: true },
     dataSchema: { enabled: true },
     physicalTable: { enabled: true },
     treeAssignment: false,
@@ -56,13 +56,13 @@ describe('RecordBehaviorFields', () => {
                         enabled: true,
                         states: [{ codename: 'Draft', title: 'Draft', isInitial: true }]
                     },
-                    posting: { mode: 'manual', targetLedgers: ['ProgressLedger'], scriptCodename: 'EnrollmentPostingScript' }
+                    posting: { mode: 'manual', targetLedgers: ['ProgressLedger'], moduleCodename: 'EnrollmentPostingModule' }
                 })}
                 onChange={vi.fn()}
                 capabilities={capabilities}
                 fieldOptions={[{ codename: 'StartedAt', label: 'Started at' }]}
                 ledgerOptions={[{ codename: 'ProgressLedger', label: 'Progress Ledger' }]}
-                scriptOptions={[{ codename: 'EnrollmentPostingScript', label: 'Enrollment posting' }]}
+                moduleOptions={[{ codename: 'EnrollmentPostingModule', label: 'Enrollment posting' }]}
             />
         )
 
@@ -92,7 +92,7 @@ describe('RecordBehaviorFields', () => {
                 capabilities={capabilities}
                 fieldOptions={[]}
                 ledgerOptions={[]}
-                scriptOptions={[]}
+                moduleOptions={[]}
             />
         )
 
@@ -124,20 +124,20 @@ describe('RecordBehaviorFields', () => {
                     posting: {
                         mode: 'manual',
                         targetLedgers: ['ProgressLedger'],
-                        scriptCodename: 'EnrollmentPostingScript'
+                        moduleCodename: 'EnrollmentPostingModule'
                     }
                 })}
                 onChange={vi.fn()}
                 capabilities={capabilities}
                 fieldOptions={[]}
                 ledgerOptions={[]}
-                scriptOptions={[]}
+                moduleOptions={[]}
             />
         )
 
         expect(screen.getAllByText('StartedAt (configured)').length).toBeGreaterThan(0)
         expect(screen.getAllByText('Status (configured)').length).toBeGreaterThan(0)
         expect(screen.getAllByText('ProgressLedger (configured)').length).toBeGreaterThan(0)
-        expect(screen.getAllByText('EnrollmentPostingScript (configured)').length).toBeGreaterThan(0)
+        expect(screen.getAllByText('EnrollmentPostingModule (configured)').length).toBeGreaterThan(0)
     })
 })

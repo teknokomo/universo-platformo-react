@@ -15,7 +15,7 @@ import {
     type EntityTypeUIConfig,
     type EnumerationValueDefinition,
     type MetahubRuntimePolicySnapshot,
-    type MetahubScriptDefinition,
+    type MetahubModuleDefinition,
     type MetahubSnapshotVersionEnvelope,
     type SharedBehavior,
     type SharedEntityKind,
@@ -28,7 +28,7 @@ import { MetahubRecordsService } from '../../metahubs/services/MetahubRecordsSer
 import { MetahubTreeEntitiesService } from '../../metahubs/services/MetahubTreeEntitiesService'
 import { MetahubOptionValuesService } from '../../metahubs/services/MetahubOptionValuesService'
 import { MetahubFixedValuesService } from '../../metahubs/services/MetahubFixedValuesService'
-import { MetahubScriptsService } from '../../scripts/services/MetahubScriptsService'
+import { MetahubModulesService } from '../../modules/services/MetahubModulesService'
 import { EntityTypeService } from '../../entities/services/EntityTypeService'
 import { ActionService } from '../../entities/services/ActionService'
 import { EventBindingService } from '../../entities/services/EventBindingService'
@@ -92,11 +92,9 @@ export interface MetahubSnapshot {
     sharedComponents?: MetaFieldSnapshot[]
     sharedFixedValues?: MetaFixedValueSnapshot[]
     sharedOptionValues?: MetaEnumerationValueSnapshot[]
-    /** @deprecated use sharedOptionValues */
-    sharedEnumerationValues?: MetaEnumerationValueSnapshot[]
     sharedEntityOverrides?: MetahubSharedEntityOverrideSnapshot[]
     systemFields?: Record<string, ObjectSystemFieldsSnapshot>
-    scripts?: MetahubSnapshotScript[]
+    modules?: MetahubSnapshotModule[]
     /**
      * Active UI layouts captured at publication time.
      * MVP: only the Dashboard template is supported.
@@ -145,7 +143,7 @@ export interface MetahubScopedLayoutSnapshot extends MetahubLayoutSnapshot {
     baseLayoutId: string
 }
 
-export interface MetahubSnapshotScript extends Omit<MetahubScriptDefinition, 'codename' | 'sourceCode'> {
+export interface MetahubSnapshotModule extends Omit<MetahubModuleDefinition, 'codename' | 'sourceCode'> {
     codename: SnapshotCodenameValue
     sourceCode?: string
 }
@@ -165,8 +163,8 @@ export interface MetahubEntityActionSnapshot {
     id: string
     codename: SnapshotCodenameValue
     presentation: Record<string, unknown>
-    actionType: 'script' | 'builtin'
-    scriptId: string | null
+    actionType: 'module' | 'builtin'
+    moduleId: string | null
     config: Record<string, unknown>
     sortOrder: number
 }
@@ -199,9 +197,6 @@ export interface MetahubLayoutZoneWidgetSnapshot {
     config: Record<string, unknown>
     isActive: boolean
 }
-
-/** @deprecated Use MetahubLayoutZoneWidgetSnapshot instead. */
-export type MetahubLayoutZoneModuleSnapshot = MetahubLayoutZoneWidgetSnapshot
 
 export interface MetahubLayoutWidgetOverrideSnapshot {
     id: string
@@ -304,7 +299,7 @@ export class SnapshotSerializer {
         private readonly treeEntitiesService?: MetahubTreeEntitiesService, // Hub repository removed - hubs are now in isolated schemas (_mhb_hubs)
         private readonly optionValuesService?: MetahubOptionValuesService,
         private readonly fixedValuesService?: MetahubFixedValuesService,
-        private readonly scriptsService?: MetahubScriptsService,
+        private readonly modulesService?: MetahubModulesService,
         private readonly sharedContainerService?: SharedContainerService,
         private readonly sharedEntityOverridesService?: SharedEntityOverridesService,
         private readonly entityTypeService?: EntityTypeService,
@@ -476,13 +471,13 @@ export class SnapshotSerializer {
     public static materializeSharedEntitiesForRuntime(snapshot: MetahubSnapshot): MetahubSnapshot {
         const sharedComponents = snapshot.sharedComponents ?? snapshot.sharedComponents ?? []
         const sharedFixedValues = snapshot.sharedFixedValues ?? []
-        const sharedEnumerationValues = snapshot.sharedOptionValues ?? snapshot.sharedEnumerationValues ?? []
+        const sharedOptionValues = snapshot.sharedOptionValues ?? []
         const sharedOverrides = snapshot.sharedEntityOverrides ?? []
 
         if (
             sharedComponents.length === 0 &&
             sharedFixedValues.length === 0 &&
-            sharedEnumerationValues.length === 0 &&
+            sharedOptionValues.length === 0 &&
             sharedOverrides.length === 0
         ) {
             return snapshot
@@ -545,7 +540,7 @@ export class SnapshotSerializer {
             const localValues = snapshot.optionValues?.[entity.id] ?? []
             const mergedValues = buildMergedSharedEntityList({
                 localItems: localValues,
-                sharedItems: sharedEnumerationValues,
+                sharedItems: sharedOptionValues,
                 overrides: SnapshotSerializer.resolveRuntimeSharedOverrides(snapshot, 'value', entity.id),
                 getId: (item) => item.id,
                 getSortOrder: (item) => item.sortOrder,
@@ -575,8 +570,8 @@ export class SnapshotSerializer {
             id: string
             codename: unknown
             presentation: unknown
-            actionType: 'script' | 'builtin'
-            scriptId: string | null
+            actionType: 'module' | 'builtin'
+            moduleId: string | null
             config: unknown
             sortOrder: number
         }>
@@ -586,7 +581,7 @@ export class SnapshotSerializer {
             codename: SnapshotSerializer.toSnapshotCodenameValue(action.codename),
             presentation: ensureRecord(action.presentation),
             actionType: action.actionType,
-            scriptId: action.scriptId ?? null,
+            moduleId: action.moduleId ?? null,
             config: ensureRecord(action.config),
             sortOrder: Number(action.sortOrder ?? 0)
         }))
@@ -708,23 +703,23 @@ export class SnapshotSerializer {
         const sharedOptionValues: MetaEnumerationValueSnapshot[] = []
         const sharedEntityOverrides: MetahubSharedEntityOverrideSnapshot[] = []
         const systemFieldsByObject: Record<string, ObjectSystemFieldsSnapshot> = {}
-        const publishedScripts = this.scriptsService
-            ? (await this.scriptsService.listPublishedScripts(metahubId)).map<MetahubSnapshotScript>((script) => ({
-                  id: script.id,
-                  codename: script.codename,
-                  presentation: script.presentation,
-                  attachedToKind: script.attachedToKind,
-                  attachedToId: script.attachedToId,
-                  moduleRole: script.moduleRole,
-                  sourceKind: script.sourceKind,
-                  sdkApiVersion: script.sdkApiVersion,
-                  sourceCode: script.sourceCode,
-                  manifest: script.manifest,
-                  serverBundle: script.serverBundle,
-                  clientBundle: script.clientBundle,
-                  checksum: script.checksum,
-                  isActive: script.isActive,
-                  config: script.config
+        const publishedModules = this.modulesService
+            ? (await this.modulesService.listPublishedModules(metahubId)).map<MetahubSnapshotModule>((module) => ({
+                  id: module.id,
+                  codename: module.codename,
+                  presentation: module.presentation,
+                  attachedToKind: module.attachedToKind,
+                  attachedToId: module.attachedToId,
+                  moduleRole: module.moduleRole,
+                  sourceKind: module.sourceKind,
+                  sdkApiVersion: module.sdkApiVersion,
+                  sourceCode: module.sourceCode,
+                  manifest: module.manifest,
+                  serverBundle: module.serverBundle,
+                  clientBundle: module.clientBundle,
+                  checksum: module.checksum,
+                  isActive: module.isActive,
+                  config: module.config
               }))
             : []
         const settings = this.settingsService
@@ -948,7 +943,7 @@ export class SnapshotSerializer {
             sharedOptionValues: sharedOptionValues.length > 0 ? sharedOptionValues : undefined,
             sharedEntityOverrides: sharedEntityOverrides.length > 0 ? sharedEntityOverrides : undefined,
             systemFields: Object.keys(systemFieldsByObject).length > 0 ? systemFieldsByObject : undefined,
-            scripts: publishedScripts.length > 0 ? publishedScripts : undefined,
+            modules: publishedModules.length > 0 ? publishedModules : undefined,
             settings: settings.length > 0 ? settings : undefined,
             runtimePolicy
         }

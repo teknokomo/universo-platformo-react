@@ -1,5 +1,5 @@
 ---
-description: LMS gamification and achievements modeled through Objects, Ledgers, workflows, scripts, and reports.
+description: LMS gamification and achievements modeled through Objects, Ledgers, workflows, modules, and reports.
 ---
 
 # LMS Gamification
@@ -27,7 +27,7 @@ Application constants such as `GamificationEnabled` and `DefaultPointAward` keep
 
 `PointTransactions` is a transactional Object.
 The `ApprovePointAdjustment` and `ReversePointAdjustment` workflow actions are stored in Object metadata and are resolved by the generic runtime workflow service.
-Approved point transactions can run `PointTransactionPostingScript`, which appends movement facts to `PointsLedger`.
+Approved point transactions can run `PointTransactionPostingModule`, which appends movement facts to `PointsLedger`.
 
 `BadgeIssues` follows the same metadata-driven pattern with `IssueBadge` and `RevokeBadge` actions.
 Runtime permissions remain fail-closed: action buttons appear only when the resolved capability policy explicitly allows them, and backend workflow mutations remain the source of truth.

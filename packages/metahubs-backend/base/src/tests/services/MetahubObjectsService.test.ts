@@ -59,7 +59,7 @@ describe('MetahubObjectsService mutation fail-closed behavior', () => {
                         relations: false,
                         actions: false,
                         events: false,
-                        scripting: false,
+                        modules: false,
                         layoutConfig: false,
                         runtimeBehavior: { enabled: true },
                         physicalTable: { enabled: true, prefix: 'cust' }

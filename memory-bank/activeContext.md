@@ -6,56 +6,66 @@
 
 ## Current Focus: Memory Bank Compression (2026-05-23)
 
-- Running comprehensive MB compression to optimize file sizes and information density.
-- Archiving older tasks and detailed implementation progress into the historical log (`progress.md`).
-- Updating the GitHub releases version history table to include `0.63.0-alpha` and `0.64.0-alpha`.
-- Following the structured sequential phase checklist defined in `tasks.md` and custom modes.
-- Validating cross-references, file structure, and factual freshness.
-- Post-compression: perform the 12-point self-validation rubric scoring to ensure target ranges are met without over-compression.
-- Ensure that `activeContext.md` contains at least 120 lines to satisfy its 80% upper bound rule.
-- Current constraints dictate that all historical implementation summaries (anything > 1 week old) be moved completely to `progress.md`.
+-   Running comprehensive MB compression to optimize file sizes and information density.
+-   Archiving older tasks and detailed implementation progress into the historical log (`progress.md`).
+-   Updating the GitHub releases version history table to include `0.63.0-alpha` and `0.64.0-alpha`.
+-   Following the structured sequential phase checklist defined in `tasks.md` and custom modes.
+-   Validating cross-references, file structure, and factual freshness.
+-   Post-compression: perform the 12-point self-validation rubric scoring to ensure target ranges are met without over-compression.
+-   Ensure that `activeContext.md` contains at least 120 lines to satisfy its 80% upper bound rule.
+-   Current constraints dictate that all historical implementation summaries (anything > 1 week old) be moved completely to `progress.md`.
+
+## Recent Focus: Scripts To Modules Rename (Complete)
+
+-   Renamed the attached TypeScript-code capability from Scripts/Scripting to Modules across shared contracts, backend routes/stores, frontend authoring UI, runtime widget execution, SDK names, fixtures, E2E specs, and GitBook docs.
+-   Fresh-database rename only: no `/scripts` aliases, compatibility shims, schema/template version bump, or legacy migration path.
+-   Canonical contracts now use `modules`, `_mhb_modules`, `_app_modules`, `/modules`, `/module/:moduleId`, `/runtime/modules`, `moduleId`, `moduleCodename`, `ModuleRole`, and `@universo/modules-engine`.
+-   LMS template and fixture posting handlers now use `*PostingModule` codenames/classes and refreshed snapshot hash.
+-   Browser QA evidence for authoring and runtime module surfaces was captured through local minimal Supabase Playwright flows.
+-   Allowed residual `script` terms are limited to HTML/security contexts, package manager `scripts`, shell/E2E scripts, external TypeScript/node APIs such as `ts.ScriptTarget`, `node:vm Script`, and isolated-vm `compileScript`.
+-   Details: progress.md#2026-05-25
 
 ## Recent Focus: Object Collections And Components Rename (Complete)
 
-- Replaced Catalogs/Attributes with Objects/Components across UI and metadata.
-- Internal surface/helper name is `objectCollection`, persisted kind key is `object`.
-- System metadata tables updated to `_mhb_components` and `_app_components`.
-- Runtime physical table names come from constructor capabilities (`obj_` prefix).
-- Recommended vocabulary: user-facing `Objects` / `Объекты`.
-- Details: progress.md#2026-05-14
+-   Replaced Catalogs/Attributes with Objects/Components across UI and metadata.
+-   Internal surface/helper name is `objectCollection`, persisted kind key is `object`.
+-   System metadata tables updated to `_mhb_components` and `_app_components`.
+-   Runtime physical table names come from constructor capabilities (`obj_` prefix).
+-   Recommended vocabulary: user-facing `Objects` / `Объекты`.
+-   Details: progress.md#2026-05-14
 
 ## Recent Focus: Local Supabase Env Profile Generation (Complete)
 
-- Local Supabase env generation derives backend profiles from normal env source order.
-- Development source order: `packages/universo-core-backend/base/.env`, `.env.example`, minimal fallback.
-- E2E source order: `.env.e2e`, `.env`, `.env.e2e.example`, `.env.example`, fallback.
-- Preserves unrelated application settings, replaces only connection values and safe missing defaults.
-- README and GitBook docs describe preserved-settings workflow, hosted/local switching, and local E2E stack.
-- Details: progress.md#2026-05-13
+-   Local Supabase env generation derives backend profiles from normal env source order.
+-   Development source order: `packages/universo-core-backend/base/.env`, `.env.example`, minimal fallback.
+-   E2E source order: `.env.e2e`, `.env`, `.env.e2e.example`, `.env.example`, fallback.
+-   Preserves unrelated application settings, replaces only connection values and safe missing defaults.
+-   README and GitBook docs describe preserved-settings workflow, hosted/local switching, and local E2E stack.
+-   Details: progress.md#2026-05-13
 
 ## Recent Focus: Scoped Menu Contract & Layouts QA Closure (Complete)
 
-- Menu widget authoring uses neutral `section`, `hub`, and `link` item kinds.
-- Entity section targets discovered from layout-capable Entity type metadata.
-- Shared schemas, templates, and fixtures use `autoShowAllSections`.
-- Global layout widgets expose generic per-Entity visibility controls for every layout-capable scope.
-- Generic layout scope contracts use `scopeEntityId`, public contracts use `scopedLayouts` and `layoutWidgetOverrides`.
-- Metahub layout creation validates scoped targets through Entity component capability metadata.
-- Runtime layout selection resolves preferred Entity scope from application navigation.
-- Details: progress.md#2026-05-13 and progress.md#2026-05-12
+-   Menu widget authoring uses neutral `section`, `hub`, and `link` item kinds.
+-   Entity section targets discovered from layout-capable Entity type metadata.
+-   Shared schemas, templates, and fixtures use `autoShowAllSections`.
+-   Global layout widgets expose generic per-Entity visibility controls for every layout-capable scope.
+-   Generic layout scope contracts use `scopeEntityId`, public contracts use `scopedLayouts` and `layoutWidgetOverrides`.
+-   Metahub layout creation validates scoped targets through Entity component capability metadata.
+-   Runtime layout selection resolves preferred Entity scope from application navigation.
+-   Details: progress.md#2026-05-13 and progress.md#2026-05-12
 
 ## Current Guardrails
 
-- **E2E Testing Boundaries**: Browser E2E must use the dedicated E2E boundary: hosted dedicated `.env.e2e.local` / `.env.e2e` by default, or the dedicated local Supabase profile on ports `55321/55322/55323` when local mode is explicitly requested.
-- **Agent Restrictions**: Agents must not use `pnpm dev` or port `3000` for Playwright E2E. The repository E2E runner owns startup on `http://127.0.0.1:3100`.
-- **Main Supabase Testing**: Shared/main Supabase E2E mode is only for manual debugging and must require `E2E_ALLOW_MAIN_SUPABASE=true` plus `E2E_FULL_RESET_MODE=off`.
-- **Local Supabase Scripts**: Local Supabase app-start scripts have two supported profiles: full stack (`start:local-supabase`) and minimal stack (`start:local-supabase:minimal`). Both must keep `doctor:local-supabase` before app startup/reset and must pass explicit `.env.local-supabase` profiles.
-- **Local URL Distinction**: Local Supabase docs must distinguish Supabase Studio (`http://127.0.0.1:54323`) from the local API URL (`http://127.0.0.1:54321`).
-- **Legacy Avoidance**: Do not reintroduce `includeBuiltins`, `isBuiltin`, `source`, `custom.*-v2`, old top-level managed route families, or deleted frontend `domains/catalogs|hubs|sets|enumerations` folder names.
-- **Runtime Workspaces**: Runtime workspace management stays on isolated `apps-template-mui` card/list patterns.
-- **Public Exposure**: Keep public-runtime exposure tied to publication-backed state, not raw design-time flags.
-- **Form Hydration**: Keep the `EntityFormDialog` first-open state hydration pattern intact (no render-phase ref writes).
-- **Fixtures Maintenance**: Future fixture changes must be regenerated through documented Playwright generator specs.
+-   **E2E Testing Boundaries**: Browser E2E must use the dedicated E2E boundary: hosted dedicated `.env.e2e.local` / `.env.e2e` by default, or the dedicated local Supabase profile on ports `55321/55322/55323` when local mode is explicitly requested.
+-   **Agent Restrictions**: Agents must not use `pnpm dev` or port `3000` for Playwright E2E. The repository E2E runner owns startup on `http://127.0.0.1:3100`.
+-   **Main Supabase Testing**: Shared/main Supabase E2E mode is only for manual debugging and must require `E2E_ALLOW_MAIN_SUPABASE=true` plus `E2E_FULL_RESET_MODE=off`.
+-   **Local Supabase Scripts**: Local Supabase app-start scripts have two supported profiles: full stack (`start:local-supabase`) and minimal stack (`start:local-supabase:minimal`). Both must keep `doctor:local-supabase` before app startup/reset and must pass explicit `.env.local-supabase` profiles.
+-   **Local URL Distinction**: Local Supabase docs must distinguish Supabase Studio (`http://127.0.0.1:54323`) from the local API URL (`http://127.0.0.1:54321`).
+-   **Legacy Avoidance**: Do not reintroduce `includeBuiltins`, `isBuiltin`, `source`, `custom.*-v2`, old top-level managed route families, or deleted frontend `domains/catalogs|hubs|sets|enumerations` folder names.
+-   **Runtime Workspaces**: Runtime workspace management stays on isolated `apps-template-mui` card/list patterns.
+-   **Public Exposure**: Keep public-runtime exposure tied to publication-backed state, not raw design-time flags.
+-   **Form Hydration**: Keep the `EntityFormDialog` first-open state hydration pattern intact (no render-phase ref writes).
+-   **Fixtures Maintenance**: Future fixture changes must be regenerated through documented Playwright generator specs.
 
 ## Constraints to Preserve
 

@@ -5,7 +5,7 @@ import type { VersionedLocalizedContent } from './admin'
 import type { EntityTypeCapabilities } from './entityCapabilities'
 import type { EntityTypeUIConfig } from './entityTypeDefinition'
 import type { SharedBehavior } from './shared'
-import type { ScriptAttachmentKind, ScriptCapability, ScriptModuleRole, ScriptSourceKind } from './scripts'
+import type { ModuleAttachmentKind, ModuleCapability, ModuleRole, ModuleSourceKind } from './modules'
 
 /**
  * Supported component data types.
@@ -963,8 +963,8 @@ export interface DetailsTabsConfig {
 export interface QuizWidgetConfig {
     title?: string
     description?: string
-    scriptCodename?: string | null
-    attachedToKind?: ScriptAttachmentKind
+    moduleCodename?: string | null
+    attachedToKind?: ModuleAttachmentKind
     quizId?: string | null
     mountMethodName?: string
     submitMethodName?: string
@@ -1213,18 +1213,18 @@ export interface TemplateSeedEnumerationValue {
     isDefault?: boolean
 }
 
-/** Seed script definition attached to a metahub or a seeded entity by codename. */
-export interface TemplateSeedScript {
+/** Seed module definition attached to a metahub or a seeded entity by codename. */
+export interface TemplateSeedModule {
     codename: string
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string>
-    attachedToKind: ScriptAttachmentKind
+    attachedToKind: ModuleAttachmentKind
     attachedToEntityCodename?: string
-    moduleRole: ScriptModuleRole
-    sourceKind?: ScriptSourceKind
+    moduleRole: ModuleRole
+    sourceKind?: ModuleSourceKind
     sdkApiVersion?: string
     sourceCode: string
-    capabilities?: ScriptCapability[]
+    capabilities?: ModuleCapability[]
     isActive?: boolean
     config?: Record<string, unknown>
 }
@@ -1242,8 +1242,8 @@ export interface MetahubTemplateSeed {
     elements?: Record<string, TemplateSeedElement[]>
     /** Enumeration values keyed by enumeration codename. */
     optionValues?: Record<string, TemplateSeedEnumerationValue[]>
-    /** Compiled at seed time and stored in the generic metahub scripts table. */
-    scripts?: TemplateSeedScript[]
+    /** Compiled at seed time and stored in the generic metahub modules table. */
+    modules?: TemplateSeedModule[]
 }
 
 /**

@@ -227,7 +227,7 @@
 ## 2026-04-12: Entity V2 QA completion follow-up
 
 -   Research outcome implemented: the last real implementation gap after the QA pass was not ACL/runtime parity anymore; it was preset manifest drift. Hub V2 and Enumeration V2 still inherited legacy-disabled component maps even though the approved plan promised V2-only automation uplift.
--   Implemented fix set: Hub V2 now explicitly enables scripting/actions/events, Enumeration V2 now explicitly enables actions/events on top of inherited scripting, direct preset-manifest coverage now asserts the upgraded component set, and the self-hosted fixture contract plus committed snapshot were regenerated through the supported generator path to lock the exported definitions.
+-   Implemented fix set: Hub V2 now explicitly enables modules/actions/events, Enumeration V2 now explicitly enables actions/events on top of inherited modules, direct preset-manifest coverage now asserts the upgraded component set, and the self-hosted fixture contract plus committed snapshot were regenerated through the supported generator path to lock the exported definitions.
 -   Closure validation: focused `templateManifestValidator` coverage passed (`8/8`), the supported self-hosted generator/export flow passed (`1 passed`, `5.3m`), the edited EN/RU custom-entity guides remain line-count aligned (`72/72`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
 -   No open research thread remains for this preset-uplift seam.
 
@@ -248,7 +248,7 @@
 ## 2026-04-11: PR #757 review comment QA triage
 
 -   Review outcome implemented: the PR bot comments reduced to one real backend lifecycle issue plus a batch of indentation-only comments.
--   Confirmed real issue: generic custom-entity create dispatched `beforeCreate` with a preallocated UUID that was not guaranteed to become the persisted `_mhb_objects.id`, so future lifecycle scripts could observe a mismatched object id across `beforeCreate` and `afterCreate`.
+-   Confirmed real issue: generic custom-entity create dispatched `beforeCreate` with a preallocated UUID that was not guaranteed to become the persisted `_mhb_objects.id`, so future lifecycle modules could observe a mismatched object id across `beforeCreate` and `afterCreate`.
 -   Implemented fix: `MetahubObjectsService.createObject(...)` now accepts an optional explicit id, and the generic create controller passes its preallocated pending UUID into persistence so create-time lifecycle events remain self-consistent.
 -   Rejected comments: the indentation warnings were not applied because neighboring metahubs-backend controllers/services already use the same indentation style and the bot cited a non-existent `.gemini/styleguide.md` file rather than an actually present repository contract.
 -   Closure validation: focused metahubs-backend tests passed (`34/34`) and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
@@ -257,7 +257,7 @@
 ## 2026-04-11: Entities automation closure remediation
 
 -   Research outcome implemented: the remaining QA-closure work narrowed to three real seams only: generic create still needed to use the lifecycle boundary, the automation ACL suspicion needed verification against the actual mounted surface instead of a speculative permission patch, and the EN/RU operator docs still under-described the real authoring workflow.
--   Implemented fix set: generic custom-entity create now routes through `EntityMutationService` with a result-resolved committed object id, focused `EntityAutomationTab` coverage is green, catalog-compatible routes were verified to short-circuit into `CatalogList` before the generic automation tabs mount, and EN/RU docs now ship save-first `Scripts -> Actions -> Events` guidance plus stable copied visual assets.
+-   Implemented fix set: generic custom-entity create now routes through `EntityMutationService` with a result-resolved committed object id, focused `EntityAutomationTab` coverage is green, catalog-compatible routes were verified to short-circuit into `CatalogList` before the generic automation tabs mount, and EN/RU docs now ship save-first `Modules -> Actions -> Events` guidance plus stable copied visual assets.
 -   Build-only follow-up: `pnpm run build:e2e` surfaced a missing `DbExecutor` type import in `EntityActionExecutionService`; fixing that import was required before the final green validation result.
 -   Closure validation: focused metahubs backend coverage passed (`27/27`), focused metahubs frontend automation coverage passed (`12/12`), `pnpm docs:i18n:check` passed, `pnpm run build:e2e` completed green, the targeted Chromium automation flow passed (`2 passed`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
 -   No open research thread remains for the entities automation closure seam.
@@ -373,23 +373,23 @@
 
 ## 2026-04-07: Remaining shared/Common QA contract gap remediation
 
--   Research outcome implemented: the last open QA findings were real contract mismatches, not missing compilation/tests. Shared exclusion checkboxes still wrote override rows before the parent dialog was saved, legacy `global` metahub scripts could fail when the UI resubmitted the normalized `library` role, and `GET /shared-containers` still created virtual containers from a nominally read-only route.
--   Implemented fix: `SharedEntitySettingsFields` now stores exclusion state locally and shared attribute/constant/value save handlers sync only the changed exclusion flags after successful save; `MetahubScriptsService` now preserves legacy `global` rows when the unchanged metahub scope is resubmitted as normalized `library`; `GET /shared-containers` now lists existing pools only, while Common/shared authoring explicitly calls `POST /shared-containers/ensure` when it needs concrete ids.
+-   Research outcome implemented: the last open QA findings were real contract mismatches, not missing compilation/tests. Shared exclusion checkboxes still wrote override rows before the parent dialog was saved, metahub modules needed strict `general/library` handling, and `GET /shared-containers` still created virtual containers from a nominally read-only route.
+-   Implemented fix: `SharedEntitySettingsFields` now stores exclusion state locally and shared attribute/constant/value save handlers sync only the changed exclusion flags after successful save; `MetahubModulesService` now validates the `general/library` contract fail closed; `GET /shared-containers` now lists existing pools only, while Common/shared authoring explicitly calls `POST /shared-containers/ensure` when it needs concrete ids.
 -   Closure validation: focused metahubs-frontend regressions passed (`4 files / 19 tests`), focused metahubs-backend regressions passed (`3 suites / 27 tests`), and the canonical root `pnpm build` completed green (`30 successful`, `26 cached`, `58.468s`).
 -   No open research thread remains for this remediation batch.
 
 ## 2026-04-07: Residual QA closure for shared/Common docs, route coverage, and runner cleanup
 
--   Research outcome implemented: the remaining post-QA gaps were narrow and verified. The public REST API docs still described the wrong scripts detail path/method, shared entity override routing still lacked direct controller-level `400/403` coverage, and the Common/shared Chromium flow still ended with runner-level manifest cleanup failure even though the browser scenarios were green.
+-   Research outcome implemented: the remaining post-QA gaps were narrow and verified. The public REST API docs still described the wrong modules detail path/method, shared entity override routing still lacked direct controller-level `400/403` coverage, and the Common/shared Chromium flow still ended with runner-level manifest cleanup failure even though the browser scenarios were green.
 -   Implemented fix: EN/RU `rest-api.md` now mirror the live `GET/PATCH/DELETE /metahub/{metahubId}/script/{scriptId}` router contract, `sharedEntityOverridesRoutes.test.ts` now locks the missing invalid-input and forbidden-access seams, and `e2eCleanup.mjs` now treats orphan-discovery list calls as best-effort when the manifest already contains explicit resource ids.
 -   Closure validation: focused metahubs-backend route tests passed (`12/12`), the EN/RU API reference pair stayed line-for-line aligned (`48/48`), the Common/shared Chromium flow passed twice (`4 passed`, `3.7m`) without leaving the run manifest behind, `pnpm docs:i18n:check` stayed green, and the canonical root `pnpm build` completed green (`30 successful`, `27 cached`, `22.196s`).
 -   No open research thread remains for this residual-gap closure batch.
 
 ## 2026-04-07: Shared Common fail-closed closure remediation
 
--   Research outcome implemented: the reopened QA seams were real and narrow. The Common/shared scripting UI already constrained authoring correctly, but the backend still allowed illegal `general` or `library` scope transitions, the browser flow lacked the negative dependency scenarios, and the touched EN/RU docs did not yet describe the operator-facing fail-closed rules explicitly.
--   Implemented fix: `MetahubScriptsService` now enforces the `general/library` contract fail closed on create/update while preserving unchanged legacy out-of-scope rows, `EntityScriptsTab` prefers structured backend conflict messages, and the Common/shared Chromium flow now covers delete-in-use, codename-rename conflict, and circular `@shared/*` failures.
--   Closure validation: focused metahubs-backend service tests passed (`16/16`), focused metahubs-frontend scripts-tab tests passed (`10/10`), `metahub-shared-common.spec.ts` passed in Chromium (`4 passed`, `4.0m`), `pnpm run docs:i18n:check` completed without errors, and the canonical root `pnpm build` completed green (`30 successful`, `25 cached`, `1m12.288s`).
+-   Research outcome implemented: the reopened QA seams were real and narrow. The Common/shared modules UI already constrained authoring correctly, but the backend still allowed illegal `general` or `library` scope transitions, the browser flow lacked the negative dependency scenarios, and the touched EN/RU docs did not yet describe the operator-facing fail-closed rules explicitly.
+-   Implemented fix: `MetahubModulesService` now enforces the `general/library` contract fail closed on create/update, `EntityModulesTab` prefers structured backend conflict messages, and the Common/shared Chromium flow now covers delete-in-use, codename-rename conflict, and circular `@shared/*` failures.
+-   Closure validation: focused metahubs-backend service tests passed (`16/16`), focused metahubs-frontend modules-tab tests passed (`10/10`), `metahub-shared-common.spec.ts` passed in Chromium (`4 passed`, `4.0m`), `pnpm run docs:i18n:check` completed without errors, and the canonical root `pnpm build` completed green (`30 successful`, `25 cached`, `1m12.288s`).
 -   No open research thread remains for this remediation wave.
 
 ## 2026-04-07: Shared Common final closure
@@ -416,7 +416,7 @@
 ## 2026-04-07: Snapshot hash integrity and catalog layout docs closure
 
 -   Research outcome implemented: the reopened QA defect was a real integrity gap, not a false positive. The shared canonical publication snapshot hash/checksum path had not kept up with the current export surface.
--   Confirmed root cause: `normalizePublicationSnapshotForHash(...)` omitted `scripts`, `catalogLayouts`, and `catalogLayoutWidgetOverrides`, even though those sections already participate in snapshot export/import and application release lineage.
+-   Confirmed root cause: `normalizePublicationSnapshotForHash(...)` omitted `modules`, `catalogLayouts`, and `catalogLayoutWidgetOverrides`, even though those sections already participate in snapshot export/import and application release lineage.
 -   Implemented fix: the shared normalizer now includes those sections with deterministic ordering, focused `@universo/utils` regressions fail closed on hash drift and envelope tampering across the newly covered sections, and the EN/RU catalog-layout docs now describe inherited widgets as placement/visibility overlays with base-layout config inheritance.
 -   Closure validation: focused snapshot/hash tests passed (`22/22`), `pnpm --filter @universo/utils build` completed green, and the canonical root `pnpm build` finished green.
 -   No open research thread remains for this remediation wave.
@@ -424,8 +424,8 @@
 ## 2026-04-07: Self-hosted fixture regeneration and current structure baseline closure
 
 -   Research outcome implemented: the remaining self-hosted generator failure was split across two seams, not one export bug. The generator spec still expected `showDetailsTitle: false` to persist in Settings layout config, while the live contract keeps that behavior as a widget override.
--   Confirmed root cause: current public structure version `0.1.0` still mapped numeric version `1` to `SYSTEM_TABLES_V1`, so freshly created branch schemas omitted `_mhb_scripts` and publication creation failed during the generator flow.
--   Implemented fix: the generator assertion now follows sparse persisted layout semantics, and `SYSTEM_TABLE_VERSIONS` maps version `1` to `SYSTEM_TABLES`, restoring `_mhb_scripts` to fresh current-version branch schemas.
+-   Confirmed root cause: current public structure version `0.1.0` still mapped numeric version `1` to `SYSTEM_TABLES_V1`, so freshly created branch schemas omitted `_mhb_modules` and publication creation failed during the generator flow.
+-   Implemented fix: the generator assertion now follows sparse persisted layout semantics, and `SYSTEM_TABLE_VERSIONS` maps version `1` to `SYSTEM_TABLES`, restoring `_mhb_modules` to fresh current-version branch schemas.
 -   Closure validation: the browser self-hosted generator passed (`2 passed`, `4.7m`), the browser snapshot import/export flow passed (`5 passed`, `1.9m`), focused `systemTableDefinitions` backend tests passed (`27/27`), and the canonical root `pnpm build` finished green.
 -   No open research thread remains for this fixture/baseline wave.
 
@@ -459,43 +459,43 @@
 
 ## 2026-04-05: Frontend test warning remediation closure
 
--   Research outcome implemented: the remaining QA debt was not a product bug. The noisy MUI `anchorEl` warning came from jsdom layout validation for `Popover`/`Select` anchors inside scripting-related frontend tests.
+-   Research outcome implemented: the remaining QA debt was not a product bug. The noisy MUI `anchorEl` warning came from jsdom layout validation for `Popover`/`Select` anchors inside modules-related frontend tests.
 -   Implemented fix: the affected metahubs frontend tests now provide a stable non-zero `HTMLElement.prototype.getBoundingClientRect` mock while keeping the existing `user.click(...)` interaction path intact.
 -   Validation result: focused `@universo/metahubs-frontend` dialog/script tests passed (`9/9`), the warning string `anchorEl` no longer appeared in the captured test log, package lint no longer had error-level failures on the touched scope, and the final root `pnpm build` finished green.
 -   No open research thread remains for this remediation.
 
-## 2026-04-05: Metahub dialog settings and Scripts-tab responsiveness closure
+## 2026-04-05: Metahub dialog settings and Modules-tab responsiveness closure
 
--   Research outcome implemented: the narrow-dialog Scripts-tab regression was not a CRUD bug; the real failure was container-width geometry plus missing real-browser overflow assertions.
+-   Research outcome implemented: the narrow-dialog Modules-tab regression was not a CRUD bug; the real failure was container-width geometry plus missing real-browser overflow assertions.
 -   Implemented fix: metahub dialog behavior is now driven by shared settings and one template-mui presentation seam with preset sizing, fullscreen toggle, resize persistence, reset-to-default, and strict-modal close handling.
--   Implemented responsive fix: `EntityScriptsTab` now switches by `ResizeObserver` container width, collapses the attached-scripts list on narrow dialogs, and keeps horizontal overflow inside the editor shell only.
--   Closure validation: focused template-mui dialog tests passed, focused metahubs-frontend Scripts-tab tests passed, targeted Playwright dialog/settings flows passed, and the final root `pnpm build` finished green.
+-   Implemented responsive fix: `EntityModulesTab` now switches by `ResizeObserver` container width, collapses the attached-modules list on narrow dialogs, and keeps horizontal overflow inside the editor shell only.
+-   Closure validation: focused template-mui dialog tests passed, focused metahubs-frontend Modules-tab tests passed, targeted Playwright dialog/settings flows passed, and the final root `pnpm build` finished green.
 -   No open research thread remains for this wave.
 
 ## 2026-04-05: Quiz snapshot fixture export/import closure
 
--   Research outcome implemented: the newly requested durable quiz fixture could not safely ship on top of the existing import path because metahub export already serialized `snapshot.scripts`, but `SnapshotRestoreService` did not restore `_mhb_scripts` at all.
--   Implemented fix: metahub export now augments `snapshot.scripts` with live `sourceCode`, and snapshot restore now recreates `_mhb_scripts` with attachment-id remapping for entity- and attribute-scoped scripts.
--   Implemented durable fixture contract: `tools/testing/e2e/support/quizFixtureContract.ts` now owns the canonical quiz metahub identity, bilingual 10-question content, canonical widget script source, and fail-closed snapshot assertions.
--   Implemented durable proof: the generator `tools/testing/e2e/specs/generators/metahubs-quiz-app-export.spec.ts` rewrites `tools/fixtures/metahubs-quiz-app-snapshot.json`, and `tools/testing/e2e/specs/flows/snapshot-import-quiz-runtime.spec.ts` proves browser import, restored design-time script state, application creation from the imported publication, and the full EN/RU runtime quiz contract.
+-   Research outcome implemented: the newly requested durable quiz fixture could not safely ship on top of the existing import path because metahub export already serialized `snapshot.modules`, but `SnapshotRestoreService` did not restore `_mhb_modules` at all.
+-   Implemented fix: metahub export now augments `snapshot.modules` with live `sourceCode`, and snapshot restore now recreates `_mhb_modules` with attachment-id remapping for entity- and component-scoped modules.
+-   Implemented durable fixture contract: `tools/testing/e2e/support/quizFixtureContract.ts` now owns the canonical quiz metahub identity, bilingual 10-question content, canonical widget module source, and fail-closed snapshot assertions.
+-   Implemented durable proof: the generator `tools/testing/e2e/specs/generators/metahubs-quiz-app-export.spec.ts` rewrites `tools/fixtures/metahubs-quiz-app-snapshot.json`, and `tools/testing/e2e/specs/flows/snapshot-import-quiz-runtime.spec.ts` proves browser import, restored design-time module state, application creation from the imported publication, and the full EN/RU runtime quiz contract.
 -   Closure validation: focused metahubs-backend Jest passed, `pnpm run build:e2e` passed, the quiz generator passed with `2 passed`, the quiz import/runtime flow passed with `2 passed`, and the final root `pnpm build` finished green.
 -   No open research thread remains for the 2026-04-05 quiz snapshot fixture wave.
 
-## 2026-04-05: Scripting QA gap closure and final plan completion
+## 2026-04-05: Modules QA gap closure and final plan completion
 
--   Research outcome implemented: the previously identified scripting QA gaps are fully closed, and the final plan-completion wave is now the durable state for the 2026-04-05 scripting track.
--   Implemented proof: `@universo/scripting-engine` now carries reproducible benchmark evidence with recorded `coldStartMs 7.13`, `meanMs 1.596`, and `p95Ms 2.127`.
--   Implemented compatibility hardening: core-backend startup now validates `isolated-vm` / `--no-node-snapshot` compatibility explicitly, and legacy publication snapshots missing `snapshot.scripts` stay supported through direct regression coverage.
--   Implemented product proof: browser authoring now exposes `quizWidget` `scriptCodename`, the real browser-authored Playwright flow covers authoring -> publication -> application -> runtime smoke, the shared auth `419` retry defect is fixed, and untouched draft role switches now reapply widget defaults so `rpc.client` remains present.
--   Closure validation: focused auth-frontend Vitest passed, focused metahubs-frontend `EntityScriptsTab` coverage passed, the browser-authored Playwright flow passed with `2 passed`, and the final root `pnpm build` finished green with `30 successful`, `27 cached`, and `3m54.625s`.
--   No open research thread remains for the 2026-04-05 scripting wave.
+-   Research outcome implemented: the previously identified modules QA gaps are fully closed, and the final plan-completion wave is now the durable state for the 2026-04-05 modules track.
+-   Implemented proof: `@universo/modules-engine` now carries reproducible benchmark evidence with recorded `coldStartMs 7.13`, `meanMs 1.596`, and `p95Ms 2.127`.
+-   Implemented compatibility hardening: core-backend startup now validates `isolated-vm` / `--no-node-snapshot` compatibility explicitly. The 2026-05-25 rename intentionally removes legacy `snapshot.scripts` compatibility because the alpha database is recreated.
+-   Implemented product proof: browser authoring now exposes `quizWidget` `moduleCodename`, the real browser-authored Playwright flow covers authoring -> publication -> application -> runtime smoke, the shared auth `419` retry defect is fixed, and untouched draft role switches now reapply widget defaults so `rpc.client` remains present.
+-   Closure validation: focused auth-frontend Vitest passed, focused metahubs-frontend `EntityModulesTab` coverage passed, the browser-authored Playwright flow passed with `2 passed`, and the final root `pnpm build` finished green with `30 successful`, `27 cached`, and `3m54.625s`.
+-   No open research thread remains for the 2026-04-05 modules wave.
 
-## 2026-04-05: Scripting hardening closure follow-up
+## 2026-04-05: Modules hardening closure follow-up
 
--   Research outcome implemented: the compiler was still acting like a general esbuild entrypoint. Embedded script compilation now enforces an explicit SDK-only boundary by rejecting unsupported static imports plus `require()`, dynamic `import()`, and `import.meta` before bundling.
--   Research outcome implemented: browser client scripts were still inheriting too much of the ambient Worker environment. The worker runtime now keeps its bridge internals on private host aliases and disables ambient network, nested-worker, storage, and dynamic-code globals before loading the client bundle.
+-   Research outcome implemented: the compiler was still acting like a general esbuild entrypoint. Embedded module compilation now enforces an explicit SDK-only boundary by rejecting unsupported static imports plus `require()`, dynamic `import()`, and `import.meta` before bundling.
+-   Research outcome implemented: browser client modules were still inheriting too much of the ambient Worker environment. The worker runtime now keeps its bridge internals on private host aliases and disables ambient network, nested-worker, storage, and dynamic-code globals before loading the client bundle.
 -   Hidden defect found and fixed during the same pass: the isolated-vm bootstrap source used strict-mode-invalid `const eval = undefined` code. Runtime tests now parse generated bootstrap source so the same issue fails loudly.
--   No open research thread remains for this scripting hardening closure wave.
+-   No open research thread remains for this modules hardening closure wave.
 
 ## 2026-04-06: Codename JSONB/VLC contract re-audit
 

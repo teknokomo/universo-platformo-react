@@ -14,17 +14,17 @@ The LMS configuration starts from the `lms` metahub template
 Active presets in the LMS template are the same five as the `basic`
 template:
 
-- **Hub** — top-level grouping (for example, a `Learning` hub that
-  contains LMS domain objects).
-- **Object** — courses, lessons, learning tracks, enrollments,
-  submissions, progress records, **and the ledger-style entities**.
-- **Page** — Editor.js-authored content (lesson bodies, course overviews,
-  knowledge-base pages).
-- **Set** — global LMS settings (passing thresholds, quiz defaults, retry
-  limits where they live in the configuration rather than per
-  deployment).
-- **Enumeration** — closed lists (lesson kind, question kind, status
-  codes, role enumerations).
+-   **Hub** — top-level grouping (for example, a `Learning` hub that
+    contains LMS domain objects).
+-   **Object** — courses, lessons, learning tracks, enrollments,
+    submissions, progress records, **and the ledger-style entities**.
+-   **Page** — Editor.js-authored content (lesson bodies, course overviews,
+    knowledge-base pages).
+-   **Set** — global LMS settings (passing thresholds, quiz defaults, retry
+    limits where they live in the configuration rather than per
+    deployment).
+-   **Enumeration** — closed lists (lesson kind, question kind, status
+    codes, role enumerations).
 
 The LMS template does **not** include a separate `Ledger` preset. The
 register-style behavior is implemented as Object with `config.ledger`
@@ -32,24 +32,24 @@ register-style behavior is implemented as Object with `config.ledger`
 
 Plus the cross-cutting capabilities:
 
-- **Attached scripts** — for grading logic, validation, derived progress
-  numbers, automated transitions.
-- **Workspaces** — for actual courses and student data inside the
-  published LMS application.
+-   **Attached modules** — for grading logic, validation, derived progress
+    numbers, automated transitions.
+-   **Workspaces** — for actual courses and student data inside the
+    published LMS application.
 
 ## Ledger-Style Entities In LMS
 
 The LMS template demonstrates the strengthen-existing-preset rule. Every
 ledger-style entity in the LMS is `kind: 'object'` with `config.ledger`:
 
-| LMS entity | Codename | Ledger mode |
-|---|---|---|
+| LMS entity               | Codename                 | Ledger mode            |
+| ------------------------ | ------------------------ | ---------------------- |
 | Learning Activity Ledger | `LearningActivityLedger` | `balance`, append-only |
-| Enrollment Ledger | `EnrollmentLedger` | `balance`, append-only |
-| Attendance Ledger | `AttendanceLedger` | `balance`, append-only |
-| Certificate Ledger | `CertificateLedger` | `balance`, append-only |
-| Points Ledger | `PointsLedger` | `balance`, append-only |
-| Notification Ledger | `NotificationLedger` | `balance`, append-only |
+| Enrollment Ledger        | `EnrollmentLedger`       | `balance`, append-only |
+| Attendance Ledger        | `AttendanceLedger`       | `balance`, append-only |
+| Certificate Ledger       | `CertificateLedger`      | `balance`, append-only |
+| Points Ledger            | `PointsLedger`           | `balance`, append-only |
+| Notification Ledger      | `NotificationLedger`     | `balance`, append-only |
 
 These all use Object's `posting` and `ledgerSchema` capabilities. They are
 not separate `kind: 'ledger'` entities. A brief that proposes a new
@@ -59,20 +59,20 @@ template.
 
 ## Layer Placement For LMS
 
-| LMS concern | Layer | Rationale |
-|---|---|---|
-| Course type definitions, lesson type definitions | Metahub | Ship with every deployment of the LMS |
-| Default quiz question types and their UI | Metahub | Configuration-wide |
-| Attached grading scripts (default) | Metahub | Default behavior of the configuration |
-| Default seeded course (used as template / demo) | Metahub | Ships with the configuration |
-| Ledger-style Object definitions and capabilities | Metahub | Configuration contract, not runtime data |
-| LMS branding (name, logo) | Application control panel | Varies per deployment |
-| Feature flags (for example, enable/disable AI assist, messaging) | Application control panel | Per-deployment toggle |
-| Default role on join for this deployment | Application control panel | Per-deployment |
-| Real courses authored by instructors | Workspace | Created by users |
-| Real quizzes, lessons, learning tracks created at runtime | Workspace | User-authored content |
-| Student enrollments, submissions, progress | Workspace | Runtime data |
-| Posted ledger facts (rows in `LearningActivityLedger`, etc.) | Workspace | Runtime data |
+| LMS concern                                                      | Layer                     | Rationale                                |
+| ---------------------------------------------------------------- | ------------------------- | ---------------------------------------- |
+| Course type definitions, lesson type definitions                 | Metahub                   | Ship with every deployment of the LMS    |
+| Default quiz question types and their UI                         | Metahub                   | Configuration-wide                       |
+| Attached grading modules (default)                               | Metahub                   | Default behavior of the configuration    |
+| Default seeded course (used as template / demo)                  | Metahub                   | Ships with the configuration             |
+| Ledger-style Object definitions and capabilities                 | Metahub                   | Configuration contract, not runtime data |
+| LMS branding (name, logo)                                        | Application control panel | Varies per deployment                    |
+| Feature flags (for example, enable/disable AI assist, messaging) | Application control panel | Per-deployment toggle                    |
+| Default role on join for this deployment                         | Application control panel | Per-deployment                           |
+| Real courses authored by instructors                             | Workspace                 | Created by users                         |
+| Real quizzes, lessons, learning tracks created at runtime        | Workspace                 | User-authored content                    |
+| Student enrollments, submissions, progress                       | Workspace                 | Runtime data                             |
+| Posted ledger facts (rows in `LearningActivityLedger`, etc.)     | Workspace                 | Runtime data                             |
 
 ## Reference System
 
@@ -82,9 +82,9 @@ Tracks, and other Learning Content sub-areas.
 
 The benchmark does not extend (in current scope) to:
 
-- File and SCORM/xAPI import (deferred);
-- AI generation (deferred);
-- Internal messaging (deferred).
+-   File and SCORM/xAPI import (deferred);
+-   AI generation (deferred);
+-   Internal messaging (deferred).
 
 A brief that scopes a particular LMS slice should reference iSpring docs
 in its **Reference Material** section, not duplicate the iSpring feature
@@ -95,9 +95,9 @@ list inline.
 LMS-specific labels, icons, and logic must compose from the generic
 primitives in:
 
-- `packages/apps-template-mui` — dashboards, data grids, cards, form
-  dialogs;
-- `packages/universo-template-mui` — shared template components.
+-   `packages/apps-template-mui` — dashboards, data grids, cards, form
+    dialogs;
+-   `packages/universo-template-mui` — shared template components.
 
 LMS naming, copy, and icons live in metadata or i18n resources, not in
 widget code. Before proposing an LMS-only widget, verify the existing

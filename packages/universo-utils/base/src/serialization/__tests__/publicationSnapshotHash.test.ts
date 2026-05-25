@@ -96,23 +96,23 @@ describe('normalizePublicationSnapshotForHash', () => {
                     }
                 }
             },
-            scripts: [
+            modules: [
                 {
-                    id: 'script-2',
+                    id: 'module-2',
                     codename: createCodenameVlc('zeta', 'зета'),
                     presentation: { name: { en: 'Zeta' } },
                     attachedToKind: 'metahub',
                     attachedToId: null,
-                    moduleRole: 'shared',
+                    moduleRole: 'widget',
                     sourceKind: 'embedded',
                     sdkApiVersion: '1.0.0',
                     sourceCode: 'export const z = 2',
                     manifest: {
                         className: 'ZetaModule',
                         sdkApiVersion: '1.0.0',
-                        moduleRole: 'shared',
+                        moduleRole: 'widget',
                         sourceKind: 'embedded',
-                        capabilities: ['rpc.server', 'rpc.client'],
+                        capabilities: ['metadata.read', 'rpc.client'],
                         methods: [
                             { name: 'zMethod', target: 'server' },
                             { name: 'aMethod', target: 'client' }
@@ -126,21 +126,21 @@ describe('normalizePublicationSnapshotForHash', () => {
                     config: { scope: 'global' }
                 },
                 {
-                    id: 'script-1',
+                    id: 'module-1',
                     codename: createCodenameVlc('alpha', 'альфа'),
                     presentation: { name: { en: 'Alpha' } },
                     attachedToKind: 'metahub',
                     attachedToId: null,
-                    moduleRole: 'shared',
+                    moduleRole: 'widget',
                     sourceKind: 'embedded',
                     sdkApiVersion: '1.0.0',
                     sourceCode: 'export const a = 1',
                     manifest: {
                         className: 'AlphaModule',
                         sdkApiVersion: '1.0.0',
-                        moduleRole: 'shared',
+                        moduleRole: 'widget',
                         sourceKind: 'embedded',
-                        capabilities: ['rpc.server', 'rpc.client'],
+                        capabilities: ['metadata.read', 'rpc.client'],
                         methods: [
                             { name: 'onArchive', target: 'server', eventName: 'archive' },
                             { name: 'publish', target: 'server' }
@@ -306,17 +306,17 @@ describe('normalizePublicationSnapshotForHash', () => {
                 ]
             })
         ])
-        expect(normalized.scripts).toEqual([
+        expect(normalized.modules).toEqual([
             expect.objectContaining({
-                id: 'script-1',
+                id: 'module-1',
                 codename: createCodenameVlc('alpha', 'альфа'),
                 isActive: false,
                 manifest: {
                     className: 'AlphaModule',
                     sdkApiVersion: '1.0.0',
-                    moduleRole: 'shared',
+                    moduleRole: 'widget',
                     sourceKind: 'embedded',
-                    capabilities: ['rpc.client', 'rpc.server'],
+                    capabilities: ['metadata.read', 'rpc.client'],
                     methods: [
                         { name: 'publish', target: 'server', eventName: null },
                         { name: 'onArchive', target: 'server', eventName: 'archive' }
@@ -325,15 +325,15 @@ describe('normalizePublicationSnapshotForHash', () => {
                 }
             }),
             expect.objectContaining({
-                id: 'script-2',
+                id: 'module-2',
                 codename: createCodenameVlc('zeta', 'зета'),
                 isActive: true,
                 manifest: {
                     className: 'ZetaModule',
                     sdkApiVersion: '1.0.0',
-                    moduleRole: 'shared',
+                    moduleRole: 'widget',
                     sourceKind: 'embedded',
-                    capabilities: ['rpc.client', 'rpc.server'],
+                    capabilities: ['metadata.read', 'rpc.client'],
                     methods: [
                         { name: 'aMethod', target: 'client', eventName: null },
                         { name: 'zMethod', target: 'server', eventName: null }

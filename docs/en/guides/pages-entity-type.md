@@ -12,11 +12,11 @@ Pages are a special entity type that stores content as structured blocks rather 
 
 ## Key Features
 
-- **Rich Content Editing**: Built-in Editor.js integration for intuitive block-based editing
-- **Structured Blocks**: Content is stored as semantic blocks (paragraph, header, list, etc.)
-- **Multilingual Support**: Create content in multiple locales with locale-specific variants
-- **Safe Content**: Backend validates and normalizes all content before persistence
-- **Runtime Rendering**: Published applications render Pages without bundling Editor.js
+-   **Rich Content Editing**: Built-in Editor.js integration for intuitive block-based editing
+-   **Structured Blocks**: Content is stored as semantic blocks (paragraph, header, list, etc.)
+-   **Multilingual Support**: Create content in multiple locales with locale-specific variants
+-   **Safe Content**: Backend validates and normalizes all content before persistence
+-   **Runtime Rendering**: Published applications render Pages without bundling Editor.js
 
 ## Creating a Page
 
@@ -38,25 +38,25 @@ Pages use the Editor.js block editor for content authoring:
 3. Use the block editor to add and arrange content blocks
 
 ![Entity Workspace](../.gitbook/assets/entities/entities-workspace.png)
-*Entity workspace showing all entity types including Pages*
+_Entity workspace showing all entity types including Pages_
 
 ### Supported Block Types
 
 The platform supports the following Editor.js block types:
 
-| Block Type | Purpose | Example Use |
-|------------|---------|-------------|
-| **Paragraph** | Regular text content | Body text, descriptions |
-| **Header** | Section headings (H1-H6) | Page titles, section headers |
-| **List** | Ordered or unordered lists | Feature lists, steps, bullet points |
-| **Quote** | Blockquotes | Citations, highlighted text |
-| **Code** | Code snippets | Technical examples, configuration |
-| **Delimiter** | Visual separator | Section breaks |
-| **Warning** | Alert boxes | Important notices, warnings |
-| **Checklist** | Interactive checkboxes | Task lists, requirements |
-| **Table** | Data tables | Structured data, comparisons |
-| **Link Tool** | Rich link previews | External references |
-| **Image** | Embedded images | Screenshots, diagrams, photos |
+| Block Type    | Purpose                    | Example Use                         |
+| ------------- | -------------------------- | ----------------------------------- |
+| **Paragraph** | Regular text content       | Body text, descriptions             |
+| **Header**    | Section headings (H1-H6)   | Page titles, section headers        |
+| **List**      | Ordered or unordered lists | Feature lists, steps, bullet points |
+| **Quote**     | Blockquotes                | Citations, highlighted text         |
+| **Code**      | Code snippets              | Technical examples, configuration   |
+| **Delimiter** | Visual separator           | Section breaks                      |
+| **Warning**   | Alert boxes                | Important notices, warnings         |
+| **Checklist** | Interactive checkboxes     | Task lists, requirements            |
+| **Table**     | Data tables                | Structured data, comparisons        |
+| **Link Tool** | Rich link previews         | External references                 |
+| **Image**     | Embedded images            | Screenshots, diagrams, photos       |
 
 ### Adding Blocks
 
@@ -69,9 +69,9 @@ The platform supports the following Editor.js block types:
 
 Each block supports:
 
-- **Move**: Drag the handle (⋮⋮) to reorder
-- **Delete**: Click the delete icon
-- **Settings**: Click the settings icon for block-specific options
+-   **Move**: Drag the handle (⋮⋮) to reorder
+-   **Delete**: Click the delete icon
+-   **Settings**: Click the settings icon for block-specific options
 
 ## Multilingual Content
 
@@ -90,10 +90,10 @@ Use the locale tabs at the top of the content editor to switch between language 
 
 ### Locale Management
 
-- **Primary Locale**: Usually English (en), serves as the default
-- **Additional Locales**: Add as many locales as needed
-- **Independent Content**: Each locale has completely separate content
-- **Fallback Behavior**: Runtime applications fall back to primary locale if requested locale is missing
+-   **Primary Locale**: Usually English (en), serves as the default
+-   **Additional Locales**: Add as many locales as needed
+-   **Independent Content**: Each locale has completely separate content
+-   **Fallback Behavior**: Runtime applications fall back to primary locale if requested locale is missing
 
 ## Content Validation
 
@@ -101,19 +101,19 @@ The backend validates all Page content before saving:
 
 ### Safety Checks
 
-- **Block Type Validation**: Only supported block types are accepted
-- **Content Sanitization**: HTML and scripts are stripped from text content
-- **URL Validation**: External URLs are validated for safety
-- **Structure Validation**: Block structure must match expected schema
+-   **Block Type Validation**: Only supported block types are accepted
+-   **Content Sanitization**: HTML and modules are stripped from text content
+-   **URL Validation**: External URLs are validated for safety
+-   **Structure Validation**: Block structure must match expected schema
 
 ### Validation Errors
 
 If validation fails, you'll see an error message describing the issue:
 
-- **Unsupported Block**: The block type is not allowed
-- **Invalid Content**: Content contains unsafe elements
-- **Invalid URL**: A URL failed validation
-- **Structure Error**: Block structure is malformed
+-   **Unsupported Block**: The block type is not allowed
+-   **Invalid Content**: Content contains unsafe elements
+-   **Invalid URL**: A URL failed validation
+-   **Structure Error**: Block structure is malformed
 
 ## Use Cases
 
@@ -121,37 +121,37 @@ If validation fails, you'll see an error message describing the issue:
 
 Pages are used in the LMS template for the **LearnerHome** entity:
 
-- Welcome messages
-- Course overviews
-- Learning objectives
-- Resource links
+-   Welcome messages
+-   Course overviews
+-   Learning objectives
+-   Resource links
 
 ### Documentation
 
 Create structured documentation with:
 
-- Headers for organization
-- Code blocks for examples
-- Lists for steps
-- Tables for reference data
+-   Headers for organization
+-   Code blocks for examples
+-   Lists for steps
+-   Tables for reference data
 
 ### Landing Pages
 
 Build informational pages with:
 
-- Rich text content
-- Images and media
-- Call-to-action sections
-- Feature highlights
+-   Rich text content
+-   Images and media
+-   Call-to-action sections
+-   Feature highlights
 
 ### Content Management
 
 Use Pages for:
 
-- Help articles
-- FAQ sections
-- Policy documents
-- Announcements
+-   Help articles
+-   FAQ sections
+-   Policy documents
+-   Announcements
 
 ## Runtime Behavior
 
@@ -166,36 +166,36 @@ When a Metahub is published:
 
 ### Performance
 
-- **Lightweight Rendering**: Runtime uses optimized block renderers
-- **No Editor Overhead**: Editor.js is only loaded in design-time
-- **Efficient Storage**: Content is stored as normalized JSON
+-   **Lightweight Rendering**: Runtime uses optimized block renderers
+-   **No Editor Overhead**: Editor.js is only loaded in design-time
+-   **Efficient Storage**: Content is stored as normalized JSON
 
 ## Best Practices
 
 ### Content Organization
 
-- **Use Headers**: Structure content with clear section headers
-- **Keep Blocks Focused**: Each block should have a single purpose
-- **Leverage Lists**: Use lists for scannable content
-- **Add Visual Breaks**: Use delimiters to separate major sections
+-   **Use Headers**: Structure content with clear section headers
+-   **Keep Blocks Focused**: Each block should have a single purpose
+-   **Leverage Lists**: Use lists for scannable content
+-   **Add Visual Breaks**: Use delimiters to separate major sections
 
 ### Multilingual Content
 
-- **Author Primary First**: Complete primary locale before adding translations
-- **Maintain Parity**: Keep structure consistent across locales
-- **Test All Locales**: Verify content renders correctly in each locale
+-   **Author Primary First**: Complete primary locale before adding translations
+-   **Maintain Parity**: Keep structure consistent across locales
+-   **Test All Locales**: Verify content renders correctly in each locale
 
 ### Content Safety
 
-- **Avoid Inline HTML**: Use supported block types instead
-- **Validate URLs**: Ensure external links are safe and accessible
-- **Test Before Publishing**: Preview content before creating publications
+-   **Avoid Inline HTML**: Use supported block types instead
+-   **Validate URLs**: Ensure external links are safe and accessible
+-   **Test Before Publishing**: Preview content before creating publications
 
 ### Performance
 
-- **Optimize Images**: Compress images before embedding
-- **Limit Block Count**: Very long Pages may impact performance
-- **Use Pagination**: For long content, consider splitting into multiple Pages
+-   **Optimize Images**: Compress images before embedding
+-   **Limit Block Count**: Very long Pages may impact performance
+-   **Use Pagination**: For long content, consider splitting into multiple Pages
 
 ## Technical Details
 
@@ -205,18 +205,18 @@ Page content is stored as normalized JSON in the `_mhb_entities` table:
 
 ```json
 {
-  "content": {
-    "en": {
-      "blocks": [
-        {
-          "type": "paragraph",
-          "data": {
-            "text": "Welcome to our platform."
-          }
+    "content": {
+        "en": {
+            "blocks": [
+                {
+                    "type": "paragraph",
+                    "data": {
+                        "text": "Welcome to our platform."
+                    }
+                }
+            ]
         }
-      ]
     }
-  }
 }
 ```
 
@@ -224,9 +224,9 @@ Page content is stored as normalized JSON in the `_mhb_entities` table:
 
 The platform uses:
 
-- **Component**: `EditorJsBlockEditor` from `@universo/template-mui`
-- **Backend Validation**: `PageBlockContentSchema` from `@universo/types`
-- **Runtime Rendering**: Generic block renderers in `@universo/apps-template-mui`
+-   **Component**: `EditorJsBlockEditor` from `@universo/template-mui`
+-   **Backend Validation**: `PageBlockContentSchema` from `@universo/types`
+-   **Runtime Rendering**: Generic block renderers in `@universo/apps-template-mui`
 
 ### Capabilities
 
@@ -243,10 +243,10 @@ capabilities: {
 
 ## Related Documentation
 
-- [LMS Entities Architecture](../architecture/lms-entities.md) - Technical details on Pages in LMS
-- [Entity Systems Architecture](../architecture/entity-systems.md) - Entity type system overview
-- [Custom Entity Types](custom-entity-types.md) - Creating custom entity types
-- [Metahub Scripting](metahub-scripting.md) - Adding scripts to Pages
+-   [LMS Entities Architecture](../architecture/lms-entities.md) - Technical details on Pages in LMS
+-   [Entity Systems Architecture](../architecture/entity-systems.md) - Entity type system overview
+-   [Custom Entity Types](custom-entity-types.md) - Creating custom entity types
+-   [Metahub Modules](metahub-modules.md) - Adding modules to Pages
 
 ## Troubleshooting
 
@@ -255,36 +255,40 @@ capabilities: {
 **Problem**: Changes to Page content are not persisted.
 
 **Solutions**:
-- Check for validation errors in the editor
-- Verify you have edit permissions on the Metahub
-- Ensure the Page entity is not locked
+
+-   Check for validation errors in the editor
+-   Verify you have edit permissions on the Metahub
+-   Ensure the Page entity is not locked
 
 ### Blocks Not Rendering
 
 **Problem**: Some blocks don't appear in published applications.
 
 **Solutions**:
-- Verify the block type is supported
-- Check that content was synced to the application
-- Ensure the runtime has the latest schema
+
+-   Verify the block type is supported
+-   Check that content was synced to the application
+-   Ensure the runtime has the latest schema
 
 ### Locale Not Showing
 
 **Problem**: Content in a specific locale is not visible.
 
 **Solutions**:
-- Verify the locale was added to the Page
-- Check that content was authored for that locale
-- Ensure the application supports the requested locale
+
+-   Verify the locale was added to the Page
+-   Check that content was authored for that locale
+-   Ensure the application supports the requested locale
 
 ### Editor Loading Issues
 
 **Problem**: The Editor.js interface doesn't load.
 
 **Solutions**:
-- Check browser console for JavaScript errors
-- Verify Editor.js dependencies are installed
-- Clear browser cache and reload
+
+-   Check browser console for JavaScript errors
+-   Verify Editor.js dependencies are installed
+-   Clear browser cache and reload
 
 ## Summary
 

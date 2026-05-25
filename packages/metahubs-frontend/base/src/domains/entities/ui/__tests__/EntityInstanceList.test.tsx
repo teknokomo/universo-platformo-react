@@ -437,11 +437,11 @@ vi.mock('../../../layouts/ui/LayoutList', () => ({
     default: () => <div>LayoutList</div>
 }))
 
-vi.mock('../../../scripts/ui/EntityScriptsTab', () => ({
-    createScriptsTab: () => ({
-        id: 'scripts',
-        label: 'Scripts',
-        content: <div>EntityScriptsTab</div>
+vi.mock('../../../modules/ui/EntityModulesTab', () => ({
+    createModulesTab: () => ({
+        id: 'modules',
+        label: 'Modules',
+        content: <div>EntityModulesTab</div>
     })
 }))
 
@@ -567,7 +567,7 @@ describe('EntityInstanceList', () => {
                         codename: makeVlc('CustomProduct'),
                         ui: {
                             iconName: 'IconBox',
-                            tabs: ['general', 'treeEntities', 'layout', 'scripts'],
+                            tabs: ['general', 'treeEntities', 'layout', 'modules'],
                             sidebarSection: 'objects',
                             nameKey: 'Products'
                         },
@@ -575,7 +575,7 @@ describe('EntityInstanceList', () => {
                             dataSchema: { enabled: true },
                             treeAssignment: { enabled: true },
                             layoutConfig: { enabled: true },
-                            scripting: { enabled: true },
+                            modules: { enabled: true },
                             actions: { enabled: true },
                             events: { enabled: true }
                         }
@@ -654,7 +654,7 @@ describe('EntityInstanceList', () => {
             </MemoryRouter>
         )
 
-        expect(screen.queryByText(/Scripts remain unavailable/i)).not.toBeInTheDocument()
+        expect(screen.queryByText(/Modules remain unavailable/i)).not.toBeInTheDocument()
 
         await user.click(screen.getByRole('button', { name: 'Create entity' }))
 
@@ -662,7 +662,7 @@ describe('EntityInstanceList', () => {
         expect(screen.getAllByText('Containers').length).toBeGreaterThan(0)
         expect(screen.queryByText('Components')).not.toBeInTheDocument()
         expect(screen.queryByText('Layouts')).not.toBeInTheDocument()
-        expect(screen.queryByText('Scripts')).not.toBeInTheDocument()
+        expect(screen.queryByText('Modules')).not.toBeInTheDocument()
         expect(screen.queryByText('Actions')).not.toBeInTheDocument()
         expect(screen.queryByText('Events')).not.toBeInTheDocument()
 
@@ -671,7 +671,7 @@ describe('EntityInstanceList', () => {
 
         expect(screen.getByText('Components')).toBeInTheDocument()
         expect(screen.getByText('Layouts')).toBeInTheDocument()
-        expect(screen.getByText('Scripts')).toBeInTheDocument()
+        expect(screen.getByText('Modules')).toBeInTheDocument()
         expect(screen.getByText('Actions')).toBeInTheDocument()
         expect(screen.getByText('Events')).toBeInTheDocument()
     })
@@ -686,7 +686,7 @@ describe('EntityInstanceList', () => {
                         codename: makeVlc('CustomDocument'),
                         ui: {
                             iconName: 'IconFileInvoice',
-                            tabs: ['general', 'behavior', 'scripts'],
+                            tabs: ['general', 'behavior', 'modules'],
                             sidebarSection: 'objects',
                             nameKey: 'Documents'
                         },
@@ -695,7 +695,7 @@ describe('EntityInstanceList', () => {
                             identityFields: { enabled: true, allowNumber: true, allowEffectiveDate: true },
                             recordLifecycle: { enabled: true, allowCustomStates: true },
                             posting: { enabled: true, allowManualPosting: true, allowAutomaticPosting: true },
-                            scripting: { enabled: true },
+                            modules: { enabled: true },
                             dataSchema: { enabled: true },
                             physicalTable: { enabled: true }
                         }
@@ -734,7 +734,7 @@ describe('EntityInstanceList', () => {
                     posting: {
                         mode: 'manual',
                         targetLedgers: ['ProgressLedger'],
-                        scriptCodename: 'EnrollmentPostingScript'
+                        moduleCodename: 'EnrollmentPostingModule'
                     },
                     immutability: 'posted'
                 },
@@ -791,7 +791,7 @@ describe('EntityInstanceList', () => {
                             posting: expect.objectContaining({
                                 mode: 'manual',
                                 targetLedgers: ['ProgressLedger'],
-                                scriptCodename: 'EnrollmentPostingScript'
+                                moduleCodename: 'EnrollmentPostingModule'
                             }),
                             immutability: 'posted'
                         })
@@ -897,7 +897,7 @@ describe('EntityInstanceList', () => {
                         codename: makeVlc('Ledger'),
                         ui: {
                             iconName: 'IconDatabase',
-                            tabs: ['general', 'hubs', 'layout', 'scripts'],
+                            tabs: ['general', 'hubs', 'layout', 'modules'],
                             sidebarSection: 'objects',
                             nameKey: 'metahubs:ledgers.title',
                             resourceSurfaces: [
@@ -913,7 +913,7 @@ describe('EntityInstanceList', () => {
                             dataSchema: { enabled: true },
                             treeAssignment: { enabled: true },
                             layoutConfig: { enabled: true },
-                            scripting: { enabled: true }
+                            modules: { enabled: true }
                         },
                         config: {}
                     }
@@ -970,7 +970,7 @@ describe('EntityInstanceList', () => {
                         codename: makeVlc('Ledger'),
                         ui: {
                             iconName: 'IconDatabase',
-                            tabs: ['general', 'hubs', 'layout', 'scripts'],
+                            tabs: ['general', 'hubs', 'layout', 'modules'],
                             sidebarSection: 'objects',
                             nameKey: 'metahubs:ledgers.title',
                             resourceSurfaces: [
@@ -986,7 +986,7 @@ describe('EntityInstanceList', () => {
                             dataSchema: { enabled: true },
                             treeAssignment: { enabled: true },
                             layoutConfig: { enabled: true },
-                            scripting: { enabled: true }
+                            modules: { enabled: true }
                         },
                         config: {}
                     }
@@ -1144,7 +1144,7 @@ describe('EntityInstanceList', () => {
                         codename: makeVlc('Page'),
                         ui: {
                             iconName: 'IconFileText',
-                            tabs: ['general', 'hubs', 'content', 'layout', 'scripts'],
+                            tabs: ['general', 'hubs', 'content', 'layout', 'modules'],
                             sidebarSection: 'objects',
                             nameKey: 'metahubs:pages.title'
                         },
@@ -1160,7 +1160,7 @@ describe('EntityInstanceList', () => {
                             blockContent: { enabled: true },
                             treeAssignment: { enabled: true },
                             layoutConfig: { enabled: true },
-                            scripting: { enabled: true }
+                            modules: { enabled: true }
                         },
                         config: {}
                     }
@@ -1233,7 +1233,7 @@ describe('EntityInstanceList', () => {
                         codename: makeVlc('Page'),
                         ui: {
                             iconName: 'IconFileText',
-                            tabs: ['general', 'hubs', 'content', 'layout', 'scripts'],
+                            tabs: ['general', 'hubs', 'content', 'layout', 'modules'],
                             sidebarSection: 'objects',
                             nameKey: 'metahubs:pages.title'
                         },
@@ -1283,7 +1283,7 @@ describe('EntityInstanceList', () => {
                         codename: makeVlc('Page'),
                         ui: {
                             iconName: 'IconFileText',
-                            tabs: ['general', 'hubs', 'content', 'layout', 'scripts'],
+                            tabs: ['general', 'hubs', 'content', 'layout', 'modules'],
                             sidebarSection: 'objects',
                             nameKey: 'metahubs:pages.title'
                         },
@@ -1291,7 +1291,7 @@ describe('EntityInstanceList', () => {
                             blockContent: { enabled: true },
                             treeAssignment: { enabled: true },
                             layoutConfig: { enabled: true },
-                            scripting: { enabled: true }
+                            modules: { enabled: true }
                         },
                         config: {}
                     }
@@ -1379,14 +1379,14 @@ describe('EntityInstanceList', () => {
                         codename: makeVlc('Page'),
                         ui: {
                             iconName: 'IconFileText',
-                            tabs: ['general', 'content', 'layout', 'scripts'],
+                            tabs: ['general', 'content', 'layout', 'modules'],
                             sidebarSection: 'objects',
                             nameKey: 'metahubs:pages.title'
                         },
                         capabilities: {
                             blockContent: { enabled: true },
                             layoutConfig: { enabled: true },
-                            scripting: { enabled: true }
+                            modules: { enabled: true }
                         },
                         config: {}
                     }
@@ -1457,13 +1457,13 @@ describe('EntityInstanceList', () => {
                         codename: makeVlc('ObjectCollectionEntity'),
                         ui: {
                             iconName: 'IconBox',
-                            tabs: ['general', 'treeEntities', 'layout', 'scripts'],
+                            tabs: ['general', 'treeEntities', 'layout', 'modules'],
                             sidebarSection: 'objects',
                             nameKey: 'metahubs:objects.title'
                         },
                         capabilities: {
                             dataSchema: { enabled: true },
-                            scripting: { enabled: true }
+                            modules: { enabled: true }
                         },
                         config: {}
                     }
@@ -1601,7 +1601,7 @@ describe('EntityInstanceList', () => {
                         codename: makeVlc('ObjectCollectionEntity'),
                         ui: {
                             iconName: 'IconBox',
-                            tabs: ['general', 'treeEntities', 'layout', 'scripts'],
+                            tabs: ['general', 'treeEntities', 'layout', 'modules'],
                             sidebarSection: 'objects',
                             nameKey: 'metahubs:objects.title'
                         },
@@ -1609,7 +1609,7 @@ describe('EntityInstanceList', () => {
                             dataSchema: { enabled: true },
                             treeAssignment: { enabled: true },
                             layoutConfig: { enabled: true },
-                            scripting: { enabled: true }
+                            modules: { enabled: true }
                         },
                         config: {}
                     }

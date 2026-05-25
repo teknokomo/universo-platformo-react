@@ -88,7 +88,7 @@ describe('Metahubs page action factories', () => {
         expect(del?.dialog || del?.onSelect).toBeTruthy()
     }, 30000)
 
-    it('Metahub edit dialog opens the scripts tab in metahub-level scope', async () => {
+    it('Metahub edit dialog opens the modules tab in metahub-level scope', async () => {
         const mod = await import('../MetahubActions')
 
         const descriptors = asDialogDescriptors(mod.default)
@@ -103,12 +103,12 @@ describe('Metahubs page action factories', () => {
         })
 
         const tabs = props.tabs({ values: {}, setValue: vi.fn(), isLoading: false, errors: {} })
-        const scriptsTab = tabs.find((tab: any) => tab.id === 'scripts')
+        const modulesTab = tabs.find((tab: any) => tab.id === 'modules')
 
-        expect(scriptsTab).toBeTruthy()
-        expect(scriptsTab.content.props.metahubId).toBe('metahub-1')
-        expect(scriptsTab.content.props.attachedToKind).toBe('metahub')
-        expect(scriptsTab.content.props.attachedToId).toBeNull()
+        expect(modulesTab).toBeTruthy()
+        expect(modulesTab.content.props.metahubId).toBe('metahub-1')
+        expect(modulesTab.content.props.attachedToKind).toBe('metahub')
+        expect(modulesTab.content.props.attachedToId).toBeNull()
     })
 
     it('Metahub dialog guards tolerate uninitialized form values', async () => {

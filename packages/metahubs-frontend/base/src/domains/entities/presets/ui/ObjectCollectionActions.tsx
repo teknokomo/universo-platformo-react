@@ -30,8 +30,8 @@ import {
 } from '../../../../utils/localizedInput'
 import { ContainerSelectionPanel } from '../../../../components'
 import LayoutList from '../../../layouts/ui/LayoutList'
-import { createScriptsTab } from '../../../scripts/ui/EntityScriptsTab'
-import { scriptsApi } from '../../../scripts/api/scriptsApi'
+import { createModulesTab } from '../../../modules/ui/EntityModulesTab'
+import { modulesApi } from '../../../modules/api/modulesApi'
 import GeneralTabFields from '../../../shared/ui/GeneralTabFields'
 import { buildObjectCollectionAuthoringPath } from './objectCollectionRoutePaths'
 import * as entitiesApi from '../../api'
@@ -113,12 +113,12 @@ const componentToRecordBehaviorOption = (
     return { codename, label }
 }
 
-const scriptToRecordBehaviorOption = (
-    script: { id: string; codename?: unknown; presentation?: { name?: unknown } },
+const moduleToRecordBehaviorOption = (
+    module: { id: string; codename?: unknown; presentation?: { name?: unknown } },
     uiLocale: string
 ): RecordBehaviorOption => {
-    const codename = getVLCString(script.codename as VersionedLocalizedContent<string> | string | undefined, uiLocale) || script.id
-    const label = getVLCString(script.presentation?.name as VersionedLocalizedContent<string> | string | undefined, uiLocale) || codename
+    const codename = getVLCString(module.codename as VersionedLocalizedContent<string> | string | undefined, uiLocale) || module.id
+    const label = getVLCString(module.presentation?.name as VersionedLocalizedContent<string> | string | undefined, uiLocale) || codename
     return { codename, label }
 }
 
@@ -426,13 +426,13 @@ const ObjectCollectionRecordBehaviorTab = ({
         enabled: Boolean(metahubId && objectCollectionId),
         staleTime: 30 * 1000
     })
-    const scriptsQuery = useQuery({
+    const modulesQuery = useQuery({
         queryKey:
             metahubId && objectCollectionId
-                ? ['metahubs', metahubId, attachedToKind, objectCollectionId, 'recordBehavior', 'scripts']
-                : ['metahubs', 'objects', 'recordBehavior', 'scripts', 'empty'],
+                ? ['metahubs', metahubId, attachedToKind, objectCollectionId, 'recordBehavior', 'modules']
+                : ['metahubs', 'objects', 'recordBehavior', 'modules', 'empty'],
         queryFn: () =>
-            scriptsApi.list(metahubId!, {
+            modulesApi.list(metahubId!, {
                 attachedToKind,
                 attachedToId: objectCollectionId
             }),
@@ -444,7 +444,7 @@ const ObjectCollectionRecordBehaviorTab = ({
         .filter((entity) => hasLedgerConfig(entity.config))
         .map((entity) => toRecordBehaviorOption(entity, uiLocale))
     const fieldOptions = (componentsQuery.data?.items ?? []).map((field) => componentToRecordBehaviorOption(field, uiLocale))
-    const scriptOptions = (scriptsQuery.data ?? []).map((script) => scriptToRecordBehaviorOption(script, uiLocale))
+    const moduleOptions = (modulesQuery.data ?? []).map((module) => moduleToRecordBehaviorOption(module, uiLocale))
 
     return (
         <RecordBehaviorFields
@@ -454,7 +454,7 @@ const ObjectCollectionRecordBehaviorTab = ({
             capabilities={behaviorComponents}
             fieldOptions={fieldOptions}
             ledgerOptions={ledgerOptions}
-            scriptOptions={scriptOptions}
+            moduleOptions={moduleOptions}
             errors={errors}
         />
     )
@@ -792,7 +792,7 @@ export const buildFormTabs = (
 
         if (editingEntityId && metahubId) {
             tabs.push(
-                createScriptsTab({
+                createModulesTab({
                     t: ctx.t,
                     metahubId,
                     attachedToKind: resolveObjectCollectionAttachmentKind(ctx as ObjectCollectionActionContext),

@@ -61,17 +61,17 @@ type RuntimeState = {
     }>
 }
 
-const SHARED_LIBRARY_SOURCE = `import { SharedLibraryScript } from '@universo/extension-sdk'
+const SHARED_LIBRARY_SOURCE = `import { SharedLibraryModule } from '@universo/extension-sdk'
 
-export default class QuizSharedLibrary extends SharedLibraryScript {
+export default class QuizSharedLibrary extends SharedLibraryModule {
   static buildTitle(locale = 'en') {
     return String(locale).toLowerCase().startsWith('ru') ? 'Общая космическая викторина' : 'Shared Space Quiz'
   }
 
   static buildDescription(locale = 'en') {
     return String(locale).toLowerCase().startsWith('ru')
-      ? 'Этот заголовок и описание приходят из general/library script.'
-      : 'This title and description come from the general/library script.'
+      ? 'Этот заголовок и описание приходят из general/library module.'
+      : 'This title and description come from the general/library module.'
   }
 
   static buildPrompt(locale = 'en') {
@@ -88,7 +88,7 @@ export default class QuizSharedLibrary extends SharedLibraryScript {
 }
 `
 
-const SHARED_WIDGET_SOURCE = `import { AtClient, AtServer, ExtensionScript } from '@universo/extension-sdk'
+const SHARED_WIDGET_SOURCE = `import { AtClient, AtServer, ExtensionModule } from '@universo/extension-sdk'
 import QuizSharedLibrary from '@shared/quiz-shared'
 
 const buildQuiz = (locale = 'en') => ({
@@ -113,7 +113,7 @@ const buildQuiz = (locale = 'en') => ({
   ]
 })
 
-export default class SharedQuizWidget extends ExtensionScript {
+export default class SharedQuizWidget extends ExtensionModule {
   @AtClient()
   async mount(locale = 'en') {
     return this.ctx.callServerMethod('getQuiz', [{ locale }])
@@ -411,124 +411,124 @@ async function createRuntimeRowViaBrowser(page: Page, applicationId: string, lab
     await expect(page.locator('[role="rowgroup"] [role="row"]').first()).toBeVisible({ timeout: 30_000 })
 }
 
-async function createSharedLibraryScriptThroughBrowser(
+async function createSharedLibraryModuleThroughBrowser(
     page: Page,
     metahubId: string,
-    scriptName: string,
-    scriptCodename: string,
+    moduleName: string,
+    moduleCodename: string,
     sourceCode = SHARED_LIBRARY_SOURCE
 ) {
     await page.goto(`/metahub/${metahubId}/resources`)
     await expect(page.getByRole('heading', { name: /Resources|Ресурсы/ })).toBeVisible()
     await expect(page.getByTestId(pageSpacingSelectors.metahubResourcesTabs)).toBeVisible()
-    await page.getByRole('tab', { name: 'Scripts', exact: true }).click()
-    await expect(page.getByRole('heading', { name: 'Attached scripts' })).toBeVisible()
+    await page.getByRole('tab', { name: 'Modules', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Attached modules' })).toBeVisible()
     await page.getByRole('button', { name: 'New', exact: true }).click()
 
     await expect(page.getByRole('combobox').first()).toBeDisabled()
     await expect(page.getByRole('combobox').first()).toHaveText(/Library/i)
-    await fillLocalizedField(page.locator('body'), 'Name', scriptName)
-    await fillLocalizedField(page.locator('body'), 'Codename', scriptCodename)
+    await fillLocalizedField(page.locator('body'), 'Name', moduleName)
+    await fillLocalizedField(page.locator('body'), 'Codename', moduleCodename)
     await replaceCodeMirrorSource(page, page.locator('body'), sourceCode)
 
     const createRequest = page.waitForRequest(
-        (request) => request.method() === 'POST' && request.url().endsWith(`/api/v1/metahub/${metahubId}/scripts`)
+        (request) => request.method() === 'POST' && request.url().endsWith(`/api/v1/metahub/${metahubId}/modules`)
     )
     const createResponse = page.waitForResponse(
         (response) =>
-            response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahubId}/scripts`) && response.ok()
+            response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahubId}/modules`) && response.ok()
     )
 
-    await page.getByRole('button', { name: 'Create script', exact: true }).click()
+    await page.getByRole('button', { name: 'Create module', exact: true }).click()
 
     const requestPayload = (await createRequest).postDataJSON()
     expect(requestPayload?.attachedToKind).toBe('general')
     expect(requestPayload?.moduleRole).toBe('library')
     expect(requestPayload?.attachedToId).toBeNull()
 
-    const createdScript = await (await createResponse).json()
-    expect(createdScript?.codename?.locales?.en?.content).toBe(scriptCodename)
-    await expect(page.getByText(scriptName, { exact: true })).toBeVisible({ timeout: 15_000 })
-    return createdScript
+    const createdModule = await (await createResponse).json()
+    expect(createdModule?.codename?.locales?.en?.content).toBe(moduleCodename)
+    await expect(page.getByText(moduleName, { exact: true })).toBeVisible({ timeout: 15_000 })
+    return createdModule
 }
 
-async function createImportedWidgetScriptThroughBrowser(page: Page, metahubId: string, scriptName: string, scriptCodename: string) {
+async function createImportedWidgetModuleThroughBrowser(page: Page, metahubId: string, moduleName: string, moduleCodename: string) {
     await page.goto('/metahubs')
-    await expect(page.getByText(scriptName, { exact: true })).toHaveCount(0)
+    await expect(page.getByText(moduleName, { exact: true })).toHaveCount(0)
     await page.getByTestId(buildEntityMenuTriggerSelector('metahub', metahubId)).click()
     await page.getByTestId(buildEntityMenuItemSelector('metahub', 'edit', metahubId)).click()
 
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible()
-    await dialog.getByRole('tab', { name: 'Scripts', exact: true }).click()
-    await expect(dialog.getByRole('heading', { name: 'Attached scripts' })).toBeVisible()
+    await dialog.getByRole('tab', { name: 'Modules', exact: true }).click()
+    await expect(dialog.getByRole('heading', { name: 'Attached modules' })).toBeVisible()
 
     await dialog.getByRole('combobox').first().click()
     await page.getByRole('option', { name: 'Widget' }).click()
-    await fillLocalizedField(dialog, 'Name', scriptName)
-    await fillLocalizedField(dialog, 'Codename', scriptCodename)
+    await fillLocalizedField(dialog, 'Name', moduleName)
+    await fillLocalizedField(dialog, 'Codename', moduleCodename)
     await replaceCodeMirrorSource(page, dialog, SHARED_WIDGET_SOURCE)
 
     const createRequest = page.waitForRequest(
-        (request) => request.method() === 'POST' && request.url().endsWith(`/api/v1/metahub/${metahubId}/scripts`)
+        (request) => request.method() === 'POST' && request.url().endsWith(`/api/v1/metahub/${metahubId}/modules`)
     )
     const createResponse = page.waitForResponse(
         (response) =>
-            response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahubId}/scripts`) && response.ok()
+            response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahubId}/modules`) && response.ok()
     )
 
-    await dialog.getByRole('button', { name: 'Create script', exact: true }).click()
+    await dialog.getByRole('button', { name: 'Create module', exact: true }).click()
 
     const requestPayload = (await createRequest).postDataJSON()
     expect(requestPayload?.attachedToKind).toBe('metahub')
     expect(requestPayload?.moduleRole).toBe('widget')
     expect(String(requestPayload?.sourceCode ?? '')).toContain('@shared/quiz-shared')
 
-    const createdScript = await (await createResponse).json()
-    expect(createdScript?.codename?.locales?.en?.content).toBe(scriptCodename)
+    const createdModule = await (await createResponse).json()
+    expect(createdModule?.codename?.locales?.en?.content).toBe(moduleCodename)
 
     await dialog.getByTestId(entityDialogSelectors.cancelButton).click()
     await expect(dialog).toHaveCount(0)
 }
 
-async function openCommonScriptsTab(page: Page, metahubId: string) {
+async function openCommonModulesTab(page: Page, metahubId: string) {
     await page.goto(`/metahub/${metahubId}/resources`)
     await expect(page.getByRole('heading', { name: /Resources|Ресурсы/ })).toBeVisible()
     await expect(page.getByTestId(pageSpacingSelectors.metahubResourcesTabs)).toBeVisible()
-    await page.getByRole('tab', { name: 'Scripts', exact: true }).click()
-    await expect(page.getByRole('heading', { name: 'Attached scripts' })).toBeVisible()
+    await page.getByRole('tab', { name: 'Modules', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Attached modules' })).toBeVisible()
 }
 
-async function selectAttachedScript(page: Page, scriptName: string) {
-    const sidebar = page.getByTestId('entity-scripts-sidebar')
+async function selectAttachedModule(page: Page, moduleName: string) {
+    const sidebar = page.getByTestId('entity-modules-sidebar')
     await expect(sidebar).toBeVisible()
-    await sidebar.getByText(scriptName, { exact: true }).click()
-    await expect(page.getByLabel('Name').first()).toHaveValue(scriptName)
+    await sidebar.getByText(moduleName, { exact: true }).click()
+    await expect(page.getByLabel('Name').first()).toHaveValue(moduleName)
 }
 
-async function saveSelectedScript(page: Page, metahubId: string) {
+async function saveSelectedModule(page: Page, metahubId: string) {
     const responsePromise = waitForSettledMutationResponse(
         page,
-        (response) => response.request().method() === 'PATCH' && response.url().includes(`/api/v1/metahub/${metahubId}/script/`),
-        { label: 'Saving script' }
+        (response) => response.request().method() === 'PATCH' && response.url().includes(`/api/v1/metahub/${metahubId}/module/`),
+        { label: 'Saving module' }
     )
 
-    await page.getByRole('button', { name: 'Save script', exact: true }).click()
+    await page.getByRole('button', { name: 'Save module', exact: true }).click()
     return responsePromise
 }
 
-async function deleteSelectedScript(page: Page, metahubId: string) {
+async function deleteSelectedModule(page: Page, metahubId: string) {
     const responsePromise = waitForSettledMutationResponse(
         page,
-        (response) => response.request().method() === 'DELETE' && response.url().includes(`/api/v1/metahub/${metahubId}/script/`),
-        { label: 'Deleting script' }
+        (response) => response.request().method() === 'DELETE' && response.url().includes(`/api/v1/metahub/${metahubId}/module/`),
+        { label: 'Deleting module' }
     )
 
     await page.getByRole('button', { name: 'Delete', exact: true }).click()
     return responsePromise
 }
 
-async function configureQuizWidgetThroughBrowser(page: Page, api: ApiContext, metahubId: string, layoutId: string, scriptCodename: string) {
+async function configureQuizWidgetThroughBrowser(page: Page, api: ApiContext, metahubId: string, layoutId: string, moduleCodename: string) {
     await applyCenteredQuizLayout(api, metahubId, layoutId)
     await page.goto(`/metahub/${metahubId}/resources/layouts/${layoutId}`)
 
@@ -540,7 +540,7 @@ async function configureQuizWidgetThroughBrowser(page: Page, api: ApiContext, me
     const dialog = page.getByRole('dialog', { name: 'Quiz widget' })
     await expect(dialog).toBeVisible()
     await dialog.getByRole('combobox').nth(1).click()
-    await page.getByRole('option', { name: new RegExp(scriptCodename) }).click()
+    await page.getByRole('option', { name: new RegExp(moduleCodename) }).click()
 
     const saveResponse = waitForSettledMutationResponse(
         page,
@@ -844,7 +844,7 @@ test('@flow Common shared entities merge, exclusion, publication, and runtime st
     }
 })
 
-test('@flow Common shared library scripts publish into runtime consumers without breaking widget scopes', async ({ page, runManifest }) => {
+test('@flow Common shared library modules publish into runtime consumers without breaking widget scopes', async ({ page, runManifest }) => {
     test.setTimeout(300_000)
 
     const api = await createLoggedInApiContext({
@@ -852,8 +852,8 @@ test('@flow Common shared library scripts publish into runtime consumers without
         password: runManifest.testUser.password
     })
 
-    const metahubName = `E2E ${runManifest.runId} shared scripts`
-    const metahubCodename = `${runManifest.runId}-shared-scripts`
+    const metahubName = `E2E ${runManifest.runId} shared modules`
+    const metahubCodename = `${runManifest.runId}-shared-modules`
     const libraryName = 'Quiz shared library'
     const libraryCodename = 'quiz-shared'
     const widgetName = 'Shared quiz widget'
@@ -867,7 +867,7 @@ test('@flow Common shared library scripts publish into runtime consumers without
         })
 
         if (!metahub?.id) {
-            throw new Error('Metahub creation did not return an id for shared scripts coverage')
+            throw new Error('Metahub creation did not return an id for shared modules coverage')
         }
 
         await recordCreatedMetahub({
@@ -876,36 +876,36 @@ test('@flow Common shared library scripts publish into runtime consumers without
             codename: metahubCodename
         })
 
-        await createSharedLibraryScriptThroughBrowser(page, metahub.id, libraryName, libraryCodename)
-        await createImportedWidgetScriptThroughBrowser(page, metahub.id, widgetName, widgetCodename)
-        await openCommonScriptsTab(page, metahub.id)
-        await selectAttachedScript(page, libraryName)
+        await createSharedLibraryModuleThroughBrowser(page, metahub.id, libraryName, libraryCodename)
+        await createImportedWidgetModuleThroughBrowser(page, metahub.id, widgetName, widgetCodename)
+        await openCommonModulesTab(page, metahub.id)
+        await selectAttachedModule(page, libraryName)
 
-        const deleteResponse = await deleteSelectedScript(page, metahub.id)
+        const deleteResponse = await deleteSelectedModule(page, metahub.id)
         expect(deleteResponse.ok()).toBe(false)
         expect(deleteResponse.status()).toBe(409)
         const deletePayload = await parseJsonBody(deleteResponse)
-        expect(String(deletePayload?.error ?? '')).toBe('Shared library is still imported by other scripts')
+        expect(String(deletePayload?.error ?? '')).toBe('Shared library is still imported by other modules')
 
         await fillLocalizedField(page.locator('body'), 'Codename', `${libraryCodename}-renamed`)
-        const renameResponse = await saveSelectedScript(page, metahub.id)
+        const renameResponse = await saveSelectedModule(page, metahub.id)
         expect(renameResponse.ok()).toBe(false)
         expect(renameResponse.status()).toBe(409)
         const renamePayload = await parseJsonBody(renameResponse)
-        expect(String(renamePayload?.error ?? '')).toBe('Shared library codename is still used by dependent scripts')
+        expect(String(renamePayload?.error ?? '')).toBe('Shared library codename is still used by dependent modules')
         await fillLocalizedField(page.locator('body'), 'Codename', libraryCodename)
 
         const layoutId = await waitForLayoutId(api, metahub.id)
         await configureQuizWidgetThroughBrowser(page, api, metahub.id, layoutId, widgetCodename)
 
         const publication = await createPublication(api, metahub.id, {
-            name: { en: `E2E ${runManifest.runId} Shared Script Publication` },
+            name: { en: `E2E ${runManifest.runId} Shared Module Publication` },
             namePrimaryLocale: 'en',
             autoCreateApplication: false
         })
 
         if (!publication?.id) {
-            throw new Error('Publication creation did not return an id for shared scripts coverage')
+            throw new Error('Publication creation did not return an id for shared modules coverage')
         }
 
         await recordCreatedPublication({
@@ -915,21 +915,21 @@ test('@flow Common shared library scripts publish into runtime consumers without
         })
 
         await createPublicationVersion(api, metahub.id, publication.id, {
-            name: { en: `E2E ${runManifest.runId} Shared Script Version` },
+            name: { en: `E2E ${runManifest.runId} Shared Module Version` },
             namePrimaryLocale: 'en'
         })
         await syncPublication(api, metahub.id, publication.id)
         await waitForPublicationReady(api, metahub.id, publication.id)
 
         const linkedApplication = await createPublicationLinkedApplication(api, metahub.id, publication.id, {
-            name: { en: `E2E ${runManifest.runId} Shared Script App` },
+            name: { en: `E2E ${runManifest.runId} Shared Module App` },
             namePrimaryLocale: 'en',
             createApplicationSchema: false
         })
 
         const applicationId = linkedApplication?.application?.id
         if (typeof applicationId !== 'string') {
-            throw new Error('Linked application creation did not return an id for shared scripts coverage')
+            throw new Error('Linked application creation did not return an id for shared modules coverage')
         }
 
         await recordCreatedApplication({
@@ -939,23 +939,23 @@ test('@flow Common shared library scripts publish into runtime consumers without
 
         await syncApplicationSchema(api, applicationId)
 
-        const runtimeScriptsResponse = page.waitForResponse(
+        const runtimeModulesResponse = page.waitForResponse(
             (response) =>
                 response.request().method() === 'GET' &&
-                response.url().includes(`/api/v1/applications/${applicationId}/runtime/scripts?`) &&
+                response.url().includes(`/api/v1/applications/${applicationId}/runtime/modules?`) &&
                 response.url().includes('attachedToKind=metahub')
         )
         const clientBundleResponse = page.waitForResponse(
             (response) =>
                 response.request().method() === 'GET' &&
-                response.url().includes(`/api/v1/applications/${applicationId}/runtime/scripts/`) &&
+                response.url().includes(`/api/v1/applications/${applicationId}/runtime/modules/`) &&
                 response.url().includes('/client')
         )
 
         await applyBrowserPreferences(page, { language: 'en' })
         await page.goto(`/a/${applicationId}`)
 
-        expect((await runtimeScriptsResponse).ok()).toBe(true)
+        expect((await runtimeModulesResponse).ok()).toBe(true)
         expect((await clientBundleResponse).ok()).toBe(true)
 
         await expect(page.getByText('Shared Space Quiz', { exact: true })).toBeVisible({ timeout: 30_000 })
@@ -965,9 +965,9 @@ test('@flow Common shared library scripts publish into runtime consumers without
             page,
             (response) =>
                 response.request().method() === 'POST' &&
-                response.url().includes(`/api/v1/applications/${applicationId}/runtime/scripts/`) &&
+                response.url().includes(`/api/v1/applications/${applicationId}/runtime/modules/`) &&
                 response.url().endsWith('/call'),
-            { label: 'Submitting runtime script call' }
+            { label: 'Submitting runtime module call' }
         )
         await page.getByLabel('Mars', { exact: true }).click()
         await page.getByRole('button', { name: 'Check answer', exact: true }).click()
@@ -987,33 +987,33 @@ test('@flow Common shared library authoring fails closed on circular @shared imp
         password: runManifest.testUser.password
     })
 
-    const metahubName = `E2E ${runManifest.runId} circular shared scripts`
-    const metahubCodename = `${runManifest.runId}-circular-shared-scripts`
+    const metahubName = `E2E ${runManifest.runId} circular shared modules`
+    const metahubCodename = `${runManifest.runId}-circular-shared-modules`
     const libraryAName = 'Circular shared A'
     const libraryBName = 'Circular shared B'
     const libraryACodename = 'shared-a'
     const libraryBCodename = 'shared-b'
-    const libraryABaseSource = `import { SharedLibraryScript } from '@universo/extension-sdk'
+    const libraryABaseSource = `import { SharedLibraryModule } from '@universo/extension-sdk'
 
-export default class SharedA extends SharedLibraryScript {}
+export default class SharedA extends SharedLibraryModule {}
 `
-    const libraryBBaseSource = `import { SharedLibraryScript } from '@universo/extension-sdk'
+    const libraryBBaseSource = `import { SharedLibraryModule } from '@universo/extension-sdk'
 
-export default class SharedB extends SharedLibraryScript {}
+export default class SharedB extends SharedLibraryModule {}
 `
-    const libraryAWithDependency = `import { SharedLibraryScript } from '@universo/extension-sdk'
+    const libraryAWithDependency = `import { SharedLibraryModule } from '@universo/extension-sdk'
 import SharedB from '@shared/shared-b'
 
-export default class SharedA extends SharedLibraryScript {
+export default class SharedA extends SharedLibraryModule {
   static value() {
     return typeof SharedB === 'function'
   }
 }
 `
-    const libraryBWithCycle = `import { SharedLibraryScript } from '@universo/extension-sdk'
+    const libraryBWithCycle = `import { SharedLibraryModule } from '@universo/extension-sdk'
 import SharedA from '@shared/shared-a'
 
-export default class SharedB extends SharedLibraryScript {
+export default class SharedB extends SharedLibraryModule {
   static value() {
     return typeof SharedA === 'function'
   }
@@ -1028,7 +1028,7 @@ export default class SharedB extends SharedLibraryScript {
         })
 
         if (!metahub?.id) {
-            throw new Error('Metahub creation did not return an id for circular shared scripts coverage')
+            throw new Error('Metahub creation did not return an id for circular shared modules coverage')
         }
 
         await recordCreatedMetahub({
@@ -1037,7 +1037,7 @@ export default class SharedB extends SharedLibraryScript {
             codename: metahubCodename
         })
 
-        const createLibraryAResponse = await sendWithCsrf(api, 'POST', `/api/v1/metahub/${metahub.id}/scripts`, {
+        const createLibraryAResponse = await sendWithCsrf(api, 'POST', `/api/v1/metahub/${metahub.id}/modules`, {
             name: libraryAName,
             codename: libraryACodename,
             attachedToKind: 'general',
@@ -1051,7 +1051,7 @@ export default class SharedB extends SharedLibraryScript {
             throw new Error('Shared library A creation did not return an id for circular coverage')
         }
 
-        const createLibraryBResponse = await sendWithCsrf(api, 'POST', `/api/v1/metahub/${metahub.id}/scripts`, {
+        const createLibraryBResponse = await sendWithCsrf(api, 'POST', `/api/v1/metahub/${metahub.id}/modules`, {
             name: libraryBName,
             codename: libraryBCodename,
             attachedToKind: 'general',
@@ -1065,24 +1065,24 @@ export default class SharedB extends SharedLibraryScript {
             throw new Error('Shared library B creation did not return an id for circular coverage')
         }
 
-        const patchAResponse = await sendWithCsrf(api, 'PATCH', `/api/v1/metahub/${metahub.id}/script/${createdLibraryA.id}`, {
+        const patchAResponse = await sendWithCsrf(api, 'PATCH', `/api/v1/metahub/${metahub.id}/module/${createdLibraryA.id}`, {
             sourceCode: libraryAWithDependency
         })
         expect(patchAResponse.ok).toBe(true)
 
-        const patchBResponse = await sendWithCsrf(api, 'PATCH', `/api/v1/metahub/${metahub.id}/script/${createdLibraryB.id}`, {
+        const patchBResponse = await sendWithCsrf(api, 'PATCH', `/api/v1/metahub/${metahub.id}/module/${createdLibraryB.id}`, {
             sourceCode: libraryBWithCycle
         })
         expect(patchBResponse.ok).toBe(false)
         expect(patchBResponse.status).toBe(400)
 
         const patchBPayload = await parseJsonBody(patchBResponse)
-        expect(String(patchBPayload?.error ?? patchBPayload?.message ?? '')).toBe('Script compilation failed')
+        expect(String(patchBPayload?.error ?? patchBPayload?.message ?? '')).toBe('Module compilation failed')
         if (typeof patchBPayload?.message === 'string' && patchBPayload.message.length > 0) {
             expect(patchBPayload.message).toContain('Circular @shared imports detected:')
         }
 
-        await openCommonScriptsTab(page, metahub.id)
+        await openCommonModulesTab(page, metahub.id)
         await expect(page.getByText('Circular shared A', { exact: true })).toBeVisible({ timeout: 15_000 })
         await expect(page.getByText('Circular shared B', { exact: true })).toBeVisible({ timeout: 15_000 })
     } finally {

@@ -225,7 +225,7 @@ export const handlers = [
                 id: 'xss-test',
                 name: 'XSS Test',
                 // HTML-encoded XSS payloads - safe to use in tests, components should escape this
-                description: '&lt;script&gt;alert("XSS")&lt;/script&gt;&lt;img src=x onerror="alert(1)"&gt;'
+                description: '&lt;module&gt;alert("XSS")&lt;/module&gt;&lt;img src=x onerror="alert(1)"&gt;'
             }
         })
     })

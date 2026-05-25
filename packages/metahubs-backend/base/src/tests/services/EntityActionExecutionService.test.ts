@@ -15,27 +15,27 @@ const buildCodename = (value: string) => ({
 describe('EntityActionExecutionService', () => {
     const schemaName = 'mhb_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 
-    it('dispatches matching script lifecycle handlers through the scripting engine', async () => {
+    it('dispatches matching module lifecycle handlers through the modules engine', async () => {
         const dispatchEvent = jest.fn(async () => [])
-        const script = {
-            id: 'script-1',
-            codename: buildCodename('script-one'),
-            presentation: { name: buildCodename('Script One') },
+        const module = {
+            id: 'module-1',
+            codename: buildCodename('module-one'),
+            presentation: { name: buildCodename('Module One') },
             attachedToKind: 'custom.product',
             attachedToId: 'object-1',
             moduleRole: 'module',
             sourceKind: 'embedded',
             sdkApiVersion: '1.0.0',
-            sourceCode: 'export default class ExampleScript {}',
+            sourceCode: 'export default class ExampleModule {}',
             manifest: {
-                className: 'ExampleScript',
+                className: 'ExampleModule',
                 sdkApiVersion: '1.0.0',
                 moduleRole: 'module',
                 sourceKind: 'embedded',
                 capabilities: ['metadata.read'],
                 methods: [{ name: 'afterCreate', target: 'server', eventName: 'afterCreate' }]
             },
-            serverBundle: 'module.exports = class ExampleScript {}',
+            serverBundle: 'module.exports = class ExampleModule {}',
             clientBundle: null,
             checksum: 'checksum-1',
             isActive: true,
@@ -46,7 +46,7 @@ describe('EntityActionExecutionService', () => {
 
         const service = new EntityActionExecutionService(
             {
-                getScriptByIdInSchema: jest.fn(async () => script)
+                getModuleByIdInSchema: jest.fn(async () => module)
             } as any,
             {
                 dispatchEvent
@@ -94,8 +94,8 @@ describe('EntityActionExecutionService', () => {
                 objectId: 'object-1',
                 codename: buildCodename('action-one'),
                 presentation: { name: 'Action One' },
-                actionType: 'script',
-                scriptId: 'script-1',
+                actionType: 'module',
+                moduleId: 'module-1',
                 config: { mode: 'strict' },
                 sortOrder: 1,
                 version: 1,
@@ -112,9 +112,9 @@ describe('EntityActionExecutionService', () => {
 
         expect(dispatchEvent).toHaveBeenCalledWith(
             expect.objectContaining({
-                bundle: 'module.exports = class ExampleScript {}',
+                bundle: 'module.exports = class ExampleModule {}',
                 eventName: 'afterCreate',
-                manifest: script.manifest,
+                manifest: module.manifest,
                 payload: expect.objectContaining({
                     eventName: 'afterCreate',
                     entityCodename: 'product-one',
@@ -132,43 +132,43 @@ describe('EntityActionExecutionService', () => {
                         objectId: 'object-1',
                         bindingId: 'binding-1',
                         actionId: 'action-1',
-                        scriptId: 'script-1',
+                        moduleId: 'module-1',
                         actionCodename: 'action-one',
-                        scriptCodename: 'script-one'
+                        moduleCodename: 'module-one'
                     })
                 }),
                 context: expect.objectContaining({
                     metahubId: 'metahub-1',
-                    scriptId: 'script-1',
-                    scriptCodename: 'script-one'
+                    moduleId: 'module-1',
+                    moduleCodename: 'module-one'
                 })
             })
         )
     })
 
-    it('skips actions when the referenced script has no matching lifecycle handler', async () => {
+    it('skips actions when the referenced module has no matching lifecycle handler', async () => {
         const dispatchEvent = jest.fn(async () => [])
         const service = new EntityActionExecutionService(
             {
-                getScriptByIdInSchema: jest.fn(async () => ({
-                    id: 'script-1',
-                    codename: buildCodename('script-one'),
-                    presentation: { name: buildCodename('Script One') },
+                getModuleByIdInSchema: jest.fn(async () => ({
+                    id: 'module-1',
+                    codename: buildCodename('module-one'),
+                    presentation: { name: buildCodename('Module One') },
                     attachedToKind: 'custom.product',
                     attachedToId: 'object-1',
                     moduleRole: 'module',
                     sourceKind: 'embedded',
                     sdkApiVersion: '1.0.0',
-                    sourceCode: 'export default class ExampleScript {}',
+                    sourceCode: 'export default class ExampleModule {}',
                     manifest: {
-                        className: 'ExampleScript',
+                        className: 'ExampleModule',
                         sdkApiVersion: '1.0.0',
                         moduleRole: 'module',
                         sourceKind: 'embedded',
                         capabilities: [],
                         methods: [{ name: 'mount', target: 'client', eventName: null }]
                     },
-                    serverBundle: 'module.exports = class ExampleScript {}',
+                    serverBundle: 'module.exports = class ExampleModule {}',
                     clientBundle: null,
                     checksum: 'checksum-1',
                     isActive: true,
@@ -203,8 +203,8 @@ describe('EntityActionExecutionService', () => {
                 objectId: 'object-1',
                 codename: buildCodename('action-one'),
                 presentation: {},
-                actionType: 'script',
-                scriptId: 'script-1',
+                actionType: 'module',
+                moduleId: 'module-1',
                 config: {},
                 sortOrder: 1,
                 version: 1,

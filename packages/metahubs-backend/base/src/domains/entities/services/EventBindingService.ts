@@ -1,5 +1,5 @@
 import { qSchemaTable } from '@universo/database'
-import { SCRIPT_LIFECYCLE_EVENTS, isEnabledCapabilityConfig } from '@universo/types'
+import { MODULE_LIFECYCLE_EVENTS, isEnabledCapabilityConfig } from '@universo/types'
 import { queryMany, queryOne, queryOneOrThrow, type DbExecutor, type SqlQueryable } from '@universo/utils/database'
 import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
 import { MetahubConflictError, MetahubNotFoundError, MetahubValidationError } from '../../shared/domainErrors'
@@ -10,7 +10,7 @@ const TABLE = '_mhb_event_bindings'
 const OBJECTS_TABLE = '_mhb_objects'
 const ACTIONS_TABLE = '_mhb_actions'
 const ACTIVE_CLAUSE = '_upl_deleted = false AND _mhb_deleted = false'
-const ENTITY_EVENT_NAMES = [...SCRIPT_LIFECYCLE_EVENTS, 'onValidate', 'beforeWrite', 'afterWrite'] as const
+const ENTITY_EVENT_NAMES = [...MODULE_LIFECYCLE_EVENTS, 'onValidate', 'beforeWrite', 'afterWrite'] as const
 
 type JsonRecord = Record<string, unknown>
 type EntityEventName = (typeof ENTITY_EVENT_NAMES)[number] | (string & {})

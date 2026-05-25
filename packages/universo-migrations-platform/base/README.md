@@ -36,14 +36,14 @@ for the complete architecture description.
 
 ## CLI Commands
 
-The following CLI commands are exposed through the root workspace scripts:
+The following CLI commands are exposed through the root workspace modules:
 
-| Command                          | Description                                       |
-|----------------------------------|---------------------------------------------------|
-| `system-app-schema-plan`         | Show pending schema changes without applying them  |
-| `system-app-schema-apply`        | Apply a full (re-)generation of system app schemas |
-| `system-app-schema-bootstrap`    | Reset and bootstrap system app schemas from scratch|
-| `doctor`                         | Validate migration state and metadata integrity    |
+| Command                       | Description                                         |
+| ----------------------------- | --------------------------------------------------- |
+| `system-app-schema-plan`      | Show pending schema changes without applying them   |
+| `system-app-schema-apply`     | Apply a full (re-)generation of system app schemas  |
+| `system-app-schema-bootstrap` | Reset and bootstrap system app schemas from scratch |
+| `doctor`                      | Validate migration state and metadata integrity     |
 
 ## Development
 
@@ -54,5 +54,5 @@ pnpm --filter @universo/migrations-platform test
 
 ## Related Packages
 
--   Root workspace scripts such as `pnpm migration:status` and `pnpm migration:plan` rely on this package.
+-   Root workspace modules such as `pnpm migration:status` and `pnpm migration:plan` rely on this package.
 -   The package coordinates backend migration definitions together with the catalog and core migration runtimes.

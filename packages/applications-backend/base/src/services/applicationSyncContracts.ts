@@ -1,7 +1,7 @@
 import type { DbExecutor } from '@universo/utils'
 import type { EntityDefinition, Component } from '@universo/schema-ddl'
 import type {
-    ApplicationScriptDefinition,
+    ApplicationModuleDefinition,
     EnumerationValueDefinition,
     MetahubSnapshotVersionEnvelope,
     VersionedLocalizedContent
@@ -47,7 +47,7 @@ export interface SnapshotSharedEntityOverrideDefinition {
     sortOrder: number | null
 }
 
-export interface SnapshotScriptDefinition extends Omit<ApplicationScriptDefinition, 'codename'> {
+export interface SnapshotModuleDefinition extends Omit<ApplicationModuleDefinition, 'codename'> {
     codename: SnapshotCodenameValue
     sourceCode?: string
 }
@@ -60,13 +60,9 @@ export interface PublishedApplicationSnapshot {
     constants?: Record<string, unknown[]>
     sharedComponents?: SnapshotComponent[]
     sharedFixedValues?: SnapshotConstantDefinition[]
-    /** @deprecated use sharedFixedValues */
-    sharedConstants?: SnapshotConstantDefinition[]
     sharedOptionValues?: SnapshotEnumerationValueDefinition[]
-    /** @deprecated use sharedOptionValues */
-    sharedEnumerationValues?: SnapshotEnumerationValueDefinition[]
     sharedEntityOverrides?: SnapshotSharedEntityOverrideDefinition[]
-    scripts?: SnapshotScriptDefinition[]
+    modules?: SnapshotModuleDefinition[]
     layouts?: unknown[]
     layoutZoneWidgets?: unknown[]
     scopedLayouts?: unknown[]

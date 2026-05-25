@@ -43,7 +43,7 @@ export interface RecordBehaviorFieldsProps {
     capabilities: EntityTypeCapabilities
     fieldOptions: RecordBehaviorOption[]
     ledgerOptions: RecordBehaviorOption[]
-    scriptOptions: RecordBehaviorOption[]
+    moduleOptions: RecordBehaviorOption[]
     errors?: Record<string, string>
 }
 
@@ -92,7 +92,7 @@ export const RecordBehaviorFields = ({
     capabilities,
     fieldOptions,
     ledgerOptions,
-    scriptOptions,
+    moduleOptions,
     errors = {}
 }: RecordBehaviorFieldsProps) => {
     const { t } = useTranslation('metahubs')
@@ -108,7 +108,7 @@ export const RecordBehaviorFields = ({
     const effectiveDateFieldOptions = appendConfiguredOption(fieldOptions, value.effectiveDate.fieldCodename, configuredOptionLabel)
     const lifecycleFieldOptions = appendConfiguredOption(fieldOptions, value.lifecycle.stateFieldCodename, configuredOptionLabel)
     const postingLedgerOptions = appendConfiguredOptions(ledgerOptions, value.posting.targetLedgers, configuredOptionLabel)
-    const postingScriptOptions = appendConfiguredOption(scriptOptions, value.posting.scriptCodename, configuredOptionLabel)
+    const postingModuleOptions = appendConfiguredOption(moduleOptions, value.posting.moduleCodename, configuredOptionLabel)
 
     const patchBehavior = (patch: Partial<ObjectRecordBehavior>) => onChange({ ...value, ...patch })
     const patchNumbering = (patch: Partial<ObjectRecordBehavior['numbering']>) =>
@@ -492,28 +492,28 @@ export const RecordBehaviorFields = ({
                                 </FormHelperText>
                             ) : null}
                         </FormControl>
-                        <FormControl fullWidth disabled={disabled || postingScriptOptions.length === 0}>
-                            <InputLabel id='record-posting-script-label'>
-                                {t('entities.recordBehavior.posting.script', 'Posting script')}
+                        <FormControl fullWidth disabled={disabled || postingModuleOptions.length === 0}>
+                            <InputLabel id='record-posting-module-label'>
+                                {t('entities.recordBehavior.posting.module', 'Posting module')}
                             </InputLabel>
                             <Select
-                                labelId='record-posting-script-label'
-                                label={t('entities.recordBehavior.posting.script', 'Posting script')}
-                                value={toSelectValue(value.posting.scriptCodename)}
-                                onChange={(event) => patchPosting({ scriptCodename: setEmptyToUndefined(event.target.value) })}
+                                labelId='record-posting-module-label'
+                                label={t('entities.recordBehavior.posting.module', 'Posting module')}
+                                value={toSelectValue(value.posting.moduleCodename)}
+                                onChange={(event) => patchPosting({ moduleCodename: setEmptyToUndefined(event.target.value) })}
                             >
                                 <MenuItem value=''>{t('entities.recordBehavior.options.none', 'Not selected')}</MenuItem>
-                                {postingScriptOptions.map((option) => (
+                                {postingModuleOptions.map((option) => (
                                     <MenuItem key={option.codename} value={option.codename}>
                                         {option.label}
                                     </MenuItem>
                                 ))}
                             </Select>
-                            {scriptOptions.length === 0 ? (
+                            {moduleOptions.length === 0 ? (
                                 <FormHelperText>
                                     {t(
-                                        'entities.recordBehavior.posting.noScripts',
-                                        'Attach a lifecycle script after the entity is created.'
+                                        'entities.recordBehavior.posting.noModules',
+                                        'Attach a lifecycle module after the entity is created.'
                                     )}
                                 </FormHelperText>
                             ) : null}

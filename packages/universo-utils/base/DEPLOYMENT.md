@@ -19,16 +19,16 @@ Complete guide for deploying the rate limiting system with Redis to production e
 
 ### System Requirements
 
-- **Node.js**: 22.22.2 recommended (>=22.6.0 required)
-- **Redis**: 6.0+ (recommended: 7.0+)
-- **pnpm**: 10.x (workspace manager; 10.33.2 pinned)
-- **Operating System**: Linux (recommended), macOS, Windows with WSL2
+-   **Node.js**: 22.22.2 recommended (>=22.6.0 required)
+-   **Redis**: 6.0+ (recommended: 7.0+)
+-   **pnpm**: 10.x (workspace manager; 10.33.2 pinned)
+-   **Operating System**: Linux (recommended), macOS, Windows with WSL2
 
 ### Knowledge Requirements
 
-- Basic understanding of Redis
-- Familiarity with environment variables
-- Docker/Kubernetes basics (for containerized deployments)
+-   Basic understanding of Redis
+-   Familiarity with environment variables
+-   Docker/Kubernetes basics (for containerized deployments)
 
 ---
 
@@ -110,9 +110,9 @@ requirepass your_strong_password_here
 
 The `RedisClientManager` uses a singleton pattern:
 
-- **1 connection per Node.js process** (not per request)
-- **Auto-retry strategy**: Exponential backoff with max 3 attempts
-- **Reconnect on errors**: `READONLY`, `ECONNREFUSED`
+-   **1 connection per Node.js process** (not per request)
+-   **Auto-retry strategy**: Exponential backoff with max 3 attempts
+-   **Reconnect on errors**: `READONLY`, `ECONNREFUSED`
 
 ```typescript
 // Handled automatically by RedisClientManager
@@ -130,10 +130,12 @@ The `RedisClientManager` uses a singleton pattern:
 #### AWS ElastiCache
 
 **Recommended Instance Types:**
-- **Dev/Staging**: `cache.t3.micro` (0.5GB RAM, ~$12/month)
-- **Production**: `cache.m5.large` (6.38GB RAM, ~$125/month)
+
+-   **Dev/Staging**: `cache.t3.micro` (0.5GB RAM, ~$12/month)
+-   **Production**: `cache.m5.large` (6.38GB RAM, ~$125/month)
 
 **Configuration:**
+
 ```bash
 # Enable automatic backups
 aws elasticache modify-replication-group \
@@ -149,11 +151,13 @@ REDIS_URL=rediss://master.your-cluster.cache.amazonaws.com:6379
 #### Redis Cloud
 
 **Recommended Plans:**
-- **Dev**: 30MB Free tier
-- **Staging**: 100MB ($0.60/month)
-- **Production**: 1GB+ with high availability
+
+-   **Dev**: 30MB Free tier
+-   **Staging**: 100MB ($0.60/month)
+-   **Production**: 1GB+ with high availability
 
 **Setup:**
+
 ```bash
 # Enable TLS encryption
 REDIS_URL=rediss://default:password@redis-12345.c123.us-east-1-1.ec2.cloud.redislabs.com:12345
@@ -168,11 +172,11 @@ REDIS_URL=rediss://default:password@redis-12345.c123.us-east-1-1.ec2.cloud.redis
 
 ### Step-by-Step Checklist
 
-- [ ] **Step 1**: Set `REDIS_URL` environment variable
-- [ ] **Step 2**: Verify rate limiting configuration
-- [ ] **Step 3**: Deploy application
-- [ ] **Step 4**: Monitor first 100 requests
-- [ ] **Step 5**: Check Redis connections (should be 1 per instance)
+-   [ ] **Step 1**: Set `REDIS_URL` environment variable
+-   [ ] **Step 2**: Verify rate limiting configuration
+-   [ ] **Step 3**: Deploy application
+-   [ ] **Step 4**: Monitor first 100 requests
+-   [ ] **Step 5**: Check Redis connections (should be 1 per instance)
 
 ### Docker Deployment
 
@@ -181,33 +185,34 @@ REDIS_URL=rediss://default:password@redis-12345.c123.us-east-1-1.ec2.cloud.redis
 version: '3.8'
 
 services:
-  universo-platformo:
-    image: your-app:latest
-    environment:
-      - REDIS_URL=redis://redis:6379
-      - NODE_ENV=production
-    depends_on:
-      - redis
-    deploy:
-      replicas: 3  # Multi-instance requires Redis
+    universo-platformo:
+        image: your-app:latest
+        environment:
+            - REDIS_URL=redis://redis:6379
+            - NODE_ENV=production
+        depends_on:
+            - redis
+        deploy:
+            replicas: 3 # Multi-instance requires Redis
 
-  redis:
-    image: redis:7-alpine
-    volumes:
-      - redis-data:/data
-    command: >
-      redis-server
-      --requirepass ${REDIS_PASSWORD}
-      --maxmemory 256mb
-      --maxmemory-policy allkeys-lru
-    ports:
-      - "6379:6379"
+    redis:
+        image: redis:7-alpine
+        volumes:
+            - redis-data:/data
+        command: >
+            redis-server
+            --requirepass ${REDIS_PASSWORD}
+            --maxmemory 256mb
+            --maxmemory-policy allkeys-lru
+        ports:
+            - '6379:6379'
 
 volumes:
-  redis-data:
+    redis-data:
 ```
 
 **Start:**
+
 ```bash
 docker-compose up -d
 docker-compose logs -f universo-platformo  # Check logs
@@ -220,47 +225,48 @@ docker-compose logs -f universo-platformo  # Check logs
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: universo-platformo
+    name: universo-platformo
 spec:
-  replicas: 3  # Multi-instance requires Redis
-  selector:
-    matchLabels:
-      app: universo-platformo
-  template:
-    metadata:
-      labels:
-        app: universo-platformo
-    spec:
-      containers:
-      - name: universo-platformo
-        image: your-app:latest
-        env:
-        - name: REDIS_URL
-          valueFrom:
-            secretKeyRef:
-              name: redis-secret
-              key: url
-        - name: NODE_ENV
-          value: "production"
-        resources:
-          requests:
-            memory: "512Mi"
-            cpu: "250m"
-          limits:
-            memory: "1Gi"
-            cpu: "500m"
+    replicas: 3 # Multi-instance requires Redis
+    selector:
+        matchLabels:
+            app: universo-platformo
+    template:
+        metadata:
+            labels:
+                app: universo-platformo
+        spec:
+            containers:
+                - name: universo-platformo
+                  image: your-app:latest
+                  env:
+                      - name: REDIS_URL
+                        valueFrom:
+                            secretKeyRef:
+                                name: redis-secret
+                                key: url
+                      - name: NODE_ENV
+                        value: 'production'
+                  resources:
+                      requests:
+                          memory: '512Mi'
+                          cpu: '250m'
+                      limits:
+                          memory: '1Gi'
+                          cpu: '500m'
 
 ---
 apiVersion: v1
 kind: Secret
 metadata:
-  name: redis-secret
+    name: redis-secret
 type: Opaque
 stringData:
-  url: "redis://:password@redis-service:6379"
+    url: 'redis://:password@redis-service:6379'
 ```
 
 **Deploy:**
+
 ```bash
 kubectl apply -f deployment.yaml
 kubectl get pods  # Check status
@@ -272,23 +278,26 @@ kubectl logs -f deployment/universo-platformo  # Check logs
 ```javascript
 // ecosystem.config.js
 module.exports = {
-  apps: [{
-    name: 'universo-platformo',
-    script: './dist/index.js',
-    instances: 4,  // Multi-instance requires Redis
-    exec_mode: 'cluster',
-    env_production: {
-      NODE_ENV: 'production',
-      REDIS_URL: 'redis://localhost:6379'
-    },
-    error_file: './logs/error.log',
-    out_file: './logs/out.log',
-    log_date_format: 'YYYY-MM-DD HH:mm:ss Z'
-  }]
+    apps: [
+        {
+            name: 'universo-platformo',
+            module: './dist/index.js',
+            instances: 4, // Multi-instance requires Redis
+            exec_mode: 'cluster',
+            env_production: {
+                NODE_ENV: 'production',
+                REDIS_URL: 'redis://localhost:6379'
+            },
+            error_file: './logs/error.log',
+            out_file: './logs/out.log',
+            log_date_format: 'YYYY-MM-DD HH:mm:ss Z'
+        }
+    ]
 }
 ```
 
 **Start:**
+
 ```bash
 pm2 start ecosystem.config.js --env production
 pm2 logs universo-platformo  # Check logs
@@ -338,6 +347,7 @@ done
 ### Log Patterns
 
 **Successful Initialization:**
+
 ```
 [Redis] Client connected successfully
 [RateLimit:read] Using Redis store (distributed mode)
@@ -345,6 +355,7 @@ done
 ```
 
 **Graceful Shutdown:**
+
 ```
 [Redis] Closing connection...
 [Redis] Connection closed
@@ -356,16 +367,17 @@ done
 
 ### Key Metrics to Track
 
-| Metric | Target | Alert Threshold |
-|--------|--------|-----------------|
-| Redis connections | 1 per instance | > instances × 2 |
-| 429 error rate | < 1% | > 5% |
-| Average latency | < 50ms | > 200ms |
-| Redis memory usage | < 80% | > 90% |
+| Metric             | Target         | Alert Threshold |
+| ------------------ | -------------- | --------------- |
+| Redis connections  | 1 per instance | > instances × 2 |
+| 429 error rate     | < 1%           | > 5%            |
+| Average latency    | < 50ms         | > 200ms         |
+| Redis memory usage | < 80%          | > 90%           |
 
 ### Log Monitoring
 
 **Success Patterns:**
+
 ```bash
 # Grep successful rate limit checks
 grep "Using Redis store" logs/*.log
@@ -380,6 +392,7 @@ grep "connection timeout" logs/*.log
 ### Future Monitoring (v2.0 Backlog)
 
 **Prometheus Metrics** (planned):
+
 ```
 # Rate limit requests
 rate_limit_requests_total{namespace="metaverses",type="read"}
@@ -395,10 +408,11 @@ redis_connection_pool_active
 ```
 
 **Grafana Dashboards** (planned):
-- Rate limit usage per endpoint
-- Redis connection health
-- 429 error rate over time
-- Latency percentiles (p50, p95, p99)
+
+-   Rate limit usage per endpoint
+-   Redis connection health
+-   429 error rate over time
+-   Latency percentiles (p50, p95, p99)
 
 ---
 
@@ -407,6 +421,7 @@ redis_connection_pool_active
 ### Error: "Rate limiters not initialized"
 
 **Symptom:**
+
 ```
 Error: Rate limiters not initialized. Call initializeRateLimiters() first.
 Error: command start not found
@@ -417,6 +432,7 @@ Error: command start not found
 **Solution:**
 
 1. Verify initialization order in `packages/universo-core-backend/base/src/index.ts`:
+
 ```typescript
 async config() {
     // ... other initialization
@@ -429,6 +445,7 @@ async config() {
 ```
 
 2. Check lazy router mounting in `packages/universo-core-backend/base/src/routes/index.ts`:
+
 ```typescript
 // ✅ CORRECT: Lazy initialization pattern
 let metaversesRouter: ExpressRouter | null = null
@@ -448,6 +465,7 @@ router.use((req, res, next) => {
 ### Error: "Redis connection timeout"
 
 **Symptom:**
+
 ```
 [Redis] Retrying connection in 100ms (attempt 1)
 [Redis] Retrying connection in 200ms (attempt 2)
@@ -460,6 +478,7 @@ Error: Redis connection timeout
 **Solution:**
 
 1. Verify `REDIS_URL` format:
+
 ```bash
 echo $REDIS_URL
 # Should be: redis://[username:password@]host:port[/db]
@@ -470,6 +489,7 @@ echo $REDIS_URL
 ```
 
 2. Test Redis connection manually:
+
 ```bash
 redis-cli -u $REDIS_URL ping
 # Expected: PONG
@@ -480,6 +500,7 @@ telnet redis-host 6379
 ```
 
 3. Check Redis server status:
+
 ```bash
 # Docker
 docker ps | grep redis
@@ -494,6 +515,7 @@ pm2 list | grep redis
 ```
 
 4. Verify firewall rules:
+
 ```bash
 # Check if port 6379 is open
 sudo netstat -tuln | grep 6379
@@ -511,16 +533,18 @@ sudo ufw status | grep 6379
 **Solution:**
 
 1. Review current limits in `metaverses-backend/routes/index.ts`:
+
 ```typescript
 await createRateLimiters({
     keyPrefix: 'metaverses-backend',
-    maxRead: 100,   // ← Adjust this
-    maxWrite: 60,   // ← Adjust this
-    windowMs: 15 * 60 * 1000  // 15 minutes
+    maxRead: 100, // ← Adjust this
+    maxWrite: 60, // ← Adjust this
+    windowMs: 15 * 60 * 1000 // 15 minutes
 })
 ```
 
 2. Analyze traffic patterns:
+
 ```bash
 # Count 429 errors
 grep "429" logs/*.log | wc -l
@@ -530,6 +554,7 @@ grep "GET /api/v1/metaverses" logs/*.log | wc -l
 ```
 
 3. Adjust limits based on traffic:
+
 ```typescript
 // Example: High-traffic API
 maxRead: 500,   // 500 requests per 15min
@@ -537,8 +562,9 @@ maxWrite: 200,  // 200 requests per 15min
 ```
 
 4. Or increase window duration:
+
 ```typescript
-windowMs: 60 * 60 * 1000  // 60 minutes
+windowMs: 60 * 60 * 1000 // 60 minutes
 ```
 
 ---
@@ -552,6 +578,7 @@ windowMs: 60 * 60 * 1000  // 60 minutes
 **Solution:**
 
 1. Check Redis connections:
+
 ```bash
 redis-cli -u $REDIS_URL CLIENT LIST | wc -l
 # Expected: Number of app instances (e.g., 3)
@@ -559,15 +586,17 @@ redis-cli -u $REDIS_URL CLIENT LIST | wc -l
 ```
 
 2. Verify using centralized `@universo/utils/rate-limiting`:
+
 ```typescript
 // ✅ CORRECT: Import from centralized package
 import { createRateLimiter } from '@universo/utils/rate-limiting'
 
 // ❌ WRONG: Local Redis client creation
-const client = new Redis(url)  // Memory leak!
+const client = new Redis(url) // Memory leak!
 ```
 
 3. Check no direct Redis imports:
+
 ```bash
 # Search for problematic patterns
 grep -r "new Redis(" packages/*/src/
@@ -577,6 +606,7 @@ grep -r "createClient(" packages/*/src/ | grep -v "RedisClientManager"
 ```
 
 4. Monitor connections after fix:
+
 ```bash
 # Should remain stable
 watch -n 5 'redis-cli -u $REDIS_URL CLIENT LIST | wc -l'
@@ -596,11 +626,13 @@ requirepass your_strong_password_here
 ```
 
 **Use in Connection String:**
+
 ```bash
 REDIS_URL=redis://:your_strong_password_here@host:6379
 ```
 
 **Generate Strong Password:**
+
 ```bash
 # Random 32-character password
 openssl rand -base64 32
@@ -624,6 +656,7 @@ REDIS_URL=rediss://default:password@redis-12345.c123.us-east-1-1.ec2.cloud.redis
 ```
 
 **Redis Server TLS Configuration:**
+
 ```conf
 # /etc/redis/redis.conf
 tls-port 6380
@@ -670,15 +703,17 @@ sudo firewall-cmd --reload
 ### 4. Rate Limit Bypass Prevention
 
 **Key Prefix Isolation:**
+
 ```typescript
 // Each service uses unique prefix
 await createRateLimiters({
-    keyPrefix: 'metaverses-backend',  // Prevents key collision
+    keyPrefix: 'metaverses-backend' // Prevents key collision
     // ...
 })
 ```
 
 **IP-Based Limiting** (future enhancement):
+
 ```typescript
 // Planned for v2.0
 {
@@ -707,6 +742,7 @@ onLimitReached: (req, res, options) => {
 ```
 
 **Current Logging:**
+
 ```
 [RateLimit:read] Using Redis store (distributed mode)
 [Redis] Client connected successfully
@@ -716,10 +752,10 @@ onLimitReached: (req, res, options) => {
 
 ## Additional Resources
 
-- **Redis Documentation**: https://redis.io/documentation
-- **ioredis Documentation**: https://github.com/redis/ioredis
-- **express-rate-limit Documentation**: https://express-rate-limit.mintlify.app/
-- **rate-limit-redis Documentation**: https://github.com/wyattjoh/rate-limit-redis
+-   **Redis Documentation**: https://redis.io/documentation
+-   **ioredis Documentation**: https://github.com/redis/ioredis
+-   **express-rate-limit Documentation**: https://express-rate-limit.mintlify.app/
+-   **rate-limit-redis Documentation**: https://github.com/wyattjoh/rate-limit-redis
 
 ---
 

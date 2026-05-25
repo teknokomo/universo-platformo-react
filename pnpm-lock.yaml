@@ -541,15 +541,15 @@ importers:
       '@universo/migrations-core':
         specifier: workspace:*
         version: link:../../universo-migrations-core/base
+      '@universo/modules-engine':
+        specifier: workspace:*
+        version: link:../../modules-engine/base
       '@universo/profile-backend':
         specifier: workspace:*
         version: link:../../profile-backend/base
       '@universo/schema-ddl':
         specifier: workspace:*
         version: link:../../schema-ddl/base
-      '@universo/scripting-engine':
-        specifier: workspace:*
-        version: link:../../scripting-engine/base
       '@universo/types':
         specifier: workspace:*
         version: link:../../universo-types/base
@@ -843,6 +843,9 @@ importers:
       '@universo/i18n':
         specifier: workspace:*
         version: link:../universo-i18n/base
+      '@universo/modules-engine':
+        specifier: workspace:*
+        version: link:../modules-engine/base
       '@universo/types':
         specifier: workspace:*
         version: link:../universo-types/base
@@ -1051,15 +1054,15 @@ importers:
       '@universo/migrations-core':
         specifier: workspace:*
         version: link:../../universo-migrations-core/base
+      '@universo/modules-engine':
+        specifier: workspace:*
+        version: link:../../modules-engine/base
       '@universo/profile-backend':
         specifier: workspace:*
         version: link:../../profile-backend/base
       '@universo/schema-ddl':
         specifier: workspace:*
         version: link:../../schema-ddl/base
-      '@universo/scripting-engine':
-        specifier: workspace:*
-        version: link:../../scripting-engine/base
       '@universo/types':
         specifier: workspace:*
         version: link:../../universo-types/base
@@ -1422,6 +1425,37 @@ importers:
         specifier: 'catalog:'
         version: 5.9.3
 
+  packages/modules-engine/base:
+    dependencies:
+      '@universo/types':
+        specifier: workspace:*
+        version: link:../../universo-types/base
+      acorn:
+        specifier: ^8.16.0
+        version: 8.16.0
+      esbuild:
+        specifier: 0.25.0
+        version: 0.25.0
+      isolated-vm:
+        specifier: ^6.1.2
+        version: 6.1.2
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+    devDependencies:
+      '@types/node':
+        specifier: 22.19.18
+        version: 22.19.18
+      eslint:
+        specifier: 'catalog:'
+        version: 8.57.1
+      rimraf:
+        specifier: ^5.0.5
+        version: 5.0.10
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.15.7(typescript@5.9.3)
+
   packages/profile-backend/base:
     dependencies:
       '@universo/migrations-core':
@@ -1550,37 +1584,6 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
-
-  packages/scripting-engine/base:
-    dependencies:
-      '@universo/types':
-        specifier: workspace:*
-        version: link:../../universo-types/base
-      acorn:
-        specifier: ^8.16.0
-        version: 8.16.0
-      esbuild:
-        specifier: 0.25.0
-        version: 0.25.0
-      isolated-vm:
-        specifier: ^6.1.2
-        version: 6.1.2
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-    devDependencies:
-      '@types/node':
-        specifier: 22.19.18
-        version: 22.19.18
-      eslint:
-        specifier: 'catalog:'
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: 'catalog:'
-        version: 0.15.7(typescript@5.9.3)
 
   packages/start-backend/base:
     dependencies:
@@ -1840,12 +1843,12 @@ importers:
       '@universo/migrations-platform':
         specifier: workspace:*
         version: link:../../universo-migrations-platform/base
+      '@universo/modules-engine':
+        specifier: workspace:*
+        version: link:../../modules-engine/base
       '@universo/profile-backend':
         specifier: workspace:*
         version: link:../../profile-backend/base
-      '@universo/scripting-engine':
-        specifier: workspace:*
-        version: link:../../scripting-engine/base
       '@universo/start-backend':
         specifier: workspace:*
         version: link:../../start-backend/base

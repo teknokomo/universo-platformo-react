@@ -8,9 +8,9 @@ Custom entity types let a metahub define new authoring and runtime sections on t
 
 ## When To Use Them
 
-- Use a custom entity type when the object is metahub-specific and should not become a new fixed platform module.
-- Use a reusable preset when the shape should stay consistent across metahubs.
-- Use the standard presets for Hubs, Objects, Sets, and Enumerations when creating well-known resource types.
+-   Use a custom entity type when the object is metahub-specific and should not become a new fixed platform module.
+-   Use a reusable preset when the shape should stay consistent across metahubs.
+-   Use the standard presets for Hubs, Objects, Sets, and Enumerations when creating well-known resource types.
 
 ## Typical Flow
 
@@ -19,44 +19,44 @@ Custom entity types let a metahub define new authoring and runtime sections on t
 3. Fill the kind key, codename, name, tab configuration, and resource-tab titles when the type exposes shared Resources capabilities.
 4. Enable only the components that match the intended behavior.
 5. Save the type, open its instances page, and create the first instance before opening automation tabs.
-6. Use the edit dialog to configure Scripts, then Actions, then Events for the saved instance.
+6. Use the edit dialog to configure Modules, then Actions, then Events for the saved instance.
 7. Mark the type as published only when it should become a runtime section.
 
 ## Standard Presets
 
-- Hubs reuse the delegated hub surface, nested entity-route ownership, and save-first automation tabs.
-- Objects reuse the object authoring surface and remain the runtime-visible control case after publication sync.
-- Sets keep fixed-value authoring plus automation on the shared entity-owned routes.
-- Enumerations keep option-value authoring plus action/event automation on the shared entity-owned routes.
-- Standard preset definitions are seeded into `_mhb_entity_type_definitions`; services do not create synthetic standard definitions if a row is missing.
-- Resource tab titles such as object components, set constants, and enumeration values are localized metadata on the preset resource surface, not frontend constants.
+-   Hubs reuse the delegated hub surface, nested entity-route ownership, and save-first automation tabs.
+-   Objects reuse the object authoring surface and remain the runtime-visible control case after publication sync.
+-   Sets keep fixed-value authoring plus automation on the shared entity-owned routes.
+-   Enumerations keep option-value authoring plus action/event automation on the shared entity-owned routes.
+-   Standard preset definitions are seeded into `_mhb_entity_type_definitions`; services do not create synthetic standard definitions if a row is missing.
+-   Resource tab titles such as object components, set constants, and enumeration values are localized metadata on the preset resource surface, not frontend constants.
 
 ## Current Component Set
 
-- Data schema, records, tree assignment, fixed values, and option values cover the current metadata surface.
-- Actions and event bindings add object-owned automation hooks.
-- Layout, scripting, runtime behavior, and physical table settings extend publication and runtime behavior.
-- Component dependencies are validated in the builder, so unsupported combinations should stay disabled.
+-   Data schema, records, tree assignment, fixed values, and option values cover the current metadata surface.
+-   Actions and event bindings add object-owned automation hooks.
+-   Layout, modules, runtime behavior, and physical table settings extend publication and runtime behavior.
+-   Component dependencies are validated in the builder, so unsupported combinations should stay disabled.
 
 ## Automation Authoring
 
 1. Open a saved instance in edit mode; the Actions and Events tabs stay unavailable before the first save.
-2. In the Scripts tab, create or attach the script that should handle the lifecycle behavior.
-3. In the Actions tab, create an object-owned action, select the script action type, and link the saved script.
+2. In the Modules tab, create or attach the module that should handle the lifecycle behavior.
+3. In the Actions tab, create an object-owned action, select the module action type, and link the saved module.
 4. In the Events tab, bind a lifecycle event such as beforeCreate, afterCreate, beforeUpdate, or afterUpdate to the action.
 5. Use priority and config only when the flow needs ordering or extra payload hints.
 6. Re-run the focused browser proof or the direct EntityAutomationTab tests before wider rollout.
 
 ## Guardrails
 
-- Prefer presets for parity-heavy flows instead of rebuilding the same manifest by hand.
-- Automation authoring on generic custom entity routes follows the manageMetahub contract; standard metadata presets reuse the matching list/detail surface instead of mounting a second generic CRUD shell.
-- Standard kind structure is protected. Admins may edit safe presentation fields and localized resource surface titles, but component/config/route changes are rejected.
-- Publishing affects the dynamic menu and runtime only after publication sync or application sync.
-- Standard metadata presets stay on direct kind keys and publish through the entity-owned route tree.
-- Runtime sections materialize from published entity metadata and the current runtime adapters after publication sync.
-- Generic instance routes now own every entity kind, while the standard metadata presets still render through their dedicated authoring surfaces inside the shared entity-owned route tree.
-- Advanced visual composition remains out of scope for the current parity wave.
+-   Prefer presets for parity-heavy flows instead of rebuilding the same manifest by hand.
+-   Automation authoring on generic custom entity routes follows the manageMetahub contract; standard metadata presets reuse the matching list/detail surface instead of mounting a second generic CRUD shell.
+-   Standard kind structure is protected. Admins may edit safe presentation fields and localized resource surface titles, but component/config/route changes are rejected.
+-   Publishing affects the dynamic menu and runtime only after publication sync or application sync.
+-   Standard metadata presets stay on direct kind keys and publish through the entity-owned route tree.
+-   Runtime sections materialize from published entity metadata and the current runtime adapters after publication sync.
+-   Generic instance routes now own every entity kind, while the standard metadata presets still render through their dedicated authoring surfaces inside the shared entity-owned route tree.
+-   Advanced visual composition remains out of scope for the current parity wave.
 
 ## Visual References
 
@@ -71,12 +71,12 @@ Shared resource tabs now use entity-type configuration. The labels shown in the 
 
 ## Related References
 
-- See the REST API guide for the generic entity and automation endpoints.
-- See the Metahub scripting guide for @OnEvent(...) handlers and script capabilities.
+-   See the REST API guide for the generic entity and automation endpoints.
+-   See the Metahub modules guide for @OnEvent(...) handlers and module capabilities.
 
 ## Validation Checklist
 
-- Confirm the type saves with the expected component manifest.
-- Confirm the custom instances page opens from the dynamic menu.
-- Confirm publication sync materializes the expected runtime sections from the published entity metadata.
-- Confirm focused tests or browser flows cover the shipped path before wider rollout.
+-   Confirm the type saves with the expected component manifest.
+-   Confirm the custom instances page opens from the dynamic menu.
+-   Confirm publication sync materializes the expected runtime sections from the published entity metadata.
+-   Confirm focused tests or browser flows cover the shipped path before wider rollout.

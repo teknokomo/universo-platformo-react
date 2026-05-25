@@ -1,12 +1,24 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Alert, FormControl, FormHelperText, InputLabel, MenuItem, Select, Stack, TextField, Typography } from '@mui/material'
-import type { MetahubScriptRecord, QuizWidgetConfig, VersionedLocalizedContent } from '@universo/types'
-import { isClientScriptMethodTarget } from '@universo/types'
+import {
+    Alert,
+    Button,
+    Collapse,
+    FormControl,
+    FormHelperText,
+    InputLabel,
+    MenuItem,
+    Select,
+    Stack,
+    TextField,
+    Typography
+} from '@mui/material'
+import type { MetahubModuleRecord, QuizWidgetConfig, VersionedLocalizedContent } from '@universo/types'
+import { isClientModuleMethodTarget } from '@universo/types'
 import { EntityFormDialog } from '@universo/template-mui'
 
-import { scriptsApi } from '../../scripts/api/scriptsApi'
+import { modulesApi } from '../../modules/api/modulesApi'
 import { getVLCString } from '../../../types'
 import LayoutWidgetSharedBehaviorFields, {
     getSharedBehaviorFromWidgetConfig,
@@ -29,7 +41,7 @@ export interface QuizWidgetEditorDialogProps {
 type QuizWidgetDraft = {
     title: string
     description: string
-    scriptCodename: string
+    moduleCodename: string
     attachedToKind: 'metahub' | 'object'
     mountMethodName: string
     submitMethodName: string
@@ -37,7 +49,7 @@ type QuizWidgetDraft = {
     emptyStateDescription: string
 }
 
-type QuizWidgetScriptOption = {
+type QuizWidgetModuleOption = {
     codename: string
     label: string
     description: string | null
@@ -46,7 +58,7 @@ type QuizWidgetScriptOption = {
 const createDraft = (config?: QuizWidgetConfig | null): QuizWidgetDraft => ({
     title: config?.title ?? '',
     description: config?.description ?? '',
-    scriptCodename: config?.scriptCodename ?? '',
+    moduleCodename: config?.moduleCodename ?? '',
     attachedToKind: config?.attachedToKind === 'object' ? 'object' : 'metahub',
     mountMethodName: config?.mountMethodName ?? '',
     submitMethodName: config?.submitMethodName ?? '',
@@ -63,10 +75,10 @@ const getPreferredLocalizedText = (value: unknown): string => {
     return getVLCString(localizedValue, localizedValue._primary ?? 'en') || getVLCString(localizedValue, 'en') || ''
 }
 
-const toScriptOption = (script: MetahubScriptRecord): QuizWidgetScriptOption => {
-    const codename = getPreferredLocalizedText(script.codename)
-    const name = getPreferredLocalizedText(script.presentation?.name)
-    const description = getPreferredLocalizedText(script.presentation?.description) || null
+const toModuleOption = (module: MetahubModuleRecord): QuizWidgetModuleOption => {
+    const codename = getPreferredLocalizedText(module.codename)
+    const name = getPreferredLocalizedText(module.presentation?.name)
+    const description = getPreferredLocalizedText(module.presentation?.description) || null
 
     return {
         codename,
@@ -78,7 +90,7 @@ const toScriptOption = (script: MetahubScriptRecord): QuizWidgetScriptOption => 
 const buildQuizWidgetConfig = (draft: QuizWidgetDraft): QuizWidgetConfig => {
     const title = draft.title.trim()
     const description = draft.description.trim()
-    const scriptCodename = draft.scriptCodename.trim()
+    const moduleCodename = draft.moduleCodename.trim()
     const mountMethodName = draft.mountMethodName.trim()
     const submitMethodName = draft.submitMethodName.trim()
     const emptyStateTitle = draft.emptyStateTitle.trim()
@@ -87,7 +99,7 @@ const buildQuizWidgetConfig = (draft: QuizWidgetDraft): QuizWidgetConfig => {
     return {
         ...(title ? { title } : {}),
         ...(description ? { description } : {}),
-        ...(scriptCodename ? { scriptCodename } : {}),
+        ...(moduleCodename ? { moduleCodename } : {}),
         attachedToKind: draft.attachedToKind,
         ...(mountMethodName && mountMethodName !== 'mount' ? { mountMethodName } : {}),
         ...(submitMethodName && submitMethodName !== 'submit' ? { submitMethodName } : {}),
@@ -108,8 +120,11 @@ export default function QuizWidgetEditorDialog({
     onCancel
 }: QuizWidgetEditorDialogProps) {
     const { t } = useTranslation(['metahubs', 'common'])
+    const attachmentKindLabelId = useId()
+    const moduleLabelId = useId()
     const [draft, setDraft] = useState<QuizWidgetDraft>(() => createDraft(config))
     const [sharedBehaviorValue, setSharedBehaviorValue] = useState(() => getSharedBehaviorFromWidgetConfig(config))
+    const [showAdvancedActions, setShowAdvancedActions] = useState(false)
 
     useEffect(() => {
         if (!open) {
@@ -118,52 +133,53 @@ export default function QuizWidgetEditorDialog({
 
         setDraft(createDraft(config))
         setSharedBehaviorValue(getSharedBehaviorFromWidgetConfig(config))
+        setShowAdvancedActions(false)
     }, [open, config])
 
-    const scriptsQuery = useQuery({
-        queryKey: ['quiz-widget-editor-scripts', metahubId, draft.attachedToKind],
+    const modulesQuery = useQuery({
+        queryKey: ['quiz-widget-editor-modules', metahubId, draft.attachedToKind],
         enabled: open,
-        queryFn: () => scriptsApi.list(metahubId, { attachedToKind: draft.attachedToKind })
+        queryFn: () => modulesApi.list(metahubId, { attachedToKind: draft.attachedToKind })
     })
 
-    const availableScripts = useMemo(() => {
+    const availableModules = useMemo(() => {
         const seenCodenames = new Set<string>()
 
-        return (scriptsQuery.data ?? [])
+        return (modulesQuery.data ?? [])
             .filter(
-                (script) =>
-                    script.isActive &&
-                    script.moduleRole === 'widget' &&
-                    script.manifest.methods.some((method) => isClientScriptMethodTarget(method.target))
+                (module) =>
+                    module.isActive &&
+                    module.moduleRole === 'widget' &&
+                    module.manifest.methods.some((method) => isClientModuleMethodTarget(method.target))
             )
-            .map(toScriptOption)
-            .filter((script) => {
-                if (!script.codename || seenCodenames.has(script.codename)) {
+            .map(toModuleOption)
+            .filter((module) => {
+                if (!module.codename || seenCodenames.has(module.codename)) {
                     return false
                 }
 
-                seenCodenames.add(script.codename)
+                seenCodenames.add(module.codename)
                 return true
             })
             .sort((left, right) => left.label.localeCompare(right.label))
-    }, [scriptsQuery.data])
+    }, [modulesQuery.data])
 
     useEffect(() => {
-        if (!draft.scriptCodename) {
+        if (!draft.moduleCodename) {
             return
         }
 
-        if (availableScripts.some((script) => script.codename === draft.scriptCodename)) {
+        if (availableModules.some((module) => module.codename === draft.moduleCodename)) {
             return
         }
 
         setDraft((current) => ({
             ...current,
-            scriptCodename: ''
+            moduleCodename: ''
         }))
-    }, [availableScripts, draft.scriptCodename])
+    }, [availableModules, draft.moduleCodename])
 
-    const selectedScript = availableScripts.find((script) => script.codename === draft.scriptCodename) ?? null
+    const selectedModule = availableModules.find((module) => module.codename === draft.moduleCodename) ?? null
 
     return (
         <EntityFormDialog
@@ -182,22 +198,19 @@ export default function QuizWidgetEditorDialog({
                     <Typography variant='body2' color='text.secondary'>
                         {t(
                             'layouts.quizEditor.description',
-                            'Bind the quiz widget to a published widget script. The runtime resolves metahub-wide or current-object scripts by codename.'
+                            'Choose which published quiz behavior this widget should use for the selected page or application scope.'
                         )}
                     </Typography>
 
-                    {scriptsQuery.isError ? (
+                    {modulesQuery.isError ? (
                         <Alert severity='error'>
-                            {t('layouts.quizEditor.loadError', 'Failed to load available quiz scripts for this metahub.')}
+                            {t('layouts.quizEditor.loadError', 'Failed to load available quiz modules for this metahub.')}
                         </Alert>
                     ) : null}
 
-                    {!scriptsQuery.isLoading && availableScripts.length === 0 ? (
+                    {!modulesQuery.isLoading && availableModules.length === 0 ? (
                         <Alert severity='warning'>
-                            {t(
-                                'layouts.quizEditor.noScripts',
-                                'No active widget scripts with client methods are available for the selected attachment kind yet.'
-                            )}
+                            {t('layouts.quizEditor.noModules', 'No active quiz modules are available for the selected source yet.')}
                         </Alert>
                     ) : null}
 
@@ -218,10 +231,11 @@ export default function QuizWidgetEditorDialog({
                     />
 
                     <FormControl fullWidth>
-                        <InputLabel>{t('layouts.quizEditor.attachmentKind', 'Script attachment kind')}</InputLabel>
+                        <InputLabel id={attachmentKindLabelId}>{t('layouts.quizEditor.attachmentKind', 'Quiz source')}</InputLabel>
                         <Select
+                            labelId={attachmentKindLabelId}
                             value={draft.attachedToKind}
-                            label={t('layouts.quizEditor.attachmentKind', 'Script attachment kind')}
+                            label={t('layouts.quizEditor.attachmentKind', 'Quiz source')}
                             onChange={(event) =>
                                 setDraft((current) => ({
                                     ...current,
@@ -235,49 +249,66 @@ export default function QuizWidgetEditorDialog({
                         <FormHelperText>
                             {t(
                                 'layouts.quizEditor.attachmentKindHelp',
-                                'Object-scoped scripts resolve against the current object at runtime, while metahub scripts stay global.'
+                                'Use the current object for page-specific quizzes, or the metahub for quizzes shared across the application.'
                             )}
                         </FormHelperText>
                     </FormControl>
 
                     <FormControl fullWidth>
-                        <InputLabel>{t('layouts.quizEditor.scriptCodename', 'Script codename')}</InputLabel>
+                        <InputLabel id={moduleLabelId}>{t('layouts.quizEditor.moduleCodename', 'Quiz module')}</InputLabel>
                         <Select
-                            value={draft.scriptCodename}
-                            label={t('layouts.quizEditor.scriptCodename', 'Script codename')}
-                            onChange={(event) => setDraft((current) => ({ ...current, scriptCodename: String(event.target.value) }))}
+                            labelId={moduleLabelId}
+                            value={draft.moduleCodename}
+                            label={t('layouts.quizEditor.moduleCodename', 'Quiz module')}
+                            onChange={(event) => setDraft((current) => ({ ...current, moduleCodename: String(event.target.value) }))}
                         >
-                            <MenuItem value=''>{t('layouts.quizEditor.useFirstAvailable', 'Use the first available script')}</MenuItem>
-                            {availableScripts.map((script) => (
-                                <MenuItem key={script.codename} value={script.codename}>
-                                    {script.label}
+                            <MenuItem value=''>{t('layouts.quizEditor.useFirstAvailable', 'Use the first available quiz module')}</MenuItem>
+                            {availableModules.map((module) => (
+                                <MenuItem key={module.codename} value={module.codename}>
+                                    {module.label}
                                 </MenuItem>
                             ))}
                         </Select>
                         <FormHelperText>
-                            {selectedScript?.description ||
+                            {selectedModule?.description ||
                                 t(
-                                    'layouts.quizEditor.scriptCodenameHelp',
-                                    'Leave this empty only if the selected attachment kind has a single obvious quiz widget script.'
+                                    'layouts.quizEditor.moduleCodenameHelp',
+                                    'Leave this empty only when there is a single obvious quiz module for the selected source.'
                                 )}
                         </FormHelperText>
                     </FormControl>
 
-                    <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-                        <TextField
-                            label={t('layouts.quizEditor.mountMethodName', 'Mount method')}
-                            value={draft.mountMethodName}
-                            onChange={(event) => setDraft((current) => ({ ...current, mountMethodName: event.target.value }))}
-                            helperText={t('layouts.quizEditor.mountMethodHelp', 'Optional override. Default: mount')}
-                            fullWidth
-                        />
-                        <TextField
-                            label={t('layouts.quizEditor.submitMethodName', 'Submit method')}
-                            value={draft.submitMethodName}
-                            onChange={(event) => setDraft((current) => ({ ...current, submitMethodName: event.target.value }))}
-                            helperText={t('layouts.quizEditor.submitMethodHelp', 'Optional override. Default: submit')}
-                            fullWidth
-                        />
+                    <Stack spacing={1}>
+                        <Button
+                            type='button'
+                            variant='text'
+                            size='small'
+                            sx={{ alignSelf: 'flex-start' }}
+                            onClick={() => setShowAdvancedActions((value) => !value)}
+                        >
+                            {t('layouts.quizEditor.advancedActions', 'Advanced actions')}
+                        </Button>
+                        <Collapse in={showAdvancedActions} unmountOnExit>
+                            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+                                <TextField
+                                    label={t('layouts.quizEditor.mountMethodName', 'Content loader')}
+                                    value={draft.mountMethodName}
+                                    onChange={(event) => setDraft((current) => ({ ...current, mountMethodName: event.target.value }))}
+                                    helperText={t('layouts.quizEditor.mountMethodHelp', 'Optional. Leave empty to use the default loader.')}
+                                    fullWidth
+                                />
+                                <TextField
+                                    label={t('layouts.quizEditor.submitMethodName', 'Answer checker')}
+                                    value={draft.submitMethodName}
+                                    onChange={(event) => setDraft((current) => ({ ...current, submitMethodName: event.target.value }))}
+                                    helperText={t(
+                                        'layouts.quizEditor.submitMethodHelp',
+                                        'Optional. Leave empty to use the default answer checker.'
+                                    )}
+                                    fullWidth
+                                />
+                            </Stack>
+                        </Collapse>
                     </Stack>
 
                     <TextField

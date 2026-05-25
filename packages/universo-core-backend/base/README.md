@@ -92,7 +92,7 @@ Generation preserves the normal backend environment contract:
 
 Only local Supabase/PostgreSQL values, `NODE_ENV`, `UNIVERSO_ENV_TARGET`, and safe missing defaults are replaced. Existing application settings such as `BOOTSTRAP_SUPERUSER_ENABLED`, rate limits, reset flags, admin toggles, storage settings, and feature flags are kept from the base env file. Hosted-only Postgres/Auth overrides such as `DATABASE_SSL_KEY_BASE64`, `SUPABASE_JWKS_URL`, and `SUPABASE_JWT_ISSUER` are cleared for local Supabase.
 
-Use `pnpm start:allclean:local-supabase` for a full rebuild plus database reset against local Supabase. The script starts the local Supabase stack, runs `doctor:local-supabase`, and passes `UNIVERSO_ENV_FILE` explicitly so hosted Supabase `.env` files are not changed.
+Use `pnpm start:allclean:local-supabase` for a full rebuild plus database reset against local Supabase. The module starts the local Supabase stack, runs `doctor:local-supabase`, and passes `UNIVERSO_ENV_FILE` explicitly so hosted Supabase `.env` files are not changed.
 
 When the application only needs the local database, Auth, REST API, service-role Admin API, and Studio, use the minimal startup commands. They skip realtime, storage, imgproxy, edge runtime, logflare, and vector containers while keeping the same generated env profile and doctor checks:
 

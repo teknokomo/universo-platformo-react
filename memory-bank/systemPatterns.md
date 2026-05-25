@@ -28,20 +28,20 @@
 
 **Why**: the 2026-05-16 research workflow separates external truth-finding from implementation changes while still allowing PLAN to complete user requests when the user skipped standalone RESEARCH.
 
-## Shared Runtime Widget Script Hook Pattern (IMPORTANT)
+## Shared Runtime Widget Module Hook Pattern (IMPORTANT)
 
-**Rule**: dashboard runtime widgets that load client-capable scripts from application runtime metadata must reuse the shared script-selection + client-bundle hook instead of duplicating the catalog/metahub fetch logic per widget.
+**Rule**: dashboard runtime widgets that load client-capable modules from application runtime metadata must reuse the shared module-selection + client-bundle hook instead of duplicating the entity/metahub fetch logic per widget.
 
 **Required**:
 
--   `@universo/apps-template-mui` runtime widgets with the same script-discovery contract should use `useRuntimeWidgetClientScript(...)` from `runtimeWidgetHelpers.ts`.
--   Shared filtering/dedup must stay centralized through `filterRuntimeWidgetScripts(...)` and `selectRuntimeWidgetScript(...)` so widget-specific components only own their model query and render logic.
--   The hook must preserve the current dual-scope lookup contract: catalog-attached scripts when a linked collection is present, metahub-attached scripts otherwise, with `attachedToKind` still able to constrain either side.
--   Add focused component coverage when a new widget adopts the hook, because the shared hook is a runtime boundary between script metadata and widget rendering.
+-   `@universo/apps-template-mui` runtime widgets with the same module-discovery contract should use `useRuntimeWidgetClientModule(...)` from `runtimeWidgetHelpers.ts`.
+-   Shared filtering/dedup must stay centralized through `filterRuntimeWidgetModules(...)` and `selectRuntimeWidgetModule(...)` so widget-specific components only own their model query and render logic.
+-   The hook must preserve the current dual-scope lookup contract: entity-attached modules when a linked collection is present, metahub-attached modules otherwise, with `attachedToKind` still able to constrain either side.
+-   Add focused component coverage when a new widget adopts the hook, because the shared hook is a runtime boundary between module metadata and widget rendering.
 
-**Detection**: `rg "fetchRuntimeScripts|fetchRuntimeClientBundle|useRuntimeWidgetClientScript" packages/apps-template-mui/src/dashboard/components`
+**Detection**: `rg "fetchRuntimeModules|fetchRuntimeClientBundle|useRuntimeWidgetClientModule" packages/apps-template-mui/src/dashboard/components`
 
-**Why**: the 2026-04-20 LMS QA remediation finish found that `ModuleViewerWidget` and `StatsViewerWidget` had drifted into copy-pasted script-loading logic. Centralizing the shared query path reduces widget drift and keeps future runtime widget fixes one-place.
+**Why**: the 2026-04-20 LMS QA remediation finish found that `ModuleViewerWidget` and `StatsViewerWidget` had drifted into copy-pasted module-loading logic. Centralizing the shared query path reduces widget drift and keeps future runtime widget fixes one-place.
 
 ## Public Guest Session Envelope Pattern (IMPORTANT)
 
@@ -52,7 +52,7 @@
 -   Persist a JSON envelope with at least `secret` and `expiresAt` in the guest-session token column instead of storing only the raw secret.
 -   Validate guest-session tokens by loading the persisted row and checking both secret equality and expiry timestamp before accepting quiz/progress mutations.
 -   Prefer compatibility-safe hardening that avoids schema-version churn when the existing column can safely hold the structured envelope.
--   Public runtime script bundles served without authenticated dashboard chrome must set explicit JavaScript MIME type and defensive browser headers (`nosniff`, CSP, cache policy).
+-   Public runtime module bundles served without authenticated dashboard chrome must set explicit JavaScript MIME type and defensive browser headers (`nosniff`, CSP, cache policy).
 
 **Detection**: `rg "expiresAt|guest_session_token|X-Content-Type-Options|Content-Security-Policy" packages/applications-backend/base/src/controllers/runtimeGuestController.ts`
 
@@ -113,9 +113,9 @@
 
 -   `SharedResourcesPage.tsx` fetches entity type definitions via `useEntityTypesQuery` and computes tab visibility using `isEnabledComponentConfig()`.
 -   Tab mapping: `dataSchema.enabled` → Field Definitions tab, `fixedValues.enabled` → Fixed Values tab, `optionValues.enabled` → Option Values tab.
--   Layouts and Scripts tabs always show (not tied to entity types).
+-   Layouts and Modules tabs always show (not tied to entity types).
 -   Active tab auto-falls-back to first visible tab if the current tab becomes hidden.
--   i18n keys follow `general.tabs.{fieldDefinitions|fixedValues|optionValues|layouts|scripts}` pattern.
+-   i18n keys follow `general.tabs.{fieldDefinitions|fixedValues|optionValues|layouts|modules}` pattern.
 
 **Detection**: `rg "hasAnyEnabledComponent|TabConfig" packages/metahubs-frontend/base/src/domains/entities/shared`
 
@@ -415,7 +415,7 @@
 **Required**:
 
 -   Reuse one `EntityFormDialog` surface for create/edit/copy flows.
--   Show `hubs`, `attributes`, `layout`, `scripts`, `actions`, and `events` only when the corresponding components are enabled and the object is already persisted where required.
+-   Show `hubs`, `components`, `layout`, `modules`, `actions`, and `events` only when the corresponding capabilities or metadata sections are enabled and the object is already persisted where required.
 -   Keep catalog-compatible kinds on the reused `CatalogList` surface when the route already delegates there.
 -   Keep create/copy dialogs intentionally smaller than edit dialogs.
 
@@ -474,13 +474,13 @@
 
 **Required**:
 
--   Export `sharedAttributes`, `sharedConstants`, `sharedEnumerationValues`, and `sharedEntityOverrides` as dedicated snapshot sections.
+-   Export `sharedComponents`, `sharedFixedValues`, `sharedOptionValues`, and `sharedEntityOverrides` as dedicated snapshot sections.
 -   Materialize those sections through `SnapshotSerializer.materializeSharedEntitiesForRuntime(...)` before any runtime/schema consumer calls `deserializeSnapshot(...)` or `enrichDefinitionsWithSetConstants(...)`.
 -   Compute runtime `snapshotHash` from the materialized snapshot when application sync consumes that materialized view.
 -   Keep the raw publication snapshot separately for integrity/history paths.
 -   Snapshot import recreates shared containers and remaps shared override rows.
 
-**Detection**: `rg "materializeSharedEntitiesForRuntime|sharedAttributes|sharedConstants|sharedEnumerationValues|sharedEntityOverrides" packages`
+**Detection**: `rg "materializeSharedEntitiesForRuntime|sharedComponents|sharedFixedValues|sharedOptionValues|sharedEntityOverrides" packages`
 
 **Why**: the platform needs first-class shared-entity snapshot fidelity without inventing a second runtime model.
 
@@ -501,12 +501,12 @@
 
 ## General/Common Shared Library Fail-Closed Pattern (IMPORTANT)
 
-**Rule**: the shared-library scripting seam is valid only for `attachedToKind='general'` with `moduleRole='library'`; new out-of-scope library authoring must fail closed at the backend service layer.
+**Rule**: the shared-library module seam is valid only for `attachedToKind='general'` with `moduleRole='library'`; new out-of-scope library authoring must fail closed at the backend service layer.
 
 **Required**:
 
--   Enforce scope/module-role compatibility in `MetahubScriptsService` create and update paths.
--   Reject `general` scripts whose persisted role is not `library` and reject new `library` scripts outside Common/general.
+-   Enforce scope/module-role compatibility in `MetahubModulesService` create and update paths.
+-   Reject `general` modules whose persisted role is not `library` and reject new `library` modules outside Common/general.
 -   Preserve unchanged legacy out-of-scope rows only for no-scope-transition edits.
 -   Keep dependency-sensitive delete, codename-rename, and circular `@shared/*` failure modes covered by focused service tests and the browser flow.
 

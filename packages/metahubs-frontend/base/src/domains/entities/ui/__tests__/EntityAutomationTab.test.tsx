@@ -13,7 +13,7 @@ const mockListEntityEventBindings = vi.fn()
 const mockCreateEntityEventBinding = vi.fn()
 const mockUpdateEntityEventBinding = vi.fn()
 const mockDeleteEntityEventBinding = vi.fn()
-const mockListScripts = vi.fn()
+const mockListModules = vi.fn()
 
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
@@ -27,9 +27,9 @@ vi.mock('notistack', () => ({
     })
 }))
 
-vi.mock('../../../scripts/api/scriptsApi', () => ({
-    scriptsApi: {
-        list: (...args: unknown[]) => mockListScripts(...args)
+vi.mock('../../../modules/api/modulesApi', () => ({
+    modulesApi: {
+        list: (...args: unknown[]) => mockListModules(...args)
     }
 }))
 
@@ -96,12 +96,12 @@ describe('EntityAutomationTab', () => {
         expect(mockListEntityActions).not.toHaveBeenCalled()
     })
 
-    it('validates missing script selection before creating a script action', async () => {
+    it('validates missing module selection before creating a module action', async () => {
         const user = userEvent.setup()
         let currentActions: unknown[] = []
 
         mockListEntityActions.mockImplementation(async () => currentActions)
-        mockListScripts.mockResolvedValue([])
+        mockListModules.mockResolvedValue([])
 
         const tab = createEntityActionsTab({
             t: (_key, defaultValue) => defaultValue ?? '',
@@ -120,19 +120,19 @@ describe('EntityAutomationTab', () => {
         await user.type(actionTextFields[1], 'action-one')
         await user.click(screen.getByRole('button', { name: 'Create action' }))
 
-        expect(await screen.findByText('Select a script for script actions.')).toBeInTheDocument()
+        expect(await screen.findByText('Select a module for module actions.')).toBeInTheDocument()
         expect(mockCreateEntityAction).not.toHaveBeenCalled()
     })
 
-    it('creates a script action and refreshes the configured actions list', async () => {
+    it('creates a module action and refreshes the configured actions list', async () => {
         const user = userEvent.setup()
         const savedAction = {
             id: 'action-1',
             objectId: 'entity-1',
             codename: createLocalizedContent('action-one'),
             presentation: { name: 'Action One' },
-            actionType: 'script',
-            scriptId: 'script-1',
+            actionType: 'module',
+            moduleId: 'module-1',
             config: { retries: 1 },
             sortOrder: 2,
             version: 1,
@@ -141,10 +141,10 @@ describe('EntityAutomationTab', () => {
         let currentActions: unknown[] = []
 
         mockListEntityActions.mockImplementation(async () => currentActions)
-        mockListScripts.mockResolvedValue([
+        mockListModules.mockResolvedValue([
             {
-                id: 'script-1',
-                presentation: { name: createLocalizedContent('Script One') }
+                id: 'module-1',
+                presentation: { name: createLocalizedContent('Module One') }
             }
         ])
         mockCreateEntityAction.mockImplementation(async () => {
@@ -170,7 +170,7 @@ describe('EntityAutomationTab', () => {
         await user.type(actionTextFields[1], 'action-one')
 
         await user.click(screen.getAllByRole('combobox')[1])
-        await user.click(await screen.findByRole('option', { name: 'Script One' }))
+        await user.click(await screen.findByRole('option', { name: 'Module One' }))
         fireEvent.change(actionTextFields[2], { target: { value: '{"retries":1}' } })
         const sortOrderField = screen.getByRole('spinbutton')
         await user.clear(sortOrderField)
@@ -181,8 +181,8 @@ describe('EntityAutomationTab', () => {
             expect(mockCreateEntityAction).toHaveBeenCalledWith('metahub-1', 'entity-1', {
                 codename: 'action-one',
                 presentation: { name: 'Action One' },
-                actionType: 'script',
-                scriptId: 'script-1',
+                actionType: 'module',
+                moduleId: 'module-1',
                 sortOrder: 2,
                 config: { retries: 1 }
             })
@@ -198,7 +198,7 @@ describe('EntityAutomationTab', () => {
     it('shows the no-actions warning for event bindings and keeps creation disabled', async () => {
         mockListEntityActions.mockResolvedValue([])
         mockListEntityEventBindings.mockResolvedValue([])
-        mockListScripts.mockResolvedValue([])
+        mockListModules.mockResolvedValue([])
 
         const tab = createEntityEventsTab({
             t: (_key, defaultValue) => defaultValue ?? '',
@@ -237,8 +237,8 @@ describe('EntityAutomationTab', () => {
                 objectId: 'entity-1',
                 codename: createLocalizedContent('action-one'),
                 presentation: { name: 'Action One' },
-                actionType: 'script',
-                scriptId: 'script-1',
+                actionType: 'module',
+                moduleId: 'module-1',
                 config: {},
                 sortOrder: 1,
                 version: 1,
@@ -246,10 +246,10 @@ describe('EntityAutomationTab', () => {
             }
         ])
         mockListEntityEventBindings.mockImplementation(async () => currentBindings)
-        mockListScripts.mockResolvedValue([
+        mockListModules.mockResolvedValue([
             {
-                id: 'script-1',
-                presentation: { name: createLocalizedContent('Script One') }
+                id: 'module-1',
+                presentation: { name: createLocalizedContent('Module One') }
             }
         ])
         mockCreateEntityEventBinding.mockImplementation(async () => {
@@ -272,7 +272,7 @@ describe('EntityAutomationTab', () => {
         })
         const bindingComboboxes = screen.getAllByRole('combobox')
         await user.click(bindingComboboxes[1])
-        await user.click(await screen.findByRole('option', { name: 'Action One · Script One' }))
+        await user.click(await screen.findByRole('option', { name: 'Action One · Module One' }))
         const priorityField = screen.getByRole('spinbutton')
         await user.clear(priorityField)
         await user.type(priorityField, '3')
@@ -294,6 +294,6 @@ describe('EntityAutomationTab', () => {
             expect(mockEnqueueSnackbar).toHaveBeenCalledWith('Event binding created', { variant: 'success' })
         })
 
-        expect(await screen.findByText('afterUpdate → Action One · Script One')).toBeInTheDocument()
+        expect(await screen.findByText('afterUpdate → Action One · Module One')).toBeInTheDocument()
     })
 })

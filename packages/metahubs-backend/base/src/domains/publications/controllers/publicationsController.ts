@@ -46,7 +46,7 @@ import { MetahubRecordsService } from '../../metahubs/services/MetahubRecordsSer
 import { MetahubTreeEntitiesService } from '../../metahubs/services/MetahubTreeEntitiesService'
 import { MetahubOptionValuesService } from '../../metahubs/services/MetahubOptionValuesService'
 import { MetahubFixedValuesService } from '../../metahubs/services/MetahubFixedValuesService'
-import { MetahubScriptsService } from '../../scripts/services/MetahubScriptsService'
+import { MetahubModulesService } from '../../modules/services/MetahubModulesService'
 import { MetahubSettingsService } from '../../settings/services/MetahubSettingsService'
 import { EntityTypeService } from '../../entities/services/EntityTypeService'
 import { ActionService } from '../../entities/services/ActionService'
@@ -230,7 +230,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         treeEntitiesService?: MetahubTreeEntitiesService
         optionValuesService?: MetahubOptionValuesService
         fixedValuesService?: MetahubFixedValuesService
-        scriptsService?: MetahubScriptsService
+        modulesService?: MetahubModulesService
     }) => {
         const sharedContainerService = new SharedContainerService(params.exec, params.schemaService)
         const sharedEntityOverridesService = new SharedEntityOverridesService(params.exec, params.schemaService)
@@ -245,7 +245,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
             params.treeEntitiesService,
             params.optionValuesService,
             params.fixedValuesService,
-            params.scriptsService,
+            params.modulesService,
             sharedContainerService,
             sharedEntityOverridesService,
             entityTypeService,
@@ -496,7 +496,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         const treeEntitiesService = new MetahubTreeEntitiesService(exec, schemaService)
         const optionValuesService = new MetahubOptionValuesService(exec, schemaService)
         const fixedValuesService = new MetahubFixedValuesService(exec, schemaService)
-        const scriptsService = new MetahubScriptsService(exec, schemaService)
+        const modulesService = new MetahubModulesService(exec, schemaService)
         const linkedApplicationSettings = await loadLinkedApplicationSettings(exec, schemaService, metahubId, userId)
         const serializer = createSnapshotSerializer({
             exec,
@@ -507,7 +507,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
             treeEntitiesService,
             optionValuesService,
             fixedValuesService,
-            scriptsService
+            modulesService
         })
         const templateVersionLabel = await resolveTemplateVersionLabel(exec, metahub.templateVersionId)
         const publicStructureVersion = await schemaService.resolvePublicStructureVersion(branch.schemaName, branch.structureVersion)
@@ -1227,7 +1227,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         const treeEntitiesService = new MetahubTreeEntitiesService(exec, schemaService)
         const optionValuesService = new MetahubOptionValuesService(exec, schemaService)
         const fixedValuesService = new MetahubFixedValuesService(exec, schemaService)
-        const scriptsService = new MetahubScriptsService(exec, schemaService)
+        const modulesService = new MetahubModulesService(exec, schemaService)
         const serializer = createSnapshotSerializer({
             exec,
             schemaService,
@@ -1237,7 +1237,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
             treeEntitiesService,
             optionValuesService,
             fixedValuesService,
-            scriptsService
+            modulesService
         })
         const templateVersionLabel = await resolveTemplateVersionLabel(exec, metahub.templateVersionId)
         const publicStructureVersion = await schemaService.resolvePublicStructureVersion(branch.schemaName, branch.structureVersion)

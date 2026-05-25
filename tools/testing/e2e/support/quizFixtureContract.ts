@@ -40,7 +40,7 @@ export type QuizUiCopy = {
 }
 
 export const QUIZ_FIXTURE_FILENAME = 'metahubs-quiz-app-snapshot.json'
-export const QUIZ_SCRIPT_CODENAME = 'quiz-widget'
+export const QUIZ_MODULE_CODENAME = 'quiz-widget'
 export const QUIZ_CENTERED_LAYOUT_CONFIG = {
     showFooter: false,
     showHeader: true,
@@ -70,8 +70,8 @@ export const QUIZ_CANONICAL_METAHUB = {
         ru: 'Метахаб космической викторины'
     },
     description: {
-        en: 'Canonical metahub fixture for the full scripting-powered Space Quiz experience with 10 questions, scoring, and restart flow.',
-        ru: 'Канонический fixture метахаба для полноценной космической викторины на скриптах: 10 вопросов, подсчёт баллов и перезапуск.'
+        en: 'Canonical metahub fixture for the full modules-powered Space Quiz experience with 10 questions, scoring, and restart flow.',
+        ru: 'Канонический fixture метахаба для полноценной космической викторины на модулях: 10 вопросов, подсчёт баллов и перезапуск.'
     },
     codename: {
         en: 'SpaceQuizMetahub',
@@ -441,7 +441,7 @@ export const QUIZ_I18N_LEAK_MARKERS = [
 export const QUIZ_WIDGET_SOURCE = `const AtClient = () => () => undefined
 const AtServer = () => () => undefined
 
-class ExtensionScript {}
+class ExtensionModule {}
 
 const QUIZ_DATA = ${JSON.stringify(QUIZ_CONTENT)}
 
@@ -463,7 +463,7 @@ const buildQuizDefinition = (localeInput) => {
     return QUIZ_DATA[locale] || QUIZ_DATA.en
 }
 
-export default class SpaceQuizWidget extends ExtensionScript {
+export default class SpaceQuizWidget extends ExtensionModule {
     @AtClient()
     async mount(locale = 'en') {
         return this.ctx.callServerMethod('getQuiz', [{ locale }])
@@ -736,47 +736,47 @@ export function assertQuizFixtureEnvelopeContract(envelope: Record<string, any>)
         }
     }
 
-    const scripts = Array.isArray(envelope?.snapshot?.scripts) ? envelope.snapshot.scripts : []
-    if (scripts.length !== 1) {
-        errors.push(`Quiz fixture must contain exactly one exported script, received ${scripts.length}`)
+    const modules = Array.isArray(envelope?.snapshot?.modules) ? envelope.snapshot.modules : []
+    if (modules.length !== 1) {
+        errors.push(`Quiz fixture must contain exactly one exported module, received ${modules.length}`)
     }
 
-    const quizScript = scripts.find((script: Record<string, any>) => readCodenameText(script?.codename) === QUIZ_SCRIPT_CODENAME)
+    const quizScript = modules.find((module: Record<string, any>) => readCodenameText(module?.codename) === QUIZ_MODULE_CODENAME)
     if (!quizScript) {
-        errors.push(`Quiz fixture is missing the canonical ${QUIZ_SCRIPT_CODENAME} script`)
+        errors.push(`Quiz fixture is missing the canonical ${QUIZ_MODULE_CODENAME} module`)
     } else {
         if (!isLocalizedCodenameObject(quizScript.codename)) {
-            errors.push('Quiz fixture script codename must be exported as a localized codename object')
+            errors.push('Quiz fixture module codename must be exported as a localized codename object')
         }
         if (quizScript.attachedToKind !== 'metahub') {
-            errors.push(`Quiz fixture script must attach to metahub, received ${String(quizScript.attachedToKind)}`)
+            errors.push(`Quiz fixture module must attach to metahub, received ${String(quizScript.attachedToKind)}`)
         }
         if (quizScript.attachedToId !== null) {
-            errors.push('Quiz fixture script must keep a null metahub attachment id')
+            errors.push('Quiz fixture module must keep a null metahub attachment id')
         }
         if (quizScript.moduleRole !== 'widget') {
-            errors.push(`Quiz fixture script must keep widget moduleRole, received ${String(quizScript.moduleRole)}`)
+            errors.push(`Quiz fixture module must keep widget moduleRole, received ${String(quizScript.moduleRole)}`)
         }
         if (quizScript.sourceKind !== 'embedded') {
-            errors.push(`Quiz fixture script must keep embedded sourceKind, received ${String(quizScript.sourceKind)}`)
+            errors.push(`Quiz fixture module must keep embedded sourceKind, received ${String(quizScript.sourceKind)}`)
         }
         if (quizScript.isActive !== true) {
-            errors.push('Quiz fixture script must stay active')
+            errors.push('Quiz fixture module must stay active')
         }
         if (typeof quizScript.sourceCode !== 'string' || quizScript.sourceCode !== QUIZ_WIDGET_SOURCE) {
-            errors.push('Quiz fixture script sourceCode drifted from the canonical quiz widget source')
+            errors.push('Quiz fixture module sourceCode drifted from the canonical quiz widget source')
         }
         if (!Array.isArray(quizScript?.manifest?.capabilities) || !quizScript.manifest.capabilities.includes('rpc.client')) {
-            errors.push('Quiz fixture script manifest must include rpc.client capability')
+            errors.push('Quiz fixture module manifest must include rpc.client capability')
         }
         if (typeof quizScript.serverBundle !== 'string' || quizScript.serverBundle.length === 0) {
-            errors.push('Quiz fixture script is missing the server bundle')
+            errors.push('Quiz fixture module is missing the server bundle')
         }
         if (typeof quizScript.clientBundle !== 'string' || quizScript.clientBundle.length === 0) {
-            errors.push('Quiz fixture script is missing the client bundle')
+            errors.push('Quiz fixture module is missing the client bundle')
         }
         if (typeof quizScript.checksum !== 'string' || quizScript.checksum.length === 0) {
-            errors.push('Quiz fixture script is missing the checksum')
+            errors.push('Quiz fixture module is missing the checksum')
         }
     }
 
@@ -816,14 +816,14 @@ export function assertQuizFixtureEnvelopeContract(envelope: Record<string, any>)
 
     const quizWidgets = Array.isArray(envelope?.snapshot?.layoutZoneWidgets)
         ? envelope.snapshot.layoutZoneWidgets.filter(
-              (widget: Record<string, any>) => widget?.widgetKey === 'quizWidget' && widget?.config?.scriptCodename === QUIZ_SCRIPT_CODENAME
+              (widget: Record<string, any>) => widget?.widgetKey === 'quizWidget' && widget?.config?.moduleCodename === QUIZ_MODULE_CODENAME
           )
         : []
     if (quizWidgets.length !== 1) {
         errors.push(`Quiz fixture must contain exactly one quizWidget binding, received ${quizWidgets.length}`)
     }
     if (quizWidgets[0]?.config?.attachedToKind !== 'metahub') {
-        errors.push('Quiz fixture quizWidget binding must target metahub scripts')
+        errors.push('Quiz fixture quizWidget binding must target metahub modules')
     }
     if (quizWidgets[0]?.zone !== 'center') {
         errors.push('Quiz fixture quizWidget binding must render in the center zone')

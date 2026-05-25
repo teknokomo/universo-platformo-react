@@ -4,7 +4,7 @@ import type { Request, Response } from 'express'
 import { z } from 'zod'
 import type { DbExecutor } from '@universo/utils'
 import { qColumn, qSchemaTable } from '@universo/database'
-import { RuntimeScriptsService } from '../services/runtimeScriptsService'
+import { RuntimeModulesService } from '../services/runtimeModulesService'
 import {
     listActivePublicWorkspaceIds,
     loadPublicRuntimeRecord,
@@ -644,7 +644,7 @@ const readGuestRuntimeSessionRequest = (req: Request): { participantId: string; 
 }
 
 export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
-    const scriptsService = new RuntimeScriptsService()
+    const modulesService = new RuntimeModulesService()
     const createUuidV7 = async (executor: DbExecutor): Promise<string> => {
         const rows = await executor.query<{ id: string }>('SELECT public.uuid_generate_v7() AS id')
         const id = rows[0]?.id
@@ -1873,12 +1873,12 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
         })
     }
 
-    const listPublicScripts = async (req: Request, res: Response) => {
+    const listPublicModules = async (req: Request, res: Response) => {
         const { applicationId } = req.params
         const attachedToKind = typeof req.query.attachedToKind === 'string' ? req.query.attachedToKind : undefined
         const attachedToId = typeof req.query.attachedToId === 'string' ? req.query.attachedToId : undefined
         await withPublicRuntimeContext(applicationId, res, async (ctx) => {
-            const items = await scriptsService.listClientScripts({
+            const items = await modulesService.listClientModules({
                 executor: ctx.manager,
                 schemaName: ctx.schemaName,
                 attachedToKind: attachedToKind as never,
@@ -1889,13 +1889,13 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
     }
 
     const getPublicClientBundle = async (req: Request, res: Response) => {
-        const { applicationId, scriptId } = req.params
+        const { applicationId, moduleId } = req.params
         await withPublicRuntimeContext(applicationId, res, async (ctx) => {
             try {
-                const bundle = await scriptsService.getClientScriptBundle({
+                const bundle = await modulesService.getClientModuleBundle({
                     executor: ctx.manager,
                     schemaName: ctx.schemaName,
-                    scriptId
+                    moduleId
                 })
 
                 res.setHeader('Content-Type', 'application/javascript; charset=utf-8')
@@ -1918,7 +1918,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
         getRuntime,
         submitGuestQuiz,
         updateGuestProgress,
-        listPublicScripts,
+        listPublicModules,
         getPublicClientBundle
     }
 }

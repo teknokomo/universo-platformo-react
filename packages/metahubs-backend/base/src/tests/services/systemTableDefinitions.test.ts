@@ -23,7 +23,7 @@ describe('systemTableDefinitions', () => {
             expect(tableNames).toContain('_mhb_widgets')
             expect(tableNames).toContain('_mhb_shared_entity_overrides')
             expect(tableNames).toContain('_mhb_migrations')
-            expect(tableNames).toContain('_mhb_scripts')
+            expect(tableNames).toContain('_mhb_modules')
             expect(tableNames).toContain('_mhb_entity_type_definitions')
             expect(tableNames).toContain('_mhb_actions')
             expect(tableNames).toContain('_mhb_event_bindings')
@@ -143,12 +143,12 @@ describe('systemTableDefinitions', () => {
             expect(defs).toBe(SYSTEM_TABLES)
         })
 
-        it('keeps the previous script-table definition for version 2', () => {
+        it('keeps the previous module-table definition for version 2', () => {
             const previousDefs = SYSTEM_TABLE_VERSIONS.get(2)
-            const previousScripts = previousDefs?.find((table) => table.name === '_mhb_scripts')
-            const scopedIndex = previousScripts?.indexes?.find((index) => index.name === 'idx_mhb_scripts_codename_active_unique')
+            const previousModules = previousDefs?.find((table) => table.name === '_mhb_modules')
+            const scopedIndex = previousModules?.indexes?.find((index) => index.name === 'idx_mhb_modules_codename_active_unique')
 
-            expect(previousScripts).toBeDefined()
+            expect(previousModules).toBeDefined()
             expect(scopedIndex?.columns).toEqual([codenamePrimaryTextSql('codename')])
         })
 
@@ -166,10 +166,10 @@ describe('systemTableDefinitions', () => {
         })
     })
 
-    describe('script scoped codename indexes', () => {
-        it('scopes active script codename uniqueness by attachment and module role', () => {
-            const scriptsTable = SYSTEM_TABLES.find((table) => table.name === '_mhb_scripts')
-            const scopedIndex = scriptsTable?.indexes?.find((index) => index.name === 'idx_mhb_scripts_codename_active_unique')
+    describe('module scoped codename indexes', () => {
+        it('scopes active module codename uniqueness by attachment and module role', () => {
+            const modulesTable = SYSTEM_TABLES.find((table) => table.name === '_mhb_modules')
+            const scopedIndex = modulesTable?.indexes?.find((index) => index.name === 'idx_mhb_modules_codename_active_unique')
 
             expect(scopedIndex).toBeDefined()
             expect(scopedIndex?.columns).toEqual([

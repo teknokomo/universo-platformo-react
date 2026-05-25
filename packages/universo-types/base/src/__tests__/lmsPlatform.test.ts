@@ -120,7 +120,7 @@ describe('LMS platform primitive contracts', () => {
                 from: ['PendingReview'],
                 to: 'Accepted',
                 requiredCapabilities: ['assignment.review'],
-                scriptCodename: 'AssignmentGradingScript'
+                moduleCodename: 'AssignmentGradingModule'
             })
         ).toMatchObject({
             codename: 'ApproveSubmission',

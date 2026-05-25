@@ -12,11 +12,11 @@ packages, and a React frontend shell around a SQL-first backend.
 
 ## Core Principles
 
-- Keep business domains in focused packages.
-- Use Supabase (PostgreSQL) with shared Knex-based runtime services.
-- Prefer SQL-first stores and neutral executor contracts.
-- Keep frontend features modular and assembled by the core shell.
-- Treat migrations, schema evolution, and docs as first-class platform concerns.
+-   Keep business domains in focused packages.
+-   Use Supabase (PostgreSQL) with shared Knex-based runtime services.
+-   Prefer SQL-first stores and neutral executor contracts.
+-   Keep frontend features modular and assembled by the core shell.
+-   Treat migrations, schema evolution, and docs as first-class platform concerns.
 
 Read [Fixed System-App Convergence](system-app-convergence.md) for the converged fixed-schema model used by admin, profiles, metahubs, and applications.
 
@@ -24,6 +24,6 @@ Read [Optional Global Catalog](optional-global-catalog.md) for the disabled-by-d
 
 Read [System App Migration Lifecycle](system-app-migration-lifecycle.md) for how system app schemas are generated, upgraded, and tracked at runtime.
 
-Read [Scripting System](scripting-system.md) for the design-time, publication, and runtime boundaries of metahub-authored scripts.
+Read [Modules System](modules-system.md) for the design-time, publication, and runtime boundaries of metahub-authored modules.
 
 Read the pages below for structure, backend, frontend, database, and auth details.

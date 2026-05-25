@@ -518,7 +518,7 @@ export const ObjectCollectionListContent = () => {
                             capabilities={objectEntityType.capabilities}
                             fieldOptions={[]}
                             ledgerOptions={behaviorLedgerOptions}
-                            scriptOptions={[]}
+                            moduleOptions={[]}
                             errors={errors}
                         />
                     )

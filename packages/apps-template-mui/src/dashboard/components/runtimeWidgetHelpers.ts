@@ -1,41 +1,41 @@
 import { useQuery } from '@tanstack/react-query'
 import {
-    hasScriptCapability,
-    isClientScriptMethodTarget,
-    type ApplicationScriptDefinition,
-    type ScriptAttachmentKind
+    hasModuleCapability,
+    isClientModuleMethodTarget,
+    type ApplicationModuleDefinition,
+    type ModuleAttachmentKind
 } from '@universo/types'
 import { fetchWithCsrf } from '../../api/api'
 
-export { isClientScriptMethodTarget }
+export { isClientModuleMethodTarget }
 
-export const filterRuntimeWidgetScripts = (scripts: ApplicationScriptDefinition[]): ApplicationScriptDefinition[] =>
-    scripts.filter(
-        (script, index, array) =>
-            script.moduleRole === 'widget' &&
-            script.manifest.methods.some((method) => isClientScriptMethodTarget(method.target)) &&
-            array.findIndex((candidate) => candidate.id === script.id) === index
+export const filterRuntimeWidgetModules = (modules: ApplicationModuleDefinition[]): ApplicationModuleDefinition[] =>
+    modules.filter(
+        (module, index, array) =>
+            module.moduleRole === 'widget' &&
+            module.manifest.methods.some((method) => isClientModuleMethodTarget(method.target)) &&
+            array.findIndex((candidate) => candidate.id === module.id) === index
     )
 
-export const selectRuntimeWidgetScript = (
-    scripts: ApplicationScriptDefinition[],
-    scriptCodename?: string | null
-): ApplicationScriptDefinition | null => {
-    if (scriptCodename) {
-        return scripts.find((script) => script.codename === scriptCodename) ?? null
+export const selectRuntimeWidgetModule = (
+    modules: ApplicationModuleDefinition[],
+    moduleCodename?: string | null
+): ApplicationModuleDefinition | null => {
+    if (moduleCodename) {
+        return modules.find((module) => module.codename === moduleCodename) ?? null
     }
 
-    return scripts[0] ?? null
+    return modules[0] ?? null
 }
 
-export const fetchRuntimeScripts = async (params: {
+export const fetchRuntimeModules = async (params: {
     apiBaseUrl: string
     applicationId: string
     attachedToKind: 'metahub' | 'object'
     attachedToId?: string | null
-}): Promise<ApplicationScriptDefinition[]> => {
+}): Promise<ApplicationModuleDefinition[]> => {
     const baseUrl = params.apiBaseUrl.replace(/\/$/, '')
-    const url = new URL(`${baseUrl}/applications/${params.applicationId}/runtime/scripts`, window.location.origin)
+    const url = new URL(`${baseUrl}/applications/${params.applicationId}/runtime/modules`, window.location.origin)
     url.searchParams.set('attachedToKind', params.attachedToKind)
     if (params.attachedToId) {
         url.searchParams.set('attachedToId', params.attachedToId)
@@ -43,24 +43,24 @@ export const fetchRuntimeScripts = async (params: {
 
     const response = await fetch(url.toString(), { credentials: 'include' })
     if (!response.ok) {
-        throw new Error(`Failed to load runtime scripts (${response.status})`)
+        throw new Error(`Failed to load runtime modules (${response.status})`)
     }
 
-    const payload = (await response.json()) as { items?: ApplicationScriptDefinition[] }
+    const payload = (await response.json()) as { items?: ApplicationModuleDefinition[] }
     return Array.isArray(payload.items) ? payload.items : []
 }
 
-export const callRuntimeScriptMethod = async (params: {
+export const callRuntimeModuleMethod = async (params: {
     apiBaseUrl: string
     applicationId: string
-    scriptId: string
+    moduleId: string
     methodName: string
     args: unknown[]
 }): Promise<unknown> => {
     const baseUrl = params.apiBaseUrl.replace(/\/$/, '')
     const response = await fetchWithCsrf(
         params.apiBaseUrl,
-        `${baseUrl}/applications/${params.applicationId}/runtime/scripts/${params.scriptId}/call`,
+        `${baseUrl}/applications/${params.applicationId}/runtime/modules/${params.moduleId}/call`,
         {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -70,7 +70,7 @@ export const callRuntimeScriptMethod = async (params: {
 
     const payload = (await response.json().catch(() => ({}))) as { result?: unknown; error?: string }
     if (!response.ok) {
-        throw new Error(payload.error || `Runtime script call failed (${response.status})`)
+        throw new Error(payload.error || `Runtime module call failed (${response.status})`)
     }
 
     return payload.result
@@ -79,35 +79,35 @@ export const callRuntimeScriptMethod = async (params: {
 export const fetchRuntimeClientBundle = async (params: {
     apiBaseUrl: string
     applicationId: string
-    scriptId: string
+    moduleId: string
 }): Promise<string> => {
     const baseUrl = params.apiBaseUrl.replace(/\/$/, '')
-    const response = await fetch(`${baseUrl}/applications/${params.applicationId}/runtime/scripts/${params.scriptId}/client`, {
+    const response = await fetch(`${baseUrl}/applications/${params.applicationId}/runtime/modules/${params.moduleId}/client`, {
         credentials: 'include'
     })
 
     if (!response.ok) {
-        throw new Error(`Failed to load runtime script bundle (${response.status})`)
+        throw new Error(`Failed to load runtime module bundle (${response.status})`)
     }
 
     return await response.text()
 }
 
-export const useRuntimeWidgetClientScript = (params: {
+export const useRuntimeWidgetClientModule = (params: {
     queryKeyPrefix: string
     apiBaseUrl: string
     applicationId?: string
     objectCollectionId?: string | null
-    scriptCodename?: string | null
-    attachedToKind?: ScriptAttachmentKind
+    moduleCodename?: string | null
+    attachedToKind?: ModuleAttachmentKind
 }) => {
-    const scriptsQuery = useQuery({
+    const modulesQuery = useQuery({
         queryKey: [
             params.queryKeyPrefix,
-            'scripts',
+            'modules',
             params.applicationId,
             params.objectCollectionId,
-            params.scriptCodename,
+            params.moduleCodename,
             params.attachedToKind
         ],
         enabled: Boolean(params.applicationId),
@@ -115,9 +115,9 @@ export const useRuntimeWidgetClientScript = (params: {
             const shouldQueryObject = params.attachedToKind !== 'metahub' && Boolean(params.objectCollectionId)
             const shouldQueryMetahub = params.attachedToKind !== 'object'
 
-            const [objectScripts, metahubScripts] = await Promise.all([
+            const [objectModules, metahubModules] = await Promise.all([
                 shouldQueryObject
-                    ? fetchRuntimeScripts({
+                    ? fetchRuntimeModules({
                           apiBaseUrl: params.apiBaseUrl,
                           applicationId: params.applicationId!,
                           attachedToKind: 'object',
@@ -125,7 +125,7 @@ export const useRuntimeWidgetClientScript = (params: {
                       })
                     : Promise.resolve([]),
                 shouldQueryMetahub
-                    ? fetchRuntimeScripts({
+                    ? fetchRuntimeModules({
                           apiBaseUrl: params.apiBaseUrl,
                           applicationId: params.applicationId!,
                           attachedToKind: 'metahub'
@@ -133,52 +133,52 @@ export const useRuntimeWidgetClientScript = (params: {
                     : Promise.resolve([])
             ])
 
-            const items = filterRuntimeWidgetScripts([...objectScripts, ...metahubScripts])
-            const selected = selectRuntimeWidgetScript(items, params.scriptCodename)
+            const items = filterRuntimeWidgetModules([...objectModules, ...metahubModules])
+            const selected = selectRuntimeWidgetModule(items, params.moduleCodename)
 
             return { items, selected }
         }
     })
 
-    const selectedScript = scriptsQuery.data?.selected ?? null
+    const selectedModule = modulesQuery.data?.selected ?? null
 
     const clientBundleQuery = useQuery({
-        queryKey: [params.queryKeyPrefix, 'bundle', params.applicationId, selectedScript?.id],
-        enabled: Boolean(params.applicationId && selectedScript),
+        queryKey: [params.queryKeyPrefix, 'bundle', params.applicationId, selectedModule?.id],
+        enabled: Boolean(params.applicationId && selectedModule),
         queryFn: async () => {
-            if (!params.applicationId || !selectedScript) {
+            if (!params.applicationId || !selectedModule) {
                 return null
             }
 
             return await fetchRuntimeClientBundle({
                 apiBaseUrl: params.apiBaseUrl,
                 applicationId: params.applicationId,
-                scriptId: selectedScript.id
+                moduleId: selectedModule.id
             })
         }
     })
 
     return {
-        scriptsQuery,
-        selectedScript,
+        modulesQuery,
+        selectedModule,
         clientBundleQuery,
         clientBundle: clientBundleQuery.data ?? null
     }
 }
 
-export const createClientScriptContext = (params: {
+export const createClientModuleContext = (params: {
     apiBaseUrl: string
     applicationId: string
-    script: ApplicationScriptDefinition
+    module: ApplicationModuleDefinition
 }): Record<string, unknown> => {
     const denyCapability = async (capability: string): Promise<never> => {
-        throw new Error(`Script capability "${capability}" is not enabled for this script`)
+        throw new Error(`Module capability "${capability}" is not enabled for this module`)
     }
 
     return {
         applicationId: params.applicationId,
-        scriptId: params.script.id,
-        scriptCodename: params.script.codename,
+        moduleId: params.module.id,
+        moduleCodename: params.module.codename,
         records: {
             list: async () => denyCapability('records.read'),
             get: async () => denyCapability('records.read'),
@@ -195,22 +195,22 @@ export const createClientScriptContext = (params: {
             reverse: async () => denyCapability('ledger.write')
         },
         metadata: {
-            getAttachedEntity: hasScriptCapability(params.script.manifest, 'metadata.read')
+            getAttachedEntity: hasModuleCapability(params.module.manifest, 'metadata.read')
                 ? async () => ({
-                      kind: params.script.attachedToKind,
-                      id: params.script.attachedToId ?? null
+                      kind: params.module.attachedToKind,
+                      id: params.module.attachedToId ?? null
                   })
                 : async () => denyCapability('metadata.read'),
-            getByCodename: hasScriptCapability(params.script.manifest, 'metadata.read')
+            getByCodename: hasModuleCapability(params.module.manifest, 'metadata.read')
                 ? async () => null
                 : async () => denyCapability('metadata.read')
         },
-        callServerMethod: hasScriptCapability(params.script.manifest, 'rpc.client')
+        callServerMethod: hasModuleCapability(params.module.manifest, 'rpc.client')
             ? async (methodName: string, args: unknown[]) =>
-                  callRuntimeScriptMethod({
+                  callRuntimeModuleMethod({
                       apiBaseUrl: params.apiBaseUrl,
                       applicationId: params.applicationId,
-                      scriptId: params.script.id,
+                      moduleId: params.module.id,
                       methodName,
                       args
                   })

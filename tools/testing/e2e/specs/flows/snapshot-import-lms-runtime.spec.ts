@@ -2438,7 +2438,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await expect(objectTypeDialog.getByLabel('Дополнительные вкладки')).toHaveValue(/hubs/)
         await objectTypeDialog.getByRole('tab', { name: 'Возможности' }).click()
         await expect(objectTypeDialog.getByLabel('Схема данных')).toBeChecked()
-        await expect(objectTypeDialog.getByLabel('Скрипты')).toBeChecked()
+        await expect(objectTypeDialog.getByLabel('Модули')).toBeChecked()
         await expect(objectTypeDialog.getByLabel('Runtime-поведение')).toBeChecked()
         await expect(objectTypeDialog.getByLabel('Физическая таблица')).toBeChecked()
         await objectTypeDialog.screenshot({ path: testInfo.outputPath('metahub-object-type-behavior-components-ru.png') })
@@ -2479,7 +2479,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await expect(enrollmentDialog.getByLabel('Режим записей')).toContainText('Транзакционный')
         await expect(enrollmentDialog.getByLabel('Префикс')).toHaveValue('ENR-')
         await expect(enrollmentDialog.getByText(/Регистр прогресса|ProgressLedger/).first()).toBeVisible({ timeout: 30_000 })
-        await expect(enrollmentDialog.locator('input[value="EnrollmentPostingScript"]')).toHaveCount(1, { timeout: 30_000 })
+        await expect(enrollmentDialog.locator('input[value="EnrollmentPostingModule"]')).toHaveCount(1, { timeout: 30_000 })
         await enrollmentDialog.screenshot({ path: testInfo.outputPath('metahub-object-enrollments-behavior-before-save-ru.png') })
         await enrollmentDialog.getByLabel('Префикс').fill('ENR-QA-')
 

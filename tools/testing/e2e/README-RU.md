@@ -43,9 +43,9 @@
 -   `specs/generators/*`: on-demand snapshot generators, которые создают конфигурации метахабов и экспортируют persistent fixture файлы. Исключены из обычных тестовых прогонов; вызываются явно через `pnpm run test:e2e:generators`.
 -   `specs/visual/*`: screenshot assertions для выявления layout regression.
 -   `restart-safe-check.mjs`: последовательная built-app start/stop/start валидация для restart safety на fresh-db.
--   `dialog-idle-diagnostics.mjs`: ограниченный diagnostics script, который держит create dialog открытым, снимает Chromium metrics через CDP и сохраняет trace/heap artifacts для расследования idle resource issues.
+-   `dialog-idle-diagnostics.mjs`: ограниченный diagnostics module, который держит create dialog открытым, снимает Chromium metrics через CDP и сохраняет trace/heap artifacts для расследования idle resource issues.
 -   `support/backend/e2eFullReset.mjs`: guarded full reset/inspection helpers для project-owned schemas, `upl_migrations` и Supabase auth users.
--   `support/backend/e2eDatabase.mjs`: общие direct PostgreSQL connection и advisory-lock helpers для hosted E2E maintenance scripts.
+-   `support/backend/e2eDatabase.mjs`: общие direct PostgreSQL connection и advisory-lock helpers для hosted E2E maintenance modules.
 -   `support/backend/run-e2e-doctor.mjs`: CLI report для leftover project-owned schemas, auth users и локальных E2E artifacts.
 -   `support/backend/*`: provisioning, API login, run manifest и cleanup helpers.
 -   `support/browser/preferences.ts`: browser-local helpers для locale/theme preferences, используемые целевыми matrix assertions.
@@ -299,7 +299,7 @@ Artifacts и failure media:
 -   Обычные Playwright test runs уже пишут failure screenshots, traces и HTML report data в `test-results/` и `playwright-report/`.
 -   Текущая конфигурация suite использует `trace: 'retain-on-failure'`, `screenshot: 'only-on-failure'` и `video: 'retain-on-failure'`.
 
-Ручной video capture тоже возможен, но у Playwright нет отдельной `playwright video` CLI subcommand. Используйте короткий inline Node script с Playwright library, когда нужна запись для ревью:
+Ручной video capture тоже возможен, но у Playwright нет отдельной `playwright video` CLI subcommand. Используйте короткий inline Node module с Playwright library, когда нужна запись для ревью:
 
 ```bash
 pnpm exec node --input-type=module <<'EOF'
@@ -355,7 +355,7 @@ EOF
 17. Для setup `publication -> linked application` дожидайтесь, пока publication сообщит о готовой active version перед созданием linked application; если создание всё равно падает, считайте это реальным product defect и оставляйте helper fail-closed, не маскируя проблему retry-логикой
 18. Держите targeted matrix slice сфокусированным: проверяйте русский рендер и тёмную тему через отдельные matrix specs вместо клонирования каждого CRUD flow на множество locale/theme projects
 19. Используйте `test:e2e:restart-safe` всякий раз, когда меняются bootstrap, migrations или first-run initialization, чтобы second-start regressions на fresh database ловились до ручного QA
-20. Используйте `test:e2e:diagnostics`, когда create/edit dialog кажется перегруженным в простое; script записывает Chromium performance metrics и Playwright trace вместо попытки угадывать CPU churn по обычным DOM assertions
+20. Используйте `test:e2e:diagnostics`, когда create/edit dialog кажется перегруженным в простое; module записывает Chromium performance metrics и Playwright trace вместо попытки угадывать CPU churn по обычным DOM assertions
 
 ## Safety Rules
 

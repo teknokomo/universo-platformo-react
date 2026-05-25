@@ -11,7 +11,7 @@ export const ENTITY_CAPABILITY_KEYS = [
     'relations',
     'actions',
     'events',
-    'scripting',
+    'modules',
     'blockContent',
     'layoutConfig',
     'runtimeBehavior',
@@ -101,7 +101,7 @@ export interface EntityTypeCapabilities {
     relations: RelationsCapabilityConfig | false
     actions: ActionsCapabilityConfig | false
     events: EventsCapabilityConfig | false
-    scripting: CapabilityConfig | false
+    modules: CapabilityConfig | false
     blockContent: BlockContentCapabilityConfig | false
     layoutConfig: CapabilityConfig | false
     runtimeBehavior: CapabilityConfig | false
@@ -123,14 +123,14 @@ export const CAPABILITY_DEPENDENCIES: Record<EntityCapabilityKey, readonly Entit
     relations: ['dataSchema'],
     actions: [],
     events: ['actions'],
-    scripting: [],
+    modules: [],
     blockContent: [],
     layoutConfig: [],
     runtimeBehavior: ['layoutConfig'],
     physicalTable: [],
     identityFields: ['records'],
     recordLifecycle: ['records', 'identityFields'],
-    posting: ['recordLifecycle', 'scripting'],
+    posting: ['recordLifecycle', 'modules'],
     ledgerSchema: ['dataSchema', 'physicalTable']
 }
 

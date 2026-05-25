@@ -133,7 +133,7 @@ The dedicated local E2E profile uses API `http://127.0.0.1:55321`, database port
 
 E2E source selection is controlled by `E2E_SUPABASE_PROVIDER` and `E2E_SUPABASE_ISOLATION`. The recommended default is `hosted + dedicated`. Reusing the main `.env` or the dev local Supabase profile requires `E2E_ALLOW_MAIN_SUPABASE=true` and `E2E_FULL_RESET_MODE=off`.
 
-To switch back to a hosted project, use the normal `.env` files and run `pnpm start` or `pnpm start:allclean`. The local scripts always pass explicit `UNIVERSO_ENV_FILE` and `UNIVERSO_FRONTEND_ENV_FILE` values instead of changing the default hosted configuration.
+To switch back to a hosted project, use the normal `.env` files and run `pnpm start` or `pnpm start:allclean`. The local modules always pass explicit `UNIVERSO_ENV_FILE` and `UNIVERSO_FRONTEND_ENV_FILE` values instead of changing the default hosted configuration.
 
 ## Environment Mode (NODE_ENV)
 

@@ -36,29 +36,29 @@ base or a top-level 1C subsystem.
 
 Use Hub when you need:
 
-- A logical root or branch in a hierarchy.
-- A boundary for navigation, ownership, or visibility.
+-   A logical root or branch in a hierarchy.
+-   A boundary for navigation, ownership, or visibility.
 
 ### Object (`object`)
 
 The core entity type. Object alone covers what 1C splits across Catalog,
 Document, and Register types via three mechanisms:
 
-- **`recordBehavior` mode** on the entity instance:
-  - `reference` — Catalog-style reference data (people, products, courses).
-  - `transactional` — Document-style event records (orders, sessions,
-    submissions) with date/number identity.
-  - `hybrid` — both reference and transactional behavior in one Object.
-- **`posting` capability** — Document-style posting (`Проведение`) into
-  one or more target ledgers.
-- **`ledgerSchema` capability** — when an Object itself acts as an
-  append-only register (balance, turnover, projection). LMS uses this
-  pattern: every "ledger" entity in the LMS template is `kind: 'object'`
-  with `config.ledger`, not a separate Ledger entity.
+-   **`recordBehavior` mode** on the entity instance:
+    -   `reference` — Catalog-style reference data (people, products, courses).
+    -   `transactional` — Document-style event records (orders, sessions,
+        submissions) with date/number identity.
+    -   `hybrid` — both reference and transactional behavior in one Object.
+-   **`posting` capability** — Document-style posting (`Проведение`) into
+    one or more target ledgers.
+-   **`ledgerSchema` capability** — when an Object itself acts as an
+    append-only register (balance, turnover, projection). LMS uses this
+    pattern: every "ledger" entity in the LMS template is `kind: 'object'`
+    with `config.ledger`, not a separate Ledger entity.
 
 Object's full capability set (from `OBJECT_TYPE_CAPABILITIES`):
 `dataSchema`, `records`, `treeAssignment`, `hierarchy`, `relations`,
-`actions`, `events`, `scripting`, `layoutConfig`, `runtimeBehavior`,
+`actions`, `events`, `modules`, `layoutConfig`, `runtimeBehavior`,
 `physicalTable`, `identityFields`, `recordLifecycle`, `posting`,
 `ledgerSchema`.
 
@@ -73,32 +73,32 @@ the platform exposes rich, authored content (lessons, knowledge-base
 articles, course overviews).
 
 Capability set: `dataSchema`, `treeAssignment`, `actions`, `events`,
-`scripting`, `blockContent`, `layoutConfig`, `runtimeBehavior`.
+`modules`, `blockContent`, `layoutConfig`, `runtimeBehavior`.
 
 Use Page when the dominant primitive is structured authoring (headings,
 paragraphs, lists, embeds), not relational data.
 
 ### Set (`set`, internal alias `value-group`)
 
-Typed fixed values (constants). Direct analog of 1C:Enterprise *Constants*
+Typed fixed values (constants). Direct analog of 1C:Enterprise _Constants_
 (`Константы`).
 
 Capability set: `dataSchema`, `treeAssignment`, `fixedValues`, `actions`,
-`events`, `scripting`, `layoutConfig`.
+`events`, `modules`, `layoutConfig`.
 
 Use Set for: feature flags, configuration parameters, fixed business
 rules, license thresholds.
 
 ### Enumeration (`enumeration`, internal alias `option-list`)
 
-A closed list of named values. Direct analog of 1C:Enterprise *Enumeration*
+A closed list of named values. Direct analog of 1C:Enterprise _Enumeration_
 (`Перечисление`).
 
 Capability set: `dataSchema`, `treeAssignment`, `optionValues`, `actions`,
-`events`, `scripting`.
+`events`, `modules`.
 
 Use Enumeration for: priority levels, status codes, kinds, types of
-*something* with a fixed set of options.
+_something_ with a fixed set of options.
 
 ### Ledger (`ledger`)
 
@@ -122,14 +122,14 @@ neutral constants store independent of the publication surface.
 
 ## Cross-Cutting Capabilities
 
-### Attached Scripts
+### Attached Modules
 
 TypeScript code that runs inside `isolated-vm`. Server-side or client-side,
 scoped to the entity type or to specific actions/events. Equivalent in
 role to module code in 1C:Enterprise (object module, form module).
 
-Use scripts for: validation that exceeds metadata declarative checks,
-computed values, domain transitions (a script attached to a posting
+Use modules for: validation that exceeds metadata declarative checks,
+computed values, domain transitions (a module attached to a posting
 action), workspace-bound automation.
 
 ### Workspaces
@@ -143,19 +143,19 @@ User-authored content lives in workspaces, not in the metahub.
 
 ## Metahub Templates and Their Preset Sets
 
-| Template | Default presets |
-|---|---|
-| `basic` (default) | hub, page, object, set, enumeration |
-| `basic-demo` | basic + seeded sample data |
-| `empty` | _(none)_ — user picks via constructor |
-| `lms` | hub, page, object, set, enumeration; ledger-style Objects via `config.ledger` |
+| Template                    | Default presets                                                                                                  |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `basic` (default)           | hub, page, object, set, enumeration                                                                              |
+| `basic-demo`                | basic + seeded sample data                                                                                       |
+| `empty`                     | _(none)_ — user picks via constructor                                                                            |
+| `lms`                       | hub, page, object, set, enumeration; ledger-style Objects via `config.ledger`                                    |
 | _(planned)_ `1c-compatible` | full 1C metadata map: hub, page, set, enumeration, plus separate Catalog / Document / Register / Charts entities |
 
 Templates can:
 
-- Pre-include a subset of the platform presets;
-- Seed initial entities, layouts, settings, and scripts;
-- Apply default `recordBehavior` and capability values for those entities.
+-   Pre-include a subset of the platform presets;
+-   Seed initial entities, layouts, settings, and modules;
+-   Apply default `recordBehavior` and capability values for those entities.
 
 The platform manifest type is `MetahubTemplateManifest`; presets are
 declared via `MetahubTemplatePresetReference`
@@ -166,11 +166,11 @@ declared via `MetahubTemplatePresetReference`
 The metahubs-frontend UI exposes a constructor that lets a user define a
 custom entity type by selecting capabilities. Custom entity types:
 
-- Live alongside platform presets in the metahub where they are created;
-- Are validated against the dependency rules between capabilities (for
-  example, `posting` requires `records`);
-- Can be exported as `EntityTypePresetManifest` and promoted to platform
-  presets if they prove broadly useful.
+-   Live alongside platform presets in the metahub where they are created;
+-   Are validated against the dependency rules between capabilities (for
+    example, `posting` requires `records`);
+-   Can be exported as `EntityTypePresetManifest` and promoted to platform
+    presets if they prove broadly useful.
 
 Prefer the constructor over proposing a new built-in kind.
 
@@ -195,30 +195,30 @@ Prefer the constructor over proposing a new built-in kind.
 
 ## Anti-Patterns
 
-- Inventing a new built-in kind when a custom entity type via the
-  constructor can express the need.
-- Adding a separate Ledger entity to a base template just because the
-  domain has registers; in base templates, posting flows go through
-  Object + `config.ledger`.
-- Putting end-user-authored content into the metahub. The metahub holds
-  seeded/default content; user content lives in workspaces.
-- Treating Set as a substitute for Object. Set holds values without a
-  per-record lifecycle; if the user creates, edits, or deletes records
-  at runtime, the type is Object.
-- Saying "behavior is added through Components" — Components are fields
-  after the 2026-05-14 rename. Behavior comes from capabilities and from
-  `recordBehavior` configuration.
+-   Inventing a new built-in kind when a custom entity type via the
+    constructor can express the need.
+-   Adding a separate Ledger entity to a base template just because the
+    domain has registers; in base templates, posting flows go through
+    Object + `config.ledger`.
+-   Putting end-user-authored content into the metahub. The metahub holds
+    seeded/default content; user content lives in workspaces.
+-   Treating Set as a substitute for Object. Set holds values without a
+    per-record lifecycle; if the user creates, edits, or deletes records
+    at runtime, the type is Object.
+-   Saying "behavior is added through Components" — Components are fields
+    after the 2026-05-14 rename. Behavior comes from capabilities and from
+    `recordBehavior` configuration.
 
 ## Components vs. Capabilities
 
 After the 2026-05-14 rename:
 
-- **Components** = fields/attributes on an entity type. Authored in the
-  metahub UI, stored as the entity's data schema, surfaced as form
-  controls and data-grid columns at runtime.
-- **Capabilities** = infrastructure toggles
-  (`EntityTypeCapabilities`) that drive entity-type behavior. They live
-  on the entity type definition, not on individual records.
+-   **Components** = fields/attributes on an entity type. Authored in the
+    metahub UI, stored as the entity's data schema, surfaced as form
+    controls and data-grid columns at runtime.
+-   **Capabilities** = infrastructure toggles
+    (`EntityTypeCapabilities`) that drive entity-type behavior. They live
+    on the entity type definition, not on individual records.
 
 A brief that needs to add a new field to an Object talks about adding a
 Component. A brief that needs to enable posting talks about turning on

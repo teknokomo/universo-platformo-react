@@ -510,7 +510,7 @@ const normalizeWorkflowActionsConfig = (config: Record<string, unknown>): Record
 
             const statusFieldCodename = normalizeDatasourceText(action.statusFieldCodename).trim()
             const statusColumnName = normalizeDatasourceText(action.statusColumnName).trim()
-            const scriptCodename = normalizeDatasourceText(action.scriptCodename).trim()
+            const moduleCodename = normalizeDatasourceText(action.moduleCodename).trim()
             const postingCommand = WORKFLOW_POSTING_COMMANDS.includes(action.postingCommand as WorkflowPostingCommand)
                 ? action.postingCommand
                 : undefined
@@ -526,7 +526,7 @@ const normalizeWorkflowActionsConfig = (config: Record<string, unknown>): Record
                 requiredCapabilities,
                 ...(statusFieldCodename ? { statusFieldCodename } : {}),
                 ...(statusColumnName ? { statusColumnName } : {}),
-                ...(scriptCodename ? { scriptCodename } : {}),
+                ...(moduleCodename ? { moduleCodename } : {}),
                 ...(postingCommand ? { postingCommand } : {}),
                 ...(confirmation?.required || confirmationTitle || confirmationMessage || confirmLabel
                     ? {
@@ -1747,9 +1747,9 @@ export default function ApplicationWidgetBehaviorEditorDialog({ open, widgetKey,
                                         />
                                         <TextField
                                             size='small'
-                                            label={`${t('layouts.workflowActions.scriptCodename', 'Script codename')} ${slotNumber}`}
-                                            value={normalizeDatasourceText(action.scriptCodename)}
-                                            onChange={(event) => updateWorkflowAction(index, { scriptCodename: event.target.value })}
+                                            label={`${t('layouts.workflowActions.moduleCodename', 'Module codename')} ${slotNumber}`}
+                                            value={normalizeDatasourceText(action.moduleCodename)}
+                                            onChange={(event) => updateWorkflowAction(index, { moduleCodename: event.target.value })}
                                             fullWidth
                                         />
                                         <FormControl size='small' fullWidth>

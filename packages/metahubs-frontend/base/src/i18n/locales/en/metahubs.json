@@ -145,31 +145,32 @@
         "tabs": {
             "general": "General",
             "storage": "Storage",
-            "scripts": "Scripts"
+            "modules": "Modules"
         },
         "storage": {
             "mainDb": "Create schema in main database",
             "externalDb": "Create schema in external database",
             "externalDbDisabled": "Coming soon"
         },
-        "scripts": {
-            "saveEntityFirst": "Save this entity first, then scripts can be attached from this tab.",
-            "loadingPermissions": "Loading script permissions...",
-            "noManagePermission": "You do not have permission to manage scripts for this metahub.",
-            "listTitle": "Attached scripts",
+        "modules": {
+            "saveEntityFirst": "Save this entity first, then modules can be attached from this tab.",
+            "loadingPermissions": "Loading module permissions...",
+            "noManagePermission": "You do not have permission to manage modules for this metahub.",
+            "listTitle": "Attached modules",
             "currentSelection": "Selected",
-            "noneSelected": "No script selected",
+            "noneSelected": "No module selected",
             "listToggle": {
-                "show": "Show scripts",
-                "hide": "Hide scripts"
+                "show": "Show modules",
+                "hide": "Hide modules"
             },
             "new": "New",
             "active": "Active",
             "inactive": "Inactive",
-            "empty": "No scripts are attached to this entity yet.",
-            "loading": "Loading attached scripts...",
-            "save": "Save script",
-            "create": "Create script",
+            "unnamed": "Unnamed module",
+            "empty": "No modules are attached to this entity yet.",
+            "loading": "Loading attached modules...",
+            "save": "Save module",
+            "create": "Create module",
             "delete": "Delete",
             "fields": {
                 "name": "Name",
@@ -179,7 +180,7 @@
                 "sourceKind": "Source kind",
                 "capabilities": "Capabilities",
                 "sdkApiVersion": "SDK API version",
-                "isActive": "Script is active",
+                "isActive": "Module is active",
                 "sourceCode": "Source code"
             },
             "moduleRoles": {
@@ -207,8 +208,8 @@
                 "title": "Authoring guidance",
                 "effectiveCapabilities": "Effective capabilities for this role",
                 "recommendedEntryPoints": "Recommended entry points",
-                "editorHelp": "Start typing ExtensionScript, @AtClient, @AtServer, or @OnEvent to use SDK completions.",
-                "editorHelpLibrary": "Start typing SharedLibraryScript or @shared/example-helpers to use shared-library completions.",
+                "editorHelp": "Start typing ExtensionModule, @AtClient, @AtServer, @AtServerAndClient, or @OnEvent to use SDK completions.",
+                "editorHelpLibrary": "Start typing SharedLibraryModule or @shared/example-helpers to use shared-library completions.",
                 "roleSummaries": {
                     "module": "General modules can mix record and metadata operations and may also subscribe to lifecycle hooks when needed.",
                     "lifecycle": "Lifecycle modules are optimized for before/after entity events and usually validate, enrich, or veto record mutations.",
@@ -219,9 +220,16 @@
             },
             "errors": {
                 "required": "Codename, name, and source code are required",
-                "save": "Failed to save script",
-                "delete": "Failed to delete script",
-                "load": "Failed to load scripts"
+                "save": "Failed to save module",
+                "delete": "Failed to delete module",
+                "load": "Failed to load modules",
+                "invalidCodename": "Use a kebab-case English codename for the module.",
+                "invalidAttachment": "Select a valid module attachment and role.",
+                "invalidCapabilities": "Selected capabilities are not available for this module role.",
+                "invalidSourceKind": "Only embedded module sources are supported.",
+                "compilation": "Module compilation failed. Check the source code and shared imports.",
+                "dependency": "This shared library is used by other modules.",
+                "invalidInput": "Check the module fields and try again."
             }
         }
     },
@@ -428,24 +436,25 @@
         },
         "quizEditor": {
             "title": "Quiz widget",
-            "description": "Bind the quiz widget to a published widget script. The runtime resolves metahub-wide or current-object scripts by codename.",
-            "loadError": "Failed to load available quiz scripts for this metahub.",
-            "noScripts": "No active widget scripts with client methods are available for the selected attachment kind yet.",
+            "description": "Choose which published quiz behavior this widget should use for the selected page or application scope.",
+            "loadError": "Failed to load available quiz modules for this metahub.",
+            "noModules": "No active quiz modules are available for the selected source yet.",
             "widgetTitle": "Widget title override",
             "widgetDescription": "Widget description override",
-            "attachmentKind": "Script attachment kind",
-            "attachmentKindHelp": "Object-scoped scripts resolve against the current object at runtime, while metahub scripts stay global.",
+            "attachmentKind": "Quiz source",
+            "attachmentKindHelp": "Use the current object for page-specific quizzes, or the metahub for quizzes shared across the application.",
             "attachmentKinds": {
                 "metahub": "Metahub",
                 "object": "Current object"
             },
-            "scriptCodename": "Script codename",
-            "scriptCodenameHelp": "Leave this empty only if the selected attachment kind has a single obvious quiz widget script.",
-            "useFirstAvailable": "Use the first available script",
-            "mountMethodName": "Mount method",
-            "mountMethodHelp": "Optional override. Default: mount",
-            "submitMethodName": "Submit method",
-            "submitMethodHelp": "Optional override. Default: submit",
+            "moduleCodename": "Quiz module",
+            "moduleCodenameHelp": "Leave this empty only when there is a single obvious quiz module for the selected source.",
+            "useFirstAvailable": "Use the first available quiz module",
+            "advancedActions": "Advanced actions",
+            "mountMethodName": "Content loader",
+            "mountMethodHelp": "Optional. Leave empty to use the default loader.",
+            "submitMethodName": "Answer checker",
+            "submitMethodHelp": "Optional. Leave empty to use the default answer checker.",
             "emptyStateTitle": "Empty state title",
             "emptyStateDescription": "Empty state description"
         },
@@ -596,7 +605,7 @@
             "iconName": "Icon name",
             "iconNameHelper": "Tabler icon export name used by downstream surfaces",
             "tabs": "Tabs",
-            "tabsHelper": "Comma or newline separated tab identifiers, for example general, scripts",
+            "tabsHelper": "Comma or newline separated tab identifiers, for example general, modules",
             "tabsHelperStructured": "Choose which authoring tabs should be exposed for this entity type. General is always enabled.",
             "sidebarSection": "Sidebar section",
             "sidebarSectionHelper": "Controls where future menus may place this entity type",
@@ -643,7 +652,7 @@
             "behavior": "Behavior",
             "treeEntities": "Hubs",
             "layout": "Layout",
-            "scripts": "Scripts"
+            "modules": "Modules"
         },
         "resourceSurfaces": {
             "components": "Components",
@@ -675,8 +684,8 @@
             "actionsHelper": "Enables object-scoped actions for ECAE lifecycle orchestration.",
             "events": "Events",
             "eventsHelper": "Allows lifecycle event bindings on top of the action contract.",
-            "scripting": "Scripting",
-            "scriptingHelper": "Exposes the existing EntityScriptsTab for script attachments and reuse.",
+            "modules": "Modules",
+            "modulesHelper": "Exposes the existing EntityModulesTab for module attachments and reuse.",
             "layoutConfig": "Layout config",
             "layoutConfigHelper": "Enables Object-compatible layout configuration and the dedicated layout authoring tab.",
             "runtimeBehavior": "Runtime behavior",
@@ -693,7 +702,7 @@
             "recordLifecycleHelper": "Enables lifecycle states for transactional or hybrid entity records.",
             "allowCustomStates": "Allow custom states",
             "posting": "Posting",
-            "postingHelper": "Enables record posting settings and ledger movement scripts.",
+            "postingHelper": "Enables record posting settings and ledger movement modules.",
             "allowManualPosting": "Allow manual posting",
             "allowAutomaticPosting": "Allow automatic posting",
             "ledgerSchema": "Ledger schema",
@@ -768,9 +777,9 @@
                     "automatic": "Automatic"
                 },
                 "targetLedgers": "Target ledgers",
-                "script": "Posting script",
+                "module": "Posting module",
                 "noLedgers": "Create a Ledger entity before selecting targets.",
-                "noScripts": "Attach a lifecycle script after the entity is created."
+                "noModules": "Attach a lifecycle module after the entity is created."
             },
             "immutability": {
                 "title": "Immutability",
@@ -853,11 +862,11 @@
         "instances": {
             "title": "{{name}} instances",
             "description": "Manage {{name}} instances on the unified entity-owned route for kind {{kindKey}}.",
-            "objectCollectionBanner": "This page reuses the shared object authoring contract on the unified entity-owned route, including object copy options, layouts, and scripts.",
+            "objectCollectionBanner": "This page reuses the shared object authoring contract on the unified entity-owned route, including object copy options, layouts, and modules.",
             "searchPlaceholder": "Search entity instances...",
             "banner": "This page authors design-time instances for the selected entity kind on the unified entity-owned route surface.",
             "noManagePermission": "You do not have permission to manage entity instances for this metahub.",
-            "scriptsUnavailable": "Scripts remain unavailable for custom entity kinds until the generic script attachment contract is widened beyond the current fixed attachment kinds.",
+            "modulesUnavailable": "Modules remain unavailable for custom entity kinds until the generic module attachment contract is widened beyond the current fixed attachment kinds.",
             "typeLoadError": "Failed to load the custom entity type definition",
             "loadError": "Failed to load entity instances",
             "customOnly": "Custom entity type not found",
@@ -918,7 +927,7 @@
             "automation": {
                 "actions": {
                     "saveFirst": "Save this entity first to manage actions.",
-                    "description": "Actions describe reusable automation steps for this entity instance. Script actions can be bound to lifecycle events in the Events tab.",
+                    "description": "Actions describe reusable automation steps for this entity instance. Module actions can be bound to lifecycle events in the Events tab.",
                     "loadError": "Failed to load actions",
                     "listTitle": "Configured actions",
                     "newAction": "New action",
@@ -926,8 +935,8 @@
                     "empty": "No actions configured yet.",
                     "editTitle": "Edit action",
                     "createTitle": "Create action",
-                    "noScript": "No script",
-                    "noScriptsAvailable": "No scripts are attached to this entity yet. Add one in the Scripts tab or switch this action to a platform action.",
+                    "noModule": "No module",
+                    "noModulesAvailable": "No modules are attached to this entity yet. Add one in the Modules tab or switch this action to a platform action.",
                     "deleteAction": "Delete action",
                     "updateAction": "Update action",
                     "createAction": "Create action",
@@ -938,21 +947,21 @@
                     "deleteSuccess": "Action deleted",
                     "deleteError": "Failed to delete action",
                     "type": {
-                        "script": "Script",
+                        "module": "Module",
                         "builtin": "Platform action"
                     },
                     "fields": {
                         "name": "Action name",
                         "codename": "Action codename",
                         "actionType": "Action type",
-                        "script": "Script",
-                        "scriptPlaceholder": "Select a script",
+                        "module": "Module",
+                        "modulePlaceholder": "Select a module",
                         "sortOrder": "Sort order",
                         "config": "Action config"
                     },
                     "validation": {
                         "codenameRequired": "Action codename is required.",
-                        "scriptRequired": "Select a script for script actions."
+                        "moduleRequired": "Select a module for module actions."
                     }
                 },
                 "events": {
@@ -1242,7 +1251,7 @@
             "values": "Values",
             "components": "Components",
             "optionValues": "Values",
-            "scripts": "Scripts"
+            "modules": "Modules"
         },
         "shared": {
             "loading": "Loading shared entities...",
@@ -2318,24 +2327,24 @@
         "importError": "Failed to import configuration",
         "exportError": "Failed to export snapshot"
     },
-        "components": {
-            "title": "Components",
-            "resourceTabTitle": "Components",
-            "description": "Define the fields for this object",
-            "searchPlaceholder": "Search components...",
-            "empty": "No components yet",
-            "emptyDescription": "Add components to define the structure of your object data",
-            "limitReached": "Limit reached: maximum {{limit}} components per object. Remove an component to add a new one.",
-            "create": "Create Component",
-            "createDialog": {
-                "title": "Create Component"
-            },
-            "createChildDialog": {
-                "title": "Create Child Component"
-            },
-            "editDialog": {
-                "title": "Edit Component"
-            },
+    "components": {
+        "title": "Components",
+        "resourceTabTitle": "Components",
+        "description": "Define the fields for this object",
+        "searchPlaceholder": "Search components...",
+        "empty": "No components yet",
+        "emptyDescription": "Add components to define the structure of your object data",
+        "limitReached": "Limit reached: maximum {{limit}} components per object. Remove an component to add a new one.",
+        "create": "Create Component",
+        "createDialog": {
+            "title": "Create Component"
+        },
+        "createChildDialog": {
+            "title": "Create Child Component"
+        },
+        "editDialog": {
+            "title": "Edit Component"
+        },
         "actions": {
             "moveUp": "Move up",
             "moveDown": "Move down",

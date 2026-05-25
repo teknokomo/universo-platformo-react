@@ -6,71 +6,79 @@ Runtime dashboard template for published applications in the Universo Platformo 
 
 ## Package Information
 
-| Field | Value |
-|-------|-------|
-| **Version** | 0.1.0 |
-| **Type** | React Frontend Package (TypeScript) |
-| **Status** | ✅ Active Development |
-| **Framework** | React 18 + TypeScript + Material-UI v7 |
-| **Package Name** | `@universo/apps-template-mui` |
+| Field            | Value                                  |
+| ---------------- | -------------------------------------- |
+| **Version**      | 0.1.0                                  |
+| **Type**         | React Frontend Package (TypeScript)    |
+| **Status**       | ✅ Active Development                  |
+| **Framework**    | React 18 + TypeScript + Material-UI v7 |
+| **Package Name** | `@universo/apps-template-mui`          |
 
 ## Key Features
 
 ### 🖥️ Dashboard System
-- **Zone-Based Layout**: 4 dashboard zones — left (sidebar), right (sidebar), center (main content), top (header/navbar)
-- **Data-Driven Rendering**: Widgets rendered from `ZoneWidgets` configuration, not hardcoded JSX
-- **DashboardDetailsContext**: React Context providing table data (rows, columns, pagination) to nested widgets
-- **Layout Config**: Boolean-driven visibility flags (`showSideMenu`, `showHeader`, `showColumnsContainer`, etc.)
-- **Runtime Layout Selection**: Runtime consumes application-side materialized layouts and widgets, but renders only active layouts and active widgets
+
+-   **Zone-Based Layout**: 4 dashboard zones — left (sidebar), right (sidebar), center (main content), top (header/navbar)
+-   **Data-Driven Rendering**: Widgets rendered from `ZoneWidgets` configuration, not hardcoded JSX
+-   **DashboardDetailsContext**: React Context providing table data (rows, columns, pagination) to nested widgets
+-   **Layout Config**: Boolean-driven visibility flags (`showSideMenu`, `showHeader`, `showColumnsContainer`, etc.)
+-   **Runtime Layout Selection**: Runtime consumes application-side materialized layouts and widgets, but renders only active layouts and active widgets
 
 ### 📊 ColumnsContainer Widget
-- **Multi-Column Grid**: Renders `ColumnsContainerConfig` as MUI Grid with configurable column widths (12-unit grid)
-- **Nested Widgets**: Each column can contain multiple widgets via `ColumnsContainerColumnWidget[]`
-- **Recursion Guard**: `MAX_CONTAINER_DEPTH=1` prevents infinite nesting of columnsContainer within columnsContainer
-- **Default Seed**: 2-column layout — 9/12 `detailsTable` + 3/12 `productTree`
+
+-   **Multi-Column Grid**: Renders `ColumnsContainerConfig` as MUI Grid with configurable column widths (12-unit grid)
+-   **Nested Widgets**: Each column can contain multiple widgets via `ColumnsContainerColumnWidget[]`
+-   **Recursion Guard**: `MAX_CONTAINER_DEPTH=1` prevents infinite nesting of columnsContainer within columnsContainer
+-   **Default Seed**: 2-column layout — 9/12 `detailsTable` + 3/12 `productTree`
 
 ### 🧩 Widget Renderer
-- **Shared renderer**: `renderWidget()` maps widget keys to concrete React components
-- **Supported widgets**: `brandSelector`, `divider`, `menuWidget`, `spacer`, `infoCard`, `userProfile`, `productTree`, `usersByCountryChart`, `detailsTable`, `relationBuilder`, `columnsContainer`
-- **Union datasources**: `detailsTable` can render `records.union` by resolving multiple runtime sections from metadata and querying them through the normal `fetchAppData` surface.
-- **Relation builder**: `relationBuilder` keeps child records scoped to a selected parent row while reusing generic CRUD dialogs, record pickers, and persisted row ordering.
-- **Menu resolution**: 2-level fallback — widget ID → menus map → legacy single menu prop
-- **Curated menu contract**: Runtime menus support primary item limits, overflow items, start-page selection, and workspace entry placement without requiring LMS-only components.
-- **LMS fixture rule**: LMS published layouts use the shared MUI dashboard shell and generic data-driven widgets. Demo-only surfaces such as `brandSelector`, `productTree`, and `usersByCountryChart` are blocked by the LMS fixture contract unless they become real runtime-data surfaces.
-- **Generic runtime data surfaces**: Saved-report aggregations, resource previews, sequence policies, and workflow actions are configured through shared widget/Object metadata instead of LMS-specific widget forks.
+
+-   **Shared renderer**: `renderWidget()` maps widget keys to concrete React components
+-   **Supported widgets**: `brandSelector`, `divider`, `menuWidget`, `spacer`, `infoCard`, `userProfile`, `productTree`, `usersByCountryChart`, `detailsTable`, `relationBuilder`, `columnsContainer`
+-   **Union datasources**: `detailsTable` can render `records.union` by resolving multiple runtime sections from metadata and querying them through the normal `fetchAppData` surface.
+-   **Relation builder**: `relationBuilder` keeps child records scoped to a selected parent row while reusing generic CRUD dialogs, record pickers, and persisted row ordering.
+-   **Menu resolution**: 2-level fallback — widget ID → menus map → legacy single menu prop
+-   **Curated menu contract**: Runtime menus support primary item limits, overflow items, start-page selection, and workspace entry placement without requiring LMS-only components.
+-   **LMS fixture rule**: LMS published layouts use the shared MUI dashboard shell and generic data-driven widgets. Demo-only surfaces such as `brandSelector`, `productTree`, and `usersByCountryChart` are blocked by the LMS fixture contract unless they become real runtime-data surfaces.
+-   **Generic runtime data surfaces**: Saved-report aggregations, resource previews, sequence policies, and workflow actions are configured through shared widget/Object metadata instead of LMS-specific widget forks.
 
 ### 📝 CRUD Components
-- **FormDialog**: Generic modal form with configurable fields, validation rules, and Zod integration
-- **ConfirmDeleteDialog**: Confirmation dialog for delete operations
-- **CrudDialogs**: Combined create/edit/delete dialog component
-- **RowActionsMenu**: Per-row action menu with edit/delete options
-- **useCrudDashboard**: Headless controller hook managing CRUD state and API calls
-- **Workflow actions**: Metadata-backed row actions rendered only when effective runtime capabilities explicitly allow them
-- **Block-content authoring**: JSON fields configured with `editorjsBlockContent` reuse the shared `@universo/block-editor` package instead of exposing raw JSON or carrying a runtime-local editor fork
-- **ResourcePreview**: Generic safe preview component for supported resource source types with localized deferred/unsupported states
-- **Reports and export**: Published runtime can render saved reports through generic details widgets and export server-defined CSV reports
-- **Trash-aware operations**: Runtime lists can request `lifecycleState=deleted`, delete calls pass optimistic row versions, and adapters expose restore calls for generic soft-delete contracts.
-- **Page player progress**: Metadata Pages can render Editor.js page blocks with outline/progress controls and persist completion through the generic runtime progress API.
+
+-   **FormDialog**: Generic modal form with configurable fields, validation rules, and Zod integration
+-   **ConfirmDeleteDialog**: Confirmation dialog for delete operations
+-   **CrudDialogs**: Combined create/edit/delete dialog component
+-   **RowActionsMenu**: Per-row action menu with edit/delete options
+-   **useCrudDashboard**: Headless controller hook managing CRUD state and API calls
+-   **Workflow actions**: Metadata-backed row actions rendered only when effective runtime capabilities explicitly allow them
+-   **Block-content authoring**: JSON fields configured with `editorjsBlockContent` reuse the shared `@universo/block-editor` package instead of exposing raw JSON or carrying a runtime-local editor fork
+-   **ResourcePreview**: Generic safe preview component for supported resource source types with localized deferred/unsupported states
+-   **Reports and export**: Published runtime can render saved reports through generic details widgets and export server-defined CSV reports
+-   **Trash-aware operations**: Runtime lists can request `lifecycleState=deleted`, delete calls pass optimistic row versions, and adapters expose restore calls for generic soft-delete contracts.
+-   **Page player progress**: Metadata Pages can render Editor.js page blocks with outline/progress controls and persist completion through the generic runtime progress API.
 
 ### 🧱 Runtime UI Primitives
-- **Local primitives**: `ViewHeaderMUI`, `ToolbarControls`, `ItemCard`, `FlowListTable`, `PaginationControls`, and `useViewPreference` live in `src/components/runtime-ui`
-- **Package boundary**: Published-app runtime source is guarded by a test that rejects imports from `@universo/template-mui`
-- **Dashboard parity**: Runtime tables, record cards, workspace cards, and metric cards preserve the original MUI dashboard spacing and outlined card surfaces
+
+-   **Local primitives**: `ViewHeaderMUI`, `ToolbarControls`, `ItemCard`, `FlowListTable`, `PaginationControls`, and `useViewPreference` live in `src/components/runtime-ui`
+-   **Package boundary**: Published-app runtime source is guarded by a test that rejects imports from `@universo/template-mui`
+-   **Dashboard parity**: Runtime tables, record cards, workspace cards, and metric cards preserve the original MUI dashboard spacing and outlined card surfaces
 
 ### 🧑‍🤝‍🧑 Runtime Workspaces
-- **WorkspaceSwitcher**: Header/mobile quick switch for the user's current workspace.
-- **RuntimeWorkspacesPage**: Full workspace management section rendered inside the existing dashboard details content slot.
-- **Workspace APIs**: Typed helpers and query keys for paginated workspace lists, member lists, default switching, shared workspace creation, email-based member invitation, and member removal.
-- **Navigation placement**: Published app menus can keep the workspace entry in the primary menu, move it to overflow, or hide it while preserving the standalone switcher.
+
+-   **WorkspaceSwitcher**: Header/mobile quick switch for the user's current workspace.
+-   **RuntimeWorkspacesPage**: Full workspace management section rendered inside the existing dashboard details content slot.
+-   **Workspace APIs**: Typed helpers and query keys for paginated workspace lists, member lists, default switching, shared workspace creation, email-based member invitation, and member removal.
+-   **Navigation placement**: Published app menus can keep the workspace entry in the primary menu, move it to overflow, or hide it while preserving the standalone switcher.
 
 ### 🔌 Route Factory
-- **createAppRuntimeRoute()**: Creates a react-router-dom v6 route for application runtime view
-- **Guard support**: Optional wrapper component (e.g., AuthGuard) for route protection
-- **Default path**: `a/:applicationId/*` pattern with full-screen minimal layout
+
+-   **createAppRuntimeRoute()**: Creates a react-router-dom v6 route for application runtime view
+-   **Guard support**: Optional wrapper component (e.g., AuthGuard) for route protection
+-   **Default path**: `a/:applicationId/*` pattern with full-screen minimal layout
 
 ### 🌍 Internationalization
-- **appsTranslations**: Side-effect i18n resource registration for the apps domain
-- **Locale utilities**: `getDataGridLocaleText()` for MUI DataGrid locale overrides
+
+-   **appsTranslations**: Side-effect i18n resource registration for the apps domain
+-   **Locale utilities**: `getDataGridLocaleText()` for MUI DataGrid locale overrides
 
 ## Installation
 
@@ -129,8 +137,8 @@ import ApplicationRuntime from './ApplicationRuntime'
 import AuthGuard from './AuthGuard'
 
 const runtimeRoute = createAppRuntimeRoute({
-  component: ApplicationRuntime,
-  guard: AuthGuard,
+    component: ApplicationRuntime,
+    guard: AuthGuard
 })
 
 // Use in MinimalRoutes children:
@@ -143,18 +151,14 @@ const runtimeRoute = createAppRuntimeRoute({
 import { useCrudDashboard, CrudDialogs } from '@universo/apps-template-mui'
 
 function MyDashboard({ adapter }) {
-  const crud = useCrudDashboard({ adapter })
+    const crud = useCrudDashboard({ adapter })
 
-  return (
-    <>
-      <AppsDashboard
-        details={crud.details}
-        layoutConfig={crud.layoutConfig}
-        zoneWidgets={crud.zoneWidgets}
-      />
-      <CrudDialogs {...crud.dialogs} />
-    </>
-  )
+    return (
+        <>
+            <AppsDashboard details={crud.details} layoutConfig={crud.layoutConfig} zoneWidgets={crud.zoneWidgets} />
+            <CrudDialogs {...crud.dialogs} />
+        </>
+    )
 }
 ```
 
@@ -164,7 +168,7 @@ function MyDashboard({ adapter }) {
 import { DashboardApp } from '@universo/apps-template-mui'
 
 // Renders a standalone dashboard with its own i18n and theme
-<DashboardApp adapter={myAdapter} />
+;<DashboardApp adapter={myAdapter} />
 ```
 
 ## Architecture
@@ -271,40 +275,43 @@ packages/apps-template-mui/
 ## Key Types
 
 ### DashboardProps
+
 ```typescript
 interface DashboardProps {
-  layoutConfig?: DashboardLayoutConfig  // Boolean visibility flags
-  zoneWidgets?: ZoneWidgets             // Widget configs per zone
-  details?: DashboardDetailsSlot        // Table data for details widgets
-  menu?: DashboardMenuSlot              // Legacy single menu (deprecated)
-  menus?: DashboardMenusMap             // Menu map keyed by widget ID
+    layoutConfig?: DashboardLayoutConfig // Boolean visibility flags
+    zoneWidgets?: ZoneWidgets // Widget configs per zone
+    details?: DashboardDetailsSlot // Table data for details widgets
+    menu?: DashboardMenuSlot // Legacy single menu (deprecated)
+    menus?: DashboardMenusMap // Menu map keyed by widget ID
 }
 ```
 
 ### ZoneWidgetItem
+
 ```typescript
 interface ZoneWidgetItem {
-  id: string
-  widgetKey: string                     // Widget type identifier
-  sortOrder: number
-  config: Record<string, unknown>       // Widget-specific configuration
-  isActive?: boolean
+    id: string
+    widgetKey: string // Widget type identifier
+    sortOrder: number
+    config: Record<string, unknown> // Widget-specific configuration
+    isActive?: boolean
 }
 ```
 
 ### DashboardDetailsSlot
+
 ```typescript
 interface DashboardDetailsSlot {
-  title: string
-  rows: Array<Record<string, unknown> & { id: string }>
-  columns: GridColDef[]
-  loading?: boolean
-  rowCount?: number
-  paginationModel?: GridPaginationModel
-  onPaginationModelChange?: (model: GridPaginationModel) => void
-  pageSizeOptions?: number[]
-  actions?: React.ReactNode             // Toolbar actions (e.g., Create button)
-  localeText?: Partial<GridLocaleText>  // MUI DataGrid locale overrides
+    title: string
+    rows: Array<Record<string, unknown> & { id: string }>
+    columns: GridColDef[]
+    loading?: boolean
+    rowCount?: number
+    paginationModel?: GridPaginationModel
+    onPaginationModelChange?: (model: GridPaginationModel) => void
+    pageSizeOptions?: number[]
+    actions?: React.ReactNode // Toolbar actions (e.g., Create button)
+    localeText?: Partial<GridLocaleText> // MUI DataGrid locale overrides
 }
 ```
 
@@ -315,14 +322,14 @@ enhanced display modes in the details section:
 
 ```typescript
 interface DashboardLayoutConfig {
-  // ... existing boolean flags (showSideMenu, showHeader, etc.)
+    // ... existing boolean flags (showSideMenu, showHeader, etc.)
 
-  // View Settings (optional — when absent, classic table mode is used)
-  showViewToggle?: boolean       // Show card/table view mode toggle
-  defaultViewMode?: 'table' | 'card'  // Initial view mode
-  showFilterBar?: boolean        // Show search input in toolbar
-  cardColumns?: number           // Number of columns in card view (2–4)
-  rowHeight?: number | 'auto'    // Fixed pixel height or 'auto' for content-based
+    // View Settings (optional — when absent, classic table mode is used)
+    showViewToggle?: boolean // Show card/table view mode toggle
+    defaultViewMode?: 'table' | 'card' // Initial view mode
+    showFilterBar?: boolean // Show search input in toolbar
+    cardColumns?: number // Number of columns in card view (2–4)
+    rowHeight?: number | 'auto' // Fixed pixel height or 'auto' for content-based
 }
 ```
 
@@ -335,7 +342,8 @@ in `api/api.ts`.
 
 ## Development
 
-### Available Scripts
+### Available Modules
+
 ```bash
 # Development
 pnpm build                       # Type-check (noEmit)
@@ -347,15 +355,18 @@ pnpm lint                        # Run ESLint
 ```
 
 ### TypeScript Configuration
+
 The package uses strict TypeScript configuration with `noEmit` build mode.
 Source files are consumed directly by other workspace packages via `main`/`module` pointing to `./src/index.ts`.
 
 ## Related Packages
-- [`@universo/metahubs-frontend`](../metahubs-frontend/base/README.md) — Metahub management UI
-- [`@universo/metahubs-backend`](../metahubs-backend/base/README.md) — Backend service
-- [`@universo/types`](../universo-types/base/README.md) — Shared TypeScript types
-- [`@universo/i18n`](../universo-i18n/base/README.md) — Shared localization resources
-- [`@universo/utils`](../universo-utils/base/README.md) — Shared runtime normalization and utility helpers
+
+-   [`@universo/metahubs-frontend`](../metahubs-frontend/base/README.md) — Metahub management UI
+-   [`@universo/metahubs-backend`](../metahubs-backend/base/README.md) — Backend service
+-   [`@universo/types`](../universo-types/base/README.md) — Shared TypeScript types
+-   [`@universo/i18n`](../universo-i18n/base/README.md) — Shared localization resources
+-   [`@universo/utils`](../universo-utils/base/README.md) — Shared runtime normalization and utility helpers
 
 ---
-*Part of [Universo Platformo](../../README.md) — A package-based business platform*
+
+_Part of [Universo Platformo](../../README.md) — A package-based business platform_

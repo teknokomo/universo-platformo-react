@@ -8,7 +8,7 @@ import {
     disposeApiContext,
     listLayouts,
     listLayoutZoneWidgets,
-    listMetahubScripts,
+    listMetahubModules,
     syncApplicationSchema
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublication } from '../../support/backend/run-manifest.mjs'
@@ -18,7 +18,7 @@ import {
     QUIZ_FIXTURE_FILENAME,
     QUIZ_I18N_LEAK_MARKERS,
     QUIZ_PUBLICATION,
-    QUIZ_SCRIPT_CODENAME,
+    QUIZ_MODULE_CODENAME,
     QUIZ_UI_COPY,
     assertQuizFixtureEnvelopeContract,
     getCorrectAnswerLabels,
@@ -137,7 +137,7 @@ async function submitQuestionAnswer(options: {
     const submitResponsePromise = options.page.waitForResponse(
         (response) =>
             response.request().method() === 'POST' &&
-            response.url().includes(`/api/v1/applications/${options.applicationId}/runtime/scripts/`) &&
+            response.url().includes(`/api/v1/applications/${options.applicationId}/runtime/modules/`) &&
             response.url().endsWith('/call')
     )
 
@@ -277,20 +277,20 @@ test.describe('Quiz Snapshot Import Runtime Flow', () => {
         await expect(page.getByText(fixture.metahubName, { exact: true }).first()).toBeVisible({ timeout: 15_000 })
 
         const layoutId = await waitForLayoutId(api, importedId)
-        const [scriptsPayload, layoutWidgets] = await Promise.all([
-            listMetahubScripts(api, importedId, { attachedToKind: 'metahub', onlyActive: true }),
+        const [modulesPayload, layoutWidgets] = await Promise.all([
+            listMetahubModules(api, importedId, { attachedToKind: 'metahub', onlyActive: true }),
             listLayoutZoneWidgets(api, importedId, layoutId)
         ])
 
-        const importedScript = (scriptsPayload.items ?? []).find(
-            (item: Record<string, any>) => item?.codename?.locales?.en?.content === QUIZ_SCRIPT_CODENAME
+        const importedModule = (modulesPayload.items ?? []).find(
+            (item: Record<string, any>) => item?.codename?.locales?.en?.content === QUIZ_MODULE_CODENAME
         )
-        expect(importedScript?.attachedToKind).toBe('metahub')
-        expect(importedScript?.attachedToId ?? null).toBeNull()
-        expect(importedScript?.sourceCode).toContain('SpaceQuizWidget')
+        expect(importedModule?.attachedToKind).toBe('metahub')
+        expect(importedModule?.attachedToId ?? null).toBeNull()
+        expect(importedModule?.sourceCode).toContain('SpaceQuizWidget')
 
         const quizWidgetBinding = (layoutWidgets.items ?? []).find(
-            (item: Record<string, any>) => item?.widgetKey === 'quizWidget' && item?.config?.scriptCodename === QUIZ_SCRIPT_CODENAME
+            (item: Record<string, any>) => item?.widgetKey === 'quizWidget' && item?.config?.moduleCodename === QUIZ_MODULE_CODENAME
         )
         expect(quizWidgetBinding).toBeTruthy()
 
@@ -312,33 +312,33 @@ test.describe('Quiz Snapshot Import Runtime Flow', () => {
 
         await syncApplicationSchema(api, applicationId)
 
-        const listScriptsResponsePromise = page.waitForResponse(
+        const listModulesResponsePromise = page.waitForResponse(
             (response) =>
                 response.request().method() === 'GET' &&
-                response.url().includes(`/api/v1/applications/${applicationId}/runtime/scripts?`) &&
+                response.url().includes(`/api/v1/applications/${applicationId}/runtime/modules?`) &&
                 response.url().includes('attachedToKind=metahub')
         )
         const clientBundleResponsePromise = page.waitForResponse(
             (response) =>
                 response.request().method() === 'GET' &&
-                response.url().includes(`/api/v1/applications/${applicationId}/runtime/scripts/`) &&
+                response.url().includes(`/api/v1/applications/${applicationId}/runtime/modules/`) &&
                 response.url().includes('/client')
         )
 
         await applyBrowserPreferences(page, { language: 'en' })
         await page.goto(`/a/${applicationId}`)
 
-        const listScriptsResponse = await listScriptsResponsePromise
+        const listModulesResponse = await listModulesResponsePromise
         const clientBundleResponse = await clientBundleResponsePromise
-        expect(listScriptsResponse.ok()).toBe(true)
+        expect(listModulesResponse.ok()).toBe(true)
         expect(clientBundleResponse.ok()).toBe(true)
 
-        const runtimeScriptsPayload = await listScriptsResponse.json()
-        const selectedRuntimeScript = runtimeScriptsPayload?.items?.find(
-            (item: Record<string, any>) => item?.codename === QUIZ_SCRIPT_CODENAME
+        const runtimeModulesPayload = await listModulesResponse.json()
+        const selectedRuntimeModule = runtimeModulesPayload?.items?.find(
+            (item: Record<string, any>) => item?.codename === QUIZ_MODULE_CODENAME
         )
-        expect(selectedRuntimeScript?.clientBundle ?? null).toBeNull()
-        expect(selectedRuntimeScript?.serverBundle ?? null).toBeNull()
+        expect(selectedRuntimeModule?.clientBundle ?? null).toBeNull()
+        expect(selectedRuntimeModule?.serverBundle ?? null).toBeNull()
 
         await test.step('English runtime proves wrong-answer scoring, full completion, and restart', async () => {
             const quiz = QUIZ_CONTENT.en

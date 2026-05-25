@@ -78,8 +78,8 @@ tags:
     description: Record CRUD, reorder, move, and copy endpoints.
   - name: Layouts
     description: Layout CRUD and zone-widget endpoints.
-  - name: Scripts
-    description: Metahub script CRUD and source-management endpoints.
+  - name: Modules
+    description: Metahub module CRUD and source-management endpoints.
   - name: Shared Entity Overrides
     description: Metahub-level shared entity override endpoints.
   - name: Settings
@@ -3493,6 +3493,131 @@ paths:
             schema:
               $ref: "#/components/schemas/GenericObject"
       security: *a1
+  /applications/{applicationId}/runtime/modules:
+    get:
+      tags:
+        - Applications
+      summary: GET /applications/{applicationId}/runtime/modules
+      description: Auto-generated from
+        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_get_applications_applicationId_runtime_modules
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
+  /applications/{applicationId}/runtime/modules/{moduleId}/call:
+    post:
+      tags:
+        - Applications
+      summary: POST /applications/{applicationId}/runtime/modules/{moduleId}/call
+      description: Auto-generated from
+        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_post_applications_applicationId_runtime_modules_moduleId_call
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+        - name: moduleId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: moduleId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "201":
+          $ref: "#/components/responses/CreatedSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      security: *a1
+  /applications/{applicationId}/runtime/modules/{moduleId}/client:
+    get:
+      tags:
+        - Applications
+      summary: GET /applications/{applicationId}/runtime/modules/{moduleId}/client
+      description: Auto-generated from
+        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Applications_get_applications_applicationId_runtime_modules_moduleId_client
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+        - name: moduleId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: moduleId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
   /applications/{applicationId}/runtime/progress/content:
     post:
       tags:
@@ -4473,131 +4598,6 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/GenericObject"
-      security: *a1
-  /applications/{applicationId}/runtime/scripts:
-    get:
-      tags:
-        - Applications
-      summary: GET /applications/{applicationId}/runtime/scripts
-      description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
-      operationId: Applications_get_applications_applicationId_runtime_scripts
-      parameters:
-        - name: applicationId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: applicationId path parameter.
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericSuccess"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "429":
-          $ref: "#/components/responses/TooManyRequests"
-        "500":
-          $ref: "#/components/responses/InternalError"
-      security: *a1
-  /applications/{applicationId}/runtime/scripts/{scriptId}/call:
-    post:
-      tags:
-        - Applications
-      summary: POST /applications/{applicationId}/runtime/scripts/{scriptId}/call
-      description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
-      operationId: Applications_post_applications_applicationId_runtime_scripts_scriptId_call
-      parameters:
-        - name: applicationId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: applicationId path parameter.
-        - name: scriptId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: scriptId path parameter.
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericSuccess"
-        "201":
-          $ref: "#/components/responses/CreatedSuccess"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "429":
-          $ref: "#/components/responses/TooManyRequests"
-        "500":
-          $ref: "#/components/responses/InternalError"
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/GenericObject"
-      security: *a1
-  /applications/{applicationId}/runtime/scripts/{scriptId}/client:
-    get:
-      tags:
-        - Applications
-      summary: GET /applications/{applicationId}/runtime/scripts/{scriptId}/client
-      description: Auto-generated from
-        packages/applications-backend/base/src/routes/applicationsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
-      operationId: Applications_get_applications_applicationId_runtime_scripts_scriptId_client
-      parameters:
-        - name: applicationId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: applicationId path parameter.
-        - name: scriptId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: scriptId path parameter.
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericSuccess"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "429":
-          $ref: "#/components/responses/TooManyRequests"
-        "500":
-          $ref: "#/components/responses/InternalError"
       security: *a1
   /applications/{applicationId}/runtime/workspaces:
     get:
@@ -9965,6 +9965,212 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       security: *a1
+  /metahub/{metahubId}/module/{moduleId}:
+    get:
+      tags:
+        - Modules
+      summary: GET /metahub/{metahubId}/module/{moduleId}
+      description: Auto-generated from
+        packages/metahubs-backend/base/src/domains/modules/routes/modulesRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Modules_get_metahub_metahubId_module_moduleId
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: moduleId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: moduleId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
+    patch:
+      tags:
+        - Modules
+      summary: PATCH /metahub/{metahubId}/module/{moduleId}
+      description: Auto-generated from
+        packages/metahubs-backend/base/src/domains/modules/routes/modulesRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Modules_patch_metahub_metahubId_module_moduleId
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: moduleId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: moduleId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      security: *a1
+    delete:
+      tags:
+        - Modules
+      summary: DELETE /metahub/{metahubId}/module/{moduleId}
+      description: Auto-generated from
+        packages/metahubs-backend/base/src/domains/modules/routes/modulesRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Modules_delete_metahub_metahubId_module_moduleId
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: moduleId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: moduleId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
+  /metahub/{metahubId}/modules:
+    get:
+      tags:
+        - Modules
+      summary: GET /metahub/{metahubId}/modules
+      description: Auto-generated from
+        packages/metahubs-backend/base/src/domains/modules/routes/modulesRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Modules_get_metahub_metahubId_modules
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
+    post:
+      tags:
+        - Modules
+      summary: POST /metahub/{metahubId}/modules
+      description: Auto-generated from
+        packages/metahubs-backend/base/src/domains/modules/routes/modulesRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Modules_post_metahub_metahubId_modules
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "201":
+          $ref: "#/components/responses/CreatedSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      security: *a1
   /metahub/{metahubId}/object/{objectId}/actions:
     get:
       tags:
@@ -10840,212 +11046,6 @@ paths:
         This operation is mounted on the live backend route surface and should
         be treated as current repository truth.
       operationId: Publications_post_metahub_metahubId_publications
-      parameters:
-        - name: metahubId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: metahubId path parameter.
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericSuccess"
-        "201":
-          $ref: "#/components/responses/CreatedSuccess"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "429":
-          $ref: "#/components/responses/TooManyRequests"
-        "500":
-          $ref: "#/components/responses/InternalError"
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/GenericObject"
-      security: *a1
-  /metahub/{metahubId}/script/{scriptId}:
-    get:
-      tags:
-        - Scripts
-      summary: GET /metahub/{metahubId}/script/{scriptId}
-      description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/scripts/routes/scriptsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
-      operationId: Scripts_get_metahub_metahubId_script_scriptId
-      parameters:
-        - name: metahubId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: metahubId path parameter.
-        - name: scriptId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: scriptId path parameter.
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericSuccess"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "429":
-          $ref: "#/components/responses/TooManyRequests"
-        "500":
-          $ref: "#/components/responses/InternalError"
-      security: *a1
-    patch:
-      tags:
-        - Scripts
-      summary: PATCH /metahub/{metahubId}/script/{scriptId}
-      description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/scripts/routes/scriptsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
-      operationId: Scripts_patch_metahub_metahubId_script_scriptId
-      parameters:
-        - name: metahubId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: metahubId path parameter.
-        - name: scriptId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: scriptId path parameter.
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericSuccess"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "429":
-          $ref: "#/components/responses/TooManyRequests"
-        "500":
-          $ref: "#/components/responses/InternalError"
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/GenericObject"
-      security: *a1
-    delete:
-      tags:
-        - Scripts
-      summary: DELETE /metahub/{metahubId}/script/{scriptId}
-      description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/scripts/routes/scriptsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
-      operationId: Scripts_delete_metahub_metahubId_script_scriptId
-      parameters:
-        - name: metahubId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: metahubId path parameter.
-        - name: scriptId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: scriptId path parameter.
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericSuccess"
-        "204":
-          $ref: "#/components/responses/NoContent"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "429":
-          $ref: "#/components/responses/TooManyRequests"
-        "500":
-          $ref: "#/components/responses/InternalError"
-      security: *a1
-  /metahub/{metahubId}/scripts:
-    get:
-      tags:
-        - Scripts
-      summary: GET /metahub/{metahubId}/scripts
-      description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/scripts/routes/scriptsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
-      operationId: Scripts_get_metahub_metahubId_scripts
-      parameters:
-        - name: metahubId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: metahubId path parameter.
-      responses:
-        "200":
-          $ref: "#/components/responses/GenericSuccess"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "429":
-          $ref: "#/components/responses/TooManyRequests"
-        "500":
-          $ref: "#/components/responses/InternalError"
-      security: *a1
-    post:
-      tags:
-        - Scripts
-      summary: POST /metahub/{metahubId}/scripts
-      description: Auto-generated from
-        packages/metahubs-backend/base/src/domains/scripts/routes/scriptsRoutes.ts.
-        This operation is mounted on the live backend route surface and should
-        be treated as current repository truth.
-      operationId: Scripts_post_metahub_metahubId_scripts
       parameters:
         - name: metahubId
           in: path
