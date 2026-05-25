@@ -855,7 +855,7 @@ After Phase 4, `legacy-core-backend` is clean. Now migrate the code.
 
 - [ ] **Step 6.2**: Clean `src/App.jsx`
   
-  **UPDATE** imports (legacy-template-mui is being deleted — use @universo-react/template-mui):
+  **UPDATE** imports (legacy template alias is being deleted — use `@universo-react/template-mui`):
   ```jsx
   // BEFORE:
   import routes from '/template-mui/routes'
