@@ -882,7 +882,7 @@ export const deleteObjectCollectionByHub = async ({ req, res, metahubId, userId,
         lastHubConflictMessage:
             'Cannot remove object from its last hub because it requires at least one hub association. Use force=true to delete the object entirely.',
         beforeDelete: async () => {
-            const resolvedType = await entityTypeService.resolveType(metahubId, resolveObjectCollectionObjectKind(entity!), userId)
+            const resolvedType = await entityTypeService.resolveType(metahubId, resolveObjectCollectionObjectKind(object!), userId)
             const allowDeleteKeys = resolveEntityMetadataSettingKeys(resolvedType, 'allowDelete')
             for (const settingKey of allowDeleteKeys.length > 0 ? allowDeleteKeys : ['entity.object.allowDelete']) {
                 const allowDeleteRow = await settingsService.findByKey(metahubId, settingKey, userId)
