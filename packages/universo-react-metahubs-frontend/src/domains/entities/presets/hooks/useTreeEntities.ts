@@ -13,7 +13,8 @@ import * as hubsApi from '../api/trees'
 
 const hubsListParams = { limit: 1000, offset: 0, sortBy: 'sortOrder' as const, sortOrder: 'asc' as const }
 
-export function useTreeEntities(metahubId: string | undefined) {
+export function useTreeEntities(metahubId: string | undefined, options: { enabled?: boolean } = {}) {
+    const enabled = options.enabled ?? true
     const { data: hubsData } = useQuery<PaginatedResponse<TreeEntity>>({
         queryKey: metahubId ? metahubsQueryKeys.treeEntitiesList(metahubId, hubsListParams) : ['metahubs', 'treeEntities', 'list', 'empty'],
         queryFn: async () => {
@@ -26,7 +27,7 @@ export function useTreeEntities(metahubId: string | undefined) {
                 sortOrder: hubsListParams.sortOrder
             })
         },
-        enabled: !!metahubId,
+        enabled: enabled && !!metahubId,
         refetchOnWindowFocus: false,
         refetchOnReconnect: false,
         retryOnMount: false,

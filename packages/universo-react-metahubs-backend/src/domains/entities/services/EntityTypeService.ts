@@ -1,5 +1,6 @@
 import { qSchemaTable } from '@universo-react/database'
 import {
+    TEMPLATE_MANAGED_ENTITY_TYPE_CONFIG_KEY,
     isBuiltinEntityKind,
     normalizeEntityResourceSurfaceDefinitions,
     normalizeEntityTypeTreeAssignmentLabels,
@@ -23,6 +24,7 @@ import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimis
 import { codenamePrimaryTextSql, ensureCodenameValue, getCodenameText } from '../../shared/codename'
 import { MetahubConflictError, MetahubNotFoundError, MetahubValidationError } from '../../shared/domainErrors'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
+import { isRegisteredBuiltinEntityTypePresetKind } from '../../templates/data'
 
 const TABLE = '_mhb_entity_type_definitions'
 const ACTIVE_CLAUSE = '_upl_deleted = false AND _mhb_deleted = false'
@@ -194,60 +196,85 @@ const canonicalizeJsonValue = (value: unknown): unknown => {
 
 const stableStringify = (value: unknown): string => JSON.stringify(canonicalizeJsonValue(value))
 
-const stripEditableResourceSurfaceLabels = (ui: EntityTypeUIConfig): EntityTypeUIConfig => ({
-    ...ui,
-    resourceSurfaces: ui.resourceSurfaces?.map((surface) => {
-        const { title: _title, titleKey: _titleKey, fallbackTitle: _fallbackTitle, ...structuralSurface } = surface
-        return structuralSurface
-    })
-})
+const isTemplateManagedEntityTypeRow = (row: StoredEntityTypeRow): boolean => {
+    if (isBuiltinEntityKind(row.kind_key)) {
+        return true
+    }
+    const config = ensureJsonRecord(row.config)
+    const templatePreset = config[TEMPLATE_MANAGED_ENTITY_TYPE_CONFIG_KEY]
+    return Boolean(
+        templatePreset &&
+            typeof templatePreset === 'object' &&
+            !Array.isArray(templatePreset) &&
+            (templatePreset as { managed?: unknown }).managed === true
+    )
+}
+
+const assertConfigDoesNotClaimTemplateManagement = (config: JsonRecord): void => {
+    if (Object.prototype.hasOwnProperty.call(config, TEMPLATE_MANAGED_ENTITY_TYPE_CONFIG_KEY)) {
+        throw new MetahubValidationError('Template-managed entity type metadata is reserved for template presets')
+    }
+}
+
+const assertKindKeyNotReservedForCustomEntityType = (kindKey: string): void => {
+    if (isRegisteredBuiltinEntityTypePresetKind(kindKey)) {
+        throw new MetahubValidationError('Entity type kindKey is reserved for platform-provided entity type presets', { kindKey })
+    }
+}
 
 const assertStandardEntityTypeUpdateAllowed = (
     existing: StoredEntityTypeRow,
     next: {
         kindKey: string
         codename: JsonRecord
+        presentation: JsonRecord
         capabilities: EntityTypeCapabilities
         ui: EntityTypeUIConfig
         config: JsonRecord
         published: boolean
     }
 ): void => {
-    if (!isBuiltinEntityKind(existing.kind_key)) {
+    if (!isTemplateManagedEntityTypeRow(existing)) {
         return
     }
 
     if (next.kindKey !== existing.kind_key) {
-        throw new MetahubValidationError('Standard entity kind keys cannot be changed', { kindKey: existing.kind_key })
+        throw new MetahubValidationError('Template-managed entity kind keys cannot be changed', { kindKey: existing.kind_key })
     }
 
     if (stableStringify(next.codename) !== stableStringify(normalizeEntityTypeCodename(existing.codename))) {
-        throw new MetahubValidationError('Standard entity type codenames cannot be changed', { kindKey: existing.kind_key })
+        throw new MetahubValidationError('Template-managed entity type codenames cannot be changed', { kindKey: existing.kind_key })
+    }
+
+    if (stableStringify(next.presentation) !== stableStringify(ensureJsonRecord(existing.presentation))) {
+        throw new MetahubValidationError('Template-managed entity type presentation cannot be changed through the Entities constructor', {
+            kindKey: existing.kind_key
+        })
     }
 
     if (stableStringify(next.capabilities) !== stableStringify(parseStoredEntityTypeCapabilities(existing.capabilities))) {
-        throw new MetahubValidationError('Standard entity type capabilities cannot be changed through the Entities constructor', {
+        throw new MetahubValidationError('Template-managed entity type capabilities cannot be changed through the Entities constructor', {
             kindKey: existing.kind_key
         })
     }
 
     if (stableStringify(next.config) !== stableStringify(ensureJsonRecord(existing.config))) {
-        throw new MetahubValidationError('Standard entity type config cannot be changed through the Entities constructor', {
+        throw new MetahubValidationError('Template-managed entity type config cannot be changed through the Entities constructor', {
             kindKey: existing.kind_key
         })
     }
 
     if (next.published !== (existing._mhb_published === true)) {
-        throw new MetahubValidationError('Standard entity type publication state cannot be changed through the Entities constructor', {
-            kindKey: existing.kind_key
-        })
+        throw new MetahubValidationError(
+            'Template-managed entity type publication state cannot be changed through the Entities constructor',
+            {
+                kindKey: existing.kind_key
+            }
+        )
     }
 
-    const nextUiStructure = stripEditableResourceSurfaceLabels(next.ui)
-    const existingUiStructure = stripEditableResourceSurfaceLabels(parseStoredUiConfig(existing.ui_config))
-
-    if (stableStringify(nextUiStructure) !== stableStringify(existingUiStructure)) {
-        throw new MetahubValidationError('Standard entity type UI structure cannot be changed through the Entities constructor', {
+    if (stableStringify(next.ui) !== stableStringify(parseStoredUiConfig(existing.ui_config))) {
+        throw new MetahubValidationError('Template-managed entity type UI structure cannot be changed through the Entities constructor', {
             kindKey: existing.kind_key
         })
     }
@@ -396,6 +423,7 @@ export class EntityTypeService {
         if (isBuiltinEntityKind(kindKey)) {
             throw new MetahubValidationError('Standard entity kinds are reserved for platform-provided entity types', { kindKey })
         }
+        assertKindKeyNotReservedForCustomEntityType(kindKey)
 
         const capabilities = normalizeEntityTypeCapabilities(input.capabilities)
         const ui = normalizeUiConfig(input.ui)
@@ -403,6 +431,7 @@ export class EntityTypeService {
         const codename = normalizeEntityTypeCodename(input.codename)
         const presentation = ensureJsonRecord(input.presentation)
         const config = ensureJsonRecord(input.config)
+        assertConfigDoesNotClaimTemplateManagement(config)
         const published = input.published !== false
         const qt = qSchemaTable(schemaName, TABLE)
 
@@ -486,6 +515,9 @@ export class EntityTypeService {
                 kindKey: nextKindKey
             })
         }
+        if (!isTemplateManagedEntityTypeRow(existing) && nextKindKey !== existing.kind_key) {
+            assertKindKeyNotReservedForCustomEntityType(nextKindKey)
+        }
 
         const nextComponents =
             input.capabilities !== undefined
@@ -498,10 +530,14 @@ export class EntityTypeService {
         const nextPresentation =
             input.presentation !== undefined ? ensureJsonRecord(input.presentation) : ensureJsonRecord(existing.presentation)
         const nextConfig = input.config !== undefined ? ensureJsonRecord(input.config) : ensureJsonRecord(existing.config)
+        if (!isTemplateManagedEntityTypeRow(existing)) {
+            assertConfigDoesNotClaimTemplateManagement(nextConfig)
+        }
         const nextPublished = input.published !== undefined ? input.published : existing._mhb_published === true
         assertStandardEntityTypeUpdateAllowed(existing, {
             kindKey: nextKindKey,
             codename: nextCodename,
+            presentation: nextPresentation,
             capabilities: nextComponents,
             ui: nextUi,
             config: nextConfig,
@@ -568,8 +604,8 @@ export class EntityTypeService {
             throw new MetahubNotFoundError('Entity type', entityTypeId)
         }
 
-        if (isBuiltinEntityKind(existing.kind_key)) {
-            throw new MetahubValidationError('Standard entity types are managed by template presets and cannot be deleted', {
+        if (isTemplateManagedEntityTypeRow(existing)) {
+            throw new MetahubValidationError('Template-managed entity types cannot be deleted through the Entities constructor', {
                 entityTypeId,
                 kindKey: existing.kind_key
             })

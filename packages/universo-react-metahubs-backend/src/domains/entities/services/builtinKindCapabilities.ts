@@ -4,7 +4,7 @@ import { queryMany, queryOne } from '@universo-react/utils/database'
 
 import { generateTableName } from '../../ddl'
 import { codenamePrimaryTextSql } from '../../shared/codename'
-import { resolveEntityMetadataKinds, resolveEntityMetadataSettingKey } from '../../shared/entityMetadataKinds'
+import { resolveEntityMetadataKinds, resolveEntityMetadataSettingKeys } from '../../shared/entityMetadataKinds'
 import { findBlockingObjectCollectionReferences, isObjectCollectionCompatibleResolvedType } from '../children/objectCollectionContext'
 import { findBlockingTreeDependencies, loadTreeEntityContext, removeHubFromObjectAssociations } from '../children/treeEntityContext'
 import type { EntityBehaviorBlockingState, EntityBehaviorDeleteContext, EntityBehaviorDeletePlan } from './EntityBehaviorService'
@@ -215,12 +215,13 @@ export const buildBuiltinKindDeletePlan = async (
         schemaService
     }: EntityBehaviorDeleteContext
 ): Promise<EntityBehaviorDeletePlan> => {
-    const allowDeleteSettingKey = resolveEntityMetadataSettingKey(resolvedType, 'allowDelete')
-    if (!allowDeleteSettingKey) {
+    const allowDeleteSettingKeys = resolveEntityMetadataSettingKeys(resolvedType, 'allowDelete')
+    if (allowDeleteSettingKeys.length === 0) {
         return { policyOutcome: null }
     }
 
-    const allowDeleteRow = await settingsService.findByKey(metahubId, allowDeleteSettingKey, userId)
+    const allowDeleteRows = await Promise.all(allowDeleteSettingKeys.map((key) => settingsService.findByKey(metahubId, key, userId)))
+    const allowDeleteRow = allowDeleteRows.find((row) => row?.value?._value === false)
     if (allowDeleteRow && allowDeleteRow.value?._value === false) {
         const surfaceLabels = getSurfaceLabels(kindKey)
         return {

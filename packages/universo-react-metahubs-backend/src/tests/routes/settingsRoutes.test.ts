@@ -137,4 +137,64 @@ describe('Settings Routes', () => {
         expect(mockSettingsService.clearHubNesting).toHaveBeenCalledWith('metahub-1', 'test-user-id')
         expect(mockSettingsService.resetToDefault).toHaveBeenCalledWith('metahub-1', 'entity.hub.resetNestingOnce', 'test-user-id')
     })
+
+    it('exposes and accepts metadata-driven settings for template-managed custom entity kinds', async () => {
+        mockListEntityTypes.mockResolvedValue([
+            { kindKey: 'hub' },
+            {
+                kindKey: 'catalog',
+                presentation: {
+                    name: {
+                        _schema: '1',
+                        _primary: 'ru',
+                        locales: {
+                            ru: { content: 'Справочники' },
+                            en: { content: 'Catalogs' }
+                        }
+                    }
+                },
+                config: {
+                    systemTemplatePreset: {
+                        managed: true,
+                        source: 'entity_type_preset',
+                        presetCodename: 'one-c-catalog'
+                    }
+                },
+                capabilities: {
+                    dataSchema: { enabled: true },
+                    records: { enabled: true },
+                    physicalTable: { enabled: true },
+                    optionValues: false,
+                    fixedValues: false,
+                    blockContent: false
+                }
+            }
+        ])
+
+        const app = buildApp()
+        const listResponse = await request(app).get('/metahub/metahub-1/settings').expect(200)
+
+        expect(listResponse.body.meta.tabOrder).toContain('catalog')
+        expect(listResponse.body.meta.tabLabels.catalog.locales.ru.content).toBe('Справочники')
+        expect(listResponse.body.registry).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ key: 'entity.catalog.allowCopy', tab: 'catalog' }),
+                expect.objectContaining({ key: 'entity.catalog.allowComponentDelete', tab: 'catalog' })
+            ])
+        )
+
+        await request(app)
+            .put('/metahub/metahub-1/settings')
+            .send({
+                settings: [{ key: 'entity.catalog.allowCopy', value: { _value: false } }]
+            })
+            .expect(200)
+
+        expect(mockSettingsService.bulkUpsert).toHaveBeenCalledWith(
+            'metahub-1',
+            [{ key: 'entity.catalog.allowCopy', value: { _value: false } }],
+            'test-user-id',
+            expect.arrayContaining([expect.objectContaining({ key: 'entity.catalog.allowCopy', tab: 'catalog' })])
+        )
+    })
 })

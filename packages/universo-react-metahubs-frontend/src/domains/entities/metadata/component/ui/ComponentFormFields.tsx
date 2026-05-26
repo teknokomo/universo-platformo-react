@@ -18,7 +18,7 @@ import { useTranslation } from 'react-i18next'
 import { LocalizedInlineField, useCodenameAutoFillVlc, CollapsibleSection } from '@universo-react/template-mui'
 import type { VersionedLocalizedContent, ComponentDefinitionDataType, EntityKind, EnumPresentationMode } from '@universo-react/types'
 import type { ComponentDefinitionValidationRules } from '../../../../../types'
-import { getDefaultValidationRules, getPhysicalDataType, formatPhysicalType, getVLCString } from '../../../../../types'
+import { getDefaultValidationRules, getVLCString } from '../../../../../types'
 import { sanitizeCodenameForStyle } from '../../../../../utils/codename'
 import { useCodenameConfig } from '../../../../settings/hooks/useCodenameConfig'
 import { CodenameField, TargetEntitySelector } from '../../../../../components'
@@ -70,8 +70,7 @@ export type ComponentFormFieldsProps = {
     numberNonNegativeLabel: string
     dateCompositionLabel: string
     dateCompositionOptions: Array<{ value: string; label: string }>
-    // Physical type info
-    physicalTypeLabel: string
+    physicalTypeLabel?: string
     // REF type settings
     metahubId: string
     currentObjectCollectionId?: string
@@ -112,7 +111,6 @@ const ComponentFormFields = ({
     numberNonNegativeLabel,
     dateCompositionLabel,
     dateCompositionOptions,
-    physicalTypeLabel,
     metahubId,
     currentObjectCollectionId,
     dataTypeDisabled = false,
@@ -135,13 +133,6 @@ const ComponentFormFields = ({
     const validationRules =
         (values.validationRules as ComponentDefinitionValidationRules | undefined) ?? getObjectComponentDefaultValidationRules(dataType)
     const fieldErrors = errors ?? {}
-
-    // Compute physical PostgreSQL type info
-    const physicalTypeInfo = useMemo(() => {
-        const physicalInfo = getPhysicalDataType(dataType, validationRules)
-        const physicalTypeStr = formatPhysicalType(physicalInfo)
-        return { physicalInfo, physicalTypeStr }
-    }, [dataType, validationRules])
 
     useCodenameAutoFillVlc({
         codename,
@@ -203,15 +194,10 @@ const ComponentFormFields = ({
                                 value={validationRules.maxLength ?? ''}
                                 onChange={(e) => updateValidationRule('maxLength', e.target.value ? parseInt(e.target.value, 10) : null)}
                                 inputProps={{ min: 1 }}
-                                helperText={
-                                    validationRules.versioned || validationRules.localized
-                                        ? t('components.typeSettings.string.backendType.jsonbVlc')
-                                        : !validationRules.maxLength
-                                        ? t('components.typeSettings.string.backendType.textUnlimited')
-                                        : t('components.typeSettings.string.backendType.varchar', {
-                                              maxLength: validationRules.maxLength
-                                          })
-                                }
+                                helperText={t(
+                                    'components.typeSettings.string.maxLengthHelper',
+                                    'Leave empty when the value should not have a fixed length limit.'
+                                )}
                             />
                         </Stack>
                         <FormControlLabel
@@ -372,7 +358,7 @@ const ComponentFormFields = ({
                             inputProps={{ min: 1 }}
                             helperText={t(
                                 'components.typeSettings.table.maxChildComponentsHelper',
-                                'Limit for child components in this TABLE. Leave empty for no limit'
+                                'Limit the number of fields in this tabular part. Leave empty for no limit.'
                             )}
                         />
                     </Stack>
@@ -423,16 +409,6 @@ const ComponentFormFields = ({
                     <Box sx={{ pl: 2 }}>{renderTypeSettings()}</Box>
                 </CollapsibleSection>
             )}
-            {/* Physical PostgreSQL type info */}
-            <Alert severity='info' sx={{ py: 0.5 }}>
-                {physicalTypeLabel}:{' '}
-                <strong>
-                    {dataType === 'TABLE'
-                        ? t('components.physicalType.childTable', 'Child table (tabular part)')
-                        : physicalTypeInfo.physicalTypeStr}
-                </strong>
-                {physicalTypeInfo.physicalInfo.isVLC && ' (VLC)'}
-            </Alert>
             {/* Required toggle (all component types including TABLE) */}
             <FormControlLabel
                 control={<Switch checked={isRequired} onChange={(event) => setValue('isRequired', event.target.checked)} />}
@@ -609,13 +585,13 @@ export const PresentationTabFields = ({
                         <FormHelperText sx={{ mt: -0.5, ml: 7 }}>
                             {t(
                                 'components.presentation.multilineEditorHelper',
-                                'Renders this STRING field as a textarea in published runtime forms.'
+                                'Renders this text field as a multiline control in published runtime forms.'
                             )}
                         </FormHelperText>
                     </Box>
                     {isMultilineString && (
                         <TextField
-                            label={t('components.presentation.multilineRows', 'Textarea rows')}
+                            label={t('components.presentation.multilineRows', 'Multiline rows')}
                             type='number'
                             size='small'
                             fullWidth
@@ -686,12 +662,12 @@ export const PresentationTabFields = ({
                     )}
                     <FormControl fullWidth disabled={isLoading || !targetEntityId}>
                         <InputLabel id='enum-presentation-mode-label'>
-                            {t('components.presentation.enumMode', 'OptionListEntity view mode')}
+                            {t('components.presentation.enumMode', 'Enumeration display mode')}
                         </InputLabel>
                         <Select
                             size='medium'
                             labelId='enum-presentation-mode-label'
-                            label={t('components.presentation.enumMode', 'OptionListEntity view mode')}
+                            label={t('components.presentation.enumMode', 'Enumeration display mode')}
                             value={enumPresentationMode}
                             onChange={(event) => {
                                 updateUiConfig({

@@ -573,11 +573,11 @@
     },
     "entities": {
         "title": "Entities",
-        "description": "Manage platform-provided and custom ECAE entity types on the unified entity runtime surface.",
+        "description": "Manage built-in and custom entity types for metahub workspaces.",
         "searchPlaceholder": "Search entity types...",
-        "banner": "Platform-provided standard types and custom kinds share the same unified workspace and generic entity APIs.",
+        "banner": "Built-in and custom entity types use the same workspace, menus, permissions, and authoring dialogs.",
         "empty": "No entity types yet",
-        "emptyDescription": "Create the first custom entity type to start modelling ECAE objects.",
+        "emptyDescription": "Create the first custom entity type to start modelling workspace objects.",
         "noSearchResults": "No entity types found",
         "noSearchResultsDescription": "Try a different search query or clear the filter.",
         "noDescription": "No description",
@@ -586,7 +586,7 @@
         "componentsCount_one": "{{count}} component",
         "componentsCount_other": "{{count}} components",
         "actions": {
-            "create": "Create entity",
+            "create": "Create",
             "instances": "Instances"
         },
         "tabs": {
@@ -595,18 +595,18 @@
             "advanced": "Advanced"
         },
         "fields": {
-            "codenameHelper": "Stable codename used for generic entity routes and references",
+            "codenameHelper": "Stable codename used in links and references",
             "noPreset": "No preset",
-            "presetHelper": "Reusable presets are sourced from the existing template registry. Selecting one prefills the create dialog but still lets you review and change every field before save.",
+            "presetHelper": "Reusable presets fill the creation form with recommended settings. You can review and change the fields before saving.",
             "presetLoadError": "Failed to load the selected preset. You can choose a different preset or continue editing manually.",
             "presetManifestError": "The selected template does not expose a valid entity preset manifest.",
-            "kindKey": "Kind key",
-            "kindKeyHelper": "Lowercase identifier used in generic entity APIs",
+            "kindKey": "System type key",
+            "kindKeyHelper": "Stable lowercase identifier for this entity type",
             "iconName": "Icon name",
-            "iconNameHelper": "Tabler icon export name used by downstream surfaces",
+            "iconNameHelper": "Icon name used in menus and entity pages",
             "tabs": "Tabs",
             "tabsHelper": "Comma or newline separated tab identifiers, for example general, modules",
-            "tabsHelperStructured": "Choose which authoring tabs should be exposed for this entity type. General is always enabled.",
+            "tabsHelperStructured": "Choose which setup tabs should be available for this entity type. General is always enabled.",
             "sidebarSection": "Sidebar section",
             "sidebarSectionHelper": "Controls where future menus may place this entity type",
             "sidebarOrder": "Sidebar order",
@@ -614,24 +614,25 @@
             "published": "Publish to dynamic menu",
             "publishedHelper": "Only published custom entity types appear in the dynamic metahub menu zone.",
             "components": "Components JSON",
-            "componentsHelper": "Full EntityTypeCapabilities JSON. Dependency rules are validated before save.",
-            "componentsHelperStructured": "Use guided toggles for the current Zerocode scope. Dependency-sensitive capabilities are enabled and pruned automatically.",
+            "componentsHelper": "Full capability configuration. Dependency rules are validated before save.",
+            "componentsHelperStructured": "Use guided toggles for the supported setup options. Dependent options are enabled and cleared automatically.",
             "resourceTabs": "Resources section tabs",
             "resourceTabsHelper": "These titles are used by the shared Resources workspace for compatible entity capabilities.",
             "resourceSurfaceKey": "Resource tab key",
             "resourceSurfaceKeyHelper": "Stable identifier stored in the entity-type contract.",
-            "resourceSurfaceRouteSegment": "Resource tab route segment",
-            "resourceSurfaceRouteSegmentHelper": "Lowercase kebab-case segment reserved for compatible authoring routes.",
+            "resourceSurfaceRouteSegment": "Resource tab address segment",
+            "resourceSurfaceRouteSegmentHelper": "Lowercase kebab-case segment used in compatible authoring routes.",
             "resourceSurfaceTitle": "Resource tab title",
+            "resourceSurfaceSharedTitle": "Shared resources tab title",
             "customTabs": "Additional tabs",
             "customTabsHelper": "Optional extra tab identifiers, separated by commas or new lines. Structured toggles above cover the current supported tabs.",
-            "presentation": "Presentation JSON",
-            "presentationHelper": "Optional presentation metadata stored with the entity type",
-            "config": "Config JSON",
-            "configHelper": "Optional backend config object stored with the entity type"
+            "presentation": "Presentation configuration",
+            "presentationHelper": "Optional display metadata stored with the entity type",
+            "config": "Behavior configuration",
+            "configHelper": "Optional behavior configuration stored with the entity type"
         },
         "columns": {
-            "kindKey": "Kind key",
+            "kindKey": "System type key",
             "sidebarSection": "Section",
             "sidebarOrder": "Order",
             "sidebarOrderAuto": "Auto",
@@ -653,6 +654,17 @@
             "treeEntities": "Hubs",
             "layout": "Layout",
             "modules": "Modules"
+        },
+        "behaviorProfiles": {
+            "label": "Behavior profile",
+            "helper": "Applies reusable constructor capabilities and typed behavior config without requiring manual JSON.",
+            "none": "Custom capabilities",
+            "singleValue": "Single-value settings",
+            "catalog": "Reference catalog",
+            "document": "Transactional document",
+            "journal": "Document journal",
+            "informationRegister": "Information register",
+            "accumulationRegister": "Accumulation register"
         },
         "resourceSurfaces": {
             "components": "Components",
@@ -681,7 +693,7 @@
             "allowedRelationTypes": "Allowed relation types",
             "allowedRelationTypesHelper": "Comma-separated relation kinds, for example manyToOne.",
             "actions": "Actions",
-            "actionsHelper": "Enables object-scoped actions for ECAE lifecycle orchestration.",
+            "actionsHelper": "Enables actions scoped to the current entity type.",
             "events": "Events",
             "eventsHelper": "Allows lifecycle event bindings on top of the action contract.",
             "modules": "Modules",
@@ -809,7 +821,7 @@
         },
         "deleteDialog": {
             "title": "Delete Entity Type",
-            "description": "Delete entity type \"{{name}}\"? Platform-provided standard types cannot be deleted here."
+            "description": "Delete entity type \"{{name}}\"? Built-in standard types cannot be deleted here."
         },
         "copySuccess": "Entity copied",
         "copyError": "Failed to copy entity type",
@@ -860,11 +872,11 @@
             "currentContainerShort": "Current container"
         },
         "instances": {
-            "title": "{{name}} instances",
-            "description": "Manage {{name}} instances on the unified entity-owned route for kind {{kindKey}}.",
-            "objectCollectionBanner": "This page reuses the shared object authoring contract on the unified entity-owned route, including object copy options, layouts, and modules.",
+            "title": "{{name}}",
+            "description": "Manage {{name}} records.",
+            "objectCollectionBanner": "This page uses the shared editing interface.",
             "searchPlaceholder": "Search entity instances...",
-            "banner": "This page authors design-time instances for the selected entity kind on the unified entity-owned route surface.",
+            "banner": "This page manages records for the selected entity type.",
             "noManagePermission": "You do not have permission to manage entity instances for this metahub.",
             "modulesUnavailable": "Modules remain unavailable for custom entity kinds until the generic module attachment contract is widened beyond the current fixed attachment kinds.",
             "typeLoadError": "Failed to load the custom entity type definition",
@@ -882,7 +894,15 @@
                 "showDeleted": "Show deleted"
             },
             "actions": {
-                "create": "Create entity"
+                "create": "Create",
+                "openContent": "Open"
+            },
+            "dialogTitles": {
+                "create": "Create {{name}}",
+                "edit": "Edit {{name}}",
+                "copy": "Copy {{name}}",
+                "delete": "Delete {{name}}",
+                "deletePermanent": "Delete {{name}} Permanently"
             },
             "copy": {
                 "options": {
@@ -1150,6 +1170,50 @@
                 "idempotencyInvalid": "Idempotency fields must reference existing fields.",
                 "effectiveDateInvalid": "Effective date field must reference an existing field."
             }
+        }
+    },
+    "oneCCompatible": {
+        "requisites": {
+            "title": "Requisites",
+            "resourceTabTitle": "Requisites",
+            "singular": "requisite",
+            "plural": "requisites",
+            "codename": "Requisite code",
+            "codenameHelper": "Unique requisite code inside this object.",
+            "dataType": "Requisite type",
+            "isDisplayComponentLabel": "Use as presentation requisite",
+            "isDisplayComponentHelper": "Show this requisite when referencing records of this object.",
+            "emptyAlt": "No requisites",
+            "empty": "No requisites",
+            "emptyDescription": "Add requisites that describe records of this object.",
+            "createTitle": "Create requisite",
+            "editTitle": "Edit requisite",
+            "copyTitle": "Copy requisite",
+            "deleteTitle": "Delete requisite",
+            "deleteMessage": "Delete this requisite? This action cannot be undone.",
+            "openAction": "Open requisites",
+            "searchPlaceholder": "Search requisites..."
+        },
+        "commonRequisites": {
+            "resourceTabTitle": "Requisites"
+        },
+        "registerFields": {
+            "singular": "register field",
+            "plural": "register fields",
+            "codename": "Register field code",
+            "codenameHelper": "Unique register field code inside this register.",
+            "dataType": "Field type",
+            "isDisplayComponentLabel": "Use as list field",
+            "isDisplayComponentHelper": "Show this register field in references and list views.",
+            "emptyAlt": "No register fields",
+            "empty": "No register fields",
+            "emptyDescription": "Add dimensions, resources, or period fields for this register.",
+            "createTitle": "Create register field",
+            "editTitle": "Edit register field",
+            "copyTitle": "Copy register field",
+            "deleteTitle": "Delete register field",
+            "deleteMessage": "Delete this register field? This action cannot be undone.",
+            "searchPlaceholder": "Search register fields..."
         }
     },
     "hubs": {
@@ -1631,8 +1695,8 @@
             "string": {
                 "minLength": "Min Length",
                 "maxLength": "Max Length",
-                "localized": "Localized (VLC)",
-                "versioned": "Versioned (VLC)"
+                "localized": "Multilingual value",
+                "versioned": "Keep value history"
             },
             "number": {
                 "precision": "Length",
@@ -1915,7 +1979,7 @@
         },
         "createDialog": {
             "title": "Create Publication",
-            "description": "A new PostgreSQL schema will be created with tables matching your metahub structure"
+            "description": "A dedicated storage area will be created with data structures matching your metahub structure"
         },
         "tabs": {
             "general": "General",
@@ -2142,6 +2206,7 @@
         "version": "Version {{version}}",
         "loading": "Loading templates...",
         "loadError": "Failed to load templates",
+        "unnamedTemplate": "Template",
         "fields": {
             "name": "Name",
             "description": "Description",
@@ -2161,7 +2226,8 @@
         "page": "Page",
         "object": "Object",
         "set": "Set",
-        "enumeration": "Enumeration"
+        "enumeration": "Enumeration",
+        "unnamedPreset": "Template preset"
     },
     "settings": {
         "title": "Settings",
@@ -2199,7 +2265,7 @@
             "general.codenameAutoReformat.description": "Automatically convert codenames from the existing format when editing or copying entities",
             "general.codenameRequireReformat": "Require Codename Reformat",
             "general.codenameRequireReformat.description": "Block saving until the codename is updated to the current format (only when auto-reformat is disabled)",
-            "general.codenameLocalizedEnabled": "Enable Localized Codenames (VLC)",
+            "general.codenameLocalizedEnabled": "Enable multilingual codenames",
             "general.codenameLocalizedEnabled.description": "Allow entering codename alternatives per language and selecting the primary codename locale",
             "common.dialogSizePreset": "Dialog size preset",
             "common.dialogSizePreset.description": "Default size for metahub modal windows. Users can still expand or resize dialogs when those options are enabled.",
@@ -2234,9 +2300,93 @@
             "entity.object.allowDeleteLastDisplayComponent": "Allow Delete Last Display Component",
             "entity.object.allowDeleteLastDisplayComponent.description": "Allow deleting the last display component in a scope (root components or table children)",
             "entity.object.allowComponentMoveBetweenRootAndChildren": "Allow Component Move Between Root and Children",
-            "entity.object.allowComponentMoveBetweenRootAndChildren.description": "Allow moving components between root list and child lists of TABLE components",
+            "entity.object.allowComponentMoveBetweenRootAndChildren.description": "Allow moving fields between the root list and tabular parts",
             "entity.object.allowComponentMoveBetweenChildLists": "Allow Component Move Between Child Lists",
-            "entity.object.allowComponentMoveBetweenChildLists.description": "Allow moving components between child lists of different TABLE components",
+            "entity.object.allowComponentMoveBetweenChildLists.description": "Allow moving fields between different tabular parts",
+            "entity.constant.componentCodenameScope": "Value Codename Scope",
+            "entity.constant.componentCodenameScope.description": "Whether value codenames must be unique per nesting level or globally within a constant",
+            "entity.constant.allowedComponentTypes": "Allowed Value Types",
+            "entity.constant.allowedComponentTypes.description": "Which data types can be used when configuring a constant value",
+            "entity.constant.allowComponentCopy": "Allow Value Copy",
+            "entity.constant.allowComponentCopy.description": "Allow copying values in constants",
+            "entity.constant.allowComponentDelete": "Allow Value Delete",
+            "entity.constant.allowComponentDelete.description": "Allow deleting values in constants",
+            "entity.constant.allowDeleteLastDisplayComponent": "Allow Delete Last Display Value",
+            "entity.constant.allowDeleteLastDisplayComponent.description": "Allow deleting the last display value in a scope",
+            "entity.constant.allowComponentMoveBetweenRootAndChildren": "Allow Value Move Between Root and Children",
+            "entity.constant.allowComponentMoveBetweenRootAndChildren.description": "Allow moving values between root list and child lists",
+            "entity.constant.allowComponentMoveBetweenChildLists": "Allow Value Move Between Child Lists",
+            "entity.constant.allowComponentMoveBetweenChildLists.description": "Allow moving values between child lists",
+            "entity.catalog.componentCodenameScope": "Requisite Codename Scope",
+            "entity.catalog.componentCodenameScope.description": "Whether requisite codenames must be unique per nesting level or globally within a catalog",
+            "entity.catalog.allowedComponentTypes": "Allowed Requisite Types",
+            "entity.catalog.allowedComponentTypes.description": "Which data types can be used when creating requisites in catalogs",
+            "entity.catalog.allowComponentCopy": "Allow Requisite Copy",
+            "entity.catalog.allowComponentCopy.description": "Allow copying requisites in catalogs",
+            "entity.catalog.allowComponentDelete": "Allow Requisite Delete",
+            "entity.catalog.allowComponentDelete.description": "Allow deleting requisites in catalogs",
+            "entity.catalog.allowDeleteLastDisplayComponent": "Allow Delete Last Display Requisite",
+            "entity.catalog.allowDeleteLastDisplayComponent.description": "Allow deleting the last display requisite in a scope",
+            "entity.catalog.allowComponentMoveBetweenRootAndChildren": "Allow Requisite Move Between Root and Children",
+            "entity.catalog.allowComponentMoveBetweenRootAndChildren.description": "Allow moving requisites between root list and child lists",
+            "entity.catalog.allowComponentMoveBetweenChildLists": "Allow Requisite Move Between Child Lists",
+            "entity.catalog.allowComponentMoveBetweenChildLists.description": "Allow moving requisites between child lists",
+            "entity.document.componentCodenameScope": "Requisite Codename Scope",
+            "entity.document.componentCodenameScope.description": "Whether requisite codenames must be unique per nesting level or globally within a document",
+            "entity.document.allowedComponentTypes": "Allowed Requisite Types",
+            "entity.document.allowedComponentTypes.description": "Which data types can be used when creating requisites in documents",
+            "entity.document.allowComponentCopy": "Allow Requisite Copy",
+            "entity.document.allowComponentCopy.description": "Allow copying requisites in documents",
+            "entity.document.allowComponentDelete": "Allow Requisite Delete",
+            "entity.document.allowComponentDelete.description": "Allow deleting requisites in documents",
+            "entity.document.allowDeleteLastDisplayComponent": "Allow Delete Last Display Requisite",
+            "entity.document.allowDeleteLastDisplayComponent.description": "Allow deleting the last display requisite in a scope",
+            "entity.document.allowComponentMoveBetweenRootAndChildren": "Allow Requisite Move Between Root and Children",
+            "entity.document.allowComponentMoveBetweenRootAndChildren.description": "Allow moving requisites between root list and child lists",
+            "entity.document.allowComponentMoveBetweenChildLists": "Allow Requisite Move Between Child Lists",
+            "entity.document.allowComponentMoveBetweenChildLists.description": "Allow moving requisites between child lists",
+            "entity.document-journal.componentCodenameScope": "Requisite Codename Scope",
+            "entity.document-journal.componentCodenameScope.description": "Whether requisite codenames must be unique per nesting level or globally within a document journal",
+            "entity.document-journal.allowedComponentTypes": "Allowed Requisite Types",
+            "entity.document-journal.allowedComponentTypes.description": "Which data types can be used when creating requisites in document journals",
+            "entity.document-journal.allowComponentCopy": "Allow Requisite Copy",
+            "entity.document-journal.allowComponentCopy.description": "Allow copying requisites in document journals",
+            "entity.document-journal.allowComponentDelete": "Allow Requisite Delete",
+            "entity.document-journal.allowComponentDelete.description": "Allow deleting requisites in document journals",
+            "entity.document-journal.allowDeleteLastDisplayComponent": "Allow Delete Last Display Requisite",
+            "entity.document-journal.allowDeleteLastDisplayComponent.description": "Allow deleting the last display requisite in a scope",
+            "entity.document-journal.allowComponentMoveBetweenRootAndChildren": "Allow Requisite Move Between Root and Children",
+            "entity.document-journal.allowComponentMoveBetweenRootAndChildren.description": "Allow moving requisites between root list and child lists",
+            "entity.document-journal.allowComponentMoveBetweenChildLists": "Allow Requisite Move Between Child Lists",
+            "entity.document-journal.allowComponentMoveBetweenChildLists.description": "Allow moving requisites between child lists",
+            "entity.information-register.componentCodenameScope": "Register Field Codename Scope",
+            "entity.information-register.componentCodenameScope.description": "Whether register field codenames must be unique per nesting level or globally within an information register",
+            "entity.information-register.allowedComponentTypes": "Allowed Register Field Types",
+            "entity.information-register.allowedComponentTypes.description": "Which data types can be used when creating information register fields",
+            "entity.information-register.allowComponentCopy": "Allow Register Field Copy",
+            "entity.information-register.allowComponentCopy.description": "Allow copying fields in information registers",
+            "entity.information-register.allowComponentDelete": "Allow Register Field Delete",
+            "entity.information-register.allowComponentDelete.description": "Allow deleting fields in information registers",
+            "entity.information-register.allowDeleteLastDisplayComponent": "Allow Delete Last Display Field",
+            "entity.information-register.allowDeleteLastDisplayComponent.description": "Allow deleting the last display field in a scope",
+            "entity.information-register.allowComponentMoveBetweenRootAndChildren": "Allow Field Move Between Root and Children",
+            "entity.information-register.allowComponentMoveBetweenRootAndChildren.description": "Allow moving fields between root list and child lists",
+            "entity.information-register.allowComponentMoveBetweenChildLists": "Allow Field Move Between Child Lists",
+            "entity.information-register.allowComponentMoveBetweenChildLists.description": "Allow moving fields between child lists",
+            "entity.accumulation-register.componentCodenameScope": "Register Field Codename Scope",
+            "entity.accumulation-register.componentCodenameScope.description": "Whether register field codenames must be unique per nesting level or globally within an accumulation register",
+            "entity.accumulation-register.allowedComponentTypes": "Allowed Register Field Types",
+            "entity.accumulation-register.allowedComponentTypes.description": "Which data types can be used when creating accumulation register fields",
+            "entity.accumulation-register.allowComponentCopy": "Allow Register Field Copy",
+            "entity.accumulation-register.allowComponentCopy.description": "Allow copying fields in accumulation registers",
+            "entity.accumulation-register.allowComponentDelete": "Allow Register Field Delete",
+            "entity.accumulation-register.allowComponentDelete.description": "Allow deleting fields in accumulation registers",
+            "entity.accumulation-register.allowDeleteLastDisplayComponent": "Allow Delete Last Display Field",
+            "entity.accumulation-register.allowDeleteLastDisplayComponent.description": "Allow deleting the last display field in a scope",
+            "entity.accumulation-register.allowComponentMoveBetweenRootAndChildren": "Allow Field Move Between Root and Children",
+            "entity.accumulation-register.allowComponentMoveBetweenRootAndChildren.description": "Allow moving fields between root list and child lists",
+            "entity.accumulation-register.allowComponentMoveBetweenChildLists": "Allow Field Move Between Child Lists",
+            "entity.accumulation-register.allowComponentMoveBetweenChildLists.description": "Allow moving fields between child lists",
             "entity.object.allowElementCopy": "Allow Element Copy",
             "entity.object.allowElementCopy.description": "Allow copying predefined elements in objects",
             "entity.object.allowElementDelete": "Allow Element Delete",
@@ -2373,20 +2523,27 @@
             "boolean": "Boolean",
             "date": "Date",
             "ref": "Reference",
-            "json": "JSON",
-            "table": "Table"
+            "json": "Structured data",
+            "table": "Tabular part"
+        },
+        "typeBadges": {
+            "history": "History",
+            "localized": "Multilingual"
         },
         "typeSettings": {
             "title": "Type Settings",
             "string": {
                 "maxLength": "Max Length",
+                "maxLengthHelper": "Leave empty when the value should not have a fixed length limit.",
                 "minLength": "Min Length",
-                "versioned": "Versioned (VLC)",
-                "localized": "Localized (VLC)",
+                "versioned": "Keep value history",
+                "versionedUserLabel": "Keep value history",
+                "localized": "Multilingual value",
+                "localizedUserLabel": "Multilingual value",
                 "backendType": {
-                    "jsonbVlc": "JSONB (VLC)",
-                    "textUnlimited": "TEXT (unlimited)",
-                    "varchar": "VARCHAR({{maxLength}})"
+                    "jsonbVlc": "Structured value history",
+                    "textUnlimited": "Unlimited text",
+                    "varchar": "{{maxLength}} characters"
                 }
             },
             "number": {
@@ -2406,7 +2563,7 @@
             },
             "table": {
                 "showTitle": "Show table title",
-                "hint": "TABLE components store rows in a separate child table. Each row can have its own set of fields.",
+                "hint": "Tabular parts store rows with their own set of fields.",
                 "minRows": "Min rows",
                 "minRowsHelper": "Leave empty for no limit",
                 "maxRows": "Max rows",
@@ -2417,13 +2574,13 @@
                 "rowCount_one": "{{count}} row",
                 "rowCount_other": "{{count}} rows",
                 "maxChildComponents": "Max child components",
-                "maxChildComponentsHelper": "Limit for child components in this TABLE. Leave empty for no limit",
+                "maxChildComponentsHelper": "Limit the number of fields in this tabular part. Leave empty for no limit.",
                 "maxChildComponentsReached": "Maximum {{max}} child components reached"
             }
         },
         "physicalType": {
-            "label": "PostgreSQL type",
-            "tooltip": "PostgreSQL: {{type}}",
+            "label": "Storage type",
+            "tooltip": "Storage type: {{type}}",
             "childTable": "Child table (tabular part)"
         },
         "tabs": {
@@ -2440,7 +2597,7 @@
             "status": "Status",
             "enabled": "Enabled",
             "disabled": "Disabled",
-            "keyLabel": "System key",
+            "keyLabel": "Platform key",
             "managed": "Platform",
             "enableSuccess": "System component enabled",
             "disableSuccess": "System component disabled"
@@ -2449,8 +2606,8 @@
             "headerAsCheckbox": "Display header as checkbox",
             "headerAsCheckboxHelper": "Show a checkbox in the column header instead of the text label (only for Boolean type)",
             "multilineEditor": "Use multiline editor",
-            "multilineEditorHelper": "Renders this STRING field as a textarea in published runtime forms.",
-            "multilineRows": "Textarea rows",
+            "multilineEditorHelper": "Renders this text field as a multiline control in published runtime forms.",
+            "multilineRows": "Multiline rows",
             "multilineRowsHelper": "Choose between 2 and 12 rows.",
             "enumMode": "Enumeration view mode",
             "enumModeHelper": "Applies to references that point to an enumeration in runtime forms.",
@@ -2530,10 +2687,10 @@
             "message": "Are you sure you want to delete this child component?"
         },
         "tableValidation": {
-            "maxTableComponents": "Maximum {{max}} TABLE components per object",
-            "maxChildComponents": "Maximum {{max}} child components per TABLE",
-            "nestedTableNotAllowed": "Nested TABLE components are not allowed",
-            "tableCannotBeDisplay": "TABLE components cannot be set as the display component"
+            "maxTableComponents": "Maximum {{max}} tabular parts per object",
+            "maxChildComponents": "Maximum {{max}} fields per tabular part",
+            "nestedTableNotAllowed": "Nested tabular parts are not allowed",
+            "tableCannotBeDisplay": "Tabular parts cannot be set as the display field"
         },
         "reorderSuccess": "Component order updated",
         "reorderError": "Failed to reorder component",
@@ -2544,8 +2701,8 @@
             "confirmMove": "Move",
             "displayComponentBlockedTitle": "Cannot move display component",
             "displayComponentBlockedDescription": "This component is the display component for its list. Assign another component as the display first, then try again.",
-            "tableCannotMoveTitle": "Cannot move TABLE component",
-            "tableCannotMoveDescription": "TABLE components can only exist at the root level.",
+            "tableCannotMoveTitle": "Cannot move tabular part",
+            "tableCannotMoveDescription": "Tabular parts can only exist at the root level.",
             "firstChildComponentTitle": "First child component",
             "firstChildComponentDescription": "This will be the first component in the table. It will automatically become the display component and required. After that, it cannot be moved out until another component is set as the display.",
             "tableChildLimitTitle": "Cannot move component"

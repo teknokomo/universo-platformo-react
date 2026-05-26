@@ -1,5 +1,14 @@
 # Current Research
 
+## 2026-05-26: 1C-Compatible metahub template
+
+-   Research artifact created and updated: `memory-bank/research/1c-compatible-metahub-template-research-2026-05-26.md`.
+-   Scope decision: use `1C-Compatible` as the user-facing template name. This supersedes the earlier neutral-name recommendation.
+-   Legal wording implication: the name can be planned as a product decision, but UI/docs must not imply official 1C certification, endorsement, partnership, or logo rights unless those are actually granted; avoid importing 1C code, configurations, table layouts, or UI assets.
+-   Architecture decision: implement the new template as an opt-in set of specialized presets with reusable typed behavior configs (`singleValue`, `catalogBehavior`, `documentBehavior`, `documentPosting`, `journalBehavior`, `registerBehavior`, and roadmap chart/calculation configs); do not extend `ObjectRecordBehavior` as the primary model and do not change the default `basic`, `basic-demo`, or `lms` templates.
+-   Phasing recommendation: first strengthen Object/Ledger behavior contracts and ship the core usable subset (Constant, reused Enumeration, Catalog, Document, Document Journal, Information Register, Accumulation Register), then add Chart of Accounts, Chart of Characteristic Types, Accounting Register, and finally Calculation Type/Register semantics.
+-   Planning implication: PLAN must resolve Constants storage, posting expression model, accumulation totals consistency, and Document Journal view/query strategy before implementation steps are finalized.
+
 ## 2026-05-20: LMS Learning Content product roadmap after V2
 
 -   Research artifact created: `memory-bank/research/lms-learning-content-product-roadmap-research-2026-05-20.md`.

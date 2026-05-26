@@ -27,7 +27,7 @@ export const useSharedContainerIds = (metahubId?: string) =>
         queryFn: () => listSharedContainers(metahubId ?? ''),
         enabled: Boolean(metahubId),
         select: (data: SharedContainerIds) => ({
-            [SHARED_OBJECT_KINDS.SHARED_CATALOG_POOL]: data[SHARED_OBJECT_KINDS.SHARED_CATALOG_POOL] ?? null,
+            [SHARED_OBJECT_KINDS.SHARED_OBJECT_POOL]: data[SHARED_OBJECT_KINDS.SHARED_OBJECT_POOL] ?? null,
             [SHARED_OBJECT_KINDS.SHARED_SET_POOL]: data[SHARED_OBJECT_KINDS.SHARED_SET_POOL] ?? null,
             [SHARED_OBJECT_KINDS.SHARED_ENUM_POOL]: data[SHARED_OBJECT_KINDS.SHARED_ENUM_POOL] ?? null
         })

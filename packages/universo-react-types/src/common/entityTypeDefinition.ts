@@ -42,6 +42,9 @@ export interface EntityResourceSurfaceDefinition {
     titleKey?: string
     title?: VersionedLocalizedContent<string>
     fallbackTitle?: string
+    sharedTitleKey?: string
+    sharedTitle?: VersionedLocalizedContent<string>
+    fallbackSharedTitle?: string
 }
 
 export const ENTITY_TYPE_TREE_ASSIGNMENT_LABEL_KEYS = [
@@ -196,6 +199,9 @@ export const normalizeEntityResourceSurfaceDefinition = (
     const fallbackTitle = normalizeOptionalString(value.fallbackTitle)
     const titleKey = normalizeOptionalString(value.titleKey)
     const title = normalizeLocalizedTitle(value.title)
+    const fallbackSharedTitle = normalizeOptionalString(value.fallbackSharedTitle)
+    const sharedTitleKey = normalizeOptionalString(value.sharedTitleKey)
+    const sharedTitle = normalizeLocalizedTitle(value.sharedTitle)
 
     if (!ENTITY_RESOURCE_SURFACE_KEY_PATTERN.test(key)) {
         throw new Error(
@@ -223,7 +229,10 @@ export const normalizeEntityResourceSurfaceDefinition = (
         routeSegment,
         ...(title ? { title } : {}),
         ...(titleKey ? { titleKey } : {}),
-        ...(fallbackTitle ? { fallbackTitle } : {})
+        ...(fallbackTitle ? { fallbackTitle } : {}),
+        ...(sharedTitle ? { sharedTitle } : {}),
+        ...(sharedTitleKey ? { sharedTitleKey } : {}),
+        ...(fallbackSharedTitle ? { fallbackSharedTitle } : {})
     }
 }
 
@@ -320,4 +329,23 @@ export const resolveEntityResourceSurfaceTitle = (
     }
 
     return surface.fallbackTitle?.trim() || surface.key
+}
+
+export const resolveEntityResourceSurfaceSharedTitle = (
+    surface: EntityResourceSurfaceDefinition,
+    options: ResolveEntityResourceSurfaceTitleOptions = {}
+): string => {
+    const localized = resolveLocalizedTitle(surface.sharedTitle, options.locale ?? 'en')
+    if (localized) {
+        return localized
+    }
+
+    if (surface.sharedTitleKey && options.translate) {
+        const translated = options.translate(surface.sharedTitleKey, surface.fallbackSharedTitle)
+        if (translated.trim().length > 0) {
+            return translated
+        }
+    }
+
+    return surface.fallbackSharedTitle?.trim() || resolveEntityResourceSurfaceTitle(surface, options)
 }

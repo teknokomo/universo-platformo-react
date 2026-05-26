@@ -8,7 +8,7 @@ import { DEFAULT_PLATFORM_SYSTEM_COMPONENTS_POLICY, type PlatformSystemComponent
 import * as componentsApi from '../api'
 import { getObjectCollectionById } from '../../../presets/api/objectCollections'
 import { useTreeEntities } from '../../../presets/hooks/useTreeEntities'
-import { useSettingValue } from '../../../../settings/hooks/useSettings'
+import { useFirstSettingValue } from '../../../../settings/hooks/useSettings'
 import type { ObjectTab } from './componentListUtils'
 import { resolveEntityChildKindKey } from '../../../../shared/entityMetadataRoutePaths'
 
@@ -19,6 +19,14 @@ type UseComponentListDataOptions = {
     resolveObjectDetails?: boolean
     allowSystemView?: boolean
     includeSharedEntities?: boolean
+    loadTreeEntities?: boolean
+}
+
+export const buildObjectCompatibleSettingKeys = (kindKey: string | null | undefined, suffix: string): string[] => {
+    const normalizedKind = typeof kindKey === 'string' ? kindKey.trim() : ''
+    const keys = normalizedKind && normalizedKind !== 'object' ? [`entity.${normalizedKind}.${suffix}`] : []
+    keys.push(`entity.object.${suffix}`)
+    return [...new Set(keys)]
 }
 
 export function useComponentListData(options: UseComponentListDataOptions = {}) {
@@ -37,6 +45,7 @@ export function useComponentListData(options: UseComponentListDataOptions = {}) 
     const resolveObjectDetails = options.resolveObjectDetails ?? true
     const allowSystemView = options.allowSystemView ?? true
     const includeSharedEntities = options.includeSharedEntities ?? true
+    const loadTreeEntities = options.loadTreeEntities ?? true
 
     const requestedObjectTab = searchParams.get('tab')
     const isDedicatedSystemRoute = location.pathname.endsWith('/system')
@@ -44,7 +53,8 @@ export function useComponentListData(options: UseComponentListDataOptions = {}) 
         allowSystemView && (isDedicatedSystemRoute || requestedObjectTab === 'system') ? 'system' : 'components'
     const isSystemView = activeObjectTab === 'system'
     const includeShared = includeSharedEntities && !isSystemView
-    const componentCodenameScope = useSettingValue<string>('entity.object.componentCodenameScope') ?? 'per-level'
+    const componentCodenameScope =
+        useFirstSettingValue<string>(buildObjectCompatibleSettingKeys(entityKindKey, 'componentCodenameScope')) ?? 'per-level'
 
     // Resolve hub from object when treeEntityId is not in URL
     const {
@@ -68,7 +78,7 @@ export function useComponentListData(options: UseComponentListDataOptions = {}) 
     const effectiveTreeEntityId = hubIdParam || objectForHubResolution?.treeEntities?.[0]?.id
 
     // Fetch treeEntities for the Settings edit dialog
-    const treeEntities = useTreeEntities(metahubId)
+    const treeEntities = useTreeEntities(metahubId, { enabled: loadTreeEntities })
 
     const canLoadComponents = !!metahubId && !!objectCollectionId && (!hubIdParam || !isObjectResolutionLoading)
 
@@ -184,6 +194,7 @@ export function useComponentListData(options: UseComponentListDataOptions = {}) 
         limitReached,
         childSearchMatchParentIds,
         componentCodenameScope,
+        entityKindKey,
         includeShared
     }
 }

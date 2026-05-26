@@ -1,11 +1,16 @@
-import { getSettingDefinition } from '@universo-react/types'
+import { getSettingDefinition, type SettingDefinition } from '@universo-react/types'
 
 /**
  * Validate a setting value against its registry definition.
  * Returns an error message if invalid, or null if valid.
  */
-export function validateSettingValue(key: string, value: Record<string, unknown>, selectOptions?: readonly string[]): string | null {
-    const def = getSettingDefinition(key)
+export function validateSettingValue(
+    key: string,
+    value: Record<string, unknown>,
+    selectOptions?: readonly string[],
+    definition?: SettingDefinition
+): string | null {
+    const def = definition ?? getSettingDefinition(key)
     if (!def) return `Unknown setting key: ${key}`
 
     const actual = value._value

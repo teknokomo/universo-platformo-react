@@ -607,12 +607,8 @@ export async function listObjectCollections(api, metahubId, params = {}) {
 }
 
 export async function createObjectCollection(api, metahubId, payload) {
-    const response = await sendWithCsrf(
-        api,
-        'POST',
-        buildManagedEntityInstancesApiPath(metahubId, 'object', payload?.kindKey),
-        payload
-    )
+    const { kindKey, ...body } = payload ?? {}
+    const response = await sendWithCsrf(api, 'POST', buildManagedEntityInstancesApiPath(metahubId, 'object', kindKey), body)
     if (!response.ok) {
         throw await buildError(response, `Creating object in metahub ${metahubId}`)
     }
@@ -698,11 +694,9 @@ export async function listOptionLists(api, metahubId, params = {}) {
 }
 
 export async function getOptionList(api, metahubId, enumerationId, kindKey) {
-    const response = await fetchFromApi(
-        api,
-        buildManagedEntityInstanceApiPath(metahubId, enumerationId, 'enumeration', kindKey),
-        { method: 'GET' }
-    )
+    const response = await fetchFromApi(api, buildManagedEntityInstanceApiPath(metahubId, enumerationId, 'enumeration', kindKey), {
+        method: 'GET'
+    })
     if (!response.ok) {
         throw await buildError(response, `Fetching enumeration ${enumerationId} for metahub ${metahubId}`)
     }
@@ -969,13 +963,9 @@ export async function listComponents(api, metahubId, objectId, params = {}) {
 }
 
 export async function getComponent(api, metahubId, objectId, componentId) {
-    const response = await fetchFromApi(
-        api,
-        buildManagedEntityChildItemApiPath(metahubId, objectId, 'object', 'component', componentId),
-        {
-            method: 'GET'
-        }
-    )
+    const response = await fetchFromApi(api, buildManagedEntityChildItemApiPath(metahubId, objectId, 'object', 'component', componentId), {
+        method: 'GET'
+    })
     if (!response.ok) {
         throw await buildError(response, `Fetching component ${componentId} for object ${objectId} in metahub ${metahubId}`)
     }
@@ -995,9 +985,13 @@ export async function listRecords(api, metahubId, objectId, params = {}) {
     }
 
     const suffix = query.size > 0 ? `?${query.toString()}` : ''
-    const response = await fetchFromApi(api, `${buildManagedEntityChildCollectionApiPath(metahubId, objectId, 'object', 'records')}${suffix}`, {
-        method: 'GET'
-    })
+    const response = await fetchFromApi(
+        api,
+        `${buildManagedEntityChildCollectionApiPath(metahubId, objectId, 'object', 'records')}${suffix}`,
+        {
+            method: 'GET'
+        }
+    )
     if (!response.ok) {
         throw await buildError(response, `Listing elements for object ${objectId} in metahub ${metahubId}`)
     }
@@ -1021,7 +1015,9 @@ export async function createRecord(api, metahubId, objectId, payload) {
 }
 
 export async function getRecord(api, metahubId, objectId, elementId) {
-    const response = await fetchFromApi(api, buildManagedEntityChildItemApiPath(metahubId, objectId, 'object', 'record', elementId), { method: 'GET' })
+    const response = await fetchFromApi(api, buildManagedEntityChildItemApiPath(metahubId, objectId, 'object', 'record', elementId), {
+        method: 'GET'
+    })
     if (!response.ok) {
         throw await buildError(response, `Fetching element ${elementId} for object ${objectId} in metahub ${metahubId}`)
     }
@@ -1080,9 +1076,13 @@ export async function listFixedValues(api, metahubId, setId, params = {}) {
     }
 
     const suffix = query.size > 0 ? `?${query.toString()}` : ''
-    const response = await fetchFromApi(api, `${buildManagedEntityChildCollectionApiPath(metahubId, setId, 'set', 'fixed-values')}${suffix}`, {
-        method: 'GET'
-    })
+    const response = await fetchFromApi(
+        api,
+        `${buildManagedEntityChildCollectionApiPath(metahubId, setId, 'set', 'fixed-values')}${suffix}`,
+        {
+            method: 'GET'
+        }
+    )
     if (!response.ok) {
         throw await buildError(response, `Listing constants for set ${setId} in metahub ${metahubId}`)
     }
@@ -1433,7 +1433,12 @@ export async function listApplicationLayoutWidgetObject(api, applicationId, layo
 }
 
 export async function moveApplicationLayoutZoneWidget(api, applicationId, layoutId, payload) {
-    const response = await sendWithCsrf(api, 'PATCH', `/api/v1/applications/${applicationId}/layouts/${layoutId}/zone-widgets/move`, payload)
+    const response = await sendWithCsrf(
+        api,
+        'PATCH',
+        `/api/v1/applications/${applicationId}/layouts/${layoutId}/zone-widgets/move`,
+        payload
+    )
     if (!response.ok) {
         throw await buildError(response, `Moving application layout widget in layout ${layoutId}`)
     }

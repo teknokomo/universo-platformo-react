@@ -11,7 +11,11 @@ import { buildDashboardLayoutConfig } from '../../shared'
 import { toJsonbValue } from '../../shared/jsonb'
 import { codenamePrimaryTextSql, ensureCodenameValue } from '../../shared/codename'
 import { resolveWidgetTableName } from './widgetTableResolver'
-import { ensureObjectSystemComponentsSeed, readPlatformSystemComponentsPolicyWithKnex } from './systemComponentSeed'
+import {
+    ensureObjectSystemComponentsSeed,
+    readPlatformSystemComponentsPolicyWithKnex,
+    shouldSeedObjectSystemComponents
+} from './systemComponentSeed'
 import { buildTemplateSeedEntityCodenameValue, resolveTemplateSeedCodenameConfig } from './TemplateSeedExecutor'
 
 const buildEntityMapKey = (kind: string, codename: string): string => `${kind}:${codename}`
@@ -398,7 +402,7 @@ export class TemplateSeedMigrator {
         const entityIdMap = new Map<string, string>()
         const now = new Date()
         const platformSystemComponentsPolicy =
-            !dryRun && entities.some((entity) => entity.kind === 'object')
+            !dryRun && entities.some((entity) => shouldSeedObjectSystemComponents(entity.kind))
                 ? await readPlatformSystemComponentsPolicyWithKnex(trx)
                 : undefined
 
@@ -414,7 +418,7 @@ export class TemplateSeedMigrator {
 
             if (existing) {
                 entityIdMap.set(buildEntityMapKey(entity.kind, entity.codename), existing.id)
-                if (!dryRun && entity.kind === 'object') {
+                if (!dryRun && shouldSeedObjectSystemComponents(entity.kind)) {
                     await ensureObjectSystemComponentsSeed(trx, this.schemaName, existing.id, null, {
                         policy: platformSystemComponentsPolicy
                     })
@@ -455,7 +459,7 @@ export class TemplateSeedMigrator {
 
                 entityIdMap.set(buildEntityMapKey(entity.kind, entity.codename), inserted.id)
 
-                if (entity.kind === 'object') {
+                if (shouldSeedObjectSystemComponents(entity.kind)) {
                     const systemResult = await ensureObjectSystemComponentsSeed(trx, this.schemaName, inserted.id, null, {
                         policy: platformSystemComponentsPolicy
                     })

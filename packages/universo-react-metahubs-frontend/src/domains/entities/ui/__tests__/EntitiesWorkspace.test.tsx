@@ -14,6 +14,7 @@ type MockListRow = {
     id: string
     name: string
     kindKey?: string
+    componentKeys?: string[]
     raw?: {
         id?: string | null
     }
@@ -21,6 +22,11 @@ type MockListRow = {
 
 type FlowListTableProps = {
     data: MockListRow[]
+    customColumns?: Array<{
+        id: string
+        label: string
+        render?: (row: MockListRow) => React.ReactNode
+    }>
     renderActions?: (row: MockListRow) => React.ReactNode
 }
 
@@ -29,6 +35,8 @@ type ItemCardProps = {
         name: string
     }
     headerAction?: React.ReactNode
+    footerStartContent?: React.ReactNode
+    footerEndContent?: React.ReactNode
 }
 
 type ToolbarControlsProps = {
@@ -134,20 +142,34 @@ vi.mock('@universo-react/template-mui', async (importOriginal) => {
                 <div>{description}</div>
             </div>
         ),
-        FlowListTable: ({ data, renderActions }: FlowListTableProps) => (
-            <div>
+        FlowListTable: ({ data, customColumns, renderActions }: FlowListTableProps) => (
+            <div role='table'>
+                {customColumns ? (
+                    <div role='row'>
+                        {customColumns.map((column) => (
+                            <span role='columnheader' key={column.id}>
+                                {column.label}
+                            </span>
+                        ))}
+                    </div>
+                ) : null}
                 {data.map((row) => (
-                    <div key={row.id}>
+                    <div role='row' key={row.id}>
                         <span>{row.name}</span>
+                        {customColumns?.map((column) => (
+                            <span key={column.id}>{column.render ? column.render(row) : null}</span>
+                        ))}
                         {renderActions ? renderActions({ id: row.id, name: row.name, kindKey: row.kindKey }) : null}
                     </div>
                 ))}
             </div>
         ),
-        ItemCard: ({ data, headerAction }: ItemCardProps) => (
+        ItemCard: ({ data, headerAction, footerStartContent, footerEndContent }: ItemCardProps) => (
             <div>
                 <span>{data.name}</span>
                 {headerAction}
+                {footerStartContent}
+                {footerEndContent}
             </div>
         ),
         SkeletonGrid: () => <div data-testid='skeleton-grid' />,
@@ -596,8 +618,8 @@ describe('EntitiesWorkspace', () => {
             </MemoryRouter>
         )
 
-        expect(screen.getByText('Products')).toBeInTheDocument()
-        expect(screen.getByText('Invoices')).toBeInTheDocument()
+        expect(screen.getAllByText('Products').length).toBeGreaterThan(0)
+        expect(screen.getAllByText('Invoices').length).toBeGreaterThan(0)
         expect(screen.getByText('You do not have permission to manage entity types for this metahub.')).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Create' })).not.toBeInTheDocument()
         expect(screen.queryByTestId('entity-menu-trigger-entity-type-type-1')).not.toBeInTheDocument()
@@ -630,6 +652,26 @@ describe('EntitiesWorkspace', () => {
         )
     })
 
+    it('keeps constructor list surfaces user-facing without raw kind or capability keys', async () => {
+        const { default: EntitiesWorkspace } = await import('../EntitiesWorkspace')
+
+        render(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities']}>
+                <Routes>
+                    <Route path='/metahub/:metahubId/entities' element={<EntitiesWorkspace />} />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        expect(screen.queryByRole('columnheader', { name: /Kind key|System type key/ })).not.toBeInTheDocument()
+        expect(screen.getAllByText(/Data schema/i).length).toBeGreaterThan(0)
+        expect(screen.getAllByText(/Hub assignment|Tree assignment/i).length).toBeGreaterThan(0)
+        expect(screen.queryByText('dataSchema')).not.toBeInTheDocument()
+        expect(screen.queryByText('treeAssignment')).not.toBeInTheDocument()
+        expect(screen.queryByText('custom.product')).not.toBeInTheDocument()
+        expect(screen.queryByText('custom.invoice')).not.toBeInTheDocument()
+    })
+
     it('renders structured builder controls and prunes dependent capabilities in create mode', async () => {
         const user = userEvent.setup()
         const { default: EntitiesWorkspace } = await import('../EntitiesWorkspace')
@@ -650,6 +692,12 @@ describe('EntitiesWorkspace', () => {
         expect(screen.getByRole('checkbox', { name: 'Data schema' })).toBeChecked()
         expect(screen.getByRole('checkbox', { name: 'Physical table' })).toBeChecked()
         expect(screen.getByLabelText('Additional tabs')).toBeInTheDocument()
+        expect(screen.queryByText('kindKey')).not.toBeInTheDocument()
+        expect(screen.queryByText('dataSchema')).not.toBeInTheDocument()
+        expect(screen.queryByText('treeAssignment')).not.toBeInTheDocument()
+        expect(screen.queryByText('recordLifecycle')).not.toBeInTheDocument()
+        expect(screen.queryByText('ledgerSchema')).not.toBeInTheDocument()
+        expect(screen.queryByText(/one-c-[a-z-]+/i)).not.toBeInTheDocument()
 
         await user.click(screen.getByRole('checkbox', { name: 'Actions' }))
         expect(screen.getByRole('checkbox', { name: 'Events' })).not.toBeChecked()

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { alpha, type Theme } from '@mui/material/styles'
 import { Box, Skeleton, Stack, Typography, Chip, Alert, Tooltip, Tabs, Tab, IconButton } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
@@ -47,6 +47,7 @@ import {
     useClearDisplayComponent,
     useComponentListData
 } from '../hooks'
+import { buildObjectCompatibleSettingKeys } from '../hooks/useComponentListData'
 import {
     invalidateComponentsQueries,
     isSharedEntityActive,
@@ -64,8 +65,6 @@ import {
     ComponentLocalizedPayload,
     toComponentDisplay,
     getDefaultValidationRules,
-    getPhysicalDataType,
-    formatPhysicalType,
     ObjectCollectionLocalizedPayload,
     getVLCString
 } from '../../../../../types'
@@ -86,7 +85,7 @@ import {
 } from '../../../../shared/sharedEntityExclusions'
 import { useCodenameConfig } from '../../../../settings/hooks/useCodenameConfig'
 import { useMetahubPrimaryLocale } from '../../../../settings/hooks/useMetahubPrimaryLocale'
-import { useSettingValue } from '../../../../settings/hooks/useSettings'
+import { useFirstSettingValue } from '../../../../settings/hooks/useSettings'
 import { ExistingCodenamesProvider } from '../../../../../components'
 import {
     buildInitialValues as buildObjectInitialValues,
@@ -112,6 +111,8 @@ import { buildObjectCollectionAuthoringPath } from '../../../../shared/entityMet
 type GenericFormValues = Record<string, unknown>
 
 const DIALOG_SAVE_CANCEL = { __dialogCancelled: true } as const
+
+const isRegisterEntityKind = (kind: string | null | undefined): boolean => typeof kind === 'string' && kind.includes('register')
 
 type ComponentListContentProps = {
     metahubId?: string
@@ -154,6 +155,7 @@ export const ComponentListContent = ({
     allowSystemTab = true
 }: ComponentListContentProps = {}) => {
     const navigate = useNavigate()
+    const location = useLocation()
     const { kindKey } = useParams<{ kindKey?: string }>()
     const { t, i18n } = useTranslation(['metahubs', 'common', 'flowList'])
     const { t: tc } = useCommonTranslations()
@@ -162,6 +164,8 @@ export const ComponentListContent = ({
     const queryClient = useQueryClient()
     const codenameConfig = useCodenameConfig()
     const preferredVlcLocale = useMetahubPrimaryLocale()
+    const isRequisitesRoute = location.pathname.endsWith('/requisites')
+    const componentSurfaceTitle = isRequisitesRoute ? t('oneCCompatible.requisites.title', 'Requisites') : t('components.title')
 
     const {
         metahubId,
@@ -188,20 +192,108 @@ export const ComponentListContent = ({
         limitValue,
         limitReached,
         childSearchMatchParentIds,
-        includeShared
+        includeShared,
+        entityKindKey
     } = useComponentListData({
         metahubId: metahubIdProp,
         treeEntityId: hubIdProp,
         objectCollectionId: objectIdProp,
         resolveObjectDetails: showSettingsTab,
         allowSystemView: showObjectTabs && allowSystemTab,
-        includeSharedEntities: !sharedEntityMode
+        includeSharedEntities: !sharedEntityMode,
+        loadTreeEntities: showObjectTabs && showSettingsTab
     })
 
     const { dialogs, openCreate, openDelete, openConflict, close } = useListDialogs<Component>()
     const [editDialogOpen, setEditDialogOpen] = useState(false)
     const [expandedTableIds, setExpandedTableIds] = useState<Set<string>>(new Set())
     const updateObjectCollectionMutation = useUpdateObjectCollectionAtMetahub()
+    const componentTerm = useMemo(() => {
+        if (!isRequisitesRoute) {
+            return {
+                singular: t('components.term.singular', 'component'),
+                plural: t('components.term.plural', 'components'),
+                codename: t('components.codename', 'Codename'),
+                codenameHelper: t('components.codenameHelper', 'Unique identifier'),
+                dataType: t('components.dataType', 'Data Type'),
+                displayLabel: t('components.isDisplayComponentLabel', 'Display component'),
+                displayHelper: t('components.isDisplayComponentHelper', 'Use as representation when referencing records of this object'),
+                editTitle: t('components.editDialog.title', 'Edit Field Definition'),
+                copyTitle: t('components.copyTitle', 'Copy Component'),
+                deleteTitle: t('components.deleteDialog.title', 'Delete Component'),
+                deleteDescription: t('components.deleteDialog.message'),
+                emptyAlt: 'No components',
+                emptyTitle: t('components.empty'),
+                emptyDescription: t('components.emptyDescription')
+            }
+        }
+
+        if (isRegisterEntityKind(entityKindKey)) {
+            return {
+                singular: t('oneCCompatible.registerFields.singular', 'register field'),
+                plural: t('oneCCompatible.registerFields.plural', 'register fields'),
+                codename: t('oneCCompatible.registerFields.codename', 'Register field codename'),
+                codenameHelper: t('oneCCompatible.registerFields.codenameHelper', 'Unique register field name inside this register'),
+                dataType: t('oneCCompatible.registerFields.dataType', 'Field type'),
+                displayLabel: t('oneCCompatible.registerFields.isDisplayComponentLabel', 'Use as list field'),
+                displayHelper: t(
+                    'oneCCompatible.registerFields.isDisplayComponentHelper',
+                    'Show this register field in references and list views'
+                ),
+                editTitle: t('oneCCompatible.registerFields.editTitle', 'Edit register field'),
+                copyTitle: t('oneCCompatible.registerFields.copyTitle', 'Copy register field'),
+                deleteTitle: t('oneCCompatible.registerFields.deleteTitle', 'Delete register field'),
+                deleteDescription: t(
+                    'oneCCompatible.registerFields.deleteMessage',
+                    'Delete this register field? This action cannot be undone.'
+                ),
+                emptyAlt: t('oneCCompatible.registerFields.emptyAlt', 'No register fields'),
+                emptyTitle: t('oneCCompatible.registerFields.empty', 'No register fields'),
+                emptyDescription: t(
+                    'oneCCompatible.registerFields.emptyDescription',
+                    'Add dimensions, resources, or period fields for this register.'
+                )
+            }
+        }
+
+        return {
+            singular: t('oneCCompatible.requisites.singular', 'requisite'),
+            plural: t('oneCCompatible.requisites.plural', 'requisites'),
+            codename: t('oneCCompatible.requisites.codename', 'Requisite codename'),
+            codenameHelper: t('oneCCompatible.requisites.codenameHelper', 'Unique requisite name inside this object'),
+            dataType: t('oneCCompatible.requisites.dataType', 'Requisite type'),
+            displayLabel: t('oneCCompatible.requisites.isDisplayComponentLabel', 'Use as presentation requisite'),
+            displayHelper: t(
+                'oneCCompatible.requisites.isDisplayComponentHelper',
+                'Show this requisite when referencing records of this object'
+            ),
+            editTitle: t('oneCCompatible.requisites.editTitle', 'Edit requisite'),
+            copyTitle: t('oneCCompatible.requisites.copyTitle', 'Copy requisite'),
+            deleteTitle: t('oneCCompatible.requisites.deleteTitle', 'Delete requisite'),
+            deleteDescription: t('oneCCompatible.requisites.deleteMessage', 'Delete this requisite? This action cannot be undone.'),
+            emptyAlt: t('oneCCompatible.requisites.emptyAlt', 'No requisites'),
+            emptyTitle: t('oneCCompatible.requisites.empty', 'No requisites'),
+            emptyDescription: t('oneCCompatible.requisites.emptyDescription', 'Add requisites that describe records of this object.')
+        }
+    }, [entityKindKey, isRequisitesRoute, t])
+    const searchPlaceholder = isRequisitesRoute
+        ? isRegisterEntityKind(entityKindKey)
+            ? t('oneCCompatible.registerFields.searchPlaceholder', 'Search register fields...')
+            : t('oneCCompatible.requisites.searchPlaceholder', 'Search requisites...')
+        : t('components.searchPlaceholder')
+    const dataTypeOptions = useMemo(
+        () => [
+            { value: 'STRING' as const, label: t('components.dataTypeOptions.string', 'String') },
+            { value: 'NUMBER' as const, label: t('components.dataTypeOptions.number', 'Number') },
+            { value: 'BOOLEAN' as const, label: t('components.dataTypeOptions.boolean', 'Boolean') },
+            { value: 'DATE' as const, label: t('components.dataTypeOptions.date', 'Date') },
+            { value: 'REF' as const, label: t('components.dataTypeOptions.ref', 'Reference') },
+            { value: 'JSON' as const, label: t('components.dataTypeOptions.json', 'JSON') },
+            { value: 'TABLE' as const, label: t('components.dataTypeOptions.table', 'Table') }
+        ],
+        [t]
+    )
+    const dataTypeLabelByValue = useMemo(() => new Map(dataTypeOptions.map((option) => [option.value, option.label])), [dataTypeOptions])
 
     const buildObjectTabPath = useCallback(
         (tab: Extract<ObjectTab, 'components' | 'system' | 'records'>) => {
@@ -256,8 +348,10 @@ export const ComponentListContent = ({
     const pendingInteractionMessage = tc('pendingCreateBlocked', 'This item is still being created. Please wait a moment and try again.')
 
     // DnD cross-list permission settings
-    const allowCrossListRootChildren = useSettingValue<boolean>('entity.object.allowComponentMoveBetweenRootAndChildren') ?? true
-    const allowCrossListBetweenChildren = useSettingValue<boolean>('entity.object.allowComponentMoveBetweenChildLists') ?? true
+    const allowCrossListRootChildren =
+        useFirstSettingValue<boolean>(buildObjectCompatibleSettingKeys(entityKindKey, 'allowComponentMoveBetweenRootAndChildren')) ?? true
+    const allowCrossListBetweenChildren =
+        useFirstSettingValue<boolean>(buildObjectCompatibleSettingKeys(entityKindKey, 'allowComponentMoveBetweenChildLists')) ?? true
 
     const systemComponentActions = useMemo<ActionDescriptor<ComponentDisplay, ComponentLocalizedPayload>[]>(
         () => [
@@ -355,7 +449,7 @@ export const ComponentListContent = ({
                 if (responseStatus === 409 && responseCode === 'TABLE_CHILD_LIMIT_REACHED') {
                     const max = extractResponseMaxChildComponents(error)
                     enqueueSnackbar(
-                        t('components.tableValidation.maxChildComponents', 'Maximum {{max}} child components per TABLE', {
+                        t('components.tableValidation.maxChildComponents', 'Maximum {{max}} fields per tabular part', {
                             max: max ?? '—'
                         }),
                         { variant: 'error' }
@@ -393,7 +487,7 @@ export const ComponentListContent = ({
                             if (extractResponseCode(retryError) === 'TABLE_CHILD_LIMIT_REACHED') {
                                 const max = extractResponseMaxChildComponents(retryError)
                                 enqueueSnackbar(
-                                    t('components.tableValidation.maxChildComponents', 'Maximum {{max}} child components per TABLE', {
+                                    t('components.tableValidation.maxChildComponents', 'Maximum {{max}} fields per tabular part', {
                                         max: max ?? '—'
                                     }),
                                     { variant: 'error' }
@@ -495,8 +589,8 @@ export const ComponentListContent = ({
             // TABLE components can only exist at root level
             if (component.dataType === 'TABLE' && targetParentId !== null) {
                 await confirm({
-                    title: t('components.dnd.tableCannotMoveTitle', 'Cannot move TABLE component'),
-                    description: t('components.dnd.tableCannotMoveDescription', 'TABLE components can only exist at the root level.'),
+                    title: t('components.dnd.tableCannotMoveTitle', 'Cannot move tabular part'),
+                    description: t('components.dnd.tableCannotMoveDescription', 'Tabular parts can only exist at the root level.'),
                     confirmButtonName: tc('ok', 'OK'),
                     hideCancelButton: true
                 })
@@ -515,7 +609,7 @@ export const ComponentListContent = ({
                 if (maxChildComponents !== null && targetContainerItemCount >= maxChildComponents) {
                     await confirm({
                         title: t('components.dnd.tableChildLimitTitle', 'Cannot move component'),
-                        description: t('components.tableValidation.maxChildComponents', 'Maximum {{max}} child components per TABLE', {
+                        description: t('components.tableValidation.maxChildComponents', 'Maximum {{max}} fields per tabular part', {
                             max: maxChildComponents
                         }),
                         confirmButtonName: tc('ok', 'OK'),
@@ -630,9 +724,9 @@ export const ComponentListContent = ({
                 const hasTarget = Boolean(values.targetEntityKind) && Boolean(values.targetEntityId)
                 if (!hasTarget) return false
                 if (values.targetEntityKind === 'set') {
-                    return Boolean(values.targetConstantId)
+                    return hasBasicInfo && Boolean(values.targetConstantId)
                 }
-                return true
+                return hasBasicInfo
             }
             return hasBasicInfo
         },
@@ -665,30 +759,27 @@ export const ComponentListContent = ({
                             errors={fieldErrors}
                             uiLocale={i18n.language}
                             nameLabel={tc('fields.name', 'Name')}
-                            codenameLabel={t('components.codename', 'Codename')}
-                            codenameHelper={t('components.codenameHelper', 'Unique identifier')}
-                            dataTypeLabel={t('components.dataType', 'Data Type')}
+                            codenameLabel={componentTerm.codename}
+                            codenameHelper={componentTerm.codenameHelper}
+                            dataTypeLabel={componentTerm.dataType}
                             requiredLabel={t('components.isRequiredLabel', 'Required')}
-                            displayComponentLabel={t('components.isDisplayComponentLabel', 'Display component')}
-                            displayComponentHelper={t(
-                                'components.isDisplayComponentHelper',
-                                'Use as representation when referencing records of this object'
-                            )}
+                            displayComponentLabel={componentTerm.displayLabel}
+                            displayComponentHelper={componentTerm.displayHelper}
                             displayComponentLocked={displayComponentLocked}
-                            dataTypeOptions={[
-                                { value: 'STRING', label: t('components.dataTypeOptions.string', 'String') },
-                                { value: 'NUMBER', label: t('components.dataTypeOptions.number', 'Number') },
-                                { value: 'BOOLEAN', label: t('components.dataTypeOptions.boolean', 'Boolean') },
-                                { value: 'DATE', label: t('components.dataTypeOptions.date', 'Date') },
-                                { value: 'REF', label: t('components.dataTypeOptions.ref', 'Reference') },
-                                { value: 'JSON', label: t('components.dataTypeOptions.json', 'JSON') },
-                                { value: 'TABLE', label: t('components.dataTypeOptions.table', 'Table') }
-                            ]}
+                            dataTypeOptions={dataTypeOptions}
                             typeSettingsLabel={t('components.typeSettings.title', 'Type Settings')}
                             stringMaxLengthLabel={t('components.typeSettings.string.maxLength', 'Max Length')}
                             stringMinLengthLabel={t('components.typeSettings.string.minLength', 'Min Length')}
-                            stringVersionedLabel={t('components.typeSettings.string.versioned', 'Versioned (VLC)')}
-                            stringLocalizedLabel={t('components.typeSettings.string.localized', 'Localized (VLC)')}
+                            stringVersionedLabel={
+                                isRequisitesRoute
+                                    ? t('components.typeSettings.string.versionedUserLabel', 'Keep value history')
+                                    : t('components.typeSettings.string.versioned', 'Keep value history')
+                            }
+                            stringLocalizedLabel={
+                                isRequisitesRoute
+                                    ? t('components.typeSettings.string.localizedUserLabel', 'Multilingual value')
+                                    : t('components.typeSettings.string.localized', 'Multilingual value')
+                            }
                             numberPrecisionLabel={t('components.typeSettings.number.precision', 'Precision')}
                             numberScaleLabel={t('components.typeSettings.number.scale', 'Scale')}
                             numberMinLabel={t('components.typeSettings.number.min', 'Min Value')}
@@ -703,7 +794,6 @@ export const ComponentListContent = ({
                                     label: t('components.typeSettings.date.compositionOptions.datetime', 'Date and Time')
                                 }
                             ]}
-                            physicalTypeLabel={t('components.physicalType.label', 'PostgreSQL type')}
                             metahubId={metahubId!}
                             currentObjectCollectionId={objectCollectionId}
                             hideDisplayComponent
@@ -720,11 +810,8 @@ export const ComponentListContent = ({
                                 setValue={setValue}
                                 isLoading={isLoading}
                                 metahubId={metahubId}
-                                displayComponentLabel={t('components.isDisplayComponentLabel', 'Display component')}
-                                displayComponentHelper={t(
-                                    'components.isDisplayComponentHelper',
-                                    'Use as representation when referencing records of this object'
-                                )}
+                                displayComponentLabel={componentTerm.displayLabel}
+                                displayComponentHelper={componentTerm.displayHelper}
                                 displayComponentLocked={displayComponentLocked}
                                 forceDisplayComponentWhenLocked={displayComponentLocked}
                                 headerAsCheckboxLabel={t('components.presentation.headerAsCheckbox', 'Display header as checkbox')}
@@ -775,7 +862,22 @@ export const ComponentListContent = ({
 
             return tabs
         },
-        [components?.length, objectCollectionId, i18n.language, metahubId, sharedEntityMode, t, tc]
+        [
+            componentTerm.codename,
+            componentTerm.codenameHelper,
+            componentTerm.dataType,
+            componentTerm.displayHelper,
+            componentTerm.displayLabel,
+            components?.length,
+            dataTypeOptions,
+            isRequisitesRoute,
+            objectCollectionId,
+            i18n.language,
+            metahubId,
+            sharedEntityMode,
+            t,
+            tc
+        ]
     )
 
     const componentColumns = useMemo(() => {
@@ -801,7 +903,6 @@ export const ComponentListContent = ({
                 render: (row: ComponentDisplay) => {
                     const rawComponent = componentMap.get(row.id)
                     const isDisplayAttr = rawComponent?.isDisplayComponent ?? row.isDisplayComponent ?? false
-                    const systemMetadata = rawComponent?.system ?? row.system ?? null
                     return (
                         <Stack spacing={0.5}>
                             <Stack direction='row' spacing={0.5} alignItems='center' flexWrap='wrap' useFlexGap>
@@ -833,18 +934,13 @@ export const ComponentListContent = ({
                                     <Chip label={t('metahubs:shared.list.inactive', 'Inactive')} size='small' variant='outlined' />
                                 ) : null}
                             </Stack>
-                            {isSystemView && systemMetadata?.systemKey && (
-                                <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
-                                    {t('components.system.keyLabel', 'System key')}: {systemMetadata.systemKey}
-                                </Typography>
-                            )}
                         </Stack>
                     )
                 }
             },
             {
                 id: 'codename',
-                label: t('components.codename', 'Codename'),
+                label: componentTerm.codename,
                 width: isSystemView ? '18%' : '20%',
                 align: 'left' as const,
                 sortable: true,
@@ -854,7 +950,6 @@ export const ComponentListContent = ({
                         sx={{
                             fontSize: 14,
                             fontWeight: 600,
-                            fontFamily: 'monospace',
                             wordBreak: 'break-word'
                         }}
                     >
@@ -864,29 +959,34 @@ export const ComponentListContent = ({
             },
             {
                 id: 'dataType',
-                label: t('components.dataType', 'Type'),
+                label: componentTerm.dataType,
                 width: isSystemView ? '24%' : '17%',
                 align: 'center' as const,
                 render: (row: ComponentDisplay) => {
                     const rules = row.validationRules as ComponentDefinitionValidationRules | undefined
                     const hasVersioned = rules?.versioned
                     const hasLocalized = rules?.localized
-                    const physicalInfo = getPhysicalDataType(row.dataType, rules)
-                    const physicalTypeStr = formatPhysicalType(physicalInfo)
-                    const tooltipTitle = t('components.physicalType.tooltip', 'PostgreSQL: {{type}}', { type: physicalTypeStr })
+                    const typeLabel = dataTypeLabelByValue.get(row.dataType) ?? row.dataType
                     return (
-                        <Tooltip title={tooltipTitle} arrow placement='top'>
-                            <Stack spacing={0.4} justifyContent='center' alignItems='center' sx={{ cursor: 'help' }}>
-                                <Stack direction='row' spacing={0.5} justifyContent='center' alignItems='center'>
-                                    <Chip label={row.dataType} size='small' color={getDataTypeColor(row.dataType)} />
-                                    {hasVersioned && <Chip label='V' size='small' sx={{ minWidth: 24, height: 20, fontSize: 11 }} />}
-                                    {hasLocalized && <Chip label='L' size='small' sx={{ minWidth: 24, height: 20, fontSize: 11 }} />}
-                                </Stack>
-                                <Typography sx={{ fontSize: 11, color: 'text.secondary', textAlign: 'center' }}>
-                                    {physicalTypeStr}
-                                </Typography>
-                            </Stack>
-                        </Tooltip>
+                        <Stack direction='row' spacing={0.5} justifyContent='center' alignItems='center' flexWrap='wrap' useFlexGap>
+                            <Chip label={typeLabel} size='small' color={getDataTypeColor(row.dataType)} />
+                            {hasVersioned && (
+                                <Chip
+                                    label={t('components.typeBadges.history', 'History')}
+                                    size='small'
+                                    variant='outlined'
+                                    sx={{ height: 20, fontSize: 11 }}
+                                />
+                            )}
+                            {hasLocalized && (
+                                <Chip
+                                    label={t('components.typeBadges.localized', 'Multilingual')}
+                                    size='small'
+                                    variant='outlined'
+                                    sx={{ height: 20, fontSize: 11 }}
+                                />
+                            )}
+                        </Stack>
                     )
                 }
             }
@@ -929,7 +1029,7 @@ export const ComponentListContent = ({
         }
 
         return columns
-    }, [componentMap, includeShared, isSystemView, t, tc])
+    }, [componentMap, componentTerm.codename, componentTerm.dataType, dataTypeLabelByValue, includeShared, isSystemView, t, tc])
 
     const createComponentContext = useCallback(
         (baseContext: ActionContext<ComponentDisplay, ComponentLocalizedPayload>) => ({
@@ -939,6 +1039,17 @@ export const ComponentListContent = ({
             metahubId,
             objectCollectionId,
             sharedEntityMode,
+            componentSurface: {
+                editTitle: componentTerm.editTitle,
+                copyTitle: componentTerm.copyTitle,
+                deleteTitle: componentTerm.deleteTitle,
+                deleteDescription: componentTerm.deleteDescription,
+                codenameLabel: componentTerm.codename,
+                codenameHelper: componentTerm.codenameHelper,
+                dataTypeLabel: componentTerm.dataType,
+                displayLabel: componentTerm.displayLabel,
+                displayHelper: componentTerm.displayHelper
+            },
             api: {
                 updateEntity: (id: string, patch: ComponentLocalizedPayload) => {
                     if (!metahubId || !objectCollectionId) return Promise.resolve()
@@ -1157,6 +1268,15 @@ export const ComponentListContent = ({
         }),
         [
             componentMap,
+            componentTerm.codename,
+            componentTerm.codenameHelper,
+            componentTerm.copyTitle,
+            componentTerm.dataType,
+            componentTerm.deleteDescription,
+            componentTerm.deleteTitle,
+            componentTerm.displayHelper,
+            componentTerm.displayLabel,
+            componentTerm.editTitle,
             objectCollectionId,
             clearDisplayComponentMutation,
             codenameConfig.allowMixed,
@@ -1435,7 +1555,7 @@ export const ComponentListContent = ({
                 <Stack flexDirection='column' sx={{ gap: 1 }}>
                     <ViewHeader
                         search={true}
-                        searchPlaceholder={t('components.searchPlaceholder')}
+                        searchPlaceholder={searchPlaceholder}
                         onSearchChange={handleSearchChange}
                         controlsAlign={renderPageShell ? 'start' : 'end'}
                         title={
@@ -1443,7 +1563,7 @@ export const ComponentListContent = ({
                                 ? title
                                 : isSystemView
                                 ? t('components.system.title', 'System Components')
-                                : t('components.title')
+                                : componentSurfaceTitle
                         }
                     >
                         <ToolbarControls
@@ -1476,7 +1596,7 @@ export const ComponentListContent = ({
                                     }
                                 }}
                             >
-                                <Tab value='components' label={t('components.title')} />
+                                <Tab value='components' label={componentSurfaceTitle} />
                                 {allowSystemTab ? <Tab value='system' label={t('components.tabs.system', 'System')} /> : null}
                                 <Tab value='records' label={t('records.title')} />
                                 {showSettingsTab ? <Tab value='settings' label={t('settings.title')} /> : null}
@@ -1520,15 +1640,16 @@ export const ComponentListContent = ({
                     ) : !isLoading && components.length === 0 ? (
                         <EmptyListState
                             image={APIEmptySVG}
-                            imageAlt='No components'
+                            imageAlt={componentTerm.emptyAlt}
                             title={
-                                emptyTitle ?? (isSystemView ? t('components.system.empty', 'No system components') : t('components.empty'))
+                                emptyTitle ??
+                                (isSystemView ? t('components.system.empty', 'No system components') : componentTerm.emptyTitle)
                             }
                             description={
                                 emptyDescription ??
                                 (isSystemView
                                     ? t('components.system.emptyDescription', 'This object has no configurable system components.')
-                                    : t('components.emptyDescription'))
+                                    : componentTerm.emptyDescription)
                             }
                         />
                     ) : (
@@ -1667,7 +1788,13 @@ export const ComponentListContent = ({
 
             <EntityFormDialog
                 open={dialogs.create.open}
-                title={t('components.createDialog.title', 'Create Component')}
+                title={
+                    isRequisitesRoute
+                        ? isRegisterEntityKind(entityKindKey)
+                            ? t('oneCCompatible.registerFields.createTitle', 'Create register field')
+                            : t('oneCCompatible.requisites.createTitle', 'Create requisite')
+                        : t('components.createDialog.title', 'Create Component')
+                }
                 nameLabel={tc('fields.name', 'Name')}
                 descriptionLabel={tc('fields.description', 'Description')}
                 saveButtonText={tc('actions.create', 'Create')}
@@ -1684,8 +1811,8 @@ export const ComponentListContent = ({
 
             <ConfirmDeleteDialog
                 open={dialogs.delete.open}
-                title={t('components.deleteDialog.title')}
-                description={t('components.deleteDialog.message')}
+                title={componentTerm.deleteTitle}
+                description={componentTerm.deleteDescription}
                 confirmButtonText={tc('actions.delete', 'Delete')}
                 deletingButtonText={tc('actions.deleting', 'Deleting...')}
                 cancelButtonText={tc('actions.cancel', 'Cancel')}

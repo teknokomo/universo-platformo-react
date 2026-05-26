@@ -1,11 +1,17 @@
 import type { ElementType } from 'react'
 import type { MetahubMenuEntityType } from '@universo-react/types'
 import {
+    IconAbacus,
+    IconAddressBook,
+    IconBinaryTree,
     IconBox,
     IconBolt,
+    IconCalculator,
+    IconChartBar,
     IconFiles,
     IconWorld,
     IconUser,
+    IconFileInvoice,
     IconFileText,
     IconUsers,
     IconUsersGroup,
@@ -21,8 +27,13 @@ import {
     IconLanguage,
     IconApps,
     IconDatabase,
+    IconNotebook,
     IconReceipt,
-    IconStack2
+    IconScale,
+    IconStack2,
+    IconTable,
+    IconTags,
+    IconVariable
 } from '@tabler/icons-react'
 
 export type TemplateMenuItem = TemplateMenuEntry | TemplateMenuDivider
@@ -59,23 +70,34 @@ export const resolveTemplateMenuLabel = (
 }
 
 const menuIconRegistry: Record<string, ElementType> = {
+    IconAbacus,
+    IconAddressBook,
     IconApps,
+    IconBinaryTree,
     IconBolt,
     IconBox,
     IconBuildingStore,
+    IconCalculator,
+    IconChartBar,
     IconDatabase,
     IconFiles,
+    IconFileInvoice,
     IconFileText,
     IconGitBranch,
     IconHierarchy,
     IconHierarchy3,
     IconHistory,
     IconLayoutDashboard,
+    IconNotebook,
     IconReceipt,
+    IconScale,
     IconSettings,
     IconStack2,
+    IconTable,
+    IconTags,
     IconUsers,
     IconUsersGroup,
+    IconVariable,
     IconUserShield,
     IconWorld
 }

@@ -3,13 +3,23 @@ import { basicDemoTemplate } from '../../domains/templates/data/basic-demo.templ
 import { emptyTemplate } from '../../domains/templates/data/empty.template'
 import { objectEntityPreset } from '../../domains/templates/data/object.entity-preset'
 import { lmsTemplate } from '../../domains/templates/data/lms.template'
+import { oneCCompatibleTemplate } from '../../domains/templates/data/one-c-compatible.template'
+import {
+    oneCCompatibleAllPresets,
+    oneCCompatibleCorePresets,
+    oneCCompatiblePreviewPresets
+} from '../../domains/templates/data/one-c-compatible.entity-presets'
 import { enumerationEntityPreset } from '../../domains/templates/data/option-list.entity-preset'
 import { pageEntityPreset } from '../../domains/templates/data/page.entity-preset'
 import { ledgerEntityPreset } from '../../domains/templates/data/ledger.entity-preset'
 import { hubEntityPreset } from '../../domains/templates/data/tree-entity.entity-preset'
 import { setEntityPreset } from '../../domains/templates/data/value-group.entity-preset'
 import { parseApplicationLayoutWidgetConfig, workflowActionSchema } from '@universo-react/types'
-import { validateEntityTypePresetManifest, validateTemplateManifest } from '../../domains/templates/services/TemplateManifestValidator'
+import {
+    validateEntityTypePresetManifest,
+    validateTemplateManifest,
+    validateTemplateSeedEntityBehaviorReferences
+} from '../../domains/templates/services/TemplateManifestValidator'
 
 const cloneTemplate = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T
 
@@ -34,6 +44,26 @@ describe('TemplateManifestValidator', () => {
 
     it('accepts the built-in lms template', () => {
         expect(() => validateTemplateManifest(cloneTemplate(lmsTemplate))).not.toThrow()
+    })
+
+    it('accepts the built-in 1C-Compatible template without changing the default starter template presets', () => {
+        expect(() => validateTemplateManifest(cloneTemplate(oneCCompatibleTemplate))).not.toThrow()
+        expect(oneCCompatibleTemplate.codename).toBe('1c-compatible')
+        expect(oneCCompatibleTemplate.presets?.map((preset) => preset.presetCodename)).toEqual([
+            'one-c-constant',
+            'enumeration',
+            'one-c-catalog',
+            'one-c-document',
+            'one-c-document-journal',
+            'one-c-information-register',
+            'one-c-accumulation-register',
+            'one-c-chart-of-accounts',
+            'one-c-chart-of-characteristic-types',
+            'one-c-accounting-register',
+            'one-c-chart-of-calculation-types',
+            'one-c-calculation-register'
+        ])
+        expect(basicTemplate.presets?.map((preset) => preset.presetCodename)).toEqual(['hub', 'page', 'object', 'set', 'enumeration'])
     })
 
     it('accepts the built-in object entity preset', () => {
@@ -65,6 +95,143 @@ describe('TemplateManifestValidator', () => {
         expect(() => validateEntityTypePresetManifest(cloneTemplate(pageEntityPreset))).not.toThrow()
         expect(() => validateEntityTypePresetManifest(cloneTemplate(setEntityPreset))).not.toThrow()
         expect(() => validateEntityTypePresetManifest(cloneTemplate(enumerationEntityPreset))).not.toThrow()
+    })
+
+    it('accepts 1C-Compatible preset manifests with typed reusable behavior configs', () => {
+        const presets = oneCCompatibleCorePresets.map((preset) => validateEntityTypePresetManifest(cloneTemplate(preset)))
+
+        expect(presets.map((preset) => preset.entityType.kindKey)).toEqual([
+            'constant',
+            'catalog',
+            'document',
+            'document-journal',
+            'information-register',
+            'accumulation-register'
+        ])
+        expect(presets.map((preset) => preset.entityType.kindKey)).not.toContain('object')
+        expect(presets.find((preset) => preset.codename === 'one-c-constant')?.entityType.config?.singleValue).toMatchObject({
+            kind: 'singleValue',
+            dataType: 'STRING'
+        })
+        expect(presets.find((preset) => preset.codename === 'one-c-document')?.entityType.config?.documentBehavior).toMatchObject({
+            kind: 'document'
+        })
+        expect(
+            presets.find((preset) => preset.codename === 'one-c-accumulation-register')?.entityType.config?.registerBehavior
+        ).toMatchObject({
+            kind: 'register',
+            mode: 'balance'
+        })
+        expect(presets.find((preset) => preset.codename === 'one-c-catalog')?.entityType.ui.resourceSurfaces?.[0]).toMatchObject({
+            key: 'requisites',
+            routeSegment: 'requisites',
+            fallbackTitle: 'Requisites',
+            fallbackSharedTitle: 'Requisites'
+        })
+        expect(presets.find((preset) => preset.codename === 'one-c-catalog')?.entityType.capabilities.treeAssignment).toBe(false)
+        expect(presets.find((preset) => preset.codename === 'one-c-document')?.entityType.capabilities.treeAssignment).toBe(false)
+        expect(presets.find((preset) => preset.codename === 'one-c-information-register')?.entityType.capabilities.treeAssignment).toBe(
+            false
+        )
+        expect(presets.find((preset) => preset.codename === 'one-c-accumulation-register')?.entityType.capabilities.treeAssignment).toBe(
+            false
+        )
+        expect(new Set(presets.map((preset) => preset.entityType.ui.iconName)).size).toBe(presets.length)
+        expect(presets.map((preset) => preset.entityType.presentation?.readiness)).toEqual(
+            Array.from({ length: oneCCompatibleCorePresets.length }, () => 'preview')
+        )
+    })
+
+    it('registers and materializes every 1C-Compatible target preset in the template', () => {
+        const allPresets = oneCCompatibleAllPresets.map((preset) => validateEntityTypePresetManifest(cloneTemplate(preset)))
+        const previewPresetCodenames = oneCCompatiblePreviewPresets.map((preset) => preset.codename)
+
+        expect(allPresets.map((preset) => preset.codename)).toEqual(
+            expect.arrayContaining([
+                'one-c-constant',
+                'one-c-catalog',
+                'one-c-document',
+                'one-c-document-journal',
+                'one-c-information-register',
+                'one-c-accumulation-register',
+                'one-c-chart-of-accounts',
+                'one-c-chart-of-characteristic-types',
+                'one-c-accounting-register',
+                'one-c-chart-of-calculation-types',
+                'one-c-calculation-register'
+            ])
+        )
+        expect(new Set(allPresets.map((preset) => preset.entityType.ui.iconName)).size).toBe(allPresets.length)
+        expect(previewPresetCodenames).not.toContain('one-c-document')
+        expect(oneCCompatibleTemplate.presets?.map((preset) => preset.presetCodename)).toEqual(
+            expect.arrayContaining(previewPresetCodenames)
+        )
+    })
+
+    it('rejects invalid typed behavior config embedded in a preset manifest', () => {
+        const manifest = cloneTemplate(oneCCompatibleCorePresets[1])
+        manifest.entityType.config = {
+            catalogBehavior: {
+                kind: 'catalog',
+                unexpected: true
+            }
+        }
+
+        expect(() => validateEntityTypePresetManifest(manifest)).toThrow(/Invalid typed behavior config: catalogBehavior/)
+    })
+
+    it('rejects invalid typed behavior config embedded in preset default instances', () => {
+        const manifest = cloneTemplate(oneCCompatibleCorePresets[2])
+        if (!manifest.defaultInstances?.[0]) {
+            throw new Error('Document preset must keep a default instance fixture')
+        }
+        manifest.defaultInstances[0].config = {
+            documentBehavior: {
+                kind: 'register',
+                mode: 'facts'
+            }
+        }
+
+        expect(() => validateEntityTypePresetManifest(manifest)).toThrow(/documentBehavior.*register/)
+    })
+
+    it('rejects dangling behavior references in merged template seed entities', () => {
+        expect(() =>
+            validateTemplateSeedEntityBehaviorReferences({
+                layouts: [],
+                layoutZoneWidgets: {},
+                entities: [
+                    {
+                        codename: 'GoodsReceipt',
+                        kind: 'document',
+                        name: {} as never,
+                        components: [
+                            {
+                                codename: 'Goods',
+                                dataType: 'TABLE',
+                                name: {} as never,
+                                childComponents: [{ codename: 'Product', dataType: 'STRING', name: {} as never }]
+                            }
+                        ],
+                        config: {
+                            documentPosting: {
+                                kind: 'documentPosting',
+                                moduleCodename: 'MissingPostingModule',
+                                movements: [
+                                    {
+                                        targetRegisterCodename: 'StockBalance',
+                                        sourceTableCodename: 'MissingTable',
+                                        dimensionMappings: { Product: 'MissingProduct' },
+                                        resourceMappings: {}
+                                    }
+                                ],
+                                repostPolicy: 'replace-existing-batch'
+                            }
+                        }
+                    }
+                ]
+            })
+        ).toThrow(/MODULE_NOT_FOUND|TARGET_REGISTER_NOT_FOUND|SOURCE_TABLE_NOT_FOUND|FIELD_MAPPING_NOT_FOUND/)
     })
 
     it('keeps standard metadata menu order and excludes optional ledgers from default starter templates', () => {

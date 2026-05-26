@@ -542,11 +542,61 @@ export function createNestedChildHandlers(createHandler: ReturnType<typeof creat
         { permission: 'deleteContent' }
     )
     const listNestedObjectCollections = createHandler(listObjectCollectionsByHub)
-    const createNestedObjectCollection = createHandler(createObjectCollectionByHub, { permission: 'editContent' })
+    const createNestedObjectCollection = createHandler(createObjectCollectionByHub, { permission: 'createContent' })
     const reorderNestedObjectCollections = createHandler(reorderObjectCollections, { permission: 'editContent' })
     const getNestedObjectCollectionById = createHandler(getObjectCollectionByHub)
     const updateNestedObjectCollection = createHandler(updateObjectCollectionByHub, { permission: 'editContent' })
     const deleteNestedObjectCollection = createHandler(deleteObjectCollectionByHub, { permission: 'deleteContent' })
+
+    const listTreeEntities = createHandler(async ({ req, res, metahubId, userId, exec, schemaService }) => {
+        let parsed
+
+        try {
+            parsed = validateListQuery(req.query)
+        } catch (error) {
+            if (error instanceof z.ZodError) {
+                return res.status(400).json({ error: 'Invalid query', details: error.flatten() })
+            }
+            throw error
+        }
+
+        const treeEntitiesService = new MetahubTreeEntitiesService(exec, schemaService)
+        const entityTypeService = new EntityTypeService(exec, schemaService)
+        const compatibility = await loadTreeEntityContext(entityTypeService, metahubId, userId)
+        const result = await treeEntitiesService.findAll(
+            metahubId,
+            {
+                limit: parsed.limit,
+                offset: parsed.offset,
+                sortBy: parsed.sortBy,
+                sortOrder: parsed.sortOrder,
+                search: parsed.search,
+                kinds: compatibility.hubKinds
+            },
+            userId
+        )
+
+        const items = result.items.map((row) => ({
+            id: row.id,
+            codename: row.codename,
+            name: row.name ?? {},
+            description: row.description ?? null,
+            sortOrder: row.sort_order ?? 0,
+            parentTreeEntityId: typeof row.parent_hub_id === 'string' ? row.parent_hub_id : null,
+            version: row._upl_version ?? 1,
+            createdAt: row.created_at ?? null,
+            updatedAt: row.updated_at ?? null
+        }))
+
+        return res.json({
+            items,
+            pagination: {
+                total: result.total,
+                limit: parsed.limit,
+                offset: parsed.offset
+            }
+        })
+    })
 
     const listNestedTreeEntities = createHandler(async ({ req, res, metahubId, userId, exec, schemaService }) => {
         const treeEntitiesService = new MetahubTreeEntitiesService(exec, schemaService)
@@ -1077,7 +1127,7 @@ export function createNestedChildHandlers(createHandler: ReturnType<typeof creat
                 lastHubConflictMessage:
                     'Cannot remove optionList from its last hub because it requires at least one hub association. Use force=true to delete the optionList entirely.',
                 beforeDelete: async () => {
-                    const allowDeleteRow = await settingsService.findByKey(metahubId, 'entity.optionList.allowDelete', userId)
+                    const allowDeleteRow = await settingsService.findByKey(metahubId, 'entity.enumeration.allowDelete', userId)
                     const allowDelete = allowDeleteRow ? (allowDeleteRow.value as { _value: boolean })._value !== false : true
                     if (!allowDelete) {
                         return {
@@ -1144,6 +1194,7 @@ export function createNestedChildHandlers(createHandler: ReturnType<typeof creat
         getNestedObjectCollectionById,
         updateNestedObjectCollection,
         deleteNestedObjectCollection,
+        listTreeEntities,
         listNestedTreeEntities,
         listNestedOptionLists,
         reorderNestedOptionLists,

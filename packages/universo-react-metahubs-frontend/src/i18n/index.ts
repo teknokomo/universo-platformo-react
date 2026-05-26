@@ -32,6 +32,7 @@ interface MetahubsBundle {
     migrations?: Record<string, unknown>
     settings?: Record<string, unknown>
     createOptions?: Record<string, unknown>
+    oneCCompatible?: Record<string, unknown>
     ref?: Record<string, unknown>
     common?: Record<string, unknown>
     actions?: Record<string, unknown>
@@ -78,6 +79,7 @@ const consolidateMetahubsNamespace = (bundle: MetahubsBundle) => {
         settings: bundle?.settings ?? {},
         export: bundle?.export ?? {},
         createOptions: bundle?.createOptions ?? {},
+        oneCCompatible: bundle?.oneCCompatible ?? {},
         ref: bundle?.ref ?? {},
         common: bundle?.common ?? {},
         errors: bundle?.errors ?? {}
@@ -116,6 +118,7 @@ interface MetahubsTranslation {
     migrations?: Record<string, unknown>
     settings?: Record<string, unknown>
     export?: Record<string, unknown>
+    oneCCompatible?: Record<string, unknown>
     ref?: Record<string, unknown>
     common?: Record<string, unknown>
     errors?: Record<string, unknown>

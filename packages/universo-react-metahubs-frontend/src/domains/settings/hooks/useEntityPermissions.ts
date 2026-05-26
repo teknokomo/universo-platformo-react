@@ -32,7 +32,7 @@ interface EntityPermissions {
  *
  * @param entityType - Builtin kind or neutral entity surface alias for the settings scope
  */
-export const useEntityPermissions = (entityType: EntitySettingsScope): EntityPermissions => {
+export const useEntityPermissions = (entityType: EntitySettingsScope | string): EntityPermissions => {
     const { data, isLoading } = useSettings()
 
     if (!data) {
@@ -47,7 +47,7 @@ export const useEntityPermissions = (entityType: EntitySettingsScope): EntityPer
     }
 
     const resolvedSurface = resolveEntitySurfaceKey(entityType)
-    if (!resolvedSurface) {
+    if (!resolvedSurface && !entityType) {
         return {
             allowCopy: false,
             allowDelete: false,
@@ -58,27 +58,37 @@ export const useEntityPermissions = (entityType: EntitySettingsScope): EntityPer
         }
     }
 
-    const copyKey = buildEntitySurfaceSettingKey(resolvedSurface, 'allowCopy')
-    const deleteKey = buildEntitySurfaceSettingKey(resolvedSurface, 'allowDelete')
+    const copyKeys = resolvedSurface
+        ? [buildEntitySurfaceSettingKey(resolvedSurface, 'allowCopy')]
+        : [`entity.${entityType}.allowCopy`, buildEntitySurfaceSettingKey('objectCollection', 'allowCopy')]
+    const deleteKeys = resolvedSurface
+        ? [buildEntitySurfaceSettingKey(resolvedSurface, 'allowDelete')]
+        : [`entity.${entityType}.allowDelete`, buildEntitySurfaceSettingKey('objectCollection', 'allowDelete')]
     const attachExistingKey = buildEntitySurfaceSettingKey('treeEntity', 'allowAttachExistingEntities')
     const allowNestingKey = buildEntitySurfaceSettingKey('treeEntity', 'allowNesting')
 
-    const copySetting = data.settings.find((s) => s.key === copyKey)
-    const deleteSetting = data.settings.find((s) => s.key === deleteKey)
+    const copySettings = copyKeys.flatMap((key) => {
+        const setting = data.settings.find((s) => s.key === key)
+        return setting ? [setting] : []
+    })
+    const deleteSettings = deleteKeys.flatMap((key) => {
+        const setting = data.settings.find((s) => s.key === key)
+        return setting ? [setting] : []
+    })
     const attachSetting = data.settings.find((s) => s.key === attachExistingKey)
     const allowNestingSetting = data.settings.find((s) => s.key === allowNestingKey)
 
     // Values are wrapped in `{ _value: <actual> }` envelope by the backend
-    const copyValue = copySetting?.value as Record<string, unknown> | undefined
-    const deleteValue = deleteSetting?.value as Record<string, unknown> | undefined
+    const copyValues = copySettings.map((setting) => setting.value as Record<string, unknown>)
+    const deleteValues = deleteSettings.map((setting) => setting.value as Record<string, unknown>)
     const attachValue = attachSetting?.value as Record<string, unknown> | undefined
     const allowNestingValue = allowNestingSetting?.value as Record<string, unknown> | undefined
 
     const allowTreeEntityNesting = allowNestingValue?._value !== false
 
     return {
-        allowCopy: copyValue?._value !== false,
-        allowDelete: deleteValue?._value !== false,
+        allowCopy: copyValues.every((value) => value._value !== false),
+        allowDelete: deleteValues.every((value) => value._value !== false),
         allowAttachExistingEntities: attachValue?._value !== false,
         allowTreeEntityNesting,
         allowHubNesting: allowTreeEntityNesting,

@@ -8273,6 +8273,41 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       security: *a1
+  /metahub/{metahubId}/entities/hub/instances:
+    get:
+      tags:
+        - Entities
+      summary: GET /metahub/{metahubId}/entities/hub/instances
+      description: Auto-generated from
+        packages/universo-react-metahubs-backend/src/domains/entities/routes/entityInstancesRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Entities_get_metahub_metahubId_entities_hub_instances
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
   /metahub/{metahubId}/entities/reorder:
     post:
       tags:

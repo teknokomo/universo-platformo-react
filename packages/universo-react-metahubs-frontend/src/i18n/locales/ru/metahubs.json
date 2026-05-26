@@ -579,11 +579,11 @@
     },
     "entities": {
         "title": "Сущности",
-        "description": "Управляйте platform-provided и пользовательскими типами сущностей ECAE на унифицированной runtime-поверхности сущностей.",
+        "description": "Управляйте встроенными и пользовательскими типами сущностей для рабочих пространств метахаба.",
         "searchPlaceholder": "Поиск типов сущностей...",
-        "banner": "Platform-provided standard types и пользовательские виды работают в одном унифицированном workspace и через общий generic entity API.",
+        "banner": "Встроенные и пользовательские типы сущностей используют общие рабочие пространства, меню, права доступа и формы настройки.",
         "empty": "Типов сущностей пока нет",
-        "emptyDescription": "Создайте первый пользовательский тип сущности, чтобы начать моделировать объекты ECAE.",
+        "emptyDescription": "Создайте первый пользовательский тип сущности, чтобы начать моделировать рабочие объекты.",
         "noSearchResults": "Типы сущностей не найдены",
         "noSearchResultsDescription": "Попробуйте другой поисковый запрос или очистите фильтр.",
         "noDescription": "Описание отсутствует",
@@ -594,7 +594,7 @@
         "componentsCount_many": "{{count}} компонентов",
         "componentsCount_other": "{{count}} компонента",
         "actions": {
-            "create": "Создать сущность",
+            "create": "Создать",
             "instances": "Экземпляры"
         },
         "tabs": {
@@ -603,18 +603,18 @@
             "advanced": "Дополнительно"
         },
         "fields": {
-            "codenameHelper": "Стабильное кодовое имя для generic entity routes и ссылок",
+            "codenameHelper": "Стабильное кодовое имя для ссылок и связей",
             "noPreset": "Без пресета",
-            "presetHelper": "Повторно используемые пресеты загружаются из существующего template registry. Выбор пресета заполняет create dialog, но перед сохранением вы всё равно можете проверить и изменить любые поля.",
+            "presetHelper": "Переиспользуемые пресеты заполняют форму создания рекомендуемыми настройками. Перед сохранением поля можно проверить и изменить.",
             "presetLoadError": "Не удалось загрузить выбранный пресет. Можно выбрать другой пресет или продолжить ручное редактирование.",
-            "presetManifestError": "У выбранного шаблона нет корректного manifest для пресета типа сущности.",
-            "kindKey": "Ключ типа",
-            "kindKeyHelper": "Идентификатор в нижнем регистре, используемый в generic entity API",
+            "presetManifestError": "У выбранного шаблона нет корректного описания пресета типа сущности.",
+            "kindKey": "Системный ключ типа",
+            "kindKeyHelper": "Стабильный идентификатор типа сущности в нижнем регистре",
             "iconName": "Имя иконки",
-            "iconNameHelper": "Имя экспорта иконки Tabler, используемое downstream-поверхностями",
+            "iconNameHelper": "Имя иконки, используемой в меню и на страницах сущностей",
             "tabs": "Вкладки",
             "tabsHelper": "Идентификаторы вкладок через запятую или с новой строки, например general, modules",
-            "tabsHelperStructured": "Выберите, какие authoring-вкладки должны быть доступны для этого типа сущности. Вкладка General включена всегда.",
+            "tabsHelperStructured": "Выберите, какие вкладки настройки должны быть доступны для этого типа сущности. Вкладка «Основное» включена всегда.",
             "sidebarSection": "Раздел бокового меню",
             "sidebarSectionHelper": "Определяет, где будущие меню смогут размещать этот тип сущности",
             "sidebarOrder": "Порядок в боковом меню",
@@ -622,24 +622,25 @@
             "published": "Публиковать в динамическом меню",
             "publishedHelper": "Только опубликованные пользовательские типы сущностей появляются в динамической зоне меню метахаба.",
             "components": "JSON компонентов",
-            "componentsHelper": "Полный JSON EntityTypeCapabilities. Перед сохранением проверяются правила зависимостей.",
-            "componentsHelperStructured": "Используйте управляемые переключатели для текущего Zerocode-среза. Возможности с зависимостями включаются и очищаются автоматически.",
+            "componentsHelper": "Полная конфигурация возможностей. Перед сохранением проверяются правила зависимостей.",
+            "componentsHelperStructured": "Используйте управляемые переключатели для поддерживаемых настроек. Зависимые возможности включаются и очищаются автоматически.",
             "resourceTabs": "Вкладки раздела Ресурсы",
             "resourceTabsHelper": "Эти названия используются в общем рабочем пространстве Ресурсы для совместимых возможностей сущности.",
             "resourceSurfaceKey": "Ключ вкладки ресурсов",
             "resourceSurfaceKeyHelper": "Стабильный идентификатор, который хранится в контракте типа сущности.",
-            "resourceSurfaceRouteSegment": "Route segment вкладки ресурсов",
-            "resourceSurfaceRouteSegmentHelper": "Сегмент в lowercase kebab-case, зарезервированный для совместимых authoring-маршрутов.",
+            "resourceSurfaceRouteSegment": "Сегмент адреса вкладки ресурсов",
+            "resourceSurfaceRouteSegmentHelper": "Сегмент адреса в нижнем регистре с дефисами для совместимых маршрутов настройки.",
             "resourceSurfaceTitle": "Название вкладки ресурсов",
+            "resourceSurfaceSharedTitle": "Название общей вкладки ресурсов",
             "customTabs": "Дополнительные вкладки",
             "customTabsHelper": "Необязательные дополнительные идентификаторы вкладок через запятую или новую строку. Основные поддерживаемые вкладки настраиваются переключателями выше.",
-            "presentation": "JSON presentation",
-            "presentationHelper": "Необязательные presentation-метаданные, сохраняемые вместе с типом сущности",
-            "config": "JSON config",
-            "configHelper": "Необязательный backend config object, сохраняемый вместе с типом сущности"
+            "presentation": "Конфигурация отображения",
+            "presentationHelper": "Необязательные метаданные отображения, сохраняемые вместе с типом сущности",
+            "config": "Конфигурация поведения",
+            "configHelper": "Необязательная конфигурация поведения, сохраняемая вместе с типом сущности"
         },
         "columns": {
-            "kindKey": "Ключ типа",
+            "kindKey": "Системный ключ типа",
             "sidebarSection": "Раздел",
             "sidebarOrder": "Порядок",
             "sidebarOrderAuto": "Авто",
@@ -662,6 +663,17 @@
             "layout": "Лэйаут",
             "modules": "Модули"
         },
+        "behaviorProfiles": {
+            "label": "Профиль поведения",
+            "helper": "Применяет переиспользуемые возможности конструктора и типизированную конфигурацию поведения без ручного JSON.",
+            "none": "Пользовательские возможности",
+            "singleValue": "Одиночное значение",
+            "catalog": "Справочник",
+            "document": "Транзакционный документ",
+            "journal": "Журнал документов",
+            "informationRegister": "Регистр сведений",
+            "accumulationRegister": "Регистр накопления"
+        },
         "resourceSurfaces": {
             "components": "Компоненты",
             "fixedValues": "Константы",
@@ -669,7 +681,7 @@
         },
         "capabilities": {
             "dataSchema": "Схема данных",
-            "dataSchemaHelper": "Включает моделирование на основе компонентов и generated value editors для этого типа сущности.",
+            "dataSchemaHelper": "Включает моделирование структуры данных и создаваемые редакторы значений для этого типа сущности.",
             "maxComponents": "Максимум компонентов",
             "records": "Предопределённые элементы",
             "recordsHelper": "Переиспользует существующие потоки predefined elements для пресетов object и других seed-типов сущностей.",
@@ -685,17 +697,17 @@
             "nestedCollectionsHelper": "Позволяет схеме сущности определять повторяющиеся дочерние коллекции внутри того же типа.",
             "maxCollections": "Максимум вложенных коллекций",
             "relations": "Связи",
-            "relationsHelper": "Включает reference-компоненты и runtime-поведение, зависящее от связей, для этого типа сущности.",
+            "relationsHelper": "Включает ссылочные поля и поведение, зависящее от связей, для этого типа сущности.",
             "allowedRelationTypes": "Разрешённые типы связей",
             "allowedRelationTypesHelper": "Типы связей через запятую, например manyToOne.",
             "actions": "Действия",
-            "actionsHelper": "Включает object-scoped actions для ECAE lifecycle orchestration.",
+            "actionsHelper": "Включает действия, ограниченные текущим типом сущности.",
             "events": "События",
-            "eventsHelper": "Разрешает lifecycle event bindings поверх action-контракта.",
+            "eventsHelper": "Разрешает привязку событий жизненного цикла к действиям.",
             "modules": "Модули",
             "modulesHelper": "Открывает существующую вкладку EntityModulesTab для привязки и переиспользования модулей.",
             "layoutConfig": "Конфигурация лэйаута",
-            "layoutConfigHelper": "Включает конфигурацию лэйаутов в стиле Object и отдельную вкладку authoring-а лэйаута.",
+            "layoutConfigHelper": "Включает конфигурацию макетов в стиле объектов и отдельную вкладку настройки макета.",
             "runtimeBehavior": "Runtime-поведение",
             "runtimeBehaviorHelper": "Публикует layout-aware runtime behavior, чтобы generic application surfaces могли отрисовывать этот тип сущности.",
             "physicalTable": "Физическая таблица",
@@ -806,38 +818,38 @@
             }
         },
         "createDialog": {
-            "title": "Создать сущность"
+            "title": "Создать тип сущности"
         },
         "editDialog": {
-            "title": "Редактировать сущность"
+            "title": "Редактировать тип сущности"
         },
         "copyDialog": {
-            "title": "Копировать сущность",
+            "title": "Копировать тип сущности",
             "copying": "Копирование..."
         },
         "deleteDialog": {
             "title": "Удалить тип сущности",
-            "description": "Удалить тип сущности \"{{name}}\"? Platform-provided standard types нельзя удалять здесь."
+            "description": "Удалить тип сущности \"{{name}}\"? Встроенные стандартные типы нельзя удалять здесь."
         },
         "copySuccess": "Сущность скопирована",
         "copyError": "Не удалось скопировать тип сущности",
         "validation": {
-            "kindKeyRequired": "Ключ типа обязателен",
-            "kindKeyInvalid": "Ключ типа должен начинаться с буквы и содержать только строчные буквы, цифры, точки, подчёркивания или дефисы",
-            "kindKeyDuplicate": "Другой пользовательский тип сущности уже использует этот ключ",
+            "kindKeyRequired": "Системный ключ типа обязателен",
+            "kindKeyInvalid": "Системный ключ типа должен начинаться с буквы и содержать только строчные буквы, цифры, точки, подчёркивания или дефисы",
+            "kindKeyDuplicate": "Другой пользовательский тип сущности уже использует этот системный ключ",
             "codenameRequired": "Кодовое имя обязательно",
             "codenameInvalid": "Кодовое имя содержит недопустимые символы",
             "iconNameRequired": "Имя иконки обязательно",
             "sidebarOrderInvalid": "Порядок в боковом меню должен быть неотрицательным целым числом",
             "tabsRequired": "Нужна хотя бы одна вкладка",
             "componentsInvalid": "Поле компонентов должно быть корректным JSON-объектом",
-            "presentationInvalid": "Поле presentation должно быть корректным JSON-объектом",
-            "configInvalid": "Поле config должно быть корректным JSON-объектом",
+            "presentationInvalid": "Конфигурация отображения должна быть корректным объектом",
+            "configInvalid": "Конфигурация поведения должна быть корректным объектом",
             "resourceSurfaceKeyInvalid": "Ключ вкладки ресурсов должен начинаться с буквы и содержать только буквы, цифры, точки, подчёркивания или дефисы",
-            "resourceSurfaceRouteInvalid": "Route segment вкладки ресурсов должен использовать lowercase kebab-case",
+            "resourceSurfaceRouteInvalid": "Сегмент адреса вкладки ресурсов должен использовать формат lowercase kebab-case",
             "resourceSurfaceTitleRequired": "Название вкладки ресурсов обязательно",
             "resourceSurfaceKeyDuplicate": "Ключи вкладок ресурсов должны быть уникальными",
-            "resourceSurfaceRouteDuplicate": "Route segment-ы вкладок ресурсов должны быть уникальными"
+            "resourceSurfaceRouteDuplicate": "Сегменты адресов вкладок ресурсов должны быть уникальными"
         },
         "selection": {
             "title": "Контейнеры",
@@ -868,11 +880,11 @@
             "currentContainerShort": "Текущий"
         },
         "instances": {
-            "title": "Экземпляры {{name}}",
-            "description": "Управляйте экземплярами {{name}} на унифицированном entity-owned маршруте для вида {{kindKey}}.",
-            "objectCollectionBanner": "Эта страница переиспользует общий контракт редактирования object на унифицированном entity-owned маршруте, включая опции копирования, layout и modules.",
+            "title": "{{name}}",
+            "description": "Управляйте записями {{name}}.",
+            "objectCollectionBanner": "Эта страница использует общий интерфейс редактирования.",
             "searchPlaceholder": "Поиск экземпляров сущностей...",
-            "banner": "Эта страница управляет design-time экземплярами выбранного вида сущности на унифицированном entity-owned маршруте.",
+            "banner": "Эта страница управляет записями выбранного типа сущности.",
             "noManagePermission": "У вас нет прав на управление экземплярами сущностей в этом метахабе.",
             "modulesUnavailable": "Модули пока недоступны для пользовательских видов сущностей, пока generic-контракт привязки модулей не будет расширен за пределы текущего фиксированного набора attachment kind.",
             "typeLoadError": "Не удалось загрузить определение пользовательского типа сущности",
@@ -890,7 +902,15 @@
                 "showDeleted": "Показать удалённые"
             },
             "actions": {
-                "create": "Создать сущность"
+                "create": "Создать",
+                "openContent": "Открыть"
+            },
+            "dialogTitles": {
+                "create": "Создать: {{name}}",
+                "edit": "Редактировать: {{name}}",
+                "copy": "Копировать: {{name}}",
+                "delete": "Удалить: {{name}}",
+                "deletePermanent": "Удалить навсегда: {{name}}"
             },
             "copy": {
                 "options": {
@@ -1158,6 +1178,50 @@
                 "idempotencyInvalid": "Поля идемпотентности должны ссылаться на существующие поля.",
                 "effectiveDateInvalid": "Поле даты действия должно ссылаться на существующее поле."
             }
+        }
+    },
+    "oneCCompatible": {
+        "requisites": {
+            "title": "Реквизиты",
+            "resourceTabTitle": "Реквизиты",
+            "singular": "реквизит",
+            "plural": "реквизиты",
+            "codename": "Код реквизита",
+            "codenameHelper": "Уникальный код реквизита внутри этого объекта.",
+            "dataType": "Тип реквизита",
+            "isDisplayComponentLabel": "Использовать как реквизит представления",
+            "isDisplayComponentHelper": "Показывать этот реквизит при ссылках на записи объекта.",
+            "emptyAlt": "Нет реквизитов",
+            "empty": "Нет реквизитов",
+            "emptyDescription": "Добавьте реквизиты, которые описывают записи этого объекта.",
+            "createTitle": "Создать реквизит",
+            "editTitle": "Редактировать реквизит",
+            "copyTitle": "Копирование реквизита",
+            "deleteTitle": "Удалить реквизит",
+            "deleteMessage": "Удалить этот реквизит? Это действие нельзя отменить.",
+            "openAction": "Открыть реквизиты",
+            "searchPlaceholder": "Поиск реквизитов..."
+        },
+        "commonRequisites": {
+            "resourceTabTitle": "Реквизиты"
+        },
+        "registerFields": {
+            "singular": "поле регистра",
+            "plural": "поля регистра",
+            "codename": "Код поля регистра",
+            "codenameHelper": "Уникальный код поля внутри этого регистра.",
+            "dataType": "Тип поля",
+            "isDisplayComponentLabel": "Использовать как поле списка",
+            "isDisplayComponentHelper": "Показывать это поле регистра в ссылках и списках.",
+            "emptyAlt": "Нет полей регистра",
+            "empty": "Нет полей регистра",
+            "emptyDescription": "Добавьте измерения, ресурсы или периодические поля этого регистра.",
+            "createTitle": "Создать поле регистра",
+            "editTitle": "Редактировать поле регистра",
+            "copyTitle": "Копирование поля регистра",
+            "deleteTitle": "Удалить поле регистра",
+            "deleteMessage": "Удалить это поле регистра? Это действие нельзя отменить.",
+            "searchPlaceholder": "Поиск полей регистра..."
         }
     },
     "hubs": {
@@ -1649,8 +1713,8 @@
             "string": {
                 "minLength": "Мин. длина",
                 "maxLength": "Макс. длина",
-                "localized": "Локализуемый (VLC)",
-                "versioned": "Версионируемый (VLC)"
+                "localized": "Мультиязычное значение",
+                "versioned": "Хранить историю значений"
             },
             "number": {
                 "precision": "Длина",
@@ -1915,7 +1979,7 @@
         "singlePublicationLimit": "В данный момент поддерживается только одна Публикация на Метахаб. В будущих версиях Universo Platformo эти ограничения будут сняты.",
         "createDialog": {
             "title": "Создание публикации",
-            "description": "Будет создана новая PostgreSQL-схема с таблицами по структуре метахаба"
+            "description": "Будет создана отдельная область хранения со структурами данных по структуре метахаба"
         },
         "tabs": {
             "general": "Основное",
@@ -2180,6 +2244,7 @@
         "version": "Версия {{version}}",
         "loading": "Загрузка шаблонов...",
         "loadError": "Ошибка загрузки шаблонов",
+        "unnamedTemplate": "Шаблон",
         "fields": {
             "name": "Название",
             "description": "Описание",
@@ -2199,7 +2264,8 @@
         "page": "Страница",
         "object": "Объект",
         "set": "Набор",
-        "enumeration": "Перечисление"
+        "enumeration": "Перечисление",
+        "unnamedPreset": "Пресет шаблона"
     },
     "settings": {
         "title": "Настройки",
@@ -2237,7 +2303,7 @@
             "general.codenameAutoReformat.description": "Автоматически конвертировать кодовые имена из существующего формата при редактировании или копировании сущностей",
             "general.codenameRequireReformat": "Требовать переформатирование",
             "general.codenameRequireReformat.description": "Блокировать сохранение, пока кодовое имя не обновлено до текущего формата (только при отключённом автопереформатировании)",
-            "general.codenameLocalizedEnabled": "Включить локализованные кодовые имена (VLC)",
+            "general.codenameLocalizedEnabled": "Включить мультиязычные кодовые имена",
             "general.codenameLocalizedEnabled.description": "Разрешить ввод альтернатив кодового имени по языкам и выбор основной локали кодового имени",
             "common.dialogSizePreset": "Размер модального окна",
             "common.dialogSizePreset.description": "Базовый размер модальных окон метахаба. Пользователь всё ещё может временно раскрывать или менять размер окна, если эти возможности включены.",
@@ -2272,9 +2338,93 @@
             "entity.object.allowDeleteLastDisplayComponent": "Разрешить удаление последнего компонента-представления",
             "entity.object.allowDeleteLastDisplayComponent.description": "Разрешить удалять последний компонент-представление в области (корневые компоненты или дочерние компоненты таблицы)",
             "entity.object.allowComponentMoveBetweenRootAndChildren": "Разрешить перемещение компонентов между корнем и дочерними списками",
-            "entity.object.allowComponentMoveBetweenRootAndChildren.description": "Разрешить перемещение компонентов между корневым списком и дочерними списками TABLE-компонентов",
+            "entity.object.allowComponentMoveBetweenRootAndChildren.description": "Разрешить перемещение полей между корневым списком и табличными частями",
             "entity.object.allowComponentMoveBetweenChildLists": "Разрешить перемещение компонентов между дочерними списками",
-            "entity.object.allowComponentMoveBetweenChildLists.description": "Разрешить перемещение компонентов между дочерними списками разных TABLE-компонентов",
+            "entity.object.allowComponentMoveBetweenChildLists.description": "Разрешить перемещение полей между разными табличными частями",
+            "entity.constant.componentCodenameScope": "Область уникальности кодового имени значения",
+            "entity.constant.componentCodenameScope.description": "Должны ли кодовые имена значений быть уникальными на каждом уровне вложенности или глобально во всей константе",
+            "entity.constant.allowedComponentTypes": "Допустимые типы значений",
+            "entity.constant.allowedComponentTypes.description": "Какие типы данных можно использовать при настройке значения константы",
+            "entity.constant.allowComponentCopy": "Разрешить копирование значений",
+            "entity.constant.allowComponentCopy.description": "Разрешить копирование значений в константах",
+            "entity.constant.allowComponentDelete": "Разрешить удаление значений",
+            "entity.constant.allowComponentDelete.description": "Разрешить удаление значений в константах",
+            "entity.constant.allowDeleteLastDisplayComponent": "Разрешить удаление последнего значения-представления",
+            "entity.constant.allowDeleteLastDisplayComponent.description": "Разрешить удалять последнее значение-представление в области",
+            "entity.constant.allowComponentMoveBetweenRootAndChildren": "Разрешить перемещение значений между корнем и дочерними списками",
+            "entity.constant.allowComponentMoveBetweenRootAndChildren.description": "Разрешить перемещение значений между корневым списком и дочерними списками",
+            "entity.constant.allowComponentMoveBetweenChildLists": "Разрешить перемещение значений между дочерними списками",
+            "entity.constant.allowComponentMoveBetweenChildLists.description": "Разрешить перемещение значений между дочерними списками",
+            "entity.catalog.componentCodenameScope": "Область уникальности кодового имени реквизита",
+            "entity.catalog.componentCodenameScope.description": "Должны ли кодовые имена реквизитов быть уникальными на каждом уровне вложенности или глобально во всём справочнике",
+            "entity.catalog.allowedComponentTypes": "Допустимые типы реквизитов",
+            "entity.catalog.allowedComponentTypes.description": "Какие типы данных реквизитов можно использовать при создании реквизитов в справочниках",
+            "entity.catalog.allowComponentCopy": "Разрешить копирование реквизитов",
+            "entity.catalog.allowComponentCopy.description": "Разрешить копирование реквизитов в справочниках",
+            "entity.catalog.allowComponentDelete": "Разрешить удаление реквизитов",
+            "entity.catalog.allowComponentDelete.description": "Разрешить удаление реквизитов в справочниках",
+            "entity.catalog.allowDeleteLastDisplayComponent": "Разрешить удаление последнего реквизита-представления",
+            "entity.catalog.allowDeleteLastDisplayComponent.description": "Разрешить удалять последний реквизит-представление в области",
+            "entity.catalog.allowComponentMoveBetweenRootAndChildren": "Разрешить перемещение реквизитов между корнем и дочерними списками",
+            "entity.catalog.allowComponentMoveBetweenRootAndChildren.description": "Разрешить перемещение реквизитов между корневым списком и дочерними списками",
+            "entity.catalog.allowComponentMoveBetweenChildLists": "Разрешить перемещение реквизитов между дочерними списками",
+            "entity.catalog.allowComponentMoveBetweenChildLists.description": "Разрешить перемещение реквизитов между дочерними списками",
+            "entity.document.componentCodenameScope": "Область уникальности кодового имени реквизита",
+            "entity.document.componentCodenameScope.description": "Должны ли кодовые имена реквизитов быть уникальными на каждом уровне вложенности или глобально во всём документе",
+            "entity.document.allowedComponentTypes": "Допустимые типы реквизитов",
+            "entity.document.allowedComponentTypes.description": "Какие типы данных реквизитов можно использовать при создании реквизитов в документах",
+            "entity.document.allowComponentCopy": "Разрешить копирование реквизитов",
+            "entity.document.allowComponentCopy.description": "Разрешить копирование реквизитов в документах",
+            "entity.document.allowComponentDelete": "Разрешить удаление реквизитов",
+            "entity.document.allowComponentDelete.description": "Разрешить удаление реквизитов в документах",
+            "entity.document.allowDeleteLastDisplayComponent": "Разрешить удаление последнего реквизита-представления",
+            "entity.document.allowDeleteLastDisplayComponent.description": "Разрешить удалять последний реквизит-представление в области",
+            "entity.document.allowComponentMoveBetweenRootAndChildren": "Разрешить перемещение реквизитов между корнем и дочерними списками",
+            "entity.document.allowComponentMoveBetweenRootAndChildren.description": "Разрешить перемещение реквизитов между корневым списком и дочерними списками",
+            "entity.document.allowComponentMoveBetweenChildLists": "Разрешить перемещение реквизитов между дочерними списками",
+            "entity.document.allowComponentMoveBetweenChildLists.description": "Разрешить перемещение реквизитов между дочерними списками",
+            "entity.document-journal.componentCodenameScope": "Область уникальности кодового имени реквизита",
+            "entity.document-journal.componentCodenameScope.description": "Должны ли кодовые имена реквизитов быть уникальными на каждом уровне вложенности или глобально во всём журнале документов",
+            "entity.document-journal.allowedComponentTypes": "Допустимые типы реквизитов",
+            "entity.document-journal.allowedComponentTypes.description": "Какие типы данных реквизитов можно использовать при создании реквизитов в журналах документов",
+            "entity.document-journal.allowComponentCopy": "Разрешить копирование реквизитов",
+            "entity.document-journal.allowComponentCopy.description": "Разрешить копирование реквизитов в журналах документов",
+            "entity.document-journal.allowComponentDelete": "Разрешить удаление реквизитов",
+            "entity.document-journal.allowComponentDelete.description": "Разрешить удаление реквизитов в журналах документов",
+            "entity.document-journal.allowDeleteLastDisplayComponent": "Разрешить удаление последнего реквизита-представления",
+            "entity.document-journal.allowDeleteLastDisplayComponent.description": "Разрешить удалять последний реквизит-представление в области",
+            "entity.document-journal.allowComponentMoveBetweenRootAndChildren": "Разрешить перемещение реквизитов между корнем и дочерними списками",
+            "entity.document-journal.allowComponentMoveBetweenRootAndChildren.description": "Разрешить перемещение реквизитов между корневым списком и дочерними списками",
+            "entity.document-journal.allowComponentMoveBetweenChildLists": "Разрешить перемещение реквизитов между дочерними списками",
+            "entity.document-journal.allowComponentMoveBetweenChildLists.description": "Разрешить перемещение реквизитов между дочерними списками",
+            "entity.information-register.componentCodenameScope": "Область уникальности кодового имени поля регистра",
+            "entity.information-register.componentCodenameScope.description": "Должны ли кодовые имена полей регистра быть уникальными на каждом уровне вложенности или глобально во всём регистре сведений",
+            "entity.information-register.allowedComponentTypes": "Допустимые типы полей регистра",
+            "entity.information-register.allowedComponentTypes.description": "Какие типы данных можно использовать при создании полей регистра сведений",
+            "entity.information-register.allowComponentCopy": "Разрешить копирование полей регистра",
+            "entity.information-register.allowComponentCopy.description": "Разрешить копирование полей в регистрах сведений",
+            "entity.information-register.allowComponentDelete": "Разрешить удаление полей регистра",
+            "entity.information-register.allowComponentDelete.description": "Разрешить удаление полей в регистрах сведений",
+            "entity.information-register.allowDeleteLastDisplayComponent": "Разрешить удаление последнего поля-представления",
+            "entity.information-register.allowDeleteLastDisplayComponent.description": "Разрешить удалять последнее поле-представление в области",
+            "entity.information-register.allowComponentMoveBetweenRootAndChildren": "Разрешить перемещение полей между корнем и дочерними списками",
+            "entity.information-register.allowComponentMoveBetweenRootAndChildren.description": "Разрешить перемещение полей между корневым списком и дочерними списками",
+            "entity.information-register.allowComponentMoveBetweenChildLists": "Разрешить перемещение полей между дочерними списками",
+            "entity.information-register.allowComponentMoveBetweenChildLists.description": "Разрешить перемещение полей между дочерними списками",
+            "entity.accumulation-register.componentCodenameScope": "Область уникальности кодового имени поля регистра",
+            "entity.accumulation-register.componentCodenameScope.description": "Должны ли кодовые имена полей регистра быть уникальными на каждом уровне вложенности или глобально во всём регистре накопления",
+            "entity.accumulation-register.allowedComponentTypes": "Допустимые типы полей регистра",
+            "entity.accumulation-register.allowedComponentTypes.description": "Какие типы данных можно использовать при создании полей регистра накопления",
+            "entity.accumulation-register.allowComponentCopy": "Разрешить копирование полей регистра",
+            "entity.accumulation-register.allowComponentCopy.description": "Разрешить копирование полей в регистрах накопления",
+            "entity.accumulation-register.allowComponentDelete": "Разрешить удаление полей регистра",
+            "entity.accumulation-register.allowComponentDelete.description": "Разрешить удаление полей в регистрах накопления",
+            "entity.accumulation-register.allowDeleteLastDisplayComponent": "Разрешить удаление последнего поля-представления",
+            "entity.accumulation-register.allowDeleteLastDisplayComponent.description": "Разрешить удалять последнее поле-представление в области",
+            "entity.accumulation-register.allowComponentMoveBetweenRootAndChildren": "Разрешить перемещение полей между корнем и дочерними списками",
+            "entity.accumulation-register.allowComponentMoveBetweenRootAndChildren.description": "Разрешить перемещение полей между корневым списком и дочерними списками",
+            "entity.accumulation-register.allowComponentMoveBetweenChildLists": "Разрешить перемещение полей между дочерними списками",
+            "entity.accumulation-register.allowComponentMoveBetweenChildLists.description": "Разрешить перемещение полей между дочерними списками",
             "entity.object.allowElementCopy": "Разрешить копирование элементов",
             "entity.object.allowElementCopy.description": "Разрешить копирование предзаданных элементов в объектах",
             "entity.object.allowElementDelete": "Разрешить удаление элементов",
@@ -2421,20 +2571,27 @@
             "boolean": "Булево",
             "date": "Дата",
             "ref": "Ссылка",
-            "json": "JSON",
-            "table": "Таблица"
+            "json": "Структурированные данные",
+            "table": "Табличная часть"
+        },
+        "typeBadges": {
+            "history": "История",
+            "localized": "Мультиязычный"
         },
         "typeSettings": {
             "title": "Настройки типа",
             "string": {
                 "maxLength": "Макс. длина",
+                "maxLengthHelper": "Оставьте пустым, если значение не должно иметь фиксированного ограничения длины.",
                 "minLength": "Мин. длина",
-                "versioned": "Версионируемый (VLC)",
-                "localized": "Локализуемый (VLC)",
+                "versioned": "Хранить историю значений",
+                "versionedUserLabel": "Хранить историю значений",
+                "localized": "Мультиязычное значение",
+                "localizedUserLabel": "Мультиязычное значение",
                 "backendType": {
-                    "jsonbVlc": "JSONB (VLC)",
-                    "textUnlimited": "TEXT (без лимита)",
-                    "varchar": "VARCHAR({{maxLength}})"
+                    "jsonbVlc": "Структурированная история значений",
+                    "textUnlimited": "Текст без ограничения длины",
+                    "varchar": "{{maxLength}} символов"
                 }
             },
             "number": {
@@ -2454,7 +2611,7 @@
             },
             "table": {
                 "showTitle": "Показывать заголовок таблицы",
-                "hint": "TABLE-компоненты хранят строки в отдельной дочерней таблице. Каждая строка может иметь свой набор полей.",
+                "hint": "Табличные части хранят строки со своим набором полей.",
                 "minRows": "Мин. строк",
                 "minRowsHelper": "Оставьте пустым, если нет ограничения",
                 "maxRows": "Макс. строк",
@@ -2466,13 +2623,13 @@
                 "rowCount_few": "{{count}} строки",
                 "rowCount_many": "{{count}} строк",
                 "maxChildComponents": "Макс. дочерних компонентов",
-                "maxChildComponentsHelper": "Ограничение дочерних компонентов в этой TABLE. Оставьте пустым для отсутствия ограничений",
+                "maxChildComponentsHelper": "Ограничение количества полей в этой табличной части. Оставьте пустым для отсутствия ограничений.",
                 "maxChildComponentsReached": "Достигнуто максимальное количество {{max}} дочерних компонентов"
             }
         },
         "physicalType": {
-            "label": "Тип PostgreSQL",
-            "tooltip": "PostgreSQL: {{type}}",
+            "label": "Тип хранения",
+            "tooltip": "Тип хранения: {{type}}",
             "childTable": "Дочерняя таблица (табличная часть)"
         },
         "tabs": {
@@ -2498,8 +2655,8 @@
             "headerAsCheckbox": "Отображать заголовок как чекбокс",
             "headerAsCheckboxHelper": "Показать чекбокс в заголовке столбца вместо текста (только для типа Булево)",
             "multilineEditor": "Использовать многострочный редактор",
-            "multilineEditorHelper": "В опубликованных рантайм-формах это поле STRING будет отображаться как textarea.",
-            "multilineRows": "Строк в textarea",
+            "multilineEditorHelper": "В опубликованных рантайм-формах это текстовое поле будет многострочным.",
+            "multilineRows": "Количество строк",
             "multilineRowsHelper": "Выберите значение от 2 до 12 строк.",
             "enumMode": "Вид отображения перечисления",
             "enumModeHelper": "Применяется к ссылкам на список вариантов в формах среды выполнения.",
@@ -2579,10 +2736,10 @@
             "message": "Вы уверены, что хотите удалить этот дочерний компонент?"
         },
         "tableValidation": {
-            "maxTableComponents": "Максимум {{max}} TABLE-компонентов для объекта",
-            "maxChildComponents": "Максимум {{max}} дочерних компонентов в TABLE",
-            "nestedTableNotAllowed": "Вложенные TABLE-компоненты не допускаются",
-            "tableCannotBeDisplay": "TABLE-компоненты нельзя назначить отображаемыми"
+            "maxTableComponents": "Максимум {{max}} табличных частей для объекта",
+            "maxChildComponents": "Максимум {{max}} полей в табличной части",
+            "nestedTableNotAllowed": "Вложенные табличные части не допускаются",
+            "tableCannotBeDisplay": "Табличную часть нельзя назначить отображаемым полем"
         },
         "reorderSuccess": "Порядок компонентов обновлён",
         "reorderError": "Не удалось изменить порядок компонентов",
@@ -2593,8 +2750,8 @@
             "confirmMove": "Переместить",
             "displayComponentBlockedTitle": "Нельзя переместить отображаемый компонент",
             "displayComponentBlockedDescription": "Этот компонент является отображаемым в своём списке. Сначала назначьте другой компонент отображаемым, затем повторите попытку.",
-            "tableCannotMoveTitle": "Нельзя переместить TABLE-компонент",
-            "tableCannotMoveDescription": "TABLE-компоненты могут находиться только на корневом уровне.",
+            "tableCannotMoveTitle": "Нельзя переместить табличную часть",
+            "tableCannotMoveDescription": "Табличные части могут находиться только на корневом уровне.",
             "firstChildComponentTitle": "Первый дочерний компонент",
             "firstChildComponentDescription": "Это будет первый компонент в таблице. Он автоматически станет отображаемым и обязательным. После этого его нельзя переместить наружу, пока другой компонент не будет назначен отображаемым.",
             "tableChildLimitTitle": "Нельзя переместить компонент"

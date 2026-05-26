@@ -187,8 +187,10 @@ function MetahubCreateOptionsTab({ values, setValue, isLoading, t }: MetahubCrea
     const presetReferences = useMemo(() => templateManifest?.presets ?? [], [templateManifest])
     const presetLabels = useMemo(() => {
         const locale = normalizeLocale(i18n.language)
-        return new Map(presetItems.map((preset) => [preset.codename, getVLCString(preset.name, locale) || preset.codename]))
-    }, [i18n.language, presetItems])
+        return new Map(
+            presetItems.map((preset) => [preset.codename, getVLCString(preset.name, locale) || t('createOptions.unnamedPreset')])
+        )
+    }, [i18n.language, presetItems, t])
 
     useEffect(() => {
         const referencedPresetCodenames = new Set(presetReferences.map((preset) => preset.presetCodename))
@@ -238,7 +240,7 @@ function MetahubCreateOptionsTab({ values, setValue, isLoading, t }: MetahubCrea
                 </Typography>
             ) : (
                 presetReferences.map((preset) => {
-                    const label = presetLabels.get(preset.presetCodename) || preset.presetCodename
+                    const label = presetLabels.get(preset.presetCodename) || t('createOptions.unnamedPreset')
                     const checked = presetToggles[preset.presetCodename] ?? preset.includedByDefault !== false
 
                     return (

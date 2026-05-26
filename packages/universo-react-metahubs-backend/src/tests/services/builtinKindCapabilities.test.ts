@@ -19,7 +19,9 @@ describe('builtinKindCapabilities', () => {
         fixedValuesService: {
             findSetReferenceBlockers: jest.fn(async () => [])
         } as never,
-        entityTypeService: {} as never
+        entityTypeService: {
+            listEditableTypes: jest.fn(async () => [{ kindKey: 'set', capabilities: {} }])
+        } as never
     })
 
     it('resolves generated table names only for object kinds', () => {

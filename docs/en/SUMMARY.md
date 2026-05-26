@@ -31,6 +31,7 @@
 -   [Nodes and Workspaces](platform/workspaces.md)
 -   [Knowledge Spaces](platform/spaces.md)
 -   [Metahubs](platform/metahubs.md)
+    -   [1C-Compatible Template](platform/1c-compatible-template.md)
     -   [Resources Workspace](platform/metahubs/common-section.md)
     -   [Shared Components](platform/metahubs/shared-components.md)
     -   [Shared Constants](platform/metahubs/shared-fixed-values.md)

@@ -145,8 +145,11 @@ jest.mock('../../persistence', () => ({
 import { MetahubSchemaService } from '../../domains/metahubs/services/MetahubSchemaService'
 import { SystemTableMigrator } from '../../domains/metahubs/services/SystemTableMigrator'
 import { CURRENT_STRUCTURE_VERSION } from '../../domains/metahubs/services/structureVersions'
-import { MetahubMigrationRequiredError } from '../../domains/shared/domainErrors'
+import { MetahubConflictError, MetahubMigrationRequiredError } from '../../domains/shared/domainErrors'
 import { lmsTemplate } from '../../domains/templates/data/lms.template'
+import { oneCCompatibleTemplate } from '../../domains/templates/data/one-c-compatible.template'
+import { builtinEntityTypePresets } from '../../domains/templates/data'
+import { oneCCompatibleAllPresets } from '../../domains/templates/data/one-c-compatible.entity-presets'
 
 describe('MetahubSchemaService (read_only mode)', () => {
     const metahubId = '019c5a80-94a8-7ea4-a2eb-cf1522e0d123'
@@ -379,6 +382,154 @@ describe('MetahubSchemaService create options', () => {
             ])
         )
         expect(entityCodenames).not.toContain('Modules')
+    })
+
+    it('builds the 1C-Compatible full preset graph with valid behavior references', async () => {
+        const exec = createSchemaServiceExec()
+        const service = new MetahubSchemaService(exec)
+
+        const bundle = await (service as any).buildTemplateBootstrapBundle(oneCCompatibleTemplate)
+        const kindKeys = bundle.entityTypePresets.map((preset: { entityType: { kindKey: string } }) => preset.entityType.kindKey)
+        const entityCodenames = bundle.seed.entities.map((entity: { codename: string }) => entity.codename)
+
+        expect(kindKeys).toEqual(
+            expect.arrayContaining([
+                'constant',
+                'catalog',
+                'document',
+                'document-journal',
+                'information-register',
+                'accumulation-register',
+                'chart-of-accounts',
+                'chart-of-characteristic-types',
+                'accounting-register',
+                'chart-of-calculation-types',
+                'calculation-register'
+            ])
+        )
+        expect(entityCodenames).toEqual(expect.arrayContaining(['OrganizationName', 'Products', 'GoodsReceipt', 'StockBalance']))
+    })
+
+    it('rejects 1C-Compatible preset toggles that create dangling journal sources', async () => {
+        const exec = createSchemaServiceExec()
+        const service = new MetahubSchemaService(exec)
+
+        await expect(
+            (service as any).buildTemplateBootstrapBundle(oneCCompatibleTemplate, {
+                createOptions: {
+                    presetToggles: {
+                        'one-c-document': false,
+                        'one-c-document-journal': true
+                    }
+                }
+            })
+        ).rejects.toThrow(/JOURNAL_SOURCE_NOT_FOUND/)
+    })
+
+    it('rejects 1C-Compatible preset toggles that create dangling posting register targets', async () => {
+        const exec = createSchemaServiceExec()
+        const service = new MetahubSchemaService(exec)
+
+        await expect(
+            (service as any).buildTemplateBootstrapBundle(oneCCompatibleTemplate, {
+                createOptions: {
+                    presetToggles: {
+                        'one-c-accumulation-register': false,
+                        'one-c-document': true
+                    }
+                }
+            })
+        ).rejects.toThrow(/TARGET_REGISTER_NOT_FOUND/)
+    })
+
+    it('refuses to overwrite an existing non-template-managed entity type during preset sync', async () => {
+        const exec = createSchemaServiceExec()
+        const service = new MetahubSchemaService(exec)
+        const existingDocumentType = {
+            id: 'entity-type-1',
+            codename: { _primary: 'en', locales: { en: { content: 'Legacy Document' } } },
+            presentation: {},
+            capabilities: {},
+            ui_config: {},
+            config: {}
+        }
+        const updateMock = jest.fn()
+
+        mockKnex.withSchema.mockImplementationOnce(() => ({
+            from: (tableName: string) => {
+                expect(tableName).toBe('_mhb_entity_type_definitions')
+                return {
+                    where: () => ({
+                        first: async () => existingDocumentType,
+                        update: updateMock
+                    })
+                }
+            }
+        }))
+
+        const documentPreset = oneCCompatibleAllPresets.find((preset) => preset.entityType.kindKey === 'document')
+        if (!documentPreset) {
+            throw new Error('document preset is missing')
+        }
+
+        await expect((service as any).syncEntityTypePresets('mhb_test_schema', [documentPreset])).rejects.toBeInstanceOf(
+            MetahubConflictError
+        )
+        expect(updateMock).not.toHaveBeenCalled()
+    })
+
+    it('migrates legacy builtin preset rows without a template-managed marker during preset sync', async () => {
+        const exec = createSchemaServiceExec()
+        const service = new MetahubSchemaService(exec)
+        const existingObjectType = {
+            id: 'entity-type-object',
+            codename: { _primary: 'en', locales: { en: { content: 'Legacy Object' } } },
+            presentation: {},
+            capabilities: {},
+            ui_config: {},
+            config: {}
+        }
+        const updateMock = jest.fn(async () => 1)
+
+        mockKnex.withSchema
+            .mockImplementationOnce(() => ({
+                from: (tableName: string) => {
+                    expect(tableName).toBe('_mhb_entity_type_definitions')
+                    return {
+                        where: () => ({
+                            first: async () => existingObjectType
+                        })
+                    }
+                }
+            }))
+            .mockImplementationOnce(() => ({
+                from: (tableName: string) => {
+                    expect(tableName).toBe('_mhb_entity_type_definitions')
+                    return {
+                        where: () => ({
+                            update: updateMock
+                        })
+                    }
+                }
+            }))
+
+        const objectPreset = builtinEntityTypePresets.find((preset) => preset.entityType.kindKey === 'object')
+        if (!objectPreset) {
+            throw new Error('object preset is missing')
+        }
+
+        await expect((service as any).syncEntityTypePresets('mhb_test_schema', [objectPreset])).resolves.toBe(1)
+        expect(updateMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                config: expect.objectContaining({
+                    systemTemplatePreset: expect.objectContaining({
+                        managed: true,
+                        presetCodename: 'object',
+                        source: 'entity_type_preset'
+                    })
+                })
+            })
+        )
     })
 
     it('resolves the public structure version from the baseline migration row', async () => {

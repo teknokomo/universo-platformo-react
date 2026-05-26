@@ -11,6 +11,7 @@ import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked'
 import StarIcon from '@mui/icons-material/Star'
 import StarOutlineIcon from '@mui/icons-material/StarOutline'
 import { useTranslation } from 'react-i18next'
+import { useParams } from 'react-router-dom'
 import { useCommonTranslations } from '@universo-react/i18n'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSnackbar } from 'notistack'
@@ -27,13 +28,11 @@ import {
     ComponentDefinitionValidationRules,
     getVLCString,
     toComponentDisplay,
-    getDefaultValidationRules,
-    getPhysicalDataType,
-    formatPhysicalType
+    getDefaultValidationRules
 } from '../../../../../types'
 import { normalizeCodenameForStyle, isValidCodenameForStyle } from '../../../../../utils/codename'
 import { useCodenameConfig } from '../../../../settings/hooks/useCodenameConfig'
-import { useSettingValue } from '../../../../settings/hooks/useSettings'
+import { useFirstSettingValue } from '../../../../settings/hooks/useSettings'
 import { useMetahubPrimaryLocale } from '../../../../settings/hooks/useMetahubPrimaryLocale'
 import {
     extractLocalizedInput,
@@ -57,6 +56,8 @@ import {
 import ComponentFormFields, { PresentationTabFields } from './ComponentFormFields'
 import { useContainerRegistry, useComponentDndState } from './dnd'
 import { ExistingCodenamesProvider } from '../../../../../components'
+import { resolveEntityChildKindKey } from '../../../../shared/entityMetadataRoutePaths'
+import { buildObjectCompatibleSettingKeys } from '../hooks/useComponentListData'
 
 type GenericFormValues = Record<string, unknown>
 
@@ -112,22 +113,22 @@ function localizeTableValidationError(
     const code = extractResponseCode(error)
     if (!code) return null
     if (code === 'NESTED_TABLE_FORBIDDEN') {
-        return t('components.tableValidation.nestedTableNotAllowed', 'Nested TABLE components are not allowed')
+        return t('components.tableValidation.nestedTableNotAllowed', 'Nested tabular parts are not allowed')
     }
     if (code === 'TABLE_CHILD_LIMIT_REACHED') {
         const max = extractResponseMaxChildComponents(error)
-        return t('components.tableValidation.maxChildComponents', 'Maximum {{max}} child components per TABLE', {
+        return t('components.tableValidation.maxChildComponents', 'Maximum {{max}} fields per tabular part', {
             max: max ?? maxChildComponentsFallback ?? '—'
         })
     }
     if (code === 'TABLE_COMPONENT_LIMIT_REACHED') {
         const max = extractResponseMaxTableComponents(error)
-        return t('components.tableValidation.maxTableComponents', 'Maximum {{max}} TABLE components per object', {
+        return t('components.tableValidation.maxTableComponents', 'Maximum {{max}} tabular parts per object', {
             max: max ?? '—'
         })
     }
     if (code === 'TABLE_DISPLAY_COMPONENT_FORBIDDEN') {
-        return t('components.tableValidation.tableCannotBeDisplay', 'TABLE components cannot be set as the display component')
+        return t('components.tableValidation.tableCannotBeDisplay', 'Tabular parts cannot be set as the display field')
     }
     return null
 }
@@ -245,13 +246,22 @@ const NestedComponentList = ({
     searchFilter,
     onRefresh
 }: NestedComponentListProps) => {
+    const { kindKey } = useParams<{ kindKey?: string }>()
+    const entityKindKey = resolveEntityChildKindKey({ routeKindKey: kindKey, childObjectKind: 'object' })
     const codenameConfig = useCodenameConfig()
     const preferredVlcLocale = useMetahubPrimaryLocale()
-    const componentCodenameScope = useSettingValue<string>('entity.object.componentCodenameScope') ?? 'per-level'
-    const allowedComponentTypesSetting = useSettingValue<string[]>('entity.object.allowedComponentTypes')
-    const allowComponentCopySetting = useSettingValue<boolean>('entity.object.allowComponentCopy')
-    const allowComponentDeleteSetting = useSettingValue<boolean>('entity.object.allowComponentDelete')
-    const allowDeleteLastDisplayComponentSetting = useSettingValue<boolean>('entity.object.allowDeleteLastDisplayComponent')
+    const componentCodenameScope =
+        useFirstSettingValue<string>(buildObjectCompatibleSettingKeys(entityKindKey, 'componentCodenameScope')) ?? 'per-level'
+    const allowedComponentTypesSetting = useFirstSettingValue<string[]>(
+        buildObjectCompatibleSettingKeys(entityKindKey, 'allowedComponentTypes')
+    )
+    const allowComponentCopySetting = useFirstSettingValue<boolean>(buildObjectCompatibleSettingKeys(entityKindKey, 'allowComponentCopy'))
+    const allowComponentDeleteSetting = useFirstSettingValue<boolean>(
+        buildObjectCompatibleSettingKeys(entityKindKey, 'allowComponentDelete')
+    )
+    const allowDeleteLastDisplayComponentSetting = useFirstSettingValue<boolean>(
+        buildObjectCompatibleSettingKeys(entityKindKey, 'allowDeleteLastDisplayComponent')
+    )
     const allowComponentCopy = allowComponentCopySetting !== false
     const allowComponentDelete = allowComponentDeleteSetting !== false
     const allowDeleteLastDisplayComponent = allowDeleteLastDisplayComponentSetting !== false
@@ -364,6 +374,10 @@ const NestedComponentList = ({
             })),
         [allowedChildDataTypes, t]
     )
+    const childDataTypeLabelByValue = useMemo(
+        () => new Map(childDataTypeOptions.map((option) => [option.value, option.label])),
+        [childDataTypeOptions]
+    )
 
     const canDeleteChildComponent = useCallback(
         (component: ComponentDisplay | Component | null | undefined): boolean => {
@@ -428,9 +442,7 @@ const NestedComponentList = ({
                 align: 'left' as const,
                 sortable: true,
                 sortAccessor: (row: ComponentDisplay) => row.codename || '',
-                render: (row: ComponentDisplay) => (
-                    <Typography sx={{ fontSize: 13, fontFamily: 'monospace', fontWeight: 600 }}>{row.codename || '—'}</Typography>
-                )
+                render: (row: ComponentDisplay) => <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{row.codename || '—'}</Typography>
             },
             {
                 id: 'dataType',
@@ -441,17 +453,27 @@ const NestedComponentList = ({
                     const rules = row.validationRules as ComponentDefinitionValidationRules | undefined
                     const hasVersioned = rules?.versioned
                     const hasLocalized = rules?.localized
-                    const physicalInfo = getPhysicalDataType(row.dataType, rules)
-                    const physicalTypeStr = formatPhysicalType(physicalInfo)
-                    const tooltipTitle = t('components.physicalType.tooltip', 'PostgreSQL: {{type}}', { type: physicalTypeStr })
+                    const typeLabel = childDataTypeLabelByValue.get(row.dataType) ?? row.dataType
                     return (
-                        <Tooltip title={tooltipTitle} arrow placement='top'>
-                            <Stack direction='row' spacing={0.5} justifyContent='center' alignItems='center' sx={{ cursor: 'help' }}>
-                                <Chip label={row.dataType} size='small' color={getDataTypeColor(row.dataType)} />
-                                {hasVersioned && <Chip label='V' size='small' sx={{ minWidth: 24, height: 20, fontSize: 11 }} />}
-                                {hasLocalized && <Chip label='L' size='small' sx={{ minWidth: 24, height: 20, fontSize: 11 }} />}
-                            </Stack>
-                        </Tooltip>
+                        <Stack direction='row' spacing={0.5} justifyContent='center' alignItems='center' flexWrap='wrap' useFlexGap>
+                            <Chip label={typeLabel} size='small' color={getDataTypeColor(row.dataType)} />
+                            {hasVersioned && (
+                                <Chip
+                                    label={t('components.typeBadges.history', 'History')}
+                                    size='small'
+                                    variant='outlined'
+                                    sx={{ height: 20, fontSize: 11 }}
+                                />
+                            )}
+                            {hasLocalized && (
+                                <Chip
+                                    label={t('components.typeBadges.localized', 'Multilingual')}
+                                    size='small'
+                                    variant='outlined'
+                                    sx={{ height: 20, fontSize: 11 }}
+                                />
+                            )}
+                        </Stack>
                     )
                 }
             },
@@ -470,7 +492,7 @@ const NestedComponentList = ({
                 )
             }
         ],
-        [t, tc, childComponentMap]
+        [t, tc, childComponentMap, childDataTypeLabelByValue]
     )
 
     /** Action descriptors for child component context menu */
@@ -860,8 +882,8 @@ const NestedComponentList = ({
                             typeSettingsLabel={t('components.typeSettings.title', 'Type Settings')}
                             stringMaxLengthLabel={t('components.typeSettings.string.maxLength', 'Max Length')}
                             stringMinLengthLabel={t('components.typeSettings.string.minLength', 'Min Length')}
-                            stringVersionedLabel={t('components.typeSettings.string.versioned', 'Versioned (VLC)')}
-                            stringLocalizedLabel={t('components.typeSettings.string.localized', 'Localized (VLC)')}
+                            stringVersionedLabel={t('components.typeSettings.string.versionedUserLabel', 'Keep value history')}
+                            stringLocalizedLabel={t('components.typeSettings.string.localizedUserLabel', 'Multilingual value')}
                             numberPrecisionLabel={t('components.typeSettings.number.precision', 'Precision')}
                             numberScaleLabel={t('components.typeSettings.number.scale', 'Scale')}
                             numberMinLabel={t('components.typeSettings.number.min', 'Min Value')}
@@ -876,7 +898,6 @@ const NestedComponentList = ({
                                     label: t('components.typeSettings.date.compositionOptions.datetime', 'Date and Time')
                                 }
                             ]}
-                            physicalTypeLabel={t('components.physicalType.label', 'PostgreSQL type')}
                             metahubId={metahubId}
                             currentObjectCollectionId={objectCollectionId}
                             dataTypeDisabled={isEditMode}
@@ -984,7 +1005,7 @@ const NestedComponentList = ({
                         if (extractResponseCode(e) === 'TABLE_CHILD_LIMIT_REACHED') {
                             const max = extractResponseMaxChildComponents(e)
                             setDialogError(
-                                t('components.tableValidation.maxChildComponents', 'Maximum {{max}} child components per TABLE', {
+                                t('components.tableValidation.maxChildComponents', 'Maximum {{max}} fields per tabular part', {
                                     max: max ?? maxChildComponentsLimit ?? '—'
                                 })
                             )
@@ -1005,7 +1026,7 @@ const NestedComponentList = ({
             if (extractResponseCode(e) === 'TABLE_CHILD_LIMIT_REACHED') {
                 const max = extractResponseMaxChildComponents(e)
                 setDialogError(
-                    t('components.tableValidation.maxChildComponents', 'Maximum {{max}} child components per TABLE', {
+                    t('components.tableValidation.maxChildComponents', 'Maximum {{max}} fields per tabular part', {
                         max: max ?? maxChildComponentsLimit ?? '—'
                     })
                 )

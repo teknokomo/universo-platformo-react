@@ -730,7 +730,6 @@ export class MetahubComponentsService {
              WHERE cmp.data_type = 'REF'
                AND cmp.target_object_id = $1
                AND cmp.object_id != $1
-               AND (cmp.target_object_kind = 'object' OR cmp.target_object_kind IS NULL)
                AND cmp._upl_deleted = false AND cmp._mhb_deleted = false
                AND obj._upl_deleted = false AND obj._mhb_deleted = false
              ORDER BY ${codenamePrimaryTextSql('obj.codename')} ASC, cmp.sort_order ASC`,
@@ -1172,8 +1171,8 @@ export class MetahubComponentsService {
 
         const runDelete = async (tx: SqlQueryable) => {
             // If TABLE type, soft-delete children before parent
-            const [component] = await tx.query<Record<string, unknown>>(`SELECT data_type FROM ${qt} WHERE id = $1`, [id])
-            if (component?.data_type === ComponentDefinitionDataType.TABLE) {
+            const [componentData] = await tx.query<Record<string, unknown>>(`SELECT data_type FROM ${qt} WHERE id = $1`, [id])
+            if (componentData?.data_type === ComponentDefinitionDataType.TABLE) {
                 const children = await tx.query<{ id: string }>(`SELECT id FROM ${qt} WHERE parent_component_id = $1 AND ${ACTIVE}`, [id])
                 for (const child of children) {
                     await mhbSoftDelete(tx, schemaName, '_mhb_components', child.id, userId)
@@ -1190,7 +1189,7 @@ export class MetahubComponentsService {
                  FROM ${qSchemaTable(schemaName, '_mhb_objects')}
                  WHERE id = $1
                  LIMIT 1`,
-                [component?.objectId]
+                [component?.objectCollectionId]
             )
             if (parentObject?.kind === SHARED_ENTITY_KIND_TO_POOL_KIND.component) {
                 const sharedOverridesService = new SharedEntityOverridesService(this.exec, this.schemaService)

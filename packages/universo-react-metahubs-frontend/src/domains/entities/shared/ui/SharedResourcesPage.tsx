@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useParams } from 'react-router-dom'
 import {
     isEnabledCapabilityConfig,
-    resolveEntityResourceSurfaceTitle,
+    resolveEntityResourceSurfaceSharedTitle,
     type EntityTypeCapabilities,
     type EntityResourceSurfaceDefinition,
     type EntityResourceSurfaceCapability,
@@ -88,7 +88,7 @@ function collectResourceSurfaceLabels({
     return entityTypes
         .map((entityType) => entityType.ui?.resourceSurfaces?.find((item) => item.capability === capability))
         .filter((surface): surface is EntityResourceSurfaceDefinition => Boolean(surface))
-        .map((surface) => resolveEntityResourceSurfaceTitle(surface, { locale, translate }))
+        .map((surface) => resolveEntityResourceSurfaceSharedTitle(surface, { locale, translate }))
 }
 
 function resolveResourceSurfaceLabel({
@@ -129,7 +129,7 @@ function resolveResourceSurfaceLabel({
 
     const distinctSurfaceLabels = new Set(
         compatibleSurfaces.map(({ surface }) =>
-            normalizeResourceSurfaceLabelToken(resolveEntityResourceSurfaceTitle(surface, { locale, translate }))
+            normalizeResourceSurfaceLabelToken(resolveEntityResourceSurfaceSharedTitle(surface, { locale, translate }))
         )
     )
 
@@ -138,7 +138,7 @@ function resolveResourceSurfaceLabel({
     }
 
     const resolvedSurface = compatibleSurfaces[0]?.surface
-    return resolvedSurface ? resolveEntityResourceSurfaceTitle(resolvedSurface, { locale, translate }) : platformLabel
+    return resolvedSurface ? resolveEntityResourceSurfaceSharedTitle(resolvedSurface, { locale, translate }) : platformLabel
 }
 
 export default function SharedResourcesPage() {

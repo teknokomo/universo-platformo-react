@@ -66,16 +66,37 @@ export function TemplateSelector({
                 label={t('templates.selectTemplate', 'Select template')}
                 onChange={(e) => onChange(e.target.value || undefined)}
                 disabled={disabled}
+                MenuProps={{
+                    PaperProps: {
+                        style: {
+                            width: 'min(640px, calc(100vw - 32px))',
+                            minWidth: 'min(360px, calc(100vw - 32px))',
+                            maxWidth: 'calc(100vw - 32px)'
+                        },
+                        sx: {
+                            width: 'min(640px, calc(100vw - 32px))',
+                            minWidth: 'min(360px, calc(100vw - 32px))',
+                            maxWidth: 'calc(100vw - 32px)'
+                        }
+                    },
+                    MenuListProps: {
+                        sx: {
+                            py: 0.5,
+                            width: '100%',
+                            minWidth: 0,
+                            maxWidth: 'calc(100vw - 32px)'
+                        }
+                    }
+                }}
             >
                 {allowEmptyOption ? <MenuItem value=''>{emptyOptionLabel || t('templates.noTemplate', 'No template')}</MenuItem> : null}
                 {templates.map((tmpl) => {
-                    const name = getVLCString(tmpl.name, locale) || tmpl.codename
+                    const name = getVLCString(tmpl.name, locale) || t('templates.unnamedTemplate', 'Template')
                     const desc = tmpl.description ? getVLCString(tmpl.description, locale) : undefined
                     const versionLabel = tmpl.activeVersion?.versionLabel
                     const nameWithVersion = versionLabel ? `${name} (v.${versionLabel})` : name
-
                     return (
-                        <MenuItem key={tmpl.id} value={tmpl.id}>
+                        <MenuItem key={tmpl.id} value={tmpl.id} sx={{ whiteSpace: 'normal', alignItems: 'flex-start' }}>
                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%', minWidth: 0 }}>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                                     <Typography variant='body2'>{nameWithVersion}</Typography>
@@ -92,8 +113,7 @@ export function TemplateSelector({
                                     <Typography
                                         variant='caption'
                                         color='text.secondary'
-                                        noWrap
-                                        sx={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                                        sx={{ maxWidth: '100%', whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.35 }}
                                     >
                                         {desc}
                                     </Typography>

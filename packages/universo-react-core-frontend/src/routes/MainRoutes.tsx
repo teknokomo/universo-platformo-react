@@ -277,11 +277,16 @@ const MainRoutes = {
                 { path: 'resources/layouts/:layoutId', element: <MetahubLayoutDetails /> },
                 { path: 'entities/:kindKey/instance/:objectCollectionId/layout/:layoutId', element: <MetahubLayoutDetails /> },
                 { path: 'entities/:kindKey/instance/:objectCollectionId/components', element: <ComponentList /> },
+                { path: 'entities/:kindKey/instance/:objectCollectionId/requisites', element: <ComponentList /> },
                 { path: 'entities/:kindKey/instance/:objectCollectionId/system', element: <ComponentList /> },
                 { path: 'entities/:kindKey/instance/:objectCollectionId/records', element: <RecordList /> },
                 { path: 'entities/:kindKey/instance/:treeEntityId/instances', element: <StandardEntityChildCollectionPage /> },
                 {
                     path: 'entities/:kindKey/instance/:treeEntityId/instance/:objectCollectionId/components',
+                    element: <ComponentList />
+                },
+                {
+                    path: 'entities/:kindKey/instance/:treeEntityId/instance/:objectCollectionId/requisites',
                     element: <ComponentList />
                 },
                 { path: 'entities/:kindKey/instance/:treeEntityId/instance/:objectCollectionId/system', element: <ComponentList /> },

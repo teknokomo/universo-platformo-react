@@ -1,5 +1,12 @@
 import { randomBytes } from 'crypto'
-import type { EntityTypePresetManifest, MetahubCreateOptions, MetahubTemplateManifest, MetahubTemplateSeed } from '@universo-react/types'
+import {
+    TEMPLATE_MANAGED_ENTITY_TYPE_CONFIG_KEY,
+    isBuiltinEntityKind,
+    type EntityTypePresetManifest,
+    type MetahubCreateOptions,
+    type MetahubTemplateManifest,
+    type MetahubTemplateSeed
+} from '@universo-react/types'
 import type { SqlQueryable } from '../../../persistence/types'
 import {
     findMetahubById,
@@ -27,7 +34,11 @@ import { TemplateSeedMigrator } from '../../templates/services/TemplateSeedMigra
 import { mirrorToGlobalCatalog } from '@universo-react/migrations-catalog'
 import { hasRuntimeHistoryTable, quoteIdentifier } from '@universo-react/migrations-core'
 import { clearWidgetTableResolverCache } from '../../templates/services/widgetTableResolver'
-import { validateEntityTypePresetManifest, validateTemplateManifest } from '../../templates/services/TemplateManifestValidator'
+import {
+    validateEntityTypePresetManifest,
+    validateTemplateManifest,
+    validateTemplateSeedEntityBehaviorReferences
+} from '../../templates/services/TemplateManifestValidator'
 import { builtinEntityTypePresets, builtinTemplates, DEFAULT_TEMPLATE_CODENAME } from '../../templates/data'
 import {
     MetahubMigrationRequiredError,
@@ -36,7 +47,8 @@ import {
     isKnexPoolTimeoutError,
     MetahubNotFoundError,
     MetahubValidationError,
-    MetahubSchemaSyncError
+    MetahubSchemaSyncError,
+    MetahubConflictError
 } from '../../shared/domainErrors'
 import { isGlobalMigrationObjectEnabled } from '@universo-react/utils'
 import { ensureCodenameValue } from '../../shared/codename'
@@ -97,6 +109,22 @@ type TemplateBootstrapBundle = {
 
 const hasNonEmptyObject = (value: unknown): value is Record<string, unknown> =>
     Boolean(value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value as Record<string, unknown>).length > 0)
+
+const getTemplateManagedPresetCodename = (config: unknown): string | null => {
+    if (!config || typeof config !== 'object' || Array.isArray(config)) {
+        return null
+    }
+
+    const templatePreset = (config as Record<string, unknown>)[TEMPLATE_MANAGED_ENTITY_TYPE_CONFIG_KEY]
+    if (!templatePreset || typeof templatePreset !== 'object' || Array.isArray(templatePreset)) {
+        return null
+    }
+
+    const marker = templatePreset as { managed?: unknown; source?: unknown; presetCodename?: unknown }
+    return marker.managed === true && marker.source === 'entity_type_preset' && typeof marker.presetCodename === 'string'
+        ? marker.presetCodename
+        : null
+}
 
 const toPresetToggleMap = (value: unknown): TemplatePresetToggleMap => {
     if (!hasNonEmptyObject(value)) {
@@ -842,6 +870,7 @@ export class MetahubSchemaService {
             effectivePresetToggles,
             presetRefs.length > 0
         )
+        validateTemplateSeedEntityBehaviorReferences(seed)
 
         return {
             seed,
@@ -860,7 +889,14 @@ export class MetahubSchemaService {
             const now = new Date()
             const codename = ensureCodenameValue(preset.entityType.codename ?? preset.codename)
             const presentation = preset.entityType.presentation ?? {}
-            const config = preset.entityType.config ?? {}
+            const config = {
+                ...(preset.entityType.config ?? {}),
+                [TEMPLATE_MANAGED_ENTITY_TYPE_CONFIG_KEY]: {
+                    managed: true,
+                    presetCodename: preset.codename,
+                    source: 'entity_type_preset'
+                }
+            }
             const existing = await this.knex
                 .withSchema(schemaName)
                 .from('_mhb_entity_type_definitions')
@@ -873,6 +909,17 @@ export class MetahubSchemaService {
                     ui_config: unknown
                     config: unknown
                 }>()
+
+            const existingPresetCodename = existing ? getTemplateManagedPresetCodename(existing.config) : null
+            const isLegacyBuiltinPresetRow =
+                Boolean(existing) && existingPresetCodename === null && isBuiltinEntityKind(preset.entityType.kindKey)
+            if (existing && existingPresetCodename !== preset.codename && !isLegacyBuiltinPresetRow) {
+                throw new MetahubConflictError('Entity type kindKey is reserved for platform-provided entity type presets', {
+                    kindKey: preset.entityType.kindKey,
+                    presetCodename: preset.codename,
+                    existingId: existing.id
+                })
+            }
 
             const shouldUpdate =
                 !existing ||

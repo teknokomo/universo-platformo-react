@@ -105,3 +105,25 @@ export const useSettingValue = <T = unknown>(key: string): T | undefined => {
     const raw = setting.value as Record<string, unknown>
     return (raw._value ?? raw) as T
 }
+
+export const useFirstSettingValue = <T = unknown>(keys: readonly string[]): T | undefined => {
+    const { data } = useSettings()
+    if (!data) return undefined
+
+    const settings = (
+        data as {
+            settings?: Array<{ key: string; value: Record<string, unknown> }>
+        }
+    ).settings
+    if (!Array.isArray(settings)) return undefined
+
+    for (const key of keys) {
+        const setting = settings.find((s) => s.key === key)
+        if (setting) {
+            const raw = setting.value as Record<string, unknown>
+            return (raw._value ?? raw) as T
+        }
+    }
+
+    return undefined
+}

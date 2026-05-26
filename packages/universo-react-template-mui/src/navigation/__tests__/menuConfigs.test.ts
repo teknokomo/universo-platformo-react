@@ -1,4 +1,4 @@
-import { IconReceipt, IconStack2 } from '@tabler/icons-react'
+import { IconAddressBook, IconFileInvoice, IconReceipt, IconStack2 } from '@tabler/icons-react'
 import { getApplicationMenuItems, getMetahubMenuItems } from '../menuConfigs'
 
 describe('menuConfigs', () => {
@@ -146,6 +146,22 @@ describe('menuConfigs', () => {
         )
         expect(menuItems.find((item) => item.id === 'metahub-entity-ledger' && item.type !== 'divider')).toEqual(
             expect.objectContaining({ icon: IconReceipt })
+        )
+    })
+
+    it('resolves distinct 1C-compatible entity type icons without falling back to the generic box icon', () => {
+        const menuItems = getMetahubMenuItems('mhb-1', {
+            menuEntityTypes: [
+                { kindKey: 'catalog', title: 'Catalogs', iconName: 'IconAddressBook', sidebarSection: 'objects', sidebarOrder: 80 },
+                { kindKey: 'document', title: 'Documents', iconName: 'IconFileInvoice', sidebarSection: 'objects', sidebarOrder: 90 }
+            ]
+        })
+
+        expect(menuItems.find((item) => item.id === 'metahub-entity-catalog' && item.type !== 'divider')).toEqual(
+            expect.objectContaining({ icon: IconAddressBook })
+        )
+        expect(menuItems.find((item) => item.id === 'metahub-entity-document' && item.type !== 'divider')).toEqual(
+            expect.objectContaining({ icon: IconFileInvoice })
         )
     })
 
