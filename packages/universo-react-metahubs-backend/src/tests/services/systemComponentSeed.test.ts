@@ -1,5 +1,5 @@
 import { getObjectSystemComponentSeedRecords } from '@universo-react/utils/database'
-import { ensureObjectSystemComponentsSeed } from '../../domains/templates/services/systemComponentSeed'
+import { ensureObjectSystemComponentsSeed, shouldSeedObjectSystemComponents } from '../../domains/templates/services/systemComponentSeed'
 
 const createSeedQueryBuilder = (
     existingRows: Array<{ id: string; system_key: string }> = [],
@@ -41,6 +41,25 @@ const createSeedQueryBuilder = (
 }
 
 describe('ensureObjectSystemComponentsSeed', () => {
+    it('classifies generic Object and 1C object-like kinds for system component seeding', () => {
+        expect(
+            [
+                'object',
+                'catalog',
+                'document',
+                'document-journal',
+                'information-register',
+                'accumulation-register',
+                'chart-of-accounts',
+                'chart-of-characteristic-types',
+                'accounting-register',
+                'chart-of-calculation-types',
+                'calculation-register'
+            ].every(shouldSeedObjectSystemComponents)
+        ).toBe(true)
+        expect(['constant', 'set', 'enumeration', 'hub', 'page'].some(shouldSeedObjectSystemComponents)).toBe(false)
+    })
+
     it('inserts the canonical shared system rows for a new object', async () => {
         const { qb, mocks } = createSeedQueryBuilder()
 

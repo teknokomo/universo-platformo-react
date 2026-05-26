@@ -5,7 +5,12 @@ import {
     FIXED_VALUE_DATA_TYPES,
     DASHBOARD_LAYOUT_ZONES,
     DASHBOARD_LAYOUT_WIDGETS,
-    DashboardLayoutWidgetKey
+    DashboardLayoutWidgetKey,
+    ENTITY_BEHAVIOR_CONFIG_KEYS,
+    entityBehaviorConfigSchema,
+    validateEntityBehaviorReferences,
+    type EntityBehaviorConfig,
+    type MetahubTemplateSeed
 } from '@universo-react/types'
 import {
     CURRENT_STRUCTURE_VERSION,
@@ -194,6 +199,125 @@ const templateMetaSchema = z.object({
 })
 
 const componentConfigSchema = z.object({ enabled: z.boolean() })
+const behaviorConfigKindByKey: Record<(typeof ENTITY_BEHAVIOR_CONFIG_KEYS)[number], string> = {
+    singleValue: 'singleValue',
+    catalogBehavior: 'catalog',
+    documentBehavior: 'document',
+    documentPosting: 'documentPosting',
+    journalBehavior: 'journal',
+    registerBehavior: 'register',
+    accountChartBehavior: 'accountChart',
+    dynamicCharacteristic: 'dynamicCharacteristic',
+    calculationTypeGraph: 'calculationTypeGraph'
+}
+
+function validateTypedBehaviorConfig(
+    config: Record<string, unknown> | undefined,
+    ctx: z.RefinementCtx,
+    path: Array<string | number>
+): void {
+    for (const key of ENTITY_BEHAVIOR_CONFIG_KEYS) {
+        const value = config?.[key]
+        if (value === undefined) {
+            continue
+        }
+        const result = entityBehaviorConfigSchema.safeParse(value)
+        if (!result.success) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: [...path, key],
+                message: `Invalid typed behavior config: ${key}`
+            })
+            continue
+        }
+
+        if (behaviorConfigKindByKey[key] !== result.data.kind) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: [...path, key, 'kind'],
+                message: `Typed behavior config key "${key}" does not match kind "${result.data.kind}"`
+            })
+        }
+    }
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+
+const normalizeBehaviorConfigs = (
+    config: Record<string, unknown> | undefined
+): Array<{ key: (typeof ENTITY_BEHAVIOR_CONFIG_KEYS)[number]; value: EntityBehaviorConfig }> => {
+    const values: Array<{ key: (typeof ENTITY_BEHAVIOR_CONFIG_KEYS)[number]; value: EntityBehaviorConfig }> = []
+    for (const key of ENTITY_BEHAVIOR_CONFIG_KEYS) {
+        const raw = config?.[key]
+        if (raw === undefined) continue
+        const result = entityBehaviorConfigSchema.safeParse(raw)
+        if (result.success && behaviorConfigKindByKey[key] === result.data.kind) {
+            values.push({ key, value: result.data })
+        }
+    }
+    return values
+}
+
+const collectEntityFields = (entity: NonNullable<MetahubTemplateSeed['entities']>[number]): string[] => {
+    const fields = new Set<string>()
+    for (const component of entity.components ?? []) {
+        fields.add(component.codename)
+        for (const child of component.childComponents ?? []) {
+            fields.add(child.codename)
+        }
+    }
+    return [...fields]
+}
+
+const collectEntitySourceTables = (entity: NonNullable<MetahubTemplateSeed['entities']>[number]): string[] =>
+    (entity.components ?? []).filter((component) => component.dataType === 'TABLE').map((component) => component.codename)
+
+export function validateTemplateSeedEntityBehaviorReferences(seed: MetahubTemplateSeed): void {
+    const entities = seed.entities ?? []
+    const registers = new Set<string>()
+    const documents = new Set<string>()
+    const charts = new Set<string>()
+
+    for (const entity of entities) {
+        for (const { value } of normalizeBehaviorConfigs(isRecord(entity.config) ? entity.config : undefined)) {
+            if (value.kind === 'register') {
+                registers.add(entity.codename)
+            }
+            if (value.kind === 'document') {
+                documents.add(entity.codename)
+            }
+            if (value.kind === 'accountChart' || value.kind === 'dynamicCharacteristic') {
+                charts.add(entity.codename)
+            }
+        }
+    }
+
+    const modules = (seed.modules ?? []).map((module) => module.codename)
+
+    for (const entity of entities) {
+        const behaviorConfigs = normalizeBehaviorConfigs(isRecord(entity.config) ? entity.config : undefined)
+        for (const { key, value } of behaviorConfigs) {
+            const errors = validateEntityBehaviorReferences(value, {
+                registers: [...registers],
+                documents: [...documents],
+                charts: [...charts],
+                modules,
+                sourceTables: collectEntitySourceTables(entity),
+                fields: collectEntityFields(entity),
+                projections: value.kind === 'register' ? value.projections.map((projection) => projection.codename) : undefined
+            })
+
+            if (errors.length > 0) {
+                const firstError = errors[0]
+                throw new Error(
+                    `Invalid behavior references in seed entity "${entity.codename}" at config.${key}.${firstError.path.join('.')}: ${
+                        firstError.code
+                    }`
+                )
+            }
+        }
+    }
+}
 
 const componentManifestSchema = z.object({
     dataSchema: z.union([componentConfigSchema.extend({ maxComponents: z.number().int().nullable().optional() }), z.literal(false)]),
@@ -288,7 +412,10 @@ const entityTypeUiSchema = z.object({
                 routeSegment: z.string().min(1).max(64),
                 title: vlcSchema.optional(),
                 titleKey: z.string().min(1).optional(),
-                fallbackTitle: z.string().min(1).optional()
+                fallbackTitle: z.string().min(1).optional(),
+                sharedTitle: vlcSchema.optional(),
+                sharedTitleKey: z.string().min(1).optional(),
+                fallbackSharedTitle: z.string().min(1).optional()
             })
         )
         .optional(),
@@ -688,6 +815,8 @@ export const entityTypePresetManifestSchema = entityTypePresetManifestSchemaBase
         })
     }
 
+    validateTypedBehaviorConfig(manifest.entityType.config, ctx, ['entityType', 'config'])
+
     const resourceSurfaceKeyPattern = /^[a-z][a-zA-Z0-9._-]{0,63}$/
     const resourceSurfaceRoutePattern = /^[a-z][a-z0-9-]{0,63}$/
     const seenResourceSurfaceKeys = new Set<string>()
@@ -759,6 +888,7 @@ export const entityTypePresetManifestSchema = entityTypePresetManifestSchemaBase
             })
         }
         defaultInstanceCodenameSet.add(instance.codename)
+        validateTypedBehaviorConfig(instance.config, ctx, ['defaultInstances', index, 'config'])
 
         if (instance.components?.length && manifest.entityType.capabilities.dataSchema === false) {
             ctx.addIssue({

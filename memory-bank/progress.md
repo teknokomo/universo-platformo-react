@@ -1223,3 +1223,193 @@ Closed the remaining QA findings for the LMS Learning Content release gate. Runt
 -   Updated current snapshot documentation and Memory Bank architecture notes to use the renamed snapshot contracts `sharedFixedValues`, `sharedOptionValues`, and `sharedComponents`.
 -   Fixed the modules quiz runtime E2E fixture so the client-visible `submit` module calls the server-side `validateAnswer` module and the Playwright oracle verifies the real `/runtime/modules/.../call` request.
 -   Re-ran focused formatting, GitBook i18n parity, backend/frontend unit tests, package builds, and local minimal Supabase Chromium Playwright for the quiz widget modules flow.
+
+### 2026-05-26: 1C-Compatible Metahub Template Implementation ✅
+
+-   Implemented the opt-in `1C-Compatible` metahub template with codename `1c-compatible` while preserving `basic` as the default starter template.
+-   Added reusable typed Entity Type Constructor behavior contracts in `@universo-react/types` for single-value constants, catalogs, documents, posting, journals, registers, account charts, dynamic characteristics, and calculation type graphs.
+-   Registered the first 1C-compatible preset family in the metahubs backend: top-level Constant, existing Enumeration, Catalog, Document, Document Journal, Information Register, and Accumulation Register.
+-   Extended manifest validation so typed behavior configs fail closed on both preset manifests and preset default instances, without adding 1C-only runtime branches or extending `ObjectRecordBehavior` as the primary design.
+-   Updated the template selector with localized EN/RU status and non-affiliation copy, reusing existing MUI primitives.
+-   Added GitBook EN/RU documentation plus `docs:1c-compatible:check` clean-room/non-affiliation validation.
+-   Added Playwright flow coverage for template registration, default-template preservation, 1C-compatible metahub creation, and runtime UX leakage checks.
+-   Verification passed: `pnpm --filter @universo-react/types test`, `pnpm --filter @universo-react/types build`, metahubs backend focused Jest, backend lint/build, metahubs frontend lint/build, `pnpm docs:1c-compatible:check`, local minimal Supabase doctor, full `build:e2e`, and Playwright `@1c-compatible|@runtime-ux-canary`.
+-   Browser screenshot evidence was captured at `test-results/flows-metahub-1c-compatibl-ecea6-s-not-leak-technical-labels-chromium/1c-compatible-template-picker.png`.
+
+### 2026-05-26: 1C-Compatible Metahub Template Post-QA Closure ✅
+
+-   Replaced the misleading runtime-ready claim with a preview-safe milestone model: the template selector now shows localized preview status, and docs require behavior, storage, UI, and test evidence before any preset is promoted from preview.
+-   Added the generic `systemTemplatePreset` marker for template-managed entity types, protected template-managed preset rows from structural update/delete, and blocked user-authored custom types from claiming the marker.
+-   Added merged seed graph validation after preset toggles are applied, so behavior references such as document posting targets fail closed when a required preset is disabled.
+-   Completed the 12-preset 1C-compatible catalog as explicit manifests while keeping accounting and calculation presets preview/non-materializable until their runtime engines and UI are implemented.
+-   Corrected top-level Constant capabilities so constants remain single-value/data-schema oriented and do not inherit object/document lifecycle, records, hierarchy, posting, modules, or runtime publication behavior.
+-   Strengthened tests for typed behavior contracts, protected template-managed types, preview non-materialization, dangling behavior references, preset toggles, and built-in template compatibility.
+-   Strengthened Playwright coverage for RU template selection, keyboard submission, viewport/no-overflow checks, seeded 1C kind verification through the API, cleanup, and runtime UX leakage canaries.
+-   Verification passed: Prettier on touched files, `@universo-react/types` focused tests/build/lint, metahubs backend focused Jest/build/lint, metahubs frontend build/lint, `pnpm docs:1c-compatible:check`, local minimal Supabase doctor/build, and Playwright `@1c-compatible|@runtime-ux-canary`; local minimal Supabase was stopped after the run.
+
+### 2026-05-26: 1C-Compatible Metahub Template Security QA Closure ✅
+
+-   Reserved all registered platform preset `kindKey` values in `EntityTypeService`, closing user-created `document`/`catalog` kind squatting before preset materialization.
+-   Hardened metadata-kind resolution so template-managed object-like preset kinds map to the generic Object policy surface only when the row has a registered preset kind and the `systemTemplatePreset` marker comes from an entity type preset.
+-   Routed object-like template-managed preset route kinds through the existing Object-compatible nested list/create/update/delete and blocking-reference handlers, preserving generic behavior and avoiding 1C-only route forks.
+-   Fixed nested Object-compatible creation to require `createContent` instead of `editContent`.
+-   Made preset sync fail closed when an active non-template-managed entity type already owns a platform preset `kindKey`, preventing silent overwrite of legacy/custom rows.
+-   Added regression coverage for object-compatible route filtering/creation, blocking-reference preflight, spoofed template markers, reserved kind creation, and preset-sync overwrite safety.
+-   Verification passed: Prettier on touched files, metahubs backend focused Jest suites with 111 tests, metahubs backend build/lint, `@universo-react/types` test/build/lint, metahubs frontend build/lint, `pnpm docs:1c-compatible:check`, local minimal Supabase doctor/build, and Playwright `@1c-compatible|@runtime-ux-canary`; local minimal Supabase was stopped after the run.
+
+### 2026-05-26: 1C-Compatible Metahub Template Final QA Remediation ✅
+
+-   Made object-compatible reference deletion fail closed for specialized template-managed target kinds by treating any active `REF` with the target object id as a blocker.
+-   Aligned nested Enumeration deletion with the canonical `entity.enumeration.allowDelete` metahub setting.
+-   Made template-managed entity type presentation/UI label edits fail fast through the constructor so schema sync cannot later overwrite accepted edits silently.
+-   Replaced normal-surface raw codename fallbacks in the metahub template selector and create-options tab with localized user-facing fallbacks.
+-   Strengthened the 1C-compatible Playwright canary to inspect the MUI listbox surface, the create-options tab labels, forbidden `one-c-*` leakage, and desktop/tablet/mobile screenshot evidence.
+-   Verification passed: Prettier on touched files, metahubs backend focused Jest suites with 136 tests, backend build/lint, `@universo-react/types` test/build/lint, metahubs frontend build/lint, `pnpm docs:1c-compatible:check`, local minimal Supabase doctor/build, full `build:e2e:local-supabase`, and Playwright `@1c-compatible|@runtime-ux-canary`; local minimal Supabase was stopped after the run.
+
+### 2026-05-26: 1C-Compatible Route Isolation And UX Evidence Closure ✅
+
+-   Forced specialized object-compatible nested routes to own the effective `kindKey` in both query and create body normalization, so routes such as `document` cannot be widened or spoofed by `?kindKey=catalog` or body `kindKey`.
+-   Resolved object-compatible nested list/reorder/get/create/update/delete kind sets from the route-owned `kindKey`, and reject stored objects whose persisted kind does not match the specialized route surface.
+-   Added backend route regression coverage for conflicting query kind isolation, conflicting create body kind override, and mismatched stored-kind get/delete rejection.
+-   Extended the 1C-compatible Playwright canary to open the created metahub entity type workspace, assert localized RU preset labels, verify no technical leakage/overflow, and keyboard-navigate from the Catalog entity type action menu to the Catalog instances page.
+-   Verification passed: Prettier on touched files, metahubs backend focused route Jest and 7-suite metadata/schema/template matrix with 138 tests, metahubs backend build/lint, `@universo-react/types` test/build/lint, metahubs frontend build/lint, `pnpm docs:1c-compatible:check`, local minimal Supabase env/doctor, full `build:e2e:local-supabase`, and Playwright `@1c-compatible|@runtime-ux-canary`; local minimal Supabase was stopped after the run.
+
+### 2026-05-26: 1C-Compatible Runtime UX QA Closure ✅
+
+-   Removed the duplicate preview chip and old optional-template wording from the metahub template selector while keeping the template opt-in.
+-   Updated the Russian template description to the requested non-affiliation sentence and corrected the adjective agreement in the compatibility wording.
+-   Renamed template-managed preset display names away from the old compatibility prefixes and kept neutral metadata-object names for Constants, Catalogs, Documents, Journals, Registers, Charts, and related presets.
+-   Cleaned generic entity-instance collection pages so template-managed/custom entity types use metadata-driven titles, create button text, and dialog titles with no raw `ui.nameKey`, `entity-owned`, or `Создать сущность` leakage.
+-   Added user-facing Entity Type Constructor behavior profiles for single-value constants, catalogs, documents, journals, information registers, and accumulation registers so the behavior can be reproduced through UI controls instead of JSON-only setup.
+-   Added resource-surface shared titles so template-managed object-like entity types expose local requisites and common requisites through metadata instead of hardcoded component labels.
+-   Extended metahub settings registry generation to include template-managed custom entity kind tabs and setting keys, with backend validation and UI labels driven by entity type metadata.
+-   Prevented specialized entity pages from firing the unrelated hub instances request during loading and made the loading header neutral to avoid transient raw kind/internal fallback text.
+-   Strengthened unit and browser coverage for namespaced `ui.nameKey` fallback handling, clean runtime pages, localized create dialogs, and negative assertions for obsolete/product-internal copy.
+-   Verification passed: Prettier on touched files, `@universo-react/types` tests and build, metahubs backend focused Jest suites with 31 tests, metahubs frontend Vitest with 293 tests, metahubs frontend/backend lint, `pnpm docs:1c-compatible:check`, full local minimal Supabase `build:e2e`, and Playwright `1C-Compatible` flow with 4/4 tests passing; local minimal Supabase was stopped after the run.
+
+### 2026-05-26: 1C-Compatible QA Findings Closure ✅
+
+-   Enforced 1C-compatible constant delete/permanent-delete policy through the
+    metadata behavior setting path and added backend regressions for constant
+    copy/delete policy denial.
+-   Fixed component deletion cleanup to use the mapped `objectCollectionId`
+    instead of a shadowed component row, preventing copied requisite deletion
+    from failing with an undefined SQL binding.
+-   Hardened component/requisite routes so a specialized route kind must match
+    the stored object kind, while the generic `object` route remains valid for
+    object-compatible authoring.
+-   Removed a React runtime warning from shared entity action dialogs by taking
+    `key` out of dynamic dialog spread props and passing it as an explicit JSX
+    key.
+-   Strengthened Playwright `@1c-compatible` coverage for real UI metahub
+    creation, exact preset drift detection, responsive template picker evidence,
+    keyboard edit access, requisite create/edit/copy/delete lifecycle, and
+    route-tampering rejection.
+-   Verification passed: Prettier on touched files, `git diff --check`,
+    metahubs backend focused Jest with 108 tests plus component route
+    regressions, metahubs backend/template-mui lint and build, full local
+    minimal Supabase `build:e2e`, `pnpm docs:1c-compatible:check`, Playwright
+    canary 2/2, and full Playwright `@1c-compatible` 4/4.
+
+### 2026-05-26: 1C-Compatible Full Preset QA Remediation Closure ✅
+
+-   Shipped the full 12-preset 1C-compatible template manifest, including
+    chart/accounting/calculation preset kinds, while keeping the user-facing
+    template name and documentation aligned with clean-room/legal guidance.
+-   Extended system component seeding to all object-like 1C-compatible kinds
+    and kept constants/enumerations out of component-backed schema scaffolding.
+-   Hardened component/requisite route isolation so tampered route-kind access
+    fails closed across read, copy, update, move, reorder, required/display,
+    child, batch child, codename, and delete handlers.
+-   Replaced generic component wording in 1C-compatible requisite/register-field
+    edit, copy, delete, and display-control dialogs with localized
+    domain-specific terminology.
+-   Strengthened regression coverage for full preset drift, seed behavior,
+    route-kind tampering, transaction scope, and frontend terminology; updated
+    Playwright to create/open the 1C-compatible flow through normal UI paths
+    and assert all 12 kind keys.
+-   Verification passed: Prettier on touched files, `git diff --check`,
+    `pnpm docs:1c-compatible:check`, metahubs backend focused Jest with 74
+    tests, `@universo-react/types` Jest with 102 tests, metahubs frontend
+    Vitest with 299 tests, metahubs backend/frontend lint and build, full local
+    minimal Supabase `build:e2e`, and Playwright `@1c-compatible` with 4/4
+    tests passing after updating the browser oracle for the full preset set;
+    local minimal Supabase was stopped after the run.
+
+### 2026-05-26: 1C-Compatible Constructor UX And Lifecycle QA Closure ✅
+
+-   Moved runtime/constructor behavior presentation into reusable
+    `entityBehaviorProfiles` metadata and removed raw normal-user
+    `kindKey`/capability key leakage from Entity Type Constructor list and card
+    surfaces.
+-   Replaced mixed constructor copy with localized EN/RU wording and kept
+    template-managed preset names neutral while preserving the 1C-compatible
+    template description and non-affiliation disclaimer.
+-   Seeded 1C-compatible metahub settings for constants, catalogs, documents,
+    journals, information registers, and accumulation registers, including
+    requisite/register terminology and copy/delete lifecycle controls.
+-   Aligned shared resource presentation with common requisites for
+    1C-compatible metahubs and removed the generic unavailable shared-container
+    message from the normal resource surface.
+-   Extended frontend unit coverage for constructor leakage and settings
+    localization, backend focused coverage for templates/settings/instances,
+    and Playwright coverage for the full browser flow including responsive
+    template picker, resources/settings viewport checks, default hub instance
+    400-regression guard, and create/edit/copy/delete lifecycle across the six
+    materialized 1C-compatible runtime preset kinds.
+-   Verification passed: Prettier on touched files, JSON locale parse, `git
+diff --check`, metahubs backend focused Jest with 80 tests, metahubs
+    frontend focused Vitest with 38 tests, metahubs frontend/backend lint and
+    build, `@universo-react/types` build, `pnpm docs:1c-compatible:check`,
+    full local minimal Supabase `build:e2e`, and Playwright `@1c-compatible`
+    with 4/4 tests passing; local minimal Supabase was stopped after the run.
+
+### 2026-05-26: 1C-Compatible Requisites Runtime QA Closure ✅
+
+-   Removed PostgreSQL/storage terminology and raw component data-type codes from
+    normal requisite/component surfaces, including create/edit dialogs and
+    nested component tables.
+-   Propagated `oneCCompatible` i18n keys through the metahubs namespace so RU
+    runtime pages use localized requisite/register-field labels instead of
+    fallback English copy.
+-   Hardened direct specialized route behavior with backend regressions for
+    access denial, deterministic create collisions, route-owned kind overrides,
+    and stored-kind mismatch rejection across get/update/delete/restore/copy
+    and blocking-reference flows.
+-   Added a specialized top-level hub listing route backed by
+    `MetahubTreeEntitiesService`, preventing the normal hub page from emitting
+    a background 400 through generic object CRUD.
+-   Extended Playwright `@1c-compatible` evidence to create a catalog, open its
+    real requisites route, inspect the create dialog and type listbox for
+    technical leakage, create a requisite, run viewport/no-overflow checks, and
+    keep the default hub instances regression guard clean.
+-   Verification passed: Prettier on touched files, metahubs backend focused
+    Jest with 59 tests, metahubs frontend focused Vitest with 5 tests,
+    metahubs frontend/backend lint, `pnpm docs:1c-compatible:check`, full local
+    minimal Supabase `build:e2e:local-supabase`, and Playwright
+    `@1c-compatible` with 4/4 tests passing; local minimal Supabase was stopped
+    after the run.
+
+### 2026-05-26: 1C-Compatible Runtime QA Remediation Closure ✅
+
+-   Disabled 1C-compatible tree/container assignment metadata until Subsystems
+    are implemented, so normal instance tables no longer expose empty
+    Containers/Hubs columns for these preset kinds.
+-   Renamed the shared 1C-compatible resource surface from Common Requisites to
+    Requisites in EN/RU i18n and manifest metadata.
+-   Moved 1C-compatible local requisites/register fields out of entity edit
+    dialog tabs by routing data-schema authoring through dedicated
+    `/requisites` pages and an accessible Open Requisites row action.
+-   Registered distinct Tabler sidebar icons for every 1C-compatible preset
+    instead of falling back to the generic box icon.
+-   Strengthened unit and browser coverage for hidden container columns,
+    dedicated requisites navigation, resource labels, icon resolution, and the
+    create/edit/copy/delete lifecycle across the six materialized runtime
+    preset kinds.
+-   Verification passed: Prettier on touched files, metahubs frontend/backend
+    and template-mui lint/build checks, backend manifest Jest with 24 tests,
+    template-mui Jest with 8 tests, metahubs frontend Vitest with 297 tests,
+    `pnpm docs:1c-compatible:check`, local minimal Supabase doctor, full
+    local-Supabase `build:e2e`, and Playwright `@1c-compatible` with 4/4 tests
+    passing after correcting the browser oracle to account for the dedicated
+    requisites route; local minimal Supabase was stopped after the run.

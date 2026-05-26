@@ -121,6 +121,7 @@ const screenshotExemptPages = new Set([
     'architecture/modules-system.md',
     'architecture/system-app-convergence.md',
     'architecture/system-app-migration-lifecycle.md',
+    'platform/1c-compatible-template.md',
     'contributing/README.md',
     'contributing/coding-guidelines.md',
     'contributing/creating-packages.md',

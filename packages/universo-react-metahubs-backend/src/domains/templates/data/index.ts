@@ -8,6 +8,7 @@ import { basicTemplate } from './basic.template'
 import { basicDemoTemplate } from './basic-demo.template'
 import { emptyTemplate } from './empty.template'
 import { lmsTemplate } from './lms.template'
+import { oneCCompatibleTemplate } from './one-c-compatible.template'
 import { objectEntityPreset } from './object.entity-preset'
 import { fixedValuesLibraryEntityPreset } from './fixed-values-library.entity-preset'
 import { ledgerEntityPreset } from './ledger.entity-preset'
@@ -15,12 +16,19 @@ import { enumerationEntityPreset } from './option-list.entity-preset'
 import { pageEntityPreset } from './page.entity-preset'
 import { hubEntityPreset } from './tree-entity.entity-preset'
 import { setEntityPreset } from './value-group.entity-preset'
+import { oneCCompatibleAllPresets } from './one-c-compatible.entity-presets'
 
 /**
  * Registry of all built-in template manifests.
  * Add new templates here — the platform migration seeder will process them.
  */
-export const builtinTemplates: MetahubTemplateManifest[] = [basicTemplate, basicDemoTemplate, emptyTemplate, lmsTemplate]
+export const builtinTemplates: MetahubTemplateManifest[] = [
+    basicTemplate,
+    basicDemoTemplate,
+    emptyTemplate,
+    lmsTemplate,
+    oneCCompatibleTemplate
+]
 
 export const builtinEntityTypePresets: EntityTypePresetManifest[] = [
     hubEntityPreset,
@@ -29,8 +37,13 @@ export const builtinEntityTypePresets: EntityTypePresetManifest[] = [
     setEntityPreset,
     enumerationEntityPreset,
     ledgerEntityPreset,
-    fixedValuesLibraryEntityPreset
+    fixedValuesLibraryEntityPreset,
+    ...oneCCompatibleAllPresets
 ]
+
+export const registeredBuiltinEntityTypePresetKindKeys = new Set(builtinEntityTypePresets.map((preset) => preset.entityType.kindKey))
+
+export const isRegisteredBuiltinEntityTypePresetKind = (kindKey: string): boolean => registeredBuiltinEntityTypePresetKindKeys.has(kindKey)
 
 export interface BuiltinTemplateDefinitionSeed {
     definitionType: TemplateDefinitionType

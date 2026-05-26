@@ -124,6 +124,7 @@ export interface BaseEntityMenuProps<TEntity = unknown, TData = unknown> {
 interface DialogState {
     id: string
     Comp: React.ElementType
+    key: React.Key
     props: Record<string, unknown>
 }
 
@@ -222,8 +223,13 @@ export const BaseEntityMenu = <TEntity = unknown, TData = unknown>({
             if (d.dialog) {
                 const module = await d.dialog.loader()
                 const Comp = module.default
-                const props = d.dialog.buildProps(ctx)
-                setDialogState({ id: d.id, Comp, props })
+                const { key: dialogKey, ...props } = d.dialog.buildProps(ctx)
+                setDialogState({
+                    id: d.id,
+                    Comp,
+                    key: typeof dialogKey === 'string' || typeof dialogKey === 'number' ? dialogKey : d.id,
+                    props
+                })
                 return
             }
             if (d.onSelect) await d.onSelect(ctx)
@@ -362,6 +368,7 @@ export const BaseEntityMenu = <TEntity = unknown, TData = unknown>({
                     return (
                         <Suspense fallback={null}>
                             <dialogState.Comp
+                                key={dialogState.key}
                                 {...dialogState.props}
                                 onCancel={() => setDialogState(null)}
                                 onClose={() => setDialogState(null)}

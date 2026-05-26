@@ -29,6 +29,7 @@ import {
     getEntityMetadataKind,
     ensureEntityMutationPermission,
     checkEntityMetadataCopyPolicy,
+    checkEntityMetadataDeletePolicy,
     buildDesignTimeCopyPlan,
     applyDesignTimeCopyOverrides,
     hasDesignTimeChildrenToCopy,
@@ -38,6 +39,21 @@ import {
     executeBehaviorBlockingState,
     type EntityInstanceRow
 } from './entityControllerShared'
+
+const getSpecializedRouteKind = (req: { params: { kindKey?: string } }): string | null => {
+    const routeKind = req.params.kindKey?.trim()
+    return routeKind && routeKind.length > 0 ? routeKind : null
+}
+
+const assertEntityMatchesSpecializedRouteKind = (
+    req: { params: { entityId?: string; kindKey?: string } },
+    entity: Pick<EntityInstanceRow, 'kind'>
+): void => {
+    const routeKind = getSpecializedRouteKind(req)
+    if (routeKind && entity.kind !== routeKind) {
+        throw new MetahubNotFoundError('Entity', req.params.entityId)
+    }
+}
 
 export function createEntityCrudHandlers(createHandler: ReturnType<typeof createMetahubHandlerFactory>) {
     const list = createHandler(async ({ req, res, metahubId, userId, exec, schemaService }) => {
@@ -92,6 +108,7 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
             throw new MetahubNotFoundError('Entity', req.params.entityId)
         }
 
+        assertEntityMatchesSpecializedRouteKind(req, entity)
         await assertSupportedEntityKind(resolver, entity.kind, metahubId, userId)
         return res.json(mapEntityInstanceResponse(entity))
     })
@@ -128,29 +145,38 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
 
         const pendingObjectId = generateUuidV7()
 
-        const created = (await mutationService.run({
-            metahubId,
-            objectId: pendingObjectId,
-            userId,
-            beforeEvent: 'beforeCreate',
-            afterEvent: 'afterCreate',
-            afterEventObjectId: (createdEntity) => createdEntity.id,
-            actionExecutor,
-            mutation: async (tx) =>
-                objectsService.createObject(
-                    metahubId,
-                    parsed.data.kind,
-                    {
-                        id: pendingObjectId,
-                        codename: payload,
-                        name,
-                        description,
-                        config
-                    },
-                    userId,
-                    tx
-                )
-        })) as EntityInstanceRow
+        let created: EntityInstanceRow
+        try {
+            created = (await mutationService.run({
+                metahubId,
+                objectId: pendingObjectId,
+                userId,
+                beforeEvent: 'beforeCreate',
+                afterEvent: 'afterCreate',
+                afterEventObjectId: (createdEntity) => createdEntity.id,
+                actionExecutor,
+                mutation: async (tx) =>
+                    objectsService.createObject(
+                        metahubId,
+                        parsed.data.kind,
+                        {
+                            id: pendingObjectId,
+                            codename: payload,
+                            name,
+                            description,
+                            config
+                        },
+                        userId,
+                        tx
+                    )
+            })) as EntityInstanceRow
+        } catch (error) {
+            if (isUniqueViolation(error) && getDbErrorConstraint(error) === 'idx_mhb_objects_kind_codename_active') {
+                return res.status(409).json({ error: 'Entity codename already exists' })
+            }
+
+            throw error
+        }
 
         return res.status(201).json(mapEntityInstanceResponse(created))
     })
@@ -170,6 +196,7 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
             throw new MetahubNotFoundError('Entity', req.params.entityId)
         }
 
+        assertEntityMatchesSpecializedRouteKind(req, existing)
         const resolvedType = await assertSupportedEntityKind(resolver, existing.kind, metahubId, userId)
         await ensureEntityMutationPermission({ req, exec, userId, metahubId, resolvedType, mode: 'edit' })
 
@@ -238,6 +265,7 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
         if (!existing) {
             throw new MetahubNotFoundError('hub', req.params.entityId)
         }
+        assertEntityMatchesSpecializedRouteKind(req, existing as EntityInstanceRow)
 
         const result = await executeBehaviorBlockingState({
             behavior,
@@ -260,14 +288,19 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
 
     const getBlockingReferences = createHandler(async ({ req, res, metahubId, userId, exec, schemaService }) => {
         const routeKind = req.params.kindKey?.trim()
-        if (routeKind !== 'object' && routeKind !== 'set' && routeKind !== 'enumeration') {
+        if (!routeKind) {
             throw new MetahubNotFoundError('Entity', req.params.entityId)
         }
 
         const { objectsService, componentsService, fixedValuesService, settingsService, entityTypeService, resolver } =
             createEntityServices(exec, schemaService)
         const resolvedType = await assertSupportedEntityKind(resolver, routeKind, metahubId, userId)
-        const behavior = getEntityBehaviorService(routeKind)
+        const metadataKind = getEntityMetadataKind(resolvedType)
+        if (metadataKind !== 'object' && metadataKind !== 'set' && metadataKind !== 'enumeration') {
+            throw new MetahubNotFoundError('Entity', req.params.entityId)
+        }
+
+        const behavior = getEntityBehaviorService(metadataKind)
         if (!behavior) {
             throw new MetahubValidationError('No behavior service registered for entity kind', { kind: routeKind })
         }
@@ -276,6 +309,7 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
         if (!existing) {
             throw new MetahubNotFoundError('Entity', req.params.entityId)
         }
+        assertEntityMatchesSpecializedRouteKind(req, existing as EntityInstanceRow)
 
         const result = await executeBehaviorBlockingState({
             behavior,
@@ -312,8 +346,14 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
             throw new MetahubNotFoundError('Entity', req.params.entityId)
         }
 
+        assertEntityMatchesSpecializedRouteKind(req, existing as EntityInstanceRow)
         const resolvedType = await assertSupportedEntityKind(resolver, existing.kind, metahubId, userId)
         await ensureEntityMutationPermission({ req, exec, userId, metahubId, resolvedType, mode: 'delete' })
+
+        const policyOutcome = await checkEntityMetadataDeletePolicy({ resolvedType, settingsService, metahubId, userId })
+        if (policyOutcome) {
+            return res.status(policyOutcome.status).json(policyOutcome.body)
+        }
 
         const metadataKind = getEntityMetadataKind(resolvedType)
         const behavior = metadataKind ? getEntityBehaviorService(metadataKind) : null
@@ -377,6 +417,7 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
             throw new MetahubNotFoundError('Entity', req.params.entityId)
         }
 
+        assertEntityMatchesSpecializedRouteKind(req, entity as EntityInstanceRow)
         const resolvedType = await assertSupportedEntityKind(resolver, entity.kind, metahubId, userId)
         await ensureEntityMutationPermission({ req, exec, userId, metahubId, resolvedType, mode: 'edit' })
 
@@ -405,11 +446,17 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
             throw new MetahubNotFoundError('Entity', req.params.entityId)
         }
 
+        assertEntityMatchesSpecializedRouteKind(req, entity as EntityInstanceRow)
         const resolvedType = await assertSupportedEntityKind(resolver, entity.kind, metahubId, userId)
         await ensureEntityMutationPermission({ req, exec, userId, metahubId, resolvedType, mode: 'delete' })
 
         if (entity._mhb_deleted !== true) {
             throw new MetahubValidationError('Entity is not deleted', { entityId: entity.id })
+        }
+
+        const policyOutcome = await checkEntityMetadataDeletePolicy({ resolvedType, settingsService, metahubId, userId })
+        if (policyOutcome) {
+            return res.status(policyOutcome.status).json(policyOutcome.body)
         }
 
         const metadataKind = getEntityMetadataKind(resolvedType)
@@ -459,6 +506,7 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
             throw new MetahubNotFoundError('Entity', req.params.entityId)
         }
 
+        assertEntityMatchesSpecializedRouteKind(req, source)
         const resolvedType = await assertSupportedEntityKind(resolver, source.kind, metahubId, userId)
         await ensureEntityMutationPermission({ req, exec, userId, metahubId, resolvedType, mode: 'edit' })
         const copyPolicyOutcome = await checkEntityMetadataCopyPolicy({

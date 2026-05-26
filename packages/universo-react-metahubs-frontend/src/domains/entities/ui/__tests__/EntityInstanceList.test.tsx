@@ -193,6 +193,8 @@ vi.mock('react-i18next', () => ({
                 'entities.instances.components.emptyTitle': 'No components yet',
                 'entities.instances.components.emptyDescription': 'Create the first component to define the data shape for this entity.',
                 'components.searchPlaceholder': 'Search components...',
+                'entities.instances.actions.openContent': 'Open',
+                'oneCCompatible.requisites.openAction': 'Open requisites',
                 'entities.instances.tabs.content': 'Content',
                 'common:actions.more': 'More actions',
                 'common:actions.copy': 'Copy',
@@ -289,7 +291,9 @@ vi.mock('@universo-react/template-mui', async (importOriginal) => {
                     'common:actions.edit': 'Edit',
                     'common:actions.delete': 'Delete',
                     'common:actions.restore': 'Restore',
-                    'common:actions.deletePermanently': 'Delete permanently'
+                    'common:actions.deletePermanently': 'Delete permanently',
+                    'entities.instances.actions.openContent': 'Open',
+                    'oneCCompatible.requisites.openAction': 'Open requisites'
                 }
                 return mapped[key] ?? key
             }
@@ -569,7 +573,13 @@ describe('EntityInstanceList', () => {
                             iconName: 'IconBox',
                             tabs: ['general', 'treeEntities', 'layout', 'modules'],
                             sidebarSection: 'objects',
-                            nameKey: 'Products'
+                            nameKey: 'metahubs:oneCCompatible.constants.title'
+                        },
+                        presentation: {
+                            name: makeVlc('Products'),
+                            dialogTitles: {
+                                create: makeVlc('Create Product')
+                            }
                         },
                         capabilities: {
                             dataSchema: { enabled: true },
@@ -656,8 +666,14 @@ describe('EntityInstanceList', () => {
 
         expect(screen.queryByText(/Modules remain unavailable/i)).not.toBeInTheDocument()
 
-        await user.click(screen.getByRole('button', { name: 'Create entity' }))
+        expect(screen.getByRole('heading', { name: 'Products' })).toBeInTheDocument()
+        expect(screen.queryByText('metahubs:oneCCompatible.constants.title')).not.toBeInTheDocument()
+        expect(screen.queryByText(/entity-owned/i)).not.toBeInTheDocument()
+        expect(screen.queryByText(/unified/i)).not.toBeInTheDocument()
 
+        await user.click(screen.getByRole('button', { name: 'Create' }))
+
+        expect(screen.getByText('Create Product')).toBeInTheDocument()
         expect(screen.getByText('General')).toBeInTheDocument()
         expect(screen.getAllByText('Containers').length).toBeGreaterThan(0)
         expect(screen.queryByText('Components')).not.toBeInTheDocument()
@@ -799,6 +815,106 @@ describe('EntityInstanceList', () => {
                 })
             })
         )
+    })
+
+    it('opens 1C-compatible requisites through an explicit action without container columns or dialog requisites tab', async () => {
+        mockEntityTypesQuery.mockReturnValue({
+            data: {
+                items: [
+                    {
+                        id: 'type-catalog',
+                        kindKey: 'catalog',
+                        codename: makeVlc('Catalog'),
+                        ui: {
+                            iconName: 'IconAddressBook',
+                            tabs: ['general', 'behavior', 'components', 'layout', 'modules'],
+                            sidebarSection: 'objects',
+                            nameKey: 'metahubs:oneCCompatible.catalogs.title',
+                            resourceSurfaces: [
+                                {
+                                    key: 'requisites',
+                                    capability: 'dataSchema',
+                                    routeSegment: 'requisites',
+                                    fallbackTitle: 'Requisites'
+                                }
+                            ]
+                        },
+                        presentation: {
+                            name: makeVlc('Catalogs'),
+                            dialogTitles: {
+                                edit: makeVlc('Edit Catalog')
+                            }
+                        },
+                        capabilities: {
+                            dataSchema: { enabled: true },
+                            records: { enabled: true },
+                            treeAssignment: false,
+                            layoutConfig: { enabled: true },
+                            modules: { enabled: true },
+                            actions: { enabled: true },
+                            events: { enabled: true }
+                        }
+                    }
+                ]
+            },
+            error: null,
+            isLoading: false
+        })
+
+        const catalogEntity = {
+            id: 'catalog-1',
+            kind: 'catalog',
+            codename: makeVlc('products'),
+            name: makeVlc('Products'),
+            description: makeVlc('Catalog row'),
+            config: {},
+            sortOrder: 1,
+            version: 1,
+            updatedAt: '2026-04-09T12:00:00.000Z',
+            _mhb_deleted: false
+        }
+        mockPaginatedResult.data = [catalogEntity]
+        mockEntityInstancesQuery.mockReturnValue({
+            data: { items: mockPaginatedResult.data }
+        })
+        mockEntityInstanceDetailQuery.mockReturnValue({
+            data: catalogEntity,
+            isLoading: false
+        })
+        const user = userEvent.setup()
+
+        const { unmount } = render(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/catalog/instances']}>
+                <Routes>
+                    <Route path='/metahub/:metahubId/entities/:kindKey/instances' element={<EntityInstanceListContent />} />
+                    <Route
+                        path='/metahub/:metahubId/entities/:kindKey/instance/:objectCollectionId/requisites'
+                        element={<div>Requisites route opened</div>}
+                    />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        expect(screen.queryByRole('columnheader', { name: 'Containers' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('columnheader', { name: 'Hubs' })).not.toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: 'More actions' }))
+        await user.click(screen.getByRole('menuitem', { name: 'Open requisites' }))
+        expect(screen.getByText('Requisites route opened')).toBeInTheDocument()
+        unmount()
+
+        render(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/catalog/instances']}>
+                <Routes>
+                    <Route path='/metahub/:metahubId/entities/:kindKey/instances' element={<EntityInstanceListContent />} />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        await user.click(screen.getByRole('button', { name: 'More actions' }))
+        await user.click(screen.getByRole('menuitem', { name: 'Edit' }))
+        expect(screen.getByText('Edit Catalog')).toBeInTheDocument()
+        expect(screen.queryByText('Requisites')).not.toBeInTheDocument()
     })
 
     it('hydrates the list-view edit dialog from the entity detail query when table rows omit raw payloads', async () => {
@@ -1219,7 +1335,8 @@ describe('EntityInstanceList', () => {
             </MemoryRouter>
         )
 
-        expect(screen.getByRole('heading', { name: 'Pages' })).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: 'Loading...' })).toBeInTheDocument()
+        expect(screen.queryByRole('heading', { name: 'entityType.instances.title' })).not.toBeInTheDocument()
         expect(screen.queryByRole('heading', { name: 'page' })).not.toBeInTheDocument()
         expect(container.querySelector('.MuiSkeleton-root') ?? screen.queryByTestId('skeleton-grid')).toBeTruthy()
         expect(screen.queryByText('No pages yet')).not.toBeInTheDocument()
@@ -1356,7 +1473,7 @@ describe('EntityInstanceList', () => {
         await user.click(screen.getByRole('button', { name: 'More actions' }))
 
         const menuItems = screen.getAllByRole('menuitem').map((item) => item.textContent)
-        expect(menuItems).toEqual(['Edit', 'Copy', 'Delete'])
+        expect(menuItems).toEqual(['Open', 'Edit', 'Copy', 'Delete'])
         expect(screen.queryByRole('menuitem', { name: 'Open content' })).not.toBeInTheDocument()
         expect(screen.queryByRole('menuitem', { name: 'Edit properties' })).not.toBeInTheDocument()
     })
@@ -1685,7 +1802,7 @@ describe('EntityInstanceList', () => {
 
         expect(screen.getByText('Product One')).toBeInTheDocument()
         expect(screen.getByText('You do not have permission to manage entity instances for this metahub.')).toBeInTheDocument()
-        expect(screen.queryByRole('button', { name: 'Create entity' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Create' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Copy' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument()

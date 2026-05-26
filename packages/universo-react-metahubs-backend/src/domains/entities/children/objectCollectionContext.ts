@@ -9,7 +9,7 @@ import {
     resolveEntityMetadataKinds
 } from '../../shared/entityMetadataKinds'
 
-type ObjectCompatibleTypeLike = Pick<ResolvedEntityType, 'kindKey'> & {
+type ObjectCompatibleTypeLike = Pick<ResolvedEntityType, 'kindKey' | 'capabilities'> & {
     config?: Record<string, unknown> | null
 }
 

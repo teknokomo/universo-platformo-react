@@ -12,7 +12,7 @@ import RestartAltIcon from '@mui/icons-material/RestartAlt'
 import SaveIcon from '@mui/icons-material/Save'
 import { useTranslation } from 'react-i18next'
 import { useSnackbar } from 'notistack'
-import { buildEntitySurfaceSettingKey, METAHUB_SETTINGS_TABS, type SettingsTab as MetahubSettingsTab } from '@universo-react/types'
+import { buildEntitySurfaceSettingKey, METAHUB_SETTINGS_TABS } from '@universo-react/types'
 
 // project imports
 import { TemplateMainCard as MainCard, EmptyListState, APIEmptySVG, useDebouncedSearch, useConfirm } from '@universo-react/template-mui'
@@ -22,11 +22,12 @@ import { useSettings, useUpdateSettings, useResetSetting } from '../hooks/useSet
 import type { SettingResponse, SettingsRegistryEntry } from '../api/settingsApi'
 import SettingControl from './SettingControl'
 import CodenameStylePreview from './CodenameStylePreview'
+import { getLocalizedContentText } from '../../../utils/localizedInput'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const SETTING_TABS = METAHUB_SETTINGS_TABS
-type SettingTab = MetahubSettingsTab
+type SettingTab = string
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -50,10 +51,35 @@ function isSameAsDefault(value: unknown, defaultValue: unknown): boolean {
     }
 }
 
+const resolveBaseEntitySettingKey = (key: string): string => {
+    const parts = key.split('.')
+    if (parts.length < 3 || parts[0] !== 'entity') {
+        return key
+    }
+
+    const suffix = parts.slice(2).join('.')
+    if (suffix.includes('Constant')) {
+        return `entity.set.${suffix}`
+    }
+    if (suffix === 'allowCopy' || suffix === 'allowDelete') {
+        return `entity.object.${suffix}`
+    }
+    if (
+        suffix.includes('Component') ||
+        suffix.includes('Element') ||
+        suffix === 'componentCodenameScope' ||
+        suffix === 'allowedComponentTypes'
+    ) {
+        return `entity.object.${suffix}`
+    }
+
+    return key
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 const SettingsPage = () => {
-    const { t } = useTranslation('metahubs')
+    const { t, i18n } = useTranslation('metahubs')
     const { enqueueSnackbar } = useSnackbar()
 
     // Data fetching
@@ -87,8 +113,21 @@ const SettingsPage = () => {
 
         const registryTabs = new Set(data.registry.map((entry) => entry.tab))
         const orderedTabs = data.meta?.tabOrder?.length ? data.meta.tabOrder : SETTING_TABS
-        return orderedTabs.filter((tab): tab is SettingTab => registryTabs.has(tab) && (SETTING_TABS as readonly string[]).includes(tab))
+        return orderedTabs.filter((tab): tab is SettingTab => registryTabs.has(tab))
     }, [data?.registry, data?.meta?.tabOrder])
+
+    const resolveTabLabel = useCallback(
+        (tab: string): string => {
+            const metadataLabel = data?.meta?.tabLabels?.[tab]
+            const resolvedLabel = getLocalizedContentText(metadataLabel as Parameters<typeof getLocalizedContentText>[0], i18n.language, '')
+            if (resolvedLabel) {
+                return resolvedLabel
+            }
+
+            return t(`settings.tabs.${tab}`, { defaultValue: tab })
+        },
+        [data?.meta?.tabLabels, i18n.language, t]
+    )
 
     useEffect(() => {
         if (visibleTabs.length > 0 && !visibleTabs.includes(activeTab)) {
@@ -166,8 +205,13 @@ const SettingsPage = () => {
         if (!searchFilter) return entries
         const lower = searchFilter.toLowerCase()
         return entries.filter((entry) => {
-            const label = t(`settings.keys.${entry.key}`, { defaultValue: entry.key }).toLowerCase()
-            const description = t(`settings.keys.${entry.key}.description`, { defaultValue: '' }).toLowerCase()
+            const baseKey = resolveBaseEntitySettingKey(entry.key)
+            const label = t(`settings.keys.${entry.key}`, {
+                defaultValue: t(`settings.keys.${baseKey}`, { defaultValue: entry.key })
+            }).toLowerCase()
+            const description = t(`settings.keys.${entry.key}.description`, {
+                defaultValue: t(`settings.keys.${baseKey}.description`, { defaultValue: '' })
+            }).toLowerCase()
             return label.includes(lower) || description.includes(lower) || entry.key.toLowerCase().includes(lower)
         })
     }, [tabRegistry, searchFilter, t, localChanges, settingsMap, data?.meta?.hasHubNesting])
@@ -264,7 +308,7 @@ const SettingsPage = () => {
             <Box data-testid='metahub-settings-tabs' sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
                 <Tabs value={activeTab} onChange={handleTabChange} variant='scrollable' scrollButtons='auto'>
                     {visibleTabs.map((tab) => (
-                        <Tab key={tab} label={t(`settings.tabs.${tab}`)} value={tab} />
+                        <Tab key={tab} label={resolveTabLabel(tab)} value={tab} />
                     ))}
                 </Tabs>
             </Box>
@@ -301,7 +345,13 @@ const SettingsPage = () => {
                                     {/* Label + description */}
                                     <Box sx={{ flex: 1, minWidth: 0 }}>
                                         <Stack direction='row' alignItems='center' spacing={1}>
-                                            <Typography variant='subtitle2'>{t(`settings.keys.${entry.key}`)}</Typography>
+                                            <Typography variant='subtitle2'>
+                                                {t(`settings.keys.${entry.key}`, {
+                                                    defaultValue: t(`settings.keys.${resolveBaseEntitySettingKey(entry.key)}`, {
+                                                        defaultValue: entry.key
+                                                    })
+                                                })}
+                                            </Typography>
                                             {isLocallyModified && (
                                                 <Typography variant='caption' color='info.main' sx={{ fontStyle: 'italic' }}>
                                                     •
@@ -309,7 +359,11 @@ const SettingsPage = () => {
                                             )}
                                         </Stack>
                                         <Typography variant='body2' color='text.secondary'>
-                                            {t(`settings.keys.${entry.key}.description`)}
+                                            {t(`settings.keys.${entry.key}.description`, {
+                                                defaultValue: t(`settings.keys.${resolveBaseEntitySettingKey(entry.key)}.description`, {
+                                                    defaultValue: ''
+                                                })
+                                            })}
                                         </Typography>
 
                                         {/* Codename style preview */}

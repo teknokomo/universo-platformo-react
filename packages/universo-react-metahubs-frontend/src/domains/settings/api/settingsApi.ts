@@ -33,6 +33,7 @@ export interface SettingsResponse {
     meta?: {
         hasHubNesting?: boolean
         tabOrder?: string[]
+        tabLabels?: Record<string, unknown>
     }
 }
 

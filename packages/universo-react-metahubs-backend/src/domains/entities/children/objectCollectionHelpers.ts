@@ -26,7 +26,11 @@ import {
 import { getCodenameText } from '../../shared/codename'
 import { readPlatformSystemComponentsPolicy } from '../../shared'
 import { executeHubScopedDelete } from '../services/entityDeletePatterns'
-import { resolveRequestedEntityMetadataKind } from '../../shared/entityMetadataKinds'
+import {
+    resolveEntityMetadataSettingKeys,
+    resolveRequestedEntityMetadataKind,
+    resolveRequestedEntityMetadataKinds
+} from '../../shared/entityMetadataKinds'
 import {
     createObjectCollectionCompatibleKindSet,
     findBlockingObjectCollectionReferences,
@@ -348,6 +352,16 @@ const createDomainServices = (exec: DbExecutor, schemaService: MetahubSchemaServ
 const resolveObjectCollectionObjectKind = (object: Pick<ObjectCollectionObjectRow, 'kind'>): string =>
     typeof object.kind === 'string' && object.kind.length > 0 ? object.kind : MetaEntityKind.OBJECT
 
+const resolveRouteObjectCollectionKinds = async (
+    entityTypeService: EntityTypeService,
+    metahubId: string,
+    userId: string | undefined,
+    routeKindKey: unknown
+): Promise<string[]> =>
+    typeof routeKindKey === 'string'
+        ? resolveRequestedEntityMetadataKinds(entityTypeService, metahubId, MetaEntityKind.OBJECT, routeKindKey, userId)
+        : resolveObjectCollectionCompatibleKinds(entityTypeService, metahubId, userId)
+
 // ---------------------------------------------------------------------------
 // Controller factory
 // ---------------------------------------------------------------------------
@@ -371,7 +385,7 @@ export const listObjectCollectionsByHub = async ({ req, res, metahubId, userId, 
 
     const { limit, offset, sortBy, sortOrder, search } = validatedQuery
 
-    const objectCompatibleKinds = await resolveObjectCollectionCompatibleKinds(entityTypeService, metahubId, userId)
+    const objectCompatibleKinds = await resolveRouteObjectCollectionKinds(entityTypeService, metahubId, userId, req.query.kindKey)
     const allCollections = (await objectsService.findAllByKinds(metahubId, objectCompatibleKinds, userId)) as ObjectCollectionObjectRow[]
 
     const containerCollections = allCollections.filter((cat) => getObjectCollectionContainerIds(cat).includes(treeEntityId))
@@ -429,7 +443,7 @@ export const listObjectCollectionsByHub = async ({ req, res, metahubId, userId, 
 
 export const reorderObjectCollections = async ({ req, res, metahubId, userId, exec, schemaService }: MetahubHandlerContext) => {
     const { objectsService, entityTypeService } = createDomainServices(exec, schemaService)
-    const objectCompatibleKinds = await resolveObjectCollectionCompatibleKinds(entityTypeService, metahubId, userId)
+    const objectCompatibleKinds = await resolveRouteObjectCollectionKinds(entityTypeService, metahubId, userId, req.query.kindKey)
     const objectCompatibleKindSet = createObjectCollectionCompatibleKindSet(objectCompatibleKinds)
 
     const parsed = reorderObjectCollectionsSchema.safeParse(req.body)
@@ -463,7 +477,7 @@ export const getObjectCollectionByHub = async ({ req, res, metahubId, userId, ex
         schemaService
     )
     const objectCompatibleKindSet = createObjectCollectionCompatibleKindSet(
-        await resolveObjectCollectionCompatibleKinds(entityTypeService, metahubId, userId)
+        await resolveRouteObjectCollectionKinds(entityTypeService, metahubId, userId, req.query.kindKey)
     )
 
     const object = await objectsService.findById(metahubId, objectCollectionId, userId)
@@ -514,7 +528,7 @@ export const createObjectCollectionByHub = async ({ req, res, metahubId, userId,
         schemaService
     )
     const platformSystemComponentsPolicy = await readPlatformSystemComponentsPolicy(exec)
-    const objectCompatibleKinds = await resolveObjectCollectionCompatibleKinds(entityTypeService, metahubId, userId)
+    const objectCompatibleKinds = await resolveRouteObjectCollectionKinds(entityTypeService, metahubId, userId, req.query.kindKey)
 
     const hub = await treeEntitiesService.findById(metahubId, treeEntityId, userId)
     if (!hub) {
@@ -669,7 +683,7 @@ export const updateObjectCollectionByHub = async ({ req, res, metahubId, userId,
         exec,
         schemaService
     )
-    const objectCompatibleKinds = await resolveObjectCollectionCompatibleKinds(entityTypeService, metahubId, userId)
+    const objectCompatibleKinds = await resolveRouteObjectCollectionKinds(entityTypeService, metahubId, userId, req.query.kindKey)
     const objectCompatibleKindSet = createObjectCollectionCompatibleKindSet(objectCompatibleKinds)
 
     const object = await objectsService.findById(metahubId, objectCollectionId, userId)
@@ -851,7 +865,7 @@ export const deleteObjectCollectionByHub = async ({ req, res, metahubId, userId,
     const { treeEntityId, objectCollectionId } = req.params
     const { objectsService, componentsService, settingsService, entityTypeService } = createDomainServices(exec, schemaService)
     const objectCompatibleKindSet = createObjectCollectionCompatibleKindSet(
-        await resolveObjectCollectionCompatibleKinds(entityTypeService, metahubId, userId)
+        await resolveRouteObjectCollectionKinds(entityTypeService, metahubId, userId, req.query.kindKey)
     )
 
     const object = await objectsService.findById(metahubId, objectCollectionId, userId)
@@ -868,11 +882,15 @@ export const deleteObjectCollectionByHub = async ({ req, res, metahubId, userId,
         lastHubConflictMessage:
             'Cannot remove object from its last hub because it requires at least one hub association. Use force=true to delete the object entirely.',
         beforeDelete: async () => {
-            const allowDeleteRow = await settingsService.findByKey(metahubId, 'entity.object.allowDelete', userId)
-            if (allowDeleteRow && allowDeleteRow.value?._value === false) {
-                return {
-                    status: 403,
-                    body: { error: 'Deleting objects is disabled in metahub settings' }
+            const resolvedType = await entityTypeService.resolveType(metahubId, resolveObjectCollectionObjectKind(object!), userId)
+            const allowDeleteKeys = resolveEntityMetadataSettingKeys(resolvedType, 'allowDelete')
+            for (const settingKey of allowDeleteKeys.length > 0 ? allowDeleteKeys : ['entity.object.allowDelete']) {
+                const allowDeleteRow = await settingsService.findByKey(metahubId, settingKey, userId)
+                if (allowDeleteRow && allowDeleteRow.value?._value === false) {
+                    return {
+                        status: 403,
+                        body: { error: 'Deleting objects is disabled in metahub settings' }
+                    }
                 }
             }
 

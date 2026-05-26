@@ -504,4 +504,76 @@ describe('ComponentList system tab', () => {
         expect(localRow).not.toHaveTextContent('move-up')
         expect(localRow).not.toHaveTextContent('move-down')
     })
+
+    it('renders 1C requisite tables with user-facing type labels and without storage details', async () => {
+        usePaginatedMock.mockReturnValue({
+            data: [
+                {
+                    id: 'cmp-requisite-1',
+                    objectCollectionId: 'object-1',
+                    codename: 'description',
+                    name: { version: 1, locales: { en: { content: 'Description' } } },
+                    description: null,
+                    dataType: 'STRING',
+                    validationRules: { versioned: true, localized: true },
+                    uiConfig: {},
+                    isRequired: false,
+                    isDisplayComponent: false,
+                    sortOrder: 1,
+                    createdAt: '2026-03-16T00:00:00.000Z',
+                    updatedAt: '2026-03-16T00:00:00.000Z'
+                },
+                {
+                    id: 'cmp-requisite-2',
+                    objectCollectionId: 'object-1',
+                    codename: 'lines',
+                    name: { version: 1, locales: { en: { content: 'Lines' } } },
+                    description: null,
+                    dataType: 'TABLE',
+                    validationRules: {},
+                    uiConfig: {},
+                    isRequired: false,
+                    isDisplayComponent: false,
+                    sortOrder: 2,
+                    createdAt: '2026-03-16T00:00:00.000Z',
+                    updatedAt: '2026-03-16T00:00:00.000Z'
+                }
+            ],
+            isLoading: false,
+            error: null,
+            meta: {
+                totalAll: 2,
+                limit: 100,
+                limitReached: false,
+                childSearchMatchParentIds: [],
+                platformSystemComponentsPolicy: {
+                    allowConfiguration: true,
+                    forceCreate: true,
+                    ignoreMetahubSettings: true
+                }
+            },
+            pagination: { totalItems: 2, page: 1, limit: 20, totalPages: 1, hasNextPage: false, hasPrevPage: false },
+            actions: { setSearch: vi.fn(), goToPage: goToPageMock }
+        })
+
+        render(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/catalog/instance/object-1/requisites']}>
+                <Routes>
+                    <Route
+                        path='/metahub/:metahubId/entities/:kindKey/instance/:objectCollectionId/requisites'
+                        element={<ComponentList />}
+                    />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        expect(await screen.findByRole('heading', { name: 'Requisites' })).toBeInTheDocument()
+        expect(screen.getByText('String')).toBeInTheDocument()
+        expect(screen.getByText('Table')).toBeInTheDocument()
+        expect(screen.getByText('History')).toBeInTheDocument()
+        expect(screen.getByText('Multilingual')).toBeInTheDocument()
+
+        const surfaceText = document.body.textContent ?? ''
+        expect(surfaceText).not.toMatch(/PostgreSQL|jsonb|varchar|VLC|\bSTRING\b|\bTABLE\b|System key/i)
+    })
 })

@@ -4,7 +4,7 @@ import { qSchemaTable } from '@universo-react/database'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { EntityTypeService } from '../../entities/services/EntityTypeService'
 import { incrementVersion } from '../../../utils/optimisticLock'
-import { getSettingDefinition } from '@universo-react/types'
+import { getSettingDefinition, type SettingDefinition } from '@universo-react/types'
 import type { MetahubSettingRow } from '@universo-react/types'
 import { validateSettingValue } from '../../shared/validateSettingValue'
 import { resolveEntityMetadataKindsInSchema } from '../../shared/entityMetadataKinds'
@@ -116,15 +116,18 @@ export class MetahubSettingsService {
     async bulkUpsert(
         metahubId: string,
         settings: Array<{ key: string; value: Record<string, unknown> }>,
-        userId?: string
+        userId?: string,
+        registry: readonly SettingDefinition[] | undefined = undefined
     ): Promise<MetahubSettingRow[]> {
-        const unknownKeys = settings.map((s) => s.key).filter((k) => !getSettingDefinition(k))
+        const definitions = registry ? new Map(registry.map((definition) => [definition.key, definition])) : null
+        const resolveDefinition = (key: string) => definitions?.get(key) ?? getSettingDefinition(key)
+        const unknownKeys = settings.map((s) => s.key).filter((k) => !resolveDefinition(k))
         if (unknownKeys.length > 0) {
             throw new MetahubValidationError(`Unknown setting keys: ${unknownKeys.join(', ')}`)
         }
 
         const invalidValueErrors = settings
-            .map((setting) => validateSettingValue(setting.key, setting.value))
+            .map((setting) => validateSettingValue(setting.key, setting.value, undefined, resolveDefinition(setting.key)))
             .filter((error): error is string => Boolean(error))
 
         if (invalidValueErrors.length > 0) {

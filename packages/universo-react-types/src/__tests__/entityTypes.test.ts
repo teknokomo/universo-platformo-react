@@ -8,6 +8,7 @@ import {
     isBuiltinEntityKind,
     isLedgerSchemaCapableEntity,
     normalizeEntityResourceSurfaceDefinitions,
+    resolveEntityResourceSurfaceSharedTitle,
     resolveEntityResourceSurfaceTitle,
     supportsLedgerSchema,
     validateEntityResourceSurfacesAgainstCapabilities,
@@ -136,13 +137,23 @@ describe('entity type contracts', () => {
                         ru: { content: 'Свойства', version: 1, isActive: true }
                     }
                 },
-                fallbackTitle: 'Components'
+                fallbackTitle: 'Components',
+                sharedTitle: {
+                    _schema: '1',
+                    _primary: 'en',
+                    locales: {
+                        en: { content: 'Common Properties', version: 1, isActive: true },
+                        ru: { content: 'Общие свойства', version: 1, isActive: true }
+                    }
+                },
+                fallbackSharedTitle: 'Common Components'
             }
         ])
 
         expect(surfaces).toHaveLength(1)
         expect(resolveEntityResourceSurfaceTitle(surfaces![0], { locale: 'ru' })).toBe('Свойства')
         expect(resolveEntityResourceSurfaceTitle(surfaces![0], { locale: 'de' })).toBe('Properties')
+        expect(resolveEntityResourceSurfaceSharedTitle(surfaces![0], { locale: 'ru' })).toBe('Общие свойства')
 
         validateEntityResourceSurfacesAgainstCapabilities(surfaces, {
             dataSchema: { enabled: true },

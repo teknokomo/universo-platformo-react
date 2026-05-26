@@ -253,4 +253,94 @@ describe('Template seed services transaction scope', () => {
             hubs: ['generated-id-1']
         })
     })
+
+    it('seeds system components for 1C object-like entities while skipping standalone constants', async () => {
+        const componentInserts: Record<string, unknown>[] = []
+        const adminSelect = jest.fn(async () => [])
+        let nextId = 1
+
+        const buildObjectQuery = () => ({
+            where: jest.fn(() => ({
+                whereRaw: jest.fn(() => ({
+                    first: jest.fn(async () => undefined)
+                }))
+            }))
+        })
+
+        const trx = {
+            raw: jest.fn((sql: string, params: unknown[]) => ({ sql, params })),
+            withSchema: jest.fn((schemaName: string) => ({
+                from: jest.fn((tableName: string) => {
+                    if (schemaName === 'admin' && tableName === 'cfg_settings') {
+                        return {
+                            where: jest.fn().mockReturnThis(),
+                            whereIn: jest.fn().mockReturnThis(),
+                            whereRaw: jest.fn().mockReturnThis(),
+                            select: adminSelect
+                        }
+                    }
+
+                    if (tableName === '_mhb_objects') {
+                        return buildObjectQuery()
+                    }
+
+                    if (tableName === '_mhb_components') {
+                        return {
+                            where: jest.fn(() => ({
+                                select: jest.fn(async () => [])
+                            }))
+                        }
+                    }
+
+                    throw new Error(`Unexpected table read: ${schemaName}.${tableName}`)
+                }),
+                into: jest.fn((tableName: string) => {
+                    if (tableName === '_mhb_objects') {
+                        return {
+                            insert: (payload: Record<string, unknown>) => ({
+                                returning: async () => [{ id: `${payload.kind}-id-${nextId++}` }]
+                            })
+                        }
+                    }
+
+                    if (tableName === '_mhb_components') {
+                        return {
+                            insert: async (payload: Record<string, unknown>) => {
+                                componentInserts.push(payload)
+                                return 1
+                            }
+                        }
+                    }
+
+                    throw new Error(`Unexpected table insert: ${schemaName}.${tableName}`)
+                })
+            }))
+        }
+
+        const executor = new TemplateSeedExecutor({} as never, 'mhb_tx_scope')
+        await (executor as any).createEntities(
+            trx,
+            [
+                {
+                    codename: 'Products',
+                    kind: 'catalog',
+                    name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Products' } } }
+                },
+                {
+                    codename: 'OrganizationName',
+                    kind: 'constant',
+                    name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Organization Name' } } }
+                }
+            ],
+            {
+                style: 'pascal-case',
+                alphabet: 'en-ru',
+                localizedEnabled: true
+            }
+        )
+
+        expect(adminSelect).toHaveBeenCalledTimes(1)
+        expect(componentInserts.length).toBeGreaterThan(0)
+        expect(new Set(componentInserts.map((payload) => payload.object_id))).toEqual(new Set(['catalog-id-1']))
+    })
 })

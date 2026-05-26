@@ -112,6 +112,32 @@ describe('MetahubComponentsService active-row filtering', () => {
         expect(mockExecQuery.mock.calls[0][1]).toEqual(['enum-1', ['enumeration', 'custom.option-list']])
     })
 
+    it('does not ignore object reference blockers that store specialized 1C-compatible target kinds', async () => {
+        mockExecQuery.mockResolvedValueOnce([
+            {
+                component_id: 'component-1',
+                component_codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Registrar' } } },
+                component_presentation: { name: { en: 'Registrar' } },
+                source_object_id: 'object-2',
+                source_object_codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Movements' } } },
+                source_object_presentation: { name: { en: 'Movements' } }
+            }
+        ])
+
+        const result = await service.findObjectReferenceBlockers('metahub-1', 'document-1', 'user-1')
+
+        expect(mockExecQuery).toHaveBeenCalled()
+        expect(mockExecQuery.mock.calls[0][0]).not.toContain("cmp.target_object_kind = 'object'")
+        expect(mockExecQuery.mock.calls[0][0]).not.toContain('cmp.target_object_kind = ANY')
+        expect(mockExecQuery.mock.calls[0][1]).toEqual(['document-1'])
+        expect(result).toEqual([
+            expect.objectContaining({
+                componentId: 'component-1',
+                sourceObjectCollectionId: 'object-2'
+            })
+        ])
+    })
+
     it('matches compatible enumeration target kinds when finding default enum value blockers', async () => {
         await service.findDefaultEnumValueBlockers('metahub-1', 'value-1', 'user-1', ['enumeration', 'custom.option-list'])
 
@@ -201,6 +227,49 @@ describe('MetahubComponentsService active-row filtering', () => {
                 })
             ])
         )
+    })
+
+    it('uses the mapped objectCollectionId when cleaning shared overrides after component delete', async () => {
+        mockExecQuery.mockImplementation(async (sql: string) => {
+            if (sql.includes('WHERE id = $1') && sql.includes('AND _upl_deleted = false AND _mhb_deleted = false')) {
+                return [
+                    {
+                        id: 'attr-1',
+                        object_id: 'object-1',
+                        codename: 'Title',
+                        presentation: { name: { en: 'Title' } },
+                        data_type: 'STRING',
+                        is_required: false,
+                        is_display_component: false,
+                        target_object_id: null,
+                        target_object_kind: null,
+                        target_constant_id: null,
+                        parent_component_id: null,
+                        sort_order: 1,
+                        validation_rules: null,
+                        ui_config: null,
+                        _upl_version: 1,
+                        _upl_created_at: '2026-03-13T00:00:00.000Z',
+                        _upl_updated_at: '2026-03-13T00:00:00.000Z'
+                    }
+                ]
+            }
+            if (sql.includes('SELECT data_type')) {
+                return [{ data_type: 'STRING' }]
+            }
+            if (isUpdateStatement(sql)) {
+                return [{ id: 'attr-1' }]
+            }
+            if (sql.includes('SELECT kind')) {
+                return [{ kind: 'object' }]
+            }
+            return []
+        })
+
+        await service.delete('metahub-1', 'attr-1', 'user-1')
+
+        const parentObjectLookup = mockExecQuery.mock.calls.find(([sql]) => String(sql).includes('SELECT kind'))
+        expect(parentObjectLookup?.[1]).toEqual(['object-1'])
     })
 
     it('rejects reserved managed-system codenames for business components', async () => {

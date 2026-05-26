@@ -13,22 +13,18 @@ const ensureGenericRouteKind = (req: Request): void => {
         return
     }
 
-    if (typeof req.query.kind !== 'string') {
-        req.query = {
-            ...req.query,
-            kind: routeKindKey
-        }
+    req.query = {
+        ...req.query,
+        kind: routeKindKey
     }
 
     if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
         return
     }
 
-    if (!('kind' in req.body)) {
-        req.body = {
-            ...req.body,
-            kind: routeKindKey
-        }
+    req.body = {
+        ...req.body,
+        kind: routeKindKey
     }
 }
 
@@ -64,6 +60,7 @@ export function createEntityInstancesRoutes(
     router.delete('/metahub/:metahubId/entity/:entityId/permanent', writeLimiter, asyncHandler(ctrl.permanentRemove))
     router.post('/metahub/:metahubId/entity/:entityId/copy', writeLimiter, asyncHandler(ctrl.copy))
 
+    router.get('/metahub/:metahubId/entities/hub/instances', readLimiter, asyncHandler(ctrl.listTreeEntities))
     router.get(
         '/metahub/:metahubId/entities/:kindKey/instances',
         readLimiter,

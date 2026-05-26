@@ -37,6 +37,17 @@ type ComponentContextExtras = {
     allowComponentCopy?: boolean
     allowComponentDelete?: boolean
     allowDeleteLastDisplayComponent?: boolean
+    componentSurface?: {
+        editTitle: string
+        copyTitle: string
+        deleteTitle: string
+        deleteDescription: string
+        codenameLabel: string
+        codenameHelper: string
+        dataTypeLabel: string
+        displayLabel: string
+        displayHelper: string
+    }
     moveComponent?: (id: string, direction: 'up' | 'down') => Promise<void>
     toggleRequired?: (id: string, value: boolean) => Promise<void>
     toggleDisplayComponent?: (id: string, value: boolean) => Promise<void>
@@ -327,6 +338,23 @@ const isDisplayComponentEntity = (ctx: ActionContext<ComponentDisplay, Component
     return Boolean(raw?.isDisplayComponent ?? getEntityDisplayComponentFlag(ctx.entity))
 }
 
+const getComponentSurface = (ctx: ActionContext<ComponentDisplay, ComponentLocalizedPayload>) => {
+    const contextExtras = ctx as ActionContext<ComponentDisplay, ComponentLocalizedPayload> & ComponentContextExtras
+    return (
+        contextExtras.componentSurface ?? {
+            editTitle: ctx.t('components.editDialog.title', 'Edit Field Definition'),
+            copyTitle: ctx.t('components.copyTitle', 'Copy Component'),
+            deleteTitle: ctx.t('components.deleteDialog.title', 'Delete Component'),
+            deleteDescription: ctx.t('components.deleteDialog.message'),
+            codenameLabel: ctx.t('components.codename', 'Codename'),
+            codenameHelper: ctx.t('components.codenameHelper', 'Unique identifier'),
+            dataTypeLabel: ctx.t('components.dataType', 'Data Type'),
+            displayLabel: ctx.t('components.isDisplayComponentLabel', 'Display component'),
+            displayHelper: ctx.t('components.isDisplayComponentHelper', 'Use as representation when referencing records of this object')
+        }
+    )
+}
+
 const componentActions: readonly ActionDescriptor<ComponentDisplay, ComponentLocalizedPayload>[] = [
     {
         id: 'edit',
@@ -341,10 +369,11 @@ const componentActions: readonly ActionDescriptor<ComponentDisplay, ComponentLoc
             buildProps: (ctx) => {
                 const initial = buildInitialValues(ctx)
                 const contextExtras = ctx as ActionContext<ComponentDisplay, ComponentLocalizedPayload> & ComponentContextExtras
+                const surface = getComponentSurface(ctx)
                 return {
                     open: true,
                     mode: 'edit' as const,
-                    title: ctx.t('components.editDialog.title', 'Edit Field Definition'),
+                    title: surface.editTitle,
                     nameLabel: ctx.t('common:fields.name'),
                     descriptionLabel: ctx.t('common:fields.description'),
                     saveButtonText: ctx.t('common:actions.save'),
@@ -371,15 +400,12 @@ const componentActions: readonly ActionDescriptor<ComponentDisplay, ComponentLoc
                                         errors={errors}
                                         uiLocale={ctx.uiLocale as string}
                                         nameLabel={ctx.t('common:fields.name')}
-                                        codenameLabel={ctx.t('components.codename', 'Codename')}
-                                        codenameHelper={ctx.t('components.codenameHelper', 'Unique identifier')}
-                                        dataTypeLabel={ctx.t('components.dataType', 'Data Type')}
+                                        codenameLabel={surface.codenameLabel}
+                                        codenameHelper={surface.codenameHelper}
+                                        dataTypeLabel={surface.dataTypeLabel}
                                         requiredLabel={ctx.t('components.isRequiredLabel', 'Required')}
-                                        displayComponentLabel={ctx.t('components.isDisplayComponentLabel', 'Display component')}
-                                        displayComponentHelper={ctx.t(
-                                            'components.isDisplayComponentHelper',
-                                            'Use as representation when referencing records of this object'
-                                        )}
+                                        displayComponentLabel={surface.displayLabel}
+                                        displayComponentHelper={surface.displayHelper}
                                         displayComponentLocked={displayComponentLocked}
                                         dataTypeOptions={[
                                             { value: 'STRING', label: ctx.t('components.dataTypeOptions.string', 'String') },
@@ -393,8 +419,8 @@ const componentActions: readonly ActionDescriptor<ComponentDisplay, ComponentLoc
                                         typeSettingsLabel={ctx.t('components.typeSettings.title', 'Type Settings')}
                                         stringMaxLengthLabel={ctx.t('components.typeSettings.string.maxLength', 'Max Length')}
                                         stringMinLengthLabel={ctx.t('components.typeSettings.string.minLength', 'Min Length')}
-                                        stringVersionedLabel={ctx.t('components.typeSettings.string.versioned', 'Versioned (VLC)')}
-                                        stringLocalizedLabel={ctx.t('components.typeSettings.string.localized', 'Localized (VLC)')}
+                                        stringVersionedLabel={ctx.t('components.typeSettings.string.versioned', 'Keep value history')}
+                                        stringLocalizedLabel={ctx.t('components.typeSettings.string.localized', 'Multilingual value')}
                                         numberPrecisionLabel={ctx.t('components.typeSettings.number.precision', 'Precision')}
                                         numberScaleLabel={ctx.t('components.typeSettings.number.scale', 'Scale')}
                                         numberMinLabel={ctx.t('components.typeSettings.number.min', 'Min Value')}
@@ -415,7 +441,6 @@ const componentActions: readonly ActionDescriptor<ComponentDisplay, ComponentLoc
                                                 label: ctx.t('components.typeSettings.date.compositionOptions.datetime', 'Date and Time')
                                             }
                                         ]}
-                                        physicalTypeLabel={ctx.t('components.physicalType.label', 'PostgreSQL type')}
                                         metahubId={contextExtras.metahubId as string}
                                         currentObjectCollectionId={contextExtras.objectCollectionId}
                                         dataTypeDisabled
@@ -439,11 +464,8 @@ const componentActions: readonly ActionDescriptor<ComponentDisplay, ComponentLoc
                                             setValue={setValue}
                                             isLoading={isLoading}
                                             metahubId={contextExtras.metahubId}
-                                            displayComponentLabel={ctx.t('components.isDisplayComponentLabel', 'Display component')}
-                                            displayComponentHelper={ctx.t(
-                                                'components.isDisplayComponentHelper',
-                                                'Use as representation when referencing records of this object'
-                                            )}
+                                            displayComponentLabel={surface.displayLabel}
+                                            displayComponentHelper={surface.displayHelper}
                                             displayComponentLocked={displayComponentLocked}
                                             headerAsCheckboxLabel={ctx.t(
                                                 'components.presentation.headerAsCheckbox',
@@ -558,6 +580,7 @@ const componentActions: readonly ActionDescriptor<ComponentDisplay, ComponentLoc
                     ? (rawDataType as Component['dataType'])
                     : 'STRING'
                 const contextExtras = ctx as ActionContext<ComponentDisplay, ComponentLocalizedPayload> & ComponentContextExtras
+                const surface = getComponentSurface(ctx)
                 const initial = {
                     nameVlc: appendCopySuffix(raw?.name ?? null, uiLocale, sourceName),
                     codename: null,
@@ -577,7 +600,7 @@ const componentActions: readonly ActionDescriptor<ComponentDisplay, ComponentLoc
                     open: true,
                     mode: 'copy' as const,
                     key: `component-copy-${ctx.entity.id}-${sourceDataType}-${raw?.version ?? 'na'}`,
-                    title: ctx.t('components.copyTitle', 'Copy Component'),
+                    title: surface.copyTitle,
                     saveButtonText: ctx.t('components.copy.action', 'Copy'),
                     savingButtonText: ctx.t('components.copy.actionLoading', 'Copying...'),
                     cancelButtonText: ctx.t('common:actions.cancel'),
@@ -596,15 +619,12 @@ const componentActions: readonly ActionDescriptor<ComponentDisplay, ComponentLoc
                                         errors={errors}
                                         uiLocale={ctx.uiLocale as string}
                                         nameLabel={ctx.t('common:fields.name')}
-                                        codenameLabel={ctx.t('components.codename', 'Codename')}
-                                        codenameHelper={ctx.t('components.codenameHelper', 'Unique identifier')}
-                                        dataTypeLabel={ctx.t('components.dataType', 'Data Type')}
+                                        codenameLabel={surface.codenameLabel}
+                                        codenameHelper={surface.codenameHelper}
+                                        dataTypeLabel={surface.dataTypeLabel}
                                         requiredLabel={ctx.t('components.isRequiredLabel', 'Required')}
-                                        displayComponentLabel={ctx.t('components.isDisplayComponentLabel', 'Display component')}
-                                        displayComponentHelper={ctx.t(
-                                            'components.isDisplayComponentHelper',
-                                            'Use as representation when referencing records of this object'
-                                        )}
+                                        displayComponentLabel={surface.displayLabel}
+                                        displayComponentHelper={surface.displayHelper}
                                         displayComponentLocked={false}
                                         dataTypeOptions={[
                                             { value: 'STRING', label: ctx.t('components.dataTypeOptions.string', 'String') },
@@ -618,8 +638,8 @@ const componentActions: readonly ActionDescriptor<ComponentDisplay, ComponentLoc
                                         typeSettingsLabel={ctx.t('components.typeSettings.title', 'Type Settings')}
                                         stringMaxLengthLabel={ctx.t('components.typeSettings.string.maxLength', 'Max Length')}
                                         stringMinLengthLabel={ctx.t('components.typeSettings.string.minLength', 'Min Length')}
-                                        stringVersionedLabel={ctx.t('components.typeSettings.string.versioned', 'Versioned (VLC)')}
-                                        stringLocalizedLabel={ctx.t('components.typeSettings.string.localized', 'Localized (VLC)')}
+                                        stringVersionedLabel={ctx.t('components.typeSettings.string.versioned', 'Keep value history')}
+                                        stringLocalizedLabel={ctx.t('components.typeSettings.string.localized', 'Multilingual value')}
                                         numberPrecisionLabel={ctx.t('components.typeSettings.number.precision', 'Precision')}
                                         numberScaleLabel={ctx.t('components.typeSettings.number.scale', 'Scale')}
                                         numberMinLabel={ctx.t('components.typeSettings.number.min', 'Min Value')}
@@ -640,7 +660,6 @@ const componentActions: readonly ActionDescriptor<ComponentDisplay, ComponentLoc
                                                 label: ctx.t('components.typeSettings.date.compositionOptions.datetime', 'Date and Time')
                                             }
                                         ]}
-                                        physicalTypeLabel={ctx.t('components.physicalType.label', 'PostgreSQL type')}
                                         metahubId={contextExtras.metahubId as string}
                                         currentObjectCollectionId={contextExtras.objectCollectionId}
                                         dataTypeDisabled
@@ -660,11 +679,8 @@ const componentActions: readonly ActionDescriptor<ComponentDisplay, ComponentLoc
                                             setValue={setValue}
                                             isLoading={isLoading}
                                             metahubId={contextExtras.metahubId}
-                                            displayComponentLabel={ctx.t('components.isDisplayComponentLabel', 'Display component')}
-                                            displayComponentHelper={ctx.t(
-                                                'components.isDisplayComponentHelper',
-                                                'Use as representation when referencing records of this object'
-                                            )}
+                                            displayComponentLabel={surface.displayLabel}
+                                            displayComponentHelper={surface.displayHelper}
                                             displayComponentLocked={false}
                                             forceDisplayComponentWhenLocked={false}
                                             headerAsCheckboxLabel={ctx.t(
@@ -939,24 +955,27 @@ const componentActions: readonly ActionDescriptor<ComponentDisplay, ComponentLoc
                 const module = await import('@universo-react/template-mui/components/dialogs')
                 return { default: module.ConfirmDeleteDialog }
             },
-            buildProps: (ctx) => ({
-                open: true,
-                title: ctx.t('components.deleteDialog.title', 'Delete Component'),
-                description: ctx.t('components.deleteDialog.message'),
-                confirmButtonText: ctx.t('common:actions.delete'),
-                cancelButtonText: ctx.t('common:actions.cancel'),
-                onCancel: () => {
-                    // BaseEntityMenu handles dialog closing
-                },
-                onConfirm: async () => {
-                    try {
-                        await ctx.api?.deleteEntity?.(ctx.entity.id)
-                    } catch (error: unknown) {
-                        notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
-                        throw error
+            buildProps: (ctx) => {
+                const surface = getComponentSurface(ctx)
+                return {
+                    open: true,
+                    title: surface.deleteTitle,
+                    description: surface.deleteDescription,
+                    confirmButtonText: ctx.t('common:actions.delete'),
+                    cancelButtonText: ctx.t('common:actions.cancel'),
+                    onCancel: () => {
+                        // BaseEntityMenu handles dialog closing
+                    },
+                    onConfirm: async () => {
+                        try {
+                            await ctx.api?.deleteEntity?.(ctx.entity.id)
+                        } catch (error: unknown) {
+                            notifyError(ctx.t, ctx.helpers?.enqueueSnackbar, error)
+                            throw error
+                        }
                     }
                 }
-            })
+            }
         }
     }
 ]

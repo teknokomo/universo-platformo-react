@@ -18,7 +18,11 @@ import { buildDashboardLayoutConfig } from '../../shared'
 import { toJsonbValue } from '../../shared/jsonb'
 import { codenamePrimaryTextSql, ensureCodenameValue } from '../../shared/codename'
 import { resolveWidgetTableName } from './widgetTableResolver'
-import { ensureObjectSystemComponentsSeed, readPlatformSystemComponentsPolicyWithKnex } from './systemComponentSeed'
+import {
+    ensureObjectSystemComponentsSeed,
+    readPlatformSystemComponentsPolicyWithKnex,
+    shouldSeedObjectSystemComponents
+} from './systemComponentSeed'
 import { createLogger } from '../../../utils/logger'
 
 const log = createLogger('TemplateSeedExecutor')
@@ -427,7 +431,7 @@ export class TemplateSeedExecutor {
         const entityIdMap = new Map<string, string>()
         const fixedValueIdMap = new Map<string, string>()
         const now = new Date()
-        const platformSystemComponentsPolicy = entities.some((entity) => entity.kind === 'object')
+        const platformSystemComponentsPolicy = entities.some((entity) => shouldSeedObjectSystemComponents(entity.kind))
             ? await readPlatformSystemComponentsPolicyWithKnex(qb)
             : undefined
 
@@ -446,7 +450,7 @@ export class TemplateSeedExecutor {
 
             if (existing) {
                 entityIdMap.set(buildEntityMapKey(entity.kind, entity.codename), existing.id)
-                if (entity.kind === 'object') {
+                if (shouldSeedObjectSystemComponents(entity.kind)) {
                     await ensureObjectSystemComponentsSeed(qb, this.schemaName, existing.id, null, {
                         policy: platformSystemComponentsPolicy
                     })
@@ -490,7 +494,7 @@ export class TemplateSeedExecutor {
 
             entityIdMap.set(buildEntityMapKey(entity.kind, entity.codename), inserted.id)
 
-            if (entity.kind === 'object') {
+            if (shouldSeedObjectSystemComponents(entity.kind)) {
                 await ensureObjectSystemComponentsSeed(qb, this.schemaName, inserted.id, null, {
                     policy: platformSystemComponentsPolicy
                 })

@@ -1,4 +1,4 @@
-import { BuiltinEntityKinds } from '@universo-react/types'
+import { BuiltinEntityKinds, TEMPLATE_MANAGED_ENTITY_TYPE_CONFIG_KEY } from '@universo-react/types'
 import { EntityTypeService } from '../../domains/entities/services/EntityTypeService'
 
 describe('EntityTypeService', () => {
@@ -219,7 +219,40 @@ describe('EntityTypeService', () => {
         ).rejects.toThrow('Standard entity kinds are reserved for platform-provided entity types')
     })
 
-    it('allows safe localized resource title updates for persisted standard entity types', async () => {
+    it('rejects attempts to claim registered preset kind keys before the preset is materialized', async () => {
+        const service = new EntityTypeService(createExecutor(jest.fn(async () => [])) as any, { ensureSchema: mockEnsureSchema } as any)
+
+        await expect(
+            service.createType('metahub-1', {
+                kindKey: 'document',
+                codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'document' } } },
+                capabilities: {
+                    dataSchema: { enabled: true },
+                    records: { enabled: true },
+                    treeAssignment: false,
+                    optionValues: false,
+                    fixedValues: false,
+                    hierarchy: false,
+                    nestedCollections: false,
+                    relations: false,
+                    actions: false,
+                    events: false,
+                    modules: false,
+                    layoutConfig: false,
+                    runtimeBehavior: false,
+                    physicalTable: { enabled: true, prefix: 'doc' }
+                },
+                ui: {
+                    iconName: 'IconTest',
+                    tabs: ['general'],
+                    sidebarSection: 'objects',
+                    nameKey: 'Document'
+                }
+            })
+        ).rejects.toThrow('Entity type kindKey is reserved for platform-provided entity type presets')
+    })
+
+    it('rejects localized resource title updates for persisted standard entity types', async () => {
         const standardCatalogRow = createStandardCatalogRow()
         const nextUi = {
             ...standardCatalogRow.ui_config,
@@ -236,38 +269,45 @@ describe('EntityTypeService', () => {
                 return [standardCatalogRow]
             }
 
-            if (sql.includes('WHERE kind_key =')) {
-                return [standardCatalogRow]
-            }
+            return []
+        })
 
-            if (sql.includes("LOWER(COALESCE(codename->'locales'->(codename->>'_primary')->>'content'")) {
-                return [standardCatalogRow]
-            }
+        const service = new EntityTypeService(createExecutor(queryMock) as any, { ensureSchema: mockEnsureSchema } as any)
 
-            if (sql.includes('UPDATE') && sql.includes('_mhb_entity_type_definitions')) {
-                return [
-                    {
-                        ...standardCatalogRow,
-                        ui_config: nextUi,
-                        _upl_version: 2
-                    }
-                ]
+        await expect(
+            service.updateType(
+                'metahub-1',
+                'standard-type-object',
+                {
+                    ui: nextUi
+                },
+                'user-1'
+            )
+        ).rejects.toThrow('Template-managed entity type UI structure cannot be changed through the Entities constructor')
+    })
+
+    it('rejects presentation updates for persisted standard entity types', async () => {
+        const standardCatalogRow = createStandardCatalogRow()
+        const queryMock = jest.fn(async (sql: string) => {
+            if (sql.includes('WHERE id = $1 AND _upl_deleted = false AND _mhb_deleted = false')) {
+                return [standardCatalogRow]
             }
 
             return []
         })
 
         const service = new EntityTypeService(createExecutor(queryMock) as any, { ensureSchema: mockEnsureSchema } as any)
-        const result = await service.updateType(
-            'metahub-1',
-            'standard-type-object',
-            {
-                ui: nextUi
-            },
-            'user-1'
-        )
 
-        expect(result.ui.resourceSurfaces?.[0]?.title).toEqual(nextUi.resourceSurfaces[0].title)
+        await expect(
+            service.updateType(
+                'metahub-1',
+                'standard-type-object',
+                {
+                    presentation: { name: { en: 'Renamed Objects' } }
+                },
+                'user-1'
+            )
+        ).rejects.toThrow('Template-managed entity type presentation cannot be changed through the Entities constructor')
     })
 
     it('rejects structural component changes for persisted standard entity types', async () => {
@@ -294,7 +334,7 @@ describe('EntityTypeService', () => {
                 },
                 'user-1'
             )
-        ).rejects.toThrow('Standard entity type capabilities cannot be changed through the Entities constructor')
+        ).rejects.toThrow('Template-managed entity type capabilities cannot be changed through the Entities constructor')
     })
 
     it('rejects structural resource surface changes for persisted standard entity types', async () => {
@@ -327,7 +367,7 @@ describe('EntityTypeService', () => {
                 },
                 'user-1'
             )
-        ).rejects.toThrow('Standard entity type UI structure cannot be changed through the Entities constructor')
+        ).rejects.toThrow('Template-managed entity type UI structure cannot be changed through the Entities constructor')
     })
 
     it('rejects publication state changes for persisted standard entity types', async () => {
@@ -351,7 +391,7 @@ describe('EntityTypeService', () => {
                 },
                 'user-1'
             )
-        ).rejects.toThrow('Standard entity type publication state cannot be changed through the Entities constructor')
+        ).rejects.toThrow('Template-managed entity type publication state cannot be changed through the Entities constructor')
 
         expect(queryMock).not.toHaveBeenCalledWith(expect.stringContaining('UPDATE'), expect.anything())
     })
@@ -1010,6 +1050,80 @@ describe('EntityTypeService', () => {
                 'user-1'
             )
         ).rejects.toThrow('Entity type codename already exists')
+    })
+
+    it('rejects user-created entity types that claim template-managed metadata', async () => {
+        const service = new EntityTypeService(createExecutor(jest.fn(async () => [])) as any, { ensureSchema: mockEnsureSchema } as any)
+
+        await expect(
+            service.createType('metahub-1', {
+                kindKey: 'custom-template-owned',
+                codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-template-owned' } } },
+                capabilities: {
+                    dataSchema: { enabled: true },
+                    records: false,
+                    treeAssignment: false,
+                    optionValues: false,
+                    fixedValues: false,
+                    hierarchy: false,
+                    nestedCollections: false,
+                    relations: false,
+                    actions: false,
+                    events: false,
+                    modules: false,
+                    layoutConfig: false,
+                    runtimeBehavior: false,
+                    physicalTable: false
+                },
+                ui: {
+                    iconName: 'IconBolt',
+                    tabs: ['general'],
+                    sidebarSection: 'objects',
+                    nameKey: 'Custom Template Owned'
+                },
+                config: {
+                    [TEMPLATE_MANAGED_ENTITY_TYPE_CONFIG_KEY]: { managed: true }
+                }
+            })
+        ).rejects.toThrow('Template-managed entity type metadata is reserved for template presets')
+    })
+
+    it('blocks structural updates and delete for template-managed preset entity types with custom kind keys', async () => {
+        const templateManagedRow = {
+            ...createStandardCatalogRow(),
+            id: 'one-c-document-type',
+            kind_key: 'document',
+            config: {
+                [TEMPLATE_MANAGED_ENTITY_TYPE_CONFIG_KEY]: {
+                    managed: true,
+                    presetCodename: 'one-c-document',
+                    source: 'entity_type_preset'
+                }
+            }
+        }
+        const queryMock = jest.fn(async (sql: string) => {
+            if (sql.includes('WHERE id = $1 AND _upl_deleted = false AND _mhb_deleted = false')) {
+                return [templateManagedRow]
+            }
+            return []
+        })
+
+        const service = new EntityTypeService(createExecutor(queryMock) as any, { ensureSchema: mockEnsureSchema } as any)
+
+        await expect(
+            service.updateType(
+                'metahub-1',
+                'one-c-document-type',
+                {
+                    config: {}
+                },
+                'user-1'
+            )
+        ).rejects.toThrow('Template-managed entity type config cannot be changed')
+
+        await expect(service.deleteType('metahub-1', 'one-c-document-type', 'user-1')).rejects.toThrow(
+            'Template-managed entity types cannot be deleted'
+        )
     })
 
     it('blocks deleting a custom entity type while dependent entity instances still exist', async () => {

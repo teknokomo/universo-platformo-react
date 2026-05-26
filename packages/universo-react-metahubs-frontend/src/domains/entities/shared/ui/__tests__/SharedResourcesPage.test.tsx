@@ -241,7 +241,8 @@ describe('SharedResourcesPage', () => {
                                     key: 'components',
                                     capability: 'dataSchema',
                                     routeSegment: 'components',
-                                    fallbackTitle: 'Свойства'
+                                    fallbackTitle: 'Свойства',
+                                    fallbackSharedTitle: 'Общие свойства'
                                 }
                             ]
                         }
@@ -263,7 +264,7 @@ describe('SharedResourcesPage', () => {
             </I18nextProvider>
         )
 
-        expect(screen.getByRole('tab', { name: 'Свойства' })).toBeInTheDocument()
+        expect(screen.getByRole('tab', { name: 'Общие свойства' })).toBeInTheDocument()
     })
 
     it('falls back to the canonical shared label when compatible entity types disagree on the title', async () => {

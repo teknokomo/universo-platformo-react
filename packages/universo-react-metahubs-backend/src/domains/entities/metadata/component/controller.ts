@@ -68,6 +68,7 @@ const ENUM_PRESENTATION_MODES = ['select', 'radio', 'label'] as const
 const ENUM_LABEL_EMPTY_DISPLAY_MODES = ['empty', 'dash'] as const
 const ENUMERATION_KIND = 'enumeration' as const
 const SET_KIND = 'set' as const
+const OBJECT_COMPATIBLE_ROUTE_KIND = 'object' as const
 const COMPONENT_LIMIT = 100
 const GLOBAL_COMPONENT_CODENAME_LOCK_ERROR = 'Could not acquire component codename lock. Please retry.'
 
@@ -425,6 +426,37 @@ const validateReferenceTarget = async ({
     return null
 }
 
+const normalizeRouteKindKey = (value: unknown): string => (typeof value === 'string' ? value.trim() : '')
+
+const isObjectRouteKindAllowed = (routeKind: string, objectKind: string): boolean =>
+    routeKind.length === 0 || routeKind === OBJECT_COMPATIBLE_ROUTE_KIND || routeKind === objectKind
+
+const resolveRoutedObjectOrRespond = async ({
+    req,
+    res,
+    metahubId,
+    objectCollectionId,
+    userId,
+    objectsService
+}: {
+    req: Request
+    res: Response
+    metahubId: string
+    objectCollectionId: string
+    userId: string
+    objectsService: MetahubObjectsService
+}): Promise<Awaited<ReturnType<MetahubObjectsService['findById']>> | null> => {
+    const object = await objectsService.findById(metahubId, objectCollectionId, userId)
+    const routeKind = normalizeRouteKindKey(req.params.kindKey)
+
+    if (!object || !isObjectRouteKindAllowed(routeKind, String(object.kind))) {
+        res.status(404).json({ error: 'Object not found' })
+        return null
+    }
+
+    return object
+}
+
 // ---------------------------------------------------------------------------
 // Controller factory
 // ---------------------------------------------------------------------------
@@ -449,13 +481,24 @@ export function createComponentsController(_createHandler: CreateHandler, getDbE
 
     const ensureMetahubRouteAccess = createEnsureMetahubRouteAccess(getDbExecutor)
 
+    const ensureRoutedObject = async (
+        req: Request,
+        res: Response,
+        metahubId: string,
+        objectCollectionId: string,
+        userId: string,
+        objectsService: MetahubObjectsService
+    ) => resolveRoutedObjectOrRespond({ req, res, metahubId, objectCollectionId, userId, objectsService })
+
     // ─── List components ─────────────────────────────────────────────────
     const list = async (req: Request, res: Response) => {
         const { metahubId, objectCollectionId } = req.params
-        const { componentsService, exec } = services(req)
+        const { componentsService, objectsService, exec } = services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId)
         if (!userId) return
         const platformSystemComponentsPolicy = await readPlatformSystemComponentsPolicy(exec)
+        const object = await ensureRoutedObject(req, res, metahubId, objectCollectionId, userId, objectsService)
+        if (!object) return
 
         let validatedQuery
         try {
@@ -609,9 +652,12 @@ export function createComponentsController(_createHandler: CreateHandler, getDbE
     // ─── Get component by ID ─────────────────────────────────────────────
     const getById = async (req: Request, res: Response) => {
         const { metahubId, objectCollectionId, componentId } = req.params
-        const { componentsService } = services(req)
+        const { componentsService, objectsService } = services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId)
         if (!userId) return
+
+        const object = await ensureRoutedObject(req, res, metahubId, objectCollectionId, userId, objectsService)
+        if (!object) return
 
         const component = await componentsService.findById(metahubId, componentId, userId)
 
@@ -630,9 +676,9 @@ export function createComponentsController(_createHandler: CreateHandler, getDbE
         const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
         if (!userId) return
 
-        const object = await objectsService.findById(metahubId, objectCollectionId, userId)
+        const object = await ensureRoutedObject(req, res, metahubId, objectCollectionId, userId, objectsService)
         if (!object) {
-            return res.status(404).json({ error: 'Object not found' })
+            return
         }
 
         const totalAll = await componentsService.countByObjectId(metahubId, objectCollectionId, userId)
@@ -892,9 +938,12 @@ export function createComponentsController(_createHandler: CreateHandler, getDbE
     // ─── Copy component ──────────────────────────────────────────────────
     const copy = async (req: Request, res: Response) => {
         const { metahubId, objectCollectionId, componentId } = req.params
-        const { componentsService, fixedValuesService, exec, settingsService } = services(req)
+        const { componentsService, objectsService, fixedValuesService, exec, settingsService } = services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
         if (!userId) return
+
+        const object = await ensureRoutedObject(req, res, metahubId, objectCollectionId, userId, objectsService)
+        if (!object) return
 
         const source = await componentsService.findById(metahubId, componentId, userId)
         if (!source || source.objectCollectionId !== objectCollectionId) {
@@ -1165,6 +1214,9 @@ export function createComponentsController(_createHandler: CreateHandler, getDbE
             services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
         if (!userId) return
+
+        const object = await ensureRoutedObject(req, res, metahubId, objectCollectionId, userId, objectsService)
+        if (!object) return
 
         const component = await componentsService.findById(metahubId, componentId, userId)
         if (!component || component.objectCollectionId !== objectCollectionId) {
@@ -1527,9 +1579,12 @@ export function createComponentsController(_createHandler: CreateHandler, getDbE
     // ─── Move component ──────────────────────────────────────────────────
     const move = async (req: Request, res: Response) => {
         const { metahubId, objectCollectionId, componentId } = req.params
-        const { componentsService } = services(req)
+        const { componentsService, objectsService } = services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
         if (!userId) return
+
+        const object = await ensureRoutedObject(req, res, metahubId, objectCollectionId, userId, objectsService)
+        if (!object) return
 
         const component = await componentsService.findById(metahubId, componentId, userId)
         if (!component || component.objectCollectionId !== objectCollectionId) {
@@ -1550,9 +1605,12 @@ export function createComponentsController(_createHandler: CreateHandler, getDbE
     // ─── Reorder component ───────────────────────────────────────────────
     const reorder = async (req: Request, res: Response) => {
         const { metahubId, objectCollectionId } = req.params
-        const { componentsService, settingsService } = services(req)
+        const { componentsService, objectsService, settingsService } = services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
         if (!userId) return
+
+        const object = await ensureRoutedObject(req, res, metahubId, objectCollectionId, userId, objectsService)
+        if (!object) return
 
         const parsed = reorderComponentSchema.safeParse(req.body)
         if (!parsed.success) {
@@ -1594,9 +1652,12 @@ export function createComponentsController(_createHandler: CreateHandler, getDbE
     // ─── Toggle required ─────────────────────────────────────────────────
     const toggleRequired = async (req: Request, res: Response) => {
         const { metahubId, objectCollectionId, componentId } = req.params
-        const { componentsService, optionValuesService, exec } = services(req)
+        const { componentsService, objectsService, optionValuesService, exec } = services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
         if (!userId) return
+
+        const object = await ensureRoutedObject(req, res, metahubId, objectCollectionId, userId, objectsService)
+        if (!object) return
 
         const component = await componentsService.findById(metahubId, componentId, userId)
         if (!component || component.objectCollectionId !== objectCollectionId) {
@@ -1675,9 +1736,12 @@ export function createComponentsController(_createHandler: CreateHandler, getDbE
     // ─── Set display component ───────────────────────────────────────────
     const setDisplay = async (req: Request, res: Response) => {
         const { metahubId, objectCollectionId, componentId } = req.params
-        const { componentsService, exec } = services(req)
+        const { componentsService, objectsService, exec } = services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
         if (!userId) return
+
+        const object = await ensureRoutedObject(req, res, metahubId, objectCollectionId, userId, objectsService)
+        if (!object) return
 
         const component = await componentsService.findById(metahubId, componentId, userId)
         if (!component || component.objectCollectionId !== objectCollectionId) {
@@ -1714,9 +1778,12 @@ export function createComponentsController(_createHandler: CreateHandler, getDbE
     // ─── Clear display component ─────────────────────────────────────────
     const clearDisplay = async (req: Request, res: Response) => {
         const { metahubId, objectCollectionId, componentId } = req.params
-        const { componentsService, exec } = services(req)
+        const { componentsService, objectsService, exec } = services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
         if (!userId) return
+
+        const object = await ensureRoutedObject(req, res, metahubId, objectCollectionId, userId, objectsService)
+        if (!object) return
 
         const component = await componentsService.findById(metahubId, componentId, userId)
         if (!component || component.objectCollectionId !== objectCollectionId) {
@@ -1746,9 +1813,12 @@ export function createComponentsController(_createHandler: CreateHandler, getDbE
     // ─── Delete component ────────────────────────────────────────────────
     const deleteComponent = async (req: Request, res: Response) => {
         const { metahubId, objectCollectionId, componentId } = req.params
-        const { componentsService, settingsService, exec } = services(req)
+        const { componentsService, objectsService, settingsService, exec } = services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'deleteContent')
         if (!userId) return
+
+        const object = await ensureRoutedObject(req, res, metahubId, objectCollectionId, userId, objectsService)
+        if (!object) return
 
         const component = await componentsService.findById(metahubId, componentId, userId)
         if (!component || component.objectCollectionId !== objectCollectionId) {
@@ -1812,9 +1882,12 @@ export function createComponentsController(_createHandler: CreateHandler, getDbE
     // ─── Component codenames ─────────────────────────────────────────────
     const listCodenames = async (req: Request, res: Response) => {
         const { metahubId, objectCollectionId } = req.params
-        const { componentsService } = services(req)
+        const { componentsService, objectsService } = services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId)
         if (!userId) return
+
+        const object = await ensureRoutedObject(req, res, metahubId, objectCollectionId, userId, objectsService)
+        if (!object) return
 
         const allComponents = await componentsService.findAllFlat(metahubId, objectCollectionId, userId)
 
@@ -1828,10 +1901,13 @@ export function createComponentsController(_createHandler: CreateHandler, getDbE
 
     // ─── Batch list child components for multiple parents ────────────────
     const listChildrenBatch = async (req: Request, res: Response) => {
-        const { metahubId } = req.params
-        const { componentsService } = services(req)
+        const { metahubId, objectCollectionId } = req.params
+        const { componentsService, objectsService } = services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId)
         if (!userId) return
+
+        const object = await ensureRoutedObject(req, res, metahubId, objectCollectionId, userId, objectsService)
+        if (!object) return
 
         const raw = req.query.parentIds
         if (!raw || typeof raw !== 'string' || raw.trim() === '') {
@@ -1861,9 +1937,12 @@ export function createComponentsController(_createHandler: CreateHandler, getDbE
     // ─── List child components ───────────────────────────────────────────
     const listChildren = async (req: Request, res: Response) => {
         const { metahubId, objectCollectionId, componentId } = req.params
-        const { componentsService } = services(req)
+        const { componentsService, objectsService } = services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId)
         if (!userId) return
+
+        const object = await ensureRoutedObject(req, res, metahubId, objectCollectionId, userId, objectsService)
+        if (!object) return
 
         const parent = await componentsService.findById(metahubId, componentId, userId)
         if (!parent || parent.objectCollectionId !== objectCollectionId) {
@@ -1885,6 +1964,9 @@ export function createComponentsController(_createHandler: CreateHandler, getDbE
             services(req)
         const userId = await ensureMetahubRouteAccess(req, res, metahubId, 'editContent')
         if (!userId) return
+
+        const object = await ensureRoutedObject(req, res, metahubId, objectCollectionId, userId, objectsService)
+        if (!object) return
 
         const parent = await componentsService.findById(metahubId, componentId, userId)
         if (!parent || parent.objectCollectionId !== objectCollectionId) {

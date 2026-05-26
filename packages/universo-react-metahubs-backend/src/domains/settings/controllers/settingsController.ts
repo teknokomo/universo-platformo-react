@@ -3,12 +3,13 @@ import type { DbExecutor } from '@universo-react/utils/database'
 import type { SqlQueryable } from '../../../persistence'
 import type { createMetahubHandlerFactory } from '../../shared/createMetahubHandler'
 import { MetahubSettingsService } from '../services/MetahubSettingsService'
-import { ENTITY_SETTINGS_KINDS, METAHUB_SETTINGS_REGISTRY, getSettingDefinition } from '@universo-react/types'
-import type { MetahubSettingRow, ResolvedEntityType } from '@universo-react/types'
+import { BuiltinEntityKinds, ENTITY_SETTINGS_KINDS, METAHUB_SETTINGS_REGISTRY, isEnabledCapabilityConfig } from '@universo-react/types'
+import type { MetahubSettingRow, ResolvedEntityType, SettingDefinition, VersionedLocalizedContent } from '@universo-react/types'
 import { validateSettingValue } from '../../shared/validateSettingValue'
 import { EntityTypeService } from '../../entities/services/EntityTypeService'
+import { resolveEntityMetadataKindFromType } from '../../shared/entityMetadataKinds'
 
-type RegistryEntry = (typeof METAHUB_SETTINGS_REGISTRY)[number]
+type RegistryEntry = SettingDefinition
 
 // ---------------------------------------------------------------------------
 // Zod Schemas
@@ -29,6 +30,7 @@ const settingsUpdateSchema = z
     .strict()
 
 const ENTITY_SETTING_TABS = new Set<string>(ENTITY_SETTINGS_KINDS)
+const BASE_ENTITY_SETTING_TABS = new Set<string>(ENTITY_SETTINGS_KINDS)
 
 const isEntitySettingKind = (value: string): value is (typeof ENTITY_SETTINGS_KINDS)[number] => {
     return ENTITY_SETTING_TABS.has(value)
@@ -61,6 +63,88 @@ function mergeSettingsWithDefaults(dbRows: MetahubSettingRow[], registry: readon
             isDefault: true
         }
     })
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+
+const isLocalizedContent = (value: unknown): value is VersionedLocalizedContent<string> =>
+    isRecord(value) && isRecord(value.locales) && typeof value._primary === 'string'
+
+const resolveTabLabel = (entityType: ResolvedEntityType): VersionedLocalizedContent<string> | undefined => {
+    const presentation = isRecord(entityType.presentation) ? entityType.presentation : undefined
+    const presentationName = presentation?.name
+    if (isLocalizedContent(presentationName)) {
+        return presentationName
+    }
+
+    const codename = (entityType as { codename?: unknown }).codename
+    return isLocalizedContent(codename) ? codename : undefined
+}
+
+const getSettingSuffix = (definition: SettingDefinition): string => definition.key.split('.').slice(2).join('.')
+
+const cloneEntitySetting = (definition: SettingDefinition, kindKey: string, sortOrder: number): SettingDefinition => ({
+    ...definition,
+    key: `entity.${kindKey}.${getSettingSuffix(definition)}`,
+    tab: kindKey,
+    sortOrder
+})
+
+const getBaseEntitySettingTemplates = (baseKind: string, suffixes: readonly string[] | null = null): SettingDefinition[] =>
+    METAHUB_SETTINGS_REGISTRY.filter((definition) => definition.tab === baseKind).filter((definition) =>
+        suffixes ? suffixes.includes(getSettingSuffix(definition)) : true
+    )
+
+const buildEntityTypeSettingDefinitions = (entityType: ResolvedEntityType): SettingDefinition[] => {
+    if (BASE_ENTITY_SETTING_TABS.has(entityType.kindKey)) {
+        return []
+    }
+
+    const settings: SettingDefinition[] = []
+    let sortOrder = 1
+    const addTemplates = (baseKind: string, suffixes: readonly string[] | null = null) => {
+        for (const template of getBaseEntitySettingTemplates(baseKind, suffixes)) {
+            settings.push(cloneEntitySetting(template, entityType.kindKey, sortOrder++))
+        }
+    }
+
+    const metadataKind = resolveEntityMetadataKindFromType(entityType)
+    if (metadataKind) {
+        addTemplates(metadataKind, ['allowCopy', 'allowDelete'])
+    } else {
+        addTemplates(BuiltinEntityKinds.OBJECT, ['allowCopy', 'allowDelete'])
+    }
+
+    if (isEnabledCapabilityConfig(entityType.capabilities.dataSchema)) {
+        addTemplates(BuiltinEntityKinds.OBJECT, [
+            'componentCodenameScope',
+            'allowedComponentTypes',
+            'allowComponentCopy',
+            'allowComponentDelete',
+            'allowDeleteLastDisplayComponent',
+            'allowComponentMoveBetweenRootAndChildren',
+            'allowComponentMoveBetweenChildLists'
+        ])
+    }
+
+    if (isEnabledCapabilityConfig(entityType.capabilities.records)) {
+        addTemplates(BuiltinEntityKinds.OBJECT, ['allowElementCopy', 'allowElementDelete'])
+    }
+
+    if (isEnabledCapabilityConfig(entityType.capabilities.fixedValues)) {
+        addTemplates(BuiltinEntityKinds.SET, ['constantCodenameScope', 'allowedConstantTypes', 'allowConstantCopy', 'allowConstantDelete'])
+    }
+
+    if (isEnabledCapabilityConfig(entityType.capabilities.optionValues)) {
+        addTemplates(BuiltinEntityKinds.ENUMERATION, ['allowCopy', 'allowDelete'])
+    }
+
+    const unique = new Map<string, SettingDefinition>()
+    for (const setting of settings) {
+        unique.set(setting.key, setting)
+    }
+
+    return [...unique.values()]
 }
 
 const SYSTEM_LANGUAGE_OPTION = 'system'
@@ -114,9 +198,10 @@ const filterRegistryForEntityTypes = (registry: RegistryEntry[], entityTypes: Re
     return registry.filter((entry) => !isEntitySettingKind(entry.tab) || availableEntityTabs.has(entry.tab))
 }
 
-const buildSettingsTabOrder = (entityTypes: ResolvedEntityType[]): string[] => {
+const buildSettingsTabOrder = (entityTypes: ResolvedEntityType[], registry: readonly RegistryEntry[]): string[] => {
+    const registryTabs = new Set(registry.map((entry) => entry.tab))
     const orderedEntityTabs = entityTypes
-        .filter((entityType) => isEntitySettingKind(entityType.kindKey))
+        .filter((entityType) => registryTabs.has(entityType.kindKey))
         .slice()
         .sort((left, right) => {
             const leftOrder = typeof left.ui?.sidebarOrder === 'number' ? left.ui.sidebarOrder : Number.MAX_SAFE_INTEGER
@@ -126,6 +211,18 @@ const buildSettingsTabOrder = (entityTypes: ResolvedEntityType[]): string[] => {
         .map((entityType) => entityType.kindKey)
 
     return ['general', 'common', ...orderedEntityTabs]
+}
+
+const buildSettingsTabLabels = (entityTypes: ResolvedEntityType[]): Record<string, VersionedLocalizedContent<string>> => {
+    const labels: Record<string, VersionedLocalizedContent<string>> = {}
+    for (const entityType of entityTypes) {
+        const label = resolveTabLabel(entityType)
+        if (label) {
+            labels[entityType.kindKey] = label
+        }
+    }
+
+    return labels
 }
 
 const buildRegistry = async ({
@@ -140,11 +237,15 @@ const buildRegistry = async ({
     metahubId: string
     userId?: string
     languageOptions: string[]
-}): Promise<{ registry: RegistryEntry[]; tabOrder: string[] }> => {
+}): Promise<{ registry: RegistryEntry[]; tabOrder: string[]; tabLabels: Record<string, VersionedLocalizedContent<string>> }> => {
     const entityTypes = await new EntityTypeService(exec, schemaService).listTypes(metahubId, userId)
+    const staticRegistry = filterRegistryForEntityTypes(withDynamicLanguageOptions(languageOptions), entityTypes)
+    const dynamicRegistry = entityTypes.flatMap(buildEntityTypeSettingDefinitions)
+    const registry = [...staticRegistry, ...dynamicRegistry]
     return {
-        registry: filterRegistryForEntityTypes(withDynamicLanguageOptions(languageOptions), entityTypes),
-        tabOrder: buildSettingsTabOrder(entityTypes)
+        registry,
+        tabOrder: buildSettingsTabOrder(entityTypes, registry),
+        tabLabels: buildSettingsTabLabels(entityTypes)
     }
 }
 
@@ -159,11 +260,11 @@ export function createSettingsController(createHandler: ReturnType<typeof create
 
         const dbRows = await settingsService.findAll(metahubId, userId)
         const languageOptions = await getContentLocaleCodes(exec)
-        const { registry, tabOrder } = await buildRegistry({ exec, schemaService, metahubId, userId, languageOptions })
+        const { registry, tabOrder, tabLabels } = await buildRegistry({ exec, schemaService, metahubId, userId, languageOptions })
         const merged = mergeSettingsWithDefaults(dbRows, registry)
         const hasHubNesting = await settingsService.hasHubNesting(metahubId, userId)
 
-        res.json({ settings: merged, registry, meta: { hasHubNesting, tabOrder } })
+        res.json({ settings: merged, registry, meta: { hasHubNesting, tabOrder, tabLabels } })
     })
 
     // PUT /metahub/:metahubId/settings
@@ -179,8 +280,16 @@ export function createSettingsController(createHandler: ReturnType<typeof create
             }
 
             const validationErrors: Array<{ key: string; error: string }> = []
+            const { registry, tabOrder, tabLabels } = await buildRegistry({ exec, schemaService, metahubId, userId, languageOptions })
+            const registryByKey = new Map(registry.map((entry) => [entry.key, entry]))
+
             for (const s of parsed.data.settings) {
-                const err = validateSettingValue(s.key, s.value, s.key === 'general.language' ? languageOptions : undefined)
+                const err = validateSettingValue(
+                    s.key,
+                    s.value,
+                    s.key === 'general.language' ? languageOptions : undefined,
+                    registryByKey.get(s.key)
+                )
                 if (err) validationErrors.push({ key: s.key, error: err })
             }
             if (validationErrors.length > 0) {
@@ -188,7 +297,7 @@ export function createSettingsController(createHandler: ReturnType<typeof create
                 return
             }
 
-            await settingsService.bulkUpsert(metahubId, parsed.data.settings, userId)
+            await settingsService.bulkUpsert(metahubId, parsed.data.settings, userId, registry)
 
             const requestedResetNesting =
                 parsed.data.settings.find((entry) => entry.key === 'entity.hub.resetNestingOnce')?.value?._value === true
@@ -198,10 +307,9 @@ export function createSettingsController(createHandler: ReturnType<typeof create
             }
 
             const dbRows = await settingsService.findAll(metahubId, userId)
-            const { registry, tabOrder } = await buildRegistry({ exec, schemaService, metahubId, userId, languageOptions })
             const merged = mergeSettingsWithDefaults(dbRows, registry)
             const hasHubNesting = await settingsService.hasHubNesting(metahubId, userId)
-            res.json({ settings: merged, registry, meta: { hasHubNesting, tabOrder } })
+            res.json({ settings: merged, registry, meta: { hasHubNesting, tabOrder, tabLabels } })
         },
         { permission: 'manageMetahub' }
     )
@@ -209,11 +317,13 @@ export function createSettingsController(createHandler: ReturnType<typeof create
     // GET /metahub/:metahubId/setting/:key
     const getByKey = createHandler(async ({ req, res, metahubId, userId, exec, schemaService }) => {
         const settingsService = new MetahubSettingsService(exec, schemaService)
+        const languageOptions = await getContentLocaleCodes(exec)
+        const { registry } = await buildRegistry({ exec, schemaService, metahubId, userId, languageOptions })
 
         const { key } = req.params
         const row = await settingsService.findByKey(metahubId, key, userId)
         if (!row) {
-            const def = METAHUB_SETTINGS_REGISTRY.find((s) => s.key === key)
+            const def = registry.find((s) => s.key === key)
             if (!def) {
                 res.status(404).json({ error: `Unknown setting key: ${key}` })
                 return
@@ -228,9 +338,11 @@ export function createSettingsController(createHandler: ReturnType<typeof create
     const resetByKey = createHandler(
         async ({ req, res, metahubId, userId, exec, schemaService }) => {
             const settingsService = new MetahubSettingsService(exec, schemaService)
+            const languageOptions = await getContentLocaleCodes(exec)
+            const { registry } = await buildRegistry({ exec, schemaService, metahubId, userId, languageOptions })
 
             const { key } = req.params
-            const def = getSettingDefinition(key)
+            const def = registry.find((s) => s.key === key)
             if (!def) {
                 res.status(404).json({ error: `Unknown setting key: ${key}` })
                 return

@@ -24,6 +24,24 @@ type PlatformPolicyRow = {
     value?: Record<string, unknown> | null
 }
 
+const OBJECT_SYSTEM_COMPONENT_SEED_KINDS = new Set([
+    'object',
+    'catalog',
+    'document',
+    'document-journal',
+    'information-register',
+    'accumulation-register',
+    'chart-of-accounts',
+    'chart-of-characteristic-types',
+    'accounting-register',
+    'chart-of-calculation-types',
+    'calculation-register'
+])
+
+export function shouldSeedObjectSystemComponents(kind: string): boolean {
+    return OBJECT_SYSTEM_COMPONENT_SEED_KINDS.has(kind)
+}
+
 export async function readPlatformSystemComponentsPolicyWithKnex(qb: Knex): Promise<PlatformSystemComponentsPolicy> {
     const rows = await qb
         .withSchema('admin')

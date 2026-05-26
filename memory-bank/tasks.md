@@ -4,6 +4,67 @@
 
 ---
 
+## Active: 1C-Compatible Metahub Template Implementation (2026-05-26)
+
+> Goal: implement the `1C-Compatible` metahub template as an opt-in template with reusable Entity Type Constructor typed behavior contracts, preview-safe preset manifests, safety gates, i18n, docs, and test scaffolding without changing the default `basic` template.
+
+### IMPLEMENT Action Plan
+
+-   [x] Establish the implementation baseline and preserve unrelated active tasks/history in this file.
+-   [x] Add shared typed behavior contracts and validators for `singleValue`, `catalogBehavior`, `documentBehavior`, `documentPosting`, `journalBehavior`, `registerBehavior`, `accountChartBehavior`, `dynamicCharacteristic`, and `calculationTypeGraph` in `@universo-react/types`.
+-   [x] Add focused unit tests for typed behavior normalization, positive contracts, negative fail-closed references, and preview/non-materializable guards.
+-   [x] Add `1C-Compatible` preview template and preset manifests in metahubs backend using existing manifest patterns and no template version bump for existing templates.
+-   [x] Extend backend manifest validation/tests so implemented presets register safely and preview/roadmap presets cannot materialize accidentally.
+-   [x] Add i18n keys and template/preset picker metadata for EN/RU user-facing copy, including non-affiliation wording.
+-   [x] Add UI/runtime UX guard scaffolding and Playwright fixture/spec placeholders for `@1c-compatible` and `@runtime-ux-canary` without using `pnpm dev`.
+-   [x] Add GitBook documentation pages and a clean-room/non-affiliation docs checker.
+-   [x] Run Prettier/lint/build/focused tests for touched packages; record unresolved blockers honestly if full runtime phases cannot be completed in this slice.
+-   [x] Update Memory Bank active context and progress with the implementation result.
+
+### Post-QA Closure Action Plan
+
+-   [x] Replace the incomplete runtime-ready claim with a fail-closed milestone model until each preset has behavior, UI, storage, and tests.
+-   [x] Protect template-managed entity type presets from structural update/delete without hardcoding a 1C-only rule.
+-   [x] Validate behavior cross-references against the enabled template/default-instance graph and fail when preset toggles create dangling references.
+-   [x] Complete the 12-preset 1C-compatible catalog as explicit runtime/preview manifests and guard preview presets from accidental materialization.
+-   [x] Fix Constant capabilities so top-level constants do not inherit object/document lifecycle behavior.
+-   [x] Expand typed behavior contract tests for accounting, dynamic characteristic, and calculation configs.
+-   [x] Strengthen backend manifest/template tests for reference validation, preset toggle closure, protected entity types, and preview non-materialization.
+-   [x] Strengthen EN/RU template selector copy and remove rough localized wording.
+-   [x] Replace shallow Playwright picker coverage with browser creation, keyboard, RU, viewport, overflow, and cleanup coverage.
+-   [x] Run formatting, focused unit tests, docs checks, builds, and local minimal Supabase Playwright evidence.
+-   [x] Update Memory Bank active context and progress with the QA closure result.
+
+### Security QA Closure Action Plan
+
+-   [x] Reserve all registered platform preset `kindKey` values so user-authored custom entity types cannot squat future template-managed kinds such as `document` or `catalog`.
+-   [x] Map template-managed object-like preset kinds into the generic Object metadata policy surface only when the row is a registered preset-managed type.
+-   [x] Route object-like 1C preset kinds through existing Object-compatible nested list/create/update/delete and blocking-reference handlers without adding 1C-only route families.
+-   [x] Fail closed during preset sync when an existing non-template-managed row already uses a platform preset `kindKey`, preventing silent overwrite of legacy/custom rows.
+-   [x] Correct nested Object-compatible creation access from `editContent` to `createContent`.
+-   [x] Add route, metadata, EntityTypeService, and schema-sync regression tests for the reserved-kind, object-compatible routing, delete preflight, and overwrite-safety contracts.
+-   [x] Re-run Prettier, focused backend tests/build/lint, types tests/build/lint, metahubs frontend build/lint, docs checks, and local minimal Supabase Playwright evidence.
+-   [x] Update Memory Bank active context and progress with the security QA closure result.
+
+### Runtime UX QA Closure Action Plan
+
+-   [x] Remove duplicate preview labeling and replace the 1C-compatible template description/non-affiliation wording.
+-   [x] Rename 1C-compatible entity preset display names to neutral metadata-object names across manifests and tests.
+-   [x] Make generic entity-instance collection pages use metadata-driven clean titles, actions, dialog titles, and no internal banners for template-managed/custom surfaces.
+-   [x] Add constructor/runtime UX guard coverage for namespaced `ui.nameKey`, clean collection pages, and create dialogs for new preset kinds.
+-   [x] Re-run Prettier, focused frontend/backend/type tests, lint/build checks, docs checks, and local minimal Supabase Playwright evidence.
+-   [x] Update Memory Bank active context and progress with the runtime UX QA closure result.
+
+### Constructor UX And Lifecycle QA Closure Action Plan
+
+-   [x] Remove normal-user raw kind/capability keys from Entity Type Constructor list and card surfaces.
+-   [x] Replace mixed Russian/English constructor copy with localized user-facing wording.
+-   [x] Move behavior profile data out of the shared workspace component into a reusable constructor preset module.
+-   [x] Align settings labels for 1C-compatible requisites with metadata terminology instead of generic components where the surfaced type uses requisites.
+-   [x] Expand 1C-compatible test coverage for constructor leakage, runtime lifecycle, RU validation, multiline description fields, resources/settings viewport evidence, and the complete preset catalog policy.
+-   [x] Run Prettier, focused frontend/backend/type tests, lint/build checks, docs checks, and local minimal Supabase Playwright evidence.
+-   [x] Update Memory Bank active context and progress with the constructor UX and lifecycle QA closure result.
+
 ## Recently Closed: Packages Naming Convention Rollout (2026-05-25)
 
 > Goal: rename every active workspace package to
@@ -755,3 +816,75 @@
 
 -   Add a generic `library.toggle` workspace-member target contract for shared `records.union` row actions.
 -   Details: progress.md#lder-generic-shared-workspace-member-row-actions
+
+## 1C-Compatible Template QA Remediation
+
+-   [x] Fix object-compatible reference blockers so 1C-compatible target kinds cannot be deleted while referenced.
+-   [x] Align nested enumeration deletion with the canonical `entity.enumeration.allowDelete` setting.
+-   [x] Make template-managed entity type customization rules match schema sync behavior.
+-   [x] Remove raw preset codename fallbacks from normal metahub create-option surfaces.
+-   [x] Strengthen 1C-compatible Playwright UX evidence for listbox leakage, options tab labels, and responsive screenshots.
+-   [x] Run Prettier, focused backend/types/frontend tests, lint/build checks, docs guard, and local Supabase Playwright verification.
+
+## 1C-Compatible Route Isolation And UX Evidence Closure
+
+-   [x] Enforce the original specialized route `kindKey` for object-compatible nested list/create/get/update/delete flows.
+-   [x] Add backend regression tests for route/body/query kind mismatch rejection.
+-   [x] Extend Playwright evidence after metahub creation to open the created metahub UI and check localized labels/no technical leakage.
+-   [x] Run Prettier, focused backend/frontend/type checks, docs guard, and local Supabase Playwright verification.
+
+## 1C-Compatible Runtime UX QA Closure
+
+-   [x] Fix the Russian template description grammar and matching browser assertions.
+-   [x] Prevent transient raw kind/internal fallback text and the unrelated hub instances request on specialized entity pages.
+-   [x] Expose 1C-compatible local requisites and common requisites through entity type resource-surface metadata instead of generic component labels.
+-   [x] Extend metahub settings registry/UI to show template-managed custom entity kind settings from entity type metadata.
+-   [x] Strengthen tests for loading/network errors, resources terminology, settings tabs, and 1C-compatible create dialogs.
+-   [x] Run Prettier, focused unit tests, lint, docs guard, and local Supabase Playwright verification where feasible.
+
+## 1C-Compatible QA Blocker Remediation Action Plan
+
+-   [x] Isolate direct `:kindKey` routes by overriding conflicting query/body kind and rejecting stored kind mismatches for get/update/delete/copy.
+-   [x] Add backend route tests for direct route kind mismatch, query/body conflicts, and deterministic create collision responses.
+-   [x] Make preset sync migrate legacy builtin rows without `systemTemplatePreset` while preserving conflict protection for custom/reserved non-managed kinds.
+-   [x] Wire component/requisite UI and nested object mutation policy to active entity kind settings instead of hardcoded `entity.object.*` settings.
+-   [x] Improve constructor/runtime UX evidence and Playwright coverage with user-visible actions and screenshots for resources, settings, and constructor flows.
+-   [x] Remove or registry-manage non-affiliation seed settings so template metadata stays maintainable through the settings contract.
+-   [x] Run Prettier, focused tests/lint/build checks, documentation guards, local minimal Supabase E2E build, and Playwright `@1c-compatible` verification.
+
+## 1C-Compatible QA Findings Implementation Closure
+
+-   [x] Remove normal-user PostgreSQL/storage details and raw component data-type codes from requisite/component tables and forms.
+-   [x] Make 1C-compatible requisite surfaces consistently use user-facing requisite/register-field terminology.
+-   [x] Add frontend tests proving requisites do not expose raw enum/PostgreSQL/internal component wording.
+-   [x] Add backend regression coverage for 1C route security, collision, and kind-isolation gaps identified by QA.
+-   [x] Extend Playwright `@1c-compatible` browser evidence to open and exercise a real requisites surface.
+-   [x] Run Prettier, focused tests, lint/build checks, and local minimal Supabase Playwright verification where feasible.
+
+## 1C-Compatible Runtime QA Remediation 2026-05-26
+
+-   [x] Remove user-facing container assignment from 1C-compatible entity type metadata until subsystems are implemented.
+-   [x] Rename shared 1C-compatible resource surfaces from Common Requisites to Requisites.
+-   [x] Move 1C-compatible requisites authoring out of entity edit dialog tabs and expose an accessible Open Requisites action.
+-   [x] Hide container/hub columns when the entity type does not expose tree assignment.
+-   [x] Register distinct 1C-compatible sidebar icons instead of falling back to the generic box icon.
+-   [x] Extend focused unit/E2E coverage for requisites navigation, resource labels, hidden containers, and icon metadata.
+-   [x] Run Prettier, focused tests, lint/build checks, and local minimal Supabase Playwright verification where feasible.
+
+## 1C-Compatible QA Findings Closure 2026-05-26
+
+-   [x] Enforce delete/permanent-delete behavior policy for 1C-compatible constants and add backend regressions.
+-   [x] Complete Playwright browser evidence for real UI metahub creation, requisite lifecycle, responsive/i18n/keyboard coverage.
+-   [x] Add negative access and route-tampering coverage for 1C-compatible routes and requisites.
+-   [x] Strengthen preset catalog assertions so tests reject missing, extra, or preview-only preset drift.
+-   [x] Run Prettier, focused lint/build/test checks, docs guard, and local minimal Supabase Playwright verification.
+
+## 1C-Compatible Full QA Remediation 2026-05-26
+
+-   [x] Ship all 12 1C-compatible presets from the metahub template manifest and align tests/docs.
+-   [x] Seed system-managed components for all object-like 1C entity kinds, not only the generic Object kind.
+-   [x] Apply component/requisite route-kind isolation consistently across read, copy, update, move, reorder, display, child, and delete routes.
+-   [x] Replace generic component wording with Requisite/Register Field terminology across 1C requisite edit/copy/delete dialogs.
+-   [x] Strengthen backend and frontend regression tests for seed behavior, tampered routes, terminology, and full preset drift.
+-   [x] Strengthen Playwright 1C-compatible evidence with normal-user UI creation/opening paths and stricter terminology assertions.
+-   [x] Run Prettier, focused lint/build/test checks, docs guard, local minimal Supabase build, and Playwright `@1c-compatible` verification.

@@ -146,6 +146,38 @@ const resolvePresentationDialogTitle = (
     return getLocalizedContentText(value as VersionedLocalizedContent<string> | null | undefined, uiLocale, '') || null
 }
 
+const resolvePresentationName = (entityType: MetahubEntityType | null, uiLocale: string): string | null => {
+    const presentation = entityType?.presentation
+    if (!isRecord(presentation)) {
+        return null
+    }
+
+    const value = presentation.name
+    if (typeof value === 'string') {
+        const normalized = value.trim()
+        return normalized.length > 0 ? normalized : null
+    }
+
+    return getLocalizedContentText(value as VersionedLocalizedContent<string> | null | undefined, uiLocale, '') || null
+}
+
+const resolveTranslatedUiNameKey = (nameKey: string | undefined, t: UiTranslate, fallback?: string | null): string | null => {
+    if (!nameKey) {
+        return null
+    }
+
+    if (!nameKey.includes(':') && !nameKey.includes('.')) {
+        return nameKey
+    }
+
+    const translated = t(nameKey, { defaultValue: fallback ?? '' }).trim()
+    if (!translated || translated === nameKey) {
+        return null
+    }
+
+    return translated
+}
+
 export const resolveEntityInstanceDialogTitle = (
     entityType: MetahubEntityType | null,
     mode: EntityInstanceDialogMode,
@@ -215,12 +247,19 @@ export const resolveEntityTypeName = (entityType: MetahubEntityType | null, uiLo
     }
 
     const codename = getLocalizedContentText(entityType.codename, uiLocale, entityType.kindKey)
+    const presentationName = resolvePresentationName(entityType, uiLocale)
     if (shouldTranslateEntityTypeUiText(entityType.kindKey)) {
         const builtinFallback = resolveBuiltinEntityTypeName(entityType.kindKey, t)
-        return t(entityType.ui.nameKey, { defaultValue: builtinFallback ?? entityType.ui.nameKey }) || codename || entityType.kindKey
+        return (
+            resolveTranslatedUiNameKey(entityType.ui.nameKey, t, builtinFallback) ??
+            presentationName ??
+            builtinFallback ??
+            codename ??
+            entityType.kindKey
+        )
     }
 
-    return entityType.ui.nameKey || codename || entityType.kindKey
+    return presentationName ?? resolveTranslatedUiNameKey(entityType.ui.nameKey, t, codename) ?? codename ?? entityType.kindKey
 }
 
 export const getEntityConfig = (entity?: MetahubEntityInstance | null): Record<string, unknown> => {

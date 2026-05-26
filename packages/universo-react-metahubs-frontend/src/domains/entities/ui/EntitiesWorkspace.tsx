@@ -81,12 +81,18 @@ import { invalidateEntityTypesQueries, metahubsQueryKeys } from '../../shared'
 import type { EntityTypePayload, UpdateEntityTypePayload, MetahubEntityType } from '../api'
 import { useCopyEntityType, useCreateEntityType, useDeleteEntityType, useEntityTypesQuery, useUpdateEntityType } from '../hooks'
 import { EntityTypePresetSelector } from './EntityTypePresetSelector'
+import {
+    DEFAULT_ENTITY_TYPE_CAPABILITIES,
+    DEFAULT_ENTITY_TYPE_CONFIG,
+    DEFAULT_ENTITY_TYPE_PRESENTATION,
+    ENTITY_BEHAVIOR_PROFILES,
+    getEntityBehaviorProfile,
+    type SupportedEntityTab
+} from './entityBehaviorProfiles'
 
 type EntityTypeFormValues = Record<string, unknown>
 
 type EntitiesViewMode = 'card' | 'list'
-type SupportedEntityTab = 'general' | 'behavior' | 'ledgerSchema' | 'treeEntities' | 'layout' | 'modules'
-
 const STRUCTURED_ENTITY_TAB_LABELS: Record<SupportedEntityTab, string> = {
     general: 'General',
     behavior: 'Behavior',
@@ -141,31 +147,6 @@ const buildEntityInstancesPath = (metahubId: string, kindKey: string) =>
     `/metahub/${metahubId}/entities/${encodeURIComponent(kindKey)}/instances`
 
 const shouldTranslateEntityTypeUiText = (kindKey: string) => isBuiltinEntityKind(kindKey)
-
-const DEFAULT_COMPONENTS_TEMPLATE: EntityTypeCapabilities = {
-    dataSchema: { enabled: true },
-    records: false,
-    treeAssignment: false,
-    optionValues: false,
-    fixedValues: false,
-    hierarchy: false,
-    nestedCollections: false,
-    relations: false,
-    actions: { enabled: true },
-    events: { enabled: true },
-    modules: { enabled: true },
-    blockContent: false,
-    layoutConfig: { enabled: true },
-    runtimeBehavior: { enabled: true },
-    physicalTable: { enabled: true, prefix: 'obj' },
-    identityFields: false,
-    recordLifecycle: false,
-    posting: false,
-    ledgerSchema: false
-}
-
-const DEFAULT_PRESENTATION_TEMPLATE: Record<string, unknown> = {}
-const DEFAULT_CONFIG_TEMPLATE: Record<string, unknown> = {}
 
 const appendLocalizedCopySuffix = (
     value: VersionedLocalizedContent<string> | null | undefined,
@@ -300,6 +281,16 @@ const normalizeResourceSurfaceDefinitions = (value: unknown, capabilities?: Enti
             preferredResourceSurfaceLocale(item.title, fallbackTitle),
             fallbackTitle
         )
+        const fallbackSharedTitle = String(item.fallbackSharedTitle ?? '').trim()
+        const sharedTitleKey =
+            typeof item.sharedTitleKey === 'string' && item.sharedTitleKey.trim().length > 0 ? item.sharedTitleKey.trim() : undefined
+        const sharedTitle = fallbackSharedTitle
+            ? ensureLocalizedContent(
+                  isRecord(item.sharedTitle) ? item.sharedTitle : null,
+                  preferredResourceSurfaceLocale(item.sharedTitle, fallbackSharedTitle),
+                  fallbackSharedTitle
+              )
+            : undefined
 
         if (!ENTITY_RESOURCE_SURFACE_KEY_PATTERN.test(key) || !ENTITY_RESOURCE_SURFACE_ROUTE_PATTERN.test(routeSegment)) {
             continue
@@ -311,7 +302,10 @@ const normalizeResourceSurfaceDefinitions = (value: unknown, capabilities?: Enti
             routeSegment,
             title,
             fallbackTitle,
-            titleKey
+            titleKey,
+            ...(sharedTitle ? { sharedTitle } : {}),
+            ...(fallbackSharedTitle ? { fallbackSharedTitle } : {}),
+            ...(sharedTitleKey ? { sharedTitleKey } : {})
         })
     }
 
@@ -728,6 +722,20 @@ const buildEntityTypeDisplayRow = (
     }
 }
 
+const renderCapabilityLabel = (key: string, t: (key: string, defaultValue?: string) => string): string => {
+    const translated = t(`entities.capabilities.${key}`, '')
+    if (translated.trim().length > 0) {
+        return translated
+    }
+
+    return key
+        .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+        .replace(/[-_.]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/^./, (char) => char.toUpperCase())
+}
+
 const buildInitialFormValues = (uiLocale: string, entityType?: MetahubEntityType | null): EntityTypeFormValues => {
     if (!entityType) {
         return {
@@ -740,15 +748,16 @@ const buildInitialFormValues = (uiLocale: string, entityType?: MetahubEntityType
             iconName: 'IconBox',
             tabs: ['general'],
             customTabsInput: '',
+            behaviorProfile: '',
             sidebarSection: 'objects',
             sidebarOrder: '',
-            capabilities: normalizeEntityTypeCapabilitiesForBuilder(DEFAULT_COMPONENTS_TEMPLATE),
+            capabilities: normalizeEntityTypeCapabilitiesForBuilder(DEFAULT_ENTITY_TYPE_CAPABILITIES),
             resourceSurfaces: normalizeResourceSurfaceDefinitions(
                 [],
-                normalizeEntityTypeCapabilitiesForBuilder(DEFAULT_COMPONENTS_TEMPLATE)
+                normalizeEntityTypeCapabilitiesForBuilder(DEFAULT_ENTITY_TYPE_CAPABILITIES)
             ),
-            presentationText: stringifyJson(DEFAULT_PRESENTATION_TEMPLATE),
-            configText: stringifyJson(DEFAULT_CONFIG_TEMPLATE),
+            presentationText: stringifyJson(DEFAULT_ENTITY_TYPE_PRESENTATION),
+            configText: stringifyJson(DEFAULT_ENTITY_TYPE_CONFIG),
             published: true
         }
     }
@@ -775,6 +784,7 @@ const buildInitialFormValues = (uiLocale: string, entityType?: MetahubEntityType
         iconName: entityType.ui.iconName,
         tabs: structuredTabs.length > 0 ? structuredTabs : ['general'],
         customTabsInput: customTabs.join(', '),
+        behaviorProfile: '',
         sidebarSection: entityType.ui.sidebarSection === 'admin' ? 'admin' : 'objects',
         sidebarOrder: typeof entityType.ui.sidebarOrder === 'number' ? String(entityType.ui.sidebarOrder) : '',
         capabilities: normalizeEntityTypeCapabilitiesForBuilder(entityType.capabilities),
@@ -782,8 +792,8 @@ const buildInitialFormValues = (uiLocale: string, entityType?: MetahubEntityType
             entityType.ui.resourceSurfaces,
             normalizeEntityTypeCapabilitiesForBuilder(entityType.capabilities)
         ),
-        presentationText: stringifyJson(entityType.presentation ?? DEFAULT_PRESENTATION_TEMPLATE),
-        configText: stringifyJson(entityType.config ?? DEFAULT_CONFIG_TEMPLATE),
+        presentationText: stringifyJson(entityType.presentation ?? DEFAULT_ENTITY_TYPE_PRESENTATION),
+        configText: stringifyJson(entityType.config ?? DEFAULT_ENTITY_TYPE_CONFIG),
         published: entityType.published !== false
     }
 }
@@ -1058,10 +1068,10 @@ const EntitiesWorkspace = () => {
             )
             const capabilities = lockedStandardEntity?.capabilities ?? normalizedComponents
             const resourceSurfaces = normalizeResourceSurfaceDefinitions(values.resourceSurfaces, capabilities)
-            const presentation = parseJsonRecordField(values.presentationText, DEFAULT_PRESENTATION_TEMPLATE)
+            const presentation = parseJsonRecordField(values.presentationText, DEFAULT_ENTITY_TYPE_PRESENTATION)
             const config = lockedStandardEntity
                 ? lockedStandardEntity.config
-                : parseJsonRecordField(values.configText, DEFAULT_CONFIG_TEMPLATE)
+                : parseJsonRecordField(values.configText, DEFAULT_ENTITY_TYPE_CONFIG)
             const nameVlc = (values.nameVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
             const descriptionVlc = (values.descriptionVlc as VersionedLocalizedContent<string> | null | undefined) ?? null
             const codenameValue = (values.codename as VersionedLocalizedContent<string> | null | undefined) ?? null
@@ -1248,13 +1258,13 @@ const EntitiesWorkspace = () => {
             }
 
             try {
-                parseJsonRecordField(values.presentationText, DEFAULT_PRESENTATION_TEMPLATE)
+                parseJsonRecordField(values.presentationText, DEFAULT_ENTITY_TYPE_PRESENTATION)
             } catch {
                 errors.presentationText = t('entities.validation.presentationInvalid', 'Presentation must be a valid JSON object')
             }
 
             try {
-                parseJsonRecordField(values.configText, DEFAULT_CONFIG_TEMPLATE)
+                parseJsonRecordField(values.configText, DEFAULT_ENTITY_TYPE_CONFIG)
             } catch {
                 errors.configText = t('entities.validation.configInvalid', 'Config must be a valid JSON object')
             }
@@ -1428,6 +1438,22 @@ const EntitiesWorkspace = () => {
                 setValue('resourceSurfaces', updateResourceSurfaceDefinition(values.resourceSurfaces, capability, patch, capabilities))
             }
 
+            const applyBehaviorProfile = (profileKey: string) => {
+                setValue('behaviorProfile', profileKey)
+                if (!profileKey) {
+                    return
+                }
+
+                const profile = getEntityBehaviorProfile(profileKey)
+                if (!profile) {
+                    return
+                }
+
+                setValue('capabilities', normalizeEntityTypeCapabilitiesForBuilder(profile.capabilities))
+                setValue('configText', stringifyJson(profile.config))
+                setValue('tabs', profile.tabs)
+            }
+
             return [
                 {
                     id: 'general',
@@ -1443,6 +1469,32 @@ const EntitiesWorkspace = () => {
                                     codenameStyle={codenameConfig.style}
                                     codenameAlphabet={codenameConfig.alphabet}
                                 />
+                            ) : null}
+                            {editorState.mode === 'create' ? (
+                                <FormControl fullWidth disabled={isLoading}>
+                                    <InputLabel id='entity-behavior-profile-label'>
+                                        {t('entities.behaviorProfiles.label', 'Behavior profile')}
+                                    </InputLabel>
+                                    <Select
+                                        labelId='entity-behavior-profile-label'
+                                        label={t('entities.behaviorProfiles.label', 'Behavior profile')}
+                                        value={typeof values.behaviorProfile === 'string' ? values.behaviorProfile : ''}
+                                        onChange={(event) => applyBehaviorProfile(String(event.target.value))}
+                                    >
+                                        <MenuItem value=''>{t('entities.behaviorProfiles.none', 'Custom capabilities')}</MenuItem>
+                                        {ENTITY_BEHAVIOR_PROFILES.map((profile) => (
+                                            <MenuItem key={profile.key} value={profile.key}>
+                                                {t(profile.labelKey, profile.defaultLabel)}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                    <FormHelperText>
+                                        {t(
+                                            'entities.behaviorProfiles.helper',
+                                            'Applies reusable constructor capabilities and typed behavior config without requiring manual JSON.'
+                                        )}
+                                    </FormHelperText>
+                                </FormControl>
                             ) : null}
                             <GeneralTabFields
                                 values={values}
@@ -1602,6 +1654,28 @@ const EntitiesWorkspace = () => {
                                                                     surface.fallbackTitle ?? surface.key
                                                                 ),
                                                                 titleKey: undefined
+                                                            })
+                                                        }
+                                                        disabled={isLoading}
+                                                        autoInitialize={!isLoading}
+                                                        uiLocale={preferredVlcLocale}
+                                                    />
+                                                    <LocalizedInlineField
+                                                        mode='localized'
+                                                        label={t(
+                                                            'entities.fields.resourceSurfaceSharedTitle',
+                                                            'Shared resources tab title'
+                                                        )}
+                                                        value={surface.sharedTitle ?? null}
+                                                        onChange={(next: VersionedLocalizedContent<string> | null) =>
+                                                            updateResourceSurface(surface.capability, {
+                                                                sharedTitle: next ?? undefined,
+                                                                fallbackSharedTitle: getLocalizedContentText(
+                                                                    next,
+                                                                    preferredVlcLocale,
+                                                                    surface.fallbackSharedTitle ?? surface.fallbackTitle ?? surface.key
+                                                                ),
+                                                                sharedTitleKey: undefined
                                                             })
                                                         }
                                                         disabled={isLoading}
@@ -2393,24 +2467,12 @@ const EntitiesWorkspace = () => {
             {
                 id: 'name',
                 label: tc('table.name', 'Name'),
-                width: '24%',
+                width: '32%',
                 sortable: true,
                 sortAccessor: (row: EntityTypeDisplayRow) => row.name.toLowerCase(),
                 render: (row: EntityTypeDisplayRow) => (
                     <Typography variant='body2' sx={{ fontWeight: 500 }}>
                         {row.name || row.kindKey}
-                    </Typography>
-                )
-            },
-            {
-                id: 'kindKey',
-                label: t('entities.columns.kindKey', 'Kind key'),
-                width: '18%',
-                sortable: true,
-                sortAccessor: (row: EntityTypeDisplayRow) => row.kindKey,
-                render: (row: EntityTypeDisplayRow) => (
-                    <Typography variant='body2' sx={{ fontFamily: 'monospace' }}>
-                        {row.kindKey}
                     </Typography>
                 )
             },
@@ -2460,7 +2522,7 @@ const EntitiesWorkspace = () => {
                 render: (row: EntityTypeDisplayRow) => (
                     <Stack direction='row' spacing={0.5} useFlexGap flexWrap='wrap'>
                         {row.componentKeys.slice(0, 3).map((componentKey) => (
-                            <Chip key={componentKey} size='small' variant='outlined' label={componentKey} />
+                            <Chip key={componentKey} size='small' variant='outlined' label={renderCapabilityLabel(componentKey, t)} />
                         ))}
                         {row.componentKeys.length > 3 ? (
                             <Chip size='small' variant='outlined' label={`+${row.componentKeys.length - 3}`} />
@@ -2603,7 +2665,11 @@ const EntitiesWorkspace = () => {
                                                         : t('entities.badges.hidden', 'Hidden')
                                                 }
                                             />
-                                            <Chip size='small' variant='outlined' label={row.kindKey} />
+                                            <Chip
+                                                size='small'
+                                                variant='outlined'
+                                                label={t(`entities.sidebarSections.${row.sidebarSection}`, row.sidebarSection)}
+                                            />
                                         </Stack>
                                     }
                                     footerEndContent={

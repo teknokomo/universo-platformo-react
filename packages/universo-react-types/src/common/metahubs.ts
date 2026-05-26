@@ -125,7 +125,7 @@ export interface SettingDefinition {
     /** Dot-notation key stored in _mhb_settings.key */
     key: string
     /** Which tab this setting belongs to */
-    tab: SettingsTab
+    tab: string
     /** Value type for UI rendering */
     valueType: SettingValueType
     /** Default value (used when setting doesn't exist in DB) */
@@ -1265,6 +1265,8 @@ export interface MetahubTemplateManifest {
 export const TEMPLATE_DEFINITION_TYPES = ['metahub_template', 'entity_type_preset'] as const
 
 export type TemplateDefinitionType = (typeof TEMPLATE_DEFINITION_TYPES)[number]
+
+export const TEMPLATE_MANAGED_ENTITY_TYPE_CONFIG_KEY = 'systemTemplatePreset'
 
 export interface EntityTypePresetManifest {
     $schema: 'entity-type-preset/v1'

@@ -31,6 +31,7 @@
 -   [Узлы и рабочие пространства](platform/workspaces.md)
 -   [Пространства знаний](platform/spaces.md)
 -   [Метахабы](platform/metahubs.md)
+    -   [Шаблон 1С-Совместимый](platform/1c-compatible-template.md)
     -   [Рабочее пространство ресурсов](platform/metahubs/common-section.md)
     -   [Общие компоненты](platform/metahubs/shared-components.md)
     -   [Общие константы](platform/metahubs/shared-fixed-values.md)

@@ -12,7 +12,6 @@ import {
 import { isValidCodenameForStyle, normalizeCodenameForStyle } from '@universo-react/utils/validation/codename'
 import {
     isEnabledCapabilityConfig,
-    isBuiltinEntityKind,
     normalizePageBlockContentForStorage,
     normalizeLedgerConfigFromConfig,
     supportsLedgerSchema,
@@ -54,7 +53,11 @@ import { EntityMutationService } from '../services/EntityMutationService'
 import { MetahubTreeEntitiesService } from '../../metahubs/services/MetahubTreeEntitiesService'
 import { executeBlockedDelete, type EntityDeleteOutcome } from '../services/entityDeletePatterns'
 import { MetahubModulesService } from '../../modules/services/MetahubModulesService'
-import { resolveEntityMetadataAclPermission, resolveEntityMetadataSettingKey } from '../../shared/entityMetadataKinds'
+import {
+    resolveEntityMetadataAclPermission,
+    resolveEntityMetadataKindFromType,
+    resolveEntityMetadataSettingKeys
+} from '../../shared/entityMetadataKinds'
 import { toTimestamp } from '../../shared/timestamps'
 import type { EntityBehaviorDeleteContext, EntityBehaviorService } from '../services/EntityBehaviorService'
 
@@ -80,7 +83,7 @@ export const isBuiltinEntityRouteKind = (value: string | null | undefined): valu
 
 export const ensureStandardRouteKindQuery = (req: Request): void => {
     const routeKindKey = normalizeRouteKindKey(req.params.kindKey)
-    if (!routeKindKey || typeof req.query.kindKey === 'string') {
+    if (!routeKindKey) {
         return
     }
 
@@ -101,11 +104,9 @@ export const ensureStandardCreateRouteKindBody = (req: Request): void => {
         return
     }
 
-    if (!('kindKey' in req.body)) {
-        req.body = {
-            ...req.body,
-            kindKey: routeKindKey
-        }
+    req.body = {
+        ...req.body,
+        kindKey: routeKindKey
     }
 }
 
@@ -351,8 +352,7 @@ export const getEntityMutationPermission = (resolvedType: ResolvedEntityType, mo
     )
 
 export const getEntityMetadataKind = (resolvedType: ResolvedEntityType | null | undefined): BuiltinEntityKind | null => {
-    const resolvedKindKey = resolvedType?.kindKey?.trim() ?? ''
-    return isBuiltinEntityKind(resolvedKindKey) ? resolvedKindKey : null
+    return resolveEntityMetadataKindFromType(resolvedType)
 }
 
 export const buildEntityMetadataPolicyError = (
@@ -360,11 +360,16 @@ export const buildEntityMetadataPolicyError = (
     operation: 'copy' | 'delete'
 ): { status: number; body: Record<string, unknown> } | null => {
     const metadataKind = getEntityMetadataKind(resolvedType)
-    if (!metadataKind) {
+    const label = metadataKind
+        ? ENTITY_METADATA_LABEL_PLURAL_MAP[metadataKind]
+        : resolvedType.kindKey
+        ? `${resolvedType.kindKey.replace(/-/g, ' ')}s`
+        : null
+
+    if (!label) {
         return null
     }
 
-    const label = ENTITY_METADATA_LABEL_PLURAL_MAP[metadataKind]
     return {
         status: 403,
         body: {
@@ -403,14 +408,40 @@ export const checkEntityMetadataCopyPolicy = async ({
     metahubId: string
     userId?: string
 }): Promise<PolicyOutcome | null> => {
-    const allowCopySettingKey = resolveEntityMetadataSettingKey(resolvedType, 'allowCopy')
-    if (!allowCopySettingKey) {
+    const allowCopySettingKeys = resolveEntityMetadataSettingKeys(resolvedType, 'allowCopy')
+    if (allowCopySettingKeys.length === 0) {
         return null
     }
 
-    const allowCopyRow = await settingsService.findByKey(metahubId, allowCopySettingKey, userId)
+    const allowCopyRows = await Promise.all(allowCopySettingKeys.map((key) => settingsService.findByKey(metahubId, key, userId)))
+    const allowCopyRow = allowCopyRows.find((row) => row?.value?._value === false)
     if (allowCopyRow && allowCopyRow.value?._value === false) {
         return buildEntityMetadataPolicyError(resolvedType, 'copy')
+    }
+
+    return null
+}
+
+export const checkEntityMetadataDeletePolicy = async ({
+    resolvedType,
+    settingsService,
+    metahubId,
+    userId
+}: {
+    resolvedType: ResolvedEntityType
+    settingsService: MetahubSettingsService
+    metahubId: string
+    userId?: string
+}): Promise<PolicyOutcome | null> => {
+    const allowDeleteSettingKeys = resolveEntityMetadataSettingKeys(resolvedType, 'allowDelete')
+    if (allowDeleteSettingKeys.length === 0) {
+        return null
+    }
+
+    const allowDeleteRows = await Promise.all(allowDeleteSettingKeys.map((key) => settingsService.findByKey(metahubId, key, userId)))
+    const allowDeleteRow = allowDeleteRows.find((row) => row?.value?._value === false)
+    if (allowDeleteRow && allowDeleteRow.value?._value === false) {
+        return buildEntityMetadataPolicyError(resolvedType, 'delete')
     }
 
     return null

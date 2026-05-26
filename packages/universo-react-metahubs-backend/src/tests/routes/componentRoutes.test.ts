@@ -65,6 +65,8 @@ const mockComponentsService = {
     findByCodename: jest.fn(),
     create: jest.fn(),
     findChildComponents: jest.fn(),
+    findChildComponentsByParentIds: jest.fn(),
+    findAllFlat: jest.fn(),
     reorderComponent: jest.fn(),
     reorderComponentMergedOrder: jest.fn(),
     setDisplayComponent: jest.fn(),
@@ -212,6 +214,8 @@ describe('Field Definition Routes', () => {
         mockComponentsService.findByCodename.mockResolvedValue(null)
         mockComponentsService.create.mockResolvedValue({})
         mockComponentsService.findChildComponents.mockResolvedValue([])
+        mockComponentsService.findChildComponentsByParentIds.mockResolvedValue(new Map())
+        mockComponentsService.findAllFlat.mockResolvedValue([])
         mockObjectsService.findById.mockResolvedValue({
             id: 'object-1',
             kind: 'object'
@@ -289,6 +293,164 @@ describe('Field Definition Routes', () => {
     })
 
     describe('POST /metahub/:metahubId/object/:objectCollectionId/components', () => {
+        it('returns 404 when the route kind does not match the target object kind', async () => {
+            mockObjectsService.findById.mockResolvedValueOnce({
+                id: 'object-1',
+                kind: 'catalog'
+            })
+
+            const app = buildApp()
+            const response = await request(app)
+                .post('/metahub/metahub-1/entities/document/instance/object-1/components')
+                .send({
+                    codename: testCodenameVlc('Title'),
+                    dataType: 'STRING',
+                    name: { en: 'Title' }
+                })
+                .expect(404)
+
+            expect(response.body.error).toBe('Object not found')
+            expect(mockComponentsService.create).not.toHaveBeenCalled()
+        })
+
+        it.each([
+            {
+                label: 'GET component',
+                method: 'get' as const,
+                path: '/metahub/metahub-1/entities/document/instance/object-1/component/attr-1',
+                blockedService: mockComponentsService.findById
+            },
+            {
+                label: 'POST copy',
+                method: 'post' as const,
+                path: '/metahub/metahub-1/entities/document/instance/object-1/component/attr-1/copy',
+                blockedService: mockComponentsService.findById
+            },
+            {
+                label: 'PATCH update',
+                method: 'patch' as const,
+                path: '/metahub/metahub-1/entities/document/instance/object-1/component/attr-1',
+                body: { name: { en: 'Changed' } },
+                blockedService: mockComponentsService.findById
+            },
+            {
+                label: 'PATCH move',
+                method: 'patch' as const,
+                path: '/metahub/metahub-1/entities/document/instance/object-1/component/attr-1/move',
+                body: { direction: 'up' },
+                blockedService: mockComponentsService.findById
+            },
+            {
+                label: 'PATCH reorder',
+                method: 'patch' as const,
+                path: '/metahub/metahub-1/entities/document/instance/object-1/components/reorder',
+                body: {
+                    componentId: '11111111-1111-1111-1111-111111111111',
+                    newSortOrder: 2
+                },
+                blockedService: mockComponentsService.reorderComponent
+            },
+            {
+                label: 'PATCH toggle-required',
+                method: 'patch' as const,
+                path: '/metahub/metahub-1/entities/document/instance/object-1/component/attr-1/toggle-required',
+                blockedService: mockComponentsService.findById
+            },
+            {
+                label: 'PATCH set-display',
+                method: 'patch' as const,
+                path: '/metahub/metahub-1/entities/document/instance/object-1/component/attr-1/set-display',
+                blockedService: mockComponentsService.findById
+            },
+            {
+                label: 'PATCH clear-display',
+                method: 'patch' as const,
+                path: '/metahub/metahub-1/entities/document/instance/object-1/component/attr-1/clear-display',
+                blockedService: mockComponentsService.findById
+            },
+            {
+                label: 'DELETE component',
+                method: 'delete' as const,
+                path: '/metahub/metahub-1/entities/document/instance/object-1/component/attr-1',
+                blockedService: mockComponentsService.findById
+            },
+            {
+                label: 'GET component codenames',
+                method: 'get' as const,
+                path: '/metahub/metahub-1/entities/document/instance/object-1/component-codenames',
+                blockedService: mockComponentsService.findAllFlat
+            },
+            {
+                label: 'GET children batch',
+                method: 'get' as const,
+                path: '/metahub/metahub-1/entities/document/instance/object-1/components/children/batch?parentIds=attr-1',
+                blockedService: mockComponentsService.findChildComponentsByParentIds
+            },
+            {
+                label: 'GET children',
+                method: 'get' as const,
+                path: '/metahub/metahub-1/entities/document/instance/object-1/component/attr-1/children',
+                blockedService: mockComponentsService.findById
+            },
+            {
+                label: 'POST child',
+                method: 'post' as const,
+                path: '/metahub/metahub-1/entities/document/instance/object-1/component/attr-1/children',
+                body: {
+                    codename: testCodenameVlc('ChildTitle'),
+                    dataType: 'STRING',
+                    name: { en: 'Child Title' }
+                },
+                blockedService: mockComponentsService.findById
+            }
+        ])(
+            'returns 404 before $label when the route kind does not match the target object kind',
+            async ({ method, path, body, blockedService }) => {
+                mockObjectsService.findById.mockResolvedValueOnce({
+                    id: 'object-1',
+                    kind: 'catalog'
+                })
+
+                const app = buildApp()
+                const response = await request(app)
+                    [method](path)
+                    .send(body ?? {})
+                    .expect(404)
+
+                expect(response.body.error).toBe('Object not found')
+                expect(blockedService).not.toHaveBeenCalled()
+            }
+        )
+
+        it('allows the generic object route for object-compatible target kinds', async () => {
+            mockObjectsService.findById.mockResolvedValueOnce({
+                id: 'object-1',
+                kind: 'catalog'
+            })
+            mockComponentsService.create.mockResolvedValueOnce({
+                id: 'attr-title',
+                objectCollectionId: 'object-1',
+                codename: 'Title',
+                dataType: 'STRING',
+                isRequired: false,
+                isDisplayComponent: false,
+                validationRules: {},
+                uiConfig: {}
+            })
+
+            const app = buildApp()
+            await request(app)
+                .post('/metahub/metahub-1/entities/object/instance/object-1/components')
+                .send({
+                    codename: testCodenameVlc('Title'),
+                    dataType: 'STRING',
+                    name: { en: 'Title' }
+                })
+                .expect(201)
+
+            expect(mockComponentsService.create).toHaveBeenCalled()
+        })
+
         it('returns 400 with TABLE_DISPLAY_COMPONENT_FORBIDDEN code for TABLE display component create attempt', async () => {
             const app = buildApp()
             const response = await request(app)

@@ -1,5 +1,4 @@
-import type { Request, Response, RequestHandler } from 'express'
-import { isBuiltinEntityKind } from '@universo-react/types'
+import type { Request, RequestHandler } from 'express'
 import type { createMetahubHandlerFactory } from '../../shared/createMetahubHandler'
 import {
     type BuiltinEntityRouteKind,
@@ -14,15 +13,30 @@ import {
 import { createEntityCrudHandlers } from './entityCrudHandlers'
 import { createNestedChildHandlers } from './nestedChildHandlers'
 import { createOptionValueHandlers } from './optionValueHandlers'
+import { resolveEntityMetadataKindFromType } from '../../shared/entityMetadataKinds'
+import { EntityTypeService } from '../services/EntityTypeService'
 
 export function createEntityInstancesController(createHandler: ReturnType<typeof createMetahubHandlerFactory>) {
     const crud = createEntityCrudHandlers(createHandler)
     const nested = createNestedChildHandlers(createHandler)
     const optionValue = createOptionValueHandlers(createHandler)
 
-    const resolveBuiltinEntityRouteKind = async (req: Request): Promise<BuiltinEntityRouteKind | null> => {
+    const resolveEntityRouteKind = async (
+        req: Request,
+        entityTypeService: Pick<EntityTypeService, 'resolveType'>,
+        metahubId: string,
+        userId?: string
+    ): Promise<BuiltinEntityRouteKind | null> => {
         const routeKindKey = normalizeRouteKindKey(req.params.kindKey)
-        return routeKindKey && isBuiltinEntityKind(routeKindKey) && isBuiltinEntityRouteKind(routeKindKey) ? routeKindKey : null
+        if (!routeKindKey) {
+            return null
+        }
+        if (isBuiltinEntityRouteKind(routeKindKey)) {
+            return routeKindKey
+        }
+
+        const metadataKind = resolveEntityMetadataKindFromType(await entityTypeService.resolveType(metahubId, routeKindKey, userId))
+        return isBuiltinEntityRouteKind(metadataKind) ? metadataKind : null
     }
 
     const dispatchStandardRouteKind = ({
@@ -32,8 +46,8 @@ export function createEntityInstancesController(createHandler: ReturnType<typeof
         handlers: Partial<Record<BuiltinEntityRouteKind, RequestHandler>>
         prepare?: (req: Request, routeKind: BuiltinEntityRouteKind) => void
     }) => {
-        return async (req: Request, res: Response): Promise<void> => {
-            const routeKind = await resolveBuiltinEntityRouteKind(req)
+        return createHandler(async ({ req, res, metahubId, userId, exec, schemaService }): Promise<void> => {
+            const routeKind = await resolveEntityRouteKind(req, new EntityTypeService(exec, schemaService), metahubId, userId)
             if (!routeKind) {
                 respondUnsupportedEntityRouteKind(res)
                 return
@@ -48,7 +62,7 @@ export function createEntityInstancesController(createHandler: ReturnType<typeof
             ensureStandardRouteKindQuery(req)
             prepare?.(req, routeKind)
             await invokeHandler(handler, req, res)
-        }
+        })
     }
 
     const requireBuiltinEntityRouteKind = ({
@@ -60,8 +74,8 @@ export function createEntityInstancesController(createHandler: ReturnType<typeof
         handler: RequestHandler
         prepare?: (req: Request, routeKind: BuiltinEntityRouteKind) => void
     }) => {
-        return async (req: Request, res: Response): Promise<void> => {
-            const routeKind = await resolveBuiltinEntityRouteKind(req)
+        return createHandler(async ({ req, res, metahubId, userId, exec, schemaService }): Promise<void> => {
+            const routeKind = await resolveEntityRouteKind(req, new EntityTypeService(exec, schemaService), metahubId, userId)
             if (routeKind !== expectedKind) {
                 respondUnsupportedEntityRouteKind(res)
                 return
@@ -70,7 +84,7 @@ export function createEntityInstancesController(createHandler: ReturnType<typeof
             ensureStandardRouteKindQuery(req)
             prepare?.(req, routeKind)
             await invokeHandler(handler, req, res)
-        }
+        })
     }
 
     return {
@@ -85,6 +99,7 @@ export function createEntityInstancesController(createHandler: ReturnType<typeof
         permanentRemove: crud.permanentRemove,
         copy: crud.copy,
         reorder: crud.reorder,
+        listTreeEntities: nested.listTreeEntities,
         listNestedStandardInstances: dispatchStandardRouteKind({
             handlers: {
                 hub: nested.listNestedTreeEntities,
