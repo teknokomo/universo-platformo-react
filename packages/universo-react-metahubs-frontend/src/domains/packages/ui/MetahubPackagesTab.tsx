@@ -170,6 +170,17 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
         }
     }
 
+    const closePendingVersionChange = () => {
+        if (pendingVersionChange) {
+            setVersionDrafts((current) => ({
+                ...current,
+                [pendingVersionChange.row.packageName]: pendingVersionChange.row.version
+            }))
+        }
+        setMutationErrorVisible(false)
+        setPendingVersionChange(null)
+    }
+
     const getRowActionLabel = (key: string, fallback: string, row: PackageTableRow) => t(key, fallback, { packageName: row.name })
 
     const packageColumns: TableColumn<PackageTableRow>[] = [
@@ -406,29 +417,14 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
             </StandardDialog>
             <StandardDialog
                 open={Boolean(pendingVersionChange)}
-                onClose={() => {
-                    setMutationErrorVisible(false)
-                    setPendingVersionChange(null)
-                }}
+                onClose={closePendingVersionChange}
                 maxWidth='sm'
                 fullWidth
                 title={t('packages.dialogs.changeVersion.title', 'Change package version')}
                 disablePresentationControls
                 actions={
                     <>
-                        <Button
-                            onClick={() => {
-                                if (pendingVersionChange) {
-                                    setVersionDrafts((current) => ({
-                                        ...current,
-                                        [pendingVersionChange.row.packageName]: pendingVersionChange.row.version
-                                    }))
-                                }
-                                setMutationErrorVisible(false)
-                                setPendingVersionChange(null)
-                            }}
-                            disabled={changeVersionMutation.isPending}
-                        >
+                        <Button onClick={closePendingVersionChange} disabled={changeVersionMutation.isPending}>
                             {t('packages.dialogs.cancel', 'Cancel')}
                         </Button>
                         <Button
@@ -462,6 +458,7 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
             <ConfirmDeleteDialog
                 open={Boolean(pendingDetach)}
                 title={t('packages.dialogs.detach.title', 'Disconnect package')}
+                error={mutationErrorVisible ? mutationErrorMessage : undefined}
                 description={
                     pendingDetach
                         ? t(
@@ -479,10 +476,10 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
                     setMutationErrorVisible(false)
                     setPendingDetach(null)
                 }}
-                onConfirm={() => {
+                onConfirm={async () => {
                     if (!pendingDetach?.attachmentId) return
                     setMutationErrorVisible(false)
-                    detachMutation.mutate({ attachmentId: pendingDetach.attachmentId }, { onSuccess: () => setPendingDetach(null) })
+                    await detachMutation.mutateAsync({ attachmentId: pendingDetach.attachmentId })
                 }}
             />
         </Stack>

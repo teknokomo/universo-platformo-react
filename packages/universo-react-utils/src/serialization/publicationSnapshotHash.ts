@@ -137,7 +137,9 @@ const normalizePackage = (packageValue: unknown): Record<string, unknown> => {
             importName: typeof source.importName === 'string' ? source.importName : '',
             upstreamPackageName: typeof source.upstreamPackageName === 'string' ? source.upstreamPackageName : '',
             upstreamVersion: typeof source.upstreamVersion === 'string' ? source.upstreamVersion : '',
-            runtimeTargets: asArray<unknown>(source.runtimeTargets).map((target) => String(target ?? '')).sort(compareStrings)
+            runtimeTargets: asArray<unknown>(source.runtimeTargets)
+                .map((target) => String(target ?? ''))
+                .sort(compareStrings)
         }
     }
 }

@@ -6,6 +6,8 @@ description: Connect workspace packages to a metahub through the Resources works
 
 Packages are reusable workspace libraries that a metahub can declare as runtime dependencies for its modules.
 
+![Metahub Resources Packages tab](../../.gitbook/assets/platform/metahub-packages.png)
+
 The first MVP registry contains three built-in workspace wrappers:
 
 -   `@universo-react/colyseus-client`

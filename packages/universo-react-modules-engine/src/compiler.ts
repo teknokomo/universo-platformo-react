@@ -483,10 +483,7 @@ const validateNoCrossTargetTopLevelBindings = (
     }
 }
 
-const validateModuleSource = (
-    sourceFile: ts.SourceFile,
-    allowedPackageImports: readonly ModulePackageImport[]
-): ModulePackageImport[] => {
+const validateModuleSource = (sourceFile: ts.SourceFile, allowedPackageImports: readonly ModulePackageImport[]): ModulePackageImport[] => {
     const allowedPackageNames = new Set(allowedPackageImports.map((item) => item.packageName))
     const usedPackageNames = new Set<string>()
     const unsupportedImports = new Set<string>()
@@ -565,7 +562,9 @@ const validateModuleSource = (
     if (violations.length > 0) {
         throw new Error(
             `Embedded module source contains unsupported module-loading patterns (${violations.join('; ')}). ` +
-                `Only ${[...ALLOWED_MODULE_IMPORTS, ...allowedPackageNames].join(', ')} and ${SHARED_LIBRARY_IMPORT_PREFIX}* imports are supported.`
+                `Only ${[...ALLOWED_MODULE_IMPORTS, ...allowedPackageNames].join(
+                    ', '
+                )} and ${SHARED_LIBRARY_IMPORT_PREFIX}* imports are supported.`
         )
     }
 
@@ -821,10 +820,7 @@ const createSharedLibraryPlugin = (sharedLibraries?: Record<string, ModuleCompil
     }
 })
 
-const createPackageExternalPlugin = (
-    packageImports: readonly ModulePackageImport[],
-    bundleTarget: BundleTarget
-): Plugin => ({
+const createPackageExternalPlugin = (packageImports: readonly ModulePackageImport[], bundleTarget: BundleTarget): Plugin => ({
     name: 'universo-package-imports',
     setup(buildApi) {
         const imports = new Map(packageImports.map((item) => [item.packageName, item]))

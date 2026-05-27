@@ -187,6 +187,59 @@ describe('MetahubPackagesTab', () => {
         })
     })
 
+    it('resets the draft version when the change dialog is dismissed', async () => {
+        const user = userEvent.setup()
+        vi.mocked(packagesApi.listCatalog).mockResolvedValue([
+            catalogItem({
+                id: '@universo-react/playcanvas-engine:0.1.0',
+                version: '0.1.0',
+                attached: true,
+                attachmentId: 'attach-1',
+                attachedVersion: '0.1.0'
+            }),
+            catalogItem({
+                id: '@universo-react/playcanvas-engine:0.2.0',
+                version: '0.2.0'
+            })
+        ])
+
+        renderTab()
+
+        const versionSelect = await screen.findByText('0.1.0')
+        await user.click(versionSelect)
+        await user.click(screen.getByRole('option', { name: '0.2.0' }))
+
+        expect(await screen.findByRole('dialog', { name: 'Изменить версию пакета' })).toBeInTheDocument()
+        await user.keyboard('{Escape}')
+
+        await waitFor(() => {
+            expect(screen.queryByRole('dialog', { name: 'Изменить версию пакета' })).not.toBeInTheDocument()
+        })
+        expect(screen.getByText('0.1.0')).toBeInTheDocument()
+        expect(packagesApi.changeVersion).not.toHaveBeenCalled()
+    })
+
+    it('shows detach mutation errors inside the confirmation dialog', async () => {
+        const user = userEvent.setup()
+        vi.mocked(packagesApi.listCatalog).mockResolvedValue([
+            catalogItem({
+                attached: true,
+                attachmentId: '018f0000-0000-7000-8000-000000000001',
+                attachedVersion: '0.1.0'
+            })
+        ])
+        vi.mocked(packagesApi.detach).mockRejectedValue(new Error('Detach failed'))
+
+        renderTab()
+
+        await user.click(await screen.findByRole('button', { name: 'Отключить PlayCanvas Engine' }))
+        await user.click(screen.getByRole('button', { name: 'Отключить пакет' }))
+
+        expect(await screen.findByRole('alert')).toHaveTextContent(
+            'Не удалось выполнить операцию с пакетом. Обновите страницу и попробуйте ещё раз.'
+        )
+    })
+
     it('shows localized package mutation fallback errors', async () => {
         const user = userEvent.setup()
         vi.mocked(packagesApi.listCatalog).mockResolvedValue([catalogItem()])
