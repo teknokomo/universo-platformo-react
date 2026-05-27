@@ -39,6 +39,8 @@ Return:
 
 -   Prefer browser evidence for implemented UI: screenshots, visible locators, keyboard path, and responsive viewport proof.
 -   Automated checks are useful only if they encode UX semantics; CRUD success alone is not enough.
+-   When an implementation adds a screen next to an existing canonical screen, compare the shared component contract directly: density, header styling, numbered rows, action placement, and dialog affordances must match unless a visible product reason says otherwise.
+-   For destructive confirmation dialogs, browser or component evidence must prove that resize/fullscreen controls are absent and that footer actions have normal spacing. Saving screenshots without assertions is not sufficient evidence for this class of defect.
 -   Do not weaken or skip a UX canary without evidence that the failure is environmental.
 
 ## References

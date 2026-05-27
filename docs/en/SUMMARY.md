@@ -33,6 +33,7 @@
 -   [Metahubs](platform/metahubs.md)
     -   [1C-Compatible Template](platform/1c-compatible-template.md)
     -   [Resources Workspace](platform/metahubs/common-section.md)
+    -   [Metahub Packages](platform/metahubs/packages.md)
     -   [Shared Components](platform/metahubs/shared-components.md)
     -   [Shared Constants](platform/metahubs/shared-fixed-values.md)
     -   [Shared Values](platform/metahubs/shared-option-values.md)

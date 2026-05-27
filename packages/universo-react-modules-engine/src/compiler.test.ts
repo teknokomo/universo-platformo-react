@@ -173,6 +173,41 @@ describe('compileModuleSource', () => {
         )
     })
 
+    it('externalizes declared package imports and records them in the manifest', async () => {
+        const artifact = await compileModuleSource(
+            createInput(
+                `import { Room } from '@universo-react/colyseus-server'
+import { ExtensionModule, AtServer } from '@universo-react/extension-sdk'
+
+export default class ColyseusModule extends ExtensionModule {
+    @AtServer()
+    async createRoom() {
+        return Room
+    }
+}
+`,
+                {
+                    allowedPackageImports: [
+                        {
+                            packageName: '@universo-react/colyseus-server',
+                            version: '0.1.0',
+                            targets: ['server']
+                        }
+                    ]
+                }
+            )
+        )
+
+        expect(artifact.manifest.packageImports).toEqual([
+            {
+                packageName: '@universo-react/colyseus-server',
+                version: '0.1.0',
+                targets: ['server']
+            }
+        ])
+        expect(artifact.serverBundle).toContain('@universo-react/colyseus-server')
+    })
+
     it('rejects dynamic import expressions', async () => {
         await expect(
             compileModuleSource(

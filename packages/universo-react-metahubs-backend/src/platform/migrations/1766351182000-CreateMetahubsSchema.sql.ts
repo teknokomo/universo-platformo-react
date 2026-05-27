@@ -297,6 +297,89 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
                 WHERE _upl_deleted = false AND _app_deleted = false
             `
         },
+        // ── obj_packages ──
+        {
+            sql: `
+                CREATE TABLE metahubs.obj_packages (
+                    id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
+                    package_name TEXT NOT NULL,
+                    version VARCHAR(64) NOT NULL,
+                    display_name JSONB NOT NULL DEFAULT '{}',
+                    description JSONB DEFAULT '{}',
+                    source JSONB NOT NULL DEFAULT '{}',
+                    is_active BOOLEAN NOT NULL DEFAULT true,
+                    _upl_created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                    _upl_created_by UUID,
+                    _upl_updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                    _upl_updated_by UUID,
+                    _upl_version INTEGER NOT NULL DEFAULT 1,
+                    _upl_archived BOOLEAN NOT NULL DEFAULT false,
+                    _upl_archived_at TIMESTAMPTZ,
+                    _upl_archived_by UUID,
+                    _upl_deleted BOOLEAN NOT NULL DEFAULT false,
+                    _upl_deleted_at TIMESTAMPTZ,
+                    _upl_deleted_by UUID,
+                    _upl_purge_after TIMESTAMPTZ,
+                    _upl_locked BOOLEAN NOT NULL DEFAULT false,
+                    _upl_locked_at TIMESTAMPTZ,
+                    _upl_locked_by UUID,
+                    _upl_locked_reason TEXT,
+                    _app_published BOOLEAN NOT NULL DEFAULT true,
+                    _app_published_at TIMESTAMPTZ,
+                    _app_published_by UUID,
+                    _app_archived BOOLEAN NOT NULL DEFAULT false,
+                    _app_archived_at TIMESTAMPTZ,
+                    _app_archived_by UUID,
+                    _app_deleted BOOLEAN NOT NULL DEFAULT false,
+                    _app_deleted_at TIMESTAMPTZ,
+                    _app_deleted_by UUID,
+                    _app_owner_id UUID,
+                    _app_access_level VARCHAR(20) NOT NULL DEFAULT 'private'
+                )
+            `
+        },
+        // ── rel_metahub_packages ──
+        {
+            sql: `
+                CREATE TABLE metahubs.rel_metahub_packages (
+                    id UUID PRIMARY KEY DEFAULT public.uuid_generate_v7(),
+                    metahub_id UUID NOT NULL,
+                    package_id UUID NOT NULL,
+                    package_name TEXT NOT NULL,
+                    expected_version VARCHAR(64) NOT NULL,
+                    is_active BOOLEAN NOT NULL DEFAULT true,
+                    _upl_created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                    _upl_created_by UUID,
+                    _upl_updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                    _upl_updated_by UUID,
+                    _upl_version INTEGER NOT NULL DEFAULT 1,
+                    _upl_archived BOOLEAN NOT NULL DEFAULT false,
+                    _upl_archived_at TIMESTAMPTZ,
+                    _upl_archived_by UUID,
+                    _upl_deleted BOOLEAN NOT NULL DEFAULT false,
+                    _upl_deleted_at TIMESTAMPTZ,
+                    _upl_deleted_by UUID,
+                    _upl_purge_after TIMESTAMPTZ,
+                    _upl_locked BOOLEAN NOT NULL DEFAULT false,
+                    _upl_locked_at TIMESTAMPTZ,
+                    _upl_locked_by UUID,
+                    _upl_locked_reason TEXT,
+                    _app_published BOOLEAN NOT NULL DEFAULT true,
+                    _app_published_at TIMESTAMPTZ,
+                    _app_published_by UUID,
+                    _app_archived BOOLEAN NOT NULL DEFAULT false,
+                    _app_archived_at TIMESTAMPTZ,
+                    _app_archived_by UUID,
+                    _app_deleted BOOLEAN NOT NULL DEFAULT false,
+                    _app_deleted_at TIMESTAMPTZ,
+                    _app_deleted_by UUID,
+                    _app_owner_id UUID,
+                    _app_access_level VARCHAR(20) NOT NULL DEFAULT 'private',
+                    FOREIGN KEY (metahub_id) REFERENCES metahubs.obj_metahubs(id) ON DELETE CASCADE,
+                    FOREIGN KEY (package_id) REFERENCES metahubs.obj_packages(id) ON DELETE RESTRICT
+                )
+            `
+        },
         // ── doc_template_versions (Group B: add _app_* block) ──
         {
             sql: `
@@ -604,6 +687,41 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
         { sql: `CREATE INDEX IF NOT EXISTS idx_branch_source ON metahubs.obj_metahub_branches(source_branch_id)` },
         { sql: `CREATE INDEX IF NOT EXISTS idx_templates_active ON metahubs.obj_templates (is_active) WHERE is_active = true` },
         { sql: `CREATE INDEX IF NOT EXISTS idx_templates_system ON metahubs.obj_templates (is_system) WHERE is_system = true` },
+        {
+            sql: `
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_packages_name_version_active
+                ON metahubs.obj_packages (package_name, version)
+                WHERE _upl_deleted = false AND _app_deleted = false AND is_active = true
+            `
+        },
+        {
+            sql: `
+                CREATE INDEX IF NOT EXISTS idx_packages_name_active
+                ON metahubs.obj_packages (package_name)
+                WHERE _upl_deleted = false AND _app_deleted = false AND is_active = true
+            `
+        },
+        {
+            sql: `
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_metahub_packages_name_active
+                ON metahubs.rel_metahub_packages (metahub_id, package_name)
+                WHERE _upl_deleted = false AND _app_deleted = false AND is_active = true
+            `
+        },
+        {
+            sql: `
+                CREATE INDEX IF NOT EXISTS idx_metahub_packages_metahub
+                ON metahubs.rel_metahub_packages (metahub_id)
+                WHERE _upl_deleted = false AND _app_deleted = false
+            `
+        },
+        {
+            sql: `
+                CREATE INDEX IF NOT EXISTS idx_metahub_packages_package
+                ON metahubs.rel_metahub_packages (package_id)
+                WHERE _upl_deleted = false AND _app_deleted = false
+            `
+        },
         { sql: `CREATE INDEX IF NOT EXISTS idx_template_versions_template ON metahubs.doc_template_versions (template_id)` },
         { sql: `CREATE INDEX IF NOT EXISTS idx_template_versions_hash ON metahubs.doc_template_versions (manifest_hash)` },
         { sql: `CREATE INDEX IF NOT EXISTS idx_metahubs_template ON metahubs.obj_metahubs (template_id)` },
@@ -622,6 +740,8 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
         { sql: `ALTER TABLE metahubs.doc_publication_versions ENABLE ROW LEVEL SECURITY;` },
         { sql: `ALTER TABLE metahubs.obj_templates ENABLE ROW LEVEL SECURITY` },
         { sql: `ALTER TABLE metahubs.doc_template_versions ENABLE ROW LEVEL SECURITY` },
+        { sql: `ALTER TABLE metahubs.obj_packages ENABLE ROW LEVEL SECURITY` },
+        { sql: `ALTER TABLE metahubs.rel_metahub_packages ENABLE ROW LEVEL SECURITY` },
         // ── RLS policies ──
         createDropPolicyIfTableExistsStatement('templates_read_all', 'metahubs', 'obj_templates'),
         {
@@ -655,6 +775,81 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
                 FOR ALL
                 USING ((select admin.is_superuser((select auth.uid()))))
                 WITH CHECK ((select admin.is_superuser((select auth.uid()))))
+            `
+        },
+        createDropPolicyIfTableExistsStatement('packages_read_all', 'metahubs', 'obj_packages'),
+        {
+            sql: `
+                CREATE POLICY "packages_read_all" ON metahubs.obj_packages
+                FOR SELECT
+                USING (true)
+            `
+        },
+        createDropPolicyIfTableExistsStatement('packages_write_superuser', 'metahubs', 'obj_packages'),
+        {
+            sql: `
+                CREATE POLICY "packages_write_superuser" ON metahubs.obj_packages
+                FOR ALL
+                USING ((select admin.is_superuser((select auth.uid()))))
+                WITH CHECK ((select admin.is_superuser((select auth.uid()))))
+            `
+        },
+        createDropPolicyIfTableExistsStatement('metahub_packages_access_via_metahub', 'metahubs', 'rel_metahub_packages'),
+        createDropPolicyIfTableExistsStatement('metahub_packages_read_via_metahub', 'metahubs', 'rel_metahub_packages'),
+        {
+            sql: `
+                CREATE POLICY "metahub_packages_read_via_metahub" ON metahubs.rel_metahub_packages
+                FOR SELECT
+                USING (
+                    EXISTS (
+                        SELECT 1
+                        FROM metahubs.rel_metahub_users mu
+                        JOIN metahubs.obj_metahubs m ON m.id = mu.metahub_id
+                        WHERE mu.metahub_id = metahubs.rel_metahub_packages.metahub_id AND mu.user_id = (select auth.uid())
+                          AND mu._upl_deleted = false
+                          AND mu._app_deleted = false
+                          AND m._upl_deleted = false
+                          AND m._app_deleted = false
+                    )
+                    OR (select admin.is_superuser((select auth.uid())))
+                )
+            `
+        },
+        createDropPolicyIfTableExistsStatement('metahub_packages_write_managers', 'metahubs', 'rel_metahub_packages'),
+        {
+            sql: `
+                CREATE POLICY "metahub_packages_write_managers" ON metahubs.rel_metahub_packages
+                FOR ALL
+                USING (
+                    EXISTS (
+                        SELECT 1
+                        FROM metahubs.rel_metahub_users mu
+                        JOIN metahubs.obj_metahubs m ON m.id = mu.metahub_id
+                        WHERE mu.metahub_id = metahubs.rel_metahub_packages.metahub_id
+                          AND mu.user_id = (select auth.uid())
+                          AND mu.role IN ('owner', 'admin')
+                          AND mu._upl_deleted = false
+                          AND mu._app_deleted = false
+                          AND m._upl_deleted = false
+                          AND m._app_deleted = false
+                    )
+                    OR (select admin.is_superuser((select auth.uid())))
+                )
+                WITH CHECK (
+                    EXISTS (
+                        SELECT 1
+                        FROM metahubs.rel_metahub_users mu
+                        JOIN metahubs.obj_metahubs m ON m.id = mu.metahub_id
+                        WHERE mu.metahub_id = metahubs.rel_metahub_packages.metahub_id
+                          AND mu.user_id = (select auth.uid())
+                          AND mu.role IN ('owner', 'admin')
+                          AND mu._upl_deleted = false
+                          AND mu._app_deleted = false
+                          AND m._upl_deleted = false
+                          AND m._app_deleted = false
+                    )
+                    OR (select admin.is_superuser((select auth.uid())))
+                )
             `
         },
         createDropPolicyIfTableExistsStatement('Allow users to manage their metahub memberships', 'metahubs', 'rel_metahub_users'),
@@ -758,6 +953,11 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
         }
     ],
     down: [
+        createDropPolicyIfTableExistsStatement('metahub_packages_write_managers', 'metahubs', 'rel_metahub_packages'),
+        createDropPolicyIfTableExistsStatement('metahub_packages_read_via_metahub', 'metahubs', 'rel_metahub_packages'),
+        createDropPolicyIfTableExistsStatement('metahub_packages_access_via_metahub', 'metahubs', 'rel_metahub_packages'),
+        createDropPolicyIfTableExistsStatement('packages_write_superuser', 'metahubs', 'obj_packages'),
+        createDropPolicyIfTableExistsStatement('packages_read_all', 'metahubs', 'obj_packages'),
         createDropPolicyIfTableExistsStatement('template_versions_write_superuser', 'metahubs', 'doc_template_versions'),
         createDropPolicyIfTableExistsStatement('template_versions_read_all', 'metahubs', 'doc_template_versions'),
         createDropPolicyIfTableExistsStatement('templates_write_superuser', 'metahubs', 'obj_templates'),
@@ -774,6 +974,13 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
         { sql: `ALTER TABLE metahubs.rel_metahub_users DISABLE ROW LEVEL SECURITY;` },
         { sql: `ALTER TABLE metahubs.doc_publications DISABLE ROW LEVEL SECURITY;` },
         { sql: `ALTER TABLE metahubs.doc_publication_versions DISABLE ROW LEVEL SECURITY;` },
+        { sql: `ALTER TABLE metahubs.rel_metahub_packages DISABLE ROW LEVEL SECURITY` },
+        { sql: `ALTER TABLE metahubs.obj_packages DISABLE ROW LEVEL SECURITY` },
+        { sql: `DROP INDEX IF EXISTS metahubs.idx_metahub_packages_package` },
+        { sql: `DROP INDEX IF EXISTS metahubs.idx_metahub_packages_metahub` },
+        { sql: `DROP INDEX IF EXISTS metahubs.idx_metahub_packages_name_active` },
+        { sql: `DROP INDEX IF EXISTS metahubs.idx_packages_name_active` },
+        { sql: `DROP INDEX IF EXISTS metahubs.idx_packages_name_version_active` },
         { sql: `DROP INDEX IF EXISTS metahubs.idx_publications_versions_publication` },
         { sql: `DROP INDEX IF EXISTS metahubs.idx_publications_versions_branch` },
         { sql: `DROP INDEX IF EXISTS metahubs.idx_publications_versions_number_active` },
@@ -815,6 +1022,8 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
         { sql: `ALTER TABLE metahubs.obj_metahubs DROP CONSTRAINT IF EXISTS fk_metahubs_template` },
         { sql: `ALTER TABLE metahubs.obj_templates DROP CONSTRAINT IF EXISTS fk_templates_active_version` },
         { sql: `DROP TABLE IF EXISTS metahubs.doc_template_versions` },
+        { sql: `DROP TABLE IF EXISTS metahubs.rel_metahub_packages` },
+        { sql: `DROP TABLE IF EXISTS metahubs.obj_packages` },
         { sql: `DROP TABLE IF EXISTS metahubs.obj_templates` },
         { sql: `ALTER TABLE metahubs.obj_metahubs DROP CONSTRAINT IF EXISTS fk_metahubs_default_branch` },
         { sql: `DROP TABLE IF EXISTS metahubs.rel_metahub_users` },

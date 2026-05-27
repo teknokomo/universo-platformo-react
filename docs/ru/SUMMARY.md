@@ -33,6 +33,7 @@
 -   [Метахабы](platform/metahubs.md)
     -   [Шаблон 1С-Совместимый](platform/1c-compatible-template.md)
     -   [Рабочее пространство ресурсов](platform/metahubs/common-section.md)
+    -   [Пакеты метахаба](platform/metahubs/packages.md)
     -   [Общие компоненты](platform/metahubs/shared-components.md)
     -   [Общие константы](platform/metahubs/shared-fixed-values.md)
     -   [Общие значения](platform/metahubs/shared-option-values.md)

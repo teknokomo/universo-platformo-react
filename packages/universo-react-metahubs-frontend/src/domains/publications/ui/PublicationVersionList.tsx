@@ -252,7 +252,8 @@ export const PublicationVersionList: React.FC = () => {
         open: dialogs.delete.open,
         onClose: handleCloseDeleteDialog,
         fallbackMaxWidth: 'sm',
-        isBusy: deleteMutation.isPending
+        isBusy: deleteMutation.isPending,
+        disablePresentationControls: true
     })
 
     // ── Columns ────────────────────────────────────────────────────────
@@ -793,9 +794,7 @@ export const PublicationVersionList: React.FC = () => {
                 disableEscapeKeyDown={deleteDialogPresentation.dialogProps.disableEscapeKeyDown}
                 PaperProps={mergeDialogPaperProps(undefined, deleteDialogPresentation.dialogProps.PaperProps)}
             >
-                <DialogTitle>
-                    {renderDialogTitle(t('metahubs:publications.versions.delete', 'Delete version'), deleteDialogPresentation.titleActions)}
-                </DialogTitle>
+                <DialogTitle>{t('metahubs:publications.versions.delete', 'Delete version')}</DialogTitle>
                 <DialogContent sx={mergeDialogSx(deleteDialogPresentation.contentSx)}>
                     <DialogContentText>
                         {t(
@@ -804,13 +803,12 @@ export const PublicationVersionList: React.FC = () => {
                         )}
                     </DialogContentText>
                 </DialogContent>
-                <DialogActions>
+                <DialogActions sx={{ p: 3, pt: 2, gap: 1, justifyContent: 'flex-end' }}>
                     <Button onClick={handleCloseDeleteDialog}>{tc('cancel')}</Button>
                     <Button onClick={handleDelete} variant='contained' color='error' disabled={deleteMutation.isPending}>
                         {tc('actions.delete')}
                     </Button>
                 </DialogActions>
-                {deleteDialogPresentation.resizeHandle}
             </Dialog>
 
             {/* ── Publication Settings edit dialog ────────────────────── */}

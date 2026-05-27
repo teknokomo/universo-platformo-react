@@ -2,6 +2,7 @@ import type { DbExecutor } from '@universo-react/utils'
 import type { EntityDefinition, Component } from '@universo-react/schema-ddl'
 import type {
     ApplicationModuleDefinition,
+    ApplicationPackageDefinition,
     EnumerationValueDefinition,
     MetahubSnapshotVersionEnvelope,
     VersionedLocalizedContent
@@ -52,6 +53,8 @@ export interface SnapshotModuleDefinition extends Omit<ApplicationModuleDefiniti
     sourceCode?: string
 }
 
+export type SnapshotPackageDefinition = ApplicationPackageDefinition
+
 export interface PublishedApplicationSnapshot {
     versionEnvelope?: MetahubSnapshotVersionEnvelope
     entities: Record<string, SnapshotEntityDefinition>
@@ -63,6 +66,7 @@ export interface PublishedApplicationSnapshot {
     sharedOptionValues?: SnapshotEnumerationValueDefinition[]
     sharedEntityOverrides?: SnapshotSharedEntityOverrideDefinition[]
     modules?: SnapshotModuleDefinition[]
+    packages?: SnapshotPackageDefinition[]
     layouts?: unknown[]
     layoutZoneWidgets?: unknown[]
     scopedLayouts?: unknown[]

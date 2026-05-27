@@ -1322,6 +1322,7 @@
     "general": {
         "title": "Ресурсы",
         "tabs": {
+            "packages": "Пакеты",
             "layouts": "Макеты",
             "fixedValues": "Константы",
             "values": "Значения",
@@ -1333,6 +1334,65 @@
             "loading": "Загрузка общих сущностей...",
             "loadError": "Не удалось загрузить общие контейнеры.",
             "empty": "Общий контейнер недоступен."
+        }
+    },
+    "packages": {
+        "loading": "Загрузка пакетов...",
+        "loadError": "Не удалось загрузить пакеты.",
+        "tableLabel": "Пакеты",
+        "connectedCount": "Подключено: {{count}}",
+        "readOnly": "Вы можете просматривать подключённые пакеты, но не можете изменять их.",
+        "versionSelectLabel": "Версия пакета {{packageName}}",
+        "columns": {
+            "package": "Пакет",
+            "version": "Версия",
+            "upstream": "Зависимость",
+            "targets": "Среда",
+            "status": "Статус"
+        },
+        "upstream": {
+            "pinnedVersion": "Закреплённая upstream-версия"
+        },
+        "runtimeTargets": {
+            "server": "Сервер",
+            "client": "Клиент"
+        },
+        "status": {
+            "connected": "Подключён",
+            "available": "Доступен"
+        },
+        "actions": {
+            "attach": "Подключить пакет",
+            "attachNamed": "Подключить {{packageName}}",
+            "detach": "Отключить пакет",
+            "detachNamed": "Отключить {{packageName}}"
+        },
+        "dialogs": {
+            "cancel": "Отмена",
+            "attach": {
+                "title": "Подключить пакет",
+                "description": "Подключить {{packageName}} версии {{version}} к этому метахабу."
+            },
+            "changeVersion": {
+                "title": "Изменить версию пакета",
+                "description": "Переключить {{packageName}} с версии {{currentVersion}} на {{nextVersion}}.",
+                "confirm": "Изменить версию"
+            },
+            "detach": {
+                "title": "Отключить пакет",
+                "description": "Отключить {{packageName}} от этого метахаба. Модули, которым нужен этот пакет, больше не получат его версию при синхронизации среды выполнения.",
+                "deleting": "Отключение..."
+            }
+        },
+        "notifications": {
+            "attached": "Пакет подключён",
+            "detached": "Пакет отключён",
+            "versionChanged": "Версия пакета обновлена",
+            "mutationFailed": "Не удалось выполнить операцию с пакетом. Обновите страницу и попробуйте ещё раз."
+        },
+        "empty": {
+            "title": "Нет доступных пакетов",
+            "description": "Реестр пакетов появится здесь после начальной загрузки платформы."
         }
     },
     "shared": {

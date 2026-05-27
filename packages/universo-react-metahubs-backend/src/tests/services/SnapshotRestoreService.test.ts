@@ -18,6 +18,13 @@ jest.mock('../../domains/templates/services/widgetTableResolver', () => ({
     resolveWidgetTableName: mockResolveWidgetTableName
 }))
 
+const mockReplaceMetahubPackagesFromSnapshot = jest.fn(async () => 0)
+
+jest.mock('../../persistence', () => ({
+    __esModule: true,
+    replaceMetahubPackagesFromSnapshot: (...args: unknown[]) => mockReplaceMetahubPackagesFromSnapshot(...args)
+}))
+
 import { SnapshotRestoreService } from '../../domains/metahubs/services/SnapshotRestoreService'
 import type { MetahubSnapshot } from '../../domains/publications/services/SnapshotSerializer'
 
@@ -77,6 +84,7 @@ function createMockKnex() {
 describe('SnapshotRestoreService', () => {
     beforeEach(() => {
         jest.clearAllMocks()
+        mockReplaceMetahubPackagesFromSnapshot.mockResolvedValue(0)
     })
 
     const makeMinimalSnapshot = (overrides?: Partial<MetahubSnapshot>): MetahubSnapshot =>
@@ -128,6 +136,62 @@ describe('SnapshotRestoreService', () => {
             data_type: 'STRING'
         })
         expect(mockEnsureCatalogSystemComponentsSeed).toHaveBeenCalled()
+    })
+
+    it('restores package dependencies from snapshot through the package registry', async () => {
+        const { knex } = createMockKnex()
+        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+
+        await service.restoreFromSnapshot(
+            'metahub-1',
+            makeMinimalSnapshot({
+                packages: [
+                    {
+                        packageName: '@universo-react/colyseus-server',
+                        version: '0.1.0',
+                        source: {
+                            kind: 'workspace',
+                            packageName: '@universo-react/colyseus-server',
+                            importName: '@universo-react/colyseus-server',
+                            upstreamPackageName: '@colyseus/core',
+                            upstreamVersion: '0.17.43',
+                            runtimeTargets: ['server']
+                        }
+                    }
+                ]
+            }),
+            'user-1'
+        )
+
+        expect(mockReplaceMetahubPackagesFromSnapshot).toHaveBeenCalledWith(expect.anything(), {
+            metahubId: 'metahub-1',
+            packages: [
+                expect.objectContaining({
+                    packageName: '@universo-react/colyseus-server',
+                    version: '0.1.0'
+                })
+            ],
+            userId: 'user-1'
+        })
+    })
+
+    it('replaces existing package dependencies when a snapshot explicitly contains no packages', async () => {
+        const { knex } = createMockKnex()
+        const service = new SnapshotRestoreService(knex as any, 'test_schema')
+
+        await service.restoreFromSnapshot(
+            'metahub-1',
+            makeMinimalSnapshot({
+                packages: []
+            }),
+            'user-1'
+        )
+
+        expect(mockReplaceMetahubPackagesFromSnapshot).toHaveBeenCalledWith(expect.anything(), {
+            metahubId: 'metahub-1',
+            packages: [],
+            userId: 'user-1'
+        })
     })
 
     it('rejects imported ledger configs with invalid field references before restoring entities', async () => {

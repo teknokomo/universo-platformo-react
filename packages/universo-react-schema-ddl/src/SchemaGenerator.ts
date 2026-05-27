@@ -1359,6 +1359,58 @@ export class SchemaGenerator {
             ALTER COLUMN "attached_to_kind" TYPE VARCHAR(${ENTITY_KIND_DB_LENGTH})
         `)
 
+        const hasPackages = await knex.schema.withSchema(schemaName).hasTable('_app_packages')
+        console.log(`[SchemaGenerator] _app_packages exists: ${hasPackages}`)
+
+        if (!hasPackages) {
+            console.log(`[SchemaGenerator] Creating _app_packages...`)
+            await knex.schema.withSchema(schemaName).createTable('_app_packages', (table) => {
+                table.uuid('id').primary().defaultTo(knex.raw('public.uuid_generate_v7()'))
+                table.string('package_name', 214).notNullable()
+                table.string('version', 64).notNullable()
+                table.jsonb('source').notNullable().defaultTo('{}')
+                table.boolean('is_active').notNullable().defaultTo(true)
+                table.jsonb('config').notNullable().defaultTo('{}')
+
+                table.timestamp('_upl_created_at', { useTz: true }).notNullable().defaultTo(knex.fn.now())
+                table.uuid('_upl_created_by').nullable()
+                table.timestamp('_upl_updated_at', { useTz: true }).notNullable().defaultTo(knex.fn.now())
+                table.uuid('_upl_updated_by').nullable()
+                table.integer('_upl_version').notNullable().defaultTo(1)
+                table.boolean('_upl_archived').notNullable().defaultTo(false)
+                table.timestamp('_upl_archived_at', { useTz: true }).nullable()
+                table.uuid('_upl_archived_by').nullable()
+                table.boolean('_upl_deleted').notNullable().defaultTo(false)
+                table.timestamp('_upl_deleted_at', { useTz: true }).nullable()
+                table.uuid('_upl_deleted_by').nullable()
+                table.timestamp('_upl_purge_after', { useTz: true }).nullable()
+                table.boolean('_upl_locked').notNullable().defaultTo(false)
+                table.timestamp('_upl_locked_at', { useTz: true }).nullable()
+                table.uuid('_upl_locked_by').nullable()
+                table.text('_upl_locked_reason').nullable()
+
+                table.boolean('_app_published').notNullable().defaultTo(true)
+                table.timestamp('_app_published_at', { useTz: true }).nullable()
+                table.uuid('_app_published_by').nullable()
+                table.boolean('_app_archived').notNullable().defaultTo(false)
+                table.timestamp('_app_archived_at', { useTz: true }).nullable()
+                table.uuid('_app_archived_by').nullable()
+                table.boolean('_app_deleted').notNullable().defaultTo(false)
+                table.timestamp('_app_deleted_at', { useTz: true }).nullable()
+                table.uuid('_app_deleted_by').nullable()
+
+                table.index(['package_name'], 'idx_app_packages_name')
+                table.index(['version'], 'idx_app_packages_version')
+            })
+
+            await knex.raw(`
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_app_packages_name_active
+                ON "${schemaName}"._app_packages (package_name)
+                WHERE _upl_deleted = false AND _app_deleted = false AND is_active = true
+            `)
+            console.log(`[SchemaGenerator] _app_packages created`)
+        }
+
         if (!hasSettings) {
             console.log(`[SchemaGenerator] Creating _app_settings...`)
             await knex.schema.withSchema(schemaName).createTable('_app_settings', (table) => {

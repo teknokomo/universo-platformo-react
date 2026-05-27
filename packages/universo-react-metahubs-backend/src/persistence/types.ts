@@ -1,4 +1,4 @@
-import type { VersionedLocalizedContent, TemplateDefinitionManifest } from '@universo-react/types'
+import type { VersionedLocalizedContent, TemplateDefinitionManifest, PackageSourceDescriptor } from '@universo-react/types'
 
 // Re-export canonical SqlQueryable from @universo-react/utils
 export type { SqlQueryable } from '@universo-react/utils'
@@ -164,6 +164,25 @@ export interface TemplateVersionRow extends UplSystemFields, AppSystemFields {
     manifestHash: string
     isActive: boolean
     changelog: Record<string, unknown> | null
+}
+
+export interface PackageRow extends UplSystemFields, AppSystemFields {
+    id: string
+    packageName: string
+    version: string
+    displayName: VersionedLocalizedContent<string>
+    description: VersionedLocalizedContent<string> | null
+    source: PackageSourceDescriptor
+    isActive: boolean
+}
+
+export interface MetahubPackageRow extends UplSystemFields, AppSystemFields {
+    id: string
+    metahubId: string
+    packageId: string
+    packageName: string
+    expectedVersion: string
+    isActive: boolean
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

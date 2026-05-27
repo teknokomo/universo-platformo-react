@@ -7,6 +7,7 @@ import { ComponentDefinitionDataType } from '@universo-react/types'
 import {
     finalizeMetahubsSchemaSupportMigrationDefinition,
     prepareMetahubsSchemaSupportMigrationDefinition,
+    seedBuiltinPackagesMigration,
     seedBuiltinTemplatesMigration
 } from './migrations'
 
@@ -255,6 +256,99 @@ const metahubBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
                 dataType: ComponentDefinitionDataType.STRING,
                 physicalDataType: 'TEXT',
                 defaultSqlExpression: `'metahub_template'`,
+                isRequired: true
+            }
+        ]
+    },
+    {
+        kind: 'object',
+        codename: 'packages',
+        tableName: 'obj_packages',
+        presentation: p('Packages', 'Workspace packages available for metahub module dependencies'),
+        fields: [
+            {
+                codename: 'package_name',
+                physicalColumnName: 'package_name',
+                dataType: ComponentDefinitionDataType.STRING,
+                physicalDataType: 'TEXT',
+                isRequired: true,
+                isDisplayComponent: true
+            },
+            {
+                codename: 'version',
+                physicalColumnName: 'version',
+                dataType: ComponentDefinitionDataType.STRING,
+                physicalDataType: 'VARCHAR(64)',
+                isRequired: true
+            },
+            {
+                codename: 'display_name',
+                physicalColumnName: 'display_name',
+                dataType: ComponentDefinitionDataType.JSON,
+                defaultSqlExpression: `'{}'::jsonb`,
+                isRequired: true
+            },
+            {
+                codename: 'description',
+                physicalColumnName: 'description',
+                dataType: ComponentDefinitionDataType.JSON,
+                defaultSqlExpression: `'{}'::jsonb`
+            },
+            {
+                codename: 'source',
+                physicalColumnName: 'source',
+                dataType: ComponentDefinitionDataType.JSON,
+                defaultSqlExpression: `'{}'::jsonb`,
+                isRequired: true
+            },
+            {
+                codename: 'is_active',
+                physicalColumnName: 'is_active',
+                dataType: ComponentDefinitionDataType.BOOLEAN,
+                defaultSqlExpression: 'true',
+                isRequired: true
+            }
+        ]
+    },
+    {
+        kind: 'relation',
+        codename: 'metahub_packages',
+        tableName: 'rel_metahub_packages',
+        presentation: p('Metahub Packages', 'Package dependencies attached to metahubs'),
+        fields: [
+            {
+                codename: 'metahub_id',
+                physicalColumnName: 'metahub_id',
+                dataType: ComponentDefinitionDataType.REF,
+                isRequired: true,
+                targetTableCodename: 'metahubs'
+            },
+            {
+                codename: 'package_id',
+                physicalColumnName: 'package_id',
+                dataType: ComponentDefinitionDataType.REF,
+                isRequired: true,
+                targetTableCodename: 'packages'
+            },
+            {
+                codename: 'package_name',
+                physicalColumnName: 'package_name',
+                dataType: ComponentDefinitionDataType.STRING,
+                physicalDataType: 'TEXT',
+                isRequired: true
+            },
+            {
+                codename: 'expected_version',
+                physicalColumnName: 'expected_version',
+                dataType: ComponentDefinitionDataType.STRING,
+                physicalDataType: 'VARCHAR(64)',
+                isRequired: true
+            },
+            {
+                codename: 'is_active',
+                physicalColumnName: 'is_active',
+                dataType: ComponentDefinitionDataType.BOOLEAN,
+                defaultSqlExpression: 'true',
                 isRequired: true
             }
         ]
@@ -519,6 +613,11 @@ export const metahubsSystemAppDefinition: SystemAppDefinition = {
         {
             kind: 'file',
             migration: seedBuiltinTemplatesMigration,
+            bootstrapPhase: 'post_schema_generation'
+        },
+        {
+            kind: 'file',
+            migration: seedBuiltinPackagesMigration,
             bootstrapPhase: 'post_schema_generation'
         }
     ],

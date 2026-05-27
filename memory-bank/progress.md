@@ -55,6 +55,52 @@
 
 ---
 
+## 2026-05-27 - Metahub Packages QA Remediation
+
+### Summary
+
+Closed the QA remediation pass for the Metahub Packages MVP. Package
+attachments now preserve data integrity across metahub copy, snapshot restore,
+and runtime sync, with duplicate package-name guards, registry/source
+validation, and explicit snapshot-empty replacement semantics.
+
+### Completed
+
+-   Strengthened package persistence, RLS predicates, copy/restore behavior,
+    and application runtime sync validation so package attachments fail closed
+    on unregistered, duplicated, or mismatched package data.
+-   Removed normal-user raw package identifiers from the Packages tab and seed
+    descriptions while keeping pinned upstream versions visible as user-facing
+    dependency metadata.
+-   Added an accessible table label, localized mutation fallback copy, and
+    inline error alerts in mutation dialogs so failed attach/change operations
+    remain visible even when snackbar rendering is unavailable.
+-   Fixed the Resources page shared-container query so opening the Packages tab
+    does not trigger read-only users into a forbidden shared-container
+    bootstrap request.
+-   Expanded backend, frontend, wrapper-package, and Playwright coverage for
+    copy/restore/sync edge cases, read-only roles, attach/detach, localized RU
+    error states, technical-leakage checks, and responsive viewport evidence.
+
+### Verification
+
+-   `pnpm install`
+-   `pnpm --filter @universo-react/metahubs-backend test -- packagesStore.test.ts metahubsSoftDeleteParity.test.ts metahubsRoutes.test.ts SnapshotRestoreService.test.ts PackageSeeder.test.ts`
+-   `pnpm --filter @universo-react/applications-backend test -- syncPackagePersistence.test.ts`
+-   `pnpm --filter @universo-react/metahubs-frontend exec vitest run --config vitest.config.ts src/domains/packages/ui/__tests__/MetahubPackagesTab.test.tsx src/domains/entities/shared/ui/__tests__/SharedResourcesPage.test.tsx`
+-   `pnpm --filter @universo-react/metahubs-frontend exec vitest run --config vitest.config.ts src/domains/packages/ui/__tests__/MetahubPackagesTab.test.tsx`
+-   Targeted lint/build checks for applications backend, metahubs backend,
+    metahubs frontend, template-mui, and the three wrapper packages.
+-   `pnpm run build:e2e:local-supabase`
+-   `pnpm exec cross-env UNIVERSO_FRONTEND_ENV_FILE=packages/universo-react-core-frontend/.env.e2e.local-supabase pnpm --filter @universo-react/core-frontend build`
+-   `pnpm run check:package-naming`
+-   `pnpm run check:no-package-base-paths`
+-   `pnpm --filter @universo-react/colyseus-client test`
+-   `pnpm --filter @universo-react/colyseus-server test`
+-   `pnpm --filter @universo-react/playcanvas-engine test`
+-   `pnpm exec cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-react-core-frontend/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs --project chromium --grep @packages`
+-   `pnpm supabase:e2e:stop`
+
 ## 2026-05-25 - Packages Naming Convention Rollout
 
 ### Summary
@@ -1335,6 +1381,27 @@ Closed the remaining QA findings for the LMS Learning Content release gate. Runt
     minimal Supabase `build:e2e`, and Playwright `@1c-compatible` with 4/4
     tests passing after updating the browser oracle for the full preset set;
     local minimal Supabase was stopped after the run.
+
+### 2026-05-27: Metahub Packages Final QA Follow-Up ✅
+
+-   Fixed package catalog attachment matching by joining active metahub package
+    attachments to registry rows through `package_id`, not only by
+    `package_name`, so a metahub connected to one version does not make every
+    registry version appear attached.
+-   Added a focused store regression covering two registry versions of the same
+    package name with only one connected version, plus the SQL assertion that
+    locks the `package_id` join condition.
+-   Kept the Colyseus server workspace wrapper on `@colyseus/core@0.17.43`
+    after verifying that the full `colyseus` package pulls an exotic
+    transport dependency blocked by the repository `blockExoticSubdeps`
+    supply-chain policy.
+-   Verification passed: `pnpm install`, Prettier on touched files,
+    package-store Jest, expanded metahubs backend copy/restore/seeder Jest,
+    applications backend package sync Jest, Colyseus server wrapper test/build,
+    metahubs backend lint/build, metahubs frontend lint/build and full Vitest
+    suite, full local minimal Supabase `build:e2e`, and Playwright
+    `@packages` with 2/2 tests passing; local minimal Supabase was stopped
+    after the run.
 
 ### 2026-05-26: 1C-Compatible Constructor UX And Lifecycle QA Closure ✅
 

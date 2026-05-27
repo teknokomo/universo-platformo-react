@@ -1,4 +1,5 @@
 import type { VersionedLocalizedContent } from './admin'
+import type { MetahubPackageRuntimeTarget } from './packages'
 
 export const MODULE_ATTACHMENT_KINDS = ['metahub', 'object', 'hub', 'set', 'enumeration', 'page', 'ledger', 'component', 'general'] as const
 export type KnownModuleAttachmentKind = (typeof MODULE_ATTACHMENT_KINDS)[number]
@@ -195,6 +196,12 @@ export interface ModuleMethodManifest {
     eventName?: string | null
 }
 
+export interface ModulePackageImport {
+    packageName: string
+    version: string
+    targets: readonly MetahubPackageRuntimeTarget[]
+}
+
 export const canCallModuleMethodOverPublicRpc = (
     manifest: { moduleRole?: unknown; capabilities?: unknown } | null | undefined,
     method: Pick<ModuleMethodManifest, 'target' | 'eventName'> | null | undefined
@@ -208,6 +215,7 @@ export interface ModuleManifest {
     sourceKind: ModuleSourceKind
     capabilities: ModuleCapability[]
     methods: ModuleMethodManifest[]
+    packageImports?: ModulePackageImport[]
     checksum?: string
 }
 
@@ -219,6 +227,7 @@ export interface ModuleCompilationInput {
     sourceKind?: ModuleSourceKind
     capabilities?: ModuleCapability[]
     sharedLibraries?: Record<string, ModuleCompilationLibraryInput>
+    allowedPackageImports?: readonly ModulePackageImport[]
 }
 
 export interface ModuleCompilationLibraryInput {

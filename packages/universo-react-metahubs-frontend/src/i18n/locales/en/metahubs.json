@@ -1310,6 +1310,7 @@
     "general": {
         "title": "Resources",
         "tabs": {
+            "packages": "Packages",
             "layouts": "Layouts",
             "fixedValues": "Constants",
             "values": "Values",
@@ -1321,6 +1322,65 @@
             "loading": "Loading shared entities...",
             "loadError": "Failed to load shared containers.",
             "empty": "Shared container is unavailable."
+        }
+    },
+    "packages": {
+        "loading": "Loading packages...",
+        "loadError": "Failed to load packages.",
+        "tableLabel": "Packages",
+        "connectedCount": "{{count}} connected",
+        "readOnly": "You can view connected packages, but cannot change them.",
+        "versionSelectLabel": "Package version for {{packageName}}",
+        "columns": {
+            "package": "Package",
+            "version": "Version",
+            "upstream": "Dependency",
+            "targets": "Runtime",
+            "status": "Status"
+        },
+        "upstream": {
+            "pinnedVersion": "Pinned upstream version"
+        },
+        "runtimeTargets": {
+            "server": "Server",
+            "client": "Client"
+        },
+        "status": {
+            "connected": "Connected",
+            "available": "Available"
+        },
+        "actions": {
+            "attach": "Connect package",
+            "attachNamed": "Connect {{packageName}}",
+            "detach": "Disconnect package",
+            "detachNamed": "Disconnect {{packageName}}"
+        },
+        "dialogs": {
+            "cancel": "Cancel",
+            "attach": {
+                "title": "Connect package",
+                "description": "Connect {{packageName}} version {{version}} to this metahub."
+            },
+            "changeVersion": {
+                "title": "Change package version",
+                "description": "Switch {{packageName}} from version {{currentVersion}} to {{nextVersion}}.",
+                "confirm": "Change version"
+            },
+            "detach": {
+                "title": "Disconnect package",
+                "description": "Disconnect {{packageName}} from this metahub. Modules that expect it will no longer receive this package version during runtime sync.",
+                "deleting": "Disconnecting..."
+            }
+        },
+        "notifications": {
+            "attached": "Package connected",
+            "detached": "Package disconnected",
+            "versionChanged": "Package version updated",
+            "mutationFailed": "Package operation failed. Please refresh and try again."
+        },
+        "empty": {
+            "title": "No packages available",
+            "description": "Package registry will appear here after platform bootstrap."
         }
     },
     "shared": {

@@ -129,7 +129,13 @@ export const BlockingEntitiesDeleteDialog = <T extends DeletableEntity, B extend
     const handleDialogClose = () => {
         if (!isDeleting) onClose()
     }
-    const presentation = useDialogPresentation({ open, onClose: handleDialogClose, fallbackMaxWidth: 'sm', isBusy: isDeleting })
+    const presentation = useDialogPresentation({
+        open,
+        onClose: handleDialogClose,
+        fallbackMaxWidth: 'sm',
+        isBusy: isDeleting,
+        disablePresentationControls: true
+    })
     const titleNode = presentation.titleActions ? (
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
             <Box component='span' sx={{ minWidth: 0 }}>
@@ -182,7 +188,7 @@ export const BlockingEntitiesDeleteDialog = <T extends DeletableEntity, B extend
                     <Typography>{labels.confirmMessage}</Typography>
                 )}
             </DialogContent>
-            <DialogActions>
+            <DialogActions sx={{ p: 3, pt: 2, gap: 1, justifyContent: 'flex-end' }}>
                 <Button onClick={handleDialogClose} disabled={isDeleting}>
                     {labels.cancelButton}
                 </Button>
@@ -190,7 +196,6 @@ export const BlockingEntitiesDeleteDialog = <T extends DeletableEntity, B extend
                     {isDeleting ? labels.deletingButton : labels.deleteButton}
                 </Button>
             </DialogActions>
-            {presentation.resizeHandle}
         </Dialog>
     )
 }

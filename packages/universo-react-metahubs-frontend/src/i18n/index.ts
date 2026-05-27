@@ -29,6 +29,7 @@ interface MetahubsBundle {
     components?: Record<string, unknown>
     records?: Record<string, unknown>
     publications?: Record<string, unknown>
+    packages?: Record<string, unknown>
     migrations?: Record<string, unknown>
     settings?: Record<string, unknown>
     createOptions?: Record<string, unknown>
@@ -75,6 +76,7 @@ const consolidateMetahubsNamespace = (bundle: MetahubsBundle) => {
         components: bundle?.components ?? {},
         records: bundle?.records ?? {},
         publications: bundle?.publications ?? {},
+        packages: bundle?.packages ?? {},
         migrations: bundle?.migrations ?? {},
         settings: bundle?.settings ?? {},
         export: bundle?.export ?? {},
@@ -115,6 +117,7 @@ interface MetahubsTranslation {
     enumerations?: Record<string, unknown>
     optionValues?: Record<string, unknown>
     publications?: Record<string, unknown>
+    packages?: Record<string, unknown>
     migrations?: Record<string, unknown>
     settings?: Record<string, unknown>
     export?: Record<string, unknown>

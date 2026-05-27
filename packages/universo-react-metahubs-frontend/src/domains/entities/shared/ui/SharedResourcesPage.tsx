@@ -18,10 +18,11 @@ import { FixedValueListContent } from '../../metadata/fixedValue/ui/FixedValueLi
 import { SelectableOptionListContent } from '../../metadata/optionValue/ui/SelectableOptionList'
 import { LayoutListContent } from '../../../layouts/ui/LayoutList'
 import { EntityModulesTab } from '../../../modules/ui/EntityModulesTab'
+import { MetahubPackagesTab } from '../../../packages/ui/MetahubPackagesTab'
 import { useSharedContainerIds } from '../../../shared/hooks/useSharedContainerIds'
 import { useAllEntityTypesQuery } from '../../hooks/queries'
 
-type SharedResourcesTab = 'layouts' | 'components' | 'fixedValues' | 'optionValues' | 'modules'
+type SharedResourcesTab = 'packages' | 'components' | 'layouts' | 'fixedValues' | 'optionValues' | 'modules'
 
 interface TabConfig {
     value: SharedResourcesTab
@@ -144,9 +145,7 @@ function resolveResourceSurfaceLabel({
 export default function SharedResourcesPage() {
     const { metahubId } = useParams<{ metahubId: string }>()
     const { t, i18n } = useTranslation('metahubs')
-    const [activeTab, setActiveTab] = useState<SharedResourcesTab>('layouts')
-    const sharedContainerIdsQuery = useSharedContainerIds(metahubId)
-
+    const [activeTab, setActiveTab] = useState<SharedResourcesTab>('packages')
     const entityTypesQuery = useAllEntityTypesQuery(metahubId)
     const translateSurfaceTitle = useMemo(() => (key: string, fallback?: string) => t(key, fallback ?? key), [t])
 
@@ -170,10 +169,16 @@ export default function SharedResourcesPage() {
         })
 
         return [
+            { value: 'packages', label: t('general.tabs.packages', 'Packages'), visible: true },
+            resourceTabs.find((tab) => tab.value === 'components') ?? {
+                value: 'components',
+                label: t('general.tabs.components', 'Components'),
+                visible: false
+            },
             { value: 'layouts', label: t('general.tabs.layouts', 'Layouts'), visible: true },
             ...resourceTabs,
             { value: 'modules', label: t('general.tabs.modules', 'Modules'), visible: true }
-        ]
+        ].filter((tab, index, all) => all.findIndex((candidate) => candidate.value === tab.value) === index)
     }, [entityTypesQuery.data?.items, i18n.language, t, translateSurfaceTitle])
 
     const resourceSurfaceConflictLabels = useMemo(() => {
@@ -194,7 +199,9 @@ export default function SharedResourcesPage() {
     }, [entityTypesQuery.data?.items, i18n.language, t, translateSurfaceTitle])
 
     const visibleTabs = tabs.filter((tab) => tab.visible)
-    const effectiveTab = visibleTabs.some((tab) => tab.value === activeTab) ? activeTab : visibleTabs[0]?.value ?? 'layouts'
+    const effectiveTab = visibleTabs.some((tab) => tab.value === activeTab) ? activeTab : visibleTabs[0]?.value ?? 'packages'
+    const sharedContainersEnabled = RESOURCE_SURFACE_REGISTRY.some((entry) => entry.tab === effectiveTab)
+    const sharedContainerIdsQuery = useSharedContainerIds(metahubId, sharedContainersEnabled)
 
     const renderSharedTabPlaceholder = (message: string) => (
         <Box sx={{ py: 2 }}>
@@ -285,6 +292,7 @@ export default function SharedResourcesPage() {
                         })}
                     </Alert>
                 ) : null}
+                {effectiveTab === 'packages' ? <MetahubPackagesTab metahubId={metahubId} /> : null}
                 {effectiveTab === 'layouts' ? (
                     <LayoutListContent
                         metahubId={metahubId}

@@ -16,6 +16,7 @@ import {
     type EnumerationValueDefinition,
     type MetahubRuntimePolicySnapshot,
     type MetahubModuleDefinition,
+    type MetahubSnapshotPackage,
     type MetahubSnapshotVersionEnvelope,
     type SharedBehavior,
     type SharedEntityKind,
@@ -29,6 +30,7 @@ import { MetahubTreeEntitiesService } from '../../metahubs/services/MetahubTreeE
 import { MetahubOptionValuesService } from '../../metahubs/services/MetahubOptionValuesService'
 import { MetahubFixedValuesService } from '../../metahubs/services/MetahubFixedValuesService'
 import { MetahubModulesService } from '../../modules/services/MetahubModulesService'
+import { MetahubPackagesService } from '../../packages/services/MetahubPackagesService'
 import { EntityTypeService } from '../../entities/services/EntityTypeService'
 import { ActionService } from '../../entities/services/ActionService'
 import { EventBindingService } from '../../entities/services/EventBindingService'
@@ -95,6 +97,7 @@ export interface MetahubSnapshot {
     sharedEntityOverrides?: MetahubSharedEntityOverrideSnapshot[]
     systemFields?: Record<string, ObjectSystemFieldsSnapshot>
     modules?: MetahubSnapshotModule[]
+    packages?: MetahubSnapshotPackage[]
     /**
      * Active UI layouts captured at publication time.
      * MVP: only the Dashboard template is supported.
@@ -307,7 +310,8 @@ export class SnapshotSerializer {
         private readonly eventBindingService?: EventBindingService,
         private readonly settingsService?: {
             findAll(metahubId: string): Promise<Array<{ key: string; value: unknown }>>
-        }
+        },
+        private readonly packagesService?: MetahubPackagesService
     ) {}
 
     private static toSnapshotCodenameValue(value: unknown): SnapshotCodenameValue {
@@ -722,6 +726,7 @@ export class SnapshotSerializer {
                   config: module.config
               }))
             : []
+        const publishedPackages = this.packagesService ? await this.packagesService.listPublishedPackages(metahubId) : []
         const settings = this.settingsService
             ? (await this.settingsService.findAll(metahubId))
                   .filter((setting) => typeof setting.key === 'string' && setting.value && typeof setting.value === 'object')
@@ -944,6 +949,7 @@ export class SnapshotSerializer {
             sharedEntityOverrides: sharedEntityOverrides.length > 0 ? sharedEntityOverrides : undefined,
             systemFields: Object.keys(systemFieldsByObject).length > 0 ? systemFieldsByObject : undefined,
             modules: publishedModules.length > 0 ? publishedModules : undefined,
+            packages: publishedPackages.length > 0 ? publishedPackages : undefined,
             settings: settings.length > 0 ? settings : undefined,
             runtimePolicy
         }

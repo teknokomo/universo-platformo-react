@@ -1,0 +1,35 @@
+{
+    "name": "@universo-react/colyseus-client",
+    "version": "0.1.0",
+    "description": "Universo workspace wrapper for the Colyseus JavaScript and TypeScript client SDK",
+    "main": "./dist/index.js",
+    "module": "./dist/index.mjs",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.js"
+        },
+        "./package.json": "./package.json"
+    },
+    "sideEffects": false,
+    "scripts": {
+        "clean": "rimraf dist",
+        "build": "tsdown",
+        "lint": "eslint --ext .ts src/",
+        "test": "vitest run --config vitest.config.ts"
+    },
+    "license": "Omsk Open License",
+    "dependencies": {
+        "@colyseus/sdk": "catalog:"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:",
+        "eslint": "catalog:",
+        "rimraf": "^5.0.5",
+        "tsdown": "catalog:",
+        "typescript": "catalog:",
+        "vitest": "catalog:"
+    }
+}

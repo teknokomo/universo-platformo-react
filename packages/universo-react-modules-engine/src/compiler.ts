@@ -16,6 +16,7 @@ import {
     type ModuleCompilationLibraryInput,
     type ModuleManifest,
     type ModuleMethodManifest,
+    type ModulePackageImport,
     type ModuleRole,
     type ModuleMethodTarget
 } from '@universo-react/types'
@@ -34,6 +35,7 @@ interface ModuleAnalysis {
     className: string
     manifest: ModuleManifest
     methods: DecoratedMethod[]
+    packageImports: ModulePackageImport[]
 }
 
 type MethodBindingUsage = {
@@ -79,7 +81,32 @@ const extractSharedLibraryCodename = (value: string): string | null => {
     return codename
 }
 
-const isAllowedModuleImport = (value: string): boolean => ALLOWED_MODULE_IMPORTS.has(value) || isSharedLibraryImport(value)
+const isAllowedModuleImport = (value: string, allowedPackageNames: Set<string>): boolean =>
+    ALLOWED_MODULE_IMPORTS.has(value) || allowedPackageNames.has(value) || isSharedLibraryImport(value)
+
+const normalizeAllowedPackageImports = (input: ModuleCompilationInput): ModulePackageImport[] => {
+    const seen = new Set<string>()
+    const normalized: ModulePackageImport[] = []
+
+    for (const item of input.allowedPackageImports ?? []) {
+        const packageName = item.packageName.trim()
+        const version = item.version.trim()
+        const targets = [...new Set(item.targets)].filter((target) => target === 'server' || target === 'client').sort()
+
+        if (!packageName || !version || targets.length === 0 || seen.has(packageName)) {
+            continue
+        }
+
+        seen.add(packageName)
+        normalized.push({
+            packageName,
+            version,
+            targets
+        })
+    }
+
+    return normalized.sort((left, right) => left.packageName.localeCompare(right.packageName))
+}
 
 const getDecorators = (node: ts.Node): readonly ts.Decorator[] => {
     if (!ts.canHaveDecorators(node)) {
@@ -456,7 +483,12 @@ const validateNoCrossTargetTopLevelBindings = (
     }
 }
 
-const validateModuleSource = (sourceFile: ts.SourceFile): void => {
+const validateModuleSource = (
+    sourceFile: ts.SourceFile,
+    allowedPackageImports: readonly ModulePackageImport[]
+): ModulePackageImport[] => {
+    const allowedPackageNames = new Set(allowedPackageImports.map((item) => item.packageName))
+    const usedPackageNames = new Set<string>()
     const unsupportedImports = new Set<string>()
     let hasDynamicImport = false
     let hasRequireCall = false
@@ -464,8 +496,10 @@ const validateModuleSource = (sourceFile: ts.SourceFile): void => {
 
     const addImport = (value: string) => {
         const normalized = normalizeImportSpecifier(value)
-        if (!isAllowedModuleImport(normalized)) {
+        if (!isAllowedModuleImport(normalized, allowedPackageNames)) {
             unsupportedImports.add(normalized)
+        } else if (allowedPackageNames.has(normalized)) {
+            usedPackageNames.add(normalized)
         }
     }
 
@@ -531,9 +565,11 @@ const validateModuleSource = (sourceFile: ts.SourceFile): void => {
     if (violations.length > 0) {
         throw new Error(
             `Embedded module source contains unsupported module-loading patterns (${violations.join('; ')}). ` +
-                `Only ${[...ALLOWED_MODULE_IMPORTS].join(', ')} and ${SHARED_LIBRARY_IMPORT_PREFIX}* imports are supported.`
+                `Only ${[...ALLOWED_MODULE_IMPORTS, ...allowedPackageNames].join(', ')} and ${SHARED_LIBRARY_IMPORT_PREFIX}* imports are supported.`
         )
     }
+
+    return allowedPackageImports.filter((item) => usedPackageNames.has(item.packageName))
 }
 
 const isThisCtxAccess = (node: ts.PropertyAccessExpression): boolean => {
@@ -647,8 +683,9 @@ const analyzeModuleSource = (input: ModuleCompilationInput): ModuleAnalysis => {
         sdkApiVersion: input.sdkApiVersion ?? DEFAULT_MODULE_SDK_API_VERSION
     })
     const moduleRole = normalizeModuleRole(input.moduleRole ?? DEFAULT_MODULE_ROLE)
+    const allowedPackageImports = normalizeAllowedPackageImports(input)
     const sourceFile = ts.createSourceFile('extension-module.ts', input.sourceCode, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
-    validateModuleSource(sourceFile)
+    const packageImports = validateModuleSource(sourceFile, allowedPackageImports)
     resolveSharedLibraryDependencyOrder(input)
     const selectedClass = findModuleClass(sourceFile, moduleRole)
     if (moduleRole === 'library') {
@@ -717,9 +754,11 @@ const analyzeModuleSource = (input: ModuleCompilationInput): ModuleAnalysis => {
             moduleRole,
             sourceKind: normalizeModuleSourceKind(input.sourceKind ?? DEFAULT_MODULE_SOURCE_KIND),
             capabilities: normalizeModuleCapabilities(moduleRole, input.capabilities),
-            methods: manifestMethods
+            methods: manifestMethods,
+            packageImports: packageImports.length > 0 ? packageImports : undefined
         },
-        methods
+        methods,
+        packageImports
     }
 }
 
@@ -782,11 +821,39 @@ const createSharedLibraryPlugin = (sharedLibraries?: Record<string, ModuleCompil
     }
 })
 
+const createPackageExternalPlugin = (
+    packageImports: readonly ModulePackageImport[],
+    bundleTarget: BundleTarget
+): Plugin => ({
+    name: 'universo-package-imports',
+    setup(buildApi) {
+        const imports = new Map(packageImports.map((item) => [item.packageName, item]))
+
+        buildApi.onResolve({ filter: /.*/ }, (args) => {
+            const packageImport = imports.get(args.path)
+            if (!packageImport) {
+                return undefined
+            }
+
+            if (!packageImport.targets.includes(bundleTarget)) {
+                throw new Error(`Package "${args.path}" is not available for the ${bundleTarget} module bundle target`)
+            }
+
+            return {
+                path: args.path,
+                external: true
+            }
+        })
+    }
+})
+
 const bundleSource = async (
     sourceCode: string,
     platform: 'node' | 'browser',
-    sharedLibraries?: Record<string, ModuleCompilationLibraryInput>
+    sharedLibraries?: Record<string, ModuleCompilationLibraryInput>,
+    packageImports: readonly ModulePackageImport[] = []
 ): Promise<string> => {
+    const bundleTarget: BundleTarget = platform === 'node' ? 'server' : 'client'
     const result = await build({
         stdin: {
             contents: sourceCode,
@@ -801,7 +868,7 @@ const bundleSource = async (
         target: 'es2022',
         logLevel: 'silent',
         nodePaths: MODULE_RESOLVE_PATHS,
-        plugins: [createSharedLibraryPlugin(sharedLibraries)],
+        plugins: [createPackageExternalPlugin(packageImports, bundleTarget), createSharedLibraryPlugin(sharedLibraries)],
         tsconfigRaw: {
             compilerOptions: {
                 experimentalDecorators: true,
@@ -830,8 +897,8 @@ export const compileModuleSource = async (input: ModuleCompilationInput): Promis
     const clientSource = applyBundleTransform(input.sourceCode, analysis.methods, 'client')
 
     const [serverBundle, clientBundle] = await Promise.all([
-        bundleSource(serverSource, 'node', input.sharedLibraries),
-        bundleSource(clientSource, 'browser', input.sharedLibraries)
+        bundleSource(serverSource, 'node', input.sharedLibraries, analysis.packageImports),
+        bundleSource(clientSource, 'browser', input.sharedLibraries, analysis.packageImports)
     ])
 
     const checksum = createHash('sha256').update(JSON.stringify(analysis.manifest)).update(serverBundle).update(clientBundle).digest('hex')

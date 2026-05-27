@@ -47,6 +47,7 @@ import { MetahubTreeEntitiesService } from '../../metahubs/services/MetahubTreeE
 import { MetahubOptionValuesService } from '../../metahubs/services/MetahubOptionValuesService'
 import { MetahubFixedValuesService } from '../../metahubs/services/MetahubFixedValuesService'
 import { MetahubModulesService } from '../../modules/services/MetahubModulesService'
+import { MetahubPackagesService } from '../../packages/services/MetahubPackagesService'
 import { MetahubSettingsService } from '../../settings/services/MetahubSettingsService'
 import { EntityTypeService } from '../../entities/services/EntityTypeService'
 import { ActionService } from '../../entities/services/ActionService'
@@ -251,7 +252,8 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
             entityTypeService,
             actionService,
             eventBindingService,
-            new MetahubSettingsService(params.exec, params.schemaService)
+            new MetahubSettingsService(params.exec, params.schemaService),
+            new MetahubPackagesService(params.exec)
         )
     }
 

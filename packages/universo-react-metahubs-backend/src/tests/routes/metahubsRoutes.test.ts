@@ -128,6 +128,7 @@ const mockRemoveMetahubMember = jest.fn(async () => undefined)
 const mockCountMetahubMembers = jest.fn(async () => 0)
 const mockCreatePublication = jest.fn(async () => ({ id: 'pub-1' }))
 const mockCreatePublicationVersion = jest.fn(async () => ({ id: 'version-1', versionNumber: 1 }))
+const mockCopyMetahubPackages = jest.fn(async () => 0)
 const mockFindBranchByIdAndMetahub = jest.fn(async () => null)
 const mockFindBranchesByMetahub = jest.fn(async () => [])
 const mockCreateBranch = jest.fn(async () => ({ id: 'branch-new' }))
@@ -159,7 +160,8 @@ jest.mock('../../persistence', () => ({
     findTemplateByCodename: (...args: any[]) => mockFindTemplateByCodename(...args),
     softDelete: (...args: any[]) => mockSoftDelete(...args),
     createPublication: (...args: any[]) => mockCreatePublication(...args),
-    createPublicationVersion: (...args: any[]) => mockCreatePublicationVersion(...args)
+    createPublicationVersion: (...args: any[]) => mockCreatePublicationVersion(...args),
+    copyMetahubPackages: (...args: any[]) => mockCopyMetahubPackages(...args)
 }))
 
 import type { Request, Response, NextFunction } from 'express'
@@ -242,6 +244,7 @@ describe('Metahubs Routes', () => {
         mockReleaseAdvisoryLock.mockResolvedValue(undefined)
         mockUuidToLockKey.mockImplementation((value: string) => value)
         mockSoftDelete.mockResolvedValue(true)
+        mockCopyMetahubPackages.mockResolvedValue(0)
         mockSerializeMetahub.mockResolvedValue({
             version: 1,
             generatedAt: '2026-04-04T00:00:00.000Z',
@@ -749,6 +752,11 @@ describe('Metahubs Routes', () => {
                     role: 'owner'
                 })
             )
+            expect(mockCopyMetahubPackages).toHaveBeenCalledWith(expect.anything(), {
+                sourceMetahubId: 'metahub-1',
+                targetMetahubId: '018f8a78-7b8f-7c1d-a111-222233334444',
+                userId: 'test-user-id'
+            })
         })
     })
 

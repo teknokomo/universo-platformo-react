@@ -11,7 +11,9 @@ export type {
     PublicationAccessMode,
     PublicationSchemaStatus,
     TemplateRow,
-    TemplateVersionRow
+    TemplateVersionRow,
+    PackageRow,
+    MetahubPackageRow
 } from './types'
 export { uplFieldAliases, appFieldAliases } from './types'
 
@@ -99,6 +101,19 @@ export {
     deactivateTemplateVersions
 } from './templatesStore'
 export type { TemplateCatalogItem, TemplateListItem, CreateTemplateInput, CreateTemplateVersionInput } from './templatesStore'
+
+export {
+    upsertPackageRegistryItem,
+    findPackageByNameVersion,
+    listPackageCatalog,
+    listMetahubPackages,
+    copyMetahubPackages,
+    replaceMetahubPackagesFromSnapshot,
+    attachMetahubPackage,
+    changeMetahubPackageVersion,
+    detachMetahubPackage
+} from './packagesStore'
+export type { UpsertPackageInput } from './packagesStore'
 
 // SQL-first soft delete helpers
 export { softDeleteCondition, softDelete, restoreDeleted, purgeOldDeleted, countDeleted, setPurgeAfter } from './metahubsQueryHelpers'

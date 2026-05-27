@@ -107,6 +107,8 @@ export interface FlowListTableProps<T extends FlowListTableData = FlowListTableD
     renderRowExpansion?: (row: T, index: number) => React.ReactNode | null
     /** Compact mode: reduced row heights and font sizes */
     compact?: boolean
+    /** Accessible table name for screen readers. */
+    tableAriaLabel?: string
 
     // ── DnD support ──────────────────────────────────────────────────────
     /** Enable drag-and-drop row reordering. Adds a drag handle column and makes rows sortable. */
@@ -179,6 +181,7 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
     i18nNamespace = 'flowList',
     renderRowExpansion,
     compact = false,
+    tableAriaLabel,
     // DnD props
     sortableRows = false,
     sortableItemIds,
@@ -359,7 +362,7 @@ export const FlowListTable = <T extends FlowListTableData = FlowListTableData>({
             <Table
                 sx={{ minWidth: compact ? 400 : 900 }}
                 size='small'
-                aria-label='a dense table'
+                aria-label={tableAriaLabel ?? 'a dense table'}
                 className={compact ? 'FlowListTable-compact' : undefined}
             >
                 {/* Hide table header when showing empty state placeholder */}
