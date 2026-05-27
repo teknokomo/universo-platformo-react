@@ -888,3 +888,18 @@
 -   [x] Strengthen backend and frontend regression tests for seed behavior, tampered routes, terminology, and full preset drift.
 -   [x] Strengthen Playwright 1C-compatible evidence with normal-user UI creation/opening paths and stricter terminology assertions.
 -   [x] Run Prettier, focused lint/build/test checks, docs guard, local minimal Supabase build, and Playwright `@1c-compatible` verification.
+
+## Metahub Packages QA Remediation 2026-05-27
+
+-   [x] Fix package data integrity for metahub copy, snapshot restore, RLS active predicates, and runtime package snapshot validation.
+-   [x] Close user-facing UX issues for localized seed text, mutation error fallback, and accessible package table naming.
+-   [x] Strengthen automated coverage for copy/restore/sync edge cases and package UI flows.
+-   [x] Extend Playwright evidence for normal navigation, detach success, read-only UX, keyboard, responsive screenshots, and localized failure states.
+-   [x] Run Prettier, focused tests/lint/build checks, local minimal Supabase build, and Playwright `@packages` verification.
+
+## Metahub Packages Final QA Follow-Up 2026-05-27
+
+-   [x] Fix package catalog attachment matching so only the attached registry version is marked connected when multiple versions share one package name.
+-   [x] Add store-level multi-version regression coverage for the catalog attachment state.
+-   [x] Keep the Colyseus server wrapper on `@colyseus/core` because the full `colyseus` package violates the workspace `blockExoticSubdeps` supply-chain policy through an exotic transport dependency.
+-   [x] Run Prettier, install consistency, focused backend/frontend/wrapper tests, lint/build checks, full local minimal Supabase build, and Playwright `@packages` verification.

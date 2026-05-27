@@ -14,7 +14,7 @@ import {
     type SchemaSnapshot
 } from '@universo-react/schema-ddl'
 import { quoteQualifiedIdentifier } from '@universo-react/migrations-core'
-import { ComponentDefinitionDataType } from '@universo-react/types'
+import { ComponentDefinitionDataType, type ApplicationPackageDefinition, type PackageSourceDescriptor } from '@universo-react/types'
 import type { DbExecutor } from '@universo-react/utils'
 import {
     createApplicationReleaseBundle,
@@ -413,6 +413,56 @@ export function loadApplicationRuntimeFixedValues(entities: EntityDefinition[]):
     )
 }
 
+export async function loadApplicationRuntimePackages(exec: DbExecutor, schemaName: string): Promise<ApplicationPackageDefinition[]> {
+    const schemaIdent = quoteSchemaName(schemaName)
+
+    try {
+        const rows = await exec.query<{
+            package_name: string
+            version: string
+            source?: unknown
+            is_active: boolean
+            config?: unknown
+        }>(
+            `
+                SELECT package_name, version, source, is_active, config
+                FROM ${schemaIdent}._app_packages
+                WHERE _upl_deleted = false
+                  AND _app_deleted = false
+                  AND is_active = true
+                ORDER BY package_name ASC, version ASC
+            `
+        )
+
+        return rows
+            .filter((row) => typeof row.package_name === 'string' && typeof row.version === 'string')
+            .map((row) => ({
+                packageName: row.package_name,
+                version: row.version,
+                source: normalizeRuntimePackageSource(row.source),
+                isActive: row.is_active !== false,
+                config: isRecord(row.config) ? (row.config as Record<string, unknown>) : {}
+            }))
+    } catch {
+        return []
+    }
+}
+
+const normalizeRuntimePackageSource = (value: unknown): PackageSourceDescriptor => {
+    const source = isRecord(value) ? (value as Partial<PackageSourceDescriptor>) : {}
+
+    return {
+        kind: 'workspace',
+        packageName: typeof source.packageName === 'string' ? source.packageName : '',
+        importName: typeof source.importName === 'string' ? source.importName : '',
+        upstreamPackageName: typeof source.upstreamPackageName === 'string' ? source.upstreamPackageName : '',
+        upstreamVersion: typeof source.upstreamVersion === 'string' ? source.upstreamVersion : '',
+        runtimeTargets: Array.isArray(source.runtimeTargets)
+            ? source.runtimeTargets.filter((target): target is 'server' | 'client' => target === 'server' || target === 'client')
+            : []
+    }
+}
+
 // --- Layout loader ---
 
 export async function loadApplicationRuntimeLayouts(
@@ -670,6 +720,7 @@ export async function createExistingApplicationReleaseBundle(options: {
     const elements = await loadApplicationRuntimeElements(exec, application.schemaName, entities)
     const optionValues = await loadApplicationRuntimeEnumerationValues(exec, application.schemaName, entities)
     const runtimeFixedValues = loadApplicationRuntimeFixedValues(entities)
+    const runtimePackages = await loadApplicationRuntimePackages(exec, application.schemaName)
     const runtimeLayouts = await loadApplicationRuntimeLayouts(exec, application.schemaName)
     const installedReleaseVersion = extractInstalledReleaseVersion(application.installedReleaseMetadata)
     const snapshot: PublishedApplicationSnapshot = {
@@ -693,6 +744,9 @@ export async function createExistingApplicationReleaseBundle(options: {
     }
     if (Object.keys(runtimeFixedValues).length > 0) {
         snapshot.fixedValues = runtimeFixedValues
+    }
+    if (runtimePackages.length > 0) {
+        snapshot.packages = runtimePackages
     }
     if (runtimeLayouts.layouts.length > 0) {
         snapshot.layouts = runtimeLayouts.layouts

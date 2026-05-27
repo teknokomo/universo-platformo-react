@@ -80,6 +80,8 @@ tags:
     description: Layout CRUD and zone-widget endpoints.
   - name: Modules
     description: Metahub module CRUD and source-management endpoints.
+  - name: Packages
+    description: Metahub package registry and attachment endpoints.
   - name: Shared Entity Overrides
     description: Metahub-level shared entity override endpoints.
   - name: Settings
@@ -10392,6 +10394,207 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/GenericObject"
+      security: *a1
+  /metahub/{metahubId}/package/{attachmentId}:
+    patch:
+      tags:
+        - Packages
+      summary: PATCH /metahub/{metahubId}/package/{attachmentId}
+      description: Auto-generated from
+        packages/universo-react-metahubs-backend/src/domains/packages/routes/packagesRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Packages_patch_metahub_metahubId_package_attachmentId
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: attachmentId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: attachmentId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      security: *a1
+    delete:
+      tags:
+        - Packages
+      summary: DELETE /metahub/{metahubId}/package/{attachmentId}
+      description: Auto-generated from
+        packages/universo-react-metahubs-backend/src/domains/packages/routes/packagesRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Packages_delete_metahub_metahubId_package_attachmentId
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: attachmentId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: attachmentId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "204":
+          $ref: "#/components/responses/NoContent"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
+  /metahub/{metahubId}/packages:
+    get:
+      tags:
+        - Packages
+      summary: GET /metahub/{metahubId}/packages
+      description: Auto-generated from
+        packages/universo-react-metahubs-backend/src/domains/packages/routes/packagesRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Packages_get_metahub_metahubId_packages
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
+    post:
+      tags:
+        - Packages
+      summary: POST /metahub/{metahubId}/packages
+      description: Auto-generated from
+        packages/universo-react-metahubs-backend/src/domains/packages/routes/packagesRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Packages_post_metahub_metahubId_packages
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "201":
+          $ref: "#/components/responses/CreatedSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      security: *a1
+  /metahub/{metahubId}/packages/catalog:
+    get:
+      tags:
+        - Packages
+      summary: GET /metahub/{metahubId}/packages/catalog
+      description: Auto-generated from
+        packages/universo-react-metahubs-backend/src/domains/packages/routes/packagesRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Packages_get_metahub_metahubId_packages_catalog
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
       security: *a1
   /metahub/{metahubId}/publication/{publicationId}:
     get:

@@ -1,0 +1,158 @@
+[
+    {
+        "packageName": "@universo-react/colyseus-client",
+        "version": "0.1.0",
+        "displayName": {
+            "_schema": "1",
+            "_primary": "en",
+            "locales": {
+                "en": {
+                    "content": "Colyseus Client",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-05-27T00:00:00.000Z",
+                    "updatedAt": "2026-05-27T00:00:00.000Z"
+                },
+                "ru": {
+                    "content": "Клиент Colyseus",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-05-27T00:00:00.000Z",
+                    "updatedAt": "2026-05-27T00:00:00.000Z"
+                }
+            }
+        },
+        "description": {
+            "_schema": "1",
+            "_primary": "en",
+            "locales": {
+                "en": {
+                    "content": "Workspace package for the Colyseus client SDK, pinned to version 0.17.42.",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-05-27T00:00:00.000Z",
+                    "updatedAt": "2026-05-27T00:00:00.000Z"
+                },
+                "ru": {
+                    "content": "Пакет рабочей области для клиентского SDK Colyseus, закреплённый на версии 0.17.42.",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-05-27T00:00:00.000Z",
+                    "updatedAt": "2026-05-27T00:00:00.000Z"
+                }
+            }
+        },
+        "source": {
+            "kind": "workspace",
+            "packageName": "@universo-react/colyseus-client",
+            "importName": "@universo-react/colyseus-client",
+            "upstreamPackageName": "@colyseus/sdk",
+            "upstreamVersion": "0.17.42",
+            "runtimeTargets": ["client"]
+        }
+    },
+    {
+        "packageName": "@universo-react/colyseus-server",
+        "version": "0.1.0",
+        "displayName": {
+            "_schema": "1",
+            "_primary": "en",
+            "locales": {
+                "en": {
+                    "content": "Colyseus Server",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-05-27T00:00:00.000Z",
+                    "updatedAt": "2026-05-27T00:00:00.000Z"
+                },
+                "ru": {
+                    "content": "Сервер Colyseus",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-05-27T00:00:00.000Z",
+                    "updatedAt": "2026-05-27T00:00:00.000Z"
+                }
+            }
+        },
+        "description": {
+            "_schema": "1",
+            "_primary": "en",
+            "locales": {
+                "en": {
+                    "content": "Workspace package for the Colyseus server core, pinned to version 0.17.43.",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-05-27T00:00:00.000Z",
+                    "updatedAt": "2026-05-27T00:00:00.000Z"
+                },
+                "ru": {
+                    "content": "Пакет рабочей области для серверного ядра Colyseus, закреплённый на версии 0.17.43.",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-05-27T00:00:00.000Z",
+                    "updatedAt": "2026-05-27T00:00:00.000Z"
+                }
+            }
+        },
+        "source": {
+            "kind": "workspace",
+            "packageName": "@universo-react/colyseus-server",
+            "importName": "@universo-react/colyseus-server",
+            "upstreamPackageName": "@colyseus/core",
+            "upstreamVersion": "0.17.43",
+            "runtimeTargets": ["server"]
+        }
+    },
+    {
+        "packageName": "@universo-react/playcanvas-engine",
+        "version": "0.1.0",
+        "displayName": {
+            "_schema": "1",
+            "_primary": "en",
+            "locales": {
+                "en": {
+                    "content": "PlayCanvas Engine",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-05-27T00:00:00.000Z",
+                    "updatedAt": "2026-05-27T00:00:00.000Z"
+                },
+                "ru": {
+                    "content": "PlayCanvas Engine",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-05-27T00:00:00.000Z",
+                    "updatedAt": "2026-05-27T00:00:00.000Z"
+                }
+            }
+        },
+        "description": {
+            "_schema": "1",
+            "_primary": "en",
+            "locales": {
+                "en": {
+                    "content": "Workspace package for the PlayCanvas engine, pinned to version 2.18.1.",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-05-27T00:00:00.000Z",
+                    "updatedAt": "2026-05-27T00:00:00.000Z"
+                },
+                "ru": {
+                    "content": "Пакет рабочей области для PlayCanvas Engine, закреплённый на версии 2.18.1.",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-05-27T00:00:00.000Z",
+                    "updatedAt": "2026-05-27T00:00:00.000Z"
+                }
+            }
+        },
+        "source": {
+            "kind": "workspace",
+            "packageName": "@universo-react/playcanvas-engine",
+            "importName": "@universo-react/playcanvas-engine",
+            "upstreamPackageName": "playcanvas",
+            "upstreamVersion": "2.18.1",
+            "runtimeTargets": ["client"]
+        }
+    }
+]

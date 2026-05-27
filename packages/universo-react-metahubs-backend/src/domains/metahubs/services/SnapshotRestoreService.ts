@@ -41,6 +41,8 @@ import { SHARED_CONTAINER_DESCRIPTORS } from '../../shared/services/SharedContai
 import { ensureObjectSystemComponentsSeed, readPlatformSystemComponentsPolicyWithKnex } from '../../templates/services/systemComponentSeed'
 import { resolveWidgetTableName } from '../../templates/services/widgetTableResolver'
 import { createLogger } from '../../../utils/logger'
+import { createKnexExecutor } from '@universo-react/database'
+import { replaceMetahubPackagesFromSnapshot } from '../../../persistence'
 
 const log = createLogger('SnapshotRestoreService')
 
@@ -109,6 +111,26 @@ export class SnapshotRestoreService {
             await this.restoreEventBindings(trx, snapshot, entityIdMap, actionIdMap, userId)
             await this.restoreLayouts(trx, snapshot, entityIdMap, userId)
             await this.restoreSettings(trx, snapshot, userId)
+            await this.restorePackages(trx, metahubId, snapshot, userId)
+        })
+    }
+
+    private async restorePackages(qb: Knex.Transaction, metahubId: string, snapshot: MetahubSnapshot, userId: string): Promise<void> {
+        if (!Array.isArray(snapshot.packages)) {
+            return
+        }
+
+        const packages = snapshot.packages.map((item) => {
+            if (!item || typeof item.packageName !== 'string' || typeof item.version !== 'string') {
+                throw new Error('Metahub snapshot contains an invalid package dependency')
+            }
+            return item
+        })
+
+        await replaceMetahubPackagesFromSnapshot(createKnexExecutor(qb), {
+            metahubId,
+            packages,
+            userId
         })
     }
 

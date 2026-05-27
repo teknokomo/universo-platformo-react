@@ -35,6 +35,7 @@ import {
     softDelete,
     createPublication,
     createPublicationVersion,
+    copyMetahubPackages,
     type SqlQueryable,
     type MetahubRow,
     type MetahubUserRow,
@@ -71,6 +72,7 @@ import { MetahubRecordsService } from '../services/MetahubRecordsService'
 import { MetahubOptionValuesService } from '../services/MetahubOptionValuesService'
 import { MetahubFixedValuesService } from '../services/MetahubFixedValuesService'
 import { MetahubModulesService } from '../../modules/services/MetahubModulesService'
+import { MetahubPackagesService } from '../../packages/services/MetahubPackagesService'
 import { MetahubSettingsService } from '../../settings/services/MetahubSettingsService'
 import { EntityTypeService } from '../../entities/services/EntityTypeService'
 import { ActionService } from '../../entities/services/ActionService'
@@ -1323,6 +1325,12 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                     createdBy: userId
                 })
 
+                await copyMetahubPackages(tx, {
+                    sourceMetahubId: metahubId,
+                    targetMetahubId: copiedMetahub.id,
+                    userId
+                })
+
                 if (parsed.data.copyAccess) {
                     const sourceMembers = await tx.query<{
                         userId: string
@@ -2037,7 +2045,8 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                 entityTypeService,
                 actionService,
                 eventBindingService,
-                new MetahubSettingsService(exec, schemaService)
+                new MetahubSettingsService(exec, schemaService),
+                new MetahubPackagesService(exec)
             )
             const canonicalPublicationSnapshot = await serializer.serializeMetahub(metahub.id, {
                 structureVersion:
@@ -2189,7 +2198,8 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
             entityTypeService,
             actionService,
             eventBindingService,
-            new MetahubSettingsService(exec, schemaService)
+            new MetahubSettingsService(exec, schemaService),
+            new MetahubPackagesService(exec)
         )
 
         const publicStructureVersion = await schemaService.resolvePublicStructureVersion(branch.schemaName, branch.structureVersion)

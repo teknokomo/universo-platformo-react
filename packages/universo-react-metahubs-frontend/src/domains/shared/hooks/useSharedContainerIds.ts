@@ -21,11 +21,11 @@ const listSharedContainers = async (metahubId: string): Promise<SharedContainerI
     }, {})
 }
 
-export const useSharedContainerIds = (metahubId?: string) =>
+export const useSharedContainerIds = (metahubId?: string, enabled = true) =>
     useQuery({
         queryKey: metahubsQueryKeys.sharedContainers(metahubId ?? ''),
         queryFn: () => listSharedContainers(metahubId ?? ''),
-        enabled: Boolean(metahubId),
+        enabled: Boolean(metahubId) && enabled,
         select: (data: SharedContainerIds) => ({
             [SHARED_OBJECT_KINDS.SHARED_OBJECT_POOL]: data[SHARED_OBJECT_KINDS.SHARED_OBJECT_POOL] ?? null,
             [SHARED_OBJECT_KINDS.SHARED_SET_POOL]: data[SHARED_OBJECT_KINDS.SHARED_SET_POOL] ?? null,

@@ -24,6 +24,7 @@ export interface StandardDialogProps {
     dialogTitleProps?: DialogTitleProps
     dialogContentProps?: DialogContentProps
     dialogActionsProps?: DialogActionsProps
+    disablePresentationControls?: boolean
 }
 
 export function StandardDialog({
@@ -37,9 +38,15 @@ export function StandardDialog({
     paperProps,
     dialogTitleProps,
     dialogContentProps,
-    dialogActionsProps
+    dialogActionsProps,
+    disablePresentationControls = false
 }: StandardDialogProps) {
-    const presentation = useDialogPresentation({ open, onClose: onClose ?? (() => undefined), fallbackMaxWidth: maxWidth })
+    const presentation = useDialogPresentation({
+        open,
+        onClose: onClose ?? (() => undefined),
+        fallbackMaxWidth: maxWidth,
+        disablePresentationControls
+    })
     const titleNode = presentation.titleActions ? (
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
             <Box component='span' sx={{ minWidth: 0 }}>
@@ -68,7 +75,14 @@ export function StandardDialog({
             <DialogContent {...dialogContentProps} sx={mergeDialogSx(presentation.contentSx, dialogContentProps?.sx)}>
                 {children}
             </DialogContent>
-            {actions ? <DialogActions {...dialogActionsProps}>{actions}</DialogActions> : null}
+            {actions ? (
+                <DialogActions
+                    {...dialogActionsProps}
+                    sx={mergeDialogSx({ p: 3, pt: 2, gap: 1, justifyContent: 'flex-end' }, dialogActionsProps?.sx)}
+                >
+                    {actions}
+                </DialogActions>
+            ) : null}
             {presentation.resizeHandle}
         </Dialog>
     )

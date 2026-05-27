@@ -9,6 +9,7 @@ import { findBranchBySchemaName } from '../../persistence/branchesStore'
 import { listMetahubs, listMetahubMembers } from '../../persistence/metahubsStore'
 import { softDelete, softDeleteCondition } from '../../persistence/metahubsQueryHelpers'
 import { findPublicationVersionById, listPublications } from '../../persistence/publicationsStore'
+import { finalizeMetahubsSchemaSupportMigrationDefinition } from '../../platform/migrations/1766351182000-CreateMetahubsSchema.sql'
 
 function createExec() {
     return { query: jest.fn().mockResolvedValue([]) }
@@ -115,5 +116,18 @@ describe('metahubs soft-delete parity', () => {
         expect(sql).toContain('mu._upl_deleted = false AND mu._app_deleted = false')
         expect(sql).toContain('m._upl_deleted = false AND m._app_deleted = false')
         expect(params).toEqual(['metahub-1', 'user-1'])
+    })
+
+    it('filters deleted memberships and deleted parent metahubs in package RLS policies', () => {
+        const policySql = finalizeMetahubsSchemaSupportMigrationDefinition.up
+            .map((statement) => statement.sql)
+            .filter((sql) => sql.includes('metahub_packages_'))
+            .join('\n')
+
+        expect(policySql).toContain('JOIN metahubs.obj_metahubs m ON m.id = mu.metahub_id')
+        expect(policySql).toContain('mu._upl_deleted = false')
+        expect(policySql).toContain('mu._app_deleted = false')
+        expect(policySql).toContain('m._upl_deleted = false')
+        expect(policySql).toContain('m._app_deleted = false')
     })
 })

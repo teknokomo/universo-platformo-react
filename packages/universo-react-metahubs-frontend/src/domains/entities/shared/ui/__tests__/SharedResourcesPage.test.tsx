@@ -12,6 +12,7 @@ const mockComponentListContent = vi.fn()
 const mockFixedValueListContent = vi.fn()
 const mockSelectableOptionListContent = vi.fn()
 const mockEntityModulesTab = vi.fn()
+const mockMetahubPackagesTab = vi.fn()
 const mockUseSharedContainerIds = vi.fn()
 const mockUseAllEntityTypesQuery = vi.fn()
 
@@ -60,8 +61,15 @@ vi.mock('../../../../modules/ui/EntityModulesTab', () => ({
     }
 }))
 
+vi.mock('../../../../packages/ui/MetahubPackagesTab', () => ({
+    MetahubPackagesTab: (props: Record<string, unknown>) => {
+        mockMetahubPackagesTab(props)
+        return <div data-testid='shared-resources-packages-content'>packages-content</div>
+    }
+}))
+
 vi.mock('../../../../shared/hooks/useSharedContainerIds', () => ({
-    useSharedContainerIds: (metahubId: string | undefined) => mockUseSharedContainerIds(metahubId)
+    useSharedContainerIds: (metahubId: string | undefined, enabled?: boolean) => mockUseSharedContainerIds(metahubId, enabled)
 }))
 
 vi.mock('../../../hooks/queries', () => ({
@@ -118,12 +126,23 @@ describe('SharedResourcesPage', () => {
 
         expect(screen.getByTestId('shared-resources-main-card')).toBeInTheDocument()
         expect(screen.getByRole('heading', { name: 'Ресурсы' })).toBeInTheDocument()
-        expect(screen.getByRole('tab', { name: 'Макеты' })).toHaveAttribute('aria-selected', 'true')
+        expect(screen.getByRole('tab', { name: 'Пакеты' })).toHaveAttribute('aria-selected', 'true')
         expect(screen.getByRole('tab', { name: 'Компоненты' })).toBeInTheDocument()
+        expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
+            'Пакеты',
+            'Компоненты',
+            'Макеты',
+            'Константы',
+            'Значения',
+            'Модули'
+        ])
         expect(screen.getByRole('tab', { name: 'Константы' })).toBeInTheDocument()
         expect(screen.getByRole('tab', { name: 'Значения' })).toBeInTheDocument()
         expect(screen.getByRole('tab', { name: 'Модули' })).toBeInTheDocument()
         expect(screen.getByTestId('metahub-shared-resources-content')).toBeInTheDocument()
+        expect(screen.getByTestId('shared-resources-packages-content')).toBeInTheDocument()
+        expect(mockMetahubPackagesTab).toHaveBeenCalledWith(expect.objectContaining({ metahubId: 'metahub-1' }))
+        await user.click(screen.getByRole('tab', { name: 'Макеты' }))
         expect(screen.getByTestId('shared-resources-layouts-content')).toBeInTheDocument()
         expect(screen.queryByTestId('standalone-layout-list')).not.toBeInTheDocument()
 
@@ -139,12 +158,13 @@ describe('SharedResourcesPage', () => {
             })
         )
 
-        expect(mockUseSharedContainerIds).toHaveBeenCalledWith('metahub-1')
+        expect(mockUseSharedContainerIds).toHaveBeenCalledWith('metahub-1', false)
         expect(mockUseAllEntityTypesQuery).toHaveBeenCalledWith('metahub-1')
 
         await user.click(screen.getByRole('tab', { name: 'Компоненты' }))
 
         expect(screen.getByTestId('shared-resources-components-content')).toBeInTheDocument()
+        expect(mockUseSharedContainerIds).toHaveBeenLastCalledWith('metahub-1', true)
         expect(mockComponentListContent).toHaveBeenCalledWith(
             expect.objectContaining({
                 metahubId: 'metahub-1',
@@ -221,6 +241,7 @@ describe('SharedResourcesPage', () => {
             </I18nextProvider>
         )
 
+        expect(screen.getByRole('tab', { name: 'Пакеты' })).toBeInTheDocument()
         expect(screen.getByRole('tab', { name: 'Макеты' })).toBeInTheDocument()
         expect(screen.getByRole('tab', { name: 'Модули' })).toBeInTheDocument()
         expect(screen.queryByRole('tab', { name: 'Компоненты' })).not.toBeInTheDocument()

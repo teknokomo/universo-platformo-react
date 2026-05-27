@@ -90,7 +90,13 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
     const handleCancel = () => {
         if (!isLoading) onCancel()
     }
-    const presentation = useDialogPresentation({ open, onClose: handleCancel, fallbackMaxWidth: 'sm', isBusy: isLoading })
+    const presentation = useDialogPresentation({
+        open,
+        onClose: handleCancel,
+        fallbackMaxWidth: 'sm',
+        isBusy: isLoading,
+        disablePresentationControls: true
+    })
     const titleNode = presentation.titleActions ? (
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
             <Box component='span' sx={{ minWidth: 0 }}>
@@ -126,7 +132,7 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
                     </Alert>
                 )}
             </DialogContent>
-            <DialogActions sx={{ px: 3, pb: 2 }}>
+            <DialogActions sx={{ p: 3, pt: 2, gap: 1, justifyContent: 'flex-end' }}>
                 <Button onClick={handleCancel} disabled={isLoading} color='inherit' data-testid='confirm-delete-cancel'>
                     {cancelButtonText}
                 </Button>
@@ -153,7 +159,6 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
                     )}
                 </Button>
             </DialogActions>
-            {presentation.resizeHandle}
         </Dialog>
     )
 }

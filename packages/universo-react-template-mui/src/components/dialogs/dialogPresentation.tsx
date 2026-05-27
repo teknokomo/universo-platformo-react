@@ -42,6 +42,7 @@ export interface DialogPresentationHookOptions {
     onClose: NonNullable<DialogProps['onClose']> | (() => void)
     fallbackMaxWidth?: DialogMaxWidth
     isBusy?: boolean
+    disablePresentationControls?: boolean
 }
 
 export interface DialogPresentationResolvedDialogProps {
@@ -203,12 +204,13 @@ export function useDialogPresentation({
     open,
     onClose,
     fallbackMaxWidth = 'sm',
-    isBusy = false
+    isBusy = false,
+    disablePresentationControls = false
 }: DialogPresentationHookOptions): DialogPresentationHookResult {
     const theme = useTheme()
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
     const presentation = useDialogPresentationContext()
-    const enabled = presentation.enabled === true
+    const enabled = presentation.enabled === true && !disablePresentationControls
     const allowResize = enabled && presentation.allowResize === true && !isMobile
     const allowFullscreen = enabled && presentation.allowFullscreen === true
     const titleActionLabels = presentation.titleActionLabels ?? DEFAULT_TITLE_ACTION_LABELS

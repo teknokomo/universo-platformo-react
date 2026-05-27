@@ -19,6 +19,7 @@ export interface PublicationSnapshotHashInput {
     sharedEntityOverrides?: unknown
     systemFields?: Record<string, ObjectSystemFieldsSnapshot | SnapshotRecord>
     modules?: unknown
+    packages?: unknown
     layouts?: unknown
     scopedLayouts?: unknown
     layoutZoneWidgets?: unknown
@@ -120,6 +121,26 @@ const normalizeModule = (scriptValue: unknown): Record<string, unknown> => {
         checksum: typeof module.checksum === 'string' ? module.checksum : '',
         isActive: module.isActive !== false,
         config: module.config ?? {}
+    }
+}
+
+const normalizePackage = (packageValue: unknown): Record<string, unknown> => {
+    const item = asRecord(packageValue)
+    const source = asRecord(item.source)
+
+    return {
+        packageName: typeof item.packageName === 'string' ? item.packageName : '',
+        version: typeof item.version === 'string' ? item.version : '',
+        source: {
+            kind: typeof source.kind === 'string' ? source.kind : '',
+            packageName: typeof source.packageName === 'string' ? source.packageName : '',
+            importName: typeof source.importName === 'string' ? source.importName : '',
+            upstreamPackageName: typeof source.upstreamPackageName === 'string' ? source.upstreamPackageName : '',
+            upstreamVersion: typeof source.upstreamVersion === 'string' ? source.upstreamVersion : '',
+            runtimeTargets: asArray<unknown>(source.runtimeTargets)
+                .map((target) => String(target ?? ''))
+                .sort(compareStrings)
+        }
     }
 }
 
@@ -377,6 +398,15 @@ export const normalizePublicationSnapshotForHash = (
             return compareStrings(left.id as string, right.id as string)
         })
 
+    const packages = asArray<unknown>(snapshot.packages)
+        .map(normalizePackage)
+        .sort((left, right) => {
+            if ((left.packageName as string) !== (right.packageName as string)) {
+                return compareStrings(left.packageName as string, right.packageName as string)
+            }
+            return compareStrings(left.version as string, right.version as string)
+        })
+
     const layouts = asArray<unknown>(snapshot.layouts)
         .map(normalizeLayout)
         .sort((left, right) => {
@@ -493,6 +523,7 @@ export const normalizePublicationSnapshotForHash = (
         sharedEntityOverrides,
         systemFields,
         modules,
+        packages,
         layouts,
         scopedLayouts,
         layoutZoneWidgets,

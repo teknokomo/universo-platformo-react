@@ -39,6 +39,7 @@ const tagDescriptions = {
     Records: 'Record CRUD, reorder, move, and copy endpoints.',
     Layouts: 'Layout CRUD and zone-widget endpoints.',
     Modules: 'Metahub module CRUD and source-management endpoints.',
+    Packages: 'Metahub package registry and attachment endpoints.',
     'Shared Entity Overrides': 'Metahub-level shared entity override endpoints.',
     Settings: 'Metahub settings and metahub setting-key endpoints.',
     Templates: 'Template catalog endpoints.'
@@ -212,6 +213,12 @@ const routeSources = [
         file: 'packages/universo-react-metahubs-backend/src/domains/modules/routes/modulesRoutes.ts',
         mountPrefix: '',
         tag: 'Modules',
+        security: bearerSecurity
+    },
+    {
+        file: 'packages/universo-react-metahubs-backend/src/domains/packages/routes/packagesRoutes.ts',
+        mountPrefix: '',
+        tag: 'Packages',
         security: bearerSecurity
     },
     {

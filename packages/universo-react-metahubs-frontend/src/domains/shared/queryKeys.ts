@@ -73,6 +73,10 @@ export const metahubsQueryKeys = {
         return [...metahubsQueryKeys.members(id), 'list', normalized] as const
     },
 
+    packages: (metahubId: string) => [...metahubsQueryKeys.detail(metahubId), 'packages'] as const,
+    packagesCatalog: (metahubId: string) => [...metahubsQueryKeys.packages(metahubId), 'catalog'] as const,
+    packagesAttached: (metahubId: string) => [...metahubsQueryKeys.packages(metahubId), 'attached'] as const,
+
     // ============ NEW ARCHITECTURE QUERY KEYS ============
 
     // Branches scoped to a specific metahub

@@ -10,6 +10,7 @@ import { createEntityRecordRoutes } from './entities/metadata/record/routes'
 import { createEntityFixedValueRoutes } from './entities/metadata/fixedValue/routes'
 import { createLayoutsRoutes } from './layouts/routes/layoutsRoutes'
 import { createModulesRoutes } from './modules/routes/modulesRoutes'
+import { createPackagesRoutes } from './packages/routes/packagesRoutes'
 import { createTemplatesRoutes } from './templates/routes/templatesRoutes'
 import { createPublicMetahubsRoutes } from './metahubs/routes/publicMetahubsRoutes'
 import { createMetahubMigrationsRoutes } from './metahubs/routes/metahubMigrationsRoutes'
@@ -85,6 +86,7 @@ export function createMetahubsServiceRoutes(ensureAuth: RequestHandler, getDbExe
     router.use('/', createEntityFixedValueRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createEntityRecordRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createLayoutsRoutes(ensureAuth, getDbExecutor, read, write))
+    router.use('/', createPackagesRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createModulesRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createSharedEntityOverridesRoutes(ensureAuth, getDbExecutor, read, write))
     router.use('/', createEntityTypesRoutes(ensureAuth, getDbExecutor, read, write))
@@ -158,6 +160,7 @@ export { createEntityFixedValueRoutes } from './entities/metadata/fixedValue/rou
 export { createEntityRecordRoutes } from './entities/metadata/record/routes'
 export { createLayoutsRoutes } from './layouts/routes/layoutsRoutes'
 export { createModulesRoutes } from './modules/routes/modulesRoutes'
+export { createPackagesRoutes } from './packages/routes/packagesRoutes'
 export { createSharedEntityOverridesRoutes } from './shared/routes/sharedEntityOverridesRoutes'
 export { createEntityTypesRoutes } from './entities/routes/entityTypesRoutes'
 export { createEntityInstancesRoutes } from './entities/routes/entityInstancesRoutes'
