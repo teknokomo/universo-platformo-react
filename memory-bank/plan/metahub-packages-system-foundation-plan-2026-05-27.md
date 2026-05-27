@@ -70,9 +70,9 @@ Research artifact: `memory-bank/research/metahub-packages-system-foundation-rese
 
 - [ ] Step 1: Finalize the upstream dependency decision before coding.
   - Use current package/docs defaults:
-    - `@universo-react/playcanvas-engine` wraps `playcanvas@2.18.2` and is browser/client-targeted.
-    - `@universo-react/colyseus-server` wraps `colyseus@0.17.10` and is server-targeted.
-    - `@universo-react/colyseus-client` wraps `@colyseus/sdk@0.17.42` and is client/browser plus Node-compatible. This deliberately uses the current official Colyseus JS/TS SDK package instead of the older `colyseus.js@0.16.22` package named in the brief references.
+    - `@universo-react/playcanvas-engine` wraps `playcanvas@2.18.1` and is browser/client-targeted.
+    - `@universo-react/colyseus-server` wraps `@colyseus/core@0.17.43` and is server-targeted.
+    - `@universo-react/colyseus-client` wraps `@colyseus/sdk@0.17.42` and is exposed by the current package registry as client/browser-targeted. This deliberately uses the current official Colyseus JS/TS SDK package instead of the older `colyseus.js@0.16.22` package named in the brief references.
   - If product requires strict historical adherence to `colyseus.js`, record that as an explicit product override before implementation and update seed config, README, wrapper entry, and compiler target metadata together.
   - Add these upstream versions to `pnpm-workspace.yaml` catalog, then consume them as `catalog:` from wrapper packages.
 

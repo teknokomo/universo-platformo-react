@@ -1,25 +1,58 @@
 # Project Skills Sources
 
-This file records external Skills imported into `.agents/skills/` so updates and license attribution remain reviewable.
+This file records project-local Skills, imported external Skills, and external reference sources used by `.agents/skills/` so updates and license attribution remain reviewable.
 
 ## Imported On 2026-05-16
 
-| Local Skill | Source | License | Notes |
-|-------------|--------|---------|-------|
-| `agents-best-practices` | https://github.com/DenisSergeevitch/agents-best-practices | MIT | Imported as a complete root skill with references. |
-| `brainstorming-research-ideas` | https://github.com/Orchestra-Research/AI-Research-SKILLs/tree/main/21-research-ideation/brainstorming-research-ideas | MIT | Curated AI Research subset. |
-| `creative-thinking-for-research` | https://github.com/Orchestra-Research/AI-Research-SKILLs/tree/main/21-research-ideation/creative-thinking-for-research | MIT | Curated AI Research subset. |
-| `instructor` | https://github.com/Orchestra-Research/AI-Research-SKILLs/tree/main/16-prompt-engineering/instructor | MIT | Curated AI Research subset. |
-| `dspy` | https://github.com/Orchestra-Research/AI-Research-SKILLs/tree/main/16-prompt-engineering/dspy | MIT | Curated AI Research subset. |
-| `langsmith` | https://github.com/Orchestra-Research/AI-Research-SKILLs/tree/main/17-observability/langsmith | MIT | Curated AI Research subset. |
-| `ml-paper-writing` | https://github.com/Orchestra-Research/AI-Research-SKILLs/tree/main/20-ml-paper-writing/ml-paper-writing | MIT | Curated AI Research subset for long-form research reports. |
+| Local Skill                      | Source                                                                                                                 | License | Notes                                                      |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------- | ---------------------------------------------------------- |
+| `agents-best-practices`          | https://github.com/DenisSergeevitch/agents-best-practices                                                              | MIT     | Imported as a complete root skill with references.         |
+| `brainstorming-research-ideas`   | https://github.com/Orchestra-Research/AI-Research-SKILLs/tree/main/21-research-ideation/brainstorming-research-ideas   | MIT     | Curated AI Research subset.                                |
+| `creative-thinking-for-research` | https://github.com/Orchestra-Research/AI-Research-SKILLs/tree/main/21-research-ideation/creative-thinking-for-research | MIT     | Curated AI Research subset.                                |
+| `instructor`                     | https://github.com/Orchestra-Research/AI-Research-SKILLs/tree/main/16-prompt-engineering/instructor                    | MIT     | Curated AI Research subset.                                |
+| `dspy`                           | https://github.com/Orchestra-Research/AI-Research-SKILLs/tree/main/16-prompt-engineering/dspy                          | MIT     | Curated AI Research subset.                                |
+| `langsmith`                      | https://github.com/Orchestra-Research/AI-Research-SKILLs/tree/main/17-observability/langsmith                          | MIT     | Curated AI Research subset.                                |
+| `ml-paper-writing`               | https://github.com/Orchestra-Research/AI-Research-SKILLs/tree/main/20-ml-paper-writing/ml-paper-writing                | MIT     | Curated AI Research subset for long-form research reports. |
+
+## Imported On 2026-05-27
+
+| Local Skill  | Source                                                                                                             | License | Notes                                                                                                                                         |
+| ------------ | ------------------------------------------------------------------------------------------------------------------ | ------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `autoreview` | https://github.com/openclaw/agent-skills/tree/main/skills/autoreview at `7b6ca5b2078af2746d1c4424fe90211901b997ae` | MIT     | Vendored as a complete project-local closeout review skill with `scripts/autoreview` and `scripts/test-review-harness`; adapted for Universo. |
 
 ## Local Project Skills
 
-| Local Skill | Source | License | Notes |
-|-------------|--------|---------|-------|
-| `research-before-plan` | Local project workflow | Project repository license | Supports `.gemini/rules/custom_modes/research_mode.md`. |
-| `universo-platform-architecture` | Local project workflow | Project repository license | Single source of truth for the metahub configuration model, entity type presets, the `recordBehavior` mechanism, metahub templates, and the strengthen-existing-preset rule. Used by RESEARCH, PLAN, IMPLEMENT, QA, REFLECT. |
+| Local Skill                          | Source                 | License                    | Notes                                                                                                                                                                                                                        |
+| ------------------------------------ | ---------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `research-before-plan`               | Local project workflow | Project repository license | Supports `.gemini/rules/custom_modes/research_mode.md`.                                                                                                                                                                      |
+| `universo-platform-architecture`     | Local project workflow | Project repository license | Single source of truth for the metahub configuration model, entity type presets, the `recordBehavior` mechanism, metahub templates, and the strengthen-existing-preset rule. Used by RESEARCH, PLAN, IMPLEMENT, QA, REFLECT. |
+| `playcanvas-engine-runtime`          | Local project workflow | Project repository license | MMOOMM PlayCanvas Engine runtime guidance aligned with `@universo-react/playcanvas-engine` and `playcanvas@2.18.1`.                                                                                                          |
+| `colyseus-authoritative-multiplayer` | Local project workflow | Project repository license | MMOOMM Colyseus authoritative multiplayer guidance aligned with `@universo-react/colyseus-server`, `@universo-react/colyseus-client`, and Colyseus 0.17 wrappers.                                                            |
+| `browser-3d-runtime-integration`     | Local project workflow | Project repository license | Browser 3D integration guidance for `apps-template-mui` canvas widgets, runtime package imports, game loops, input ownership, cleanup, and Runtime UI UX Quality Gate compliance.                                            |
+| `browser-game-runtime-qa`            | Local project workflow | Project repository license | QA guidance for browser game/WebGL/realtime surfaces, Playwright evidence, no technical leakage, reconnect behavior, and responsive runtime UX.                                                                              |
+
+## External Reference Sources For Local MMOOMM Skills
+
+These sources informed the local MMOOMM skills. They are references and inspiration only, not imported Skills.
+
+| Used By                                                         | Source                                                                                                 | License                                                             | Owner / Copyright                               | Adaptation Notes                                                                                                                                                                                                           |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `playcanvas-engine-runtime`, `browser-3d-runtime-integration`   | https://github.com/freshtechbro/claudedesignskills                                                     | MIT                                                                 | Copyright 2025 Claude Skills Project            | Used as an inspiration source for PlayCanvas/browser-3D skill boundaries only. Content was paraphrased; no vendor-specific `.claude/skills` layout, slash commands, marketplace flow, or verbatim skill body was imported. |
+| `playcanvas-engine-runtime`                                     | https://developer.playcanvas.com/user-manual/engine/ and https://api.playcanvas.com/engine-v2.18.1/    | MIT for PlayCanvas Engine code; documentation used as reference     | PlayCanvas Ltd.                                 | Primary source for Engine-only runtime concepts, Application/Entity setup, primitive geometry, normals, assets, resize, and cleanup. Content was paraphrased; no verbatim import was used.                                 |
+| `browser-3d-runtime-integration`                                | https://developer.playcanvas.com/user-manual/playcanvas-react/ and https://github.com/playcanvas/react | MIT                                                                 | PlayCanvas Ltd. / PlayCanvas React contributors | Secondary source for React integration patterns only. The local skills do not assume `@playcanvas/react` is wrapped or installed. Content was paraphrased; no verbatim import was used.                                    |
+| `colyseus-authoritative-multiplayer`, `browser-game-runtime-qa` | https://docs.colyseus.io/ and https://github.com/colyseus/docs                                         | MIT for Colyseus code repositories; documentation used as reference | Endel Dreyer and Colyseus contributors          | Primary source for room lifecycle, auth, schema state, fixed tick simulation, interpolation, reconnection, and scaling. Content was paraphrased for the Universo wrapper/version context; no verbatim import was used.     |
+| `colyseus-authoritative-multiplayer`                            | https://github.com/colyseus/schema                                                                     | MIT                                                                 | Endel Dreyer and Colyseus contributors          | Reference for Schema state constraints and synchronization concepts. Content was paraphrased; no verbatim import was used.                                                                                                 |
+| `colyseus-authoritative-multiplayer`                            | https://github.com/colyseus/command                                                                    | MIT                                                                 | Endel Dreyer and Colyseus contributors          | Optional future command-pattern reference only; not required by the MVP skills or current wrappers. Content was paraphrased; no verbatim import was used.                                                                  |
+
+## MMOOMM Foundation Wrapper Relationship
+
+The MMOOMM skills are tied to existing metahub package registry wrappers:
+
+-   `@universo-react/playcanvas-engine` re-exports `playcanvas@2.18.1` and is client/browser-targeted.
+-   `@universo-react/colyseus-client` re-exports `@colyseus/sdk@0.17.42` and is currently exposed as a client/browser-targeted runtime package.
+-   `@universo-react/colyseus-server` re-exports `@colyseus/core@0.17.43` and is server-targeted.
+
+Skills must follow the runtime package registry and modules compiler contract: attached packages are imported only when declared as allowed package imports for the active runtime target.
 
 ## AI Research Skills MIT Notice
 
@@ -29,6 +62,35 @@ The curated AI Research skills above are imported from `Orchestra-Research/AI-Re
 MIT License
 
 Copyright (c) 2025 Claude AI Research Skills Contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## OpenClaw Agent Skills MIT Notice
+
+The `autoreview` skill above is imported from `openclaw/agent-skills` at commit
+`7b6ca5b2078af2746d1c4424fe90211901b997ae`.
+
+```text
+MIT License
+
+Copyright (c) 2026 openclaw
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

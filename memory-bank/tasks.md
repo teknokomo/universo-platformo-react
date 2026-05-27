@@ -4,6 +4,50 @@
 
 ---
 
+## Active: Autoreview Project Skill Adoption (2026-05-27)
+
+> Goal: vendor and adapt the OpenClaw `autoreview` skill as a project-local `.agents/skills/autoreview/` workflow with MIT attribution, Universo-specific closeout guidance, and script validation.
+
+### IMPLEMENT Action Plan
+
+-   [x] Establish the implementation baseline and preserve unrelated active work.
+-   [x] Copy upstream `autoreview` scripts into `.agents/skills/autoreview/` with executable permissions.
+-   [x] Rewrite `.agents/skills/autoreview/SKILL.md` for the Universo project-local workflow.
+-   [x] Conservatively adapt copied scripts for provenance, local paths, and project-neutral wording.
+-   [x] Update `.agents/skills/SOURCES.md` with OpenClaw source, commit, MIT license, and adaptation notes.
+-   [x] Validate skill shape and helper scripts without invoking live review engines.
+-   [x] Run formatting and repository content checks for touched files.
+-   [x] Update Memory Bank progress with the implementation outcome.
+
+### QA Closure Action Plan
+
+-   [x] Make branch-mode remote ref updates explicit with `--fetch` instead of implicit `git fetch`.
+-   [x] Remove generated Python bytecode from `.agents/skills/autoreview/` and validate without recreating it.
+-   [x] Re-run skill, syntax, CLI, formatting, whitespace, and targeted content checks.
+
+### Final QA Closure Action Plan
+
+-   [x] Make explicit `--fetch` fail closed when origin fetch fails.
+-   [x] Ensure Codex and Droid temporary prompt/schema files are cleaned up even when engine startup fails.
+-   [x] Mark the saved plan artifact as completed and record QA closure status.
+-   [x] Re-run skill, syntax, CLI, formatting, whitespace, generated-artifact, and targeted content checks.
+
+## Active: MMOOMM 3D And Multiplayer Project Skills (2026-05-27)
+
+> Goal: implement the approved project-local skill set for MMOOMM PlayCanvas Engine, Colyseus authoritative multiplayer, browser 3D runtime integration, and browser game runtime QA, with source attribution and documentation alignment.
+
+### IMPLEMENT Action Plan
+
+-   [x] Establish the implementation baseline and preserve unrelated active work.
+-   [x] Create `playcanvas-engine-runtime` with Engine-only PlayCanvas runtime and procedural geometry references.
+-   [x] Create `colyseus-authoritative-multiplayer` with Colyseus 0.17 room lifecycle, auth, schema, fixed tick, interpolation, reconnection, and scaling references.
+-   [x] Create `browser-3d-runtime-integration` with `apps-template-mui`, runtime UI contract, game loop, input, cleanup, and package import constraints.
+-   [x] Create `browser-game-runtime-qa` with canvas/WebGL, multiplayer, reconnect, runtime UX, and Playwright evidence oracles.
+-   [x] Update `.agents/skills/SOURCES.md` with local skill entries, external reference-source attribution, and wrapper package relationships.
+-   [x] Align wrapper/docs notes for MMOOMM package runtime targets, compiler import constraints, and browser-game QA guidance.
+-   [x] Run focused Markdown formatting and documentation/content checks.
+-   [x] Update Memory Bank progress with the implementation outcome.
+
 ## Active: 1C-Compatible Metahub Template Implementation (2026-05-26)
 
 > Goal: implement the `1C-Compatible` metahub template as an opt-in template with reusable Entity Type Constructor typed behavior contracts, preview-safe preset manifests, safety gates, i18n, docs, and test scaffolding without changing the default `basic` template.

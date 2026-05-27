@@ -1,5 +1,13 @@
 # Current Research
 
+## 2026-05-27: MMOOMM 3D and multiplayer project-local skills
+
+-   Research artifact created: `memory-bank/research/mmoomm-3d-multiplayer-skills-research-2026-05-27.md`.
+-   Final PLAN baseline: four project-local skills, `playcanvas-engine-runtime`, `colyseus-authoritative-multiplayer`, `browser-3d-runtime-integration`, and `browser-game-runtime-qa`; QA checks are independently triggerable because MMOOMM will repeatedly need browser 3D/multiplayer evidence.
+-   Version invariant: the skills must anchor to the existing foundation wrappers: `@universo-react/playcanvas-engine` -> `playcanvas@2.18.1`, `@universo-react/colyseus-client` -> `@colyseus/sdk@0.17.42`, and `@universo-react/colyseus-server` -> `@colyseus/core@0.17.43`.
+-   Source decision: use `freshtechbro/claudedesignskills` only as MIT-licensed inspiration for boundaries and patterns; do not import vendor-specific `.claude/skills` layouts, slash-command flows, marketplace instructions, or verbatim content.
+-   Scope decision: PlayCanvas Editor, PCUI/Graph, Blender/asset-pipeline, React Three Fiber, and external skill installation remain deferred outside the MMOOMM MVP skill foundation.
+
 ## 2026-05-26: 1C-Compatible metahub template
 
 -   Research artifact created and updated: `memory-bank/research/1c-compatible-metahub-template-research-2026-05-26.md`.

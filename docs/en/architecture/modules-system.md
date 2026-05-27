@@ -17,18 +17,19 @@ Each layer normalizes the same shared manifest contract so role, source kind, an
 
 ## Safety Boundaries
 
-- Embedded authoring is the only supported source mode in v1.
-- Embedded modules may import from `@universo-react/extension-sdk`, and consumer modules may additionally import Resources workspace libraries through `@shared/<codename>`; other static imports, `require()`, dynamic `import()`, and `import.meta` fail compilation.
-- The `general` attachment scope is reserved for `library`, and new `library` authoring is rejected outside the Resources workspace before bundles are stored.
-- Shared libraries must stay pure: decorators, runtime ctx access, and executable runtime entrypoints are rejected during validation.
-- Dependency-sensitive shared-library deletes, codename changes, and circular `@shared/*` graphs fail closed before publication sync can produce runtime state.
-- Capabilities are deny-by-default and unavailable APIs throw explicit runtime errors.
-- Client execution requires a Worker-capable browser runtime instead of falling back to the main thread.
-- The browser worker runtime disables ambient network, nested-worker, and dynamic-code globals before the client bundle is loaded.
-- Lifecycle dispatch skips modules that do not declare the lifecycle capability.
+-   Embedded authoring is the only supported source mode in v1.
+-   Embedded modules may import from `@universo-react/extension-sdk`, and consumer modules may additionally import Resources workspace libraries through `@shared/<codename>`; other static imports, `require()`, dynamic `import()`, and `import.meta` fail compilation.
+-   Runtime package imports such as `@universo-react/playcanvas-engine`, `@universo-react/colyseus-client`, and `@universo-react/colyseus-server` must be attached to the metahub/application and declared as allowed package imports for the active runtime target. The compiler does not allow arbitrary package imports.
+-   The `general` attachment scope is reserved for `library`, and new `library` authoring is rejected outside the Resources workspace before bundles are stored.
+-   Shared libraries must stay pure: decorators, runtime ctx access, and executable runtime entrypoints are rejected during validation.
+-   Dependency-sensitive shared-library deletes, codename changes, and circular `@shared/*` graphs fail closed before publication sync can produce runtime state.
+-   Capabilities are deny-by-default and unavailable APIs throw explicit runtime errors.
+-   Client execution requires a Worker-capable browser runtime instead of falling back to the main thread.
+-   The browser worker runtime disables ambient network, nested-worker, and dynamic-code globals before the client bundle is loaded.
+-   Lifecycle dispatch skips modules that do not declare the lifecycle capability.
 
 ## Related Surfaces
 
-- `@universo-react/extension-sdk` defines the author-facing base class and decorators.
-- `@universo-react/modules-engine` owns compilation, bundle splitting, isolate pooling, and health monitoring.
-- Applications runtime routes expose list, client bundle, and server call endpoints for published modules.
+-   `@universo-react/extension-sdk` defines the author-facing base class and decorators.
+-   `@universo-react/modules-engine` owns compilation, bundle splitting, isolate pooling, and health monitoring.
+-   Applications runtime routes expose list, client bundle, and server call endpoints for published modules.
