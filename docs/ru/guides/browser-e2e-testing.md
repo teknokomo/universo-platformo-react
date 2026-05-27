@@ -58,6 +58,7 @@ pnpm run test:e2e:smoke:local-supabase
 -   Проектирование типов сущностей через реальное рабочее пространство Entities, включая создание из пресетов и ручное создание из шаблона `empty`.
 -   Потоки общих Ресурсов для макетов, компонентов, констант, значений и общих модулей.
 -   Рантайм-сценарии публикации и связанного приложения.
+-   Browser game и WebGL runtime surfaces, когда они реализованы: nonblank bounded canvas, viewport matrix, отсутствие page-level horizontal overflow, keyboard/focus behavior, отсутствие raw IDs/JSON/protocol leakage, WebSocket state propagation и reconnect states там, где это применимо.
 -   Fixtures экспорта/импорта снимков, соответствующие текущей entity-first схеме.
 -   Генераторы GitBook-скриншотов, которые открывают реальный интерфейс и снимают реальное состояние продукта.
 

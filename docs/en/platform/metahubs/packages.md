@@ -14,6 +14,11 @@ The first MVP registry contains three built-in workspace wrappers:
 -   `@universo-react/colyseus-server`
 -   `@universo-react/playcanvas-engine`
 
+The project-local MMOOMM skills under `.agents/skills/` use these wrappers as
+their version source of truth: PlayCanvas Engine guidance targets
+`playcanvas@2.18.1`, Colyseus client guidance targets `@colyseus/sdk@0.17.42`,
+and Colyseus server guidance targets `@colyseus/core@0.17.43`.
+
 ## Resources Tab
 
 Open **Metahub → Resources → Packages** to see the available registry packages and the packages connected to the current metahub.

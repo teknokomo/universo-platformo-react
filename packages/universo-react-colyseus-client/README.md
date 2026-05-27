@@ -8,4 +8,4 @@ The package intentionally keeps a thin entry point and re-exports the public Col
 export * from '@colyseus/sdk'
 ```
 
-It is seeded into the metahub package registry as a client/browser and Node-compatible package.
+The upstream SDK can run in browser and Node-compatible environments, but the metahub package registry currently exposes this wrapper as a client/browser-targeted runtime package.

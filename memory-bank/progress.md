@@ -55,6 +55,64 @@
 
 ---
 
+## 2026-05-27 - Autoreview Project Skill Adoption
+
+### Summary
+
+Vendored and adapted the OpenClaw `autoreview` skill as a project-local
+`.agents/skills/autoreview/` workflow. The local skill now provides concise
+Universo-specific closeout review guidance, copied helper scripts, explicit MIT
+attribution, and validation commands that avoid live review-engine execution by
+default.
+
+### Completed
+
+-   Added `.agents/skills/autoreview/SKILL.md` with project-local review
+    triggers, target selection, engine guidance, no-`pnpm dev` constraints, and
+    final-report expectations.
+-   Copied upstream `scripts/autoreview` and `scripts/test-review-harness` from
+    OpenClaw `agent-skills` commit
+    `7b6ca5b2078af2746d1c4424fe90211901b997ae`.
+-   Added SPDX/provenance comments to copied scripts and changed the harness
+    default to Codex-only while keeping other engines opt-in.
+-   Registered the imported skill and OpenClaw MIT notice in
+    `.agents/skills/SOURCES.md`.
+
+### Verification
+
+-   `python3 /home/vladimir/.codex/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/autoreview`
+-   `python3 - <<'PY' ... ast.parse(Path('.agents/skills/autoreview/scripts/autoreview').read_text(), filename='.agents/skills/autoreview/scripts/autoreview') ... PY`
+-   `bash -n .agents/skills/autoreview/scripts/test-review-harness`
+-   `.agents/skills/autoreview/scripts/autoreview --help`
+-   `.agents/skills/autoreview/scripts/autoreview --dry-run`
+-   `.agents/skills/autoreview/scripts/test-review-harness --help`
+-   `pnpm exec prettier --write .agents/skills/autoreview/SKILL.md .agents/skills/SOURCES.md memory-bank/tasks.md memory-bank/progress.md memory-bank/plan/autoreview-skill-adoption-plan-2026-05-27.md memory-bank/research/autoreview-skill-adoption-research-2026-05-27.md`
+-   `git diff --check`
+-   Targeted grep check for upstream-specific operational wording in
+    `.agents/skills/autoreview/`
+
+### QA Closure
+
+-   Replaced the implicit `git fetch origin --quiet` in branch bundle generation
+    with an explicit `--fetch` opt-in so normal helper runs do not mutate remote
+    refs.
+-   Documented the `--fetch` behavior in `.agents/skills/autoreview/SKILL.md`.
+-   Removed generated Python bytecode from the skill directory and switched the
+    syntax validation command to AST parsing so validation does not recreate
+    `__pycache__`.
+
+### Final QA Closure
+
+-   Made the explicit `--fetch` path fail closed when `git fetch origin --quiet`
+    fails, preventing review against stale refs after a requested fetch.
+-   Wrapped Codex and Droid temporary prompt/schema file cleanup in `finally`
+    blocks so engine startup failures do not leave review bundles on disk.
+-   Marked the saved adoption plan as completed and retained the detailed QA
+    closure status in `memory-bank/tasks.md`.
+-   Verified fetch failure in a temporary git repository without invoking a live
+    review engine, and verified missing Codex/Droid binaries leave no temporary
+    review prompt/schema files behind.
+
 ## 2026-05-27 - Metahub Packages QA Remediation
 
 ### Summary
@@ -1402,6 +1460,33 @@ Closed the remaining QA findings for the LMS Learning Content release gate. Runt
     suite, full local minimal Supabase `build:e2e`, and Playwright
     `@packages` with 2/2 tests passing; local minimal Supabase was stopped
     after the run.
+
+### 2026-05-27: MMOOMM 3D And Multiplayer Project Skills ✅
+
+-   Added four project-local MMOOMM skills under `.agents/skills/`:
+    `playcanvas-engine-runtime`, `colyseus-authoritative-multiplayer`,
+    `browser-3d-runtime-integration`, and `browser-game-runtime-qa`.
+-   Anchored the skills to the existing foundation wrappers:
+    `@universo-react/playcanvas-engine` -> `playcanvas@2.18.1`,
+    `@universo-react/colyseus-client` -> `@colyseus/sdk@0.17.42`, and
+    `@universo-react/colyseus-server` -> `@colyseus/core@0.17.43`.
+-   Captured Engine-only PlayCanvas guidance, procedural geometry guardrails,
+    Colyseus 0.17 room/auth/schema/fixed-tick/reconnect/scaling guidance,
+    `apps-template-mui` browser 3D integration rules, and browser-game QA
+    oracles for canvas/WebGL/realtime surfaces.
+-   Updated `.agents/skills/SOURCES.md` with local skill entries, external
+    reference-source attribution, no-verbatim-import notes, and the wrapper
+    package relationship.
+-   Clarified the Colyseus client wrapper README and GitBook docs so package
+    runtime target guidance follows the registry/compiler contract instead of
+    implying arbitrary server-side SDK imports.
+-   Verification passed: explicit-file Prettier for touched Markdown files,
+    `pnpm docs:i18n:check`, `node tools/docs/check-gitbook-links.mjs`,
+    `git diff --check`, Memory Bank ASCII scan for the new research/plan
+    artifacts, and targeted grep checks for forbidden vendor-specific skill
+    layouts, out-of-scope runtime assumptions, and QA review regressions.
+    Playwright was not required because this slice adds Markdown skills/docs
+    only and no live runtime UI.
 
 ### 2026-05-26: 1C-Compatible Constructor UX And Lifecycle QA Closure ✅
 

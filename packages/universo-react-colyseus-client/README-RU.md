@@ -8,4 +8,4 @@ Workspace-обертка для `@colyseus/sdk@0.17.42`.
 export * from '@colyseus/sdk'
 ```
 
-В реестре пакетов метахаба он сидируется как пакет, совместимый с client/browser и Node runtime.
+Upstream SDK совместим с browser и Node-окружениями, но реестр пакетов метахаба сейчас предоставляет эту обёртку как client/browser-targeted runtime package.

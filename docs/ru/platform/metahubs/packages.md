@@ -14,6 +14,11 @@ description: Подключение workspace-пакетов к метахабу
 -   `@universo-react/colyseus-server`
 -   `@universo-react/playcanvas-engine`
 
+Project-local MMOOMM skills в `.agents/skills/` используют эти обёртки как
+источник версий: PlayCanvas Engine guidance ориентирован на `playcanvas@2.18.1`,
+Colyseus client guidance — на `@colyseus/sdk@0.17.42`, а Colyseus server
+guidance — на `@colyseus/core@0.17.43`.
+
 ## Вкладка Resources
 
 Откройте **Metahub → Resources → Packages**, чтобы увидеть доступные пакеты реестра и пакеты, подключённые к текущему метахабу.
