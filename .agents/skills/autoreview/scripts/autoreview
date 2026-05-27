@@ -13,6 +13,7 @@ import copy
 import json
 import os
 import queue
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -255,19 +256,11 @@ def choose_target(repo: Path, mode: str, base_ref: str | None) -> tuple[str, str
 
 
 def detect_pr_base(repo: Path) -> str | None:
-    if not shutil_which("gh"):
+    if not shutil.which("gh"):
         return None
     result = run(["gh", "pr", "view", "--json", "baseRefName", "--jq", ".baseRefName"], repo, check=False)
     base = result.stdout.strip()
     return f"origin/{base}" if result.returncode == 0 and base else None
-
-
-def shutil_which(name: str) -> str | None:
-    for part in os.environ.get("PATH", "").split(os.pathsep):
-        candidate = Path(part) / name
-        if candidate.exists() and os.access(candidate, os.X_OK):
-            return str(candidate)
-    return None
 
 
 def bounded(text: str, limit: int = 180_000) -> str:
@@ -420,11 +413,17 @@ def write_json_temp(data: dict[str, Any]) -> Path:
     return Path(handle.name)
 
 
+def make_temp_path(suffix: str) -> Path:
+    fd, temp_path = tempfile.mkstemp(suffix=suffix)
+    os.close(fd)
+    return Path(temp_path)
+
+
 def run_codex(args: argparse.Namespace, repo: Path, prompt: str) -> str:
     if not args.tools:
         raise SystemExit("--no-tools is not supported by the Codex engine; use --engine claude --no-tools for a no-tools run")
     schema_path = write_json_temp(SCHEMA)
-    output_path = Path(tempfile.NamedTemporaryFile("w", suffix=".json", delete=False).name)
+    output_path = make_temp_path(".json")
     try:
         cmd = [args.codex_bin, "--ask-for-approval", "never"]
         if args.web_search:
@@ -503,7 +502,7 @@ def run_claude(args: argparse.Namespace, repo: Path, prompt: str) -> str:
 def run_droid(args: argparse.Namespace, repo: Path, prompt: str) -> str:
     if args.thinking:
         raise SystemExit("--thinking is not supported by the droid engine")
-    prompt_path = Path(tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False).name)
+    prompt_path = make_temp_path(".txt")
     try:
         prompt_path.write_text(prompt)
         cmd = [
