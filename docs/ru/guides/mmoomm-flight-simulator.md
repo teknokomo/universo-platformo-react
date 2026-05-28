@@ -5,6 +5,8 @@ Fixture MMOOMM flight simulator является продуктовой конф
 `metahubs-mmoomm-flight-app-export`; результат записывается в
 `tools/fixtures/metahubs-mmoomm-flight-app-snapshot.json`.
 
+![Рантайм Space в симуляторе полёта MMOOMM](../.gitbook/assets/mmoomm-flight/runtime-space.png)
+
 Сгенерированный метахаб подключает три generic wrapper-пакета:
 `@universo-react/playcanvas-engine`, `@universo-react/colyseus-client` и
 `@universo-react/colyseus-server`. Мир, корабль, станция, runtime движения и

@@ -96,14 +96,15 @@ const readJsonRequestBody = (req: Request): Promise<unknown> =>
         let data = ''
         let size = 0
 
-        req.on('data', (chunk: Buffer | string) => {
-            size += Buffer.byteLength(chunk)
+        req.setEncoding('utf8')
+        req.on('data', (chunk: string) => {
+            size += Buffer.byteLength(chunk, 'utf8')
             if (size > MAX_MATCHMAKE_BODY_BYTES) {
                 reject(Object.assign(new Error('Request body is too large'), { statusCode: 413 }))
                 req.destroy()
                 return
             }
-            data += chunk.toString()
+            data += chunk
         })
         req.on('end', () => {
             if (!data) {

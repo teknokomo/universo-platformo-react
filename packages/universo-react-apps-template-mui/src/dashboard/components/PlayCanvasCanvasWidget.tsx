@@ -923,6 +923,7 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
             }
 
             const updateRealtimeStatus = (status: RealtimeStatus) => {
+                if (disposed) return
                 setRealtimeStatus(status)
                 canvas.dataset.realtimeStatus = status
             }
@@ -981,6 +982,7 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
                         updateRealtimeStatus('connected')
                     }
                     const updateAuthoritativeState = (state: FixedTickSceneState) => {
+                        if (disposed) return
                         authoritativePositionRef.current = readAuthoritativePosition(state)
                         if (authoritativePositionRef.current) {
                             authoritativeUpdateCountRef.current += 1

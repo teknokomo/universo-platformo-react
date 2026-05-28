@@ -5,6 +5,8 @@ new MMOOMM-specific package. Generate it with the Playwright generator
 `metahubs-mmoomm-flight-app-export`; the output is
 `tools/fixtures/metahubs-mmoomm-flight-app-snapshot.json`.
 
+![MMOOMM flight simulator Space runtime](../.gitbook/assets/mmoomm-flight/runtime-space.png)
+
 The generated metahub attaches three generic wrapper packages:
 `@universo-react/playcanvas-engine`, `@universo-react/colyseus-client`, and
 `@universo-react/colyseus-server`. The world, ship, station, movement runtime,
