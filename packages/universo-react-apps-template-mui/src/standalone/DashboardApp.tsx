@@ -336,6 +336,7 @@ export default function DashboardApp(props: DashboardAppProps) {
             apiBaseUrl: props.apiBaseUrl,
             locale: props.locale,
             currentWorkspaceId,
+            runtimeAccessMode: 'member',
             runtimeQueryKeyPrefix: adapter?.queryKeyPrefix,
             workspacesEnabled,
             permissions: state.appData?.permissions,

@@ -8,6 +8,7 @@ import {
     isServerModuleMethodTarget,
     normalizeModuleAttachmentKind,
     normalizeModuleCapabilities,
+    normalizeModulePackageImports,
     normalizeModuleRole,
     normalizeModuleSourceKind,
     resolveModuleSdkApiVersion,
@@ -152,6 +153,7 @@ const normalizeModule = (row: RuntimeModuleRow): ApplicationModuleDefinition => 
             sourceKind: normalizeModuleSourceKind(rawManifest.sourceKind ?? sourceKind),
             capabilities: normalizeModuleCapabilities(manifestModuleRole, rawManifest.capabilities),
             methods: Array.isArray(rawManifest.methods) ? rawManifest.methods : [],
+            packageImports: normalizeModulePackageImports(rawManifest.packageImports),
             checksum: typeof rawManifest.checksum === 'string' ? rawManifest.checksum : undefined
         },
         serverBundle: row.server_bundle ?? null,
@@ -422,6 +424,26 @@ export class RuntimeModulesService {
         }
     }
 
+    async getActiveModuleByCodename(params: {
+        executor: DbExecutor
+        schemaName: string
+        codename: string
+        attachedToKind?: ModuleAttachmentKind
+        attachedToId?: string | null
+        moduleRole?: ApplicationModuleDefinition['moduleRole']
+    }): Promise<ApplicationModuleDefinition | null> {
+        const modules = await this.listActiveModules(params.executor, params.schemaName)
+        return (
+            modules.find((module) => {
+                if (module.codename !== params.codename) return false
+                if (params.attachedToKind && module.attachedToKind !== params.attachedToKind) return false
+                if (params.attachedToId !== undefined && module.attachedToId !== (params.attachedToId ?? null)) return false
+                if (params.moduleRole && module.moduleRole !== params.moduleRole) return false
+                return true
+            }) ?? null
+        )
+    }
+
     async callServerMethod(params: {
         executor: DbExecutor
         applicationId: string
@@ -473,6 +495,60 @@ export class RuntimeModulesService {
             bundle: module.serverBundle,
             methodName: params.request.methodName,
             args: params.request.args,
+            context
+        })
+    }
+
+    async callInternalServerMethod(params: {
+        executor: DbExecutor
+        applicationId: string
+        schemaName: string
+        moduleCodename: string
+        attachedToKind?: ModuleAttachmentKind
+        attachedToId?: string | null
+        moduleRole?: ApplicationModuleDefinition['moduleRole']
+        methodName: string
+        args?: unknown[]
+        currentWorkspaceId?: string | null
+        currentUserId?: string | null
+        permissions?: Record<RolePermission, boolean> | null
+    }): Promise<unknown> {
+        const module = await this.getActiveModuleByCodename({
+            executor: params.executor,
+            schemaName: params.schemaName,
+            codename: params.moduleCodename,
+            attachedToKind: params.attachedToKind,
+            attachedToId: params.attachedToId,
+            moduleRole: params.moduleRole
+        })
+        if (!module) {
+            throw new Error('Runtime module not found')
+        }
+
+        if (!module.serverBundle) {
+            throw new Error('Runtime module does not expose a server bundle')
+        }
+
+        const method = module.manifest.methods.find((item) => item.name === params.methodName)
+        if (!method || !isServerModuleMethodTarget(method.target) || method.eventName) {
+            throw new Error('Runtime module method was not found')
+        }
+
+        const context = this.createExecutionContext({
+            executor: params.executor,
+            applicationId: params.applicationId,
+            schemaName: params.schemaName,
+            module,
+            currentWorkspaceId: params.currentWorkspaceId ?? null,
+            currentUserId: params.currentUserId ?? null,
+            permissions: params.permissions ?? null,
+            executionOrigin: 'manual'
+        })
+
+        return this.engine.callMethod({
+            bundle: module.serverBundle,
+            methodName: params.methodName,
+            args: params.args ?? [],
             context
         })
     }

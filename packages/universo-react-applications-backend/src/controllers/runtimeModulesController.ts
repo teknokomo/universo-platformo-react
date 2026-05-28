@@ -75,18 +75,22 @@ export function createRuntimeModulesController(getDbExecutor: () => DbExecutor) 
             if (req.headers['if-none-match'] === etag) {
                 res.setHeader('ETag', etag)
                 res.setHeader('Cache-Control', 'private, max-age=0, must-revalidate')
+                res.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'self'")
+                res.setHeader('X-Content-Type-Options', 'nosniff')
                 res.setHeader('Vary', 'Cookie')
                 return res.status(304).send()
             }
 
             res.setHeader('Content-Type', 'application/javascript; charset=utf-8')
+            res.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'self'")
             res.setHeader('Cache-Control', 'private, max-age=0, must-revalidate')
             res.setHeader('ETag', etag)
+            res.setHeader('X-Content-Type-Options', 'nosniff')
             res.setHeader('Vary', 'Cookie')
             return res.status(200).send(bundle.bundle)
         } catch (error) {
             return res.status(resolveRuntimeModuleErrorStatus(error)).json({
-                error: error instanceof Error ? error.message : String(error)
+                error: 'Runtime module bundle is unavailable'
             })
         }
     }
@@ -115,9 +119,7 @@ export function createRuntimeModulesController(getDbExecutor: () => DbExecutor) 
 
             return res.json({ result })
         } catch (error) {
-            return res
-                .status(resolveRuntimeModuleErrorStatus(error))
-                .json({ error: error instanceof Error ? error.message : String(error) })
+            return res.status(resolveRuntimeModuleErrorStatus(error)).json({ error: 'Runtime module call failed' })
         }
     }
 

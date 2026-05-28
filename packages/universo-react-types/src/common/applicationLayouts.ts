@@ -49,6 +49,13 @@ const sharedBehaviorSchema = z
     })
     .strict()
 
+const widgetVisibilitySchema = z
+    .object({
+        sectionIds: z.array(z.string().trim().min(1).max(128)).min(1).max(32).optional(),
+        sectionCodenames: z.array(z.string().trim().min(1).max(128)).min(1).max(32).optional()
+    })
+    .strict()
+
 const moduleAttachmentKindSchema = z.string().trim().regex(MODULE_ATTACHMENT_KIND_PATTERN).nullable().optional()
 
 const genericWidgetConfigSchema = z.record(z.unknown()).default({})
@@ -253,6 +260,7 @@ const moduleBackedWidgetConfigSchema = z
         mountMethodName: z.string().nullable().optional(),
         emptyStateTitle: z.string().nullable().optional(),
         emptyStateDescription: z.string().nullable().optional(),
+        visibleFor: widgetVisibilitySchema.optional(),
         sharedBehavior: sharedBehaviorSchema.optional()
     })
     .strict()
@@ -263,6 +271,84 @@ export const quizWidgetConfigSchema = moduleBackedWidgetConfigSchema
         submitMethodName: z.string().nullable().optional(),
         title: z.string().nullable().optional(),
         description: z.string().nullable().optional()
+    })
+    .strict()
+
+const playcanvasVector3Schema = z
+    .object({
+        x: z.number().finite(),
+        y: z.number().finite(),
+        z: z.number().finite()
+    })
+    .strict()
+
+const playcanvasObjectSchema = z
+    .object({
+        id: z.string().trim().min(1).max(128),
+        label: localizedWidgetTextSchema.optional(),
+        position: playcanvasVector3Schema,
+        scale: playcanvasVector3Schema,
+        selectable: z.boolean().optional(),
+        guard: z.boolean().optional()
+    })
+    .strict()
+
+export const playcanvasCanvasWidgetConfigSchema = moduleBackedWidgetConfigSchema
+    .extend({
+        title: localizedWidgetTextSchema.optional(),
+        serverModuleCodename: z.string().trim().min(1).max(128).nullable().optional(),
+        minHeight: z.number().int().min(320).max(1200).optional(),
+        heightMode: z.enum(['fixed', 'fitViewport']).optional(),
+        camera: z
+            .object({
+                distance: z.number().min(1).max(1000).optional(),
+                minDistance: z.number().min(1).max(1000).optional(),
+                maxDistance: z.number().min(1).max(2000).optional()
+            })
+            .strict()
+            .optional(),
+        scene: z
+            .object({
+                background: z.string().trim().min(1).max(32).optional(),
+                objects: z.array(playcanvasObjectSchema).min(1).max(64).optional(),
+                controlledObjectId: z.string().trim().min(1).max(128).optional(),
+                targetObjectId: z.string().trim().min(1).max(128).optional(),
+                cruiseSpeed: z.number().min(1).max(1000).optional(),
+                intentDistance: z.number().min(10).max(10_000).optional()
+            })
+            .strict()
+            .superRefine((scene, ctx) => {
+                if (!scene.objects?.length) {
+                    return
+                }
+
+                const objectIds = new Set<string>()
+                for (const [index, object] of scene.objects.entries()) {
+                    if (objectIds.has(object.id)) {
+                        ctx.addIssue({
+                            code: z.ZodIssueCode.custom,
+                            path: ['objects', index, 'id'],
+                            message: 'Scene object ids must be unique.'
+                        })
+                    }
+                    objectIds.add(object.id)
+                }
+                if (scene.controlledObjectId && !objectIds.has(scene.controlledObjectId)) {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: ['controlledObjectId'],
+                        message: 'Controlled object must reference an object in the scene.'
+                    })
+                }
+                if (scene.targetObjectId && !objectIds.has(scene.targetObjectId)) {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: ['targetObjectId'],
+                        message: 'Target object must reference an object in the scene.'
+                    })
+                }
+            })
+            .optional()
     })
     .strict()
 
@@ -549,6 +635,7 @@ const widgetConfigSchemaByKey = {
     menuWidget: menuWidgetConfigSchema,
     columnsContainer: columnsContainerWidgetConfigSchema,
     quizWidget: quizWidgetConfigSchema,
+    playcanvasCanvas: playcanvasCanvasWidgetConfigSchema,
     detailsTable: detailsTableWidgetConfigSchema,
     relationBuilder: relationBuilderWidgetConfigSchema,
     overviewCards: overviewCardsWidgetConfigSchema,

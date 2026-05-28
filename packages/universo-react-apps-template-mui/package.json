@@ -38,6 +38,8 @@
         "@universo-react/block-editor": "workspace:*",
         "@universo-react/i18n": "workspace:*",
         "@universo-react/modules-engine": "workspace:*",
+        "@universo-react/colyseus-client": "workspace:*",
+        "@universo-react/playcanvas-engine": "workspace:*",
         "@universo-react/types": "workspace:*",
         "@universo-react/utils": "workspace:*",
         "dayjs": "catalog:",

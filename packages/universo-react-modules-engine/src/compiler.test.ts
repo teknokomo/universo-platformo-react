@@ -173,19 +173,19 @@ describe('compileModuleSource', () => {
         )
     })
 
-    it('externalizes declared package imports and records them in the manifest', async () => {
+    it('externalizes declared executable package imports and records them in the manifest', async () => {
         const artifact = await compileModuleSource(
             createInput(
-                `import { Room } from '@universo-react/colyseus-server'
-import { ExtensionModule, AtServer } from '@universo-react/extension-sdk'
+                `import { createStoppedMovementState } from '@universo-react/colyseus-server'
+   import { ExtensionModule, AtServer } from '@universo-react/extension-sdk'
 
-export default class ColyseusModule extends ExtensionModule {
-    @AtServer()
-    async createRoom() {
-        return Room
-    }
-}
-`,
+   export default class ColyseusModule extends ExtensionModule {
+       @AtServer()
+       async createRoom() {
+           return createStoppedMovementState({ x: 0, y: 0, z: 0 })
+       }
+   }
+   `,
                 {
                     allowedPackageImports: [
                         {
@@ -206,6 +206,76 @@ export default class ColyseusModule extends ExtensionModule {
             }
         ])
         expect(artifact.serverBundle).toContain('@universo-react/colyseus-server')
+    })
+
+    it('compiles target-specific package imports without resolving them in the opposite bundle', async () => {
+        const artifact = await compileModuleSource(
+            createInput(
+                `import { createMoveToPointIntent } from '@universo-react/colyseus-client'
+   import { createStoppedMovementState } from '@universo-react/colyseus-server'
+   import { ExtensionModule, AtClient, AtServer } from '@universo-react/extension-sdk'
+
+   export default class FlightModule extends ExtensionModule {
+       @AtClient()
+       async mount() {
+           return createMoveToPointIntent({ x: 1, y: 2, z: 3 })
+       }
+
+       @AtServer()
+       async createRoom() {
+           return createStoppedMovementState({ x: 0, y: 0, z: 0 })
+       }
+   }
+   `,
+                {
+                    allowedPackageImports: [
+                        {
+                            packageName: '@universo-react/colyseus-client',
+                            version: '0.1.0',
+                            targets: ['client']
+                        },
+                        {
+                            packageName: '@universo-react/colyseus-server',
+                            version: '0.1.0',
+                            targets: ['server']
+                        }
+                    ]
+                }
+            )
+        )
+
+        expect(artifact.clientBundle).toContain('@universo-react/colyseus-client')
+        expect(artifact.clientBundle).not.toContain('@universo-react/colyseus-server')
+        expect(artifact.serverBundle).toContain('@universo-react/colyseus-server')
+        expect(artifact.serverBundle).not.toContain('@universo-react/colyseus-client')
+    })
+
+    it('rejects package exports that are not executable in the embedded runtime', async () => {
+        await expect(
+            compileModuleSource(
+                createInput(
+                    `import { Room } from '@universo-react/colyseus-server'
+   import { ExtensionModule, AtServer } from '@universo-react/extension-sdk'
+
+   export default class ColyseusModule extends ExtensionModule {
+       @AtServer()
+       async createRoom() {
+           return Room
+       }
+   }
+   `,
+                    {
+                        allowedPackageImports: [
+                            {
+                                packageName: '@universo-react/colyseus-server',
+                                version: '0.1.0',
+                                targets: ['server']
+                            }
+                        ]
+                    }
+                )
+            )
+        ).rejects.toThrow(/not available in embedded module runtime: "Room"/)
     })
 
     it('rejects dynamic import expressions', async () => {

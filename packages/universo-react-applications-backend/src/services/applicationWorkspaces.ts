@@ -1921,6 +1921,7 @@ export async function resolveRuntimeWorkspaceAccess(
         workspacesEnabled: boolean
         userId: string
         actorUserId?: string | null
+        ensurePersonalWorkspace?: boolean
     }
 ): Promise<RuntimeWorkspaceAccess> {
     if (!input.workspacesEnabled) {
@@ -1940,12 +1941,14 @@ export async function resolveRuntimeWorkspaceAccess(
         }
     }
 
-    await ensurePersonalWorkspaceForUser(executor, {
-        schemaName: input.schemaName,
-        userId: input.userId,
-        actorUserId: input.actorUserId,
-        defaultRoleCodename: 'owner'
-    })
+    if (input.ensurePersonalWorkspace !== false) {
+        await ensurePersonalWorkspaceForUser(executor, {
+            schemaName: input.schemaName,
+            userId: input.userId,
+            actorUserId: input.actorUserId,
+            defaultRoleCodename: 'owner'
+        })
+    }
 
     const workspaceUserRolesQt = qSchemaTable(input.schemaName, WORKSPACE_USER_ROLES_TABLE)
     const workspaceQt = qSchemaTable(input.schemaName, WORKSPACES_TABLE)

@@ -2327,6 +2327,8 @@ describe('Applications Routes', () => {
             expect(response.headers['content-type']).toContain('application/javascript')
             expect(response.headers['etag']).toBe('"bundle-checksum"')
             expect(response.headers['cache-control']).toBe('private, max-age=0, must-revalidate')
+            expect(response.headers['content-security-policy']).toBe("default-src 'none'; script-src 'self'")
+            expect(response.headers['x-content-type-options']).toBe('nosniff')
             expect(response.headers['vary']).toBe('Cookie')
         })
 
@@ -2360,6 +2362,8 @@ describe('Applications Routes', () => {
 
             expect(response.text).toBe('')
             expect(response.headers['etag']).toBe('"bundle-checksum-304"')
+            expect(response.headers['content-security-policy']).toBe("default-src 'none'; script-src 'self'")
+            expect(response.headers['x-content-type-options']).toBe('nosniff')
         })
     })
 
@@ -2441,9 +2445,7 @@ describe('Applications Routes', () => {
                 .send({ methodName: 'submit', args: [] })
                 .expect(403)
 
-            expect(response.body).toEqual({
-                error: 'Module capability "rpc.client" is not enabled for this module'
-            })
+            expect(response.body).toEqual({ error: 'Runtime module call failed' })
         })
 
         it('rejects real runtime RPC calls when the module does not declare rpc.client', async () => {
@@ -2484,9 +2486,7 @@ describe('Applications Routes', () => {
                 .send({ methodName: 'submit', args: [] })
                 .expect(403)
 
-            expect(response.body).toEqual({
-                error: 'Module capability "rpc.client" is not enabled for this module'
-            })
+            expect(response.body).toEqual({ error: 'Runtime module call failed' })
         })
 
         it('rejects lifecycle handlers on the public runtime RPC route', async () => {
@@ -2527,9 +2527,7 @@ describe('Applications Routes', () => {
                 .send({ methodName: 'afterCreate', args: [] })
                 .expect(403)
 
-            expect(response.body).toEqual({
-                error: 'Runtime module lifecycle handlers are not callable through public RPC'
-            })
+            expect(response.body).toEqual({ error: 'Runtime module call failed' })
         })
     })
 

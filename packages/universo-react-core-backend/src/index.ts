@@ -22,7 +22,10 @@ import {
 import { createGlobalAccessService } from '@universo-react/admin-backend'
 import { initializeRateLimiters as initializeMetahubsRateLimiters, seedTemplates } from '@universo-react/metahubs-backend'
 import { getKnex, destroyKnex, checkDatabaseHealth, registerGracefulShutdown, getPoolExecutor } from '@universo-react/database'
-import { initializeRateLimiters as initializeApplicationsRateLimiters } from '@universo-react/applications-backend'
+import {
+    attachApplicationsRealtimeRuntime,
+    initializeRateLimiters as initializeApplicationsRateLimiters
+} from '@universo-react/applications-backend'
 import { assertIsolatedVmRuntimeAvailable } from '@universo-react/modules-engine'
 import {
     ensureRegisteredSystemAppSchemaGenerationPlans,
@@ -73,6 +76,7 @@ type AuthenticatedRequest = Request & {
 
 export class App {
     app: express.Application
+    realtimeMatchmakeMiddleware?: RequestHandler
 
     constructor() {
         this.app = express()
@@ -384,6 +388,14 @@ export class App {
         // Mount API v1 routes (CSRF protection applied globally — skips GET/HEAD/OPTIONS)
         this.app.use('/api/v1', csrfProtection, apiV1Router)
 
+        if (this.realtimeMatchmakeMiddleware) {
+            this.app.use(
+                (req: Request, res: Response, next: NextFunction) =>
+                    req.path.startsWith('/matchmake/') ? csrfProtection(req, res, next) : next(),
+                this.realtimeMatchmakeMiddleware
+            )
+        }
+
         // ═══════════════════════════════════════════════════════════════
         // Serve UI static files
         // ═══════════════════════════════════════════════════════════════
@@ -419,6 +431,8 @@ export async function start(): Promise<void> {
     const server = http.createServer(serverApp.app)
 
     await serverApp.initDatabase()
+    const realtimeRuntime = await attachApplicationsRealtimeRuntime(server)
+    serverApp.realtimeMatchmakeMiddleware = realtimeRuntime.matchmakeMiddleware
     await serverApp.config()
 
     server.listen(port, host, () => {

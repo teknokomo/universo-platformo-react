@@ -328,6 +328,157 @@ const console = {
 };
 `
 
+const createRuntimePackageRequireSource = () => `
+const __universoCloneVector3 = (value) => ({
+    x: Number(value?.x ?? 0),
+    y: Number(value?.y ?? 0),
+    z: Number(value?.z ?? 0)
+});
+
+const __universoCreateVector3 = (x = 0, y = 0, z = 0) => ({ x, y, z });
+const __universoAddVector3 = (a, b) => ({ x: a.x + b.x, y: a.y + b.y, z: a.z + b.z });
+const __universoSubtractVector3 = (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
+const __universoScaleVector3 = (value, scale) => ({ x: value.x * scale, y: value.y * scale, z: value.z * scale });
+const __universoVector3Length = (value) => Math.hypot(value.x, value.y, value.z);
+const __universoNormalizeVector3 = (value) => {
+    const length = __universoVector3Length(value);
+    return length > 1e-6 ? __universoScaleVector3(value, 1 / length) : __universoCreateVector3();
+};
+const __universoDistanceVector3 = (a, b) => __universoVector3Length(__universoSubtractVector3(a, b));
+const __universoIsPointInsideAabb = (point, box) =>
+    Math.abs(point.x - box.center.x) <= box.halfExtents.x &&
+    Math.abs(point.y - box.center.y) <= box.halfExtents.y &&
+    Math.abs(point.z - box.center.z) <= box.halfExtents.z;
+const __universoSegmentIntersectsAabb = (from, to, box) => {
+    let tMin = 0;
+    let tMax = 1;
+    for (const axis of ['x', 'y', 'z']) {
+        const start = from[axis];
+        const delta = to[axis] - start;
+        const min = box.center[axis] - box.halfExtents[axis];
+        const max = box.center[axis] + box.halfExtents[axis];
+        if (Math.abs(delta) < 1e-6) {
+            if (start < min || start > max) {
+                return false;
+            }
+            continue;
+        }
+        const inverse = 1 / delta;
+        let near = (min - start) * inverse;
+        let far = (max - start) * inverse;
+        if (near > far) {
+            const swap = near;
+            near = far;
+            far = swap;
+        }
+        tMin = Math.max(tMin, near);
+        tMax = Math.min(tMax, far);
+        if (tMin > tMax) {
+            return false;
+        }
+    }
+    return true;
+};
+const __universoMoveSpeedToward = (current, target, maxDelta) =>
+    Math.abs(target - current) <= maxDelta ? target : current + Math.sign(target - current) * maxDelta;
+const __universoExpandAabb = (box, halfExtents) => ({
+    center: __universoCloneVector3(box.center),
+    halfExtents: __universoAddVector3(__universoCloneVector3(box.halfExtents), __universoCloneVector3(halfExtents))
+});
+const __universoIsMovementBlocked = (from, to, guards, controlledHalfExtents) =>
+    Array.isArray(guards) &&
+    guards.some((guard) => {
+        const effectiveGuard = controlledHalfExtents ? __universoExpandAabb(guard, controlledHalfExtents) : guard;
+        return __universoSegmentIntersectsAabb(from, to, effectiveGuard) || __universoIsPointInsideAabb(to, effectiveGuard);
+    });
+const __universoCreateStoppedMovementState = (position) => ({
+    position: __universoCloneVector3(position),
+    velocity: __universoCreateVector3(),
+    target: null,
+    speed: 0
+});
+const __universoApplyMoveToPointIntent = (state, target) => ({
+    ...state,
+    position: __universoCloneVector3(state.position),
+    velocity: __universoCloneVector3(state.velocity),
+    target: __universoCloneVector3(target)
+});
+const __universoApplyStopIntent = (state) => ({
+    ...state,
+    position: __universoCloneVector3(state.position),
+    velocity: __universoCloneVector3(state.velocity),
+    target: null
+});
+const __universoStepFixedTickMovement = (state, deltaSeconds, options) => {
+    const safeDelta = Math.max(0, deltaSeconds);
+    const currentPosition = __universoCloneVector3(state.position);
+    if (!state.target) {
+        const nextSpeed = __universoMoveSpeedToward(state.speed, 0, options.deceleration * safeDelta);
+        const direction = __universoNormalizeVector3(state.velocity);
+        const nextVelocity = __universoScaleVector3(direction, nextSpeed);
+        const nextPosition = __universoAddVector3(currentPosition, __universoScaleVector3(nextVelocity, safeDelta));
+        const blocked = __universoIsMovementBlocked(currentPosition, nextPosition, options.guards, options.controlledHalfExtents);
+        return blocked
+            ? { state: { position: currentPosition, velocity: __universoCreateVector3(), target: null, speed: 0 }, arrived: false, blocked: true }
+            : { state: { position: nextPosition, velocity: nextVelocity, target: null, speed: nextSpeed }, arrived: false, blocked: false };
+    }
+    const target = __universoCloneVector3(state.target);
+    const remaining = __universoDistanceVector3(currentPosition, target);
+    if (remaining <= options.arrivalRadius) {
+        return { state: { position: target, velocity: __universoCreateVector3(), target: null, speed: 0 }, arrived: true, blocked: false };
+    }
+    const direction = __universoNormalizeVector3(__universoSubtractVector3(target, currentPosition));
+    const brakingDistance = state.speed > 0 && options.deceleration > 1e-6 ? (state.speed * state.speed) / (2 * options.deceleration) : 0;
+    const desiredSpeed = remaining <= Math.max(options.arrivalRadius, brakingDistance) ? 0 : options.cruiseSpeed;
+    const rate = desiredSpeed > state.speed ? options.acceleration : options.deceleration;
+    const nextSpeed = __universoMoveSpeedToward(state.speed, desiredSpeed, rate * safeDelta);
+    const stepDistance = Math.min(remaining, nextSpeed * safeDelta);
+    const nextPosition = __universoAddVector3(currentPosition, __universoScaleVector3(direction, stepDistance));
+    const blocked = __universoIsMovementBlocked(currentPosition, nextPosition, options.guards, options.controlledHalfExtents);
+    if (blocked) {
+        return { state: { position: currentPosition, velocity: __universoCreateVector3(), target: null, speed: 0 }, arrived: false, blocked: true };
+    }
+    const arrived = __universoDistanceVector3(nextPosition, target) <= options.arrivalRadius;
+    return {
+        state: {
+            position: arrived ? target : nextPosition,
+            velocity: arrived ? __universoCreateVector3() : __universoScaleVector3(direction, nextSpeed),
+            target: arrived ? null : target,
+            speed: arrived ? 0 : nextSpeed
+        },
+        arrived,
+        blocked: false
+    };
+};
+
+const __universoServerModulePackages = Object.freeze({
+    '@universo-react/colyseus-server': Object.freeze({
+        cloneVector3: __universoCloneVector3,
+        createVector3: __universoCreateVector3,
+        addVector3: __universoAddVector3,
+        subtractVector3: __universoSubtractVector3,
+        scaleVector3: __universoScaleVector3,
+        vector3Length: __universoVector3Length,
+        normalizeVector3: __universoNormalizeVector3,
+        distanceVector3: __universoDistanceVector3,
+        isPointInsideAabb: __universoIsPointInsideAabb,
+        segmentIntersectsAabb: __universoSegmentIntersectsAabb,
+        createStoppedMovementState: __universoCreateStoppedMovementState,
+        applyMoveToPointIntent: __universoApplyMoveToPointIntent,
+        applyStopIntent: __universoApplyStopIntent,
+        stepFixedTickMovement: __universoStepFixedTickMovement
+    })
+});
+
+const require = (packageName) => {
+    const moduleExports = __universoServerModulePackages[packageName];
+    if (!moduleExports) {
+        throw new Error('Server module import "' + packageName + '" is not available in this runtime');
+    }
+    return moduleExports;
+};
+`
+
 const createRestrictedServerGlobalSource = () => `
 const __disableGlobal = (name) => {
     try {
@@ -356,6 +507,7 @@ const buildBootstrapSource = (bundle: string) =>
         'const module = { exports: {} };',
         'const exports = module.exports;',
         createSilentConsoleSource(),
+        createRuntimePackageRequireSource(),
         bundle,
         'const __resolvedModule = (module.exports && module.exports.default) || module.exports || (exports && exports.default) || exports;',
         "if (typeof __resolvedModule !== 'function') { throw new Error('Compiled module bundle did not export a constructable module class') }",
