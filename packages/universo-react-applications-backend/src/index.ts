@@ -7,6 +7,8 @@ export { createConnectorsRoutes } from './routes/connectorsRoutes'
 export { createApplicationSyncRoutes } from './routes/applicationSyncRoutes'
 export { runPublishedApplicationRuntimeSync, seedPredefinedElements } from './routes/applicationSyncRoutes'
 export { initializeRateLimiters, getRateLimiters, createApplicationsServiceRoutes } from './routes/index'
+export { attachApplicationsRealtimeRuntime } from './realtime/applicationsRealtimeRuntime'
+export type { ApplicationsRealtimeRuntimeHandle } from './realtime/applicationsRealtimeRuntime'
 
 // Guard exports
 export { ensureApplicationAccess, ensureConnectorAccess, assertNotOwner } from './routes/guards'

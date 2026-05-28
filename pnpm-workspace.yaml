@@ -103,6 +103,8 @@ catalog:
     playcanvas: 2.18.1
     '@colyseus/core': 0.17.43
     '@colyseus/sdk': 0.17.42
+    '@colyseus/schema': 4.0.25
+    '@colyseus/ws-transport': 0.17.13
 
     # Rate limiting - updated to latest stable
     express-rate-limit: ^8.2.0

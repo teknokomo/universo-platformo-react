@@ -4,6 +4,36 @@
 
 ---
 
+## Active: MMOOMM Flight Simulator QA Closure (2026-05-28)
+
+> Goal: close the QA findings for the MMOOMM flight simulator so the published app is module-driven, security-hardened, and covered by stronger runtime/browser evidence.
+
+### Runtime Usability QA Closure Action Plan
+
+-   [x] Replace the inherited runtime navigation with the product-level Welcome and Space sections only.
+-   [x] Make the PlayCanvas canvas fit the available runtime viewport height without leaving a large blank lower area or creating page scroll.
+-   [x] Implement 3D double-click movement along the camera pick ray with a longer default intent distance.
+-   [x] Rotate the controlled ship to face its movement direction during prediction and authoritative correction.
+-   [x] Strengthen fixture, unit, and Playwright evidence for navigation, canvas fill height, 3D movement, ship orientation, and longer travel distance.
+-   [x] Run Prettier, focused tests/builds, local minimal Supabase generator/runtime Playwright evidence, full build, autoreview, update progress, and stop Supabase.
+
+### Manual Runtime QA Closure Action Plan
+
+-   [x] Remove inherited lower details widgets from the flight runtime layout and make the fixture contract fail closed when they return.
+-   [x] Make the PlayCanvas widget own wheel input and fit the available runtime viewport without page-level vertical scroll.
+-   [x] Harden the station guard so the controlled ship AABB cannot enter the station AABB during move-to-object or move-to-point commands.
+-   [x] Strengthen unit, fixture, and browser evidence for no lower widgets, no vertical scroll, wheel zoom, and continuous collision guard behavior.
+-   [x] Run Prettier, focused tests/builds, local minimal Supabase Playwright evidence, full build, autoreview, and update progress.
+
+### IMPLEMENT Action Plan
+
+-   [x] Execute the configured PlayCanvas widget client module method before mounting the scene and fail closed with localized runtime states.
+-   [x] Make realtime matchmake validate and consume the published server module configuration instead of accepting stale widget-only module references.
+-   [x] Harden runtime module API error/header behavior.
+-   [x] Strengthen unit and Playwright evidence for module execution, visual canvas behavior, observer/control access, and responsive UI.
+-   [x] Run Prettier, focused tests/builds, local minimal Supabase Playwright evidence, full build, and autoreview closeout.
+-   [x] Update Memory Bank progress with the implementation outcome.
+
 ## Active: Autoreview Project Skill Adoption (2026-05-27)
 
 > Goal: vendor and adapt the OpenClaw `autoreview` skill as a project-local `.agents/skills/autoreview/` workflow with MIT attribution, Universo-specific closeout guidance, and script validation.
@@ -947,3 +977,19 @@
 -   [x] Add store-level multi-version regression coverage for the catalog attachment state.
 -   [x] Keep the Colyseus server wrapper on `@colyseus/core` because the full `colyseus` package violates the workspace `blockExoticSubdeps` supply-chain policy through an exotic transport dependency.
 -   [x] Run Prettier, install consistency, focused backend/frontend/wrapper tests, lint/build checks, full local minimal Supabase build, and Playwright `@packages` verification.
+
+## MMOOMM Flight Simulator QA Remediation 2026-05-28
+
+-   [x] Add explicit Movement Command Enumeration and Simulation Constants Set entities to the generated MMOOMM flight snapshot.
+-   [x] Strengthen the MMOOMM flight fixture contract and tests so missing command/constants entities and duplicate scene object ids fail closed.
+-   [x] Improve the generic PlayCanvas canvas widget realtime state and presentation prediction/correction contract without exposing technical errors.
+-   [x] Add UI-level snapshot import evidence for the MMOOMM fixture and preserve the published runtime E2E coverage.
+-   [x] Run Prettier, focused unit/contract tests, local minimal Supabase Playwright generator/runtime checks, build, and autoreview.
+
+## MMOOMM Flight Simulator QA Findings Closure 2026-05-28
+
+-   [x] Fix attached package import execution contracts so compiled module imports cannot succeed at build time and fail at runtime.
+-   [x] Strengthen browser runtime evidence for UI schema sync, arrival/guard assertions, and deterministic realtime/error states.
+-   [x] Add focused unit/regression tests for module package import surfaces and PlayCanvas realtime state handling.
+-   [x] Regenerate/validate the MMOOMM flight fixture when implementation changes affect generated artifacts.
+-   [x] Run Prettier, focused package tests/builds, local minimal Supabase generator/runtime Playwright checks, full build, and autoreview.

@@ -1,6 +1,7 @@
 jest.mock('@universo-react/database', () => ({
     __esModule: true,
-    getKnex: jest.fn(() => ({}))
+    getKnex: jest.fn(() => ({})),
+    qSchemaTable: jest.requireActual('@universo-react/database').qSchemaTable
 }))
 
 import type { Knex } from 'knex'

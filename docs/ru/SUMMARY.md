@@ -103,3 +103,4 @@
 -   [Обновление схем системных приложений](guides/updating-system-app-schemas.md)
 -   [Экспорт и импорт снимков](guides/snapshot-export-import.md)
 -   [Настройки отображения шаблона приложения](guides/app-template-views.md)
+-   [MMOOMM Flight Simulator](guides/mmoomm-flight-simulator.md)

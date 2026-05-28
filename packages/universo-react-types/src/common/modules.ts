@@ -202,6 +202,39 @@ export interface ModulePackageImport {
     targets: readonly MetahubPackageRuntimeTarget[]
 }
 
+export const normalizeModulePackageImports = (value: unknown): ModulePackageImport[] => {
+    if (!Array.isArray(value)) {
+        return []
+    }
+
+    const seen = new Set<string>()
+    const normalized: ModulePackageImport[] = []
+
+    for (const item of value) {
+        if (!item || typeof item !== 'object') {
+            continue
+        }
+
+        const raw = item as Partial<ModulePackageImport>
+        const packageName = typeof raw.packageName === 'string' ? raw.packageName.trim() : ''
+        const version = typeof raw.version === 'string' ? raw.version.trim() : ''
+        const targets = Array.isArray(raw.targets)
+            ? [...new Set(raw.targets)]
+                  .filter((target): target is MetahubPackageRuntimeTarget => target === 'server' || target === 'client')
+                  .sort()
+            : []
+
+        if (!packageName || !version || targets.length === 0 || seen.has(packageName)) {
+            continue
+        }
+
+        seen.add(packageName)
+        normalized.push({ packageName, version, targets })
+    }
+
+    return normalized
+}
+
 export const canCallModuleMethodOverPublicRpc = (
     manifest: { moduleRole?: unknown; capabilities?: unknown } | null | undefined,
     method: Pick<ModuleMethodManifest, 'target' | 'eventName'> | null | undefined

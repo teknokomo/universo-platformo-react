@@ -3,6 +3,100 @@ import { describe, expect, it } from 'vitest'
 import { parseApplicationLayoutWidgetConfig } from '../common/applicationLayouts'
 
 describe('application layout widget config contracts', () => {
+    it('accepts generic PlayCanvas canvas widget configuration', () => {
+        expect(
+            parseApplicationLayoutWidgetConfig('playcanvasCanvas', {
+                title: { en: 'Flight simulator', ru: 'Симулятор полета' },
+                minHeight: 560,
+                heightMode: 'fitViewport',
+                moduleCodename: 'flight-runtime',
+                serverModuleCodename: 'fixed-tick-runtime',
+                attachedToKind: 'metahub',
+                visibleFor: { sectionCodenames: ['FlightWorld'] },
+                scene: {
+                    controlledObjectId: 'ship',
+                    targetObjectId: 'station',
+                    cruiseSpeed: 36,
+                    intentDistance: 720,
+                    objects: [
+                        {
+                            id: 'ship',
+                            position: { x: 0, y: 0, z: 0 },
+                            scale: { x: 12, y: 4, z: 4 },
+                            selectable: true
+                        },
+                        {
+                            id: 'station',
+                            position: { x: 72, y: 0, z: -48 },
+                            scale: { x: 48, y: 16, z: 16 },
+                            selectable: true,
+                            guard: true
+                        }
+                    ]
+                }
+            })
+        ).toMatchObject({
+            minHeight: 560,
+            heightMode: 'fitViewport',
+            visibleFor: { sectionCodenames: ['FlightWorld'] },
+            scene: {
+                controlledObjectId: 'ship',
+                targetObjectId: 'station',
+                intentDistance: 720
+            }
+        })
+
+        expect(() =>
+            parseApplicationLayoutWidgetConfig('playcanvasCanvas', {
+                minHeight: 120,
+                scene: {
+                    objects: []
+                }
+            })
+        ).toThrow()
+
+        expect(() =>
+            parseApplicationLayoutWidgetConfig('playcanvasCanvas', {
+                scene: {
+                    controlledObjectId: 'missing-ship',
+                    targetObjectId: 'station',
+                    objects: [
+                        {
+                            id: 'ship',
+                            position: { x: 0, y: 0, z: 0 },
+                            scale: { x: 12, y: 4, z: 4 }
+                        },
+                        {
+                            id: 'station',
+                            position: { x: 72, y: 0, z: -48 },
+                            scale: { x: 48, y: 16, z: 16 }
+                        }
+                    ]
+                }
+            })
+        ).toThrow()
+
+        expect(() =>
+            parseApplicationLayoutWidgetConfig('playcanvasCanvas', {
+                scene: {
+                    controlledObjectId: 'ship',
+                    objects: [
+                        {
+                            id: 'ship',
+                            position: { x: 0, y: 0, z: 0 },
+                            scale: { x: 12, y: 4, z: 4 }
+                        },
+                        {
+                            id: 'ship',
+                            position: { x: 72, y: 0, z: -48 },
+                            scale: { x: 48, y: 16, z: 16 }
+                        }
+                    ]
+                }
+            })
+        ).toThrow()
+    })
+
     it('accepts only implemented metric keys for overviewCards stat-card datasources', () => {
         expect(
             parseApplicationLayoutWidgetConfig('overviewCards', {

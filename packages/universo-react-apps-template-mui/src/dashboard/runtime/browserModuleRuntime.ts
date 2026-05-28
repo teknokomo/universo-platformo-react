@@ -128,8 +128,96 @@ const console = {
 };
 `
 
+const createClientModuleRequireSource = () => `
+   const __universoCloneVector3 = (value) => ({
+       x: Number(value?.x ?? 0),
+       y: Number(value?.y ?? 0),
+       z: Number(value?.z ?? 0)
+   });
+   const __universoLerpNumber = (from, to, alpha) => from + (to - from) * Math.min(1, Math.max(0, alpha));
+   const __universoLerpVector3 = (from, to, alpha) => ({
+       x: __universoLerpNumber(from.x, to.x, alpha),
+       y: __universoLerpNumber(from.y, to.y, alpha),
+       z: __universoLerpNumber(from.z, to.z, alpha)
+   });
+   const __universoResolveFollowCameraPosition = (options) => {
+       const distance = Math.min(options.maxDistance, Math.max(options.minDistance, options.distance));
+       const pitch = Math.min(Math.PI / 2 - 0.01, Math.max(-Math.PI / 2 + 0.01, options.pitch));
+       const horizontal = Math.cos(pitch) * distance;
+       return {
+           x: options.target.x + Math.sin(options.yaw) * horizontal,
+           y: options.target.y + Math.sin(pitch) * distance,
+           z: options.target.z + Math.cos(options.yaw) * horizontal
+       };
+   };
+
+   const __universoClientModulePackages = Object.freeze({
+       '@universo-react/colyseus-client': Object.freeze({
+           createMoveToPointIntent: (target) => ({
+               type: 'move_to_point',
+            target: __universoCloneVector3(target)
+        }),
+           createMoveToObjectIntent: (objectId) => ({
+               type: 'move_to_object',
+               objectId: String(objectId)
+           }),
+           createStopIntent: () => ({ type: 'stop' }),
+           lerpNumber: __universoLerpNumber,
+           lerpVector3: __universoLerpVector3,
+           interpolateSnapshotVector3: (previous, next, renderTime, selectVector) => {
+               if (!next) {
+                   return previous ? selectVector(previous.state) : null;
+               }
+               if (!previous || previous.receivedAt >= next.receivedAt) {
+                   return selectVector(next.state);
+               }
+               const duration = next.receivedAt - previous.receivedAt;
+               const alpha = duration > 0 ? (renderTime - previous.receivedAt) / duration : 1;
+               return __universoLerpVector3(selectVector(previous.state), selectVector(next.state), alpha);
+           },
+           isDoubleClickActivation: (params) =>
+               params.lastClickAt !== null && params.currentClickAt - params.lastClickAt <= (params.thresholdMs ?? 350)
+       }),
+       '@universo-react/playcanvas-engine': Object.freeze({
+           resolveFollowCameraPosition: __universoResolveFollowCameraPosition,
+           zoomFollowCamera: (distance, delta, minDistance, maxDistance) => Math.min(maxDistance, Math.max(minDistance, distance + delta)),
+           rotateFollowCamera: (yaw, pitch, deltaYaw, deltaPitch, minPitch = -Math.PI / 3, maxPitch = Math.PI / 3) => ({
+               yaw: yaw + deltaYaw,
+               pitch: Math.min(maxPitch, Math.max(minPitch, pitch + deltaPitch))
+           }),
+           createAabbFromCenterAndSize: (center, size) => ({
+               center: __universoCloneVector3(center),
+               halfExtents: {
+                   x: Number(size?.x ?? 0) / 2,
+                y: Number(size?.y ?? 0) / 2,
+                z: Number(size?.z ?? 0) / 2
+            }
+        }),
+        isPointInsideAabb: (point, box) => {
+            const candidate = __universoCloneVector3(point);
+            const center = __universoCloneVector3(box?.center);
+            const halfExtents = __universoCloneVector3(box?.halfExtents);
+            return (
+                Math.abs(candidate.x - center.x) <= halfExtents.x &&
+                Math.abs(candidate.y - center.y) <= halfExtents.y &&
+                Math.abs(candidate.z - center.z) <= halfExtents.z
+            );
+        }
+    })
+});
+
+const require = (packageName) => {
+    const moduleExports = __universoClientModulePackages[packageName];
+    if (!moduleExports) {
+        throw new Error('Client module import "' + packageName + '" is not available in this runtime');
+    }
+    return moduleExports;
+};
+`
+
 const WORKER_BUNDLE_RESTRICTED_PRELUDE_SOURCE = JSON.stringify(createRestrictedBundlePreludeSource())
 const WORKER_BUNDLE_SILENT_CONSOLE_SOURCE = JSON.stringify(createSilentConsoleSource())
+const WORKER_BUNDLE_REQUIRE_SOURCE = JSON.stringify(createClientModuleRequireSource())
 
 const workerSource = `
 const HOST_FUNCTION_MARKER = '${HOST_FUNCTION_MARKER}';
@@ -142,6 +230,7 @@ const buildBundleModuleSource = (bundle) => [
     'const module = { exports: {} };',
     'const exports = module.exports;',
     ${WORKER_BUNDLE_SILENT_CONSOLE_SOURCE},
+    ${WORKER_BUNDLE_REQUIRE_SOURCE},
     bundle,
     'const __resolvedModule = (module.exports && module.exports.default) || module.exports || (exports && exports.default) || exports;',
     "if (typeof __resolvedModule !== 'function') { throw new Error('Client module bundle did not export a constructable class') }",
@@ -259,6 +348,7 @@ const buildBundleModuleSource = (bundle: string) =>
         'const module = { exports: {} };',
         'const exports = module.exports;',
         createSilentConsoleSource(),
+        createClientModuleRequireSource(),
         bundle,
         'const __resolvedModule = (module.exports && module.exports.default) || module.exports || (exports && exports.default) || exports;',
         "if (typeof __resolvedModule !== 'function') { throw new Error('Client module bundle did not export a constructable class') }",
@@ -575,6 +665,7 @@ export const executeClientModuleMethod = async (params: {
 
 export const __browserModuleRuntimeTestUtils = {
     workerSource,
+    requireSource: createClientModuleRequireSource(),
     restrictedWorkerGlobals: [...RESTRICTED_WORKER_GLOBALS],
     workerExecutionTimeoutMs: WORKER_EXECUTION_TIMEOUT_MS
 }

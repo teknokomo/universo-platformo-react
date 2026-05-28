@@ -33,6 +33,7 @@ export interface DashboardDetailsSlot {
     apiBaseUrl?: string
     locale?: string
     currentWorkspaceId?: string | null
+    runtimeAccessMode?: 'member' | 'public'
     runtimeQueryKeyPrefix?: readonly unknown[]
     workspacesEnabled?: boolean
     permissions?: AppDataResponse['permissions']

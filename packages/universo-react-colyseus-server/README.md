@@ -6,7 +6,7 @@ The wrapper uses the Colyseus core package instead of the full `colyseus`
 package so the workspace stays compatible with the repository
 `blockExoticSubdeps` supply-chain policy.
 
-The package intentionally keeps a thin entry point and re-exports the public Colyseus server API:
+The package re-exports the public Colyseus server API and adds generic fixed-tick movement helpers for server-authoritative rooms, including acceleration, deceleration, arrival, stop intents, and AABB guards.
 
 ```ts
 export * from '@colyseus/core'

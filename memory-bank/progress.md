@@ -55,6 +55,239 @@
 
 ---
 
+## 2026-05-28 - MMOOMM Flight Simulator Runtime Usability Closure
+
+### Summary
+
+Closed the manual QA findings for the MMOOMM flight simulator runtime. The
+generated snapshot now exposes only the Welcome and Space runtime sections,
+keeps the PlayCanvas widget scoped to Space, fills the available viewport
+without page scroll, supports long-distance 3D double-click movement along the
+camera ray, and rotates the controlled ship toward its movement direction.
+
+### Completed
+
+-   Replaced inherited runtime menu behavior with an explicit Welcome and Space
+    navigation model in the fixture generator and fixture contract.
+-   Added generic widget `visibleFor` support so module-backed widgets can be
+    scoped by section id or codename without MMOOMM-specific template logic.
+-   Adjusted PlayCanvas fit-viewport sizing so the canvas uses the runtime
+    height budget without reintroducing vertical page scroll.
+-   Changed empty-space double-click from a horizontal-plane pick to a
+    camera-ray target with a default 720 meter intent distance.
+-   Rotated the controlled ship toward predicted and authoritative movement
+    direction and exposed stable `data-ship-forward-*` evidence for tests.
+-   Strengthened browser evidence for curated navigation, no lower details
+    widgets, canvas fill height, no page overflow, wheel zoom ownership,
+    3D vertical movement, long travel distance, ship orientation, stop,
+    station guard behavior, and read-only observer behavior.
+-   Fixed module compiler bundling for target-specific runtime package imports
+    so client-only and server-only wrapper imports do not break the opposite
+    bundle.
+
+### Verification
+
+-   `pnpm exec prettier --write ...`
+-   `pnpm --filter @universo-react/types test -- applicationLayouts --runInBand`
+-   `pnpm --filter @universo-react/types build`
+-   `VITEST_COVERAGE=false pnpm --filter @universo-react/apps-template-mui test -- src/dashboard/components/__tests__/PlayCanvasCanvasWidget.test.tsx --runInBand`
+-   `pnpm --filter @universo-react/modules-engine test -- compiler --runInBand`
+-   `pnpm --filter @universo-react/modules-engine build`
+-   `pnpm supabase:e2e:start:minimal`
+-   `pnpm env:e2e:local-supabase`
+-   `pnpm doctor:e2e:local-supabase`
+-   `UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-react-core-frontend/.env.e2e.local-supabase pnpm run build:e2e`
+-   `UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-react-core-frontend/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs --project generators --grep "mmoomm flight"`
+-   `node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tools/testing/e2e/support/checkMmoommFlightFixtureContract.ts tools/fixtures/metahubs-mmoomm-flight-app-snapshot.json`
+-   `UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-react-core-frontend/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs --project chromium --grep "imported MMOOMM flight snapshot"`
+-   `pnpm build`
+-   `git diff --check`
+-   `.agents/skills/autoreview/scripts/autoreview --mode local --no-web-search`
+
+### Notes
+
+-   Root build is green with existing non-fatal warnings for tsdown module type
+    detection, unresolved external package references in the template/admin
+    build, Vite CJS API deprecation, Dart Sass legacy API deprecation,
+    PlayCanvas worker-thread browser externalization, and large Vite chunks.
+-   Autoreview initially found a P1 compiler bundling issue for target-specific
+    package imports; the compiler plugin now provides disabled virtual modules
+    for the opposite bundle target, and the final autoreview pass reported no
+    actionable findings.
+
+## 2026-05-28 - MMOOMM Flight Simulator QA Remediation
+
+### Summary
+
+Closed the follow-up QA gaps found after the MMOOMM flight simulator
+implementation. The generated metahub snapshot now explicitly includes movement
+command and simulation-constant metadata entities, the fixture contract fails
+closed on those entities and duplicate scene object ids, and browser evidence now
+imports the product snapshot through the normal UI before creating the linked
+application.
+
+### Completed
+
+-   Added the `MovementCommands` Enumeration with `MoveToPoint`, `MoveToObject`,
+    and `Stop` values to the MMOOMM flight fixture generator.
+-   Added the `FlightSimulationConstants` Set with finite NUMBER constants for
+    cruise speed, acceleration, deceleration, and arrival radius.
+-   Hardened the flight fixture contract to require the command/constant
+    entities, fixed values, option values, module/widget bindings, and unique
+    PlayCanvas scene object ids.
+-   Added schema-level PlayCanvas scene validation so duplicate scene object ids
+    fail during layout config parsing.
+-   Expanded the PlayCanvas canvas widget realtime state model with localized
+    unavailable, unauthorized, reconnecting, and disconnected states, plus
+    presentation prediction that is corrected by authoritative state.
+-   Replaced API-only runtime setup in the MMOOMM browser flow with UI snapshot
+    import and UI application creation before runtime validation.
+-   Clarified Colyseus matchmaker startup by using the default
+    `matchMaker.accept()` call and revalidated realtime joins through browser
+    E2E.
+
+### Verification
+
+-   `pnpm --filter @universo-react/types test -- --runInBand`
+-   `pnpm --filter @universo-react/apps-template-mui test -- PlayCanvasCanvasWidget --runInBand`
+-   `pnpm --filter @universo-react/applications-backend test -- applicationsRealtimeRuntime --runInBand`
+-   `pnpm --filter @universo-react/apps-template-mui build`
+-   `pnpm --filter @universo-react/applications-backend build`
+-   `pnpm supabase:e2e:start:minimal`
+-   `pnpm env:e2e:local-supabase`
+-   `pnpm doctor:e2e:local-supabase`
+-   `pnpm run build:e2e` with local Supabase E2E env
+-   `node tools/testing/e2e/run-playwright-suite.mjs --project generators --grep "mmoomm flight"` with local Supabase E2E env
+-   `node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tools/testing/e2e/support/checkMmoommFlightFixtureContract.ts tools/fixtures/metahubs-mmoomm-flight-app-snapshot.json`
+-   `node tools/testing/e2e/run-playwright-suite.mjs --project chromium --grep "imported MMOOMM flight snapshot"` with local Supabase E2E env
+-   `git diff --check`
+-   `.agents/skills/autoreview/scripts/autoreview --mode local --no-web-search`
+-   `pnpm build`
+-   `pnpm supabase:e2e:stop`
+
+### Notes
+
+-   Root build remains green with existing non-fatal warnings from tsdown module
+    type detection, Vite/Dart Sass deprecations, PlayCanvas worker-thread
+    externalization, and large Vite chunks.
+-   Subagent startup was attempted but the environment reported the active agent
+    thread limit, so remediation and verification were completed locally.
+
+## 2026-05-28 - MMOOMM Flight Simulator QA Closure
+
+### Summary
+
+Closed the MMOOMM flight simulator QA implementation pass. The published
+metahub snapshot now drives the PlayCanvas widget through a configured client
+runtime module and the Colyseus room through a configured server runtime module,
+with fail-closed module loading, hardened runtime-module responses, stronger
+control/observer access coverage, and browser evidence for the playable flight
+loop.
+
+### Completed
+
+-   Executed the configured PlayCanvas widget client module method before scene
+    mount and exposed runtime execution evidence through stable canvas data
+    attributes.
+-   Added a browser-module runtime allowlist for compiled client bundles that
+    import the generic PlayCanvas and Colyseus wrapper helpers.
+-   Made realtime matchmake load the published server module by codename and use
+    its internal room options instead of accepting stale widget-only module
+    references.
+-   Hardened runtime module bundle/call responses with safer error messages,
+    content headers, and fail-closed behavior.
+-   Fixed Colyseus control authorization propagation so editable member clients
+    can send movement intents while observer clients stay read-only.
+-   Stabilized the PlayCanvas widget lifecycle so React re-renders do not
+    recreate the PlayCanvas application repeatedly.
+-   Regenerated the MMOOMM flight snapshot through the product Playwright
+    fixture generator and strengthened the snapshot contract checks.
+
+### Verification
+
+-   `pnpm install`
+-   `pnpm exec prettier --write ...` for touched runtime, fixture, test, and
+    Memory Bank files.
+-   `pnpm --filter @universo-react/types build`
+-   `pnpm --filter @universo-react/apps-template-mui build`
+-   `pnpm --filter @universo-react/applications-backend test -- --runInBand src/tests/realtime/applicationsRealtimeRuntime.test.ts src/tests/services/runtimeModulesService.test.ts src/tests/routes/applicationsRoutes.test.ts`
+-   `pnpm --filter @universo-react/apps-template-mui exec vitest run --config vitest.config.ts src/dashboard/runtime/__tests__/browserModuleRuntime.test.ts src/dashboard/components/__tests__/PlayCanvasCanvasWidget.test.tsx`
+-   `pnpm run build:e2e:local-supabase`
+-   `UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-react-core-frontend/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs --project generators --grep "mmoomm flight"`
+-   `node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tools/testing/e2e/support/checkMmoommFlightFixtureContract.ts`
+-   `pnpm build`
+-   `UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-react-core-frontend/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs --project chromium --grep "imported MMOOMM flight snapshot"`
+-   `.agents/skills/autoreview/scripts/autoreview --mode local --no-web-search`
+
+## 2026-05-28 - MMOOMM Flight Simulator Manual Runtime QA Closure
+
+### Summary
+
+Closed the manual runtime QA findings from the imported MMOOMM flight snapshot.
+The runtime layout no longer inherits the lower details widgets, the PlayCanvas
+surface owns wheel zoom without page scrolling, the canvas height fits the
+available viewport, and station collision guarding now accounts for the full
+controlled ship body both in package helpers and module runtime shims.
+
+### Completed
+
+-   Removed inherited `detailsTitle` and `detailsTable` widgets from the
+    generated flight runtime layout and made the fixture contract fail closed if
+    they return.
+-   Added `heightMode: "fitViewport"` to the PlayCanvas widget schema and
+    generated snapshot so the flight scene fills the runtime area without
+    page-level vertical overflow.
+-   Made the PlayCanvas widget prevent default wheel scrolling while hovered and
+    route wheel input to follow-camera zoom.
+-   Expanded server-side station guard checks by the controlled ship half
+    extents, including the Colyseus server helper, realtime room options, and
+    isolated-vm server module package shim.
+-   Added client-side prediction guard expansion so visual prediction does not
+    briefly draw the ship inside the station before authoritative correction.
+-   Strengthened fixture, unit, and Playwright browser evidence for missing
+    lower widgets, no vertical overflow, wheel zoom ownership, and continuous
+    ship-vs-station AABB checks during movement.
+
+### Verification
+
+-   `pnpm exec prettier --write ...` for touched runtime, fixture, test, and
+    Memory Bank files.
+-   `pnpm --filter @universo-react/types test -- applicationLayouts --runInBand`
+-   `pnpm --filter @universo-react/colyseus-server test -- --runInBand`
+-   `pnpm --filter @universo-react/apps-template-mui test -- PlayCanvasCanvasWidget --runInBand`
+-   `pnpm --filter @universo-react/applications-backend test -- applicationsRealtimeRuntime --runInBand`
+-   `pnpm --filter @universo-react/modules-engine test -- runtime --runInBand`
+-   `pnpm --filter @universo-react/modules-engine build`
+-   `pnpm supabase:e2e:start:minimal`
+-   `pnpm env:e2e:local-supabase`
+-   `pnpm doctor:e2e:local-supabase`
+-   `UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-react-core-frontend/.env.e2e.local-supabase pnpm run build:e2e`
+-   `UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-react-core-frontend/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs --project generators --grep "mmoomm flight"`
+-   `node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tools/testing/e2e/support/checkMmoommFlightFixtureContract.ts tools/fixtures/metahubs-mmoomm-flight-app-snapshot.json`
+-   `UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-react-core-frontend/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs --project chromium --grep "imported MMOOMM flight snapshot"`
+-   `git diff --check`
+-   `.agents/skills/autoreview/scripts/autoreview --mode local --no-web-search`
+-   `pnpm build`
+-   `pnpm supabase:e2e:stop`
+
+### Notes
+
+-   The first autoreview pass found a real module-runtime shim mismatch for
+    `controlledHalfExtents`; the shim was fixed and covered with a
+    `modules-engine` regression test, and the second autoreview pass was clean.
+-   Root build remains green with existing non-fatal warnings from tsdown module
+    type detection, Vite/Dart Sass deprecations, PlayCanvas worker-thread
+    externalization, and large Vite chunks.
+-   Local minimal Supabase was stopped after the Playwright evidence run.
+
+### Notes
+
+-   The full build still emits existing non-fatal warnings from tsdown package
+    module type detection, Vite CJS API deprecation, Dart Sass legacy API,
+    PlayCanvas worker-thread externalization, and large Vite chunks.
+-   A requested subagent review could not be started because the environment
+    reported the active agent thread limit.
+
 ## 2026-05-27 - Autoreview Project Skill Adoption
 
 ### Summary
@@ -1565,3 +1798,24 @@ diff --check`, metahubs backend focused Jest with 80 tests, metahubs
     local-Supabase `build:e2e`, and Playwright `@1c-compatible` with 4/4 tests
     passing after correcting the browser oracle to account for the dedicated
     requisites route; local minimal Supabase was stopped after the run.
+
+### 2026-05-28: MMOOMM Flight Simulator QA Findings Closure ✅
+
+-   Closed the module runtime import gap by validating supported executable
+    wrapper-package exports at compile time and by adding runtime shims for the
+    browser worker and server isolated-vm paths.
+-   Hardened the generic PlayCanvas canvas widget so discovered default runtime
+    modules execute even when `moduleCodename` is omitted, realtime reconnect
+    and error states are localized, and movement intent target attributes remain
+    deterministic for browser evidence.
+-   Scoped realtime server module execution with the authorized workspace, user,
+    and effective role permissions before building Colyseus room options.
+-   Replaced the runtime E2E API schema-sync shortcut with the real connector
+    board UI sync flow and strengthened Playwright evidence for station click,
+    target arrival, stop, camera controls, and station guard behavior.
+-   Verification passed: Prettier on touched files, modules-engine focused
+    tests/build, apps-template-mui PlayCanvas/browser-runtime tests/build,
+    applications-backend realtime tests/build, fixture contract validation,
+    local minimal Supabase build/e2e generator/runtime Playwright checks, full
+    root `pnpm build`, and final autoreview with no actionable findings; local
+    minimal Supabase was stopped after the E2E run.

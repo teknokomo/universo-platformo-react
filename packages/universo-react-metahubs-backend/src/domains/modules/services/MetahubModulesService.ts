@@ -12,11 +12,13 @@ import {
     type ModuleCompilationLibraryInput,
     findDisallowedModuleCapabilities,
     type ModuleManifest,
+    type ModulePackageImport,
     type ModuleRole,
     type ModulePresentation,
     type ModuleSourceKind,
     isModuleAttachmentKind,
     normalizeModuleCapabilities,
+    normalizeModulePackageImports,
     normalizeModuleRole,
     normalizeModuleSourceKind,
     resolveModuleSdkApiVersion
@@ -37,6 +39,7 @@ import {
     type StoredMetahubModuleRow
 } from './modulesStore'
 import { createCodenameVLC, createLocalizedContent, ensureCodenameVLC } from '@universo-react/utils'
+import { listMetahubPackages } from '../../../persistence'
 
 export interface ListMetahubModulesOptions {
     attachedToKind?: ModuleAttachmentKind
@@ -155,6 +158,7 @@ const ensureManifest = (value: unknown): ModuleManifest => {
         sourceKind: normalizeModuleSourceKind(manifest.sourceKind ?? DEFAULT_MODULE_SOURCE_KIND),
         capabilities: normalizeModuleCapabilities(moduleRole, manifest.capabilities),
         methods: Array.isArray(manifest.methods) ? manifest.methods : [],
+        packageImports: normalizeModulePackageImports(manifest.packageImports),
         checksum: typeof manifest.checksum === 'string' ? manifest.checksum : undefined
     }
 }
@@ -302,6 +306,15 @@ const buildCompilationErrorDetails = (error: unknown): { message: string } => ({
 export class MetahubModulesService {
     constructor(private readonly exec: DbExecutor, private readonly schemaService: MetahubSchemaService) {}
 
+    private async listAllowedPackageImports(metahubId: string): Promise<ModulePackageImport[]> {
+        const packages = await listMetahubPackages(this.exec, metahubId)
+        return packages.map((item) => ({
+            packageName: item.packageName,
+            version: item.version,
+            targets: item.source.runtimeTargets
+        }))
+    }
+
     async listModules(metahubId: string, options: ListMetahubModulesOptions = {}, userId?: string): Promise<MetahubModuleRecord[]> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const rows = await listStoredMetahubModules(this.exec, schemaName, options)
@@ -310,6 +323,7 @@ export class MetahubModulesService {
 
     async listPublishedModules(metahubId: string, userId?: string): Promise<MetahubModuleRecord[]> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const allowedPackageImports = await this.listAllowedPackageImports(metahubId)
         const storedModules = await listStoredMetahubModules(this.exec, schemaName, { onlyActive: true })
         const modules = sortPublishedModuleEntries(
             storedModules.map((row) => ({ row, module: normalizeModuleRow(row) })).filter(({ module }) => module.isActive)
@@ -339,7 +353,8 @@ export class MetahubModulesService {
                     currentModuleId: module.id,
                     attachedToKind: module.attachedToKind,
                     attachedToId: module.attachedToId,
-                    sharedLibraries
+                    sharedLibraries,
+                    allowedPackageImports
                 }
             )
         }
@@ -363,7 +378,8 @@ export class MetahubModulesService {
                     currentModuleId: module.id,
                     attachedToKind: module.attachedToKind,
                     attachedToId: module.attachedToId,
-                    sharedLibraries
+                    sharedLibraries,
+                    allowedPackageImports
                 }
             )
 
@@ -395,6 +411,7 @@ export class MetahubModulesService {
 
     async createModule(metahubId: string, input: UpsertMetahubModuleInput, userId?: string): Promise<MetahubModuleRecord> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const allowedPackageImports = await this.listAllowedPackageImports(metahubId)
         const codename = normalizeModuleCodename(input.codename)
         const attachment = await this.validateAttachment(schemaName, metahubId, input.attachedToKind, input.attachedToId ?? null)
         const moduleRole = normalizeModuleRole(input.moduleRole ?? DEFAULT_MODULE_ROLE)
@@ -420,7 +437,8 @@ export class MetahubModulesService {
             },
             {
                 attachedToKind: input.attachedToKind,
-                attachedToId: attachment
+                attachedToId: attachment,
+                allowedPackageImports
             }
         )
 
@@ -452,6 +470,7 @@ export class MetahubModulesService {
         userId?: string
     ): Promise<MetahubModuleRecord> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const allowedPackageImports = await this.listAllowedPackageImports(metahubId)
         const existing = await findStoredMetahubModuleById(this.exec, schemaName, moduleId)
         if (!existing) {
             throw new MetahubNotFoundError('Module', moduleId)
@@ -523,7 +542,8 @@ export class MetahubModulesService {
                   {
                       currentModuleId: moduleId,
                       attachedToKind: nextAttachmentKind,
-                      attachedToId: nextAttachmentId
+                      attachedToId: nextAttachmentId,
+                      allowedPackageImports
                   }
               )
             : null
@@ -750,6 +770,7 @@ export class MetahubModulesService {
             attachedToKind?: ModuleAttachmentKind
             attachedToId?: string | null
             sharedLibraries?: Record<string, ModuleCompilationLibraryInput>
+            allowedPackageImports?: readonly ModulePackageImport[]
         }
     ) {
         try {
@@ -774,7 +795,8 @@ export class MetahubModulesService {
                 moduleRole,
                 sourceKind: input.sourceKind,
                 capabilities: input.capabilities,
-                sharedLibraries
+                sharedLibraries,
+                allowedPackageImports: options?.allowedPackageImports
             })
         } catch (error) {
             throw new MetahubValidationError('Module compilation failed', buildCompilationErrorDetails(error))

@@ -62,7 +62,10 @@
         "json-stable-stringify": "catalog:",
         "knex": "catalog:",
         "zod": "catalog:",
-        "@universo-react/modules-engine": "workspace:*"
+        "@universo-react/modules-engine": "workspace:*",
+        "@universo-react/colyseus-server": "workspace:*",
+        "@colyseus/schema": "catalog:",
+        "@colyseus/ws-transport": "catalog:"
     },
     "devDependencies": {
         "@types/express": "^4.17.21",

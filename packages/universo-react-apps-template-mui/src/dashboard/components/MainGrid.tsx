@@ -156,6 +156,34 @@ const toFiniteNumber = (value: unknown): number => {
     return 0
 }
 
+const readStringArrayConfig = (value: unknown): string[] => {
+    if (!Array.isArray(value)) return []
+    return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0).map((item) => item.trim())
+}
+
+const normalizeVisibilityValue = (value: string | null | undefined): string => (value ?? '').trim().toLowerCase()
+
+const isWidgetVisibleForCurrentSection = (widget: ZoneWidgetItem, details: DashboardDetailsSlot | undefined): boolean => {
+    const visibleFor = widget.config?.visibleFor
+    if (!isRecord(visibleFor)) return true
+
+    const sectionIds = readStringArrayConfig(visibleFor.sectionIds)
+    const sectionCodenames = readStringArrayConfig(visibleFor.sectionCodenames)
+    if (sectionIds.length === 0 && sectionCodenames.length === 0) return true
+
+    const currentIds = new Set(
+        [details?.sectionId, details?.objectCollectionId].map(normalizeVisibilityValue).filter((value) => value.length > 0)
+    )
+    const currentCodenames = new Set(
+        [details?.sectionCodename, details?.objectCollectionCodename].map(normalizeVisibilityValue).filter((value) => value.length > 0)
+    )
+
+    return (
+        sectionIds.some((id) => currentIds.has(normalizeVisibilityValue(id))) ||
+        sectionCodenames.some((codename) => currentCodenames.has(normalizeVisibilityValue(codename)))
+    )
+}
+
 const toChartTrendLabel = (trend: RecordsSeriesChartWidgetConfig['trend'] | undefined): string | undefined => {
     if (trend === 'up') return '+0%'
     if (trend === 'down') return '-0%'
@@ -869,18 +897,19 @@ export default function MainGrid({
     const showFooter = layoutConfig?.showFooter ?? defaultDashboardLayoutConfig.showFooter
     const hasCustomDetailsContent = Boolean(details?.content)
     const hasPageBlocks = (details?.pageBlocks?.length ?? 0) > 0
+    const visibleCenterWidgets = centerWidgets?.filter((widget) => isWidgetVisibleForCurrentSection(widget, details)) ?? []
 
     // Find all columnsContainer widgets in center zone (data-driven rendering, supports multiple)
-    const columnsContainerWidgets = showColumnsContainer ? centerWidgets?.filter((w) => w.widgetKey === 'columnsContainer') ?? [] : []
-    const overviewCardsWidget = centerWidgets?.find((widget) => widget.widgetKey === 'overviewCards')
+    const columnsContainerWidgets = showColumnsContainer ? visibleCenterWidgets.filter((w) => w.widgetKey === 'columnsContainer') : []
+    const overviewCardsWidget = visibleCenterWidgets.find((widget) => widget.widgetKey === 'overviewCards')
     const parsedOverviewCards = overviewCardsWidgetConfigSchema.safeParse(overviewCardsWidget?.config ?? {})
-    const sessionsChartWidget = centerWidgets?.find((widget) => widget.widgetKey === 'sessionsChart')
+    const sessionsChartWidget = visibleCenterWidgets.find((widget) => widget.widgetKey === 'sessionsChart')
     const parsedSessionsChart = recordsSeriesChartWidgetConfigSchema.safeParse(sessionsChartWidget?.config ?? {})
     const sessionsChartConfig = parsedSessionsChart.success ? parsedSessionsChart.data : EMPTY_RECORDS_SERIES_CHART_CONFIG
-    const pageViewsChartWidget = centerWidgets?.find((widget) => widget.widgetKey === 'pageViewsChart')
+    const pageViewsChartWidget = visibleCenterWidgets.find((widget) => widget.widgetKey === 'pageViewsChart')
     const parsedPageViewsChart = recordsSeriesChartWidgetConfigSchema.safeParse(pageViewsChartWidget?.config ?? {})
     const pageViewsChartConfig = parsedPageViewsChart.success ? parsedPageViewsChart.data : EMPTY_RECORDS_SERIES_CHART_CONFIG
-    const detailsTableWidgets = showDetailsTable ? centerWidgets?.filter((w) => w.widgetKey === 'detailsTable') ?? [] : []
+    const detailsTableWidgets = showDetailsTable ? visibleCenterWidgets.filter((w) => w.widgetKey === 'detailsTable') : []
     const detailsTableOwnsCreateActions = detailsTableWidgets.some((widget) => {
         const parsed = detailsTableWidgetConfigSchema.safeParse(widget.config ?? {})
         return parsed.success && (parsed.data.createTargets?.length ?? 0) > 0
@@ -898,7 +927,7 @@ export default function MainGrid({
                   data: card.data
               }))
     const standaloneCenterWidgets =
-        centerWidgets?.filter(
+        visibleCenterWidgets.filter(
             (widget) =>
                 ![
                     'columnsContainer',

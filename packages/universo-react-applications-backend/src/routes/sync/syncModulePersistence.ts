@@ -5,6 +5,7 @@ import {
     DEFAULT_MODULE_ROLE,
     DEFAULT_MODULE_SOURCE_KIND,
     normalizeModuleCapabilities,
+    normalizeModulePackageImports,
     normalizeModuleRole,
     normalizeModuleSourceKind,
     resolveModuleSdkApiVersion,
@@ -115,6 +116,7 @@ const normalizeManifest = (value: unknown): ModuleManifest => {
         sourceKind: normalizeModuleSourceKind(manifest.sourceKind ?? DEFAULT_MODULE_SOURCE_KIND),
         capabilities: normalizeModuleCapabilities(moduleRole, manifest.capabilities),
         methods: Array.isArray(manifest.methods) ? manifest.methods : [],
+        packageImports: normalizeModulePackageImports(manifest.packageImports),
         checksum: typeof manifest.checksum === 'string' ? manifest.checksum : undefined
     }
 }
@@ -198,6 +200,29 @@ const normalizePersistedModules = (rows: PersistedAppModuleRowDb[]): Application
         .sort((left, right) => buildModuleSortKey(left).localeCompare(buildModuleSortKey(right)))
 }
 
+const assertUniqueSnapshotModules = (modules: ApplicationModuleDefinition[]): void => {
+    const ids = new Set<string>()
+    const scopes = new Set<string>()
+
+    for (const module of modules) {
+        if (ids.has(module.id)) {
+            throw new Error(`[SchemaSync] Duplicate runtime module id in snapshot: ${module.id}`)
+        }
+        ids.add(module.id)
+
+        const scopeKey = [
+            module.attachedToKind,
+            module.attachedToId ?? APP_MODULE_SCOPE_NULL_ATTACHMENT_UUID,
+            module.moduleRole,
+            module.codename
+        ].join(':')
+        if (scopes.has(scopeKey)) {
+            throw new Error(`[SchemaSync] Duplicate runtime module scope in snapshot: ${module.codename}`)
+        }
+        scopes.add(scopeKey)
+    }
+}
+
 export async function persistPublishedModules(options: {
     schemaName: string
     snapshot: PublishedApplicationSnapshot
@@ -208,6 +233,7 @@ export async function persistPublishedModules(options: {
     const knex = getApplicationSyncKnex()
     const executor = trx ?? knex
     const nextRows = normalizeSnapshotModules(snapshot)
+    assertUniqueSnapshotModules(nextRows)
 
     const { generator } = getApplicationSyncDdlServices()
     await generator.ensureSystemTables(schemaName, trx)

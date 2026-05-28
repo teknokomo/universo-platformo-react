@@ -83,7 +83,8 @@ const mockPersistConnectorSyncTouch = jest.fn()
 
 jest.mock('@universo-react/database', () => ({
     __esModule: true,
-    getKnex: jest.fn(() => mockKnex)
+    getKnex: jest.fn(() => mockKnex),
+    qSchemaTable: jest.requireActual('@universo-react/database').qSchemaTable
 }))
 
 jest.mock('@universo-react/schema-ddl', () => ({

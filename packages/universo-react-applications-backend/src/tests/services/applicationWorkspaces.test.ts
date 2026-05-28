@@ -2,11 +2,45 @@ import {
     archivePersonalWorkspaceForUser,
     ensureApplicationRuntimeWorkspaceSchema,
     ensurePersonalWorkspaceForUser,
+    resolveRuntimeWorkspaceAccess,
     syncWorkspaceSeededElements
 } from '../../services/applicationWorkspaces'
 import { createMockDbExecutor } from '../utils/dbMocks'
 
 describe('applicationWorkspaces service', () => {
+    it('can resolve runtime workspace access without creating personal workspace rows', async () => {
+        const { executor } = createMockDbExecutor()
+        const schemaName = 'app_018f8a787b8f7c1da111222233334480'
+
+        executor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM information_schema.tables')) {
+                return [{ exists: true }]
+            }
+            if (sql.includes(`FROM "${schemaName}"."_app_workspace_user_roles"`)) {
+                return [{ workspaceId: '018f8a78-7b8f-7c1d-a111-222233334481', isDefaultWorkspace: true }]
+            }
+            return []
+        })
+
+        await expect(
+            resolveRuntimeWorkspaceAccess(executor, {
+                schemaName,
+                workspacesEnabled: true,
+                userId: '018f8a78-7b8f-7c1d-a111-222233334482',
+                actorUserId: '018f8a78-7b8f-7c1d-a111-222233334482',
+                ensurePersonalWorkspace: false
+            })
+        ).resolves.toEqual({
+            membershipState: 'joined',
+            defaultWorkspaceId: '018f8a78-7b8f-7c1d-a111-222233334481',
+            allowedWorkspaceIds: ['018f8a78-7b8f-7c1d-a111-222233334481']
+        })
+
+        const executedSql = executor.query.mock.calls.map(([sql]) => String(sql)).join('\n')
+        expect(executedSql).not.toContain(`INSERT INTO "${schemaName}"."_app_workspaces"`)
+        expect(executedSql).not.toContain(`INSERT INTO "${schemaName}"."_app_workspace_user_roles"`)
+    })
+
     it('adds workspace foreign keys and scoped policies to runtime object tables', async () => {
         const { executor } = createMockDbExecutor()
         let generatedIdCounter = 0

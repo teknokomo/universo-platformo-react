@@ -15,6 +15,7 @@ import {
     isEnabledCapabilityConfig,
     normalizeLedgerConfigFromConfig,
     normalizeModuleCapabilities,
+    normalizeModulePackageImports,
     normalizePageBlockContentForStorage,
     supportsLedgerSchema,
     validateLedgerConfigReferences,
@@ -788,6 +789,7 @@ export class SnapshotRestoreService {
     ): Promise<void> {
         const optionValues = snapshot.optionValues ?? {}
         const now = new Date()
+        const valueIds = new Set<string>()
 
         for (const [oldEntityId, values] of Object.entries(optionValues)) {
             const newEntityId = entityIdMap.get(oldEntityId)
@@ -797,6 +799,12 @@ export class SnapshotRestoreService {
             }
 
             for (const value of values) {
+                if (typeof value.id === 'string' && value.id.length > 0) {
+                    if (valueIds.has(value.id)) {
+                        throw new Error(`Duplicate enumeration value id in snapshot: ${value.id}`)
+                    }
+                    valueIds.add(value.id)
+                }
                 await qb
                     .withSchema(this.schemaName)
                     .into('_mhb_values')
@@ -833,6 +841,7 @@ export class SnapshotRestoreService {
     ): Promise<void> {
         const elements = snapshot.elements ?? {}
         const now = new Date()
+        const elementIds = new Set<string>()
 
         for (const [oldEntityId, entityElements] of Object.entries(elements)) {
             const newEntityId = entityIdMap.get(oldEntityId)
@@ -842,6 +851,12 @@ export class SnapshotRestoreService {
             }
 
             for (const element of entityElements) {
+                if (typeof element.id === 'string' && element.id.length > 0) {
+                    if (elementIds.has(element.id)) {
+                        throw new Error(`Duplicate element id in snapshot: ${element.id}`)
+                    }
+                    elementIds.add(element.id)
+                }
                 await qb
                     .withSchema(this.schemaName)
                     .into('_mhb_elements')
@@ -880,6 +895,8 @@ export class SnapshotRestoreService {
         const modules = (snapshot.modules ?? []) as SnapshotModule[]
         const now = new Date()
         const moduleIdMap = new Map<string, string>()
+        const moduleIds = new Set<string>()
+        const moduleScopes = new Set<string>()
 
         await qb.withSchema(this.schemaName).from('_mhb_modules').del()
 
@@ -888,6 +905,12 @@ export class SnapshotRestoreService {
         const entityKindById = new Map(Object.entries(snapshot.entities ?? {}).map(([entityId, entity]) => [entityId, entity.kind]))
 
         for (const module of modules) {
+            if (typeof module.id === 'string' && module.id.length > 0) {
+                if (moduleIds.has(module.id)) {
+                    throw new Error(`Duplicate module id in snapshot: ${module.id}`)
+                }
+                moduleIds.add(module.id)
+            }
             const attachedToId = this.resolveModuleAttachmentId(module, metahubId, entityIdMap, componentIdMap)
             const moduleCodenameText = getModuleCodenameText(module.codename)
             const attachedToKind = typeof module.attachedToKind === 'string' ? module.attachedToKind.trim() : ''
@@ -900,6 +923,16 @@ export class SnapshotRestoreService {
                 attachedToId,
                 isKnownModuleAttachmentKind(attachedToKind) || sourceEntityKind === attachedToKind
             )
+            const scopeKey = [
+                restoredModule.attachedToKind,
+                attachedToId ?? '00000000-0000-0000-0000-000000000000',
+                restoredModule.moduleRole,
+                moduleCodenameText
+            ].join(':')
+            if (moduleScopes.has(scopeKey)) {
+                throw new Error(`Duplicate module scope in snapshot: ${moduleCodenameText}`)
+            }
+            moduleScopes.add(scopeKey)
             const sourceCode = this.resolveModuleSourceCode(module)
 
             if (!isNullableModuleScope(restoredModule.attachedToKind) && !attachedToId) {
@@ -1068,6 +1101,7 @@ export class SnapshotRestoreService {
                 sourceKind,
                 capabilities: normalizeModuleCapabilities(moduleRole, rawManifest.capabilities),
                 methods: Array.isArray(rawManifest.methods) ? rawManifest.methods : [],
+                packageImports: normalizeModulePackageImports(rawManifest.packageImports),
                 checksum: undefined
             }
         }

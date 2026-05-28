@@ -101,6 +101,7 @@ import CustomizedTreeView from './CustomizedTreeView'
 import ChartUserByCountry from './ChartUserByCountry'
 import CustomizedDataGrid from './CustomizedDataGrid'
 import QuizWidget from './QuizWidget'
+import PlayCanvasCanvasWidget from './PlayCanvasCanvasWidget'
 import WorkspaceSwitcher from './WorkspaceSwitcher'
 import { RelationBuilderWidget } from './RelationBuilderWidget'
 import PageBlocksView from './PageBlocksView'
@@ -3235,6 +3236,8 @@ export function renderWidget(widget: ZoneWidgetItem, menus?: DashboardMenusMap, 
             return <DetailsTabsWidget key={widget.id} config={widget.config} menus={menus} fallbackMenu={fallbackMenu} depth={depth} />
         case 'quizWidget':
             return <QuizWidget key={widget.id} config={widget.config} />
+        case 'playcanvasCanvas':
+            return <PlayCanvasCanvasWidget key={widget.id} widgetId={widget.id} config={widget.config} />
         case 'resourcePreview':
             return <ResourcePreviewWidget key={widget.id} config={widget.config} />
         case 'columnsContainer': {

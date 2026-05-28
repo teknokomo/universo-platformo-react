@@ -1,5 +1,16 @@
 # Current Research
 
+## 2026-05-28: MMOOMM flight simulator metahub configuration
+
+-   Research artifact created: `memory-bank/research/mmoomm-flight-simulator-metahub-research-2026-05-28.md`.
+-   Research artifact updated after re-reading the original MMOOMM foundation TZ text, the flight-simulator narrowing TZ text, the embedded flight-simulator brief, and the prior `.backup/` MMOOMM research.
+-   Scope decision: implement the first playable MMOOMM flight simulator as a metahub configuration that attaches the existing `@universo-react/playcanvas-engine`, `@universo-react/colyseus-client`, and `@universo-react/colyseus-server` packages; do not create an MMOOMM-specific workspace package.
+-   Repository finding: package registry seeding, publication snapshot serialization, and snapshot restore already support package dependencies, while `apps-template-mui` does not yet have a generic PlayCanvas canvas widget.
+-   Historical correction: old backup packages such as `@universo/multiplayer-colyseus-backend` and `@universo/template-mmoomm` are evidence of prior exploration, but the current implementation must not revive those MMOOMM-specific package boundaries.
+-   Sequencing correction: Scripts-to-Modules rename is already completed, so it is not a prerequisite for this flight-simulator PLAN.
+-   Implementation implication: PLAN must trace the module package-import path and decide where Colyseus room classes compiled from metahub Modules are registered at runtime before coding the room/client bridge.
+-   QA implication: the generated snapshot must be a real importable product artifact and browser evidence must prove nonblank PlayCanvas rendering, click-to-move, stop, follow-camera zoom/orbit, observer sync, and no runtime layout overflow.
+
 ## 2026-05-27: MMOOMM 3D and multiplayer project-local skills
 
 -   Research artifact created: `memory-bank/research/mmoomm-3d-multiplayer-skills-research-2026-05-27.md`.

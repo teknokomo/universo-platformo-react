@@ -83,6 +83,38 @@ export default class SpaceQuizWidget extends ExtensionModule {
 }
 `
 
+const COMPILED_SHAPE_WRAPPER_REQUIRE_BUNDLE = `var import_colyseus_client = require("@universo-react/colyseus-client");
+var import_playcanvas_engine = require("@universo-react/playcanvas-engine");
+
+class FlightWidget {
+  async mount() {
+    const stationBounds = createAabbFromCenterAndSize({ x: 72, y: 0, z: -48 }, { x: 48, y: 16, z: 16 })
+    return {
+      moveToPoint: (0, import_colyseus_client.createMoveToPointIntent)({ x: 72, y: 0, z: -48 }),
+      moveToObject: (0, import_colyseus_client.createMoveToObjectIntent)('station'),
+      stop: (0, import_colyseus_client.createStopIntent)(),
+      interpolated: (0, import_colyseus_client.lerpVector3)({ x: 0, y: 0, z: 0 }, { x: 10, y: 0, z: 0 }, 0.5),
+      doubleClick: (0, import_colyseus_client.isDoubleClickActivation)({ lastClickAt: 100, currentClickAt: 200 }),
+      cameraPosition: (0, import_playcanvas_engine.resolveFollowCameraPosition)({
+        target: { x: 0, y: 0, z: 0 },
+        yaw: 0,
+        pitch: 0,
+        distance: 100,
+        minDistance: 10,
+        maxDistance: 30
+      }),
+      zoomedDistance: (0, import_playcanvas_engine.zoomFollowCamera)(20, -15, 10, 30),
+      rotatedPitch: (0, import_playcanvas_engine.rotateFollowCamera)(0, 0, 1, 10).pitch,
+      stationBounds,
+      insideStation: (0, import_playcanvas_engine.isPointInsideAabb)({ x: 72, y: 0, z: -48 }, stationBounds)
+    }
+  }
+}
+
+const { createAabbFromCenterAndSize } = import_playcanvas_engine
+module.exports = FlightWidget
+`
+
 describe('browserModuleRuntime', () => {
     it('executes a client bundle method with the provided context', async () => {
         vi.stubGlobal('window', undefined)
@@ -282,8 +314,46 @@ describe('browserModuleRuntime', () => {
         }
     })
 
+    it('executes compiled client bundles that import generic foundation wrapper helpers', async () => {
+        vi.stubGlobal('window', undefined)
+        vi.stubGlobal('document', undefined)
+
+        try {
+            const result = await executeClientModuleMethod({
+                bundle: COMPILED_SHAPE_WRAPPER_REQUIRE_BUNDLE,
+                methodName: 'mount',
+                args: [],
+                context: {
+                    applicationId: 'app-1',
+                    callServerMethod: vi.fn()
+                }
+            })
+
+            expect(result).toEqual({
+                moveToPoint: { type: 'move_to_point', target: { x: 72, y: 0, z: -48 } },
+                moveToObject: { type: 'move_to_object', objectId: 'station' },
+                stop: { type: 'stop' },
+                interpolated: { x: 5, y: 0, z: 0 },
+                doubleClick: true,
+                cameraPosition: { x: 0, y: 0, z: 30 },
+                zoomedDistance: 10,
+                rotatedPitch: Math.PI / 3,
+                stationBounds: {
+                    center: { x: 72, y: 0, z: -48 },
+                    halfExtents: { x: 24, y: 8, z: 8 }
+                },
+                insideStation: true
+            })
+        } finally {
+            vi.unstubAllGlobals()
+        }
+    })
+
     it('inlines a self-contained bundle module source for the browser worker runtime', () => {
         expect(__browserModuleRuntimeTestUtils.workerSource).toContain('const console = {')
+        expect(__browserModuleRuntimeTestUtils.workerSource).toContain('const require = (packageName) => {')
+        expect(__browserModuleRuntimeTestUtils.requireSource).toContain('@universo-react/colyseus-client')
+        expect(__browserModuleRuntimeTestUtils.requireSource).toContain('@universo-react/playcanvas-engine')
         expect(__browserModuleRuntimeTestUtils.workerSource).toContain('const globalThis = undefined;')
         expect(__browserModuleRuntimeTestUtils.workerSource).not.toContain("'const console = createSilentConsoleSource();'")
         expect(__browserModuleRuntimeTestUtils.restrictedWorkerGlobals).not.toContain('onmessage')

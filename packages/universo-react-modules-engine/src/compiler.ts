@@ -61,6 +61,46 @@ const METHOD_DECORATORS = {
 const ALLOWED_MODULE_IMPORTS = new Set(['@universo-react/extension-sdk'])
 const SHARED_LIBRARY_IMPORT_PREFIX = '@shared/'
 const ROOT_SHARED_LIBRARY_NODE = '__root__'
+const SUPPORTED_RUNTIME_PACKAGE_EXPORTS: Record<string, Partial<Record<BundleTarget, ReadonlySet<string>>>> = {
+    '@universo-react/colyseus-client': {
+        client: new Set([
+            'createMoveToPointIntent',
+            'createMoveToObjectIntent',
+            'createStopIntent',
+            'lerpNumber',
+            'lerpVector3',
+            'interpolateSnapshotVector3',
+            'isDoubleClickActivation'
+        ])
+    },
+    '@universo-react/playcanvas-engine': {
+        client: new Set([
+            'resolveFollowCameraPosition',
+            'zoomFollowCamera',
+            'rotateFollowCamera',
+            'createAabbFromCenterAndSize',
+            'isPointInsideAabb'
+        ])
+    },
+    '@universo-react/colyseus-server': {
+        server: new Set([
+            'cloneVector3',
+            'createVector3',
+            'addVector3',
+            'subtractVector3',
+            'scaleVector3',
+            'vector3Length',
+            'normalizeVector3',
+            'distanceVector3',
+            'isPointInsideAabb',
+            'segmentIntersectsAabb',
+            'createStoppedMovementState',
+            'applyMoveToPointIntent',
+            'applyStopIntent',
+            'stepFixedTickMovement'
+        ])
+    }
+}
 const MODULE_RESOLVE_PATHS = [
     path.resolve(process.cwd(), 'node_modules'),
     path.resolve(process.cwd(), 'packages/universo-react-modules-engine/node_modules')
@@ -83,6 +123,45 @@ const extractSharedLibraryCodename = (value: string): string | null => {
 
 const isAllowedModuleImport = (value: string, allowedPackageNames: Set<string>): boolean =>
     ALLOWED_MODULE_IMPORTS.has(value) || allowedPackageNames.has(value) || isSharedLibraryImport(value)
+
+const getSupportedRuntimePackageExports = (packageName: string, targets: readonly BundleTarget[]): ReadonlySet<string> | null => {
+    const byTarget = SUPPORTED_RUNTIME_PACKAGE_EXPORTS[packageName]
+    if (!byTarget) {
+        return null
+    }
+
+    let supported: Set<string> | null = null
+    for (const target of targets) {
+        const targetExports = byTarget[target]
+        if (!targetExports) {
+            return null
+        }
+        supported =
+            supported === null ? new Set(targetExports) : new Set([...supported].filter((exportName) => targetExports.has(exportName)))
+    }
+
+    return supported
+}
+
+const assertRuntimePackageImportSurface = (
+    packageName: string,
+    targets: readonly BundleTarget[],
+    importedNames: readonly string[]
+): void => {
+    const supportedExports = getSupportedRuntimePackageExports(packageName, targets)
+    if (!supportedExports) {
+        throw new Error(`Package "${packageName}" is not executable in embedded module runtime for target(s): ${targets.join(', ')}`)
+    }
+
+    const unsupported = importedNames.filter((name) => !supportedExports.has(name))
+    if (unsupported.length > 0) {
+        throw new Error(
+            `Package "${packageName}" import(s) are not available in embedded module runtime: ${unsupported
+                .map((item) => JSON.stringify(item))
+                .join(', ')}. Supported exports: ${[...supportedExports].sort().join(', ')}`
+        )
+    }
+}
 
 const normalizeAllowedPackageImports = (input: ModuleCompilationInput): ModulePackageImport[] => {
     const seen = new Set<string>()
@@ -485,6 +564,7 @@ const validateNoCrossTargetTopLevelBindings = (
 
 const validateModuleSource = (sourceFile: ts.SourceFile, allowedPackageImports: readonly ModulePackageImport[]): ModulePackageImport[] => {
     const allowedPackageNames = new Set(allowedPackageImports.map((item) => item.packageName))
+    const allowedPackageByName = new Map(allowedPackageImports.map((item) => [item.packageName, item]))
     const usedPackageNames = new Set<string>()
     const unsupportedImports = new Set<string>()
     let hasDynamicImport = false
@@ -500,22 +580,63 @@ const validateModuleSource = (sourceFile: ts.SourceFile, allowedPackageImports: 
         }
     }
 
+    const validatePackageImportNames = (packageName: string, importedNames: readonly string[]) => {
+        const normalized = normalizeImportSpecifier(packageName)
+        const packageImport = allowedPackageByName.get(normalized)
+        if (!packageImport) {
+            return
+        }
+        assertRuntimePackageImportSurface(normalized, packageImport.targets as readonly BundleTarget[], importedNames)
+    }
+
     const visit = (node: ts.Node): void => {
         if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
             addImport(node.moduleSpecifier.text)
+            const packageImport = allowedPackageByName.get(normalizeImportSpecifier(node.moduleSpecifier.text))
+            if (packageImport && node.importClause && !node.importClause.isTypeOnly) {
+                const importedNames: string[] = []
+                if (node.importClause.name) {
+                    importedNames.push('default')
+                }
+                const namedBindings = node.importClause.namedBindings
+                if (namedBindings) {
+                    if (ts.isNamespaceImport(namedBindings)) {
+                        importedNames.push('*')
+                    } else {
+                        for (const specifier of namedBindings.elements) {
+                            if (!specifier.isTypeOnly) {
+                                importedNames.push((specifier.propertyName ?? specifier.name).text)
+                            }
+                        }
+                    }
+                }
+                validatePackageImportNames(node.moduleSpecifier.text, importedNames)
+            }
         } else if (ts.isExportDeclaration(node) && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
             addImport(node.moduleSpecifier.text)
+            const packageImport = allowedPackageByName.get(normalizeImportSpecifier(node.moduleSpecifier.text))
+            if (packageImport && !node.isTypeOnly) {
+                const importedNames =
+                    node.exportClause && ts.isNamedExports(node.exportClause)
+                        ? node.exportClause.elements.map((specifier) => (specifier.propertyName ?? specifier.name).text)
+                        : ['*']
+                validatePackageImportNames(node.moduleSpecifier.text, importedNames)
+            }
         } else if (
             ts.isImportEqualsDeclaration(node) &&
             ts.isExternalModuleReference(node.moduleReference) &&
             ts.isStringLiteral(node.moduleReference.expression)
         ) {
             addImport(node.moduleReference.expression.text)
+            validatePackageImportNames(node.moduleReference.expression.text, ['*'])
         } else if (ts.isImportTypeNode(node)) {
             const argument = node.argument
 
             if (ts.isLiteralTypeNode(argument) && ts.isStringLiteral(argument.literal)) {
-                addImport(argument.literal.text)
+                const normalized = normalizeImportSpecifier(argument.literal.text)
+                if (!isAllowedModuleImport(normalized, allowedPackageNames)) {
+                    unsupportedImports.add(normalized)
+                }
             }
         } else if (ts.isCallExpression(node)) {
             if (node.expression.kind === ts.SyntaxKind.ImportKeyword) {
@@ -832,12 +953,33 @@ const createPackageExternalPlugin = (packageImports: readonly ModulePackageImpor
             }
 
             if (!packageImport.targets.includes(bundleTarget)) {
-                throw new Error(`Package "${args.path}" is not available for the ${bundleTarget} module bundle target`)
+                return {
+                    path: args.path,
+                    namespace: 'universo-disabled-package-import',
+                    pluginData: packageImport
+                }
             }
 
             return {
                 path: args.path,
                 external: true
+            }
+        })
+
+        buildApi.onLoad({ filter: /.*/, namespace: 'universo-disabled-package-import' }, (args) => {
+            const packageImport = args.pluginData as ModulePackageImport | undefined
+            const supportedExports = packageImport
+                ? getSupportedRuntimePackageExports(packageImport.packageName, packageImport.targets as readonly BundleTarget[])
+                : null
+            const unavailableMessage = JSON.stringify(
+                `Package "${args.path}" is not available for the ${bundleTarget} module bundle target`
+            )
+            const exportNames = [...(supportedExports ?? [])].sort()
+            const contents = exportNames.map((name) => `export const ${name} = () => { throw new Error(${unavailableMessage}) }`).join('\n')
+
+            return {
+                contents,
+                loader: 'js'
             }
         })
     }

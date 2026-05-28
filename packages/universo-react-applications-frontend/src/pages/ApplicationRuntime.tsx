@@ -680,6 +680,7 @@ const ApplicationRuntime = () => {
             apiBaseUrl: '/api/v1',
             locale: i18n.language,
             currentWorkspaceId,
+            runtimeAccessMode: 'member',
             runtimeQueryKeyPrefix: adapter?.queryKeyPrefix,
             workspacesEnabled: state.appData?.workspacesEnabled ?? false,
             permissions: state.appData?.permissions,

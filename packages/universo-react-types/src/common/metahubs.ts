@@ -837,6 +837,7 @@ export const DASHBOARD_LAYOUT_WIDGETS = [
     { key: 'columnsContainer', allowedZones: ['center'] as const, multiInstance: true },
     { key: 'detailsTabs', allowedZones: ['center'] as const, multiInstance: true },
     { key: 'quizWidget', allowedZones: ['center', 'right'] as const, multiInstance: true },
+    { key: 'playcanvasCanvas', allowedZones: ['center'] as const, multiInstance: true },
     { key: 'resourcePreview', allowedZones: ['center', 'right'] as const, multiInstance: true },
     { key: 'learnerPlayer', allowedZones: ['center'] as const, multiInstance: true },
     // Right zone widgets

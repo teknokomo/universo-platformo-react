@@ -158,6 +158,104 @@ describe('RuntimeModulesService', () => {
         expect(JSON.stringify(items[0])).not.toContain('module.exports')
     })
 
+    it('resolves an active server module by codename and role without exposing it through client listing', async () => {
+        const { executor } = createMockDbExecutor()
+        const service = new RuntimeModulesService(engine as never)
+
+        executor.query.mockResolvedValueOnce([{ table_name: 'app_018f8a787b8f7c1da1112222333346aa._app_modules' }]).mockResolvedValueOnce([
+            {
+                id: 'module-1',
+                codename: 'fixed-tick-flight-runtime',
+                presentation: { name: { _primary: 'en', locales: { en: { content: 'Realtime runtime' } } } },
+                attached_to_kind: 'metahub',
+                attached_to_id: null,
+                module_role: 'module',
+                source_kind: 'embedded',
+                sdk_api_version: '1.0.0',
+                manifest: {
+                    className: 'FixedTickFlightRuntime',
+                    sdkApiVersion: '1.0.0',
+                    moduleRole: 'module',
+                    sourceKind: 'embedded',
+                    capabilities: ['metadata.read'],
+                    methods: [{ name: 'createRealtimeRoomOptions', target: 'server' }]
+                },
+                server_bundle: 'module.exports = class FixedTickFlightRuntime {}',
+                client_bundle: null,
+                checksum: 'server-checksum',
+                is_active: true,
+                config: {}
+            }
+        ])
+
+        const module = await service.getActiveModuleByCodename({
+            executor: executor as never,
+            schemaName: 'app_018f8a787b8f7c1da1112222333346aa',
+            codename: 'fixed-tick-flight-runtime',
+            attachedToKind: 'metahub',
+            moduleRole: 'module'
+        })
+
+        expect(module).toMatchObject({
+            codename: 'fixed-tick-flight-runtime',
+            moduleRole: 'module',
+            serverBundle: 'module.exports = class FixedTickFlightRuntime {}',
+            checksum: 'server-checksum'
+        })
+    })
+
+    it('keeps internal server module calls separate from public RPC capability', async () => {
+        const { executor } = createMockDbExecutor()
+        const service = new RuntimeModulesService(engine as never)
+        engine.callMethod.mockResolvedValueOnce({ cruiseSpeed: 36 })
+
+        executor.query.mockResolvedValueOnce([{ table_name: 'app_018f8a787b8f7c1da1112222333346aa._app_modules' }]).mockResolvedValueOnce([
+            {
+                id: 'module-1',
+                codename: 'fixed-tick-flight-runtime',
+                presentation: { name: { _primary: 'en', locales: { en: { content: 'Realtime runtime' } } } },
+                attached_to_kind: 'metahub',
+                attached_to_id: null,
+                module_role: 'module',
+                source_kind: 'embedded',
+                sdk_api_version: '1.0.0',
+                manifest: {
+                    className: 'FixedTickFlightRuntime',
+                    sdkApiVersion: '1.0.0',
+                    moduleRole: 'module',
+                    sourceKind: 'embedded',
+                    capabilities: ['metadata.read'],
+                    methods: [{ name: 'createRealtimeRoomOptions', target: 'server' }]
+                },
+                server_bundle: 'module.exports = class FixedTickFlightRuntime {}',
+                client_bundle: null,
+                checksum: 'server-checksum',
+                is_active: true,
+                config: {}
+            }
+        ])
+
+        await expect(
+            service.callInternalServerMethod({
+                executor: executor as never,
+                applicationId: '018f8a78-7b8f-7c1d-a111-2222333346aa',
+                schemaName: 'app_018f8a787b8f7c1da1112222333346aa',
+                moduleCodename: 'fixed-tick-flight-runtime',
+                attachedToKind: 'metahub',
+                moduleRole: 'module',
+                methodName: 'createRealtimeRoomOptions',
+                args: [{ scene: null }]
+            })
+        ).resolves.toEqual({ cruiseSpeed: 36 })
+        expect(engine.callMethod).toHaveBeenCalledWith(
+            expect.objectContaining({
+                bundle: 'module.exports = class FixedTickFlightRuntime {}',
+                methodName: 'createRealtimeRoomOptions',
+                args: [{ scene: null }]
+            })
+        )
+    })
+
     it('keeps shared client/server methods visible on the runtime client list surface', async () => {
         const { executor } = createMockDbExecutor()
         const service = new RuntimeModulesService(engine as never)

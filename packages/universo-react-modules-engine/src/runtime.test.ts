@@ -1,4 +1,4 @@
-import { Script } from 'node:vm'
+import { Script, createContext } from 'node:vm'
 import { describe, expect, it, vi } from 'vitest'
 import { IsolatePool, IsolatedVmModuleRuntimeHost, ModuleHealthMonitor } from './runtime'
 
@@ -54,6 +54,69 @@ const createFakeIsolatedVmModule = (records: { isolates: Array<{ id: number; dis
         }
     }
 }
+
+const createNodeVmIsolatedVmModule = () => ({
+    Isolate: class {
+        async createContext() {
+            const sandbox = createContext({})
+
+            return {
+                global: {
+                    set: async (name: string, value: unknown) => {
+                        ;(sandbox as Record<string, unknown>)[name] = value
+                    },
+                    derefInto: () => sandbox
+                },
+                evalClosure: async (code: string) => {
+                    const script = new Script(`(async () => {${code}})()`)
+
+                    return await script.runInContext(sandbox)
+                }
+            }
+        }
+
+        async compileScript(code: string) {
+            const script = new Script(code)
+
+            return {
+                run: async (context: { global: { derefInto?: () => unknown } }) => {
+                    const sandbox = context.global.derefInto?.()
+                    if (!sandbox) {
+                        throw new Error('Missing node:vm sandbox')
+                    }
+
+                    script.runInContext(sandbox as ReturnType<typeof createContext>)
+                }
+            }
+        }
+
+        dispose() {
+            // Test double does not retain native resources.
+        }
+    },
+    Reference: class {
+        constructor(private readonly value: unknown) {}
+
+        async apply(_receiver: unknown, argumentsList?: unknown[]) {
+            if (typeof this.value !== 'function') {
+                return undefined
+            }
+
+            return await this.value(...(argumentsList ?? []))
+        }
+
+        release() {
+            // Test double does not retain native resources.
+        }
+    },
+    ExternalCopy: class {
+        constructor(private readonly value: unknown) {}
+
+        copyInto() {
+            return this.value
+        }
+    }
+})
 
 describe('ModuleHealthMonitor', () => {
     it('opens the circuit breaker after repeated failures and resets after cooldown', () => {
@@ -193,5 +256,46 @@ describe('IsolatedVmModuleRuntimeHost', () => {
                 args: []
             })
         ).resolves.toEqual({ ok: true })
+    })
+
+    it('keeps server package movement guards aligned with controlled body extents', async () => {
+        const loadModule = async () => createNodeVmIsolatedVmModule()
+        const pool = new IsolatePool(loadModule)
+        const host = new IsolatedVmModuleRuntimeHost(pool, new ModuleHealthMonitor(), loadModule)
+
+        await expect(
+            host.execute({
+                bundle: `
+                    module.exports = class MovementModule {
+                        run() {
+                            const {
+                                applyMoveToPointIntent,
+                                createStoppedMovementState,
+                                stepFixedTickMovement
+                            } = require('@universo-react/colyseus-server');
+                            const initial = applyMoveToPointIntent(createStoppedMovementState({ x: 0, y: 0, z: 0 }), { x: 5, y: 0, z: 0 });
+
+                            return stepFixedTickMovement(initial, 1, {
+                                cruiseSpeed: 5,
+                                acceleration: 5,
+                                deceleration: 5,
+                                arrivalRadius: 0.1,
+                                guards: [{ center: { x: 8, y: 0, z: 0 }, halfExtents: { x: 1, y: 1, z: 1 } }],
+                                controlledHalfExtents: { x: 2, y: 0.5, z: 0.5 }
+                            });
+                        }
+                    };
+                `,
+                methodName: 'run',
+                context: {},
+                args: []
+            })
+        ).resolves.toMatchObject({
+            blocked: true,
+            state: {
+                position: { x: 0, y: 0, z: 0 },
+                speed: 0
+            }
+        })
     })
 })
