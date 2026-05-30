@@ -1344,13 +1344,13 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
                 applyControlledOrientation(controlledEntity, dt)
                 lastControlledPositionRef.current = nextPositionValue
                 updateRemoteShipEntities(dt, nextPositionValue, shipForwardRef.current)
-                updateRemoteShipDataset()
                 canvas.dataset.shipX = nextPosition.x.toFixed(2)
                 canvas.dataset.shipY = nextPosition.y.toFixed(2)
                 canvas.dataset.shipZ = nextPosition.z.toFixed(2)
                 canvas.dataset.shipForwardX = shipForwardRef.current.x.toFixed(4)
                 canvas.dataset.shipForwardY = shipForwardRef.current.y.toFixed(4)
                 canvas.dataset.shipForwardZ = shipForwardRef.current.z.toFixed(4)
+                updateRemoteShipDataset()
                 canvas.dataset.authoritativeUpdates = String(authoritativeUpdateCountRef.current)
                 const clearanceGuardBoxes = resolveExpandedGuardBoxes(shipForwardRef.current)
                 const nearestGuardClearance = clearanceGuardBoxes.length
