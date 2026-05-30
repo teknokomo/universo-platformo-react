@@ -474,22 +474,25 @@ const resolvePositionOutsideObstacle = (
         return position
     }
 
-    const away = normalizeForward(
-        {
-            x: position.x - obstacle.center.x,
-            y: position.y - obstacle.center.y,
-            z: position.z - obstacle.center.z
-        },
-        heading
-    )
-    const projectedDistance = dotVector(
-        {
-            x: position.x - obstacle.center.x,
-            y: position.y - obstacle.center.y,
-            z: position.z - obstacle.center.z
-        },
-        away
-    )
+    const centerDelta = {
+        x: position.x - obstacle.center.x,
+        y: position.y - obstacle.center.y,
+        z: position.z - obstacle.center.z
+    }
+    let bestAxis = normalizeForward(centerDelta, heading)
+    let bestSeparation = Number.POSITIVE_INFINITY
+
+    for (const axis of resolveSeparatingAxes(movingBox, obstacle)) {
+        const signedDistance = dotVector(centerDelta, axis)
+        const overlapDistance = boxRadiusOnAxis(movingBox, axis) + boxRadiusOnAxis(obstacle, axis) - Math.abs(signedDistance)
+        if (overlapDistance >= 0 && overlapDistance < bestSeparation) {
+            bestSeparation = overlapDistance
+            bestAxis = signedDistance >= 0 ? axis : scaleVector(axis, -1)
+        }
+    }
+
+    const away = bestAxis
+    const projectedDistance = dotVector(centerDelta, away)
     const requiredDistance = boxRadiusOnAxis(movingBox, away) + boxRadiusOnAxis(obstacle, away) + clearance
     let resolved = {
         x: position.x + away.x * Math.max(0, requiredDistance - projectedDistance),
