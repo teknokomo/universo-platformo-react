@@ -1,4 +1,4 @@
-import type { Locator, Page } from '@playwright/test'
+import type { Locator, Page, TestInfo } from '@playwright/test'
 import { PNG } from 'pngjs'
 import { test, expect } from '../../fixtures/test'
 import { createLoggedInBrowserContext } from '../../support/browser/auth'
@@ -51,6 +51,15 @@ const localizedText = (content: string, locale = 'en') => {
 }
 
 type LoggedInApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
+
+function buildExecutionRunId(runId: string, testInfo: TestInfo) {
+    const normalizedProject =
+        testInfo.project.name
+            .replace(/[^a-zA-Z0-9]/g, '')
+            .toLowerCase()
+            .slice(-6) || 'proj'
+    return `${runId}-${normalizedProject}-r${testInfo.retry}-p${testInfo.repeatEachIndex}-w${testInfo.workerIndex}`
+}
 
 async function fillLocalizedField(dialog: Locator, label: string, value: string) {
     await dialog.getByLabel(label).first().fill(value)
@@ -534,7 +543,11 @@ async function waitForBrowserLoginReadiness(credentials: { email: string; passwo
         .toBe(true)
 }
 
-test('@flow imported MMOOMM flight snapshot renders PlayCanvas runtime and moves ship', async ({ browser, page, runManifest }) => {
+test('@flow imported MMOOMM flight snapshot renders PlayCanvas runtime and moves ship', async ({
+    browser,
+    page,
+    runManifest
+}, testInfo) => {
     test.setTimeout(MMOOMM_FLOW_TIMEOUT)
 
     const bootstrapApi = await createBootstrapApiContext()
@@ -548,16 +561,17 @@ test('@flow imported MMOOMM flight snapshot renders PlayCanvas runtime and moves
     let russianSession: Awaited<ReturnType<typeof createLoggedInBrowserContext>> | null = null
 
     try {
-        const applicationName = `E2E ${runManifest.runId} MMOOMM Flight Runtime`
-        const readOnlyEmail = `e2e+${runManifest.runId}.mmoomm-observer@${process.env.E2E_TEST_USER_EMAIL_DOMAIN || 'example.test'}`
+        const executionRunId = buildExecutionRunId(runManifest.runId, testInfo)
+        const applicationName = `E2E ${executionRunId} MMOOMM Flight Runtime`
+        const readOnlyEmail = `e2e+${executionRunId}.mmoomm-observer@${process.env.E2E_TEST_USER_EMAIL_DOMAIN || 'example.test'}`
         const readOnlyPassword = process.env.E2E_TEST_USER_PASSWORD || 'ChangeMe_E2E-123456!'
-        const secondPilotEmail = `e2e+${runManifest.runId}.mmoomm-pilot-b@${process.env.E2E_TEST_USER_EMAIL_DOMAIN || 'example.test'}`
+        const secondPilotEmail = `e2e+${executionRunId}.mmoomm-pilot-b@${process.env.E2E_TEST_USER_EMAIL_DOMAIN || 'example.test'}`
         const secondPilotPassword = process.env.E2E_TEST_USER_PASSWORD || 'ChangeMe_E2E-123456!'
-        const readOnlyGlobalRoleCodename = `MmoommObserver${runManifest.runId.replace(/[^a-zA-Z0-9]/g, '')}`.slice(0, 48)
+        const readOnlyGlobalRoleCodename = `MmoommObserver${executionRunId.replace(/[^a-zA-Z0-9]/g, '')}`.slice(0, 48)
         const readOnlyGlobalRole = await createRole(bootstrapApi, {
             codename: localizedText(readOnlyGlobalRoleCodename),
             name: localizedText('MMOOMM observer'),
-            description: localizedText(`Read-only MMOOMM observer coverage ${runManifest.runId}`),
+            description: localizedText(`Read-only MMOOMM observer coverage ${executionRunId}`),
             color: '#607d8b',
             isSuperuser: false,
             permissions: []
@@ -567,7 +581,7 @@ test('@flow imported MMOOMM flight snapshot renders PlayCanvas runtime and moves
             email: readOnlyEmail,
             password: readOnlyPassword,
             roleIds: [readOnlyGlobalRole.id],
-            comment: `Created for MMOOMM observer coverage ${runManifest.runId}`
+            comment: `Created for MMOOMM observer coverage ${executionRunId}`
         })
         if (!createdReadOnlyUser?.userId) {
             throw new Error(`Created user ${readOnlyEmail} did not return a user id`)
@@ -577,7 +591,7 @@ test('@flow imported MMOOMM flight snapshot renders PlayCanvas runtime and moves
             email: secondPilotEmail,
             password: secondPilotPassword,
             roleIds: [readOnlyGlobalRole.id],
-            comment: `Created for MMOOMM second pilot coverage ${runManifest.runId}`
+            comment: `Created for MMOOMM second pilot coverage ${executionRunId}`
         })
         if (!createdSecondPilotUser?.userId) {
             throw new Error(`Created user ${secondPilotEmail} did not return a user id`)

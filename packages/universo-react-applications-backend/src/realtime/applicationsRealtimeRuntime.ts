@@ -1222,7 +1222,9 @@ const createFixedTickSceneRoom = (
                 }
             })
             this.accessRevalidationTimer = setInterval(() => {
-                void this.revalidateConnectedClients()
+                void this.revalidateConnectedClients().catch((error) => {
+                    console.error('[ApplicationsRealtimeRuntime] Periodic access revalidation failed', error)
+                })
             }, ACCESS_REVALIDATION_INTERVAL_MS)
             this.accessRevalidationTimer.unref?.()
         }

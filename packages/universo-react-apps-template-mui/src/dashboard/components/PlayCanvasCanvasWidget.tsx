@@ -1117,8 +1117,8 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
                         : desiredShipForwardRef.current
                 )
                 const worldUp = { x: 0, y: 1, z: 0 }
-                const right = normalizeVector(crossVector(centerForward, worldUp))
-                const up = normalizeVector(crossVector(right, centerForward))
+                const right = normalizeForward(crossVector(centerForward, worldUp), { x: 1, y: 0, z: 0 })
+                const up = normalizeForward(crossVector(right, centerForward), worldUp)
                 const horizontalOffset = rect.width > 0 ? ((clientX - rect.left) / rect.width - 0.5) * 1.5 : 0
                 const verticalOffset = rect.height > 0 ? (0.5 - (clientY - rect.top) / rect.height) * 1.5 : 0
                 const farFromShip = {
