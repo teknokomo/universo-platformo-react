@@ -71,6 +71,16 @@ const NO_APPLICATION_PERMISSIONS: Record<RolePermission, boolean> = {
     readReports: false
 }
 
+const APPLICATION_ROLE_LEVELS: Record<ApplicationRole, number> = {
+    owner: 4,
+    admin: 3,
+    editor: 2,
+    member: 1
+}
+
+const canManageApplicationRole = (actorRole: ApplicationRole, targetRole: ApplicationRole): boolean =>
+    APPLICATION_ROLE_LEVELS[actorRole] > APPLICATION_ROLE_LEVELS[targetRole]
+
 // ---------------------------------------------------------------------------
 // Member helpers
 // ---------------------------------------------------------------------------
@@ -1265,7 +1275,7 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
         const { applicationId, memberId } = req.params
         const ds = getRequestDbExecutor(req, getDbExecutor())
 
-        await ensureApplicationAccess(ds, userId, applicationId, ['admin', 'owner'])
+        const accessContext = await ensureApplicationAccess(ds, userId, applicationId, ['admin', 'owner'])
 
         const executor = {
             query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
@@ -1287,6 +1297,15 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
         const result = schema.safeParse(req.body)
         if (!result.success) {
             return res.status(400).json({ error: 'Invalid input', details: result.error.flatten() })
+        }
+
+        const actorRole = (accessContext.membership.role || 'member') as ApplicationRole
+        const targetRole = (member.role || 'member') as ApplicationRole
+        if (!canManageApplicationRole(actorRole, targetRole)) {
+            return res.status(403).json({ error: 'Cannot modify this member role' })
+        }
+        if (result.data.role !== undefined && !canManageApplicationRole(actorRole, result.data.role as ApplicationRole)) {
+            return res.status(403).json({ error: 'Cannot assign this member role' })
         }
 
         const normalizedComment: {

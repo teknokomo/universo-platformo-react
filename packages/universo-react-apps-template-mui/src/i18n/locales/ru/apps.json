@@ -446,6 +446,8 @@
         "rotateLeft": "Повернуть влево",
         "rotateRight": "Повернуть вправо",
         "viewOnly": "Только просмотр",
+        "participantsStatus": "Корабли: {{total}} (вы + удалённых: {{remote}})",
+        "participantsViewOnlyStatus": "Корабли: {{total}} (только просмотр)",
         "canvasLabel": "Интерактивная 3D-сцена полёта",
         "realtime": {
             "connecting": "Подключение realtime",

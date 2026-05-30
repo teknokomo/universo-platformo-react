@@ -3955,6 +3955,100 @@ describe('Applications Routes', () => {
 
                 expect(response.body.role).toBe('editor')
             })
+
+            it('should reject admin updates to another admin role', async () => {
+                const { dataSource, applicationUserRepo } = buildDataSource()
+
+                applicationUserRepo.findOne.mockResolvedValue({
+                    user_id: 'test-user-id',
+                    role: 'admin'
+                })
+                ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                    if (sql.includes('WITH updated AS')) {
+                        throw new Error('update should not run')
+                    }
+
+                    if (sql.includes('FROM applications.rel_application_users au') && sql.includes('au.id = $2')) {
+                        return [
+                            {
+                                id: 'member-id',
+                                applicationId: 'application-1',
+                                userId: 'target-admin',
+                                role: 'admin',
+                                comment: null,
+                                createdAt: new Date(),
+                                email: 'target-admin@example.com',
+                                nickname: null
+                            }
+                        ]
+                    }
+
+                    if (sql.includes('FROM applications.rel_application_users')) {
+                        const membership = normalizeMembershipRow(
+                            await applicationUserRepo.findOne({
+                                where: {
+                                    applicationId: params?.[0],
+                                    userId: params?.[1]
+                                }
+                            })
+                        )
+                        return membership ? [membership] : []
+                    }
+
+                    return []
+                })
+
+                const app = buildApp(dataSource)
+
+                await request(app).patch('/applications/application-1/members/member-id').send({ role: 'editor' }).expect(403)
+            })
+
+            it('should reject admin promotion of a member to admin', async () => {
+                const { dataSource, applicationUserRepo } = buildDataSource()
+
+                applicationUserRepo.findOne.mockResolvedValue({
+                    user_id: 'test-user-id',
+                    role: 'admin'
+                })
+                ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                    if (sql.includes('WITH updated AS')) {
+                        throw new Error('update should not run')
+                    }
+
+                    if (sql.includes('FROM applications.rel_application_users au') && sql.includes('au.id = $2')) {
+                        return [
+                            {
+                                id: 'member-id',
+                                applicationId: 'application-1',
+                                userId: 'target-user',
+                                role: 'member',
+                                comment: null,
+                                createdAt: new Date(),
+                                email: 'target@example.com',
+                                nickname: null
+                            }
+                        ]
+                    }
+
+                    if (sql.includes('FROM applications.rel_application_users')) {
+                        const membership = normalizeMembershipRow(
+                            await applicationUserRepo.findOne({
+                                where: {
+                                    applicationId: params?.[0],
+                                    userId: params?.[1]
+                                }
+                            })
+                        )
+                        return membership ? [membership] : []
+                    }
+
+                    return []
+                })
+
+                const app = buildApp(dataSource)
+
+                await request(app).patch('/applications/application-1/members/member-id').send({ role: 'admin' }).expect(403)
+            })
         })
 
         describe('DELETE /applications/:applicationId/members/:userId', () => {

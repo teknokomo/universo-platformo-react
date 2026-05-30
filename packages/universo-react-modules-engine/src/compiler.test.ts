@@ -218,7 +218,7 @@ describe('compileModuleSource', () => {
    export default class FlightModule extends ExtensionModule {
        @AtClient()
        async mount() {
-           return createMoveToPointIntent({ x: 1, y: 2, z: 3 })
+           return createMoveToPointIntent({ x: 1, y: 2, z: 3 }, 1)
        }
 
        @AtServer()

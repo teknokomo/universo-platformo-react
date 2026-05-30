@@ -2,7 +2,8 @@ import { defineConfig } from 'tsdown'
 
 export default defineConfig({
     entry: {
-        index: './src/index.ts'
+        index: './src/index.ts',
+        movement: './src/movement.ts'
     },
     format: ['esm', 'cjs'],
     dts: true,

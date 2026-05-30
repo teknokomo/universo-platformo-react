@@ -89,6 +89,9 @@ const createEnumerationValue = async (api: ApiContext, metahubId: string, enumer
         `/api/v1/metahub/${metahubId}/entities/enumeration/instance/${enumerationId}/values`,
         payload
     )
+    if (!response.ok) {
+        throw new Error(`Failed to create enumeration value (${response.status}): ${await response.text()}`)
+    }
     expect(response.ok).toBe(true)
     return response.json()
 }
@@ -149,8 +152,8 @@ export default class FlightCanvasWidget extends ExtensionModule {
         const scene = params && typeof params === 'object' && params.scene ? params.scene : null
         return {
             scene,
-            moveToPoint: createMoveToPointIntent({ x: 72, y: 0, z: -48 }),
-            stop: createStopIntent(),
+            moveToPoint: createMoveToPointIntent({ x: 72, y: 0, z: -48 }, 1),
+            stop: createStopIntent(2),
             stationBounds: createAabbFromCenterAndSize({ x: 72, y: 0, z: -48 }, { x: 48, y: 16, z: 16 })
         }
     }
@@ -183,7 +186,10 @@ export default class FixedTickFlightRuntime extends ExtensionModule {
             cruiseSpeed: scene?.cruiseSpeed ?? 36,
             acceleration: 48,
             deceleration: 48,
-            arrivalRadius: 0.5
+            arrivalRadius: 0.5,
+            spawnSafetyMargin: 8,
+            spawnMaxAttempts: 64,
+            spawnRingSpacing: 24
         }
     }
 }

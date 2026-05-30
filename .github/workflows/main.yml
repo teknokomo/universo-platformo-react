@@ -44,4 +44,13 @@ jobs:
               run: |
                   pnpm run check:runtime-no-lms-forks
                   pnpm run check:lms-fixture-contract
+            - name: Check MMOOMM flight runtime release gates
+              run: pnpm run check:mmoomm-flight-fixture-contract
             - run: pnpm build
+            - name: Install Playwright browser for MMOOMM flight runtime gate
+              run: pnpm run playwright:install
+            - name: Check MMOOMM flight browser runtime gate
+              run: pnpm run test:e2e:mmoomm-flight-runtime:local-supabase
+            - name: Stop local E2E Supabase
+              if: always()
+              run: pnpm supabase:e2e:stop

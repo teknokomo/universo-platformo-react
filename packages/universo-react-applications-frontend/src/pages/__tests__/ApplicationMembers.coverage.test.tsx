@@ -124,7 +124,7 @@ vi.mock('@universo-react/template-mui', () => {
                     <button
                         onClick={() => {
                             void ctx.helpers.confirm({ title: 'confirm.title', description: 'confirm.description' })
-                            void ctx.api.updateEntity(entity.id, { email: entity.email, role: 'editor', comment: 'c' })
+                            void ctx.api.updateEntity(entity.id, { email: entity.email, role: 'editor', commentVlc: null })
                             void ctx.helpers.refreshList()
                             ctx.helpers.enqueueSnackbar({ message: 'members.updateSuccess', options: { variant: 'success' } })
                         }}

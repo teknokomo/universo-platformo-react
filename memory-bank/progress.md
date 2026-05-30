@@ -55,6 +55,86 @@
 
 ---
 
+## 2026-05-29 - MMOOMM Multi-Ship Authoritative Sync
+
+### Summary
+
+Implemented the MMOOMM multiplayer flight slice for published applications:
+two authenticated users can connect to the same Colyseus world room, receive
+separate server-owned ships, send movement intents only, and observe each
+other's motion in real time through the PlayCanvas runtime.
+
+### Completed
+
+-   Added generic Colyseus helper coverage for deterministic safe spawn search,
+    keyed snapshot interpolation, and prediction queue acknowledgement.
+-   Refactored the fixed tick scene room to authoritative multi-ship state with
+    per-user ownership, strict Zod intent validation, duplicate sequence
+    rejection, safe spawn reservation, and `onAuth`/`onDrop`/`onReconnect`
+    lifecycle handling.
+-   Updated the isolated `apps-template-mui` PlayCanvas widget for local
+    prediction, remote interpolation, local ship assignment, remote primitive
+    rendering, localized realtime states, SDK reconnection, and non-passive
+    canvas wheel ownership.
+-   Regenerated the MMOOMM flight metahub snapshot from the Playwright
+    generator with module-backed spawn options and multi-ship acceptance
+    metadata, without changing metahub schema or template versions.
+-   Expanded E2E coverage for two authenticated browser contexts, bidirectional
+    ship movement visibility, stop, reconnect without duplicate ships, canvas
+    rendering evidence, and no page-level overflow.
+-   Updated GitBook flight simulator docs in English and Russian.
+
+### Verification
+
+-   `pnpm exec prettier --write ...`
+-   `pnpm --filter @universo-react/colyseus-client test`
+-   `pnpm --filter @universo-react/colyseus-server test`
+-   `pnpm --filter @universo-react/applications-backend test -- src/tests/realtime/applicationsRealtimeRuntime.test.ts`
+-   `pnpm --filter @universo-react/apps-template-mui test -- src/dashboard/components/__tests__/PlayCanvasCanvasWidget.test.tsx`
+-   `pnpm --filter @universo-react/modules-engine test -- src/compiler.test.ts`
+-   `UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-react-core-frontend/.env.e2e.local-supabase pnpm run build:e2e`
+-   `UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-react-core-frontend/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs --project generators --grep "mmoomm flight metahub"`
+-   `pnpm run check:mmoomm-flight-fixture-contract`
+-   `UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-react-core-frontend/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs --project chromium --grep "imported MMOOMM flight snapshot"`
+
+### Notes
+
+-   The E2E runtime evidence includes the generated screenshots and trace/video
+    artifacts from Playwright. The final runtime flow passed after switching
+    canvas wheel zoom to a native non-passive listener so browser scrolling is
+    blocked at the canvas boundary.
+-   The targeted apps-template Vitest run still emits pre-existing React `act`
+    and MUI `anchorEl` warnings from unrelated dialog/menu tests, but all 327
+    package tests passed.
+
+## 2026-05-29 - MMOOMM Multi-Ship Runtime QA Evidence Closure
+
+### Summary
+
+Closed the remaining browser-evidence gaps from the multi-ship runtime QA:
+unauthorized realtime users now have explicit no-movement browser assertions,
+and pointer capture release is directly asserted during PlayCanvas camera drag
+and Escape handling.
+
+### Completed
+
+-   Added unauthorized realtime E2E assertions for disabled movement toolbar
+    controls, canvas click, canvas double-click, Enter, Escape, no emitted
+    movement intent, and no local movement drift.
+-   Added a stable canvas `data-pointer-captured` test probe and Playwright
+    assertions for capture during drag, release on pointer up, and release by
+    Escape while capture is active.
+-   Preserved the user-facing runtime surface: the new probe is a non-visible
+    `data-*` oracle and does not expose IDs, JSON, room/session data, or server
+    details.
+
+### Verification
+
+-   `pnpm exec prettier --write memory-bank/tasks.md packages/universo-react-apps-template-mui/src/dashboard/components/PlayCanvasCanvasWidget.tsx tools/testing/e2e/specs/flows/snapshot-import-mmoomm-flight-runtime.spec.ts`
+-   `pnpm --filter @universo-react/apps-template-mui test -- src/dashboard/components/__tests__/PlayCanvasCanvasWidget.test.tsx`
+-   `pnpm run test:e2e:mmoomm-flight-runtime:local-supabase`
+-   `pnpm supabase:e2e:stop`
+
 ## 2026-05-28 - MMOOMM Flight Simulator Runtime Usability Closure
 
 ### Summary
@@ -1819,3 +1899,126 @@ diff --check`, metahubs backend focused Jest with 80 tests, metahubs
     local minimal Supabase build/e2e generator/runtime Playwright checks, full
     root `pnpm build`, and final autoreview with no actionable findings; local
     minimal Supabase was stopped after the E2E run.
+
+### 2026-05-29: MMOOMM Multi-Ship Access Lifecycle QA Closure ✅
+
+-   Closed the Colyseus private-room access lifecycle gap by tracking every
+    authenticated member session, including read-only observers, through the
+    same fresh access revalidation path as controlling pilots.
+-   Changed revoked controlling sessions to close their Colyseus clients while
+    removing ship runtime state, so a user who loses role/workspace access
+    cannot remain subscribed to authoritative private room state.
+-   Added backend regressions for revoked controlling clients and revoked
+    read-only member clients, covering both ship-owning and observer-only room
+    connections.
+-   Verification passed: Prettier on touched files, applications-backend
+    realtime Jest with 18 tests, applications-backend lint/build,
+    `tools/lint-db-access.mjs`, `git diff --check`, and local minimal Supabase
+    MMOOMM runtime Playwright gate with 2/2 tests passing; local E2E Supabase
+    was stopped after the run.
+
+### 2026-05-29: MMOOMM Multi-Ship Final QA Findings Closure ✅
+
+-   Closed the remaining public realtime access lifecycle gap by tracking
+    public read-only viewers in the room session registry and revalidating
+    public runtime availability on the same periodic fail-closed path as
+    member clients.
+-   Added backend regressions for revoked public realtime viewers and room-level
+    spawn reservation failure, ensuring clients are closed with the sanitized
+    realtime access code and no ship state is created when no safe spawn exists.
+-   Strengthened MMOOMM Playwright evidence with a visible application-list link
+    opening the published runtime, Russian localized runtime assertions, and
+    state-based movement stability checks in place of fixed waits.
+-   Verification passed: Prettier on touched files, applications-backend
+    realtime Jest with 20 tests, applications-backend lint/build,
+    apps-template-mui lint, apps-template-mui Vitest with 327 tests,
+    `tools/lint-db-access.mjs`, MMOOMM fixture contract validation, local
+    minimal Supabase MMOOMM runtime Playwright gate with 2/2 tests passing,
+    and `git diff --check`; local E2E Supabase was stopped after the run.
+
+### 2026-05-29: MMOOMM Multi-Ship QA Hardening Closure ✅
+
+-   Closed the final realtime backend hardening findings by using the
+    request-scoped DB executor for authenticated member matchmaking, while
+    keeping public runtime matchmaking on the pool executor path.
+-   Added Colyseus per-client message rate limiting on the fixed-tick scene
+    room before intent payload parsing, bounding abusive realtime message
+    throughput in addition to the existing per-ship intent queue bound.
+-   Hardened room guard parsing so module-provided and signed room guard
+    half-extents are normalized to positive values and degenerate zero-sized
+    guard boxes are rejected before movement/spawn checks.
+-   Added focused backend regressions for executor selection, finite room
+    message rate limits, module guard normalization, and signed room option
+    guard parsing.
+-   Verification passed: Prettier on touched files, applications-backend
+    realtime Jest with 23 tests, applications-backend lint/build,
+    colyseus-server Vitest with 10 tests, `tools/lint-db-access.mjs`,
+    MMOOMM fixture contract validation, root `build:e2e`, local minimal
+    Supabase MMOOMM runtime Playwright gate with 2/2 tests passing,
+    `git diff --check`, and local E2E Supabase was stopped after the run.
+
+### 2026-05-29: MMOOMM Multi-Ship Multi-Session Lifecycle QA Closure ✅
+
+-   Fixed the Colyseus drop lifecycle for reused same-user ships so one dropped
+    controlling session no longer marks the shared authoritative ship state as
+    disconnected while another controlling session remains active.
+-   Added a backend regression proving two active sessions for one user receive
+    the same stable `shipId`, keep a single ship in room state, and remain
+    connected after one session drops.
+-   Verification passed: Prettier on touched files, applications-backend
+    realtime Jest with 24 tests, applications-backend lint/build, and
+    `tools/lint-db-access.mjs`.
+
+### 2026-05-29: MMOOMM Multi-Ship Final Browser Contract Closure ✅
+
+-   Added explicit authoritative `currentCommand` and
+    `currentCommandObjectId` fields to the fixed-tick Colyseus ship state so
+    clients and future systems do not infer command state from target
+    heuristics.
+-   Strengthened backend regressions for `move_to_point`, `move_to_object`,
+    `stop`, and arrival/block reset behavior in the authoritative command
+    contract.
+-   Hardened PlayCanvas wheel input ownership by handling wheel events on the
+    canvas and owning container in capture phase, preventing propagation and
+    restoring scroll position if the browser scrolls during canvas zoom.
+-   Verification passed: Prettier on touched files, applications-backend
+    realtime Jest with 26 tests, applications-backend lint/build,
+    apps-template-mui lint, apps-template-mui Vitest with 327 tests,
+    `tools/lint-db-access.mjs`, root `build:e2e`, local minimal Supabase
+    MMOOMM runtime Playwright gate with 2/2 tests passing, and local E2E
+    Supabase was stopped after the run.
+
+### 2026-05-29: Application Member Role Update Regression Closure ✅
+
+-   Fixed the application member role update route so it stores the
+    authenticated access context before comparing actor and target role levels,
+    preventing a backend 500 during existing member role changes.
+-   Kept role mutation fail-closed: admins cannot modify peer admins or assign
+    admin to another member, while higher roles can still update lower roles.
+-   Fixed the application members action-dialog data guard to accept a
+    persisted `commentVlc: null` value from existing members instead of
+    rejecting the edit as an invalid member payload.
+-   Verification passed: Prettier on touched files, applications-backend member
+    route Jest regression with 3 tests, applications-frontend Vitest package
+    run with 178 tests, applications-backend lint/build, applications-frontend
+    lint/build, and `git diff --check`.
+
+### 2026-05-30: MMOOMM 3D Flight Orientation And Collision Closure ✅
+
+-   Replaced the PlayCanvas ship rotation path with full 3D forward alignment
+    from authoritative or predicted headings, so vertical movement pitches the
+    primitive ship toward the movement target instead of sliding flat through
+    space.
+-   Reworked movement and prediction collision envelopes from bounding-radius
+    expansion to direction-aware oriented half-extents, preserving station and
+    ship contact safety without the large visible nose-to-object standoff.
+-   Strengthened tests and browser oracles for the cases previous coverage
+    missed: lower-screen free-space double-clicks, vertical free-space targets,
+    ship forward vectors, oriented nose/side/vertical approaches, and bounded
+    visual clearance around the station.
+-   Verification passed: `git diff --check`, colyseus-server Vitest with 18
+    tests, apps-template-mui Vitest with 336 tests including 19
+    PlayCanvasCanvasWidget tests, MMOOMM fixture contract validation, local
+    minimal Supabase MMOOMM runtime Playwright gate with 2/2 tests passing,
+    final autoreview with no accepted/actionable findings, and local E2E
+    Supabase was stopped after the run.

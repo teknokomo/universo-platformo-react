@@ -14,6 +14,15 @@ and canvas widget are represented through metahub Objects, Modules, and the
 generic `playcanvasCanvas` application-layout widget.
 
 After importing the snapshot, publish the metahub as an application and open the
-published runtime. The center dashboard widget renders a bounded PlayCanvas
-canvas with a white ship and a white station, plus visible move, stop, zoom, and
-camera rotation controls.
+published runtime with two authenticated users that have content edit access.
+Both users join the same Colyseus room for the published application scope. The
+server owns ship positions, assigns one stable ship per user, validates only
+movement intents (`move_to_point`, `move_to_object`, `stop`), and searches a
+free spawn position when the default position is blocked.
+
+The center dashboard widget renders a bounded PlayCanvas canvas with simple
+white primitive ships and a white station, plus visible move, stop, zoom, and
+camera rotation controls. The local ship uses sequenced client prediction and
+server acknowledgement; remote ships are interpolated from authoritative room
+state. Short network drops use Colyseus reconnection and must not create a
+duplicate ship.

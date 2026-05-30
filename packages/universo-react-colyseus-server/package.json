@@ -11,6 +11,11 @@
             "import": "./dist/index.mjs",
             "require": "./dist/index.js"
         },
+        "./movement": {
+            "types": "./dist/movement.d.ts",
+            "import": "./dist/movement.mjs",
+            "require": "./dist/movement.js"
+        },
         "./package.json": "./package.json"
     },
     "sideEffects": false,

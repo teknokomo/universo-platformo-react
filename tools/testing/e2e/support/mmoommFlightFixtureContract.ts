@@ -28,8 +28,9 @@ export const MMOOMM_FLIGHT_ACCEPTANCE_MATRIX = [
     'snapshot declares Object entities for world, ship, and station',
     'snapshot declares Movement Commands enumeration and Flight Simulation Constants set',
     'snapshot contains widget and server runtime modules with packageImports',
+    'snapshot server runtime module declares deterministic multi-ship spawn options',
     'snapshot layout renders the generic playcanvasCanvas widget',
-    'published runtime can open a bounded non-empty canvas and move the ship'
+    'published runtime can open a bounded non-empty canvas and sync two ships'
 ] as const
 
 export interface SnapshotEnvelope {
@@ -251,6 +252,70 @@ const assertFlightSceneGeometry = (snapshot: NonNullable<SnapshotEnvelope['snaps
     }
 }
 
+const assertServerModuleSpawnOptions = (snapshot: NonNullable<SnapshotEnvelope['snapshot']>): void => {
+    const modules = snapshot.modules ?? []
+    const serverModule = modules.find(
+        (item) =>
+            item && typeof item === 'object' && readCodenameText((item as { codename?: unknown }).codename) === 'fixed-tick-flight-runtime'
+    ) as Record<string, unknown> | undefined
+    const source = typeof serverModule?.sourceCode === 'string' ? serverModule.sourceCode : ''
+    const requiredSpawnOptions: Array<[string, number]> = [
+        ['spawnSafetyMargin', 8],
+        ['spawnMaxAttempts', 64],
+        ['spawnRingSpacing', 24]
+    ]
+    for (const [name, expectedValue] of requiredSpawnOptions) {
+        const assignmentPattern = new RegExp(`${name}\\s*:\\s*${expectedValue}\\b`)
+        if (!assignmentPattern.test(source)) {
+            throw new Error(`MMOOMM flight fixture server runtime module must return ${name}: ${expectedValue}`)
+        }
+    }
+}
+
+const assertRuntimeModuleContract = (snapshot: NonNullable<SnapshotEnvelope['snapshot']>): void => {
+    const modules = snapshot.modules ?? []
+    const findModule = (codename: string) =>
+        modules.find(
+            (item) => item && typeof item === 'object' && readCodenameText((item as { codename?: unknown }).codename) === codename
+        ) as Record<string, unknown> | undefined
+    const clientModule = findModule('flight-canvas-widget')
+    const serverModule = findModule('fixed-tick-flight-runtime')
+    if (!clientModule || clientModule.moduleRole !== 'widget') {
+        throw new Error('MMOOMM flight fixture must include the flight-canvas-widget widget module')
+    }
+    if (!serverModule || serverModule.moduleRole !== 'module') {
+        throw new Error('MMOOMM flight fixture must include the fixed-tick-flight-runtime server module')
+    }
+    if (typeof clientModule.clientBundle !== 'string' || clientModule.clientBundle.trim().length === 0) {
+        throw new Error('MMOOMM flight fixture client module must preserve a non-empty clientBundle')
+    }
+    if (typeof serverModule.serverBundle !== 'string' || serverModule.serverBundle.trim().length === 0) {
+        throw new Error('MMOOMM flight fixture server module must preserve a non-empty serverBundle')
+    }
+
+    const clientMethods = (clientModule.manifest as { methods?: Array<{ name?: unknown; target?: unknown }> } | undefined)?.methods ?? []
+    const serverMethods = (serverModule.manifest as { methods?: Array<{ name?: unknown; target?: unknown }> } | undefined)?.methods ?? []
+    if (!clientMethods.some((method) => method.name === 'mount' && method.target === 'client')) {
+        throw new Error('MMOOMM flight fixture client module must expose a client mount method')
+    }
+    if (!serverMethods.some((method) => method.name === 'createRealtimeRoomOptions' && method.target === 'server')) {
+        throw new Error('MMOOMM flight fixture server module must expose createRealtimeRoomOptions on the server')
+    }
+
+    const clientPackageImports =
+        (clientModule.manifest as { packageImports?: Array<{ packageName?: unknown; targets?: unknown }> } | undefined)?.packageImports ??
+        []
+    for (const packageName of ['@universo-react/playcanvas-engine', '@universo-react/colyseus-client']) {
+        if (
+            !clientPackageImports.some(
+                (item) => item.packageName === packageName && Array.isArray(item.targets) && item.targets.includes('client')
+            )
+        ) {
+            throw new Error(`MMOOMM flight fixture client module must import ${packageName} for the client runtime`)
+        }
+    }
+}
+
 const assertFlightNavigation = (snapshot: NonNullable<SnapshotEnvelope['snapshot']>): void => {
     const menuConfigs = [
         ...readWidgetConfigsByKey(snapshot.layouts, 'menuWidget'),
@@ -359,8 +424,10 @@ export const assertMmoommFlightFixtureEnvelopeContract = (envelope: SnapshotEnve
     if (!hasPlayCanvasRealtimeModuleConfig(snapshot.layouts) && !hasPlayCanvasRealtimeModuleConfig(snapshot.layoutZoneWidgets)) {
         throw new Error('MMOOMM flight fixture must bind the PlayCanvas widget to client and server runtime modules')
     }
+    assertRuntimeModuleContract(snapshot)
     assertUniqueSceneObjectIds(snapshot)
     assertNoInheritedDetailsRuntimeWidgets(snapshot)
     assertFlightNavigation(snapshot)
     assertFlightSceneGeometry(snapshot)
+    assertServerModuleSpawnOptions(snapshot)
 }

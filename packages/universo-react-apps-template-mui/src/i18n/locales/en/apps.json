@@ -446,6 +446,8 @@
         "rotateLeft": "Rotate left",
         "rotateRight": "Rotate right",
         "viewOnly": "View only",
+        "participantsStatus": "Ships: {{total}} (you + {{remote}} remote)",
+        "participantsViewOnlyStatus": "Ships: {{total}} (view only)",
         "canvasLabel": "Interactive 3D flight scene",
         "realtime": {
             "connecting": "Realtime connecting",
