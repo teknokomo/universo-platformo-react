@@ -49,6 +49,7 @@ function isMemberFormData(data: unknown): data is MemberData {
     const d = data as Record<string, unknown>
     const hasValidCommentVlc =
         d.commentVlc === undefined ||
+        d.commentVlc === null ||
         (typeof d.commentVlc === 'object' && d.commentVlc !== null && 'locales' in (d.commentVlc as Record<string, unknown>))
     return (
         typeof d.email === 'string' &&

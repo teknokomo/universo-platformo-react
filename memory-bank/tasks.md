@@ -4,6 +4,38 @@
 
 ---
 
+## Active: MMOOMM Multi-Ship Authoritative Sync Implementation (2026-05-29)
+
+> Goal: extend the MMOOMM flight runtime from single authoritative ship to two authenticated controllable ships with server-owned Colyseus state, safe spawn placement, generic wrapper helpers, updated fixture, docs, and browser evidence.
+
+### QA Evidence Closure Action Plan
+
+-   [x] Add browser evidence that unauthorized users cannot trigger movement through toolbar, canvas, or keyboard paths.
+-   [x] Add direct browser evidence that PlayCanvas pointer capture is released after camera drag and Escape.
+-   [x] Run formatting plus focused unit/E2E checks and record the closure result.
+
+### Role Update Regression Closure Action Plan
+
+-   [x] Fix application member role update regression so existing members can be edited without a backend 500 or frontend dialog data rejection.
+-   [x] Run focused backend and frontend regression tests for member role updates.
+-   [x] Re-run focused formatting/build checks for touched packages and update progress.
+
+### Manual Flight Control QA Closure Action Plan
+
+-   [x] Fix free-space double-click so lower-screen clicks produce a long-distance planar target in the clicked direction instead of a short target near the camera/cursor.
+-   [x] Replace over-conservative station and ship collision envelopes with axis-aware MVP contact checks that prevent overlap without large visible gaps.
+-   [x] Strengthen component, backend, fixture, and Playwright oracles for lower-screen long-distance clicks, repeated double-clicks, and max visual clearance to stations/ships.
+-   [x] Run Prettier, focused unit/backend/frontend checks, fixture contract, local minimal Supabase Playwright evidence as feasible, and update progress.
+
+### IMPLEMENT Action Plan
+
+-   [x] Add generic spawn and keyed realtime helper coverage in the Colyseus wrapper packages.
+-   [x] Refactor the application Colyseus room from singleton `state.ship` to multi-ship authoritative state with per-user ownership, queued intents, spawn safety, and reconnect lifecycle.
+-   [x] Update the PlayCanvas canvas widget for local plus remote runtime entities, trusted local identity, sequenced intents, prediction/interpolation, observer behavior, reconnect states, i18n, and UX probes.
+-   [x] Update the MMOOMM fixture generator, snapshot contract checker/script, generated snapshot, and runtime E2E flow for two authenticated browser contexts.
+-   [x] Update docs and Memory Bank progress for the multiplayer runtime slice.
+-   [x] Run formatting, focused unit/build checks, fixture contract, local minimal Supabase Playwright evidence, and root build as feasible.
+
 ## Active: MMOOMM Flight Simulator QA Closure (2026-05-28)
 
 > Goal: close the QA findings for the MMOOMM flight simulator so the published app is module-driven, security-hardened, and covered by stronger runtime/browser evidence.
@@ -993,3 +1025,55 @@
 -   [x] Add focused unit/regression tests for module package import surfaces and PlayCanvas realtime state handling.
 -   [x] Regenerate/validate the MMOOMM flight fixture when implementation changes affect generated artifacts.
 -   [x] Run Prettier, focused package tests/builds, local minimal Supabase generator/runtime Playwright checks, full build, and autoreview.
+
+## MMOOMM Multi-Ship Access Lifecycle QA Closure 2026-05-29
+
+-   [x] Track every authenticated member room client, including read-only observers, for fresh access revalidation.
+-   [x] Close revoked member sockets and remove controlling ship runtime state fail-closed.
+-   [x] Add backend regressions for revoked controlling and read-only clients.
+-   [x] Run Prettier, focused backend tests, lint/build checks, DB access guard, and local minimal Supabase MMOOMM runtime E2E.
+
+## MMOOMM Multi-Ship Final QA Findings Closure 2026-05-29
+
+-   [x] Revalidate active public realtime viewers and close revoked public sockets fail-closed.
+-   [x] Add backend regressions for public realtime revoke and room-level spawn failure.
+-   [x] Strengthen Playwright evidence for user-visible runtime navigation and Russian localized runtime UI.
+-   [x] Reduce flaky fixed waits in the MMOOMM runtime E2E where state-based assertions are available.
+-   [x] Run Prettier, focused backend/frontend tests, lint/build checks, DB access guard, and local minimal Supabase MMOOMM runtime E2E.
+
+## MMOOMM Multi-Ship QA Hardening Closure 2026-05-29
+
+-   [x] Use request-scoped DB executor for authenticated member realtime matchmaking flows.
+-   [x] Add server-side per-client Colyseus message rate limiting before intent payload parsing.
+-   [x] Normalize module-provided guard half extents before movement/spawn guard checks.
+-   [x] Add focused backend regressions for executor selection, rate limiting, and guard normalization.
+-   [x] Run Prettier, focused backend tests, lint/build checks, and DB access guard.
+
+## MMOOMM Multi-Ship Multi-Session Lifecycle QA Closure 2026-05-29
+
+-   [x] Keep reused ships connected when one of multiple active controlling sessions drops.
+-   [x] Add backend regression coverage for same-user multi-session drop lifecycle.
+-   [x] Run Prettier, focused backend tests, lint/build checks, and DB access guard.
+
+## MMOOMM Multi-Ship Final Browser Contract Closure 2026-05-29
+
+-   [x] Add explicit authoritative current movement command state to the fixed-tick Colyseus ship schema.
+-   [x] Strengthen backend regressions for `move_to_point`, `move_to_object`, and `stop` command state transitions.
+-   [x] Fix PlayCanvas wheel input ownership so canvas zoom cannot scroll the page.
+-   [x] Run Prettier, focused backend/frontend tests, lint/build checks, DB access guard, and local minimal Supabase MMOOMM runtime E2E.
+
+## MMOOMM 3D Flight Orientation and Collision QA Closure 2026-05-30
+
+-   [x] Replace planar-only PlayCanvas ship orientation with smooth full-3D forward alignment for local and remote ships.
+-   [x] Align client prediction collision checks with the server-oriented body envelope so visual ship/station standoff is bounded.
+-   [x] Strengthen generic fixed-tick movement tests for oriented half-extents, nose/side/vertical approach, and bounded standoff.
+-   [x] Replace planar widget and Playwright oracles with 3D forward alignment and visual standoff checks.
+-   [x] Regenerate or update the MMOOMM flight fixture snapshot when runtime source/module behavior changes.
+-   [x] Run Prettier, focused tests, local minimal Supabase E2E where feasible, and autoreview.
+
+## MMOOMM Multi-Ship Final QA Remediation 2026-05-30
+
+-   [ ] Close the initial Colyseus `onJoin` stale-access window with fresh runtime access validation before any session or ship is registered.
+-   [ ] Add backend regressions for revoked controlling and read-only access between `onAuth` and `onJoin`.
+-   [ ] Strengthen runtime test oracles for localized realtime failure states, remote interpolation smoothness, and reconnect duplicate rendering evidence.
+-   [ ] Run Prettier, focused tests, lint/build checks, local minimal Supabase MMOOMM runtime E2E, and autoreview.

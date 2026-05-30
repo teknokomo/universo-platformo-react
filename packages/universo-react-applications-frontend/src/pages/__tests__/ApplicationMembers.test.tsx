@@ -326,6 +326,60 @@ describe('ApplicationMembers', () => {
                 expect(roleElements.length).toBeGreaterThan(0)
             })
         })
+
+        it('updates a member role through the real member action dialog without rejecting null localized comments', async () => {
+            vi.mocked(applicationsApi.listApplicationMembers).mockResolvedValue(
+                paginated(
+                    [
+                        createMember({
+                            id: 'member-admin',
+                            userId: 'test-user-id',
+                            role: 'admin',
+                            email: 'admin@example.com',
+                            nickname: 'Admin User'
+                        }),
+                        createMember({
+                            id: 'member-target',
+                            userId: 'user-target',
+                            role: 'member',
+                            email: 'target@example.com',
+                            nickname: 'Target User',
+                            commentVlc: null
+                        })
+                    ],
+                    { total: 2, limit: 20, offset: 0 }
+                )
+            )
+            vi.mocked(applicationsApi.updateApplicationMemberRole).mockResolvedValue(undefined)
+
+            const { user } = await renderWithProviders(<ApplicationMembers />)
+
+            await screen.findByText('target@example.com')
+            await user.click(screen.getByTestId('entity-menu-trigger-member-member-target'))
+            await user.click(await screen.findByTestId('entity-menu-item-member-edit-member-target'))
+
+            const dialog = await screen.findByRole('dialog')
+            const commentInput = within(dialog).getByLabelText(/comment/i)
+            expect(commentInput).toHaveAttribute('aria-invalid', 'false')
+            expect(commentInput.tagName.toLowerCase()).toBe('textarea')
+
+            await user.click(within(dialog).getByRole('combobox', { name: /role/i }))
+            await user.click(await screen.findByRole('option', { name: /editor/i }))
+            await user.click(within(dialog).getByRole('button', { name: /save/i }))
+
+            await waitFor(() => {
+                expect(applicationsApi.updateApplicationMemberRole).toHaveBeenCalledWith(
+                    'test-application-id',
+                    'member-target',
+                    expect.objectContaining({
+                        role: 'editor',
+                        comment: null,
+                        commentPrimaryLocale: undefined
+                    })
+                )
+            })
+            expect(screen.queryByText(/invalid member data format/i)).not.toBeInTheDocument()
+        }, 15000)
     })
 
     describe('Error handling', () => {

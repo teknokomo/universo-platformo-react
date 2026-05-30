@@ -150,18 +150,30 @@ const createClientModuleRequireSource = () => `
            z: options.target.z + Math.cos(options.yaw) * horizontal
        };
    };
+   const __universoMaxIntentSeq = 2147483647;
+   let __universoIntentSeq = 0;
+   const __universoResolveIntentSeq = (seq) => {
+       if (Number.isInteger(seq) && seq > 0 && seq <= __universoMaxIntentSeq) {
+           __universoIntentSeq = Math.max(__universoIntentSeq, seq);
+           return seq;
+       }
+       __universoIntentSeq += 1;
+       return __universoIntentSeq;
+   };
 
    const __universoClientModulePackages = Object.freeze({
        '@universo-react/colyseus-client': Object.freeze({
-           createMoveToPointIntent: (target) => ({
+          createMoveToPointIntent: (target, seq) => ({
                type: 'move_to_point',
-            target: __universoCloneVector3(target)
-        }),
-           createMoveToObjectIntent: (objectId) => ({
-               type: 'move_to_object',
-               objectId: String(objectId)
+               target: __universoCloneVector3(target),
+               seq: __universoResolveIntentSeq(seq)
            }),
-           createStopIntent: () => ({ type: 'stop' }),
+          createMoveToObjectIntent: (objectId, seq) => ({
+               type: 'move_to_object',
+               objectId: String(objectId),
+               seq: __universoResolveIntentSeq(seq)
+           }),
+          createStopIntent: (seq) => ({ type: 'stop', seq: __universoResolveIntentSeq(seq) }),
            lerpNumber: __universoLerpNumber,
            lerpVector3: __universoLerpVector3,
            interpolateSnapshotVector3: (previous, next, renderTime, selectVector) => {
@@ -175,6 +187,23 @@ const createClientModuleRequireSource = () => `
                const alpha = duration > 0 ? (renderTime - previous.receivedAt) / duration : 1;
                return __universoLerpVector3(selectVector(previous.state), selectVector(next.state), alpha);
            },
+           interpolateKeyedSnapshotVector3: (previousById, nextById, id, renderTime, selectVector) => {
+               const previous = previousById && typeof previousById.get === 'function' ? previousById.get(id) ?? null : null;
+               const next = nextById && typeof nextById.get === 'function' ? nextById.get(id) ?? null : null;
+               if (!next) {
+                   return previous ? selectVector(previous.state) : null;
+               }
+               if (!previous || previous.receivedAt >= next.receivedAt) {
+                   return selectVector(next.state);
+               }
+               const duration = next.receivedAt - previous.receivedAt;
+               const alpha = duration > 0 ? (renderTime - previous.receivedAt) / duration : 1;
+               return __universoLerpVector3(selectVector(previous.state), selectVector(next.state), alpha);
+           },
+           dropAcknowledgedPredictions: (predictions, lastProcessedInputSeq) =>
+               Array.isArray(predictions)
+                   ? predictions.filter((prediction) => prediction && Number(prediction.seq) > Number(lastProcessedInputSeq))
+                   : [],
            isDoubleClickActivation: (params) =>
                params.lastClickAt !== null && params.currentClickAt - params.lastClickAt <= (params.thresholdMs ?? 350)
        }),

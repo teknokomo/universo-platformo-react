@@ -90,10 +90,18 @@ class FlightWidget {
   async mount() {
     const stationBounds = createAabbFromCenterAndSize({ x: 72, y: 0, z: -48 }, { x: 48, y: 16, z: 16 })
     return {
-      moveToPoint: (0, import_colyseus_client.createMoveToPointIntent)({ x: 72, y: 0, z: -48 }),
-      moveToObject: (0, import_colyseus_client.createMoveToObjectIntent)('station'),
-      stop: (0, import_colyseus_client.createStopIntent)(),
+      moveToPoint: (0, import_colyseus_client.createMoveToPointIntent)({ x: 72, y: 0, z: -48 }, 1),
+      moveToObject: (0, import_colyseus_client.createMoveToObjectIntent)('station', 2),
+      stop: (0, import_colyseus_client.createStopIntent)(3),
       interpolated: (0, import_colyseus_client.lerpVector3)({ x: 0, y: 0, z: 0 }, { x: 10, y: 0, z: 0 }, 0.5),
+      keyedInterpolated: (0, import_colyseus_client.interpolateKeyedSnapshotVector3)(
+        new Map([['ship-1', { receivedAt: 0, state: { position: { x: 0, y: 0, z: 0 } } }]]),
+        new Map([['ship-1', { receivedAt: 100, state: { position: { x: 20, y: 0, z: 0 } } }]]),
+        'ship-1',
+        50,
+        (state) => state.position
+      ),
+      pendingPredictions: (0, import_colyseus_client.dropAcknowledgedPredictions)([{ seq: 1 }, { seq: 2 }, { seq: 3 }], 2),
       doubleClick: (0, import_colyseus_client.isDoubleClickActivation)({ lastClickAt: 100, currentClickAt: 200 }),
       cameraPosition: (0, import_playcanvas_engine.resolveFollowCameraPosition)({
         target: { x: 0, y: 0, z: 0 },
@@ -113,6 +121,24 @@ class FlightWidget {
 
 const { createAabbFromCenterAndSize } = import_playcanvas_engine
 module.exports = FlightWidget
+`
+
+const LEGACY_MOVEMENT_HELPERS_REQUIRE_BUNDLE = `var import_colyseus_client = require("@universo-react/colyseus-client");
+
+class LegacyFlightWidget {
+  async mount() {
+    return {
+      first: (0, import_colyseus_client.createMoveToPointIntent)({ x: 10, y: 0, z: 0 }),
+      second: (0, import_colyseus_client.createMoveToObjectIntent)('station'),
+      explicit: (0, import_colyseus_client.createStopIntent)(7),
+      next: (0, import_colyseus_client.createMoveToPointIntent)({ x: 20, y: 0, z: 0 }),
+      invalidZero: (0, import_colyseus_client.createStopIntent)(0),
+      invalidNegative: (0, import_colyseus_client.createStopIntent)(-1)
+    }
+  }
+}
+
+module.exports = LegacyFlightWidget
 `
 
 describe('browserModuleRuntime', () => {
@@ -330,10 +356,12 @@ describe('browserModuleRuntime', () => {
             })
 
             expect(result).toEqual({
-                moveToPoint: { type: 'move_to_point', target: { x: 72, y: 0, z: -48 } },
-                moveToObject: { type: 'move_to_object', objectId: 'station' },
-                stop: { type: 'stop' },
+                moveToPoint: { type: 'move_to_point', target: { x: 72, y: 0, z: -48 }, seq: 1 },
+                moveToObject: { type: 'move_to_object', objectId: 'station', seq: 2 },
+                stop: { type: 'stop', seq: 3 },
                 interpolated: { x: 5, y: 0, z: 0 },
+                keyedInterpolated: { x: 10, y: 0, z: 0 },
+                pendingPredictions: [{ seq: 3 }],
                 doubleClick: true,
                 cameraPosition: { x: 0, y: 0, z: 30 },
                 zoomedDistance: 10,
@@ -343,6 +371,34 @@ describe('browserModuleRuntime', () => {
                     halfExtents: { x: 24, y: 8, z: 8 }
                 },
                 insideStation: true
+            })
+        } finally {
+            vi.unstubAllGlobals()
+        }
+    })
+
+    it('keeps legacy imported movement helpers authoritative by assigning non-zero monotonic sequences', async () => {
+        vi.stubGlobal('window', undefined)
+        vi.stubGlobal('document', undefined)
+
+        try {
+            const result = await executeClientModuleMethod({
+                bundle: LEGACY_MOVEMENT_HELPERS_REQUIRE_BUNDLE,
+                methodName: 'mount',
+                args: [],
+                context: {
+                    applicationId: 'app-1',
+                    callServerMethod: vi.fn()
+                }
+            })
+
+            expect(result).toEqual({
+                first: { type: 'move_to_point', target: { x: 10, y: 0, z: 0 }, seq: 1 },
+                second: { type: 'move_to_object', objectId: 'station', seq: 2 },
+                explicit: { type: 'stop', seq: 7 },
+                next: { type: 'move_to_point', target: { x: 20, y: 0, z: 0 }, seq: 8 },
+                invalidZero: { type: 'stop', seq: 9 },
+                invalidNegative: { type: 'stop', seq: 10 }
             })
         } finally {
             vi.unstubAllGlobals()
