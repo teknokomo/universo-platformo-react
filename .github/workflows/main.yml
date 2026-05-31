@@ -48,6 +48,7 @@ jobs:
                   pnpm --filter @universo-react/playcanvas-editor test
                   pnpm --filter @universo-react/playcanvas-editor editor:build
                   pnpm --filter @universo-react/playcanvas-editor editor:smoke
+                  pnpm --filter @universo-react/playcanvas-editor exec playwright install --with-deps chromium
                   pnpm --filter @universo-react/playcanvas-editor editor:browser-smoke
             - name: Lint database access standard
               run: node tools/lint-db-access.mjs
