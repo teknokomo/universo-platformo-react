@@ -37,7 +37,7 @@ export const createArtifactManifest = (builtAt = new Date().toISOString()) => ({
 })
 
 export const assertNodeVersion = (version = process.versions.node) => {
-    const match = /^v?(\d+)\.(\d+)\.(\d+)$/.exec(version)
+    const match = /^v?(\d+)\.(\d+)\.(\d+)(?:\+[\w.-]+)?$/.exec(version)
     if (!match) {
         throw new Error(`Unsupported Node.js version string: ${version}`)
     }
@@ -105,7 +105,7 @@ export const validateArtifactManifest = (manifest) => {
 
 export const assertNoNestedPackageManifests = (root = packageRoot) => {
     const violations = []
-    const ignoredDirs = new Set(['node_modules', 'dist', 'build', '.turbo', 'coverage'])
+    const ignoredDirs = new Set(['node_modules', 'dist', 'build', '.turbo', '.tmp', 'coverage'])
 
     const walk = (dir) => {
         for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {

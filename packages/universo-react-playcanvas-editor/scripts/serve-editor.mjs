@@ -29,7 +29,7 @@ export const readArg = (args, name, fallback) => {
 
 export const resolveArtifactRequest = (pathname, root = artifactRoot) => {
     const resolvedRoot = path.resolve(root)
-    const realRoot = fs.realpathSync(resolvedRoot)
+    const realRoot = fs.existsSync(resolvedRoot) ? fs.realpathSync(resolvedRoot) : resolvedRoot
     const rawPath = pathname === '/' ? '/index.html' : pathname
     let requested
 
@@ -39,22 +39,37 @@ export const resolveArtifactRequest = (pathname, root = artifactRoot) => {
         return { status: 400, requested: rawPath, absolutePath: resolvedRoot }
     }
 
+    if (requested.includes('\0')) {
+        return { status: 400, requested, absolutePath: resolvedRoot }
+    }
+
     const absolutePath = path.resolve(resolvedRoot, `.${requested}`)
     const relativePath = path.relative(resolvedRoot, absolutePath)
     const insideRoot = relativePath === '' || (!relativePath.startsWith('..') && !path.isAbsolute(relativePath))
     let realPath = null
 
-    if (insideRoot && fs.existsSync(absolutePath)) {
+    try {
+        if (!insideRoot || !fs.existsSync(absolutePath)) {
+            return {
+                status: insideRoot ? 200 : 403,
+                requested,
+                absolutePath,
+                realPath
+            }
+        }
+
         realPath = fs.realpathSync(absolutePath)
         const realRelativePath = path.relative(realRoot, realPath)
         const realInsideRoot = realRelativePath === '' || (!realRelativePath.startsWith('..') && !path.isAbsolute(realRelativePath))
         if (!realInsideRoot) {
             return { status: 403, requested, absolutePath, realPath }
         }
+    } catch {
+        return { status: 400, requested, absolutePath, realPath }
     }
 
     return {
-        status: insideRoot ? 200 : 403,
+        status: 200,
         requested,
         absolutePath,
         realPath
@@ -84,18 +99,37 @@ export const createArtifactServer = ({ host = '127.0.0.1', port = 3487, root = a
             return
         }
 
-        if (!fs.existsSync(resolved.absolutePath) || !fs.statSync(resolved.absolutePath).isFile()) {
+        let stat = null
+        try {
+            stat = fs.existsSync(resolved.absolutePath) ? fs.statSync(resolved.absolutePath) : null
+        } catch {
+            res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8', 'X-Content-Type-Options': 'nosniff' })
+            res.end('Bad request')
+            return
+        }
+
+        if (!stat?.isFile()) {
             res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'X-Content-Type-Options': 'nosniff' })
             res.end('Not found')
             return
         }
+
+        const stream = fs.createReadStream(resolved.absolutePath)
+        stream.on('error', () => {
+            if (!res.headersSent) {
+                res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8', 'X-Content-Type-Options': 'nosniff' })
+                res.end('Internal server error')
+                return
+            }
+            res.destroy()
+        })
 
         res.writeHead(200, {
             'Content-Type': getContentType(resolved.absolutePath),
             'X-Content-Type-Options': 'nosniff',
             'Cache-Control': resolved.requested.includes('/assets/') ? 'public, max-age=31536000, immutable' : 'no-cache'
         })
-        fs.createReadStream(resolved.absolutePath).pipe(res)
+        stream.pipe(res)
     })
 }
 

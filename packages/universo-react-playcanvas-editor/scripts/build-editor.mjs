@@ -50,7 +50,7 @@ const initialLockfileHash = readRootLockfileHash()
 try {
     fs.cpSync(vendorSourceRoot, tempRoot, { recursive: true })
     fs.copyFileSync(upstreamManifestPath, path.join(tempRoot, 'package.json'))
-    fs.symlinkSync(packageNodeModules, path.join(tempRoot, 'node_modules'), 'dir')
+    fs.symlinkSync(packageNodeModules, path.join(tempRoot, 'node_modules'), process.platform === 'win32' ? 'junction' : 'dir')
 
     const viteBin = path.join(packageNodeModules, 'vite', 'bin', 'vite.js')
     run(process.execPath, [viteBin, 'build', '--config', 'vite.config.mjs'], { cwd: tempRoot })

@@ -35,13 +35,28 @@ describe('PlayCanvas Editor artifact metadata', () => {
     it('fails closed on unsupported Node versions', () => {
         expect(() => assertNodeVersion('22.21.9')).toThrow(/requires Node.js/)
         expect(() => assertNodeVersion('22.22.0')).not.toThrow()
+        expect(() => assertNodeVersion('22.22.0+universo.1')).not.toThrow()
         expect(() => assertNodeVersion('23.0.0')).not.toThrow()
         expect(() => assertNodeVersion('not-a-version')).toThrow(/Unsupported/)
+        expect(() => assertNodeVersion('22.22.0-rc.1')).toThrow(/Unsupported/)
     })
 
     it('does not leave upstream package manifests under the package tree', () => {
         expect(() => assertNoNestedPackageManifests()).not.toThrow()
         expect(fs.existsSync(path.join(packageRoot, 'vendor', 'playcanvas-editor', 'package.json'))).toBe(false)
+    })
+
+    it('ignores generated temporary directories when checking nested package manifests', () => {
+        const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'universo-playcanvas-editor-manifests-'))
+
+        try {
+            fs.mkdirSync(path.join(tempRoot, '.tmp'), { recursive: true })
+            fs.writeFileSync(path.join(tempRoot, '.tmp', 'package.json'), '{}')
+
+            expect(() => assertNoNestedPackageManifests(tempRoot)).not.toThrow()
+        } finally {
+            fs.rmSync(tempRoot, { recursive: true, force: true })
+        }
     })
 
     it('does not run unpinned install or network source commands in build/smoke scripts', () => {
@@ -107,6 +122,7 @@ describe('PlayCanvas Editor artifact metadata', () => {
         expect(resolveArtifactRequest('/..%2feditor2/file.js', root)).toMatchObject({ status: 403 })
         expect(resolveArtifactRequest('/%2e%2e%2feditor-evil/file.js', root)).toMatchObject({ status: 403 })
         expect(resolveArtifactRequest('/%E0%A4%A', root)).toMatchObject({ status: 400 })
+        expect(resolveArtifactRequest('/bad%00path', root)).toMatchObject({ status: 400 })
     })
 
     it('rejects artifact server symlink escapes outside the real artifact root', () => {
@@ -116,7 +132,14 @@ describe('PlayCanvas Editor artifact metadata', () => {
         try {
             fs.writeFileSync(path.join(tempRoot, 'index.html'), '<!doctype html>')
             fs.writeFileSync(path.join(outsideDir, 'secret.txt'), 'secret')
-            fs.symlinkSync(path.join(outsideDir, 'secret.txt'), path.join(tempRoot, 'secret-link.txt'))
+            try {
+                fs.symlinkSync(path.join(outsideDir, 'secret.txt'), path.join(tempRoot, 'secret-link.txt'))
+            } catch (error) {
+                if (process.platform === 'win32' && error?.code === 'EPERM') {
+                    return
+                }
+                throw error
+            }
 
             expect(resolveArtifactRequest('/secret-link.txt', tempRoot)).toMatchObject({ status: 403 })
         } finally {
