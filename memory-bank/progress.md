@@ -2022,3 +2022,53 @@ diff --check`, metahubs backend focused Jest with 80 tests, metahubs
     minimal Supabase MMOOMM runtime Playwright gate with 2/2 tests passing,
     final autoreview with no accepted/actionable findings, and local E2E
     Supabase was stopped after the run.
+
+### 2026-05-31: PlayCanvas Editor Package Foundation Implementation
+
+-   Added the isolated `@universo-react/playcanvas-editor` workspace package
+    around a vendored PlayCanvas Editor `v2.22.1` snapshot pinned to commit
+    `0fcd44253ba1bba39c13d45b069265167249ecb6`.
+-   Implemented artifact-only build and smoke tooling that builds upstream
+    Editor from a temporary external workspace, writes a static artifact
+    manifest, validates license/version/Node metadata, and avoids exposing
+    Editor internals through the package public API.
+-   Added repository isolation and catalog guards so PlayCanvas Editor, PCUI,
+    Observer, and vendored source cannot leak into other Universo packages.
+-   Added package-local Vitest coverage, package-local Playwright artifact
+    smoke coverage, GitHub Actions checks, and GitBook EN/RU documentation for
+    the foundation package.
+-   Verification passed: package-local TypeScript check, Vitest, artifact
+    build, artifact smoke, Playwright artifact browser smoke, repository
+    isolation/catalog guards, GitBook EN/RU docs checks, root ESLint with
+    existing warnings only, and `git diff --check`.
+
+### 2026-05-31: PlayCanvas Editor Package Foundation QA Remediation
+
+-   Closed the QA gaps in the foundation package by adding package-local
+    browser smoke to CI and agent gates, extending Playwright evidence to
+    desktop/tablet/mobile projects, and strengthening static artifact header
+    and traversal checks.
+-   Hardened the preview server path boundary with resolved-path and realpath
+    checks so encoded sibling traversal and symlink escapes outside
+    `dist/editor` fail closed.
+-   Strengthened supply-chain guard coverage: build scripts now assert the
+    root lockfile hash stays stable, no-install/network checks scan the
+    package script tree, negative fixtures prove forbidden commands fail, and
+    `ot-text` is pinned to the resolved upstream commit.
+-   Made the Editor-specific Vite `7.3.2` dependency an explicit catalog guard
+    exception instead of an implicit omission.
+
+### 2026-06-01: PlayCanvas Editor Package Foundation Guard Closure
+
+-   Hardened the PlayCanvas Editor package script guard so package-local build
+    scripts fail closed on additional package-manager install and network
+    source command variants, including `npm ci`, `pnpm i`, bare Yarn installs,
+    Corepack activation/install flows, Bun/Bunx, shell wrapper literals, and
+    Git submodule network updates.
+-   Expanded negative Vitest fixtures for direct strings and split
+    `spawn`/`execFile` command arguments so the previously missed variants are
+    regression-covered.
+-   Verification passed: PlayCanvas Editor Vitest, TypeScript no-emit,
+    artifact build, artifact smoke, Playwright artifact browser smoke across
+    desktop/tablet/mobile, catalog guard, package naming guard, no-package-base
+    guard, PlayCanvas Editor isolation guard, and GitBook i18n docs check.

@@ -1,0 +1,49 @@
+@use 'sass:color';
+
+$bright-red: #e74c3c;
+
+.toolbar-alert {
+    display: flex;
+    background-color: $bright-red;
+    grid-column: 1 / -1;
+    height: 30px;
+    line-height: 30px;
+    padding-left: 10px;
+    border-top: 1px solid color.mix($bright-red, $border-primary, 60%);
+
+    .pcui-label {
+        width: 100%;
+        color: #fff;
+        font-size: 14px;
+        height: 30px;
+        line-height: 30px;
+        text-align: center;
+        margin: 0;
+        vertical-align: bottom;
+
+        a {
+            color: yellow;
+        }
+    }
+
+    .pcui-button.close {
+        float: right;
+        padding: 0;
+        margin: 0;
+        background-color: transparent;
+        color: white;
+        opacity: 0.75;
+        border: none;
+        font-size: 14px;
+        height: 30px;
+        width: 30px;
+        line-height: 30px;
+        text-align: center;
+
+        @extend .font-icon;
+
+        &:hover {
+            opacity: 1;
+        }
+    }
+}

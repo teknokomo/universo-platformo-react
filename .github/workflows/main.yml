@@ -31,13 +31,25 @@ jobs:
                   cache: 'pnpm'
                   cache-dependency-path: 'pnpm-lock.yaml'
             - run: pnpm install
+            - name: Check catalog versions
+              run: pnpm check:catalog-versions
             - name: Check flattened package layout
               run: pnpm check:no-package-base-paths
             - name: Check package naming convention
               run: pnpm check:package-naming
             - name: Check apps-template isolation
               run: pnpm check:apps-template-isolation
+            - name: Check PlayCanvas Editor isolation
+              run: pnpm check:playcanvas-editor-isolation
             - run: pnpm lint
+            - name: Check PlayCanvas Editor package
+              run: |
+                  node -e "const [major,minor,patch]=process.versions.node.split('.').map(Number); if (major < 22 || (major === 22 && (minor < 22 || (minor === 22 && patch < 0)))) process.exit(1)"
+                  pnpm --filter @universo-react/playcanvas-editor test
+                  pnpm --filter @universo-react/playcanvas-editor editor:build
+                  pnpm --filter @universo-react/playcanvas-editor editor:smoke
+                  pnpm --filter @universo-react/playcanvas-editor exec playwright install --with-deps chromium
+                  pnpm --filter @universo-react/playcanvas-editor editor:browser-smoke
             - name: Lint database access standard
               run: node tools/lint-db-access.mjs
             - name: Check LMS runtime release gates

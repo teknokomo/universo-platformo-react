@@ -1,0 +1,11 @@
+{
+    "extends": "../../tsconfig.json",
+    "compilerOptions": {
+        "rootDir": ".",
+        "outDir": "dist-types",
+        "noEmit": true,
+        "types": ["node", "vitest/globals"]
+    },
+    "include": ["src/**/*.ts", "tests/**/*.ts", "playwright.artifact.config.ts"],
+    "exclude": ["dist", "build", ".tmp", "vendor", "node_modules"]
+}

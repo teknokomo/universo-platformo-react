@@ -4,6 +4,26 @@
 
 ---
 
+## Active: PlayCanvas Editor Package Foundation Implementation (2026-05-31)
+
+> Goal: add the isolated `@universo-react/playcanvas-editor` workspace package for the official PlayCanvas Editor frontend artifact, pinned to an upstream release, with reproducible wrapper metadata/scripts, repository guardrails, tests, docs, and no direct MUI/runtime integration.
+
+### IMPLEMENT Action Plan
+
+-   [x] Establish the upstream baseline, pinned tag/commit, and implementation scope.
+-   [x] Create the `@universo-react/playcanvas-editor` package skeleton with metadata, attribution, README files, and package-local scripts.
+-   [x] Vendor the pinned PlayCanvas Editor snapshot safely without exposing upstream `package.json` to workspace/package scanners.
+-   [x] Implement artifact metadata, build/smoke helpers, Vitest coverage, and package-local browser smoke scaffolding.
+-   [x] Add repository guardrails for `.tmp`, catalog scanning, lint isolation, package isolation, CI/agent gates, and Vitest workspace coverage.
+-   [x] Add GitBook documentation and Memory Bank progress updates.
+-   [x] Run formatting, focused package tests, guard checks, install/build/smoke verification as feasible, and record any blockers honestly.
+
+### QA Remediation Action Plan
+
+-   [x] Harden the PlayCanvas Editor script guard against missed install/package-manager command variants.
+-   [x] Add regression tests for the missed direct and split-argument command variants.
+-   [x] Run formatting, focused tests, artifact build/smoke, Playwright browser smoke, and repository guard checks.
+
 ## Active: MMOOMM Multi-Ship Authoritative Sync Implementation (2026-05-29)
 
 > Goal: extend the MMOOMM flight runtime from single authoritative ship to two authenticated controllable ships with server-owned Colyseus state, safe spawn placement, generic wrapper helpers, updated fixture, docs, and browser evidence.
@@ -1077,3 +1097,20 @@
 -   [ ] Add backend regressions for revoked controlling and read-only access between `onAuth` and `onJoin`.
 -   [ ] Strengthen runtime test oracles for localized realtime failure states, remote interpolation smoothness, and reconnect duplicate rendering evidence.
 -   [ ] Run Prettier, focused tests, lint/build checks, local minimal Supabase MMOOMM runtime E2E, and autoreview.
+
+## PlayCanvas Editor Package Foundation Implementation 2026-05-31
+
+-   [x] Add an isolated `@universo-react/playcanvas-editor` workspace package with a pinned PlayCanvas Editor `v2.22.1` vendor snapshot.
+-   [x] Add reproducible artifact build, manifest, static smoke server, Node/version/license guards, and package-local Vitest coverage.
+-   [x] Add Playwright artifact smoke coverage for the generated nonblank safe page and static asset serving contract.
+-   [x] Add repository isolation guards, CI entries, catalog-version exclusions, and docs in GitBook EN/RU structure.
+-   [x] Run final formatted repo-level verification after implementation updates.
+
+## PlayCanvas Editor Package Foundation QA Remediation 2026-05-31
+
+-   [x] Add package-local browser smoke to required CI and agent verification gates.
+-   [x] Harden the package preview server path traversal boundary and cover it with tests.
+-   [x] Extend Playwright artifact smoke to desktop, tablet, and mobile viewport evidence.
+-   [x] Strengthen the no-install/network and lockfile-mutation supply-chain guard.
+-   [x] Make the PlayCanvas Editor Vite catalog exception explicit in the catalog guard.
+-   [x] Run Prettier, focused package checks, browser smoke, repository guards, docs checks, lint, and diff checks.

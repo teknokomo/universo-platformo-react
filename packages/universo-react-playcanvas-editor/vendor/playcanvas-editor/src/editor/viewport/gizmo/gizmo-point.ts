@@ -1,0 +1,289 @@
+import { Events } from '@playcanvas/observer';
+import { Color, CULLFACE_NONE, Entity, math, PROJECTION_PERSPECTIVE, Quat, Vec3 } from 'playcanvas';
+
+import { assignEvents } from '@/common/utils';
+import { GIZMO_MASK } from '@/core/constants';
+
+import { createColorMaterial } from '../viewport-color-material';
+
+editor.once('viewport:load', (app) => {
+    const pool = [];
+    const points = [];
+    const gizmoSize = 0.1;
+    let hoverPoint = null;
+    let dragPoint = null;
+    let mouseTap;
+    let evtTapStart;
+    const pickStart = new Vec3();
+    const vecA = new Vec3();
+    const vecB = new Vec3();
+    const vecC = new Vec3();
+    const vecD = new Vec3();
+    const vecE = new Vec3();
+    const quatA = new Quat();
+
+    const container = new Entity();
+    container.name = 'gizmo-points';
+    container.__editor = true;
+    app.root.addChild(container);
+
+    var material = createColorMaterial();
+    material.color = new Color(1.0, 1.0, 1.0);
+    material.cull = CULLFACE_NONE;
+    material.update();
+
+    const layer = editor.call('gizmo:layers', 'Axis Gizmo');
+
+    const pickPlane = function (x: number, y: number) {
+        const camera = editor.call('camera:current');
+        const mouseWPos = camera.camera.screenToWorld(x, y, 1);
+        const posGizmo = vecE.copy(dragPoint.position);
+        const rayOrigin = vecA.copy(camera.getPosition());
+        const rayDirection = vecB.set(0, 0, 0);
+        const planeNormal = vecC.set(0, 0, 0);
+        planeNormal[dragPoint.axis] = 1;
+
+        if (camera.camera.projection === PROJECTION_PERSPECTIVE) {
+            rayDirection.copy(mouseWPos).sub(rayOrigin).normalize();
+        } else {
+            rayOrigin.add(mouseWPos);
+            camera.getWorldTransform().transformVector(vecD.set(0, 0, -1), rayDirection);
+        }
+
+        quatA.copy(dragPoint.rotation);
+
+        // rotate vector by gizmo rotation
+        quatA.transformVector(planeNormal, planeNormal);
+
+        vecD.copy(rayOrigin).sub(posGizmo).normalize();
+        planeNormal.copy(vecD.sub(planeNormal.mulScalar(planeNormal.dot(vecD))).normalize());
+
+        const rayPlaneDot = planeNormal.dot(rayDirection);
+        const planeDist = posGizmo.dot(planeNormal);
+        const pointPlaneDist = (planeNormal.dot(rayOrigin) - planeDist) / rayPlaneDot;
+        const pickedPos = rayDirection.mulScalar(-pointPlaneDist).add(rayOrigin);
+
+        // single axis
+        planeNormal.set(0, 0, 0);
+        planeNormal[dragPoint.axis] = 1;
+        quatA.transformVector(planeNormal, planeNormal);
+        pickedPos.copy(planeNormal.mulScalar(planeNormal.dot(pickedPos)));
+
+        quatA.invert().transformVector(pickedPos, pickedPos);
+
+        const v = pickedPos[dragPoint.axis];
+        pickedPos.set(0, 0, 0);
+        pickedPos[dragPoint.axis] = v;
+
+        return pickedPos;
+    };
+
+    const onTapStart = function (tap: { button: number; x: number; y: number }) {
+        if (tap.button !== 0 || !hoverPoint) {
+            return;
+        }
+
+        editor.emit('camera:toggle', false);
+
+        mouseTap = tap;
+        dragPoint = hoverPoint;
+
+        pickStart.copy(pickPlane(mouseTap.x, mouseTap.y));
+        dragPoint.entity.enabled = false;
+
+        editor.emit('gizmo:point:start', dragPoint);
+        dragPoint.emit('dragStart');
+        editor.call('viewport:pick:state', false);
+    };
+
+    const onTapMove = function (tap: { x: number; y: number }) {
+        if (!dragPoint) {
+            return;
+        }
+
+        mouseTap = tap;
+    };
+
+    const onTapEnd = function (tap: { button: number }) {
+        if (tap.button !== 0) {
+            return;
+        }
+
+        editor.emit('camera:toggle:true', true);
+
+        if (!dragPoint) {
+            return;
+        }
+
+        mouseTap = tap;
+
+        dragPoint.entity.enabled = true;
+        editor.emit('gizmo:point:end', dragPoint);
+        dragPoint.emit('dragEnd');
+        dragPoint = null;
+
+        editor.call('viewport:pick:state', true);
+    };
+
+    class Gizmo extends Events {
+        entity: any = null;
+
+        axis: string;
+
+        dir: number;
+
+        rotation: any;
+
+        position: any;
+
+        scale: any;
+
+        constructor(axis: string | undefined, dir: number | undefined) {
+            super();
+            assignEvents(this);
+            this.axis = axis || 'y';
+            this.dir = dir === undefined ? 1 : dir;
+            this.rotation = new Quat();
+            this.position = new Vec3();
+            this.scale = new Vec3(1, 1, 1);
+        }
+
+        update() {
+            if (!this.entity) {
+                return;
+            }
+
+            const camera = editor.call('camera:current');
+            const posCamera = camera.getPosition();
+            const pos = this.entity.getLocalPosition();
+            let scale;
+
+            // scale to screen space
+            if (camera.camera.projection === PROJECTION_PERSPECTIVE) {
+                const dot = vecA.copy(pos).sub(posCamera).dot(camera.forward);
+                const denom = 1280 / (2 * Math.tan(camera.camera.fov * math.DEG_TO_RAD / 2));
+                scale = Math.max(0.0001, (dot / denom) * 150) * gizmoSize;
+            } else {
+                scale = camera.camera.orthoHeight / 3 * gizmoSize;
+            }
+            vecA.copy(this.scale).mulScalar(scale);
+            this.entity.setLocalScale(vecA);
+        }
+
+        set enabled(value: boolean) {
+            if (!!value === !!this.entity) {
+                return;
+            }
+
+            if (value) {
+                this.entity = new Entity();
+                this.entity.addComponent('model', {
+                    type: 'box',
+                    receiveShadows: false,
+                    castShadowsLightmap: false,
+                    castShadows: false,
+                    layers: [layer.id]
+                });
+                this.entity.__editor = true;
+                this.entity.point = this;
+                // this.entity.model.meshInstances[0].layer = pc.LAYER_GIZMO;
+                this.entity.model.meshInstances[0].mask = GIZMO_MASK;
+                this.entity.model.meshInstances[0].material = material;
+                container.addChild(this.entity);
+            } else {
+                this.entity.destroy();
+                this.entity = null;
+            }
+        }
+
+        get enabled() {
+            return !!this.entity;
+        }
+    }
+
+    editor.method('gizmo:point:create', (axis: string | undefined, position: Vec3 | null, dir: number | undefined) => {
+        let item = pool.shift();
+        if (!item) {
+            item = new Gizmo();
+        }
+
+        item.axis = axis || 'y';
+        item.dir = dir === undefined ? 1 : dir;
+        if (position) {
+            item.position.copy(position);
+        }
+        item.enabled = true;
+        points.push(item.entity);
+
+        return item;
+    });
+
+    editor.method('gizmo:point:recycle', (point) => {
+        point.scale.set(1, 1, 1);
+        point.enabled = false;
+        pool.push(point);
+
+        const ind = points.indexOf(point.entity);
+        if (ind !== -1) {
+            points.splice(ind, 1);
+        }
+    });
+
+    editor.call('gizmo:point:hovered', () => {
+        return hoverPoint;
+    });
+
+    // on picker hover
+    editor.on('viewport:pick:hover', (node: Entity | null, picked: unknown) => {
+        let match = false;
+        if (node && node.__editor && node.point) {
+            match = points.indexOf(node) !== -1;
+        }
+
+        if ((!hoverPoint || hoverPoint !== node) && match && node.point) {
+            if (hoverPoint) {
+                hoverPoint.emit('blur');
+            }
+
+            hoverPoint = node.point;
+            hoverPoint.emit('focus');
+
+            if (!evtTapStart) {
+                evtTapStart = editor.on('viewport:tap:start', onTapStart);
+            }
+        } else if (hoverPoint && !match) {
+            if (hoverPoint) {
+                hoverPoint.emit('blur');
+            }
+            hoverPoint = null;
+
+            if (evtTapStart) {
+                evtTapStart.unbind();
+                evtTapStart = null;
+            }
+        }
+    });
+
+    editor.on('viewport:mouse:move', onTapMove);
+    editor.on('viewport:tap:end', onTapEnd);
+
+    editor.on('viewport:postUpdate', (dt) => {
+        if (!dragPoint) {
+            return;
+        }
+
+        const point = pickPlane(mouseTap.x, mouseTap.y);
+        if (point) {
+            vecA.copy(point).sub(pickStart);
+
+            let length = vecA.length();
+            if ((vecA[dragPoint.axis] < 0 && dragPoint.dir === 1) || (vecA[dragPoint.axis] > 0 && dragPoint.dir === -1)) {
+                length *= -1;
+            }
+
+            dragPoint.emit('dragMove', length);
+        }
+
+        editor.call('viewport:render');
+    });
+});

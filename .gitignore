@@ -34,6 +34,7 @@
 ## temp
 **/tmp
 **/temp
+**/.tmp
 
 ## test
 **/coverage
