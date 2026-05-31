@@ -122,6 +122,7 @@ const screenshotExemptPages = new Set([
     'architecture/system-app-convergence.md',
     'architecture/system-app-migration-lifecycle.md',
     'platform/1c-compatible-template.md',
+    'platform/playcanvas-editor.md',
     'contributing/README.md',
     'contributing/coding-guidelines.md',
     'contributing/creating-packages.md',

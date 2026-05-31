@@ -43,6 +43,7 @@
     -   [Exclusions](platform/metahubs/exclusions.md)
     -   [Shared Behavior Settings](platform/metahubs/shared-behavior-settings.md)
 -   [Applications](platform/applications.md)
+-   [PlayCanvas Editor Package](platform/playcanvas-editor.md)
 -   [Admin](platform/admin.md)
 -   [Publications](platform/publications.md)
 

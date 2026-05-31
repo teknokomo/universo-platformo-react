@@ -1,0 +1,2867 @@
+import { Observer, type ObserverList, type EventHandle } from '@playcanvas/observer';
+import {
+    Element,
+    GridViewItem,
+    type GridViewItemArgs,
+    Container,
+    Progress,
+    Panel,
+    Button,
+    SelectInput,
+    TextInput,
+    TreeView,
+    TreeViewItem,
+    GridView,
+    Spinner,
+    Label,
+    BindingObserversToElement,
+    type PanelArgs
+} from '@playcanvas/pcui';
+
+import { CLASS_ERROR } from '@/common/pcui/constants';
+import { AssetThumbnail } from '@/common/pcui/element/element-asset-thumbnail';
+import { type DropManager } from '@/common/pcui/element/element-drop-manager';
+import { DropTarget } from '@/common/pcui/element/element-drop-target';
+import { Table } from '@/common/pcui/element/element-table';
+import { TableCell } from '@/common/pcui/element/element-table-cell';
+import { TableRow } from '@/common/pcui/element/element-table-row';
+import { type Tooltip } from '@/common/pcui/element/element-tooltip';
+import { LegacyTooltip } from '@/common/ui/tooltip';
+import { bytesToHuman, naturalCompare } from '@/common/utils';
+import { config } from '@/editor/config';
+import { type AssetObserver } from '@/editor-api';
+
+const CLASS_ROOT = 'pcui-asset-panel';
+const CLASS_LEFT = `${CLASS_ROOT}-left`;
+const CLASS_FOLDERS = `${CLASS_ROOT}-folders`;
+const CLASS_CURRENT_FOLDER = `${CLASS_ROOT}-current-folder`;
+const CLASS_ASSET_HIGHLIGHTED = `${CLASS_ROOT}-highlighted-asset`;
+const CLASS_DETAILS_NAME = `${CLASS_ROOT}-details-name`;
+const CLASS_ASSET_GRID_ITEM = 'pcui-asset-grid-view-item';
+const CLASS_ASSET_SOURCE = `${CLASS_ASSET_GRID_ITEM}-source`;
+const CLASS_ASSET_NOT_REFERENCED = `${CLASS_ROOT}-unreferenced-asset`;
+
+const CLASS_USERS_CONTAINER = `${CLASS_ROOT}-users`;
+const CLASS_USER_INDICATOR = `${CLASS_USERS_CONTAINER}-indicator`;
+
+const CLASS_CONTROLS = `${CLASS_ROOT}-controls`;
+const CLASS_PROGRESS = `${CLASS_ROOT}-progress`;
+const CLASS_GRID_SMALL = `${CLASS_ROOT}-grid-view-small`;
+
+const CLASS_TASK_FAILED = `${CLASS_ROOT}-task-failed`;
+const CLASS_TASK_RUNNING = `${CLASS_ROOT}-task-running`;
+
+const CLASS_HIDE_ON_COLLAPSE = `${CLASS_ROOT}-hide-on-collapse`;
+const CLASS_BTN_SMALL = `${CLASS_ROOT}-btn-small`;
+const CLASS_BTN_STORE = `${CLASS_ROOT}-btn-store`;
+const CLASS_BTN_CONTAINER = `${CLASS_ROOT}-btn-container`;
+const CLASS_BTN_ACTIVE = `${CLASS_ROOT}-btn-active`;
+const CLASS_BTN_CLEAR_SEARCH = `${CLASS_ROOT}-btn-clear-search`;
+
+const CLASS_LEGACY_SCRIPTS_FOLDER = `${CLASS_ROOT}-legacy-scripts`;
+
+// asset types (used for filtering)
+const TYPES = {
+    all: 'All',
+    animation: 'Animation',
+    audio: 'Audio',
+    bundle: 'Asset Bundle',
+    binary: 'Binary',
+    container: 'Container',
+    cubemap: 'Cubemap',
+    css: 'Css',
+    font: 'Font',
+    fontSource: 'Font (source)',
+    folderSource: 'Folder',
+    gsplat: 'Gaussian Splat',
+    json: 'Json',
+    html: 'Html',
+    material: 'Material',
+    model: 'Model',
+    sceneSource: 'Model (source)',
+    render: 'Render',
+    script: 'Script',
+    shader: 'Shader',
+    sprite: 'Sprite',
+    template: 'Template',
+    text: 'Text',
+    texture: 'Texture',
+    textureSource: 'Texture (source)',
+    textureatlas: 'Texture Atlas',
+    textureatlasSource: 'Texture Atlas (source)',
+    wasm: 'Wasm'
+};
+
+// types of assets that can be double clicked
+const OPENABLE_TYPES = {
+    folder: true,
+    css: true,
+    json: true,
+    html: true,
+    script: true,
+    shader: true,
+    sprite: true,
+    text: true,
+    textureatlas: true,
+    animstategraph: true,
+    texture: true,
+    container: true,
+    gsplat: true
+};
+
+// types of assets that we can drop stuff over
+const HOVERABLES = {
+    folder: true,
+    bundle: true
+};
+
+// regex to parse asset tags in search input
+const REGEX_TAGS = /^\[(.*)\]$/;
+// regex to parse asset sub-tags in search input
+const REGEX_SUB_TAGS = /\[(.*?)\]/g;
+
+// id of fake asset for legacy scripts folder
+const LEGACY_SCRIPTS_ID = 'legacyScripts';
+
+// used as a fake asset to represent the legacy scripts folder
+const LEGACY_SCRIPTS_FOLDER_ASSET = new Observer({
+    id: LEGACY_SCRIPTS_ID,
+    type: 'folder',
+    source: true,
+    name: 'scripts',
+    path: []
+});
+
+// returns a random hex color
+function randomColor() {
+    return Math.floor(Math.random() * 16777215).toString(16);
+}
+
+// Helper class for asset grid view item
+class AssetGridViewItem extends GridViewItem {
+    thumbnail: AssetThumbnail;
+
+    containerUsers: Container;
+
+    progress: Progress;
+
+    asset: AssetObserver;
+
+    private _asset: AssetObserver;
+
+    private _evtName: EventHandle;
+
+    constructor(args: GridViewItemArgs & { assets: ObserverList }) {
+        super(args);
+
+        this.class.add(CLASS_ASSET_GRID_ITEM);
+
+        this.thumbnail = new AssetThumbnail({
+            assets: args.assets,
+            canvasWidth: 64,
+            canvasHeight: 64
+        });
+
+        this.prepend(this.thumbnail);
+
+        this.containerUsers = new Container({
+            flex: true,
+            class: CLASS_USERS_CONTAINER,
+            hidden: true
+        });
+        this.append(this.containerUsers);
+        this.containerUsers.on('append', () => {
+            this.containerUsers.hidden = false;
+        });
+        this.containerUsers.on('remove', () => {
+            if (this.containerUsers.dom.childNodes.length === 0) {
+                this.containerUsers.hidden = true;
+            }
+        });
+
+        this._asset = null;
+
+        this._evtName = null;
+    }
+
+    showProgress() {
+        if (!this.progress) {
+            this.progress = new Progress({
+                value: 100,
+                hidden: true
+            });
+
+            this.appendAfter(this.progress, this.thumbnail);
+        }
+
+        return this.progress;
+    }
+
+    hideProgress() {
+        if (this.progress) {
+            this.progress.destroy();
+            this.progress = null;
+        }
+    }
+
+    link(asset: AssetObserver) {
+        super.link(asset, 'name');
+
+        this._asset = asset;
+
+        this._labelText.dom.title = asset.get('name');
+        this._evtName = asset.on('name:set', (value) => {
+            this._labelText.dom.title = value;
+        });
+
+        this.class.add(`type-${this._asset.get('type')}`);
+
+        // pass the whole asset observer as the value
+        // because we do not want the thumbnail to search the
+        // asset list for the asset (e.g. this might be a dummy
+        // asset like the script folder for legacy scripts). Also
+        // if the asset is missing from the asset list for some reason
+        // we still want to show a valid icon for it and not a 'missing' icon.
+        this.thumbnail.value = asset;
+        if (asset.get('source')) {
+            this.class.add(CLASS_ASSET_SOURCE);
+        } else {
+            if (!editor.call('assets:used:get', asset.get('id'))) {
+                this.class.add(CLASS_ASSET_NOT_REFERENCED);
+            }
+        }
+    }
+
+    unlink() {
+        if (!this._asset) {
+            return;
+        }
+
+        super.unlink();
+
+        if (this._evtName) {
+            this._evtName.unbind();
+            this._evtName = null;
+        }
+
+        this.class.remove(CLASS_ASSET_SOURCE);
+        this.class.remove(CLASS_ASSET_NOT_REFERENCED);
+        this.class.remove(`type-${this._asset.get('type')}`);
+
+        this._asset = null;
+        this.thumbnail.value = null;
+    }
+}
+
+/**
+ * Shows assets in various ways. Supports a grid view with large or small thumbnails and a details
+ * view. Also shows the project's folders in a treeview on the left. Allows filtering of assets by
+ * type and by searching in various ways. Allows creating new assets and moving assets to different
+ * folders.
+ */
+class AssetPanel extends Panel {
+    static readonly VIEW_LARGE_GRID = 'lgrid';
+
+    static readonly VIEW_SMALL_GRID = 'sgrid';
+
+    static readonly VIEW_DETAILS = 'details';
+
+    static readonly LEGACY_SCRIPTS_ID = LEGACY_SCRIPTS_ID;
+
+    private _containerControls: Container;
+
+    private _tooltips: Tooltip[];
+
+    private _btnNew: Button;
+
+    private _btnDelete: Button;
+
+    private _btnBack: Button;
+
+    private _btnLargeGrid: Button;
+
+    private _btnSmallGrid: Button;
+
+    private _btnDetailsView: Button;
+
+    /**
+     * The type dropdown
+     */
+    private _dropdownType: SelectInput;
+
+    /**
+     * The search filter text input
+     */
+    private _searchInput: TextInput;
+
+    private _btnClearSearch: Button;
+
+    private _containerLeft: Container;
+
+    private _containerFolders: Container;
+
+    /**
+     * The folders view
+     */
+    private _foldersView: TreeView;
+
+    private _foldersViewRoot: TreeViewItem;
+
+    private _foldersIndex: Record<number, TreeViewItem>;
+
+    private _foldersWaitingParent: Record<string, Set<number>>;
+
+    private _legacyScriptsIndex: Record<string, Observer>;
+
+    private _hoveredAsset: Observer|undefined|null;
+
+    private _eventsDropManager: EventHandle[];
+
+    private _foldersDropTarget: DropTarget;
+
+    private _tableDropTarget: DropTarget;
+
+    private _gridViewDropTarget: DropTarget;
+
+    private _containerProgress: Container;
+
+    /**
+     * The progress bar
+     */
+    private _progressBar: Progress;
+
+    /**
+     * The details view
+     */
+    private _detailsView: Table;
+
+    /**
+     * The grid view
+     */
+    private _gridView: GridView;
+
+    /**
+     * The current view mode. Can be one of:
+     * AssetPanel.VIEW_LARGE_GRID,
+     * AssetPanel.VIEW_SMALL_GRID,
+     * AssetPanel.VIEW_DETAILS
+     */
+    private _viewMode: typeof AssetPanel.VIEW_LARGE_GRID | typeof AssetPanel.VIEW_SMALL_GRID | typeof AssetPanel.VIEW_DETAILS;
+
+    private _rowsIndex: Record<string, TableRow>;
+
+    private _gridIndex: Record<string, AssetGridViewItem>;
+
+    private _usersIndex: Record<string, {
+        elements: Element[];
+        color: string;
+    }>;
+
+    /**
+     * If true changes to filters will not re-filter the asset panel.
+     */
+    private _suspendFiltering: boolean;
+
+    /**
+     * If true selection events will not the editor's selector to be affected
+     */
+    private _suspendSelectEvents: boolean;
+
+    private _eventsEditor: EventHandle[];
+
+    private _assetListEvents: EventHandle[];
+
+    private _assetEvents: Record<string, EventHandle[]>;
+
+    /**
+     * If false source assets will not be displayed
+     */
+    private _showSourceAssets: boolean;
+
+    private _prevSelectorItems: AssetObserver[];
+
+    private _prevSelectorType: string;
+
+    private _selectorItems: AssetObserver[];
+
+    private _selectorType: string;
+
+    /**
+     * The selected assets
+     */
+    private _selectedAssets: AssetObserver[];
+
+    /**
+     * A specific list of asset types to use during filtering
+     */
+    assetTypes: string[];
+
+    /**
+     * The current folder
+     */
+    private _currentFolder: Observer;
+
+    /**
+     * If false then only a read-only view will be shown
+     */
+    private _writePermissions: boolean;
+
+    /**
+     * The asset list to display
+     */
+    private _assets: ObserverList;
+
+    /**
+     * The drop manager to support drag and drop
+     */
+    private _dropManager: DropManager;
+
+    private _searchTags: string[];
+
+    private _searchPreviousValue: string;
+
+    validateAssetsFn?: (asset: AssetObserver) => boolean;
+
+    constructor(args: PanelArgs & {
+        dropManager: any;
+        viewMode?: typeof AssetPanel.VIEW_LARGE_GRID | typeof AssetPanel.VIEW_SMALL_GRID | typeof AssetPanel.VIEW_DETAILS;
+        writePermissions?: boolean;
+        assets?: ObserverList;
+    }) {
+        args = Object.assign({
+            headerText: 'ASSETS'
+        }, args);
+
+        args.flex = true;
+        args.flexDirection = 'row';
+
+        super(args);
+
+        this.class.add(CLASS_ROOT);
+
+        // append container for all controls
+        this._containerControls = new Container({
+            class: [CLASS_CONTROLS, CLASS_HIDE_ON_COLLAPSE],
+            flex: true
+        });
+        this.header.append(this._containerControls);
+        // stop click events so that the asset panel is only collapsed when you
+        // click on the title
+        this._containerControls.on('click', (evt: MouseEvent) => evt.stopPropagation());
+
+        this._tooltips = [];
+
+        // header controls
+
+        const tooltip = LegacyTooltip.create({
+            text: 'Add Asset',
+            align: 'bottom',
+            class: 'pcui-tooltip-clipboard',
+            root: editor.call('layout.root')
+        });
+        tooltip.hidden = true;
+
+        // button to create new asset
+        this._btnNew = new Button({
+            icon: 'E120',
+            enabled: false,
+            class: [CLASS_BTN_SMALL, CLASS_HIDE_ON_COLLAPSE]
+        });
+        this._btnNew.on('click', this._onClickNew.bind(this));
+        this._btnNew.on('hover', () => {
+            tooltip.attach(this._btnNew.dom);
+            tooltip.text = 'Add Asset';
+            tooltip.class.toggle('inactive', !this._btnNew.enabled);
+        });
+        this._containerControls.append(this._btnNew);
+
+        // button to delete asset
+        this._btnDelete = new Button({
+            icon: 'E124',
+            enabled: false,
+            class: [CLASS_BTN_SMALL, CLASS_HIDE_ON_COLLAPSE]
+        });
+        this._btnDelete.on('click', this._onClickDelete.bind(this));
+        this._btnDelete.on('hover', () => {
+            tooltip.attach(this._btnDelete.dom);
+            tooltip.text = 'Delete Asset';
+            tooltip.class.toggle('inactive', !this._btnDelete.enabled);
+        });
+        this._containerControls.append(this._btnDelete);
+
+        // button to go up on folder
+        this._btnBack = new Button({
+            icon: 'E114',
+            enabled: false,
+            class: [CLASS_BTN_SMALL, CLASS_HIDE_ON_COLLAPSE]
+        });
+        this._btnBack.on('click', () => {
+            this.navigateBack();
+            tooltip.class.toggle('inactive', !this._btnBack.enabled);
+        });
+        this._btnBack.on('hover', () => {
+            tooltip.attach(this._btnBack.dom);
+            tooltip.text = 'Go one folder up';
+            tooltip.class.toggle('inactive', !this._btnBack.enabled);
+        });
+        this._containerControls.append(this._btnBack);
+
+        // contains view mode buttons
+        const containerBtn = new Container({
+            flex: true,
+            flexDirection: 'row',
+            class: [CLASS_BTN_CONTAINER, CLASS_HIDE_ON_COLLAPSE]
+        });
+        this._containerControls.append(containerBtn);
+
+        // show large grid view mode
+        this._btnLargeGrid = new Button({
+            icon: 'E143',
+            class: [CLASS_BTN_SMALL, CLASS_HIDE_ON_COLLAPSE]
+        });
+        this._btnLargeGrid.on('click', this._onClickLargeGrid.bind(this));
+        this._btnLargeGrid.on('hover', () => {
+            tooltip.attach(this._btnLargeGrid.dom);
+            tooltip.text = 'Large Icons';
+            tooltip.class.remove('inactive');
+        });
+        containerBtn.append(this._btnLargeGrid);
+
+        // show small grid view mode
+        this._btnSmallGrid = new Button({
+            icon: 'E145',
+            class: [CLASS_BTN_SMALL, CLASS_HIDE_ON_COLLAPSE]
+        });
+        this._btnSmallGrid.on('click', this._onClickSmallGrid.bind(this));
+        this._btnSmallGrid.on('hover', () => {
+            tooltip.attach(this._btnSmallGrid.dom);
+            tooltip.text = 'Small Icons';
+            tooltip.class.remove('inactive');
+        });
+        containerBtn.append(this._btnSmallGrid);
+
+        // show details view mode
+        this._btnDetailsView = new Button({
+            icon: 'E146',
+            class: [CLASS_BTN_SMALL, CLASS_HIDE_ON_COLLAPSE]
+        });
+        this._btnDetailsView.on('click', this._onClickDetailsView.bind(this));
+        this._btnDetailsView.on('hover', () => {
+            tooltip.attach(this._btnDetailsView.dom);
+            tooltip.text = 'Details';
+            tooltip.class.remove('inactive');
+        });
+        containerBtn.append(this._btnDetailsView);
+
+        // asset type dropdown filter
+        const dropdownTypeOptions = Object.keys(TYPES)
+        .filter((type: string) => type !== 'bundle' || editor.call('users:hasFlag', 'hasBundles'))
+        .map((type: string) => {
+            return {
+                v: type,
+                t: TYPES[type]
+            };
+        });
+        this._dropdownType = new SelectInput({
+            options: dropdownTypeOptions,
+            value: 'all',
+            class: CLASS_HIDE_ON_COLLAPSE
+        });
+        this._dropdownType.on('blur', () => {
+            this._dropdownType.close();
+        });
+
+        this._containerControls.append(this._dropdownType);
+        this._dropdownType.on('change', this._onDropDownTypeChange.bind(this));
+
+
+        this._dropdownType._labelValue.on('hover', () => {
+            tooltip.attach(this._dropdownType._labelValue.dom);
+            tooltip.text = 'Filter by Type';
+            tooltip.class.remove('inactive');
+        });
+
+        // search input filter
+        this._searchInput = new TextInput({
+            class: CLASS_HIDE_ON_COLLAPSE,
+            keyChange: true,
+            placeholder: 'Search'
+        });
+        this._containerControls.append(this._searchInput);
+        this._searchInput.on('change', this._onSearchInputChange.bind(this));
+        this._searchTags = null;
+        this._searchPreviousValue = '';
+
+        // clear search input
+        this._btnClearSearch = new Button({
+            icon: 'E132',
+            hidden: true,
+            class: CLASS_BTN_CLEAR_SEARCH
+        });
+        this._searchInput.dom.appendChild(this._btnClearSearch.dom);
+        this._btnClearSearch.parent = this._searchInput;
+        this._btnClearSearch.on('click', this._onClickClearSearch.bind(this));
+
+        // Show asset store
+        const btnStore = new Button({
+            text: 'ASSET STORE',
+            icon: 'E244',
+            class: [CLASS_BTN_STORE, CLASS_HIDE_ON_COLLAPSE]
+        });
+        btnStore.on('click', this._onClickStore.bind(this));
+        btnStore.on('hover', () => {
+            tooltip.attach(btnStore.dom);
+            tooltip.text = 'Open Store';
+            tooltip.class.remove('inactive');
+        });
+        this._containerControls.append(btnStore);
+
+        // resizable container for a scrollable folders container
+        this._containerLeft = new Container({
+            class: CLASS_LEFT,
+            resizable: 'right',
+            resizeMin: 100,
+            resizeMax: 600,
+            width: 200
+        });
+        this.append(this._containerLeft);
+
+        // folders tree view
+        this._containerFolders = new Container({
+            class: CLASS_FOLDERS,
+            scrollable: true
+        });
+        this._containerLeft.append(this._containerFolders);
+
+        this._foldersView = new TreeView({
+            allowReordering: false,
+            dragScrollElement: this._containerFolders,
+            onReparent: this._onFolderTreeReparent.bind(this)
+        });
+        this._containerFolders.append(this._foldersView);
+
+        this._foldersView.on('select', this._onFolderTreeSelect.bind(this));
+        this._foldersView.on('deselect', this._onFolderTreeDeselect.bind(this));
+        this._foldersView.on('dragstart', this._onFolderTreeDragStart.bind(this));
+
+        // root folder element
+        this._foldersViewRoot = new TreeViewItem({
+            text: '/'
+        });
+        this._foldersViewRoot.on('hover', this._onRootFolderHover.bind(this));
+        this._foldersViewRoot.on('hoverend', this._onRootFolderHoverEnd.bind(this));
+        this._foldersViewRoot.open = true;
+        this._foldersView.append(this._foldersViewRoot);
+
+        // index of id->folder treeview item
+        this._foldersIndex = {};
+        // index of id->folder treeview item whose parent hasn't been added yet
+        this._foldersWaitingParent = {};
+        // index of filename->fake asset for legacy script
+        this._legacyScriptsIndex = {};
+
+        // the asset we are currently hovering over
+        // undefined means nothing
+        // null means root folder
+        // otherwise this will be an asset
+        this._hoveredAsset = undefined;
+
+        // drag drop related
+        this._eventsDropManager = [];
+        this._foldersDropTarget = null;
+        this._tableDropTarget = null;
+        this._gridViewDropTarget = null;
+
+        if (args.dropManager) {
+            this.dropManager = args.dropManager;
+        }
+
+        // initial progress container
+        this._containerProgress = new Container({
+            class: CLASS_PROGRESS,
+            flex: true,
+            flexDirection: 'row'
+        });
+        this._progressBar = new Progress();
+        this._progressBar.on('change', (value: number) => {
+            if (value >= 100) {
+                // update view mode to show
+                // the appropriate panels and hide the
+                // progress container
+                const viewMode = this.viewMode;
+                this._viewMode = null;
+                this.viewMode = viewMode;
+            } else {
+                this._containerProgress.hidden = false;
+                this._detailsView.hidden = true;
+                this._gridView.hidden = true;
+            }
+        });
+        this._containerProgress.append(this._progressBar);
+        this.append(this._containerProgress);
+
+        // details view
+        this._detailsView = new Table({
+            scrollable: true,
+            hidden: true,
+            columns: [{
+                title: 'Name',
+                width: '40%',
+                minWidth: 100,
+                sortKey: 'name',
+                sortFn: this._sortByName.bind(this)
+            }, {
+                title: 'Type',
+                width: '25%',
+                minWidth: 70,
+                sortKey: 'type',
+                sortFn: this._sortByType.bind(this)
+            }, {
+                title: 'Size',
+                width: '10%',
+                minWidth: 60,
+                sortKey: 'file.size',
+                sortFn: this._sortByFileSize.bind(this)
+            }],
+            defaultSortColumn: 0,
+            createRowFn: this._createDetailsViewRow.bind(this),
+            getRowFn: this._getDetailsViewRow.bind(this),
+            filterFn: this._filterAssetElement.bind(this)
+        });
+        this.append(this._detailsView);
+
+        // grid view
+        this._gridView = new GridView({
+            scrollable: true,
+            hidden: true,
+            filterFn: this._filterAssetElement.bind(this)
+        });
+        this.append(this._gridView);
+
+        // set initial view mode
+        this.viewMode = args.viewMode || AssetPanel.VIEW_LARGE_GRID;
+
+        // index of asset id-> row element
+        this._rowsIndex = {};
+        // index of asset id-> grid item
+        this._gridIndex = {};
+        // idnex of user id-> user indicator element
+        this._usersIndex = {};
+
+        // do not filter asset panel if true
+        this._suspendFiltering = false;
+        // do not emit selector events if true
+        this._suspendSelectEvents = false;
+
+        this._detailsView.on('select', this._onSelectAssetElement.bind(this));
+        this._detailsView.on('deselect', this._onDeselectAssetElement.bind(this));
+        this._detailsView.on('activate', (row: TableRow) => {
+            const asset = (row as any).asset;
+            if (asset && OPENABLE_TYPES[asset.get('type')]) {
+                this._openAsset(asset);
+            }
+        });
+
+        this._gridView.on('select', this._onSelectAssetElement.bind(this));
+        this._gridView.on('deselect', this._onDeselectAssetElement.bind(this));
+        this._gridView.on('activate', (item: GridViewItem) => {
+            const asset = (item as AssetGridViewItem).asset;
+            if (asset && OPENABLE_TYPES[asset.get('type')]) {
+                this._openAsset(asset);
+            }
+        });
+
+        this._eventsEditor = [];
+        this._eventsEditor.push(editor.on('selector:change', this._onSelectorChange.bind(this)));
+        this._eventsEditor.push(editor.on('sourcefiles:add', this._onAddLegacyScript.bind(this)));
+        this._eventsEditor.push(editor.on('sourcefiles:remove', this._onRemoveLegacyScript.bind(this)));
+        this._eventsEditor.push(editor.on('selector:sync', this._onSelectorSync.bind(this)));
+        this._eventsEditor.push(editor.on('whoisonline:remove', this._onWhoIsOnlineRemove.bind(this)));
+
+        this._assetListEvents = [];
+
+        this._assetEvents = {};
+
+        this.currentFolder = null;
+
+        this._showSourceAssets = true;
+
+        this._prevSelectorItems = [];
+        this._prevSelectorType = null;
+        this._selectorItems = [];
+        this._selectorType = null;
+        this._selectedAssets = [];
+
+        this.writePermissions = !!args.writePermissions;
+
+        this.assetTypes = null;
+
+        if (args.assets) {
+            this.assets = args.assets;
+        }
+
+        this.on('showToRoot', () => {
+            // register hotkeys
+
+            // copy
+            editor.call('hotkey:register', 'asset:copy', {
+                key: 'c',
+                ctrl: true,
+                skipPreventDefault: true,
+                callback: this._onCopyAssets.bind(this)
+            });
+
+            // paste
+            editor.call('hotkey:register', 'asset:paste', {
+                key: 'v',
+                ctrl: true,
+                callback: () => this._onPasteAssets()
+            });
+
+            // paste (keep folder structure)
+            editor.call('hotkey:register', 'asset:paste:keepFolderStructure', {
+                key: 'v',
+                ctrl: true,
+                shift: true,
+                callback: () => this._onPasteAssets(true)
+            });
+
+        });
+
+        this.on('hideToRoot', () => {
+            // unregister hotkeys
+            editor.call('hotkey:unregister', 'asset:copy');
+            editor.call('hotkey:unregister', 'asset:paste');
+            editor.call('hotkey:unregister', 'asset:paste:keepFolderStructure');
+        });
+    }
+
+    _onCopyAssets() {
+        if (this._currentFolder === LEGACY_SCRIPTS_FOLDER_ASSET) {
+            return;
+        }
+
+        const selectedAssets = this.selectedAssets;
+        if (!selectedAssets.length) {
+            return;
+        }
+
+        editor.call('assets:copy', selectedAssets);
+    }
+
+    _onPasteAssets(keepFolderStructure?: boolean) {
+        if (!this._writePermissions) {
+            return;
+        }
+        if (this._currentFolder === LEGACY_SCRIPTS_FOLDER_ASSET) {
+            return;
+        }
+
+        const clipboard = editor.call('clipboard:get');
+        if (!clipboard || clipboard.type !== 'asset') {
+            return;
+        }
+
+        editor.call('assets:paste', this.currentFolder, keepFolderStructure);
+    }
+
+    // Sorts assets to have folders above and other files below
+    _sortByFolder(a: AssetObserver | Observer, b: AssetObserver | Observer) {
+        return +(b.get('type') === 'folder') - +(a.get('type') === 'folder');
+    }
+
+    // Sorts assets by name (case insensitive). Keeps legacy scripts folder on top always.
+    _sortByName(a: AssetObserver | Observer, b: AssetObserver | Observer, ascending: boolean) {
+        // keep legacy script folder on top
+        if (a === LEGACY_SCRIPTS_FOLDER_ASSET) {
+            return -1;
+        }
+        if (b === LEGACY_SCRIPTS_FOLDER_ASSET) {
+            return 1;
+        }
+
+        const folderDiff = this._sortByFolder(a, b);
+        if (folderDiff) {
+            return folderDiff;
+        }
+
+        const nameA = (a.get('name') || '').toLowerCase();
+        const nameB = (b.get('name') || '').toLowerCase();
+        const comp = naturalCompare(nameA, nameB);
+        return ascending ? comp : -comp;
+    }
+
+
+    // Sorts assets by type. Keeps legacy scripts folder on top always.
+    _sortByType(a: AssetObserver | Observer, b: AssetObserver | Observer, ascending: boolean) {
+        // keep legacy script folder on top
+        if (a === LEGACY_SCRIPTS_FOLDER_ASSET) {
+            return -1;
+        }
+        if (b === LEGACY_SCRIPTS_FOLDER_ASSET) {
+            return 1;
+        }
+
+        const folderDiff = this._sortByFolder(a, b);
+        if (folderDiff) {
+            return folderDiff;
+        }
+
+        const typeA = a.get('type');
+        const typeB = b.get('type');
+
+        if (typeA < typeB) {
+            return ascending ? -1 : 1;
+        }
+        if (typeA > typeB) {
+            return ascending ? 1 : -1;
+        }
+        return 0;
+    }
+
+    // Sorts assets by file size. Keeps legacy scripts folder on top always.
+    _sortByFileSize(a: AssetObserver | Observer, b: AssetObserver | Observer, ascending: boolean) {
+        // keep legacy script folder on top
+        if (a === LEGACY_SCRIPTS_FOLDER_ASSET) {
+            return -1;
+        }
+        if (b === LEGACY_SCRIPTS_FOLDER_ASSET) {
+            return 1;
+        }
+
+        const folderDiff = this._sortByFolder(a, b);
+        if (folderDiff) {
+            return folderDiff;
+        }
+
+        const sizeA = parseInt(a.get('file.size'), 10);
+        const sizeB = parseInt(b.get('file.size'), 10);
+
+        if (isNaN(sizeA) && !isNaN(sizeB)) {
+            return 1;
+        }
+        if (!isNaN(sizeA) && isNaN(sizeB)) {
+            return -1;
+        }
+
+        return ascending ? sizeA - sizeB : sizeB - sizeA;
+    }
+
+    _onClickStore() {
+        // log store opened
+        metrics.increment({ metricsName: 'store.opened.count' });
+        editor.call('picker:store:cms');
+    }
+
+    // Shows new asset context menu
+    _onClickNew() {
+        // TODO: This needs to be refactored so that the menu
+        // is created by the panel or passed in.
+        const menu = editor.call('assets:contextmenu:create');
+        const rect = this._btnNew.dom.getBoundingClientRect();
+        menu.hidden = false;
+        menu.position(rect.right, rect.top);
+    }
+
+    // Shows asset delete picker
+    _onClickDelete() {
+        if (!this._writePermissions) {
+            return;
+        }
+
+        const type = editor.call('selector:type');
+        if (type === 'asset') {
+            editor.call('assets:delete:picker', editor.call('selector:items'));
+        }
+    }
+
+    // Sets view mode to large grid
+    _onClickLargeGrid() {
+        this.viewMode = AssetPanel.VIEW_LARGE_GRID;
+    }
+
+    // Sets view mode to small grid
+    _onClickSmallGrid() {
+        this.viewMode = AssetPanel.VIEW_SMALL_GRID;
+    }
+
+    // Sets view mode to details view
+    _onClickDetailsView() {
+        this.viewMode = AssetPanel.VIEW_DETAILS;
+    }
+
+    // Filter by type
+    _onDropDownTypeChange() {
+        if (this._suspendFiltering) {
+            return;
+        }
+
+        this.filter();
+
+        this._dropdownType.class.toggle('asset-filter-specific', this._dropdownType.value !== 'all');
+    }
+
+    // Convert string in form "tag1, tag2" to an array
+    // of strings like so: "tag1", "tag2"
+    _processTagsString(str: string) {
+        return str.trim().split(',').map(s => s.trim());
+    }
+
+    // switch folder to selected asset
+    // if we do not have selected assets in different folders
+    _setCurrentFolderFromSelectedAssets() {
+        if (!this._selectedAssets.length) {
+            return;
+        }
+
+        const path = this._selectedAssets[0].get('path');
+        for (let i = 1; i < this._selectedAssets.length; i++) {
+            if (!path.equals(this._selectedAssets[i].get('path'))) {
+                return;
+            }
+        }
+
+        const suspendFiltering = this._suspendFiltering;
+        this._suspendFiltering = true;
+        this.currentFolder = (path.length ? this._assets.get(path[path.length - 1]) : null);
+        this._suspendFiltering = suspendFiltering;
+    }
+
+    _parseSearchTags(searchQuery: string) {
+        let tags = searchQuery.match(REGEX_TAGS);
+        if (!tags) {
+            return;
+        }
+        tags = tags[1].trim();
+        if (!tags.length) {
+            return;
+        }
+
+        let subTags;
+        while ((subTags = REGEX_SUB_TAGS.exec(tags)) !== null) {
+            if (!this._searchTags) {
+                this._searchTags = [];
+            }
+            this._searchTags.push(this._processTagsString(subTags[1]));
+        }
+
+        if (!this._searchTags) {
+            this._searchTags = this._processTagsString(tags);
+        }
+    }
+
+    // Analyzes tags first and then re-filters assets
+    _onSearchInputChange(value: string) {
+        this._searchTags = null;
+        value = value.trim();
+
+        if (this._searchPreviousValue === value) {
+            return;
+        }
+
+        this._searchPreviousValue = value;
+
+        if (!value) {
+            this._setCurrentFolderFromSelectedAssets();
+            this._btnClearSearch.hidden = true;
+            this._searchInput.placeholder = 'Search';
+        } else {
+            this._parseSearchTags(value);
+            this._btnClearSearch.hidden = false;
+            this._searchInput.placeholder = '';
+        }
+
+        if (!this._suspendFiltering) {
+            this.filter();
+        }
+    }
+
+    _onClickClearSearch() {
+        this._searchInput.value = '';
+    }
+
+    _refreshViewModeButtons() {
+        this._btnLargeGrid.class.remove(CLASS_BTN_ACTIVE);
+        this._btnSmallGrid.class.remove(CLASS_BTN_ACTIVE);
+        this._btnDetailsView.class.remove(CLASS_BTN_ACTIVE);
+
+        if (this._viewMode === AssetPanel.VIEW_DETAILS) {
+            this._btnDetailsView.class.add(CLASS_BTN_ACTIVE);
+        } else if (this._viewMode === AssetPanel.VIEW_SMALL_GRID) {
+            this._btnSmallGrid.class.add(CLASS_BTN_ACTIVE);
+        } else {
+            this._btnLargeGrid.class.add(CLASS_BTN_ACTIVE);
+        }
+    }
+
+    _focusFirstVisibleItem() {
+        if (this._viewMode === AssetPanel.VIEW_DETAILS) {
+            const row = this._detailsView.dom.querySelector('tbody > tr[tabindex]:not(.pcui-hidden)') as HTMLElement;
+            if (row?.ui instanceof TableRow) {
+                row.ui.selected = true;
+                row.ui.focus();
+            }
+        } else {
+            const children = this._gridView.dom.childNodes;
+            for (let i = 0; i < children.length; i++) {
+                const el = children[i] as any;
+                if (el.ui instanceof AssetGridViewItem && !el.ui.hidden) {
+                    el.ui.selected = true;
+                    el.ui.focus();
+                    return;
+                }
+            }
+        }
+    }
+
+    _focusAssetItem(assetId: number) {
+        if (this._viewMode === AssetPanel.VIEW_DETAILS) {
+            const row = this._rowsIndex[assetId];
+            if (row && !row.hidden) {
+                row.selected = true;
+                row.focus();
+            }
+        } else {
+            const item = this._gridIndex[assetId];
+            if (item && !item.hidden) {
+                item.selected = true;
+                item.focus();
+            }
+        }
+    }
+
+    // Open / activate an asset based on its type
+    _openAsset(asset: AssetObserver) {
+        const type = asset.get('type');
+        if (type === 'folder') {
+            const view = this._viewMode === AssetPanel.VIEW_DETAILS ? this._detailsView : this._gridView;
+            view.once('filter:end', () => this._focusFirstVisibleItem());
+
+            this.currentFolder = asset;
+
+            // restore previous selection after navigating into a folder
+            if (this._prevSelectorItems) {
+                editor.call('selector:set', this._prevSelectorType, this._prevSelectorItems);
+            }
+        } else if (type === 'sprite' || type === 'textureatlas') {
+            editor.call('picker:sprites', asset);
+        } else if (type === 'css' ||
+                    type === 'html' ||
+                    type === 'json' ||
+                    type === 'script' ||
+                    type === 'shader' ||
+                    type === 'text') {
+
+            if (type === 'script' && config.project.settings.useLegacyScripts) {
+                editor.call('assets:edit', asset);
+            } else {
+                editor.call('picker:codeeditor', asset);
+            }
+        } else if (type === 'animstategraph') {
+            editor.call('picker:animstategraph', asset);
+        } else {
+            editor.call('assets:open', [asset]);
+        }
+    }
+
+    // Reset hovered asset
+    _onDeactivateDropManager() {
+        this._setHoveredAsset(undefined);
+    }
+
+    // Creates drop target for one asset dropped upon another
+    _createAssetDropTarget(target: Element | HTMLElement) {
+        const dropTarget = new DropTarget(target, {
+            hole: true,
+            passThrough: true,
+            onFilter: this._onAssetDropFilter.bind(this),
+            onDrop: this._onAssetDrop.bind(this)
+        });
+        dropTarget.style.outline = 'none';
+
+        this._dropManager.append(dropTarget);
+
+        return dropTarget;
+    }
+
+    // Returns true if the dragged type and data are valid assets
+    _onAssetDropFilter(type: string, data: { id?: string; ids?: string[] }) {
+        // check if type is asset and if it's a valid int id (legacy scripts have string ids)
+        if (type.startsWith('asset') && this._writePermissions) {
+            if (data.id) {
+                return !!parseInt(data.id, 10);
+            }
+            if (data.ids) {
+                return data.ids.filter(id => parseInt(id, 10)).length === data.ids.length;
+            }
+        }
+
+        return false;
+    }
+
+    // Called when we drop an asset on a drop target.
+    _onAssetDrop(type: string, data: { id?: string; ids?: string[] }) {
+        if (this._hoveredAsset === undefined || !type || !type.startsWith('asset') || !this._writePermissions) {
+            return;
+        }
+
+        const items = editor.call('selector:items');
+        const assets = [];
+
+        const addAsset = (id) => {
+            if (!parseInt(id, 10)) {
+                return;
+            } // this can happen for legacy scripts
+
+            const asset = this._assets.get(id);
+
+            // deselect moved asset
+            if (items.indexOf(asset) !== -1) {
+                editor.call('selector:remove', asset);
+            }
+
+            assets.push(asset);
+        };
+
+        if (data.ids) {
+            data.ids.forEach(addAsset);
+        } else {
+            addAsset(data.id);
+        }
+
+        const hoveredType = this._hoveredAsset ? this._hoveredAsset.get('type') : 'folder';
+        if (hoveredType === 'folder') {
+            // if we are dropping on a folder then move assets to that folder
+            editor.call('assets:fs:move', assets, this._hoveredAsset);
+        } else if (hoveredType === 'bundle') {
+            // if we are dropping on a bundle then update asset bundle
+            editor.call('assets:bundles:addAssets', assets, this._hoveredAsset);
+        }
+    }
+
+    // Called when we start dragging an asset element
+    _onAssetDragStart(evt: DragEvent | null, asset: AssetObserver) {
+        if (evt) {
+            evt.preventDefault();
+            evt.stopPropagation();
+        }
+
+        if (!this._writePermissions || !this._dropManager) {
+            return;
+        }
+
+        let type = `asset.${asset.get('type')}`;
+        let data: Record<string, any> = {};
+
+        if (asset.legacyScript) {
+            data.filename = asset.legacyScript.get('filename');
+        } else {
+            data.id = asset.get('id');
+        }
+
+        const selectorType = editor.call('selector:type');
+        const selectorItems = editor.call('selector:items');
+
+        if (selectorType === 'asset' && selectorItems.length > 1) {
+            const path = selectorItems[0].get('path');
+
+            if (selectorItems.indexOf(asset) !== -1) {
+                const ids = [];
+                for (let i = 0; i < selectorItems.length; i++) {
+                    // don't allow multi-path dragging
+                    const curPath = selectorItems[i].get('path');
+                    if (path.length !== curPath.length || path[path.length - 1] !== curPath[path.length - 1]) {
+                        return;
+                    }
+
+                    ids.push(parseInt(selectorItems[i].get('id'), 10));
+                }
+
+                type = 'assets';
+                data = {
+                    ids: ids
+                };
+            }
+        }
+
+        // Activate drop manager
+        this._dropManager.dropType = type;
+        this._dropManager.dropData = data;
+        this._dropManager.active = true;
+    }
+
+    _onRootFolderHover() {
+        if (this._hoveredAsset === null) {
+            return;
+        }
+        if (!this._dropManager || !this._dropManager.active || !this._dropManager.dropData) {
+            return;
+        }
+
+        const dropData = this._dropManager.dropData;
+
+        // check if dragged assets are already in root folder
+        const draggedAsset = this._assets.get(dropData.id || dropData.ids[0]);
+        if (draggedAsset) {
+            if (draggedAsset.get('path').length === 0) {
+                return;
+            }
+        }
+
+        this._setHoveredAsset(null);
+    }
+
+    _onRootFolderHoverEnd() {
+        if (this._hoveredAsset === null) {
+            this._setHoveredAsset(undefined);
+        }
+    }
+
+    _onAssetHover(asset: AssetObserver) {
+        if (this._hoveredAsset === asset) {
+            return;
+        }
+        if (!this._dropManager || !this._dropManager.active || !this._dropManager.dropData) {
+            return;
+        }
+
+        // check if asset type is hoverable
+        const hoveredType = asset.get('type');
+        if (!HOVERABLES[hoveredType]) {
+            return;
+        }
+
+        const hoveredAssetId = parseInt(asset.get('id'), 10);
+        const dropData = this._dropManager.dropData;
+
+        if (dropData.ids) {
+            // do not allow dragging on itself
+            if (dropData.ids.indexOf(hoveredAssetId) !== -1) {
+                return;
+            }
+
+            // do not allow source assets in bundle
+            if (hoveredType === 'bundle') {
+                const sourceAssets = dropData.ids
+                .map(id => this._assets.get(id))
+                .filter(asset => asset && asset.get('source'));
+
+                if (sourceAssets.length) {
+                    return;
+                }
+            }
+        } else if (dropData.id) {
+            // do not allow dragging on itself
+            if (parseInt(dropData.id, 10) === hoveredAssetId) {
+                return;
+            }
+
+            // do not allow source assets in bundle
+            if (hoveredType === 'bundle') {
+                const sourceAsset = this._assets.get(dropData.id);
+                if (sourceAsset && sourceAsset.get('source')) {
+                    return;
+                }
+            }
+        } else {
+            return;
+        }
+
+        // check if dragged assets are already in this folder
+        const draggedAsset = this._assets.get(dropData.id || dropData.ids[0]);
+        if (draggedAsset) {
+            const path = draggedAsset.get('path');
+            if (path.length && path[path.length - 1] === hoveredAssetId) {
+                return;
+            }
+        }
+
+        // do not allow dragging a folder into one of its child folders
+        const hoveredPath = asset.get('path');
+        if (dropData.ids) {
+            for (let i = 0; i < dropData.ids.length; i++) {
+                if (hoveredPath.indexOf(dropData.ids[i]) !== -1) {
+                    return;
+                }
+            }
+        } else {
+            if (hoveredPath.indexOf(parseInt(dropData.id, 10)) !== -1) {
+                return;
+            }
+        }
+
+        this._setHoveredAsset(asset);
+    }
+
+    // Update the hovered asset
+    _setHoveredAsset(asset: AssetObserver | null | undefined) {
+        if (this._hoveredAsset === asset) {
+            return;
+        }
+
+        if (this._hoveredAsset !== undefined) {
+            // clear previous hovered asset
+            if (this._hoveredAsset) {
+                const row = this._rowsIndex[this._hoveredAsset.get('id')];
+                if (row) {
+                    row.class.remove(CLASS_ASSET_HIGHLIGHTED);
+                }
+
+                const gridItem = this._gridIndex[this._hoveredAsset.get('id')];
+                if (gridItem) {
+                    gridItem.class.remove(CLASS_ASSET_HIGHLIGHTED);
+                }
+            }
+
+            const folder = this._hoveredAsset ? this._foldersIndex[this._hoveredAsset.get('id')] : this._foldersViewRoot;
+            if (folder) {
+                folder.class.remove(CLASS_ASSET_HIGHLIGHTED);
+                this._foldersView.showDragHandle(null);
+            }
+        }
+
+        this._hoveredAsset = asset;
+
+        if (this._hoveredAsset !== undefined) {
+            // highlight all asset elements
+            if (this._hoveredAsset) {
+                const row = this._rowsIndex[this._hoveredAsset.get('id')];
+                if (row) {
+                    row.class.add(CLASS_ASSET_HIGHLIGHTED);
+                }
+
+                const gridItem = this._gridIndex[this._hoveredAsset.get('id')];
+                if (gridItem) {
+                    gridItem.class.add(CLASS_ASSET_HIGHLIGHTED);
+                }
+            }
+
+            const folder = this._hoveredAsset ? this._foldersIndex[this._hoveredAsset.get('id')] : this._foldersViewRoot;
+            if (folder) {
+                folder.class.add(CLASS_ASSET_HIGHLIGHTED);
+                this._foldersView.showDragHandle(folder);
+            }
+        }
+    }
+
+    _onAssetHoverEnd(asset: AssetObserver) {
+        if (this._hoveredAsset === asset) {
+            this._setHoveredAsset(undefined);
+        }
+    }
+
+    // Creates a table row for the details view for the specified asset.
+    _createDetailsViewRow(asset: AssetObserver) {
+        const row = new TableRow();
+
+        // store asset in row for reference
+        row.asset = asset;
+
+        // store row in index
+        this._rowsIndex[asset.get('id')] = row;
+
+        const isLegacyScriptFolder = (asset === LEGACY_SCRIPTS_FOLDER_ASSET);
+        if (isLegacyScriptFolder) {
+            row.class.add(CLASS_LEGACY_SCRIPTS_FOLDER);
+        }
+
+        if (!asset.get('source') && !editor.call('assets:used:get', asset.get('id'))) {
+            row.class.add(CLASS_ASSET_NOT_REFERENCED);
+        }
+
+        let onMouseDown;
+        let onDragStart;
+
+        // if this is not the legacy script folder
+        // make it draggable
+        if (!isLegacyScriptFolder) {
+            row.on('hover', () => {
+                this._onAssetHover(asset);
+            });
+            row.on('hoverend', () => {
+                this._onAssetHoverEnd(asset);
+            });
+
+            row.dom.draggable = true;
+
+            // this allows dragging that gets disabled by layout.js
+            onMouseDown = evt => evt.stopPropagation();
+            row.dom.addEventListener('mousedown', onMouseDown);
+
+            onDragStart = (evt: DragEvent) => this._onAssetDragStart(evt, asset);
+            row.dom.addEventListener('dragstart', onDragStart);
+        }
+
+        // Context menu - custom handler that allows clicks on empty row space (not covered by cells)
+        // to bubble up to the detailsView's context menu handler which enables paste
+        const contextMenuAsset = asset.legacyScript || asset;
+        const onContextMenu = (evt: MouseEvent) => {
+            // If clicked directly on the row element (not on a child cell), let the event
+            // bubble up to the detailsView's handler which shows the context menu with paste enabled
+            if (evt.target === row.dom) {
+                return;
+            }
+
+            evt.stopPropagation();
+            evt.preventDefault();
+            editor.call('assets:contextmenu:show', contextMenuAsset, evt.clientX, evt.clientY);
+        };
+        row.dom.addEventListener('contextmenu', onContextMenu);
+
+        // clean up
+        row.on('destroy', (dom: HTMLElement) => {
+            delete this._rowsIndex[asset.get('id')];
+            dom.removeEventListener('contextmenu', onContextMenu);
+            if (onMouseDown) {
+                dom.removeEventListener('mousedown', onMouseDown);
+            }
+            if (onDragStart) {
+                dom.removeEventListener('dragstart', onDragStart);
+            }
+        });
+
+        // thumb + name cell
+        let cell = new TableCell({
+            class: CLASS_DETAILS_NAME,
+            alignItems: 'center'
+        });
+        row.append(cell);
+
+        // thumb
+        const thumb = new AssetThumbnail({
+            assets: this._assets,
+            value: asset,
+            canvasWidth: 16,
+            canvasHeight: 16
+        });
+        cell.append(thumb);
+
+        row.showProgress = function () {
+            if (!row.spinner) {
+                // spinner for running task
+                const spinner = new Spinner({
+                    type: Spinner.TYPE_SMALL_THICK,
+                    size: 16
+                });
+                row.spinner = spinner;
+                thumb.parent.appendAfter(spinner, thumb);
+            }
+
+            return row.spinner;
+        };
+
+        row.hideProgress = function () {
+            if (row.spinner) {
+                row.spinner.destroy();
+                row.spinner = null;
+            }
+        };
+
+        // asset name
+        const labelName = new Label({
+            binding: new BindingObserversToElement()
+        });
+        // make inline so that text-overflow will work
+        labelName.style.display = 'inline';
+        labelName.style.lineHeight = '24px';
+        labelName.link(asset, 'name');
+        labelName.on('change', () => {
+            if (this._detailsView.sortKey === 'name') {
+                this._detailsView.sortObserver(asset);
+            }
+        });
+        cell.append(labelName);
+
+        // user indicators for remote users who select this asset
+        const containerUsers = new Container({
+            class: CLASS_USERS_CONTAINER,
+            flex: true,
+            hidden: true
+        });
+        cell.append(containerUsers);
+        row.containerUsers = containerUsers;
+
+        // only show users container when non empty
+        containerUsers.on('append', () => {
+            containerUsers.hidden = false;
+        });
+        containerUsers.on('remove', () => {
+            if (containerUsers.dom.childNodes.length === 0) {
+                containerUsers.hidden = true;
+            }
+        });
+
+        // type cell
+        cell = new TableCell();
+        row.append(cell);
+
+        let typeKey = asset.get('type');
+        if (asset.get('source')) {
+            typeKey += 'Source';
+        }
+
+        let type = TYPES[typeKey];
+        if (!type) {
+            type = asset.get('type') || '';
+            if (type) {
+                type = type[0].toUpperCase() + type.substring(1);
+            }
+        }
+
+        const labelType = new Label({
+            text: type
+        });
+        labelType.style.lineHeight = '24px';
+        // make inline so that text-overflow will work
+        labelType.style.display = 'inline';
+        cell.append(labelType);
+
+        // file size cell
+        cell = new TableCell();
+        row.append(cell);
+
+        const labelSize = new Label({
+            binding: new BindingObserversToElement({
+                customUpdate: (element, observers, paths) => {
+                    if (!observers[0].has(paths[0])) {
+                        element.value = '';
+                    } else {
+                        // convert value to bytes
+                        element.value = bytesToHuman(observers[0].get(paths[0]));
+                    }
+                }
+            })
+        });
+        // make inline so that text-overflow will work
+        labelSize.style.display = 'inline';
+        labelSize.style.lineHeight = '24px';
+        labelSize.link(asset, 'file.size');
+        labelSize.on('change', () => {
+            if (this._detailsView.sortKey === 'file.size') {
+                this._detailsView.sortObserver(asset);
+            }
+        });
+        cell.append(labelSize);
+
+        this._setElementTaskStatus(row, asset);
+
+        return row;
+    }
+
+    // Returns row in details view for this asset
+    _getDetailsViewRow(asset: AssetObserver) {
+        return this._rowsIndex[asset.get('id')];
+    }
+
+    // Applies specified function to all elements for that asset
+    _applyFnToAssetElements(asset: AssetObserver, fn: (element: TreeViewItem | AssetGridViewItem | TableRow) => void) {
+        const id = asset.get('id');
+
+        // do folders first so that they will not be focused
+        // when clicking the arrows in the grid view
+        let element: TreeViewItem | GridViewItem | TableRow = this._foldersIndex[id];
+        if (element) {
+            fn(element);
+        }
+
+        element = this._gridIndex[id];
+        if (element) {
+            fn(element);
+        }
+
+        element = this._rowsIndex[id];
+        if (element) {
+            fn(element);
+        }
+    }
+
+    _setAssetSelected(asset: AssetObserver, selected: boolean) {
+        this._applyFnToAssetElements(asset, (element) => {
+            element.selected = selected;
+        });
+    }
+
+    // update element based on asset task status
+    _setElementTaskStatus(element: TreeViewItem | TableRow | AssetGridViewItem, asset: AssetObserver) {
+        element.class.remove(CLASS_TASK_RUNNING);
+        element.class.remove(CLASS_TASK_FAILED);
+
+        const task = asset.get('task');
+        if (task === 'failed') {
+            element.class.add(CLASS_TASK_FAILED);
+            if (element.showProgress) {
+                const progress = element.showProgress();
+                if (progress) {
+                    progress.class.add(CLASS_ERROR);
+                }
+            }
+
+        } else if (task === 'running') {
+            element.class.add(CLASS_TASK_RUNNING);
+            if (element.showProgress) {
+                const progress = element.showProgress();
+                if (progress) {
+                    progress.class.remove(CLASS_ERROR);
+                }
+            }
+        } else {
+            if (element.hideProgress) {
+                element.hideProgress();
+            }
+        }
+    }
+
+    _onSelectAssetElement(element: TableRow | AssetGridViewItem) {
+        if (this._suspendSelectEvents) {
+            return;
+        }
+        if (element.asset === LEGACY_SCRIPTS_FOLDER_ASSET) {
+            return;
+        }
+
+        editor.call('selector:add', 'asset', element.asset.legacyScript || element.asset);
+        this.emit('select', element.asset.legacyScript || element.asset);
+    }
+
+    _onDeselectAssetElement(element: TableRow | AssetGridViewItem) {
+        if (this._suspendSelectEvents) {
+            return;
+        }
+        if (element.asset === LEGACY_SCRIPTS_FOLDER_ASSET) {
+            return;
+        }
+
+        editor.call('selector:remove', element.asset.legacyScript || element.asset);
+        this.emit('deselect', element.asset.legacyScript || element.asset);
+    }
+
+    _onSelectorChange(type: string, assets: AssetObserver[]) {
+        this._prevSelectorType = this._selectorType;
+        this._prevSelectorItems = this._selectorItems;
+        this._selectorType = type;
+        this._selectorItems = assets;
+
+        this._suspendSelectEvents = true;
+        this.selectedAssets = (type === 'asset' ? assets : []);
+        this._suspendSelectEvents = false;
+    }
+
+    _createUserIndicator(userId: string, userEntry: { elements: Element[]; color: string }, container: Container) {
+        const indicator = new Element({
+            class: CLASS_USER_INDICATOR
+        });
+        indicator.style.backgroundColor = userEntry.color;
+        container.append(indicator);
+        userEntry.elements.push(indicator);
+
+        indicator.once('destroy', () => {
+            const index = userEntry.elements.indexOf(indicator);
+            if (index >= 0) {
+                userEntry.elements.splice(index, 1);
+                if (userEntry.elements.length === 0) {
+                    delete this._usersIndex[userId];
+                }
+            }
+        });
+    }
+
+    // Called when we receive remote users' selector state
+    _onSelectorSync(userId: string, data: { type: string; ids?: (string | number)[] }) {
+        let userEntry = this._usersIndex[userId];
+        if (userEntry) {
+            let i = userEntry.elements.length;
+            while (i--) {
+                userEntry.elements[i].destroy();
+            }
+        }
+
+        if (data.type !== 'asset') {
+            return;
+        }
+
+        userEntry = {
+            elements: [],
+            color: editor.call('users:color', userId, 'hex') || randomColor()
+        };
+        this._usersIndex[userId] = userEntry;
+
+        data.ids.forEach((assetId: string | number) => {
+            const gridItem = this._gridIndex[assetId];
+            if (gridItem) {
+                this._createUserIndicator(userId, userEntry, gridItem.containerUsers);
+            }
+
+            const row = this._rowsIndex[assetId];
+            if (row) {
+                this._createUserIndicator(userId, userEntry, row.containerUsers);
+            }
+        });
+    }
+
+    _onAddLegacyScript(script: Observer) {
+        script.set('type', 'script'); // this seems to be needed for the inspector to work
+
+        let fakeAsset = this._legacyScriptsIndex[script.get('filename')];
+        if (!fakeAsset) {
+            fakeAsset = new Observer({
+                id: script.get('filename'),
+                name: script.get('filename'),
+                type: 'script',
+                path: [LEGACY_SCRIPTS_ID]
+            });
+
+            fakeAsset.legacyScript = script;
+
+            this._legacyScriptsIndex[script.get('filename')] = fakeAsset;
+        }
+
+        this._addAsset(fakeAsset, -1, true);
+    }
+
+    _onRemoveLegacyScript(script: Observer) {
+        const asset = this._legacyScriptsIndex[script.get('filename')];
+        if (asset) {
+            this._removeAsset(asset);
+        }
+
+        delete this._legacyScriptsIndex[script.get('filename')];
+    }
+
+    _addAsset(asset: AssetObserver, index: number, addToDetailsView: boolean) {
+        const id = asset.get('id');
+
+        // init events
+        if (!this._assetEvents[id]) {
+            this._assetEvents[id] = [];
+        }
+
+        // if it's a folder add it to the folder view
+        if (asset.get('type') === 'folder') {
+            this._addFolder(asset);
+        }
+
+        // if it's a target asset then update it if its references
+        // change
+        if (!asset.get('source')) {
+            this._assetEvents[id].push(editor.on(`assets:used:${id}`, (used) => {
+                this._onAssetUsedChange(asset, used);
+            }));
+        }
+
+        // change asset path
+        this._assetEvents[id].push(asset.on('path:set', (path, oldPath) => {
+            this._onAssetPathChange(asset, path, oldPath);
+        }));
+
+        this._assetEvents[id].push(asset.on('task:set', () => {
+            this._onAssetTaskChange(asset);
+        }));
+
+        // add to grid view
+        this._addGridItem(asset, index);
+
+        // add to details view
+        if (addToDetailsView) {
+            this._detailsView.addObserver(asset);
+        }
+    }
+
+    _addGridItem(asset: AssetObserver, index: number) {
+        const item = new AssetGridViewItem({
+            assets: this._assets
+        });
+
+        item.link(asset);
+        item.asset = asset;
+
+        this._setElementTaskStatus(item, asset);
+
+        const isLegacyScriptFolder = (asset === LEGACY_SCRIPTS_FOLDER_ASSET);
+        if (isLegacyScriptFolder) {
+            item.class.add(CLASS_LEGACY_SCRIPTS_FOLDER);
+        }
+
+        this._gridIndex[asset.get('id')] = item;
+
+        // context menu
+        editor.call('assets:contextmenu:attach', item, asset.legacyScript || asset);
+
+        let onMouseDown;
+        let onDragStart;
+
+        // drag
+        if (!isLegacyScriptFolder) {
+            item.dom.draggable = true;
+
+            // hover
+            item.on('hover', () => {
+                this._onAssetHover(asset);
+            });
+            item.on('hoverend', () => {
+                this._onAssetHoverEnd(asset);
+            });
+
+            // this allows dragging that gets disabled by layout.js
+            onMouseDown = (evt: MouseEvent) => {
+                evt.stopPropagation();
+            };
+
+            item.dom.addEventListener('mousedown', onMouseDown);
+
+            onDragStart = (evt: DragEvent) => this._onAssetDragStart(evt, asset);
+            item.dom.addEventListener('dragstart', onDragStart);
+        }
+
+        item.on('destroy', (dom) => {
+            if (onMouseDown) {
+                dom.removeEventListener('mousedown', onMouseDown);
+            }
+            if (onDragStart) {
+                dom.removeEventListener('dragstart', onDragStart);
+            }
+
+            delete this._gridIndex[asset.get('id')];
+        });
+
+        if (!isLegacyScriptFolder) {
+            let appendBefore = null;
+            if (index >= 0 && this._assets.data[index + 1]) {
+                appendBefore = this._gridIndex[this._assets.data[index + 1].get('id')];
+            }
+            this._gridView.appendBefore(item, appendBefore);
+        } else {
+            this._gridView.prepend(item);
+        }
+
+        return item;
+    }
+
+    _removeAsset(asset: AssetObserver) {
+        const id = asset.get('id');
+        if (this._assetEvents[id]) {
+            this._assetEvents[id].forEach(evt => evt.unbind());
+            delete this._assetEvents[id];
+        }
+
+        if (asset.get('type') === 'folder') {
+            this._removeFolder(asset);
+        }
+
+        this._detailsView.removeObserver(asset);
+
+        const gridItem = this._gridIndex[id];
+        if (gridItem) {
+            gridItem.destroy();
+        }
+
+        // if the removed asset is the current folder or a parent of
+        // the current folder then reset the current folder
+        if (this.currentFolder) {
+            // get parent folders of current folder
+            const path = this.currentFolder.get('path');
+            // add current folder at end of path
+            path.push(parseInt(this.currentFolder.get('id'), 10));
+
+            // get index of removed asset in full path
+            const index = path.indexOf(parseInt(asset.get('id'), 10));
+
+            if (index !== -1) {
+                let current = null;
+
+                if (index > 0) {
+                    for (let i = index - 1; i >= 0; i--) {
+                        current = this._assets.get(path[i]);
+                        if (current) {
+                            break;
+                        }
+                    }
+                }
+
+                this.currentFolder = current;
+            }
+        }
+    }
+
+    _moveAsset(asset: AssetObserver, index: number) {
+        const suspendEvents = this._suspendSelectEvents;
+        this._suspendSelectEvents = true;
+
+        const folder = this._foldersIndex[asset.get('id')];
+        // move folder alphabetically
+        if (folder) {
+            const selected = folder.selected;
+            const parent = folder.parent;
+            parent.remove(folder);
+            this._insertTreeItemAlphabetically(parent, folder);
+            folder.selected = selected;
+        }
+
+        // reorder grid item
+        const gridItem = this._gridIndex[asset.get('id')];
+        if (gridItem) {
+            const selected = gridItem.selected;
+            this._gridView.remove(gridItem);
+            if (this._assets.data[index + 1]) {
+                this._gridView.appendBefore(gridItem, this._gridIndex[this._assets.data[index + 1].get('id')]);
+            } else {
+                this._gridView.append(gridItem);
+            }
+            gridItem.selected = selected;
+        }
+
+        this._suspendSelectEvents = suspendEvents;
+    }
+
+    _onAssetPathChange(asset: AssetObserver, path: number[], oldPath: number[]) {
+        // show or hide based on filters
+        const row = this._rowsIndex[asset.get('id')];
+        if (row) {
+            row.hidden = !this._filterAssetElement(row);
+        }
+
+        const gridItem = this._gridIndex[asset.get('id')];
+        if (gridItem) {
+            gridItem.hidden = !this._filterAssetElement(gridItem);
+        }
+
+        if (asset.get('type') === 'folder') {
+
+            // early out if the asset has the same parent
+            if (path[path.length - 1] === oldPath[oldPath.length - 1]) {
+                return;
+            }
+
+            const folder = this._foldersIndex[asset.get('id')];
+            // remove folder and add it under the right parent
+            if (folder) {
+                if (folder.parent) {
+                    folder.parent.remove(folder);
+                }
+
+                let newParent;
+                if (path.length) {
+                    newParent = this._foldersIndex[path[path.length - 1]];
+
+                    if (!newParent) {
+                        // unlikely to ever happen...
+                        this._removeFolder(asset);
+                        this._queueAssetToWaitForParent(asset.get('id'), path[path.length - 1]);
+                    }
+                } else {
+                    newParent = this._foldersViewRoot;
+                }
+
+                if (newParent) {
+                    this._insertTreeItemAlphabetically(newParent, folder);
+                }
+            }
+        }
+    }
+
+    _onAssetTaskChange(asset: AssetObserver) {
+        this._applyFnToAssetElements(asset, (element) => {
+            this._setElementTaskStatus(element, asset);
+        });
+    }
+
+    _addFolder(asset: AssetObserver) {
+        const id = asset.get('id');
+
+        // find parent
+        let parent;
+        const path = asset.get('path');
+        let parentId;
+        if (path && path.length) {
+            parentId = path[path.length - 1];
+            parent = this._foldersIndex[path[path.length - 1]];
+        } else {
+            parentId = '';
+            parent = this._foldersViewRoot;
+        }
+
+        // if we can't find the parent skip this folder
+        // it will be added later when its parent is added
+        if (!parent) {
+            this._queueAssetToWaitForParent(id, parentId);
+            return;
+        }
+
+        if (this._foldersIndex[id]) {
+            return;
+        }
+
+        const isLegacyScriptFolder = (asset === LEGACY_SCRIPTS_FOLDER_ASSET);
+
+        const treeItem = new TreeViewItem({
+            text: asset.get('name'),
+            allowDrop: !isLegacyScriptFolder,
+            allowDrag: !isLegacyScriptFolder
+        });
+
+        if (!isLegacyScriptFolder) {
+            treeItem.on('hover', () => {
+                this._onAssetHover(asset);
+            });
+            treeItem.on('hoverend', () => {
+                this._onAssetHoverEnd(asset);
+            });
+        } else {
+            treeItem.class.add(CLASS_LEGACY_SCRIPTS_FOLDER);
+        }
+
+        editor.call('assets:contextmenu:attach', treeItem, asset.legacyScript || asset);
+
+        treeItem.asset = asset;
+
+        this._foldersIndex[id] = treeItem;
+
+        if (!this._assetEvents[id]) {
+            this._assetEvents[id] = [];
+        }
+
+        let evtName = asset.on('name:set', (value: string) => {
+            treeItem.text = value;
+        });
+
+        treeItem.on('destroy', () => {
+            if (evtName) {
+                evtName.unbind();
+                evtName = null;
+            }
+        });
+
+        this._insertTreeItemAlphabetically(parent, treeItem);
+
+        // add child folders
+        if (this._foldersWaitingParent[id]) {
+            this._foldersWaitingParent[id].forEach((childId: number) => {
+                const childAsset = this._assets.get(childId);
+                if (childAsset) {
+                    this._addFolder(childAsset);
+                }
+            });
+
+            delete this._foldersWaitingParent[id];
+        }
+
+        return treeItem;
+    }
+
+    _queueAssetToWaitForParent(assetId: number, parentId: number | string) {
+        if (!this._foldersWaitingParent[parentId]) {
+            this._foldersWaitingParent[parentId] = new Set();
+        }
+
+        this._foldersWaitingParent[parentId].add(assetId);
+    }
+
+    _insertTreeItemAlphabetically(parentTreeItem: TreeViewItem, treeItem: TreeViewItem) {
+        // ensure the legacy scripts folder remains at the top
+        const legacyFolder = this._foldersIndex[LEGACY_SCRIPTS_ID];
+
+        // find the right spot to insert the tree item based on alphabetical order
+        const text = treeItem.asset.get('name').toLowerCase();
+        let sibling = parentTreeItem.firstChild;
+        while (sibling) {
+            if (sibling !== treeItem && sibling !== legacyFolder && sibling.asset.get('name').toLowerCase() > text) {
+                if (!treeItem.parent) {
+                    parentTreeItem.appendBefore(treeItem, sibling);
+                } else {
+                    // this is just a sanity check but if
+                    // the tree item is already parented then
+                    // just call insertBefore on the DOM directly
+                    // so that no additional append events are raised,
+                    // since we only really want to reorder the tree item under
+                    // the same parent. If we call regular appendBefore then
+                    // that will cause duplicate unnecessary events to be
+                    // fired on the tree item and the tree view.
+                    parentTreeItem.domContent.insertBefore(treeItem.dom, sibling.dom);
+                }
+                break;
+            }
+
+            sibling = sibling.nextSibling;
+        }
+
+        if (!treeItem.parent) {
+            parentTreeItem.append(treeItem);
+        }
+
+        if (legacyFolder) {
+            if (this._foldersViewRoot.firstChild !== legacyFolder) {
+                this._foldersViewRoot.remove(legacyFolder);
+                this._foldersViewRoot.appendBefore(legacyFolder, this._foldersViewRoot.firstChild);
+            }
+        }
+    }
+
+    _removeFolder(asset: AssetObserver) {
+        const id = asset.get('id');
+
+        if (this._foldersIndex[id]) {
+            this._foldersIndex[id].destroy();
+            delete this._foldersIndex[id];
+        }
+
+        if (this._foldersWaitingParent[id]) {
+            delete this._foldersWaitingParent[id];
+        }
+    }
+
+    _onFolderTreeReparent(reparentedItems: Array<{ item: TreeViewItem & { asset: AssetObserver | null }; newParent: TreeViewItem & { asset: AssetObserver | null }; newChildIndex: number }>) {
+        const assets = reparentedItems.map((reparented) => {
+            return reparented.item.asset;
+        });
+
+        editor.call('assets:fs:move', assets, reparentedItems[0].newParent.asset || null);
+    }
+
+    _onFolderTreeSelect(item: TreeViewItem) {
+        if (this._suspendSelectEvents) {
+            return;
+        }
+
+        if (item.asset === LEGACY_SCRIPTS_FOLDER_ASSET) {
+            item.selected = false;
+            this.currentFolder = item.asset;
+            return;
+        }
+
+        if (item.asset) {
+            if (this._foldersView.pressedCtrl || this._foldersView.pressedShift) {
+                editor.call('selector:add', 'asset', item.asset);
+            } else {
+                if (item.asset === this.currentFolder) {
+                    editor.call('selector:set', 'asset', [item.asset]);
+                } else {
+                    item.selected = false;
+                    this.currentFolder = item.asset;
+
+                    if (this._foldersView.pressedArrow) {
+                        editor.call('selector:set', 'asset', [item.asset]);
+                    }
+                }
+            }
+        } else {
+            item.selected = false;
+            this.currentFolder = null;
+        }
+    }
+
+    _onFolderTreeDeselect(item: TreeViewItem) {
+        if (this._suspendSelectEvents) {
+            return;
+        }
+
+        if (this._foldersView.selected.length === 1 && !this._foldersView.pressedCtrl && !this._foldersView.pressedShift) {
+            // if we deselected all folders but one then this probably means we
+            // just clicked on an already selected folder so clear the current selection completely
+            // and switch to that folder as this feels more like what would be expected by the user.
+            this._suspendSelectEvents = true;
+            this._foldersView.deselect();
+            editor.call('selector:clear');
+            this._suspendSelectEvents = false;
+        } else if (item.asset && item.asset !== LEGACY_SCRIPTS_FOLDER_ASSET) {
+            editor.call('selector:remove', item.asset);
+        }
+    }
+
+    _onFolderTreeDragStart(items: TreeViewItem[]) {
+        this._onAssetDragStart(null, items[0].asset);
+    }
+
+    // Perform AND operation between tags
+    _tagsAND(tagGroup: (string | string[])[], assetTags: string[]) {
+        for (let i = 0; i < tagGroup.length; i++) {
+            if (assetTags.indexOf(tagGroup[i]) === -1) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    // Perform OR operation between tags or groups of subtags
+    _tagsOR(tagGroup: (string | string[])[], assetTags: string[]) {
+        for (let i = 0; i < tagGroup.length; i++) {
+            if (Array.isArray(tagGroup[i])) {
+                if (this._tagsAND(tagGroup[i], assetTags)) {
+                    return true;
+                }
+            } else if (assetTags.indexOf(tagGroup[i]) !== -1) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // Show or hide an element based on the current filters
+    _filterAssetElement(element: TableRow | AssetGridViewItem) {
+        if (!element.asset) {
+            return false;
+        }
+
+        if (this.assetTypes) {
+            if (!this.assetTypes.includes(element.asset.get('type'))) {
+                return false;
+            }
+        }
+
+        if (this._dropdownType.value !== 'all' && !this.assetTypes) {
+            if (this._dropdownType.value !== (element.asset.get('source') ? `${element.asset.get('type')}Source` : element.asset.get('type'))) {
+                return false;
+            }
+        }
+
+        // do not show source assets if flag disabled (except for folders)
+        if (!this._showSourceAssets && element.asset.get('source') && element.asset.get('type') !== 'folder') {
+            return false;
+        }
+
+        if (this.validateAssetsFn && !this.validateAssetsFn(element.asset)) {
+            return false;
+        }
+
+        const name = element.asset.get('name');
+
+        const searchQuery = this._searchInput.value;
+
+        if (searchQuery) {
+            if (this._searchTags) {
+                // check for tags
+                const tags = element.asset.getRaw('tags');
+                if (tags.length === 0) {
+                    return false;
+                }
+
+                return this._tagsOR(this._searchTags, tags);
+
+            }
+            if (searchQuery[0] === '*' && searchQuery.length > 1) {
+                // check for regular expression first if the query starts with '*'
+                try {
+                    if (new RegExp(searchQuery.slice(1), 'i').test(name)) {
+                        return true;
+                    }
+                } catch (ex) {} // swallow exception and continue
+            }
+
+            // check if name includes search query
+            if (!name.toLowerCase().includes(searchQuery.toLowerCase())) {
+
+                // if id matches then return true immediately
+                const id = parseInt(searchQuery, 10);
+                if (id && element.asset.get('id') === id)  {
+                    return true;
+                }
+
+                return false;
+            }
+        }
+
+        if (this._currentFolder === LEGACY_SCRIPTS_FOLDER_ASSET) {
+            return !!element.asset.legacyScript;
+        }
+
+        // if we have a search query then show results from this folder and subfolders too
+        const path = element.asset.get('path');
+        if (searchQuery) {
+            if (!this._currentFolder) {
+                return true;
+            }
+
+            return path.includes(parseInt(this._currentFolder.get('id'), 10));
+        }
+
+        // at this stage only return true if the asset is in the current folder
+        if (!this._currentFolder) {
+            return !path.length;
+        }
+
+        return path[path.length - 1] === parseInt(this._currentFolder.get('id'), 10);
+    }
+
+    _onWhoIsOnlineRemove(userId: string) {
+        const userEntry = this._usersIndex[userId];
+        if (!userEntry) {
+            return;
+        }
+
+        let i = userEntry.elements.length;
+        while (i--) {
+            userEntry.elements[i].destroy();
+        }
+    }
+
+    _onAssetUsedChange(asset: AssetObserver, used: boolean) {
+        this._applyFnToAssetElements(asset, (element) => {
+            if (used) {
+                element.class.remove(CLASS_ASSET_NOT_REFERENCED);
+            } else {
+                element.class.add(CLASS_ASSET_NOT_REFERENCED);
+            }
+        });
+    }
+
+    toggleDetailsView() {
+        this._detailsView.hidden = !this._detailsView.hidden;
+        this._gridView.hidden = !this._detailsView.hidden;
+    }
+
+    _filterView(view: Table | GridView) {
+        view.hidden = false;
+        this._containerProgress.hidden = true;
+
+        // cancel any filtering currently in progress
+        view.filterAsyncCancel();
+
+        let evtDelay, evtCancel, evtEnd;
+
+        // show progress if filtering takes longer
+        evtDelay = view.once('filter:delay', () => {
+            evtDelay = null;
+            this._containerProgress.hidden = false;
+        });
+
+        // hide progress when filtering ends
+        evtEnd = view.once('filter:end', () => {
+            if (evtDelay) {
+                evtDelay.unbind();
+                evtDelay = null;
+            }
+
+            if (evtCancel) {
+                evtCancel.unbind();
+                evtCancel = null;
+            }
+
+            this._containerProgress.hidden = true;
+        });
+
+        evtCancel = view.once('filter:cancel', () => {
+            if (evtDelay) {
+                evtDelay.unbind();
+                evtDelay = null;
+            }
+
+            if (evtEnd) {
+                evtEnd.unbind();
+                evtEnd = null;
+            }
+        });
+
+        // filter current view
+        view.filterAsync();
+    }
+
+    /**
+     * Filters the asset panel based on the current filters active.
+     */
+    filter() {
+        if (!this._assets) {
+            return;
+        }
+
+        if (this.viewMode === AssetPanel.VIEW_DETAILS) {
+            this._gridView.hidden = true;
+            this._gridView.filterAsyncCancel();
+
+            this._filterView(this._detailsView);
+        } else {
+            this._detailsView.hidden = true;
+            this._detailsView.filterAsyncCancel();
+
+            this._filterView(this._gridView);
+        }
+    }
+
+    /**
+     * Navigates one folder back from the current folder.
+     */
+    navigateBack() {
+        if (!this.currentFolder) {
+            return;
+        }
+
+        const prevFolderId = this.currentFolder.get('id');
+
+        const path = this.currentFolder.get('path');
+        let folder = null;
+        if (path.length) {
+            folder = this._assets.get(path[path.length - 1]);
+        }
+
+        const view = this._viewMode === AssetPanel.VIEW_DETAILS ? this._detailsView : this._gridView;
+        view.once('filter:end', () => {
+            this._suspendSelectEvents = true;
+            this._focusAssetItem(prevFolderId);
+            this._suspendSelectEvents = false;
+        });
+
+        this.currentFolder = folder;
+    }
+
+    /**
+     * Selects the specified asset in the asset panel
+     *
+     * @param asset - The asset
+     */
+    select(asset: AssetObserver): void {
+        this._setAssetSelected(asset, true);
+    }
+
+    /**
+     * Deselects the specified asset in the asset panel
+     *
+     * @param asset - The asset
+     */
+    deselect(asset: AssetObserver): void {
+        this._setAssetSelected(asset, false);
+    }
+
+    destroy() {
+        if (this._destroyed) {
+            return;
+        }
+
+        this._legacyScriptsIndex = {};
+
+        this._eventsEditor.forEach(e => e.unbind());
+        this._eventsEditor.length = 0;
+
+        this.dropManager = null;
+
+        this.assets = null;
+
+        this._tooltips.forEach(tooltip => tooltip.destroy());
+        this._tooltips.length = 0;
+
+        super.destroy();
+    }
+
+    set assets(value: ObserverList) {
+        this._setHoveredAsset(undefined);
+
+        this._prevSelectorType = null;
+        this._prevSelectorItems = [];
+        this._selectorType = null;
+        this._selectorItems = [];
+        this._selectedAssets = [];
+
+        this._assetListEvents.forEach(e => e.unbind());
+        this._assetListEvents.length = 0;
+
+        this._detailsView.unlink();
+        this._gridView.clear();
+
+        for (const id in this._foldersIndex) {
+            this._foldersIndex[id].destroy();
+        }
+        this._foldersIndex = {};
+
+        this._foldersWaitingParent = {};
+
+        this._assets = value;
+        if (!this._assets) {
+            return;
+        }
+
+        const assets = this._assets.array();
+
+        // add legacy scripts too
+        if (config.project.settings.useLegacyScripts) {
+            assets.unshift(LEGACY_SCRIPTS_FOLDER_ASSET); // keep legacy scripts folder on top
+            for (const id in this._legacyScriptsIndex) {
+                assets.push(this._legacyScriptsIndex[id]);
+            }
+        }
+
+        assets.forEach((asset) => {
+            this._addAsset(asset);
+        });
+
+        this._detailsView.link(assets);
+
+        this._assetListEvents.push(this._assets.on('add', (asset, _, index) => {
+            this._addAsset(asset, index, true);
+        }));
+        this._assetListEvents.push(this._assets.on('remove', (asset) => {
+            this._removeAsset(asset);
+        }));
+        this._assetListEvents.push(this._assets.on('move', (asset: AssetObserver, index: number) => {
+            this._moveAsset(asset, index);
+        }));
+
+        this.filter();
+    }
+
+    get assets() {
+        return this._assets;
+    }
+
+    set currentFolder(value: 'scripts' | Observer) {
+        // legacy
+        if (value === 'scripts') {
+            value = LEGACY_SCRIPTS_FOLDER_ASSET;
+        }
+
+        if (this._currentFolder === value) {
+            return;
+        }
+
+        let id;
+        if (this._currentFolder) {
+            id = this._currentFolder.get('id');
+            if (this._foldersIndex[id] && !this._foldersIndex[id].destroyed) {
+                this._foldersIndex[id].class.remove(CLASS_CURRENT_FOLDER);
+            }
+        } else {
+            this._foldersViewRoot.class.remove(CLASS_CURRENT_FOLDER);
+        }
+
+        this._currentFolder = value;
+
+        const focused = document.activeElement;
+
+        if (this._currentFolder) {
+            this._btnBack.enabled = true;
+            id = this._currentFolder.get('id');
+            if (this._foldersIndex[id]) {
+                this._foldersIndex[id].class.add(CLASS_CURRENT_FOLDER);
+                this._foldersIndex[id].parentsOpen = true;
+
+                // focus folder in order to scroll it into view
+                this._foldersIndex[id].focus();
+            }
+
+        } else {
+            this._btnBack.enabled = false;
+            this._foldersViewRoot.class.add(CLASS_CURRENT_FOLDER);
+            this._foldersViewRoot.focus();
+        }
+
+        // restore focus
+        if (focused) {
+            focused.focus();
+        }
+
+        if (!this._suspendFiltering) {
+            this.filter();
+        }
+
+        this.emit('currentFolder', value);
+    }
+
+    get currentFolder() {
+        return this._currentFolder;
+    }
+
+    set dropManager(value: DropManager | null) {
+        if (this._dropManager === value) {
+            return;
+        }
+
+        if (this._foldersDropTarget) {
+            this._foldersDropTarget.destroy();
+            this._foldersDropTarget = null;
+        }
+
+        if (this._tableDropTarget) {
+            this._tableDropTarget.destroy();
+            this._tableDropTarget = null;
+        }
+
+        if (this._gridViewDropTarget) {
+            this._gridViewDropTarget.destroy();
+            this._gridViewDropTarget = null;
+        }
+
+        this._eventsDropManager.forEach(e => e.unbind());
+        this._eventsDropManager.length = 0;
+
+        this._dropManager = value;
+
+        if (this._dropManager) {
+            this._eventsDropManager.push(this._dropManager.on('deactivate', this._onDeactivateDropManager.bind(this)));
+
+            this._foldersDropTarget = this._createAssetDropTarget(this._containerFolders);
+            this._tableDropTarget = this._createAssetDropTarget(this._detailsView);
+            this._gridViewDropTarget = this._createAssetDropTarget(this._gridView);
+        }
+    }
+
+    get dropManager() {
+        return this._dropManager;
+    }
+
+    get detailsView() {
+        return this._detailsView;
+    }
+
+    get foldersView() {
+        return this._containerFolders;
+    }
+
+    get gridView() {
+        return this._gridView;
+    }
+
+    set viewMode(value: string) {
+        if (this._viewMode === value) {
+            return;
+        }
+
+        this._viewMode = value;
+
+        this._refreshViewModeButtons();
+
+        if (this._progressBar.value < 100) {
+            this._containerProgress.hidden = false;
+            this._detailsView.hidden = true;
+            this._gridView.hidden = true;
+        } else {
+            this.filter();
+
+            if (value === AssetPanel.VIEW_SMALL_GRID) {
+                this._gridView.class.add(CLASS_GRID_SMALL);
+            } else {
+                this._gridView.class.remove(CLASS_GRID_SMALL);
+            }
+        }
+
+        this.emit('viewMode', value);
+    }
+
+    get viewMode() {
+        return this._viewMode;
+    }
+
+    get activeView() {
+        return this.viewMode === AssetPanel.VIEW_DETAILS ? this.detailsView : this.gridView;
+    }
+
+    get progressBar() {
+        return this._progressBar;
+    }
+
+    get dropdownType() {
+        return this._dropdownType;
+    }
+
+    get searchInput() {
+        return this._searchInput;
+    }
+
+    set selectedAssets(value: AssetObserver[]) {
+        if (!value) {
+            value = [];
+        }
+
+        this._btnDelete.enabled = this.writePermissions && !!value.length;
+
+        const selectedIndex = {};
+
+        // build index of selected assets
+        value.forEach((asset) => {
+            selectedIndex[asset.get('id')] = true;
+        });
+
+        // deselect selected assets except the ones in the index
+        const selected = this._selectedAssets;
+        let i = selected.length;
+        while (i--) {
+            if (selectedIndex[selected[i].get('id')]) {
+                continue;
+            }
+            this._setAssetSelected(selected[i], false);
+        }
+
+        this._selectedAssets = value.slice();
+
+        if (value.length) {
+            value.forEach((asset) => {
+                this._setAssetSelected(asset, true);
+            });
+
+            const lastRow = this._rowsIndex[value[value.length - 1].get('id')];
+            if (lastRow && lastRow.selected) {
+                lastRow.focus();
+            }
+        }
+    }
+
+    get selectedAssets() {
+        return this._selectedAssets.slice();
+    }
+
+    get visibleAssets() {
+        const result = [];
+
+        const dict = (this._viewMode === AssetPanel.VIEW_DETAILS ? this._rowsIndex : this._gridIndex);
+        for (const key in dict) {
+            const item = dict[key];
+            if (!item.hidden) {
+                result.push(item.asset.legacyScript || item.asset);
+            }
+        }
+
+        return result;
+    }
+
+    set showSourceAssets(value: boolean) {
+        if (this._showSourceAssets === value) {
+            return;
+        }
+
+        this._showSourceAssets = value;
+
+        if (!this._suspendFiltering) {
+            this.filter();
+        }
+    }
+
+    get showSourceAssets() {
+        return this._showSourceAssets;
+    }
+
+    set suspendSelectionEvents(value: boolean) {
+        this._suspendSelectEvents = value;
+    }
+
+    get suspendSelectionEvents() {
+        return this._suspendSelectEvents;
+    }
+
+    set suspendFiltering(value: boolean) {
+        this._suspendFiltering = value;
+    }
+
+    get suspendFiltering() {
+        return this._suspendFiltering;
+    }
+
+    set writePermissions(value: boolean) {
+        if (this._writePermissions === value) {
+            return;
+        }
+
+        this._writePermissions = value;
+
+        if (!value) {
+            this._btnNew.enabled = false;
+            this._btnDelete.enabled = false;
+            this._foldersView.allowDrag = false;
+        } else {
+            this._btnNew.enabled = true;
+            this._btnDelete.enabled = !!this._selectedAssets.length;
+            this._foldersView.allowDrag = true;
+        }
+    }
+
+    get writePermissions() {
+        return this._writePermissions;
+    }
+}
+
+export { AssetPanel };

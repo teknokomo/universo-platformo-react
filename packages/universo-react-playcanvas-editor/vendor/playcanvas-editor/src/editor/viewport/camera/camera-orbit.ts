@@ -1,0 +1,137 @@
+import { type Application, PROJECTION_PERSPECTIVE, Quat, Vec2, Vec3 } from 'playcanvas';
+
+import type { ViewportTap } from '../viewport-tap';
+
+editor.once('viewport:load', (app: Application) => {
+    // Orbit camera with virtual point of focus
+    // Zooming / Flying will not move virtual point forward/backwards
+
+    let orbiting = false;
+    let orbitCamera;
+    const pivot = new Vec3();
+    let distance = 1;
+    const sensitivity = 0.2;
+    let pitch = 0;
+    let yaw = 0;
+    const vec2 = new Vec2();
+    const vecA = new Vec3();
+    const quat = new Quat();
+
+
+    editor.on('viewport:update', (dt: number) => {
+        const camera = editor.call('camera:current');
+
+        if (camera.camera.projection !== PROJECTION_PERSPECTIVE) {
+            return;
+        }
+
+        distance = Math.max(0.01, vecA.copy(pivot).sub(camera.getPosition()).length());
+        pivot.copy(camera.forward).mulScalar(distance).add(camera.getPosition());
+
+        if (orbiting) {
+            quat.setFromEulerAngles(pitch, yaw, 0);
+            vecA.set(0, 0, distance);
+            quat.transformVector(vecA, vecA);
+            vecA.add(pivot);
+
+            camera.setPosition(vecA);
+            camera.setRotation(quat);
+
+            editor.call('viewport:render');
+        }
+
+        if (camera.focus) {
+            camera.focus.copy(pivot);
+        }
+    });
+
+    editor.on('camera:change', (camera: { focus?: Vec3 }) => {
+        if (!camera.focus) {
+            return;
+        }
+
+        pivot.copy(camera.focus);
+    });
+
+    editor.on('camera:focus', (point: Vec3) => {
+        pivot.copy(point);
+
+        const camera = editor.call('camera:current');
+        if (camera.focus) {
+            camera.focus.copy(pivot);
+        }
+    });
+
+    editor.on('camera:focus:end', (point: Vec3, value: number) => {
+        const camera = editor.call('camera:current');
+        distance = value;
+        pivot.copy(point);
+
+        if (camera.focus) {
+            camera.focus.copy(pivot);
+        }
+    });
+
+    editor.on('viewport:tap:start', (tap, evt) => {
+        if (tap.button !== 0 || evt.shiftKey || evt.ctrlKey || evt.metaKey || orbiting) {
+            return;
+        }
+
+        editor.call('camera:focus:stop');
+        editor.call('camera:viewcube:stop');
+
+        const camera = editor.call('camera:current');
+
+        if (camera.camera.projection === PROJECTION_PERSPECTIVE) {
+            orbiting = true;
+
+            // disable history
+            orbitCamera = camera;
+            editor.call('camera:history:start', orbitCamera);
+
+            // pitch
+            const x = Math.cos(Math.asin(camera.forward.y));
+            vec2.set(x, camera.forward.y).normalize();
+            pitch =  Math.max(-89.99, Math.min(89.99, Math.atan2(vec2.y, vec2.x) / (Math.PI / 180)));
+
+            // yaw — use right vector to avoid NaN when forward is near-vertical (±Y poles)
+            if (camera.forward.x * camera.forward.x + camera.forward.z * camera.forward.z > 0.001) {
+                vec2.set(camera.forward.x, -camera.forward.z).normalize();
+                yaw = -Math.atan2(vec2.x, vec2.y) / (Math.PI / 180);
+            } else {
+                yaw = Math.atan2(-camera.right.z, camera.right.x) / (Math.PI / 180);
+            }
+
+            editor.call('viewport:render');
+        } else {
+            editor.call('camera:pan:start', tap);
+        }
+    });
+
+    editor.on('viewport:tap:end', (tap) => {
+        if (tap.button !== 0 || !orbiting) {
+            return;
+        }
+
+        orbiting = false;
+        editor.call('camera:history:stop', orbitCamera);
+    });
+
+    editor.on('viewport:tap:move', (tap: ViewportTap) => {
+        if (!orbiting || tap.button !== 0) {
+            return;
+        }
+
+        pitch = Math.max(-89.99, Math.min(89.99, pitch - (tap.y - tap.ly) * sensitivity));
+        yaw += (tap.lx - tap.x) * sensitivity;
+
+        editor.call('viewport:render');
+    });
+
+    editor.on('camera:toggle', (state: boolean) => {
+        if (!state && orbiting) {
+            orbiting = false;
+            editor.call('camera:history:stop', orbitCamera);
+        }
+    });
+});

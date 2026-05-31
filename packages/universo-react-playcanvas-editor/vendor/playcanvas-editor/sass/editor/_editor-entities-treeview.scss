@@ -1,0 +1,156 @@
+@use "sass:map";
+
+.entities-treeview {
+    flex-grow: 1;
+    flex-shrink: 0;
+    min-height: 100%;
+
+    .pcui-treeview-item-text {
+        flex-shrink: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    // template instance icon
+    .pcui-treeview-item.template-instance {
+        > .pcui-treeview-item-contents {
+            > .pcui-treeview-item-icon::after {
+                content: map.get($asset-icons, 'template');
+            }
+        }
+    }
+
+    // template instance child
+    .pcui-treeview-item.template-instance-child {
+        > .pcui-treeview-item-contents {
+            > .pcui-treeview-item-text::before {
+                content: map.get($asset-icons, 'template');
+                position: absolute;
+                left: -13px;
+                top: -5px;
+                font-size: 12px;
+                color: $text-darkest;
+                text-shadow: -1px 2px 1px $bcg-primary;
+
+                @extend .font-icon;
+            }
+
+            &.pcui-treeview-item-selected,
+            &:hover {
+                > .pcui-treeview-item-text::before {
+                    color: $text-primary;
+                }
+            }
+        }
+    }
+}
+
+.entities-treeview-highlight {
+    > .pcui-treeview-item-contents > .pcui-treeview-item-text {
+        color: $text-active;
+    }
+}
+
+.entities-treeview-visibility-toggle {
+    position: absolute;
+    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 24px;
+    margin: 0;
+    padding: 0;
+    font-size: 14px;
+    line-height: 1;
+    color: transparent;
+    border: none;
+    border-radius: 0;
+    background: none;
+    box-shadow: none !important;
+    outline: none;
+
+    &:hover,
+    &:focus {
+        color: $text-primary;
+    }
+
+    &.entities-treeview-row-hovered {
+        color: rgba($text-primary, 0.7);
+        background-color: $bcg-dark;
+    }
+
+    &.entities-treeview-visibility-hidden {
+        color: $text-secondary;
+
+        &::after {
+            content: '';
+            position: absolute;
+            left: 4px;
+            right: 4px;
+            top: calc(50% - 2px);
+            height: 2px;
+            background: currentcolor;
+            transform: rotate(-45deg);
+            pointer-events: none;
+        }
+
+        &:hover {
+            color: $text-primary;
+        }
+    }
+}
+
+.entities-context-menu-hide {
+    .pcui-menu-item-content > .pcui-label:not(.pcui-menu-item-shortcut)[data-icon] {
+        position: relative;
+
+        &::after {
+            content: '';
+            position: absolute;
+            left: -2px;
+            width: calc(1em + 4px);
+            top: calc(50% - 2px);
+            height: 2px;
+            background: currentcolor;
+            transform: rotate(-45deg);
+            pointer-events: none;
+        }
+    }
+}
+
+.entities-treeview-user-marker-container {
+    flex-shrink: 0;
+}
+
+.entities-treeview-user-marker {
+    display: inline-block;
+    margin-right: 4px;
+    width: 8px;
+    height: 8px;
+}
+
+#layout-hierarchy.entity-picker-mode {
+    .entities-treeview-visibility-toggle {
+        &:hover,
+        &:focus {
+            color: rgba($text-primary, 0.8);
+        }
+
+        &.entities-treeview-row-hovered {
+            color: rgba($text-primary, 0.8);
+            background-color: $bcg-dark;
+        }
+
+        &.entities-treeview-visibility-hidden {
+            color: rgba($text-primary, 0.55);
+
+            &:hover,
+            &:focus,
+            &.entities-treeview-row-hovered {
+                color: rgba($text-primary, 0.8);
+            }
+        }
+    }
+}

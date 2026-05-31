@@ -1,0 +1,52 @@
+.pcui-inspector {
+    > .pcui-label-group {
+        margin: 3px 10px;
+        min-height: 24px;
+
+        > .pcui-label:first-child {
+            font-size: 12px;
+            width: 35%;
+        }
+
+        > .pcui-label:not(:first-child) {
+            @extend .fixedFont;
+
+            min-width: 0;
+        }
+
+        &.asset-rename-error-group {
+            flex-wrap: wrap;
+            align-items: flex-start;
+
+            > .pcui-label.asset-rename-error:not(:first-child) {
+                flex-basis: calc(65% - #{$element-margin});
+                margin: 3px 0 0 calc(35% + #{$element-margin});
+                color: #f30;
+                font-size: 12px;
+                line-height: 16px;
+                white-space: normal;
+                word-break: break-word;
+            }
+        }
+    }
+
+    > .pcui-asset-input {
+        margin: 3px 10px;
+    }
+
+    > .pcui-panel {
+        margin: 3px 10px;
+
+        > .pcui-panel-content {
+            padding: 0 3px;
+        }
+    }
+}
+
+.pcui-inspector-subhead {
+    :first-child {
+        color: $text-primary;
+        font-weight: bold;
+        text-transform: uppercase;
+    }
+}

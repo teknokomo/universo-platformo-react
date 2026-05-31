@@ -10,6 +10,7 @@ export default defineWorkspace([
     'packages/universo-react-metahubs-frontend/vitest.config.ts',
     'packages/universo-react-profile-frontend/vitest.config.ts',
     'packages/universo-react-modules-engine/vitest.config.ts',
+    'packages/universo-react-playcanvas-editor/vitest.config.ts',
     'packages/universo-react-start-frontend/vitest.config.ts',
     'packages/universo-react-types/vitest.config.ts',
     'packages/universo-react-utils/vitest.config.ts',

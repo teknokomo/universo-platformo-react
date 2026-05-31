@@ -1,0 +1,1023 @@
+import { Menu, MenuItem, Label } from '@playcanvas/pcui';
+import { Color } from 'playcanvas';
+
+
+const colorA = new Color();
+
+// list of asset types
+const assetTypes = config.schema.asset.type.$enum;
+
+// supported types for a context menu
+const types = new Set([
+    'boolean',
+    'label',
+    'string',
+    'array:string',
+    'text',
+    'tags',
+    'select',
+    'number',
+    'slider',
+    'vec2',
+    'vec3',
+    'vec4',
+    'rgb',
+    'rgba',
+    'gradient',
+    'batchgroup',
+    'layers',
+    'entity',
+    'array:entity',
+    'asset',
+    'assets',
+    'array:asset'
+]);
+
+// add support for specific asset types
+for (const type of assetTypes) {
+    types.add(`asset:${type}`);
+    types.add(`array:asset:${type}`);
+}
+
+// converts string to vector (2-4 components)
+// these formats supported:
+// 8, 16, 32
+// [ 8, 16 ]
+// { "x": 8, "z": 32 }
+const convertStringToVec = (string: string, valueOld: number[]) => {
+    const valueNew = valueOld.slice();
+
+    try {
+        string = string.trim();
+
+        if (!string.startsWith('[') && !string.startsWith('{')) {
+            string = `[${string}`;
+        }
+        if (!string.endsWith(']') && !string.endsWith('}')) {
+            string = `${string}]`;
+        }
+
+        const value = JSON.parse(string);
+
+        if (Array.isArray(value)) {
+            for (let i = 0; i < Math.min(value.length, valueOld.length); i++) {
+                if (typeof (value[i]) === 'number') {
+                    valueNew[i] = value[i];
+                }
+            }
+        } else if (typeof (value) === 'object') {
+            ['x', 'y', 'z', 'w'].forEach((c, i) => {
+                if (i >= valueOld.length) {
+                    return;
+                }
+                if (value.hasOwnProperty(c) && typeof (value[c]) === 'number') {
+                    valueNew[i] = value[c];
+                }
+            });
+        }
+    } catch (ex) { }
+
+    return valueNew;
+};
+
+// converts string to color (with optional alpha)
+// these formats supported:
+// #ffffffff
+// 8, 16, 32
+// [ 8, 16 ]
+// { "x": 8, "z": 32 }
+const convertStringToColor = (string: string, valueOld: number[]) => {
+    const valueNew = valueOld.slice();
+
+    try {
+        string = string.trim();
+
+        if (/#[0-9a-f]{6,8}/i.test(string)) {
+            colorA.fromString(string);
+            colorA.toArray(valueNew, 0, valueOld.length === 4);
+        } else {
+            if (!string.startsWith('[') && !string.startsWith('{')) {
+                string = `[${string}`;
+            }
+            if (!string.endsWith(']') && !string.endsWith('}')) {
+                string = `${string}]`;
+            }
+
+            const value = JSON.parse(string);
+
+            if (Array.isArray(value)) {
+                for (let i = 0; i < Math.min(value.length, valueOld.length); i++) {
+                    if (typeof (value[i]) === 'number') {
+                        valueNew[i] = value[i];
+                    }
+                }
+            } else if (typeof (value) === 'object') {
+                ['r', 'g', 'b', 'a'].forEach((c, i) => {
+                    if (i >= valueOld.length) {
+                        return;
+                    }
+                    if (value.hasOwnProperty(c) && typeof (value[c]) === 'number') {
+                        valueNew[i] = value[c];
+                    }
+                });
+            }
+        }
+    } catch (ex) { }
+
+    return valueNew;
+};
+
+// list of conversion methods,
+// it uses new value (n) and optionally an old value (o)
+// eslint-disable-next-line func-call-spacing
+const convertTypes = new Map<string, (n: unknown, o: unknown) => unknown>([
+    [
+        'boolean-string',
+        (n: unknown, _o: unknown) => {
+            return n ? 'true' : 'false';
+        }
+    ], [
+        'boolean-text',
+        (n: unknown, o: unknown) => {
+            return n ? 'true' : 'false';
+        }
+    ], [
+        'boolean-number',
+        (n: unknown, o: unknown) => {
+            return n ? 1 : 0;
+        }
+    ], [
+        'boolean-slider',
+        (n: unknown, o: unknown) => {
+            return n ? 1 : 0;
+        }
+    ], [
+        'string-text',
+        (n: unknown, o: unknown) => {
+            return n;
+        }
+    ], [
+        'string-array:string',
+        (n: unknown, o: unknown) => {
+            const items = [];
+            const data = n.split(',');
+
+            for (let i = 0; i < data.length; i++) {
+                const string = data[i].trim();
+                if (string) {
+                    items.push(string);
+                }
+            }
+
+            return items;
+        }
+    ], [
+        'string-tags',
+        (n: unknown, o: unknown) => {
+            const set = new Set();
+            const items = n.split(',');
+            for (let i = 0; i < items.length; i++) {
+                const tag = items[i].trim();
+                if (!tag) {
+                    continue;
+                }
+                set.add(tag);
+            }
+            if (set.size === 0) {
+                return [];
+            }
+            return Array.from(set);
+        }
+    ], [
+        'string-number',
+        (n: unknown, o: unknown) => {
+            const number = parseFloat(n);
+            if (isNaN(number)) {
+                return 0;
+            }
+            return number;
+        }
+    ], [
+        'string-slider',
+        (n: unknown, o: unknown) => {
+            const number = parseFloat(n);
+            if (isNaN(number)) {
+                return 0;
+            }
+            return number;
+        }
+    ], [
+        'string-vec2',
+        convertStringToVec
+    ], [
+        'string-vec3',
+        convertStringToVec
+    ], [
+        'string-vec4',
+        convertStringToVec
+    ], [
+        'string-rgb',
+        convertStringToColor
+    ], [
+        'string-rgba',
+        convertStringToColor
+    ], [
+        'array:string-string',
+        (n: unknown, _o: unknown) => {
+            return n.join(', ');
+        }
+    ], [
+        'array:string-text',
+        (n: unknown, _o: unknown) => {
+            return n.join('\n');
+        }
+    ], [
+        'array:string-tags',
+        (n: unknown, _o: unknown) => {
+            const set = new Set();
+            for (let i = 0; i < n.length; i++) {
+                if (!n[i]) {
+                    continue;
+                }
+                set.add(n[i]);
+            }
+            if (set.size === 0) {
+                return [];
+            }
+            return Array.from(set);
+        }
+    ], [
+        'text-string',
+        (n: unknown, _o: unknown) => {
+            return n;
+        }
+    ], [
+        'text-array:string',
+        (n: unknown, _o: unknown) => {
+            const items = n.split('\n');
+            if (items.length === 1 && items[0] === '') {
+                return [];
+            }
+            return items;
+        }
+    ], [
+        'text-tags',
+        (n: unknown, _o: unknown) => {
+            const set = new Set();
+            const items = n.split('\n');
+            for (let i = 0; i < items.length; i++) {
+                const tag = items[i].trim();
+                if (!tag) {
+                    continue;
+                }
+                set.add(tag);
+            }
+            if (set.size === 0) {
+                return [];
+            }
+            return Array.from(set);
+        }
+    ], [
+        'tags-string',
+        (n: unknown, _o: unknown) => {
+            return n.join(', ');
+        }
+    ], [
+        'tags-array:string',
+        (n: unknown, _o: unknown) => {
+            return n;
+        }
+    ], [
+        'tags-text',
+        (n: unknown, _o: unknown) => {
+            return n.join('\n');
+        }
+    ], [
+        'number-boolean',
+        (n: unknown, _o: unknown) => {
+            return !!n;
+        }
+    ], [
+        'number-string',
+        (n: unknown, _o: unknown) => {
+            return `${n}`;
+        }
+    ], [
+        'number-text',
+        (n: unknown, _o: unknown) => {
+            return `${n}`;
+        }
+    ], [
+        'number-slider',
+        (n: unknown, _o: unknown) => {
+            return n;
+        }
+    ], [
+        'number-vec2',
+        (n: unknown, o: unknown) => {
+            return [n, (o as number[])[1]];
+        }
+    ], [
+        'number-vec3',
+        (n: unknown, o: unknown) => {
+            return [n, (o as number[])[1], (o as number[])[2]];
+        }
+    ], [
+        'number-vec4',
+        (n: unknown, o: unknown) => {
+            return [n, o[1], o[2], o[3]];
+        }
+    ], [
+        'number-rgb',
+        (n: unknown, o: unknown) => {
+            return [n, (o as number[])[1], (o as number[])[2]];
+        }
+    ], [
+        'number-rgba',
+        (n: unknown, o: unknown) => {
+            return [n, (o as number[])[1], (o as number[])[2], (o as number[])[3]];
+        }
+    ], [
+        'number-asset',
+        (n: unknown, o: unknown) => {
+            if (!n) {
+                return o;
+            }
+            const asset = editor.call('assets:get', n);
+            if (!asset) {
+                return o;
+            }
+            return n;
+        }
+    ], [
+        'vec2-string',
+        (n: unknown, o: unknown) => {
+            return JSON.stringify(n);
+        }
+    ], [
+        'vec2-text',
+        (n: unknown, o: unknown) => {
+            return JSON.stringify(n);
+        }
+    ], [
+        'vec2-vec3',
+        (n: unknown, o: unknown) => {
+            return [n[0], n[1], o[2]];
+        }
+    ], [
+        'vec2-vec4',
+        (n: unknown, o: unknown) => {
+            return [n[0], n[1], o[2], o[3]];
+        }
+    ], [
+        'vec2-rgb',
+        (n: unknown, o: unknown) => {
+            return [n[0], n[1], o[2]];
+        }
+    ], [
+        'vec2-rgba',
+        (n: unknown, o: unknown) => {
+            return [n[0], n[1], o[2], o[3]];
+        }
+    ], [
+        'vec3-string',
+        (n: unknown, o: unknown) => {
+            return JSON.stringify(n);
+        }
+    ], [
+        'vec3-text',
+        (n: unknown, o: unknown) => {
+            return JSON.stringify(n);
+        }
+    ], [
+        'vec3-vec2',
+        (n: unknown, o: unknown) => {
+            return [n[0], n[1]];
+        }
+    ], [
+        'vec3-vec4',
+        (n: unknown, o: unknown) => {
+            return [n[0], n[1], n[2], o[3]];
+        }
+    ], [
+        'vec3-rgb',
+        (n: unknown, o: unknown) => {
+            return [n[0], n[1], n[2]];
+        }
+    ], [
+        'vec3-rgba',
+        (n: unknown, o: unknown) => {
+            return [n[0], n[1], n[2], o[3]];
+        }
+    ], [
+        'vec4-string',
+        (n: unknown, o: unknown) => {
+            return JSON.stringify(n);
+        }
+    ], [
+        'vec4-text',
+        (n: unknown, o: unknown) => {
+            return JSON.stringify(n);
+        }
+    ], [
+        'vec4-vec2',
+        (n: unknown, o: unknown) => {
+            return [n[0], n[1]];
+        }
+    ], [
+        'vec4-vec3',
+        (n: unknown, o: unknown) => {
+            return [n[0], n[1], n[2]];
+        }
+    ], [
+        'vec4-rgb',
+        (n: unknown, o: unknown) => {
+            return [n[0], n[1], n[2]];
+        }
+    ], [
+        'vec4-rgba',
+        (n: unknown, o: unknown) => {
+            return [n[0], n[1], n[2], n[3]];
+        }
+    ], [
+        'rgb-string',
+        (n: unknown, o: unknown) => {
+            return colorA.fromArray(n).toString(false).toUpperCase();
+        }
+    ], [
+        'rgb-text',
+        (n: unknown, o: unknown) => {
+            return colorA.fromArray(n).toString(false).toUpperCase();
+        }
+    ], [
+        'rgb-vec2',
+        (n: unknown, o: unknown) => {
+            return [n[0], n[1]];
+        }
+    ], [
+        'rgb-vec3',
+        (n: unknown, o: unknown) => {
+            return [n[0], n[1], n[2]];
+        }
+    ], [
+        'rgb-vec4',
+        (n: unknown, o: unknown) => {
+            return [n[0], n[1], n[2], o[3]];
+        }
+    ], [
+        'rgb-rgba',
+        (n: unknown, o: unknown) => {
+            return [n[0], n[1], n[2], o[3]];
+        }
+    ], [
+        'rgba-string',
+        (n: unknown, o: unknown) => {
+            return colorA.fromArray(n).toString(true).toUpperCase();
+        }
+    ], [
+        'rgba-text',
+        (n: unknown, o: unknown) => {
+            return colorA.fromArray(n).toString(true).toUpperCase();
+        }
+    ], [
+        'rgba-vec2',
+        (n: unknown, o: unknown) => {
+            return [n[0], n[1]];
+        }
+    ], [
+        'rgba-vec3',
+        (n: unknown, o: unknown) => {
+            return [n[0], n[1], n[2]];
+        }
+    ], [
+        'rgba-vec4',
+        (n: unknown, o: unknown) => {
+            return [n[0], n[1], n[2], n[3]];
+        }
+    ], [
+        'rgba-rgb',
+        (n: unknown, o: unknown) => {
+            return [n[0], n[1], n[2]];
+        }
+    ], [
+        'entity-array:entity',
+        (n: unknown, o: unknown) => {
+            if (Array.isArray(n)) {
+                return n;
+            } else if (n) {
+                return [n];
+            }
+            return [];
+        }
+    ], [
+        'array:entity-entity',
+        (n: unknown, o: unknown) => {
+            if (n.length) {
+                return n[0];
+            }
+            return null;
+
+        }
+    ], [
+        'asset-array:asset',
+        (n: unknown, o: unknown) => {
+            if (Array.isArray(n)) {
+                return n;
+            } else if (n) {
+                return [n];
+            }
+            return [];
+
+        }
+    ]
+]);
+
+
+// additional assets conversions
+for (const type of assetTypes) {
+    convertTypes.set(`asset:${type}-asset`, (n: unknown, o: unknown) => {
+        return n;
+    });
+
+    convertTypes.set(`asset-asset:${type}`, (n: unknown, o: unknown) => {
+        if (!n) {
+            return null;
+        }
+
+        const assetType = editor.call('assets:get', n)?.get('type');
+        if (!assetType) {
+            return o;
+        }
+
+        if (assetType === type) {
+            return n;
+        }
+
+        return o;
+    });
+
+    convertTypes.set(`asset-array:asset:${type}`, (n: unknown, o: unknown) => {
+        if (!n) {
+            return [];
+        }
+
+        if (Array.isArray(n)) {
+            const items = [];
+            for (let i = 0; i < n.length; i++) {
+                const assetType = editor.call('assets:get', n[i])?.get('type');
+
+                if (!assetType) {
+                    continue;
+                }
+
+                if (assetType === type) {
+                    items.push(n[i]);
+                }
+            }
+
+            if (items.length) {
+                return items;
+            }
+
+            return o;
+
+        } else if (n) {
+            const assetType = editor.call('assets:get', n)?.get('type');
+
+            if (!assetType) {
+                return o;
+            }
+
+            if (assetType === type) {
+                return [n];
+            }
+        }
+
+        return o;
+    });
+
+    convertTypes.set(`array:asset:${type}-array:asset`, (n: unknown, o: unknown) => {
+        return n;
+    });
+
+    convertTypes.set(`number-asset:${type}`, (n: unknown, o: unknown) => {
+        if (!n) {
+            return o;
+        }
+        const asset = editor.call('assets:get', n);
+        if (!asset) {
+            return o;
+        }
+        if (asset.get('type') !== type) {
+            return o;
+        }
+        return n;
+    });
+}
+
+
+editor.method('clipboard:types', () => {
+    return types;
+});
+
+
+editor.once('load', () => {
+    const root = editor.call('layout.root');
+    const hasWriteAccess = () => editor.call('permissions:write');
+
+    // use in-built clipboard (uses localStorage)
+    const clipboard = editor.api.globals.clipboard;
+
+    let path: string | null = null;
+    let schemaType: string | null = null;
+    let fieldEnabled: boolean = false;
+    let fieldOptions: object[] | null = null;
+    let elementHighlighted = null;
+
+    if (!clipboard) {
+        return;
+    }
+
+    // types of selected objects currently supported
+    const objTypes = new Set([
+        'entity',
+        'asset'
+    ]);
+
+
+    // list of exceptions
+    // if object type and path matches,
+    // copy/paste will not be provided for such field
+    const pathsExceptions = new Set([
+        'entity:components.render.materialAssets'
+    ]);
+
+
+    // check if in clipboard we have a valid object
+    const isValidClipboardObject = (value: unknown): value is { type: string; value: unknown } => {
+        return value &&
+            (typeof value) === 'object' &&
+            !Array.isArray(value) &&
+            value.hasOwnProperty('type') &&
+            value.hasOwnProperty('value') &&
+            value.type;
+    };
+
+    // context menu
+    const menu = new Menu({
+        class: 'pcui-contextmenu-clipboard'
+    });
+
+    // copy
+    const menuItemCopy = new MenuItem({
+        text: 'Copy',
+        icon: 'E351',
+        onSelect: () => {
+            editor.call('clipboard:copy', path, schemaType);
+        }
+    });
+
+    // copy posftix that shows the type to be copied
+    const menuItemCopyLabel = new Label({
+        class: 'pcui-menu-item-postfix',
+        text: ''
+    });
+    // container content is not exposed on menu item, but we need to access it
+    menuItemCopy._containerContent.append(menuItemCopyLabel);
+
+    menu.append(menuItemCopy);
+
+    // paste
+    const menuItemPaste = new MenuItem({
+        text: 'Paste',
+        icon: 'E348',
+        onIsVisible: hasWriteAccess, // visible only if user has write access
+        onIsEnabled: () => {
+            return fieldEnabled && editor.call('clipboard:validPaste', path, schemaType, fieldOptions);
+        },
+        onSelect: () => {
+            editor.call('clipboard:paste', path, schemaType, fieldOptions);
+        }
+    });
+
+    // paste postfix - shows what is in the clipboard
+    const menuItemPasteLabel = new Label({
+        class: 'pcui-menu-item-postfix',
+        text: ''
+    });
+    menuItemPaste._containerContent.append(menuItemPasteLabel);
+
+    menu.append(menuItemPaste);
+    root.append(menu);
+
+
+    // when clipboard menu is hidden
+    menu.on('hide', () => {
+        if (!elementHighlighted) {
+            return;
+        }
+
+        // remove highlighting
+        elementHighlighted.classList.remove('pcui-highlight');
+        elementHighlighted = null;
+    });
+
+
+    // convert type string to more human-friendly version
+    editor.method('clipboard:typeToHuman', (type: string) => {
+        if (!type) {
+            return '';
+        }
+
+        if (type.startsWith('array:')) {
+            type = `${type.slice(6)}[]`;
+        }
+
+        return type;
+    });
+
+
+    // return current clipboard type
+    editor.method('clipboard:type', () => {
+        const paste = clipboard.value;
+        if (isValidClipboardObject(paste)) {
+            return paste.type;
+        }
+        return null;
+    });
+
+
+    // check if it is possible to copy value
+    editor.method('clipboard:validCopy', (path: string, type: string) => {
+        if (!path || !type) {
+            return false;
+        }
+
+        // selector should have type
+        const selectionType = editor.call('selector:type') ?? null;
+        if (!selectionType) {
+            return false;
+        }
+
+        // we should support that selection type
+        if (!objTypes.has(selectionType)) {
+            return false;
+        }
+
+        // respect exceptions
+        if (pathsExceptions.has(`${selectionType}:${path}`)) {
+            return false;
+        }
+
+        return true;
+    });
+
+
+    // check if path and type are valid to be pasted in the current selection
+    editor.method('clipboard:validPaste', (path: string, type: string, options: Array<{ v: unknown }> | null) => {
+        if (!path || !type) {
+            return false;
+        }
+
+        if (type === 'label') {
+            return false;
+        }
+
+        // selector should have type
+        const selectionType = editor.call('selector:type') ?? null;
+        if (!selectionType) {
+            return false;
+        }
+
+        // we should support that selection type
+        if (!objTypes.has(selectionType)) {
+            return false;
+        }
+
+        const paste = clipboard.value;
+        if (!isValidClipboardObject(paste)) {
+            return false;
+        }
+
+        // types should match
+        // or there should be a valid conversion option
+        if (paste.type !== type) {
+            if (!convertTypes.has(`${paste.type}-${type}`)) {
+                return false;
+            }
+            if (paste.type === 'asset' && type.startsWith('asset:') && paste.value) {
+                const assetType = editor.call('assets:get', paste.value)?.get('type');
+                if (!assetType) {
+                    return false;
+                }
+                if (`asset:${assetType}` !== type) {
+                    return false;
+                }
+            } else if (paste.type === 'number' && type === 'asset' && paste.value) {
+                const asset = editor.call('assets:get', paste.value);
+                if (!asset) {
+                    return false;
+                }
+            } else if (paste.type === 'number' && type.startsWith('asset:') && paste.value) {
+                const asset = editor.call('assets:get', paste.value);
+                if (!asset) {
+                    return false;
+                }
+                const assetType = asset.get('type');
+                if (`asset:${assetType}` !== type) {
+                    return false;
+                }
+            }
+        }
+
+        // if options are provided
+        // ensure the clipboard value is one of the options
+        if (options) {
+            for (const item of options) {
+                if (item.v === paste.value) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        return true;
+    });
+
+
+    // method to open context menu
+    editor.method('clipboard:contextmenu:open', (x: number, y: number, newPath: string, type: string, options: Array<{ v: unknown }> | null, element: HTMLElement, canPaste: boolean = true) => {
+        // it might not have a path
+        if (!newPath) {
+            schemaType = null;
+            path = null;
+            return;
+        }
+
+        // selector should have type
+        const selectionType = editor.call('selector:type') ?? null;
+        if (!selectionType) {
+            return;
+        }
+
+        // we should support that selection type
+        if (!objTypes.has(selectionType)) {
+            return;
+        }
+
+        // respect exceptions
+        if (pathsExceptions.has(`${selectionType}:${newPath}`)) {
+            return;
+        }
+
+        // remember target path and value type
+        path = newPath;
+        schemaType = type;
+        fieldOptions = options;
+        fieldEnabled = canPaste;
+        menuItemCopyLabel.text = editor.call('clipboard:typeToHuman', schemaType);
+
+        // highlight field
+        elementHighlighted = element;
+        elementHighlighted?.classList?.add('pcui-highlight');
+
+        // check if paste is possible
+        const paste = clipboard.value;
+        if (isValidClipboardObject(paste)) {
+            // if possible, update paste postfix
+            menuItemPasteLabel.text = editor.call('clipboard:typeToHuman', paste.type);
+            menuItemPasteLabel.enabled = true;
+        } else {
+            menuItemPasteLabel.enabled = false;
+        }
+
+        // show context menu
+        menu.hidden = false;
+        menu.position(x + 1, y);
+    });
+
+    // copy to clipoard value by path from current selection
+    editor.method('clipboard:copy', (path: string, type: string) => {
+        if (!editor.call('clipboard:validCopy', path, type)) {
+            return false;
+        }
+
+        const items = editor.call('selector:items');
+        if (!items.length) {
+            return false;
+        }
+
+        clipboard.value = {
+            type: type,
+            value: items[0].get(path)
+        };
+
+        if (elementHighlighted) {
+            editor.call('clipboard:flashElement', elementHighlighted);
+        }
+
+        return true;
+    });
+
+    editor.method('clipboard:paste', (path: string, type: string, options: Array<{ v: unknown }> | null) => {
+        if (!editor.call('clipboard:validPaste', path, type, options)) {
+            return false;
+        }
+
+        // should have at least one item in selector
+        const items = editor.call('selector:items');
+        if (!items.length) {
+            return false;
+        }
+
+        const paste = clipboard.value;
+
+        const convert = paste.type !== type;
+        const conversionTuple = `${paste.type}-${type}`;
+        if (convert && !convertTypes.has(conversionTuple)) {
+            return false;
+        }
+
+        // TODO:
+        // verify if value is actually valid based on type
+
+        // store list of records and their values before modifying for history undo/redo
+        const records = [];
+
+        for (let i = 0; i < items.length; i++) {
+            const valueOld = items[i].get(path);
+            let valueNew = convert ? convertTypes.get(conversionTuple)(paste.value, valueOld) : paste.value;
+
+            if (type === 'entity' && Array.isArray(valueNew)) {
+                valueNew = valueNew[0];
+            } else if (type === 'asset' && Array.isArray(valueNew)) {
+                valueNew = valueNew[0];
+            }
+
+            // create history records
+            records.push({
+                item: items[i],
+                path: path,
+                valueOld: valueOld,
+                valueNew: valueNew
+            });
+
+            // paste new value
+            items[i].history.enabled = false;
+            items[i].set(path, valueNew);
+            items[i].history.enabled = true;
+
+            // TODO:
+            // setting render-component asset does not update materials - bug in render component inspector
+        }
+
+        // custom undo/redo to support multi-selection
+        editor.api.globals.history.add({
+            name: 'clipboard.paste',
+            combine: false,
+            undo: () => {
+                for (let i = 0; i < records.length; i++) {
+                    const item = records[i].item.latest();
+                    if (!item) {
+                        continue;
+                    }
+                    item.history.enabled = false;
+                    item.set(records[i].path, records[i].valueOld);
+                    item.history.enabled = true;
+                }
+            },
+            redo: () => {
+                for (let i = 0; i < records.length; i++) {
+                    const item = records[i].item.latest();
+                    if (!item) {
+                        continue;
+                    }
+                    item.history.enabled = false;
+                    item.set(records[i].path, records[i].valueNew);
+                    item.history.enabled = true;
+                }
+            }
+        });
+
+        if (elementHighlighted) {
+            editor.call('clipboard:flashElement', elementHighlighted);
+        }
+
+        return true;
+    });
+
+    // flash dom element when copied/pasted
+    editor.method('clipboard:flashElement', (domElement: HTMLElement) => {
+        domElement.classList.add('pcui-highlight-flash');
+        setTimeout(() => {
+            domElement.classList.remove('pcui-highlight-flash');
+        }, 250);
+    });
+});
+
+// Edge Cases:
+// 1. entity.components.anim.stateGraphAsset - created without path, dynamically linked, when changed it changes slots under
+// 2. entity.components.render.materialAssets - is a fixed length array of asset ID's, the array length should not be changed, and is defined by a number of meshInstances on a render asset
+// 3. entity.components.particlesystem.%curves% - curvesets are more complex types, with multi-paths for fields
+// 4. asset material offset/tiling/rotation - texture transform options that apply to all texture slots
+// 5. asset texture/cubemap filtering - is a combined field

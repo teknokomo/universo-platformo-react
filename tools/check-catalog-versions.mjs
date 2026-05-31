@@ -12,10 +12,12 @@ const PRIORITIZED_DEPENDENCIES = new Set([
     'react-dom',
     'react-i18next',
     'axios',
-    'tsdown'
+    'tsdown',
+    'vite'
 ])
+const ALLOWED_VERSION_EXCEPTIONS = new Map([['packages/universo-react-playcanvas-editor/package.json::devDependencies::vite', '7.3.2']])
 const CHECKED_SECTIONS = ['dependencies', 'devDependencies']
-const IGNORED_DIRS = new Set(['node_modules', 'dist', 'build', '.git', '.turbo'])
+const IGNORED_DIRS = new Set(['node_modules', 'dist', 'build', '.git', '.turbo', '.tmp'])
 
 const walkPackageJsonFiles = (dirPath, result = []) => {
     for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
@@ -61,6 +63,11 @@ for (const filePath of packageJsonFiles) {
             }
 
             if (version === 'catalog:' || version === 'workspace:*') {
+                continue
+            }
+
+            const exceptionKey = `${relativePath(filePath)}::${sectionName}::${dependencyName}`
+            if (ALLOWED_VERSION_EXCEPTIONS.get(exceptionKey) === version) {
                 continue
             }
 

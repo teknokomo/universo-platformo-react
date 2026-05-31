@@ -1,6 +1,6 @@
 {
     "name": "universo-platformo-react",
-    "version": "0.66.0-alpha",
+    "version": "0.67.0-alpha",
     "private": true,
     "packageManager": "pnpm@10.33.2",
     "homepage": "https://universo.pro",
@@ -17,6 +17,7 @@
         "check:runtime-no-lms-forks": "node tools/testing/check-runtime-no-lms-forks.mjs",
         "check:package-naming": "git ls-files -z | node tools/check-package-naming-convention.mjs --from-ledger memory-bank/implementation/packages-naming-ledger.json --allowlist memory-bank/implementation/packages-naming-legacy-reference-allowlist.json --stdin0",
         "check:apps-template-isolation": "node tools/check-apps-template-isolation.mjs",
+        "check:playcanvas-editor-isolation": "node tools/check-playcanvas-editor-isolation.mjs",
         "check:lms-fixture-contract": "pnpm --filter @universo-react/types build && pnpm --filter @universo-react/utils build && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tools/testing/e2e/support/checkLmsFixtureContract.ts tools/fixtures/metahubs-lms-app-snapshot.json",
         "check:mmoomm-flight-fixture-contract": "pnpm --filter @universo-react/types build && pnpm --filter @universo-react/utils build && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tools/testing/e2e/support/checkMmoommFlightFixtureContract.ts",
         "docs:i18n:check": "node tools/docs/check-i18n-docs.mjs",
@@ -64,7 +65,7 @@
         "start-worker:windows": "cd packages/universo-react-core-backend/bin && run worker",
         "start-worker:default": "cd packages/universo-react-core-backend/bin && ./run worker",
         "clean": "turbo run clean",
-        "clean:all": "rimraf node_modules .turbo **/node_modules **/.turbo **/dist **/build",
+        "clean:all": "rimraf node_modules .turbo **/node_modules **/.turbo **/.tmp **/dist **/build",
         "build:clean": "pnpm clean:all && pnpm install && pnpm build",
         "nuke": "pnpm --filter \"./packages/**\" nuke && rimraf node_modules .turbo",
         "format": "prettier --write \"**/*.{ts,tsx,md}\"",
@@ -96,7 +97,7 @@
         "test:e2e:doctor": "node tools/testing/e2e/support/backend/run-e2e-doctor.mjs",
         "test:e2e:reset": "node tools/testing/e2e/support/backend/run-cleanup.mjs",
         "test:e2e:reset:dry": "node tools/testing/e2e/support/backend/run-cleanup.mjs --dry-run",
-        "test:e2e:agent": "pnpm run check:no-package-base-paths && pnpm run check:package-naming && pnpm run check:apps-template-isolation && pnpm run check:runtime-no-lms-forks && pnpm run check:lms-fixture-contract && pnpm run check:mmoomm-flight-fixture-contract && pnpm run build:e2e && pnpm run test:e2e:smoke && pnpm run test:e2e:flows",
+        "test:e2e:agent": "pnpm run check:no-package-base-paths && pnpm run check:package-naming && pnpm run check:apps-template-isolation && pnpm run check:playcanvas-editor-isolation && pnpm --filter @universo-react/playcanvas-editor test && pnpm --filter @universo-react/playcanvas-editor editor:build && pnpm --filter @universo-react/playcanvas-editor editor:smoke && pnpm run playwright:install && pnpm --filter @universo-react/playcanvas-editor editor:browser-smoke && pnpm run check:runtime-no-lms-forks && pnpm run check:lms-fixture-contract && pnpm run check:mmoomm-flight-fixture-contract && pnpm run build:e2e && pnpm run test:e2e:smoke && pnpm run test:e2e:flows",
         "check:react-bundle": "node tools/testing/check-react-require.mjs",
         "quick": "pretty-quick --staged",
         "postinstall": "husky install",
@@ -150,6 +151,9 @@
     "pnpm": {
         "onlyBuiltDependencies": [
             "isolated-vm",
+            "@swc/core",
+            "esbuild",
+            "sass-embedded",
             "sqlite3",
             "supabase"
         ],
@@ -209,6 +213,8 @@
         "**/dist",
         "**/node_modules",
         "**/build",
+        "packages/universo-react-playcanvas-editor/vendor/**",
+        "packages/universo-react-playcanvas-editor/.tmp/**",
         "**/package-lock.json"
     ],
     "prettier": {

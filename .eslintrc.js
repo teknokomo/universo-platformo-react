@@ -14,7 +14,14 @@ module.exports = {
         }
     },
     parser: '@typescript-eslint/parser',
-    ignorePatterns: ['**/node_modules', '**/dist', '**/build', '**/package-lock.json'],
+    ignorePatterns: [
+        '**/node_modules',
+        '**/dist',
+        '**/build',
+        '**/package-lock.json',
+        'packages/universo-react-playcanvas-editor/vendor/**',
+        'packages/universo-react-playcanvas-editor/.tmp/**'
+    ],
     plugins: ['@typescript-eslint', 'unused-imports'],
     overrides: [
         {

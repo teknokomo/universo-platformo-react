@@ -1,0 +1,29 @@
+{
+    "compilerOptions": {
+        "allowSyntheticDefaultImports": true,
+        "allowImportingTsExtensions": true,
+        "checkJs": true,
+        "module": "esnext",
+        "skipLibCheck": true,
+        "noEmit": true,
+        "target": "esnext",
+        "useDefineForClassFields": false,
+        "moduleResolution": "bundler",
+        "outDir": "dist",
+        "lib": ["es2021", "dom", "webworker"],
+        "paths": {
+            "@/*": ["./src/*"]
+        }
+    },
+    "include": [
+        "src",
+        "test",
+        "eslint.config.mjs",
+        "vite.config.mjs",
+        "types.d.ts"
+    ],
+    "exclude": [
+        "src/wasm",
+        "test/editor-api"
+    ]
+}
