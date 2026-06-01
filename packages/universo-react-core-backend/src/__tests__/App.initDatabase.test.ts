@@ -178,11 +178,12 @@ jest.mock('@universo-react/utils', () => {
     }
 })
 
-import { App } from '../index'
+import { App, buildPlayCanvasEditorHostCsp } from '../index'
 
 describe('App.initDatabase', () => {
     beforeEach(() => {
         jest.clearAllMocks()
+        delete process.env.PLAYCANVAS_EDITOR_DEVELOPMENT_URLS
         mockAssertIsolatedVmRuntimeAvailable.mockResolvedValue(undefined)
         mockIsGlobalMigrationObjectEnabled.mockReturnValue(true)
         mockValidateRegisteredPlatformMigrations.mockReturnValue({
@@ -258,6 +259,14 @@ describe('App.initDatabase', () => {
             enabled: false,
             status: 'disabled'
         })
+    })
+
+    it('builds a PlayCanvas Editor host CSP with self and allowlisted development frame origins', () => {
+        process.env.PLAYCANVAS_EDITOR_DEVELOPMENT_URLS = 'http://localhost:5100, https://editor.example.test/path, ftp://invalid.test'
+
+        expect(buildPlayCanvasEditorHostCsp("'self'")).toBe(
+            "frame-src 'self' http://localhost:5100 https://editor.example.test; child-src 'self' http://localhost:5100 https://editor.example.test; frame-ancestors 'self'"
+        )
     })
 
     it('initializes database and runs unified platform migrations', async () => {

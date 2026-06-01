@@ -140,7 +140,8 @@ const normalizePackage = (packageValue: unknown): Record<string, unknown> => {
             runtimeTargets: asArray<unknown>(source.runtimeTargets)
                 .map((target) => String(target ?? ''))
                 .sort(compareStrings)
-        }
+        },
+        config: item.config === undefined ? undefined : item.config
     }
 }
 

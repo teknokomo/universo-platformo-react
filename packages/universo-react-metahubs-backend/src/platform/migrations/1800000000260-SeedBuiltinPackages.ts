@@ -1,7 +1,11 @@
 import type { Knex } from 'knex'
 import { createKnexExecutor } from '@universo-react/database'
 import type { PlatformMigrationFile } from '@universo-react/migrations-core'
-import { builtinPackageSeedChecksumSource, seedPackages } from '../../domains/packages/services/PackageSeeder'
+import {
+    isLegacyBuiltinPackageSeed,
+    legacyBuiltinPackageSeedChecksumSource,
+    seedPackages
+} from '../../domains/packages/services/PackageSeeder'
 
 export const seedBuiltinPackagesMigration: PlatformMigrationFile = {
     id: 'SeedBuiltinMetahubPackages1800000000260',
@@ -11,13 +15,14 @@ export const seedBuiltinPackagesMigration: PlatformMigrationFile = {
         key: 'metahubs'
     },
     sourceKind: 'template_seed',
-    checksumSource: builtinPackageSeedChecksumSource,
+    checksumSource: legacyBuiltinPackageSeedChecksumSource,
     transactionMode: 'single',
     lockMode: 'transaction_advisory',
     summary: 'Seed built-in metahub packages through the unified platform migration flow',
     async up(ctx) {
         await seedPackages(createKnexExecutor(ctx.knex as Knex), {
-            failFast: true
+            failFast: true,
+            packageFilter: isLegacyBuiltinPackageSeed
         })
     }
 }

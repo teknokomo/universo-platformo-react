@@ -55,6 +55,156 @@
 
 ---
 
+## 2026-06-01 - PlayCanvas Editor Host UX QA Closure
+
+### Summary
+
+Closed the remaining host UX QA gap for the PlayCanvas Editor metahub
+authoring surface by making frame readiness explicit and adding browser
+regressions for failure states that previously depended on implicit iframe
+behavior.
+
+### Completed
+
+-   Added localized loading and load-failure states to the PlayCanvas Editor host
+    iframe flow, and only show the artifact-ready state after the iframe has
+    actually loaded.
+-   Added same-origin artifact preflight handling so unavailable artifact routes
+    fail closed with user-facing copy instead of exposing raw paths, HTTP
+    statuses, or browser error details.
+-   Closed the autoreview asset-loading defect by switching same-origin iframe
+    artifacts to a short-lived tokenized artifact URL, preserving the host
+    sandbox without `allow-same-origin` while allowing the sandboxed document to
+    load static JS/CSS chunks without session cookies.
+-   Closed the follow-up core middleware gap by routing dynamic signed artifact
+    URLs through the shared API whitelist matcher and proving that neighboring
+    metahub package routes remain authenticated.
+-   Strengthened Playwright `@packages` coverage for user-facing metahub
+    navigation, blocked and misconfigured host descriptors, and iframe load
+    failure without raw technical leakage or horizontal overflow, including an
+    anonymous browser-context request to the tokenized artifact URL.
+-   Updated backend route tests, OpenAPI generation, and GitBook docs for the
+    tokenized artifact route.
+
+### Verification
+
+-   `pnpm --filter @universo-react/metahubs-frontend build`
+-   `pnpm --filter @universo-react/metahubs-backend build`
+-   `pnpm --filter @universo-react/metahubs-backend test -- --runInBand src/tests/routes/packagesRoutes.test.ts src/tests/persistence/packagesStore.test.ts src/tests/services/MetahubPackagesService.test.ts src/tests/services/PackageSeeder.test.ts src/tests/services/SnapshotSerializer.test.ts src/tests/platform/packageAuthoringSettingsMigration.test.ts src/tests/platform/metahubsSchemaParityContract.test.ts`
+-   `pnpm --dir packages/universo-react-metahubs-frontend exec vitest run --config vitest.config.ts src/domains/packages/ui/__tests__/MetahubPackagesTab.test.tsx --coverage.enabled=false`
+-   `pnpm --filter @universo-react/rest-docs build`
+-   `pnpm --filter @universo-react/utils test -- src/routes/__tests__/publicRoutes.test.ts`
+-   `pnpm --filter @universo-react/utils build`
+-   `pnpm --filter @universo-react/core-backend build`
+-   `pnpm supabase:e2e:start:minimal`
+-   `pnpm env:e2e:local-supabase`
+-   `pnpm doctor:e2e:local-supabase`
+-   `pnpm run build:e2e`
+-   `node tools/testing/e2e/run-playwright-suite.mjs --project chromium --grep "@packages"`
+-   `pnpm run check:playcanvas-editor-isolation`
+-   `git diff --check`
+
+---
+
+## 2026-06-01 - PlayCanvas Editor Metahub Authoring Settings Final QA Closure
+
+### Summary
+
+Closed the final QA findings for the PlayCanvas Editor metahub authoring
+surface. Static artifact serving now uses deterministic package resolution and
+realpath containment, config mutations are guarded against stale package
+versions, and browser evidence covers the settings and embedded host flows
+without weakening the iframe sandbox.
+
+### Completed
+
+-   Rejected duplicate authoring package slugs instead of selecting an arbitrary
+    match, and resolved artifact manifest/index paths through the backend
+    artifact boundary.
+-   Added realpath-based containment checks for static artifact availability so
+    symlink escapes and traversal attempts fail closed.
+-   Normalized default attachment config from the registered authoring
+    descriptor during attach and guarded config updates with the expected
+    package id to close version/config races.
+-   Expanded backend route, store, and service tests for artifact headers,
+    manifest failures, symlink escapes, slug collisions, runtime filtering,
+    copy behavior, and design-time snapshot config preservation.
+-   Strengthened frontend and Playwright coverage for keyboard package actions,
+    settings modes, localized validation, iframe sandbox/referrer/allow
+    attributes, visual host evidence, direct read-only host denial, and
+    read-only disabled controls.
+-   Updated Russian user-facing copy from internal development URL terminology
+    to the localized "development address" wording and documented the final
+    behavior.
+-   Closed the post-QA hardening pass: parent host responses now include
+    `frame-src` and `child-src`, package OpenAPI schemas are generated from the
+    OpenAPI source generator instead of hand-edited output, snapshot imports
+    prevalidate package configs before attachment replacement, active
+    PlayCanvas Editor package slugs are unique, and the placeholder artifact is
+    locale-aware without loosening the iframe sandbox to `allow-same-origin`.
+
+### Verification
+
+-   `pnpm --filter @universo-react/metahubs-backend test -- --runInBand src/tests/routes/packagesRoutes.test.ts src/tests/persistence/packagesStore.test.ts src/tests/services/MetahubPackagesService.test.ts src/tests/services/MetahubModulesService.test.ts src/tests/services/SnapshotSerializer.test.ts src/tests/services/PackageSeeder.test.ts`
+-   `pnpm --dir packages/universo-react-metahubs-frontend exec vitest run --config vitest.config.ts src/domains/packages/ui/__tests__/MetahubPackagesTab.test.tsx --coverage.enabled=false`
+-   `pnpm --filter @universo-react/playcanvas-editor test`
+-   `pnpm --filter @universo-react/playcanvas-editor editor:build`
+-   `pnpm --filter @universo-react/playcanvas-editor editor:smoke`
+-   `pnpm --filter @universo-react/playcanvas-editor editor:browser-smoke`
+-   `pnpm run check:snapshot-fixtures-contract`
+-   `pnpm --filter @universo-react/core-backend test -- --runInBand src/__tests__/App.initDatabase.test.ts`
+-   `pnpm --filter @universo-react/types build`
+-   `pnpm --filter @universo-react/core-backend build`
+-   `pnpm --filter @universo-react/metahubs-frontend build`
+-   `pnpm --filter @universo-react/metahubs-backend build`
+-   `pnpm exec cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-react-core-frontend/.env.e2e.local-supabase pnpm run build:e2e`
+-   `pnpm supabase:e2e:start:minimal`
+-   `pnpm exec cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-react-core-frontend/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs --project chromium --grep "@packages"`
+-   `pnpm supabase:e2e:stop`
+-   `pnpm run check:playcanvas-editor-isolation`
+-   `git diff --check`
+
+## 2026-06-01 - PlayCanvas Editor Metahub Authoring Settings QA Remediation
+
+### Summary
+
+Closed the QA findings for the PlayCanvas Editor metahub authoring surface
+settings implementation. The package host and artifact routes are now
+owner/admin design-time surfaces, attachment configs are validated against the
+registered package descriptor, and metahub snapshots preserve authoring-only
+settings without leaking them into runtime publication snapshots.
+
+### Completed
+
+-   Added a shared backend package config validator and applied it to config
+    PATCH requests, snapshot restore, and package version changes.
+-   Required `manageMetahub` for the PlayCanvas Editor authoring host and static
+    artifact routes, and made host availability require both the manifest and
+    `index.html`.
+-   Split package snapshot listing into runtime publication mode and metahub
+    export/import mode so authoring-only configs remain portable but do not
+    propagate to published applications.
+-   Added localized frontend development URL validation and disabled saving
+    invalid settings before the backend request.
+-   Strengthened backend route/store/serializer/seeder tests, frontend settings
+    payload tests, and Playwright responsive/UX oracles for the packages tab and
+    PlayCanvas Editor host.
+-   Replaced the artifact unavailable page's internal smoke-mode wording with
+    user-facing EN/RU status copy.
+
+### Verification
+
+-   `pnpm --filter @universo-react/metahubs-backend test -- --runInBand src/tests/routes/packagesRoutes.test.ts src/tests/persistence/packagesStore.test.ts src/tests/services/SnapshotSerializer.test.ts src/tests/services/PackageSeeder.test.ts`
+-   `pnpm --dir packages/universo-react-metahubs-frontend exec vitest run --config vitest.config.ts src/domains/packages/ui/__tests__/MetahubPackagesTab.test.tsx --coverage.enabled=false`
+-   `pnpm --filter @universo-react/playcanvas-editor test`
+-   `pnpm --filter @universo-react/types build`
+-   `pnpm --filter @universo-react/metahubs-frontend build`
+-   `pnpm --filter @universo-react/metahubs-backend build`
+-   `pnpm run build:e2e:local-supabase`
+-   `pnpm exec cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-react-core-frontend/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs --project chromium --grep "@packages"`
+-   `pnpm run check:playcanvas-editor-isolation`
+-   `git diff --check`
+
 ## 2026-05-29 - MMOOMM Multi-Ship Authoritative Sync
 
 ### Summary
@@ -2072,3 +2222,199 @@ diff --check`, metahubs backend focused Jest with 80 tests, metahubs
     artifact build, artifact smoke, Playwright artifact browser smoke across
     desktop/tablet/mobile, catalog guard, package naming guard, no-package-base
     guard, PlayCanvas Editor isolation guard, and GitBook i18n docs check.
+
+### 2026-06-01: PlayCanvas Editor Metahub Authoring Surface Settings Implementation
+
+-   Added shared package contracts for authoring surfaces, deterministic package
+    slugs, per-metahub attachment display config, authoring host descriptors,
+    and explicit authoring-only runtime boundaries.
+-   Extended the metahubs package schema/system-app metadata with
+    `obj_packages.authoring_surface` and `rel_metahub_packages.config`,
+    including a forward migration and initial schema parity coverage.
+-   Seeded `@universo-react/playcanvas-editor` as an authoring-only package with
+    empty `runtimeTargets`, default embedded display config, and artifact
+    metadata while keeping runtime publication snapshots and module package
+    imports filtered to runtime-capable packages only.
+-   Added authenticated package config APIs, authoring host resolution, and
+    PlayCanvas Editor artifact serving under the metahubs package route with
+    manifest checks, traversal protection, cache/content headers, and
+    iframe-oriented CSP.
+-   Updated the Metahub Resources Packages UI with authoring-aware surface
+    labels, a row action menu, localized display settings dialog, and a
+    route-first PlayCanvas Editor host page using an iframe sandbox without
+    `allow-same-origin`.
+-   Resolved the backend artifact-root path against the repository package
+    layout, with `PLAYCANVAS_EDITOR_ARTIFACT_ROOT` as an explicit override, so
+    the E2E CLI startup from `packages/universo-react-core-backend/bin` serves
+    the built editor artifact instead of reporting a false missing artifact.
+-   Updated OpenAPI and GitBook EN/RU docs to describe authoring-only package
+    settings, runtime exclusion, artifact serving, and development URL
+    allowlist behavior.
+-   Verification passed: Prettier on touched files, `@universo-react/types`
+    build, full metahubs-backend Jest suite, applications-backend runtime sync
+    package regression, metahubs-frontend build, core-frontend build, rest-docs
+    build, full `build:e2e:local-supabase`, focused Metahub Packages UI Vitest
+    without coverage, and local minimal Supabase Playwright `@packages`
+    chromium coverage with host-page screenshots. The PlayCanvas Editor
+    isolation guard passes with explicit metadata-only allowlisting for package
+    registry descriptors and shared types. Full metahubs-frontend Vitest was not
+    used as a final signal because an earlier concurrent
+    coverage run corrupted its coverage temp files, and a later broad package
+    invocation exposed unrelated existing EntitiesWorkspace flake/timeouts
+    while the touched Packages test file passed directly.
+
+### 2026-06-01: PlayCanvas Editor Metahub Authoring Surface Settings QA Closure
+
+-   Closed the final QA findings by keeping the legacy built-in package seed
+    migration immutable, moving PlayCanvas Editor reseeding/default backfill to
+    the authoring-settings migration, and using stable seed-derived checksums
+    for authoring settings.
+-   Preserved valid PlayCanvas Editor attachment config during direct reattach,
+    normalized empty configs to descriptor defaults, made registry updates bump
+    `_upl_version` only when seed-backed registry fields actually change, and
+    kept runtime publication package definitions free of design-time config.
+-   Revalidated saved development URL configs at the authoring-host read
+    boundary so an URL that was saved under an older allowlist is blocked and
+    omitted from the host descriptor after the current allowlist is removed or
+    tightened.
+-   Redacted saved development URLs from the read-level package list endpoint
+    and made the settings dialog load full display config through the
+    manager-only authoring-host surface.
+-   Included package attachment config in canonical snapshot hash
+    normalization and refreshed affected committed fixture envelope hashes, so
+    display settings cannot be tampered inside snapshot bundles without
+    failing integrity validation.
+-   Kept imported metahub snapshots as design-time data while creating the
+    import-created active publication version from runtime-mode serialization,
+    preventing authoring-only packages from entering application runtime sync.
+-   Kept open-separately mode on the sandboxed route-first host page instead of
+    exposing the raw artifact URL, with browser evidence for
+    `noopener`/`noreferrer`, sandboxed iframe attributes, missing artifact UI,
+    blocked development URL, keyboard focus, viewport checks, and canvas paint.
+-   Verification passed: focused metahubs-backend Jest suites, focused
+    Metahub Packages Vitest, PlayCanvas Editor package tests, PlayCanvas Editor
+    browser smoke, `@universo-react/types` build, metahubs frontend/backend
+    builds, full local-Supabase E2E build, local minimal Supabase Playwright
+    `@packages` chromium flow, `check:playcanvas-editor-isolation`, and
+    `git diff --check`.
+
+### 2026-06-01: PlayCanvas Editor Authoring Surface QA Remediation Follow-Up
+
+-   Hardened the authoring host and static artifact route so stale or disabled
+    display configs cannot serve the PlayCanvas Editor artifact after current
+    server policy changes.
+-   Aligned backend development URL validation with the frontend contract by
+    requiring `http` or `https`, rejecting credential-bearing URLs, and exposing
+    the currently allowed display modes in the manager-only host descriptor.
+-   Redacted artifact internals from read-level package catalog/list responses
+    while keeping manager-only host data available for the settings and host
+    routes.
+-   Updated the Packages settings dialog to hide server-disabled development URL
+    mode, show localized policy copy, avoid transient MUI select warnings, and
+    keep responsive browser screenshot evidence for the settings dialog and host
+    page.
+-   Verification passed: focused metahubs-backend Jest suites, focused
+    Metahub Packages Vitest, utils snapshot hash Vitest, PlayCanvas Editor
+    isolation guard, `@universo-react/types` build, metahubs frontend/backend
+    builds, full local-Supabase E2E build, local minimal Supabase Playwright
+    `@packages` chromium flow, `git diff --check`, and local autoreview with no
+    accepted/actionable findings.
+
+### 2026-06-01: PlayCanvas Editor Authoring Surface Final Hardening Closure
+
+-   Added strict Zod validation for package authoring-surface descriptors at the
+    registry and seed boundaries, including malformed descriptor regressions and
+    a metadata-only isolation-guard allowlist for the validator contract.
+-   Improved the PlayCanvas Editor host failure states with a stable package
+    heading, localized permission-denied copy, and contextual unavailable states
+    for missing, blocked, disabled, and misconfigured artifacts.
+-   Hardened artifact HTML serving with response-level CSP sandboxing so direct
+    artifact navigation cannot bypass the route-first iframe sandbox boundary.
+-   Preserved design-time snapshot portability by restoring saved development
+    URL display configs without applying the current server allowlist during
+    import, while keeping host/API runtime validation fail-closed.
+-   Updated package snapshot documentation to warn that exported metahub
+    snapshots can include owner-managed development URLs and should be treated
+    as sensitive artifacts.
+-   Extended Playwright evidence for the mobile package action path and Russian
+    PlayCanvas Editor settings/host surfaces.
+-   Verification passed: Prettier on touched files, focused metahubs-backend
+    Jest suites, focused migrations-platform Jest contract, focused Metahub
+    Packages Vitest, `@universo-react/types` build, metahubs-backend build,
+    migrations-platform build, `build:e2e`, local minimal Supabase Playwright
+    `@packages` chromium flow, PlayCanvas Editor isolation guard,
+    `git diff --check`, and local autoreview with no accepted/actionable
+    findings.
+
+### 2026-06-01: PlayCanvas Editor Authoring Surface Post-Review Defect Closure
+
+-   Closed local autoreview findings by forcing the PlayCanvas Editor host
+    launch through document navigation, normalizing development URL CSP frame
+    sources to URL origins, and aligning generated OpenAPI package contracts
+    with the implemented strict package settings API.
+-   Regenerated the OpenAPI source from the fixed generator and verified package
+    schemas for the display-config union, `{ items, total }` list responses,
+    package catalog `id`, `resetConfig`, and manager-only authoring-host
+    descriptors.
+-   Verification passed: `build:e2e`, focused metahubs-backend package route
+    Jest, focused core-backend CSP/init Jest, `@universo-react/rest-docs`
+    build, local minimal Supabase Playwright `@packages` chromium flow,
+    PlayCanvas Editor isolation guard, `git diff --check`, and local
+    autoreview with no actionable defects.
+
+### 2026-06-01: PlayCanvas Editor Authoring Surface Final QA Evidence Closure
+
+-   Added a database-level authoring slug owner trigger for active PlayCanvas
+    Editor `authoringSurface.packageSlug` values in both the baseline metahubs
+    schema and the additive authoring-settings migration. The guard rejects slug
+    reuse by different package names while preserving the versioned registry
+    model for multiple active versions of the same package.
+-   Replaced the mobile package action reachability oracle with a real
+    horizontal wheel gesture and scroll assertion, so Playwright proves the
+    responsive table actions are reachable without direct DOM mutation.
+-   Added a localized Back to packages action across PlayCanvas Editor host
+    happy, open-separately, missing-artifact, and permission-denied states, and
+    strengthened host keyboard evidence around the back action, iframe focus,
+    and artifact canvas interaction.
+-   Added Russian browser validation evidence for invalid Development URL
+    settings while the server policy exposes the development URL mode.
+-   Verification passed: Prettier on touched files, focused metahubs-backend
+    Jest platform/routes suites, focused Metahub Packages Vitest,
+    `build:e2e`, local minimal Supabase Playwright `@packages` chromium flow,
+    PlayCanvas Editor isolation guard, `git diff --check`, and local
+    autoreview with no accepted/actionable findings.
+
+### 2026-06-01: PlayCanvas Editor Authoring Surface Final QA Findings Closure
+
+-   Revalidated signed Editor artifact-token requests against the issuing
+    user's current `manageMetahub` access and the current metahub package
+    attachment display mode before serving static files.
+-   Changed package version switching so incompatible display configs fail
+    closed unless the user explicitly chooses to reset package display settings
+    to defaults.
+-   Added browser screenshot evidence for the missing-artifact host state and
+    documented tokenized artifact request revalidation in GitBook EN/RU docs.
+-   Verification passed: Prettier on touched files, focused metahubs-backend
+    routes/store Jest, focused Metahub Packages Vitest, metahubs
+    frontend/backend builds, full local minimal Supabase `build:e2e`, local
+    minimal Supabase Playwright `@packages` chromium flow, PlayCanvas Editor
+    isolation guard, `git diff --check`, and subagent review.
+
+### 2026-06-01: PlayCanvas Editor Runtime Contract QA Closure
+
+-   Kept package display settings explicitly design-time for this slice by
+    removing the half-read `_app_packages.config` release-loader path while
+    preserving metahub copy and snapshot `packages[].config` behavior.
+-   Kept `ApplicationPackageDefinition` aligned with runtime publication scope:
+    runtime package definitions still carry package identity, source, and active
+    state only, not design-time authoring config.
+-   Made the signed PlayCanvas Editor artifact-token route resolve the required
+    manifest file from the attached artifact descriptor before serving files.
+-   Narrowed the authoring-settings platform migration seed pass to the
+    PlayCanvas Editor package so its effective data mutation matches the
+    migration checksum contract.
+-   Verification passed: Prettier on touched files, focused metahubs-backend
+    route/store/migration/seeder Jest, focused applications-backend sync/release
+    Jest, focused Metahub Packages Vitest, applications-backend build,
+    metahubs-frontend build, metahubs-backend build, PlayCanvas Editor isolation
+    guard, `git diff --check`, and local autoreview with no actionable findings.

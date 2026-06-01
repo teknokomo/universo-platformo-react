@@ -42,7 +42,7 @@ import {
 } from '@universo-react/migrations-platform'
 import { initializeRateLimiters as initializeStartRateLimiters } from '@universo-react/start-backend'
 import errorHandlerMiddleware from './middlewares/errors'
-import { API_WHITELIST_URLS, isGlobalMigrationObjectEnabled, parsePositiveInt, resolveRateLimitKey } from '@universo-react/utils'
+import { isGlobalMigrationObjectEnabled, isWhitelistedApiPath, parsePositiveInt, resolveRateLimitKey } from '@universo-react/utils'
 import 'global-agent/bootstrap'
 import { bootstrapStartupSuperuser } from './bootstrap/bootstrapSuperuser'
 import { executeStartupFullReset } from './bootstrap/startupReset'
@@ -54,6 +54,50 @@ const parseSameSite = (value?: string): boolean | 'lax' | 'strict' | 'none' => {
     if (['lax', 'strict', 'none'].includes(normalized)) return normalized as 'lax' | 'strict' | 'none'
     if (['true', 'false'].includes(normalized)) return normalized === 'true'
     return 'lax'
+}
+
+const PLAYCANVAS_EDITOR_HOST_ROUTE_PATTERN = /^\/metahub\/[^/]+\/resources\/packages\/[^/]+\/editor(?:\/)?$/
+
+const parseCspFrameOrigin = (value: string): string | null => {
+    const normalized = value.trim()
+    if (!normalized) return null
+    if (normalized === "'self'" || normalized === 'self') return "'self'"
+    if (normalized === "'none'" || normalized === 'none') return "'none'"
+
+    try {
+        const parsed = new URL(normalized)
+        if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) {
+            return null
+        }
+        return parsed.origin
+    } catch {
+        return null
+    }
+}
+
+const resolvePlayCanvasEditorFrameSources = (): string[] => {
+    const sources = new Set<string>(["'self'"])
+    for (const rawOrigin of (process.env.PLAYCANVAS_EDITOR_DEVELOPMENT_URLS ?? '').split(',')) {
+        const source = parseCspFrameOrigin(rawOrigin)
+        if (source && source !== "'none'") {
+            sources.add(source)
+        }
+    }
+    return [...sources]
+}
+
+export const buildPlayCanvasEditorHostCsp = (frameAncestors: string): string => {
+    const frameSources = resolvePlayCanvasEditorFrameSources().join(' ')
+    const directives = [`frame-src ${frameSources}`, `child-src ${frameSources}`]
+    if (frameAncestors !== '*') {
+        directives.push(`frame-ancestors ${frameAncestors}`)
+    }
+    return directives.join('; ')
+}
+
+const isPlayCanvasEditorHostRoute = (req: Request): boolean => {
+    const routePath = req.path || req.url.split('?')[0] || ''
+    return PLAYCANVAS_EDITOR_HOST_ROUTE_PATTERN.test(routePath)
 }
 
 interface SessionTokens {
@@ -289,6 +333,13 @@ export class App {
             }
         })
 
+        this.app.use((req: Request, res: Response, next: NextFunction) => {
+            if (isPlayCanvasEditorHostRoute(req)) {
+                res.setHeader('Content-Security-Policy', buildPlayCanvasEditorHostCsp(getAllowedIframeOrigins()))
+            }
+            next()
+        })
+
         // Switch off the default 'X-Powered-By: Express' header
         this.app.disable('x-powered-by')
 
@@ -321,7 +372,6 @@ export class App {
             res.status(health.connected ? 200 : 503).json(health)
         })
 
-        const whitelistURLs = API_WHITELIST_URLS
         const urlCaseInsensitiveRegex = /\/api\/v1\//i
         const urlCaseSensitiveRegex = /\/api\/v1\//
 
@@ -338,8 +388,7 @@ export class App {
                 return res.status(401).json({ error: 'Unauthorized Access' })
             }
             // If URL in whitelist, skip
-            const isWhitelisted = whitelistURLs.some((url) => req.path.startsWith(url))
-            if (isWhitelisted) {
+            if (isWhitelistedApiPath(req.path)) {
                 return next()
             }
 

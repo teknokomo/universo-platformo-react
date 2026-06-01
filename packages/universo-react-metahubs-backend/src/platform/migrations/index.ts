@@ -5,3 +5,4 @@ export {
 } from './1766351182000-CreateMetahubsSchema.sql'
 export { seedBuiltinTemplatesMigration } from './1800000000200-SeedBuiltinTemplates'
 export { seedBuiltinPackagesMigration } from './1800000000260-SeedBuiltinPackages'
+export { addPackageAuthoringSettingsMigration } from './1800000000270-AddPackageAuthoringSettings'

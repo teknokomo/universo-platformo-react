@@ -44,6 +44,13 @@ export const API_WHITELIST_URLS = [
 ] as const
 
 /**
+ * Backend API path patterns that don't require JWT authentication.
+ * Use only for public routes with dynamic path segments and route-local
+ * validation, such as short-lived signed asset URLs.
+ */
+export const API_WHITELIST_PATH_PATTERNS = [/^\/api\/v1\/metahub\/[^/]+\/packages\/[^/]+\/editor-artifact-token\/[^/]+\//] as const
+
+/**
  * Frontend UI routes where 401 response should NOT trigger redirect to /auth.
  * These are pages accessible to guests (non-authenticated users).
  *
@@ -95,9 +102,10 @@ export function isPublicRoute(pathname: string): boolean {
  * @returns true if the path is whitelisted
  */
 export function isWhitelistedApiPath(path: string): boolean {
-    return API_WHITELIST_URLS.some((url) => path.startsWith(url))
+    return API_WHITELIST_URLS.some((url) => path.startsWith(url)) || API_WHITELIST_PATH_PATTERNS.some((pattern) => pattern.test(path))
 }
 
 // Type exports for consumers
 export type ApiWhitelistUrl = (typeof API_WHITELIST_URLS)[number]
+export type ApiWhitelistPathPattern = (typeof API_WHITELIST_PATH_PATTERNS)[number]
 export type PublicUiRoute = (typeof PUBLIC_UI_ROUTES)[number]

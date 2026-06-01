@@ -5,24 +5,44 @@ import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
+import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
+import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded'
+import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded'
 import {
     Alert,
     Box,
     Button,
+    Checkbox,
     Chip,
     CircularProgress,
     DialogContentText,
+    FormControl,
+    FormControlLabel,
     IconButton,
+    InputLabel,
+    ListItemIcon,
+    ListItemText,
+    Menu,
     MenuItem,
     Select,
     Stack,
+    Switch,
+    TextField,
     Tooltip,
     Typography
 } from '@mui/material'
 import type { SelectChangeEvent } from '@mui/material/Select'
 import { EmptyListState, FlowListTable, type FlowListTableData, type TableColumn } from '@universo-react/template-mui'
 import { ConfirmDeleteDialog, StandardDialog } from '@universo-react/template-mui/components/dialogs'
-import type { MetahubPackageCatalogItem, MetahubPackageRuntimeTarget, VersionedLocalizedContent } from '@universo-react/types'
+import type {
+    MetahubPackageAttachment,
+    MetahubPackageCatalogItem,
+    MetahubPackageRuntimeTarget,
+    PackageAttachmentConfig,
+    PackageAuthoringSurfaceDescriptor,
+    PackageDisplayMode,
+    VersionedLocalizedContent
+} from '@universo-react/types'
 import type { Metahub } from '../../../types'
 import { getLocalizedContentText, normalizeLocale } from '../../../utils/localizedInput'
 import { useMetahubDetails } from '../../metahubs/hooks'
@@ -35,9 +55,24 @@ interface PackageTableRow extends FlowListTableData {
     description: string
     upstreamVersion: string
     runtimeTargets: readonly MetahubPackageRuntimeTarget[]
+    authoringSurface: PackageAuthoringSurfaceDescriptor
+    config: PackageAttachmentConfig
     attached: boolean
     attachmentId: string | null
     versions: string[]
+}
+
+interface PackageSettingsDraft {
+    row: PackageTableRow
+    mode: PackageDisplayMode
+    developmentUrl: string
+    showArtifactOnlyNotice: boolean
+    allowedDisplayModes: readonly PackageDisplayMode[]
+}
+
+const emptyPackageConfig: PackageAttachmentConfig = {
+    schemaVersion: '1',
+    kind: 'none'
 }
 
 const resolveText = (value: VersionedLocalizedContent<string> | string | null | undefined, locale: string, fallback: string) =>
@@ -46,8 +81,12 @@ const resolveText = (value: VersionedLocalizedContent<string> | string | null | 
 const sortVersions = (versions: string[]): string[] =>
     [...versions].sort((left, right) => right.localeCompare(left, undefined, { numeric: true, sensitivity: 'base' }))
 
-const buildRows = (items: MetahubPackageCatalogItem[], locale: string): PackageTableRow[] => {
+const resolveDisplayConfig = (config: PackageAttachmentConfig): Extract<PackageAttachmentConfig, { kind: 'display' }> | null =>
+    config.kind === 'display' ? config : null
+
+const buildRows = (items: MetahubPackageCatalogItem[], attachedItems: MetahubPackageAttachment[], locale: string): PackageTableRow[] => {
     const grouped = new Map<string, MetahubPackageCatalogItem[]>()
+    const attachmentByPackageName = new Map(attachedItems.map((item) => [item.packageName, item]))
 
     for (const item of items) {
         grouped.set(item.packageName, [...(grouped.get(item.packageName) ?? []), item])
@@ -58,6 +97,7 @@ const buildRows = (items: MetahubPackageCatalogItem[], locale: string): PackageT
             const versions = sortVersions(packageVersions.map((item) => item.version))
             const attached = packageVersions.find((item) => item.attached) ?? null
             const selected = attached ?? packageVersions.find((item) => item.version === versions[0]) ?? packageVersions[0]
+            const attachment = attachmentByPackageName.get(packageName)
 
             return {
                 id: packageName,
@@ -67,6 +107,8 @@ const buildRows = (items: MetahubPackageCatalogItem[], locale: string): PackageT
                 description: resolveText(selected.description ?? null, locale, ''),
                 upstreamVersion: selected.source.upstreamVersion,
                 runtimeTargets: selected.source.runtimeTargets,
+                authoringSurface: selected.authoringSurface,
+                config: attachment?.config ?? selected.authoringSurface.defaultConfig ?? emptyPackageConfig,
                 attached: Boolean(attached),
                 attachmentId: attached?.attachmentId ?? null,
                 versions
@@ -90,7 +132,10 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
     const [pendingAttach, setPendingAttach] = useState<{ row: PackageTableRow; version: string } | null>(null)
     const [pendingVersionChange, setPendingVersionChange] = useState<{ row: PackageTableRow; version: string } | null>(null)
     const [pendingDetach, setPendingDetach] = useState<PackageTableRow | null>(null)
+    const [settingsDraft, setSettingsDraft] = useState<PackageSettingsDraft | null>(null)
+    const [actionMenu, setActionMenu] = useState<{ row: PackageTableRow; anchor: HTMLElement } | null>(null)
     const [mutationErrorVisible, setMutationErrorVisible] = useState(false)
+    const [versionChangeResetConfig, setVersionChangeResetConfig] = useState(false)
 
     const metahubDetailsQuery = useMetahubDetails(metahubId ?? '', { enabled: Boolean(metahubId) })
     const cachedMetahub = metahubId ? queryClient.getQueryData<Metahub>(metahubsQueryKeys.detail(metahubId)) : undefined
@@ -101,6 +146,12 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
     const catalogQuery = useQuery({
         queryKey: metahubId ? metahubsQueryKeys.packagesCatalog(metahubId) : metahubsQueryKeys.packagesCatalog(''),
         queryFn: () => packagesApi.listCatalog(metahubId ?? ''),
+        enabled: Boolean(metahubId)
+    })
+
+    const attachedQuery = useQuery({
+        queryKey: metahubId ? metahubsQueryKeys.packagesAttached(metahubId) : metahubsQueryKeys.packagesAttached(''),
+        queryFn: () => packagesApi.listAttached(metahubId ?? ''),
         enabled: Boolean(metahubId)
     })
 
@@ -128,8 +179,16 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
     })
 
     const changeVersionMutation = useMutation({
-        mutationFn: ({ attachmentId, version }: { attachmentId: string; packageName: string; version: string }) =>
-            packagesApi.changeVersion(metahubId ?? '', attachmentId, { version }),
+        mutationFn: ({
+            attachmentId,
+            version,
+            resetConfig
+        }: {
+            attachmentId: string
+            packageName: string
+            version: string
+            resetConfig?: boolean
+        }) => packagesApi.changeVersion(metahubId ?? '', attachmentId, { version, ...(resetConfig ? { resetConfig } : {}) }),
         onSuccess: async () => {
             setMutationErrorVisible(false)
             enqueueSnackbar(t('packages.notifications.versionChanged', 'Package version updated'), { variant: 'success' })
@@ -154,9 +213,27 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
         }
     })
 
-    const rows = useMemo(() => buildRows(catalogQuery.data ?? [], locale), [catalogQuery.data, locale])
+    const updateConfigMutation = useMutation({
+        mutationFn: ({ attachmentId, config }: { attachmentId: string; config: PackageAttachmentConfig }) =>
+            packagesApi.updateConfig(metahubId ?? '', attachmentId, { config }),
+        onSuccess: async () => {
+            setMutationErrorVisible(false)
+            enqueueSnackbar(t('packages.notifications.settingsSaved', 'Package settings saved'), { variant: 'success' })
+            await invalidatePackages()
+        },
+        onError: () => {
+            setMutationErrorVisible(true)
+            notifyPackageMutationError(t, enqueueSnackbar)
+        }
+    })
+
+    const rows = useMemo(
+        () => buildRows(catalogQuery.data ?? [], attachedQuery.data ?? [], locale),
+        [attachedQuery.data, catalogQuery.data, locale]
+    )
     const connectedRows = rows.filter((row) => row.attached)
-    const isMutating = attachMutation.isPending || changeVersionMutation.isPending || detachMutation.isPending
+    const isMutating =
+        attachMutation.isPending || changeVersionMutation.isPending || detachMutation.isPending || updateConfigMutation.isPending
     const actionsDisabled = isMutating || permissionsLoading || !canManagePackages
 
     const resolveDraftVersion = (row: PackageTableRow) => versionDrafts[row.packageName] ?? row.version ?? row.versions[0]
@@ -166,6 +243,7 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
         setVersionDrafts((current) => ({ ...current, [row.packageName]: version }))
 
         if (row.attached && row.attachmentId && version !== row.version) {
+            setVersionChangeResetConfig(false)
             setPendingVersionChange({ row, version })
         }
     }
@@ -178,7 +256,94 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
             }))
         }
         setMutationErrorVisible(false)
+        setVersionChangeResetConfig(false)
         setPendingVersionChange(null)
+    }
+
+    const openPackageSettings = async (row: PackageTableRow) => {
+        let config = row.config
+        if (row.authoringSurface.kind === 'playcanvasEditor' && metahubId) {
+            try {
+                const host = await packagesApi.getAuthoringHost(metahubId, row.authoringSurface.packageSlug)
+                config = host.attachmentConfig
+                const displayConfig = resolveDisplayConfig(config) ?? resolveDisplayConfig(row.authoringSurface.defaultConfig)
+                setMutationErrorVisible(false)
+                setSettingsDraft({
+                    row,
+                    mode: displayConfig?.display.mode ?? 'disabled',
+                    developmentUrl: displayConfig?.display.developmentUrl ?? '',
+                    showArtifactOnlyNotice: displayConfig?.display.showArtifactOnlyNotice ?? true,
+                    allowedDisplayModes: host.allowedDisplayModes
+                })
+                return
+            } catch {
+                notifyPackageMutationError(t, enqueueSnackbar)
+                return
+            }
+        }
+
+        const displayConfig = resolveDisplayConfig(config) ?? resolveDisplayConfig(row.authoringSurface.defaultConfig)
+        setMutationErrorVisible(false)
+        setSettingsDraft({
+            row,
+            mode: displayConfig?.display.mode ?? 'disabled',
+            developmentUrl: displayConfig?.display.developmentUrl ?? '',
+            showArtifactOnlyNotice: displayConfig?.display.showArtifactOnlyNotice ?? true,
+            allowedDisplayModes: row.authoringSurface.supportedDisplayModes
+        })
+    }
+
+    const resetSettingsDraftToDefaults = () => {
+        setSettingsDraft((current) => {
+            if (!current) return current
+            const displayConfig = resolveDisplayConfig(current.row.authoringSurface.defaultConfig)
+            return {
+                ...current,
+                mode: displayConfig?.display.mode ?? 'disabled',
+                developmentUrl: displayConfig?.display.developmentUrl ?? '',
+                showArtifactOnlyNotice: displayConfig?.display.showArtifactOnlyNotice ?? true
+            }
+        })
+        setMutationErrorVisible(false)
+    }
+
+    const buildSettingsConfig = (draft: PackageSettingsDraft): PackageAttachmentConfig => ({
+        schemaVersion: '1',
+        kind: 'display',
+        display: {
+            mode: draft.mode,
+            developmentUrl: draft.mode === 'developmentUrl' ? draft.developmentUrl.trim() || null : null,
+            showArtifactOnlyNotice: draft.showArtifactOnlyNotice
+        }
+    })
+
+    const resolveSettingsValidationError = (draft: PackageSettingsDraft | null): string | null => {
+        if (!draft || draft.mode !== 'developmentUrl') {
+            return null
+        }
+
+        const value = draft.developmentUrl.trim()
+        if (!value) {
+            return t('packages.settings.validation.developmentUrlRequired', 'Enter a development URL.')
+        }
+
+        try {
+            const parsed = new URL(value)
+            if (!['http:', 'https:'].includes(parsed.protocol)) {
+                return t('packages.settings.validation.developmentUrlInvalid', 'Enter a valid http or https URL.')
+            }
+        } catch {
+            return t('packages.settings.validation.developmentUrlInvalid', 'Enter a valid http or https URL.')
+        }
+
+        return null
+    }
+
+    const openEditor = (row: PackageTableRow) => {
+        if (row.authoringSurface.kind !== 'playcanvasEditor' || !metahubId) {
+            return
+        }
+        window.location.assign(`/metahub/${metahubId}/resources/packages/${row.authoringSurface.packageSlug}/editor`)
     }
 
     const getRowActionLabel = (key: string, fallback: string, row: PackageTableRow) => t(key, fallback, { packageName: row.name })
@@ -247,13 +412,18 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
         },
         {
             id: 'targets',
-            label: t('packages.columns.targets', 'Runtime'),
+            label: t('packages.columns.surface', 'Surface'),
             width: 180,
             render: (row) => (
                 <Stack direction='row' flexWrap='wrap' gap={0.5}>
-                    {row.runtimeTargets.map((target) => (
-                        <Chip key={target} size='small' label={t(`packages.runtimeTargets.${target}`, target)} />
-                    ))}
+                    {row.runtimeTargets.length > 0
+                        ? row.runtimeTargets.map((target) => (
+                              <Chip key={target} size='small' label={t(`packages.runtimeTargets.${target}`, target)} />
+                          ))
+                        : null}
+                    {row.authoringSurface.kind === 'playcanvasEditor' ? (
+                        <Chip size='small' color='info' label={t('packages.authoringSurfaces.playcanvasEditor', 'Editor')} />
+                    ) : null}
                 </Stack>
             )
         },
@@ -271,7 +441,7 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
         }
     ]
 
-    if (catalogQuery.isLoading) {
+    if (catalogQuery.isLoading || attachedQuery.isLoading) {
         return (
             <Stack direction='row' spacing={1} alignItems='center' sx={{ py: 3 }}>
                 <CircularProgress size={18} />
@@ -282,7 +452,7 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
         )
     }
 
-    if (catalogQuery.isError) {
+    if (catalogQuery.isError || attachedQuery.isError) {
         return <Alert severity='error'>{t('packages.loadError', 'Failed to load packages.')}</Alert>
     }
 
@@ -309,6 +479,10 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
           })
         : ''
     const mutationErrorMessage = t('packages.notifications.mutationFailed', 'Package operation failed. Please refresh and try again.')
+    const settingsValidationError = resolveSettingsValidationError(settingsDraft)
+    const isDevelopmentUrlPolicyDisabled =
+        Array.from(settingsDraft?.row.authoringSurface.supportedDisplayModes ?? []).includes('developmentUrl') &&
+        !settingsDraft?.allowedDisplayModes.includes('developmentUrl')
 
     return (
         <Stack spacing={2} data-testid='metahub-packages-tab'>
@@ -327,6 +501,27 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
                         const draftVersion = resolveDraftVersion(row)
 
                         if (row.attached && row.attachmentId) {
+                            if (row.authoringSurface.kind === 'playcanvasEditor') {
+                                return (
+                                    <Tooltip title={getRowActionLabel('packages.actions.moreNamed', 'Actions for {{packageName}}', row)}>
+                                        <span>
+                                            <IconButton
+                                                size='small'
+                                                aria-label={getRowActionLabel(
+                                                    'packages.actions.moreNamed',
+                                                    'Actions for {{packageName}}',
+                                                    row
+                                                )}
+                                                disabled={actionsDisabled}
+                                                onClick={(event) => setActionMenu({ row, anchor: event.currentTarget })}
+                                            >
+                                                <MoreVertRoundedIcon fontSize='small' />
+                                            </IconButton>
+                                        </span>
+                                    </Tooltip>
+                                )
+                            }
+
                             return (
                                 <Tooltip title={getRowActionLabel('packages.actions.detachNamed', 'Disconnect {{packageName}}', row)}>
                                     <span>
@@ -369,6 +564,57 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
                         )
                     }}
                 />
+                <Menu
+                    anchorEl={actionMenu?.anchor ?? null}
+                    open={Boolean(actionMenu)}
+                    onClose={() => setActionMenu(null)}
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                    transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                >
+                    <MenuItem
+                        disabled={!actionMenu?.row || actionsDisabled}
+                        onClick={() => {
+                            if (actionMenu?.row) {
+                                openEditor(actionMenu.row)
+                            }
+                            setActionMenu(null)
+                        }}
+                    >
+                        <ListItemIcon>
+                            <OpenInNewRoundedIcon fontSize='small' />
+                        </ListItemIcon>
+                        <ListItemText>{t('packages.actions.openEditor', 'Open editor')}</ListItemText>
+                    </MenuItem>
+                    <MenuItem
+                        disabled={!actionMenu?.row || actionsDisabled}
+                        onClick={() => {
+                            if (actionMenu?.row) {
+                                void openPackageSettings(actionMenu.row)
+                            }
+                            setActionMenu(null)
+                        }}
+                    >
+                        <ListItemIcon>
+                            <SettingsRoundedIcon fontSize='small' />
+                        </ListItemIcon>
+                        <ListItemText>{t('packages.actions.settings', 'Settings')}</ListItemText>
+                    </MenuItem>
+                    <MenuItem
+                        disabled={!actionMenu?.row || actionsDisabled}
+                        onClick={() => {
+                            if (actionMenu?.row) {
+                                setMutationErrorVisible(false)
+                                setPendingDetach(actionMenu.row)
+                            }
+                            setActionMenu(null)
+                        }}
+                    >
+                        <ListItemIcon>
+                            <DeleteOutlineRoundedIcon fontSize='small' />
+                        </ListItemIcon>
+                        <ListItemText>{t('packages.actions.detach', 'Disconnect package')}</ListItemText>
+                    </MenuItem>
+                </Menu>
             </Box>
             <StandardDialog
                 open={Boolean(pendingAttach)}
@@ -436,9 +682,15 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
                                     {
                                         attachmentId: pendingVersionChange.row.attachmentId,
                                         packageName: pendingVersionChange.row.packageName,
-                                        version: pendingVersionChange.version
+                                        version: pendingVersionChange.version,
+                                        resetConfig: versionChangeResetConfig
                                     },
-                                    { onSuccess: () => setPendingVersionChange(null) }
+                                    {
+                                        onSuccess: () => {
+                                            setVersionChangeResetConfig(false)
+                                            setPendingVersionChange(null)
+                                        }
+                                    }
                                 )
                             }}
                             disabled={changeVersionMutation.isPending}
@@ -449,10 +701,154 @@ export function MetahubPackagesTab({ metahubId }: { metahubId?: string }) {
                 }
             >
                 <DialogContentText>{versionChangeDescription}</DialogContentText>
+                <FormControlLabel
+                    sx={{ mt: 2, alignItems: 'flex-start' }}
+                    control={
+                        <Checkbox
+                            checked={versionChangeResetConfig}
+                            onChange={(event) => setVersionChangeResetConfig(event.target.checked)}
+                            disabled={changeVersionMutation.isPending}
+                        />
+                    }
+                    label={
+                        <Stack spacing={0.5}>
+                            <Typography variant='body2'>
+                                {t('packages.dialogs.changeVersion.resetConfig', 'Reset package display settings to defaults')}
+                            </Typography>
+                            <Typography variant='caption' color='text.secondary'>
+                                {t(
+                                    'packages.dialogs.changeVersion.resetConfigHelper',
+                                    'Use this when the current display settings are not compatible with the selected version.'
+                                )}
+                            </Typography>
+                        </Stack>
+                    }
+                />
                 {mutationErrorVisible ? (
                     <Alert severity='error' sx={{ mt: 2 }}>
                         {mutationErrorMessage}
                     </Alert>
+                ) : null}
+            </StandardDialog>
+            <StandardDialog
+                open={Boolean(settingsDraft)}
+                onClose={() => {
+                    setMutationErrorVisible(false)
+                    setSettingsDraft(null)
+                }}
+                maxWidth='sm'
+                fullWidth
+                title={t('packages.dialogs.settings.title', 'Package display settings')}
+                disablePresentationControls
+                actions={
+                    <>
+                        <Button onClick={resetSettingsDraftToDefaults} disabled={updateConfigMutation.isPending || !settingsDraft}>
+                            {t('packages.dialogs.settings.reset', 'Reset to defaults')}
+                        </Button>
+                        <Button
+                            onClick={() => {
+                                setMutationErrorVisible(false)
+                                setSettingsDraft(null)
+                            }}
+                            disabled={updateConfigMutation.isPending}
+                        >
+                            {t('packages.dialogs.cancel', 'Cancel')}
+                        </Button>
+                        <Button
+                            variant='contained'
+                            onClick={() => {
+                                if (!settingsDraft?.row.attachmentId) return
+                                if (settingsValidationError) return
+                                setMutationErrorVisible(false)
+                                updateConfigMutation.mutate(
+                                    {
+                                        attachmentId: settingsDraft.row.attachmentId,
+                                        config: buildSettingsConfig(settingsDraft)
+                                    },
+                                    { onSuccess: () => setSettingsDraft(null) }
+                                )
+                            }}
+                            disabled={updateConfigMutation.isPending || Boolean(settingsValidationError)}
+                        >
+                            {t('packages.dialogs.settings.save', 'Save settings')}
+                        </Button>
+                    </>
+                }
+            >
+                {settingsDraft ? (
+                    <Stack spacing={2}>
+                        <DialogContentText>
+                            {t('packages.dialogs.settings.description', 'Choose how {{packageName}} opens for this metahub.', {
+                                packageName: settingsDraft.row.name
+                            })}
+                        </DialogContentText>
+                        <FormControl fullWidth size='small'>
+                            <InputLabel id='package-display-mode-label'>{t('packages.settings.displayMode', 'Display mode')}</InputLabel>
+                            <Select
+                                labelId='package-display-mode-label'
+                                value={settingsDraft.mode}
+                                label={t('packages.settings.displayMode', 'Display mode')}
+                                onChange={(event) =>
+                                    setSettingsDraft((current) =>
+                                        current ? { ...current, mode: event.target.value as PackageDisplayMode } : current
+                                    )
+                                }
+                            >
+                                {settingsDraft.allowedDisplayModes.includes('disabled') ? (
+                                    <MenuItem value='disabled'>{t('packages.displayModes.disabled', 'Disabled')}</MenuItem>
+                                ) : null}
+                                {settingsDraft.allowedDisplayModes.includes('embeddedIframe') ? (
+                                    <MenuItem value='embeddedIframe'>{t('packages.displayModes.embeddedIframe', 'Embedded')}</MenuItem>
+                                ) : null}
+                                {settingsDraft.allowedDisplayModes.includes('openSeparately') ? (
+                                    <MenuItem value='openSeparately'>
+                                        {t('packages.displayModes.openSeparately', 'Open separately')}
+                                    </MenuItem>
+                                ) : null}
+                                {settingsDraft.allowedDisplayModes.includes('developmentUrl') ? (
+                                    <MenuItem value='developmentUrl'>
+                                        {t('packages.displayModes.developmentUrl', 'Development URL')}
+                                    </MenuItem>
+                                ) : null}
+                            </Select>
+                        </FormControl>
+                        {isDevelopmentUrlPolicyDisabled ? (
+                            <Alert severity='info'>
+                                {t('packages.settings.developmentUrlDisabled', 'Development URL mode is disabled on this server.')}
+                            </Alert>
+                        ) : null}
+                        {settingsDraft.mode === 'developmentUrl' ? (
+                            <TextField
+                                size='small'
+                                fullWidth
+                                type='url'
+                                label={t('packages.settings.developmentUrl', 'Development URL')}
+                                value={settingsDraft.developmentUrl}
+                                onChange={(event) =>
+                                    setSettingsDraft((current) => (current ? { ...current, developmentUrl: event.target.value } : current))
+                                }
+                                error={Boolean(settingsValidationError)}
+                                helperText={
+                                    settingsValidationError ??
+                                    t('packages.settings.developmentUrlHelper', 'Allowed origins are enforced by the server.')
+                                }
+                            />
+                        ) : null}
+                        <FormControlLabel
+                            control={
+                                <Switch
+                                    checked={settingsDraft.showArtifactOnlyNotice}
+                                    onChange={(event) =>
+                                        setSettingsDraft((current) =>
+                                            current ? { ...current, showArtifactOnlyNotice: event.target.checked } : current
+                                        )
+                                    }
+                                />
+                            }
+                            label={t('packages.settings.showArtifactOnlyNotice', 'Show artifact status notice')}
+                        />
+                        {mutationErrorVisible ? <Alert severity='error'>{mutationErrorMessage}</Alert> : null}
+                    </Stack>
                 ) : null}
             </StandardDialog>
             <ConfirmDeleteDialog

@@ -10,7 +10,6 @@ type PersistedAppPackageRowDb = {
     version: string
     source?: unknown
     is_active: boolean
-    config?: unknown
 }
 
 const buildPackageSortKey = (item: ApplicationPackageDefinition): string => `${item.packageName}:${item.version}`
@@ -240,7 +239,7 @@ export async function hasPublishedPackagesChanges(options: {
     }
 
     const persistedRows = await exec.query<PersistedAppPackageRowDb>(
-        `SELECT package_name, version, source, is_active, config
+        `SELECT package_name, version, source, is_active
          FROM ${getPackagesTable(schemaName)}
          WHERE _upl_deleted = false
            AND _app_deleted = false`

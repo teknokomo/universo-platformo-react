@@ -26,7 +26,17 @@ test('PlayCanvas Editor artifact smoke page is safe and nonblank', async ({ page
     expect(rootResponse?.headers()['cache-control']).toBe('no-cache')
 
     await expect(page.getByRole('heading', { name: 'PlayCanvas Editor artifact is available' })).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Артефакт PlayCanvas Editor доступен' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Артефакт PlayCanvas Editor доступен' })).toBeHidden()
+    const previewCanvas = page.getByLabel('PlayCanvas Editor artifact preview')
+    await expect(previewCanvas).toBeVisible()
+    const isCanvasNonBlank = await previewCanvas.evaluate((node) => {
+        const canvas = node as HTMLCanvasElement
+        const context = canvas.getContext('2d')
+        if (!context) return false
+        const sample = context.getImageData(0, 0, canvas.width, canvas.height).data
+        return sample.some((channel) => channel !== 0)
+    })
+    expect(isCanvasNonBlank).toBe(true)
     await expect(page.locator('body')).not.toContainText('[object Object]')
     await expect(page.locator('body')).not.toContainText(/\{[\s\S]*"[^"]+"\s*:/)
     await expect(page.locator('body')).not.toContainText(/stack trace|Zod|Vite|absolute filesystem/i)
@@ -62,4 +72,13 @@ test('PlayCanvas Editor artifact smoke page is safe and nonblank', async ({ page
     await page.screenshot({ path: testInfo.outputPath(`playcanvas-editor-artifact-smoke-${testInfo.project.name}.png`), fullPage: true })
     expect(consoleErrors).toEqual([])
     expect(failedRequests).toEqual([])
+})
+
+test('PlayCanvas Editor artifact smoke page shows only the requested locale', async ({ page }) => {
+    const response = await page.goto('/?locale=ru', { waitUntil: 'networkidle' })
+    expect(response?.ok()).toBe(true)
+
+    await expect(page.locator('html')).toHaveAttribute('lang', 'ru')
+    await expect(page.getByRole('heading', { name: 'Артефакт PlayCanvas Editor доступен' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'PlayCanvas Editor artifact is available' })).toBeHidden()
 })

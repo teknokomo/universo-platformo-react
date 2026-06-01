@@ -8,11 +8,12 @@ Packages are reusable workspace libraries that a metahub can declare as runtime 
 
 ![Metahub Resources Packages tab](../../.gitbook/assets/platform/metahub-packages.png)
 
-The first MVP registry contains three built-in workspace wrappers:
+The registry contains built-in workspace wrappers and authoring packages:
 
 -   `@universo-react/colyseus-client`
 -   `@universo-react/colyseus-server`
 -   `@universo-react/playcanvas-engine`
+-   `@universo-react/playcanvas-editor`
 
 The project-local MMOOMM skills under `.agents/skills/` use these wrappers as
 their version source of truth: PlayCanvas Engine guidance targets
@@ -23,11 +24,13 @@ and Colyseus server guidance targets `@colyseus/core@0.17.43`.
 
 Open **Metahub → Resources → Packages** to see the available registry packages and the packages connected to the current metahub.
 
-The tab shows the user-facing package name, workspace import name, selected version, upstream library, supported runtime target, and connection status. You can connect a package, disconnect it, or switch the connected version when another registered version exists.
+The tab shows the user-facing package name, selected version, upstream library, surface, and connection status. You can connect a package, disconnect it, switch the connected version when another registered version exists, and configure authoring-only package display settings.
 
 ## Runtime Publication
 
-When a metahub is published, connected packages are included in the publication snapshot and synchronized into the application runtime metadata table `_app_packages`. Runtime modules can then declare allowed package imports and import the connected package by its workspace name.
+When a metahub is published, connected runtime packages are included in the publication snapshot and synchronized into the application runtime metadata table `_app_packages`. Runtime modules can then declare allowed package imports and import the connected package by its workspace name.
+
+Authoring-only packages such as PlayCanvas Editor stay in metahub package settings but are excluded from runtime publication snapshots and `_app_packages`.
 
 ## Current Scope
 

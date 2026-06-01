@@ -10420,7 +10420,11 @@ paths:
           description: attachmentId path parameter.
       responses:
         "200":
-          $ref: "#/components/responses/GenericSuccess"
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetahubPackageAttachment"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -10436,11 +10440,11 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/GenericObject"
+              $ref: "#/components/schemas/PackageChangeVersionRequest"
       security: *a1
     delete:
       tags:
@@ -10484,6 +10488,57 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       security: *a1
+  /metahub/{metahubId}/package/{attachmentId}/config:
+    patch:
+      tags:
+        - Packages
+      summary: PATCH /metahub/{metahubId}/package/{attachmentId}/config
+      description: Auto-generated from
+        packages/universo-react-metahubs-backend/src/domains/packages/routes/packagesRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Packages_patch_metahub_metahubId_package_attachmentId_config
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: attachmentId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: attachmentId path parameter.
+      responses:
+        "200":
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetahubPackageAttachment"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PackageUpdateConfigRequest"
+      security: *a1
   /metahub/{metahubId}/packages:
     get:
       tags:
@@ -10503,7 +10558,11 @@ paths:
           description: metahubId path parameter.
       responses:
         "200":
-          $ref: "#/components/responses/GenericSuccess"
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetahubPackageAttachmentListResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -10539,7 +10598,11 @@ paths:
         "200":
           $ref: "#/components/responses/GenericSuccess"
         "201":
-          $ref: "#/components/responses/CreatedSuccess"
+          description: Successful create or action response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetahubPackageAttachment"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -10555,11 +10618,140 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/GenericObject"
+              $ref: "#/components/schemas/PackageAttachRequest"
+      security: *a1
+  /metahub/{metahubId}/packages/{packageSlug}/authoring-host:
+    get:
+      tags:
+        - Packages
+      summary: GET /metahub/{metahubId}/packages/{packageSlug}/authoring-host
+      description: Auto-generated from
+        packages/universo-react-metahubs-backend/src/domains/packages/routes/packagesRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Packages_get_metahub_metahubId_packages_packageSlug_authoring_host
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: packageSlug
+          in: path
+          required: true
+          schema:
+            type: string
+          description: packageSlug path parameter.
+      responses:
+        "200":
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PackageAuthoringHostDescriptor"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
+  /metahub/{metahubId}/packages/{packageSlug}/editor-artifact-token/{artifactToken}/*:
+    get:
+      tags:
+        - Packages
+      summary: GET
+        /metahub/{metahubId}/packages/{packageSlug}/editor-artifact-token/{artifactToken}/*
+      description: Auto-generated from
+        packages/universo-react-metahubs-backend/src/domains/packages/routes/packagesRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Packages_get_metahub_metahubId_packages_packageSlug_editor_artifact_token_artifactToken
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: packageSlug
+          in: path
+          required: true
+          schema:
+            type: string
+          description: packageSlug path parameter.
+        - name: artifactToken
+          in: path
+          required: true
+          schema:
+            type: string
+          description: artifactToken path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /metahub/{metahubId}/packages/{packageSlug}/editor-artifact/*:
+    get:
+      tags:
+        - Packages
+      summary: GET /metahub/{metahubId}/packages/{packageSlug}/editor-artifact/*
+      description: Auto-generated from
+        packages/universo-react-metahubs-backend/src/domains/packages/routes/packagesRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Packages_get_metahub_metahubId_packages_packageSlug_editor_artifact
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: packageSlug
+          in: path
+          required: true
+          schema:
+            type: string
+          description: packageSlug path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
       security: *a1
   /metahub/{metahubId}/packages/catalog:
     get:
@@ -10580,7 +10772,11 @@ paths:
           description: metahubId path parameter.
       responses:
         "200":
-          $ref: "#/components/responses/GenericSuccess"
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MetahubPackageCatalogResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -12645,6 +12841,331 @@ components:
       additionalProperties: true
       description: Generic JSON object used where the route inventory is current but
         payload-specific schemas remain handler-defined.
+    VersionedLocalizedContent:
+      type: object
+      additionalProperties:
+        type: string
+      properties:
+        en:
+          type: string
+        ru:
+          type: string
+      description: Localized package label or description map keyed by locale code.
+    PackageDisplayMode:
+      type: string
+      enum:
+        - disabled
+        - embeddedIframe
+        - openSeparately
+        - developmentUrl
+      description: Metahub authoring display mode for an attached package.
+    PackageAttachmentEmptyConfig:
+      type: object
+      additionalProperties: false
+      properties:
+        schemaVersion:
+          type: string
+          enum:
+            - "1"
+        kind:
+          type: string
+          enum:
+            - none
+      required:
+        - schemaVersion
+        - kind
+      description: Package configuration for packages without a user-visible authoring
+        surface.
+    PackageAttachmentDisplaySettings:
+      type: object
+      additionalProperties: false
+      properties:
+        mode:
+          $ref: "#/components/schemas/PackageDisplayMode"
+        developmentUrl:
+          type:
+            - string
+            - "null"
+          format: uri
+          description: Optional trusted development URL used only when the package is
+            configured for development hosting.
+        showArtifactOnlyNotice:
+          type: boolean
+          description: Whether the host should show that only the isolated editor artifact
+            is available.
+      required:
+        - mode
+        - showArtifactOnlyNotice
+      description: Display settings for a package authoring surface.
+    PackageAttachmentDisplayConfig:
+      type: object
+      additionalProperties: false
+      properties:
+        schemaVersion:
+          type: string
+          enum:
+            - "1"
+        kind:
+          type: string
+          enum:
+            - display
+        display:
+          $ref: "#/components/schemas/PackageAttachmentDisplaySettings"
+      required:
+        - schemaVersion
+        - kind
+        - display
+      description: Package configuration for packages with a user-visible authoring surface.
+    PackageAttachmentConfig:
+      oneOf:
+        - $ref: "#/components/schemas/PackageAttachmentEmptyConfig"
+        - $ref: "#/components/schemas/PackageAttachmentDisplayConfig"
+      description: Mutable metahub-scoped package configuration.
+    PackageAuthoringSurfaceDescriptor:
+      type: object
+      additionalProperties: true
+      properties:
+        schemaVersion:
+          type: string
+          enum:
+            - "1"
+        kind:
+          type: string
+          enum:
+            - none
+            - playcanvasEditor
+        packageSlug:
+          type: string
+        supportedDisplayModes:
+          type: array
+          items:
+            $ref: "#/components/schemas/PackageDisplayMode"
+        defaultConfig:
+          $ref: "#/components/schemas/PackageAttachmentConfig"
+      required:
+        - schemaVersion
+        - kind
+        - supportedDisplayModes
+        - defaultConfig
+      description: Authoring surface metadata exposed by a package catalog item.
+    PackageSourceDescriptor:
+      type: object
+      additionalProperties: false
+      properties:
+        kind:
+          type: string
+          enum:
+            - workspace
+        packageName:
+          type: string
+        importName:
+          type: string
+        upstreamPackageName:
+          type: string
+        upstreamVersion:
+          type: string
+        runtimeTargets:
+          type: array
+          items:
+            type: string
+            enum:
+              - server
+              - client
+      required:
+        - kind
+        - packageName
+        - importName
+        - upstreamPackageName
+        - upstreamVersion
+        - runtimeTargets
+      description: Package source metadata used by package registry and attachment
+        responses.
+    MetahubPackageAttachment:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        metahubId:
+          type: string
+        packageId:
+          type: string
+        packageName:
+          type: string
+        version:
+          type: string
+        displayName:
+          $ref: "#/components/schemas/VersionedLocalizedContent"
+        description:
+          $ref: "#/components/schemas/VersionedLocalizedContent"
+        source:
+          $ref: "#/components/schemas/PackageSourceDescriptor"
+        authoringSurface:
+          $ref: "#/components/schemas/PackageAuthoringSurfaceDescriptor"
+        config:
+          $ref: "#/components/schemas/PackageAttachmentConfig"
+        attachedAt:
+          type: string
+          format: date-time
+        isActive:
+          type: boolean
+      required:
+        - id
+        - metahubId
+        - packageId
+        - packageName
+        - version
+        - displayName
+        - source
+        - authoringSurface
+        - config
+        - attachedAt
+        - isActive
+      description: Package attached to a metahub with metahub-scoped authoring settings.
+    MetahubPackageCatalogItem:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        packageName:
+          type: string
+        version:
+          type: string
+        displayName:
+          $ref: "#/components/schemas/VersionedLocalizedContent"
+        description:
+          $ref: "#/components/schemas/VersionedLocalizedContent"
+        source:
+          $ref: "#/components/schemas/PackageSourceDescriptor"
+        authoringSurface:
+          $ref: "#/components/schemas/PackageAuthoringSurfaceDescriptor"
+        isActive:
+          type: boolean
+        attached:
+          type: boolean
+        attachedPackageId:
+          type:
+            - string
+            - "null"
+        attachedVersion:
+          type:
+            - string
+            - "null"
+        attachmentId:
+          type:
+            - string
+            - "null"
+      required:
+        - id
+        - packageName
+        - version
+        - displayName
+        - source
+        - authoringSurface
+        - isActive
+        - attached
+      description: Package available for attachment from the metahub package catalog.
+    MetahubPackageAttachmentListResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/MetahubPackageAttachment"
+        total:
+          type: integer
+          minimum: 0
+      required:
+        - items
+        - total
+    MetahubPackageCatalogResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/MetahubPackageCatalogItem"
+        total:
+          type: integer
+          minimum: 0
+      required:
+        - items
+        - total
+    PackageAttachRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        packageName:
+          type: string
+        version:
+          type: string
+      required:
+        - packageName
+    PackageChangeVersionRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        version:
+          type: string
+        resetConfig:
+          type: boolean
+      required:
+        - version
+    PackageUpdateConfigRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        config:
+          $ref: "#/components/schemas/PackageAttachmentConfig"
+      required:
+        - config
+    PackageAuthoringHostDescriptor:
+      type: object
+      additionalProperties: false
+      properties:
+        packageSlug:
+          type: string
+        packageName:
+          type: string
+        version:
+          type: string
+        displayName:
+          $ref: "#/components/schemas/VersionedLocalizedContent"
+        description:
+          $ref: "#/components/schemas/VersionedLocalizedContent"
+        attachmentConfig:
+          $ref: "#/components/schemas/PackageAttachmentConfig"
+        authoringSurface:
+          $ref: "#/components/schemas/PackageAuthoringSurfaceDescriptor"
+        allowedDisplayModes:
+          type: array
+          items:
+            $ref: "#/components/schemas/PackageDisplayMode"
+        artifactStatus:
+          type: string
+          enum:
+            - available
+            - missing
+            - disabled
+            - blocked
+            - misconfigured
+        artifactUrl:
+          type:
+            - string
+            - "null"
+      required:
+        - packageSlug
+        - packageName
+        - version
+        - displayName
+        - attachmentConfig
+        - authoringSurface
+        - allowedDisplayModes
+        - artifactStatus
+      description: Descriptor consumed by the metahub package authoring host route.
     ApiError:
       type: object
       additionalProperties: true

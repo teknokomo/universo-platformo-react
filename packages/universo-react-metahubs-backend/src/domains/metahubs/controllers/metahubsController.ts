@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { isSuperuser, getGlobalRoleCodename } from '@universo-react/admin-backend'
 import { applyRlsContext } from '@universo-react/auth-backend'
 import { getPoolExecutor } from '@universo-react/database'
+import type { PackageAttachmentConfig, PackageSourceDescriptor } from '@universo-react/types'
 import {
     activeAppRowCondition,
     buildSnapshotEnvelope,
@@ -36,6 +37,7 @@ import {
     createPublication,
     createPublicationVersion,
     copyMetahubPackages,
+    prepareMetahubPackagesFromSnapshot,
     type SqlQueryable,
     type MetahubRow,
     type MetahubUserRow,
@@ -1916,6 +1918,35 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
         const accessToken = resolveBearerAccessToken(req)
         const rootExec = getPoolExecutor()
 
+        const snapshotPackages = (
+            envelope.snapshot as {
+                packages?: Array<{ packageName?: unknown; version?: unknown; source?: unknown; config?: unknown }>
+            }
+        ).packages
+        if (Array.isArray(snapshotPackages)) {
+            try {
+                await prepareMetahubPackagesFromSnapshot(
+                    rootExec,
+                    snapshotPackages.map((item) => {
+                        if (!item || typeof item.packageName !== 'string' || typeof item.version !== 'string') {
+                            throw new Error('Metahub snapshot contains an invalid package dependency')
+                        }
+                        return {
+                            packageName: item.packageName,
+                            version: item.version,
+                            source: item.source as PackageSourceDescriptor | undefined,
+                            config: item.config as PackageAttachmentConfig | undefined
+                        }
+                    })
+                )
+            } catch (error) {
+                return res.status(400).json({
+                    error: 'Invalid snapshot envelope',
+                    details: safeErrorMessage(error)
+                })
+            }
+        }
+
         // 2. Build localized name/description from envelope
         const importedName = ensureVLC(envelope.metahub.name, 'en')
         if (!importedName) {
@@ -2205,7 +2236,8 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
         const publicStructureVersion = await schemaService.resolvePublicStructureVersion(branch.schemaName, branch.structureVersion)
 
         const snapshot = await serializer.serializeMetahub(metahubId, {
-            structureVersion: publicStructureVersion
+            structureVersion: publicStructureVersion,
+            packageMode: 'metahub'
         })
 
         await attachLayoutsToSnapshot({ schemaService, snapshot, metahubId, userId })

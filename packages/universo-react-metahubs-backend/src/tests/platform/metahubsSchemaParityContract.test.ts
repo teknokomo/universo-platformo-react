@@ -33,7 +33,9 @@ describe('metahubs fixed-schema parity contract', () => {
         ).toEqual([
             'PrepareMetahubsSchemaSupport1766351182000',
             'FinalizeMetahubsSchemaSupport1766351182001',
-            'SeedBuiltinMetahubTemplates1800000000250'
+            'SeedBuiltinMetahubTemplates1800000000250',
+            'SeedBuiltinMetahubPackages1800000000260',
+            'AddMetahubPackageAuthoringSettings1800000000270'
         ])
         expect(metahubsSystemAppDefinition.currentBusinessTables).toEqual(metahubsSystemAppDefinition.targetBusinessTables)
     })
@@ -169,6 +171,10 @@ describe('metahubs fixed-schema parity contract', () => {
             'CREATE UNIQUE INDEX IF NOT EXISTS idx_template_versions_number',
             'CREATE UNIQUE INDEX IF NOT EXISTS idx_publications_schema_name_active',
             'CREATE UNIQUE INDEX IF NOT EXISTS idx_publications_versions_number_active',
+            'CREATE OR REPLACE FUNCTION metahubs.enforce_authoring_package_slug_owner()',
+            'CREATE TRIGGER trg_obj_packages_authoring_slug_owner',
+            "AND existing.authoring_surface ->> 'kind' = 'playcanvasEditor'",
+            'AND existing.package_name <> NEW.package_name',
             'CREATE INDEX IF NOT EXISTS idx_pub_schema_name ON metahubs.doc_publications(schema_name)'
         ]
         const requiredRlsEnables = [
@@ -191,6 +197,10 @@ describe('metahubs fixed-schema parity contract', () => {
         ]) {
             expect(upSql).toContain(normalizeSql(fragment))
         }
+
+        const downSql = normalizeSql(createMetahubsSchemaMigrationDefinition.down.map((statement) => statement.sql).join('\n'))
+        expect(downSql).toContain(normalizeSql('DROP TRIGGER IF EXISTS trg_obj_packages_authoring_slug_owner ON metahubs.obj_packages'))
+        expect(downSql).toContain(normalizeSql('DROP FUNCTION IF EXISTS metahubs.enforce_authoring_package_slug_owner()'))
 
         expect(upSql).not.toMatch(/CREATE UNIQUE INDEX(?! IF NOT EXISTS)/)
         expect(upSql).not.toMatch(/CREATE INDEX(?! IF NOT EXISTS)/)

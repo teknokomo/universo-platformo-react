@@ -20,6 +20,7 @@ import ComponentListComponent from './domains/entities/metadata/component/ui/Com
 import RecordListComponent from './domains/entities/metadata/record/ui/RecordList'
 import FixedValueListComponent from './domains/entities/metadata/fixedValue/ui/FixedValueList'
 import SharedResourcesPageComponent from './domains/entities/shared/ui/SharedResourcesPage'
+import PlayCanvasEditorHostPageComponent from './domains/packages/ui/PlayCanvasEditorHostPage'
 import MetahubLayoutsComponent from './domains/layouts/ui/LayoutList'
 import MetahubLayoutDetailsComponent from './domains/layouts/ui/LayoutDetails'
 import SettingsPageComponent from './domains/settings/ui/SettingsPage'
@@ -51,6 +52,7 @@ export const ComponentList = withMetahubDialogSettings(ComponentListComponent)
 export const RecordList = withMetahubDialogSettings(RecordListComponent)
 export const FixedValueList = withMetahubDialogSettings(FixedValueListComponent)
 export const MetahubResources = withMetahubDialogSettings(SharedResourcesPageComponent)
+export const PlayCanvasEditorHostPage = withMetahubDialogSettings(PlayCanvasEditorHostPageComponent)
 export const MetahubLayouts = withMetahubDialogSettings(MetahubLayoutsComponent)
 export const MetahubLayoutDetails = withMetahubDialogSettings(MetahubLayoutDetailsComponent)
 

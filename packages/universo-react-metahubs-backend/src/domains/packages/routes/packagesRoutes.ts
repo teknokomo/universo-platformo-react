@@ -12,15 +12,25 @@ export function createPackagesRoutes(
     writeLimiter: RateLimitRequestHandler
 ): Router {
     const router = Router({ mergeParams: true })
-    router.use(ensureAuth)
 
     const createHandler = createMetahubHandlerFactory(getDbExecutor)
-    const ctrl = createPackagesController(createHandler)
+    const ctrl = createPackagesController(createHandler, getDbExecutor)
+
+    router.get(
+        '/metahub/:metahubId/packages/:packageSlug/editor-artifact-token/:artifactToken/*',
+        readLimiter,
+        asyncHandler(ctrl.serveEditorArtifactWithToken)
+    )
+
+    router.use(ensureAuth)
 
     router.get('/metahub/:metahubId/packages/catalog', readLimiter, asyncHandler(ctrl.listCatalog))
     router.get('/metahub/:metahubId/packages', readLimiter, asyncHandler(ctrl.listAttached))
+    router.get('/metahub/:metahubId/packages/:packageSlug/authoring-host', readLimiter, asyncHandler(ctrl.getAuthoringHost))
+    router.get('/metahub/:metahubId/packages/:packageSlug/editor-artifact/*', readLimiter, asyncHandler(ctrl.serveEditorArtifact))
     router.post('/metahub/:metahubId/packages', writeLimiter, asyncHandler(ctrl.attach))
     router.patch('/metahub/:metahubId/package/:attachmentId', writeLimiter, asyncHandler(ctrl.changeVersion))
+    router.patch('/metahub/:metahubId/package/:attachmentId/config', writeLimiter, asyncHandler(ctrl.updateConfig))
     router.delete('/metahub/:metahubId/package/:attachmentId', writeLimiter, asyncHandler(ctrl.detach))
 
     return router
