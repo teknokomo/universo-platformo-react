@@ -471,6 +471,27 @@ describe('Packages Routes', () => {
         expect(mockUpdateMetahubPackageConfig).not.toHaveBeenCalled()
     })
 
+    it('rejects malformed development URLs with a validation error before saving config', async () => {
+        process.env.PLAYCANVAS_EDITOR_DEVELOPMENT_URLS = 'http://localhost:5100'
+
+        await request(buildApp())
+            .patch('/metahub/metahub-1/package/attach-playcanvas/config')
+            .send({
+                config: {
+                    schemaVersion: '1',
+                    kind: 'display',
+                    display: {
+                        mode: 'developmentUrl',
+                        developmentUrl: 'not a url',
+                        showArtifactOnlyNotice: true
+                    }
+                }
+            })
+            .expect(400)
+
+        expect(mockUpdateMetahubPackageConfig).not.toHaveBeenCalled()
+    })
+
     it('rejects non-http development URLs even when their origin is allowlisted', async () => {
         process.env.PLAYCANVAS_EDITOR_DEVELOPMENT_URLS = 'ftp://localhost:5100'
 

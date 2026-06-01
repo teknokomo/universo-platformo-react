@@ -166,7 +166,13 @@ export const validateDevelopmentUrl = (value: string | null | undefined): void =
         throw new MetahubValidationError('Development URL is required')
     }
 
-    const parsed = new URL(value)
+    let parsed: URL
+    try {
+        parsed = new URL(value)
+    } catch {
+        throw new MetahubValidationError('Development URL is invalid')
+    }
+
     if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) {
         throw new MetahubValidationError('Development URL is invalid')
     }

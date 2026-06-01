@@ -51,7 +51,7 @@ pnpm --filter @universo-react/playcanvas-editor editor:browser-smoke
 
 Встроенный режим и режим отдельного открытия используют authenticated route хоста метахаба. Отдельное открытие запускает вторую страницу хоста в новой вкладке, и эта страница всё равно загружает artifact через sandboxed iframe, а не открывает raw artifact URL как top-level document. Iframe хоста использует sandbox без `allow-same-origin`; после проверки authenticated host descriptor backend выдаёт короткоживущий tokenized artifact URL, чтобы sandboxed document мог загрузить свои static JS/CSS assets без cookie-based same-origin доступа. Каждый tokenized artifact request повторно проверяется по текущему доступу `manageMetahub` пользователя, который получил token, и по текущему режиму отображения подключённого пакета перед отдачей файла. Режим адреса разработки показывается только если `PLAYCANVAS_EDITOR_DEVELOPMENT_URLS` включает хотя бы один backend-allowlisted origin, и backend всё равно валидирует сохранённый URL перед использованием в host surface.
 
-Копирование метахаба, snapshot export и snapshot import сохраняют эти настройки отображения пакета. Считайте экспортированные snapshots метахаба чувствительными owner-managed artifacts: когда включён режим адреса разработки, snapshot может содержать сохранённый development URL, чтобы импорт мог восстановить authoring configuration.
+Копирование метахаба, экспорт снимка и импорт снимка сохраняют эти настройки отображения пакета. Считайте экспортированные снимки метахаба чувствительными артефактами, которыми управляет владелец: когда включён режим адреса разработки, снимок может содержать сохранённый адрес разработки, чтобы импорт мог восстановить authoring configuration.
 
 ## Будущая интеграция
 
