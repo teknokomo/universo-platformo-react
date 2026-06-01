@@ -6,6 +6,8 @@ const mockInsertStoredMetahubModule = jest.fn()
 const mockListStoredMetahubModules = jest.fn()
 const mockIncrementVersion = jest.fn()
 const mockListEditableTypes = jest.fn()
+const mockListMetahubPackages = jest.fn()
+const editorPackageName = `@universo-react/${'playcanvas-editor'}`
 
 jest.mock('@universo-react/modules-engine', () => ({
     compileModuleSource: (...args: unknown[]) => mockCompileModuleSource(...args),
@@ -36,6 +38,11 @@ jest.mock('../../domains/entities/services/EntityTypeService', () => ({
     EntityTypeService: jest.fn().mockImplementation(() => ({
         listEditableTypes: (...args: unknown[]) => mockListEditableTypes(...args)
     }))
+}))
+
+jest.mock('../../persistence', () => ({
+    __esModule: true,
+    listMetahubPackages: (...args: unknown[]) => mockListMetahubPackages(...args)
 }))
 
 import { MetahubModulesService } from '../../domains/modules/services/MetahubModulesService'
@@ -99,11 +106,13 @@ describe('MetahubModulesService', () => {
 
     beforeEach(() => {
         jest.clearAllMocks()
+        ;(executor.query as jest.Mock).mockResolvedValue([])
         mockEnsureSchema.mockResolvedValue(schemaName)
         mockFindStoredMetahubModuleByScope.mockResolvedValue(null)
         mockFindStoredMetahubModuleById.mockResolvedValue(createStoredModuleRow())
         mockListStoredMetahubModules.mockResolvedValue([])
         mockListEditableTypes.mockResolvedValue([])
+        mockListMetahubPackages.mockResolvedValue([])
         mockCompileModuleSource.mockResolvedValue({
             manifest: {
                 className: 'QuizWidgetModule',
@@ -234,7 +243,7 @@ describe('MetahubModulesService', () => {
                 }
             }
         ])
-        ;(executor.query as jest.Mock).mockResolvedValueOnce([{ id: 'object-1' }])
+        ;(executor.query as jest.Mock).mockResolvedValueOnce([{ id: 'object-1' }]).mockResolvedValueOnce([])
         mockInsertStoredMetahubModule.mockResolvedValueOnce(
             createStoredModuleRow({
                 attached_to_kind: 'object',
@@ -821,5 +830,50 @@ describe('MetahubModulesService', () => {
         })
 
         expect(mockCompileModuleSource).not.toHaveBeenCalled()
+    })
+
+    it('excludes authoring-only packages from module package import allowlists', async () => {
+        mockListMetahubPackages.mockResolvedValue([
+            {
+                packageName: '@universo-react/playcanvas-engine',
+                version: '0.1.0',
+                source: {
+                    runtimeTargets: ['client']
+                }
+            },
+            {
+                packageName: editorPackageName,
+                version: '0.1.0',
+                source: {
+                    runtimeTargets: []
+                }
+            }
+        ])
+        mockListStoredMetahubModules.mockResolvedValue([
+            createStoredModuleRow({
+                id: 'module-with-package-import',
+                codename: {
+                    _schema: '1',
+                    _primary: 'en',
+                    locales: {
+                        en: { content: 'module-with-package-import' }
+                    }
+                }
+            })
+        ])
+
+        await service.listPublishedModules('metahub-1')
+
+        expect(mockCompileModuleSource).toHaveBeenCalledWith(
+            expect.objectContaining({
+                allowedPackageImports: [
+                    {
+                        packageName: '@universo-react/playcanvas-engine',
+                        version: '0.1.0',
+                        targets: ['client']
+                    }
+                ]
+            })
+        )
     })
 })

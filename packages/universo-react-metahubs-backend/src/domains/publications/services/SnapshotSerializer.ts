@@ -685,9 +685,12 @@ export class SnapshotSerializer {
      */
     async serializeMetahub(
         metahubId: string,
-        options?: Partial<MetahubSnapshotVersionEnvelope> & { runtimePolicy?: MetahubRuntimePolicySnapshot }
+        options?: Partial<MetahubSnapshotVersionEnvelope> & {
+            runtimePolicy?: MetahubRuntimePolicySnapshot
+            packageMode?: 'runtime' | 'metahub'
+        }
     ): Promise<MetahubSnapshot> {
-        const { runtimePolicy, ...versionEnvelope } = options ?? {}
+        const { runtimePolicy, packageMode = 'runtime', ...versionEnvelope } = options ?? {}
         const { typeByKind, entityTypeDefinitions } = await this.loadSnapshotTypeDefinitions(metahubId)
         const objectKinds = [...typeByKind.keys()].filter((kind) => {
             const definition = typeByKind.get(kind)
@@ -726,7 +729,11 @@ export class SnapshotSerializer {
                   config: module.config
               }))
             : []
-        const publishedPackages = this.packagesService ? await this.packagesService.listPublishedPackages(metahubId) : []
+        const publishedPackages = this.packagesService
+            ? packageMode === 'metahub'
+                ? await this.packagesService.listMetahubSnapshotPackages(metahubId)
+                : await this.packagesService.listPublishedPackages(metahubId)
+            : []
         const settings = this.settingsService
             ? (await this.settingsService.findAll(metahubId))
                   .filter((setting) => typeof setting.key === 'string' && setting.value && typeof setting.value === 'object')

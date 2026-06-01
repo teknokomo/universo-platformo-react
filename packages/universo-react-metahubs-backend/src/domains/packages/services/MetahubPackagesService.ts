@@ -7,10 +7,22 @@ export class MetahubPackagesService {
 
     async listPublishedPackages(metahubId: string): Promise<MetahubSnapshotPackage[]> {
         const packages = await listMetahubPackages(this.exec, metahubId)
+        return packages
+            .filter((item) => item.source.runtimeTargets.length > 0)
+            .map((item) => ({
+                packageName: item.packageName,
+                version: item.version,
+                source: item.source
+            }))
+    }
+
+    async listMetahubSnapshotPackages(metahubId: string): Promise<MetahubSnapshotPackage[]> {
+        const packages = await listMetahubPackages(this.exec, metahubId)
         return packages.map((item) => ({
             packageName: item.packageName,
             version: item.version,
-            source: item.source
+            source: item.source,
+            config: item.config
         }))
     }
 }

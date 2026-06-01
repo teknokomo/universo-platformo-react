@@ -6,6 +6,67 @@ export type MetahubPackageSourceKind = (typeof METAHUB_PACKAGE_SOURCE_KINDS)[num
 export const METAHUB_PACKAGE_RUNTIME_TARGETS = ['server', 'client'] as const
 export type MetahubPackageRuntimeTarget = (typeof METAHUB_PACKAGE_RUNTIME_TARGETS)[number]
 
+export const PACKAGE_AUTHORING_SURFACE_KINDS = ['none', 'playcanvasEditor'] as const
+export type PackageAuthoringSurfaceKind = (typeof PACKAGE_AUTHORING_SURFACE_KINDS)[number]
+
+export const PACKAGE_DISPLAY_MODES = ['disabled', 'embeddedIframe', 'openSeparately', 'developmentUrl'] as const
+export type PackageDisplayMode = (typeof PACKAGE_DISPLAY_MODES)[number]
+
+export interface PackageAttachmentEmptyConfig {
+    schemaVersion: '1'
+    kind: 'none'
+}
+
+export interface PackageAttachmentDisplayConfig {
+    schemaVersion: '1'
+    kind: 'display'
+    display: {
+        mode: PackageDisplayMode
+        developmentUrl?: string | null
+        showArtifactOnlyNotice: boolean
+    }
+}
+
+export type PackageAttachmentConfig = PackageAttachmentEmptyConfig | PackageAttachmentDisplayConfig
+
+export interface PackageAuthoringSurfaceNoneDescriptor {
+    schemaVersion: '1'
+    kind: 'none'
+    supportedDisplayModes: readonly []
+    defaultConfig: PackageAttachmentEmptyConfig
+}
+
+export interface PlayCanvasEditorAuthoringSurfaceDescriptor {
+    schemaVersion: '1'
+    kind: 'playcanvasEditor'
+    packageSlug: string
+    supportedDisplayModes: readonly PackageDisplayMode[]
+    defaultConfig: PackageAttachmentDisplayConfig
+    artifact?: {
+        packageName: '@universo-react/playcanvas-editor'
+        manifestFileName: 'universo-artifact-manifest.json'
+        outputRoot: 'dist/editor'
+        smokeMode: 'artifact-only'
+    }
+}
+
+export type PackageAuthoringSurfaceDescriptor = PackageAuthoringSurfaceNoneDescriptor | PlayCanvasEditorAuthoringSurfaceDescriptor
+
+export type PackageArtifactStatus = 'available' | 'missing' | 'disabled' | 'blocked' | 'misconfigured'
+
+export interface PackageAuthoringHostDescriptor {
+    packageSlug: string
+    packageName: string
+    version: string
+    displayName: VersionedLocalizedContent<string>
+    description?: VersionedLocalizedContent<string> | null
+    attachmentConfig: PackageAttachmentConfig
+    authoringSurface: PackageAuthoringSurfaceDescriptor
+    allowedDisplayModes: readonly PackageDisplayMode[]
+    artifactStatus: PackageArtifactStatus
+    artifactUrl?: string | null
+}
+
 export interface PackageSourceDescriptor {
     kind: MetahubPackageSourceKind
     packageName: string
@@ -22,6 +83,7 @@ export interface MetahubPackageRegistryItem {
     displayName: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string> | null
     source: PackageSourceDescriptor
+    authoringSurface: PackageAuthoringSurfaceDescriptor
     isActive: boolean
 }
 
@@ -34,6 +96,8 @@ export interface MetahubPackageAttachment {
     displayName: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string> | null
     source: PackageSourceDescriptor
+    authoringSurface: PackageAuthoringSurfaceDescriptor
+    config: PackageAttachmentConfig
     attachedAt: string
     isActive: boolean
 }
@@ -52,14 +116,20 @@ export interface AttachMetahubPackageRequest {
 
 export interface ChangeMetahubPackageVersionRequest {
     version: string
+    resetConfig?: boolean
+}
+
+export interface UpdateMetahubPackageConfigRequest {
+    config: PackageAttachmentConfig
 }
 
 export interface MetahubSnapshotPackage {
     packageName: string
     version: string
     source: PackageSourceDescriptor
+    config?: PackageAttachmentConfig
 }
 
-export interface ApplicationPackageDefinition extends MetahubSnapshotPackage {
+export interface ApplicationPackageDefinition extends Omit<MetahubSnapshotPackage, 'config'> {
     isActive: boolean
 }

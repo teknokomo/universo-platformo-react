@@ -65,10 +65,12 @@ export { SAFE_MENU_HREF_RE, isSafeMenuHref, sanitizeMenuHref } from './validatio
 // Public routes utilities
 export {
     API_WHITELIST_URLS,
+    API_WHITELIST_PATH_PATTERNS,
     PUBLIC_UI_ROUTES,
     isPublicRoute,
     isWhitelistedApiPath,
     type ApiWhitelistUrl,
+    type ApiWhitelistPathPattern,
     type PublicUiRoute
 } from './routes'
 

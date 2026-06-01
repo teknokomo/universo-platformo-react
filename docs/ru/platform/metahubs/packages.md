@@ -8,11 +8,12 @@ description: Подключение workspace-пакетов к метахабу
 
 ![Вкладка Пакеты в ресурсах метахаба](../../.gitbook/assets/platform/metahub-packages.png)
 
-Первый MVP-реестр содержит три встроенные обёртки:
+Реестр содержит встроенные workspace-обёртки и authoring-пакеты:
 
 -   `@universo-react/colyseus-client`
 -   `@universo-react/colyseus-server`
 -   `@universo-react/playcanvas-engine`
+-   `@universo-react/playcanvas-editor`
 
 Project-local MMOOMM skills в `.agents/skills/` используют эти обёртки как
 источник версий: PlayCanvas Engine guidance ориентирован на `playcanvas@2.18.1`,
@@ -23,11 +24,13 @@ guidance — на `@colyseus/core@0.17.43`.
 
 Откройте **Metahub → Resources → Packages**, чтобы увидеть доступные пакеты реестра и пакеты, подключённые к текущему метахабу.
 
-Вкладка показывает пользовательское имя пакета, workspace import name, выбранную версию, upstream-библиотеку, поддерживаемый runtime target и статус подключения. Пакет можно подключить, отключить или переключить на другую зарегистрированную версию.
+Вкладка показывает пользовательское имя пакета, выбранную версию, upstream-библиотеку, поверхность и статус подключения. Пакет можно подключить, отключить, переключить на другую зарегистрированную версию и настроить отображение authoring-only пакетов.
 
 ## Runtime-публикация
 
-При публикации метахаба подключённые пакеты попадают в snapshot публикации и синхронизируются в runtime-таблицу приложения `_app_packages`. После этого runtime-модули могут объявлять разрешённые package imports и импортировать подключённый пакет по его workspace-имени.
+При публикации метахаба подключённые runtime-пакеты попадают в snapshot публикации и синхронизируются в runtime-таблицу приложения `_app_packages`. После этого runtime-модули могут объявлять разрешённые package imports и импортировать подключённый пакет по его workspace-имени.
+
+Authoring-only пакеты, такие как PlayCanvas Editor, остаются в настройках пакетов метахаба, но исключаются из runtime snapshots публикации и `_app_packages`.
 
 ## Текущий scope
 

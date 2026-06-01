@@ -435,7 +435,9 @@ describe('platformMigrations', () => {
             'FinalizeApplicationsSchemaSupport1800000000001',
             'AddApplicationSettings1800000000100',
             'OptimizeRlsPolicies1800000000200',
-            'SeedBuiltinMetahubTemplates1800000000250'
+            'SeedBuiltinMetahubTemplates1800000000250',
+            'SeedBuiltinMetahubPackages1800000000260',
+            'AddMetahubPackageAuthoringSettings1800000000270'
         ])
     })
 

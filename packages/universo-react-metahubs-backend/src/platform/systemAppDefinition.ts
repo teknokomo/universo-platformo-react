@@ -6,6 +6,7 @@ import {
 import { ComponentDefinitionDataType } from '@universo-react/types'
 import {
     finalizeMetahubsSchemaSupportMigrationDefinition,
+    addPackageAuthoringSettingsMigration,
     prepareMetahubsSchemaSupportMigrationDefinition,
     seedBuiltinPackagesMigration,
     seedBuiltinTemplatesMigration
@@ -302,6 +303,13 @@ const metahubBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
                 isRequired: true
             },
             {
+                codename: 'authoring_surface',
+                physicalColumnName: 'authoring_surface',
+                dataType: ComponentDefinitionDataType.JSON,
+                defaultSqlExpression: `'{}'::jsonb`,
+                isRequired: true
+            },
+            {
                 codename: 'is_active',
                 physicalColumnName: 'is_active',
                 dataType: ComponentDefinitionDataType.BOOLEAN,
@@ -342,6 +350,13 @@ const metahubBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
                 physicalColumnName: 'expected_version',
                 dataType: ComponentDefinitionDataType.STRING,
                 physicalDataType: 'VARCHAR(64)',
+                isRequired: true
+            },
+            {
+                codename: 'config',
+                physicalColumnName: 'config',
+                dataType: ComponentDefinitionDataType.JSON,
+                defaultSqlExpression: `'{}'::jsonb`,
                 isRequired: true
             },
             {
@@ -618,6 +633,11 @@ export const metahubsSystemAppDefinition: SystemAppDefinition = {
         {
             kind: 'file',
             migration: seedBuiltinPackagesMigration,
+            bootstrapPhase: 'post_schema_generation'
+        },
+        {
+            kind: 'file',
+            migration: addPackageAuthoringSettingsMigration,
             bootstrapPhase: 'post_schema_generation'
         }
     ],

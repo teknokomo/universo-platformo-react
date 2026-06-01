@@ -26,6 +26,8 @@ const createCodenameVlc = (primary: string, secondary?: string) => ({
     }
 })
 
+const editorPackageName = `@universo-react/${'playcanvas-editor'}`
+
 describe('SnapshotSerializer system field propagation', () => {
     it('rejects ledger snapshot publication when config references non-existing fields', async () => {
         const objectsService = {
@@ -744,5 +746,77 @@ describe('SnapshotSerializer system field propagation', () => {
         expect(runtimeEntities).toHaveLength(1)
         expect(runtimeEntities[0].kind).toBe('customer_registry')
         expect(runtimeEntities[0].physicalTableName).toBe('cust_customer_registry')
+    })
+
+    it('keeps authoring-only package configs in metahub snapshots but excludes them from runtime snapshots', async () => {
+        const objectsService = {
+            findAllByKind: jest.fn(async () => [])
+        }
+        const componentsService = {
+            findAllFlatForSnapshot: jest.fn(async () => []),
+            getObjectSystemFieldsSnapshot: jest.fn(async () => null)
+        }
+        const entityTypeService = {
+            listTypes: jest.fn(async () => [])
+        }
+        const packagesService = {
+            listPublishedPackages: jest.fn(async () => []),
+            listMetahubSnapshotPackages: jest.fn(async () => [
+                {
+                    packageName: editorPackageName,
+                    version: '0.1.0',
+                    source: {
+                        kind: 'workspace',
+                        packageName: editorPackageName,
+                        importName: editorPackageName,
+                        upstreamPackageName: 'playcanvas-editor',
+                        upstreamVersion: '2026.05.30',
+                        runtimeTargets: []
+                    },
+                    config: {
+                        schemaVersion: '1',
+                        kind: 'display',
+                        display: {
+                            mode: 'embeddedIframe',
+                            developmentUrl: null,
+                            showArtifactOnlyNotice: true
+                        }
+                    }
+                }
+            ])
+        }
+
+        const serializer = new SnapshotSerializer(
+            objectsService as never,
+            componentsService as never,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            entityTypeService as never,
+            undefined,
+            undefined,
+            undefined,
+            packagesService as never
+        )
+
+        await expect(serializer.serializeMetahub('metahub-1')).resolves.toMatchObject({
+            packages: undefined
+        })
+        const metahubSnapshot = await serializer.serializeMetahub('metahub-1', { packageMode: 'metahub' })
+
+        expect(packagesService.listPublishedPackages).toHaveBeenCalledTimes(1)
+        expect(packagesService.listMetahubSnapshotPackages).toHaveBeenCalledTimes(1)
+        expect(metahubSnapshot.packages).toEqual([
+            expect.objectContaining({
+                packageName: editorPackageName,
+                config: expect.objectContaining({
+                    kind: 'display'
+                })
+            })
+        ])
     })
 })

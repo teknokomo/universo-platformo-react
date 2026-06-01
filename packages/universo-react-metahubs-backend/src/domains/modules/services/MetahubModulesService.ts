@@ -308,11 +308,13 @@ export class MetahubModulesService {
 
     private async listAllowedPackageImports(metahubId: string): Promise<ModulePackageImport[]> {
         const packages = await listMetahubPackages(this.exec, metahubId)
-        return packages.map((item) => ({
-            packageName: item.packageName,
-            version: item.version,
-            targets: item.source.runtimeTargets
-        }))
+        return packages
+            .filter((item) => (item.source?.runtimeTargets ?? []).length > 0)
+            .map((item) => ({
+                packageName: item.packageName,
+                version: item.version,
+                targets: item.source.runtimeTargets
+            }))
     }
 
     async listModules(metahubId: string, options: ListMetahubModulesOptions = {}, userId?: string): Promise<MetahubModuleRecord[]> {

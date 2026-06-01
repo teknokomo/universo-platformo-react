@@ -307,6 +307,7 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
                     display_name JSONB NOT NULL DEFAULT '{}',
                     description JSONB DEFAULT '{}',
                     source JSONB NOT NULL DEFAULT '{}',
+                    authoring_surface JSONB NOT NULL DEFAULT '{}',
                     is_active BOOLEAN NOT NULL DEFAULT true,
                     _upl_created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
                     _upl_created_by UUID,
@@ -347,6 +348,7 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
                     package_id UUID NOT NULL,
                     package_name TEXT NOT NULL,
                     expected_version VARCHAR(64) NOT NULL,
+                    config JSONB NOT NULL DEFAULT '{}',
                     is_active BOOLEAN NOT NULL DEFAULT true,
                     _upl_created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
                     _upl_created_by UUID,
@@ -724,6 +726,57 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
         },
         { sql: `CREATE INDEX IF NOT EXISTS idx_template_versions_template ON metahubs.doc_template_versions (template_id)` },
         { sql: `CREATE INDEX IF NOT EXISTS idx_template_versions_hash ON metahubs.doc_template_versions (manifest_hash)` },
+        {
+            sql: `
+                CREATE OR REPLACE FUNCTION metahubs.enforce_authoring_package_slug_owner()
+                RETURNS trigger
+                LANGUAGE plpgsql
+                AS $$
+                DECLARE
+                    next_slug text := NEW.authoring_surface ->> 'packageSlug';
+                    next_kind text := NEW.authoring_surface ->> 'kind';
+                BEGIN
+                    IF NEW._upl_deleted = false
+                       AND NEW._app_deleted = false
+                       AND NEW.is_active = true
+                       AND next_kind = 'playcanvasEditor'
+                       AND next_slug IS NOT NULL
+                       AND next_slug <> ''
+                       AND EXISTS (
+                           SELECT 1
+                           FROM metahubs.obj_packages existing
+                           WHERE existing.id <> NEW.id
+                             AND existing._upl_deleted = false
+                             AND existing._app_deleted = false
+                             AND existing.is_active = true
+                             AND existing.authoring_surface ->> 'kind' = 'playcanvasEditor'
+                             AND existing.authoring_surface ->> 'packageSlug' = next_slug
+                             AND existing.package_name <> NEW.package_name
+                       ) THEN
+                        RAISE EXCEPTION 'authoring package slug % is already used by another package', next_slug
+                            USING ERRCODE = 'unique_violation';
+                    END IF;
+
+                    RETURN NEW;
+                END;
+                $$
+            `
+        },
+        {
+            sql: `
+                DROP TRIGGER IF EXISTS trg_obj_packages_authoring_slug_owner
+                ON metahubs.obj_packages
+            `
+        },
+        {
+            sql: `
+                CREATE TRIGGER trg_obj_packages_authoring_slug_owner
+                BEFORE INSERT OR UPDATE OF authoring_surface, package_name, is_active, _upl_deleted, _app_deleted
+                ON metahubs.obj_packages
+                FOR EACH ROW
+                EXECUTE FUNCTION metahubs.enforce_authoring_package_slug_owner()
+            `
+        },
         { sql: `CREATE INDEX IF NOT EXISTS idx_metahubs_template ON metahubs.obj_metahubs (template_id)` },
         { sql: `CREATE INDEX IF NOT EXISTS idx_metahub_name_gin ON metahubs.obj_metahubs USING GIN (name)` },
         { sql: `CREATE INDEX IF NOT EXISTS idx_pub_metahub ON metahubs.doc_publications(metahub_id)` },
@@ -981,6 +1034,8 @@ export const createMetahubsSchemaMigrationDefinition: SqlMigrationDefinition = {
         { sql: `DROP INDEX IF EXISTS metahubs.idx_metahub_packages_name_active` },
         { sql: `DROP INDEX IF EXISTS metahubs.idx_packages_name_active` },
         { sql: `DROP INDEX IF EXISTS metahubs.idx_packages_name_version_active` },
+        { sql: `DROP TRIGGER IF EXISTS trg_obj_packages_authoring_slug_owner ON metahubs.obj_packages` },
+        { sql: `DROP FUNCTION IF EXISTS metahubs.enforce_authoring_package_slug_owner()` },
         { sql: `DROP INDEX IF EXISTS metahubs.idx_publications_versions_publication` },
         { sql: `DROP INDEX IF EXISTS metahubs.idx_publications_versions_branch` },
         { sql: `DROP INDEX IF EXISTS metahubs.idx_publications_versions_number_active` },

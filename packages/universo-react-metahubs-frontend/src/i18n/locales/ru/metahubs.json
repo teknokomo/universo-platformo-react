@@ -1348,14 +1348,18 @@
             "version": "Версия",
             "upstream": "Зависимость",
             "targets": "Среда",
+            "surface": "Поверхность",
             "status": "Статус"
         },
         "upstream": {
-            "pinnedVersion": "Закреплённая upstream-версия"
+            "pinnedVersion": "Закреплённая версия исходной зависимости"
         },
         "runtimeTargets": {
             "server": "Сервер",
             "client": "Клиент"
+        },
+        "authoringSurfaces": {
+            "playcanvasEditor": "Редактор"
         },
         "status": {
             "connected": "Подключён",
@@ -1365,7 +1369,27 @@
             "attach": "Подключить пакет",
             "attachNamed": "Подключить {{packageName}}",
             "detach": "Отключить пакет",
-            "detachNamed": "Отключить {{packageName}}"
+            "detachNamed": "Отключить {{packageName}}",
+            "moreNamed": "Действия для {{packageName}}",
+            "openEditor": "Открыть редактор",
+            "settings": "Настройки"
+        },
+        "displayModes": {
+            "disabled": "Отключён",
+            "embeddedIframe": "Встроенный",
+            "openSeparately": "Открывать отдельно",
+            "developmentUrl": "Адрес разработки"
+        },
+        "settings": {
+            "displayMode": "Режим отображения",
+            "developmentUrl": "Адрес разработки",
+            "developmentUrlHelper": "Разрешённые источники проверяются сервером.",
+            "developmentUrlDisabled": "Режим адреса разработки отключён на этом сервере.",
+            "showArtifactOnlyNotice": "Показывать статус артефакта",
+            "validation": {
+                "developmentUrlRequired": "Введите адрес разработки.",
+                "developmentUrlInvalid": "Введите корректный адрес с http или https."
+            }
         },
         "dialogs": {
             "cancel": "Отмена",
@@ -1376,19 +1400,43 @@
             "changeVersion": {
                 "title": "Изменить версию пакета",
                 "description": "Переключить {{packageName}} с версии {{currentVersion}} на {{nextVersion}}.",
+                "resetConfig": "Сбросить настройки отображения пакета к значениям по умолчанию",
+                "resetConfigHelper": "Используйте это, если текущие настройки отображения несовместимы с выбранной версией.",
                 "confirm": "Изменить версию"
             },
             "detach": {
                 "title": "Отключить пакет",
                 "description": "Отключить {{packageName}} от этого метахаба. Модули, которым нужен этот пакет, больше не получат его версию при синхронизации среды выполнения.",
                 "deleting": "Отключение..."
+            },
+            "settings": {
+                "title": "Настройки отображения пакета",
+                "description": "Выберите, как {{packageName}} открывается для этого метахаба.",
+                "reset": "Сбросить по умолчанию",
+                "save": "Сохранить настройки"
             }
         },
         "notifications": {
             "attached": "Пакет подключён",
             "detached": "Пакет отключён",
+            "settingsSaved": "Настройки пакета сохранены",
             "versionChanged": "Версия пакета обновлена",
             "mutationFailed": "Не удалось выполнить операцию с пакетом. Обновите страницу и попробуйте ещё раз."
+        },
+        "editorHost": {
+            "fallbackName": "Редактор пакета",
+            "loading": "Загрузка редактора...",
+            "loadError": "Не удалось загрузить настройки редактора.",
+            "permissionDenied": "У вас нет прав для открытия этого редактора.",
+            "disabled": "Редактор отключён для этого метахаба.",
+            "artifactMissing": "Артефакт редактора пока недоступен.",
+            "misconfigured": "Настройки отображения редактора заполнены не полностью.",
+            "openSeparately": "Редактор настроен на открытие отдельно.",
+            "backToPackages": "Назад к пакетам",
+            "frameLoading": "Загрузка фрейма редактора...",
+            "frameLoadError": "Не удалось загрузить фрейм редактора.",
+            "developmentNotice": "Активен режим адреса разработки.",
+            "artifactReady": "Артефакт редактора готов."
         },
         "empty": {
             "title": "Нет доступных пакетов",

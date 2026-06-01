@@ -27,6 +27,12 @@ const EDITOR_PACKAGE_BLOCKED_PUBLIC_REEXPORTS = [
     '../vendor/'
 ]
 const EDITOR_PACKAGE_BLOCKED_EXPORT_PATHS = ['vendor/', 'playcanvas-editor/']
+const ALLOWED_EDITOR_PACKAGE_METADATA_FILES = new Set([
+    'packages/universo-react-metahubs-backend/src/domains/packages/data/seed-packages.json',
+    'packages/universo-react-metahubs-backend/src/domains/packages/services/packageConfigValidation.ts',
+    'packages/universo-react-metahubs-backend/src/tests/services/PackageSeeder.test.ts',
+    'packages/universo-react-types/src/common/packages.ts'
+])
 
 const toRelative = (absolutePath) => path.relative(ROOT, absolutePath).split(path.sep).join('/')
 
@@ -57,6 +63,9 @@ const isAllowedEditorPackageFile = (relativeFile) => {
     if (relativeFile.endsWith('/package.json')) return true
     return false
 }
+
+const isAllowedEditorPackageMetadataReference = (relativeFile, blocked) =>
+    blocked === '@universo-react/playcanvas-editor' && ALLOWED_EDITOR_PACKAGE_METADATA_FILES.has(relativeFile)
 
 const violations = []
 
@@ -101,7 +110,7 @@ for await (const file of walk(PACKAGES_DIR)) {
     for (const blocked of BLOCKED_REFERENCES) {
         let index = content.indexOf(blocked)
         while (index !== -1) {
-            if (!isAllowedEditorPackageFile(relativeFile)) {
+            if (!isAllowedEditorPackageFile(relativeFile) && !isAllowedEditorPackageMetadataReference(relativeFile, blocked)) {
                 violations.push(`${relativeFile}:${lineNumberFor(content, index)}: blocked PlayCanvas Editor boundary reference ${blocked}`)
             }
             index = content.indexOf(blocked, index + blocked.length)

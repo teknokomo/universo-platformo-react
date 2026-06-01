@@ -306,7 +306,7 @@ export async function expectDataGridHorizontalScrollConstrained(page: Page, labe
     }
 }
 
-const waitForLayoutFrame = async (page: Page) =>
+export const waitForLayoutFrame = async (page: Page) =>
     page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
 
 export async function expectRuntimeUxViewportMatrix(

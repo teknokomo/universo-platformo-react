@@ -422,10 +422,9 @@ export async function loadApplicationRuntimePackages(exec: DbExecutor, schemaNam
             version: string
             source?: unknown
             is_active: boolean
-            config?: unknown
         }>(
             `
-                SELECT package_name, version, source, is_active, config
+                SELECT package_name, version, source, is_active
                 FROM ${schemaIdent}._app_packages
                 WHERE _upl_deleted = false
                   AND _app_deleted = false
@@ -440,8 +439,7 @@ export async function loadApplicationRuntimePackages(exec: DbExecutor, schemaNam
                 packageName: row.package_name,
                 version: row.version,
                 source: normalizeRuntimePackageSource(row.source),
-                isActive: row.is_active !== false,
-                config: isRecord(row.config) ? (row.config as Record<string, unknown>) : {}
+                isActive: row.is_active !== false
             }))
     } catch {
         return []

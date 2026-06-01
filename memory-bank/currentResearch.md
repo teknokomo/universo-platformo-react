@@ -1,5 +1,14 @@
 # Current Research
 
+## 2026-06-01: PlayCanvas Editor metahub authoring surface settings
+
+-   Research artifact created: `memory-bank/research/playcanvas-editor-metahub-authoring-surface-settings-research-2026-06-01.md`.
+-   Scope decision: implement the next PlayCanvas Editor integration slice as metahub design-time package settings plus a safe artifact host, not scene/project persistence, Editor backend emulation, typed bridge, Colyseus authoring, or MCP/AI automation.
+-   Storage recommendation: add validated per-attachment config directly to `metahubs.rel_metahub_packages` with a versioned JSON envelope, and add a separate package-version authoring/display descriptor outside `source.runtimeTargets`.
+-   Lifecycle implication: copy, metahub snapshot export, and metahub snapshot import must preserve package display settings in the same slice; runtime publication propagation through `_app_packages.config` should remain deferred unless PLAN explicitly expands sync/diff contracts.
+-   UI implication: extend the existing Packages tab with typed localized settings and an honest `Open editor` host action; do not expose raw JSON/IDs/paths/URLs, and prove no horizontal overflow or iframe interaction traps.
+-   Static serving implication: the Editor artifact route must be reserved, traversal-safe, mounted before the core SPA fallback, and guarded with explicit availability checks, CSP/frame/sandbox/referrer/cache/content-type policy.
+
 ## 2026-05-31: PlayCanvas Editor package foundation
 
 -   Research artifact created: `memory-bank/research/playcanvas-editor-package-foundation-research-2026-05-31.md`.

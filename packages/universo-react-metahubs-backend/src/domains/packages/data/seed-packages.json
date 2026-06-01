@@ -154,5 +154,78 @@
             "upstreamVersion": "2.18.1",
             "runtimeTargets": ["client"]
         }
+    },
+    {
+        "packageName": "@universo-react/playcanvas-editor",
+        "version": "0.1.0",
+        "displayName": {
+            "_schema": "1",
+            "_primary": "en",
+            "locales": {
+                "en": {
+                    "content": "PlayCanvas Editor",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-06-01T00:00:00.000Z",
+                    "updatedAt": "2026-06-01T00:00:00.000Z"
+                },
+                "ru": {
+                    "content": "PlayCanvas Editor",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-06-01T00:00:00.000Z",
+                    "updatedAt": "2026-06-01T00:00:00.000Z"
+                }
+            }
+        },
+        "description": {
+            "_schema": "1",
+            "_primary": "en",
+            "locales": {
+                "en": {
+                    "content": "Authoring-only PlayCanvas Editor package for metahub resources.",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-06-01T00:00:00.000Z",
+                    "updatedAt": "2026-06-01T00:00:00.000Z"
+                },
+                "ru": {
+                    "content": "Authoring-only пакет PlayCanvas Editor для ресурсов метахаба.",
+                    "version": 1,
+                    "isActive": true,
+                    "createdAt": "2026-06-01T00:00:00.000Z",
+                    "updatedAt": "2026-06-01T00:00:00.000Z"
+                }
+            }
+        },
+        "source": {
+            "kind": "workspace",
+            "packageName": "@universo-react/playcanvas-editor",
+            "importName": "@universo-react/playcanvas-editor",
+            "upstreamPackageName": "playcanvas-editor",
+            "upstreamVersion": "2026-05-31-vendor",
+            "runtimeTargets": []
+        },
+        "authoringSurface": {
+            "schemaVersion": "1",
+            "kind": "playcanvasEditor",
+            "packageSlug": "playcanvas-editor",
+            "supportedDisplayModes": ["disabled", "embeddedIframe", "openSeparately", "developmentUrl"],
+            "defaultConfig": {
+                "schemaVersion": "1",
+                "kind": "display",
+                "display": {
+                    "mode": "embeddedIframe",
+                    "developmentUrl": null,
+                    "showArtifactOnlyNotice": true
+                }
+            },
+            "artifact": {
+                "packageName": "@universo-react/playcanvas-editor",
+                "manifestFileName": "universo-artifact-manifest.json",
+                "outputRoot": "dist/editor",
+                "smokeMode": "artifact-only"
+            }
+        }
     }
 ]

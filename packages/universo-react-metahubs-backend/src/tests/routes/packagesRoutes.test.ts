@@ -1,0 +1,600 @@
+import type { NextFunction, Request, RequestHandler, Response } from 'express'
+import type { RateLimitRequestHandler } from 'express-rate-limit'
+import type { MetahubPackageAttachment } from '@universo-react/types'
+
+const express = require('express') as typeof import('express')
+const request = require('supertest') as typeof import('supertest')
+
+const mockResolveUserId = jest.fn<() => string | undefined>()
+const mockEnsureMetahubAccess = jest.fn()
+const mockListMetahubPackages = jest.fn()
+const mockListPackageCatalog = jest.fn()
+const mockUpdateMetahubPackageConfig = jest.fn()
+const mockChangeMetahubPackageVersion = jest.fn()
+const mockAccess = jest.fn()
+const mockRealpath = jest.fn()
+
+const mockDbSession = { isReleased: () => false }
+const editorPackageName = `@universo-react/${'playcanvas-editor'}`
+
+jest.mock('node:fs/promises', () => ({
+    __esModule: true,
+    default: {
+        access: (...args: unknown[]) => mockAccess(...args),
+        realpath: (...args: unknown[]) => mockRealpath(...args)
+    },
+    access: (...args: unknown[]) => mockAccess(...args),
+    realpath: (...args: unknown[]) => mockRealpath(...args)
+}))
+
+jest.mock('../../utils', () => ({
+    __esModule: true,
+    getRequestDbExecutor: (_req: unknown, fallback: unknown) => fallback
+}))
+
+jest.mock('@universo-react/utils/database', () => ({
+    __esModule: true,
+    getRequestDbSession: () => mockDbSession
+}))
+
+jest.mock('../../domains/shared/routeAuth', () => ({
+    __esModule: true,
+    resolveUserId: (...args: unknown[]) => mockResolveUserId(...args)
+}))
+
+jest.mock('../../domains/shared/guards', () => ({
+    __esModule: true,
+    ensureMetahubAccess: (...args: unknown[]) => mockEnsureMetahubAccess(...args)
+}))
+
+jest.mock('../../domains/metahubs/services/MetahubSchemaService', () => ({
+    __esModule: true,
+    MetahubSchemaService: jest.fn().mockImplementation(() => ({}))
+}))
+
+jest.mock('../../persistence', () => ({
+    __esModule: true,
+    attachMetahubPackage: jest.fn(),
+    changeMetahubPackageVersion: (...args: unknown[]) => mockChangeMetahubPackageVersion(...args),
+    detachMetahubPackage: jest.fn(),
+    listMetahubPackages: (...args: unknown[]) => mockListMetahubPackages(...args),
+    listPackageCatalog: (...args: unknown[]) => mockListPackageCatalog(...args),
+    updateMetahubPackageConfig: (...args: unknown[]) => mockUpdateMetahubPackageConfig(...args)
+}))
+
+import { createPackagesRoutes } from '../../domains/packages/routes/packagesRoutes'
+
+const displayConfig = {
+    schemaVersion: '1' as const,
+    kind: 'display' as const,
+    display: {
+        mode: 'embeddedIframe' as const,
+        developmentUrl: null,
+        showArtifactOnlyNotice: true
+    }
+}
+
+const playCanvasAttachment: MetahubPackageAttachment = {
+    id: 'attach-playcanvas',
+    metahubId: 'metahub-1',
+    packageId: 'pkg-playcanvas',
+    packageName: editorPackageName,
+    version: '0.1.0',
+    displayName: {
+        _schema: '1',
+        _primary: 'en',
+        locales: { en: { content: 'PlayCanvas Editor', version: 1, isActive: true } }
+    },
+    description: null,
+    source: {
+        kind: 'workspace',
+        packageName: editorPackageName,
+        importName: editorPackageName,
+        upstreamPackageName: 'playcanvas-editor',
+        upstreamVersion: '2026.05.30',
+        runtimeTargets: []
+    },
+    authoringSurface: {
+        schemaVersion: '1',
+        kind: 'playcanvasEditor',
+        packageSlug: 'playcanvas-editor',
+        supportedDisplayModes: ['disabled', 'embeddedIframe', 'openSeparately', 'developmentUrl'],
+        defaultConfig: displayConfig,
+        artifact: {
+            packageName: editorPackageName,
+            manifestFileName: 'universo-artifact-manifest.json',
+            outputRoot: 'dist/editor',
+            smokeMode: 'artifact-only'
+        }
+    },
+    config: displayConfig,
+    attachedAt: '2026-06-01T00:00:00.000Z',
+    isActive: true
+}
+
+const noneAttachment: MetahubPackageAttachment = {
+    ...playCanvasAttachment,
+    id: 'attach-engine',
+    packageId: 'pkg-engine',
+    packageName: '@universo-react/playcanvas-engine',
+    authoringSurface: {
+        schemaVersion: '1',
+        kind: 'none',
+        supportedDisplayModes: [],
+        defaultConfig: { schemaVersion: '1', kind: 'none' }
+    },
+    config: { schemaVersion: '1', kind: 'none' }
+}
+
+describe('Packages Routes', () => {
+    const ensureAuth = (_req: Request, _res: Response, next: NextFunction) => next()
+    const mockRateLimiter: RateLimitRequestHandler = ((_req: Request, _res: Response, next: NextFunction) =>
+        next()) as RateLimitRequestHandler
+    const mockExec = { query: jest.fn(), isReleased: jest.fn(() => false) }
+
+    const buildApp = (auth: RequestHandler = ensureAuth) => {
+        const app = express()
+        app.response.sendFile = function sendFileStub(filePath: string) {
+            this.setHeader('X-Test-SendFile', filePath)
+            return this.send('artifact')
+        } as never
+        app.use(express.json())
+        app.use(createPackagesRoutes(auth, () => mockExec as never, mockRateLimiter, mockRateLimiter))
+        return app
+    }
+
+    beforeEach(() => {
+        jest.clearAllMocks()
+        mockResolveUserId.mockReturnValue('user-1')
+        mockEnsureMetahubAccess.mockResolvedValue(undefined)
+        mockAccess.mockResolvedValue(undefined)
+        mockRealpath.mockImplementation(async (filePath: string) => filePath)
+        mockListMetahubPackages.mockResolvedValue([playCanvasAttachment, noneAttachment])
+        mockListPackageCatalog.mockResolvedValue([])
+        mockUpdateMetahubPackageConfig.mockImplementation(async (_exec, input) => ({
+            ...playCanvasAttachment,
+            id: input.attachmentId,
+            config: input.config
+        }))
+        mockChangeMetahubPackageVersion.mockImplementation(async (_exec, input) => ({
+            ...playCanvasAttachment,
+            id: input.attachmentId,
+            version: input.version
+        }))
+        delete process.env.PLAYCANVAS_EDITOR_DEVELOPMENT_URLS
+    })
+
+    it('requires manageMetahub permission before returning the authoring host descriptor', async () => {
+        const response = await request(buildApp()).get('/metahub/metahub-1/packages/playcanvas-editor/authoring-host').expect(200)
+
+        expect(response.body.artifactStatus).toBe('available')
+        expect(response.body.allowedDisplayModes).toEqual(['disabled', 'embeddedIframe', 'openSeparately'])
+        expect(response.body.artifactUrl).toMatch(
+            /^\/api\/v1\/metahub\/metahub-1\/packages\/playcanvas-editor\/editor-artifact-token\/[^/]+\/index\.html$/
+        )
+        expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'manageMetahub', mockDbSession)
+        expect(mockAccess).toHaveBeenCalledTimes(2)
+    })
+
+    it('redacts saved development URLs from the read-level attached packages list', async () => {
+        mockListMetahubPackages.mockResolvedValueOnce([
+            {
+                ...playCanvasAttachment,
+                config: {
+                    schemaVersion: '1',
+                    kind: 'display',
+                    display: {
+                        mode: 'developmentUrl',
+                        developmentUrl: 'http://localhost:5100/editor',
+                        showArtifactOnlyNotice: true
+                    }
+                }
+            }
+        ])
+
+        const response = await request(buildApp()).get('/metahub/metahub-1/packages').expect(200)
+
+        expect(response.body.items[0].config).toEqual({
+            schemaVersion: '1',
+            kind: 'display',
+            display: {
+                mode: 'developmentUrl',
+                developmentUrl: null,
+                showArtifactOnlyNotice: true
+            }
+        })
+        expect(JSON.stringify(response.body)).not.toContain('http://localhost:5100/editor')
+        expect(JSON.stringify(response.body)).not.toContain('dist/editor')
+        expect(JSON.stringify(response.body)).not.toContain('universo-artifact-manifest.json')
+    })
+
+    it('redacts artifact internals from the read-level catalog list', async () => {
+        mockListPackageCatalog.mockResolvedValueOnce([
+            {
+                id: playCanvasAttachment.packageId,
+                packageName: playCanvasAttachment.packageName,
+                version: playCanvasAttachment.version,
+                displayName: playCanvasAttachment.displayName,
+                description: playCanvasAttachment.description,
+                source: playCanvasAttachment.source,
+                authoringSurface: playCanvasAttachment.authoringSurface,
+                isActive: true,
+                attached: true,
+                attachmentId: playCanvasAttachment.id,
+                attachedPackageId: playCanvasAttachment.packageId,
+                attachedVersion: playCanvasAttachment.version
+            }
+        ])
+
+        const response = await request(buildApp()).get('/metahub/metahub-1/packages/catalog').expect(200)
+
+        expect(response.body.items[0].authoringSurface.kind).toBe('playcanvasEditor')
+        expect(response.body.items[0].authoringSurface.artifact).toBeUndefined()
+        expect(JSON.stringify(response.body)).not.toContain('dist/editor')
+        expect(JSON.stringify(response.body)).not.toContain('universo-artifact-manifest.json')
+    })
+
+    it('blocks stale saved development URLs that are no longer allowlisted when returning the authoring host descriptor', async () => {
+        mockListMetahubPackages.mockResolvedValueOnce([
+            {
+                ...playCanvasAttachment,
+                config: {
+                    schemaVersion: '1',
+                    kind: 'display',
+                    display: {
+                        mode: 'developmentUrl',
+                        developmentUrl: 'http://localhost:5100/editor',
+                        showArtifactOnlyNotice: true
+                    }
+                }
+            },
+            noneAttachment
+        ])
+
+        const response = await request(buildApp()).get('/metahub/metahub-1/packages/playcanvas-editor/authoring-host').expect(200)
+
+        expect(response.body.artifactStatus).toBe('blocked')
+        expect(response.body.artifactUrl).toBeNull()
+        expect(response.body.attachmentConfig).toEqual(displayConfig)
+        expect(JSON.stringify(response.body)).not.toContain('http://localhost:5100/editor')
+    })
+
+    it('rejects duplicate authoring package slugs instead of selecting an arbitrary package', async () => {
+        mockListMetahubPackages.mockResolvedValueOnce([
+            playCanvasAttachment,
+            {
+                ...playCanvasAttachment,
+                id: 'attach-playcanvas-fork',
+                packageId: 'pkg-playcanvas-fork',
+                packageName: `@universo-react/${'playcanvas-editor'}-fork`
+            }
+        ])
+
+        await request(buildApp()).get('/metahub/metahub-1/packages/playcanvas-editor/authoring-host').expect(400)
+    })
+
+    it('serves editor artifacts with defensive headers and a root-contained file path', async () => {
+        const response = await request(buildApp())
+            .get('/metahub/metahub-1/packages/playcanvas-editor/editor-artifact/assets/editor.js')
+            .expect(200)
+
+        expect(response.text).toBe('artifact')
+        expect(response.headers['x-content-type-options']).toBe('nosniff')
+        expect(response.headers['cache-control']).toBe('private, max-age=300')
+        expect(response.headers['content-security-policy']).toContain('sandbox allow-scripts')
+        expect(response.headers['content-security-policy']).toContain("'unsafe-inline'")
+        expect(response.headers['content-security-policy']).toContain("frame-ancestors 'self'")
+        expect(response.headers['content-type']).toContain('application/javascript')
+        expect(response.headers['x-test-sendfile']).toContain('/assets/editor.js')
+        expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'manageMetahub', mockDbSession)
+    })
+
+    it('serves tokenized editor artifact assets without session cookies for sandboxed subresources', async () => {
+        const hostResponse = await request(buildApp()).get('/metahub/metahub-1/packages/playcanvas-editor/authoring-host').expect(200)
+        const assetUrl = String(hostResponse.body.artifactUrl)
+            .replace(/^\/api\/v1/, '')
+            .replace('/index.html', '/assets/editor.js')
+        const rejectingAuth: RequestHandler = (_req, res) => res.status(401).json({ error: 'Unauthorized' })
+
+        const response = await request(buildApp(rejectingAuth)).get(assetUrl).expect(200)
+
+        expect(response.text).toBe('artifact')
+        expect(response.headers['cache-control']).toBe('private, max-age=300')
+        expect(response.headers['x-test-sendfile']).toContain('/assets/editor.js')
+        expect(mockEnsureMetahubAccess).toHaveBeenLastCalledWith(mockExec, 'user-1', 'metahub-1', 'manageMetahub')
+        expect(mockListMetahubPackages).toHaveBeenCalledTimes(2)
+    })
+
+    it('rejects tokenized editor artifact URLs when the issuing user no longer manages the metahub', async () => {
+        const hostResponse = await request(buildApp()).get('/metahub/metahub-1/packages/playcanvas-editor/authoring-host').expect(200)
+        const assetUrl = String(hostResponse.body.artifactUrl)
+            .replace(/^\/api\/v1/, '')
+            .replace('/index.html', '/assets/editor.js')
+        const rejectingAuth: RequestHandler = (_req, res) => res.status(401).json({ error: 'Unauthorized' })
+
+        mockEnsureMetahubAccess.mockRejectedValueOnce(new Error('revoked'))
+
+        await request(buildApp(rejectingAuth)).get(assetUrl).expect(404)
+        expect(mockListMetahubPackages).toHaveBeenCalledTimes(1)
+    })
+
+    it('rejects tokenized editor artifact URLs when the package display mode changes after token issue', async () => {
+        const hostResponse = await request(buildApp()).get('/metahub/metahub-1/packages/playcanvas-editor/authoring-host').expect(200)
+        const assetUrl = String(hostResponse.body.artifactUrl)
+            .replace(/^\/api\/v1/, '')
+            .replace('/index.html', '/assets/editor.js')
+        const rejectingAuth: RequestHandler = (_req, res) => res.status(401).json({ error: 'Unauthorized' })
+
+        mockListMetahubPackages.mockResolvedValueOnce([
+            {
+                ...playCanvasAttachment,
+                config: {
+                    schemaVersion: '1',
+                    kind: 'display',
+                    display: {
+                        mode: 'disabled',
+                        developmentUrl: null,
+                        showArtifactOnlyNotice: true
+                    }
+                }
+            }
+        ])
+
+        await request(buildApp(rejectingAuth)).get(assetUrl).expect(404)
+        expect(mockListMetahubPackages).toHaveBeenCalledTimes(2)
+    })
+
+    it('rejects invalid tokenized editor artifact URLs before the authenticated package routes', async () => {
+        const rejectingAuth: RequestHandler = (_req, res) => res.status(401).json({ error: 'Unauthorized' })
+
+        await request(buildApp(rejectingAuth))
+            .get('/metahub/metahub-1/packages/playcanvas-editor/editor-artifact-token/not-a-token/assets/editor.js')
+            .expect(404)
+
+        expect(mockEnsureMetahubAccess).not.toHaveBeenCalled()
+    })
+
+    it('passes explicit config reset intent when changing package versions', async () => {
+        await request(buildApp())
+            .patch('/metahub/metahub-1/package/attach-playcanvas')
+            .send({ version: '0.2.0', resetConfig: true })
+            .expect(200)
+
+        expect(mockChangeMetahubPackageVersion).toHaveBeenCalledWith(mockExec, {
+            metahubId: 'metahub-1',
+            attachmentId: 'attach-playcanvas',
+            version: '0.2.0',
+            resetConfig: true,
+            userId: 'user-1'
+        })
+    })
+
+    it('does not serve editor artifacts when the package display mode is disabled', async () => {
+        mockListMetahubPackages.mockResolvedValueOnce([
+            {
+                ...playCanvasAttachment,
+                config: {
+                    schemaVersion: '1',
+                    kind: 'display',
+                    display: {
+                        mode: 'disabled',
+                        developmentUrl: null,
+                        showArtifactOnlyNotice: true
+                    }
+                }
+            }
+        ])
+
+        await request(buildApp()).get('/metahub/metahub-1/packages/playcanvas-editor/editor-artifact/index.html').expect(404)
+        expect(mockAccess).not.toHaveBeenCalled()
+    })
+
+    it('does not serve editor artifacts when the package uses a development URL', async () => {
+        process.env.PLAYCANVAS_EDITOR_DEVELOPMENT_URLS = 'http://localhost:5100'
+        mockListMetahubPackages.mockResolvedValueOnce([
+            {
+                ...playCanvasAttachment,
+                config: {
+                    schemaVersion: '1',
+                    kind: 'display',
+                    display: {
+                        mode: 'developmentUrl',
+                        developmentUrl: 'http://localhost:5100/editor',
+                        showArtifactOnlyNotice: true
+                    }
+                }
+            }
+        ])
+
+        await request(buildApp()).get('/metahub/metahub-1/packages/playcanvas-editor/editor-artifact/index.html').expect(404)
+        expect(mockAccess).not.toHaveBeenCalled()
+    })
+
+    it('does not serve editor artifacts when saved development URL settings are stale', async () => {
+        mockListMetahubPackages.mockResolvedValueOnce([
+            {
+                ...playCanvasAttachment,
+                config: {
+                    schemaVersion: '1',
+                    kind: 'display',
+                    display: {
+                        mode: 'developmentUrl',
+                        developmentUrl: 'http://localhost:5100/editor',
+                        showArtifactOnlyNotice: true
+                    }
+                }
+            }
+        ])
+
+        await request(buildApp()).get('/metahub/metahub-1/packages/playcanvas-editor/editor-artifact/index.html').expect(400)
+        expect(mockAccess).not.toHaveBeenCalled()
+    })
+
+    it('rejects traversal and symlink escapes for editor artifact files', async () => {
+        await request(buildApp()).get('/metahub/metahub-1/packages/playcanvas-editor/editor-artifact/%2e%2e/secret.txt').expect(400)
+
+        mockRealpath.mockImplementation(async (filePath: string) =>
+            filePath.endsWith('/leak.js') ? '/tmp/playcanvas-editor-leak.js' : filePath
+        )
+
+        await request(buildApp()).get('/metahub/metahub-1/packages/playcanvas-editor/editor-artifact/leak.js').expect(404)
+    })
+
+    it('requires the manifest and requested artifact file before serving an editor artifact', async () => {
+        mockAccess.mockRejectedValueOnce(new Error('missing manifest')).mockResolvedValue(undefined)
+
+        await request(buildApp()).get('/metahub/metahub-1/packages/playcanvas-editor/editor-artifact/index.html').expect(404)
+    })
+
+    it('rejects display settings for packages without an authoring surface', async () => {
+        await request(buildApp()).patch('/metahub/metahub-1/package/attach-engine/config').send({ config: displayConfig }).expect(400)
+
+        expect(mockUpdateMetahubPackageConfig).not.toHaveBeenCalled()
+    })
+
+    it('rejects unallowlisted development URLs before saving config', async () => {
+        await request(buildApp())
+            .patch('/metahub/metahub-1/package/attach-playcanvas/config')
+            .send({
+                config: {
+                    schemaVersion: '1',
+                    kind: 'display',
+                    display: {
+                        mode: 'developmentUrl',
+                        developmentUrl: 'http://localhost:5100/editor',
+                        showArtifactOnlyNotice: true
+                    }
+                }
+            })
+            .expect(400)
+
+        expect(mockUpdateMetahubPackageConfig).not.toHaveBeenCalled()
+    })
+
+    it('rejects malformed development URLs with a validation error before saving config', async () => {
+        process.env.PLAYCANVAS_EDITOR_DEVELOPMENT_URLS = 'http://localhost:5100'
+
+        await request(buildApp())
+            .patch('/metahub/metahub-1/package/attach-playcanvas/config')
+            .send({
+                config: {
+                    schemaVersion: '1',
+                    kind: 'display',
+                    display: {
+                        mode: 'developmentUrl',
+                        developmentUrl: 'not a url',
+                        showArtifactOnlyNotice: true
+                    }
+                }
+            })
+            .expect(400)
+
+        expect(mockUpdateMetahubPackageConfig).not.toHaveBeenCalled()
+    })
+
+    it('rejects non-http development URLs even when their origin is allowlisted', async () => {
+        process.env.PLAYCANVAS_EDITOR_DEVELOPMENT_URLS = 'ftp://localhost:5100'
+
+        await request(buildApp())
+            .patch('/metahub/metahub-1/package/attach-playcanvas/config')
+            .send({
+                config: {
+                    schemaVersion: '1',
+                    kind: 'display',
+                    display: {
+                        mode: 'developmentUrl',
+                        developmentUrl: 'ftp://localhost:5100/editor',
+                        showArtifactOnlyNotice: true
+                    }
+                }
+            })
+            .expect(400)
+
+        expect(mockUpdateMetahubPackageConfig).not.toHaveBeenCalled()
+    })
+
+    it('rejects development URLs with embedded credentials', async () => {
+        process.env.PLAYCANVAS_EDITOR_DEVELOPMENT_URLS = 'http://localhost:5100'
+
+        await request(buildApp())
+            .patch('/metahub/metahub-1/package/attach-playcanvas/config')
+            .send({
+                config: {
+                    schemaVersion: '1',
+                    kind: 'display',
+                    display: {
+                        mode: 'developmentUrl',
+                        developmentUrl: 'http://user:pass@localhost:5100/editor',
+                        showArtifactOnlyNotice: true
+                    }
+                }
+            })
+            .expect(400)
+
+        expect(mockUpdateMetahubPackageConfig).not.toHaveBeenCalled()
+    })
+
+    it('returns allowlisted development URL settings through the manager-only authoring host', async () => {
+        process.env.PLAYCANVAS_EDITOR_DEVELOPMENT_URLS = 'http://localhost:5100/, https://editor.example.test/path'
+        mockListMetahubPackages.mockResolvedValueOnce([
+            {
+                ...playCanvasAttachment,
+                config: {
+                    schemaVersion: '1',
+                    kind: 'display',
+                    display: {
+                        mode: 'developmentUrl',
+                        developmentUrl: 'http://localhost:5100/editor',
+                        showArtifactOnlyNotice: true
+                    }
+                }
+            }
+        ])
+
+        const response = await request(buildApp()).get('/metahub/metahub-1/packages/playcanvas-editor/authoring-host').expect(200)
+
+        expect(response.body.allowedDisplayModes).toEqual(['disabled', 'embeddedIframe', 'openSeparately', 'developmentUrl'])
+        expect(response.body.artifactStatus).toBe('available')
+        expect(response.body.artifactUrl).toBeNull()
+        expect(response.body.attachmentConfig.display).toEqual({
+            mode: 'developmentUrl',
+            developmentUrl: 'http://localhost:5100/editor',
+            showArtifactOnlyNotice: true
+        })
+    })
+
+    it('normalizes and saves allowlisted development URL settings', async () => {
+        process.env.PLAYCANVAS_EDITOR_DEVELOPMENT_URLS = 'http://localhost:5100/, https://editor.example.test/path'
+
+        await request(buildApp())
+            .patch('/metahub/metahub-1/package/attach-playcanvas/config')
+            .send({
+                config: {
+                    schemaVersion: '1',
+                    kind: 'display',
+                    display: {
+                        mode: 'developmentUrl',
+                        developmentUrl: 'http://localhost:5100/editor',
+                        showArtifactOnlyNotice: false
+                    }
+                }
+            })
+            .expect(200)
+
+        expect(mockUpdateMetahubPackageConfig).toHaveBeenCalledWith(mockExec, {
+            metahubId: 'metahub-1',
+            attachmentId: 'attach-playcanvas',
+            config: {
+                schemaVersion: '1',
+                kind: 'display',
+                display: {
+                    mode: 'developmentUrl',
+                    developmentUrl: 'http://localhost:5100/editor',
+                    showArtifactOnlyNotice: false
+                }
+            },
+            userId: 'user-1',
+            expectedPackageId: 'pkg-playcanvas'
+        })
+    })
+})

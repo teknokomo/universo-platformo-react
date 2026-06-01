@@ -208,23 +208,50 @@ export const writeSafeUnavailablePage = (targetRoot) => {
     main { max-width: 760px; padding: 32px; line-height: 1.5; }
     h1 { font-size: 24px; margin: 0 0 16px; }
     p { margin: 0 0 12px; overflow-wrap: anywhere; }
-    [lang="ru"] { margin-top: 24px; }
+    [data-locale-panel][hidden] { display: none; }
     code { background: rgba(30, 41, 59, 0.08); padding: 2px 6px; border-radius: 4px; }
+    canvas { display: block; width: min(100%, 560px); height: 180px; margin: 0 0 24px; border-radius: 6px; background: #101828; }
   </style>
+
 </head>
 <body>
   <main>
-    <section lang="en" aria-labelledby="playcanvas-editor-artifact-title-en">
+    <canvas width="560" height="180" aria-label="PlayCanvas Editor artifact preview"></canvas>
+    <section lang="en" data-locale-panel="en" aria-labelledby="playcanvas-editor-artifact-title-en">
       <h1 id="playcanvas-editor-artifact-title-en">PlayCanvas Editor artifact is available</h1>
-      <p>The static frontend artifact was built, but this foundation package is not connected to PlayCanvas-hosted or Universo-backed project persistence yet.</p>
-      <p>Smoke mode: <code>artifact-only</code>.</p>
+      <p>The editor files are ready. Project saving, assets, and collaboration are not connected in this integration step yet.</p>
     </section>
-    <section lang="ru" aria-labelledby="playcanvas-editor-artifact-title-ru">
+    <section lang="ru" data-locale-panel="ru" hidden aria-labelledby="playcanvas-editor-artifact-title-ru">
       <h1 id="playcanvas-editor-artifact-title-ru">Артефакт PlayCanvas Editor доступен</h1>
-      <p>Static frontend artifact собран, но этот foundation-пакет ещё не подключён к PlayCanvas-hosted или Universo-backed сохранению проектов.</p>
-      <p>Режим smoke-проверки: <code>artifact-only</code>.</p>
+      <p>Файлы редактора готовы. Сохранение проектов, ассеты и совместная работа пока не подключены на этом шаге интеграции.</p>
     </section>
   </main>
+  <script>
+const canvas = document.querySelector('canvas');
+const params = new URLSearchParams(window.location.search);
+const locale = params.get('locale') === 'ru' ? 'ru' : 'en';
+document.documentElement.lang = locale;
+for (const panel of document.querySelectorAll('[data-locale-panel]')) {
+  panel.hidden = panel.getAttribute('data-locale-panel') !== locale;
+}
+if (canvas) {
+  const ctx = canvas.getContext('2d');
+  const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+  gradient.addColorStop(0, '#1d4ed8');
+  gradient.addColorStop(0.5, '#14b8a6');
+  gradient.addColorStop(1, '#f59e0b');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+  ctx.font = '600 22px Arial, sans-serif';
+  ctx.fillText('PlayCanvas Editor', 28, 58);
+  ctx.font = '16px Arial, sans-serif';
+  ctx.fillText('Artifact-only integration surface', 28, 92);
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.56)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(24, 24, canvas.width - 48, canvas.height - 48);
+}
+  </script>
 </body>
 </html>
 `

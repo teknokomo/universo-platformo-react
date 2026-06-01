@@ -8,18 +8,26 @@ export type BrowserPreferenceOptions = {
 export async function applyBrowserPreferences(page: Page, options: BrowserPreferenceOptions = {}) {
     const language = options.language ?? 'en'
     const isDarkMode = options.isDarkMode === true
+    const preferences = {
+        nextLanguage: language,
+        nextIsDarkMode: isDarkMode
+    }
 
-    await page.addInitScript(
-        ({ nextLanguage, nextIsDarkMode }) => {
+    await page.addInitScript(({ nextLanguage, nextIsDarkMode }) => {
+        window.localStorage.setItem('i18nextLng', nextLanguage)
+        window.localStorage.setItem('isDarkMode', String(nextIsDarkMode))
+        window.localStorage.setItem('mui-mode', nextIsDarkMode ? 'dark' : 'light')
+    }, preferences)
+
+    await page.evaluate(({ nextLanguage, nextIsDarkMode }) => {
+        try {
             window.localStorage.setItem('i18nextLng', nextLanguage)
             window.localStorage.setItem('isDarkMode', String(nextIsDarkMode))
             window.localStorage.setItem('mui-mode', nextIsDarkMode ? 'dark' : 'light')
-        },
-        {
-            nextLanguage: language,
-            nextIsDarkMode: isDarkMode
+        } catch {
+            // about:blank has no origin-local storage; the init script covers the next navigation.
         }
-    )
+    }, preferences)
 }
 
 export function parseRgbColor(input: string): [number, number, number] | null {

@@ -108,9 +108,11 @@ export {
     listPackageCatalog,
     listMetahubPackages,
     copyMetahubPackages,
+    prepareMetahubPackagesFromSnapshot,
     replaceMetahubPackagesFromSnapshot,
     attachMetahubPackage,
     changeMetahubPackageVersion,
+    updateMetahubPackageConfig,
     detachMetahubPackage
 } from './packagesStore'
 export type { UpsertPackageInput } from './packagesStore'

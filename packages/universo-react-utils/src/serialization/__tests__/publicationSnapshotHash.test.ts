@@ -401,4 +401,64 @@ describe('normalizePublicationSnapshotForHash', () => {
         expect(normalized.layoutConfig).toEqual({})
         expect(normalized.entities).toEqual([])
     })
+
+    it('includes package attachment config in canonical hash normalization when present', () => {
+        const editorPackageName = `@universo-react/${'playcanvas-editor'}`
+        const basePackage = {
+            packageName: editorPackageName,
+            version: '0.1.0',
+            source: {
+                kind: 'workspace',
+                packageName: editorPackageName,
+                importName: editorPackageName,
+                upstreamPackageName: 'playcanvas-editor',
+                upstreamVersion: '2026.05.30',
+                runtimeTargets: []
+            }
+        }
+
+        const embedded = normalizePublicationSnapshotForHash({
+            packages: [
+                {
+                    ...basePackage,
+                    config: {
+                        schemaVersion: '1',
+                        kind: 'display',
+                        display: {
+                            mode: 'embeddedIframe',
+                            developmentUrl: null,
+                            showArtifactOnlyNotice: true
+                        }
+                    }
+                }
+            ]
+        })
+        const openSeparately = normalizePublicationSnapshotForHash({
+            packages: [
+                {
+                    ...basePackage,
+                    config: {
+                        schemaVersion: '1',
+                        kind: 'display',
+                        display: {
+                            mode: 'openSeparately',
+                            developmentUrl: null,
+                            showArtifactOnlyNotice: true
+                        }
+                    }
+                }
+            ]
+        })
+
+        expect(embedded.packages).toEqual([
+            expect.objectContaining({
+                packageName: editorPackageName,
+                config: expect.objectContaining({
+                    kind: 'display',
+                    display: expect.objectContaining({ mode: 'embeddedIframe' })
+                })
+            })
+        ])
+        expect(JSON.stringify(embedded.packages)).not.toEqual(JSON.stringify(openSeparately.packages))
+    })
 })

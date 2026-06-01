@@ -1,5 +1,6 @@
 jest.mock('@universo-react/database', () => ({
-    createKnexExecutor: jest.fn(() => ({ tag: 'executor' }))
+    createKnexExecutor: jest.fn(() => ({ tag: 'executor' })),
+    qSchemaTable: jest.fn((schema: string, table: string) => `"${schema}"."${table}"`)
 }))
 
 jest.mock('../../domains/templates/services/TemplateSeeder', () => ({

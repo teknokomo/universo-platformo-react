@@ -6,7 +6,7 @@ description: PlayCanvas Editor artifact package foundation.
 
 `@universo-react/playcanvas-editor` is the Platformo foundation package for the official PlayCanvas Editor frontend artifact.
 
-The package vendors a pinned upstream PlayCanvas Editor snapshot and keeps it isolated from the runtime MUI shells. It is not a React component package and it is not registered as a metahub runtime package in this foundation slice.
+The package vendors a pinned upstream PlayCanvas Editor snapshot and keeps it isolated from the runtime MUI shells. It is not a React component package and it is registered as an authoring-only metahub package with no runtime targets.
 
 ## Current Scope
 
@@ -19,7 +19,7 @@ The package vendors a pinned upstream PlayCanvas Editor snapshot and keeps it is
 -   Required Node.js version for Editor build: `>=22.22.0`
 -   Smoke mode: `artifact-only`
 
-The package can build and verify a static artifact, but it does not yet provide metahub scene storage, asset upload, collaboration, backend API emulation, iframe bridge, Colyseus authoring, or AI/MCP scene editing.
+The package can build and verify a static artifact. Metahubs can connect it from **Resources → Packages**, configure how the editor opens, and load the static artifact through the authenticated metahub package route. It does not yet provide metahub scene storage, asset upload, collaboration, backend API emulation, iframe bridge messaging, Colyseus authoring, or AI/MCP scene editing.
 
 ## Commands
 
@@ -35,10 +35,24 @@ The package intentionally does not define a normal `build` script yet. Root `pnp
 ## Boundary Rules
 
 -   Do not import PlayCanvas Editor vendor source, PCUI, or Observer state into normal MUI shells.
--   Do not add this package to metahub package seed data in the foundation slice.
+-   Keep this package authoring-only: `source.runtimeTargets` must stay empty unless a later approved runtime brief changes that boundary.
+-   Do not include this package in publication runtime snapshots or `_app_packages`.
 -   Do not store an upstream `package.json` under `vendor/playcanvas-editor/`.
 -   Keep upstream updates pinned and reviewed through `vendor/UPSTREAM.md`.
 
+## Metahub Display Settings
+
+The first integration slice stores per-metahub display settings in `metahubs.rel_metahub_packages.config`:
+
+-   Disabled
+-   Embedded iframe
+-   Open separately
+-   Development URL
+
+Embedded and open-separately modes both use the authenticated metahub host route. Open separately opens a second host page in a new tab, and that page still loads the artifact through the sandboxed iframe instead of exposing the raw artifact URL as the top-level document. The host iframe uses a sandbox without `allow-same-origin`; when the authenticated host descriptor is resolved, the backend issues a short-lived tokenized artifact URL so the sandboxed document can load its static JS/CSS assets without cookie-based same-origin access. Every tokenized artifact request is revalidated against the issuing user's current `manageMetahub` access and the current package attachment display mode before a file is served. Development URL mode is shown only when `PLAYCANVAS_EDITOR_DEVELOPMENT_URLS` enables at least one backend-allowlisted origin, and the backend still validates the saved URL before the host can use it.
+
+Metahub copy, snapshot export, and snapshot import preserve these package display settings. Treat exported metahub snapshots as owner-managed sensitive artifacts: when Development URL mode is enabled, the snapshot can include the saved development URL so imports can restore the authoring configuration.
+
 ## Future Integration
 
-Later briefs can add a serving route, iframe host, metahub storage adapter, asset pipeline, module external-file integration, Colyseus authoring, and AI/MCP tooling. Those integrations must preserve the artifact boundary unless a new approved plan changes it.
+Later briefs can add a metahub storage adapter, asset pipeline, module external-file integration, Colyseus authoring, iframe bridge messaging, and AI/MCP tooling. Those integrations must preserve the artifact boundary unless a new approved plan changes it.

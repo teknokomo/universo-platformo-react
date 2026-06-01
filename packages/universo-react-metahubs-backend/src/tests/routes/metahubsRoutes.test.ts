@@ -1803,7 +1803,7 @@ describe('Metahubs Routes', () => {
                     })
                 })
             )
-            expect(mockSerializeMetahub).toHaveBeenCalledWith('new-metahub-id', expect.any(Object))
+            expect(mockSerializeMetahub).toHaveBeenCalledWith('new-metahub-id', expect.not.objectContaining({ packageMode: 'metahub' }))
             expect(mockAttachLayoutsToSnapshot).toHaveBeenCalledWith(
                 expect.objectContaining({ metahubId: 'new-metahub-id', userId: 'test-user-id' })
             )

@@ -1,6 +1,8 @@
 import type {
     AttachMetahubPackageRequest,
     ChangeMetahubPackageVersionRequest,
+    PackageAuthoringHostDescriptor,
+    UpdateMetahubPackageConfigRequest,
     MetahubPackageAttachment,
     MetahubPackageCatalogItem
 } from '@universo-react/types'
@@ -26,6 +28,16 @@ export const packagesApi = {
 
     changeVersion: async (metahubId: string, attachmentId: string, payload: ChangeMetahubPackageVersionRequest) => {
         const { data } = await apiClient.patch<MetahubPackageAttachment>(`/metahub/${metahubId}/package/${attachmentId}`, payload)
+        return data
+    },
+
+    updateConfig: async (metahubId: string, attachmentId: string, payload: UpdateMetahubPackageConfigRequest) => {
+        const { data } = await apiClient.patch<MetahubPackageAttachment>(`/metahub/${metahubId}/package/${attachmentId}/config`, payload)
+        return data
+    },
+
+    getAuthoringHost: async (metahubId: string, packageSlug: string) => {
+        const { data } = await apiClient.get<PackageAuthoringHostDescriptor>(`/metahub/${metahubId}/packages/${packageSlug}/authoring-host`)
         return data
     },
 

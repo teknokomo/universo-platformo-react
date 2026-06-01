@@ -18,6 +18,7 @@
         "check:package-naming": "git ls-files -z | node tools/check-package-naming-convention.mjs --from-ledger memory-bank/implementation/packages-naming-ledger.json --allowlist memory-bank/implementation/packages-naming-legacy-reference-allowlist.json --stdin0",
         "check:apps-template-isolation": "node tools/check-apps-template-isolation.mjs",
         "check:playcanvas-editor-isolation": "node tools/check-playcanvas-editor-isolation.mjs",
+        "check:snapshot-fixtures-contract": "pnpm --filter @universo-react/utils test -- src/snapshot/__tests__/snapshotFixtures.test.ts",
         "check:lms-fixture-contract": "pnpm --filter @universo-react/types build && pnpm --filter @universo-react/utils build && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tools/testing/e2e/support/checkLmsFixtureContract.ts tools/fixtures/metahubs-lms-app-snapshot.json",
         "check:mmoomm-flight-fixture-contract": "pnpm --filter @universo-react/types build && pnpm --filter @universo-react/utils build && node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tools/testing/e2e/support/checkMmoommFlightFixtureContract.ts",
         "docs:i18n:check": "node tools/docs/check-i18n-docs.mjs",

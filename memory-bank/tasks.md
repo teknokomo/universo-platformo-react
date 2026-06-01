@@ -4,6 +4,77 @@
 
 ---
 
+## Active: PlayCanvas Editor Metahub Authoring Surface Settings Implementation (2026-06-01)
+
+> Goal: add metahub design-time package settings and a safe route-first PlayCanvas Editor artifact host while keeping authoring-only packages out of runtime publication.
+
+### IMPLEMENT Action Plan
+
+-   [x] Establish contracts and safety boundaries for `authoringSurface`, attachment `config`, package slugs, local-only development URLs, and authoring-only runtime exclusion.
+-   [x] Extend shared package types and backend schema/system-app metadata for authoring descriptors and per-attachment config.
+-   [x] Seed `@universo-react/playcanvas-editor` as an authoring-only package and update package store/controller/routes with typed config and slug host APIs.
+-   [x] Preserve config through metahub copy and design-time snapshot import/export while filtering authoring-only packages from runtime publication and Modules imports.
+-   [x] Add authenticated artifact status/static serving through the metahubs package domain with traversal, manifest, CSP/header, iframe sandbox, and nested asset-route safeguards.
+-   [x] Update the metahub Packages UI with authoring-aware table labels, row action menu, typed settings dialog, route-first host page, and EN/RU i18n.
+-   [x] Update OpenAPI and GitBook documentation for package settings, artifact-only status, local-only development URL mode, copy/snapshot behavior, and deferred runtime propagation.
+-   [x] Add backend, frontend, and local minimal Supabase Playwright coverage for config persistence, runtime non-propagation, localization, UI package flows, and the PlayCanvas Editor host iframe route.
+-   [x] Run Prettier plus targeted type/build/test checks and update Memory Bank progress.
+
+### QA Remediation Action Plan
+
+-   [x] Harden backend authoring package permissions, descriptor-aware config validation, artifact availability checks, version-change compatibility, and snapshot import/export behavior.
+-   [x] Add frontend development URL validation and stronger browser UX oracles for the settings dialog and PlayCanvas Editor host route.
+-   [x] Expand backend, frontend, and E2E regression tests for permissions, validation, artifact safety, snapshot/package behavior, and responsive host evidence.
+-   [x] Run formatting, focused test/build checks, isolation guard, and update Memory Bank progress.
+
+### Final QA Closure Action Plan
+
+-   [x] Harden static artifact containment, manifest validation, and deterministic authoring slug resolution.
+-   [x] Close package config lifecycle races and default-config normalization gaps.
+-   [x] Strengthen backend tests for artifact routes, permissions, runtime filtering, copy/snapshot config preservation, and authoring slug collisions.
+-   [x] Strengthen frontend and Playwright coverage for settings modes, keyboard flow, localized validation, iframe attributes, and host browser evidence.
+-   [x] Update user-facing RU copy and documentation/memory-bank notes for the final closure.
+-   [x] Run formatting, focused backend/frontend tests, build checks, Playwright local minimal Supabase evidence, and repository guards.
+
+### QA Findings Closure Action Plan
+
+-   [x] Keep the already-applied built-in package seed migration checksum immutable and move the PlayCanvas Editor seed/authoring reseed contract behind the new authoring-settings migration.
+-   [x] Preserve iframe sandboxing for open-separately mode by opening a route-first host page instead of the raw artifact URL.
+-   [x] Normalize/backfill existing `{}` package attachment configs to descriptor defaults and preserve valid configs through snapshot/copy/restore.
+-   [x] Increment package attachment `_upl_version` on attach, version change, config update, detach, copy conflict updates, and snapshot replacement mutations.
+-   [x] Recompute compatible/default config when `POST /packages` reattaches an already-active package to a different version.
+-   [x] Strengthen backend regression tests for migration checksum immutability, config backfill/defaults, version bumps, and reattach config compatibility.
+-   [x] Strengthen frontend and Playwright evidence for open-separately sandboxing, settings dialog viewport/keyboard UX, missing artifact, blocked development URL, and noopener/noreferrer.
+-   [x] Run Prettier, focused backend/frontend/package tests, builds, local minimal Supabase Playwright evidence, repository guards, and autoreview.
+
+### Final QA Hardening Closure Action Plan
+
+-   [x] Add strict backend validation for package `authoringSurface` descriptors on registry/seed boundaries, with malformed descriptor regression tests.
+-   [x] Improve PlayCanvas Editor host user-facing failure/context states with localized permission and unavailable copy.
+-   [x] Document that metahub snapshot/export files preserve package display settings and can include owner-managed development URLs.
+-   [x] Add browser evidence for mobile package action completion and RU PlayCanvas Editor settings/host surfaces.
+-   [x] Run Prettier, focused backend/frontend tests, builds, local minimal Supabase Playwright evidence, repository guards, and autoreview.
+
+### Post-QA Defect Closure Action Plan
+
+-   [x] Add parent PlayCanvas Editor host CSP `frame-src`/`child-src` restrictions for artifact and development URL modes.
+-   [x] Make the PlayCanvas Editor artifact placeholder locale-aware and update browser assertions to require one active locale.
+-   [x] Fix snapshot fixture hash drift without matching payload changes.
+-   [x] Harden snapshot package replacement and authoring slug uniqueness before mutating package attachments.
+-   [x] Document typed package config/authoring-host contracts in OpenAPI.
+-   [x] Strengthen Playwright evidence for development URL validation and stable dialog screenshots.
+-   [x] Run Prettier, focused tests/builds, Playwright local minimal Supabase evidence, isolation guard, diff checks, and autoreview.
+
+### Final QA Evidence Closure Action Plan
+
+-   [x] Add a database-level authoring slug owner guard in baseline and additive migrations without blocking same-package version rows.
+-   [x] Replace programmatic mobile table action scrolling with user-like Playwright gesture evidence.
+-   [x] Add keyboard focus enter/exit evidence for the PlayCanvas Editor host iframe.
+-   [x] Add RU browser validation evidence for invalid Development URL settings.
+-   [x] Run formatting, focused backend/frontend checks, local minimal Supabase Playwright evidence, repository guards, and autoreview.
+
+---
+
 ## Active: PlayCanvas Editor Package Foundation Implementation (2026-05-31)
 
 > Goal: add the isolated `@universo-react/playcanvas-editor` workspace package for the official PlayCanvas Editor frontend artifact, pinned to an upstream release, with reproducible wrapper metadata/scripts, repository guardrails, tests, docs, and no direct MUI/runtime integration.
@@ -1114,3 +1185,38 @@
 -   [x] Strengthen the no-install/network and lockfile-mutation supply-chain guard.
 -   [x] Make the PlayCanvas Editor Vite catalog exception explicit in the catalog guard.
 -   [x] Run Prettier, focused package checks, browser smoke, repository guards, docs checks, lint, and diff checks.
+
+## PlayCanvas Editor Metahub Authoring Surface QA Remediation 2026-06-01
+
+-   [x] Enforce attachment display config at the backend artifact route and harden development URL validation.
+-   [x] Surface server display-mode policy in the package settings UI without generic mutation-error workflows.
+-   [x] Add focused backend, frontend, and Playwright coverage for the QA findings, including responsive evidence.
+-   [x] Run Prettier, focused package tests, local minimal Supabase Playwright packages flow, isolation guard, and autoreview.
+
+## PlayCanvas Editor Metahub Authoring Surface Post-Review Defect Closure 2026-06-01
+
+-   [x] Force PlayCanvas Editor host launch through document navigation so route-specific CSP is applied.
+-   [x] Normalize development URL CSP allowlist entries to origins, matching backend config validation.
+-   [x] Align generated OpenAPI package schemas with the strict package settings API contract.
+-   [x] Regenerate docs artifacts and rerun focused backend, rest-docs, E2E, isolation, diff, and autoreview checks.
+
+## PlayCanvas Editor Host UX QA Closure 2026-06-01
+
+-   [x] Add localized PlayCanvas Editor iframe loading and failure states so artifact readiness is not shown before frame load.
+-   [x] Strengthen Playwright host evidence for blocked, misconfigured, iframe-load failure, and user-facing metahub navigation.
+-   [x] Run Prettier, focused tests, isolation guard, local minimal Supabase Playwright packages flow, and autoreview.
+
+## PlayCanvas Editor Final QA Findings Closure 2026-06-01
+
+-   [x] Revalidate signed Editor artifact tokens against the current metahub package attachment state before serving static files.
+-   [x] Make incompatible package version display-config changes require explicit reset instead of silently falling back to defaults.
+-   [x] Add Playwright screenshot evidence for the missing-artifact host state.
+-   [x] Run Prettier, focused backend/frontend/E2E checks, isolation guard, diff check, and subagent verification.
+
+## PlayCanvas Editor Runtime Contract QA Closure 2026-06-01
+
+-   [x] Keep runtime `_app_packages.config` propagation explicitly deferred by removing the half-read runtime export path.
+-   [x] Align shared runtime package types with the deferred config contract.
+-   [x] Make the signed Editor artifact route use the attached artifact descriptor manifest file name.
+-   [x] Narrow the authoring-settings migration seed scope to match its checksum contract.
+-   [x] Run Prettier, focused tests, isolation guard, diff check, and autoreview.

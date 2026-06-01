@@ -1,4 +1,6 @@
 import { createLocalizedContent } from '@universo-react/utils'
+import type { Page } from '@playwright/test'
+import { PNG } from 'pngjs'
 
 import { expect, test } from '../../fixtures/test'
 import {
@@ -17,7 +19,8 @@ import {
     expectNoPageHorizontalOverflow,
     expectNoTechnicalLeakage,
     expectNoVisibleTextPatterns,
-    expectRuntimeUxViewportMatrix
+    expectRuntimeUxViewportMatrix,
+    waitForLayoutFrame
 } from '../../support/browser/runtimeUx'
 
 const resolveUserRoleIds = (roles: Array<{ id?: string; codename?: string }>): string[] => {
@@ -26,6 +29,109 @@ const resolveUserRoleIds = (roles: Array<{ id?: string; codename?: string }>): s
 }
 
 const rawPackageTextPatterns = [/@universo-react\//, /@colyseus\//, /\bcolyseus\.js\b/i]
+
+const openPlayCanvasEditorSettingsDialog = async (page: Page) => {
+    const editorRow = page.getByTestId('metahub-packages-tab').getByRole('row', { name: /PlayCanvas Editor/ })
+    await editorRow.getByRole('button', { name: 'Actions for PlayCanvas Editor' }).click()
+    await page.getByRole('menuitem', { name: 'Settings' }).click()
+    await expect(page.getByRole('menu')).toHaveCount(0)
+    const dialog = page.getByRole('dialog', { name: 'Package display settings' })
+    await expect(dialog).toBeVisible()
+    await expect(dialog.getByTestId('dialog-resize-handle')).toHaveCount(0)
+    await waitForLayoutFrame(page)
+    return dialog
+}
+
+const scrollPackagesTableActionsIntoViewByGesture = async (page: Page) => {
+    const table = page.getByRole('table', { name: /Packages|Пакеты/ })
+    const container = table.locator('xpath=./ancestor::*[contains(@class, "MuiTableContainer-root")][1]')
+    await expect(container).toBeVisible()
+    await container.hover()
+    await page.mouse.wheel(1200, 0)
+
+    await expect.poll(() => container.evaluate((element) => (element as HTMLElement).scrollLeft)).toBeGreaterThan(0)
+}
+
+const expectPlayCanvasEditorIframeLoaded = async (page: Page, locale: 'en' | 'ru' = 'en') => {
+    const editorIframe = page.locator('iframe[title="PlayCanvas Editor"]')
+    await expect(editorIframe).toBeVisible()
+    await expect(editorIframe).toHaveAttribute('sandbox', 'allow-scripts')
+    await expect(editorIframe).toHaveAttribute('referrerpolicy', 'no-referrer')
+    await expect(editorIframe).toHaveAttribute('allow', '')
+    await expect(editorIframe).toHaveAttribute('src', new RegExp(`[?&]locale=${locale}(?:&|$)`))
+
+    const editorFrame = page.frameLocator('iframe[title="PlayCanvas Editor"]')
+    if (locale === 'ru') {
+        await expect(editorFrame.getByRole('heading', { name: 'Артефакт PlayCanvas Editor доступен' })).toBeVisible()
+        await expect(editorFrame.getByRole('heading', { name: 'PlayCanvas Editor artifact is available' })).toBeHidden()
+    } else {
+        await expect(editorFrame.getByRole('heading', { name: 'PlayCanvas Editor artifact is available' })).toBeVisible()
+        await expect(editorFrame.getByRole('heading', { name: 'Артефакт PlayCanvas Editor доступен' })).toBeHidden()
+    }
+    const previewCanvas = editorFrame.getByLabel('PlayCanvas Editor artifact preview')
+    await expect(previewCanvas).toBeVisible()
+    const canvasBox = await previewCanvas.boundingBox()
+    expect(canvasBox?.width ?? 0).toBeGreaterThan(200)
+    expect(canvasBox?.height ?? 0).toBeGreaterThan(100)
+    const canvasScreenshot = await previewCanvas.screenshot()
+    const screenshotPng = PNG.sync.read(canvasScreenshot)
+    const canvasPaint = (() => {
+        const buckets = new Set<string>()
+        let sampledOpaquePixels = 0
+        const { data } = screenshotPng
+        for (let index = 0; index < data.length; index += 4 * 97) {
+            const alpha = data[index + 3] ?? 0
+            if (alpha === 0) continue
+            sampledOpaquePixels += 1
+            const red = Math.floor((data[index] ?? 0) / 32)
+            const green = Math.floor((data[index + 1] ?? 0) / 32)
+            const blue = Math.floor((data[index + 2] ?? 0) / 32)
+            buckets.add(`${red}:${green}:${blue}`)
+        }
+        return {
+            colorBuckets: buckets.size,
+            sampledOpaquePixels
+        }
+    })()
+    expect(canvasPaint.sampledOpaquePixels).toBeGreaterThan(20)
+    expect(canvasPaint.colorBuckets).toBeGreaterThan(1)
+    expect(new Set(canvasScreenshot).size).toBeGreaterThan(16)
+}
+
+const expectPlayCanvasEditorHostKeyboardLoop = async (page: Page, locale: 'en' | 'ru' = 'en') => {
+    const backLinkName = locale === 'ru' ? 'Назад к пакетам' : 'Back to packages'
+    const backLink = page.getByRole('link', { name: backLinkName })
+    const editorIframe = page.locator('iframe[title="PlayCanvas Editor"]')
+    const editorFrame = page.frameLocator('iframe[title="PlayCanvas Editor"]')
+    const previewCanvas = editorFrame.getByLabel('PlayCanvas Editor artifact preview')
+
+    await expect(backLink).toBeVisible()
+    await backLink.focus()
+    await expect(backLink).toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect(editorIframe).toBeFocused()
+    await previewCanvas.click()
+    await expect(editorIframe).toBeFocused()
+    await page.keyboard.press('Shift+Tab')
+    await expect(backLink).toBeFocused()
+}
+
+const expectPlayCanvasEditorHostWarning = async (page: Page, message: string, label: string) => {
+    await expect(page.getByRole('heading', { name: 'PlayCanvas Editor' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Back to packages' })).toBeVisible()
+    await expect(page.getByText(message)).toBeVisible()
+    await expect(page.locator('iframe[title="PlayCanvas Editor"]')).toHaveCount(0)
+    await expectNoTechnicalLeakage(page.locator('body'), {
+        label,
+        checkUuidSubstrings: true
+    })
+    await expectNoVisibleTextPatterns(
+        page.locator('body'),
+        [/editor-artifact\/index\.html/i, /artifactStatus/i, /\bblocked\b/i, /\bmisconfigured\b/i, /\bERR_[A-Z_]+\b/i],
+        { label }
+    )
+    await expectNoPageHorizontalOverflow(page, label)
+}
 
 test('@flow @packages metahub resources packages tab is usable and localized', async ({ browser, page, runManifest }, testInfo) => {
     test.setTimeout(240_000)
@@ -77,7 +183,11 @@ test('@flow @packages metahub resources packages tab is usable and localized', a
         await page.goto('/metahubs')
         const metahubEntry = page.getByText(metahubName, { exact: true }).first()
         await expect(metahubEntry).toBeVisible({ timeout: 30_000 })
-        await page.locator(`a[href="/metahub/${metahub.id}"]`).first().click()
+        const metahubLink = metahubEntry
+            .locator('xpath=ancestor::*[.//a[starts-with(@href, "/metahub/")]][1]//a[starts-with(@href, "/metahub/")]')
+            .first()
+        await expect(metahubLink).toBeVisible()
+        await metahubLink.click()
         await page.getByRole('link', { name: 'Resources' }).click()
         await page.waitForURL('**/resources')
         await expect(page.getByRole('heading', { name: 'Resources' })).toBeVisible()
@@ -87,6 +197,7 @@ test('@flow @packages metahub resources packages tab is usable and localized', a
         await expect(packagesTab).toBeVisible()
         await expect(page.getByRole('table', { name: 'Packages' })).toBeVisible()
         await expect(packagesTab.getByRole('heading', { name: 'PlayCanvas Engine' })).toBeVisible()
+        await expect(packagesTab.getByRole('heading', { name: 'PlayCanvas Editor' })).toBeVisible()
         await expect(packagesTab.getByRole('heading', { name: 'Colyseus Server' })).toBeVisible()
         await expect(packagesTab.getByRole('heading', { name: 'Colyseus Client' })).toBeVisible()
         await expectNoTechnicalLeakage(packagesTab, {
@@ -104,6 +215,296 @@ test('@flow @packages metahub resources packages tab is usable and localized', a
         await expect(keyboardAttachDialog.getByTestId('dialog-resize-handle')).toHaveCount(0)
         await keyboardAttachDialog.getByRole('button', { name: 'Cancel' }).click()
         await expect(keyboardAttachDialog).toHaveCount(0)
+
+        await page.getByRole('button', { name: 'Connect PlayCanvas Editor' }).click()
+        const editorAttachDialog = page.getByRole('dialog', { name: 'Connect package' })
+        await expect(editorAttachDialog).toBeVisible()
+        await expect(editorAttachDialog.getByTestId('dialog-resize-handle')).toHaveCount(0)
+        await editorAttachDialog.getByRole('button', { name: 'Connect package' }).click()
+        await expect(editorAttachDialog).toHaveCount(0)
+        const editorRow = packagesTab.getByRole('row', { name: /PlayCanvas Editor/ })
+        await expect(editorRow.getByText('Connected')).toBeVisible()
+        const authoringHostEndpointPattern = /\/api\/v1\/metahub\/[^/]+\/packages\/playcanvas-editor\/authoring-host$/
+
+        await editorRow.getByRole('button', { name: 'Actions for PlayCanvas Editor' }).focus()
+        await page.keyboard.press('Enter')
+        await page.getByRole('menuitem', { name: 'Settings' }).click()
+        await expect(page.getByRole('menu')).toHaveCount(0)
+        const editorSettingsDialog = page.getByRole('dialog', { name: 'Package display settings' })
+        await expect(editorSettingsDialog).toBeVisible()
+        await expect(editorSettingsDialog.getByTestId('dialog-resize-handle')).toHaveCount(0)
+        await expectNoPageHorizontalOverflow(page, 'PlayCanvas Editor settings dialog desktop')
+        await waitForLayoutFrame(page)
+        await page.screenshot({ path: testInfo.outputPath('playcanvas-editor-settings-en.png'), fullPage: true })
+        await expect(editorSettingsDialog.getByLabel('Display mode')).toContainText('Embedded')
+        await editorSettingsDialog.getByLabel('Display mode').press('Tab')
+        await expect(editorSettingsDialog.getByRole('switch', { name: 'Show artifact status notice' })).toBeFocused()
+        await expect(editorSettingsDialog.getByText('Development URL mode is disabled on this server.')).toBeVisible()
+        await editorSettingsDialog.getByLabel('Display mode').click()
+        await expect(page.getByRole('option', { name: 'Development URL' })).toHaveCount(0)
+        await page.keyboard.press('Escape')
+        await editorSettingsDialog.getByRole('button', { name: 'Reset to defaults' }).click()
+        await expect(editorSettingsDialog.getByLabel('Display mode')).toContainText('Embedded')
+        await expect(editorSettingsDialog.getByRole('button', { name: 'Save settings' })).toBeEnabled()
+        await editorSettingsDialog.getByRole('button', { name: 'Cancel' }).click()
+        await expect(editorSettingsDialog).toHaveCount(0)
+
+        await page.route(authoringHostEndpointPattern, async (route) => {
+            const response = await route.fetch()
+            const descriptor = await response.json()
+            await route.fulfill({
+                status: response.status(),
+                headers: response.headers(),
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    ...descriptor,
+                    allowedDisplayModes: ['disabled', 'embeddedIframe', 'openSeparately', 'developmentUrl']
+                })
+            })
+        })
+        const configEndpointPattern = /\/api\/v1\/metahub\/[^/]+\/package\/[^/]+\/config$/
+        await page.route(configEndpointPattern, async (route) => {
+            if (route.request().method() === 'PATCH') {
+                await route.fulfill({
+                    status: 400,
+                    contentType: 'application/json',
+                    body: JSON.stringify({ error: 'Development URL is not allowed' })
+                })
+                return
+            }
+            await route.continue()
+        })
+        const devUrlDialog = await openPlayCanvasEditorSettingsDialog(page)
+        await devUrlDialog.getByLabel('Display mode').click()
+        await page.getByRole('option', { name: 'Development URL' }).click()
+        await devUrlDialog.getByLabel('Development URL').fill('not-a-url')
+        await expect(devUrlDialog.getByText('Enter a valid http or https URL.')).toBeVisible()
+        await expect(devUrlDialog.getByRole('button', { name: 'Save settings' })).toBeDisabled()
+        await devUrlDialog.getByLabel('Development URL').fill('http://127.0.0.1:5999/editor')
+        await expect(devUrlDialog.getByRole('button', { name: 'Save settings' })).toBeEnabled()
+        const rejectedDevUrlSave = page.waitForResponse(
+            (response) =>
+                response.request().method() === 'PATCH' &&
+                configEndpointPattern.test(new URL(response.url()).pathname) &&
+                response.status() === 400
+        )
+        await devUrlDialog.getByRole('button', { name: 'Save settings' }).click()
+        await rejectedDevUrlSave
+        await expect(page.getByText('Package operation failed. Please refresh and try again.')).toBeVisible()
+        await devUrlDialog.getByRole('button', { name: 'Cancel' }).click()
+        await expect(devUrlDialog).toHaveCount(0)
+        await page.unroute(configEndpointPattern)
+        await page.unroute(authoringHostEndpointPattern)
+
+        await expectRuntimeUxViewportMatrix(page, 'PlayCanvas Editor settings dialog', {
+            beforeEachViewport: async (viewport) => {
+                await page.goto(`/metahub/${metahub.id}/resources`)
+                await expect(page.getByTestId('metahub-packages-tab')).toBeVisible()
+                const dialog = await openPlayCanvasEditorSettingsDialog(page)
+                await expect(dialog.getByLabel('Display mode')).toBeVisible()
+                await expect(dialog.getByRole('button', { name: 'Reset to defaults' })).toBeVisible()
+                await expect(dialog.getByRole('button', { name: 'Save settings' })).toBeVisible()
+                await page.screenshot({ path: testInfo.outputPath(`playcanvas-editor-settings-${viewport.name}.png`), fullPage: true })
+            }
+        })
+        await page.goto(`/metahub/${metahub.id}/resources`)
+        const editorRowAfterSettingsMatrix = page.getByTestId('metahub-packages-tab').getByRole('row', { name: /PlayCanvas Editor/ })
+        await editorRowAfterSettingsMatrix.getByRole('button', { name: 'Actions for PlayCanvas Editor' }).click()
+        await page.getByRole('menuitem', { name: 'Settings' }).click()
+        await expect(page.getByRole('menu')).toHaveCount(0)
+        const editorSettingsDialogAfterMatrix = page.getByRole('dialog', { name: 'Package display settings' })
+        await expect(editorSettingsDialogAfterMatrix).toBeVisible()
+        await editorSettingsDialogAfterMatrix.getByLabel('Display mode').click()
+        await page.getByRole('option', { name: 'Open separately' }).click()
+        await editorSettingsDialogAfterMatrix.getByRole('button', { name: 'Save settings' }).click()
+        await expect(editorSettingsDialogAfterMatrix).toHaveCount(0)
+
+        const editorRowForSeparateMode = page.getByTestId('metahub-packages-tab').getByRole('row', { name: /PlayCanvas Editor/ })
+        await editorRowForSeparateMode.getByRole('button', { name: 'Actions for PlayCanvas Editor' }).click()
+        await page.getByRole('menuitem', { name: 'Open editor' }).click()
+        await page.waitForURL(`**/metahub/${metahub.id}/resources/packages/playcanvas-editor/editor`)
+        await expect(page.getByRole('heading', { name: 'PlayCanvas Editor' })).toBeVisible()
+        await expect(page.getByRole('link', { name: 'Back to packages' })).toBeVisible()
+        await expect(page.getByText('This editor is configured to open separately.')).toBeVisible()
+        const separateEditorLink = page.getByRole('link', { name: 'Open editor' })
+        await expect(separateEditorLink).toHaveAttribute('target', '_blank')
+        await expect(separateEditorLink).toHaveAttribute('rel', /noopener/)
+        await expect(separateEditorLink).toHaveAttribute('rel', /noreferrer/)
+        await expect(separateEditorLink).toHaveAttribute(
+            'href',
+            /\/metahub\/[^/]+\/resources\/packages\/playcanvas-editor\/editor\?view=sandboxed-frame$/
+        )
+        await expect(separateEditorLink).not.toHaveAttribute('href', /editor-artifact\/index\.html/)
+        const popupPromise = page.waitForEvent('popup')
+        await separateEditorLink.click()
+        const separateEditorPage = await popupPromise
+        await separateEditorPage.waitForLoadState('domcontentloaded')
+        await applyBrowserPreferences(separateEditorPage, { language: 'en' })
+        await expect(separateEditorPage).toHaveURL(/\/resources\/packages\/playcanvas-editor\/editor\?view=sandboxed-frame$/)
+        await expect(separateEditorPage.getByText('Editor artifact is ready.')).toBeVisible()
+        await expectPlayCanvasEditorIframeLoaded(separateEditorPage)
+        await expectNoPageHorizontalOverflow(separateEditorPage, 'PlayCanvas Editor separate sandboxed host page')
+        await separateEditorPage.close()
+
+        await page.goto(`/metahub/${metahub.id}/resources`)
+        const editorRowForEmbeddedMode = page.getByTestId('metahub-packages-tab').getByRole('row', { name: /PlayCanvas Editor/ })
+        await editorRowForEmbeddedMode.getByRole('button', { name: 'Actions for PlayCanvas Editor' }).click()
+        await page.getByRole('menuitem', { name: 'Settings' }).click()
+        const embeddedSettingsDialog = page.getByRole('dialog', { name: 'Package display settings' })
+        await expect(page.getByRole('menu')).toHaveCount(0)
+        await embeddedSettingsDialog.getByLabel('Display mode').click()
+        await page.getByRole('option', { name: 'Embedded' }).click()
+        await embeddedSettingsDialog.getByRole('button', { name: 'Save settings' }).click()
+        await expect(embeddedSettingsDialog).toHaveCount(0)
+
+        const editorArtifactIndexPattern =
+            /\/api\/v1\/metahub\/[^/]+\/packages\/playcanvas-editor\/editor-artifact-token\/[^/]+\/index\.html(?:\?.*)?$/
+        let delayedArtifactIndex = false
+        await page.route(editorArtifactIndexPattern, async (route) => {
+            if (!delayedArtifactIndex) {
+                delayedArtifactIndex = true
+                await new Promise((resolve) => setTimeout(resolve, 1500))
+            }
+            const response = await route.fetch()
+            await route.fulfill({
+                status: response.status(),
+                headers: response.headers(),
+                body: await response.body()
+            })
+        })
+        await editorRowForEmbeddedMode.getByRole('button', { name: 'Actions for PlayCanvas Editor' }).click()
+        await page.getByRole('menuitem', { name: 'Open editor' }).click()
+        await page.waitForURL(`**/metahub/${metahub.id}/resources/packages/playcanvas-editor/editor`)
+        await expect(page.getByRole('heading', { name: 'PlayCanvas Editor' })).toBeVisible()
+        await expect(page.getByText('Loading editor frame...')).toBeVisible()
+        const hostResponse = await page.request.get(page.url())
+        expect(hostResponse.ok()).toBeTruthy()
+        expect(hostResponse.headers()['content-security-policy']).toContain("frame-src 'self'")
+        expect(hostResponse.headers()['content-security-policy']).toContain("child-src 'self'")
+        await expectPlayCanvasEditorIframeLoaded(page)
+        const editorFrameSrc = await page.locator('iframe[title="PlayCanvas Editor"]').getAttribute('src')
+        expect(editorFrameSrc).toBeTruthy()
+        const anonymousArtifactContext = await browser.newContext()
+        try {
+            const anonymousArtifactResponse = await anonymousArtifactContext.request.get(
+                new URL(editorFrameSrc ?? '', page.url()).toString()
+            )
+            expect(anonymousArtifactResponse.ok()).toBeTruthy()
+        } finally {
+            await anonymousArtifactContext.close()
+        }
+        await expect(page.getByText('Editor artifact is ready.')).toBeVisible()
+        await page.unroute(editorArtifactIndexPattern)
+        await expectPlayCanvasEditorHostKeyboardLoop(page)
+        await expectNoTechnicalLeakage(page.locator('body'), {
+            label: 'PlayCanvas Editor host page',
+            checkUuidSubstrings: true
+        })
+        await expectNoPageHorizontalOverflow(page, 'PlayCanvas Editor host page desktop')
+        await page.screenshot({ path: testInfo.outputPath('playcanvas-editor-host.png'), fullPage: true })
+
+        await page.route(authoringHostEndpointPattern, async (route) => {
+            const response = await route.fetch()
+            const descriptor = await response.json()
+            await route.fulfill({
+                status: response.status(),
+                headers: response.headers(),
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    ...descriptor,
+                    artifactStatus: 'missing',
+                    artifactUrl: null
+                })
+            })
+        })
+        await page.goto(`/metahub/${metahub.id}/resources/packages/playcanvas-editor/editor`)
+        await expect(page.getByRole('heading', { name: 'PlayCanvas Editor' })).toBeVisible()
+        await expect(page.getByRole('link', { name: 'Back to packages' })).toBeVisible()
+        await expect(page.getByText('The editor artifact is not available yet.')).toBeVisible()
+        await expect(page.locator('iframe[title="PlayCanvas Editor"]')).toHaveCount(0)
+        await expectNoPageHorizontalOverflow(page, 'PlayCanvas Editor missing artifact host page')
+        await page.screenshot({ path: testInfo.outputPath('playcanvas-editor-host-missing-artifact.png'), fullPage: true })
+        await page.unroute(authoringHostEndpointPattern)
+
+        for (const artifactStatus of ['blocked', 'misconfigured'] as const) {
+            await page.route(authoringHostEndpointPattern, async (route) => {
+                const response = await route.fetch()
+                const descriptor = await response.json()
+                await route.fulfill({
+                    status: response.status(),
+                    headers: response.headers(),
+                    contentType: 'application/json',
+                    body: JSON.stringify({
+                        ...descriptor,
+                        artifactStatus,
+                        artifactUrl: null
+                    })
+                })
+            })
+            await page.goto(`/metahub/${metahub.id}/resources/packages/playcanvas-editor/editor`)
+            await expectPlayCanvasEditorHostWarning(
+                page,
+                'Editor display settings are incomplete.',
+                `PlayCanvas Editor ${artifactStatus} host state`
+            )
+            await page.unroute(authoringHostEndpointPattern)
+        }
+
+        await page.route(editorArtifactIndexPattern, async (route) => {
+            await route.fulfill({
+                status: 503,
+                contentType: 'text/html; charset=utf-8',
+                body: '<!doctype html><title>Service unavailable</title>'
+            })
+        })
+        await page.goto(`/metahub/${metahub.id}/resources/packages/playcanvas-editor/editor`)
+        await expect(page.getByRole('heading', { name: 'PlayCanvas Editor' })).toBeVisible()
+        await expect(page.getByRole('link', { name: 'Back to packages' })).toBeVisible()
+        await expect(page.getByText('The editor frame could not be loaded.')).toBeVisible()
+        await expect(page.getByText('Editor artifact is ready.')).toHaveCount(0)
+        await expect(page.locator('iframe[title="PlayCanvas Editor"]')).toHaveCount(0)
+        await expectNoTechnicalLeakage(page.locator('body'), {
+            label: 'PlayCanvas Editor iframe failure state',
+            checkUuidSubstrings: true
+        })
+        await expectNoVisibleTextPatterns(
+            page.locator('body'),
+            [/editor-artifact-token\/[^/]+\/index\.html/i, /Service unavailable/i, /\b503\b/, /\bERR_[A-Z_]+\b/i],
+            { label: 'PlayCanvas Editor iframe failure state' }
+        )
+        await expectNoPageHorizontalOverflow(page, 'PlayCanvas Editor iframe failure state')
+        await page.screenshot({ path: testInfo.outputPath('playcanvas-editor-host-iframe-failure.png'), fullPage: true })
+        await page.unroute(editorArtifactIndexPattern)
+
+        await expectRuntimeUxViewportMatrix(page, 'PlayCanvas Editor host page', {
+            beforeEachViewport: async (viewport) => {
+                await page.goto(`/metahub/${metahub.id}/resources/packages/playcanvas-editor/editor`)
+                await expect(page.getByRole('heading', { name: 'PlayCanvas Editor' })).toBeVisible()
+                await expectPlayCanvasEditorIframeLoaded(page)
+                await expect(page.getByText('Editor artifact is ready.')).toBeVisible()
+                await page.screenshot({ path: testInfo.outputPath(`playcanvas-editor-host-${viewport.name}.png`), fullPage: true })
+            }
+        })
+
+        memberContext = await createLoggedInBrowserContext(browser, { email: memberUser.email ?? memberEmail, password: memberPassword })
+        await applyBrowserPreferences(memberContext.page, { language: 'en' })
+        await memberContext.page.goto(`/metahub/${metahub.id}/resources/packages/playcanvas-editor/editor`)
+        await expect(memberContext.page.getByRole('heading', { name: 'PlayCanvas Editor' })).toBeVisible()
+        await expect(memberContext.page.getByRole('link', { name: 'Back to packages' })).toBeVisible()
+        await expect(memberContext.page.getByText('You do not have permission to open this editor.')).toBeVisible()
+        await expect(memberContext.page.getByText('Failed to load editor settings.')).toHaveCount(0)
+        await expect(memberContext.page.locator('iframe[title="PlayCanvas Editor"]')).toHaveCount(0)
+
+        await page.goto(`/metahub/${metahub.id}/resources`)
+        await expect(page.getByTestId('metahub-packages-tab')).toBeVisible()
+        const editorRowAfterHost = page.getByTestId('metahub-packages-tab').getByRole('row', { name: /PlayCanvas Editor/ })
+        await editorRowAfterHost.getByRole('button', { name: 'Actions for PlayCanvas Editor' }).click()
+        await page.getByRole('menuitem', { name: 'Disconnect package' }).click()
+        const editorDetachDialog = page.getByRole('dialog', { name: 'Disconnect package' })
+        await expect(editorDetachDialog).toBeVisible()
+        await editorDetachDialog.getByRole('button', { name: 'Disconnect package' }).click()
+        await expect(editorDetachDialog).toHaveCount(0)
+        await expect(editorRowAfterHost.getByText('Available')).toBeVisible()
 
         await page.getByRole('button', { name: 'Connect PlayCanvas Engine' }).click()
         const attachDialog = page.getByRole('dialog', { name: 'Connect package' })
@@ -132,7 +533,12 @@ test('@flow @packages metahub resources packages tab is usable and localized', a
         await expect(colyseusAttachDialog).toHaveCount(0)
         await expect(colyseusClientRow.getByText('Connected')).toBeVisible()
 
-        memberContext = await createLoggedInBrowserContext(browser, { email: memberUser.email ?? memberEmail, password: memberPassword })
+        if (!memberContext) {
+            memberContext = await createLoggedInBrowserContext(browser, {
+                email: memberUser.email ?? memberEmail,
+                password: memberPassword
+            })
+        }
         await applyBrowserPreferences(memberContext.page, { language: 'en' })
         await memberContext.page.goto(`/metahub/${metahub.id}/resources`)
         await expect(memberContext.page.getByRole('heading', { name: 'Resources' })).toBeVisible()
@@ -141,6 +547,8 @@ test('@flow @packages metahub resources packages tab is usable and localized', a
         const readOnlyPackagesTab = memberContext.page.getByTestId('metahub-packages-tab')
         const readOnlyColyseusClientRow = readOnlyPackagesTab.getByRole('row', { name: /Colyseus Client/ })
         await expect(readOnlyColyseusClientRow.getByRole('button', { name: 'Disconnect Colyseus Client' })).toBeDisabled()
+        const readOnlyEditorRow = readOnlyPackagesTab.getByRole('row', { name: /PlayCanvas Editor/ })
+        await expect(readOnlyEditorRow.getByRole('button', { name: 'Connect PlayCanvas Editor' })).toBeDisabled()
         await expect(readOnlyColyseusClientRow.locator('[aria-label="Package version for Colyseus Client"]')).toHaveClass(/Mui-disabled/)
         await expectNoTechnicalLeakage(readOnlyPackagesTab, {
             label: 'Read-only metahub packages tab',
@@ -192,17 +600,100 @@ test('@flow @packages metahub resources packages tab is usable and localized', a
         await failedAttachDialog.getByRole('button', { name: 'Отмена' }).click()
         await page.unroute(packagesEndpointPattern)
 
+        await applyBrowserPreferences(page, { language: 'en' })
+        await page.setViewportSize({ width: 390, height: 844 })
+        await page.goto(`/metahub/${metahub.id}/resources`)
+        const mobilePackagesTab = page.getByTestId('metahub-packages-tab')
+        await expect(mobilePackagesTab).toBeVisible()
+        await expect(page.getByRole('table', { name: 'Packages' })).toBeVisible()
+        await scrollPackagesTableActionsIntoViewByGesture(page)
+        const mobileEditorRow = mobilePackagesTab.getByRole('row', { name: /PlayCanvas Editor/ })
+        await expect(mobileEditorRow.getByRole('button', { name: 'Connect PlayCanvas Editor' })).toBeVisible()
+        await mobileEditorRow.getByRole('button', { name: 'Connect PlayCanvas Editor' }).click()
+        const mobileEditorAttachDialog = page.getByRole('dialog', { name: 'Connect package' })
+        await expect(mobileEditorAttachDialog).toBeVisible()
+        await mobileEditorAttachDialog.getByRole('button', { name: 'Connect package' }).click()
+        await expect(mobileEditorAttachDialog).toHaveCount(0)
+        await scrollPackagesTableActionsIntoViewByGesture(page)
+        await expect(mobileEditorRow.getByRole('button', { name: 'Actions for PlayCanvas Editor' })).toBeVisible()
+        await mobileEditorRow.getByRole('button', { name: 'Actions for PlayCanvas Editor' }).click()
+        await expect(page.getByRole('menuitem', { name: 'Settings' })).toBeVisible()
+        await expect(page.getByRole('menuitem', { name: 'Open editor' })).toBeVisible()
+        await page.getByRole('menuitem', { name: 'Settings' }).click()
+        const mobileSettingsDialog = page.getByRole('dialog', { name: 'Package display settings' })
+        await expect(mobileSettingsDialog).toBeVisible()
+        await expect(mobileSettingsDialog.getByLabel('Display mode')).toBeVisible()
+        await expectNoPageHorizontalOverflow(page, 'PlayCanvas Editor mobile settings action path')
+        await page.screenshot({ path: testInfo.outputPath('playcanvas-editor-settings-mobile-action-path.png'), fullPage: true })
+        await mobileSettingsDialog.getByRole('button', { name: 'Save settings' }).click()
+        await expect(mobileSettingsDialog).toHaveCount(0)
+        await scrollPackagesTableActionsIntoViewByGesture(page)
+        await mobileEditorRow.getByRole('button', { name: 'Actions for PlayCanvas Editor' }).click()
+        await page.getByRole('menuitem', { name: 'Open editor' }).click()
+        await page.waitForURL(`**/metahub/${metahub.id}/resources/packages/playcanvas-editor/editor`)
+        await expect(page.getByRole('heading', { name: 'PlayCanvas Editor' })).toBeVisible()
+        await expectPlayCanvasEditorIframeLoaded(page)
+        await expect(page.getByText('Editor artifact is ready.')).toBeVisible()
+        await expectPlayCanvasEditorHostKeyboardLoop(page)
+        await expectNoPageHorizontalOverflow(page, 'PlayCanvas Editor mobile host action path')
+        await page.screenshot({ path: testInfo.outputPath('playcanvas-editor-host-mobile-action-path.png'), fullPage: true })
+
+        await applyBrowserPreferences(page, { language: 'ru' })
+        await page.setViewportSize({ width: 1280, height: 900 })
+        await page.goto(`/metahub/${metahub.id}/resources`)
+        await page.route(authoringHostEndpointPattern, async (route) => {
+            const response = await route.fetch()
+            const descriptor = await response.json()
+            await route.fulfill({
+                status: response.status(),
+                headers: response.headers(),
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    ...descriptor,
+                    allowedDisplayModes: ['disabled', 'embeddedIframe', 'openSeparately', 'developmentUrl']
+                })
+            })
+        })
+        const ruEditorRow = page.getByTestId('metahub-packages-tab').getByRole('row', { name: /PlayCanvas Editor/ })
+        await ruEditorRow.getByRole('button', { name: 'Действия для PlayCanvas Editor' }).click()
+        await page.getByRole('menuitem', { name: 'Настройки' }).click()
+        const ruSettingsDialog = page.getByRole('dialog', { name: 'Настройки отображения пакета' })
+        await expect(ruSettingsDialog).toBeVisible()
+        await expect(ruSettingsDialog.getByLabel('Режим отображения')).toBeVisible()
+        await expect(ruSettingsDialog.getByRole('button', { name: 'Сохранить настройки' })).toBeVisible()
+        await ruSettingsDialog.getByLabel('Режим отображения').click()
+        await page.getByRole('option', { name: 'Адрес разработки' }).click()
+        await ruSettingsDialog.getByLabel('Адрес разработки').fill('не-url')
+        await expect(ruSettingsDialog.getByText('Введите корректный адрес с http или https.')).toBeVisible()
+        await expect(ruSettingsDialog.getByRole('button', { name: 'Сохранить настройки' })).toBeDisabled()
+        await expectNoPageHorizontalOverflow(page, 'PlayCanvas Editor settings dialog ru')
+        await page.screenshot({ path: testInfo.outputPath('playcanvas-editor-settings-ru.png'), fullPage: true })
+        await page.keyboard.press('Escape')
+        await page.unroute(authoringHostEndpointPattern)
+        await page.goto(`/metahub/${metahub.id}/resources/packages/playcanvas-editor/editor`)
+        await expect(page.getByRole('heading', { name: 'PlayCanvas Editor' })).toBeVisible()
+        await expectPlayCanvasEditorIframeLoaded(page, 'ru')
+        await expect(page.getByText('Артефакт редактора готов.')).toBeVisible()
+        await expectPlayCanvasEditorHostKeyboardLoop(page, 'ru')
+        await expectNoPageHorizontalOverflow(page, 'PlayCanvas Editor host page ru')
+        await page.screenshot({ path: testInfo.outputPath('playcanvas-editor-host-ru.png'), fullPage: true })
+
         await expectRuntimeUxViewportMatrix(page, 'Metahub packages resources page', {
             beforeEachViewport: async () => {
                 await page.goto(`/metahub/${metahub.id}/resources`)
                 await expect(page.getByTestId('metahub-packages-tab')).toBeVisible()
+                await expect(page.getByRole('table', { name: /Packages|Пакеты/ })).toBeVisible()
             }
         })
         await page.setViewportSize({ width: 768, height: 900 })
         await page.goto(`/metahub/${metahub.id}/resources`)
+        await expect(page.getByTestId('metahub-packages-tab')).toBeVisible()
+        await expect(page.getByRole('table', { name: /Packages|Пакеты/ })).toBeVisible()
         await page.screenshot({ path: testInfo.outputPath('metahub-packages-tablet.png'), fullPage: true })
         await page.setViewportSize({ width: 390, height: 844 })
         await page.goto(`/metahub/${metahub.id}/resources`)
+        await expect(page.getByTestId('metahub-packages-tab')).toBeVisible()
+        await expect(page.getByRole('table', { name: /Packages|Пакеты/ })).toBeVisible()
         await page.screenshot({ path: testInfo.outputPath('metahub-packages-mobile.png'), fullPage: true })
     } finally {
         if (memberContext) {

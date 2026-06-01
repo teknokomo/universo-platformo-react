@@ -62,6 +62,9 @@ const ComponentList = Loadable(lazy(() => import('@universo-react/metahubs-front
 const FixedValueList = Loadable(lazy(() => import('@universo-react/metahubs-frontend').then((m: any) => ({ default: m.FixedValueList }))))
 const RecordList = Loadable(lazy(() => import('@universo-react/metahubs-frontend').then((m) => ({ default: m.RecordList }))))
 const MetahubResources = Loadable(lazy(() => import('@universo-react/metahubs-frontend').then((m) => ({ default: m.MetahubResources }))))
+const PlayCanvasEditorHostPage = Loadable(
+    lazy(() => import('@universo-react/metahubs-frontend').then((m) => ({ default: m.PlayCanvasEditorHostPage })))
+)
 const MetahubLayoutDetails = Loadable(
     lazy(() => import('@universo-react/metahubs-frontend').then((m) => ({ default: m.MetahubLayoutDetails })))
 )
@@ -271,6 +274,7 @@ const MainRoutes = {
                 { path: 'migrations', element: <MetahubMigrations /> },
                 { path: 'branches', element: <BranchList /> },
                 { path: 'resources', element: <MetahubResources /> },
+                { path: 'resources/packages/:packageSlug/editor', element: <PlayCanvasEditorHostPage /> },
                 { path: 'entities', element: <EntitiesWorkspace /> },
                 { path: 'entities/:kindKey/instances', element: <EntityInstanceList /> },
                 { path: 'entities/:kindKey/instance/:entityId/content', element: <EntityBlockContentPage /> },
