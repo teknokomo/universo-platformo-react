@@ -11,6 +11,7 @@ import { codenamePrimaryTextSql } from '../../shared/codename'
 
 const TABLE = '_mhb_modules'
 const ACTIVE_CLAUSE = '_upl_deleted = false AND _mhb_deleted = false'
+const storageColumnsAvailableCache = new Map<string, true>()
 
 export interface StoredMetahubModuleRow {
     id: string
@@ -312,6 +313,10 @@ export async function deleteStoredMetahubModuleById(executor: SqlQueryable, sche
 }
 
 export async function metahubModulesStorageColumnsAvailable(executor: SqlQueryable, schemaName: string): Promise<boolean> {
+    if (storageColumnsAvailableCache.get(schemaName) === true) {
+        return true
+    }
+
     const row = await queryOne<{ available: boolean }>(
         executor,
         `SELECT COUNT(*) = 8 AS available
@@ -335,7 +340,16 @@ export async function metahubModulesStorageColumnsAvailable(executor: SqlQueryab
         ]
     )
 
-    return row?.available === true
+    const available = row?.available === true
+    if (available) {
+        storageColumnsAvailableCache.set(schemaName, true)
+    }
+
+    return available
+}
+
+export function clearMetahubModulesStorageColumnsCacheForTests(): void {
+    storageColumnsAvailableCache.clear()
 }
 
 export { TABLE as METAHUB_MODULES_TABLE }

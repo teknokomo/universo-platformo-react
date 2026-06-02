@@ -155,17 +155,26 @@ export class SnapshotRestoreService {
             })
         } catch (error) {
             for (const backup of restoredModuleSourceBackups.reverse()) {
-                if (!(await this.isCurrentRestoredModuleSource(metahubId, backup))) {
-                    continue
-                }
-                if (backup.previousSourceCode === null) {
-                    await this.moduleSourceFileService.delete({ metahubId, branchSlug: this.schemaName }, backup.sourcePath)
-                } else {
-                    await this.moduleSourceFileService.write(
-                        { metahubId, branchSlug: this.schemaName },
-                        backup.sourcePath,
-                        backup.previousSourceCode
-                    )
+                try {
+                    if (!(await this.isCurrentRestoredModuleSource(metahubId, backup))) {
+                        continue
+                    }
+                    if (backup.previousSourceCode === null) {
+                        await this.moduleSourceFileService.delete({ metahubId, branchSlug: this.schemaName }, backup.sourcePath)
+                    } else {
+                        await this.moduleSourceFileService.write(
+                            { metahubId, branchSlug: this.schemaName },
+                            backup.sourcePath,
+                            backup.previousSourceCode
+                        )
+                    }
+                } catch (rollbackError) {
+                    log.warn('Failed to roll back module source file during snapshot restore rollback', {
+                        metahubId,
+                        schemaName: this.schemaName,
+                        sourcePath: backup.sourcePath,
+                        error: rollbackError
+                    })
                 }
             }
             throw error

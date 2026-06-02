@@ -4,7 +4,6 @@ import {
     assertSupportedModuleSdkApiVersion,
     DEFAULT_MODULE_ROLE,
     DEFAULT_MODULE_SDK_API_VERSION,
-    DEFAULT_MODULE_STORAGE_MODE,
     DEFAULT_MODULE_SOURCE_KIND,
     MODULE_AUTHORING_SOURCE_KINDS,
     type ModuleCapability,

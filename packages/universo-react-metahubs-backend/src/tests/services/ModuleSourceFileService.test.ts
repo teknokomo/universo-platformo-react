@@ -61,6 +61,17 @@ describe('ModuleSourceFileService', () => {
         expect(read.checksum).toBe(computeModuleSourceChecksum(sourceCode))
     })
 
+    it('removes temporary write files when the final rename fails', async () => {
+        const scope = { metahubId: 'metahub-1', branchSlug: 'branch-main' }
+        const parent = path.join(service.branchRoot(scope), 'modules', 'general')
+        await fs.mkdir(path.join(parent, 'shared.ts'), { recursive: true })
+
+        await expect(service.write(scope, 'modules/general/shared.ts', 'export default class Shared {}')).rejects.toThrow()
+
+        const entries = await fs.readdir(parent)
+        expect(entries.filter((entry) => entry.endsWith('.tmp'))).toEqual([])
+    })
+
     it('uses a durable workspace storage root when no explicit root is configured', () => {
         const defaultService = new ModuleSourceFileService()
 

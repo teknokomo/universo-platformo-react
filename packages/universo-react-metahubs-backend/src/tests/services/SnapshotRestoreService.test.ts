@@ -1294,6 +1294,100 @@ describe('SnapshotRestoreService', () => {
         expect(moduleSourceFileService.delete).not.toHaveBeenCalled()
     })
 
+    it('continues rollback cleanup for remaining file-backed sources when one rollback delete fails', async () => {
+        const firstSource = "export const first = 'restored'"
+        const secondSource = "export const second = 'restored'"
+        const snapshot = makeMinimalSnapshot({
+            modules: [
+                {
+                    id: 'first-module-id',
+                    codename: 'first_library',
+                    presentation: { name: { en: 'First library' } },
+                    attachedToKind: 'general',
+                    attachedToId: null,
+                    moduleRole: 'library',
+                    sourceKind: 'embedded',
+                    sdkApiVersion: '1.0.0',
+                    sourceStorage: {
+                        mode: 'file',
+                        path: 'modules/general/first.ts',
+                        content: firstSource
+                    },
+                    manifest: {
+                        className: 'FirstLibrary',
+                        sdkApiVersion: '1.0.0',
+                        moduleRole: 'library',
+                        sourceKind: 'embedded',
+                        capabilities: [],
+                        methods: []
+                    },
+                    serverBundle: null,
+                    clientBundle: null,
+                    checksum: 'checksum-first',
+                    isActive: true,
+                    config: {}
+                },
+                {
+                    id: 'second-module-id',
+                    codename: 'second_library',
+                    presentation: { name: { en: 'Second library' } },
+                    attachedToKind: 'general',
+                    attachedToId: null,
+                    moduleRole: 'library',
+                    sourceKind: 'embedded',
+                    sdkApiVersion: '1.0.0',
+                    sourceStorage: {
+                        mode: 'file',
+                        path: 'modules/general/second.ts',
+                        content: secondSource
+                    },
+                    manifest: {
+                        className: 'SecondLibrary',
+                        sdkApiVersion: '1.0.0',
+                        moduleRole: 'library',
+                        sourceKind: 'embedded',
+                        capabilities: [],
+                        methods: []
+                    },
+                    serverBundle: null,
+                    clientBundle: null,
+                    checksum: 'checksum-second',
+                    isActive: true,
+                    config: {}
+                }
+            ],
+            packages: [{ packageName: '@universo-react/broken', version: '0.1.0' } as any]
+        } as unknown as Partial<MetahubSnapshot>)
+        const missingSourceError = Object.assign(new Error('missing source'), { code: 'ENOENT' })
+        const moduleSourceFileService = {
+            read: jest
+                .fn()
+                .mockRejectedValueOnce(missingSourceError)
+                .mockRejectedValueOnce(missingSourceError)
+                .mockResolvedValueOnce({ checksum: computeModuleSourceChecksum(secondSource) })
+                .mockResolvedValueOnce({ checksum: computeModuleSourceChecksum(firstSource) }),
+            write: jest.fn().mockResolvedValue(undefined),
+            delete: jest.fn().mockRejectedValueOnce(new Error('delete failed')).mockResolvedValueOnce(undefined)
+        }
+        mockReplaceMetahubPackagesFromSnapshot.mockRejectedValueOnce(new Error('package restore failed'))
+        const { knex } = createMockKnex({ storageColumnsAvailable: true })
+        const service = new SnapshotRestoreService(knex as any, 'test_schema', moduleSourceFileService as any)
+
+        await expect(service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')).rejects.toThrow('package restore failed')
+
+        expect(moduleSourceFileService.delete).toHaveBeenCalledTimes(2)
+        expect(moduleSourceFileService.delete).toHaveBeenNthCalledWith(
+            1,
+            { metahubId: 'metahub-1', branchSlug: 'test_schema' },
+            'modules/general/second.ts'
+        )
+        expect(moduleSourceFileService.delete).toHaveBeenNthCalledWith(
+            2,
+            { metahubId: 'metahub-1', branchSlug: 'test_schema' },
+            'modules/general/first.ts'
+        )
+    })
+
     it('rolls back previously restored file-backed sources when a later source write fails', async () => {
         const firstSource = "export const first = 'restored'"
         const firstChecksum = computeModuleSourceChecksum(firstSource)

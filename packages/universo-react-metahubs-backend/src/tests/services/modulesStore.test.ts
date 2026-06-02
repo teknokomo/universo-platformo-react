@@ -1,6 +1,14 @@
-import { insertStoredMetahubModule } from '../../domains/modules/services/modulesStore'
+import {
+    clearMetahubModulesStorageColumnsCacheForTests,
+    insertStoredMetahubModule,
+    metahubModulesStorageColumnsAvailable
+} from '../../domains/modules/services/modulesStore'
 
 describe('modulesStore', () => {
+    beforeEach(() => {
+        clearMetahubModulesStorageColumnsCacheForTests()
+    })
+
     it('uses distinct bind parameters for storage-aware module insert metadata fields', async () => {
         const storedRow = {
             id: 'module-1',
@@ -63,5 +71,20 @@ describe('modulesStore', () => {
         expect(insertCall[1][20]).toBe(JSON.stringify({ test: true }))
         expect(insertCall[1][21]).toBeInstanceOf(Date)
         expect(insertCall[1][22]).toBe('user-1')
+    })
+
+    it('caches positive storage column availability checks per schema without caching negative checks', async () => {
+        const executor = {
+            query: jest
+                .fn()
+                .mockResolvedValueOnce([{ available: false }])
+                .mockResolvedValueOnce([{ available: true }])
+        }
+
+        await expect(metahubModulesStorageColumnsAvailable(executor, 'mhb_schema')).resolves.toBe(false)
+        await expect(metahubModulesStorageColumnsAvailable(executor, 'mhb_schema')).resolves.toBe(true)
+        await expect(metahubModulesStorageColumnsAvailable(executor, 'mhb_schema')).resolves.toBe(true)
+
+        expect(executor.query).toHaveBeenCalledTimes(2)
     })
 })

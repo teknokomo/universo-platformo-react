@@ -174,9 +174,14 @@ export class ModuleSourceFileService {
         await this.assertParentWithinRoot(scope, absolutePath)
         await fs.mkdir(path.dirname(absolutePath), { recursive: true })
         const tempPath = `${absolutePath}.${process.pid}.${Date.now()}.${crypto.randomUUID()}.tmp`
-        await fs.writeFile(tempPath, sourceCode, 'utf8')
-        await this.assertResolvedPathWithinBranch(scope, tempPath)
-        await fs.rename(tempPath, absolutePath)
+        try {
+            await fs.writeFile(tempPath, sourceCode, 'utf8')
+            await this.assertResolvedPathWithinBranch(scope, tempPath)
+            await fs.rename(tempPath, absolutePath)
+        } catch (error) {
+            await fs.rm(tempPath, { force: true }).catch(() => undefined)
+            throw error
+        }
         return this.read(scope, safePath)
     }
 
@@ -281,7 +286,7 @@ export class ModuleSourceFileService {
         const missingSegments: string[] = []
         let cursor = path.resolve(absolutePath)
 
-        while (true) {
+        while (cursor !== path.dirname(cursor)) {
             try {
                 const resolvedAncestor = await fs.realpath(cursor)
                 return path.join(resolvedAncestor, ...missingSegments.reverse())
@@ -299,13 +304,17 @@ export class ModuleSourceFileService {
                 cursor = parent
             }
         }
+
+        throw new MetahubValidationError('Module source path escapes the configured source root', {
+            messageCode: 'modules.sourcePath.rootEscape'
+        })
     }
 
     private async assertTreeContainsNoSymlinks(root: string): Promise<void> {
         const entries = await fs.readdir(root, { withFileTypes: true })
         for (const entry of entries) {
             const absolutePath = path.join(root, entry.name)
-            const stat = await this.assertPathIsNotSymlink(absolutePath)
+            await this.assertPathIsNotSymlink(absolutePath)
             if (entry.isDirectory()) {
                 await this.assertTreeContainsNoSymlinks(absolutePath)
             }
