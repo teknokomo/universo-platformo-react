@@ -155,7 +155,7 @@ const seedModuleSchema = z.object({
     attachedToKind: entityKindKeySchema.or(z.literal('metahub')).or(z.literal('general')),
     attachedToEntityCodename: z.string().min(1).max(100).optional(),
     moduleRole: z.enum(['module', 'lifecycle', 'widget', 'library']),
-    sourceKind: z.enum(['embedded', 'external', 'visual']).optional(),
+    sourceKind: z.literal('embedded').optional(),
     sdkApiVersion: z.string().optional(),
     sourceCode: z.string().min(1),
     capabilities: z

@@ -26,12 +26,23 @@ jest.mock('../../persistence', () => ({
 }))
 
 import { SnapshotRestoreService } from '../../domains/metahubs/services/SnapshotRestoreService'
+import { computeModuleSourceChecksum } from '../../domains/modules/services/ModuleSourceFileService'
 import type { MetahubSnapshot } from '../../domains/publications/services/SnapshotSerializer'
 
-function createMockKnex() {
+function createMockKnex(
+    options: {
+        storageColumnsAvailable?: boolean
+        existingModuleSourcePaths?: Array<string | { sourcePath: string; sourceChecksum?: string | null }>
+    } = {}
+) {
     const insertedRows: Record<string, unknown[]> = {}
     const deletedTables: string[] = []
     let idCounter = 1
+    const existingModuleSourceRows = (options.existingModuleSourcePaths ?? []).map((candidate) =>
+        typeof candidate === 'string'
+            ? { source_path: candidate, source_checksum: 'old-source-checksum' }
+            : { source_path: candidate.sourcePath, source_checksum: candidate.sourceChecksum ?? null }
+    )
 
     const mockBuilder = {
         withSchema: jest.fn().mockReturnThis(),
@@ -50,9 +61,16 @@ function createMockKnex() {
             return this
         }),
         where: jest.fn().mockReturnThis(),
+        whereNotNull: jest.fn().mockReturnThis(),
+        select: jest.fn().mockImplementation(() => Promise.resolve(existingModuleSourceRows)),
         first: jest.fn().mockResolvedValue(undefined),
         update: jest.fn().mockResolvedValue(1),
-        raw: jest.fn((sql: string) => ({ raw: sql })),
+        raw: jest.fn((sql: string) => {
+            if (sql.includes('information_schema.columns')) {
+                return { rows: [{ available: options.storageColumnsAvailable === true }] }
+            }
+            return { raw: sql }
+        }),
         returning: jest.fn().mockImplementation(function (this: any) {
             const newId = `generated-id-${idCounter++}`
             const table = this._currentTable || '_unknown'
@@ -1006,6 +1024,454 @@ describe('SnapshotRestoreService', () => {
         expect(deletedTables).toEqual(['_mhb_modules', '_mhb_widgets', '_mhb_layout_widget_overrides', '_mhb_layouts'])
         expect(insertedRows['_mhb_layouts']).toBeUndefined()
         expect(insertedRows['_mhb_widgets']).toBeUndefined()
+    })
+
+    it('deletes stale file-backed module source files after a successful snapshot restore', async () => {
+        const snapshot = makeMinimalSnapshot({ modules: [] } as unknown as Partial<MetahubSnapshot>)
+        const moduleSourceFileService = {
+            read: jest.fn().mockResolvedValue({ checksum: 'old-source-checksum' }),
+            write: jest.fn(),
+            delete: jest.fn().mockResolvedValue(undefined)
+        }
+        const { knex } = createMockKnex({
+            storageColumnsAvailable: true,
+            existingModuleSourcePaths: ['modules/general/old-shared.ts']
+        })
+        const service = new SnapshotRestoreService(knex as any, 'test_schema', moduleSourceFileService as any)
+
+        await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
+
+        expect(moduleSourceFileService.delete).toHaveBeenCalledWith(
+            { metahubId: 'metahub-1', branchSlug: 'test_schema' },
+            'modules/general/old-shared.ts'
+        )
+    })
+
+    it('skips stale file-backed module source cleanup when the external file changed after the stored checksum', async () => {
+        const snapshot = makeMinimalSnapshot({ modules: [] } as unknown as Partial<MetahubSnapshot>)
+        const moduleSourceFileService = {
+            read: jest.fn().mockResolvedValue({ checksum: 'changed-source-checksum' }),
+            write: jest.fn(),
+            delete: jest.fn().mockResolvedValue(undefined)
+        }
+        const { knex } = createMockKnex({
+            storageColumnsAvailable: true,
+            existingModuleSourcePaths: [{ sourcePath: 'modules/general/old-shared.ts', sourceChecksum: 'old-source-checksum' }]
+        })
+        const service = new SnapshotRestoreService(knex as any, 'test_schema', moduleSourceFileService as any)
+
+        await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
+
+        expect(moduleSourceFileService.read).toHaveBeenCalledWith(
+            { metahubId: 'metahub-1', branchSlug: 'test_schema' },
+            'modules/general/old-shared.ts'
+        )
+        expect(moduleSourceFileService.delete).not.toHaveBeenCalled()
+    })
+
+    it('keeps snapshot restore successful and does not roll back restored file-backed sources when post-commit stale cleanup fails', async () => {
+        const snapshot = makeMinimalSnapshot({
+            modules: [
+                {
+                    id: 'new-module-id',
+                    codename: 'shared_library',
+                    presentation: { name: { en: 'Shared library' } },
+                    attachedToKind: 'general',
+                    attachedToId: null,
+                    moduleRole: 'library',
+                    sourceKind: 'embedded',
+                    sdkApiVersion: '1.0.0',
+                    sourceStorage: {
+                        mode: 'file',
+                        path: 'modules/general/new-shared.ts',
+                        content: "export const shared = 'new'"
+                    },
+                    manifest: {
+                        className: 'SharedLibrary',
+                        sdkApiVersion: '1.0.0',
+                        moduleRole: 'library',
+                        sourceKind: 'embedded',
+                        capabilities: [],
+                        methods: []
+                    },
+                    serverBundle: null,
+                    clientBundle: null,
+                    checksum: 'checksum-new',
+                    isActive: true,
+                    config: {}
+                }
+            ]
+        } as unknown as Partial<MetahubSnapshot>)
+        const missingSourceError = Object.assign(new Error('missing source'), { code: 'ENOENT' })
+        const moduleSourceFileService = {
+            read: jest.fn().mockRejectedValueOnce(missingSourceError).mockResolvedValueOnce({ checksum: 'old-source-checksum' }),
+            write: jest.fn().mockResolvedValue(undefined),
+            delete: jest.fn().mockRejectedValue(new Error('cleanup failed'))
+        }
+        const { knex } = createMockKnex({
+            storageColumnsAvailable: true,
+            existingModuleSourcePaths: ['modules/general/old-shared.ts']
+        })
+        const service = new SnapshotRestoreService(knex as any, 'test_schema', moduleSourceFileService as any)
+
+        await expect(service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')).resolves.toBeUndefined()
+
+        expect(moduleSourceFileService.write).toHaveBeenCalledTimes(1)
+        expect(moduleSourceFileService.write).toHaveBeenCalledWith(
+            { metahubId: 'metahub-1', branchSlug: 'test_schema' },
+            'modules/general/new-shared.ts',
+            "export const shared = 'new'"
+        )
+        expect(moduleSourceFileService.delete).toHaveBeenCalledWith(
+            { metahubId: 'metahub-1', branchSlug: 'test_schema' },
+            'modules/general/old-shared.ts'
+        )
+        expect(moduleSourceFileService.delete).not.toHaveBeenCalledWith(
+            { metahubId: 'metahub-1', branchSlug: 'test_schema' },
+            'modules/general/new-shared.ts'
+        )
+    })
+
+    it('normalizes file-backed snapshot paths before persisting and writing restored sources', async () => {
+        const sourceCode = "export const shared = 'new'"
+        const snapshot = makeMinimalSnapshot({
+            modules: [
+                {
+                    id: 'new-module-id',
+                    codename: 'shared_library',
+                    presentation: { name: { en: 'Shared library' } },
+                    attachedToKind: 'general',
+                    attachedToId: null,
+                    moduleRole: 'library',
+                    sourceKind: 'embedded',
+                    sdkApiVersion: '1.0.0',
+                    sourceStorage: {
+                        mode: 'file',
+                        path: ' modules\\general\\new-shared.ts ',
+                        checksum: computeModuleSourceChecksum(sourceCode),
+                        content: sourceCode
+                    },
+                    manifest: {
+                        className: 'SharedLibrary',
+                        sdkApiVersion: '1.0.0',
+                        moduleRole: 'library',
+                        sourceKind: 'embedded',
+                        capabilities: [],
+                        methods: []
+                    },
+                    serverBundle: null,
+                    clientBundle: null,
+                    checksum: 'checksum-new',
+                    isActive: true,
+                    config: {}
+                }
+            ]
+        } as unknown as Partial<MetahubSnapshot>)
+        const missingSourceError = Object.assign(new Error('missing source'), { code: 'ENOENT' })
+        const moduleSourceFileService = {
+            read: jest.fn().mockRejectedValue(missingSourceError),
+            write: jest.fn().mockResolvedValue(undefined),
+            delete: jest.fn().mockResolvedValue(undefined)
+        }
+        const { knex, insertedRows } = createMockKnex({ storageColumnsAvailable: true })
+        const service = new SnapshotRestoreService(knex as any, 'test_schema', moduleSourceFileService as any)
+
+        await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
+
+        expect(insertedRows['_mhb_modules']?.[0]).toMatchObject({
+            source_path: 'modules/general/new-shared.ts',
+            source_checksum: computeModuleSourceChecksum(sourceCode)
+        })
+        expect(moduleSourceFileService.write).toHaveBeenCalledWith(
+            { metahubId: 'metahub-1', branchSlug: 'test_schema' },
+            'modules/general/new-shared.ts',
+            sourceCode
+        )
+    })
+
+    it('rejects file-backed snapshot sources whose declared checksum does not match content', async () => {
+        const sourceCode = "export const shared = 'tampered'"
+        const snapshot = makeMinimalSnapshot({
+            modules: [
+                {
+                    id: 'new-module-id',
+                    codename: 'shared_library',
+                    presentation: { name: { en: 'Shared library' } },
+                    attachedToKind: 'general',
+                    attachedToId: null,
+                    moduleRole: 'library',
+                    sourceKind: 'embedded',
+                    sdkApiVersion: '1.0.0',
+                    sourceStorage: {
+                        mode: 'file',
+                        path: 'modules/general/new-shared.ts',
+                        checksum: 'snapshot-checksum-before-tamper',
+                        content: sourceCode
+                    },
+                    manifest: {
+                        className: 'SharedLibrary',
+                        sdkApiVersion: '1.0.0',
+                        moduleRole: 'library',
+                        sourceKind: 'embedded',
+                        capabilities: [],
+                        methods: []
+                    },
+                    serverBundle: null,
+                    clientBundle: null,
+                    checksum: 'checksum-new',
+                    isActive: true,
+                    config: {}
+                }
+            ]
+        } as unknown as Partial<MetahubSnapshot>)
+        const moduleSourceFileService = {
+            read: jest.fn(),
+            write: jest.fn(),
+            delete: jest.fn()
+        }
+        const { knex } = createMockKnex({ storageColumnsAvailable: true })
+        const service = new SnapshotRestoreService(knex as any, 'test_schema', moduleSourceFileService as any)
+
+        await expect(service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')).rejects.toMatchObject({
+            message: 'Snapshot file-backed module source checksum does not match its content',
+            details: {
+                sourcePath: 'modules/general/new-shared.ts',
+                expectedSourceChecksum: 'snapshot-checksum-before-tamper',
+                actualSourceChecksum: computeModuleSourceChecksum(sourceCode),
+                messageCode: 'modules.sourcePath.snapshotChecksumMismatch'
+            }
+        })
+        expect(moduleSourceFileService.write).not.toHaveBeenCalled()
+    })
+
+    it('skips rollback cleanup for restored file-backed sources changed after the restore write', async () => {
+        const snapshot = makeMinimalSnapshot({
+            modules: [
+                {
+                    id: 'new-module-id',
+                    codename: 'shared_library',
+                    presentation: { name: { en: 'Shared library' } },
+                    attachedToKind: 'general',
+                    attachedToId: null,
+                    moduleRole: 'library',
+                    sourceKind: 'embedded',
+                    sdkApiVersion: '1.0.0',
+                    sourceStorage: {
+                        mode: 'file',
+                        path: 'modules/general/new-shared.ts',
+                        content: "export const shared = 'new'"
+                    },
+                    manifest: {
+                        className: 'SharedLibrary',
+                        sdkApiVersion: '1.0.0',
+                        moduleRole: 'library',
+                        sourceKind: 'embedded',
+                        capabilities: [],
+                        methods: []
+                    },
+                    serverBundle: null,
+                    clientBundle: null,
+                    checksum: 'checksum-new',
+                    isActive: true,
+                    config: {}
+                }
+            ],
+            packages: [{ packageName: '@universo-react/broken', version: '0.1.0' } as any]
+        } as unknown as Partial<MetahubSnapshot>)
+        const missingSourceError = Object.assign(new Error('missing source'), { code: 'ENOENT' })
+        const moduleSourceFileService = {
+            read: jest.fn().mockRejectedValueOnce(missingSourceError).mockResolvedValueOnce({ checksum: 'changed-after-restore-checksum' }),
+            write: jest.fn().mockResolvedValue(undefined),
+            delete: jest.fn().mockResolvedValue(undefined)
+        }
+        mockReplaceMetahubPackagesFromSnapshot.mockRejectedValueOnce(new Error('package restore failed'))
+        const { knex } = createMockKnex({ storageColumnsAvailable: true })
+        const service = new SnapshotRestoreService(knex as any, 'test_schema', moduleSourceFileService as any)
+
+        await expect(service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')).rejects.toThrow('package restore failed')
+
+        expect(moduleSourceFileService.write).toHaveBeenCalledTimes(1)
+        expect(moduleSourceFileService.delete).not.toHaveBeenCalled()
+    })
+
+    it('continues rollback cleanup for remaining file-backed sources when one rollback delete fails', async () => {
+        const firstSource = "export const first = 'restored'"
+        const secondSource = "export const second = 'restored'"
+        const snapshot = makeMinimalSnapshot({
+            modules: [
+                {
+                    id: 'first-module-id',
+                    codename: 'first_library',
+                    presentation: { name: { en: 'First library' } },
+                    attachedToKind: 'general',
+                    attachedToId: null,
+                    moduleRole: 'library',
+                    sourceKind: 'embedded',
+                    sdkApiVersion: '1.0.0',
+                    sourceStorage: {
+                        mode: 'file',
+                        path: 'modules/general/first.ts',
+                        content: firstSource
+                    },
+                    manifest: {
+                        className: 'FirstLibrary',
+                        sdkApiVersion: '1.0.0',
+                        moduleRole: 'library',
+                        sourceKind: 'embedded',
+                        capabilities: [],
+                        methods: []
+                    },
+                    serverBundle: null,
+                    clientBundle: null,
+                    checksum: 'checksum-first',
+                    isActive: true,
+                    config: {}
+                },
+                {
+                    id: 'second-module-id',
+                    codename: 'second_library',
+                    presentation: { name: { en: 'Second library' } },
+                    attachedToKind: 'general',
+                    attachedToId: null,
+                    moduleRole: 'library',
+                    sourceKind: 'embedded',
+                    sdkApiVersion: '1.0.0',
+                    sourceStorage: {
+                        mode: 'file',
+                        path: 'modules/general/second.ts',
+                        content: secondSource
+                    },
+                    manifest: {
+                        className: 'SecondLibrary',
+                        sdkApiVersion: '1.0.0',
+                        moduleRole: 'library',
+                        sourceKind: 'embedded',
+                        capabilities: [],
+                        methods: []
+                    },
+                    serverBundle: null,
+                    clientBundle: null,
+                    checksum: 'checksum-second',
+                    isActive: true,
+                    config: {}
+                }
+            ],
+            packages: [{ packageName: '@universo-react/broken', version: '0.1.0' } as any]
+        } as unknown as Partial<MetahubSnapshot>)
+        const missingSourceError = Object.assign(new Error('missing source'), { code: 'ENOENT' })
+        const moduleSourceFileService = {
+            read: jest
+                .fn()
+                .mockRejectedValueOnce(missingSourceError)
+                .mockRejectedValueOnce(missingSourceError)
+                .mockResolvedValueOnce({ checksum: computeModuleSourceChecksum(secondSource) })
+                .mockResolvedValueOnce({ checksum: computeModuleSourceChecksum(firstSource) }),
+            write: jest.fn().mockResolvedValue(undefined),
+            delete: jest.fn().mockRejectedValueOnce(new Error('delete failed')).mockResolvedValueOnce(undefined)
+        }
+        mockReplaceMetahubPackagesFromSnapshot.mockRejectedValueOnce(new Error('package restore failed'))
+        const { knex } = createMockKnex({ storageColumnsAvailable: true })
+        const service = new SnapshotRestoreService(knex as any, 'test_schema', moduleSourceFileService as any)
+
+        await expect(service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')).rejects.toThrow('package restore failed')
+
+        expect(moduleSourceFileService.delete).toHaveBeenCalledTimes(2)
+        expect(moduleSourceFileService.delete).toHaveBeenNthCalledWith(
+            1,
+            { metahubId: 'metahub-1', branchSlug: 'test_schema' },
+            'modules/general/second.ts'
+        )
+        expect(moduleSourceFileService.delete).toHaveBeenNthCalledWith(
+            2,
+            { metahubId: 'metahub-1', branchSlug: 'test_schema' },
+            'modules/general/first.ts'
+        )
+    })
+
+    it('rolls back previously restored file-backed sources when a later source write fails', async () => {
+        const firstSource = "export const first = 'restored'"
+        const firstChecksum = computeModuleSourceChecksum(firstSource)
+        const snapshot = makeMinimalSnapshot({
+            modules: [
+                {
+                    id: 'first-module-id',
+                    codename: 'first_library',
+                    presentation: { name: { en: 'First library' } },
+                    attachedToKind: 'general',
+                    attachedToId: null,
+                    moduleRole: 'library',
+                    sourceKind: 'embedded',
+                    sdkApiVersion: '1.0.0',
+                    sourceStorage: {
+                        mode: 'file',
+                        path: 'modules/general/first.ts',
+                        content: firstSource
+                    },
+                    manifest: {
+                        className: 'FirstLibrary',
+                        sdkApiVersion: '1.0.0',
+                        moduleRole: 'library',
+                        sourceKind: 'embedded',
+                        capabilities: [],
+                        methods: []
+                    },
+                    serverBundle: null,
+                    clientBundle: null,
+                    checksum: 'checksum-first',
+                    isActive: true,
+                    config: {}
+                },
+                {
+                    id: 'second-module-id',
+                    codename: 'second_library',
+                    presentation: { name: { en: 'Second library' } },
+                    attachedToKind: 'general',
+                    attachedToId: null,
+                    moduleRole: 'library',
+                    sourceKind: 'embedded',
+                    sdkApiVersion: '1.0.0',
+                    sourceStorage: {
+                        mode: 'file',
+                        path: 'modules/general/second.ts',
+                        content: "export const second = 'restored'"
+                    },
+                    manifest: {
+                        className: 'SecondLibrary',
+                        sdkApiVersion: '1.0.0',
+                        moduleRole: 'library',
+                        sourceKind: 'embedded',
+                        capabilities: [],
+                        methods: []
+                    },
+                    serverBundle: null,
+                    clientBundle: null,
+                    checksum: 'checksum-second',
+                    isActive: true,
+                    config: {}
+                }
+            ]
+        } as unknown as Partial<MetahubSnapshot>)
+        const missingSourceError = Object.assign(new Error('missing source'), { code: 'ENOENT' })
+        const moduleSourceFileService = {
+            read: jest
+                .fn()
+                .mockRejectedValueOnce(missingSourceError)
+                .mockRejectedValueOnce(missingSourceError)
+                .mockRejectedValueOnce(missingSourceError)
+                .mockResolvedValueOnce({ checksum: firstChecksum }),
+            write: jest.fn().mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('write failed')),
+            delete: jest.fn().mockResolvedValue(undefined)
+        }
+        const { knex } = createMockKnex({ storageColumnsAvailable: true })
+        const service = new SnapshotRestoreService(knex as any, 'test_schema', moduleSourceFileService as any)
+
+        await expect(service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')).rejects.toThrow('write failed')
+
+        expect(moduleSourceFileService.delete).toHaveBeenCalledTimes(1)
+        expect(moduleSourceFileService.delete).toHaveBeenCalledWith(
+            { metahubId: 'metahub-1', branchSlug: 'test_schema' },
+            'modules/general/first.ts'
+        )
     })
 
     it('restores scoped layouts and sparse widget overrides with remapped ids', async () => {

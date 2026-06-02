@@ -29,6 +29,7 @@ jest.mock('../../domains/metahubs/services/MetahubSchemaService', () => ({
 }))
 
 import type { Request, Response } from 'express'
+import { OptimisticLockError } from '@universo-react/utils'
 import { MetahubDomainError } from '../../domains/shared/domainErrors'
 import { createMetahubHandlerFactory } from '../../domains/shared/createMetahubHandler'
 
@@ -140,6 +141,32 @@ describe('createMetahubHandler', () => {
         expect(jsonFn).toHaveBeenCalledWith({
             error: 'Not found',
             code: 'NOT_FOUND'
+        })
+    })
+
+    it('serializes OptimisticLockError as a 409 conflict response', async () => {
+        const conflict = {
+            entityId: 'module-1',
+            entityType: 'module' as const,
+            expectedVersion: 1,
+            actualVersion: 2,
+            updatedAt: new Date('2026-06-02T00:00:00.000Z'),
+            updatedBy: 'user-2'
+        }
+        const handler = jest.fn(async () => {
+            throw new OptimisticLockError(conflict)
+        })
+        const wrapped = createMetahubHandler(handler)
+        const { req, res } = buildReqRes()
+
+        await wrapped(req, res)
+
+        expect(res.status).toHaveBeenCalledWith(409)
+        const jsonFn = (res.status as ReturnType<typeof jest.fn>).mock.results[0].value.json
+        expect(jsonFn).toHaveBeenCalledWith({
+            error: 'Entity was modified by another user. Please refresh and try again.',
+            code: 'OPTIMISTIC_LOCK_CONFLICT',
+            conflict
         })
     })
 

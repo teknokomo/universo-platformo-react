@@ -3,6 +3,7 @@ import { createRequire } from 'module'
 import { deleteSupabaseAuthUser } from './api-session.mjs'
 import { withE2eAdvisoryLock, withE2eDatabaseClient } from './e2eDatabase.mjs'
 import { loadE2eEnvironment, manifestPath, storageStatePath } from '../env/load-e2e-env.mjs'
+import { cleanupE2eFileArtifacts, e2eModuleSourceRootExists, resolveE2eModuleSourceRoot } from './e2eFileArtifacts.mjs'
 import { removeRunManifest } from './run-manifest.mjs'
 
 const require = createRequire(import.meta.url)
@@ -55,7 +56,9 @@ function loadFixedProjectSchemaNames() {
         moduleExports = require('@universo-react/migrations-platform')
     } catch (error) {
         throw new Error(
-            `Unable to load @universo-react/migrations-platform for E2E reset. Run 'pnpm build' or 'pnpm build:e2e' first. ${toErrorMessage(error)}`
+            `Unable to load @universo-react/migrations-platform for E2E reset. Run 'pnpm build' or 'pnpm build:e2e' first. ${toErrorMessage(
+                error
+            )}`
         )
     }
 
@@ -127,11 +130,7 @@ async function readProjectSchemas(client, fixedProjectSchemas) {
         fixedProjectSchemasPresent: fixedRows.rows.map((row) => row.schema_name),
         dynamicApplicationSchemas,
         dynamicMetahubSchemas,
-        ownedSchemas: [
-            ...dynamicApplicationSchemas,
-            ...dynamicMetahubSchemas,
-            ...fixedRows.rows.map((row) => row.schema_name)
-        ]
+        ownedSchemas: [...dynamicApplicationSchemas, ...dynamicMetahubSchemas, ...fixedRows.rows.map((row) => row.schema_name)]
     }
 }
 
@@ -151,7 +150,9 @@ async function readAuthUsers(client) {
 async function readLocalArtifactsState() {
     return {
         manifestExists: await fileExists(manifestPath),
-        storageStateExists: await fileExists(storageStatePath)
+        storageStateExists: await fileExists(storageStatePath),
+        moduleSourceRoot: resolveE2eModuleSourceRoot(),
+        moduleSourceRootExists: await e2eModuleSourceRootExists()
     }
 }
 
@@ -192,14 +193,17 @@ export function hasProjectOwnedResidue(inspection) {
         Number(inspection?.counts?.projectOwnedSchemaCount || 0) > 0 ||
         Number(inspection?.counts?.authUserCount || 0) > 0 ||
         Boolean(inspection?.localArtifacts?.manifestExists) ||
-        Boolean(inspection?.localArtifacts?.storageStateExists)
+        Boolean(inspection?.localArtifacts?.storageStateExists) ||
+        Boolean(inspection?.localArtifacts?.moduleSourceRootExists)
     )
 }
 
 export async function inspectE2eProjectState({ sampleAuthUsers = 10 } = {}) {
     const env = loadE2eEnvironment()
     if (env.envTarget !== 'e2e') {
-        throw new Error(`E2E inspection refused because UNIVERSO_ENV_TARGET=${env.envTarget}. Only the dedicated e2e environment is allowed.`)
+        throw new Error(
+            `E2E inspection refused because UNIVERSO_ENV_TARGET=${env.envTarget}. Only the dedicated e2e environment is allowed.`
+        )
     }
 
     const fixedProjectSchemas = loadFixedProjectSchemaNames()
@@ -227,11 +231,15 @@ export async function inspectE2eProjectState({ sampleAuthUsers = 10 } = {}) {
 export async function fullResetE2eProject({ dryRun = false, quiet = false, reason = 'manual', allowServerAlive = false } = {}) {
     const env = loadE2eEnvironment()
     if (env.envTarget !== 'e2e') {
-        throw new Error(`Full E2E reset refused because UNIVERSO_ENV_TARGET=${env.envTarget}. Only the dedicated e2e environment is allowed.`)
+        throw new Error(
+            `Full E2E reset refused because UNIVERSO_ENV_TARGET=${env.envTarget}. Only the dedicated e2e environment is allowed.`
+        )
     }
 
     if (!dryRun && !allowServerAlive && (await isServerReachable(env.baseURL))) {
-        throw new Error(`Full E2E reset requires ${env.baseURL} to be stopped. Stop the running app server before performing the destructive reset.`)
+        throw new Error(
+            `Full E2E reset requires ${env.baseURL} to be stopped. Stop the running app server before performing the destructive reset.`
+        )
     }
 
     const fixedProjectSchemas = loadFixedProjectSchemaNames()
@@ -301,12 +309,21 @@ export async function fullResetE2eProject({ dryRun = false, quiet = false, reaso
                         status: 'failed',
                         message: toErrorMessage(error)
                     })
-                    report.failures.push({ phase: 'delete-auth-user', userId: authUser.id, email: authUser.email, message: toErrorMessage(error) })
+                    report.failures.push({
+                        phase: 'delete-auth-user',
+                        userId: authUser.id,
+                        email: authUser.email,
+                        message: toErrorMessage(error)
+                    })
                 }
             }
 
             if (!dryRun) {
-                await Promise.all([removeRunManifest().catch(() => undefined), removeFileIfExists(storageStatePath)])
+                await Promise.all([
+                    removeRunManifest().catch(() => undefined),
+                    removeFileIfExists(storageStatePath),
+                    cleanupE2eFileArtifacts()
+                ])
                 await ensureInfrastructureBase(client)
             }
 
@@ -345,7 +362,9 @@ export async function fullResetE2eProject({ dryRun = false, quiet = false, reaso
 
             if (!quiet) {
                 process.stdout.write(
-                    `[e2e-full-reset] ${dryRun ? 'Planned' : 'Completed'} reset for ${reason}: dropped ${report.droppedSchemas.length} schema(s), deleted ${report.deletedAuthUsers.length} auth user(s).\n`
+                    `[e2e-full-reset] ${dryRun ? 'Planned' : 'Completed'} reset for ${reason}: dropped ${
+                        report.droppedSchemas.length
+                    } schema(s), deleted ${report.deletedAuthUsers.length} auth user(s).\n`
                 )
             }
 

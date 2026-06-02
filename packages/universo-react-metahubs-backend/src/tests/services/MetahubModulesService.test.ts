@@ -2,12 +2,16 @@ const mockEnsureSchema = jest.fn()
 const mockCompileModuleSource = jest.fn()
 const mockFindStoredMetahubModuleByScope = jest.fn()
 const mockFindStoredMetahubModuleById = jest.fn()
+const mockFindStoredMetahubModuleBySourcePath = jest.fn()
 const mockInsertStoredMetahubModule = jest.fn()
+const mockDeleteStoredMetahubModuleById = jest.fn()
 const mockListStoredMetahubModules = jest.fn()
 const mockIncrementVersion = jest.fn()
+const mockUpdateWithVersionCheck = jest.fn()
 const mockListEditableTypes = jest.fn()
 const mockListMetahubPackages = jest.fn()
 const editorPackageName = `@universo-react/${'playcanvas-editor'}`
+const computeTestChecksum = (sourceCode: string) => require('crypto').createHash('sha256').update(sourceCode, 'utf8').digest('hex')
 
 jest.mock('@universo-react/modules-engine', () => ({
     compileModuleSource: (...args: unknown[]) => mockCompileModuleSource(...args),
@@ -18,7 +22,8 @@ jest.mock('@universo-react/modules-engine', () => ({
 }))
 
 jest.mock('../../utils/optimisticLock', () => ({
-    incrementVersion: (...args: unknown[]) => mockIncrementVersion(...args)
+    incrementVersion: (...args: unknown[]) => mockIncrementVersion(...args),
+    updateWithVersionCheck: (...args: unknown[]) => mockUpdateWithVersionCheck(...args)
 }))
 
 jest.mock('../../domains/modules/services/modulesStore', () => {
@@ -28,8 +33,10 @@ jest.mock('../../domains/modules/services/modulesStore', () => {
         ...actual,
         findStoredMetahubModuleByScope: (...args: unknown[]) => mockFindStoredMetahubModuleByScope(...args),
         findStoredMetahubModuleById: (...args: unknown[]) => mockFindStoredMetahubModuleById(...args),
+        findStoredMetahubModuleBySourcePath: (...args: unknown[]) => mockFindStoredMetahubModuleBySourcePath(...args),
         listStoredMetahubModules: (...args: unknown[]) => mockListStoredMetahubModules(...args),
-        insertStoredMetahubModule: (...args: unknown[]) => mockInsertStoredMetahubModule(...args)
+        insertStoredMetahubModule: (...args: unknown[]) => mockInsertStoredMetahubModule(...args),
+        deleteStoredMetahubModuleById: (...args: unknown[]) => mockDeleteStoredMetahubModuleById(...args)
     }
 })
 
@@ -110,6 +117,7 @@ describe('MetahubModulesService', () => {
         mockEnsureSchema.mockResolvedValue(schemaName)
         mockFindStoredMetahubModuleByScope.mockResolvedValue(null)
         mockFindStoredMetahubModuleById.mockResolvedValue(createStoredModuleRow())
+        mockFindStoredMetahubModuleBySourcePath.mockResolvedValue(null)
         mockListStoredMetahubModules.mockResolvedValue([])
         mockListEditableTypes.mockResolvedValue([])
         mockListMetahubPackages.mockResolvedValue([])
@@ -127,7 +135,9 @@ describe('MetahubModulesService', () => {
             checksum: 'compiled-checksum'
         })
         mockInsertStoredMetahubModule.mockResolvedValue(createStoredModuleRow())
+        mockDeleteStoredMetahubModuleById.mockResolvedValue(undefined)
         mockIncrementVersion.mockResolvedValue(createStoredModuleRow())
+        mockUpdateWithVersionCheck.mockResolvedValue(createStoredModuleRow({ _upl_version: 2 }))
     })
 
     it('normalizes widget modules to embedded sources with role defaults before compilation', async () => {
@@ -230,6 +240,464 @@ describe('MetahubModulesService', () => {
                 moduleRole: 'library'
             })
         )
+    })
+
+    it('rejects duplicate file-backed source paths before writing module files', async () => {
+        const write = jest.fn()
+        const read = jest.fn()
+        const sourceFileService = {
+            buildDefaultSourcePath: jest.fn(() => 'modules/metahub/quiz-widget.ts'),
+            write,
+            read
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[2]
+        const fileService = new MetahubModulesService(executor, schemaService, sourceFileService)
+
+        ;(executor.query as jest.Mock).mockResolvedValue([{ available: true }])
+        mockFindStoredMetahubModuleBySourcePath.mockResolvedValue(createStoredModuleRow({ id: 'module-2' }))
+
+        await expect(
+            fileService.createModule('metahub-1', {
+                codename: 'QuizWidget',
+                presentation: {
+                    name: {
+                        _primary: 'en',
+                        locales: {
+                            en: { content: 'Quiz widget' }
+                        }
+                    }
+                },
+                attachedToKind: 'metahub',
+                attachedToId: 'metahub-1',
+                moduleRole: 'widget',
+                storageMode: 'file',
+                sourcePath: 'modules/metahub/quiz-widget.ts',
+                sourceCode: 'export default class QuizWidgetModule {}'
+            })
+        ).rejects.toThrow('Module source path is already used by another module')
+
+        expect(write).not.toHaveBeenCalled()
+        expect(read).not.toHaveBeenCalled()
+        expect(mockCompileModuleSource).not.toHaveBeenCalled()
+        expect(mockInsertStoredMetahubModule).not.toHaveBeenCalled()
+    })
+
+    it('removes a pre-insert file-backed source write when database insert fails', async () => {
+        const sourceCode = 'export default class QuizWidgetModule {}'
+        const sourceChecksum = computeTestChecksum(sourceCode)
+        let fileWritten = false
+        const write = jest.fn(async () => {
+            fileWritten = true
+        })
+        const remove = jest.fn()
+        const missingFileError = Object.assign(new Error('missing source file'), { code: 'ENOENT' })
+        const sourceFileService = {
+            buildDefaultSourcePath: jest.fn(() => 'modules/metahub/quiz-widget.ts'),
+            write,
+            read: jest.fn(async () => {
+                if (!fileWritten) {
+                    throw missingFileError
+                }
+                return {
+                    sourceCode,
+                    checksum: sourceChecksum,
+                    sourcePath: 'modules/metahub/quiz-widget.ts',
+                    absolutePath: '/tmp/modules/metahub/quiz-widget.ts'
+                }
+            }),
+            delete: remove
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[2]
+        const fileService = new MetahubModulesService(executor, schemaService, sourceFileService)
+
+        ;(executor.query as jest.Mock).mockResolvedValue([{ available: true }])
+        mockFindStoredMetahubModuleBySourcePath.mockResolvedValue(null)
+        mockInsertStoredMetahubModule.mockRejectedValue(new Error('duplicate source path'))
+
+        await expect(
+            fileService.createModule('metahub-1', {
+                codename: 'QuizWidget',
+                presentation: {
+                    name: {
+                        _primary: 'en',
+                        locales: {
+                            en: { content: 'Quiz widget' }
+                        }
+                    }
+                },
+                attachedToKind: 'metahub',
+                attachedToId: 'metahub-1',
+                moduleRole: 'widget',
+                storageMode: 'file',
+                sourcePath: 'modules/metahub/quiz-widget.ts',
+                sourceCode
+            })
+        ).rejects.toThrow('duplicate source path')
+
+        expect(write).toHaveBeenCalledWith({ metahubId: 'metahub-1', branchSlug: schemaName }, 'modules/metahub/quiz-widget.ts', sourceCode)
+        expect(mockInsertStoredMetahubModule).toHaveBeenCalled()
+        expect(remove).toHaveBeenCalledWith({ metahubId: 'metahub-1', branchSlug: schemaName }, 'modules/metahub/quiz-widget.ts')
+    })
+
+    it('rejects file-backed creates that would overwrite an unmanaged existing source file', async () => {
+        const write = jest.fn()
+        const sourceFileService = {
+            buildDefaultSourcePath: jest.fn(() => 'modules/metahub/quiz-widget.ts'),
+            write,
+            read: jest.fn(async () => ({
+                sourceCode: 'export default class ExistingUnmanagedModule {}',
+                checksum: 'existing-file-checksum',
+                sourcePath: 'modules/metahub/quiz-widget.ts',
+                absolutePath: '/tmp/modules/metahub/quiz-widget.ts'
+            }))
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[2]
+        const fileService = new MetahubModulesService(executor, schemaService, sourceFileService)
+
+        ;(executor.query as jest.Mock).mockResolvedValue([{ available: true }])
+        mockFindStoredMetahubModuleBySourcePath.mockResolvedValue(null)
+
+        await expect(
+            fileService.createModule('metahub-1', {
+                codename: 'QuizWidget',
+                presentation: {
+                    name: {
+                        _primary: 'en',
+                        locales: {
+                            en: { content: 'Quiz widget' }
+                        }
+                    }
+                },
+                attachedToKind: 'metahub',
+                attachedToId: 'metahub-1',
+                moduleRole: 'widget',
+                storageMode: 'file',
+                sourcePath: 'modules/metahub/quiz-widget.ts',
+                sourceCode: 'export default class NewModule {}'
+            })
+        ).rejects.toThrow('File-backed module source creates require an expected source checksum')
+
+        expect(write).not.toHaveBeenCalled()
+        expect(mockCompileModuleSource).not.toHaveBeenCalled()
+        expect(mockInsertStoredMetahubModule).not.toHaveBeenCalled()
+    })
+
+    it('maps missing external file-backed source creates to a domain validation error without absolute paths', async () => {
+        const absolutePath = '/tmp/upl-storage/metahubs/metahub-1/branches/main/modules/general/shared.ts'
+        const missingFileError = Object.assign(new Error(`ENOENT: no such file or directory, open '${absolutePath}'`), {
+            code: 'ENOENT'
+        })
+        const sourceFileService = {
+            buildDefaultSourcePath: jest.fn(() => 'modules/general/shared.ts'),
+            read: jest.fn(async () => {
+                throw missingFileError
+            }),
+            write: jest.fn()
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[2]
+        const fileService = new MetahubModulesService(executor, schemaService, sourceFileService)
+
+        ;(executor.query as jest.Mock).mockResolvedValue([{ available: true }])
+        mockFindStoredMetahubModuleBySourcePath.mockResolvedValue(null)
+
+        const create = () =>
+            fileService.createModule('metahub-1', {
+                codename: 'SharedHelpers',
+                presentation: {
+                    name: {
+                        _primary: 'en',
+                        locales: {
+                            en: { content: 'Shared helpers' }
+                        }
+                    }
+                },
+                attachedToKind: 'general',
+                attachedToId: null,
+                moduleRole: 'library',
+                storageMode: 'file',
+                sourcePath: 'modules/general/shared.ts'
+            })
+
+        await expect(create()).rejects.toMatchObject({
+            message: 'File-backed module source file is missing',
+            details: {
+                sourcePath: 'modules/general/shared.ts',
+                messageCode: 'modules.sourcePath.missing'
+            }
+        })
+        await expect(create()).rejects.not.toThrow(absolutePath)
+
+        expect(mockCompileModuleSource).not.toHaveBeenCalled()
+        expect(mockInsertStoredMetahubModule).not.toHaveBeenCalled()
+    })
+
+    it('rechecks missing file-backed create targets immediately before writing source files', async () => {
+        const write = jest.fn()
+        const remove = jest.fn()
+        const missingFileError = Object.assign(new Error('missing source file'), { code: 'ENOENT' })
+        const read = jest.fn().mockRejectedValueOnce(missingFileError).mockRejectedValueOnce(missingFileError).mockResolvedValueOnce({
+            sourceCode: 'export default class RacingModule {}',
+            checksum: 'racing-file-checksum',
+            sourcePath: 'modules/metahub/quiz-widget.ts',
+            absolutePath: '/tmp/modules/metahub/quiz-widget.ts'
+        })
+        const sourceFileService = {
+            buildDefaultSourcePath: jest.fn(() => 'modules/metahub/quiz-widget.ts'),
+            write,
+            read,
+            delete: remove
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[2]
+        const fileService = new MetahubModulesService(executor, schemaService, sourceFileService)
+
+        ;(executor.query as jest.Mock).mockResolvedValue([{ available: true }])
+        mockFindStoredMetahubModuleBySourcePath.mockResolvedValue(null)
+
+        await expect(
+            fileService.createModule('metahub-1', {
+                codename: 'QuizWidget',
+                presentation: {
+                    name: {
+                        _primary: 'en',
+                        locales: {
+                            en: { content: 'Quiz widget' }
+                        }
+                    }
+                },
+                attachedToKind: 'metahub',
+                attachedToId: 'metahub-1',
+                moduleRole: 'widget',
+                storageMode: 'file',
+                sourcePath: 'modules/metahub/quiz-widget.ts',
+                sourceCode: 'export default class NewModule {}'
+            })
+        ).rejects.toThrow('File-backed module source was created by another writer')
+
+        expect(mockInsertStoredMetahubModule).not.toHaveBeenCalled()
+        expect(mockDeleteStoredMetahubModuleById).not.toHaveBeenCalled()
+        expect(mockIncrementVersion).not.toHaveBeenCalled()
+        expect(write).not.toHaveBeenCalled()
+    })
+
+    it('returns hydrated source metadata after creating a file-backed module with a new source file', async () => {
+        const sourceCode = 'export default class QuizWidgetModule {}'
+        const sourceChecksum = computeTestChecksum(sourceCode)
+        const missingFileError = Object.assign(new Error('missing source file'), { code: 'ENOENT' })
+        const read = jest
+            .fn()
+            .mockRejectedValueOnce(missingFileError)
+            .mockRejectedValueOnce(missingFileError)
+            .mockRejectedValueOnce(missingFileError)
+            .mockResolvedValueOnce({
+                sourceCode,
+                checksum: sourceChecksum,
+                sourcePath: 'modules/metahub/quiz-widget.ts',
+                absolutePath: '/tmp/modules/metahub/quiz-widget.ts'
+            })
+        const write = jest.fn()
+        const sourceFileService = {
+            buildDefaultSourcePath: jest.fn(() => 'modules/metahub/quiz-widget.ts'),
+            read,
+            write,
+            delete: jest.fn()
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[2]
+        const fileService = new MetahubModulesService(executor, schemaService, sourceFileService)
+        mockInsertStoredMetahubModule.mockResolvedValue(
+            createStoredModuleRow({
+                source_code: null,
+                storage_mode: 'file',
+                source_path: 'modules/metahub/quiz-widget.ts',
+                source_checksum: sourceChecksum,
+                source_last_read_at: '2026-06-02T00:00:00.000Z',
+                source_last_compile_status: 'success'
+            })
+        )
+        ;(executor.query as jest.Mock).mockResolvedValue([{ available: true }])
+        mockFindStoredMetahubModuleBySourcePath.mockResolvedValue(null)
+
+        const result = await fileService.createModule('metahub-1', {
+            codename: 'QuizWidget',
+            presentation: {
+                name: {
+                    _primary: 'en',
+                    locales: {
+                        en: { content: 'Quiz widget' }
+                    }
+                }
+            },
+            attachedToKind: 'metahub',
+            attachedToId: 'metahub-1',
+            moduleRole: 'widget',
+            storageMode: 'file',
+            sourcePath: 'modules/metahub/quiz-widget.ts',
+            sourceCode
+        })
+
+        expect(write).toHaveBeenCalledWith({ metahubId: 'metahub-1', branchSlug: schemaName }, 'modules/metahub/quiz-widget.ts', sourceCode)
+        expect(result.sourceCode).toBe(sourceCode)
+        expect(result.sourceStatus).toBe('ready')
+        expect(result.sourceStorage.content).toBe(sourceCode)
+        expect(result.sourceStorage.status).toBe('ready')
+        expect(result.sourceStorage.checksum).toBe(sourceChecksum)
+        expect(result.sourceStorage.absolutePath).toBe('/tmp/modules/metahub/quiz-widget.ts')
+    })
+
+    it('removes a newly written source file when the surrounding create transaction commit fails', async () => {
+        const sourceCode = 'export default class QuizWidgetModule {}'
+        const sourceChecksum = computeTestChecksum(sourceCode)
+        const missingFileError = Object.assign(new Error('missing source file'), { code: 'ENOENT' })
+        const read = jest
+            .fn()
+            .mockRejectedValueOnce(missingFileError)
+            .mockRejectedValueOnce(missingFileError)
+            .mockRejectedValueOnce(missingFileError)
+            .mockResolvedValueOnce({
+                sourceCode,
+                checksum: sourceChecksum,
+                sourcePath: 'modules/metahub/quiz-widget.ts',
+                absolutePath: '/tmp/modules/metahub/quiz-widget.ts'
+            })
+            .mockResolvedValueOnce({
+                sourceCode,
+                checksum: sourceChecksum,
+                sourcePath: 'modules/metahub/quiz-widget.ts',
+                absolutePath: '/tmp/modules/metahub/quiz-widget.ts'
+            })
+        const write = jest.fn()
+        const remove = jest.fn()
+        const commitFailingExecutor = {
+            query: jest.fn(async () => [{ available: true }]),
+            transaction: jest.fn(async (callback: (tx: unknown) => Promise<unknown>) => {
+                await callback(commitFailingExecutor)
+                throw new Error('transaction commit failed')
+            }),
+            isReleased: jest.fn(() => false)
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[0]
+        const sourceFileService = {
+            buildDefaultSourcePath: jest.fn(() => 'modules/metahub/quiz-widget.ts'),
+            read,
+            write,
+            delete: remove
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[2]
+        const fileService = new MetahubModulesService(commitFailingExecutor, schemaService, sourceFileService)
+        mockInsertStoredMetahubModule.mockResolvedValue(
+            createStoredModuleRow({
+                source_code: null,
+                storage_mode: 'file',
+                source_path: 'modules/metahub/quiz-widget.ts',
+                source_checksum: sourceChecksum
+            })
+        )
+        mockFindStoredMetahubModuleBySourcePath.mockResolvedValue(null)
+
+        await expect(
+            fileService.createModule('metahub-1', {
+                codename: 'QuizWidget',
+                presentation: {
+                    name: {
+                        _primary: 'en',
+                        locales: {
+                            en: { content: 'Quiz widget' }
+                        }
+                    }
+                },
+                attachedToKind: 'metahub',
+                attachedToId: 'metahub-1',
+                moduleRole: 'widget',
+                storageMode: 'file',
+                sourcePath: 'modules/metahub/quiz-widget.ts',
+                sourceCode
+            })
+        ).rejects.toThrow('transaction commit failed')
+
+        expect(write).toHaveBeenCalledWith({ metahubId: 'metahub-1', branchSlug: schemaName }, 'modules/metahub/quiz-widget.ts', sourceCode)
+        expect(remove).toHaveBeenCalledWith({ metahubId: 'metahub-1', branchSlug: schemaName }, 'modules/metahub/quiz-widget.ts')
+    })
+
+    it('hydrates schema-scoped file-backed modules when a metahub id is provided', async () => {
+        const sourceCode = 'export default class ActionModule {}'
+        const sourceChecksum = computeTestChecksum(sourceCode)
+        const sourceFileService = {
+            buildDefaultSourcePath: jest.fn(() => 'modules/object/action-module.ts'),
+            read: jest.fn(async () => ({
+                sourceCode,
+                checksum: sourceChecksum,
+                sourcePath: 'modules/object/action-module.ts',
+                absolutePath: '/tmp/modules/object/action-module.ts'
+            })),
+            write: jest.fn(),
+            delete: jest.fn()
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[2]
+        const fileService = new MetahubModulesService(executor, schemaService, sourceFileService)
+        mockFindStoredMetahubModuleById.mockResolvedValue(
+            createStoredModuleRow({
+                source_code: null,
+                storage_mode: 'file',
+                source_path: 'modules/object/action-module.ts',
+                source_checksum: sourceChecksum
+            })
+        )
+
+        const result = await fileService.getModuleByIdInSchema(schemaName, 'module-1', executor, 'metahub-1')
+
+        expect(sourceFileService.read).toHaveBeenCalledWith(
+            { metahubId: 'metahub-1', branchSlug: schemaName },
+            'modules/object/action-module.ts'
+        )
+        expect(result?.sourceCode).toBe(sourceCode)
+        expect(result?.sourceStorage.content).toBe(sourceCode)
+        expect(result?.sourceStorage.status).toBe('ready')
+        expect(result?.sourceStorage.absolutePath).toBe('/tmp/modules/object/action-module.ts')
+    })
+
+    it('wraps file-backed source writes in a database advisory lock', async () => {
+        const sourceCode = 'export default class QuizWidgetModule {}'
+        const sourceChecksum = computeTestChecksum(sourceCode)
+        const missingFileError = Object.assign(new Error('missing source file'), { code: 'ENOENT' })
+        const sourceFileService = {
+            buildDefaultSourcePath: jest.fn(() => 'modules/metahub/quiz-widget.ts'),
+            read: jest
+                .fn()
+                .mockRejectedValueOnce(missingFileError)
+                .mockRejectedValueOnce(missingFileError)
+                .mockRejectedValueOnce(missingFileError)
+                .mockResolvedValueOnce({
+                    sourceCode,
+                    checksum: sourceChecksum,
+                    sourcePath: 'modules/metahub/quiz-widget.ts',
+                    absolutePath: '/tmp/modules/metahub/quiz-widget.ts'
+                }),
+            write: jest.fn(),
+            delete: jest.fn()
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[2]
+        const fileService = new MetahubModulesService(executor, schemaService, sourceFileService)
+        mockInsertStoredMetahubModule.mockResolvedValue(
+            createStoredModuleRow({
+                source_code: null,
+                storage_mode: 'file',
+                source_path: 'modules/metahub/quiz-widget.ts',
+                source_checksum: sourceChecksum
+            })
+        )
+        ;(executor.query as jest.Mock).mockResolvedValue([{ available: true }])
+        mockFindStoredMetahubModuleBySourcePath.mockResolvedValue(null)
+
+        await fileService.createModule('metahub-1', {
+            codename: 'QuizWidget',
+            presentation: {
+                name: {
+                    _primary: 'en',
+                    locales: {
+                        en: { content: 'Quiz widget' }
+                    }
+                }
+            },
+            attachedToKind: 'metahub',
+            attachedToId: 'metahub-1',
+            moduleRole: 'widget',
+            storageMode: 'file',
+            sourcePath: 'modules/metahub/quiz-widget.ts',
+            sourceCode
+        })
+
+        expect(executor.query).toHaveBeenCalledWith('SELECT pg_advisory_xact_lock(hashtext($1))', [
+            `metahub-module-source:metahub-1:${schemaName}:modules/metahub/quiz-widget.ts`
+        ])
     })
 
     it('accepts object module attachments for the direct standard object kind', async () => {
@@ -467,6 +935,1110 @@ describe('MetahubModulesService', () => {
         )
     })
 
+    it('requires an expected checksum before writing file-backed source updates', async () => {
+        const write = jest.fn()
+        const sourceFileService = {
+            buildDefaultSourcePath: jest.fn(() => 'modules/metahub/quiz-widget.ts'),
+            write,
+            read: jest.fn(async () => ({
+                sourceCode: 'export default class ExistingModule {}',
+                checksum: 'old-source-checksum',
+                sourcePath: 'modules/metahub/quiz-widget.ts',
+                absolutePath: '/tmp/modules/metahub/quiz-widget.ts'
+            }))
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[2]
+        const fileService = new MetahubModulesService(executor, schemaService, sourceFileService)
+        const existing = createStoredModuleRow({
+            storage_mode: 'file',
+            source_path: 'modules/metahub/quiz-widget.ts',
+            source_code: null,
+            source_checksum: 'old-source-checksum'
+        })
+
+        ;(executor.query as jest.Mock).mockResolvedValue([{ available: true }])
+        mockFindStoredMetahubModuleById.mockResolvedValue(existing)
+        mockFindStoredMetahubModuleBySourcePath.mockResolvedValue(existing)
+
+        await expect(
+            fileService.updateModule('metahub-1', 'module-1', {
+                storageMode: 'file',
+                sourcePath: 'modules/metahub/quiz-widget.ts',
+                sourceCode: 'export default class BrokenModule {',
+                expectedVersion: 1
+            })
+        ).rejects.toThrow('File-backed module source updates require an expected source checksum')
+
+        expect(write).not.toHaveBeenCalled()
+        expect(mockCompileModuleSource).not.toHaveBeenCalled()
+        expect(mockIncrementVersion).not.toHaveBeenCalled()
+    })
+
+    it('requires an expected module version before file-backed source updates', async () => {
+        const write = jest.fn()
+        const sourceFileService = {
+            buildDefaultSourcePath: jest.fn(() => 'modules/metahub/quiz-widget.ts'),
+            write,
+            read: jest.fn()
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[2]
+        const fileService = new MetahubModulesService(executor, schemaService, sourceFileService)
+
+        mockFindStoredMetahubModuleById.mockResolvedValue(
+            createStoredModuleRow({
+                storage_mode: 'file',
+                source_path: 'modules/metahub/quiz-widget.ts',
+                source_code: null,
+                source_checksum: 'old-source-checksum'
+            })
+        )
+
+        await expect(
+            fileService.updateModule('metahub-1', 'module-1', {
+                storageMode: 'file',
+                sourcePath: 'modules/metahub/quiz-widget.ts',
+                sourceCode: 'export default class UpdatedModule {}',
+                expectedSourceChecksum: 'old-source-checksum'
+            })
+        ).rejects.toThrow('File-backed module updates require an expected module version')
+
+        expect(sourceFileService.read).not.toHaveBeenCalled()
+        expect(write).not.toHaveBeenCalled()
+        expect(mockCompileModuleSource).not.toHaveBeenCalled()
+        expect(mockUpdateWithVersionCheck).not.toHaveBeenCalled()
+        expect(mockIncrementVersion).not.toHaveBeenCalled()
+    })
+
+    it('writes file-backed source updates when the expected checksum matches', async () => {
+        let currentSourceCode = 'export default class ExistingModule {}'
+        let currentChecksum = 'old-source-checksum'
+        const write = jest.fn(async (_context: unknown, _sourcePath: string, sourceCode: string) => {
+            currentSourceCode = sourceCode
+            currentChecksum = 'updated-source-checksum'
+        })
+        const sourceFileService = {
+            buildDefaultSourcePath: jest.fn(() => 'modules/metahub/quiz-widget.ts'),
+            write,
+            read: jest.fn(async () => ({
+                sourceCode: currentSourceCode,
+                checksum: currentChecksum,
+                sourcePath: 'modules/metahub/quiz-widget.ts',
+                absolutePath: '/tmp/modules/metahub/quiz-widget.ts'
+            }))
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[2]
+        const fileService = new MetahubModulesService(executor, schemaService, sourceFileService)
+        const existing = createStoredModuleRow({
+            storage_mode: 'file',
+            source_path: 'modules/metahub/quiz-widget.ts',
+            source_code: null,
+            source_checksum: 'old-source-checksum'
+        })
+
+        ;(executor.query as jest.Mock).mockResolvedValue([{ available: true }])
+        mockFindStoredMetahubModuleById.mockResolvedValue(existing)
+        mockFindStoredMetahubModuleBySourcePath.mockResolvedValue(existing)
+        mockUpdateWithVersionCheck.mockResolvedValue(
+            createStoredModuleRow({
+                storage_mode: 'file',
+                source_path: 'modules/metahub/quiz-widget.ts',
+                source_code: null,
+                source_checksum: 'updated-source-checksum'
+            })
+        )
+
+        const result = await fileService.updateModule('metahub-1', 'module-1', {
+            storageMode: 'file',
+            sourcePath: 'modules/metahub/quiz-widget.ts',
+            sourceCode: 'export default class UpdatedModule {}',
+            expectedVersion: 1,
+            expectedSourceChecksum: 'old-source-checksum'
+        })
+
+        expect(write).toHaveBeenCalledWith(
+            { metahubId: 'metahub-1', branchSlug: schemaName },
+            'modules/metahub/quiz-widget.ts',
+            'export default class UpdatedModule {}'
+        )
+        expect(mockCompileModuleSource).toHaveBeenCalledWith(
+            expect.objectContaining({
+                diagnosticFileName: 'modules/metahub/quiz-widget.ts',
+                sourceCode: 'export default class UpdatedModule {}'
+            })
+        )
+        expect(mockUpdateWithVersionCheck).toHaveBeenCalledWith(
+            expect.objectContaining({
+                schemaName,
+                entityId: 'module-1',
+                entityType: 'module',
+                expectedVersion: 1,
+                updateData: expect.objectContaining({
+                    source_code: null,
+                    storage_mode: 'file',
+                    source_path: 'modules/metahub/quiz-widget.ts'
+                })
+            })
+        )
+        expect(result.sourceCode).toBe('export default class UpdatedModule {}')
+        expect(result.sourceStorage.content).toBe('export default class UpdatedModule {}')
+        expect(result.sourceStatus).toBe('ready')
+    })
+
+    it('maps missing external file-backed source updates to a domain validation error without absolute paths', async () => {
+        const absolutePath = '/tmp/upl-storage/metahubs/metahub-1/branches/main/modules/general/shared.ts'
+        const missingFileError = Object.assign(new Error(`ENOENT: no such file or directory, open '${absolutePath}'`), {
+            code: 'ENOENT'
+        })
+        const sourceFileService = {
+            buildDefaultSourcePath: jest.fn(() => 'modules/general/shared.ts'),
+            read: jest.fn(async () => {
+                throw missingFileError
+            }),
+            write: jest.fn(),
+            delete: jest.fn()
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[2]
+        const fileService = new MetahubModulesService(executor, schemaService, sourceFileService)
+        const existing = createStoredModuleRow({
+            id: 'module-1',
+            attached_to_kind: 'general',
+            attached_to_id: null,
+            module_role: 'library',
+            storage_mode: 'file',
+            source_path: 'modules/general/shared.ts',
+            source_code: null,
+            source_checksum: 'old-source-checksum'
+        })
+
+        ;(executor.query as jest.Mock).mockResolvedValue([{ available: true }])
+        mockFindStoredMetahubModuleById.mockResolvedValue(existing)
+        mockFindStoredMetahubModuleBySourcePath.mockResolvedValue(existing)
+
+        const update = () =>
+            fileService.updateModule('metahub-1', 'module-1', {
+                presentation: {
+                    name: {
+                        _primary: 'en',
+                        locales: {
+                            en: { content: 'Shared helpers' }
+                        }
+                    }
+                },
+                expectedVersion: 1
+            })
+
+        await expect(update()).rejects.toMatchObject({
+            message: 'File-backed module source file is missing',
+            details: {
+                sourcePath: 'modules/general/shared.ts',
+                messageCode: 'modules.sourcePath.missing'
+            }
+        })
+        await expect(update()).rejects.not.toThrow(absolutePath)
+
+        expect(mockCompileModuleSource).not.toHaveBeenCalled()
+        expect(mockIncrementVersion).not.toHaveBeenCalled()
+    })
+
+    it('recompiles an existing file-backed module when the external file checksum changed', async () => {
+        const write = jest.fn()
+        const sourceFileService = {
+            buildDefaultSourcePath: jest.fn(() => 'modules/metahub/quiz-widget.ts'),
+            write,
+            read: jest.fn(async () => ({
+                sourceCode: 'export default class UpdatedFromDiskModule {}',
+                checksum: 'new-source-checksum',
+                sourcePath: 'modules/metahub/quiz-widget.ts',
+                absolutePath: '/tmp/modules/metahub/quiz-widget.ts'
+            }))
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[2]
+        const fileService = new MetahubModulesService(executor, schemaService, sourceFileService)
+        const existing = createStoredModuleRow({
+            storage_mode: 'file',
+            source_path: 'modules/metahub/quiz-widget.ts',
+            source_code: null,
+            source_checksum: 'old-source-checksum'
+        })
+
+        ;(executor.query as jest.Mock).mockResolvedValue([{ available: true }])
+        mockFindStoredMetahubModuleById.mockResolvedValue(existing)
+        mockFindStoredMetahubModuleBySourcePath.mockResolvedValue(existing)
+
+        await fileService.updateModule('metahub-1', 'module-1', {
+            isActive: true,
+            expectedVersion: 1,
+            expectedSourceChecksum: 'new-source-checksum'
+        })
+
+        expect(write).not.toHaveBeenCalled()
+        expect(mockCompileModuleSource).toHaveBeenCalledWith(
+            expect.objectContaining({
+                diagnosticFileName: 'modules/metahub/quiz-widget.ts',
+                sourceCode: 'export default class UpdatedFromDiskModule {}'
+            })
+        )
+        expect(mockUpdateWithVersionCheck).toHaveBeenCalledWith(
+            expect.objectContaining({
+                schemaName,
+                entityId: 'module-1',
+                entityType: 'module',
+                expectedVersion: 1,
+                updateData: expect.objectContaining({
+                    source_code: null,
+                    storage_mode: 'file',
+                    source_path: 'modules/metahub/quiz-widget.ts',
+                    source_checksum: 'new-source-checksum',
+                    client_bundle: 'module.exports = class QuizWidgetModule {}',
+                    checksum: 'compiled-checksum'
+                })
+            })
+        )
+    })
+
+    it('skips recompilation for an unchanged file-backed module metadata save', async () => {
+        const write = jest.fn()
+        const sourceFileService = {
+            buildDefaultSourcePath: jest.fn(() => 'modules/metahub/quiz-widget.ts'),
+            write,
+            read: jest.fn(async () => ({
+                sourceCode: 'export default class ExistingModule {}',
+                checksum: 'same-source-checksum',
+                sourcePath: 'modules/metahub/quiz-widget.ts',
+                absolutePath: '/tmp/modules/metahub/quiz-widget.ts'
+            }))
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[2]
+        const fileService = new MetahubModulesService(executor, schemaService, sourceFileService)
+        const existing = createStoredModuleRow({
+            storage_mode: 'file',
+            source_path: 'modules/metahub/quiz-widget.ts',
+            source_code: null,
+            source_checksum: 'same-source-checksum'
+        })
+
+        ;(executor.query as jest.Mock).mockResolvedValue([{ available: true }])
+        mockFindStoredMetahubModuleById.mockResolvedValue(existing)
+        mockFindStoredMetahubModuleBySourcePath.mockResolvedValue(existing)
+
+        await fileService.updateModule('metahub-1', 'module-1', {
+            isActive: true,
+            expectedVersion: 1,
+            expectedSourceChecksum: 'same-source-checksum'
+        })
+
+        expect(write).not.toHaveBeenCalled()
+        expect(mockCompileModuleSource).not.toHaveBeenCalled()
+        expect(mockUpdateWithVersionCheck).toHaveBeenCalledWith(
+            expect.objectContaining({
+                schemaName,
+                entityId: 'module-1',
+                entityType: 'module',
+                expectedVersion: 1,
+                updateData: expect.objectContaining({
+                    source_code: null,
+                    storage_mode: 'file',
+                    source_path: 'modules/metahub/quiz-widget.ts',
+                    source_checksum: 'same-source-checksum',
+                    client_bundle: 'module.exports = class QuizWidgetModule {}',
+                    checksum: 'compiled-checksum'
+                })
+            })
+        )
+    })
+
+    it('creates a missing file-backed source file when converting an inline module with source content', async () => {
+        const write = jest.fn()
+        const missingFileError = Object.assign(new Error('missing source file'), { code: 'ENOENT' })
+        const sourceFileService = {
+            buildDefaultSourcePath: jest.fn(() => 'modules/metahub/quiz-widget.ts'),
+            write,
+            read: jest.fn(async () => {
+                throw missingFileError
+            })
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[2]
+        const fileService = new MetahubModulesService(executor, schemaService, sourceFileService)
+        const existing = createStoredModuleRow({
+            storage_mode: 'inline',
+            source_path: null,
+            source_code: 'export default class ExistingInlineModule {}',
+            source_checksum: null
+        })
+
+        ;(executor.query as jest.Mock).mockResolvedValue([{ available: true }])
+        mockFindStoredMetahubModuleById.mockResolvedValue(existing)
+        mockFindStoredMetahubModuleBySourcePath.mockResolvedValue(null)
+
+        await fileService.updateModule('metahub-1', 'module-1', {
+            storageMode: 'file',
+            sourcePath: 'modules/metahub/quiz-widget.ts',
+            sourceCode: 'export default class ConvertedModule {}',
+            expectedVersion: 1
+        })
+
+        expect(write).toHaveBeenCalledWith(
+            { metahubId: 'metahub-1', branchSlug: schemaName },
+            'modules/metahub/quiz-widget.ts',
+            'export default class ConvertedModule {}'
+        )
+        expect(mockCompileModuleSource).toHaveBeenCalledWith(
+            expect.objectContaining({
+                diagnosticFileName: 'modules/metahub/quiz-widget.ts',
+                sourceCode: 'export default class ConvertedModule {}'
+            })
+        )
+    })
+
+    it('deletes the previous file-backed source file after a successful source path change when it has no active owner', async () => {
+        const deleteFile = jest.fn()
+        const sourceFileService = {
+            buildDefaultSourcePath: jest.fn(() => 'modules/metahub/quiz-widget-v2.ts'),
+            write: jest.fn(),
+            delete: deleteFile,
+            read: jest.fn(async (_scope, sourcePath: string) => ({
+                sourceCode:
+                    sourcePath === 'modules/metahub/quiz-widget.ts'
+                        ? 'export default class OldModule {}'
+                        : 'export default class MovedModule {}',
+                checksum: sourcePath === 'modules/metahub/quiz-widget.ts' ? 'old-source-checksum' : 'moved-source-checksum',
+                sourcePath,
+                absolutePath: `/tmp/${sourcePath}`
+            }))
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[2]
+        const fileService = new MetahubModulesService(executor, schemaService, sourceFileService)
+        const existing = createStoredModuleRow({
+            storage_mode: 'file',
+            source_path: 'modules/metahub/quiz-widget.ts',
+            source_code: null,
+            source_checksum: 'old-source-checksum'
+        })
+
+        ;(executor.query as jest.Mock).mockResolvedValue([{ available: true }])
+        mockFindStoredMetahubModuleById.mockResolvedValue(existing)
+        mockFindStoredMetahubModuleBySourcePath.mockImplementation(async (_exec, _schema, sourcePath: string) => {
+            if (sourcePath === 'modules/metahub/quiz-widget-v2.ts') {
+                return existing
+            }
+            return null
+        })
+        mockUpdateWithVersionCheck.mockResolvedValue(
+            createStoredModuleRow({
+                storage_mode: 'file',
+                source_path: 'modules/metahub/quiz-widget-v2.ts',
+                source_code: null,
+                source_checksum: 'moved-source-checksum'
+            })
+        )
+
+        await fileService.updateModule('metahub-1', 'module-1', {
+            storageMode: 'file',
+            sourcePath: 'modules/metahub/quiz-widget-v2.ts',
+            expectedVersion: 1,
+            expectedSourceChecksum: 'old-source-checksum'
+        })
+
+        expect(deleteFile).toHaveBeenCalledWith({ metahubId: 'metahub-1', branchSlug: schemaName }, 'modules/metahub/quiz-widget.ts')
+    })
+
+    it('keeps file-backed source path updates successful when old source cleanup fails', async () => {
+        const deleteFile = jest.fn().mockRejectedValue(new Error('cleanup failed'))
+        const sourceFileService = {
+            buildDefaultSourcePath: jest.fn(() => 'modules/metahub/quiz-widget-v2.ts'),
+            write: jest.fn(),
+            delete: deleteFile,
+            read: jest.fn(async (_scope, sourcePath: string) => ({
+                sourceCode:
+                    sourcePath === 'modules/metahub/quiz-widget.ts'
+                        ? 'export default class OldModule {}'
+                        : 'export default class MovedModule {}',
+                checksum: sourcePath === 'modules/metahub/quiz-widget.ts' ? 'old-source-checksum' : 'moved-source-checksum',
+                sourcePath,
+                absolutePath: `/tmp/${sourcePath}`
+            }))
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[2]
+        const fileService = new MetahubModulesService(executor, schemaService, sourceFileService)
+        const existing = createStoredModuleRow({
+            storage_mode: 'file',
+            source_path: 'modules/metahub/quiz-widget.ts',
+            source_code: null,
+            source_checksum: 'old-source-checksum'
+        })
+        const updated = createStoredModuleRow({
+            storage_mode: 'file',
+            source_path: 'modules/metahub/quiz-widget-v2.ts',
+            source_code: null,
+            source_checksum: 'moved-source-checksum'
+        })
+
+        ;(executor.query as jest.Mock).mockResolvedValue([{ available: true }])
+        mockFindStoredMetahubModuleById.mockResolvedValue(existing)
+        mockFindStoredMetahubModuleBySourcePath.mockImplementation(async (_exec, _schema, sourcePath: string) => {
+            if (sourcePath === 'modules/metahub/quiz-widget-v2.ts') {
+                return existing
+            }
+            return null
+        })
+        mockUpdateWithVersionCheck.mockResolvedValue(updated)
+
+        await expect(
+            fileService.updateModule('metahub-1', 'module-1', {
+                storageMode: 'file',
+                sourcePath: 'modules/metahub/quiz-widget-v2.ts',
+                expectedVersion: 1,
+                expectedSourceChecksum: 'old-source-checksum'
+            })
+        ).resolves.toMatchObject({
+            sourcePath: 'modules/metahub/quiz-widget-v2.ts',
+            sourceStatus: 'ready'
+        })
+
+        expect(deleteFile).toHaveBeenCalledWith({ metahubId: 'metahub-1', branchSlug: schemaName }, 'modules/metahub/quiz-widget.ts')
+    })
+
+    it('restores pre-existing target file content when file-backed update persistence fails', async () => {
+        const write = jest.fn()
+        const deleteFile = jest.fn()
+        const sourceFileService = {
+            buildDefaultSourcePath: jest.fn(() => 'modules/metahub/quiz-widget.ts'),
+            write,
+            delete: deleteFile,
+            read: jest
+                .fn()
+                .mockResolvedValueOnce({
+                    sourceCode: 'export default class ExistingTargetFile {}',
+                    checksum: 'target-source-checksum',
+                    sourcePath: 'modules/metahub/quiz-widget.ts',
+                    absolutePath: '/tmp/modules/metahub/quiz-widget.ts'
+                })
+                .mockResolvedValueOnce({
+                    sourceCode: 'export default class ExistingTargetFile {}',
+                    checksum: 'target-source-checksum',
+                    sourcePath: 'modules/metahub/quiz-widget.ts',
+                    absolutePath: '/tmp/modules/metahub/quiz-widget.ts'
+                })
+                .mockResolvedValueOnce({
+                    sourceCode: 'export default class ExistingTargetFile {}',
+                    checksum: 'target-source-checksum',
+                    sourcePath: 'modules/metahub/quiz-widget.ts',
+                    absolutePath: '/tmp/modules/metahub/quiz-widget.ts'
+                })
+                .mockResolvedValueOnce({
+                    sourceCode: 'export default class ConvertedModule {}',
+                    checksum: computeTestChecksum('export default class ConvertedModule {}'),
+                    sourcePath: 'modules/metahub/quiz-widget.ts',
+                    absolutePath: '/tmp/modules/metahub/quiz-widget.ts'
+                })
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[2]
+        const fileService = new MetahubModulesService(executor, schemaService, sourceFileService)
+        const existing = createStoredModuleRow({
+            storage_mode: 'inline',
+            source_path: null,
+            source_code: 'export default class ExistingInlineModule {}',
+            source_checksum: null
+        })
+
+        ;(executor.query as jest.Mock).mockResolvedValue([{ available: true }])
+        mockFindStoredMetahubModuleById.mockResolvedValue(existing)
+        mockFindStoredMetahubModuleBySourcePath.mockResolvedValue(null)
+        mockUpdateWithVersionCheck.mockRejectedValue(new Error('database update failed'))
+
+        await expect(
+            fileService.updateModule('metahub-1', 'module-1', {
+                storageMode: 'file',
+                sourcePath: 'modules/metahub/quiz-widget.ts',
+                sourceCode: 'export default class ConvertedModule {}',
+                expectedVersion: 1,
+                expectedSourceChecksum: 'target-source-checksum'
+            })
+        ).rejects.toThrow('database update failed')
+
+        expect(write).toHaveBeenNthCalledWith(
+            1,
+            { metahubId: 'metahub-1', branchSlug: schemaName },
+            'modules/metahub/quiz-widget.ts',
+            'export default class ConvertedModule {}'
+        )
+        expect(write).toHaveBeenNthCalledWith(
+            2,
+            { metahubId: 'metahub-1', branchSlug: schemaName },
+            'modules/metahub/quiz-widget.ts',
+            'export default class ExistingTargetFile {}'
+        )
+        expect(deleteFile).not.toHaveBeenCalled()
+    })
+
+    it('restores pre-existing target file content when the surrounding update transaction commit fails', async () => {
+        const previousSource = 'export default class ExistingTargetFile {}'
+        const nextSource = 'export default class ConvertedModule {}'
+        const write = jest.fn()
+        const deleteFile = jest.fn()
+        const commitFailingExecutor = {
+            query: jest.fn(async () => [{ available: true }]),
+            transaction: jest.fn(async (callback: (tx: unknown) => Promise<unknown>) => {
+                await callback(commitFailingExecutor)
+                throw new Error('transaction commit failed')
+            }),
+            isReleased: jest.fn(() => false)
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[0]
+        const sourceFileService = {
+            buildDefaultSourcePath: jest.fn(() => 'modules/metahub/quiz-widget.ts'),
+            write,
+            delete: deleteFile,
+            read: jest
+                .fn()
+                .mockResolvedValueOnce({
+                    sourceCode: previousSource,
+                    checksum: 'target-source-checksum',
+                    sourcePath: 'modules/metahub/quiz-widget.ts',
+                    absolutePath: '/tmp/modules/metahub/quiz-widget.ts'
+                })
+                .mockResolvedValueOnce({
+                    sourceCode: previousSource,
+                    checksum: 'target-source-checksum',
+                    sourcePath: 'modules/metahub/quiz-widget.ts',
+                    absolutePath: '/tmp/modules/metahub/quiz-widget.ts'
+                })
+                .mockResolvedValueOnce({
+                    sourceCode: previousSource,
+                    checksum: 'target-source-checksum',
+                    sourcePath: 'modules/metahub/quiz-widget.ts',
+                    absolutePath: '/tmp/modules/metahub/quiz-widget.ts'
+                })
+                .mockResolvedValueOnce({
+                    sourceCode: nextSource,
+                    checksum: computeTestChecksum(nextSource),
+                    sourcePath: 'modules/metahub/quiz-widget.ts',
+                    absolutePath: '/tmp/modules/metahub/quiz-widget.ts'
+                })
+                .mockResolvedValueOnce({
+                    sourceCode: nextSource,
+                    checksum: computeTestChecksum(nextSource),
+                    sourcePath: 'modules/metahub/quiz-widget.ts',
+                    absolutePath: '/tmp/modules/metahub/quiz-widget.ts'
+                })
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[2]
+        const fileService = new MetahubModulesService(commitFailingExecutor, schemaService, sourceFileService)
+        const existing = createStoredModuleRow({
+            storage_mode: 'inline',
+            source_path: null,
+            source_code: 'export default class ExistingInlineModule {}',
+            source_checksum: null
+        })
+
+        mockFindStoredMetahubModuleById.mockResolvedValue(existing)
+        mockFindStoredMetahubModuleBySourcePath.mockResolvedValue(null)
+        mockUpdateWithVersionCheck.mockResolvedValue(
+            createStoredModuleRow({
+                storage_mode: 'file',
+                source_path: 'modules/metahub/quiz-widget.ts',
+                source_checksum: computeTestChecksum(nextSource)
+            })
+        )
+
+        await expect(
+            fileService.updateModule('metahub-1', 'module-1', {
+                storageMode: 'file',
+                sourcePath: 'modules/metahub/quiz-widget.ts',
+                sourceCode: nextSource,
+                expectedVersion: 1,
+                expectedSourceChecksum: 'target-source-checksum'
+            })
+        ).rejects.toThrow('transaction commit failed')
+
+        expect(write).toHaveBeenNthCalledWith(
+            1,
+            { metahubId: 'metahub-1', branchSlug: schemaName },
+            'modules/metahub/quiz-widget.ts',
+            nextSource
+        )
+        expect(write).toHaveBeenNthCalledWith(
+            2,
+            { metahubId: 'metahub-1', branchSlug: schemaName },
+            'modules/metahub/quiz-widget.ts',
+            previousSource
+        )
+        expect(deleteFile).not.toHaveBeenCalled()
+    })
+
+    it('does not delete a concurrently created source file when create detects a pre-write conflict', async () => {
+        const write = jest.fn()
+        const deleteFile = jest.fn()
+        const sourceFileService = {
+            buildDefaultSourcePath: jest.fn(() => 'modules/metahub/quiz-widget.ts'),
+            write,
+            delete: deleteFile,
+            read: jest
+                .fn()
+                .mockRejectedValueOnce(Object.assign(new Error('missing during prepare'), { code: 'ENOENT' }))
+                .mockRejectedValueOnce(Object.assign(new Error('missing before create'), { code: 'ENOENT' }))
+                .mockResolvedValueOnce({
+                    sourceCode: 'export default class ConcurrentFile {}',
+                    checksum: 'concurrent-source-checksum',
+                    sourcePath: 'modules/metahub/quiz-widget.ts',
+                    absolutePath: '/tmp/modules/metahub/quiz-widget.ts'
+                })
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[2]
+        const fileService = new MetahubModulesService(executor, schemaService, sourceFileService)
+
+        ;(executor.query as jest.Mock).mockResolvedValue([{ available: true }])
+        mockFindStoredMetahubModuleByScope.mockResolvedValue(null)
+        mockFindStoredMetahubModuleBySourcePath.mockResolvedValue(null)
+        mockInsertStoredMetahubModule.mockResolvedValue(createStoredModuleRow({ storage_mode: 'file' }))
+
+        await expect(
+            fileService.createModule('metahub-1', {
+                codename: 'QuizWidget',
+                presentation: {
+                    name: {
+                        _primary: 'en',
+                        locales: {
+                            en: { content: 'Quiz widget' }
+                        }
+                    }
+                },
+                attachedToKind: 'metahub',
+                attachedToId: null,
+                moduleRole: 'widget',
+                storageMode: 'file',
+                sourcePath: 'modules/metahub/quiz-widget.ts',
+                sourceCode: 'export default class QuizWidgetModule {}'
+            })
+        ).rejects.toThrow('File-backed module source was created by another writer')
+
+        expect(write).not.toHaveBeenCalled()
+        expect(deleteFile).not.toHaveBeenCalled()
+    })
+
+    it('rejects existing-file module creates when the source disappears before the locked insert', async () => {
+        const missingFileError = Object.assign(new Error('missing source file'), { code: 'ENOENT' })
+        const sourceFileService = {
+            buildDefaultSourcePath: jest.fn(() => 'modules/general/shared.ts'),
+            write: jest.fn(),
+            delete: jest.fn(),
+            read: jest
+                .fn()
+                .mockResolvedValueOnce({
+                    sourceCode: 'export default class ExistingSharedModule {}',
+                    checksum: 'existing-source-checksum',
+                    sourcePath: 'modules/general/shared.ts',
+                    absolutePath: '/tmp/modules/general/shared.ts'
+                })
+                .mockRejectedValueOnce(missingFileError)
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[2]
+        const fileService = new MetahubModulesService(executor, schemaService, sourceFileService)
+
+        ;(executor.query as jest.Mock).mockResolvedValue([{ available: true }])
+        mockFindStoredMetahubModuleByScope.mockResolvedValue(null)
+        mockFindStoredMetahubModuleBySourcePath.mockResolvedValue(null)
+
+        await expect(
+            fileService.createModule('metahub-1', {
+                codename: 'SharedModule',
+                presentation: {
+                    name: {
+                        _primary: 'en',
+                        locales: {
+                            en: { content: 'Shared module' }
+                        }
+                    }
+                },
+                attachedToKind: 'general',
+                attachedToId: null,
+                moduleRole: 'library',
+                storageMode: 'file',
+                sourcePath: 'modules/general/shared.ts'
+            })
+        ).rejects.toMatchObject({
+            message: 'File-backed module source file is missing',
+            details: {
+                sourcePath: 'modules/general/shared.ts',
+                messageCode: 'modules.sourcePath.missing'
+            }
+        })
+
+        expect(executor.transaction).toHaveBeenCalled()
+        expect(mockInsertStoredMetahubModule).not.toHaveBeenCalled()
+    })
+
+    it('rejects existing-file module updates when the source changes before the locked update', async () => {
+        const sourceFileService = {
+            buildDefaultSourcePath: jest.fn(() => 'modules/metahub/quiz-widget.ts'),
+            write: jest.fn(),
+            delete: jest.fn(),
+            read: jest
+                .fn()
+                .mockResolvedValueOnce({
+                    sourceCode: 'export default class ExistingModule {}',
+                    checksum: 'old-source-checksum',
+                    sourcePath: 'modules/metahub/quiz-widget.ts',
+                    absolutePath: '/tmp/modules/metahub/quiz-widget.ts'
+                })
+                .mockResolvedValueOnce({
+                    sourceCode: 'export default class ConcurrentlyChangedModule {}',
+                    checksum: 'concurrent-source-checksum',
+                    sourcePath: 'modules/metahub/quiz-widget.ts',
+                    absolutePath: '/tmp/modules/metahub/quiz-widget.ts'
+                })
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[2]
+        const fileService = new MetahubModulesService(executor, schemaService, sourceFileService)
+
+        ;(executor.query as jest.Mock).mockResolvedValue([{ available: true }])
+        mockFindStoredMetahubModuleById.mockResolvedValue(
+            createStoredModuleRow({
+                storage_mode: 'file',
+                source_path: 'modules/metahub/quiz-widget.ts',
+                source_code: null,
+                source_checksum: 'old-source-checksum'
+            })
+        )
+        mockFindStoredMetahubModuleBySourcePath.mockResolvedValue(createStoredModuleRow({ id: 'module-1' }))
+
+        await expect(
+            fileService.updateModule('metahub-1', 'module-1', {
+                isActive: false,
+                expectedVersion: 1,
+                expectedSourceChecksum: 'old-source-checksum'
+            })
+        ).rejects.toMatchObject({
+            message: 'File-backed module source was changed by another writer',
+            details: {
+                sourcePath: 'modules/metahub/quiz-widget.ts',
+                expectedSourceChecksum: 'old-source-checksum',
+                actualSourceChecksum: 'concurrent-source-checksum',
+                messageCode: 'modules.sourcePath.checksumConflict'
+            }
+        })
+
+        expect(executor.transaction).toHaveBeenCalled()
+        expect(mockUpdateWithVersionCheck).not.toHaveBeenCalled()
+        expect(mockIncrementVersion).not.toHaveBeenCalled()
+    })
+
+    it('rejects stale file-backed updates before writing the source file', async () => {
+        const write = jest.fn()
+        const sourceFileService = {
+            buildDefaultSourcePath: jest.fn(() => 'modules/metahub/quiz-widget.ts'),
+            write,
+            delete: jest.fn(),
+            read: jest.fn()
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[2]
+        const fileService = new MetahubModulesService(executor, schemaService, sourceFileService)
+
+        ;(executor.query as jest.Mock).mockResolvedValue([{ available: true }])
+        mockFindStoredMetahubModuleById.mockResolvedValue(
+            createStoredModuleRow({
+                _upl_version: 2,
+                storage_mode: 'file',
+                source_path: 'modules/metahub/quiz-widget.ts',
+                source_code: null,
+                source_checksum: 'current-source-checksum'
+            })
+        )
+        mockFindStoredMetahubModuleBySourcePath.mockResolvedValue(createStoredModuleRow({ id: 'module-1' }))
+
+        await expect(
+            fileService.updateModule('metahub-1', 'module-1', {
+                storageMode: 'file',
+                sourcePath: 'modules/metahub/quiz-widget.ts',
+                sourceCode: 'export default class UpdatedModule {}',
+                expectedVersion: 1,
+                expectedSourceChecksum: 'current-source-checksum'
+            })
+        ).rejects.toThrow('Optimistic lock conflict')
+
+        expect(write).not.toHaveBeenCalled()
+        expect(mockUpdateWithVersionCheck).not.toHaveBeenCalled()
+        expect(mockIncrementVersion).not.toHaveBeenCalled()
+    })
+
+    it('updates stored file checksums and bundles for metadata-only updates when the client observed the changed file checksum', async () => {
+        const sourceFileService = {
+            buildDefaultSourcePath: jest.fn(() => 'modules/metahub/quiz-widget.ts'),
+            write: jest.fn(),
+            read: jest.fn(async () => ({
+                sourceCode: 'export default class ExternallyChangedModule {}',
+                checksum: 'new-source-checksum',
+                sourcePath: 'modules/metahub/quiz-widget.ts',
+                absolutePath: '/tmp/modules/metahub/quiz-widget.ts'
+            }))
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[2]
+        const fileService = new MetahubModulesService(executor, schemaService, sourceFileService)
+        const existing = createStoredModuleRow({
+            storage_mode: 'file',
+            source_path: 'modules/metahub/quiz-widget.ts',
+            source_code: null,
+            source_checksum: 'old-source-checksum',
+            source_last_read_at: '2026-06-01T10:00:00.000Z',
+            source_last_compile_at: '2026-06-01T10:01:00.000Z',
+            source_last_compile_status: 'success'
+        })
+
+        ;(executor.query as jest.Mock).mockResolvedValue([{ available: true }])
+        mockFindStoredMetahubModuleById.mockResolvedValue(existing)
+        mockFindStoredMetahubModuleBySourcePath.mockResolvedValue(existing)
+
+        await fileService.updateModule('metahub-1', 'module-1', {
+            presentation: {
+                name: {
+                    _primary: 'en',
+                    locales: {
+                        en: { content: 'Renamed quiz widget' }
+                    }
+                }
+            },
+            expectedVersion: 1,
+            expectedSourceChecksum: 'new-source-checksum'
+        })
+
+        expect(mockCompileModuleSource).toHaveBeenCalledWith(
+            expect.objectContaining({
+                diagnosticFileName: 'modules/metahub/quiz-widget.ts',
+                sourceCode: 'export default class ExternallyChangedModule {}'
+            })
+        )
+        expect(mockUpdateWithVersionCheck).toHaveBeenCalledWith(
+            expect.objectContaining({
+                schemaName,
+                entityId: 'module-1',
+                entityType: 'module',
+                expectedVersion: 1,
+                updateData: expect.objectContaining({
+                    source_checksum: 'new-source-checksum',
+                    source_last_compile_status: 'success'
+                })
+            })
+        )
+    })
+
+    it('rejects metadata-only file-backed saves when the external file changed after the client loaded it', async () => {
+        const sourceFileService = {
+            buildDefaultSourcePath: jest.fn(() => 'modules/metahub/quiz-widget.ts'),
+            write: jest.fn(),
+            read: jest.fn(async () => ({
+                sourceCode: 'export default class ExternallyChangedModule {}',
+                checksum: 'new-source-checksum',
+                sourcePath: 'modules/metahub/quiz-widget.ts',
+                absolutePath: '/tmp/modules/metahub/quiz-widget.ts'
+            }))
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[2]
+        const fileService = new MetahubModulesService(executor, schemaService, sourceFileService)
+
+        ;(executor.query as jest.Mock).mockResolvedValue([{ available: true }])
+        mockFindStoredMetahubModuleById.mockResolvedValue(
+            createStoredModuleRow({
+                storage_mode: 'file',
+                source_path: 'modules/metahub/quiz-widget.ts',
+                source_code: null,
+                source_checksum: 'old-source-checksum'
+            })
+        )
+        mockFindStoredMetahubModuleBySourcePath.mockResolvedValue(createStoredModuleRow({ id: 'module-1' }))
+
+        await expect(
+            fileService.updateModule('metahub-1', 'module-1', {
+                presentation: {
+                    name: {
+                        _primary: 'en',
+                        locales: {
+                            en: { content: 'Renamed quiz widget' }
+                        }
+                    }
+                },
+                expectedVersion: 1,
+                expectedSourceChecksum: 'old-source-checksum'
+            })
+        ).rejects.toMatchObject({
+            message: 'File-backed module source was changed by another writer',
+            details: {
+                sourcePath: 'modules/metahub/quiz-widget.ts',
+                expectedSourceChecksum: 'old-source-checksum',
+                actualSourceChecksum: 'new-source-checksum',
+                messageCode: 'modules.sourcePath.checksumConflict'
+            }
+        })
+
+        expect(mockCompileModuleSource).not.toHaveBeenCalled()
+        expect(mockUpdateWithVersionCheck).not.toHaveBeenCalled()
+        expect(mockIncrementVersion).not.toHaveBeenCalled()
+    })
+
+    it('converts file-backed modules to inline from the current file when the expected checksum matches', async () => {
+        const deleteFile = jest.fn()
+        const sourceFileService = {
+            buildDefaultSourcePath: jest.fn(() => 'modules/metahub/quiz-widget.ts'),
+            write: jest.fn(),
+            delete: deleteFile,
+            read: jest.fn().mockResolvedValue({
+                sourceCode: 'export default class CurrentFileModule {}',
+                checksum: 'current-source-checksum',
+                sourcePath: 'modules/metahub/quiz-widget.ts',
+                absolutePath: '/tmp/modules/metahub/quiz-widget.ts'
+            })
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[2]
+        const fileService = new MetahubModulesService(executor, schemaService, sourceFileService)
+
+        ;(executor.query as jest.Mock).mockResolvedValue([{ available: true }])
+        mockFindStoredMetahubModuleById.mockResolvedValue(
+            createStoredModuleRow({
+                storage_mode: 'file',
+                source_path: 'modules/metahub/quiz-widget.ts',
+                source_code: null,
+                source_checksum: 'current-source-checksum'
+            })
+        )
+        mockFindStoredMetahubModuleBySourcePath.mockResolvedValue(null)
+        mockUpdateWithVersionCheck.mockResolvedValue(
+            createStoredModuleRow({
+                storage_mode: 'inline',
+                source_path: null,
+                source_code: 'export default class CurrentFileModule {}',
+                source_checksum: 'current-source-checksum'
+            })
+        )
+
+        await fileService.updateModule('metahub-1', 'module-1', {
+            storageMode: 'inline',
+            sourceCode: 'export default class StalePayloadModule {}',
+            expectedVersion: 1,
+            expectedSourceChecksum: 'current-source-checksum'
+        })
+
+        expect(mockCompileModuleSource).toHaveBeenCalledWith(
+            expect.objectContaining({
+                sourceCode: 'export default class CurrentFileModule {}'
+            })
+        )
+        expect(mockUpdateWithVersionCheck).toHaveBeenCalledWith(
+            expect.objectContaining({
+                updateData: expect.objectContaining({
+                    storage_mode: 'inline',
+                    source_path: null,
+                    source_code: 'export default class CurrentFileModule {}'
+                })
+            })
+        )
+        expect(deleteFile).toHaveBeenCalledWith({ metahubId: 'metahub-1', branchSlug: schemaName }, 'modules/metahub/quiz-widget.ts')
+    })
+
+    it('cleans up file-backed sources after inline conversion using the current file checksum when the stored checksum is stale', async () => {
+        const deleteFile = jest.fn()
+        const sourceFileService = {
+            buildDefaultSourcePath: jest.fn(() => 'modules/metahub/quiz-widget.ts'),
+            write: jest.fn(),
+            delete: deleteFile,
+            read: jest.fn().mockResolvedValue({
+                sourceCode: 'export default class CurrentFileModule {}',
+                checksum: 'current-source-checksum',
+                sourcePath: 'modules/metahub/quiz-widget.ts',
+                absolutePath: '/tmp/modules/metahub/quiz-widget.ts'
+            })
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[2]
+        const fileService = new MetahubModulesService(executor, schemaService, sourceFileService)
+
+        ;(executor.query as jest.Mock).mockResolvedValue([{ available: true }])
+        mockFindStoredMetahubModuleById.mockResolvedValue(
+            createStoredModuleRow({
+                storage_mode: 'file',
+                source_path: 'modules/metahub/quiz-widget.ts',
+                source_code: null,
+                source_checksum: 'stale-db-source-checksum'
+            })
+        )
+        mockFindStoredMetahubModuleBySourcePath.mockResolvedValue(null)
+        mockUpdateWithVersionCheck.mockResolvedValue(
+            createStoredModuleRow({
+                storage_mode: 'inline',
+                source_path: null,
+                source_code: 'export default class CurrentFileModule {}',
+                source_checksum: 'current-source-checksum'
+            })
+        )
+
+        await fileService.updateModule('metahub-1', 'module-1', {
+            storageMode: 'inline',
+            expectedVersion: 1,
+            expectedSourceChecksum: 'current-source-checksum'
+        })
+
+        expect(deleteFile).toHaveBeenCalledWith({ metahubId: 'metahub-1', branchSlug: schemaName }, 'modules/metahub/quiz-widget.ts')
+    })
+
+    it('rejects file-backed to inline conversion when the external file changed after the client loaded it', async () => {
+        const deleteFile = jest.fn()
+        const sourceFileService = {
+            buildDefaultSourcePath: jest.fn(() => 'modules/metahub/quiz-widget.ts'),
+            write: jest.fn(),
+            delete: deleteFile,
+            read: jest.fn().mockResolvedValue({
+                sourceCode: 'export default class ExternallyChangedModule {}',
+                checksum: 'new-source-checksum',
+                sourcePath: 'modules/metahub/quiz-widget.ts',
+                absolutePath: '/tmp/modules/metahub/quiz-widget.ts'
+            })
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[2]
+        const fileService = new MetahubModulesService(executor, schemaService, sourceFileService)
+
+        ;(executor.query as jest.Mock).mockResolvedValue([{ available: true }])
+        mockFindStoredMetahubModuleById.mockResolvedValue(
+            createStoredModuleRow({
+                storage_mode: 'file',
+                source_path: 'modules/metahub/quiz-widget.ts',
+                source_code: null,
+                source_checksum: 'old-source-checksum'
+            })
+        )
+        mockFindStoredMetahubModuleBySourcePath.mockResolvedValue(null)
+
+        await expect(
+            fileService.updateModule('metahub-1', 'module-1', {
+                storageMode: 'inline',
+                sourceCode: 'export default class InlineModule {}',
+                expectedVersion: 1,
+                expectedSourceChecksum: 'old-source-checksum'
+            })
+        ).rejects.toMatchObject({
+            message: 'File-backed module source was changed by another writer',
+            details: {
+                sourcePath: 'modules/metahub/quiz-widget.ts',
+                expectedSourceChecksum: 'old-source-checksum',
+                actualSourceChecksum: 'new-source-checksum',
+                messageCode: 'modules.sourcePath.checksumConflict'
+            }
+        })
+
+        expect(mockUpdateWithVersionCheck).not.toHaveBeenCalled()
+        expect(mockCompileModuleSource).not.toHaveBeenCalled()
+        expect(deleteFile).not.toHaveBeenCalled()
+    })
+
+    it('uses version-checked updates when the client provides an expected module version', async () => {
+        await service.updateModule(
+            'metahub-1',
+            'module-1',
+            {
+                presentation: {
+                    name: {
+                        _primary: 'en',
+                        locales: {
+                            en: { content: 'Renamed quiz widget' }
+                        }
+                    }
+                },
+                expectedVersion: 1
+            },
+            'user-2'
+        )
+
+        expect(mockUpdateWithVersionCheck).toHaveBeenCalledWith(
+            expect.objectContaining({
+                schemaName,
+                tableName: expect.any(String),
+                entityId: 'module-1',
+                entityType: 'module',
+                expectedVersion: 1,
+                wrapInTransaction: false,
+                updateData: expect.objectContaining({
+                    _upl_updated_by: 'user-2'
+                })
+            })
+        )
+        expect(mockIncrementVersion).not.toHaveBeenCalled()
+    })
+
     it('rejects update requests that move Common modules out of the library role', async () => {
         mockFindStoredMetahubModuleById.mockResolvedValue(
             createStoredModuleRow({
@@ -571,6 +2143,240 @@ describe('MetahubModulesService', () => {
             })
         )
         expect(mockCompileModuleSource).not.toHaveBeenCalled()
+    })
+
+    it('uses version-checked soft deletes when the client provides an expected module version', async () => {
+        mockFindStoredMetahubModuleById.mockResolvedValue(createStoredModuleRow({ _upl_version: 1 }))
+
+        await service.deleteModule('metahub-1', 'module-1', 'user-3', { expectedVersion: 1 })
+
+        expect(mockUpdateWithVersionCheck).toHaveBeenCalledWith(
+            expect.objectContaining({
+                schemaName,
+                tableName: expect.any(String),
+                entityId: 'module-1',
+                entityType: 'module',
+                expectedVersion: 1,
+                wrapInTransaction: false,
+                updateData: expect.objectContaining({
+                    _mhb_deleted: true,
+                    _mhb_deleted_by: 'user-3',
+                    _upl_updated_by: 'user-3'
+                })
+            })
+        )
+        expect(mockIncrementVersion).not.toHaveBeenCalled()
+    })
+
+    it('rejects stale deletes before removing file-backed source files', async () => {
+        const deleteFile = jest.fn()
+        const sourceFileService = {
+            buildDefaultSourcePath: jest.fn(),
+            read: jest.fn(),
+            write: jest.fn(),
+            delete: deleteFile
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[2]
+        const fileService = new MetahubModulesService(executor, schemaService, sourceFileService)
+        mockFindStoredMetahubModuleById.mockResolvedValue(
+            createStoredModuleRow({
+                _upl_version: 2,
+                storage_mode: 'file',
+                source_path: 'modules/metahub/quiz-widget.ts',
+                source_checksum: 'old-source-checksum',
+                source_code: null
+            })
+        )
+
+        await expect(
+            fileService.deleteModule('metahub-1', 'module-1', 'user-3', {
+                expectedVersion: 1,
+                expectedSourceChecksum: 'old-source-checksum'
+            })
+        ).rejects.toThrow('Optimistic lock conflict')
+
+        expect(mockUpdateWithVersionCheck).not.toHaveBeenCalled()
+        expect(mockIncrementVersion).not.toHaveBeenCalled()
+        expect(deleteFile).not.toHaveBeenCalled()
+    })
+
+    it('rejects file-backed deletes when the live source file changed before metadata deletion', async () => {
+        const deleteFile = jest.fn()
+        const readFile = jest.fn().mockResolvedValue({
+            sourceCode: 'export default class ChangedModule {}',
+            checksum: 'new-source-checksum',
+            sourcePath: 'modules/metahub/quiz-widget.ts',
+            absolutePath: '/tmp/modules/metahub/quiz-widget.ts'
+        })
+        const sourceFileService = {
+            buildDefaultSourcePath: jest.fn(),
+            read: readFile,
+            write: jest.fn(),
+            delete: deleteFile
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[2]
+        const fileService = new MetahubModulesService(executor, schemaService, sourceFileService)
+        mockFindStoredMetahubModuleById.mockResolvedValue(
+            createStoredModuleRow({
+                storage_mode: 'file',
+                source_path: 'modules/metahub/quiz-widget.ts',
+                source_checksum: 'old-source-checksum',
+                source_code: null
+            })
+        )
+
+        await expect(
+            fileService.deleteModule('metahub-1', 'module-1', 'user-3', {
+                expectedVersion: 1,
+                expectedSourceChecksum: 'old-source-checksum'
+            })
+        ).rejects.toMatchObject({
+            message: 'File-backed module source was changed by another writer',
+            details: {
+                sourcePath: 'modules/metahub/quiz-widget.ts',
+                expectedSourceChecksum: 'old-source-checksum',
+                actualSourceChecksum: 'new-source-checksum',
+                messageCode: 'modules.sourcePath.checksumConflict'
+            }
+        })
+
+        expect(readFile).toHaveBeenCalledWith({ metahubId: 'metahub-1', branchSlug: schemaName }, 'modules/metahub/quiz-widget.ts')
+        expect(mockUpdateWithVersionCheck).not.toHaveBeenCalled()
+        expect(mockIncrementVersion).not.toHaveBeenCalled()
+        expect(deleteFile).not.toHaveBeenCalled()
+    })
+
+    it('requires optimistic guards before deleting file-backed modules', async () => {
+        const deleteFile = jest.fn()
+        const sourceFileService = {
+            buildDefaultSourcePath: jest.fn(),
+            read: jest.fn(),
+            write: jest.fn(),
+            delete: deleteFile
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[2]
+        const fileService = new MetahubModulesService(executor, schemaService, sourceFileService)
+        mockFindStoredMetahubModuleById.mockResolvedValue(
+            createStoredModuleRow({
+                storage_mode: 'file',
+                source_path: 'modules/metahub/quiz-widget.ts',
+                source_checksum: 'old-source-checksum',
+                source_code: null
+            })
+        )
+
+        await expect(fileService.deleteModule('metahub-1', 'module-1', 'user-3')).rejects.toThrow(
+            'File-backed module deletes require an expected module version'
+        )
+
+        await expect(fileService.deleteModule('metahub-1', 'module-1', 'user-3', { expectedVersion: 1 })).rejects.toThrow(
+            'File-backed module deletes require an expected source checksum'
+        )
+
+        expect(mockUpdateWithVersionCheck).not.toHaveBeenCalled()
+        expect(mockIncrementVersion).not.toHaveBeenCalled()
+        expect(deleteFile).not.toHaveBeenCalled()
+    })
+
+    it('deletes an unowned file-backed source file after module soft delete', async () => {
+        const deleteFile = jest.fn()
+        const readFile = jest.fn().mockResolvedValue({ checksum: 'old-source-checksum' })
+        const sourceFileService = {
+            buildDefaultSourcePath: jest.fn(),
+            read: readFile,
+            write: jest.fn(),
+            delete: deleteFile
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[2]
+        const fileService = new MetahubModulesService(executor, schemaService, sourceFileService)
+        mockFindStoredMetahubModuleById.mockResolvedValue(
+            createStoredModuleRow({
+                storage_mode: 'file',
+                source_path: 'modules/metahub/quiz-widget.ts',
+                source_checksum: 'old-source-checksum',
+                source_code: null
+            })
+        )
+        mockFindStoredMetahubModuleBySourcePath.mockResolvedValue(null)
+
+        await fileService.deleteModule('metahub-1', 'module-1', 'user-3', {
+            expectedVersion: 1,
+            expectedSourceChecksum: 'old-source-checksum'
+        })
+
+        expect(mockUpdateWithVersionCheck).toHaveBeenCalled()
+        expect(readFile).toHaveBeenCalledWith({ metahubId: 'metahub-1', branchSlug: schemaName }, 'modules/metahub/quiz-widget.ts')
+        expect(deleteFile).toHaveBeenCalledWith({ metahubId: 'metahub-1', branchSlug: schemaName }, 'modules/metahub/quiz-widget.ts')
+    })
+
+    it('rejects physical file cleanup when file-backed source changed outside the platform before delete metadata mutation', async () => {
+        const deleteFile = jest.fn()
+        const sourceFileService = {
+            buildDefaultSourcePath: jest.fn(),
+            read: jest.fn().mockResolvedValue({
+                sourceCode: 'export default class ChangedModule {}',
+                checksum: 'new-source-checksum',
+                sourcePath: 'modules/metahub/quiz-widget.ts',
+                absolutePath: '/tmp/modules/metahub/quiz-widget.ts'
+            }),
+            write: jest.fn(),
+            delete: deleteFile
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[2]
+        const fileService = new MetahubModulesService(executor, schemaService, sourceFileService)
+        mockFindStoredMetahubModuleById.mockResolvedValue(
+            createStoredModuleRow({
+                storage_mode: 'file',
+                source_path: 'modules/metahub/quiz-widget.ts',
+                source_checksum: 'old-source-checksum',
+                source_code: null
+            })
+        )
+        mockFindStoredMetahubModuleBySourcePath.mockResolvedValue(null)
+
+        await expect(
+            fileService.deleteModule('metahub-1', 'module-1', 'user-3', {
+                expectedVersion: 1,
+                expectedSourceChecksum: 'old-source-checksum'
+            })
+        ).rejects.toMatchObject({
+            message: 'File-backed module source was changed by another writer',
+            details: {
+                sourcePath: 'modules/metahub/quiz-widget.ts',
+                expectedSourceChecksum: 'old-source-checksum',
+                actualSourceChecksum: 'new-source-checksum',
+                messageCode: 'modules.sourcePath.checksumConflict'
+            }
+        })
+
+        expect(mockUpdateWithVersionCheck).not.toHaveBeenCalled()
+        expect(mockIncrementVersion).not.toHaveBeenCalled()
+        expect(deleteFile).not.toHaveBeenCalled()
+    })
+
+    it('keeps module soft delete successful when post-delete file cleanup fails', async () => {
+        const deleteFile = jest.fn().mockRejectedValue(new Error('cleanup failed'))
+        const sourceFileService = {
+            buildDefaultSourcePath: jest.fn(),
+            read: jest.fn().mockResolvedValue({ checksum: 'old-source-checksum' }),
+            write: jest.fn(),
+            delete: deleteFile
+        } as unknown as ConstructorParameters<typeof MetahubModulesService>[2]
+        const fileService = new MetahubModulesService(executor, schemaService, sourceFileService)
+        mockFindStoredMetahubModuleById.mockResolvedValue(
+            createStoredModuleRow({
+                storage_mode: 'file',
+                source_path: 'modules/metahub/quiz-widget.ts',
+                source_checksum: 'old-source-checksum',
+                source_code: null
+            })
+        )
+        mockFindStoredMetahubModuleBySourcePath.mockResolvedValue(null)
+
+        await expect(
+            fileService.deleteModule('metahub-1', 'module-1', 'user-3', {
+                expectedVersion: 1,
+                expectedSourceChecksum: 'old-source-checksum'
+            })
+        ).resolves.toBeUndefined()
+
+        expect(mockUpdateWithVersionCheck).toHaveBeenCalled()
+        expect(deleteFile).toHaveBeenCalledWith({ metahubId: 'metahub-1', branchSlug: schemaName }, 'modules/metahub/quiz-widget.ts')
     })
 
     it('blocks deleting a shared library while other modules still import it', async () => {
@@ -759,7 +2565,23 @@ describe('MetahubModulesService', () => {
                 moduleRole: 'module'
             })
         )
-        expect(result.map((module) => module.id)).toEqual(['plain-module', 'module-consumer'])
+        expect(result.map((module) => module.id)).toEqual(['shared-core', 'shared-helpers', 'plain-module', 'module-consumer'])
+        expect(result.find((module) => module.id === 'shared-core')).toEqual(
+            expect.objectContaining({
+                sourceCode: 'export default class SharedCore {}',
+                serverBundle: null,
+                clientBundle: null,
+                checksum: 'checksum:shared-core'
+            })
+        )
+        expect(result.find((module) => module.id === 'shared-helpers')).toEqual(
+            expect.objectContaining({
+                sourceCode: "import SharedCore from '@shared/shared-core'\nexport default class SharedHelpers {}",
+                serverBundle: null,
+                clientBundle: null,
+                checksum: 'checksum:shared-helpers'
+            })
+        )
         expect(result.find((module) => module.id === 'module-consumer')).toEqual(
             expect.objectContaining({
                 clientBundle: 'compiled:consumer-module',

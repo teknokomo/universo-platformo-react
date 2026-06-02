@@ -910,6 +910,17 @@ describe('TemplateManifestValidator', () => {
         expect(() => validateTemplateManifest(manifest)).toThrow(/unknown layout codename/i)
     })
 
+    it('rejects non-embedded seed module source kinds while template seeding is inline-only', () => {
+        const manifest = cloneTemplate(lmsTemplate)
+        const firstModule = manifest.seed.modules?.[0]
+        expect(firstModule).toBeDefined()
+        if (firstModule) {
+            firstModule.sourceKind = 'external' as never
+        }
+
+        expect(() => validateTemplateManifest(manifest)).toThrow()
+    })
+
     it('rejects ambiguous elements references when entity codename is duplicated across kinds', () => {
         const manifest = cloneTemplate(basicTemplate)
         manifest.seed.entities = [

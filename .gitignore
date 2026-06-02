@@ -42,6 +42,7 @@ playwright-report
 test-results
 tools/testing/e2e/.auth
 tools/testing/e2e/.artifacts
+storage-e2e/
 
 # misc
 .DS_Store
@@ -67,6 +68,7 @@ tools/testing/e2e/.artifacts
 
 ## uploads
 **/uploads
+packages/universo-react-core-backend/bin/storage
 
 ## compressed
 **/*.tgz

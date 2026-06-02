@@ -74,6 +74,7 @@ import { MetahubRecordsService } from '../services/MetahubRecordsService'
 import { MetahubOptionValuesService } from '../services/MetahubOptionValuesService'
 import { MetahubFixedValuesService } from '../services/MetahubFixedValuesService'
 import { MetahubModulesService } from '../../modules/services/MetahubModulesService'
+import { ModuleSourceFileService } from '../../modules/services/ModuleSourceFileService'
 import { MetahubPackagesService } from '../../packages/services/MetahubPackagesService'
 import { MetahubSettingsService } from '../../settings/services/MetahubSettingsService'
 import { EntityTypeService } from '../../entities/services/EntityTypeService'
@@ -1262,7 +1263,15 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
             throw error
         }
 
+        const sourceFileService = new ModuleSourceFileService()
         try {
+            for (const planItem of branchClonePlan) {
+                await sourceFileService.copyTree(
+                    { metahubId, branchSlug: planItem.sourceBranch.schemaName },
+                    { metahubId: newMetahubId, branchSlug: planItem.schemaName }
+                )
+            }
+
             const copied = await exec.transaction(async (tx) => {
                 const copiedMetahub = await createMetahubStore(tx, {
                     id: newMetahubId,
@@ -1378,6 +1387,13 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                 permissions: ROLE_PERMISSIONS.owner
             })
         } catch (error) {
+            await sourceFileService.deleteMetahubTree(newMetahubId).catch((cleanupError) => {
+                log.warn('Failed to cleanup copied metahub module source tree after metadata transaction failure', {
+                    metahubId,
+                    newMetahubId,
+                    cleanupError
+                })
+            })
             const cleanupFailures = await cleanupClonedSchemas(generator, createdSchemas)
             if (cleanupFailures.length > 0) {
                 log.error('Failed to cleanup cloned schemas after metadata transaction failure', {
@@ -1685,6 +1701,12 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
         }
 
         MetahubSchemaService.clearCache(metahubId)
+        await new ModuleSourceFileService().deleteMetahubTree(metahubId).catch((error) => {
+            log.warn('Module source files cleanup failed after metahub deletion', {
+                metahubId,
+                error: error instanceof Error ? error.message : String(error)
+            })
+        })
 
         return res.status(204).send()
     }
@@ -2156,6 +2178,7 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                 } else {
                     await exec.transaction(cleanup)
                 }
+                await new ModuleSourceFileService().deleteMetahubTree(metahub.id)
                 MetahubSchemaService.clearCache(metahub.id)
             } catch (cleanupError) {
                 return res.status(500).json({
@@ -2251,7 +2274,25 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                 exportedModules.length > 0
                     ? exportedModules.map((module) => {
                           const liveModule = liveModuleById.get(module.id)
-                          return liveModule?.sourceCode ? { ...module, sourceCode: liveModule.sourceCode } : module
+                          if (!liveModule?.sourceCode) {
+                              return module
+                          }
+
+                          return {
+                              ...module,
+                              sourceCode: liveModule.sourceCode,
+                              sourceStorage:
+                                  liveModule.storageMode === 'file'
+                                      ? {
+                                            ...(module.sourceStorage ?? {}),
+                                            ...(liveModule.sourceStorage ?? {}),
+                                            mode: 'file',
+                                            path: liveModule.sourcePath ?? module.sourceStorage?.path ?? null,
+                                            checksum: liveModule.sourceChecksum ?? liveModule.sourceStorage?.checksum ?? null,
+                                            content: liveModule.sourceCode
+                                        }
+                                      : module.sourceStorage
+                          }
                       })
                     : snapshot.modules
         }

@@ -115,6 +115,21 @@ const normalizeModule = (scriptValue: unknown): Record<string, unknown> => {
         sourceKind: typeof module.sourceKind === 'string' ? module.sourceKind : '',
         sdkApiVersion: typeof module.sdkApiVersion === 'string' ? module.sdkApiVersion : '',
         sourceCode: typeof module.sourceCode === 'string' ? module.sourceCode : null,
+        sourceStorage:
+            module.sourceStorage && typeof module.sourceStorage === 'object'
+                ? {
+                      mode: typeof asRecord(module.sourceStorage).mode === 'string' ? asRecord(module.sourceStorage).mode : 'inline',
+                      path: typeof asRecord(module.sourceStorage).path === 'string' ? asRecord(module.sourceStorage).path : null,
+                      checksum:
+                          typeof asRecord(module.sourceStorage).checksum === 'string' ? asRecord(module.sourceStorage).checksum : null,
+                      content: typeof asRecord(module.sourceStorage).content === 'string' ? asRecord(module.sourceStorage).content : null
+                  }
+                : {
+                      mode: typeof module.storageMode === 'string' ? module.storageMode : 'inline',
+                      path: typeof module.sourcePath === 'string' ? module.sourcePath : null,
+                      checksum: typeof module.sourceChecksum === 'string' ? module.sourceChecksum : null,
+                      content: null
+                  },
         manifest: normalizeModuleManifest(module.manifest),
         serverBundle: typeof module.serverBundle === 'string' ? module.serverBundle : null,
         clientBundle: typeof module.clientBundle === 'string' ? module.clientBundle : null,

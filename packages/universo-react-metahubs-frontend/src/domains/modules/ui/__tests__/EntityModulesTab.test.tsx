@@ -1,7 +1,7 @@
 import { type ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { EntityModulesTab } from '../EntityModulesTab'
 
@@ -74,6 +74,7 @@ vi.mock('@uiw/react-codemirror', () => ({
                 data-testid='module-source-editor'
                 value={String(props.value ?? '')}
                 onChange={(event) => props.onChange?.(event.target.value)}
+                readOnly={props.editable === false}
             />
         )
     }
@@ -280,11 +281,75 @@ describe('EntityModulesTab', () => {
                     attachedToKind: 'object',
                     attachedToId: 'object-1',
                     moduleRole: 'widget',
+                    storageMode: 'inline',
+                    sourcePath: null,
                     capabilities: expect.arrayContaining(['metadata.read', 'rpc.client']),
                     codename: 'runtime-quiz-widget',
                     name: 'Runtime quiz widget'
                 })
             )
+        })
+    })
+
+    it('submits the initial source when creating a new file-backed module from the editor', async () => {
+        const user = userEvent.setup()
+
+        renderTab(<EntityModulesTab metahubId='metahub-1' attachedToKind='object' attachedToId='object-1' t={translate} />)
+
+        await waitFor(() => expect(mocks.list).toHaveBeenCalled())
+        await user.click(screen.getAllByRole('combobox')[2])
+        await user.click(screen.getByRole('option', { name: 'File-backed' }))
+        expect(screen.getByText(/This source will be written/)).toBeInTheDocument()
+        expect(mocks.lastCodeMirrorProps?.editable).toBe(true)
+        fireEvent.change(screen.getByTestId('module-source-editor'), {
+            target: { value: 'export default class RuntimeQuizWidget {}' }
+        })
+        await user.type(screen.getByLabelText('Name'), 'Runtime quiz widget')
+        await user.type(screen.getByLabelText('Codename'), 'runtime-quiz-widget')
+        await user.clear(screen.getByLabelText('Source path'))
+        await user.type(screen.getByLabelText('Source path'), 'modules/attached/object/runtime-quiz-widget.ts')
+        await user.click(screen.getByRole('button', { name: 'Create module' }))
+
+        await waitFor(() => {
+            expect(mocks.create).toHaveBeenCalledWith(
+                'metahub-1',
+                expect.objectContaining({
+                    codename: 'runtime-quiz-widget',
+                    name: 'Runtime quiz widget',
+                    storageMode: 'file',
+                    sourcePath: 'modules/attached/object/runtime-quiz-widget.ts',
+                    sourceCode: 'export default class RuntimeQuizWidget {}'
+                })
+            )
+        })
+    })
+
+    it('omits source code when creating a file-backed module from an existing external file', async () => {
+        const user = userEvent.setup()
+
+        renderTab(<EntityModulesTab metahubId='metahub-1' attachedToKind='object' attachedToId='object-1' t={translate} />)
+
+        await waitFor(() => expect(mocks.list).toHaveBeenCalled())
+        await user.click(screen.getAllByRole('combobox')[2])
+        await user.click(screen.getByRole('option', { name: 'File-backed' }))
+        await user.click(screen.getByLabelText('Create or update the source file from the editor'))
+        await user.type(screen.getByLabelText('Name'), 'Existing quiz widget')
+        await user.type(screen.getByLabelText('Codename'), 'existing-quiz-widget')
+        await user.clear(screen.getByLabelText('Source path'))
+        await user.type(screen.getByLabelText('Source path'), 'modules/attached/object/existing-quiz-widget.ts')
+        await user.click(screen.getByRole('button', { name: 'Create module' }))
+
+        await waitFor(() => {
+            expect(mocks.create).toHaveBeenCalledWith(
+                'metahub-1',
+                expect.objectContaining({
+                    codename: 'existing-quiz-widget',
+                    name: 'Existing quiz widget',
+                    storageMode: 'file',
+                    sourcePath: 'modules/attached/object/existing-quiz-widget.ts'
+                })
+            )
+            expect(mocks.create.mock.calls.at(-1)?.[1]).not.toHaveProperty('sourceCode')
         })
     })
 
@@ -323,7 +388,280 @@ describe('EntityModulesTab', () => {
                     name: 'Updated quiz widget',
                     attachedToKind: 'object',
                     attachedToId: 'object-1',
-                    moduleRole: 'module'
+                    moduleRole: 'module',
+                    storageMode: 'inline',
+                    sourcePath: null
+                })
+            )
+            expect(mocks.update.mock.calls.at(-1)?.[2]).toEqual(expect.objectContaining({ expectedVersion: 1 }))
+        })
+    })
+
+    it('submits source code when converting an existing inline module to file-backed storage', async () => {
+        const user = userEvent.setup()
+        const existing = createModuleRecord({
+            storageMode: 'inline',
+            sourcePath: null,
+            sourceStorage: {
+                mode: 'inline',
+                path: null,
+                checksum: null,
+                status: 'inline'
+            }
+        })
+
+        mocks.list.mockResolvedValue([existing])
+
+        renderTab(<EntityModulesTab metahubId='metahub-1' attachedToKind='object' attachedToId='object-1' t={translate} />)
+
+        await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue('Quiz widget'))
+        await user.click(screen.getAllByRole('combobox')[2])
+        await user.click(screen.getByRole('option', { name: 'File-backed' }))
+        await user.type(screen.getByLabelText('Source path'), 'modules/attached/object/quiz-widget.ts')
+        await user.click(screen.getByRole('button', { name: 'Save module' }))
+
+        await waitFor(() => {
+            expect(mocks.update).toHaveBeenCalledWith(
+                'metahub-1',
+                'module-1',
+                expect.objectContaining({
+                    storageMode: 'file',
+                    sourcePath: 'modules/attached/object/quiz-widget.ts',
+                    sourceCode: expect.stringContaining('ExtensionModule'),
+                    expectedVersion: 1
+                })
+            )
+        })
+    })
+
+    it('submits hydrated source code when converting an existing file-backed module to inline storage', async () => {
+        const user = userEvent.setup()
+        const hydratedSource = 'export default class HydratedFileModule extends ExtensionModule {}'
+        mocks.list.mockResolvedValue([
+            createModuleRecord({
+                storageMode: 'file',
+                sourcePath: 'modules/attached/object/quiz-widget.ts',
+                sourceCode: hydratedSource,
+                sourceStorage: {
+                    mode: 'file',
+                    path: 'modules/attached/object/quiz-widget.ts',
+                    checksum: 'source-checksum',
+                    status: 'ready'
+                }
+            })
+        ])
+
+        renderTab(<EntityModulesTab metahubId='metahub-1' attachedToKind='object' attachedToId='object-1' t={translate} />)
+
+        await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue('Quiz widget'))
+        await user.click(screen.getAllByRole('combobox')[2])
+        await user.click(screen.getByRole('option', { name: 'Inline' }))
+        await user.click(screen.getByRole('button', { name: 'Save module' }))
+
+        await waitFor(() => {
+            expect(mocks.update).toHaveBeenCalledWith(
+                'metahub-1',
+                'module-1',
+                expect.objectContaining({
+                    storageMode: 'inline',
+                    sourcePath: null,
+                    sourceCode: hydratedSource,
+                    expectedVersion: 1,
+                    expectedSourceChecksum: 'source-checksum'
+                })
+            )
+        })
+    })
+
+    it('initializes file-backed modules and submits the relative source path', async () => {
+        const user = userEvent.setup()
+
+        mocks.list.mockResolvedValue([
+            createModuleRecord({
+                storageMode: 'file',
+                sourcePath: 'modules/attached/object/quiz-widget.ts',
+                sourceChecksum: 'source-checksum',
+                sourceStatus: 'ready',
+                sourceLastReadAt: '2026-06-01T10:00:00.000Z',
+                sourceLastCompileAt: '2026-06-01T10:01:00.000Z',
+                sourceLastCompileStatus: 'success',
+                sourceStorage: {
+                    mode: 'file',
+                    path: 'modules/attached/object/quiz-widget.ts',
+                    checksum: null,
+                    status: 'ready',
+                    lastReadAt: '2026-06-01T10:00:00.000Z',
+                    lastCompileAt: '2026-06-01T10:01:00.000Z',
+                    lastCompileStatus: 'success'
+                }
+            })
+        ])
+
+        renderTab(<EntityModulesTab metahubId='metahub-1' attachedToKind='object' attachedToId='object-1' t={translate} />)
+
+        await waitFor(() => expect(screen.getByLabelText('Source path')).toHaveValue('modules/attached/object/quiz-widget.ts'))
+        expect(screen.getByDisplayValue('file')).toBeInTheDocument()
+        expect(screen.getByText(/File-backed source is shown as a live preview/)).toBeInTheDocument()
+        expect(screen.getByTestId('entity-module-source-metadata')).toHaveTextContent('Source status: Ready')
+        expect(screen.getByTestId('entity-module-source-metadata')).toHaveTextContent('Source checksum: source-check...')
+        expect(screen.getByTestId('entity-module-source-metadata')).toHaveTextContent('Last compile: Compiled')
+        expect(screen.getByTestId('module-source-editor')).toHaveAttribute('readonly')
+        expect(mocks.lastCodeMirrorProps?.editable).toBe(false)
+
+        await user.clear(screen.getByLabelText('Source path'))
+        await user.type(screen.getByLabelText('Source path'), 'modules/attached/object/quiz-widget-v2.ts')
+        await user.click(screen.getByRole('button', { name: 'Save module' }))
+
+        await waitFor(() => {
+            expect(mocks.update).toHaveBeenCalledWith(
+                'metahub-1',
+                'module-1',
+                expect.objectContaining({
+                    storageMode: 'file',
+                    sourcePath: 'modules/attached/object/quiz-widget-v2.ts',
+                    expectedVersion: 1,
+                    expectedSourceChecksum: 'source-checksum'
+                })
+            )
+            expect(mocks.update.mock.calls.at(-1)?.[2]).not.toHaveProperty('sourceCode')
+        })
+    })
+
+    it('refreshes file-backed module guards before saving metadata so external edits can be recompiled safely', async () => {
+        const user = userEvent.setup()
+        const staleModule = createModuleRecord({
+            storageMode: 'file',
+            sourcePath: 'modules/attached/object/quiz-widget.ts',
+            sourceChecksum: 'old-source-checksum',
+            sourceStorage: {
+                mode: 'file',
+                path: 'modules/attached/object/quiz-widget.ts',
+                checksum: 'old-source-checksum',
+                status: 'ready'
+            }
+        })
+        const refreshedModule = createModuleRecord({
+            storageMode: 'file',
+            sourcePath: 'modules/attached/object/quiz-widget.ts',
+            sourceChecksum: 'new-source-checksum',
+            sourceStorage: {
+                mode: 'file',
+                path: 'modules/attached/object/quiz-widget.ts',
+                checksum: 'new-source-checksum',
+                status: 'modified'
+            }
+        })
+
+        mocks.list.mockResolvedValueOnce([staleModule]).mockResolvedValueOnce([refreshedModule])
+
+        renderTab(<EntityModulesTab metahubId='metahub-1' attachedToKind='object' attachedToId='object-1' t={translate} />)
+
+        await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue('Quiz widget'))
+        await user.click(screen.getByRole('button', { name: 'Save module' }))
+
+        await waitFor(() => {
+            expect(mocks.update).toHaveBeenCalledWith(
+                'metahub-1',
+                'module-1',
+                expect.objectContaining({
+                    expectedVersion: 1,
+                    expectedSourceChecksum: 'new-source-checksum'
+                })
+            )
+        })
+    })
+
+    it('shows the absolute source file path for existing file-backed modules', async () => {
+        mocks.list.mockResolvedValue([
+            createModuleRecord({
+                storageMode: 'file',
+                sourcePath: 'modules/attached/object/quiz-widget.ts',
+                sourceChecksum: 'source-checksum',
+                sourceStatus: 'ready',
+                sourceStorage: {
+                    mode: 'file',
+                    path: 'modules/attached/object/quiz-widget.ts',
+                    absolutePath: '/repo/storage/metahubs/metahub-1/branches/main/modules/attached/object/quiz-widget.ts',
+                    checksum: 'source-checksum',
+                    status: 'ready'
+                }
+            })
+        ])
+
+        renderTab(<EntityModulesTab metahubId='metahub-1' attachedToKind='object' attachedToId='object-1' t={translate} />)
+
+        await expect(screen.findByText(/Source file:/)).resolves.toBeVisible()
+        expect(screen.getByText(/\/repo\/storage\/metahubs\/metahub-1/)).toBeInTheDocument()
+    })
+
+    it('blocks stale file-backed saves when the preflight module version changed', async () => {
+        const user = userEvent.setup()
+        const staleModule = createModuleRecord({
+            version: 1,
+            storageMode: 'file',
+            sourcePath: 'modules/attached/object/quiz-widget.ts',
+            sourceChecksum: 'old-source-checksum',
+            sourceStorage: {
+                mode: 'file',
+                path: 'modules/attached/object/quiz-widget.ts',
+                checksum: 'old-source-checksum',
+                status: 'ready'
+            }
+        })
+        const concurrentlySavedModule = createModuleRecord({
+            version: 2,
+            storageMode: 'file',
+            sourcePath: 'modules/attached/object/quiz-widget.ts',
+            sourceChecksum: 'new-source-checksum',
+            sourceStorage: {
+                mode: 'file',
+                path: 'modules/attached/object/quiz-widget.ts',
+                checksum: 'new-source-checksum',
+                status: 'modified'
+            }
+        })
+
+        mocks.list.mockResolvedValueOnce([staleModule]).mockResolvedValueOnce([concurrentlySavedModule])
+
+        renderTab(<EntityModulesTab metahubId='metahub-1' attachedToKind='object' attachedToId='object-1' t={translate} />)
+
+        await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue('Quiz widget'))
+        await user.click(screen.getByRole('button', { name: 'Save module' }))
+
+        await expect(screen.findByText('This module was changed by another user. Reload the module before saving.')).resolves.toBeVisible()
+        expect(mocks.update).not.toHaveBeenCalled()
+    })
+
+    it('sends the current file checksum when converting inline source to a file-backed overwrite', async () => {
+        const user = userEvent.setup()
+        mocks.list.mockResolvedValue([
+            createModuleRecord({
+                storageMode: 'inline',
+                sourceStorage: {
+                    mode: 'inline',
+                    path: null,
+                    checksum: 'current-source-checksum',
+                    status: 'inline'
+                }
+            })
+        ])
+
+        renderTab(<EntityModulesTab metahubId='metahub-1' attachedToKind='object' attachedToId='object-1' t={translate} />)
+
+        await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue('Quiz widget'))
+        await user.click(screen.getAllByRole('combobox')[2])
+        await user.click(screen.getByRole('option', { name: 'File-backed' }))
+        await user.clear(screen.getByLabelText('Source path'))
+        await user.type(screen.getByLabelText('Source path'), 'modules/attached/object/quiz-widget.ts')
+        await user.click(screen.getByRole('button', { name: 'Save module' }))
+
+        await waitFor(() => {
+            expect(mocks.update).toHaveBeenCalledWith(
+                'metahub-1',
+                'module-1',
+                expect.objectContaining({
+                    expectedVersion: 1,
+                    expectedSourceChecksum: 'current-source-checksum'
                 })
             )
         })
@@ -356,17 +694,49 @@ describe('EntityModulesTab', () => {
     it('submits delete requests for existing modules and refetches the list', async () => {
         const user = userEvent.setup()
 
-        mocks.list.mockResolvedValueOnce([createModuleRecord()]).mockResolvedValueOnce([])
+        mocks.list
+            .mockResolvedValueOnce([
+                createModuleRecord({
+                    storageMode: 'file',
+                    sourceChecksum: 'source-checksum',
+                    sourceStorage: {
+                        mode: 'file',
+                        path: 'modules/attached/object/quiz-widget.ts',
+                        checksum: null,
+                        status: 'ready'
+                    }
+                })
+            ])
+            .mockResolvedValueOnce([])
 
         renderTab(<EntityModulesTab metahubId='metahub-1' attachedToKind='object' attachedToId='object-1' t={translate} />)
 
         await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue('Quiz widget'))
         await user.click(screen.getByRole('button', { name: 'Delete' }))
+        expect(screen.getByRole('dialog', { name: 'Delete module?' })).toBeInTheDocument()
+        expect(mocks.remove).not.toHaveBeenCalled()
+        await user.click(screen.getByRole('button', { name: 'Delete module' }))
 
         await waitFor(() => {
-            expect(mocks.remove).toHaveBeenCalledWith('metahub-1', 'module-1')
+            expect(mocks.remove).toHaveBeenCalledWith('metahub-1', 'module-1', 1, 'source-checksum')
         })
         await waitFor(() => expect(mocks.list).toHaveBeenCalledTimes(2))
+    })
+
+    it('cancels module deletion without calling the API', async () => {
+        const user = userEvent.setup()
+
+        mocks.list.mockResolvedValue([createModuleRecord()])
+
+        renderTab(<EntityModulesTab metahubId='metahub-1' attachedToKind='object' attachedToId='object-1' t={translate} />)
+
+        await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue('Quiz widget'))
+        await user.click(screen.getByRole('button', { name: 'Delete' }))
+        expect(screen.getByRole('dialog', { name: 'Delete module?' })).toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+        await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Delete module?' })).not.toBeInTheDocument())
+        expect(mocks.remove).not.toHaveBeenCalled()
     })
 
     it('maps backend delete conflict details to a localized module message', async () => {
@@ -387,6 +757,7 @@ describe('EntityModulesTab', () => {
 
         await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue('Quiz widget'))
         await user.click(screen.getByRole('button', { name: 'Delete' }))
+        await user.click(screen.getByRole('button', { name: 'Delete module' }))
 
         await waitFor(() => expect(screen.getByText('This shared library is used by other modules.')).toBeInTheDocument())
     })

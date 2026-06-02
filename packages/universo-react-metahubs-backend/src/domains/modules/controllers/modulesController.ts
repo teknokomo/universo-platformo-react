@@ -4,6 +4,7 @@ import {
     MODULE_AUTHORING_SOURCE_KINDS,
     MODULE_CAPABILITIES,
     MODULE_ROLES,
+    MODULE_STORAGE_MODES,
     isModuleAttachmentKind,
     type ModuleAttachmentKind
 } from '@universo-react/types'
@@ -44,8 +45,11 @@ const createModuleSchema = z
         attachedToId: z.string().uuid().nullable().optional(),
         moduleRole: z.enum(MODULE_ROLES).optional(),
         sourceKind: z.enum(MODULE_AUTHORING_SOURCE_KINDS).optional(),
+        storageMode: z.enum(MODULE_STORAGE_MODES).optional(),
+        sourcePath: z.string().min(1).max(512).nullable().optional(),
         sdkApiVersion: z.string().min(1).max(40).optional(),
-        sourceCode: z.string().min(1),
+        sourceCode: z.string().min(1).optional(),
+        expectedSourceChecksum: z.string().min(1).max(128).optional(),
         isActive: z.boolean().optional(),
         capabilities: z.array(z.enum(MODULE_CAPABILITIES)).max(50).optional(),
         config: z.record(z.unknown()).optional()
@@ -63,13 +67,22 @@ const updateModuleSchema = z
         attachedToId: z.string().uuid().nullable().optional(),
         moduleRole: z.enum(MODULE_ROLES).optional(),
         sourceKind: z.enum(MODULE_AUTHORING_SOURCE_KINDS).optional(),
+        storageMode: z.enum(MODULE_STORAGE_MODES).optional(),
+        sourcePath: z.string().min(1).max(512).nullable().optional(),
         sdkApiVersion: z.string().min(1).max(40).optional(),
         sourceCode: z.string().min(1).optional(),
+        expectedVersion: z.number().int().positive().optional(),
+        expectedSourceChecksum: z.string().min(1).max(128).optional(),
         isActive: z.boolean().optional(),
         capabilities: z.array(z.enum(MODULE_CAPABILITIES)).max(50).optional(),
         config: z.record(z.unknown()).optional()
     })
     .strict()
+
+const deleteModuleQuerySchema = z.object({
+    expectedVersion: z.coerce.number().int().positive().optional(),
+    expectedSourceChecksum: z.string().min(1).max(128).optional()
+})
 
 const toLocalizedRecord = (value: z.infer<typeof localizedInputSchema>): Record<string, string> => {
     if (typeof value === 'string') {
@@ -181,8 +194,11 @@ export function createModulesController(createHandler: ReturnType<typeof createM
                     attachedToId: normalizeAttachmentId(parsed.data.attachedToKind, parsed.data.attachedToId),
                     moduleRole: parsed.data.moduleRole,
                     sourceKind: parsed.data.sourceKind,
+                    storageMode: parsed.data.storageMode,
+                    sourcePath: parsed.data.sourcePath,
                     sdkApiVersion: parsed.data.sdkApiVersion,
                     sourceCode: parsed.data.sourceCode,
+                    expectedSourceChecksum: parsed.data.expectedSourceChecksum,
                     isActive: parsed.data.isActive,
                     capabilities: parsed.data.capabilities,
                     config: parsed.data.config
@@ -238,8 +254,12 @@ export function createModulesController(createHandler: ReturnType<typeof createM
                             : parsed.data.attachedToId,
                     moduleRole: parsed.data.moduleRole,
                     sourceKind: parsed.data.sourceKind,
+                    storageMode: parsed.data.storageMode,
+                    sourcePath: parsed.data.sourcePath,
                     sdkApiVersion: parsed.data.sdkApiVersion,
                     sourceCode: parsed.data.sourceCode,
+                    expectedVersion: parsed.data.expectedVersion,
+                    expectedSourceChecksum: parsed.data.expectedSourceChecksum,
                     isActive: parsed.data.isActive,
                     capabilities: parsed.data.capabilities,
                     config: parsed.data.config
@@ -254,8 +274,16 @@ export function createModulesController(createHandler: ReturnType<typeof createM
 
     const remove = createHandler(
         async ({ req, res, metahubId, userId, exec, schemaService }) => {
+            const parsed = deleteModuleQuerySchema.safeParse(req.query)
+            if (!parsed.success) {
+                return res.status(400).json({ error: 'Invalid query', details: parsed.error.flatten() })
+            }
+
             const modulesService = new MetahubModulesService(exec, schemaService)
-            await modulesService.deleteModule(metahubId, req.params.moduleId, userId)
+            await modulesService.deleteModule(metahubId, req.params.moduleId, userId, {
+                expectedVersion: parsed.data.expectedVersion,
+                expectedSourceChecksum: parsed.data.expectedSourceChecksum
+            })
             return res.status(204).send()
         },
         { permission: 'manageMetahub' }

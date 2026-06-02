@@ -4,6 +4,63 @@
 
 ---
 
+## Active: Modules as External Files for PlayCanvas-Ready Authoring Implementation (2026-06-01)
+
+> Goal: implement file-backed metahub module source files that are readable by the running platform without root rebuild, while preserving compiler security, snapshots, copy/import behavior, runtime bundle-only sync, UI quality, docs, and tests.
+
+### IMPLEMENT Action Plan
+
+-   [x] Establish shared module storage contracts and baseline `_mhb_modules` schema fields/indexes.
+-   [x] Implement the backend module source file service, resolver, source-status semantics, and safe generated paths.
+-   [x] Refactor metahub module service/controller/routes for inline/file create and update, compile-time source resolution, and unsupported-schema handling.
+-   [x] Update compiler diagnostics, snapshot/hash/export/import/copy behavior, and preserve `_app_modules` runtime bundle-only boundaries.
+-   [x] Update metahubs frontend API, Modules tab UI, EN/RU i18n, generated path workflow, and technical-details visibility.
+-   [x] Add focused backend/frontend/utils/compiler/schema tests for file-backed modules.
+-   [x] Update GitBook/rest-docs documentation and Memory Bank progress.
+-   [x] Run Prettier, focused build/test checks, docs i18n check, and final autoreview.
+
+### Follow-Up Scope
+
+### QA Closure Action Plan
+
+-   [x] Fix file-backed module save so unchanged-path saves recompile when the external file checksum changed.
+-   [x] Add backend regression coverage for changed-file recompilation and unchanged-file metadata saves.
+-   [x] Add Playwright local minimal Supabase evidence with screenshots for the file-backed Modules tab workflow.
+-   [x] Run formatting, focused backend/frontend/build checks, local minimal Supabase Playwright evidence, and autoreview.
+
+### Final QA Defect Closure Action Plan
+
+-   [x] Harden module source file scope/path containment before filesystem mutations.
+-   [x] Add optimistic update locking with module version and source checksum propagation.
+-   [x] Fix file-backed create/edit UX, localized source-path errors, and Playwright evidence.
+-   [x] Clean file-backed source trees/files during metahub and module deletion.
+-   [x] Close template seed and publication snapshot checksum consistency gaps.
+-   [x] Run formatting, targeted tests/builds, docs checks, Playwright local Supabase evidence, and autoreview.
+
+### Post-QA Lifecycle Hardening Action Plan
+
+-   [x] Require fail-closed module version and source checksum guards for destructive file-backed deletes and source-path cleanup.
+-   [x] Make snapshot restore stale source cleanup checksum-aware and fail closed for externally edited files.
+-   [x] Clean imported metahub source trees when snapshot import rolls back after file-backed restore.
+-   [x] Include file-backed `sourceStorage.path` in canonical publication snapshot hashes.
+-   [x] Add focused regression tests for destructive lifecycle, restore/import cleanup, and hash normalization.
+-   [x] Run Prettier, focused backend/utils/frontend checks, local minimal Supabase Playwright evidence, and autoreview.
+
+### Final Snapshot/Delete Integrity Closure Action Plan
+
+-   [x] Include shared-library module sources in portable publication snapshots without changing runtime bundle-only application sync.
+-   [x] Normalize and validate restored file-backed snapshot paths and reject tampered snapshot source checksums.
+-   [x] Require live file checksum confirmation before destructive file-backed module deletes.
+-   [x] Add a localized confirmation dialog for file-backed module deletion and strengthen keyboard/mobile browser evidence.
+-   [x] Add focused backend, frontend, and Playwright regressions for the final QA defects.
+-   [x] Run formatting, focused tests/builds, local minimal Supabase Playwright evidence, repository guards, and autoreview.
+
+### Follow-Up Scope
+
+-   [ ] Add explicit extract-to-file and inline-from-file commands if product workflow needs them beyond create/update/publish compilation.
+
+---
+
 ## Active: PlayCanvas Editor Metahub Authoring Surface Settings Implementation (2026-06-01)
 
 > Goal: add metahub design-time package settings and a safe route-first PlayCanvas Editor artifact host while keeping authoring-only packages out of runtime publication.
@@ -1220,3 +1277,44 @@
 -   [x] Make the signed Editor artifact route use the attached artifact descriptor manifest file name.
 -   [x] Narrow the authoring-settings migration seed scope to match its checksum contract.
 -   [x] Run Prettier, focused tests, isolation guard, diff check, and autoreview.
+
+## Modules External Files Final QA Defect Closure 2026-06-02
+
+-   [x] Route file-backed source-path critical sections through the advisory-lock transaction executor.
+-   [x] Hydrate schema-scoped file-backed modules for entity action execution.
+-   [x] Harden file write rollback around failed DB mutations and failed transaction commits.
+-   [x] Fix file-backed to inline conversion from the Modules tab and add regression coverage.
+-   [x] Run Prettier, focused backend/frontend tests, package builds, diff check, and local autoreview.
+
+## Modules External Files Historical Schema Migration Closure 2026-06-02
+
+-   [x] Keep historical `_mhb_modules` system table definitions immutable and move file-backed source columns into the current v4 definition only.
+-   [x] Add regression coverage proving v3 definitions do not contain file-backed columns and v3→v4 migration is additive.
+-   [x] Run Prettier, focused backend tests/builds, diff check, and local autoreview.
+
+## Modules External Files Optimistic Lock And Source Path Closure 2026-06-02
+
+-   [x] Require module `expectedVersion` for backend file-backed module updates and conversions before source file writes.
+-   [x] Serialize file-backed create/update paths that attach to existing source files through the source-path lock and reject stale pre-lock reads.
+-   [x] Add regression coverage for missing version guards and existing-file source-path critical sections.
+-   [x] Run Prettier, focused backend tests/builds, diff check, local minimal Supabase Playwright flow, and autoreview.
+
+## Modules External Files Checksum Guard QA Closure 2026-06-02
+
+-   [x] Enforce current file checksum guards for file-backed metadata-only recompile and file-to-inline conversion flows.
+-   [x] Harden module source tree copy against symlink artifacts and add regression coverage.
+-   [x] Add focused backend regressions for stale source checksum rejection without weakening valid external-file recompile.
+-   [x] Run Prettier, focused backend/frontend tests, diff check, local minimal Supabase Playwright flow, and autoreview.
+
+## Modules External Files Runtime Sync Normalization Closure 2026-06-02
+
+-   [x] Normalize published snapshot modules through an explicit runtime-field allowlist so authoring source metadata cannot affect `_app_modules` change detection.
+-   [x] Add regression coverage proving `sourceCode` and `sourceStorage` in publication snapshots do not make runtime module sync permanently dirty.
+-   [x] Run Prettier and focused applications-backend checks for the runtime sync boundary.
+
+## Modules External Files Fixture And Source Root Closure 2026-06-02
+
+-   [x] Add explicit `UPL_MODULE_SOURCE_ROOT` defaults for manual, example, and E2E backend env profiles.
+-   [x] Surface the effective absolute file-backed module path in the Modules UI for metahub managers.
+-   [x] Refresh the MMOOMM flight fixture snapshot hash after the external-file schema changes.
+-   [x] Run Prettier, focused module tests, fixture contract check, and diff checks.

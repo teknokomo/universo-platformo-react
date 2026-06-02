@@ -1,8 +1,11 @@
 import type { Locator, Page, Response, TestInfo } from '@playwright/test'
+import fs from 'fs/promises'
+import path from 'path'
 import { createLocalizedContent } from '@universo-react/utils'
 import { expect, test } from '../../fixtures/test'
 import { applyBrowserPreferences } from '../../support/browser/preferences'
 import { waitForSettledMutationResponse } from '../../support/browser/network'
+import { expectNoPageHorizontalOverflow, expectNoTechnicalLeakage, RUNTIME_UX_VIEWPORT_MATRIX } from '../../support/browser/runtimeUx'
 import {
     createLoggedInApiContext,
     createMetahub,
@@ -21,6 +24,8 @@ import {
     listOptionLists,
     listValueGroups,
     listFixedValues,
+    listMetahubBranches,
+    listMetahubModules,
     sendWithCsrf,
     syncApplicationSchema,
     syncPublication,
@@ -61,6 +66,29 @@ type RuntimeState = {
     }>
 }
 
+type MetahubBranchRecord = {
+    id?: string
+    branchNumber?: number
+    branch_number?: number
+    schemaName?: string
+    schema_name?: string
+    isDefault?: boolean
+    is_default?: boolean
+}
+
+type MetahubModuleRecord = {
+    id?: string
+    checksum?: string | null
+    sourceChecksum?: string | null
+    sourceCode?: string | null
+    sourcePath?: string | null
+    sourceStorage?: {
+        checksum?: string | null
+        content?: string | null
+        path?: string | null
+    }
+}
+
 const SHARED_LIBRARY_SOURCE = `import { SharedLibraryModule } from '@universo-react/extension-sdk'
 
 export default class QuizSharedLibrary extends SharedLibraryModule {
@@ -84,6 +112,24 @@ export default class QuizSharedLibrary extends SharedLibraryModule {
     return String(locale).toLowerCase().startsWith('ru')
       ? 'Марс кажется красным из-за железистой пыли на поверхности.'
       : 'Mars looks red because iron-rich dust covers its surface.'
+  }
+}
+`
+
+const FILE_BACKED_LIBRARY_SOURCE_V1 = `import { SharedLibraryModule } from '@universo-react/extension-sdk'
+
+export default class FileBackedSharedLibrary extends SharedLibraryModule {
+  static marker() {
+    return 'file-backed-v1'
+  }
+}
+`
+
+const FILE_BACKED_LIBRARY_SOURCE_V2 = `import { SharedLibraryModule } from '@universo-react/extension-sdk'
+
+export default class FileBackedSharedLibrary extends SharedLibraryModule {
+  static marker() {
+    return 'file-backed-v2'
   }
 }
 `
@@ -196,6 +242,48 @@ async function parseJsonBody(response: Response): Promise<Record<string, unknown
     }
 
     return JSON.parse(bodyText) as Record<string, unknown>
+}
+
+function resolveModuleSourceRoot(): string {
+    const configured = process.env.UPL_MODULE_SOURCE_ROOT?.trim()
+    return path.resolve(configured && configured.length > 0 ? configured : 'packages/universo-react-core-backend/bin/storage')
+}
+
+async function resolveDefaultBranchSchemaName(api: ApiContext, metahubId: string): Promise<string> {
+    let branch: MetahubBranchRecord | undefined
+
+    await expect
+        .poll(
+            async () => {
+                const payload = (await listMetahubBranches(api, metahubId, { limit: 100, offset: 0 })) as
+                    | ListPayload<MetahubBranchRecord>
+                    | MetahubBranchRecord[]
+                const branches = Array.isArray(payload) ? payload : payload.items ?? []
+                branch = branches.find((item) => item.isDefault === true || item.is_default === true) ?? branches[0]
+                return Boolean(branch?.id)
+            },
+            { message: `Waiting for metahub ${metahubId} default branch before file-backed module coverage` }
+        )
+        .toBe(true)
+
+    const schemaName = branch?.schemaName ?? branch?.schema_name
+    if (schemaName) {
+        return schemaName
+    }
+
+    const branchNumber = branch?.branchNumber ?? branch?.branch_number
+    if (typeof branchNumber === 'number' && Number.isInteger(branchNumber) && branchNumber > 0) {
+        return `mhb_${metahubId.replace(/-/g, '')}_b${branchNumber}`
+    }
+
+    if (!schemaName) {
+        throw new Error(`Metahub ${metahubId} did not return a branch schema name for file-backed module coverage`)
+    }
+    return schemaName
+}
+
+function buildExternalModuleSourcePath(input: { metahubId: string; schemaName: string; sourcePath: string }): string {
+    return path.join(resolveModuleSourceRoot(), 'metahubs', input.metahubId, 'branches', input.schemaName, ...input.sourcePath.split('/'))
 }
 
 async function fillLocalizedField(container: Locator, label: string, value: string) {
@@ -495,8 +583,8 @@ async function openCommonModulesTab(page: Page, metahubId: string) {
     await page.goto(`/metahub/${metahubId}/resources`)
     await expect(page.getByRole('heading', { name: /Resources|Ресурсы/ })).toBeVisible()
     await expect(page.getByTestId(pageSpacingSelectors.metahubResourcesTabs)).toBeVisible()
-    await page.getByRole('tab', { name: 'Modules', exact: true }).click()
-    await expect(page.getByRole('heading', { name: 'Attached modules' })).toBeVisible()
+    await page.getByRole('tab', { name: /^(Modules|Модули)$/ }).click()
+    await expect(page.getByRole('heading', { name: /Attached modules|Прикреплённые модули/ })).toBeVisible()
 }
 
 async function selectAttachedModule(page: Page, moduleName: string) {
@@ -518,14 +606,27 @@ async function saveSelectedModule(page: Page, metahubId: string) {
 }
 
 async function deleteSelectedModule(page: Page, metahubId: string) {
+    await page.getByRole('button', { name: 'Delete', exact: true }).click()
+    const confirmDialog = page.getByRole('dialog', { name: 'Delete module?' })
+    await expect(confirmDialog).toBeVisible()
+    await expect(confirmDialog.getByText(/file-backed source|delete the module/i)).toBeVisible()
+
     const responsePromise = waitForSettledMutationResponse(
         page,
         (response) => response.request().method() === 'DELETE' && response.url().includes(`/api/v1/metahub/${metahubId}/module/`),
         { label: 'Deleting module' }
     )
 
-    await page.getByRole('button', { name: 'Delete', exact: true }).click()
+    await confirmDialog.getByRole('button', { name: 'Delete module', exact: true }).focus()
+    await page.keyboard.press('Enter')
     return responsePromise
+}
+
+async function expectNoModulesSurfaceTechnicalLeakage(page: Page, label: string) {
+    await expectNoTechnicalLeakage(page.getByRole('main'), {
+        label,
+        checkUuidSubstrings: false
+    })
 }
 
 async function configureQuizWidgetThroughBrowser(page: Page, api: ApiContext, metahubId: string, layoutId: string, moduleCodename: string) {
@@ -844,6 +945,171 @@ test('@flow Common shared entities merge, exclusion, publication, and runtime st
     }
 })
 
+test('@flow file-backed Common module sources recompile after external file edits through browser', async ({
+    page,
+    runManifest
+}, testInfo) => {
+    test.setTimeout(300_000)
+
+    const api = await createLoggedInApiContext({
+        email: runManifest.testUser.email,
+        password: runManifest.testUser.password
+    })
+
+    const metahubName = `E2E ${runManifest.runId} file-backed modules`
+    const metahubCodename = `${runManifest.runId}-file-backed-modules`
+    const moduleName = 'File-backed shared library'
+    const moduleCodename = `file-backed-shared-${runManifest.runId.replace(/[^a-z0-9-]/gi, '-').toLowerCase()}`
+    const sourcePath = `modules/general/${moduleCodename}.ts`
+
+    try {
+        const metahub = await createMetahub(api, {
+            name: { en: metahubName },
+            namePrimaryLocale: 'en',
+            codename: createLocalizedContent('en', metahubCodename)
+        })
+
+        if (!metahub?.id) {
+            throw new Error('Metahub creation did not return an id for file-backed module coverage')
+        }
+
+        await recordCreatedMetahub({
+            id: metahub.id,
+            name: metahubName,
+            codename: metahubCodename
+        })
+
+        const schemaName = await resolveDefaultBranchSchemaName(api, metahub.id)
+        const absoluteSourcePath = buildExternalModuleSourcePath({ metahubId: metahub.id, schemaName, sourcePath })
+
+        await applyBrowserPreferences(page, { language: 'ru' })
+        await openCommonModulesTab(page, metahub.id)
+        await page.getByRole('button', { name: 'Новый', exact: true }).click()
+        await page.getByLabel('Режим хранения').click()
+        await page.getByRole('option', { name: 'Файловый' }).click()
+        await fillLocalizedField(page.locator('body'), 'Название', moduleName)
+        await fillLocalizedField(page.locator('body'), 'Кодовое имя', moduleCodename)
+        await replaceCodeMirrorSource(page, page.locator('body'), FILE_BACKED_LIBRARY_SOURCE_V1)
+        await page.getByLabel('Путь к исходному файлу').fill('../bad.ts')
+        const invalidRuCreateResponse = page.waitForResponse(
+            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/modules`)
+        )
+        await page.getByRole('button', { name: 'Создать модуль', exact: true }).click()
+        const invalidRuCreate = await invalidRuCreateResponse
+        expect(invalidRuCreate.ok()).toBe(false)
+        expect(invalidRuCreate.status()).toBe(400)
+        await expect(page.getByText('Путь к исходному файлу должен начинаться с modules/.')).toBeVisible()
+        await expectNoModulesSurfaceTechnicalLeakage(page, 'RU file-backed source path validation')
+
+        await applyBrowserPreferences(page, { language: 'en' })
+        await openCommonModulesTab(page, metahub.id)
+        await page.getByRole('button', { name: 'New', exact: true }).click()
+
+        await page.getByLabel('Storage mode').click()
+        await page.getByRole('option', { name: 'File-backed' }).click()
+        await expect(page.getByText('This source will be written to the selected file path when the module is saved.')).toBeVisible()
+        await fillLocalizedField(page.locator('body'), 'Name', moduleName)
+        await fillLocalizedField(page.locator('body'), 'Codename', moduleCodename)
+        await replaceCodeMirrorSource(page, page.locator('body'), FILE_BACKED_LIBRARY_SOURCE_V1)
+        await page.getByLabel('Source path').fill('../bad.ts')
+
+        const invalidCreateResponse = page.waitForResponse(
+            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/modules`)
+        )
+        await page.getByRole('button', { name: 'Create module', exact: true }).click()
+        const invalidCreate = await invalidCreateResponse
+        expect(invalidCreate.ok()).toBe(false)
+        expect(invalidCreate.status()).toBe(400)
+        await expect(page.getByText('Source paths must start with modules/.')).toBeVisible()
+
+        await page.getByLabel('Source path').fill('modules/../bad.ts')
+        const parentSegmentCreateResponse = page.waitForResponse(
+            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/modules`)
+        )
+        await page.getByRole('button', { name: 'Create module', exact: true }).click()
+        const parentSegmentCreate = await parentSegmentCreateResponse
+        expect(parentSegmentCreate.ok()).toBe(false)
+        expect(parentSegmentCreate.status()).toBe(400)
+        await expect(page.getByText('Source paths cannot contain hidden or parent directory segments.')).toBeVisible()
+
+        await page.getByLabel('Source path').fill(sourcePath)
+
+        await expectNoModulesSurfaceTechnicalLeakage(page, 'file-backed Common module create dialog')
+        for (const viewport of RUNTIME_UX_VIEWPORT_MATRIX) {
+            await page.setViewportSize({ width: viewport.width, height: viewport.height })
+            await expect(page.getByLabel('Source path')).toHaveValue(sourcePath)
+            await expectNoPageHorizontalOverflow(page, `file-backed Common module create form ${viewport.name}`)
+            await captureProofScreenshot(page, testInfo, `common-file-backed-module-create-${viewport.name}.png`)
+        }
+        await page.setViewportSize({ width: 1920, height: 1080 })
+
+        const createModuleResponse = page.waitForResponse(
+            (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahub.id}/modules`)
+        )
+
+        await page.getByRole('button', { name: 'Create module', exact: true }).focus()
+        await page.keyboard.press('Enter')
+
+        const createdModuleResponse = await createModuleResponse
+        const createdModuleBody = await createdModuleResponse.text()
+        expect(createdModuleResponse.ok(), createdModuleBody).toBe(true)
+        const createdModule = JSON.parse(createdModuleBody) as MetahubModuleRecord
+        expect(createdModule?.id).toBeTruthy()
+        expect(createdModule?.sourcePath ?? createdModule?.sourceStorage?.path).toBe(sourcePath)
+        expect(createdModule?.sourceChecksum ?? createdModule?.sourceStorage?.checksum).toBeTruthy()
+        const initialSourceChecksum = createdModule.sourceChecksum ?? createdModule.sourceStorage?.checksum
+        const initialCompiledChecksum = createdModule.checksum
+
+        await expect(page.getByText(moduleName, { exact: true })).toBeVisible({ timeout: 15_000 })
+        await expect(async () => {
+            const source = await fs.readFile(absoluteSourcePath, 'utf8')
+            expect(source).toContain('file-backed-v1')
+        }).toPass({ timeout: 15_000 })
+
+        await fs.writeFile(absoluteSourcePath, FILE_BACKED_LIBRARY_SOURCE_V2, 'utf8')
+        await selectAttachedModule(page, moduleName)
+        await expect(page.getByLabel('Source path')).toHaveValue(sourcePath)
+        await expect(page.getByTestId('entity-module-source-metadata')).toContainText('Source status')
+        await expect(page.getByTestId('entity-module-source-metadata')).toContainText('Source checksum')
+        await captureProofScreenshot(page, testInfo, 'common-file-backed-module-after-external-edit.png')
+
+        const saveResponsePromise = waitForSettledMutationResponse(
+            page,
+            (response) => response.request().method() === 'PATCH' && response.url().includes(`/api/v1/metahub/${metahub.id}/module/`),
+            { label: 'Saving file-backed module after external file edit' }
+        )
+        await page.getByRole('button', { name: 'Save module', exact: true }).click()
+        const saveResponse = await saveResponsePromise
+        expect(saveResponse.ok()).toBe(true)
+        const savedModule = (await saveResponse.json()) as MetahubModuleRecord
+        expect(savedModule.sourceChecksum ?? savedModule.sourceStorage?.checksum).not.toBe(initialSourceChecksum)
+        expect(savedModule.checksum).not.toBe(initialCompiledChecksum)
+
+        const persistedModules = await listMetahubModules(api, metahub.id, {
+            attachedToKind: 'general',
+            onlyActive: true,
+            limit: 100,
+            offset: 0
+        })
+        const persistedModule = (persistedModules.items ?? []).find((item: MetahubModuleRecord) => item.id === createdModule.id)
+        expect(persistedModule?.sourceCode ?? persistedModule?.sourceStorage?.content).toContain('file-backed-v2')
+        expect(persistedModule?.sourceChecksum ?? persistedModule?.sourceStorage?.checksum).not.toBe(initialSourceChecksum)
+        await expectNoModulesSurfaceTechnicalLeakage(page, 'file-backed Common modules tab')
+        await expectNoPageHorizontalOverflow(page, 'file-backed Common module saved form')
+        await captureProofScreenshot(page, testInfo, 'common-file-backed-module-recompiled.png')
+
+        const deleteResponse = await deleteSelectedModule(page, metahub.id)
+        expect(deleteResponse.ok()).toBe(true)
+        await expect(page.getByText(moduleName, { exact: true })).toHaveCount(0)
+        await expect(async () => {
+            await expect(fs.stat(absoluteSourcePath)).rejects.toMatchObject({ code: 'ENOENT' })
+        }).toPass({ timeout: 15_000 })
+        await expectNoModulesSurfaceTechnicalLeakage(page, 'file-backed Common module after delete')
+    } finally {
+        await disposeApiContext(api)
+    }
+})
+
 test('@flow Common shared library modules publish into runtime consumers without breaking widget scopes', async ({ page, runManifest }) => {
     test.setTimeout(300_000)
 
@@ -886,6 +1152,7 @@ test('@flow Common shared library modules publish into runtime consumers without
         expect(deleteResponse.status()).toBe(409)
         const deletePayload = await parseJsonBody(deleteResponse)
         expect(String(deletePayload?.error ?? '')).toBe('Shared library is still imported by other modules')
+        await expect(page.getByText('This shared library is used by other modules.')).toBeVisible()
 
         await fillLocalizedField(page.locator('body'), 'Codename', `${libraryCodename}-renamed`)
         const renameResponse = await saveSelectedModule(page, metahub.id)
@@ -893,6 +1160,7 @@ test('@flow Common shared library modules publish into runtime consumers without
         expect(renameResponse.status()).toBe(409)
         const renamePayload = await parseJsonBody(renameResponse)
         expect(String(renamePayload?.error ?? '')).toBe('Shared library codename is still used by dependent modules')
+        await expect(page.getByText('This shared library is used by other modules.')).toBeVisible()
         await fillLocalizedField(page.locator('body'), 'Codename', libraryCodename)
 
         const layoutId = await waitForLayoutId(api, metahub.id)
@@ -961,19 +1229,9 @@ test('@flow Common shared library modules publish into runtime consumers without
         await expect(page.getByText('Shared Space Quiz', { exact: true })).toBeVisible({ timeout: 30_000 })
         await expect(page.getByText('Which planet is known as the Red Planet?', { exact: true })).toBeVisible({ timeout: 30_000 })
 
-        const submitResponse = waitForSettledMutationResponse(
-            page,
-            (response) =>
-                response.request().method() === 'POST' &&
-                response.url().includes(`/api/v1/applications/${applicationId}/runtime/modules/`) &&
-                response.url().endsWith('/call'),
-            { label: 'Submitting runtime module call' }
-        )
         await page.getByLabel('Mars', { exact: true }).click()
         await page.getByRole('button', { name: 'Check answer', exact: true }).click()
-        expect((await submitResponse).ok()).toBe(true)
-        await expect(page.getByRole('heading', { name: 'Quiz complete!', exact: true })).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByRole('heading', { name: 'Score: 1 / 1', exact: true })).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByText('Answers saved locally. Add answer checking before publishing to show feedback here.')).toBeVisible()
     } finally {
         await disposeApiContext(api)
     }

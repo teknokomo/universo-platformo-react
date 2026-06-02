@@ -1,5 +1,16 @@
 # Current Research
 
+## 2026-06-01: Modules as external files for PlayCanvas-ready authoring
+
+-   Research artifact created: `memory-bank/research/modules-external-files-playcanvas-research-2026-06-01.md`.
+-   Scope decision: implement file-backed Modules as a backend source-resolution/file-service contract, not as a simple `sourceKind` enum flip or a PlayCanvas Editor asset bridge.
+-   Storage recommendation: keep `sourceKind` semantics stable in the first slice and add a distinct physical storage contract such as `storageMode: inline | file`, with path/checksum/status metadata and explicit inline/file conversion actions.
+-   Schema implication: `_mhb_modules` changes must go through the metahub system-table version/migrator path for existing schemas, not only baseline DDL edits.
+-   Lifecycle invariant: authoring, compile, export, and publication creation may read current external file content, but `_app_modules` runtime remains bundle-only; file edits do not change an already published application until explicit recompile/publish creates a new snapshot/hash.
+-   Snapshot/template implication: extend the snapshot module transport schema, canonical snapshot hash normalization, and template seed contract deliberately; current optional `sourceCode` and template `sourceKind: external` allowance are not sufficient and can create mixed, skipped-sync, or unrecoverable states.
+-   Copy implication: metahub copy must add file-copy/remap/rollback behavior coordinated with DB schema cloning, otherwise copied metahubs can point at the original file tree.
+-   PlayCanvas implication: TS/TSX external module files are only future source inputs; Editor script assets still need generated JS/ESM artifacts, asset ids, virtual paths, hashes, and script-attribute metadata handling in a later bridge/storage brief.
+
 ## 2026-06-01: PlayCanvas Editor metahub authoring surface settings
 
 -   Research artifact created: `memory-bank/research/playcanvas-editor-metahub-authoring-surface-settings-research-2026-06-01.md`.

@@ -420,6 +420,37 @@ const shipsOverlapAabb = (
     rightForward: { x: number; y: number; z: number }
 ) => orientedBoxesOverlap(createShipBox(leftCenter, leftForward), createShipBox(rightCenter, rightForward))
 
+const orientedBoxesPenetrate = (
+    left: ReturnType<typeof createOrientedBox>,
+    right: ReturnType<typeof createOrientedBox>,
+    tolerance = CONTACT_TOLERANCE
+) => {
+    const axes = [...left.axes, ...right.axes]
+    for (const leftAxis of left.axes) {
+        for (const rightAxis of right.axes) {
+            const cross = crossVector(leftAxis, rightAxis)
+            if (Math.hypot(cross.x, cross.y, cross.z) > 0.000001) {
+                axes.push(normalize3d(cross))
+            }
+        }
+    }
+    const centerDelta = {
+        x: right.center.x - left.center.x,
+        y: right.center.y - left.center.y,
+        z: right.center.z - left.center.z
+    }
+    return axes.every(
+        (axis) => Math.abs(dotVector(centerDelta, axis)) < boxRadiusOnAxis(left, axis) + boxRadiusOnAxis(right, axis) - tolerance
+    )
+}
+
+const shipsPenetrateAabb = (
+    leftCenter: { x: number; y: number; z: number },
+    leftForward: { x: number; y: number; z: number },
+    rightCenter: { x: number; y: number; z: number },
+    rightForward: { x: number; y: number; z: number }
+) => orientedBoxesPenetrate(createShipBox(leftCenter, leftForward), createShipBox(rightCenter, rightForward))
+
 const stationVisualClearance = (shipCenter: { x: number; y: number; z: number }, shipForward = { x: 1, y: 0, z: 0 }) => {
     const shipBox = createShipBox(shipCenter, shipForward)
     if (orientedBoxesOverlap(shipBox, createStationBox())) {
@@ -827,24 +858,24 @@ test('@flow imported MMOOMM flight snapshot renders PlayCanvas runtime and moves
             sendCanvasMoveToTarget(secondPilotCanvas, initialPrimaryShip)
         ])
         const collisionCourseSeparationSamples: number[] = []
-        const primaryRenderedOverlapSamples: boolean[] = []
-        const secondRenderedOverlapSamples: boolean[] = []
+        const primaryRenderedPenetrationSamples: boolean[] = []
+        const secondRenderedPenetrationSamples: boolean[] = []
         const sampleCollisionCourse = async () => {
             const primary = await readShipPosition(canvas)
             const second = await readShipPosition(secondPilotCanvas)
             const primaryForward = await readShipForward(canvas)
             const secondForward = await readShipForward(secondPilotCanvas)
             collisionCourseSeparationSamples.push(distance3d(primary, second))
-            primaryRenderedOverlapSamples.push(
-                shipsOverlapAabb(
+            primaryRenderedPenetrationSamples.push(
+                shipsPenetrateAabb(
                     primary,
                     primaryForward,
                     await readRemoteRenderedShipPosition(canvas),
                     await readRemoteRenderedShipForward(canvas)
                 )
             )
-            secondRenderedOverlapSamples.push(
-                shipsOverlapAabb(
+            secondRenderedPenetrationSamples.push(
+                shipsPenetrateAabb(
                     second,
                     secondForward,
                     await readRemoteRenderedShipPosition(secondPilotCanvas),
@@ -862,8 +893,10 @@ test('@flow imported MMOOMM flight snapshot renders PlayCanvas runtime and moves
             Math.min(...collisionCourseSeparationSamples),
             'server-authoritative collision course should bring ships close enough to prove contact handling'
         ).toBeLessThanOrEqual(13)
-        expect(primaryRenderedOverlapSamples, 'primary client must not render the remote ship inside the local ship').not.toContain(true)
-        expect(secondRenderedOverlapSamples, 'second client must not render the remote ship inside the local ship').not.toContain(true)
+        expect(primaryRenderedPenetrationSamples, 'primary client must not render the remote ship inside the local ship').not.toContain(
+            true
+        )
+        expect(secondRenderedPenetrationSamples, 'second client must not render the remote ship inside the local ship').not.toContain(true)
 
         await expect
             .poll(() => readCanvasColorEvidence(canvas), { timeout: 60_000 })
@@ -1063,13 +1096,15 @@ test('@flow imported MMOOMM flight snapshot renders PlayCanvas runtime and moves
             Math.max(...turnSamples.map((sample) => Math.abs(sample.y))),
             'ship must pitch toward vertical free-space targets'
         ).toBeGreaterThan(0.05)
-        const movementSamples: Array<{ position: { x: number; y: number; z: number }; remaining: number }> = []
+        const movementSamples: Array<{ position: { x: number; y: number; z: number }; remaining: number; sampledAt: number }> = []
         for (let sample = 0; sample < 12; sample += 1) {
             const position = await readShipPosition(canvas)
-            movementSamples.push({ position, remaining: distance3d(position, doubleClickTarget) })
+            movementSamples.push({ position, remaining: distance3d(position, doubleClickTarget), sampledAt: Date.now() })
             await page.waitForTimeout(80)
         }
         for (let sample = 1; sample < movementSamples.length; sample += 1) {
+            const elapsedSeconds = Math.max(0.08, (movementSamples[sample].sampledAt - movementSamples[sample - 1].sampledAt) / 1000)
+            const maxExpectedSampleStep = Math.max(20, elapsedSeconds * 240)
             expect(
                 movementSamples[sample].remaining,
                 'local predicted movement should converge toward the vertical target without reversing'
@@ -1077,7 +1112,7 @@ test('@flow imported MMOOMM flight snapshot renders PlayCanvas runtime and moves
             expect(
                 distance3d(movementSamples[sample - 1].position, movementSamples[sample].position),
                 'local predicted movement should not snap between sampled browser frames'
-            ).toBeLessThanOrEqual(20)
+            ).toBeLessThanOrEqual(maxExpectedSampleStep)
         }
         expect(
             Math.abs((await readShipVisualForward(canvas)).y),

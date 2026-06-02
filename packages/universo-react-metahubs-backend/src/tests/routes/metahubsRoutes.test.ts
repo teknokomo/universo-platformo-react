@@ -135,6 +135,7 @@ const mockCreateBranch = jest.fn(async () => ({ id: 'branch-new' }))
 const mockCountBranches = jest.fn(async () => 0)
 const mockFindTemplateByIdNotDeleted = jest.fn(async () => null)
 const mockFindTemplateByCodename = jest.fn(async () => null)
+const mockDeleteMetahubTree = jest.fn(async () => undefined)
 
 jest.mock('../../persistence', () => ({
     __esModule: true,
@@ -162,6 +163,14 @@ jest.mock('../../persistence', () => ({
     createPublication: (...args: any[]) => mockCreatePublication(...args),
     createPublicationVersion: (...args: any[]) => mockCreatePublicationVersion(...args),
     copyMetahubPackages: (...args: any[]) => mockCopyMetahubPackages(...args)
+}))
+
+jest.mock('../../domains/modules/services/ModuleSourceFileService', () => ({
+    __esModule: true,
+    ModuleSourceFileService: jest.fn().mockImplementation(() => ({
+        copyTree: jest.fn(),
+        deleteMetahubTree: (...args: unknown[]) => mockDeleteMetahubTree(...args)
+    }))
 }))
 
 import type { Request, Response, NextFunction } from 'express'
@@ -245,6 +254,7 @@ describe('Metahubs Routes', () => {
         mockUuidToLockKey.mockImplementation((value: string) => value)
         mockSoftDelete.mockResolvedValue(true)
         mockCopyMetahubPackages.mockResolvedValue(0)
+        mockDeleteMetahubTree.mockResolvedValue(undefined)
         mockSerializeMetahub.mockResolvedValue({
             version: 1,
             generatedAt: '2026-04-04T00:00:00.000Z',
@@ -758,6 +768,64 @@ describe('Metahubs Routes', () => {
                 userId: 'test-user-id'
             })
         })
+
+        it('continues cloned schema cleanup when copied module source tree cleanup fails during rollback', async () => {
+            mockFindMetahubById.mockResolvedValue({
+                id: 'metahub-1',
+                codename: 'source-hub',
+                slug: 'source-hub',
+                isPublic: false,
+                defaultBranchId: 'branch-1',
+                templateId: null,
+                templateVersionId: null,
+                name: {
+                    _schema: 'v1',
+                    _primary: 'en',
+                    locales: { en: { content: 'Source Metahub' } }
+                },
+                description: null
+            })
+            mockFindBranchesByMetahub.mockResolvedValue([
+                {
+                    id: 'branch-1',
+                    metahubId: 'metahub-1',
+                    sourceBranchId: null,
+                    branchNumber: 1,
+                    codename: 'main',
+                    schemaName: 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1',
+                    structureVersion: '0.1.0',
+                    lastTemplateVersionId: 'tpl-v100',
+                    lastTemplateVersionLabel: '0.1.0',
+                    lastTemplateSyncedAt: new Date('2026-02-12T11:00:00.000Z'),
+                    name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Main' } } },
+                    description: null,
+                    _uplDeleted: false,
+                    _mhbDeleted: false
+                }
+            ])
+            mockFindMetahubByCodename.mockResolvedValue(null)
+            mockFindMetahubBySlug.mockResolvedValue(null)
+            mockExec.query.mockImplementation(async (sql: string) => {
+                if (sql.includes('uuid_generate_v7')) return [{ id: '018f8a78-7b8f-7c1d-a111-222233334444' }]
+                return []
+            })
+            mockExec.transaction.mockRejectedValue(new Error('metadata transaction failed'))
+            mockDeleteMetahubTree.mockRejectedValue(new Error('source cleanup failed'))
+
+            const app = buildApp()
+
+            await request(app)
+                .post('/metahub/metahub-1/copy')
+                .send({
+                    name: { en: 'Source Metahub (copy)' },
+                    codename: testCodenameVlc('source-hub-copy'),
+                    copyDefaultBranchOnly: true
+                })
+                .expect(500)
+
+            expect(mockDeleteMetahubTree).toHaveBeenCalledWith('018f8a78-7b8f-7c1d-a111-222233334444')
+            expect(mockDropSchema).toHaveBeenCalledWith('mhb_018f8a787b8f7c1da111222233334444_b1')
+        })
     })
 
     describe('DELETE /metahub/:metahubId', () => {
@@ -813,6 +881,7 @@ describe('Metahubs Routes', () => {
                 expect.stringContaining('UPDATE metahubs.doc_publications'),
                 expect.arrayContaining(['metahub-1'])
             )
+            expect(mockDeleteMetahubTree).toHaveBeenCalledWith('metahub-1')
 
             // Verify dual-flag contract on cascade children
             const cascadeCalls = txQuery.mock.calls.filter(
@@ -2044,6 +2113,7 @@ describe('Metahubs Routes', () => {
                 'test-user-id'
             )
             expect(transactionExecutors[1].query).toHaveBeenCalledWith(`DROP SCHEMA IF EXISTS "${schemaName}" CASCADE`)
+            expect(mockDeleteMetahubTree).toHaveBeenCalledWith('new-metahub-id')
         })
 
         it('returns readable details when snapshot restore throws a structured object', async () => {

@@ -461,4 +461,65 @@ describe('normalizePublicationSnapshotForHash', () => {
         ])
         expect(JSON.stringify(embedded.packages)).not.toEqual(JSON.stringify(openSeparately.packages))
     })
+
+    it('includes file-backed module source path metadata in canonical hash normalization', () => {
+        const baseModule = {
+            id: 'module-file-backed',
+            codename: 'shared_library',
+            presentation: { name: { en: 'Shared library' } },
+            attachedToKind: 'general',
+            attachedToId: null,
+            moduleRole: 'library',
+            sourceKind: 'embedded',
+            sdkApiVersion: '1.0.0',
+            sourceCode: null,
+            sourceStorage: {
+                mode: 'file',
+                path: 'modules/general/shared-library.ts',
+                checksum: 'source-checksum',
+                content: 'export const shared = true'
+            },
+            manifest: {
+                className: 'SharedLibrary',
+                sdkApiVersion: '1.0.0',
+                moduleRole: 'library',
+                sourceKind: 'embedded',
+                capabilities: [],
+                methods: [],
+                checksum: 'manifest-checksum'
+            },
+            serverBundle: 'server bundle',
+            clientBundle: 'client bundle',
+            checksum: 'compiled-checksum',
+            isActive: true,
+            config: {}
+        }
+
+        const first = normalizePublicationSnapshotForHash({
+            modules: [
+                {
+                    ...baseModule,
+                    sourceStorage: {
+                        ...baseModule.sourceStorage,
+                        path: 'modules/general/shared-library.ts'
+                    }
+                }
+            ]
+        })
+        const renamed = normalizePublicationSnapshotForHash({
+            modules: [
+                {
+                    ...baseModule,
+                    sourceStorage: {
+                        ...baseModule.sourceStorage,
+                        path: 'modules/general/renamed-shared-library.ts'
+                    }
+                }
+            ]
+        })
+
+        expect(first.modules).not.toEqual(renamed.modules)
+        expect(JSON.stringify(first.modules)).toContain('modules/general/shared-library.ts')
+        expect(JSON.stringify(renamed.modules)).toContain('modules/general/renamed-shared-library.ts')
+    })
 })

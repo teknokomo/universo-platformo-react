@@ -345,6 +345,45 @@ describe('syncModulePersistence', () => {
         )
     })
 
+    it('keeps shared-library snapshot sources out of runtime application modules', async () => {
+        await persistPublishedModules({
+            schemaName: 'app_018f8a787b8f7c1da1112222333346aa',
+            userId: 'user-1',
+            snapshot: createSnapshot([
+                createSnapshotModule({
+                    id: 'shared-library',
+                    codename: createCodenameVlc('shared-library'),
+                    attachedToKind: 'general',
+                    attachedToId: null,
+                    moduleRole: 'library',
+                    manifest: {
+                        className: 'SharedLibrary',
+                        sdkApiVersion: '1.0.0',
+                        moduleRole: 'library',
+                        sourceKind: 'embedded',
+                        capabilities: ['metadata.read'],
+                        methods: []
+                    },
+                    serverBundle: null,
+                    clientBundle: null,
+                    checksum: 'shared-library-checksum'
+                }),
+                createSnapshotModule({
+                    id: 'runtime-widget',
+                    codename: createCodenameVlc('runtime-widget'),
+                    checksum: 'runtime-widget-checksum'
+                })
+            ])
+        })
+
+        expect(currentKnex.rows).toHaveLength(1)
+        expect(currentKnex.rows[0]).toMatchObject({
+            id: 'runtime-widget',
+            codename: 'runtime-widget',
+            checksum: 'runtime-widget-checksum'
+        })
+    })
+
     it('fails closed when runtime system-table bootstrap for modules throws', async () => {
         mockEnsureSystemTables.mockRejectedValueOnce(new Error('bootstrap failed'))
 
@@ -448,6 +487,30 @@ describe('syncModulePersistence', () => {
                     attachedToId: null,
                     checksum: 'beta-checksum'
                 })
+            ])
+        })
+
+        expect(hasChanges).toBe(false)
+    })
+
+    it('ignores authoring source fields when comparing published modules with persisted runtime rows', async () => {
+        currentKnex = createMockSyncKnex({
+            rows: [createStoredModuleRow()]
+        })
+
+        const hasChanges = await hasPublishedModulesChanges({
+            schemaName: 'app_018f8a787b8f7c1da1112222333346aa',
+            snapshot: createSnapshot([
+                {
+                    ...createSnapshotModule(),
+                    sourceCode: 'export default class AuthoringOnlySource {}',
+                    sourceStorage: {
+                        mode: 'file',
+                        path: 'modules/general/authoring-only.ts',
+                        checksum: 'authoring-only-source-checksum',
+                        content: 'export default class AuthoringOnlySource {}'
+                    }
+                } as SnapshotModuleDefinition
             ])
         })
 

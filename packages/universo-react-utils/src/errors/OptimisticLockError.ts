@@ -21,6 +21,7 @@ export interface ConflictInfo {
         | 'constant'
         | 'element'
         | 'layout'
+        | 'module'
         | 'menu'
         | 'menu_item'
         | 'entity'

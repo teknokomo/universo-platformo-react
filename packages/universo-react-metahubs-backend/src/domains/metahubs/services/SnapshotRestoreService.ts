@@ -44,14 +44,37 @@ import { resolveWidgetTableName } from '../../templates/services/widgetTableReso
 import { createLogger } from '../../../utils/logger'
 import { createKnexExecutor } from '@universo-react/database'
 import { replaceMetahubPackagesFromSnapshot } from '../../../persistence'
+import {
+    assertSafeRelativeModulePath,
+    computeModuleSourceChecksum,
+    ModuleSourceFileService
+} from '../../modules/services/ModuleSourceFileService'
+import { metahubModulesStorageColumnsAvailable } from '../../modules/services/modulesStore'
 
 const log = createLogger('SnapshotRestoreService')
 
 type SnapshotModule = NonNullable<MetahubSnapshot['modules']>[number] & {
     sourceCode?: string
+    sourceStorage?: {
+        mode?: string
+        path?: string | null
+        checksum?: string | null
+        content?: string | null
+    }
 }
 
 type SharedEntityIdMaps = Record<SharedEntityKind, Map<string, string>>
+
+interface RestoredModuleSourceBackup {
+    sourcePath: string
+    previousSourceCode: string | null
+    writtenChecksum: string | null
+}
+
+interface StaleModuleSourceCandidate {
+    sourcePath: string
+    sourceChecksum: string | null
+}
 
 const getModuleCodenameText = (codename: SnapshotModule['codename']): string => getCodenamePrimary(codename) ?? '[unknown]'
 
@@ -90,30 +113,120 @@ const buildPageBlockContentValidationOptions = (component: Partial<BlockContentC
  * All operations run within a single Knex transaction for atomicity.
  */
 export class SnapshotRestoreService {
-    constructor(private readonly knex: Knex, private readonly schemaName: string) {}
+    constructor(
+        private readonly knex: Knex,
+        private readonly schemaName: string,
+        private readonly moduleSourceFileService = new ModuleSourceFileService()
+    ) {}
 
     async restoreFromSnapshot(metahubId: string, snapshot: MetahubSnapshot, userId: string): Promise<void> {
-        await this.knex.transaction(async (trx) => {
-            await this.restoreEntityTypeDefinitions(trx, snapshot, userId)
+        const restoredModuleSourceBackups: RestoredModuleSourceBackup[] = []
+        const staleModuleSourceCandidates = new Map<string, StaleModuleSourceCandidate>()
+        try {
+            await this.knex.transaction(async (trx) => {
+                await this.restoreEntityTypeDefinitions(trx, snapshot, userId)
 
-            // oldEntityId → newEntityId
-            const entityIdMap = await this.restoreEntities(trx, snapshot, userId)
+                // oldEntityId → newEntityId
+                const entityIdMap = await this.restoreEntities(trx, snapshot, userId)
 
-            // oldConstantId → newConstantId
-            const constantIdMap = await this.restoreConstants(trx, snapshot, entityIdMap, userId)
+                // oldConstantId → newConstantId
+                const constantIdMap = await this.restoreConstants(trx, snapshot, entityIdMap, userId)
 
-            const componentIdMap = await this.restoreComponents(trx, snapshot, entityIdMap, constantIdMap, userId)
-            await this.restoreEnumerationValues(trx, snapshot, entityIdMap, userId)
-            const sharedEntityIdMaps = await this.restoreSharedEntities(trx, snapshot, entityIdMap, constantIdMap, userId)
-            await this.restoreSharedEntityOverrides(trx, snapshot, entityIdMap, sharedEntityIdMaps, userId)
-            await this.restoreElements(trx, snapshot, entityIdMap, userId)
-            const moduleIdMap = await this.restoreModules(trx, metahubId, snapshot, entityIdMap, componentIdMap, userId)
-            const actionIdMap = await this.restoreActions(trx, snapshot, entityIdMap, moduleIdMap, userId)
-            await this.restoreEventBindings(trx, snapshot, entityIdMap, actionIdMap, userId)
-            await this.restoreLayouts(trx, snapshot, entityIdMap, userId)
-            await this.restoreSettings(trx, snapshot, userId)
-            await this.restorePackages(trx, metahubId, snapshot, userId)
-        })
+                const componentIdMap = await this.restoreComponents(trx, snapshot, entityIdMap, constantIdMap, userId)
+                await this.restoreEnumerationValues(trx, snapshot, entityIdMap, userId)
+                const sharedEntityIdMaps = await this.restoreSharedEntities(trx, snapshot, entityIdMap, constantIdMap, userId)
+                await this.restoreSharedEntityOverrides(trx, snapshot, entityIdMap, sharedEntityIdMaps, userId)
+                await this.restoreElements(trx, snapshot, entityIdMap, userId)
+                const moduleIdMap = await this.restoreModules(
+                    trx,
+                    metahubId,
+                    snapshot,
+                    entityIdMap,
+                    componentIdMap,
+                    userId,
+                    restoredModuleSourceBackups,
+                    staleModuleSourceCandidates
+                )
+                const actionIdMap = await this.restoreActions(trx, snapshot, entityIdMap, moduleIdMap, userId)
+                await this.restoreEventBindings(trx, snapshot, entityIdMap, actionIdMap, userId)
+                await this.restoreLayouts(trx, snapshot, entityIdMap, userId)
+                await this.restoreSettings(trx, snapshot, userId)
+                await this.restorePackages(trx, metahubId, snapshot, userId)
+            })
+        } catch (error) {
+            for (const backup of restoredModuleSourceBackups.reverse()) {
+                try {
+                    if (!(await this.isCurrentRestoredModuleSource(metahubId, backup))) {
+                        continue
+                    }
+                    if (backup.previousSourceCode === null) {
+                        await this.moduleSourceFileService.delete({ metahubId, branchSlug: this.schemaName }, backup.sourcePath)
+                    } else {
+                        await this.moduleSourceFileService.write(
+                            { metahubId, branchSlug: this.schemaName },
+                            backup.sourcePath,
+                            backup.previousSourceCode
+                        )
+                    }
+                } catch (rollbackError) {
+                    log.warn('Failed to roll back module source file during snapshot restore rollback', {
+                        metahubId,
+                        schemaName: this.schemaName,
+                        sourcePath: backup.sourcePath,
+                        error: rollbackError
+                    })
+                }
+            }
+            throw error
+        }
+
+        await this.deleteStaleModuleSourceFiles(metahubId, staleModuleSourceCandidates)
+    }
+
+    private async deleteStaleModuleSourceFiles(
+        metahubId: string,
+        sourceCandidates: Map<string, StaleModuleSourceCandidate>
+    ): Promise<void> {
+        for (const candidate of sourceCandidates.values()) {
+            try {
+                if (!(await this.isCurrentSourceChecksum(metahubId, candidate.sourcePath, candidate.sourceChecksum))) {
+                    log.warn('Skipped stale file-backed module source cleanup because the external source changed', {
+                        metahubId,
+                        schemaName: this.schemaName,
+                        sourcePath: candidate.sourcePath,
+                        expectedSourceChecksum: candidate.sourceChecksum
+                    })
+                    continue
+                }
+                await this.moduleSourceFileService.delete({ metahubId, branchSlug: this.schemaName }, candidate.sourcePath)
+            } catch (error) {
+                log.warn('Failed to clean up stale file-backed module source after snapshot restore', {
+                    metahubId,
+                    schemaName: this.schemaName,
+                    sourcePath: candidate.sourcePath,
+                    error
+                })
+            }
+        }
+    }
+
+    private async isCurrentRestoredModuleSource(metahubId: string, backup: RestoredModuleSourceBackup): Promise<boolean> {
+        return this.isCurrentSourceChecksum(metahubId, backup.sourcePath, backup.writtenChecksum)
+    }
+
+    private async isCurrentSourceChecksum(metahubId: string, sourcePath: string, expectedSourceChecksum: string | null): Promise<boolean> {
+        if (!expectedSourceChecksum) {
+            return false
+        }
+        try {
+            const current = await this.moduleSourceFileService.read({ metahubId, branchSlug: this.schemaName }, sourcePath)
+            return current.checksum === expectedSourceChecksum
+        } catch (error) {
+            if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+                return false
+            }
+            throw error
+        }
     }
 
     private async restorePackages(qb: Knex.Transaction, metahubId: string, snapshot: MetahubSnapshot, userId: string): Promise<void> {
@@ -890,17 +1003,27 @@ export class SnapshotRestoreService {
         snapshot: MetahubSnapshot,
         entityIdMap: Map<string, string>,
         componentIdMap: Map<string, string>,
-        userId: string
+        userId: string,
+        restoredModuleSourceBackups: RestoredModuleSourceBackup[],
+        staleModuleSourceCandidates: Map<string, StaleModuleSourceCandidate>
     ): Promise<Map<string, string>> {
         const modules = (snapshot.modules ?? []) as SnapshotModule[]
         const now = new Date()
         const moduleIdMap = new Map<string, string>()
         const moduleIds = new Set<string>()
         const moduleScopes = new Set<string>()
+        const storageColumnsAvailable = await metahubModulesStorageColumnsAvailable(createKnexExecutor(qb), this.schemaName)
+        const existingModuleSourceCandidates = storageColumnsAvailable ? await this.listExistingModuleSourceCandidates(qb) : []
+        const restoredModuleSourcePaths = new Set<string>()
 
         await qb.withSchema(this.schemaName).from('_mhb_modules').del()
 
-        if (!modules.length) return moduleIdMap
+        if (!modules.length) {
+            for (const candidate of existingModuleSourceCandidates) {
+                staleModuleSourceCandidates.set(candidate.sourcePath, candidate)
+            }
+            return moduleIdMap
+        }
 
         const entityKindById = new Map(Object.entries(snapshot.entities ?? {}).map(([entityId, entity]) => [entityId, entity.kind]))
 
@@ -933,7 +1056,6 @@ export class SnapshotRestoreService {
                 throw new Error(`Duplicate module scope in snapshot: ${moduleCodenameText}`)
             }
             moduleScopes.add(scopeKey)
-            const sourceCode = this.resolveModuleSourceCode(module)
 
             if (!isNullableModuleScope(restoredModule.attachedToKind) && !attachedToId) {
                 log.warn(
@@ -944,44 +1066,157 @@ export class SnapshotRestoreService {
                 continue
             }
 
-            const [inserted] = await qb
-                .withSchema(this.schemaName)
-                .into('_mhb_modules')
-                .insert({
-                    codename: ensureCodenameValue(module.codename),
-                    presentation: module.presentation ?? { name: {} },
-                    attached_to_kind: restoredModule.attachedToKind,
-                    attached_to_id: attachedToId,
-                    module_role: restoredModule.moduleRole,
-                    source_kind: restoredModule.sourceKind,
-                    sdk_api_version: restoredModule.sdkApiVersion,
-                    source_code: sourceCode,
-                    manifest: restoredModule.manifest,
-                    server_bundle: null,
-                    client_bundle: null,
-                    checksum: createRestoredModuleChecksum(sourceCode, restoredModule.manifest),
-                    is_active: module.isActive !== false,
-                    config: module.config ?? {},
-                    _upl_created_at: now,
-                    _upl_created_by: userId,
-                    _upl_updated_at: now,
-                    _upl_updated_by: userId,
-                    _upl_version: 1,
-                    _upl_archived: false,
-                    _upl_deleted: false,
-                    _upl_locked: false,
-                    _mhb_published: true,
-                    _mhb_archived: false,
-                    _mhb_deleted: false
+            const sourceStorage = await this.restoreModuleSource(module)
+            const sourceCode = sourceStorage.sourceCode
+            if (sourceStorage.storageMode === 'file' && !storageColumnsAvailable) {
+                throw new MetahubValidationError('File-backed module snapshot restore requires the current metahub module schema', {
+                    moduleCodename: moduleCodenameText,
+                    messageCode: 'modules.sourcePath.schemaUnsupported'
                 })
-                .returning('id')
+            }
+
+            const insertPayload = {
+                codename: ensureCodenameValue(module.codename),
+                presentation: module.presentation ?? { name: {} },
+                attached_to_kind: restoredModule.attachedToKind,
+                attached_to_id: attachedToId,
+                module_role: restoredModule.moduleRole,
+                source_kind: restoredModule.sourceKind,
+                sdk_api_version: restoredModule.sdkApiVersion,
+                source_code: sourceStorage.storageMode === 'inline' ? sourceCode : null,
+                manifest: restoredModule.manifest,
+                server_bundle: null,
+                client_bundle: null,
+                checksum: createRestoredModuleChecksum(sourceCode, restoredModule.manifest),
+                is_active: module.isActive !== false,
+                config: module.config ?? {},
+                _upl_created_at: now,
+                _upl_created_by: userId,
+                _upl_updated_at: now,
+                _upl_updated_by: userId,
+                _upl_version: 1,
+                _upl_archived: false,
+                _upl_deleted: false,
+                _upl_locked: false,
+                _mhb_published: true,
+                _mhb_archived: false,
+                _mhb_deleted: false,
+                ...(storageColumnsAvailable
+                    ? {
+                          storage_mode: sourceStorage.storageMode,
+                          source_path: sourceStorage.sourcePath,
+                          source_checksum: sourceStorage.sourceChecksum,
+                          source_last_read_at: sourceStorage.storageMode === 'file' ? now : null,
+                          source_last_compile_at: null,
+                          source_last_compile_status: sourceStorage.storageMode === 'file' ? 'never' : null,
+                          source_last_compile_message_code: null
+                      }
+                    : {})
+            }
+
+            const [inserted] = await qb.withSchema(this.schemaName).into('_mhb_modules').insert(insertPayload).returning('id')
+
+            if (sourceStorage.storageMode === 'file' && sourceStorage.sourcePath) {
+                restoredModuleSourcePaths.add(sourceStorage.sourcePath)
+                const previousSourceCode = await this.readExistingModuleSourceForBackup(metahubId, sourceStorage.sourcePath)
+                restoredModuleSourceBackups.push({
+                    sourcePath: sourceStorage.sourcePath,
+                    previousSourceCode,
+                    writtenChecksum: sourceStorage.sourceChecksum
+                })
+                await this.moduleSourceFileService.write({ metahubId, branchSlug: this.schemaName }, sourceStorage.sourcePath, sourceCode)
+            }
 
             if (typeof module.id === 'string' && inserted?.id) {
                 moduleIdMap.set(module.id, inserted.id)
             }
         }
 
+        for (const candidate of existingModuleSourceCandidates) {
+            if (!restoredModuleSourcePaths.has(candidate.sourcePath)) {
+                staleModuleSourceCandidates.set(candidate.sourcePath, candidate)
+            }
+        }
+
         return moduleIdMap
+    }
+
+    private async listExistingModuleSourceCandidates(qb: Knex.Transaction): Promise<StaleModuleSourceCandidate[]> {
+        const rows = (await qb
+            .withSchema(this.schemaName)
+            .from('_mhb_modules')
+            .where('storage_mode', 'file')
+            .whereNotNull('source_path')
+            .where('_upl_deleted', false)
+            .where('_mhb_deleted', false)
+            .select('source_path', 'source_checksum')) as Array<{ source_path?: string | null; source_checksum?: string | null }>
+
+        return rows.flatMap((row) =>
+            typeof row.source_path === 'string' && row.source_path.length > 0
+                ? [{ sourcePath: row.source_path, sourceChecksum: row.source_checksum ?? null }]
+                : []
+        )
+    }
+
+    private async readExistingModuleSourceForBackup(metahubId: string, sourcePath: string): Promise<string | null> {
+        try {
+            const read = await this.moduleSourceFileService.read({ metahubId, branchSlug: this.schemaName }, sourcePath)
+            return read.sourceCode
+        } catch (error) {
+            if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+                return null
+            }
+            throw error
+        }
+    }
+
+    private async restoreModuleSource(module: SnapshotModule): Promise<{
+        storageMode: 'inline' | 'file'
+        sourceCode: string
+        sourcePath: string | null
+        sourceChecksum: string | null
+    }> {
+        const sourceStorage = module.sourceStorage
+        const storageMode = sourceStorage?.mode === 'file' ? 'file' : 'inline'
+        const sourceCode = sourceStorage?.content ?? module.sourceCode
+
+        if (typeof sourceCode !== 'string' || sourceCode.trim().length === 0) {
+            throw new MetahubValidationError('Snapshot module source code is required', {
+                moduleCodename: getModuleCodenameText(module.codename)
+            })
+        }
+
+        if (storageMode === 'inline') {
+            return {
+                storageMode,
+                sourceCode,
+                sourcePath: null,
+                sourceChecksum: computeModuleSourceChecksum(sourceCode)
+            }
+        }
+
+        if (!sourceStorage?.path) {
+            throw new MetahubValidationError('Snapshot file-backed module source path is required', {
+                moduleCodename: getModuleCodenameText(module.codename)
+            })
+        }
+        const sourceChecksum = computeModuleSourceChecksum(sourceCode)
+        if (sourceStorage.checksum && sourceStorage.checksum !== sourceChecksum) {
+            throw new MetahubValidationError('Snapshot file-backed module source checksum does not match its content', {
+                moduleCodename: getModuleCodenameText(module.codename),
+                sourcePath: sourceStorage.path,
+                expectedSourceChecksum: sourceStorage.checksum,
+                actualSourceChecksum: sourceChecksum,
+                messageCode: 'modules.sourcePath.snapshotChecksumMismatch'
+            })
+        }
+
+        return {
+            storageMode,
+            sourceCode,
+            sourcePath: assertSafeRelativeModulePath(sourceStorage.path),
+            sourceChecksum
+        }
     }
 
     private validateSnapshotModule(

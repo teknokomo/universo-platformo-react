@@ -110,6 +110,7 @@ describe('EntityActionExecutionService', () => {
             executor: executor as any
         })
 
+        expect((service as any).modulesService.getModuleByIdInSchema).toHaveBeenCalledWith(schemaName, 'module-1', executor, 'metahub-1')
         expect(dispatchEvent).toHaveBeenCalledWith(
             expect.objectContaining({
                 bundle: 'module.exports = class ExampleModule {}',

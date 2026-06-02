@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express'
 import type { DbExecutor } from '@universo-react/utils'
+import { OptimisticLockError } from '@universo-react/utils'
 import { getRequestDbExecutor } from '../../utils'
 import { getRequestDbSession } from '@universo-react/utils/database'
 import { ensureMetahubAccess, type RolePermission } from './guards'
@@ -44,6 +45,14 @@ export function createMetahubHandlerFactory(getDbExecutor: () => DbExecutor) {
             try {
                 await handler({ req, res, userId, metahubId, exec, schemaService })
             } catch (error) {
+                if (error instanceof OptimisticLockError) {
+                    res.status(409).json({
+                        error: 'Entity was modified by another user. Please refresh and try again.',
+                        code: 'OPTIMISTIC_LOCK_CONFLICT',
+                        conflict: error.conflict
+                    })
+                    return
+                }
                 if (isMetahubDomainError(error)) {
                     res.status(error.statusCode).json({
                         error: error.message,
