@@ -145,10 +145,12 @@ const normalizeSnapshotModules = (snapshot: PublishedApplicationSnapshot): Appli
             })
 
             return {
-                ...module,
+                id: module.id,
                 codename: resolveSnapshotModuleCodename(module.codename),
+                presentation: module.presentation,
+                attachedToKind: module.attachedToKind,
                 attachedToId: module.attachedToId ?? null,
-                moduleRole: module.moduleRole ?? DEFAULT_MODULE_ROLE,
+                moduleRole: normalizeModuleRole(module.moduleRole ?? DEFAULT_MODULE_ROLE),
                 sourceKind: module.sourceKind ?? DEFAULT_MODULE_SOURCE_KIND,
                 sdkApiVersion,
                 manifest: {
@@ -162,6 +164,7 @@ const normalizeSnapshotModules = (snapshot: PublishedApplicationSnapshot): Appli
                 config: (module.config ?? {}) as Record<string, unknown>
             }
         })
+        .filter((module) => module.moduleRole !== 'library')
         .sort((left, right) => buildModuleSortKey(left).localeCompare(buildModuleSortKey(right)))
 }
 

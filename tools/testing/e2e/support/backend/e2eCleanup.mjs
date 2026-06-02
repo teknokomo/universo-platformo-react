@@ -14,6 +14,7 @@ import {
     revokeGlobalAccess
 } from './api-session.mjs'
 import { loadE2eEnvironment, storageStatePath } from '../env/load-e2e-env.mjs'
+import { cleanupE2eFileArtifacts } from './e2eFileArtifacts.mjs'
 import { readRunManifest, recordCleanupStatus, removeRunManifest } from './run-manifest.mjs'
 
 const removeFileIfExists = async (filePath) => {
@@ -28,6 +29,7 @@ const removeFileIfExists = async (filePath) => {
 
 export async function cleanupE2eRun({ quiet = false } = {}) {
     loadE2eEnvironment()
+    const fileArtifactsReport = await cleanupE2eFileArtifacts()
 
     const manifest = await readRunManifest()
     if (!manifest) {
@@ -35,7 +37,8 @@ export async function cleanupE2eRun({ quiet = false } = {}) {
         return {
             success: true,
             runId: null,
-            failures: []
+            failures: [],
+            fileArtifacts: fileArtifactsReport
         }
     }
 
@@ -50,6 +53,7 @@ export async function cleanupE2eRun({ quiet = false } = {}) {
         deletedLocaleIds: [],
         revokedGlobalAccessUserIds: [],
         deletedAuthUserIds: [],
+        fileArtifacts: fileArtifactsReport,
         failures: []
     }
 
@@ -100,7 +104,9 @@ export async function cleanupE2eRun({ quiet = false } = {}) {
 
             if (!quiet) {
                 console.warn(
-                    `[e2e-cleanup] Application discovery warning for ${manifest.runId}: ${error instanceof Error ? error.message : String(error)}`
+                    `[e2e-cleanup] Application discovery warning for ${manifest.runId}: ${
+                        error instanceof Error ? error.message : String(error)
+                    }`
                 )
             }
         }
@@ -147,7 +153,9 @@ export async function cleanupE2eRun({ quiet = false } = {}) {
 
             if (!quiet) {
                 console.warn(
-                    `[e2e-cleanup] Metahub discovery warning for ${manifest.runId}: ${error instanceof Error ? error.message : String(error)}`
+                    `[e2e-cleanup] Metahub discovery warning for ${manifest.runId}: ${
+                        error instanceof Error ? error.message : String(error)
+                    }`
                 )
             }
         }

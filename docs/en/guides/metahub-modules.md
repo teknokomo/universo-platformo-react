@@ -11,22 +11,23 @@ The same contract covers authoring in the metahub UI, publication packaging, app
 
 Modules currently cover four product needs:
 
-- add server logic that reacts to runtime events;
-- expose client code for widgets and interactive UI;
-- share reusable Resources-workspace helpers through library modules and `@shared/<codename>` imports;
-- attach custom logic to the Resources workspace, metahub-level, and entity-level design surfaces.
+-   add server logic that reacts to runtime events;
+-   expose client code for widgets and interactive UI;
+-   share reusable Resources-workspace helpers through library modules and `@shared/<codename>` imports;
+-   attach custom logic to the Resources workspace, metahub-level, and entity-level design surfaces.
 
 ## Supported Contract
 
-| Axis | Current contract |
-| --- | --- |
-| Source kind | Only `embedded` authoring is enabled in the UI. |
-| SDK compatibility | Only `sdkApiVersion = 1.0.0` is supported. |
-| Imports | `@universo-react/extension-sdk` is always allowed; consumer modules may also import Resources workspace libraries through `@shared/<codename>`. |
-| Roles | `module`, `lifecycle`, `widget`, and `library`. |
-| Attachment scopes | `general` in the Resources workspace for `library`, plus metahub, hub, object, set, enumeration, and component for executable consumers. |
-| Client runtime | Browser Worker runtime with fail-closed fallback when Worker is unavailable or execution exceeds the runtime budget. |
-| Server runtime | Pooled `isolated-vm` execution behind the applications backend. |
+| Axis              | Current contract                                                                                                                                        |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Source kind       | Only `embedded` authoring is enabled in the UI.                                                                                                         |
+| Storage mode      | `inline` stores source in the metahub database; `file` stores source under `UPL_MODULE_SOURCE_ROOT` and keeps only relative metadata in `_mhb_modules`. |
+| SDK compatibility | Only `sdkApiVersion = 1.0.0` is supported.                                                                                                              |
+| Imports           | `@universo-react/extension-sdk` is always allowed; consumer modules may also import Resources workspace libraries through `@shared/<codename>`.         |
+| Roles             | `module`, `lifecycle`, `widget`, and `library`.                                                                                                         |
+| Attachment scopes | `general` in the Resources workspace for `library`, plus metahub, hub, object, set, enumeration, and component for executable consumers.                |
+| Client runtime    | Browser Worker runtime with fail-closed fallback when Worker is unavailable or execution exceeds the runtime budget.                                    |
+| Server runtime    | Pooled `isolated-vm` execution behind the applications backend.                                                                                         |
 
 ## Authoring Workflow
 
@@ -39,25 +40,48 @@ Modules currently cover four product needs:
 5. Mark callable methods with `@AtClient()`, `@AtServer()`, `@AtServerAndClient()`, or `@OnEvent(...)`.
 6. Save the draft and fix any fail-closed validation error before publishing.
 
+### File-Backed Source
+
+Use File-backed storage when module source should be editable by the running platform without a root rebuild.
+The stored path is always relative, starts with `modules/`, and supports only `.ts` and `.tsx`.
+Examples:
+
+-   `modules/general/shared-helpers.ts`
+-   `modules/metahub/bootstrap.ts`
+-   `modules/attached/object/quiz-widget.ts`
+
+The backend resolves those paths below:
+
+```text
+<UPL_MODULE_SOURCE_ROOT>/metahubs/<metahubId>/branches/<branch-schema>/modules/...
+```
+
+Absolute paths, `..`, hidden segments, symlink escapes, and `.js` / `.jsx` / `.mjs` / `.mts` files are rejected.
+Set `UPL_MODULE_SOURCE_ROOT` explicitly in the backend env. The default local configuration points it to the repository
+`storage` directory; E2E profiles use `storage-e2e`, which is treated as a temporary test source root and removed by the E2E cleanup/reset flow.
+The Modules tab shows the effective absolute file path for a selected file-backed module, so local authors can open the same file in the workspace without guessing the backend working directory.
+If `UPL_MODULE_SOURCE_ROOT` is omitted, the backend falls back to `storage` under the current backend working directory.
+For git-reviewed authoring, point `UPL_MODULE_SOURCE_ROOT` to a workspace directory and commit the files normally.
+
 ## Roles And Capabilities
 
 Role choice is not cosmetic. It drives the allowed capabilities, default capabilities, and runtime exposure rules.
 
-| Role | Typical use | Important notes |
-| --- | --- | --- |
-| `widget` | Interactive widgets such as the quiz widget. | Widget drafts default to the client RPC capability needed for runtime bridges. |
-| `module` | Shared business logic modules. | Use this for non-widget runtime helpers. |
-| `lifecycle` | Event-driven server hooks. | Lifecycle handlers are never callable through public runtime RPC. |
-| `library` | Shared Resources workspace helpers. | Libraries are import-only, stay pure, and cannot declare decorators or runtime ctx access. |
+| Role        | Typical use                                  | Important notes                                                                            |
+| ----------- | -------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `widget`    | Interactive widgets such as the quiz widget. | Widget drafts default to the client RPC capability needed for runtime bridges.             |
+| `module`    | Shared business logic modules.               | Use this for non-widget runtime helpers.                                                   |
+| `lifecycle` | Event-driven server hooks.                   | Lifecycle handlers are never callable through public runtime RPC.                          |
+| `library`   | Shared Resources workspace helpers.          | Libraries are import-only, stay pure, and cannot declare decorators or runtime ctx access. |
 
 ## Shared Library Contract
 
-- Library modules are authored only from the Modules tab in the Resources workspace with attachment scope `general`.
-- `general` and `library` are inseparable: Resources rejects any other role for `general`, and new `library` authoring is rejected outside the Resources workspace.
-- Libraries are compiled for dependency resolution and validation before consumer modules are bundled.
-- Consumer modules import them through `@shared/<codename>` and keep ordinary scope-specific attachment rules.
-- Libraries are not exposed as direct runtime entrypoints, RPC targets, or lifecycle handlers.
-- Delete, codename rename, and circular `@shared/*` graphs fail closed before publication can ship a broken dependency graph.
+-   Library modules are authored only from the Modules tab in the Resources workspace with attachment scope `general`.
+-   `general` and `library` are inseparable: Resources rejects any other role for `general`, and new `library` authoring is rejected outside the Resources workspace.
+-   Libraries are compiled for dependency resolution and validation before consumer modules are bundled.
+-   Consumer modules import them through `@shared/<codename>` and keep ordinary scope-specific attachment rules.
+-   Libraries are not exposed as direct runtime entrypoints, RPC targets, or lifecycle handlers.
+-   Delete, codename rename, and circular `@shared/*` graphs fail closed before publication can ship a broken dependency graph.
 
 ## Publication And Runtime Flow
 
@@ -70,11 +94,11 @@ Role choice is not cosmetic. It drives the allowed capabilities, default capabil
 
 ## Decorator Semantics
 
-- `@AtClient()` marks a browser-executed method.
-- `@AtServer()` marks a server-executed method.
-- `@AtServerAndClient()` keeps one method available in both bundles.
-- `@OnEvent(...)` declares a lifecycle handler that is dispatched by events, not by public RPC.
-- Undecorated helper methods stay private to the class.
+-   `@AtClient()` marks a browser-executed method.
+-   `@AtServer()` marks a server-executed method.
+-   `@AtServerAndClient()` keeps one method available in both bundles.
+-   `@OnEvent(...)` declares a lifecycle handler that is dispatched by events, not by public RPC.
+-   Undecorated helper methods stay private to the class.
 
 ## Quiz Widget Contract
 
@@ -82,8 +106,8 @@ The shipped quiz flow uses a widget-role module that powers `quizWidget` on the 
 
 ```json
 {
-	"type": "quizWidget",
-	"moduleCodename": "quiz-widget"
+    "type": "quizWidget",
+    "moduleCodename": "quiz-widget"
 }
 ```
 
@@ -92,11 +116,11 @@ Optional widget config can override those names, but the bundled quiz starter us
 
 ## Fail-Closed Rules
 
-- Unsupported SDK versions are rejected during authoring, publication normalization, and runtime loading.
-- Unsupported imports, `require()`, dynamic `import()`, and `import.meta` are rejected before bundling.
-- Public runtime RPC can call only non-lifecycle server methods from modules that declare `rpc.client`.
-- If `_app_modules` cannot be prepared during sync, the application sync fails instead of silently skipping modules.
-- If the browser cannot provide a Worker runtime or the execution stalls past the runtime budget, client execution fails closed.
+-   Unsupported SDK versions are rejected during authoring, publication normalization, and runtime loading.
+-   Unsupported imports, `require()`, dynamic `import()`, and `import.meta` are rejected before bundling.
+-   Public runtime RPC can call only non-lifecycle server methods from modules that declare `rpc.client`.
+-   If `_app_modules` cannot be prepared during sync, the application sync fails instead of silently skipping modules.
+-   If the browser cannot provide a Worker runtime or the execution stalls past the runtime budget, client execution fails closed.
 
 ## Recommended Delivery Sequence
 

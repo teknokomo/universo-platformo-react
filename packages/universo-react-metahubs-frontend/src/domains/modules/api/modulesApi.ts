@@ -1,4 +1,11 @@
-import type { MetahubModuleRecord, ModuleAttachmentKind, ModuleCapability, ModuleRole, ModuleSourceKind } from '@universo-react/types'
+import type {
+    MetahubModuleRecord,
+    ModuleAttachmentKind,
+    ModuleCapability,
+    ModuleRole,
+    ModuleSourceKind,
+    ModuleStorageMode
+} from '@universo-react/types'
 import { apiClient } from '../../shared'
 
 export interface ModuleUpsertPayload {
@@ -9,10 +16,15 @@ export interface ModuleUpsertPayload {
     attachedToId?: string | null
     moduleRole?: ModuleRole
     sourceKind?: ModuleSourceKind
+    storageMode?: ModuleStorageMode
+    sourcePath?: string | null
     sdkApiVersion?: string
-    sourceCode: string
+    sourceCode?: string
+    expectedVersion?: number
+    expectedSourceChecksum?: string
     isActive?: boolean
     capabilities?: ModuleCapability[]
+    config?: Record<string, unknown>
 }
 
 export const modulesApi = {
@@ -36,7 +48,15 @@ export const modulesApi = {
         return data
     },
 
-    remove: async (metahubId: string, moduleId: string) => {
-        await apiClient.delete(`/metahub/${metahubId}/module/${moduleId}`)
+    remove: async (metahubId: string, moduleId: string, expectedVersion?: number, expectedSourceChecksum?: string) => {
+        await apiClient.delete(`/metahub/${metahubId}/module/${moduleId}`, {
+            params:
+                expectedVersion !== undefined || expectedSourceChecksum
+                    ? {
+                          ...(expectedVersion !== undefined ? { expectedVersion } : {}),
+                          ...(expectedSourceChecksum ? { expectedSourceChecksum } : {})
+                      }
+                    : undefined
+        })
     }
 }

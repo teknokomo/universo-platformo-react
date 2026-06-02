@@ -8,6 +8,7 @@ import {
 } from '../../domains/metahubs/services/systemTableDefinitions'
 import { codenamePrimaryTextSql } from '../../domains/shared/codename'
 import { CURRENT_STRUCTURE_VERSION } from '../../domains/metahubs/services/structureVersions'
+import { calculateSystemTableDiff, SystemChangeType } from '../../domains/metahubs/services/systemTableDiff'
 
 describe('systemTableDefinitions', () => {
     describe('SYSTEM_TABLES array', () => {
@@ -161,6 +162,47 @@ describe('systemTableDefinitions', () => {
             expect(previousNames).not.toContain('_mhb_event_bindings')
         })
 
+        it('keeps file-backed module source columns out of historical version 3 definitions', () => {
+            const previousDefs = SYSTEM_TABLE_VERSIONS.get(3) ?? []
+            const previousModules = previousDefs.find((table) => table.name === '_mhb_modules')
+            const previousColumns = new Map(previousModules?.columns.map((column) => [column.name, column]))
+
+            expect(previousModules).toBeDefined()
+            expect(previousColumns.get('source_code')).toMatchObject({ nullable: false })
+            expect(previousColumns.has('storage_mode')).toBe(false)
+            expect(previousColumns.has('source_path')).toBe(false)
+            expect(previousColumns.has('source_checksum')).toBe(false)
+            expect(previousColumns.has('source_last_read_at')).toBe(false)
+            expect(previousColumns.has('source_last_compile_at')).toBe(false)
+            expect(previousColumns.has('source_last_compile_status')).toBe(false)
+            expect(previousColumns.has('source_last_compile_message_code')).toBe(false)
+        })
+
+        it('migrates version 3 module source storage changes as additive version 4 changes', () => {
+            const previousDefs = SYSTEM_TABLE_VERSIONS.get(3) ?? []
+            const currentDefs = SYSTEM_TABLE_VERSIONS.get(4) ?? []
+            const diff = calculateSystemTableDiff(previousDefs, currentDefs, 3, 4)
+            const moduleChanges = diff.additive.filter((change) => change.tableName === '_mhb_modules')
+            const changedColumns = moduleChanges
+                .filter((change) => change.type === SystemChangeType.ADD_COLUMN || change.type === SystemChangeType.ALTER_COLUMN)
+                .map((change) => change.columnName)
+
+            expect(diff.destructive).toEqual([])
+            expect(changedColumns).toEqual(
+                expect.arrayContaining([
+                    'source_code',
+                    'storage_mode',
+                    'source_path',
+                    'source_checksum',
+                    'source_last_read_at',
+                    'source_last_compile_at',
+                    'source_last_compile_status',
+                    'source_last_compile_message_code'
+                ])
+            )
+            expect(moduleChanges.some((change) => change.type === SystemChangeType.ADD_INDEX)).toBe(true)
+        })
+
         it('returns undefined for unknown version', () => {
             expect(SYSTEM_TABLE_VERSIONS.get(999)).toBeUndefined()
         })
@@ -179,6 +221,26 @@ describe('systemTableDefinitions', () => {
                 codenamePrimaryTextSql('codename')
             ])
             expect(scopedIndex?.unique).toBe(true)
+        })
+
+        it('defines file-backed module source columns and active source path uniqueness for current schemas', () => {
+            const modulesTable = SYSTEM_TABLES.find((table) => table.name === '_mhb_modules')
+            const columns = new Map(modulesTable?.columns.map((column) => [column.name, column]))
+            const sourcePathIndex = modulesTable?.indexes?.find((index) => index.name === 'idx_mhb_modules_source_path_active_unique')
+
+            expect(columns.get('source_code')?.nullable).toBe(true)
+            expect(columns.get('storage_mode')).toMatchObject({ type: 'string', nullable: false, defaultTo: 'inline' })
+            expect(columns.get('source_path')).toMatchObject({ type: 'string', nullable: true })
+            expect(columns.get('source_checksum')).toMatchObject({ type: 'string', nullable: true })
+            expect(columns.get('source_last_read_at')).toMatchObject({ type: 'timestamptz', nullable: true })
+            expect(columns.get('source_last_compile_at')).toMatchObject({ type: 'timestamptz', nullable: true })
+            expect(columns.get('source_last_compile_status')).toMatchObject({ type: 'string', nullable: true })
+            expect(columns.get('source_last_compile_message_code')).toMatchObject({ type: 'string', nullable: true })
+            expect(sourcePathIndex).toMatchObject({
+                columns: ['source_path'],
+                unique: true,
+                where: "storage_mode = 'file' AND source_path IS NOT NULL AND _upl_deleted = false AND _mhb_deleted = false"
+            })
         })
     })
 

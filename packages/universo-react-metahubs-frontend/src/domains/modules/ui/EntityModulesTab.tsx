@@ -5,6 +5,11 @@ import {
     Button,
     Checkbox,
     Collapse,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogContentText,
+    DialogTitle,
     Divider,
     FormControl,
     FormControlLabel,
@@ -32,7 +37,8 @@ import {
     type ModuleAttachmentKind,
     type ModuleCapability,
     type ModuleRole,
-    type ModuleSourceKind
+    type ModuleSourceKind,
+    type ModuleStorageMode
 } from '@universo-react/types'
 import type { Metahub } from '../../../types'
 import { getVLCString } from '../../../types'
@@ -50,10 +56,13 @@ type DraftState = {
     description: string
     moduleRole: ModuleRole
     sourceKind: ModuleSourceKind
+    storageMode: ModuleStorageMode
+    sourcePath: string
     sdkApiVersion: string
     sourceCode: string
     isActive: boolean
     capabilities: ModuleCapability[]
+    writeFileOnCreate: boolean
 }
 
 const MODULE_CAPABILITY_LABEL_KEYS: Record<ModuleCapability, string> = {
@@ -86,6 +95,11 @@ for (const capability of MODULE_CAPABILITIES) {
 
 const MODULE_ERROR_TRANSLATION_KEYS: Array<{ pattern: RegExp; key: string; fallback: string }> = [
     {
+        pattern: /shared library.*imported|dependent modules/i,
+        key: 'modules.errors.dependency',
+        fallback: 'This shared library is used by other modules.'
+    },
+    {
         pattern: /codename/i,
         key: 'modules.errors.invalidCodename',
         fallback: 'Use a kebab-case English codename for the module.'
@@ -111,9 +125,29 @@ const MODULE_ERROR_TRANSLATION_KEYS: Array<{ pattern: RegExp; key: string; fallb
         fallback: 'Module compilation failed. Check the source code and shared imports.'
     },
     {
-        pattern: /shared library.*imported|dependent modules/i,
-        key: 'modules.errors.dependency',
-        fallback: 'This shared library is used by other modules.'
+        pattern: /hidden or parent|parent segments/i,
+        key: 'modules.errors.sourcePathHiddenOrParent',
+        fallback: 'Source paths cannot contain hidden or parent directory segments.'
+    },
+    {
+        pattern: /must start with modules\//i,
+        key: 'modules.errors.sourcePathModulesPrefix',
+        fallback: 'Source paths must start with modules/.'
+    },
+    {
+        pattern: /must end with \.ts or \.tsx|unsupported extension/i,
+        key: 'modules.errors.sourcePathUnsupportedExtension',
+        fallback: 'Use a .ts or .tsx source file.'
+    },
+    {
+        pattern: /relative TypeScript file path|empty segments/i,
+        key: 'modules.errors.sourcePathInvalidRelative',
+        fallback: 'Use a relative source path under modules/.'
+    },
+    {
+        pattern: /source path|file-backed module source|source file|source root/i,
+        key: 'modules.errors.sourcePath',
+        fallback: 'Check the source file path and current file state.'
     },
     {
         pattern: /invalid input/i,
@@ -121,6 +155,57 @@ const MODULE_ERROR_TRANSLATION_KEYS: Array<{ pattern: RegExp; key: string; fallb
         fallback: 'Check the module fields and try again.'
     }
 ]
+
+const MODULE_ERROR_MESSAGE_CODE_KEYS: Record<string, { key: string; fallback: string }> = {
+    'modules.sourcePath.invalidRelative': {
+        key: 'modules.errors.sourcePathInvalidRelative',
+        fallback: 'Use a relative source path under modules/.'
+    },
+    'modules.sourcePath.emptySegment': {
+        key: 'modules.errors.sourcePathInvalidRelative',
+        fallback: 'Use a relative source path under modules/.'
+    },
+    'modules.sourcePath.modulesPrefixRequired': {
+        key: 'modules.errors.sourcePathModulesPrefix',
+        fallback: 'Source paths must start with modules/.'
+    },
+    'modules.sourcePath.hiddenOrParentSegment': {
+        key: 'modules.errors.sourcePathHiddenOrParent',
+        fallback: 'Source paths cannot contain hidden or parent directory segments.'
+    },
+    'modules.sourcePath.unsupportedExtension': {
+        key: 'modules.errors.sourcePathUnsupportedExtension',
+        fallback: 'Use a .ts or .tsx source file.'
+    },
+    'modules.sourcePath.expectedChecksumRequired': {
+        key: 'modules.errors.sourcePathExpectedChecksum',
+        fallback: 'Reload the module before overwriting an existing source file.'
+    },
+    'modules.sourcePath.checksumConflict': {
+        key: 'modules.errors.sourcePathChecksumConflict',
+        fallback: 'The source file changed outside this editor. Reload and try again.'
+    },
+    'modules.sourcePath.schemaUnsupported': {
+        key: 'modules.errors.sourcePathSchemaUnsupported',
+        fallback: 'File-backed module sources require the current metahub schema.'
+    },
+    'modules.sourcePath.missing': {
+        key: 'modules.errors.sourcePathMissing',
+        fallback: 'The selected source file does not exist.'
+    },
+    'modules.sourcePath.unreadable': {
+        key: 'modules.errors.sourcePathUnreadable',
+        fallback: 'The selected source file cannot be read.'
+    },
+    'modules.sourcePath.invalidScope': {
+        key: 'modules.errors.sourcePath',
+        fallback: 'Check the source file path and current file state.'
+    },
+    'modules.sourcePath.rootEscape': {
+        key: 'modules.errors.sourcePath',
+        fallback: 'Check the source file path and current file state.'
+    }
+}
 
 const resolveKnownModuleError = (message: string, t: TranslationFn): string | null => {
     for (const entry of MODULE_ERROR_TRANSLATION_KEYS) {
@@ -132,6 +217,12 @@ const resolveKnownModuleError = (message: string, t: TranslationFn): string | nu
     return null
 }
 
+const resolveMessageCodeError = (value: unknown, t: TranslationFn): string | null => {
+    if (typeof value !== 'string') return null
+    const entry = MODULE_ERROR_MESSAGE_CODE_KEYS[value]
+    return entry ? t(entry.key, entry.fallback) : null
+}
+
 const resolveErrorMessage = (error: unknown, fallback: string, t: TranslationFn): string => {
     const responseData =
         error && typeof error === 'object' && 'response' in error
@@ -139,6 +230,14 @@ const resolveErrorMessage = (error: unknown, fallback: string, t: TranslationFn)
             : null
 
     if (responseData && typeof responseData === 'object') {
+        const details = (responseData as { details?: unknown }).details
+        if (details && typeof details === 'object' && !Array.isArray(details)) {
+            const messageCodeError = resolveMessageCodeError((details as { messageCode?: unknown }).messageCode, t)
+            if (messageCodeError) {
+                return messageCodeError
+            }
+        }
+
         const directError =
             typeof (responseData as { error?: unknown }).error === 'string' ? (responseData as { error: string }).error.trim() : ''
         if (directError.length > 0) {
@@ -614,19 +713,16 @@ const createDraft = (attachedToKind: ModuleAttachmentKind, module?: MetahubModul
         : '',
     moduleRole: module?.moduleRole ?? (attachedToKind === 'general' ? 'library' : 'module'),
     sourceKind: module?.sourceKind ?? 'embedded',
+    storageMode: module?.storageMode ?? module?.sourceStorage?.mode ?? 'inline',
+    sourcePath: module?.sourcePath ?? module?.sourceStorage?.path ?? '',
     sdkApiVersion: module?.sdkApiVersion ?? '1.0.0',
-    sourceCode:
-        module?.sourceCode ??
-        (module?.moduleRole === 'widget'
-            ? DEFAULT_WIDGET_SOURCE
-            : module?.moduleRole === 'library' || attachedToKind === 'general'
-            ? DEFAULT_LIBRARY_SOURCE
-            : DEFAULT_SOURCE),
+    sourceCode: resolveDraftSourceCode(attachedToKind, module),
     isActive: module?.isActive ?? true,
     capabilities:
         module?.manifest.capabilities && module.manifest.capabilities.length > 0
             ? module.manifest.capabilities
-            : resolveDefaultModuleCapabilities(module?.moduleRole ?? (attachedToKind === 'general' ? 'library' : 'module'))
+            : resolveDefaultModuleCapabilities(module?.moduleRole ?? (attachedToKind === 'general' ? 'library' : 'module')),
+    writeFileOnCreate: true
 })
 
 const resolveModuleDisplayName = (module: MetahubModuleRecord, t: TranslationFn): string => {
@@ -645,6 +741,70 @@ const resolveModuleDisplayName = (module: MetahubModuleRecord, t: TranslationFn)
 
 const getAvailableModuleRoles = (attachedToKind: ModuleAttachmentKind): ModuleRole[] =>
     attachedToKind === 'general' ? ['library'] : ['module', 'lifecycle', 'widget']
+
+const resolveDraftSourceCode = (attachedToKind: ModuleAttachmentKind, module?: MetahubModuleRecord | null): string => {
+    const isFileBacked = module?.storageMode === 'file' || module?.sourceStorage?.mode === 'file'
+    if (isFileBacked) {
+        const snapshotContent = module?.sourceStorage && 'content' in module.sourceStorage ? module.sourceStorage.content : null
+        if (typeof snapshotContent === 'string') {
+            return snapshotContent
+        }
+        return typeof module?.sourceCode === 'string' ? module.sourceCode : ''
+    }
+
+    if (module?.sourceCode) {
+        return module.sourceCode
+    }
+
+    if (module?.moduleRole === 'widget') {
+        return DEFAULT_WIDGET_SOURCE
+    }
+
+    if (module?.moduleRole === 'library' || attachedToKind === 'general') {
+        return DEFAULT_LIBRARY_SOURCE
+    }
+
+    return DEFAULT_SOURCE
+}
+
+const formatModuleSourceTimestamp = (value: string | null | undefined): string | null => {
+    if (!value) return null
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return null
+    return date.toLocaleString()
+}
+
+const formatModuleSourceChecksum = (value: string | null | undefined, t: TranslationFn): string =>
+    value ? `${value.slice(0, 12)}...` : t('modules.sourceMetadata.notAvailable', 'Not available')
+
+const resolveModuleSourceChecksum = (module?: MetahubModuleRecord | null): string | undefined =>
+    module?.sourceChecksum ?? module?.sourceStorage?.checksum ?? undefined
+
+const isFileBackedModule = (module?: MetahubModuleRecord | null): boolean =>
+    module?.storageMode === 'file' || module?.sourceStorage?.mode === 'file'
+
+const resolveModuleSourceStatusLabel = (value: string | null | undefined, t: TranslationFn): string => {
+    const status = value || 'inline'
+    const fallbackLabels: Record<string, string> = {
+        inline: 'Inline source',
+        ready: 'Ready',
+        modified: 'Modified on disk',
+        missing: 'Missing file',
+        unreadable: 'Unreadable file',
+        conflict: 'Conflict'
+    }
+    return t(`modules.sourceMetadata.statuses.${status}`, fallbackLabels[status] ?? status)
+}
+
+const resolveModuleCompileStatusLabel = (value: string | null | undefined, t: TranslationFn): string => {
+    const status = value || 'never'
+    const fallbackLabels: Record<string, string> = {
+        never: 'Not compiled yet',
+        success: 'Compiled',
+        failed: 'Compilation failed'
+    }
+    return t(`modules.sourceMetadata.compileStatuses.${status}`, fallbackLabels[status] ?? status)
+}
 
 export const EntityModulesTab = ({
     metahubId,
@@ -665,6 +825,7 @@ export const EntityModulesTab = ({
     const [error, setError] = useState<string | null>(null)
     const [layoutWidth, setLayoutWidth] = useState(0)
     const [isModuleListOpen, setIsModuleListOpen] = useState(true)
+    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
 
     const hasEditableAttachment =
         Boolean(metahubId) && (attachedToKind === 'metahub' || attachedToKind === 'general' || Boolean(attachedToId))
@@ -699,6 +860,27 @@ export const EntityModulesTab = ({
     const selectedModuleLabel = selectedModule
         ? resolveModuleDisplayName(selectedModule, t)
         : t('modules.noneSelected', 'No module selected')
+    const selectedSourceStorage = selectedModule?.sourceStorage
+    const sourceMetadata = selectedModule
+        ? {
+              status: resolveModuleSourceStatusLabel(selectedModule.sourceStatus ?? selectedSourceStorage?.status, t),
+              absolutePath: selectedSourceStorage?.absolutePath ?? null,
+              checksum: formatModuleSourceChecksum(selectedModule.sourceChecksum ?? selectedSourceStorage?.checksum, t),
+              lastReadAt: formatModuleSourceTimestamp(selectedModule.sourceLastReadAt ?? selectedSourceStorage?.lastReadAt),
+              lastCompileAt: formatModuleSourceTimestamp(selectedModule.sourceLastCompileAt ?? selectedSourceStorage?.lastCompileAt),
+              lastCompileStatus: resolveModuleCompileStatusLabel(
+                  selectedModule.sourceLastCompileStatus ?? selectedSourceStorage?.lastCompileStatus,
+                  t
+              )
+          }
+        : null
+    const isConvertingInlineDraftToFile = Boolean(
+        draft.id && draft.storageMode === 'file' && selectedModule && selectedModule.storageMode === 'inline'
+    )
+    const canEditSourceInCurrentDraft =
+        draft.storageMode === 'inline' ||
+        (!draft.id && draft.storageMode === 'file' && draft.writeFileOnCreate) ||
+        isConvertingInlineDraftToFile
 
     useEffect(() => {
         const node = containerRef.current
@@ -787,12 +969,13 @@ export const EntityModulesTab = ({
     })
 
     const deleteMutation = useMutation({
-        mutationFn: () => modulesApi.remove(metahubId!, draft.id!),
+        mutationFn: () => modulesApi.remove(metahubId!, draft.id!, selectedModule?.version, resolveModuleSourceChecksum(selectedModule)),
         onSuccess: async () => {
             await invalidate()
             setSelectedModuleId(null)
             setDraft(createDraft(attachedToKind))
             setError(null)
+            setIsDeleteConfirmOpen(false)
         },
         onError: (mutationError: unknown) => {
             setError(resolveErrorMessage(mutationError, t('modules.errors.delete', 'Failed to delete module'), t))
@@ -805,6 +988,7 @@ export const EntityModulesTab = ({
         setSelectedModuleId(null)
         setDraft(createDraft(attachedToKind))
         setError(null)
+        setIsDeleteConfirmOpen(false)
         if (isCompactLayout) {
             setIsModuleListOpen(false)
         }
@@ -812,6 +996,7 @@ export const EntityModulesTab = ({
 
     const handleSelectModule = (moduleId: string) => {
         setSelectedModuleId(moduleId)
+        setIsDeleteConfirmOpen(false)
         if (isCompactLayout) {
             setIsModuleListOpen(false)
         }
@@ -873,7 +1058,7 @@ export const EntityModulesTab = ({
 
     const handleSave = async () => {
         if (!metahubId || !canManageModules) return
-        if (!draft.codename.trim() || !draft.name.trim() || !draft.sourceCode.trim()) {
+        if (!draft.codename.trim() || !draft.name.trim() || (draft.storageMode === 'inline' && !draft.sourceCode.trim())) {
             setError(t('modules.errors.required', 'Codename, name, and source code are required'))
             return
         }
@@ -886,18 +1071,64 @@ export const EntityModulesTab = ({
             attachedToId,
             moduleRole: draft.moduleRole,
             sourceKind: draft.sourceKind,
+            storageMode: draft.storageMode,
+            sourcePath: draft.storageMode === 'file' ? draft.sourcePath.trim() || undefined : null,
             sdkApiVersion: draft.sdkApiVersion.trim() || '1.0.0',
-            sourceCode: draft.sourceCode,
             isActive: draft.isActive,
             capabilities: draft.capabilities
         }
 
+        if (
+            draft.storageMode === 'inline' ||
+            (((!draft.id && draft.writeFileOnCreate) || isConvertingInlineDraftToFile) &&
+                draft.storageMode === 'file' &&
+                draft.sourceCode.trim().length > 0)
+        ) {
+            payload.sourceCode = draft.sourceCode
+        }
+
         if (draft.id) {
+            let guardModule = selectedModule
+            if (isFileBackedModule(selectedModule)) {
+                try {
+                    const latestModules = await modulesApi.list(metahubId, { attachedToKind, attachedToId })
+                    const latestModule = latestModules.find((module) => module.id === draft.id)
+                    if (latestModule && selectedModule?.version !== undefined && latestModule.version !== selectedModule.version) {
+                        setError(
+                            t('modules.errors.versionConflict', 'This module was changed by another user. Reload the module before saving.')
+                        )
+                        return
+                    }
+                    guardModule = latestModule ?? selectedModule
+                } catch (preflightError) {
+                    setError(resolveErrorMessage(preflightError, t('modules.errors.save', 'Failed to save module'), t))
+                    return
+                }
+            }
+
+            if (selectedModule?.version) {
+                payload.expectedVersion = selectedModule.version
+            }
+            const expectedSourceChecksum = resolveModuleSourceChecksum(guardModule)
+            if (expectedSourceChecksum) {
+                payload.expectedSourceChecksum = expectedSourceChecksum
+            }
             await updateMutation.mutateAsync(payload)
             return
         }
 
         await createMutation.mutateAsync(payload)
+    }
+
+    const handleRequestDelete = () => {
+        if (!draft.id || isSaving) return
+        setError(null)
+        setIsDeleteConfirmOpen(true)
+    }
+
+    const handleConfirmDelete = () => {
+        if (!draft.id || isSaving) return
+        deleteMutation.mutate()
     }
 
     if (!hasEditableAttachment) {
@@ -983,8 +1214,10 @@ export const EntityModulesTab = ({
             />
             <Stack direction={isCompactLayout ? 'column' : 'row'} spacing={2} sx={{ minWidth: 0 }}>
                 <FormControl size='small' fullWidth>
-                    <InputLabel>{t('modules.fields.moduleRole', 'Module role')}</InputLabel>
+                    <InputLabel id='metahub-module-role-label'>{t('modules.fields.moduleRole', 'Module role')}</InputLabel>
                     <Select
+                        labelId='metahub-module-role-label'
+                        id='metahub-module-role'
                         label={t('modules.fields.moduleRole', 'Module role')}
                         value={draft.moduleRole}
                         onChange={(event) => handleModuleRoleChange(event.target.value as ModuleRole)}
@@ -1005,8 +1238,10 @@ export const EntityModulesTab = ({
                     </Select>
                 </FormControl>
                 <FormControl size='small' fullWidth>
-                    <InputLabel>{t('modules.fields.sourceKind', 'Source kind')}</InputLabel>
+                    <InputLabel id='metahub-module-source-kind-label'>{t('modules.fields.sourceKind', 'Source kind')}</InputLabel>
                     <Select
+                        labelId='metahub-module-source-kind-label'
+                        id='metahub-module-source-kind'
                         label={t('modules.fields.sourceKind', 'Source kind')}
                         value={draft.sourceKind}
                         onChange={(event) => setDraft((prev) => ({ ...prev, sourceKind: event.target.value as ModuleSourceKind }))}
@@ -1016,6 +1251,78 @@ export const EntityModulesTab = ({
                     </Select>
                 </FormControl>
             </Stack>
+            <Stack direction={isCompactLayout ? 'column' : 'row'} spacing={2} sx={{ minWidth: 0 }}>
+                <FormControl size='small' fullWidth>
+                    <InputLabel id='metahub-module-storage-mode-label'>{t('modules.fields.storageMode', 'Storage mode')}</InputLabel>
+                    <Select
+                        labelId='metahub-module-storage-mode-label'
+                        id='metahub-module-storage-mode'
+                        label={t('modules.fields.storageMode', 'Storage mode')}
+                        value={draft.storageMode}
+                        onChange={(event) =>
+                            setDraft((prev) => ({
+                                ...prev,
+                                storageMode: event.target.value as ModuleStorageMode
+                            }))
+                        }
+                        disabled={isSaving}
+                    >
+                        <MenuItem value='inline'>{t('modules.storageModes.inline', 'Inline')}</MenuItem>
+                        <MenuItem value='file'>{t('modules.storageModes.file', 'File-backed')}</MenuItem>
+                    </Select>
+                </FormControl>
+                <TextField
+                    label={t('modules.fields.sourcePath', 'Source path')}
+                    value={draft.sourcePath}
+                    onChange={(event) => setDraft((prev) => ({ ...prev, sourcePath: event.target.value }))}
+                    disabled={isSaving || draft.storageMode !== 'file'}
+                    fullWidth
+                    size='small'
+                    placeholder='modules/general/example.ts'
+                    helperText={
+                        draft.storageMode === 'file'
+                            ? t('modules.storageModes.fileHelp', 'Relative path under modules/; .ts and .tsx files are supported.')
+                            : t('modules.storageModes.inlineHelp', 'Inline source is stored in the metahub database.')
+                    }
+                />
+            </Stack>
+            {!draft.id && draft.storageMode === 'file' ? (
+                <FormControlLabel
+                    control={
+                        <Checkbox
+                            checked={draft.writeFileOnCreate}
+                            onChange={(event) => setDraft((prev) => ({ ...prev, writeFileOnCreate: event.target.checked }))}
+                            disabled={isSaving}
+                        />
+                    }
+                    label={t('modules.storageModes.writeFileOnCreate', 'Create or update the source file from the editor')}
+                />
+            ) : null}
+            {draft.storageMode === 'file' && sourceMetadata ? (
+                <Alert severity='info' variant='outlined' data-testid='entity-module-source-metadata'>
+                    <Stack spacing={0.5} sx={{ minWidth: 0 }}>
+                        <Typography variant='body2'>
+                            {t('modules.sourceMetadata.status', 'Source status')}: {sourceMetadata.status}
+                        </Typography>
+                        {sourceMetadata.absolutePath ? (
+                            <Typography variant='body2' sx={{ overflowWrap: 'anywhere' }}>
+                                {t('modules.sourceMetadata.absolutePath', 'Source file')}: {sourceMetadata.absolutePath}
+                            </Typography>
+                        ) : null}
+                        <Typography variant='body2'>
+                            {t('modules.sourceMetadata.checksum', 'Source checksum')}: {sourceMetadata.checksum}
+                        </Typography>
+                        <Typography variant='body2'>
+                            {t('modules.sourceMetadata.lastReadAt', 'Last read')}:&nbsp;
+                            {sourceMetadata.lastReadAt ?? t('modules.sourceMetadata.notAvailable', 'Not available')}
+                        </Typography>
+                        <Typography variant='body2'>
+                            {t('modules.sourceMetadata.lastCompile', 'Last compile')}: {sourceMetadata.lastCompileStatus}
+                            {sourceMetadata.lastCompileAt ? `, ${sourceMetadata.lastCompileAt}` : ''}
+                        </Typography>
+                    </Stack>
+                </Alert>
+            ) : null}
             <Stack spacing={1} sx={{ minWidth: 0 }}>
                 <Typography variant='subtitle2'>{t('modules.fields.capabilities', 'Capabilities')}</Typography>
                 <Typography variant='body2' color='text.secondary'>
@@ -1091,6 +1398,19 @@ export const EntityModulesTab = ({
                 <Typography id='entity-module-source-code-label' variant='subtitle2'>
                     {sourceCodeLabel}
                 </Typography>
+                {draft.storageMode === 'file' ? (
+                    <Alert severity='info' variant='outlined'>
+                        {canEditSourceInCurrentDraft
+                            ? t(
+                                  'modules.storageModes.fileEditorWritable',
+                                  'This source will be written to the selected file path when the module is saved.'
+                              )
+                            : t(
+                                  'modules.storageModes.fileEditorReadOnly',
+                                  'File-backed source is shown as a live preview. Edit the external file at the selected source path, then save module metadata to recompile it.'
+                              )}
+                    </Alert>
+                ) : null}
                 <Box
                     data-testid='entity-modules-editor-shell'
                     sx={{
@@ -1117,8 +1437,12 @@ export const EntityModulesTab = ({
                         height='320px'
                         theme={editorTheme}
                         extensions={editorExtensions}
-                        onChange={(value) => setDraft((prev) => ({ ...prev, sourceCode: value }))}
-                        editable={!isSaving}
+                        onChange={(value) => {
+                            if (canEditSourceInCurrentDraft) {
+                                setDraft((prev) => ({ ...prev, sourceCode: value }))
+                            }
+                        }}
+                        editable={!isSaving && canEditSourceInCurrentDraft}
                         basicSetup={{ lineNumbers: true, foldGutter: true, autocompletion: true }}
                     />
                 </Box>
@@ -1129,7 +1453,7 @@ export const EntityModulesTab = ({
                 justifyContent='space-between'
                 alignItems={isCompactLayout ? 'stretch' : 'center'}
             >
-                <Button color='error' onClick={() => deleteMutation.mutate()} disabled={!draft.id || isSaving}>
+                <Button color='error' onClick={handleRequestDelete} disabled={!draft.id || isSaving}>
                     {t('modules.delete', 'Delete')}
                 </Button>
                 <Button variant='contained' onClick={() => void handleSave()} disabled={isSaving}>
@@ -1140,81 +1464,126 @@ export const EntityModulesTab = ({
     )
 
     return (
-        <Stack spacing={2} sx={{ mt: 1, minWidth: 0 }} data-testid='entity-modules-root'>
-            {displayedError ? <Alert severity='error'>{displayedError}</Alert> : null}
-            <Box
-                ref={containerRef}
-                sx={{ minWidth: 0 }}
-                data-testid='entity-modules-layout'
-                data-layout-mode={isCompactLayout ? 'compact' : 'split'}
-            >
-                {isCompactLayout ? (
-                    <Stack spacing={1.5} sx={{ minWidth: 0 }}>
-                        <Stack direction='row' justifyContent='space-between' alignItems='flex-start' spacing={1.5} sx={{ minWidth: 0 }}>
-                            <Box sx={{ minWidth: 0, flex: 1 }}>
-                                <Typography variant='subtitle2'>{t('modules.listTitle', 'Attached modules')}</Typography>
-                                <Typography variant='body2' color='text.secondary' noWrap>
-                                    {`${t('modules.currentSelection', 'Selected')}: ${selectedModuleLabel}`}
-                                </Typography>
-                            </Box>
-                            <Stack direction='row' spacing={1} sx={{ flexShrink: 0 }}>
-                                <Button
-                                    size='small'
-                                    variant='outlined'
-                                    onClick={() => setIsModuleListOpen((prev) => !prev)}
-                                    data-testid='entity-modules-list-toggle'
-                                >
-                                    {isModuleListOpen
-                                        ? t('modules.listToggle.hide', 'Hide modules')
-                                        : t('modules.listToggle.show', 'Show modules')}
-                                </Button>
-                                <Button size='small' onClick={handleNew} disabled={isSaving}>
-                                    {t('modules.new', 'New')}
-                                </Button>
+        <>
+            <Stack spacing={2} sx={{ mt: 1, minWidth: 0 }} data-testid='entity-modules-root'>
+                {displayedError ? <Alert severity='error'>{displayedError}</Alert> : null}
+                <Box
+                    ref={containerRef}
+                    sx={{ minWidth: 0 }}
+                    data-testid='entity-modules-layout'
+                    data-layout-mode={isCompactLayout ? 'compact' : 'split'}
+                >
+                    {isCompactLayout ? (
+                        <Stack spacing={1.5} sx={{ minWidth: 0 }}>
+                            <Stack
+                                direction='row'
+                                justifyContent='space-between'
+                                alignItems='flex-start'
+                                spacing={1.5}
+                                sx={{ minWidth: 0 }}
+                            >
+                                <Box sx={{ minWidth: 0, flex: 1 }}>
+                                    <Typography variant='subtitle2'>{t('modules.listTitle', 'Attached modules')}</Typography>
+                                    <Typography variant='body2' color='text.secondary' noWrap>
+                                        {`${t('modules.currentSelection', 'Selected')}: ${selectedModuleLabel}`}
+                                    </Typography>
+                                </Box>
+                                <Stack direction='row' spacing={1} sx={{ flexShrink: 0 }}>
+                                    <Button
+                                        size='small'
+                                        variant='outlined'
+                                        onClick={() => setIsModuleListOpen((prev) => !prev)}
+                                        data-testid='entity-modules-list-toggle'
+                                    >
+                                        {isModuleListOpen
+                                            ? t('modules.listToggle.hide', 'Hide modules')
+                                            : t('modules.listToggle.show', 'Show modules')}
+                                    </Button>
+                                    <Button size='small' onClick={handleNew} disabled={isSaving}>
+                                        {t('modules.new', 'New')}
+                                    </Button>
+                                </Stack>
                             </Stack>
-                        </Stack>
 
-                        <Collapse in={isModuleListOpen}>
+                            <Collapse in={isModuleListOpen}>
+                                <Box
+                                    data-testid='entity-modules-sidebar'
+                                    sx={{ minWidth: 0, border: 1, borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}
+                                >
+                                    <Divider />
+                                    {modulesListContent}
+                                </Box>
+                            </Collapse>
+
+                            {formContent}
+                        </Stack>
+                    ) : (
+                        <Box
+                            sx={{
+                                display: 'grid',
+                                gridTemplateColumns: 'minmax(220px, 260px) minmax(0, 1fr)',
+                                gap: 2,
+                                alignItems: 'start',
+                                minWidth: 0
+                            }}
+                        >
                             <Box
                                 data-testid='entity-modules-sidebar'
                                 sx={{ minWidth: 0, border: 1, borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}
                             >
+                                <Stack direction='row' justifyContent='space-between' alignItems='center' sx={{ px: 1.5, py: 1 }}>
+                                    <Typography variant='subtitle2'>{t('modules.listTitle', 'Attached modules')}</Typography>
+                                    <Button size='small' onClick={handleNew} disabled={isSaving}>
+                                        {t('modules.new', 'New')}
+                                    </Button>
+                                </Stack>
                                 <Divider />
                                 {modulesListContent}
                             </Box>
-                        </Collapse>
 
-                        {formContent}
-                    </Stack>
-                ) : (
-                    <Box
-                        sx={{
-                            display: 'grid',
-                            gridTemplateColumns: 'minmax(220px, 260px) minmax(0, 1fr)',
-                            gap: 2,
-                            alignItems: 'start',
-                            minWidth: 0
-                        }}
-                    >
-                        <Box
-                            data-testid='entity-modules-sidebar'
-                            sx={{ minWidth: 0, border: 1, borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}
-                        >
-                            <Stack direction='row' justifyContent='space-between' alignItems='center' sx={{ px: 1.5, py: 1 }}>
-                                <Typography variant='subtitle2'>{t('modules.listTitle', 'Attached modules')}</Typography>
-                                <Button size='small' onClick={handleNew} disabled={isSaving}>
-                                    {t('modules.new', 'New')}
-                                </Button>
-                            </Stack>
-                            <Divider />
-                            {modulesListContent}
+                            {formContent}
                         </Box>
-
-                        {formContent}
-                    </Box>
-                )}
-            </Box>
-        </Stack>
+                    )}
+                </Box>
+            </Stack>
+            <Dialog
+                open={isDeleteConfirmOpen}
+                onClose={() => {
+                    if (!isSaving) {
+                        setIsDeleteConfirmOpen(false)
+                    }
+                }}
+                aria-labelledby='entity-module-delete-dialog-title'
+                aria-describedby='entity-module-delete-dialog-description'
+                maxWidth='sm'
+                fullWidth
+            >
+                <DialogTitle id='entity-module-delete-dialog-title'>{t('modules.deleteDialog.title', 'Delete module?')}</DialogTitle>
+                <DialogContent>
+                    <DialogContentText id='entity-module-delete-dialog-description'>
+                        {draft.storageMode === 'file'
+                            ? t(
+                                  'modules.deleteDialog.fileBackedDescription',
+                                  'This will delete the module and remove its file-backed source if no other active module owns that file.'
+                              )
+                            : t('modules.deleteDialog.inlineDescription', 'This will delete the module from the metahub.')}
+                    </DialogContentText>
+                    {draft.storageMode === 'file' && draft.sourcePath ? (
+                        <Typography variant='body2' color='text.secondary' sx={{ mt: 1, overflowWrap: 'anywhere' }}>
+                            {t('modules.fields.sourcePath', 'Source path')}: {draft.sourcePath}
+                        </Typography>
+                    ) : null}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setIsDeleteConfirmOpen(false)} disabled={isSaving}>
+                        {t('modules.deleteDialog.cancel', 'Cancel')}
+                    </Button>
+                    <Button color='error' variant='contained' onClick={handleConfirmDelete} disabled={isSaving}>
+                        {t('modules.deleteDialog.confirm', 'Delete module')}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+        </>
     )
 }
 

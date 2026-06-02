@@ -480,7 +480,7 @@ const mhbModulesV2: SystemTableDef = {
     ]
 }
 
-const mhbModules: SystemTableDef = {
+const mhbModulesV3: SystemTableDef = {
     ...mhbModulesV2,
     indexes: [
         { name: 'idx_mhb_modules_attachment', columns: ['attached_to_kind', 'attached_to_id'] },
@@ -496,6 +496,43 @@ const mhbModules: SystemTableDef = {
             ],
             unique: true,
             where: '_upl_deleted = false AND _mhb_deleted = false'
+        }
+    ]
+}
+
+const mhbModulesV4: SystemTableDef = {
+    ...mhbModulesV2,
+    columns: [
+        ...mhbModulesV2.columns.map((column) => (column.name === 'source_code' ? { ...column, nullable: true } : column)),
+        { name: 'storage_mode', type: 'string', length: 20, nullable: false, defaultTo: 'inline' },
+        { name: 'source_path', type: 'string', length: 512, nullable: true },
+        { name: 'source_checksum', type: 'string', length: 128, nullable: true },
+        { name: 'source_last_read_at', type: 'timestamptz', nullable: true },
+        { name: 'source_last_compile_at', type: 'timestamptz', nullable: true },
+        { name: 'source_last_compile_status', type: 'string', length: 20, nullable: true },
+        { name: 'source_last_compile_message_code', type: 'string', length: 128, nullable: true }
+    ],
+    indexes: [
+        { name: 'idx_mhb_modules_attachment', columns: ['attached_to_kind', 'attached_to_id'] },
+        { name: 'idx_mhb_modules_module_role', columns: ['module_role'] },
+        { name: 'idx_mhb_modules_checksum', columns: ['checksum'] },
+        { name: 'idx_mhb_modules_source_path', columns: ['source_path'] },
+        {
+            name: 'idx_mhb_modules_codename_active_unique',
+            columns: [
+                'attached_to_kind',
+                `COALESCE(attached_to_id, '${MODULE_SCOPE_NULL_ATTACHMENT_UUID}'::uuid)`,
+                'module_role',
+                codenamePrimaryTextSql('codename')
+            ],
+            unique: true,
+            where: '_upl_deleted = false AND _mhb_deleted = false'
+        },
+        {
+            name: 'idx_mhb_modules_source_path_active_unique',
+            columns: ['source_path'],
+            unique: true,
+            where: "storage_mode = 'file' AND source_path IS NOT NULL AND _upl_deleted = false AND _mhb_deleted = false"
         }
     ]
 }
@@ -606,8 +643,15 @@ export const SYSTEM_TABLES_V1: SystemTableDef[] = [
 ]
 
 export const SYSTEM_TABLES_V2: SystemTableDef[] = [...SYSTEM_TABLES_V1, mhbModulesV2]
-export const SYSTEM_TABLES_V3: SystemTableDef[] = [...SYSTEM_TABLES_V1, mhbModules]
-export const SYSTEM_TABLES: SystemTableDef[] = [...SYSTEM_TABLES_V3, mhbEntityTypeDefinitions, mhbActions, mhbEventBindings]
+export const SYSTEM_TABLES_V3: SystemTableDef[] = [...SYSTEM_TABLES_V1, mhbModulesV3]
+export const SYSTEM_TABLES_V4: SystemTableDef[] = [
+    ...SYSTEM_TABLES_V1,
+    mhbModulesV4,
+    mhbEntityTypeDefinitions,
+    mhbActions,
+    mhbEventBindings
+]
+export const SYSTEM_TABLES: SystemTableDef[] = SYSTEM_TABLES_V4
 
 /**
  * Maps a structure version number to its table definitions.

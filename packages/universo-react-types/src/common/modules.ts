@@ -31,6 +31,33 @@ export type ModuleSourceKind = (typeof MODULE_SOURCE_KINDS)[number]
 export const MODULE_AUTHORING_SOURCE_KINDS = ['embedded'] as const
 export type ModuleAuthoringSourceKind = (typeof MODULE_AUTHORING_SOURCE_KINDS)[number]
 
+export const MODULE_STORAGE_MODES = ['inline', 'file'] as const
+export type ModuleStorageMode = (typeof MODULE_STORAGE_MODES)[number]
+
+export const DEFAULT_MODULE_STORAGE_MODE: ModuleStorageMode = 'inline'
+
+export const MODULE_SOURCE_STATUSES = ['inline', 'ready', 'modified', 'missing', 'unreadable', 'conflict'] as const
+export type ModuleSourceStatus = (typeof MODULE_SOURCE_STATUSES)[number]
+
+export const MODULE_SOURCE_COMPILE_STATUSES = ['never', 'success', 'failed'] as const
+export type ModuleSourceCompileStatus = (typeof MODULE_SOURCE_COMPILE_STATUSES)[number]
+
+export interface ModuleSourceStorage {
+    mode: ModuleStorageMode
+    path?: string | null
+    absolutePath?: string | null
+    checksum?: string | null
+    status?: ModuleSourceStatus
+    lastReadAt?: string | null
+    lastCompileAt?: string | null
+    lastCompileStatus?: ModuleSourceCompileStatus | null
+    lastCompileMessageCode?: string | null
+}
+
+export interface ModuleSourceSnapshotStorage extends ModuleSourceStorage {
+    content?: string | null
+}
+
 export const MODULE_CAPABILITIES = [
     'records.read',
     'records.write',
@@ -96,6 +123,12 @@ export const normalizeModuleRole = (value: unknown): ModuleRole =>
 
 export const normalizeModuleSourceKind = (value: unknown): ModuleSourceKind =>
     MODULE_SOURCE_KINDS.includes(value as ModuleSourceKind) ? (value as ModuleSourceKind) : DEFAULT_MODULE_SOURCE_KIND
+
+export const normalizeModuleStorageMode = (value: unknown): ModuleStorageMode =>
+    MODULE_STORAGE_MODES.includes(value as ModuleStorageMode) ? (value as ModuleStorageMode) : DEFAULT_MODULE_STORAGE_MODE
+
+export const normalizeModuleSourceCompileStatus = (value: unknown): ModuleSourceCompileStatus | null =>
+    MODULE_SOURCE_COMPILE_STATUSES.includes(value as ModuleSourceCompileStatus) ? (value as ModuleSourceCompileStatus) : null
 
 export const normalizeModuleSdkApiVersion = (value: unknown): string => {
     if (typeof value !== 'string') {
@@ -255,6 +288,7 @@ export interface ModuleManifest {
 export interface ModuleCompilationInput {
     codename: string
     sourceCode: string
+    diagnosticFileName?: string
     sdkApiVersion?: string
     moduleRole?: ModuleRole
     sourceKind?: ModuleSourceKind
@@ -266,6 +300,7 @@ export interface ModuleCompilationInput {
 export interface ModuleCompilationLibraryInput {
     codename: string
     sourceCode: string
+    diagnosticFileName?: string
 }
 
 export interface CompiledModuleArtifact {
@@ -289,7 +324,8 @@ export interface MetahubModuleDefinition {
     moduleRole: ModuleRole
     sourceKind: ModuleSourceKind
     sdkApiVersion: string
-    sourceCode: string
+    sourceCode?: string | null
+    sourceStorage?: ModuleSourceStorage | ModuleSourceSnapshotStorage
     manifest: ModuleManifest
     serverBundle: string | null
     clientBundle: string | null
@@ -299,6 +335,14 @@ export interface MetahubModuleDefinition {
 }
 
 export interface MetahubModuleRecord extends MetahubModuleDefinition {
+    storageMode: ModuleStorageMode
+    sourcePath?: string | null
+    sourceChecksum?: string | null
+    sourceStatus?: ModuleSourceStatus
+    sourceLastReadAt?: string | null
+    sourceLastCompileAt?: string | null
+    sourceLastCompileStatus?: ModuleSourceCompileStatus | null
+    sourceLastCompileMessageCode?: string | null
     version: number
     updatedAt?: string | null
 }

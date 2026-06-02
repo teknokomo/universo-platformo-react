@@ -89,7 +89,12 @@ export class EntityActionExecutionService {
             return
         }
 
-        const module = await this.modulesService.getModuleByIdInSchema(request.schemaName, request.action.moduleId, request.executor)
+        const module = await this.modulesService.getModuleByIdInSchema(
+            request.schemaName,
+            request.action.moduleId,
+            request.executor,
+            request.metahubId
+        )
         if (!module) {
             log.warn(`Skipping entity action ${request.action.id} because module ${request.action.moduleId} was not found`)
             return

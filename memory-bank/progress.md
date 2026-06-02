@@ -55,6 +55,258 @@
 
 ---
 
+## 2026-06-02 - File-Backed Module Snapshot/Delete Integrity Closure
+
+### Summary
+
+Closed the remaining QA defects for file-backed metahub module sources. Portable snapshots now keep shared-library sources without pushing libraries into runtime `_app_modules`, snapshot restore validates file source paths and checksums, destructive file-backed deletes fail before metadata mutation when the live source changed, and the Modules tab now requires localized confirmation before deletion.
+
+### Completed
+
+-   Included shared-library module sources and `sourceStorage.content` in published metahub snapshots while keeping their runtime bundles null.
+-   Filtered shared libraries out of application `_app_modules` persistence so published applications remain bundle-only for executable runtime modules.
+-   Normalized snapshot-restored file-backed source paths before DB insert/file write and rejected snapshots whose declared source checksum does not match the embedded content.
+-   Moved destructive file-backed delete checksum confirmation to a live source-file read under the source-path lock before module metadata is soft-deleted.
+-   Added a localized MUI confirmation dialog for module deletion, including file-backed source warning copy and keyboard-confirmed Playwright coverage.
+-   Strengthened backend, frontend, application-sync, and browser regressions for snapshot portability, restore integrity, live delete guards, runtime filtering, delete confirmation, mobile source-path visibility, and no horizontal overflow.
+
+### Verified
+
+-   `pnpm --filter @universo-react/metahubs-backend test -- --runTestsByPath src/tests/services/MetahubModulesService.test.ts src/tests/services/SnapshotRestoreService.test.ts src/tests/routes/metahubsRoutes.test.ts src/tests/services/modulesStore.test.ts`
+-   `pnpm --filter @universo-react/metahubs-frontend exec vitest run --config vitest.config.ts src/domains/modules/ui/__tests__/EntityModulesTab.test.tsx --coverage=false`
+-   `pnpm --filter @universo-react/applications-backend test -- --runTestsByPath src/tests/services/syncModulePersistence.test.ts`
+-   `pnpm --filter @universo-react/applications-backend build`
+-   `pnpm --filter @universo-react/metahubs-frontend build`
+-   `pnpm --filter @universo-react/metahubs-backend build`
+-   `pnpm --filter @universo-react/core-frontend build`
+-   `pnpm docs:i18n:check`
+-   `pnpm supabase:e2e:start:minimal`
+-   `pnpm env:e2e:local-supabase`
+-   `pnpm doctor:e2e:local-supabase`
+-   `UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-react-core-frontend/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs --project chromium --grep "file-backed Common module sources"`
+-   `git diff --check`
+
+### Notes
+
+-   A backend/data lifecycle subagent review found no remaining blockers.
+-   Project autoreview was attempted, but the review engine returned empty output after a long-running local review.
+
+## 2026-06-02 - File-Backed Module Checksum Guard QA Closure
+
+### Summary
+
+Closed the checksum guard QA findings for file-backed metahub module sources. The backend now requires current source checksum evidence for metadata-only recompiles and file-to-inline conversion, while the frontend refreshes file checksums without bypassing the original optimistic-lock version.
+
+### Completed
+
+-   Added fail-closed current-file checksum checks for file-backed metadata saves, source-path changes, and file-backed to inline conversion.
+-   Ensured file-backed to inline conversion uses the current backend-managed file source instead of stale client editor content.
+-   Hardened previous-source cleanup to use the current observed checksum and avoid deleting externally changed source files.
+-   Rejected symlink artifacts during module source tree copy, including a symlinked source branch root.
+-   Updated the Modules tab save preflight so it refreshes current file checksum but blocks stale drafts when the module version changed concurrently.
+-   Added backend and frontend regressions for stale checksum rejection, valid external-file recompile, file-to-inline conversion, symlink copy rejection, and optimistic-lock preservation.
+
+### Verified
+
+-   `pnpm --filter @universo-react/metahubs-backend test -- --runTestsByPath src/tests/services/ModuleSourceFileService.test.ts src/tests/services/MetahubModulesService.test.ts src/tests/services/SnapshotRestoreService.test.ts src/tests/routes/metahubsRoutes.test.ts src/tests/services/modulesStore.test.ts`
+-   `pnpm --filter @universo-react/metahubs-frontend exec vitest run --config vitest.config.ts src/domains/modules/ui/__tests__/EntityModulesTab.test.tsx --coverage=false`
+-   `pnpm --filter @universo-react/utils test -- src/serialization/__tests__/publicationSnapshotHash.test.ts`
+-   `pnpm --filter @universo-react/metahubs-backend build`
+-   `pnpm --filter @universo-react/metahubs-frontend build`
+-   `pnpm --filter @universo-react/core-frontend build`
+-   `UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-react-core-frontend/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs --project chromium --grep "file-backed Common module sources"`
+-   `.agents/skills/autoreview/scripts/autoreview --mode local --prompt "Review Modules External Files checksum guard QA closure after optimistic-lock fix..."`
+-   `git diff --check`
+
+## 2026-06-01 - File-Backed Metahub Module Sources
+
+### Summary
+
+Implemented the first file-backed metahub module source slice for PlayCanvas-ready authoring. Module source can now be stored in a backend-managed source root and read by the running platform without a root rebuild, while published applications remain bundle-only.
+
+### Completed
+
+-   Added shared module storage contracts, source status metadata, file compile status fields, and diagnostic source filenames.
+-   Extended the fresh `_mhb_modules` baseline with nullable `source_code`, `storage_mode`, `source_path`, source checksums, compile status metadata, and a partial unique active `source_path` index.
+-   Added a filesystem boundary for module sources with relative `modules/` paths, `.ts` / `.tsx` allowlist, byte limits, checksums, atomic writes, symlink containment checks, source-root isolation, and metahub copy support.
+-   Updated metahub module create/update/list/publish flows to support `inline` and `file` storage while keeping `sourceKind=embedded` as the authoring semantic contract.
+-   Updated snapshot serialization, restore, copy, and hash normalization so file-backed source content and checksums survive export/import and copy flows.
+-   Added `UPL_MODULE_SOURCE_ROOT` backend CLI/env plumbing and compiler diagnostic filename support.
+-   Updated the Modules tab with localized storage mode and relative source path fields using existing MUI primitives.
+-   Updated EN/RU GitBook module guide, architecture, and API reference docs.
+
+### Verified
+
+-   `pnpm --filter @universo-react/types build`
+-   `pnpm --filter @universo-react/modules-engine build`
+-   `pnpm --filter @universo-react/utils build`
+-   `pnpm --filter @universo-react/metahubs-backend build`
+-   `pnpm --filter @universo-react/metahubs-frontend build`
+-   `pnpm --filter @universo-react/core-backend build`
+-   `pnpm --filter @universo-react/metahubs-backend test -- --runTestsByPath src/tests/services/ModuleSourceFileService.test.ts src/tests/services/systemTableDefinitions.test.ts`
+-   `pnpm --filter @universo-react/metahubs-frontend test -- src/domains/modules/ui/__tests__/EntityModulesTab.test.tsx`
+-   `pnpm docs:i18n:check`
+
+### Deferred
+
+-   Browser E2E with local minimal Supabase and screenshots was added in the QA closure slice.
+-   Separate extract-to-file, inline-from-file, and manual recompile commands remain follow-up workflow work if needed beyond create/update/publish compilation.
+
+---
+
+## 2026-06-02 - File-Backed Module Sources QA Closure
+
+### Summary
+
+Closed the QA findings for file-backed metahub module sources. Metadata-only saves now re-read and recompile changed external files, storage-aware module inserts use correct SQL bind parameters, and the Common Modules browser workflow has local minimal Supabase evidence.
+
+### Completed
+
+-   Recompiled file-backed modules when the external file checksum changes even if the stored `sourcePath` is unchanged.
+-   Fixed storage-aware `_mhb_modules` insert placeholders so `config`, created timestamps, and creator metadata are bound to their own SQL parameters.
+-   Added direct backend regression coverage for storage-aware insert parameters, changed-file recompilation, unchanged-file metadata saves, and persisted checksum/bundle updates.
+-   Hardened file-backed update rollback so a failed database update restores the pre-existing target source file content instead of deleting or losing unmanaged target files.
+-   Returned hydrated file-backed module update responses so the Modules UI keeps the resolved source preview immediately after successful file-backed saves.
+-   Improved the Modules tab MUI Select labels with explicit `labelId`/`id` wiring so browser-accessible labels work for module role, source kind, and storage mode.
+-   Added Playwright local minimal Supabase coverage for creating a file-backed Common library module, editing the backend-managed source file externally, saving metadata, and proving checksum/recompile updates with screenshots and no horizontal overflow.
+
+### Verification
+
+-   `pnpm --filter @universo-react/metahubs-backend test -- --runTestsByPath src/tests/services/ModuleSourceFileService.test.ts src/tests/services/modulesStore.test.ts src/tests/services/MetahubModulesService.test.ts src/tests/services/SnapshotRestoreService.test.ts src/tests/services/systemTableDefinitions.test.ts`
+-   `pnpm --filter @universo-react/metahubs-frontend test -- src/domains/modules/ui/__tests__/EntityModulesTab.test.tsx`
+-   `pnpm --filter @universo-react/metahubs-backend build`
+-   `pnpm --filter @universo-react/metahubs-frontend build`
+-   `pnpm --filter @universo-react/core-backend build`
+-   `pnpm --filter @universo-react/core-frontend build`
+-   `pnpm supabase:e2e:start:minimal`
+-   `pnpm env:e2e:local-supabase`
+-   `pnpm doctor:e2e:local-supabase`
+-   `node tools/testing/e2e/run-playwright-suite.mjs --project chromium --grep "file-backed Common module sources"`
+-   `git diff --check`
+-   `.agents/skills/autoreview/scripts/autoreview --mode local --no-web-search`
+
+---
+
+## 2026-06-02 - File-Backed Module Sources Final QA Defect Closure
+
+### Summary
+
+Closed the final QA defects for file-backed metahub module sources. The
+implementation now has stronger filesystem containment, old-source cleanup,
+visible source metadata, localized browser validation evidence, and a clean
+final autoreview.
+
+### Completed
+
+-   Hardened module source file operations with branch-root containment checks
+    before filesystem mutations, including regression coverage for symlink
+    escapes from the configured source root.
+-   Deleted orphaned previous file-backed source files after successful source
+    path changes or conversion back to inline storage, while preserving files
+    that are still owned by active module rows.
+-   Made metahub source tree deletion explicit best-effort with warning logs so
+    HTTP metahub deletion does not fail after the database soft-delete while
+    cleanup failures remain observable.
+-   Added localized file-source metadata to the Modules tab for source status,
+    checksum, last read time, and last compile state.
+-   Strengthened Playwright evidence for desktop/tablet/mobile viewports,
+    Russian validation messages, shared runtime UX technical-leakage checks,
+    browser-visible source metadata, and file-backed module deletion cleanup.
+-   Closed snapshot restore lifecycle cleanup so restoring a snapshot that drops
+    or inlines a file-backed module removes the old branch source file after a
+    successful transaction, without rolling back restored source files if a
+    post-commit stale-file cleanup fails.
+-   Made post-delete file-backed module source cleanup best-effort with warning
+    logs so a committed module soft-delete cannot be reported as failed solely
+    because physical source cleanup hit an IO error.
+-   Made previous-source cleanup after committed file-backed module updates
+    best-effort, preventing successful path/mode changes from being reported as
+    failed when stale physical file removal hits an IO error.
+-   Hardened metahub copy rollback ordering so copied source-tree cleanup
+    failures are logged and cannot prevent cloned branch schema cleanup.
+-   Wrapped file-backed source write critical sections in a database advisory
+    lock in addition to the in-process source-path queue, preventing
+    cross-process optimistic-update rollback from clobbering a committed source
+    file update.
+-   Updated publication snapshot hash normalization during lifecycle hardening so
+    file-backed `sourceStorage.path` participates in canonical hashes and
+    refreshed the committed LMS/Quiz fixture hashes accordingly.
+-   Serialized metahub-scoped `OptimisticLockError` responses through the shared
+    handler as `409 OPTIMISTIC_LOCK_CONFLICT`, so stale module saves and deletes
+    no longer escape as generic server errors.
+-   Returned hydrated file-backed module records from create responses, matching
+    list/get/update behavior with resolved source content, checksum, and ready
+    status immediately after successful creation.
+-   Removed generated E2E `bin/storage` module-source artifacts from the patch
+    and added an ignore rule so runtime storage cannot be accidentally shipped
+    with `@universo-react/core-backend`.
+
+### Verification
+
+-   `pnpm --filter @universo-react/metahubs-backend test -- --runTestsByPath src/tests/shared/createMetahubHandler.test.ts src/tests/services/ModuleSourceFileService.test.ts src/tests/services/MetahubModulesService.test.ts src/tests/services/SnapshotRestoreService.test.ts src/tests/routes/metahubsRoutes.test.ts src/tests/services/templateManifestValidator.test.ts src/tests/services/modulesStore.test.ts`
+-   `pnpm --filter @universo-react/utils test -- src/serialization/__tests__/publicationSnapshotHash.test.ts`
+-   `pnpm --filter @universo-react/utils build`
+-   `pnpm --filter @universo-react/metahubs-frontend test -- src/domains/modules/ui/__tests__/EntityModulesTab.test.tsx`
+-   `pnpm --filter @universo-react/metahubs-backend build`
+-   `pnpm --filter @universo-react/metahubs-frontend build`
+-   `pnpm --filter @universo-react/core-frontend build`
+-   `pnpm docs:i18n:check`
+-   `pnpm supabase:e2e:start:minimal`
+-   `pnpm env:e2e:local-supabase`
+-   `pnpm doctor:e2e:local-supabase`
+-   `node tools/testing/e2e/run-playwright-suite.mjs --project chromium --grep "file-backed Common module sources|Common shared library modules publish"`
+-   `pnpm supabase:e2e:stop`
+-   `git diff --check`
+-   `.agents/skills/autoreview/scripts/autoreview --mode local --no-web-search`
+
+---
+
+## 2026-06-02 - File-Backed Module Sources Lifecycle Hardening
+
+### Summary
+
+Closed the post-QA lifecycle hardening gaps for file-backed metahub module
+sources. Destructive cleanup now requires current version and source checksum
+evidence, snapshot restore cleanup is checksum-aware, and import rollback cleans
+file-backed source trees after restored-source failures.
+
+### Completed
+
+-   Required `expectedVersion` and `expectedSourceChecksum` for destructive
+    file-backed module deletes, and propagated both values from the Modules UI.
+-   Made module delete, source-path changes, and file-to-inline conversion
+    cleanup physically delete old source files only when the current file
+    checksum still matches the captured database checksum.
+-   Made snapshot restore stale source cleanup and restore rollback delete or
+    restore source files only when the current file still matches the checksum
+    written or recorded by that restore attempt.
+-   Added snapshot import rollback cleanup for restored metahub source trees
+    after file-backed source restore failures.
+-   Included file-backed `sourceStorage.path` in canonical publication snapshot
+    hashes and refreshed committed LMS/Quiz snapshot fixture hashes.
+-   Updated the Modules UI checksum resolution to handle both flat
+    `sourceChecksum` and nested `sourceStorage.checksum` API shapes for save and
+    delete guards.
+
+### Verification
+
+-   `pnpm --filter @universo-react/utils build`
+-   `pnpm --filter @universo-react/metahubs-backend test -- --runTestsByPath src/tests/services/MetahubModulesService.test.ts src/tests/services/SnapshotRestoreService.test.ts src/tests/routes/metahubsRoutes.test.ts`
+-   `pnpm --filter @universo-react/utils test -- src/serialization/__tests__/publicationSnapshotHash.test.ts`
+-   `pnpm --filter @universo-react/metahubs-frontend test -- src/domains/modules/ui/__tests__/EntityModulesTab.test.tsx`
+-   `pnpm --filter @universo-react/metahubs-backend build`
+-   `pnpm --filter @universo-react/metahubs-frontend build`
+-   `pnpm --filter @universo-react/core-frontend build`
+-   `pnpm supabase:e2e:start:minimal`
+-   `pnpm env:e2e:local-supabase`
+-   `pnpm doctor:e2e:local-supabase`
+-   `node tools/testing/e2e/run-playwright-suite.mjs --project chromium --grep "file-backed Common module sources"`
+-   `pnpm supabase:e2e:stop`
+-   `git diff --check`
+-   `.agents/skills/autoreview/scripts/autoreview --mode local --no-web-search`
+
+---
+
 ## 2026-06-01 - PlayCanvas Editor Host UX QA Closure
 
 ### Summary
@@ -2418,3 +2670,88 @@ diff --check`, metahubs backend focused Jest with 80 tests, metahubs
     Jest, focused Metahub Packages Vitest, applications-backend build,
     metahubs-frontend build, metahubs-backend build, PlayCanvas Editor isolation
     guard, `git diff --check`, and local autoreview with no actionable findings.
+
+### 2026-06-02: File-Backed Module Sources Final QA Defect Closure
+
+-   Closed post-QA consistency defects for file-backed module source writes:
+    guarded source-path writes now use the advisory-lock transaction executor,
+    schema-scoped module action execution hydrates file-backed source content,
+    atomic temp writes include UUID entropy, failed creates hard-remove their
+    transient module rows, and failed transaction commits compensate written
+    files by deleting new sources or restoring pre-existing target content.
+-   Fixed the Modules tab file-backed to inline conversion workflow by falling
+    back from `sourceStorage.content` to hydrated `sourceCode`, then added a
+    regression test that submits inline source from an existing file-backed
+    module.
+-   Verification passed: Prettier on touched files, focused and expanded
+    metahubs-backend Jest suites, full metahubs-frontend Vitest suite,
+    metahubs-frontend build, metahubs-backend build, `git diff --check`, and
+    local autoreview. The final autoreview returned only a non-actionable
+    observation and no concrete accepted defect.
+
+### 2026-06-02: File-Backed Module Sources Historical Schema Migration Closure
+
+-   Split the historical `_mhb_modules` definitions so v3 remains immutable
+    and file-backed source columns live only in the current v4 system table
+    definition.
+-   Added regression coverage proving historical v3 lacks file-backed columns,
+    current v4 contains them, and the v3-to-v4 structure diff is additive with
+    no destructive changes.
+-   Verification passed: Prettier on touched files, focused backend
+    schema/diff/migrator/service Jest suites, metahubs-backend build,
+    `git diff --check`, local minimal Supabase Playwright file-backed Modules
+    flow, subagent review, and local autoreview with no actionable findings.
+
+### 2026-06-02: File-Backed Module Sources Optimistic Lock And Source Path Closure
+
+-   Made backend file-backed module updates fail closed without a client
+    `expectedVersion`, so API callers cannot bypass the module version guard
+    while writing or converting external sources.
+-   Extended the source-path critical section to file-backed create/update
+    flows that attach to existing files, then rechecked the resolved file
+    checksum inside the lock before DB insert/update.
+-   Added regressions for missing module-version guards, stale file-backed
+    writes, existing-file create disappearance before locked insert, and
+    existing-file update checksum changes before locked update.
+-   Verification passed: Prettier on touched files, focused metahubs-backend
+    service and expanded backend Jest suites, metahubs-backend build,
+    `git diff --check`, and local minimal Supabase Playwright file-backed
+    Modules flow.
+
+### 2026-06-02: File-Backed Module Runtime Sync Normalization Closure
+
+-   Normalized published snapshot modules through an explicit runtime-field
+    allowlist before `_app_modules` persistence and change detection, keeping
+    authoring-only `sourceCode` and `sourceStorage` metadata out of runtime
+    sync comparisons.
+-   Added a focused applications-backend regression proving source metadata in
+    the publication snapshot does not make runtime module sync permanently
+    dirty when bundles, checksums, manifest, and config are unchanged.
+-   Verification passed: Prettier on touched files, focused
+    `syncModulePersistence` Jest coverage, and `applications-backend` build.
+
+### 2026-06-02: File-Backed Module Fixture And Source Root Closure
+
+-   Made `UPL_MODULE_SOURCE_ROOT` explicit in backend manual, example, hosted
+    E2E, and local-Supabase generated profiles. Local-Supabase profile
+    generation now writes an absolute repository `storage` root, with an
+    isolated `storage-e2e` root for E2E.
+-   Exposed the effective absolute file path for file-backed modules in the
+    manager-only Modules tab while keeping that metadata out of published
+    runtime sync and snapshot hash contracts.
+-   Refreshed the MMOOMM flight fixture `snapshotHash` so importing
+    `tools/fixtures/metahubs-mmoomm-flight-app-snapshot.json` passes the
+    fixture integrity guard after the external-file schema updates.
+-   Updated GitBook EN/RU docs to describe explicit source roots, UI path
+    visibility, and the authoring-only checksum boundary.
+-   Verification passed: Prettier on touched code/docs except `.env` files
+    that have no Prettier parser, `check:mmoomm-flight-fixture-contract`,
+    focused metahubs-backend Jest suites, focused metahubs-frontend Vitest,
+    `@universo-react/types` build, metahubs-backend build,
+    metahubs-frontend build, docs i18n check, local `buildBackendEnv` absolute
+    root smoke, `git diff --check`, and subagent QA with only a docs minor
+    finding that was fixed.
+-   Follow-up: added a dedicated E2E file-artifact cleanup boundary for
+    `storage-e2e` so runner finalization, manual E2E cleanup, and full E2E
+    reset remove temporary file-backed module sources without touching the
+    manual `storage` source root.

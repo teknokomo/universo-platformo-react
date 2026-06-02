@@ -172,12 +172,21 @@
             "save": "Save module",
             "create": "Create module",
             "delete": "Delete",
+            "deleteDialog": {
+                "title": "Delete module?",
+                "inlineDescription": "This will delete the module from the metahub.",
+                "fileBackedDescription": "This will delete the module and remove its file-backed source if no other active module owns that file.",
+                "cancel": "Cancel",
+                "confirm": "Delete module"
+            },
             "fields": {
                 "name": "Name",
                 "codename": "Codename",
                 "description": "Description",
                 "moduleRole": "Module role",
                 "sourceKind": "Source kind",
+                "storageMode": "Storage mode",
+                "sourcePath": "Source path",
                 "capabilities": "Capabilities",
                 "sdkApiVersion": "SDK API version",
                 "isActive": "Module is active",
@@ -192,6 +201,36 @@
             },
             "sourceKinds": {
                 "embedded": "Embedded"
+            },
+            "storageModes": {
+                "inline": "Inline",
+                "file": "File-backed",
+                "inlineHelp": "Inline source is stored in the metahub database.",
+                "fileHelp": "Relative path under modules/; .ts and .tsx files are supported.",
+                "fileEditorReadOnly": "File-backed source is shown as a live preview. Edit the external file at the selected source path, then save module metadata to recompile it.",
+                "fileEditorWritable": "This source will be written to the selected file path when the module is saved.",
+                "writeFileOnCreate": "Create or update the source file from the editor"
+            },
+            "sourceMetadata": {
+                "status": "Source status",
+                "absolutePath": "Source file",
+                "checksum": "Source checksum",
+                "lastReadAt": "Last read",
+                "lastCompile": "Last compile",
+                "notAvailable": "Not available",
+                "statuses": {
+                    "inline": "Inline source",
+                    "ready": "Ready",
+                    "modified": "Modified on disk",
+                    "missing": "Missing file",
+                    "unreadable": "Unreadable file",
+                    "conflict": "Conflict"
+                },
+                "compileStatuses": {
+                    "never": "Not compiled yet",
+                    "success": "Compiled",
+                    "failed": "Compilation failed"
+                }
             },
             "capabilities": {
                 "help": "Only declared capabilities are injected into the runtime. External and visual sources remain reserved for later phases.",
@@ -223,12 +262,23 @@
                 "save": "Failed to save module",
                 "delete": "Failed to delete module",
                 "load": "Failed to load modules",
+                "versionConflict": "This module was changed by another user. Reload the module before saving.",
                 "invalidCodename": "Use a kebab-case English codename for the module.",
                 "invalidAttachment": "Select a valid module attachment and role.",
                 "invalidCapabilities": "Selected capabilities are not available for this module role.",
                 "invalidSourceKind": "Only embedded module sources are supported.",
                 "compilation": "Module compilation failed. Check the source code and shared imports.",
                 "dependency": "This shared library is used by other modules.",
+                "sourcePath": "Check the source file path and current file state.",
+                "sourcePathInvalidRelative": "Use a relative source path under modules/.",
+                "sourcePathModulesPrefix": "Source paths must start with modules/.",
+                "sourcePathHiddenOrParent": "Source paths cannot contain hidden or parent directory segments.",
+                "sourcePathUnsupportedExtension": "Use a .ts or .tsx source file.",
+                "sourcePathExpectedChecksum": "Reload the module before overwriting an existing source file.",
+                "sourcePathChecksumConflict": "The source file changed outside this editor. Reload and try again.",
+                "sourcePathSchemaUnsupported": "File-backed module sources require the current metahub schema.",
+                "sourcePathMissing": "The selected source file does not exist.",
+                "sourcePathUnreadable": "The selected source file cannot be read.",
                 "invalidInput": "Check the module fields and try again."
             }
         }

@@ -138,6 +138,27 @@ describe('compileModuleSource', () => {
         expect(artifact.clientBundle).toContain('async ping()')
     })
 
+    it('parses and bundles TSX module sources when the diagnostic filename ends with .tsx', async () => {
+        const artifact = await compileModuleSource(
+            createInput(
+                `import { ExtensionModule, AtClient } from '@universo-react/extension-sdk'
+
+export default class TsxWidgetModule extends ExtensionModule {
+    @AtClient()
+    async mount() {
+        const node = <div data-ready="true" />
+        return { ready: Boolean(node) }
+    }
+}
+`,
+                { diagnosticFileName: 'modules/metahub/tsx-widget.tsx' }
+            )
+        )
+
+        expect(artifact.manifest.className).toBe('TsxWidgetModule')
+        expect(artifact.clientBundle).toContain('data-ready')
+    })
+
     it('keeps posting lifecycle capabilities and beforePost handlers in the manifest', async () => {
         const artifact = await compileModuleSource(
             createInput(POSTING_LIFECYCLE_SOURCE, {

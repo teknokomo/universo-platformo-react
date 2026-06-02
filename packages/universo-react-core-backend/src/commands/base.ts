@@ -12,6 +12,7 @@ enum EXIT_CODE {
 export abstract class BaseCommand extends Command {
     static flags = {
         FILE_SIZE_LIMIT: Flags.string(),
+        UPL_MODULE_SOURCE_ROOT: Flags.string(),
         PORT: Flags.string(),
         SESSION_SECRET: Flags.string(),
         SUPABASE_URL: Flags.string(),
@@ -125,6 +126,7 @@ export abstract class BaseCommand extends Command {
 
         // API configuration
         if (flags.FILE_SIZE_LIMIT) process.env.FILE_SIZE_LIMIT = flags.FILE_SIZE_LIMIT
+        if (flags.UPL_MODULE_SOURCE_ROOT) process.env.UPL_MODULE_SOURCE_ROOT = flags.UPL_MODULE_SOURCE_ROOT
 
         // Logs
         if (flags.LOG_PATH) process.env.LOG_PATH = flags.LOG_PATH

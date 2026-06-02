@@ -339,6 +339,13 @@ export const extractSharedModuleImports = (sourceCode: string): string[] => {
     return [...sharedImports].sort()
 }
 
+const isTsxSourceFile = (sourceFileName: string | undefined): boolean => Boolean(sourceFileName?.toLowerCase().endsWith('.tsx'))
+
+const resolveScriptKind = (sourceFileName: string | undefined): ts.ScriptKind =>
+    isTsxSourceFile(sourceFileName) ? ts.ScriptKind.TSX : ts.ScriptKind.TS
+
+const resolveEsbuildLoader = (sourceFileName: string | undefined): 'ts' | 'tsx' => (isTsxSourceFile(sourceFileName) ? 'tsx' : 'ts')
+
 const collectBindingIdentifiers = (name: ts.BindingName): string[] => {
     if (ts.isIdentifier(name)) {
         return [name.text]
@@ -804,7 +811,13 @@ const analyzeModuleSource = (input: ModuleCompilationInput): ModuleAnalysis => {
     })
     const moduleRole = normalizeModuleRole(input.moduleRole ?? DEFAULT_MODULE_ROLE)
     const allowedPackageImports = normalizeAllowedPackageImports(input)
-    const sourceFile = ts.createSourceFile('extension-module.ts', input.sourceCode, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
+    const sourceFile = ts.createSourceFile(
+        input.diagnosticFileName ?? 'extension-module.ts',
+        input.sourceCode,
+        ts.ScriptTarget.Latest,
+        true,
+        resolveScriptKind(input.diagnosticFileName)
+    )
     const packageImports = validateModuleSource(sourceFile, allowedPackageImports)
     resolveSharedLibraryDependencyOrder(input)
     const selectedClass = findModuleClass(sourceFile, moduleRole)
@@ -934,7 +947,7 @@ const createSharedLibraryPlugin = (sharedLibraries?: Record<string, ModuleCompil
 
             return {
                 contents: library.sourceCode,
-                loader: 'ts',
+                loader: resolveEsbuildLoader(library.diagnosticFileName),
                 resolveDir: process.cwd()
             }
         })
@@ -989,18 +1002,24 @@ const bundleSource = async (
     sourceCode: string,
     platform: 'node' | 'browser',
     sharedLibraries?: Record<string, ModuleCompilationLibraryInput>,
-    packageImports: readonly ModulePackageImport[] = []
+    packageImports: readonly ModulePackageImport[] = [],
+    sourceFileName = 'extension-module.ts'
 ): Promise<string> => {
     const bundleTarget: BundleTarget = platform === 'node' ? 'server' : 'client'
     const result = await build({
         stdin: {
             contents: sourceCode,
-            sourcefile: 'extension-module.ts',
-            loader: 'ts',
+            sourcefile: sourceFileName,
+            loader: resolveEsbuildLoader(sourceFileName),
             resolveDir: process.cwd()
         },
         write: false,
         bundle: true,
+        jsxFactory: '__universoJsx',
+        jsxFragment: '__universoFragment',
+        banner: {
+            js: `const __universoFragment = 'Fragment'; const __universoJsx = (type, props, ...children) => ({ type, props: { ...(props ?? {}), children } });`
+        },
         platform,
         format: 'cjs',
         target: 'es2022',
@@ -1035,8 +1054,8 @@ export const compileModuleSource = async (input: ModuleCompilationInput): Promis
     const clientSource = applyBundleTransform(input.sourceCode, analysis.methods, 'client')
 
     const [serverBundle, clientBundle] = await Promise.all([
-        bundleSource(serverSource, 'node', input.sharedLibraries, analysis.packageImports),
-        bundleSource(clientSource, 'browser', input.sharedLibraries, analysis.packageImports)
+        bundleSource(serverSource, 'node', input.sharedLibraries, analysis.packageImports, input.diagnosticFileName),
+        bundleSource(clientSource, 'browser', input.sharedLibraries, analysis.packageImports, input.diagnosticFileName)
     ])
 
     const checksum = createHash('sha256').update(JSON.stringify(analysis.manifest)).update(serverBundle).update(clientBundle).digest('hex')

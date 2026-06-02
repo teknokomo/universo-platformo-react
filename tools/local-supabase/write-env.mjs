@@ -107,12 +107,17 @@ export function buildBackendEnv({ statusEnv, target, existingEnv = {} }) {
     const port = target === 'e2e' ? '3100' : existingEnv.PORT || '3000'
     const bootstrapEmail = target === 'e2e' ? 'e2e-admin@example.com' : 'local-admin@example.com'
     const sessionSecret = existingEnv.SESSION_SECRET || crypto.randomBytes(32).toString('hex')
+    const defaultModuleSourceRoot = path.join(REPO_ROOT, target === 'e2e' ? 'storage-e2e' : 'storage')
+    const existingModuleSourceRoot = existingEnv.UPL_MODULE_SOURCE_ROOT
+    const moduleSourceRoot =
+        existingModuleSourceRoot && path.isAbsolute(existingModuleSourceRoot) ? existingModuleSourceRoot : defaultModuleSourceRoot
 
     return {
         ...existingEnv,
         PORT: port,
         NODE_ENV: 'development',
         UNIVERSO_ENV_TARGET: target === 'e2e' ? 'e2e' : 'local',
+        UPL_MODULE_SOURCE_ROOT: moduleSourceRoot,
         E2E_SUPABASE_PROVIDER: target === 'e2e' ? 'local' : existingEnv.E2E_SUPABASE_PROVIDER,
         E2E_SUPABASE_ISOLATION: target === 'e2e' ? 'dedicated' : existingEnv.E2E_SUPABASE_ISOLATION,
         E2E_LOCAL_SUPABASE_STACK:
