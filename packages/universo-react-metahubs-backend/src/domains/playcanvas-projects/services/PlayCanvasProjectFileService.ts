@@ -399,7 +399,11 @@ export class PlayCanvasProjectFileService {
         const entries = await fs.readdir(root, { withFileTypes: true })
         for (const entry of entries) {
             const absolutePath = path.join(root, entry.name)
-            await this.assertPathIsNotSymlink(absolutePath)
+            if (entry.isSymbolicLink()) {
+                throw new MetahubValidationError('PlayCanvas project file tree cannot contain symbolic links', {
+                    messageCode: 'playcanvas.files.path.symlinkUnsupported'
+                })
+            }
             if (entry.isDirectory()) {
                 await this.assertTreeContainsNoSymlinks(absolutePath)
             }

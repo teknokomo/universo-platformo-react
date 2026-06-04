@@ -44,7 +44,7 @@ import {
     markPlayCanvasProjectFileReferenceMissing,
     markPlayCanvasProjectFileReferenceReady,
     playCanvasProjectMetadataFileReferenceExists,
-    playCanvasProjectCodenameExists,
+    listPlayCanvasProjectCodenamesByPrefix,
     restoreSoftDeletedPlayCanvasProject,
     softDeletePlayCanvasProject,
     summarizePlayCanvasProject,
@@ -153,9 +153,10 @@ export class PlayCanvasProjectsService {
         locale: string,
         baseCodename: string
     ): Promise<NonNullable<CreatePlayCanvasProjectRequest['codename']>> {
+        const existingCodenames = new Set(await listPlayCanvasProjectCodenamesByPrefix(this.exec, schemaName, baseCodename))
         for (let index = 0; index < 100; index += 1) {
             const candidate = index === 0 ? baseCodename : `${baseCodename}-${index + 1}`
-            if (!(await playCanvasProjectCodenameExists(this.exec, schemaName, candidate))) {
+            if (!existingCodenames.has(candidate)) {
                 return createCodenameVLC(locale, candidate)
             }
         }

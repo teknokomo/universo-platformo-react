@@ -1066,15 +1066,20 @@ test('@flow imported MMOOMM flight snapshot renders PlayCanvas runtime and moves
             dotVector(normalizeVector(await readShipForward(canvas)), expectedForward),
             'ship must not snap to the new heading immediately'
         ).toBeLessThan(0.999)
-        const turnSamples: Array<{ x: number; y: number; z: number }> = []
+        const turnSamples: Array<{ forward: { x: number; y: number; z: number }; sampledAt: number }> = []
         const expectedAlignmentSamples: number[] = []
         for (let sample = 0; sample < 15; sample += 1) {
-            turnSamples.push(await readShipForward(canvas))
-            expectedAlignmentSamples.push(dotVector(normalizeVector(turnSamples[turnSamples.length - 1]), expectedForward))
+            const forward = await readShipForward(canvas)
+            turnSamples.push({ forward, sampledAt: Date.now() })
+            expectedAlignmentSamples.push(dotVector(normalizeVector(forward), expectedForward))
             await page.waitForTimeout(80)
         }
         for (let sample = 1; sample < turnSamples.length; sample += 1) {
-            const currentForward = normalizeVector(turnSamples[sample])
+            const currentForward = normalizeVector(turnSamples[sample].forward)
+            const previousForward = normalizeVector(turnSamples[sample - 1].forward)
+            const elapsedSeconds = Math.max(0.08, (turnSamples[sample].sampledAt - turnSamples[sample - 1].sampledAt) / 1000)
+            const turnDeltaRadians = Math.acos(Math.max(-1, Math.min(1, dotVector(previousForward, currentForward))))
+            const maxExpectedTurnRadians = Math.min(0.85, Math.max(0.01, elapsedSeconds * 1.8) + 0.15)
             expect(
                 Math.hypot(currentForward.x, currentForward.y, currentForward.z),
                 'ship forward vector must stay normalized'
@@ -1083,17 +1088,14 @@ test('@flow imported MMOOMM flight snapshot renders PlayCanvas runtime and moves
                 Math.hypot(currentForward.x, currentForward.y, currentForward.z),
                 'ship forward vector must stay normalized'
             ).toBeLessThan(1.01)
-            expect(
-                dotVector(normalizeVector(turnSamples[sample - 1]), normalizeVector(turnSamples[sample])),
-                'ship turn must not snap or spin between sampled frames'
-            ).toBeGreaterThan(0.95)
+            expect(turnDeltaRadians, 'ship turn must not snap or spin between sampled frames').toBeLessThanOrEqual(maxExpectedTurnRadians)
             expect(
                 expectedAlignmentSamples[sample],
                 'ship turn should converge toward the clicked heading without oscillating away'
             ).toBeGreaterThanOrEqual(expectedAlignmentSamples[sample - 1] - 0.02)
         }
         expect(
-            Math.max(...turnSamples.map((sample) => Math.abs(sample.y))),
+            Math.max(...turnSamples.map((sample) => Math.abs(sample.forward.y))),
             'ship must pitch toward vertical free-space targets'
         ).toBeGreaterThan(0.05)
         const movementSamples: Array<{ position: { x: number; y: number; z: number }; remaining: number; sampledAt: number }> = []

@@ -171,19 +171,17 @@ export async function findPlayCanvasProject(exec: DbExecutor, schemaName: string
     return rows[0] ?? null
 }
 
-export async function playCanvasProjectCodenameExists(exec: DbExecutor, schemaName: string, codename: string): Promise<boolean> {
-    const rows = await exec.query<{ exists: boolean | string | number }>(
-        `SELECT EXISTS (
-            SELECT 1
-              FROM ${qSchemaTable(schemaName, '_mhb_playcanvas_projects')}
-             WHERE ${codenamePrimaryTextSql('codename')} = $1
-               AND _upl_deleted = false
-               AND _mhb_deleted = false
-        ) AS "exists"`,
-        [codename]
+export async function listPlayCanvasProjectCodenamesByPrefix(exec: DbExecutor, schemaName: string, prefix: string): Promise<string[]> {
+    const codenameSql = codenamePrimaryTextSql('codename')
+    const rows = await exec.query<{ codename: string | null }>(
+        `SELECT ${codenameSql} AS codename
+           FROM ${qSchemaTable(schemaName, '_mhb_playcanvas_projects')}
+          WHERE LEFT(${codenameSql}, LENGTH($1)) = $1
+            AND _upl_deleted = false
+            AND _mhb_deleted = false`,
+        [prefix]
     )
-    const exists = rows[0]?.exists
-    return exists === true || exists === 't' || exists === 'true' || exists === 1
+    return rows.map((row) => row.codename).filter((codename): codename is string => typeof codename === 'string' && codename.length > 0)
 }
 
 export async function listPlayCanvasScenes(
@@ -1283,7 +1281,10 @@ export async function summarizePlayCanvasProject(
 	            (SELECT COUNT(*)::text FROM ${qSchemaTable(schemaName, '_mhb_playcanvas_generated_artifacts')} ga
 	              JOIN ${qSchemaTable(schemaName, '_mhb_playcanvas_script_assets')} sa ON sa.id = ga.script_asset_id
 	              JOIN ${qSchemaTable(schemaName, '_mhb_playcanvas_assets')} a ON a.id = sa.asset_id
-	             WHERE a.project_id = $1 AND ga._upl_deleted = false AND ga._mhb_deleted = false) AS "generatedArtifactCount",
+	             WHERE a.project_id = $1
+                    AND ga._upl_deleted = false AND ga._mhb_deleted = false
+                    AND sa._upl_deleted = false AND sa._mhb_deleted = false
+                    AND a._upl_deleted = false AND a._mhb_deleted = false) AS "generatedArtifactCount",
 	            (
 	                (SELECT COUNT(*) FROM ${qSchemaTable(schemaName, '_mhb_playcanvas_scenes')}
 	                  WHERE project_id = $1
